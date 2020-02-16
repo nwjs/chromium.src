@@ -185,11 +185,6 @@ luci.console_view(
             short_name = 'sim',
         ),
         luci.console_view_entry(
-            builder = 'ci/ios-slimnav',
-            category = 'chromium.mac|ios|misc',
-            short_name = 'slim',
-        ),
-        luci.console_view_entry(
             builder = 'ci/Linux Builder',
             category = 'chromium.linux|release',
             short_name = 'bld',
@@ -208,11 +203,6 @@ luci.console_view(
             builder = 'ci/Deterministic Linux',
             category = 'chromium.linux|release',
             short_name = 'det',
-        ),
-        luci.console_view_entry(
-            builder = 'ci/Leak Detection Linux',
-            category = 'chromium.linux|release',
-            short_name = 'lk',
         ),
         luci.console_view_entry(
             builder = 'ci/linux-ozone-rel',
@@ -334,22 +324,22 @@ luci.console_view(
             short_name = 'kvn',
         ),
         luci.console_view_entry(
-            builder = 'chrome:ci/linux-chromeos-google-rel',
+            builder = 'chrome:ci/linux-chromeos-chrome',
             category = 'chrome',
             short_name = 'cro',
         ),
         luci.console_view_entry(
-            builder = 'chrome:ci/linux-google-rel',
+            builder = 'chrome:ci/linux-chrome',
             category = 'chrome',
             short_name = 'lnx',
         ),
         luci.console_view_entry(
-            builder = 'chrome:ci/mac-google-rel',
+            builder = 'chrome:ci/mac-chrome',
             category = 'chrome',
             short_name = 'mac',
         ),
         luci.console_view_entry(
-            builder = 'chrome:ci/win-google-rel',
+            builder = 'chrome:ci/win-chrome',
             category = 'chrome',
             short_name = 'win',
         ),
@@ -442,11 +432,6 @@ luci.console_view(
             builder = 'ci/android-asan',
             category = 'chromium.memory|android',
             short_name = 'asn',
-        ),
-        luci.console_view_entry(
-            builder = 'ci/Android CFI',
-            category = 'chromium.memory|cfi',
-            short_name = 'and',
         ),
         luci.console_view_entry(
             builder = 'ci/Linux CFI',

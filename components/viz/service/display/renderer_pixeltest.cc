@@ -244,8 +244,8 @@ void CreateTestTwoColoredTextureDrawQuad(
   ResourceId resource;
   if (gpu_resource) {
     resource = CreateGpuResource(
-        std::move(child_context_provider), child_resource_provider, rect.size(),
-        BGRA_8888, gfx::ColorSpace(), MakePixelSpan(pixels));
+        child_context_provider, child_resource_provider, rect.size(), BGRA_8888,
+        gfx::ColorSpace(), MakePixelSpan(pixels));
   } else {
     SharedBitmapId shared_bitmap_id = SharedBitmap::GenerateId();
     base::WritableSharedMemoryMapping mapping =
@@ -305,8 +305,8 @@ void CreateTestTextureDrawQuad(
   ResourceId resource;
   if (gpu_resource) {
     resource = CreateGpuResource(
-        std::move(child_context_provider), child_resource_provider, rect.size(),
-        RGBA_8888, gfx::ColorSpace(), MakePixelSpan(pixels));
+        child_context_provider, child_resource_provider, rect.size(), RGBA_8888,
+        gfx::ColorSpace(), MakePixelSpan(pixels));
   } else {
     SharedBitmapId shared_bitmap_id = SharedBitmap::GenerateId();
     base::WritableSharedMemoryMapping mapping =
@@ -2020,7 +2020,8 @@ TYPED_TEST(VideoRendererPixelTest, TwoColorY16Rect) {
       cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-TYPED_TEST(RendererPixelTest, FastPassColorFilterAlpha) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(RendererPixelTest, DISABLED_FastPassColorFilterAlpha) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
 
   int root_pass_id = 1;
@@ -2098,7 +2099,8 @@ TYPED_TEST(RendererPixelTest, FastPassColorFilterAlpha) {
       FuzzyForSoftwareOnlyPixelComparator<TypeParam>(false)));
 }
 
-TYPED_TEST(RendererPixelTest, FastPassSaturateFilter) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(RendererPixelTest, DISABLED_FastPassSaturateFilter) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
 
   int root_pass_id = 1;
@@ -2220,7 +2222,8 @@ TYPED_TEST(RendererPixelTest, FastPassFilterChain) {
       FuzzyForSoftwareOnlyPixelComparator<TypeParam>(false)));
 }
 
-TYPED_TEST(RendererPixelTest, FastPassColorFilterAlphaTranslation) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(RendererPixelTest, DISABLED_FastPassColorFilterAlphaTranslation) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
 
   int root_pass_id = 1;
@@ -2994,6 +2997,114 @@ TYPED_TEST(RendererPixelTestWithBackdropFilter, InvertFilterWithMask) {
       cc::FuzzyPixelOffByOneComparator(false)));
 }
 
+class GLRendererPixelTestWithBackdropFilter
+    : public RendererPixelTest<GLRenderer> {
+ protected:
+  void SetUpRenderPassList() {
+    pass_list_.clear();
+    gfx::Rect device_viewport_rect(this->device_viewport_size_);
+
+    int root_id = 1;
+    std::unique_ptr<RenderPass> root_pass =
+        CreateTestRootRenderPass(root_id, device_viewport_rect);
+    root_pass->has_transparent_background = false;
+
+    gfx::Transform identity_quad_to_target_transform;
+
+    int filter_pass_id = 2;
+    gfx::Transform transform_to_root;
+    std::unique_ptr<RenderPass> filter_pass = CreateTestRenderPass(
+        filter_pass_id, filter_pass_layer_rect_, transform_to_root);
+    filter_pass->backdrop_filters = this->backdrop_filters_;
+    filter_pass->backdrop_filter_bounds = this->backdrop_filter_bounds_;
+
+    // A non-visible quad in the filtering render pass.
+    {
+      SharedQuadState* shared_state = CreateTestSharedQuadState(
+          identity_quad_to_target_transform, filter_pass_layer_rect_,
+          filter_pass.get(), gfx::RRectF());
+      auto* color_quad =
+          filter_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
+      color_quad->SetNew(shared_state, filter_pass_layer_rect_,
+                         filter_pass_layer_rect_, SK_ColorTRANSPARENT, false);
+    }
+
+    {
+      SharedQuadState* shared_state = CreateTestSharedQuadState(
+          filter_pass_to_target_transform_, filter_pass_layer_rect_,
+          filter_pass.get(), gfx::RRectF());
+      auto* filter_pass_quad =
+          root_pass->CreateAndAppendDrawQuad<RenderPassDrawQuad>();
+      filter_pass_quad->SetNew(
+          shared_state, filter_pass_layer_rect_, filter_pass_layer_rect_,
+          filter_pass_id, 0, gfx::RectF(), gfx::Size(),
+          gfx::Vector2dF(1.0f, 1.0f),  // filters_scale
+          gfx::PointF(),               // filters_origin
+          gfx::RectF(),                // tex_coord_rect
+          false,                       // force_anti_aliasing_off
+          backdrop_filter_quality_);   // backdrop_filter_quality
+    }
+
+    const int kGridWidth = device_viewport_rect.width() / 3;
+    const int kGridHeight = device_viewport_rect.height() / 3;
+    gfx::Rect left_rect =
+        gfx::Rect(kGridWidth / 2, kGridHeight, kGridWidth, kGridHeight);
+
+    SharedQuadState* shared_state =
+        CreateTestSharedQuadState(identity_quad_to_target_transform, left_rect,
+                                  root_pass.get(), gfx::RRectF());
+    auto* color_quad = root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
+    color_quad->SetNew(shared_state, left_rect, left_rect, SK_ColorGREEN,
+                       false);
+
+    gfx::Rect right_rect =
+        gfx::Rect(kGridWidth * 3 / 2, kGridHeight, kGridWidth, kGridHeight);
+    shared_state =
+        CreateTestSharedQuadState(identity_quad_to_target_transform, right_rect,
+                                  root_pass.get(), gfx::RRectF());
+    color_quad = root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
+    color_quad->SetNew(shared_state, right_rect, right_rect, SK_ColorRED,
+                       false);
+
+    shared_state = CreateTestSharedQuadState(identity_quad_to_target_transform,
+                                             device_viewport_rect,
+                                             root_pass.get(), gfx::RRectF());
+    auto* background_quad =
+        root_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
+    background_quad->SetNew(shared_state, device_viewport_rect,
+                            device_viewport_rect, SK_ColorWHITE, false);
+
+    pass_list_.push_back(std::move(filter_pass));
+    pass_list_.push_back(std::move(root_pass));
+  }
+
+  RenderPassList pass_list_;
+  cc::FilterOperations backdrop_filters_;
+  base::Optional<gfx::RRectF> backdrop_filter_bounds_;
+  float backdrop_filter_quality_ = 1.0f;
+  gfx::Transform filter_pass_to_target_transform_;
+  gfx::Rect filter_pass_layer_rect_;
+};
+
+TEST_F(GLRendererPixelTestWithBackdropFilter, FilterQuality) {
+  this->backdrop_filters_.Append(cc::FilterOperation::CreateBlurFilter(2.0f));
+  this->filter_pass_layer_rect_ = gfx::Rect(this->device_viewport_size_);
+  this->backdrop_filter_bounds_ =
+      gfx::RRectF(gfx::RectF(this->filter_pass_layer_rect_));
+  this->backdrop_filter_quality_ = 1.0f;
+  this->SetUpRenderPassList();
+  EXPECT_TRUE(this->RunPixelTest(
+      &this->pass_list_,
+      base::FilePath(FILE_PATH_LITERAL("backdrop_filter_quality_1.png")),
+      cc::FuzzyPixelOffByOneComparator(true)));
+  this->backdrop_filter_quality_ = 0.33f;
+  this->SetUpRenderPassList();
+  EXPECT_TRUE(this->RunPixelTest(
+      &this->pass_list_,
+      base::FilePath(FILE_PATH_LITERAL("backdrop_filter_quality_2.png")),
+      cc::FuzzyPixelOffByOneComparator(true)));
+}
+
 template <typename RendererType>
 class ExternalStencilPixelTest : public RendererPixelTest<RendererType> {
  protected:
@@ -3417,7 +3528,8 @@ TYPED_TEST(GPURendererPixelTest, BlendingWithoutAntiAliasing) {
 }
 
 // Trilinear filtering is only supported in the gl renderer.
-TYPED_TEST(GPURendererPixelTest, TrilinearFiltering) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(GPURendererPixelTest, DISABLED_TrilinearFiltering) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
 
   int root_pass_id = 1;
@@ -3607,6 +3719,67 @@ TYPED_TEST(SoftwareRendererPixelTest, PictureDrawQuadOpacity) {
   EXPECT_TRUE(this->RunPixelTest(
       &pass_list, base::FilePath(FILE_PATH_LITERAL("green_alpha.png")),
       cc::FuzzyPixelOffByOneComparator(true)));
+}
+
+TYPED_TEST(SoftwareRendererPixelTest, PictureDrawQuadOpacityWithAlpha) {
+  gfx::Rect viewport(this->device_viewport_size_);
+  bool needs_blending = true;
+  ResourceFormat texture_format = RGBA_8888;
+  bool nearest_neighbor = false;
+
+  int id = 1;
+  gfx::Transform transform_to_root;
+  std::unique_ptr<RenderPass> pass =
+      CreateTestRenderPass(id, viewport, transform_to_root);
+
+  // One viewport-filling 0.5-opacity transparent quad.
+  std::unique_ptr<cc::FakeRecordingSource> transparent_recording =
+      cc::FakeRecordingSource::CreateFilledRecordingSource(viewport.size());
+  cc::PaintFlags transparent_flags;
+  transparent_flags.setColor(SK_ColorTRANSPARENT);
+  transparent_recording->add_draw_rect_with_flags(viewport, transparent_flags);
+  transparent_recording->Rerecord();
+  scoped_refptr<cc::RasterSource> transparent_raster_source =
+      transparent_recording->CreateRasterSource();
+
+  gfx::Transform transparent_quad_to_target_transform;
+  SharedQuadState* transparent_shared_state =
+      CreateTestSharedQuadState(transparent_quad_to_target_transform, viewport,
+                                pass.get(), gfx::RRectF());
+  transparent_shared_state->opacity = 0.5f;
+
+  auto* transparent_quad = pass->CreateAndAppendDrawQuad<PictureDrawQuad>();
+  transparent_quad->SetNew(
+      transparent_shared_state, viewport, viewport, needs_blending,
+      gfx::RectF(0, 0, 1, 1), viewport.size(), nearest_neighbor, texture_format,
+      viewport, 1.f, {}, transparent_raster_source->GetDisplayItemList());
+
+  // One viewport-filling white quad.
+  std::unique_ptr<cc::FakeRecordingSource> white_recording =
+      cc::FakeRecordingSource::CreateFilledRecordingSource(viewport.size());
+  cc::PaintFlags white_flags;
+  white_flags.setColor(SK_ColorWHITE);
+  white_recording->add_draw_rect_with_flags(viewport, white_flags);
+  white_recording->Rerecord();
+  scoped_refptr<cc::RasterSource> white_raster_source =
+      white_recording->CreateRasterSource();
+
+  gfx::Transform white_quad_to_target_transform;
+  SharedQuadState* white_shared_state = CreateTestSharedQuadState(
+      white_quad_to_target_transform, viewport, pass.get(), gfx::RRectF());
+
+  auto* white_quad = pass->CreateAndAppendDrawQuad<PictureDrawQuad>();
+  white_quad->SetNew(white_shared_state, viewport, viewport, needs_blending,
+                     gfx::RectF(0, 0, 1, 1), viewport.size(), nearest_neighbor,
+                     texture_format, viewport, 1.f, {},
+                     white_raster_source->GetDisplayItemList());
+
+  RenderPassList pass_list;
+  pass_list.push_back(std::move(pass));
+
+  EXPECT_TRUE(this->RunPixelTest(&pass_list,
+                                 base::FilePath(FILE_PATH_LITERAL("white.png")),
+                                 cc::FuzzyPixelOffByOneComparator(true)));
 }
 
 template <typename TypeParam>
@@ -4475,9 +4648,8 @@ TYPED_TEST(GPURendererPixelTest, RoundedCornerSimpleTextureDrawQuad) {
   }
 }
 
-// This draws a render pass with 2 solid color quads one of which has a rounded
-// corner. The render pass itself also has a rounded corner.
-TYPED_TEST(RendererPixelTest, RoundedCornerOnRenderPass) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(RendererPixelTest, DISABLED_RoundedCornerOnRenderPass) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
   constexpr int kInset = 20;
   constexpr int kCornerRadius = 20;
@@ -4538,7 +4710,8 @@ TYPED_TEST(RendererPixelTest, RoundedCornerOnRenderPass) {
                                  cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-TYPED_TEST(RendererPixelTest, RoundedCornerMultiRadii) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(RendererPixelTest, DISABLED_RoundedCornerMultiRadii) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
   constexpr gfx::RoundedCornersF kCornerRadii(5, 15, 25, 35);
   constexpr int kInset = 20;
@@ -4594,7 +4767,8 @@ TYPED_TEST(RendererPixelTest, RoundedCornerMultiRadii) {
   }
 }
 
-TYPED_TEST(RendererPixelTest, RoundedCornerMultipleQads) {
+// TODO(https://crbug.com/1044841): Flaky, especially on Linux/TSAN and Fuchsia.
+TYPED_TEST(RendererPixelTest, DISABLED_RoundedCornerMultipleQads) {
   const gfx::Rect viewport_rect(this->device_viewport_size_);
   constexpr gfx::RoundedCornersF kCornerRadiiUL(5, 0, 0, 0);
   constexpr gfx::RoundedCornersF kCornerRadiiUR(0, 15, 0, 0);
@@ -4899,10 +5073,9 @@ class ColorTransformPixelTest
     // Allow a difference of 2 bytes in comparison for shader-based transforms,
     // and 4 bytes for LUT-based transforms (determined empirically).
     cc::FuzzyPixelComparator comparator(false, 100.f, 0.f, 2.f, 2, 0);
-    if (!transform->CanGetShaderSource())
-      comparator = cc::FuzzyPixelComparator(false, 100.f, 0.f, 6.f, 6, 0);
     EXPECT_TRUE(
-        this->RunPixelTest(&pass_list, &expected_output_colors, comparator));
+        this->RunPixelTest(&pass_list, &expected_output_colors, comparator))
+        << " src:" << src_color_space_ << ", dst:" << dst_color_space_;
   }
 
   gfx::ColorSpace src_color_space_;
@@ -4931,18 +5104,16 @@ gfx::ColorSpace src_color_spaces[] = {
     // here).
     gfx::ColorSpace(),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA22),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA24),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA28),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE170M),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE240M),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT2020_10),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT2020_12),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTEST428_1),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1_HDR),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR),
+    gfx::ColorSpace::CreatePiecewiseHDR(PrimaryID::BT709, 0.5, 1.5),
+    gfx::ColorSpace::CreateHDR10(50.f),
+    gfx::ColorSpace::CreateHDR10(250.f),
 };
 
 gfx::ColorSpace dst_color_spaces[] = {
@@ -4950,15 +5121,35 @@ gfx::ColorSpace dst_color_spaces[] = {
     // here).
     gfx::ColorSpace(),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA22),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA24),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA28),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE170M),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE240M),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT2020_10),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT2020_12),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1_HDR),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR),
+    gfx::ColorSpace::CreatePiecewiseHDR(PrimaryID::BT709, 0.25, 2.5),
+};
+
+// Skia renderer doesn't support piecewise-HDR or custom-white-point PQ yet, so
+// use a separate color space list for Skia renderer tests.
+gfx::ColorSpace sk_src_color_spaces[] = {
+    gfx::ColorSpace(),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA28),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE240M),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTEST428_1),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1_HDR),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR),
+};
+gfx::ColorSpace sk_dst_color_spaces[] = {
+    gfx::ColorSpace(),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA28),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE240M),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR),
+    gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::IEC61966_2_1_HDR),
     gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR),
 };
@@ -4989,7 +5180,7 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(
     FromColorSpace,
     SkiaColorTransformPixelTest,
-    testing::Combine(testing::ValuesIn(src_color_spaces),
+    testing::Combine(testing::ValuesIn(sk_src_color_spaces),
                      testing::ValuesIn(intermediate_color_spaces),
                      testing::ValuesIn(color_space_premul_values)));
 
@@ -4997,7 +5188,7 @@ INSTANTIATE_TEST_SUITE_P(
     ToColorSpace,
     SkiaColorTransformPixelTest,
     testing::Combine(testing::ValuesIn(intermediate_color_spaces),
-                     testing::ValuesIn(dst_color_spaces),
+                     testing::ValuesIn(sk_dst_color_spaces),
                      testing::ValuesIn(color_space_premul_values)));
 
 #endif  // !defined(OS_ANDROID)

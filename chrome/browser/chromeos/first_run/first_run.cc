@@ -8,8 +8,8 @@
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
-#include "chrome/browser/apps/app_service/app_launch_params.h"
-#include "chrome/browser/apps/launch_service/launch_service.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/first_run/first_run_controller.h"
@@ -38,6 +38,8 @@
 #include "content/public/common/content_switches.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/constants.h"
+#include "ui/display/types/display_constants.h"
+#include "ui/events/event_constants.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace chromeos {
@@ -45,33 +47,43 @@ namespace first_run {
 
 namespace {
 
-void LaunchDialogForProfile(Profile* profile) {
+void LaunchHelpForProfile(Profile* profile) {
   extensions::ExtensionRegistry* registry =
       extensions::ExtensionRegistry::Get(profile);
   if (!registry)
     return;
 
-  const extensions::Extension* extension =
-      registry->GetExtensionById(extension_misc::kFirstRunDialogId,
-                                 extensions::ExtensionRegistry::ENABLED);
+  const extensions::Extension* extension = registry->GetExtensionById(
+      extension_misc::kGeniusAppId, extensions::ExtensionRegistry::ENABLED);
   if (!extension)
     return;
 
-  apps::LaunchService::Get(profile)->OpenApplication(apps::AppLaunchParams(
-      extension->id(), apps::mojom::LaunchContainer::kLaunchContainerWindow,
-      WindowOpenDisposition::NEW_WINDOW,
-      apps::mojom::AppLaunchSource::kSourceChromeInternal));
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(profile);
+  DCHECK(proxy);
+  proxy->Launch(extension->id(), ui::EventFlags::EF_NONE,
+                apps::mojom::LaunchSource::kFromChromeInternal,
+                display::kInvalidDisplayId);
   profile->GetPrefs()->SetBoolean(prefs::kFirstRunTutorialShown, true);
 }
 
-void TryLaunchFirstRunDialog(Profile* profile) {
+}  // namespace
+
+void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
+  // This preference used to be syncable, change it to non-syncable so new
+  // users will always see the welcome app on a new device.
+  // See crbug.com/752361
+  registry->RegisterBooleanPref(prefs::kFirstRunTutorialShown, false);
+}
+
+void MaybeLaunchHelpApp(Profile* profile) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
   if (chromeos::switches::ShouldSkipOobePostLogin())
     return;
 
   if (command_line->HasSwitch(switches::kForceFirstRunUI)) {
-    LaunchDialogForProfile(profile);
+    LaunchHelpForProfile(profile);
     return;
   }
 
@@ -98,45 +110,7 @@ void TryLaunchFirstRunDialog(Profile* profile) {
   if (!is_pref_synced && is_user_ephemeral)
     return;
 
-  LaunchDialogForProfile(profile);
-}
-
-// Object of this class waits for session start. Then it launches or not
-// launches first-run dialog depending on user prefs and flags. Than object
-// deletes itself.
-class DialogLauncher : public session_manager::SessionManagerObserver {
- public:
-  DialogLauncher() {
-    session_manager::SessionManager::Get()->AddObserver(this);
-  }
-
-  ~DialogLauncher() override {
-    session_manager::SessionManager::Get()->RemoveObserver(this);
-  }
-
-  // session_manager::SessionManagerObserver:
-  void OnUserSessionStarted(bool is_primary_user) override {
-    auto* profile = ProfileHelper::Get()->GetProfileByUser(
-        user_manager::UserManager::Get()->GetActiveUser());
-    TryLaunchFirstRunDialog(profile);
-    delete this;
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(DialogLauncher);
-};
-
-}  // namespace
-
-void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
-  // This preference used to be syncable, change it to non-syncable so new
-  // users will always see the welcome app on a new device.
-  // See crbug.com/752361
-  registry->RegisterBooleanPref(prefs::kFirstRunTutorialShown, false);
-}
-
-void MaybeLaunchDialogAfterSessionStart() {
-  new DialogLauncher();
+  LaunchHelpForProfile(profile);
 }
 
 void LaunchTutorial() {

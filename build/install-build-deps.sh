@@ -5,7 +5,7 @@
 # found in the LICENSE file.
 
 # Script to install everything needed to build chromium (well, ideally, anyway)
-# See https://chromium.googlesource.com/chromium/src/+/master/docs/linux_build_instructions.md
+# See https://chromium.googlesource.com/chromium/src/+/master/docs/linux/build_instructions.md
 
 usage() {
   echo "Usage: $0 [--options]"
@@ -171,6 +171,7 @@ dev_list="\
   libcurl4-gnutls-dev
   libdrm-dev
   libelf-dev
+  libevdev-dev
   libffi-dev
   libgbm-dev
   libglib2.0-dev
@@ -238,10 +239,13 @@ common_lib_list="\
   libcairo2
   libcap2
   libcups2
+  libdrm2
+  libevdev2
   libexpat1
   libffi6
   libfontconfig1
   libfreetype6
+  libgbm1
   libglib2.0-0
   libgtk-3-0
   libpam0g
@@ -505,6 +509,18 @@ if package_exists libgnome-keyring0; then
 fi
 if package_exists libgnome-keyring-dev; then
   lib_list="${lib_list} libgnome-keyring-dev"
+fi
+if package_exists libvulkan-dev; then
+  dev_list="${dev_list} libvulkan-dev"
+fi
+if package_exists libvulkan1; then
+  lib_list="${lib_list} libvulkan1"
+fi
+if package_exists libinput10; then
+  lib_list="${lib_list} libinput10"
+fi
+if package_exists libinput-dev; then
+  dev_list="${dev_list} libinput-dev"
 fi
 
 # Cross-toolchain strip is needed for building the sysroots.

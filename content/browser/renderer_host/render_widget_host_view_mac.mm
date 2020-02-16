@@ -48,7 +48,7 @@
 #include "content/public/browser/web_contents.h"
 #include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_mac.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #import "ui/base/clipboard/clipboard_util_mac.h"
 #include "ui/base/cocoa/animation_utils.h"
 #include "ui/base/cocoa/cocoa_base_utils.h"
@@ -87,13 +87,6 @@ SkColor RenderWidgetHostViewMac::BrowserCompositorMacGetGutterColor() const {
     return SK_ColorBLACK;
   }
   return last_frame_root_background_color_;
-}
-
-void RenderWidgetHostViewMac::BrowserCompositorMacOnBeginFrame(
-    base::TimeTicks frame_time) {
-  // ProgressFling must get called for middle click autoscroll fling on Mac.
-  if (host())
-    host()->ProgressFlingIfNeeded(frame_time);
 }
 
 void RenderWidgetHostViewMac::OnFrameTokenChanged(uint32_t frame_token) {
@@ -463,7 +456,7 @@ void RenderWidgetHostViewMac::WasUnOccluded() {
   bool has_saved_frame =
       browser_compositor_->has_saved_frame_before_state_transition();
 
-  auto tab_switch_start_state = TakeRecordTabSwitchTimeRequest();
+  auto tab_switch_start_state = TakeRecordContentToVisibleTimeRequest();
 
   const bool renderer_should_record_presentation_time = !has_saved_frame;
   host()->WasShown(renderer_should_record_presentation_time
@@ -864,20 +857,13 @@ void RenderWidgetHostViewMac::EnsureSurfaceSynchronizedForWebTest() {
   browser_compositor_->ForceNewSurfaceId();
 }
 
-void RenderWidgetHostViewMac::SetNeedsBeginFrames(bool needs_begin_frames) {
-  NOTREACHED();
-}
-
 void RenderWidgetHostViewMac::OnDidUpdateVisualPropertiesComplete(
     const cc::RenderFrameMetadata& metadata) {
   browser_compositor_->UpdateSurfaceFromChild(
-      metadata.device_scale_factor, metadata.viewport_size_in_pixels,
+      host()->auto_resize_enabled(), metadata.device_scale_factor,
+      metadata.viewport_size_in_pixels,
       metadata.local_surface_id_allocation.value_or(
           viz::LocalSurfaceIdAllocation()));
-}
-
-void RenderWidgetHostViewMac::SetWantsAnimateOnlyBeginFrames() {
-  browser_compositor_->SetWantsAnimateOnlyBeginFrames();
 }
 
 void RenderWidgetHostViewMac::TakeFallbackContentFrom(
@@ -1030,7 +1016,7 @@ bool RenderWidgetHostViewMac::GetCachedFirstRectForCharacterRange(
   const TextInputManager::CompositionRangeInfo* composition_info =
       GetCompositionRangeInfo();
   if (!composition_info || composition_info->range.is_empty()) {
-    if (!selection->range().Contains(requested_range))
+    if (!requested_range.IsBoundedBy(selection->range()))
       return false;
     DCHECK(GetFocusedWidget());
     if (actual_range)
@@ -1077,30 +1063,6 @@ void RenderWidgetHostViewMac::FocusedNodeChanged(
     NSRect bounds = NSRectFromCGRect(node_bounds_in_screen.ToCGRect());
     UAZoomChangeFocus(&bounds, NULL, kUAZoomFocusTypeOther);
   }
-}
-
-void RenderWidgetHostViewMac::DidCreateNewRendererCompositorFrameSink(
-    viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink) {
-  browser_compositor_->DidCreateNewRendererCompositorFrameSink(
-      renderer_compositor_frame_sink);
-}
-
-void RenderWidgetHostViewMac::SubmitCompositorFrame(
-    const viz::LocalSurfaceId& local_surface_id,
-    viz::CompositorFrame frame,
-    base::Optional<viz::HitTestRegionList> hit_test_region_list) {
-  TRACE_EVENT0("browser", "RenderWidgetHostViewMac::OnSwapCompositorFrame");
-
-  page_at_minimum_scale_ =
-      frame.metadata.page_scale_factor == frame.metadata.min_page_scale_factor;
-
-  browser_compositor_->GetDelegatedFrameHost()->SubmitCompositorFrame(
-      local_surface_id, std::move(frame), std::move(hit_test_region_list));
-}
-
-void RenderWidgetHostViewMac::OnDidNotProduceFrame(
-    const viz::BeginFrameAck& ack) {
-  browser_compositor_->OnDidNotProduceFrame(ack);
 }
 
 void RenderWidgetHostViewMac::ResetFallbackToFirstNavigationSurface() {
@@ -1622,6 +1584,8 @@ void RenderWidgetHostViewMac::GestureBegin(blink::WebGestureEvent begin_event,
   // If the page is at the minimum zoom level, require a threshold be reached
   // before the pinch has an effect. Synthetic pinches are not subject to this
   // threshold.
+  // TODO(crbug.com/1038683): |page_at_minimum_scale_| is always true, should it
+  // be removed or correctly set based on RenderFrameMetadata?
   if (page_at_minimum_scale_) {
     pinch_has_reached_zoom_threshold_ = is_synthetically_injected;
     pinch_unused_amount_ = 1;

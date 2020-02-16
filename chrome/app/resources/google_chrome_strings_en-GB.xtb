@@ -9,7 +9,6 @@
 Some features may be unavailable and changes to preferences won't be saved.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> was previously using Chrome</translation>
 <translation id="1097330777386562916">Clear cookies and site data when you quit Chrome</translation>
-<translation id="1104959162601287462">About &amp;Chrome OS</translation>
 <translation id="110877069173485804">This is your Chrome</translation>
 <translation id="1142745911746664600">Can't update Chrome</translation>
 <translation id="1154147086299354128">&amp;Open in Chrome</translation>
@@ -21,10 +20,8 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1553358976309200471">Update Chrome</translation>
 <translation id="1587223624401073077">Google Chrome is using your camera.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> is dangerous, so Chrome has blocked it.</translation>
-<translation id="1590588151039584890">To update, Chrome needs to stop running on this computer. This may cause other users logged into this computer to lose unsaved changes.</translation>
 <translation id="1619887657840448962">To make Chrome safer, we disabled the following extension that isn't listed in the <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> and may have been added without your knowledge.</translation>
 <translation id="1628000112320670027">Get help with Chrome</translation>
-<translation id="1635734105302489219">You clear cookies when you quit Chrome. To keep syncing, change this <ph name="COOKIE_SETTINGS_LINK" />.</translation>
 <translation id="1662639173275167396">Chrome OS is made possible by additional <ph name="BEGIN_LINK_CROS_OSS" />open source software<ph name="END_LINK_CROS_OSS" />, as is <ph name="BEGIN_LINK_LINUX_OSS" />Linux (Beta)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">Nearly up to date! Relaunch Google Chrome to finish updating. Incognito windows won't reopen.</translation>
 <translation id="1674870198290878346">Open Link in Chrome Inco&amp;gnito Window</translation>
@@ -53,6 +50,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2290014774651636340">Google API keys are missing. Some functionality of Google Chrome will be disabled.</translation>
 <translation id="2290095356545025170">Are you sure you want to uninstall Google Chrome?</translation>
 <translation id="2309047409763057870">This is a secondary installation of Google Chrome, and cannot be made your default browser.</translation>
+<translation id="2341767445688917208">Chrome OS could not sync your passwords. Fix now.</translation>
 <translation id="2348335408836342058">Chrome needs permission to access your camera and microphone for this site</translation>
 <translation id="2429317896000329049">Google Chrome could not sync your data because Sync is not available for your domain.</translation>
 <translation id="2467438592969358367">Google Chrome wants to export your passwords. Type your Windows password to allow this.</translation>
@@ -77,8 +75,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3080151273017101988">Continue running background apps when Google Chrome is closed</translation>
 <translation id="3089968997497233615">There's a new, safer version of Google Chrome available.</translation>
 <translation id="3149510190863420837">Chrome Apps</translation>
-<translation id="3282568296779691940">Sign in to Chrome</translation>
-<translation id="3340978935015468852">settings</translation>
 <translation id="3360895254066713204">Chrome Helper</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome will relaunch now}=1{Chrome will relaunch in 1 second}other{Chrome will relaunch in # seconds}}</translation>
 <translation id="3395323229510056640">Get help with Chrome OS</translation>
@@ -131,7 +127,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="4953650215774548573">Set Google Chrome as your default browser</translation>
 <translation id="495931528404527476">In Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Google Chrome could not sync your data. Please update your Sync passphrase.</translation>
 <translation id="5062123544085870375">Restart Chrome OS</translation>
 <translation id="5132929315877954718">Discover great apps, games, extensions and themes for Google Chrome.</translation>
 <translation id="5170938038195470297">Your profile cannot be used because it is from a newer version of Google Chrome.
@@ -146,7 +141,6 @@ Some features may be unavailable. Please specify a different profile directory o
 <translation id="5430073640787465221">Your preferences file is corrupt or invalid.
 
 Google Chrome is unable to recover your settings.</translation>
-<translation id="5543953544073077331">Other copies of Chrome are running. To update, close them.</translation>
 <translation id="556024056938947818">Google Chrome is trying to show passwords.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">If a setting doesn't show on this page, look in your <ph name="LINK_BEGIN" />
@@ -196,7 +190,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7408085963519505752">Chrome OS terms</translation>
 <translation id="7419046106786626209">Chrome OS could not sync your data because Sync is not available for your domain.</translation>
 <translation id="7486227612705979895">Chrome will access your Drive to make suggestions in the address bar</translation>
-<translation id="7531671357096394523">Quit all copies of Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">To see if your device is up to date, go to <ph name="LINK_BEGIN" />Chrome OS Settings<ph name="LINK_END" /></translation>
 <translation id="7589360514048265910">This computer will no longer receive Google Chrome updates because Mac OS X 10.9 is no longer supported.</translation>
@@ -215,6 +208,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7855730255114109580">Google Chrome is up to date</translation>
 <translation id="7890208801193284374">If you share a computer, friends and family can browse separately and set up Chrome just the way they want.</translation>
 <translation id="7896673875602241923">Someone previously signed in to Chrome on this computer as <ph name="ACCOUNT_EMAIL_LAST" />. Please create a new Chrome user to keep your information separate.</translation>
+<translation id="7916016681687251387">Chrome OS could not sync your data. Fix now.</translation>
 <translation id="7962410387636238736">This computer will no longer receive Google Chrome updates because Windows XP and Windows Vista are no longer supported</translation>
 <translation id="8008534537613507642">Reinstall Chrome</translation>
 <translation id="8013993649590906847">If an image doesn’t have a useful description, Chrome will try to provide one for you. To create descriptions, images are sent to Google.</translation>

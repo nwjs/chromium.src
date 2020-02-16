@@ -62,6 +62,8 @@ static_library("router") {
     "presentation/presentation_service_delegate_observers.h",
     "presentation/receiver_presentation_service_delegate_impl.cc",
     "presentation/receiver_presentation_service_delegate_impl.h",
+    "presentation/web_contents_presentation_manager.cc",
+    "presentation/web_contents_presentation_manager.h",
     "route_message_observer.cc",
     "route_message_observer.h",
     "route_message_util.cc",
@@ -102,8 +104,6 @@ static_library("router") {
       "mojo/media_router_mojo_metrics.h",
       "mojo/media_sink_service_status.cc",
       "mojo/media_sink_service_status.h",
-      "presentation/independent_otr_profile_manager.cc",
-      "presentation/independent_otr_profile_manager.h",
       "presentation/presentation_navigation_policy.cc",
       "presentation/presentation_navigation_policy.h",
       "providers/cast/activity_record.cc",
@@ -161,33 +161,39 @@ static_library("router") {
         "providers/openscreen/network_service_async_packet_sender.h",
         "providers/openscreen/network_service_quic_packet_writer.cc",
         "providers/openscreen/network_service_quic_packet_writer.h",
-        "providers/openscreen/platform/chrome_task_runner.cc",
-        "providers/openscreen/platform/chrome_task_runner.h",
-        "providers/openscreen/platform/chrome_tls_client_connection.cc",
-        "providers/openscreen/platform/chrome_tls_client_connection.h",
-        "providers/openscreen/platform/chrome_tls_connection_factory.cc",
-        "providers/openscreen/platform/chrome_tls_connection_factory.h",
-        "providers/openscreen/platform/chrome_udp_socket.cc",
-        "providers/openscreen/platform/chrome_udp_socket.h",
-        "providers/openscreen/platform/logging.cc",
-        "providers/openscreen/platform/mojo_data_pump.cc",
-        "providers/openscreen/platform/mojo_data_pump.h",
-        "providers/openscreen/platform/network_data_pump.h",
-        "providers/openscreen/platform/network_util.cc",
-        "providers/openscreen/platform/network_util.h",
-        "providers/openscreen/platform/time.cc",
-        "providers/openscreen/platform/trace_logging_platform.cc",
       ]
 
-      configs +=
-          [ "//third_party/openscreen/src/build:openscreen_include_dirs" ]
-
       deps += [
+        ":openscreen_platform_impl",
         "//third_party/openscreen/src/osp/public",
         "//third_party/openscreen/src/platform",
         "//third_party/openscreen/src/util",
       ]
     }
+  }
+}
+
+if (enable_openscreen) {
+  source_set("openscreen_platform_impl") {
+    sources = [
+      "providers/openscreen/platform/chrome_tls_client_connection.cc",
+      "providers/openscreen/platform/chrome_tls_client_connection.h",
+      "providers/openscreen/platform/chrome_tls_connection_factory.cc",
+      "providers/openscreen/platform/chrome_tls_connection_factory.h",
+      "providers/openscreen/platform/chrome_udp_socket.cc",
+      "providers/openscreen/platform/chrome_udp_socket.h",
+    ]
+
+    public_configs =
+        [ "//third_party/openscreen/src/build:openscreen_include_dirs" ]
+
+    deps = [
+      "//base",
+      "//components/openscreen_platform",
+      "//net/traffic_annotation",
+      "//services/network:network_service",
+      "//services/network/public/mojom",
+    ]
   }
 }
 
@@ -197,9 +203,7 @@ static_library("test_support") {
     "//chrome/test:test_support",
     "//testing/gmock",
   ]
-  public_deps = [
-    ":router",
-  ]
+  public_deps = [ ":router" ]
   sources = [
     "test/mock_media_router.cc",
     "test/mock_media_router.h",
@@ -285,8 +289,8 @@ source_set("unittests") {
       "providers/cast/cast_session_tracker_unittest.cc",
       "providers/cast/dual_media_sink_service_unittest.cc",
       "providers/cast/mirroring_activity_record_unittest.cc",
-      "providers/cast/mock_activity_record.cc",
-      "providers/cast/mock_activity_record.h",
+      "providers/cast/mock_cast_activity_record.cc",
+      "providers/cast/mock_cast_activity_record.h",
       "providers/cast/test_util.cc",
       "providers/cast/test_util.h",
       "providers/dial/dial_activity_manager_unittest.cc",
@@ -305,7 +309,6 @@ source_set("unittests") {
       "providers/openscreen/network_service_quic_packet_writer_unittest.cc",
       "providers/openscreen/platform/chrome_tls_client_connection_unittest.cc",
       "providers/openscreen/platform/chrome_tls_connection_factory_unittest.cc",
-      "providers/openscreen/platform/mojo_data_pump_unittest.cc",
     ]
   }
 
@@ -319,13 +322,29 @@ source_set("unittests") {
   ]
 }
 
+if (enable_openscreen) {
+  test("openscreen_unittests") {
+    include_dirs = [ "//third_party/openscreen/src" ]
+
+    deps = [
+      ":openscreen_platform_impl",
+      "//base/test:test_support",
+      "//chrome/browser",
+      "//chrome/test:test_support",
+      "//testing/gmock",
+      "//third_party/openscreen/src:openscreen_unittests_all",
+    ]
+  }
+}
+
 fuzzer_test("dial_internal_message_fuzzer") {
-  sources = [
-    "providers/dial/dial_internal_message_fuzzer.cc",
-  ]
+  sources = [ "providers/dial/dial_internal_message_fuzzer.cc" ]
   deps = [
     ":router",
     "//base",
+    "//base/test:test_support",
+    "//chrome/browser",
+    "//chrome/test:test_support",
     "//components/mirroring/mojom:service",
     "//components/translate/content/common",
   ]

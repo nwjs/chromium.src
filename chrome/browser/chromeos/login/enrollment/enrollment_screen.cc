@@ -50,39 +50,11 @@ const char* const kMetricEnrollmentTimeFailure =
 const char* const kMetricEnrollmentTimeSuccess =
     "Enterprise.EnrollmentTime.Success";
 
-const char* const kLicenseTypePerpetual = "perpetual";
-const char* const kLicenseTypeAnnual = "annual";
-const char* const kLicenseTypeKiosk = "kiosk";
-
 // Retry policy constants.
 constexpr int kInitialDelayMS = 4 * 1000;  // 4 seconds
 constexpr double kMultiplyFactor = 1.5;
 constexpr double kJitterFactor = 0.1;           // +/- 10% jitter
 constexpr int64_t kMaxDelayMS = 8 * 60 * 1000;  // 8 minutes
-
-::policy::LicenseType GetLicenseTypeById(const std::string& id) {
-  if (id == kLicenseTypePerpetual)
-    return ::policy::LicenseType::PERPETUAL;
-  if (id == kLicenseTypeAnnual)
-    return ::policy::LicenseType::ANNUAL;
-  if (id == kLicenseTypeKiosk)
-    return ::policy::LicenseType::KIOSK;
-  return ::policy::LicenseType::UNKNOWN;
-}
-
-std::string GetLicenseIdByType(::policy::LicenseType type) {
-  switch (type) {
-    case ::policy::LicenseType::PERPETUAL:
-      return kLicenseTypePerpetual;
-    case ::policy::LicenseType::ANNUAL:
-      return kLicenseTypeAnnual;
-    case ::policy::LicenseType::KIOSK:
-      return kLicenseTypeKiosk;
-    default:
-      NOTREACHED();
-      return std::string();
-  }
-}
 
 bool HasPublicUser() {
   // Some tests don't initialize the UserManager.
@@ -226,6 +198,7 @@ void EnrollmentScreen::OnAuthCleared(const base::Closure& callback) {
 }
 
 void EnrollmentScreen::Show() {
+  VLOG(1) << "Show enrollment screen";
   UMA(policy::kMetricEnrollmentTriggered);
   if (enrollment_config_.mode ==
       policy::EnrollmentConfig::MODE_ENROLLED_ROLLBACK) {
@@ -292,14 +265,6 @@ void EnrollmentScreen::OnLoginDone(const std::string& user,
   enrollment_helper_->EnrollUsingAuthCode(auth_code);
 }
 
-void EnrollmentScreen::OnLicenseTypeSelected(const std::string& license_type) {
-  view_->ShowEnrollmentSpinnerScreen();
-  const ::policy::LicenseType license = GetLicenseTypeById(license_type);
-  CHECK(license != ::policy::LicenseType::UNKNOWN)
-      << "license_type = " << license_type;
-  enrollment_helper_->UseLicenseType(license);
-}
-
 void EnrollmentScreen::OnRetry() {
   retry_task_.Cancel();
   ProcessRetry();
@@ -352,6 +317,7 @@ void EnrollmentScreen::OnCancel() {
 }
 
 void EnrollmentScreen::OnConfirmationClosed() {
+  VLOG(1) << "Confirmation closed.";
   // The callback passed to ClearAuth is called either immediately or gets
   // wrapped in a callback bound to a weak pointer from |weak_factory_| - in
   // either case, passing exit_callback_ directly should be safe.
@@ -362,35 +328,13 @@ void EnrollmentScreen::OnConfirmationClosed() {
 }
 
 void EnrollmentScreen::OnAuthError(const GoogleServiceAuthError& error) {
+  LOG(ERROR) << "Auth error: " << error.state();
   RecordEnrollmentErrorMetrics();
   view_->ShowAuthError(error);
 }
 
-void EnrollmentScreen::OnMultipleLicensesAvailable(
-    const EnrollmentLicenseMap& licenses) {
-  if (GetConfiguration()) {
-    auto* license_type_value = GetConfiguration()->FindKeyOfType(
-        configuration::kEnrollmentLicenseType, base::Value::Type::STRING);
-    if (license_type_value) {
-      const std::string& license_type = license_type_value->GetString();
-      for (const auto& it : licenses) {
-        if (license_type == GetLicenseIdByType(it.first) && it.second > 0) {
-          VLOG(1) << "Using License type from configuration " << license_type;
-          OnLicenseTypeSelected(license_type);
-          return;
-        }
-      }
-      VLOG(1) << "No licenses for License type from configuration "
-              << license_type;
-    }
-  }
-  base::DictionaryValue license_dict;
-  for (const auto& it : licenses)
-    license_dict.SetInteger(GetLicenseIdByType(it.first), it.second);
-  view_->ShowLicenseTypeSelectionScreen(license_dict);
-}
-
 void EnrollmentScreen::OnEnrollmentError(policy::EnrollmentStatus status) {
+  LOG(ERROR) << "Enrollment error: " << status.status();
   RecordEnrollmentErrorMetrics();
   // If the DM server does not have a device pre-provisioned for attestation-
   // based enrollment and we have a fallback authentication, show it.
@@ -411,6 +355,7 @@ void EnrollmentScreen::OnEnrollmentError(policy::EnrollmentStatus status) {
 
 void EnrollmentScreen::OnOtherError(
     EnterpriseEnrollmentHelper::OtherError error) {
+  LOG(ERROR) << "Other enrollment error: " << error;
   RecordEnrollmentErrorMetrics();
   view_->ShowOtherError(error);
   if (WizardController::UsingHandsOffEnrollment())
@@ -418,6 +363,7 @@ void EnrollmentScreen::OnOtherError(
 }
 
 void EnrollmentScreen::OnDeviceEnrolled() {
+  VLOG(1) << "Device enrolled.";
   enrollment_succeeded_ = true;
   enrollment_helper_->GetDeviceAttributeUpdatePermission();
 
@@ -578,10 +524,12 @@ void EnrollmentScreen::OnActiveDirectoryJoined(
     authpolicy::ErrorType error,
     const std::string& machine_domain) {
   if (error == authpolicy::ERROR_NONE) {
+    VLOG(1) << "Joined active directory";
     view_->ShowEnrollmentSpinnerScreen();
     std::move(on_joined_callback_).Run(machine_domain);
     return;
   }
+  LOG(ERROR) << "Active directory join error: " << error;
   view_->ShowActiveDirectoryScreen(std::string() /* domain_join_config */,
                                    machine_name, username, error);
 }

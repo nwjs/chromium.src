@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "ui/ozone/common/linux/gbm_wrapper.h"
+#include "ui/gfx/linux/gbm_wrapper.h"
 #include "ui/ozone/platform/drm/gpu/drm_device.h"
 #include "ui/ozone/platform/drm/gpu/drm_device_generator.h"
 #include "ui/ozone/platform/drm/gpu/drm_thread_message_proxy.h"
@@ -85,6 +85,7 @@ void DrmThreadProxy::CreateBuffer(gfx::AcceleratedWidget widget,
                                   uint32_t flags,
                                   std::unique_ptr<GbmBuffer>* buffer,
                                   scoped_refptr<DrmFramebuffer>* framebuffer) {
+  TRACE_EVENT0("drm", "DrmThreadProxy::CreateBuffer");
   DCHECK(drm_thread_.task_runner())
       << "no task runner! in DrmThreadProxy::CreateBuffer";
   base::OnceClosure task =
@@ -127,6 +128,7 @@ void DrmThreadProxy::CreateBufferFromHandle(
     gfx::NativePixmapHandle handle,
     std::unique_ptr<GbmBuffer>* buffer,
     scoped_refptr<DrmFramebuffer>* framebuffer) {
+  TRACE_EVENT0("drm", "DrmThreadProxy::CreateBufferFromHandle");
   base::OnceClosure task = base::BindOnce(
       &DrmThread::CreateBufferFromHandle, base::Unretained(&drm_thread_),
       widget, size, format, std::move(handle), buffer, framebuffer);
@@ -150,7 +152,7 @@ void DrmThreadProxy::SetClearOverlayCacheCallback(
 void DrmThreadProxy::CheckOverlayCapabilities(
     gfx::AcceleratedWidget widget,
     const std::vector<OverlaySurfaceCandidate>& candidates,
-    OverlayCapabilitiesCallback callback) {
+    DrmThread::OverlayCapabilitiesCallback callback) {
   DCHECK(drm_thread_.task_runner());
   base::OnceClosure task = base::BindOnce(
       &DrmThread::CheckOverlayCapabilities, base::Unretained(&drm_thread_),
@@ -160,6 +162,22 @@ void DrmThreadProxy::CheckOverlayCapabilities(
       FROM_HERE, base::BindOnce(&DrmThread::RunTaskAfterWindowReady,
                                 base::Unretained(&drm_thread_), widget,
                                 std::move(task), nullptr));
+}
+
+std::vector<OverlayStatus> DrmThreadProxy::CheckOverlayCapabilitiesSync(
+    gfx::AcceleratedWidget widget,
+    const std::vector<OverlaySurfaceCandidate>& candidates) {
+  TRACE_EVENT0("drm", "DrmThreadProxy::CheckOverlayCapabilitiesSync");
+  DCHECK(drm_thread_.task_runner());
+  std::vector<OverlayStatus> result;
+  base::OnceClosure task = base::BindOnce(
+      &DrmThread::CheckOverlayCapabilitiesSync, base::Unretained(&drm_thread_),
+      widget, candidates, &result);
+  PostSyncTask(
+      drm_thread_.task_runner(),
+      base::BindOnce(&DrmThread::RunTaskAfterWindowReady,
+                     base::Unretained(&drm_thread_), widget, std::move(task)));
+  return result;
 }
 
 void DrmThreadProxy::AddDrmDeviceReceiver(

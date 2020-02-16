@@ -19,7 +19,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -149,6 +149,13 @@ public class ShareIntentTest {
         @Override
         public ObservableSupplier<ShareDelegate> getShareDelegateSupplier() {
             return mActivity.getShareDelegateSupplier();
+        }
+
+        @Override
+        public Object getSystemService(String name) {
+            // Prevents a scenario where InputMethodManager#hideSoftInput()
+            // gets called before Activity#onCreate() gets called in this test.
+            return null;
         }
     }
 

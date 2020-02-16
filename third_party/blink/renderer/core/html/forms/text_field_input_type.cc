@@ -134,7 +134,10 @@ bool TextFieldInputType::IsTextField() const {
 }
 
 bool TextFieldInputType::ValueMissing(const String& value) const {
-  return GetElement().IsRequired() && value.IsEmpty();
+  // For text-mode input elements, the value is missing only if it is mutable.
+  // https://html.spec.whatwg.org/multipage/input.html#the-required-attribute
+  return GetElement().IsRequired() && value.IsEmpty() &&
+         !GetElement().IsDisabledOrReadOnly();
 }
 
 bool TextFieldInputType::CanSetSuggestedValue() {
@@ -177,11 +180,14 @@ void TextFieldInputType::SetValue(const String& sanitized_value,
         GetElement().DispatchFormControlChangeEvent();
       break;
 
-    case TextFieldEventBehavior::kDispatchInputAndChangeEvent: {
+    case TextFieldEventBehavior::kDispatchInputEvent:
+      GetElement().DispatchInputEvent();
+      break;
+
+    case TextFieldEventBehavior::kDispatchInputAndChangeEvent:
       GetElement().DispatchInputEvent();
       GetElement().DispatchFormControlChangeEvent();
       break;
-    }
 
     case TextFieldEventBehavior::kDispatchNoEvent:
       break;
@@ -239,8 +245,9 @@ void TextFieldInputType::ForwardEvent(Event& event) {
         if (PaintLayer* inner_layer = inner_editor_layout_object->Layer()) {
           if (PaintLayerScrollableArea* inner_scrollable_area =
                   inner_layer->GetScrollableArea()) {
-            inner_scrollable_area->SetScrollOffset(ScrollOffset(0, 0),
-                                                   kProgrammaticScroll);
+            inner_scrollable_area->SetScrollOffset(
+                ScrollOffset(0, 0),
+                mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
           }
         }
       }
@@ -294,7 +301,8 @@ void TextFieldInputType::CreateShadowSubtree() {
     return;
   }
 
-  auto* container = MakeGarbageCollected<TextControlInnerContainer>(document);
+  auto* container = MakeGarbageCollected<HTMLDivElement>(document);
+  container->SetIdAttribute(shadow_element_names::TextFieldContainer());
   container->SetShadowPseudoId(
       AtomicString("-webkit-textfield-decoration-container"));
   shadow_root->AppendChild(container);
@@ -352,8 +360,8 @@ void TextFieldInputType::ListAttributeTargetChanged() {
       // FIXME: The following code is similar to createShadowSubtree(),
       // but they are different. We should simplify the code by making
       // containerElement mandatory.
-      auto* rp_container =
-          MakeGarbageCollected<TextControlInnerContainer>(document);
+      auto* rp_container = MakeGarbageCollected<HTMLDivElement>(document);
+      rp_container->SetIdAttribute(shadow_element_names::TextFieldContainer());
       rp_container->SetShadowPseudoId(
           AtomicString("-webkit-textfield-decoration-container"));
       Element* inner_editor = GetElement().InnerEditorElement();

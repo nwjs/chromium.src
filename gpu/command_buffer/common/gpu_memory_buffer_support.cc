@@ -33,7 +33,7 @@ bool IsImageSizeValidForGpuMemoryBufferFormat(const gfx::Size& size,
     case gfx::BufferFormat::BGRA_8888:
     case gfx::BufferFormat::BGRX_8888:
     case gfx::BufferFormat::BGRX_1010102:
-    case gfx::BufferFormat::RGBX_1010102:
+    case gfx::BufferFormat::RGBA_1010102:
     case gfx::BufferFormat::RGBA_F16:
       return true;
     case gfx::BufferFormat::YVU_420:
@@ -72,14 +72,15 @@ GPU_EXPORT uint32_t GetBufferTextureTarget(gfx::BufferUsage usage,
 
 GPU_EXPORT bool NativeBufferNeedsPlatformSpecificTextureTarget(
     gfx::BufferFormat format) {
-#if defined(USE_OZONE)
+#if defined(USE_OZONE) || defined(OS_LINUX)
   // Always use GL_TEXTURE_2D as the target for RGB textures.
   // https://crbug.com/916728
   if (format == gfx::BufferFormat::R_8 || format == gfx::BufferFormat::RG_88 ||
       format == gfx::BufferFormat::RGBA_8888 ||
       format == gfx::BufferFormat::BGRA_8888 ||
       format == gfx::BufferFormat::RGBX_8888 ||
-      format == gfx::BufferFormat::BGRX_8888) {
+      format == gfx::BufferFormat::BGRX_8888 ||
+      format == gfx::BufferFormat::RGBA_1010102) {
     return false;
   }
 #elif defined(OS_ANDROID)

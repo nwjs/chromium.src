@@ -55,14 +55,14 @@ generate_jni("audio_track_jni_headers") {
 }
 
 android_library("audio_track_java") {
-  java_files = [
+  sources = [
     "java/src/org/chromium/chromecast/cma/backend/android/AudioSinkAudioTrackImpl.java",
     "java/src/org/chromium/chromecast/cma/backend/android/ThrottledLog.java",
     "java/src/org/chromium/chromecast/cma/backend/android/VolumeControl.java",
   ]
 
   if (enable_volume_tables_access) {
-    java_files += [
+    sources += [
       "java/src/org/chromium/chromecast/cma/backend/android/VolumeMap.java",
     ]
   }
@@ -79,16 +79,12 @@ android_library("audio_track_java") {
 }
 
 test("cast_android_cma_backend_unittests") {
-  deps = [
-    ":unit_tests",
-  ]
+  deps = [ ":unit_tests" ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [
-    "volume_cache_test.cc",
-  ]
+  sources = [ "volume_cache_test.cc" ]
 
   deps = [
     ":cast_media_android",

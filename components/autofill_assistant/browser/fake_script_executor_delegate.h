@@ -11,7 +11,6 @@
 #include <string>
 #include <vector>
 
-#include "components/autofill_assistant/browser/client_memory.h"
 #include "components/autofill_assistant/browser/client_settings.h"
 #include "components/autofill_assistant/browser/script_executor_delegate.h"
 #include "components/autofill_assistant/browser/trigger_context.h"
@@ -30,14 +29,13 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   const GURL& GetDeeplinkURL() override;
   Service* GetService() override;
   WebController* GetWebController() override;
-  ClientMemory* GetClientMemory() override;
   TriggerContext* GetTriggerContext() override;
   autofill::PersonalDataManager* GetPersonalDataManager() override;
   WebsiteLoginFetcher* GetWebsiteLoginFetcher() override;
   content::WebContents* GetWebContents() override;
   std::string GetAccountEmailAddress() override;
   std::string GetLocale() override;
-  void EnterState(AutofillAssistantState state) override;
+  bool EnterState(AutofillAssistantState state) override;
   void SetTouchableElementArea(const ElementAreaProto& element) override;
   void SetStatusMessage(const std::string& message) override;
   std::string GetStatusMessage() const override;
@@ -57,15 +55,20 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   ViewportMode GetViewportMode() override;
   void SetPeekMode(ConfigureBottomSheetProto::PeekMode peek_mode) override;
   ConfigureBottomSheetProto::PeekMode GetPeekMode() override;
+  void ExpandBottomSheet() override;
+  void CollapseBottomSheet() override;
   bool SetForm(
       std::unique_ptr<FormProto> form,
       base::RepeatingCallback<void(const FormProto::Result*)> changed_callback,
       base::OnceCallback<void(const ClientStatus&)> cancel_callback) override;
+  UserModel* GetUserModel() override;
+  EventHandler* GetEventHandler() override;
   bool HasNavigationError() override;
   bool IsNavigatingToNewDocument() override;
   void RequireUI() override;
   void AddListener(Listener* listener) override;
   void RemoveListener(Listener* listener) override;
+  void SetExpandSheetForPromptAction(bool expand) override;
 
   ClientSettings* GetMutableSettings() { return &client_settings_; }
 
@@ -81,7 +84,13 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
     trigger_context_ = std::move(trigger_context);
   }
 
-  AutofillAssistantState GetState() { return state_; }
+  std::vector<AutofillAssistantState> GetStateHistory() {
+    return state_history_;
+  }
+  AutofillAssistantState GetState() {
+    return state_history_.empty() ? AutofillAssistantState::INACTIVE
+                                  : state_history_.back();
+  }
 
   Details* GetDetails() { return details_.get(); }
 
@@ -109,9 +118,8 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   GURL current_url_;
   Service* service_ = nullptr;
   WebController* web_controller_ = nullptr;
-  ClientMemory memory_;
   std::unique_ptr<TriggerContext> trigger_context_;
-  AutofillAssistantState state_ = AutofillAssistantState::INACTIVE;
+  std::vector<AutofillAssistantState> state_history_;
   std::string status_message_;
   std::unique_ptr<Details> details_;
   std::unique_ptr<InfoBox> info_box_;
@@ -124,6 +132,10 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   ViewportMode viewport_mode_ = ViewportMode::NO_RESIZE;
   ConfigureBottomSheetProto::PeekMode peek_mode_ =
       ConfigureBottomSheetProto::HANDLE;
+  bool expand_or_collapse_updated_ = false;
+  bool expand_or_collapse_value_ = false;
+  bool expand_sheet_for_prompt_ = true;
+
   bool require_ui_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(FakeScriptExecutorDelegate);

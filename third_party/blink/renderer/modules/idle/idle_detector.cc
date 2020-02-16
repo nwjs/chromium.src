@@ -10,9 +10,9 @@
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/idle/idle_manager.mojom-blink.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_idle_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/security_context.h"
-#include "third_party/blink/renderer/modules/idle/idle_options.h"
 #include "third_party/blink/renderer/modules/idle/idle_state.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
@@ -78,18 +78,17 @@ bool IdleDetector::HasPendingActivity() const {
   return GetExecutionContext() && HasEventListeners();
 }
 
-ScriptPromise IdleDetector::start(ScriptState* script_state) {
+ScriptPromise IdleDetector::start(ScriptState* script_state,
+                                  ExceptionState& exception_state) {
   // Validate options.
   ExecutionContext* context = ExecutionContext::From(script_state);
   DCHECK(context->IsContextThread());
 
-  if (!context->GetSecurityContext().IsFeatureEnabled(
-          mojom::FeaturePolicyFeature::kIdleDetection,
+  if (!context->IsFeatureEnabled(
+          mojom::blink::FeaturePolicyFeature::kIdleDetection,
           ReportOptions::kReportOnFailure)) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        MakeGarbageCollected<DOMException>(DOMExceptionCode::kSecurityError,
-                                           kFeaturePolicyBlocked));
+    exception_state.ThrowSecurityError(kFeaturePolicyBlocked);
+    return ScriptPromise();
   }
 
   StartMonitoring();

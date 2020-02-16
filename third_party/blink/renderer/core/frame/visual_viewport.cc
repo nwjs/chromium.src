@@ -34,8 +34,8 @@
 
 #include "cc/input/main_thread_scrolling_reason.h"
 #include "cc/layers/scrollbar_layer_base.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/core/paint/paint_property_tree_builder.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme_overlay_mobile.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
@@ -190,11 +191,8 @@ PaintPropertyChangeType VisualViewport::UpdatePaintPropertyNodesIfNeeded(
       // As an optimization, attempt to directly update the compositor
       // scale translation node and return kChangedOnlyCompositedValues which
       // avoids an expensive PaintArtifactCompositor update.
-      // TODO(crbug.com/953322): We need to implement this optimization for
-      // CompositeAfterPaint as well.
-      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
-          effective_change_type ==
-              PaintPropertyChangeType::kChangedOnlySimpleValues) {
+      if (effective_change_type ==
+          PaintPropertyChangeType::kChangedOnlySimpleValues) {
         if (auto* paint_artifact_compositor = GetPaintArtifactCompositor()) {
           bool updated =
               paint_artifact_compositor->DirectlyUpdatePageScaleTransform(
@@ -218,7 +216,6 @@ PaintPropertyChangeType VisualViewport::UpdatePaintPropertyNodesIfNeeded(
     state.user_scrollable_horizontal =
         UserInputScrollable(kHorizontalScrollbar);
     state.user_scrollable_vertical = UserInputScrollable(kVerticalScrollbar);
-    state.scrolls_inner_viewport = true;
     state.max_scroll_offset_affected_by_page_scale = true;
     state.compositor_element_id = GetScrollElementId();
 
@@ -273,11 +270,8 @@ PaintPropertyChangeType VisualViewport::UpdatePaintPropertyNodesIfNeeded(
       // As an optimization, attempt to directly update the compositor
       // translation node and return kChangedOnlyCompositedValues which avoids
       // an expensive PaintArtifactCompositor update.
-      // TODO(crbug.com/953322): We need to implement this optimization for
-      // CompositeAfterPaint as well.
-      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
-          effective_change_type ==
-              PaintPropertyChangeType::kChangedOnlySimpleValues) {
+      if (effective_change_type ==
+          PaintPropertyChangeType::kChangedOnlySimpleValues) {
         if (auto* paint_artifact_compositor = GetPaintArtifactCompositor()) {
           bool updated =
               paint_artifact_compositor->DirectlyUpdateScrollOffsetTransform(
@@ -545,7 +539,7 @@ bool VisualViewport::DidSetScaleOrLocation(float scale,
     // ScrollingCoordinator.
     if (auto* coordinator = GetPage().GetScrollingCoordinator()) {
       if (scroll_layer_)
-        coordinator->UpdateCompositedScrollOffset(this);
+        coordinator->UpdateCompositorScrollOffset(*MainFrame(), *this);
     }
 
     EnqueueScrollEvent();
@@ -597,7 +591,7 @@ void VisualViewport::CreateLayers() {
   LayerForScrollingDidChange(coordinator->GetCompositorAnimationTimeline());
 
   InitializeScrollbars();
-  coordinator->UpdateCompositedScrollOffset(this);
+  coordinator->UpdateCompositorScrollOffset(*MainFrame(), *this);
 }
 
 void VisualViewport::InitializeScrollbars() {
@@ -690,10 +684,11 @@ SmoothScrollSequencer* VisualViewport::GetSmoothScrollSequencer() const {
   return &MainFrame()->GetSmoothScrollSequencer();
 }
 
-void VisualViewport::SetScrollOffset(const ScrollOffset& offset,
-                                     ScrollType scroll_type,
-                                     ScrollBehavior scroll_behavior,
-                                     ScrollCallback on_finish) {
+void VisualViewport::SetScrollOffset(
+    const ScrollOffset& offset,
+    mojom::blink::ScrollIntoViewParams::Type scroll_type,
+    mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior,
+    ScrollCallback on_finish) {
   // We clamp the offset here, because the ScrollAnimator may otherwise be
   // set to a non-clamped offset by ScrollableArea::setScrollOffset,
   // which may lead to incorrect scrolling behavior in RootFrameViewport down
@@ -707,26 +702,34 @@ void VisualViewport::SetScrollOffset(const ScrollOffset& offset,
                                   scroll_behavior, std::move(on_finish));
 }
 
+void VisualViewport::SetScrollOffset(
+    const ScrollOffset& offset,
+    mojom::blink::ScrollIntoViewParams::Type scroll_type,
+    mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior) {
+  SetScrollOffset(offset, scroll_type, scroll_behavior, ScrollCallback());
+}
+
 PhysicalRect VisualViewport::ScrollIntoView(
     const PhysicalRect& rect_in_absolute,
-    const WebScrollIntoViewParams& params) {
+    const mojom::blink::ScrollIntoViewParamsPtr& params) {
   PhysicalRect scroll_snapport_rect = VisibleScrollSnapportRect();
 
   ScrollOffset new_scroll_offset =
       ClampScrollOffset(ScrollAlignment::GetScrollOffsetToExpose(
-          scroll_snapport_rect, rect_in_absolute, params.GetScrollAlignmentX(),
-          params.GetScrollAlignmentY(), GetScrollOffset()));
+          scroll_snapport_rect, rect_in_absolute,
+          params->align_x.To<ScrollAlignment>(),
+          params->align_y.To<ScrollAlignment>(), GetScrollOffset()));
 
   if (new_scroll_offset != GetScrollOffset()) {
-    ScrollBehavior behavior = params.GetScrollBehavior();
-    if (params.is_for_scroll_sequence) {
-      DCHECK(params.GetScrollType() == kProgrammaticScroll ||
-             params.GetScrollType() == kUserScroll);
+    if (params->is_for_scroll_sequence) {
+      DCHECK(params->type ==
+                 mojom::blink::ScrollIntoViewParams::Type::kProgrammatic ||
+             params->type == mojom::blink::ScrollIntoViewParams::Type::kUser);
       if (SmoothScrollSequencer* sequencer = GetSmoothScrollSequencer()) {
-        sequencer->QueueAnimation(this, new_scroll_offset, behavior);
+        sequencer->QueueAnimation(this, new_scroll_offset, params->behavior);
       }
     } else {
-      SetScrollOffset(new_scroll_offset, params.GetScrollType(), behavior,
+      SetScrollOffset(new_scroll_offset, params->type, params->behavior,
                       ScrollCallback());
     }
   }
@@ -849,15 +852,17 @@ WebColorScheme VisualViewport::UsedColorScheme() const {
   return ComputedStyle::InitialStyle().UsedColorScheme();
 }
 
-void VisualViewport::UpdateScrollOffset(const ScrollOffset& position,
-                                        ScrollType scroll_type) {
+void VisualViewport::UpdateScrollOffset(
+    const ScrollOffset& position,
+    mojom::blink::ScrollIntoViewParams::Type scroll_type) {
   if (!DidSetScaleOrLocation(scale_, is_pinch_gesture_active_,
                              FloatPoint(position))) {
     return;
   }
   if (IsExplicitScrollType(scroll_type)) {
     NotifyRootFrameViewport();
-    if (scroll_type != kCompositorScroll && scroll_layer_)
+    if (scroll_type != mojom::blink::ScrollIntoViewParams::Type::kCompositor &&
+        scroll_layer_)
       scroll_layer_->ShowScrollbars();
   }
 }

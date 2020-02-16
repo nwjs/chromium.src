@@ -10,6 +10,7 @@
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
+#include "ash/shell_delegate.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
 #include "base/metrics/histogram_functions.h"
@@ -18,9 +19,8 @@
 #include "components/media_message_center/media_notification_util.h"
 #include "components/vector_icons/vector_icons.h"
 #include "services/media_session/public/cpp/util.h"
-#include "services/media_session/public/mojom/constants.mojom.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
-#include "services/service_manager/public/cpp/connector.h"
+#include "services/media_session/public/mojom/media_session_service.mojom.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -125,6 +125,8 @@ const gfx::VectorIcon& GetVectorIconForMediaAction(MediaSessionAction action) {
     case MediaSessionAction::kSkipAd:
     case MediaSessionAction::kSeekTo:
     case MediaSessionAction::kScrubTo:
+    case MediaSessionAction::kEnterPictureInPicture:
+    case MediaSessionAction::kExitPictureInPicture:
       NOTREACHED();
       break;
   }
@@ -201,10 +203,8 @@ LockScreenMediaControlsView::Callbacks::Callbacks() = default;
 LockScreenMediaControlsView::Callbacks::~Callbacks() = default;
 
 LockScreenMediaControlsView::LockScreenMediaControlsView(
-    service_manager::Connector* connector,
     const Callbacks& callbacks)
-    : connector_(connector),
-      hide_controls_timer_(new base::OneShotTimer()),
+    : hide_controls_timer_(new base::OneShotTimer()),
       hide_artwork_timer_(new base::OneShotTimer()),
       media_controls_enabled_(callbacks.media_controls_enabled),
       hide_media_controls_(callbacks.hide_media_controls),
@@ -229,7 +229,7 @@ LockScreenMediaControlsView::LockScreenMediaControlsView(
       views::BoxLayout::Orientation::kVertical, kMediaControlsInsets));
   contents_view_->SetBackground(views::CreateRoundedRectBackground(
       AshColorProvider::Get()->GetBaseLayerColor(
-          AshColorProvider::BaseLayerType::kTransparent74,
+          AshColorProvider::BaseLayerType::kTransparent80,
           AshColorProvider::AshColorMode::kDark),
       kMediaControlsCornerRadius));
 
@@ -393,16 +393,18 @@ LockScreenMediaControlsView::LockScreenMediaControlsView(
       media_session::mojom::MediaSessionImageType::kSourceIcon, SkBitmap());
   SetArtwork(base::nullopt);
 
-  // |connector_| can be null in tests.
-  if (!connector_)
+  // |service| can be null in tests.
+  media_session::mojom::MediaSessionService* service =
+      Shell::Get()->shell_delegate()->GetMediaSessionService();
+  if (!service)
     return;
 
   // Connect to the MediaControllerManager and create a MediaController that
   // controls the active session so we can observe it.
   mojo::Remote<media_session::mojom::MediaControllerManager>
       controller_manager_remote;
-  connector_->Connect(media_session::mojom::kServiceName,
-                      controller_manager_remote.BindNewPipeAndPassReceiver());
+  service->BindMediaControllerManager(
+      controller_manager_remote.BindNewPipeAndPassReceiver());
   controller_manager_remote->CreateActiveMediaController(
       media_controller_remote_.BindNewPipeAndPassReceiver());
 

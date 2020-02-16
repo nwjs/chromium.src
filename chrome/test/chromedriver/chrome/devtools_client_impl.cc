@@ -185,9 +185,31 @@ Status DevToolsClientImpl::ConnectIfNecessary() {
     }
   }
 
+  // These lines must be before the following SendCommandXxx calls
   unnotified_connect_listeners_ = listeners_;
   unnotified_event_listeners_.clear();
   response_info_map_.clear();
+
+  if (id_ != kBrowserwideDevToolsClientId) {
+    base::DictionaryValue params;
+    std::string script =
+        "(function () {"
+        "window.cdc_adoQpoasnfa76pfcZLmcfl_Array = window.Array;"
+        "window.cdc_adoQpoasnfa76pfcZLmcfl_Promise = window.Promise;"
+        "window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol = window.Symbol;"
+        "}) ();";
+    params.SetString("source", script);
+    Status status = SendCommandAndIgnoreResponse(
+        "Page.addScriptToEvaluateOnNewDocument", params);
+    if (status.IsError())
+      return status;
+
+    params.Clear();
+    params.SetString("expression", script);
+    status = SendCommandAndIgnoreResponse("Runtime.evaluate", params);
+    if (status.IsError())
+      return status;
+  }
 
   // Notify all listeners of the new connection. Do this now so that any errors
   // that occur are reported now instead of later during some unrelated call.
@@ -351,8 +373,11 @@ Status DevToolsClientImpl::SendCommandInternal(
 
     if (wait_for_response) {
       while (response_info->state == kWaiting) {
+        // Use a long default timeout if user has not requested one.
         Status status = ProcessNextMessage(
-            command_id, Timeout(base::TimeDelta::FromMinutes(10), timeout));
+            command_id, timeout != nullptr
+                            ? *timeout
+                            : Timeout(base::TimeDelta::FromMinutes(10)));
         if (status.IsError()) {
           if (response_info->state == kReceived)
             response_info_map_.erase(command_id);

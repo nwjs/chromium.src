@@ -269,8 +269,12 @@ void RootView::AnnounceText(const base::string16& text) {
   NOTREACHED();
 #else
   DCHECK(GetWidget());
-  if (!announce_view_)
+  DCHECK(GetContentsView());
+  if (!announce_view_) {
     announce_view_ = AddChildView(std::make_unique<AnnounceTextView>());
+    static_cast<FillLayout*>(GetLayoutManager())
+        ->SetChildViewIgnoredByLayout(announce_view_, true);
+  }
   announce_view_->Announce(text);
 #endif
 }
@@ -349,14 +353,6 @@ void RootView::OnEventProcessingFinished(ui::Event* event) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // RootView, View overrides:
-
-const Widget* RootView::GetWidget() const {
-  return widget_;
-}
-
-Widget* RootView::GetWidget() {
-  return const_cast<Widget*>(const_cast<const RootView*>(this)->GetWidget());
-}
 
 bool RootView::IsDrawn() const {
   return GetVisible();
@@ -638,21 +634,17 @@ void RootView::SetMouseHandler(View* new_mh) {
 }
 
 void RootView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
-  node_data->SetName(widget_->widget_delegate()->GetAccessibleWindowTitle());
-  node_data->role = widget_->widget_delegate()->GetAccessibleWindowRole();
+  DCHECK(GetWidget());
+  auto* widget_delegate = GetWidget()->widget_delegate();
+  if (!widget_delegate)
+    return;
+  node_data->SetName(widget_delegate->GetAccessibleWindowTitle());
+  node_data->role = widget_delegate->GetAccessibleWindowRole();
 }
 
 void RootView::UpdateParentLayer() {
   if (layer())
     ReparentLayer(widget_->GetLayer());
-}
-
-void RootView::Layout() {
-  View::Layout();
-  // TODO(crbug.com/1026461): when FillLayout derives from LayoutManagerBase,
-  // just ignore the announce view instead of forcing it to zero size.
-  if (announce_view_)
-    announce_view_->SetSize({0, 0});
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -716,8 +708,6 @@ View::DragInfo* RootView::GetDragInfo() {
 
 ////////////////////////////////////////////////////////////////////////////////
 // RootView, private:
-
-// Input -----------------------------------------------------------------------
 
 void RootView::UpdateCursor(const ui::MouseEvent& event) {
   if (!(event.flags() & ui::EF_IS_NON_CLIENT)) {
@@ -810,6 +800,10 @@ ui::EventDispatchDetails RootView::PostDispatchEvent(ui::EventTarget* target,
 #endif
 
   return details;
+}
+
+const Widget* RootView::GetWidgetImpl() const {
+  return widget_;
 }
 
 BEGIN_METADATA(RootView)

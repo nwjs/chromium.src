@@ -29,7 +29,6 @@ class Animation;
 class AnimationTimeline;
 class ElementAnimations;
 class LayerTreeHost;
-class KeyframeEffect;
 class ScrollOffsetAnimations;
 class ScrollOffsetAnimationsImpl;
 class WorkletAnimation;
@@ -66,10 +65,9 @@ class CC_ANIMATION_EXPORT AnimationHost : public MutatorHost,
   void RemoveAnimationTimeline(scoped_refptr<AnimationTimeline> timeline);
   AnimationTimeline* GetTimelineById(int timeline_id) const;
 
-  void RegisterKeyframeEffectForElement(ElementId element_id,
-                                        KeyframeEffect* keyframe_effect);
-  void UnregisterKeyframeEffectForElement(ElementId element_id,
-                                          KeyframeEffect* keyframe_effect);
+  void RegisterAnimationForElement(ElementId element_id, Animation* animation);
+  void UnregisterAnimationForElement(ElementId element_id,
+                                     Animation* animation);
 
   scoped_refptr<ElementAnimations> GetElementAnimationsForElementId(
       ElementId element_id) const;
@@ -121,6 +119,7 @@ class CC_ANIMATION_EXPORT AnimationHost : public MutatorHost,
   void TickWorkletAnimations() override;
   bool UpdateAnimationState(bool start_ready_animations,
                             MutatorEvents* events) override;
+  void TakeTimeUpdatedEvents(MutatorEvents* events) override;
   void PromoteScrollTimelinesPendingToActive() override;
 
   std::unique_ptr<MutatorEvents> CreateEvents() override;
@@ -179,7 +178,6 @@ class CC_ANIMATION_EXPORT AnimationHost : public MutatorHost,
       base::TimeDelta delayed_by,
       base::TimeDelta animation_start_offset) override;
   bool ImplOnlyScrollAnimationUpdateTarget(
-      ElementId element_id,
       const gfx::Vector2dF& scroll_delta,
       const gfx::ScrollOffset& max_scroll_offset,
       base::TimeTicks frame_monotonic_time,

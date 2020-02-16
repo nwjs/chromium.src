@@ -60,8 +60,10 @@ class SynchronousCompositorProxy : public ui::SynchronousInputHandler,
   // SynchronousLayerTreeFrameSinkClient overrides.
   void DidActivatePendingTree() final;
   void Invalidate(bool needs_draw) final;
-  void SubmitCompositorFrame(uint32_t layer_tree_frame_sink_id,
-                             base::Optional<viz::CompositorFrame> frame) final;
+  void SubmitCompositorFrame(
+      uint32_t layer_tree_frame_sink_id,
+      base::Optional<viz::CompositorFrame> frame,
+      base::Optional<viz::HitTestRegionList> hit_test_region_list) final;
   void SetNeedsBeginFrames(bool needs_begin_frames) final;
   void SinkDestroyed() final;
 
@@ -99,7 +101,8 @@ class SynchronousCompositorProxy : public ui::SynchronousInputHandler,
       const content::SyncCompositorCommonRendererParams&,
       uint32_t layer_tree_frame_sink_id,
       uint32_t metadata_version,
-      base::Optional<viz::CompositorFrame>);
+      base::Optional<viz::CompositorFrame>,
+      base::Optional<viz::HitTestRegionList> hit_test_region_list);
 
   DemandDrawHwCallback hardware_draw_reply_;
   DemandDrawSwCallback software_draw_reply_;
@@ -120,7 +123,7 @@ class SynchronousCompositorProxy : public ui::SynchronousInputHandler,
   mojo::AssociatedReceiver<mojom::SynchronousCompositor> receiver_{this};
   const bool use_in_process_zero_copy_software_draw_;
 
-  const bool using_viz_for_webview_;
+  const bool viz_frame_submission_enabled_;
 
   bool needs_begin_frames_ = false;
 

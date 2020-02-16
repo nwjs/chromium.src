@@ -14,13 +14,12 @@ source_set("tabs") {
     "tab_parenting_global_observer.h",
     "tab_title_util.h",
   ]
-  public_deps = [
-    "//ios/web",
-  ]
+  public_deps = [ "//ios/web" ]
   deps = [
     "//components/sessions",
     "//components/sync_sessions",
     "//ios/chrome/browser/sessions:serialisation",
+    "//ios/chrome/browser/sessions:session_service",
     "//ios/chrome/browser/web_state_list",
     "//ui/base",
   ]
@@ -30,13 +29,11 @@ source_set("tabs") {
 
 source_set("tabs_internal") {
   sources = [
+    "closing_web_state_observer.h",
+    "closing_web_state_observer.mm",
     "tab_helper_util.mm",
     "tab_model.mm",
-    "tab_model_closing_web_state_observer.h",
-    "tab_model_closing_web_state_observer.mm",
     "tab_model_list.mm",
-    "tab_model_selected_tab_observer.h",
-    "tab_model_selected_tab_observer.mm",
     "tab_model_synced_window_delegate.mm",
     "tab_model_synced_window_delegate_getter.mm",
     "tab_parenting_observer.h",
@@ -64,6 +61,8 @@ source_set("tabs_internal") {
     "//ios/chrome/browser/browser_state_metrics",
     "//ios/chrome/browser/complex_tasks",
     "//ios/chrome/browser/crash_report",
+    "//ios/chrome/browser/crash_report/breadcrumbs",
+    "//ios/chrome/browser/crash_report/breadcrumbs:feature_flags",
     "//ios/chrome/browser/download",
     "//ios/chrome/browser/favicon",
     "//ios/chrome/browser/find_in_page",
@@ -72,7 +71,7 @@ source_set("tabs_internal") {
     "//ios/chrome/browser/history:tab_helper",
     "//ios/chrome/browser/infobars",
     "//ios/chrome/browser/infobars:badge",
-    "//ios/chrome/browser/infobars:overlays",
+    "//ios/chrome/browser/infobars/overlays",
     "//ios/chrome/browser/itunes_urls",
     "//ios/chrome/browser/main",
     "//ios/chrome/browser/metrics",
@@ -85,7 +84,9 @@ source_set("tabs_internal") {
     "//ios/chrome/browser/reading_list",
     "//ios/chrome/browser/search_engines",
     "//ios/chrome/browser/sessions",
+    "//ios/chrome/browser/sessions:restoration_agent",
     "//ios/chrome/browser/sessions:serialisation",
+    "//ios/chrome/browser/sessions:session_service",
     "//ios/chrome/browser/snapshots",
     "//ios/chrome/browser/ssl",
     "//ios/chrome/browser/ssl:feature_flags",
@@ -99,6 +100,7 @@ source_set("tabs_internal") {
     "//ios/chrome/browser/voice",
     "//ios/chrome/browser/web",
     "//ios/chrome/browser/web:feature_flags",
+    "//ios/chrome/browser/web:page_placeholder",
     "//ios/chrome/browser/web:web_internal",
     "//ios/chrome/browser/web_state_list",
     "//ios/chrome/browser/web_state_list/web_usage_enabler",
@@ -139,8 +141,11 @@ source_set("unit_tests") {
     "//ios/chrome/browser/history:tab_helper",
     "//ios/chrome/browser/infobars",
     "//ios/chrome/browser/main",
+    "//ios/chrome/browser/main",
+    "//ios/chrome/browser/main:test_support",
     "//ios/chrome/browser/ntp",
     "//ios/chrome/browser/sessions",
+    "//ios/chrome/browser/sessions:restoration_agent",
     "//ios/chrome/browser/sessions:serialisation",
     "//ios/chrome/browser/sessions:test_support",
     "//ios/chrome/browser/snapshots",

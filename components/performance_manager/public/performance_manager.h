@@ -18,11 +18,14 @@ namespace performance_manager {
 class Graph;
 class GraphOwned;
 class PageNode;
+class PerformanceManagerMainThreadObserver;
 
 // The performance manager is a rendezvous point for communicating with the
 // performance manager graph on its dedicated sequence.
 class PerformanceManager {
  public:
+  virtual ~PerformanceManager();
+
   // Returns true if the performance manager is initialized. Valid to call from
   // the main thread only.
   static bool IsAvailable();
@@ -47,9 +50,13 @@ class PerformanceManager {
   static base::WeakPtr<PageNode> GetPageNodeForWebContents(
       content::WebContents* wc);
 
+  // Adds / removes an observer that is notified of PerformanceManager events
+  // that happen on the main thread. Can only be called on the main thread.
+  static void AddObserver(PerformanceManagerMainThreadObserver* observer);
+  static void RemoveObserver(PerformanceManagerMainThreadObserver* observer);
+
  protected:
   PerformanceManager();
-  virtual ~PerformanceManager();
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PerformanceManager);

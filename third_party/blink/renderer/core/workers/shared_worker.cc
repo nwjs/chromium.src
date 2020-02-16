@@ -30,17 +30,21 @@
  */
 
 #include "third_party/blink/renderer/core/workers/shared_worker.h"
+#include "base/command_line.h"
 
+#include "base/optional.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
-#include "base/command_line.h"
-
+#include "third_party/blink/public/mojom/worker/shared_worker_info.mojom-blink.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_worker_options.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/fetch/request.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/messaging/message_channel.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/workers/shared_worker_client_holder.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -54,14 +58,8 @@ namespace {
 void RecordSharedWorkerUsage(Document* document) {
   UseCounter::Count(document, WebFeature::kSharedWorkerStart);
 
-  // Don't record the use counter if the frame is same-origin to the top frame,
-  // or if we can't tell whether the frame was ever cross-origin or not.
-  if (!document->TopFrameOrigin() ||
-      document->TopFrameOrigin()->CanAccess(document->GetSecurityOrigin())) {
-    return;
-  }
-
-  UseCounter::Count(document, WebFeature::kThirdPartySharedWorker);
+  if (document->IsCrossSiteSubframe())
+    UseCounter::Count(document, WebFeature::kThirdPartySharedWorker);
 }
 
 }  // namespace
@@ -75,7 +73,7 @@ SharedWorker::SharedWorker(ExecutionContext* context)
 
 SharedWorker* SharedWorker::Create(ExecutionContext* context,
                                    const String& url,
-                                   const String& name,
+                                   const StringOrWorkerOptions& name_or_options,
                                    ExceptionState& exception_state) {
   DCHECK(IsMainThread());
 
@@ -115,18 +113,39 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
 
   const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   bool isNodeJS = document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
-  // |name| should not be null according to the HTML spec, but the current impl
-  // wrongly allows it when |name| is omitted. See TODO comment in
-  // shared_worker.idl.
-  // TODO(nhiroki): Stop assigning null to |name| as a default value, and remove
-  // this hack.
-  String worker_name = "";
-  if (!name.IsNull())
-    worker_name = name;
+  auto options = mojom::blink::WorkerOptions::New();
+  if (name_or_options.IsString()) {
+    options->name = name_or_options.GetAsString();
+  } else if (name_or_options.IsWorkerOptions()) {
+    WorkerOptions* worker_options = name_or_options.GetAsWorkerOptions();
+    if (worker_options->type() == "module" &&
+        !RuntimeEnabledFeatures::ModuleSharedWorkerEnabled()) {
+      exception_state.ThrowTypeError(
+          "Module scripts are not supported on SharedWorker yet. "
+          "(see https://crbug.com/824646)");
+      return nullptr;
+    }
+    options->name = worker_options->name();
+    base::Optional<mojom::ScriptType> type_result =
+        Script::ParseScriptType(worker_options->type());
+    DCHECK(type_result);
+    options->type = type_result.value();
+    base::Optional<network::mojom::CredentialsMode> credentials_result =
+        Request::ParseCredentialsMode(worker_options->credentials());
+    DCHECK(credentials_result);
+    options->credentials = credentials_result.value();
+  } else {
+    NOTREACHED();
+  }
+  DCHECK(!options->name.IsNull());
+  if (options->type == mojom::blink::ScriptType::kClassic)
+    UseCounter::Count(document, WebFeature::kClassicSharedWorker);
+  else if (options->type == mojom::blink::ScriptType::kModule)
+    UseCounter::Count(document, WebFeature::kModuleSharedWorker);
 
   SharedWorkerClientHolder::From(*document)->Connect(
       worker, std::move(remote_port), script_url, std::move(blob_url_token),
-      worker_name, isNodeJS);
+      std::move(options), isNodeJS);
 
   return worker;
 }

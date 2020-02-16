@@ -20,6 +20,7 @@ class NativeFileSystemUsageBubbleView : public LocationBarBubbleDelegateView {
     Usage(Usage&&);
     Usage& operator=(Usage&&);
 
+    std::vector<base::FilePath> readable_files;
     std::vector<base::FilePath> readable_directories;
     std::vector<base::FilePath> writable_files;
     std::vector<base::FilePath> writable_directories;
@@ -61,7 +62,6 @@ class NativeFileSystemUsageBubbleView : public LocationBarBubbleDelegateView {
 
   // LocationBarBubbleDelegateView:
   base::string16 GetAccessibleWindowTitle() const override;
-  base::string16 GetDialogButtonLabel(ui::DialogButton button) const override;
   bool ShouldShowCloseButton() const override;
   void Init() override;
   bool Cancel() override;

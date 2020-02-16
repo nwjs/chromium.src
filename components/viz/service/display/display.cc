@@ -46,6 +46,9 @@ namespace viz {
 
 namespace {
 
+constexpr base::TimeDelta kAllowedDeltaFromFuture =
+    base::TimeDelta::FromMilliseconds(16);
+
 // Assign each Display instance a starting value for the the display-trace id,
 // so that multiple Displays all don't start at 0, because that makes it
 // difficult to associate the trace-events with the particular displays.
@@ -69,7 +72,15 @@ gfx::PresentationFeedback SanitizePresentationFeedback(
   // the future (or from the past) the timestamps are.
   // https://crbug.com/894440
   const auto now = base::TimeTicks::Now();
-  if (feedback.timestamp > now) {
+  // The timestamp for the presentation feedback may have a different source and
+  // therefore the timestamp can be slightly in the future in comparison with
+  // base::TimeTicks::Now(). Such presentation feedbacks should not be rejected.
+  // See https://crbug.com/1040178
+  const auto allowed_delta_from_future =
+      ((feedback.flags & gfx::PresentationFeedback::kHWClock) != 0)
+          ? kAllowedDeltaFromFuture
+          : base::TimeDelta();
+  if (feedback.timestamp > now + allowed_delta_from_future) {
     const auto diff = feedback.timestamp - now;
     UMA_HISTOGRAM_MEDIUM_TIMES(
         "Graphics.PresentationTimestamp.InvalidFromFuture", diff);
@@ -88,12 +99,6 @@ gfx::PresentationFeedback SanitizePresentationFeedback(
     UMA_HISTOGRAM_CUSTOM_TIMES(
         "Graphics.PresentationTimestamp.LargePresentationDelta", difference,
         base::TimeDelta::FromMinutes(3), base::TimeDelta::FromHours(1), 50);
-
-    // Ignore long presentation times for the tests that override time
-    if (!base::subtle::ScopedTimeClockOverrides::overrides_active()) {
-      // In debug builds, just crash immediately.
-      DCHECK(false);
-    }
   }
   return feedback;
 }
@@ -163,7 +168,8 @@ Display::Display(
     const RendererSettings& settings,
     const FrameSinkId& frame_sink_id,
     std::unique_ptr<OutputSurface> output_surface,
-    std::unique_ptr<DisplayScheduler> scheduler,
+    std::unique_ptr<OverlayProcessorInterface> overlay_processor,
+    std::unique_ptr<DisplaySchedulerBase> scheduler,
     scoped_refptr<base::SingleThreadTaskRunner> current_task_runner)
     : bitmap_manager_(bitmap_manager),
       settings_(settings),
@@ -172,6 +178,7 @@ Display::Display(
       skia_output_surface_(output_surface_->AsSkiaOutputSurface()),
       scheduler_(std::move(scheduler)),
       current_task_runner_(std::move(current_task_runner)),
+      overlay_processor_(std::move(overlay_processor)),
       swapped_trace_id_(GetStartingTraceId()),
       last_swap_ack_trace_id_(swapped_trace_id_),
       last_presented_trace_id_(swapped_trace_id_) {
@@ -213,8 +220,6 @@ Display::~Display() {
       context->RemoveObserver(this);
     if (skia_output_surface_)
       skia_output_surface_->RemoveContextLostObserver(this);
-    if (scheduler_)
-      surface_manager_->RemoveObserver(scheduler_.get());
   }
 
   // Un-register as DisplaySchedulerClient to prevent us from being called in a
@@ -222,7 +227,7 @@ Display::~Display() {
   if (scheduler_)
     scheduler_->SetClient(nullptr);
 
-  RunDrawCallbacks();
+  damage_tracker_->RunDrawCallbacks();
 }
 
 void Display::Initialize(DisplayClient* client,
@@ -233,8 +238,6 @@ void Display::Initialize(DisplayClient* client,
   gpu::ScopedAllowScheduleGpuTask allow_schedule_gpu_task;
   client_ = client;
   surface_manager_ = surface_manager;
-  if (scheduler_)
-    surface_manager_->AddObserver(scheduler_.get());
 
   output_surface_->BindToClient(this);
   if (output_surface_->software_device())
@@ -244,6 +247,11 @@ void Display::Initialize(DisplayClient* client,
       std::make_unique<FrameRateDecider>(surface_manager_, this);
 
   InitializeRenderer(enable_shared_images);
+
+  damage_tracker_ = std::make_unique<DisplayDamageTracker>(surface_manager_,
+                                                           aggregator_.get());
+  if (scheduler_)
+    scheduler_->SetDamageTracker(damage_tracker_.get());
 
   // This depends on assumptions that Display::Initialize will happen on the
   // same callstack as the ContextProvider being created/initialized or else
@@ -274,9 +282,7 @@ void Display::SetLocalSurfaceId(const LocalSurfaceId& id,
   current_surface_id_ = SurfaceId(frame_sink_id_, id);
   device_scale_factor_ = device_scale_factor;
 
-  UpdateRootFrameMissing();
-  if (scheduler_)
-    scheduler_->SetNewRootSurface(current_surface_id_);
+  damage_tracker_->SetNewRootSurface(current_surface_id_);
 }
 
 void Display::SetVisible(bool visible) {
@@ -296,19 +302,21 @@ void Display::SetVisible(bool visible) {
 }
 
 void Display::Resize(const gfx::Size& size) {
+  disable_draw_until_resize_ = false;
+
   if (size == current_surface_size_)
     return;
 
+  // This DCHECK should probably go at the top of the function, but mac
+  // sometimes calls Resize() with 0x0 before it sets a real size. This will
+  // early out before the DCHECK fails.
+  DCHECK(!size.IsEmpty());
   TRACE_EVENT0("viz", "Display::Resize");
-
-  // Resize() shouldn't be called while waiting for pending swaps to ack unless
-  // it's being called with size (0, 0) to disable DrawAndSwap().
-  DCHECK(no_pending_swaps_callback_.is_null() || size.IsEmpty());
 
   swapped_since_resize_ = false;
   current_surface_size_ = size;
-  if (scheduler_)
-    scheduler_->DisplayResized();
+
+  damage_tracker_->DisplayResized();
 }
 
 void Display::DisableSwapUntilResize(
@@ -316,19 +324,19 @@ void Display::DisableSwapUntilResize(
   TRACE_EVENT0("viz", "Display::DisableSwapUntilResize");
   DCHECK(no_pending_swaps_callback_.is_null());
 
-  if (!current_surface_size_.IsEmpty()) {
+  if (!disable_draw_until_resize_) {
     DCHECK(scheduler_);
 
     if (!swapped_since_resize_)
       scheduler_->ForceImmediateSwapIfPossible();
 
-    if (no_pending_swaps_callback && scheduler_->pending_swaps() > 0 &&
+    if (no_pending_swaps_callback && pending_swaps_ > 0 &&
         (output_surface_->context_provider() ||
          output_surface_->AsSkiaOutputSurface())) {
       no_pending_swaps_callback_ = std::move(no_pending_swaps_callback);
     }
 
-    Resize(gfx::Size());
+    disable_draw_until_resize_ = true;
   }
 
   // There are no pending swaps for current size so immediately run callback.
@@ -346,19 +354,14 @@ void Display::SetColorMatrix(const SkMatrix44& matrix) {
       aggregator_->SetFullDamageForSurface(current_surface_id_);
   }
 
-  if (scheduler_) {
-    BeginFrameAck ack;
-    ack.has_damage = true;
-    scheduler_->ProcessSurfaceDamage(current_surface_id_, ack, true);
-  }
+  damage_tracker_->SetRootSurfaceDamaged();
 }
 
-void Display::SetColorSpace(const gfx::ColorSpace& device_color_space,
-                            float sdr_white_level) {
-  device_color_space_ = device_color_space;
-  sdr_white_level_ = sdr_white_level;
+void Display::SetDisplayColorSpaces(
+    const gfx::DisplayColorSpaces& display_color_spaces) {
+  display_color_spaces_ = display_color_spaces;
   if (aggregator_)
-    aggregator_->SetOutputColorSpace(device_color_space_);
+    aggregator_->SetDisplayColorSpaces(display_color_spaces_);
 }
 
 void Display::SetOutputIsSecure(bool secure) {
@@ -386,23 +389,28 @@ void Display::InitializeRenderer(bool enable_shared_images) {
     if (skia_output_surface_) {
       renderer_ = std::make_unique<SkiaRenderer>(
           &settings_, output_surface_.get(), resource_provider_.get(),
-          skia_output_surface_, SkiaRenderer::DrawMode::DDL);
+          overlay_processor_.get(), skia_output_surface_,
+          SkiaRenderer::DrawMode::DDL);
     } else {
       // GPU compositing with GL to an SKP.
       DCHECK(output_surface_);
       DCHECK(output_surface_->context_provider());
       DCHECK(settings_.record_sk_picture);
+      DCHECK(!overlay_processor_->IsOverlaySupported());
       renderer_ = std::make_unique<SkiaRenderer>(
           &settings_, output_surface_.get(), resource_provider_.get(),
-          nullptr /* skia_output_surface */, SkiaRenderer::DrawMode::SKPRECORD);
+          overlay_processor_.get(), nullptr /* skia_output_surface */,
+          SkiaRenderer::DrawMode::SKPRECORD);
     }
   } else if (output_surface_->context_provider()) {
-    renderer_ = std::make_unique<GLRenderer>(&settings_, output_surface_.get(),
-                                             resource_provider_.get(),
-                                             current_task_runner_);
+    renderer_ = std::make_unique<GLRenderer>(
+        &settings_, output_surface_.get(), resource_provider_.get(),
+        overlay_processor_.get(), current_task_runner_);
   } else {
+    DCHECK(!overlay_processor_->IsOverlaySupported());
     auto renderer = std::make_unique<SoftwareRenderer>(
-        &settings_, output_surface_.get(), resource_provider_.get());
+        &settings_, output_surface_.get(), resource_provider_.get(),
+        overlay_processor_.get());
     software_renderer_ = renderer.get();
     renderer_ = std::move(renderer);
   }
@@ -414,18 +422,17 @@ void Display::InitializeRenderer(bool enable_shared_images) {
   // outside the damage rect might be needed by the renderer.
   bool output_partial_list =
       output_surface_->capabilities().only_invalidates_damage_rect &&
-      renderer_->use_partial_swap() && !renderer_->has_overlay_validator();
+      renderer_->use_partial_swap() &&
+      !overlay_processor_->IsOverlaySupported();
 
-  bool needs_surface_occluding_damage_rect =
-      renderer_->OverlayNeedsSurfaceOccludingDamageRect();
   aggregator_ = std::make_unique<SurfaceAggregator>(
       surface_manager_, resource_provider_.get(), output_partial_list,
-      needs_surface_occluding_damage_rect);
+      overlay_processor_->NeedsSurfaceOccludingDamageRect());
   if (settings_.show_aggregated_damage)
     aggregator_->SetFrameAnnotator(std::make_unique<DamageFrameAnnotator>());
 
   aggregator_->set_output_is_secure(output_is_secure_);
-  aggregator_->SetOutputColorSpace(device_color_space_);
+  aggregator_->SetDisplayColorSpaces(display_color_spaces_);
   // Consider adding a softare limit as well.
   aggregator_->SetMaximumTextureSize(
       (output_surface_ && output_surface_->context_provider())
@@ -436,13 +443,11 @@ void Display::InitializeRenderer(bool enable_shared_images) {
 }
 
 bool Display::IsRootFrameMissing() const {
-  Surface* surface = surface_manager_->GetSurfaceForId(current_surface_id_);
-  return !surface || !surface->HasActiveFrame();
+  return damage_tracker_->root_frame_missing();
 }
 
-void Display::UpdateRootFrameMissing() {
-  if (scheduler_)
-    scheduler_->SetRootFrameMissing(IsRootFrameMissing());
+bool Display::HasPendingSurfaces(const BeginFrameArgs& args) const {
+  return damage_tracker_->HasPendingSurfaces(args);
 }
 
 void Display::OnContextLost() {
@@ -453,7 +458,7 @@ void Display::OnContextLost() {
   client_->DisplayOutputSurfaceLost();
 }
 
-bool Display::DrawAndSwap() {
+bool Display::DrawAndSwap(base::TimeTicks expected_display_time) {
   TRACE_EVENT0("viz", "Display::DrawAndSwap");
   gpu::ScopedAllowScheduleGpuTask allow_schedule_gpu_task;
 
@@ -499,15 +504,14 @@ bool Display::DrawAndSwap() {
   DisplayResourceProvider::ScopedBatchReturnResources returner(
       resource_provider_.get());
   base::ElapsedTimer aggregate_timer;
-  const base::TimeTicks now_time = aggregate_timer.Begin();
+  aggregate_timer.Begin();
   CompositorFrame frame;
   {
     FrameRateDecider::ScopedAggregate scoped_aggregate(
         frame_rate_decider_.get());
-    frame = aggregator_->Aggregate(
-        current_surface_id_,
-        scheduler_ ? scheduler_->current_frame_display_time() : now_time,
-        current_display_transform, ++swapped_trace_id_);
+    frame =
+        aggregator_->Aggregate(current_surface_id_, expected_display_time,
+                               current_display_transform, ++swapped_trace_id_);
   }
 
   UMA_HISTOGRAM_COUNTS_1M("Compositing.SurfaceAggregator.AggregateUs",
@@ -523,7 +527,7 @@ bool Display::DrawAndSwap() {
                            swapped_trace_id_);
 
   // Run callbacks early to allow pipelining and collect presented callbacks.
-  RunDrawCallbacks();
+  damage_tracker_->RunDrawCallbacks();
 
   frame.metadata.latency_info.insert(frame.metadata.latency_info.end(),
                                      stored_latency_info_.begin(),
@@ -562,7 +566,8 @@ bool Display::DrawAndSwap() {
   if (!size_matches)
     TRACE_EVENT_INSTANT0("viz", "Size mismatch.", TRACE_EVENT_SCOPE_THREAD);
 
-  bool should_draw = have_copy_requests || (have_damage && size_matches);
+  bool should_draw = !disable_draw_until_resize_ &&
+                     (have_copy_requests || (have_damage && size_matches));
   client_->DisplayWillDrawAndSwap(should_draw, &frame.render_pass_list);
 
   base::Optional<base::ElapsedTimer> draw_timer;
@@ -589,7 +594,8 @@ bool Display::DrawAndSwap() {
     draw_timer.emplace();
     renderer_->DecideRenderPassAllocationsForFrame(frame.render_pass_list);
     renderer_->DrawFrame(&frame.render_pass_list, device_scale_factor_,
-                         current_surface_size, sdr_white_level_);
+                         current_surface_size,
+                         display_color_spaces_.sdr_white_level);
     switch (output_surface_->type()) {
       case OutputSurface::Type::kSoftware:
         UMA_HISTOGRAM_COUNTS_1M(
@@ -605,7 +611,12 @@ bool Display::DrawAndSwap() {
                                 draw_timer->Elapsed().InMicroseconds());
         break;
     }
+  } else {
+    TRACE_EVENT_INSTANT0("viz", "Draw skipped.", TRACE_EVENT_SCOPE_THREAD);
+  }
 
+  bool should_swap = should_draw && size_matches;
+  if (should_swap) {
     PresentationGroupTiming presentation_group_timing;
     presentation_group_timing.OnDraw(draw_timer->Begin());
 
@@ -621,12 +632,7 @@ bool Display::DrawAndSwap() {
     }
     pending_presentation_group_timings_.emplace_back(
         std::move(presentation_group_timing));
-  } else {
-    TRACE_EVENT_INSTANT0("viz", "Draw skipped.", TRACE_EVENT_SCOPE_THREAD);
-  }
 
-  bool should_swap = should_draw && size_matches;
-  if (should_swap) {
     TRACE_EVENT_ASYNC_STEP_INTO0("viz,benchmark",
                                  "Graphics.Pipeline.DrawAndSwap",
                                  swapped_trace_id_, "WaitForSwap");
@@ -645,9 +651,14 @@ bool Display::DrawAndSwap() {
       last_top_controls_visible_height_ =
           *frame.metadata.top_controls_visible_height;
     }
-    renderer_->SwapBuffers(std::move(swap_frame_data));
+
+    // We must notify scheduler and increase |pending_swaps_| before calling
+    // SwapBuffers() as it can call DidReceiveSwapBuffersAck synchronously.
     if (scheduler_)
       scheduler_->DidSwapBuffers();
+    pending_swaps_++;
+
+    renderer_->SwapBuffers(std::move(swap_frame_data));
   } else {
     TRACE_EVENT_INSTANT0("viz", "Swap skipped.", TRACE_EVENT_SCOPE_THREAD);
 
@@ -704,12 +715,17 @@ void Display::DidReceiveSwapBuffersAck(const gfx::SwapTimings& timings) {
       "viz,benchmark", "Graphics.Pipeline.DrawAndSwap", last_swap_ack_trace_id_,
       "WaitForPresentation", timings.swap_end);
 
+  DCHECK_GT(pending_swaps_, 0);
+  pending_swaps_--;
   if (scheduler_) {
     scheduler_->DidReceiveSwapBuffersAck();
-    if (no_pending_swaps_callback_ && scheduler_->pending_swaps() == 0)
-      std::move(no_pending_swaps_callback_).Run();
   }
 
+  if (no_pending_swaps_callback_ && pending_swaps_ == 0)
+    std::move(no_pending_swaps_callback_).Run();
+
+  if (overlay_processor_)
+    overlay_processor_->OverlayPresentationComplete();
   if (renderer_)
     renderer_->SwapBuffersComplete();
 
@@ -779,46 +795,7 @@ void Display::DidReceivePresentationFeedback(
 
 void Display::SetNeedsRedrawRect(const gfx::Rect& damage_rect) {
   aggregator_->SetFullDamageForSurface(current_surface_id_);
-  if (scheduler_) {
-    BeginFrameAck ack;
-    ack.has_damage = true;
-    scheduler_->ProcessSurfaceDamage(current_surface_id_, ack, true);
-  }
-}
-
-bool Display::SurfaceDamaged(const SurfaceId& surface_id,
-                             const BeginFrameAck& ack) {
-  if (!ack.has_damage)
-    return false;
-  bool display_damaged = false;
-  if (aggregator_) {
-    display_damaged |=
-        aggregator_->NotifySurfaceDamageAndCheckForDisplayDamage(surface_id);
-  }
-  if (surface_id == current_surface_id_) {
-    display_damaged = true;
-    UpdateRootFrameMissing();
-  }
-  if (display_damaged)
-    surfaces_to_ack_on_next_draw_.push_back(surface_id);
-  return display_damaged;
-}
-
-void Display::SurfaceDestroyed(const SurfaceId& surface_id) {
-  TRACE_EVENT0("viz", "Display::SurfaceDestroyed");
-  if (aggregator_)
-    aggregator_->ReleaseResources(surface_id);
-}
-
-bool Display::SurfaceHasUnackedFrame(const SurfaceId& surface_id) const {
-  if (!surface_manager_)
-    return false;
-
-  Surface* surface = surface_manager_->GetSurfaceForId(surface_id);
-  if (!surface)
-    return false;
-
-  return surface->HasUnackedActiveFrame();
+  damage_tracker_->SetRootSurfaceDamaged();
 }
 
 void Display::DidFinishFrame(const BeginFrameAck& ack) {
@@ -829,8 +806,7 @@ void Display::DidFinishFrame(const BeginFrameAck& ack) {
   // un-skewed frame if the last one had a de-jelly skew applied. This prevents
   // de-jelly skew from staying on screen for more than one frame.
   if (aggregator_->last_frame_had_jelly()) {
-    scheduler_->SetNeedsOneBeginFrame();
-    scheduler_->set_needs_draw();
+    scheduler_->SetNeedsOneBeginFrame(true);
   }
 }
 
@@ -861,7 +837,7 @@ void Display::ForceImmediateDrawAndSwapIfPossible() {
 
 void Display::SetNeedsOneBeginFrame() {
   if (scheduler_)
-    scheduler_->SetNeedsOneBeginFrame();
+    scheduler_->SetNeedsOneBeginFrame(false);
 }
 
 void Display::RemoveOverdrawQuads(CompositorFrame* frame) {
@@ -1003,24 +979,6 @@ void Display::RemoveOverdrawQuads(CompositorFrame* frame) {
       } else {
         ++quad;
       }
-    }
-  }
-}
-
-void Display::RunDrawCallbacks() {
-  for (const auto& surface_id : surfaces_to_ack_on_next_draw_) {
-    Surface* surface = surface_manager_->GetSurfaceForId(surface_id);
-    if (surface)
-      surface->SendAckToClient();
-  }
-  surfaces_to_ack_on_next_draw_.clear();
-  // |surfaces_to_ack_on_next_draw_| does not cover surfaces that are being
-  // embedded for the first time, so also go through SurfaceAggregator's list.
-  if (aggregator_) {
-    for (const auto& id_entry : aggregator_->previous_contained_surfaces()) {
-      Surface* surface = surface_manager_->GetSurfaceForId(id_entry.first);
-      if (surface)
-        surface->SendAckToClient();
     }
   }
 }

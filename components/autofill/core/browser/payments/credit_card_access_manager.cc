@@ -111,13 +111,6 @@ std::vector<CreditCard*> CreditCardAccessManager::GetCreditCardsToSuggest() {
       personal_data_manager_->GetCreditCardsToSuggest(
           client_->AreServerCardsSupported());
 
-  for (const CreditCard* credit_card : cards_to_suggest) {
-    if (form_event_logger_ && !credit_card->bank_name().empty()) {
-      form_event_logger_->SetBankNameAvailable();
-      break;
-    }
-  }
-
   return cards_to_suggest;
 }
 
@@ -155,7 +148,7 @@ bool CreditCardAccessManager::GetDeletionConfirmationText(
     return false;
 
   if (title)
-    title->assign(card->NetworkOrBankNameAndLastFourDigits());
+    title->assign(card->NetworkAndLastFourDigits());
   if (body) {
     body->assign(l10n_util::GetStringUTF16(
         IDS_AUTOFILL_DELETE_CREDIT_CARD_SUGGESTION_CONFIRMATION_BODY));
@@ -194,6 +187,8 @@ void CreditCardAccessManager::PrepareToFetchCreditCard() {
   if (is_user_verifiable_.has_value()) {
     GetUnmaskDetailsIfUserIsVerifiable(is_user_verifiable_.value());
   } else {
+    is_user_verifiable_called_timestamp_ = AutofillTickClock::NowTicks();
+
     GetOrCreateFIDOAuthenticator()->IsUserVerifiable(base::BindOnce(
         &CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable,
         weak_ptr_factory_.GetWeakPtr()));
@@ -204,6 +199,12 @@ void CreditCardAccessManager::PrepareToFetchCreditCard() {
 void CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable(
     bool is_user_verifiable) {
   is_user_verifiable_ = is_user_verifiable;
+
+  if (is_user_verifiable_called_timestamp_.has_value()) {
+    AutofillMetrics::LogUserVerifiabilityCheckDuration(
+        AutofillTickClock::NowTicks() -
+        is_user_verifiable_called_timestamp_.value());
+  }
 
   // If user is verifiable, then make preflight call to payments to fetch unmask
   // details, otherwise the only option is to perform CVC Auth, which does not
@@ -222,25 +223,21 @@ void CreditCardAccessManager::GetUnmaskDetailsIfUserIsVerifiable(
 
 void CreditCardAccessManager::OnDidGetUnmaskDetails(
     AutofillClient::PaymentsRpcResult result,
-    AutofillClient::UnmaskDetails& unmask_details) {
+    payments::PaymentsClient::UnmaskDetails& unmask_details) {
   // Log latency for preflight call.
   AutofillMetrics::LogCardUnmaskPreflightDuration(
       AutofillTickClock::NowTicks() - preflight_call_timestamp_);
 
   unmask_details_request_in_progress_ = false;
-  unmask_details_.offer_fido_opt_in = unmask_details.offer_fido_opt_in &&
+  unmask_details_ = unmask_details;
+  unmask_details_.offer_fido_opt_in = unmask_details_.offer_fido_opt_in &&
                                       !payments_client_->is_off_the_record();
-  unmask_details_.unmask_auth_method = unmask_details.unmask_auth_method;
-  unmask_details_.fido_request_options =
-      std::move(unmask_details.fido_request_options);
-  unmask_details_.fido_eligible_card_ids =
-      unmask_details.fido_eligible_card_ids;
 
   // Set delay as fido request timeout if available, otherwise set to default.
   int delay_ms = kDelayForGetUnmaskDetails;
-  if (unmask_details_.fido_request_options.is_dict()) {
+  if (unmask_details_.fido_request_options.has_value()) {
     const auto* request_timeout =
-        unmask_details_.fido_request_options.FindKeyOfType(
+        unmask_details_.fido_request_options->FindKeyOfType(
             "timeout_millis", base::Value::Type::INTEGER);
     if (request_timeout)
       delay_ms = request_timeout->GetInt();
@@ -314,16 +311,24 @@ void CreditCardAccessManager::FetchCreditCard(
 #endif
 
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
-  // On desktop, show the verify pending dialog for opted-in user.
-  if (user_is_opted_in)
+  // On desktop, show the verify pending dialog for opted-in user, unless it is
+  // already known that selected card requires CVC.
+  if (user_is_opted_in &&
+      (!get_unmask_details_returned || IsSelectedCardFidoAuthorized())) {
     ShowVerifyPendingDialog();
+  }
 #endif
 
   if (should_wait_to_authenticate) {
+    card_selected_without_unmask_details_timestamp_ =
+        AutofillTickClock::NowTicks();
+
     // Wait for |ready_to_start_authentication_| to be signaled by
     // OnDidGetUnmaskDetails() or until timeout before calling Authenticate().
-    base::PostTaskAndReplyWithResult(
-        FROM_HERE, {base::ThreadPool(), base::MayBlock()},
+    auto task_runner =
+        base::CreateTaskRunner({base::ThreadPool(), base::MayBlock()});
+    cancelable_authenticate_task_tracker_.PostTaskAndReplyWithResult(
+        task_runner.get(), FROM_HERE,
         base::BindOnce(&WaitForEvent, &ready_to_start_authentication_),
         base::BindOnce(&CreditCardAccessManager::Authenticate,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -362,14 +367,22 @@ void CreditCardAccessManager::Authenticate(bool get_unmask_details_returned) {
   ready_to_start_authentication_.Reset();
   unmask_details_request_in_progress_ = false;
 
+  // If the user had to wait for Unmask Details, log the latency.
+  if (card_selected_without_unmask_details_timestamp_.has_value()) {
+    AutofillMetrics::LogUserPerceivedLatencyOnCardSelectionDuration(
+        AutofillTickClock::NowTicks() -
+        card_selected_without_unmask_details_timestamp_.value());
+    AutofillMetrics::LogUserPerceivedLatencyOnCardSelectionTimedOut(
+        /*did_time_out=*/!get_unmask_details_returned);
+    card_selected_without_unmask_details_timestamp_ = base::nullopt;
+  }
+
   bool fido_auth_suggested =
       get_unmask_details_returned && unmask_details_.unmask_auth_method ==
                                          AutofillClient::UnmaskAuthMethod::FIDO;
 
   bool card_is_authorized_for_fido =
-      fido_auth_suggested &&
-      unmask_details_.fido_eligible_card_ids.find(card_->server_id()) !=
-          unmask_details_.fido_eligible_card_ids.end();
+      fido_auth_suggested && IsSelectedCardFidoAuthorized();
 
   // If FIDO authentication was suggested, but card is not in authorized list,
   // must authenticate with CVC followed by FIDO in order to authorize this card
@@ -401,10 +414,10 @@ void CreditCardAccessManager::Authenticate(bool get_unmask_details_returned) {
     if (!is_authentication_in_progress_)
       return;
 
-    DCHECK(unmask_details_.fido_request_options.is_dict());
+    DCHECK(unmask_details_.fido_request_options.has_value());
     GetOrCreateFIDOAuthenticator()->Authenticate(
         card_.get(), weak_ptr_factory_.GetWeakPtr(), form_parsed_timestamp_,
-        std::move(unmask_details_.fido_request_options));
+        std::move(unmask_details_.fido_request_options.value()));
 #endif
   } else {
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
@@ -482,14 +495,14 @@ void CreditCardAccessManager::OnCVCAuthenticationComplete(
   if (should_offer_fido_auth) {
     ShowWebauthnOfferDialog(response.card_authorization_token);
   } else if (should_follow_up_cvc_with_fido_auth_) {
-    DCHECK(unmask_details_.fido_request_options.is_dict());
+    DCHECK(unmask_details_.fido_request_options.has_value());
 
     // Save credit card for after authorization.
     card_ = std::make_unique<CreditCard>(*(response.card));
     cvc_ = response.cvc;
     GetOrCreateFIDOAuthenticator()->Authorize(
         weak_ptr_factory_.GetWeakPtr(), response.card_authorization_token,
-        std::move(unmask_details_.fido_request_options));
+        std::move(unmask_details_.fido_request_options.value()));
   }
 #endif
 }
@@ -497,7 +510,8 @@ void CreditCardAccessManager::OnCVCAuthenticationComplete(
 #if !defined(OS_IOS)
 void CreditCardAccessManager::OnFIDOAuthenticationComplete(
     bool did_succeed,
-    const CreditCard* card) {
+    const CreditCard* card,
+    const base::string16& cvc) {
 #if !defined(OS_ANDROID)
   // Close the Webauthn verify pending dialog. If FIDO authentication succeeded,
   // card is filled to the form, otherwise fall back to CVC authentication which
@@ -507,7 +521,7 @@ void CreditCardAccessManager::OnFIDOAuthenticationComplete(
 
   if (did_succeed) {
     is_authentication_in_progress_ = false;
-    accessor_->OnCreditCardFetched(did_succeed, card);
+    accessor_->OnCreditCardFetched(did_succeed, card, cvc);
     can_fetch_unmask_details_.Signal();
   } else {
     // Fall back to CVC if WebAuthn failed.
@@ -536,6 +550,14 @@ bool CreditCardAccessManager::IsFidoAuthenticationEnabled() {
   return is_user_verifiable_.value_or(false) &&
          GetOrCreateFIDOAuthenticator()->IsUserOptedIn();
 #endif
+}
+
+bool CreditCardAccessManager::IsSelectedCardFidoAuthorized() {
+  DCHECK_NE(unmask_details_.unmask_auth_method,
+            AutofillClient::UnmaskAuthMethod::UNKNOWN);
+  return IsFidoAuthenticationEnabled() &&
+         unmask_details_.fido_eligible_card_ids.find(card_->server_id()) !=
+             unmask_details_.fido_eligible_card_ids.end();
 }
 
 void CreditCardAccessManager::ShowWebauthnOfferDialog(
@@ -570,10 +592,16 @@ void CreditCardAccessManager::HandleDialogUserResponse(
     case WebauthnDialogCallbackType::kVerificationCancelled:
       // TODO(crbug.com/949269): Add tests and logging for canceling verify
       // pending dialog.
-      GetOrCreateFIDOAuthenticator()->CancelVerification();
-      unmask_details_request_in_progress_ = false;
-      is_authentication_in_progress_ = false;
+      cancelable_authenticate_task_tracker_.TryCancelAll();
+      payments_client_->CancelRequest();
       SignalCanFetchUnmaskDetails();
+      ready_to_start_authentication_.Reset();
+      unmask_details_request_in_progress_ = false;
+      GetOrCreateFIDOAuthenticator()->CancelVerification();
+
+      // Indicate that FIDO authentication was canceled, resulting in falling
+      // back to CVC auth.
+      OnFIDOAuthenticationComplete(/*did_succeed=*/false);
       break;
   }
 }

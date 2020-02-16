@@ -4,6 +4,7 @@
 
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 
+#include <memory>
 #include <utility>
 
 #include "base/bind.h"
@@ -17,17 +18,23 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
+#include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
 #include "chrome/browser/safe_browsing/download_protection/check_native_file_system_write_request.h"
+#include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
 #include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
+#include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/download_protection/download_url_sb_client.h"
 #include "chrome/browser/safe_browsing/download_protection/ppapi_download_request.h"
 #include "chrome/browser/safe_browsing/services_delegate.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/common/safe_browsing/binary_feature_extractor.h"
 #include "chrome/common/url_constants.h"
+#include "components/download/public/common/download_item.h"
 #include "components/google/core/common/google_util.h"
-#include "components/safe_browsing/common/safebrowsing_switches.h"
+#include "components/prefs/pref_service.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safebrowsing_switches.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -118,7 +125,8 @@ DownloadProtectionService::DownloadProtectionService(
           base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
                                            base::TaskPriority::BEST_EFFORT})
               .get())),
-      whitelist_sample_rate_(kWhitelistDownloadSampleRate) {
+      whitelist_sample_rate_(kWhitelistDownloadSampleRate),
+      weak_ptr_factory_(this) {
   if (sb_service) {
     ui_manager_ = sb_service->ui_manager();
     database_manager_ = sb_service->database_manager();
@@ -184,6 +192,30 @@ void DownloadProtectionService::CheckClientDownload(
   request_copy->Start();
 }
 
+bool DownloadProtectionService::MaybeCheckClientDownload(
+    download::DownloadItem* item,
+    CheckDownloadRepeatingCallback callback) {
+  Profile* profile = Profile::FromBrowserContext(
+      content::DownloadItemUtils::GetBrowserContext(item));
+  bool safe_browsing_enabled =
+      profile && profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled);
+  bool deep_scanning_enabled =
+      DeepScanningRequest::ShouldUploadItemByPolicy(item);
+
+  if (safe_browsing_enabled) {
+    CheckClientDownload(item, std::move(callback));
+    return true;
+  }
+
+  if (deep_scanning_enabled) {
+    UploadForDeepScanning(item, std::move(callback),
+                          DeepScanningRequest::DeepScanTrigger::TRIGGER_POLICY);
+    return true;
+  }
+
+  return false;
+}
+
 void DownloadProtectionService::CheckDownloadUrl(
     download::DownloadItem* item,
     CheckDownloadCallback callback) {
@@ -205,6 +237,19 @@ void DownloadProtectionService::CheckDownloadUrl(
   // The client will release itself once it is done.
   base::PostTask(FROM_HERE, {BrowserThread::IO},
                  base::BindOnce(&DownloadUrlSBClient::StartCheck, client));
+}
+
+bool DownloadProtectionService::MaybeCheckDownloadUrl(
+    download::DownloadItem* item,
+    CheckDownloadCallback callback) {
+  Profile* profile = Profile::FromBrowserContext(
+      content::DownloadItemUtils::GetBrowserContext(item));
+  if (profile && profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled)) {
+    CheckDownloadUrl(item, std::move(callback));
+    return true;
+  }
+
+  return false;
 }
 
 bool DownloadProtectionService::IsSupportedDownload(
@@ -324,7 +369,7 @@ void DownloadProtectionService::ShowDetailsForDownload(
       content::DownloadItemUtils::GetBrowserContext(item));
   if (profile &&
       AdvancedProtectionStatusManagerFactory::GetForProfile(profile)
-          ->RequestsAdvancedProtectionVerdicts() &&
+          ->IsUnderAdvancedProtection() &&
       item->GetDangerType() ==
           download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT) {
     learn_more_url = GURL(chrome::kAdvancedProtectionDownloadLearnMoreURL);
@@ -364,12 +409,15 @@ void DownloadProtectionService::MaybeSendDangerousDownloadOpenedReport(
   std::string token = GetDownloadPingToken(item);
   content::BrowserContext* browser_context =
       content::DownloadItemUtils::GetBrowserContext(item);
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  if (!profile || !profile->GetPrefs()->GetBoolean(prefs::kSafeBrowsingEnabled))
+    return;
+
   // When users are in incognito mode, no report will be sent and no
   // |onDangerousDownloadOpened| extension API will be called.
   if (browser_context->IsOffTheRecord())
     return;
 
-  Profile* profile = Profile::FromBrowserContext(browser_context);
   OnDangerousDownloadOpened(item, profile);
   if (sb_service_ &&
       !token.empty() &&  // Only dangerous downloads have token stored.
@@ -403,7 +451,8 @@ DownloadProtectionService::IdentifyReferrerChain(
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(
           const_cast<download::DownloadItem*>(&item));
-  SessionID download_tab_id = SessionTabHelper::IdForTab(web_contents);
+  SessionID download_tab_id =
+      sessions::SessionTabHelper::IdForTab(web_contents);
   UMA_HISTOGRAM_BOOLEAN(
       "SafeBrowsing.ReferrerHasInvalidTabID.DownloadAttribution",
       !download_tab_id.is_valid());
@@ -459,7 +508,7 @@ DownloadProtectionService::IdentifyReferrerChain(
   std::unique_ptr<ReferrerChain> referrer_chain =
       std::make_unique<ReferrerChain>();
 
-  SessionID tab_id = SessionTabHelper::IdForTab(item.web_contents);
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(item.web_contents);
   UMA_HISTOGRAM_BOOLEAN(
       "SafeBrowsing.ReferrerHasInvalidTabID.NativeFileSystemWriteAttribution",
       !tab_id.is_valid());
@@ -545,11 +594,29 @@ bool DownloadProtectionService::MaybeBeginFeedbackForDownload(
 }
 
 void DownloadProtectionService::UploadForDeepScanning(
-    Profile* profile,
-    std::unique_ptr<BinaryUploadService::Request> request) {
+    download::DownloadItem* item,
+    CheckDownloadRepeatingCallback callback,
+    DeepScanningRequest::DeepScanTrigger trigger,
+    std::vector<DeepScanningRequest::DeepScanType> allowed_scans) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  sb_service_->GetBinaryUploadService(profile)->MaybeUploadForDeepScanning(
-      std::move(request));
+  auto request = std::make_unique<DeepScanningRequest>(item, trigger, callback,
+                                                       this, allowed_scans);
+  DeepScanningRequest* request_raw = request.get();
+  auto insertion_result = deep_scanning_requests_.insert(
+      std::make_pair(request_raw, std::move(request)));
+  DCHECK(insertion_result.second);
+  insertion_result.first->second->Start();
+}
+
+void DownloadProtectionService::RequestFinished(DeepScanningRequest* request) {
+  auto it = deep_scanning_requests_.find(request);
+  DCHECK(it != deep_scanning_requests_.end());
+  deep_scanning_requests_.erase(it);
+}
+
+BinaryUploadService* DownloadProtectionService::GetBinaryUploadService(
+    Profile* profile) {
+  return sb_service_->GetBinaryUploadService(profile);
 }
 
 }  // namespace safe_browsing

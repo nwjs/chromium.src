@@ -4,13 +4,17 @@
 
 package org.chromium.chrome.browser.payments;
 
+import android.support.v4.util.ArrayMap;
+
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.payments.PaymentApp.InstrumentsCallback;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentMethodData;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +23,7 @@ import java.util.Set;
 /**
  * Builds instances of payment apps.
  */
-public class PaymentAppFactory {
+public class PaymentAppFactory implements PaymentAppFactoryInterface {
     private static PaymentAppFactory sInstance;
 
     /**
@@ -73,10 +77,6 @@ public class PaymentAppFactory {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_PAYMENT_APPS)) {
             mAdditionalFactories.add(new AndroidPaymentAppFactory());
         }
-
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.SERVICE_WORKER_PAYMENT_APPS)) {
-            mAdditionalFactories.add(new ServiceWorkerPaymentAppBridge());
-        }
     }
 
     /**
@@ -108,8 +108,6 @@ public class PaymentAppFactory {
      */
     public void create(WebContents webContents, Map<String, PaymentMethodData> methodData,
             boolean mayCrawl, final PaymentAppCreatedCallback callback) {
-        callback.onPaymentAppCreated(new AutofillPaymentApp(webContents));
-
         if (mAdditionalFactories.isEmpty()) {
             callback.onAllPaymentAppsCreated();
             return;
@@ -137,6 +135,112 @@ public class PaymentAppFactory {
                 }
             };
             additionalFactory.create(webContents, methodData, mayCrawl, cb);
+        }
+    }
+
+    // PaymentAppFactoryInterface implementation.
+    @Override
+    public void create(PaymentAppFactoryDelegate delegate) {
+        create(delegate.getParams().getWebContents(), delegate.getParams().getMethodData(),
+                delegate.getParams().getMayCrawl(), /*callback=*/new Aggregator(delegate));
+    }
+
+    /** Collects, filters, and returns payment apps to the PaymentAppFactoryDelegate. */
+    private final class Aggregator implements PaymentAppCreatedCallback, InstrumentsCallback {
+        private final PaymentAppFactoryDelegate mDelegate;
+        private final List<PaymentApp> mApps = new ArrayList<>();
+        private List<PaymentApp> mPendingApps;
+
+        private Aggregator(PaymentAppFactoryDelegate delegate) {
+            mDelegate = delegate;
+        }
+
+        // PaymentAppCreatedCallback implementation.
+        @Override
+        public void onPaymentAppCreated(PaymentApp paymentApp) {
+            mApps.add(paymentApp);
+        }
+
+        // PaymentAppCreatedCallback implementation.
+        @Override
+        public void onGetPaymentAppsError(String errorMessage) {
+            mDelegate.onPaymentAppCreationError(errorMessage);
+        }
+
+        // PaymentAppCreatedCallback implementation.
+        @Override
+        public void onAllPaymentAppsCreated() {
+            assert mPendingApps == null;
+
+            mPendingApps = new ArrayList<>(mApps);
+
+            Map<PaymentApp, Map<String, PaymentMethodData>> queryApps = new ArrayMap<>();
+            for (int i = 0; i < mApps.size(); i++) {
+                PaymentApp app = mApps.get(i);
+                Map<String, PaymentMethodData> appMethods = filterMerchantMethodData(
+                        mDelegate.getParams().getMethodData(), app.getAppMethodNames());
+                if (appMethods == null || !app.supportsMethodsAndData(appMethods)) {
+                    mPendingApps.remove(app);
+                } else {
+                    queryApps.put(app, appMethods);
+                }
+            }
+
+            mDelegate.onCanMakePaymentCalculated(!queryApps.isEmpty());
+
+            if (queryApps.isEmpty()) {
+                mDelegate.onDoneCreatingPaymentApps(PaymentAppFactory.this);
+                return;
+            }
+
+            for (Map.Entry<PaymentApp, Map<String, PaymentMethodData>> q : queryApps.entrySet()) {
+                PaymentApp app = q.getKey();
+                Map<String, PaymentMethodData> paymentMethods = q.getValue();
+                app.setPaymentRequestUpdateEventCallback(
+                        mDelegate.getParams().getPaymentRequestUpdateEventCallback());
+                app.getInstruments(mDelegate.getParams().getId(), paymentMethods,
+                        mDelegate.getParams().getTopLevelOrigin(),
+                        mDelegate.getParams().getPaymentRequestOrigin(),
+                        mDelegate.getParams().getCertificateChain(),
+                        mDelegate.getParams().getModifiers(), /*callback=*/this);
+            }
+        }
+
+        /**
+         * Filter out merchant method data that's not relevant to a payment app. Can return null.
+         */
+        private Map<String, PaymentMethodData> filterMerchantMethodData(
+                Map<String, PaymentMethodData> merchantMethodData, Set<String> appMethods) {
+            Map<String, PaymentMethodData> result = null;
+            for (String method : appMethods) {
+                if (merchantMethodData.containsKey(method)) {
+                    if (result == null) result = new ArrayMap<>();
+                    result.put(method, merchantMethodData.get(method));
+                }
+            }
+            return result == null ? null : Collections.unmodifiableMap(result);
+        }
+
+        // InstrumentsCallback implementation.
+        @Override
+        public void onInstrumentsReady(PaymentApp app, List<PaymentInstrument> instruments) {
+            mPendingApps.remove(app);
+
+            if (instruments != null) {
+                for (int i = 0; i < instruments.size(); i++) {
+                    PaymentInstrument instrument = instruments.get(i);
+                    Set<String> instrumentMethodNames =
+                            new HashSet<>(instrument.getInstrumentMethodNames());
+                    instrumentMethodNames.retainAll(mDelegate.getParams().getMethodData().keySet());
+                    if (!instrumentMethodNames.isEmpty()) {
+                        mDelegate.onPaymentAppCreated(instrument);
+                    } else {
+                        instrument.dismissInstrument();
+                    }
+                }
+            }
+
+            if (mPendingApps.isEmpty()) mDelegate.onDoneCreatingPaymentApps(PaymentAppFactory.this);
         }
     }
 }

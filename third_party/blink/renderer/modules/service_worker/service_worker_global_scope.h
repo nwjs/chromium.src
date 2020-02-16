@@ -285,6 +285,7 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
   DEFINE_ATTRIBUTE_EVENT_LISTENER(activate, kActivate)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(fetch, kFetch)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(message, kMessage)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(messageerror, kMessageerror)
 
   void Trace(blink::Visitor*) override;
 
@@ -337,6 +338,9 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
   // Counts the |script_size| and |cached_metadata_size| for UMA to measure the
   // number of scripts and the total bytes of scripts.
   void CountScriptInternal(size_t script_size, size_t cached_metadata_size);
+
+  // Called by ServiceWorkerEventQueue just before they start an event.
+  void OnBeforeStartEvent(bool is_offline_event);
 
   // Called by ServiceWorkerEventQueue when a certain time has passed since
   // the last task finished.
@@ -450,7 +454,7 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final
       const String& id,
       DispatchContentDeleteEventCallback callback) override;
   void Ping(PingCallback callback) override;
-  void SetIdleTimerDelayToZero() override;
+  void SetIdleDelay(base::TimeDelta delay) override;
   void AddMessageToConsole(mojom::blink::ConsoleMessageLevel,
                            const String& message) override;
 

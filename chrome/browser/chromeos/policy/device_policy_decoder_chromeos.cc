@@ -141,8 +141,6 @@ std::unique_ptr<base::Value> DecodeConnectionType(int value) {
       {em::AutoUpdateSettingsProto::CONNECTION_TYPE_ETHERNET,
        shill::kTypeEthernet},
       {em::AutoUpdateSettingsProto::CONNECTION_TYPE_WIFI, shill::kTypeWifi},
-      {em::AutoUpdateSettingsProto::CONNECTION_TYPE_BLUETOOTH,
-       shill::kTypeBluetooth},
       {em::AutoUpdateSettingsProto::CONNECTION_TYPE_CELLULAR,
        shill::kTypeCellular},
   };
@@ -162,6 +160,21 @@ void DecodeLoginPolicies(const em::ChromeDeviceSettingsProto& policy,
           POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
           std::make_unique<base::Value>(container.guest_mode_enabled()),
           nullptr);
+    }
+  }
+
+  if (policy.has_login_screen_primary_mouse_button_switch()) {
+    const em::BooleanPolicyProto& container(
+        policy.login_screen_primary_mouse_button_switch());
+    if (container.has_value()) {
+      PolicyLevel level;
+      if (GetPolicyLevel(container.has_policy_options(),
+                         container.policy_options(), &level)) {
+        policies->Set(key::kDeviceLoginScreenPrimaryMouseButtonSwitch, level,
+                      POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+                      std::make_unique<base::Value>(container.value()),
+                      nullptr);
+      }
     }
   }
 
@@ -659,6 +672,20 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
           std::make_unique<base::Value>(container.report_session_status()),
           nullptr);
     }
+    if (container.has_report_graphics_status()) {
+      policies->Set(
+          key::kReportDeviceGraphicsStatus, POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+          std::make_unique<base::Value>(container.report_graphics_status()),
+          nullptr);
+    }
+    if (container.has_report_crash_report_info()) {
+      policies->Set(
+          key::kReportDeviceCrashReportInfo, POLICY_LEVEL_MANDATORY,
+          POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+          std::make_unique<base::Value>(container.report_crash_report_info()),
+          nullptr);
+    }
     if (container.has_report_power_status()) {
       policies->Set(
           key::kReportDevicePowerStatus, POLICY_LEVEL_MANDATORY,
@@ -688,6 +715,12 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
                       POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
                       std::move(value), nullptr);
       }
+    }
+    if (container.has_report_cpu_info()) {
+      policies->Set(key::kReportDeviceCpuInfo, POLICY_LEVEL_MANDATORY,
+                    POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+                    std::make_unique<base::Value>(container.report_cpu_info()),
+                    nullptr);
     }
   }
 
@@ -734,11 +767,6 @@ void DecodeAutoUpdatePolicies(const em::ChromeDeviceSettingsProto& policy,
       policies->Set(key::kChromeOsReleaseChannel, POLICY_LEVEL_MANDATORY,
                     POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
                     std::make_unique<base::Value>(channel), nullptr);
-      // TODO(dubroy): Once http://crosbug.com/17015 is implemented, we won't
-      // have to pass the channel in here, only ping the update engine to tell
-      // it to fetch the channel from the policy.
-      chromeos::DBusThreadManager::Get()->GetUpdateEngineClient()->SetChannel(
-          channel, false);
     }
     if (container.has_release_channel_delegated()) {
       policies->Set(
@@ -963,6 +991,19 @@ void DecodeAccessibilityPolicies(const em::ChromeDeviceSettingsProto& policy,
                       POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
                       std::make_unique<base::Value>(
                           container.login_screen_high_contrast_enabled()),
+                      nullptr);
+      }
+    }
+
+    if (container.has_login_screen_shortcuts_enabled()) {
+      PolicyLevel level;
+      if (GetPolicyLevel(container.has_login_screen_shortcuts_enabled_options(),
+                         container.login_screen_shortcuts_enabled_options(),
+                         &level)) {
+        policies->Set(key::kDeviceLoginScreenAccessibilityShortcutsEnabled,
+                      level, POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
+                      std::make_unique<base::Value>(
+                          container.login_screen_shortcuts_enabled()),
                       nullptr);
       }
     }

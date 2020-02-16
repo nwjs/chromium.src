@@ -34,10 +34,8 @@
 #include "components/viz/service/display/output_surface_client.h"
 #include "components/viz/service/display/software_output_device.h"
 #include "components/viz/service/display/software_renderer.h"
-#include "components/viz/service/display_embedder/in_process_gpu_memory_buffer_manager.h"
 #include "components/viz/service/display_embedder/skia_output_surface_dependency_impl.h"
 #include "components/viz/service/display_embedder/skia_output_surface_impl.h"
-#include "components/viz/service/display_embedder/viz_process_context_provider.h"
 #include "components/viz/service/gl/gpu_service_impl.h"
 #include "components/viz/test/paths.h"
 #include "components/viz/test/test_in_process_context_provider.h"
@@ -47,6 +45,7 @@
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_feature_type.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_info.h"
 #include "gpu/ipc/gpu_in_process_thread_service.h"
 #include "gpu/ipc/service/gpu_memory_buffer_factory.h"
@@ -55,13 +54,23 @@
 
 namespace cc {
 
-PixelTest::PixelTest()
+PixelTest::PixelTest(bool enable_vulkan)
     : device_viewport_size_(gfx::Size(200, 200)),
       disable_picture_quad_image_filtering_(false),
       output_surface_client_(std::make_unique<FakeOutputSurfaceClient>()) {
   // Keep texture sizes exactly matching the bounds of the RenderPass to avoid
   // floating point badness in texcoords.
   renderer_settings_.dont_round_texture_sizes_for_pixel_tests = true;
+  if (enable_vulkan) {
+    auto* command_line = base::CommandLine::ForCurrentProcess();
+    bool use_gpu = command_line->HasSwitch(::switches::kUseGpuInTests);
+    command_line->AppendSwitchASCII(
+        ::switches::kUseVulkan,
+        use_gpu ? ::switches::kVulkanImplementationNameNative
+                : ::switches::kVulkanImplementationNameSwiftshader);
+    scoped_feature_list_ = std::make_unique<base::test::ScopedFeatureList>();
+    scoped_feature_list_->InitAndEnableFeature(features::kVulkan);
+  }
 }
 
 PixelTest::~PixelTest() = default;
@@ -237,33 +246,20 @@ void PixelTest::SetUpGLWithoutRenderer(bool flipped_output_surface) {
           /*enable_oop_rasterization=*/false, /*support_locking=*/false);
   result = child_context_provider_->BindToCurrentThread();
   DCHECK_EQ(result, gpu::ContextResult::kSuccess);
-  constexpr bool sync_token_verification = false;
-  child_resource_provider_ =
-      std::make_unique<viz::ClientResourceProvider>(sync_token_verification);
+  child_resource_provider_ = std::make_unique<viz::ClientResourceProvider>();
 }
 
 void PixelTest::SetUpGLRenderer(bool flipped_output_surface) {
   SetUpGLWithoutRenderer(flipped_output_surface);
   renderer_ = std::make_unique<viz::GLRenderer>(
       &renderer_settings_, output_surface_.get(), resource_provider_.get(),
-      base::ThreadTaskRunnerHandle::Get());
+      nullptr, base::ThreadTaskRunnerHandle::Get());
   renderer_->Initialize();
   renderer_->SetVisible(true);
 }
 
-void PixelTest::SetUpSkiaRenderer(bool flipped_output_surface,
-                                  bool enable_vulkan) {
+void PixelTest::SetUpSkiaRenderer(bool flipped_output_surface) {
   enable_pixel_output_ = std::make_unique<gl::DisableNullDrawGLBindings>();
-  if (enable_vulkan) {
-    auto* command_line = base::CommandLine::ForCurrentProcess();
-    bool use_gpu = command_line->HasSwitch(::switches::kUseGpuInTests);
-    command_line->AppendSwitchASCII(
-        ::switches::kUseVulkan,
-        use_gpu ? ::switches::kVulkanImplementationNameNative
-                : ::switches::kVulkanImplementationNameSwiftshader);
-    command_line->AppendSwitchASCII(
-        ::switches::kGrContextType, ::switches::kGrContextTypeVulkan);
-  }
   // Set up the GPU service.
   gpu_service_holder_ = viz::TestGpuServiceHolder::GetInstance();
 
@@ -281,35 +277,18 @@ void PixelTest::SetUpSkiaRenderer(bool flipped_output_surface,
       /*shared_bitmap_manager=*/nullptr);
   renderer_ = std::make_unique<viz::SkiaRenderer>(
       &renderer_settings_, output_surface_.get(), resource_provider_.get(),
-      static_cast<viz::SkiaOutputSurface*>(output_surface_.get()),
+      nullptr, static_cast<viz::SkiaOutputSurface*>(output_surface_.get()),
       viz::SkiaRenderer::DrawMode::DDL);
   renderer_->Initialize();
   renderer_->SetVisible(true);
 
   // Set up the client side context provider, etc
-  gpu_memory_buffer_manager_ =
-      std::make_unique<viz::InProcessGpuMemoryBufferManager>(
-          gpu_service()->gpu_memory_buffer_factory(),
-          gpu_service()->sync_point_manager());
-  gpu::ImageFactory* image_factory = gpu_service()->gpu_image_factory();
-  auto* gpu_channel_manager_delegate =
-      gpu_service()->gpu_channel_manager()->delegate();
-  viz::RendererSettings renderer_settings;
-  renderer_settings.requires_alpha_channel = false;
-#if defined(OS_ANDROID)
-  // Pick a reasonable arbitrary size for tests - used to set memory limits.
-  renderer_settings.initial_screen_size = gfx::Size(1920, 1080);
-  renderer_settings.color_space = gfx::ColorSpace::CreateSRGB();
-#endif
   child_context_provider_ =
-      base::MakeRefCounted<viz::VizProcessContextProvider>(
-          task_executor(), gpu::kNullSurfaceHandle,
-          gpu_memory_buffer_manager_.get(), image_factory,
-          gpu_channel_manager_delegate, renderer_settings);
-  child_context_provider_->BindToCurrentThread();
-  constexpr bool sync_token_verification = false;
-  child_resource_provider_ =
-      std::make_unique<viz::ClientResourceProvider>(sync_token_verification);
+      base::MakeRefCounted<viz::TestInProcessContextProvider>(
+          /*enable_oop_rasterization=*/false, /*support_locking=*/false);
+  gpu::ContextResult result = child_context_provider_->BindToCurrentThread();
+  DCHECK_EQ(result, gpu::ContextResult::kSuccess);
+  child_resource_provider_ = std::make_unique<viz::ClientResourceProvider>();
 }
 
 void PixelTest::TearDown() {
@@ -317,13 +296,11 @@ void PixelTest::TearDown() {
   child_resource_provider_->ShutdownAndReleaseAllResources();
   child_resource_provider_.reset();
   child_context_provider_.reset();
-  gpu_memory_buffer_manager_.reset();
 
   // Tear down the skia renderer.
   renderer_.reset();
   resource_provider_.reset();
   output_surface_.reset();
-  scoped_feature_list_.reset();
 }
 
 void PixelTest::EnableExternalStencilTest() {
@@ -339,12 +316,11 @@ void PixelTest::SetUpSoftwareRenderer() {
   resource_provider_ = std::make_unique<viz::DisplayResourceProvider>(
       viz::DisplayResourceProvider::kSoftware, nullptr,
       shared_bitmap_manager_.get());
-  constexpr bool sync_token_verification = false;
-  child_resource_provider_ =
-      std::make_unique<viz::ClientResourceProvider>(sync_token_verification);
+  child_resource_provider_ = std::make_unique<viz::ClientResourceProvider>();
 
   auto renderer = std::make_unique<viz::SoftwareRenderer>(
-      &renderer_settings_, output_surface_.get(), resource_provider_.get());
+      &renderer_settings_, output_surface_.get(), resource_provider_.get(),
+      nullptr);
   software_renderer_ = renderer.get();
   renderer_ = std::move(renderer);
   renderer_->Initialize();

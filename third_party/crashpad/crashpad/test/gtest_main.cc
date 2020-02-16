@@ -21,6 +21,10 @@
 #include "gmock/gmock.h"
 #endif  // CRASHPAD_TEST_LAUNCHER_GMOCK
 
+#if defined(OS_IOS)
+#include "test/gtest_runner_ios.h"
+#endif
+
 #if defined(OS_WIN)
 #include "test/win/win_child_process.h"
 #endif  // OS_WIN
@@ -80,7 +84,7 @@ int main(int argc, char* argv[]) {
     return base::LaunchUnitTests(
         argc,
         argv,
-        base::Bind(&base::TestSuite::Run, base::Unretained(&test_suite)));
+        base::BindOnce(&base::TestSuite::Run, base::Unretained(&test_suite)));
   }
 
 #endif  // CRASHPAD_IS_IN_CHROMIUM
@@ -93,5 +97,12 @@ int main(int argc, char* argv[]) {
 #error #define CRASHPAD_TEST_LAUNCHER_GTEST or CRASHPAD_TEST_LAUNCHER_GMOCK
 #endif  // CRASHPAD_TEST_LAUNCHER_GMOCK
 
+#if defined(OS_IOS)
+  // iOS needs to run tests within the context of an app, so call a helper that
+  // invokes UIApplicationMain().  The application delegate will call
+  // RUN_ALL_TESTS() and exit before returning control to this function.
+  crashpad::test::IOSLaunchApplicationAndRunTests(argc, argv);
+#else
   return RUN_ALL_TESTS();
+#endif
 }

@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/safe_browsing/content/password_protection/metrics_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
@@ -137,11 +138,34 @@ PasswordReuseModalWarningDialog::PasswordReuseModalWarningDialog(
       service_(service),
       url_(web_contents->GetLastCommittedURL()),
       password_type_(password_type) {
+  DialogDelegate::set_buttons(
+      password_type_.account_type() == ReusedPasswordAccountType::SAVED_PASSWORD
+          ? ui::DIALOG_BUTTON_OK
+          : ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL);
   DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
                                    GetOkButtonLabel(password_type_));
   DialogDelegate::set_button_label(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetStringUTF16(IDS_PAGE_INFO_IGNORE_PASSWORD_WARNING_BUTTON));
+
+  // The set_*_callback() methods below need a OnceCallback each and we only have one
+  // (done_callback_), so create a proxy callback that references done_callback_ and use it for each
+  // of the set_*_callback() callbacks. Note that since only one of the three callbacks can ever be
+  // invoked, done_callback_ is still run at most once.
+  auto make_done_callback = [this](safe_browsing::WarningAction value) {
+    return base::BindOnce(
+        [](OnWarningDone* callback, safe_browsing::WarningAction value) {
+          std::move(*callback).Run(value);
+        },
+        base::Unretained(&done_callback_), value);
+  };
+  DialogDelegate::set_accept_callback(
+      password_type_.account_type() != ReusedPasswordAccountType::SAVED_PASSWORD
+          ? make_done_callback(WarningAction::CHANGE_PASSWORD)
+          : base::DoNothing());
+  DialogDelegate::set_cancel_callback(
+      make_done_callback(WarningAction::IGNORE_WARNING));
+  DialogDelegate::set_close_callback(make_done_callback(WarningAction::CLOSE));
 
   // |service| maybe NULL in tests.
   if (service_)
@@ -165,11 +189,13 @@ PasswordReuseModalWarningDialog::PasswordReuseModalWarningDialog(
             : l10n_util::GetStringUTF16(IDS_PAGE_INFO_CHANGE_PASSWORD_DETAILS));
     CreateGaiaPasswordReuseModalWarningDialog(message_body_label);
   }
+  modal_construction_start_time_ = base::TimeTicks::Now();
 }
 
 PasswordReuseModalWarningDialog::~PasswordReuseModalWarningDialog() {
   if (service_)
     service_->RemoveObserver(this);
+  LogModalWarningDialogLifetime(modal_construction_start_time_);
 }
 
 void PasswordReuseModalWarningDialog::
@@ -253,32 +279,6 @@ gfx::ImageSkia PasswordReuseModalWarningDialog::GetWindowIcon() {
 }
 
 bool PasswordReuseModalWarningDialog::ShouldShowWindowIcon() const {
-  return true;
-}
-
-int PasswordReuseModalWarningDialog::GetDialogButtons() const {
-  return password_type_.account_type() ==
-                 ReusedPasswordAccountType::SAVED_PASSWORD
-             ? ui::DIALOG_BUTTON_OK
-             : ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL;
-}
-
-bool PasswordReuseModalWarningDialog::Cancel() {
-  std::move(done_callback_).Run(WarningAction::IGNORE_WARNING);
-  return true;
-}
-
-bool PasswordReuseModalWarningDialog::Accept() {
-  if (password_type_.account_type() !=
-      ReusedPasswordAccountType::SAVED_PASSWORD)
-    std::move(done_callback_).Run(WarningAction::CHANGE_PASSWORD);
-
-  return true;
-}
-
-bool PasswordReuseModalWarningDialog::Close() {
-  if (done_callback_)
-    std::move(done_callback_).Run(WarningAction::CLOSE);
   return true;
 }
 

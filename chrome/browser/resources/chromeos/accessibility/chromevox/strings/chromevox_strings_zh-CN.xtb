@@ -384,7 +384,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{1个反撇号}other{#个反撇号}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{1个美元符号}other{#个美元符号}}</translation>
-<translation id="3658742229777143148">修订版本</translation>
 <translation id="3659787053479271466">提醒</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />，列表框</translation>
 <translation id="3681531118904532409">蕃木瓜色</translation>
@@ -419,6 +418,7 @@
 <translation id="3914732343065571127">ChromeVox 命令参考</translation>
 <translation id="3930383913623796990">春绿色</translation>
 <translation id="3930498801443296724">重要引述</translation>
+<translation id="3935615366277838204">大写 <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">薰衣草紫红色</translation>
 <translation id="3941269780691800708">说出鼠标指针下方的文字。</translation>
 <translation id="394953087167197343">表示拼写错误：</translation>
@@ -792,7 +792,6 @@
 <translation id="6459511626086141404">降调按键映射</translation>
 <translation id="6468049171101508116">下一个按钮</translation>
 <translation id="646954774886932461">索引</translation>
-<translation id="6479792383819319132">没有下一个段落。</translation>
 <translation id="6493991254603208962">调低亮度</translation>
 <translation id="6501595918865591267">绿松石色</translation>
 <translation id="6508059270146105198">将盲文显示移动到页底</translation>
@@ -814,8 +813,7 @@
 <translation id="6633350132811819843">不存在下一个表格。</translation>
 <translation id="6637586476836377253">日志</translation>
 <translation id="6657128831881431364">进度条</translation>
-<translation id="6659594942844771486">标签页</translation>
-<translation id="6675661017770918201">没有上一个段落。</translation>
+<translation id="6659594942844771486">Tab</translation>
 <translation id="667999046851023355">文档</translation>
 <translation id="6688209025607531203">非模态提醒</translation>
 <translation id="6689672606256159458">暗鲑红色</translation>
@@ -844,6 +842,7 @@
 <translation id="6865519907510167493">拼写错误</translation>
 <translation id="6871161210040114857">不区分大小写。</translation>
 <translation id="6877435256196695200">不存在下一个图形。</translation>
+<translation id="688976158310523235">搜索菜单</translation>
 <translation id="6897341342232909480">向左移动</translation>
 <translation id="6901540140423170855">日期</translation>
 <translation id="6910211073230771657">已删除</translation>
@@ -856,6 +855,7 @@
 <translation id="699159175332639490">搜索键 + O + W</translation>
 <translation id="6994042831499278539">词汇表参考资料</translation>
 <translation id="6996566555547746822">下一个组合框</translation>
+<translation id="6997224546856374593">读出大写字母时：</translation>
 <translation id="700202842116345659">参考书目</translation>
 <translation id="7005146664810010831">找不到网址</translation>
 <translation id="7010712454773919705">ChromeVox辅助键</translation>
@@ -936,6 +936,7 @@
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">标签</translation>
 <translation id="7492049978501397201">已进入对话框</translation>
+<translation id="7505149250476994901">先说“大写”，后读字母</translation>
 <translation id="7518543783849163354">要使 ChromeVox 暂时停止朗读功能，请按 Ctrl 键。</translation>
 <translation id="7521682724501952239">您可将 ChromeVox 与触摸屏搭配使用。</translation>
 <translation id="7532613204005497612">6月</translation>
@@ -1103,7 +1104,6 @@
 <translation id="812886159861361726">“<ph name="FILE_NAME" />”已停止下载</translation>
 <translation id="8138880386467279117">触摸</translation>
 <translation id="8153880621934657047">不在表格内。</translation>
-<translation id="8161114871611868169">“评论”部分</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{1个下划线}other{#个下划线}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">行</translation>
@@ -1124,6 +1124,7 @@
 <translation id="8313653172105209786">目录</translation>
 <translation id="8316881042119029234">旧蕾丝色</translation>
 <translation id="8326783648485765113">草绿色</translation>
+<translation id="8328063869313048659">开启/关闭暗屏幕</translation>
 <translation id="8344569602005188545">小时</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{1个井号}other{#个井号}}</translation>
 <translation id="8374154622594089836">月</translation>
@@ -1208,6 +1209,7 @@
 <translation id="9065283790526219006">含弹出项</translation>
 <translation id="9066023754636984703">先按搜索键 + A 键，再按 J 键，即可跳转到相关详情。</translation>
 <translation id="9067522039955793016">分页符</translation>
+<translation id="9074824103975499138">搜索 ChromeVox 菜单</translation>
 <translation id="9077213568694924680">已从所选文字中移除</translation>
 <translation id="9077305471618729969">亮海绿</translation>
 <translation id="9082874451376019682">不存在上一个滑块。</translation>

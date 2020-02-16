@@ -310,6 +310,15 @@ bool ComponentLoader::Exists(const std::string& id) const {
   return false;
 }
 
+std::vector<std::string> ComponentLoader::GetRegisteredComponentExtensionsIds()
+    const {
+  std::vector<std::string> result;
+  for (const auto& el : component_extensions_) {
+    result.push_back(el.extension_id);
+  }
+  return result;
+}
+
 #if BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
 void ComponentLoader::AddHangoutServicesExtension() {
   Add(IDR_HANGOUT_SERVICES_MANIFEST,
@@ -400,9 +409,8 @@ void ComponentLoader::AddKeyboardApp() {
 void ComponentLoader::AddChromeCameraApp() {
   base::FilePath resources_path;
   if (base::PathService::Get(chrome::DIR_RESOURCES, &resources_path)) {
-    AddComponentFromDir(
-        resources_path.Append(extension_misc::kChromeCameraAppPath),
-        extension_misc::kChromeCameraAppId, base::RepeatingClosure());
+    AddComponentFromDir(resources_path.Append(extension_misc::kCameraAppPath),
+                        extension_misc::kCameraAppId, base::RepeatingClosure());
   }
 }
 
@@ -478,11 +486,10 @@ void ComponentLoader::AddDefaultComponentExtensions(
 #endif
 
   AddDefaultComponentExtensionsWithBackgroundPages(skip_session_components);
-
 #if BUILDFLAG(ENABLE_PDF)
-  Add(pdf_extension_util::GetManifest(),
-      base::FilePath(FILE_PATH_LITERAL("pdf")));
-#endif
+    Add(pdf_extension_util::GetManifest(),
+        base::FilePath(FILE_PATH_LITERAL("pdf")));
+#endif  // BUILDFLAG(ENABLE_PDF)
 
   base::CommandLine& command_line(*base::CommandLine::ForCurrentProcess());
 
@@ -687,11 +694,11 @@ void ComponentLoader::AddComponentFromDir(
 
   base::PostTaskAndReplyWithResult(
       GetExtensionFileTaskRunner().get(), FROM_HERE,
-      base::Bind(&LoadManifestOnFileThread, root_directory, manifest_filename,
-                 true),
-      base::Bind(&ComponentLoader::FinishAddComponentFromDir,
-                 weak_factory_.GetWeakPtr(), root_directory, extension_id,
-                 base::nullopt, base::nullopt, done_cb));
+      base::BindOnce(&LoadManifestOnFileThread, root_directory,
+                     manifest_filename, true),
+      base::BindOnce(&ComponentLoader::FinishAddComponentFromDir,
+                     weak_factory_.GetWeakPtr(), root_directory, extension_id,
+                     base::nullopt, base::nullopt, done_cb));
 }
 
 void ComponentLoader::AddWithNameAndDescriptionFromDir(
@@ -702,14 +709,18 @@ void ComponentLoader::AddWithNameAndDescriptionFromDir(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   base::PostTaskAndReplyWithResult(
       GetExtensionFileTaskRunner().get(), FROM_HERE,
-      base::Bind(&LoadManifestOnFileThread, root_directory,
-                 extensions::kManifestFilename, false),
-      base::Bind(&ComponentLoader::FinishAddComponentFromDir,
-                 weak_factory_.GetWeakPtr(), root_directory, extension_id,
-                 name_string, description_string, base::Closure()));
+      base::BindOnce(&LoadManifestOnFileThread, root_directory,
+                     extensions::kManifestFilename, false),
+      base::BindOnce(&ComponentLoader::FinishAddComponentFromDir,
+                     weak_factory_.GetWeakPtr(), root_directory, extension_id,
+                     name_string, description_string, base::Closure()));
 }
 
 void ComponentLoader::AddChromeOsSpeechSynthesisExtensions() {
+  if (Exists(extension_misc::kGoogleSpeechSynthesisExtensionId) ||
+      Exists(extension_misc::kEspeakSpeechSynthesisExtensionId))
+    return;
+
   AddComponentFromDir(
       base::FilePath(extension_misc::kGoogleSpeechSynthesisExtensionPath),
       extension_misc::kGoogleSpeechSynthesisExtensionId,

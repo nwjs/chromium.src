@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/values.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "url/origin.h"
@@ -145,10 +146,30 @@ void ChooserContextBase::GrantObjectPermission(
         setting.SetKey(kObjectListKey, base::Value(base::Value::Type::LIST));
   }
 
-  auto& object_list = objects->GetList();
-  if (!base::Contains(object_list, object))
-    object_list.push_back(std::move(object));
+  if (!base::Contains(objects->GetList(), object))
+    objects->Append(std::move(object));
 
+  SetWebsiteSetting(requesting_origin, embedding_origin, std::move(setting));
+  NotifyPermissionChanged();
+}
+
+void ChooserContextBase::UpdateObjectPermission(
+    const url::Origin& requesting_origin,
+    const url::Origin& embedding_origin,
+    base::Value& old_object,
+    base::Value new_object) {
+  base::Value setting =
+      GetWebsiteSetting(requesting_origin, embedding_origin, /*info=*/nullptr);
+  base::Value* objects = setting.FindListKey(kObjectListKey);
+  if (!objects)
+    return;
+
+  base::Value::ListView object_list = objects->GetList();
+  auto it = std::find(object_list.begin(), object_list.end(), old_object);
+  if (it == object_list.end())
+    return;
+
+  *it = std::move(new_object);
   SetWebsiteSetting(requesting_origin, embedding_origin, std::move(setting));
   NotifyPermissionChanged();
 }
@@ -165,10 +186,10 @@ void ChooserContextBase::RevokeObjectPermission(
   if (!objects)
     return;
 
-  auto& object_list = objects->GetList();
+  base::Value::ListView object_list = objects->GetList();
   auto it = std::find(object_list.begin(), object_list.end(), object);
   if (it != object_list.end())
-    objects->GetList().erase(it);
+    objects->EraseListIter(it);
 
   SetWebsiteSetting(requesting_origin, embedding_origin, std::move(setting));
   NotifyPermissionRevoked(requesting_origin, embedding_origin);

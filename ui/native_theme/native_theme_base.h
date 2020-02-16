@@ -27,6 +27,10 @@ class NATIVE_THEME_EXPORT NativeThemeBase : public NativeTheme {
   gfx::Size GetPartSize(Part part,
                         State state,
                         const ExtraParams& extra) const override;
+  float GetBorderRadiusForPart(Part part,
+                               float width,
+                               float height,
+                               float zoom) const override;
   void Paint(cc::PaintCanvas* canvas,
              Part part,
              State state,
@@ -44,19 +48,24 @@ class NATIVE_THEME_EXPORT NativeThemeBase : public NativeTheme {
     kBorder,
     kDisabledBorder,
     kHoveredBorder,
+    kPressedBorder,
     kAccent,
     kDisabledAccent,
     kHoveredAccent,
+    kPressedAccent,
     kBackground,
     kDisabledBackground,
     kFill,
     kDisabledFill,
     kHoveredFill,
+    kPressedFill,
     kLightenLayer,
     kProgressValue,
     kSlider,
     kDisabledSlider,
-    kHoveredSlider
+    kHoveredSlider,
+    kPressedSlider,
+    kAutoCompleteBackground
   };
 
   NativeThemeBase();

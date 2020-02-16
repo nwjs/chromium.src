@@ -11,6 +11,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
+#include "device/vr/public/cpp/session_mode.h"
 
 namespace vr {
 
@@ -47,17 +48,6 @@ class SessionMetricsHelperData : public base::SupportsUserData::Data {
   DISALLOW_IMPLICIT_CONSTRUCTORS(SessionMetricsHelperData);
 };
 
-device::SessionMode ConvertRuntimeOptionsToSessionMode(
-    const device::mojom::XRRuntimeSessionOptions& options) {
-  if (!options.immersive)
-    return device::SessionMode::kInline;
-
-  if (options.environment_integration)
-    return device::SessionMode::kImmersiveAr;
-
-  return device::SessionMode::kImmersiveVr;
-}
-
 }  // namespace
 
 WebXRSessionTracker::WebXRSessionTracker(
@@ -84,8 +74,7 @@ void WebXRSessionTracker::RecordRequestedFeatures(
                     XRSessionFeatureRequestStatus::kNotRequested);
   SetFeatureRequest(XRSessionFeature::REF_SPACE_UNBOUNDED,
                     XRSessionFeatureRequestStatus::kNotRequested);
-  // Not currently recording metrics for
-  // XRSessionFeature::DOM_OVERLAY_FOR_HANDHELD_AR
+  // Not currently recording metrics for XRSessionFeature::DOM_OVERLAY
 
   // Record required feature requests
   for (auto feature : session_options.required_features) {
@@ -122,8 +111,11 @@ void WebXRSessionTracker::ReportFeatureUsed(
     case XRSessionFeature::REF_SPACE_UNBOUNDED:
       ukm_entry_->SetFeatureUse_Unbounded(true);
       break;
-    case XRSessionFeature::DOM_OVERLAY_FOR_HANDHELD_AR:
-      // Not recording metrics for this feature currently
+    case XRSessionFeature::DOM_OVERLAY:
+    case XRSessionFeature::HIT_TEST:
+      // Not recording metrics for these features currently.
+      // TODO(https://crbug.com/965729): Add metrics for the AR-related features
+      // that are enabled by default.
       break;
   }
 }
@@ -154,8 +146,11 @@ void WebXRSessionTracker::SetFeatureRequest(
     case XRSessionFeature::REF_SPACE_UNBOUNDED:
       ukm_entry_->SetFeatureRequest_Local(static_cast<int64_t>(status));
       break;
-    case XRSessionFeature::DOM_OVERLAY_FOR_HANDHELD_AR:
-      // Not recording metrics for this feature currently.
+    case XRSessionFeature::DOM_OVERLAY:
+    case XRSessionFeature::HIT_TEST:
+      // Not recording metrics for these features currently.
+      // TODO(https://crbug.com/965729): Add metrics for the AR-related features
+      // that are enabled by default.
       break;
   }
 }
@@ -266,6 +261,20 @@ SessionMetricsHelper* SessionMetricsHelper::CreateForWebContents(
   return new SessionMetricsHelper(contents, initial_mode);
 }
 
+// private static
+SessionMetricsHelper::SessionMode
+SessionMetricsHelper::ConvertRuntimeOptionsToSessionMode(
+    const device::mojom::XRRuntimeSessionOptions& options) {
+  switch (options.mode) {
+    case device::mojom::XRSessionMode::kInline:
+      return SessionMode::kInline;
+    case device::mojom::XRSessionMode::kImmersiveVr:
+      return SessionMode::kImmersiveVr;
+    case device::mojom::XRSessionMode::kImmersiveAr:
+      return SessionMode::kImmersiveAr;
+  }
+}
+
 SessionMetricsHelper::SessionMetricsHelper(content::WebContents* contents,
                                            Mode initial_mode) {
   DVLOG(2) << __func__;
@@ -343,7 +352,7 @@ WebXRSessionTracker* SessionMetricsHelper::RecordInlineSessionStart(
   //    PresentationStartAction::kOther);
   // TODO(crbug.com/1021212): Remove IsLegacyWebVR when safe.
   tracker->ukm_entry()->SetIsLegacyWebVR(false).SetMode(
-      static_cast<int64_t>(device::SessionMode::kInline));
+      static_cast<int64_t>(SessionMode::kInline));
 
   return tracker;
 }
@@ -402,7 +411,7 @@ void SessionMetricsHelper::RecordPresentationStartAction(
 
 void SessionMetricsHelper::ReportRequestPresent(
     const device::mojom::XRRuntimeSessionOptions& options) {
-  DCHECK(options.immersive);
+  DCHECK(device::XRSessionModeUtils::IsImmersive(options.mode));
 
   // TODO(https://crbug.com/965729): Ensure we correctly handle AR cases
   // throughout session metrics helper.
@@ -440,7 +449,7 @@ void SessionMetricsHelper::LogVrStartAction(VrStartAction action) {
 
 void SessionMetricsHelper::LogPresentationStartAction(
     PresentationStartAction action,
-    device::SessionMode xr_session_mode) {
+    SessionMode xr_session_mode) {
   DCHECK(GetImmersiveSessionTracker());
 
   UMA_HISTOGRAM_ENUMERATION("XR.WebXR.PresentationSession", action);
@@ -613,7 +622,7 @@ void SessionMetricsHelper::OnEnterPresentation() {
   // be not set? What is the ordering of calls to RecordPresentationStartAction?
   auto start_info = pending_immersive_session_start_info_.value_or(
       PendingImmersiveSessionStartInfo{PresentationStartAction::kOther,
-                                       device::SessionMode::kUnknown});
+                                       SessionMode::kUnknown});
 
   LogPresentationStartAction(start_info.action, start_info.mode);
 }

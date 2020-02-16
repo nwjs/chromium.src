@@ -69,8 +69,7 @@
       SyncSetupServiceFactory::GetForBrowserState(self.browserState);
   self.mediator.commandHandler = self;
   self.viewController = [[ManageSyncSettingsTableViewController alloc]
-      initWithTableViewStyle:UITableViewStyleGrouped
-                 appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+      initWithStyle:UITableViewStyleGrouped];
   self.viewController.serviceDelegate = self.mediator;
   self.viewController.presentationDelegate = self;
   self.viewController.modelDelegate = self.mediator;
@@ -161,8 +160,7 @@
 #pragma mark - SyncObserverModelBridge
 
 - (void)onSyncStateChanged {
-  if (self.syncService->GetDisableReasons() !=
-      syncer::SyncService::DISABLE_REASON_NONE) {
+  if (!self.syncService->GetDisableReasons().Empty()) {
     [self closeManageSyncSettings];
   }
 }

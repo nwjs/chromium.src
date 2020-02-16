@@ -9,6 +9,7 @@
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_app_interface.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
+#import "ios/chrome/browser/ui/settings/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -326,9 +327,6 @@ id<GREYMatcher> OmniboxWidthBetween(CGFloat width, CGFloat margin) {
       [ContentSuggestionsAppInterface collectionView].bounds.size.width;
   GREYAssertNotEqual(collectionWidth, collectionWidthAfterRotation,
                      @"The collection width has not changed.");
-
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
-      assertWithMatcher:grey_not(grey_sufficientlyVisible())];
 }
 
 // Tests that the app doesn't crash when opening multiple tabs.
@@ -644,7 +642,7 @@ id<GREYMatcher> OmniboxWidthBetween(CGFloat width, CGFloat margin) {
   // Change the Search Engine to Yahoo!.
   [ChromeEarlGreyUI openSettingsMenu];
   [ChromeEarlGreyUI
-      tapSettingsMenuButton:grey_accessibilityID(@"Search Engine")];
+      tapSettingsMenuButton:grey_accessibilityID(kSettingsSearchEngineCellId)];
   [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(@"Yahoo!")]
       performAction:grey_tap()];
   [[EarlGrey
@@ -667,7 +665,7 @@ id<GREYMatcher> OmniboxWidthBetween(CGFloat width, CGFloat margin) {
   // Change the Search Engine to Google.
   [ChromeEarlGreyUI openSettingsMenu];
   [ChromeEarlGreyUI
-      tapSettingsMenuButton:grey_accessibilityID(@"Search Engine")];
+      tapSettingsMenuButton:grey_accessibilityID(kSettingsSearchEngineCellId)];
   [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(@"Google")]
       performAction:grey_tap()];
   [[EarlGrey

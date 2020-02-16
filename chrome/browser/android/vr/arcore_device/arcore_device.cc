@@ -20,8 +20,8 @@
 #include "chrome/browser/android/vr/arcore_device/arcore_session_utils.h"
 #include "chrome/browser/android/vr/mailbox_to_surface_bridge.h"
 #include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_result.h"
 #include "chrome/browser/permissions/permission_update_infobar_delegate_android.h"
+#include "components/permissions/permission_result.h"
 #include "ui/display/display.h"
 
 using base::android::JavaRef;
@@ -129,8 +129,7 @@ void ArCoreDevice::RequestSession(
   session_state_->pending_request_session_callback_ = std::move(callback);
 
   bool use_dom_overlay = base::Contains(
-      options->enabled_features,
-      device::mojom::XRSessionFeature::DOM_OVERLAY_FOR_HANDHELD_AR);
+      options->enabled_features, device::mojom::XRSessionFeature::DOM_OVERLAY);
 
   // mailbox_bridge_ is either supplied from the constructor, or recreated in
   // OnSessionEnded().

@@ -8,20 +8,23 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
-import org.chromium.base.ObservableSupplier;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.datareduction.DataReductionPromoScreen;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
+import org.chromium.chrome.browser.gesturenav.HistoryNavigationCoordinator;
 import org.chromium.chrome.browser.language.LanguageAskPrompt;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.offlinepages.indicator.ConnectivityDetector;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -41,12 +44,15 @@ import org.chromium.ui.base.WindowAndroid;
  * A {@link RootUiCoordinator} variant that controls tabbed-mode specific UI.
  */
 public class TabbedRootUiCoordinator extends RootUiCoordinator implements NativeInitObserver {
+    private static boolean sEnableStatusIndicatorForTests;
+
     private @Nullable ImmersiveModeManager mImmersiveModeManager;
     private TabbedSystemUiCoordinator mSystemUiCoordinator;
     private @Nullable EmptyBackgroundViewWrapper mEmptyBackgroundViewWrapper;
 
     private StatusIndicatorCoordinator mStatusIndicatorCoordinator;
     private StatusIndicatorCoordinator.StatusIndicatorObserver mStatusIndicatorObserver;
+    private ConnectivityDetector mConnectivityDetector;
     private @Nullable ToolbarButtonInProductHelpController mToolbarButtonInProductHelpController;
     private boolean mIntentWithEffect;
 
@@ -128,6 +134,9 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
         super.onLayoutManagerAvailable(layoutManager);
 
         initStatusIndicatorCoordinator(layoutManager);
+        HistoryNavigationCoordinator.create(mActivity.getLifecycleDispatcher(),
+                mActivity.getCompositorViewHolder(), mActivity.getActivityTabProvider(),
+                mActivity.getInsetObserverView());
     }
 
     @Override
@@ -144,38 +153,59 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator implements Native
 
     private void initializeIPH() {
         WindowAndroid window = mActivity.getWindowAndroid();
-        mToolbarButtonInProductHelpController =
-                new ToolbarButtonInProductHelpController(mActivity, mAppMenuCoordinator);
+        mToolbarButtonInProductHelpController = new ToolbarButtonInProductHelpController(
+                mActivity, mAppMenuCoordinator, mActivity.getLifecycleDispatcher());
         if (!triggerPromo()) {
-            mToolbarButtonInProductHelpController.maybeShowColdStartIPH();
+            mToolbarButtonInProductHelpController.showColdStartIPH();
         }
     }
 
     private void initStatusIndicatorCoordinator(LayoutManager layoutManager) {
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.OFFLINE_INDICATOR_V2)) {
+        // TODO(crbug.com/1035584): Disable on tablets for now as we need to do one or two extra
+        // things for tablets.
+        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
+                || (!ChromeFeatureList.isEnabled(ChromeFeatureList.OFFLINE_INDICATOR_V2)
+                        && !sEnableStatusIndicatorForTests)) {
             return;
         }
 
-        mStatusIndicatorCoordinator = new StatusIndicatorCoordinator(
-                mActivity, mActivity.getCompositorViewHolder().getResourceManager());
+        final ChromeFullscreenManager fullscreenManager = mActivity.getFullscreenManager();
+        mStatusIndicatorCoordinator = new StatusIndicatorCoordinator(mActivity,
+                mActivity.getCompositorViewHolder().getResourceManager(), fullscreenManager);
         layoutManager.setStatusIndicatorSceneOverlay(mStatusIndicatorCoordinator.getSceneLayer());
         mStatusIndicatorObserver = (indicatorHeight -> {
-            getToolbarManager().setControlContainerTopMargin(indicatorHeight);
-            layoutManager.getToolbarSceneLayer().setStaticYOffset(indicatorHeight);
             final int resourceId = mActivity.getControlContainerHeightResource();
             final int topControlsNewHeight =
                     mActivity.getResources().getDimensionPixelSize(resourceId) + indicatorHeight;
-            mActivity.getFullscreenManager().setAnimateBrowserControlsHeightChanges(true);
-            mActivity.getFullscreenManager().setTopControlsHeight(
-                    topControlsNewHeight, indicatorHeight);
-            mActivity.getFullscreenManager().setAnimateBrowserControlsHeightChanges(false);
+            fullscreenManager.setAnimateBrowserControlsHeightChanges(true);
+            fullscreenManager.setTopControlsHeight(topControlsNewHeight, indicatorHeight);
+            fullscreenManager.setAnimateBrowserControlsHeightChanges(false);
         });
         mStatusIndicatorCoordinator.addObserver(mStatusIndicatorObserver);
+
+        // Don't listen to the ConnectivityDetector if the feature is disabled.
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.OFFLINE_INDICATOR_V2)) {
+            return;
+        }
+        // TODO(sinansahin): Move to a separate class in /offlinepages/indicator.
+        mConnectivityDetector = new ConnectivityDetector((state) -> {
+            final boolean offline = state != ConnectivityDetector.ConnectionState.VALIDATED;
+            if (offline) {
+                mStatusIndicatorCoordinator.show();
+            } else {
+                mStatusIndicatorCoordinator.hide();
+            }
+        });
     }
 
     @VisibleForTesting
     public StatusIndicatorCoordinator getStatusIndicatorCoordinatorForTesting() {
         return mStatusIndicatorCoordinator;
+    }
+
+    @VisibleForTesting
+    public static void setEnableStatusIndicatorForTests(boolean disable) {
+        sEnableStatusIndicatorForTests = disable;
     }
 
     /**

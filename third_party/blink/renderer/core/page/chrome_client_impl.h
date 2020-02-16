@@ -35,6 +35,7 @@
 #include <memory>
 
 #include "cc/input/overscroll_behavior.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "third_party/blink/public/web/web_window_features.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -63,15 +64,14 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void SetWindowRect(const IntRect&, LocalFrame&) override;
   IntRect RootWindowRect(LocalFrame&) override;
   void Focus(LocalFrame*) override;
-  bool CanTakeFocus(WebFocusType) override;
-  void TakeFocus(WebFocusType) override;
+  bool CanTakeFocus(mojom::blink::FocusType) override;
+  void TakeFocus(mojom::blink::FocusType) override;
   void FocusedElementChanged(Element* from_node, Element* to_node) override;
   void BeginLifecycleUpdates(LocalFrame& main_frame) override;
   void StartDeferringCommits(LocalFrame& main_frame,
                              base::TimeDelta timeout) override;
   void StopDeferringCommits(LocalFrame& main_frame,
                             cc::PaintHoldingCommitTrigger) override;
-  bool HadFormInteraction() const override;
   void StartDragging(LocalFrame*,
                      const WebDragData&,
                      WebDragOperationsMask,
@@ -86,15 +86,15 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
                              const FeaturePolicy::FeatureState&,
                              const SessionStorageNamespaceId&, WebString*) override;
   void Show(NavigationPolicy, WebString* manifest = nullptr) override;
-  void DidOverscroll(const FloatSize& overscroll_delta,
-                     const FloatSize& accumulated_overscroll,
-                     const FloatPoint& position_in_viewport,
-                     const FloatSize& velocity_in_viewport) override;
+  void DidOverscroll(const gfx::Vector2dF& overscroll_delta,
+                     const gfx::Vector2dF& accumulated_overscroll,
+                     const gfx::PointF& position_in_viewport,
+                     const gfx::Vector2dF& velocity_in_viewport) override;
   void SetOverscrollBehavior(LocalFrame& main_frame,
                              const cc::OverscrollBehavior&) override;
   void InjectGestureScrollEvent(LocalFrame& local_frame,
                                 WebGestureDevice device,
-                                const WebFloatSize& delta,
+                                const gfx::Vector2dF& delta,
                                 ScrollGranularity granularity,
                                 CompositorElementId scrollable_area_element_id,
                                 WebInputEvent::Type injected_type) override;
@@ -124,6 +124,8 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   IntRect ViewportToScreen(const IntRect&,
                            const LocalFrameView*) const override;
   float WindowToViewportScalar(LocalFrame*, const float) const override;
+  void WindowToViewportRect(LocalFrame& frame,
+                            WebFloatRect* viewport_rect) const override;
   WebScreenInfo GetScreenInfo(LocalFrame&) const override;
   void OverrideVisibleRectForMainFrame(LocalFrame& frame,
                                        IntRect* paint_rect) const override;
@@ -174,7 +176,9 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   void DetachCompositorAnimationTimeline(CompositorAnimationTimeline*,
                                          LocalFrame*) override;
 
-  void EnterFullscreen(LocalFrame&, const FullscreenOptions*) override;
+  void EnterFullscreen(LocalFrame&,
+                       const FullscreenOptions*,
+                       bool for_cross_process_descendant) override;
   void ExitFullscreen(LocalFrame&) override;
   void FullscreenElementChanged(Element* old_element,
                                 Element* new_element) override;
@@ -193,8 +197,8 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   // requests.
   void DidCompleteFileChooser(FileChooser& file_chooser);
 
-  void AutoscrollStart(WebFloatPoint viewport_point, LocalFrame*) override;
-  void AutoscrollFling(WebFloatSize velocity, LocalFrame*) override;
+  void AutoscrollStart(const gfx::PointF& viewport_point, LocalFrame*) override;
+  void AutoscrollFling(const gfx::Vector2dF& velocity, LocalFrame*) override;
   void AutoscrollEnd(LocalFrame*) override;
 
   bool HasOpenedPopup() const override;
@@ -269,6 +273,8 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
 
   void DocumentDetached(Document&) override;
 
+  void SaveImageFromDataURL(LocalFrame& frame, const String& data_url) override;
+
  private:
   bool IsChromeClientImpl() const override { return true; }
 
@@ -289,11 +295,12 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   FRIEND_TEST_ALL_PREFIXES(FileChooserQueueTest, DerefQueuedChooser);
 };
 
-DEFINE_TYPE_CASTS(ChromeClientImpl,
-                  ChromeClient,
-                  client,
-                  client->IsChromeClientImpl(),
-                  client.IsChromeClientImpl());
+template <>
+struct DowncastTraits<ChromeClientImpl> {
+  static bool AllowFrom(const ChromeClient& client) {
+    return client.IsChromeClientImpl();
+  }
+};
 
 }  // namespace blink
 

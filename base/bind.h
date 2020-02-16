@@ -276,19 +276,24 @@ Bind(Functor&& functor, Args&&... args) {
 
 // Special cases for binding to a base::Callback without extra bound arguments.
 template <typename Signature>
-OnceCallback<Signature> BindOnce(OnceCallback<Signature> closure) {
-  return closure;
+OnceCallback<Signature> BindOnce(OnceCallback<Signature> callback) {
+  return callback;
+}
+
+template <typename Signature>
+OnceCallback<Signature> BindOnce(RepeatingCallback<Signature> callback) {
+  return callback;
 }
 
 template <typename Signature>
 RepeatingCallback<Signature> BindRepeating(
-    RepeatingCallback<Signature> closure) {
-  return closure;
+    RepeatingCallback<Signature> callback) {
+  return callback;
 }
 
 template <typename Signature>
-Callback<Signature> Bind(Callback<Signature> closure) {
-  return closure;
+Callback<Signature> Bind(Callback<Signature> callback) {
+  return callback;
 }
 
 // Unretained() allows binding a non-refcounted class, and to disable
@@ -363,9 +368,10 @@ static inline internal::OwnedWrapper<T> Owned(T* o) {
   return internal::OwnedWrapper<T>(o);
 }
 
-template <typename T>
-static inline internal::OwnedWrapper<T> Owned(std::unique_ptr<T>&& ptr) {
-  return internal::OwnedWrapper<T>(std::move(ptr));
+template <typename T, typename Deleter>
+static inline internal::OwnedWrapper<T, Deleter> Owned(
+    std::unique_ptr<T, Deleter>&& ptr) {
+  return internal::OwnedWrapper<T, Deleter>(std::move(ptr));
 }
 
 // Passed() is for transferring movable-but-not-copyable types (eg. unique_ptr)

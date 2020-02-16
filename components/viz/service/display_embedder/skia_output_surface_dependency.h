@@ -16,6 +16,7 @@
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/command_buffer/service/sequence_id.h"
 #include "gpu/ipc/common/surface_handle.h"
+#include "ui/gl/gl_surface_format.h"
 
 class GURL;
 
@@ -86,11 +87,16 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependency {
   virtual bool IsOffscreen() = 0;
   virtual gpu::SurfaceHandle GetSurfaceHandle() = 0;
   virtual scoped_refptr<gl::GLSurface> CreateGLSurface(
-      base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub) = 0;
+      base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub,
+      gl::GLSurfaceFormat format) = 0;
   // Hold a ref of the given surface until the returned closure is fired.
   virtual base::ScopedClosureRunner CacheGLSurface(gl::GLSurface* surface) = 0;
   virtual void PostTaskToClientThread(base::OnceClosure closure) = 0;
   virtual void ScheduleGrContextCleanup() = 0;
+
+  // This function schedules delayed task to be run on GPUThread. It can be
+  // called only from GPU Thread.
+  virtual void ScheduleDelayedGPUTaskFromGPUThread(base::OnceClosure task) = 0;
 
 #if defined(OS_WIN)
   virtual void DidCreateAcceleratedSurfaceChildWindow(

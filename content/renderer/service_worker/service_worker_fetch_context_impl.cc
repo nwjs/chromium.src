@@ -10,6 +10,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/renderer/url_loader_throttle_provider.h"
 #include "content/public/renderer/websocket_handshake_throttle_provider.h"
+#include "content/renderer/loader/internet_disconnected_web_url_loader.h"
 #include "content/renderer/loader/request_extra_data.h"
 #include "content/renderer/loader/resource_dispatcher.h"
 #include "content/renderer/loader/web_url_loader_impl.h"
@@ -73,6 +74,9 @@ void ServiceWorkerFetchContextImpl::InitializeOnWorkerThread(
       network::SharedURLLoaderFactory::Create(
           std::move(pending_url_loader_factory_)));
 
+  internet_disconnected_web_url_loader_factory_ =
+      std::make_unique<InternetDisconnectedWebURLLoaderFactory>();
+
   if (pending_script_loader_factory_) {
     web_script_loader_factory_ =
         std::make_unique<content::WebURLLoaderFactoryImpl>(
@@ -86,6 +90,8 @@ void ServiceWorkerFetchContextImpl::InitializeOnWorkerThread(
 
 blink::WebURLLoaderFactory*
 ServiceWorkerFetchContextImpl::GetURLLoaderFactory() {
+  if (is_offline_mode_)
+    return internet_disconnected_web_url_loader_factory_.get();
   return web_url_loader_factory_.get();
 }
 
@@ -138,8 +144,8 @@ void ServiceWorkerFetchContextImpl::WillSendRequest(
   request.SetExtraData(std::move(extra_data));
 
   if (!renderer_preferences_.enable_referrers) {
-    request.SetHttpReferrer(blink::WebString(),
-                            network::mojom::ReferrerPolicy::kNever);
+    request.SetReferrerString(blink::WebString());
+    request.SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever);
   }
 }
 
@@ -148,12 +154,12 @@ ServiceWorkerFetchContextImpl::GetControllerServiceWorkerMode() const {
   return blink::mojom::ControllerServiceWorkerMode::kNoController;
 }
 
-blink::WebURL ServiceWorkerFetchContextImpl::SiteForCookies() const {
+net::SiteForCookies ServiceWorkerFetchContextImpl::SiteForCookies() const {
   // According to the spec, we can use the |worker_script_url_| for
   // SiteForCookies, because "site for cookies" for the service worker is
   // the service worker's origin's host's registrable domain.
   // https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-07#section-2.1.2
-  return worker_script_url_;
+  return net::SiteForCookies::FromUrl(worker_script_url_);
 }
 
 base::Optional<blink::WebSecurityOrigin>
@@ -196,6 +202,10 @@ ServiceWorkerFetchContextImpl::TakePendingWorkerTimingReceiver(int request_id) {
   // No receiver exists because requests from service workers are never handled
   // by a service worker.
   return {};
+}
+
+void ServiceWorkerFetchContextImpl::SetIsOfflineMode(bool is_offline_mode) {
+  is_offline_mode_ = is_offline_mode;
 }
 
 }  // namespace content

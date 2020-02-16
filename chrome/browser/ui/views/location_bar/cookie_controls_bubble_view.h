@@ -11,8 +11,8 @@
 #include "chrome/browser/ui/cookie_controls/cookie_controls_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_bubble_delegate_view.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
+#include "ui/views/bubble/tooltip_icon.h"
 #include "ui/views/controls/button/button.h"
-#include "ui/views/controls/link_listener.h"
 
 namespace content {
 class WebContents;
@@ -21,12 +21,11 @@ class WebContents;
 namespace views {
 class ImageView;
 class Label;
-class Link;
 }  // namespace views
 
 // View used to display the cookie controls ui.
 class CookieControlsBubbleView : public LocationBarBubbleDelegateView,
-                                 public views::LinkListener,
+                                 public views::TooltipIcon::Observer,
                                  public CookieControlsView {
  public:
   static void ShowBubble(views::View* anchor_view,
@@ -58,8 +57,6 @@ class CookieControlsBubbleView : public LocationBarBubbleDelegateView,
 
   // LocationBarBubbleDelegateView:
   void CloseBubble() override;
-  int GetDialogButtons() const override;
-  base::string16 GetDialogButtonLabel(ui::DialogButton button) const override;
   void Init() override;
   base::string16 GetWindowTitle() const override;
   bool ShouldShowWindowTitle() const override;
@@ -70,8 +67,12 @@ class CookieControlsBubbleView : public LocationBarBubbleDelegateView,
   gfx::Size CalculatePreferredSize() const override;
   void AddedToWidget() override;
 
-  // views::LinkListener:
-  void LinkClicked(views::Link* source, int event_flags) override;
+  void ShowCookiesLinkClicked();
+  void NotWorkingLinkClicked();
+
+  // views::TooltipIcon::Observer:
+  void OnTooltipBubbleShown(views::TooltipIcon* icon) override;
+  void OnTooltipIconDestroying(views::TooltipIcon* icon) override;
 
   CookieControlsController* controller_ = nullptr;
 
@@ -85,9 +86,12 @@ class CookieControlsBubbleView : public LocationBarBubbleDelegateView,
   views::ImageView* header_view_ = nullptr;
   views::Label* text_ = nullptr;
   views::View* extra_view_ = nullptr;
-  views::Link* show_cookies_link_ = nullptr;
+  views::View* show_cookies_link_ = nullptr;
 
-  ScopedObserver<CookieControlsController, CookieControlsView> observer_{this};
+  ScopedObserver<CookieControlsController, CookieControlsView>
+      controller_observer_{this};
+  ScopedObserver<views::TooltipIcon, views::TooltipIcon::Observer>
+      tooltip_observer_{this};
 
   DISALLOW_COPY_AND_ASSIGN(CookieControlsBubbleView);
 };

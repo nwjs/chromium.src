@@ -20,13 +20,16 @@ class NodeWrapper extends SAChildNode {
 
     /** @private {boolean} */
     this.isGroup_ = SwitchAccessPredicate.isGroup(this.baseNode_, parent);
+
+    /** @private {function(chrome.automation.AutomationEvent)} */
+    this.locationChangedHandler_ = SwitchAccess.refreshFocusRings;
   }
 
   // ================= Getters and setters =================
 
   /** @override */
   get actions() {
-    let actions = [];
+    const actions = [];
     if (SwitchAccessPredicate.isTextInput(this.baseNode_)) {
       actions.push(SAConstants.MenuAction.OPEN_KEYBOARD);
       actions.push(SAConstants.MenuAction.DICTATION);
@@ -93,12 +96,44 @@ class NodeWrapper extends SAChildNode {
 
   /** @override */
   isEquivalentTo(node) {
+    if (node instanceof NodeWrapper || node instanceof RootNodeWrapper) {
+      return this.baseNode_ === node.baseNode_;
+    }
+
+    if (node instanceof SAChildNode) {
+      return node.isEquivalentTo(this);
+    }
     return this.baseNode_ === node;
   }
 
   /** @override */
   isGroup() {
     return this.isGroup_;
+  }
+
+  /** @override */
+  isValidAndVisible() {
+    // Nodes without a role are not valid.
+    if (!this.baseNode_.role) {
+      return false;
+    }
+    return SwitchAccessPredicate.isVisible(this.baseNode_);
+  }
+
+  /** @override */
+  onFocus() {
+    super.onFocus();
+    this.baseNode_.addEventListener(
+        chrome.automation.EventType.LOCATION_CHANGED,
+        this.locationChangedHandler_, false /* is_capture */);
+  }
+
+  /** @override */
+  onUnfocus() {
+    super.onUnfocus();
+    this.baseNode_.removeEventListener(
+        chrome.automation.EventType.LOCATION_CHANGED,
+        this.locationChangedHandler_, false /* is_capture */);
   }
 
   /** @override */
@@ -155,8 +190,9 @@ class NodeWrapper extends SAChildNode {
    */
   getScrollableAncestor_() {
     let ancestor = this.baseNode_;
-    while (!ancestor.scrollable && ancestor.parent)
+    while (!ancestor.scrollable && ancestor.parent) {
       ancestor = ancestor.parent;
+    }
     return ancestor;
   }
 }
@@ -174,6 +210,15 @@ class RootNodeWrapper extends SARootNode {
 
     /** @private {!AutomationNode} */
     this.baseNode_ = baseNode;
+
+    /** @private {boolean} */
+    this.invalidated_ = false;
+
+    /** @private {function(chrome.automation.AutomationEvent)} */
+    this.childrenChangedHandler_ = this.refresh_.bind(this);
+
+    /** @private {function(chrome.automation.AutomationEvent)} */
+    this.locationChangedHandler_ = SwitchAccess.refreshFocusRings;
   }
 
   // ================= Getters and setters =================
@@ -201,13 +246,86 @@ class RootNodeWrapper extends SARootNode {
   }
 
   /** @override */
-  isEquivalentTo(automationNode) {
-    return this.baseNode_ === automationNode;
+  isEquivalentTo(node) {
+    if (node instanceof RootNodeWrapper || node instanceof NodeWrapper) {
+      return this.baseNode_ === node.baseNode_;
+    }
+
+    if (node instanceof SAChildNode) {
+      return node.isEquivalentTo(this);
+    }
+    return this.baseNode_ === node;
   }
 
   /** @override */
-  isValid() {
-    return !!this.baseNode_.role;
+  isValidGroup() {
+    if (!this.baseNode_.role) {
+      // If the underlying automation node has been invalidated, return false.
+      return false;
+    }
+    return !this.invalidated_ && super.isValidGroup();
+  }
+
+  /** @override */
+  onFocus() {
+    super.onFocus();
+    this.baseNode_.addEventListener(
+        chrome.automation.EventType.CHILDREN_CHANGED,
+        this.childrenChangedHandler_, false /* is_capture */);
+    this.baseNode_.addEventListener(
+        chrome.automation.EventType.LOCATION_CHANGED,
+        this.locationChangedHandler_, false /* is_capture */);
+  }
+
+  /** @override */
+  onUnfocus() {
+    super.onUnfocus();
+    this.baseNode_.removeEventListener(
+        chrome.automation.EventType.CHILDREN_CHANGED,
+        this.childrenChangedHandler_, false /* is_capture */);
+    this.baseNode_.removeEventListener(
+        chrome.automation.EventType.LOCATION_CHANGED,
+        this.locationChangedHandler_, false /* is_capture */);
+  }
+
+  // ================= Private methods =================
+
+  /**
+   * Refreshes the children of this root node.
+   * @private
+   */
+  refresh_() {
+    // Find the currently focused child.
+    let focusedChild = null;
+    for (const child of this.children) {
+      if (child.isFocused()) {
+        focusedChild = child;
+        break;
+      }
+    }
+
+    // Update this RootNodeWrapper's children.
+    const childConstructor = (node) => new NodeWrapper(node, this);
+    try {
+      RootNodeWrapper.findAndSetChildren(this, childConstructor);
+    } catch (e) {
+      this.onUnfocus();
+      this.invalidated_ = true;
+      SwitchAccess.moveToValidNode();
+      return;
+    }
+
+    // Set the new instance of that child to be the focused node.
+    for (const child of this.children) {
+      if (child.isEquivalentTo(focusedChild)) {
+        SwitchAccess.forceFocusedNode(child);
+        return;
+      }
+    }
+
+    // If the previously focused node no longer exists, focus the first node in
+    // the group.
+    SwitchAccess.forceFocusedNode(this.children[0]);
   }
 
   // ================= Static methods =================
@@ -227,8 +345,7 @@ class RootNodeWrapper extends SARootNode {
     }
 
     const childConstructor = (autoNode) => new NodeWrapper(autoNode, root);
-    let children = interestingChildren.map(childConstructor);
-    root.children = children;
+    root.children = interestingChildren.map(childConstructor);
 
     return root;
   }
@@ -260,7 +377,7 @@ class RootNodeWrapper extends SARootNode {
           SAConstants.ErrorType.NO_CHILDREN,
           'Root node must have at least 1 interesting child.');
     }
-    let children = interestingChildren.map(childConstructor);
+    const children = interestingChildren.map(childConstructor);
     children.push(new BackButtonNode(root));
     root.children = children;
   }
@@ -270,8 +387,8 @@ class RootNodeWrapper extends SARootNode {
    * @return {!Array<!AutomationNode>}
    */
   static getInterestingChildren(root) {
-    let interestingChildren = [];
-    let treeWalker = new AutomationTreeWalker(
+    const interestingChildren = [];
+    const treeWalker = new AutomationTreeWalker(
         root.baseNode_, constants.Dir.FORWARD,
         SwitchAccessPredicate.restrictions(root));
     let node = treeWalker.next().node;

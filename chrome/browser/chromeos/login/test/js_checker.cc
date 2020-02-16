@@ -35,6 +35,16 @@ std::string ElementHasClassCondition(
   return js;
 }
 
+std::string ElementHasAttributeCondition(
+    const std::string& attribute,
+    std::initializer_list<base::StringPiece> element_ids) {
+  std::string js = "$Element.hasAttribute('$Attribute')";
+  base::ReplaceSubstringsAfterOffset(&js, 0, "$Attribute", attribute);
+  base::ReplaceSubstringsAfterOffset(
+      &js, 0, "$Element", chromeos::test::GetOobeElementPath(element_ids));
+  return js;
+}
+
 }  // namespace
 
 namespace chromeos {
@@ -124,7 +134,13 @@ std::unique_ptr<TestConditionWaiter> JSChecker::CreateWaiter(
 std::unique_ptr<TestConditionWaiter> JSChecker::CreateVisibilityWaiter(
     bool visibility,
     std::initializer_list<base::StringPiece> element_ids) {
-  std::string js_condition = GetOobeElementPath(element_ids) + ".hidden";
+  return CreateVisibilityWaiter(visibility, GetOobeElementPath(element_ids));
+}
+
+std::unique_ptr<TestConditionWaiter> JSChecker::CreateVisibilityWaiter(
+    bool visibility,
+    const std::string& element) {
+  std::string js_condition = element + ".hidden";
   if (visibility) {
     js_condition = "!(" + js_condition + ")";
   }
@@ -228,10 +244,23 @@ void JSChecker::ExpectHasClass(
     std::initializer_list<base::StringPiece> element_ids) {
   ExpectTrue(ElementHasClassCondition(css_class, element_ids));
 }
+
 void JSChecker::ExpectHasNoClass(
     const std::string& css_class,
     std::initializer_list<base::StringPiece> element_ids) {
   ExpectFalse(ElementHasClassCondition(css_class, element_ids));
+}
+
+void JSChecker::ExpectHasAttribute(
+    const std::string& attribute,
+    std::initializer_list<base::StringPiece> element_ids) {
+  ExpectTrue(ElementHasAttributeCondition(attribute, element_ids));
+}
+
+void JSChecker::ExpectHasNoAttribute(
+    const std::string& attribute,
+    std::initializer_list<base::StringPiece> element_ids) {
+  ExpectFalse(ElementHasAttributeCondition(attribute, element_ids));
 }
 
 void JSChecker::ClickOnPath(

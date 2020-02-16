@@ -77,6 +77,8 @@ source_set("wayland") {
       "wayland_positioner.h",
       "wl_shell.cc",
       "wl_shell.h",
+      "zcr_color_space.cc",
+      "zcr_color_space.h",
       "zcr_cursor_shapes.cc",
       "zcr_cursor_shapes.h",
       "zcr_gaming_input.cc",
@@ -117,6 +119,7 @@ source_set("wayland") {
     "//third_party/libsync",
     "//third_party/wayland:wayland_server",
     "//third_party/wayland-protocols:alpha_compositing_protocol",
+    "//third_party/wayland-protocols:color_space_protocol",
     "//third_party/wayland-protocols:cursor_shapes_protocol",
     "//third_party/wayland-protocols:gaming_input_protocol",
     "//third_party/wayland-protocols:input_timestamps_protocol",
@@ -184,9 +187,7 @@ source_set("wayland") {
 source_set("unit_tests") {
   testonly = true
 
-  sources = [
-    "server_unittest.cc",
-  ]
+  sources = [ "server_unittest.cc" ]
 
   deps = [
     ":wayland",
@@ -248,6 +249,7 @@ source_set("client_support") {
     "//components/exo/wayland/protocol:aura_shell_protocol",
     "//skia",
     "//third_party/wayland:wayland_client",
+    "//third_party/wayland-protocols:color_space_protocol",
     "//third_party/wayland-protocols:fullscreen_shell_protocol",
     "//third_party/wayland-protocols:input_timestamps_protocol",
     "//third_party/wayland-protocols:linux_dmabuf_protocol",
@@ -269,9 +271,7 @@ source_set("client_support") {
 }
 
 executable("wayland_rects_client") {
-  sources = [
-    "clients/rects.cc",
-  ]
+  sources = [ "clients/rects.cc" ]
 
   deps = [
     ":client_support",
@@ -343,9 +343,7 @@ source_set("fullscreen_shell") {
 }
 
 executable("wayland_simple_client") {
-  sources = [
-    "clients/simple_main.cc",
-  ]
+  sources = [ "clients/simple_main.cc" ]
   deps = [
     ":client_support",
     ":simple",
@@ -354,9 +352,7 @@ executable("wayland_simple_client") {
 }
 
 executable("wayland_fullscreen_client") {
-  sources = [
-    "clients/fullscreen_shell_main.cc",
-  ]
+  sources = [ "clients/fullscreen_shell_main.cc" ]
   deps = [
     ":client_support",
     ":fullscreen_shell",
@@ -365,9 +361,7 @@ executable("wayland_fullscreen_client") {
 }
 
 executable("wayland_subsurface_client") {
-  sources = [
-    "clients/subsurface.cc",
-  ]
+  sources = [ "clients/subsurface.cc" ]
 
   deps = [
     ":client_support",
@@ -408,9 +402,7 @@ source_set("blur") {
 }
 
 executable("wayland_blur_client") {
-  sources = [
-    "clients/blur_main.cc",
-  ]
+  sources = [ "clients/blur_main.cc" ]
   deps = [
     ":blur",
     ":client_support",
@@ -419,9 +411,7 @@ executable("wayland_blur_client") {
 }
 
 executable("wayland_info_client") {
-  sources = [
-    "clients/info.cc",
-  ]
+  sources = [ "clients/info.cc" ]
 
   deps = [
     ":client_support",
@@ -453,9 +443,9 @@ source_set("wayland_client_test_helper") {
 
   if (is_chromeos) {
     data_deps += [
-      "//ash/strings:ash_test_strings",
       "//ash/resources:ash_test_resources_100_percent",
       "//ash/resources:ash_test_resources_200_percent",
+      "//ash/strings:ash_test_strings",
     ]
 
     deps += [
@@ -500,9 +490,9 @@ test("wayland_client_perftests") {
     ]
 
     data_deps += [
-      "//ash/strings:ash_test_strings",
       "//ash/resources:ash_test_resources_100_percent",
       "//ash/resources:ash_test_resources_200_percent",
+      "//ash/strings:ash_test_strings",
     ]
 
     deps += [ "//ash:test_support" ]
@@ -511,9 +501,7 @@ test("wayland_client_perftests") {
 
 if (ozone_platform_gbm) {
   executable("wayland_yuv_client") {
-    sources = [
-      "clients/yuv.cc",
-    ]
+    sources = [ "clients/yuv.cc" ]
 
     deps = [
       ":client_support",
@@ -530,10 +518,27 @@ if (ozone_platform_gbm) {
     deps += [ "//third_party/minigbm" ]
   }
 
-  executable("wayland_explicit_synchronization_client") {
-    sources = [
-      "clients/explicit_synchronization.cc",
+  executable("wayland_color_space_client") {
+    sources = [ "clients/color_space.cc" ]
+
+    deps = [
+      ":client_support",
+      "//base",
+      "//build/config/linux/libdrm",
+      "//skia",
+      "//third_party/wayland:wayland_client",
+      "//third_party/wayland-protocols:color_space_protocol",
+      "//third_party/wayland-protocols:linux_dmabuf_protocol",
+      "//third_party/wayland-protocols:presentation_time_protocol",
+      "//ui/gfx/geometry",
     ]
+
+    configs += [ "//ui/gl:gl_config" ]
+    deps += [ "//third_party/minigbm" ]
+  }
+
+  executable("wayland_explicit_synchronization_client") {
+    sources = [ "clients/explicit_synchronization.cc" ]
 
     deps = [
       ":client_support",
@@ -550,9 +555,7 @@ if (ozone_platform_gbm) {
 
   if (enable_vulkan) {
     executable("wayland_vulkan_client") {
-      sources = [
-        "clients/vulkan.cc",
-      ]
+      sources = [ "clients/vulkan.cc" ]
 
       deps = [
         ":client_support",

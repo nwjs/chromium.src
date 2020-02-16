@@ -109,17 +109,6 @@ class MockRemoteCommandsObserver {
                     const std::vector<em::SignedData>&));
 };
 
-// A mock class to allow us to set expectations on available licenses fetch
-// callback
-class MockAvailableLicensesObserver {
- public:
-  MockAvailableLicensesObserver() {}
-
-  MOCK_METHOD2(OnAvailableLicensesFetched,
-               void(DeviceManagementStatus,
-                    const CloudPolicyClient::LicenseMap&));
-};
-
 class MockDeviceDMTokenCallbackObserver {
  public:
   MockDeviceDMTokenCallbackObserver() {}
@@ -266,23 +255,6 @@ class CloudPolicyClientTest : public testing::Test {
             em::DeviceAttributeUpdateResponse_ResultType_ATTRIBUTE_UPDATE_SUCCESS);
 
     gcm_id_update_request_.mutable_gcm_id_update_request()->set_gcm_id(kGcmID);
-
-    check_device_license_request_.mutable_check_device_license_request();
-
-    em::CheckDeviceLicenseResponse* device_license_response =
-        check_device_license_response_.mutable_check_device_license_response();
-    device_license_response->set_license_selection_mode(
-        em::CheckDeviceLicenseResponse_LicenseSelectionMode_USER_SELECTION);
-    em::LicenseAvailability* license_one =
-        device_license_response->add_license_availabilities();
-    license_one->mutable_license_type()->set_license_type(
-        em::LicenseType_LicenseTypeEnum_CDM_PERPETUAL);
-    license_one->set_available_licenses(10);
-    em::LicenseAvailability* license_two =
-        device_license_response->add_license_availabilities();
-    license_two->mutable_license_type()->set_license_type(
-        em::LicenseType_LicenseTypeEnum_KIOSK);
-    license_two->set_available_licenses(0);
 
     upload_app_install_report_response_.mutable_app_install_report_response();
 
@@ -520,17 +492,6 @@ class CloudPolicyClientTest : public testing::Test {
                                    gcm_id_update_response_)));
   }
 
-  void ExpectCheckDeviceLicense(const std::string& oauth_token,
-                                const em::DeviceManagementResponse& response) {
-    EXPECT_CALL(service_, StartJob(_))
-        .WillOnce(
-            DoAll(service_.CaptureJobType(&job_type_),
-                  service_.CaptureQueryParams(&query_params_),
-                  service_.CaptureRequest(&job_request_),
-                  service_.StartJobAsync(
-                      net::OK, DeviceManagementService::kSuccess, response)));
-  }
-
   // Expects an TYPE_UPLOAD_APP_INSTALL_REPORT job to be started.  The job
   // completes at the next call to base::RunLoop().RunUntilIdle() using the
   // supplied |request|.
@@ -575,7 +536,6 @@ class CloudPolicyClientTest : public testing::Test {
   em::DeviceManagementRequest attribute_update_permission_request_;
   em::DeviceManagementRequest attribute_update_request_;
   em::DeviceManagementRequest gcm_id_update_request_;
-  em::DeviceManagementRequest check_device_license_request_;
   em::DeviceManagementRequest upload_policy_validation_report_request_;
 
   // Protobufs used in successful responses.
@@ -590,8 +550,6 @@ class CloudPolicyClientTest : public testing::Test {
   em::DeviceManagementResponse attribute_update_permission_response_;
   em::DeviceManagementResponse attribute_update_response_;
   em::DeviceManagementResponse gcm_id_update_response_;
-  em::DeviceManagementResponse check_device_license_response_;
-  em::DeviceManagementResponse check_device_license_broken_response_;
   em::DeviceManagementResponse upload_app_install_report_response_;
   em::DeviceManagementResponse upload_policy_validation_report_response_;
 
@@ -605,7 +563,6 @@ class CloudPolicyClientTest : public testing::Test {
   MockDeviceManagementService service_;
   StrictMock<MockCloudPolicyClientObserver> observer_;
   StrictMock<MockStatusCallbackObserver> callback_observer_;
-  StrictMock<MockAvailableLicensesObserver> license_callback_observer_;
   StrictMock<MockDeviceDMTokenCallbackObserver>
       device_dmtoken_callback_observer_;
   FakeSigningService fake_signing_service_;
@@ -1215,9 +1172,10 @@ TEST_F(CloudPolicyClientTest, UploadEnterpriseMachineCertificate) {
   ExpectUploadCertificate(upload_machine_certificate_request_);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
-  client_->UploadEnterpriseMachineCertificate(kMachineCertificate, callback);
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
+  client_->UploadEnterpriseMachineCertificate(kMachineCertificate,
+                                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_CERTIFICATE,
             job_type_);
@@ -1232,10 +1190,10 @@ TEST_F(CloudPolicyClientTest, UploadEnterpriseEnrollmentCertificate) {
   ExpectUploadCertificate(upload_enrollment_certificate_request_);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   client_->UploadEnterpriseEnrollmentCertificate(kEnrollmentCertificate,
-                                                 callback);
+                                                 std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_CERTIFICATE,
             job_type_);
@@ -1251,9 +1209,10 @@ TEST_F(CloudPolicyClientTest, UploadEnterpriseMachineCertificateEmpty) {
   ExpectUploadCertificate(upload_machine_certificate_request_);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(false)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
-  client_->UploadEnterpriseMachineCertificate(kMachineCertificate, callback);
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
+  client_->UploadEnterpriseMachineCertificate(kMachineCertificate,
+                                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_CERTIFICATE,
             job_type_);
@@ -1269,10 +1228,10 @@ TEST_F(CloudPolicyClientTest, UploadEnterpriseEnrollmentCertificateEmpty) {
   ExpectUploadCertificate(upload_enrollment_certificate_request_);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(false)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   client_->UploadEnterpriseEnrollmentCertificate(kEnrollmentCertificate,
-                                                 callback);
+                                                 std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_CERTIFICATE,
             job_type_);
@@ -1294,10 +1253,11 @@ TEST_F(CloudPolicyClientTest, UploadCertificateFailure) {
                                  DeviceManagementService::kInvalidArgument,
                                  dummy_response)));
   EXPECT_CALL(observer_, OnClientError(_));
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
-  client_->UploadEnterpriseMachineCertificate(kMachineCertificate, callback);
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
+  client_->UploadEnterpriseMachineCertificate(kMachineCertificate,
+                                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_CERTIFICATE,
             job_type);
@@ -1310,9 +1270,9 @@ TEST_F(CloudPolicyClientTest, UploadEnterpriseEnrollmentId) {
   ExpectUploadCertificate(upload_enrollment_id_request_);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
-  client_->UploadEnterpriseEnrollmentId(kEnrollmentId, callback);
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
+  client_->UploadEnterpriseEnrollmentId(kEnrollmentId, std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_CERTIFICATE,
             job_type_);
@@ -1326,14 +1286,14 @@ TEST_F(CloudPolicyClientTest, UploadStatus) {
 
   ExpectUploadStatus();
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   em::DeviceStatusReportRequest device_status;
   em::SessionStatusReportRequest session_status;
   em::ChildStatusReportRequest child_status;
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_STATUS,
             job_type_);
@@ -1351,13 +1311,13 @@ TEST_F(CloudPolicyClientTest, UploadStatusWithOAuthToken) {
   ExpectUploadStatusWithOAuthToken();
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   em::DeviceStatusReportRequest device_status;
   em::SessionStatusReportRequest session_status;
   em::ChildStatusReportRequest child_status;
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_STATUS,
             job_type_);
@@ -1369,10 +1329,12 @@ TEST_F(CloudPolicyClientTest, UploadStatusWithOAuthToken) {
   // its value was cleared.
   client_->SetOAuthTokenAsAdditionalAuth("");
 
+  callback = base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                            base::Unretained(&callback_observer_));
   ExpectUploadStatus();
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_STATUS,
             job_type_);
@@ -1390,14 +1352,14 @@ TEST_F(CloudPolicyClientTest, UploadStatusWhilePolicyFetchActive) {
           service_.StartJobAsync(net::OK, DeviceManagementService::kSuccess,
                                  upload_status_response_)));
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   em::DeviceStatusReportRequest device_status;
   em::SessionStatusReportRequest session_status;
   em::ChildStatusReportRequest child_status;
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_STATUS,
             job_type);
@@ -1444,12 +1406,12 @@ TEST_F(CloudPolicyClientTest, UploadChromeDesktopReport) {
   ExpectChromeDesktopReport();
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::Bind(&MockStatusCallbackObserver::OnCallbackComplete,
-                 base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   std::unique_ptr<em::ChromeDesktopReportRequest> chrome_desktop_report =
       std::make_unique<em::ChromeDesktopReportRequest>();
   client_->UploadChromeDesktopReport(std::move(chrome_desktop_report),
-                                     callback);
+                                     std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(
       DeviceManagementService::JobConfiguration::TYPE_CHROME_DESKTOP_REPORT,
@@ -1465,11 +1427,12 @@ TEST_F(CloudPolicyClientTest, UploadChromeOsUserReport) {
   ExpectChromeOsUserReport();
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::Bind(&MockStatusCallbackObserver::OnCallbackComplete,
-                 base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   std::unique_ptr<em::ChromeOsUserReportRequest> chrome_os_user_report =
       std::make_unique<em::ChromeOsUserReportRequest>();
-  client_->UploadChromeOsUserReport(std::move(chrome_os_user_report), callback);
+  client_->UploadChromeOsUserReport(std::move(chrome_os_user_report),
+                                    std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(
       DeviceManagementService::JobConfiguration::TYPE_CHROME_OS_USER_REPORT,
@@ -1487,8 +1450,8 @@ TEST_F(CloudPolicyClientTest, UploadRealtimeReport) {
   ExpectRealtimeReport();
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
   CloudPolicyClient::StatusCallback callback =
-      base::Bind(&MockStatusCallbackObserver::OnCallbackComplete,
-                 base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
 
   base::Value context(base::Value::Type::DICTIONARY);
   context.SetStringPath("profile.gaiaEmail", "name@gmail.com");
@@ -1508,7 +1471,7 @@ TEST_F(CloudPolicyClientTest, UploadRealtimeReport) {
   client_->UploadRealtimeReport(
       policy::RealtimeReportingJobConfiguration::BuildReport(
           std::move(event_list), std::move(context)),
-      callback);
+      std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(
       DeviceManagementService::JobConfiguration::TYPE_UPLOAD_REAL_TIME_REPORT,
@@ -1561,7 +1524,7 @@ TEST_F(CloudPolicyClientTest, RealtimeReportMerge) {
     event.SetStringPath("foo.prop3", "value3");
 
     base::Value events(base::Value::Type::LIST);
-    events.GetList().push_back(std::move(event));
+    events.Append(std::move(event));
 
     base::Value report(base::Value::Type::DICTIONARY);
     report.SetPath(RealtimeReportingJobConfiguration::kEventListKey,
@@ -1586,7 +1549,7 @@ TEST_F(CloudPolicyClientTest, RealtimeReportMerge) {
     event.SetStringPath("foo.prop3", "value3");
 
     base::Value events(base::Value::Type::LIST);
-    events.GetList().push_back(std::move(event));
+    events.Append(std::move(event));
 
     base::Value report(base::Value::Type::DICTIONARY);
     report.SetPath(RealtimeReportingJobConfiguration::kEventListKey,
@@ -1626,14 +1589,14 @@ TEST_F(CloudPolicyClientTest, MultipleActiveRequests) {
           service_.CaptureJobType(&upload_type),
           service_.StartJobAsync(net::OK, DeviceManagementService::kSuccess,
                                  upload_status_response_)));
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   em::DeviceStatusReportRequest device_status;
   em::SessionStatusReportRequest session_status;
   em::ChildStatusReportRequest child_status;
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
 
   // Set up pending upload certificate job.
   DeviceManagementService::JobConfiguration::JobType cert_type;
@@ -1645,10 +1608,11 @@ TEST_F(CloudPolicyClientTest, MultipleActiveRequests) {
 
   // Expect two calls on our upload observer, one for the status upload and
   // one for the certificate upload.
-  CloudPolicyClient::StatusCallback callback2 = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
-  client_->UploadEnterpriseMachineCertificate(kMachineCertificate, callback2);
+  CloudPolicyClient::StatusCallback callback2 =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
+  client_->UploadEnterpriseMachineCertificate(kMachineCertificate,
+                                              std::move(callback2));
   EXPECT_EQ(2, client_->GetActiveRequestCountForTest());
 
   // Now satisfy both active jobs.
@@ -1676,15 +1640,15 @@ TEST_F(CloudPolicyClientTest, UploadStatusFailure) {
                                  DeviceManagementService::kInvalidArgument,
                                  dummy_response)));
   EXPECT_CALL(observer_, OnClientError(_));
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
 
   em::DeviceStatusReportRequest device_status;
   em::SessionStatusReportRequest session_status;
   em::ChildStatusReportRequest child_status;
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_UPLOAD_STATUS,
             job_type);
@@ -1700,14 +1664,14 @@ TEST_F(CloudPolicyClientTest, RequestCancelOnUnregister) {
   EXPECT_CALL(service_, StartJob(_))
       .WillOnce(DoAll(service_.CaptureJobType(&upload_type),
                       service_.StartJobFullControl(&job_control)));
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   em::DeviceStatusReportRequest device_status;
   em::SessionStatusReportRequest session_status;
   em::ChildStatusReportRequest child_status;
   client_->UploadDeviceStatus(&device_status, &session_status, &child_status,
-                              callback);
+                              std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
   EXPECT_CALL(observer_, OnRegistrationStateChanged(_));
@@ -1815,11 +1779,11 @@ TEST_F(CloudPolicyClientTest, RequestDeviceAttributeUpdatePermission) {
   ExpectAttributeUpdatePermission(kOAuthToken);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
 
-  CloudPolicyClient::StatusCallback callback = base::Bind(
-      &MockStatusCallbackObserver::OnCallbackComplete,
-      base::Unretained(&callback_observer_));
+  CloudPolicyClient::StatusCallback callback =
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   client_->GetDeviceAttributeUpdatePermission(
-      DMAuth::FromOAuthToken(kOAuthToken), callback);
+      DMAuth::FromOAuthToken(kOAuthToken), std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::
                 TYPE_ATTRIBUTE_UPDATE_PERMISSION,
@@ -1835,10 +1799,10 @@ TEST_F(CloudPolicyClientTest, RequestDeviceAttributeUpdate) {
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
 
   CloudPolicyClient::StatusCallback callback =
-      base::Bind(&MockStatusCallbackObserver::OnCallbackComplete,
-                 base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
   client_->UpdateDeviceAttributes(DMAuth::FromOAuthToken(kOAuthToken), kAssetId,
-                                  kLocation, callback);
+                                  kLocation, std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_ATTRIBUTE_UPDATE,
             job_type_);
@@ -1853,56 +1817,14 @@ TEST_F(CloudPolicyClientTest, RequestGcmIdUpdate) {
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
 
   CloudPolicyClient::StatusCallback callback =
-      base::Bind(&MockStatusCallbackObserver::OnCallbackComplete,
-                 base::Unretained(&callback_observer_));
-  client_->UpdateGcmId(kGcmID, callback);
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
+  client_->UpdateGcmId(kGcmID, std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(DeviceManagementService::JobConfiguration::TYPE_GCM_ID_UPDATE,
             job_type_);
   EXPECT_EQ(job_request_.SerializePartialAsString(),
             gcm_id_update_request_.SerializePartialAsString());
-}
-
-TEST_F(CloudPolicyClientTest, RequestAvailableLicenses) {
-  ExpectCheckDeviceLicense(kOAuthToken, check_device_license_response_);
-
-  EXPECT_CALL(license_callback_observer_,
-              OnAvailableLicensesFetched(DM_STATUS_SUCCESS, _))
-      .Times(1);
-
-  CloudPolicyClient::LicenseRequestCallback callback =
-      base::Bind(&MockAvailableLicensesObserver::OnAvailableLicensesFetched,
-                 base::Unretained(&license_callback_observer_));
-
-  client_->RequestAvailableLicenses(kOAuthToken, callback);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_REQUEST_LICENSE_TYPES,
-      job_type_);
-  EXPECT_EQ(job_request_.SerializePartialAsString(),
-            check_device_license_request_.SerializePartialAsString());
-  EXPECT_EQ(DM_STATUS_SUCCESS, client_->status());
-}
-
-TEST_F(CloudPolicyClientTest, RequestAvailableLicensesBrokenResponse) {
-  ExpectCheckDeviceLicense(kOAuthToken, check_device_license_broken_response_);
-
-  EXPECT_CALL(license_callback_observer_,
-              OnAvailableLicensesFetched(DM_STATUS_RESPONSE_DECODING_ERROR, _))
-      .Times(1);
-
-  CloudPolicyClient::LicenseRequestCallback callback =
-      base::Bind(&MockAvailableLicensesObserver::OnAvailableLicensesFetched,
-                 base::Unretained(&license_callback_observer_));
-
-  client_->RequestAvailableLicenses(kOAuthToken, callback);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(
-      DeviceManagementService::JobConfiguration::TYPE_REQUEST_LICENSE_TYPES,
-      job_type_);
-  EXPECT_EQ(job_request_.SerializePartialAsString(),
-            check_device_license_request_.SerializePartialAsString());
-  EXPECT_EQ(DM_STATUS_RESPONSE_DECODING_ERROR, client_->status());
 }
 
 TEST_F(CloudPolicyClientTest, UploadAppInstallReport) {
@@ -1913,11 +1835,11 @@ TEST_F(CloudPolicyClientTest, UploadAppInstallReport) {
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
 
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
 
   em::AppInstallReportRequest app_install_report;
-  client_->UploadAppInstallReport(&app_install_report, callback);
+  client_->UploadAppInstallReport(&app_install_report, std::move(callback));
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(
       DeviceManagementService::JobConfiguration::TYPE_UPLOAD_APP_INSTALL_REPORT,
@@ -1933,11 +1855,11 @@ TEST_F(CloudPolicyClientTest, CancelUploadAppInstallReport) {
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(0);
 
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
 
   em::AppInstallReportRequest app_install_report;
-  client_->UploadAppInstallReport(&app_install_report, callback);
+  client_->UploadAppInstallReport(&app_install_report, std::move(callback));
   EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
 
   // The job expected by the call to ExpectUploadAppInstallReport() completes
@@ -1959,11 +1881,11 @@ TEST_F(CloudPolicyClientTest, UploadAppInstallReportSupersedesPending) {
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(0);
 
   CloudPolicyClient::StatusCallback callback =
-      base::BindRepeating(&MockStatusCallbackObserver::OnCallbackComplete,
-                          base::Unretained(&callback_observer_));
+      base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                     base::Unretained(&callback_observer_));
 
   em::AppInstallReportRequest app_install_report;
-  client_->UploadAppInstallReport(&app_install_report, callback);
+  client_->UploadAppInstallReport(&app_install_report, std::move(callback));
   EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
   Mock::VerifyAndClearExpectations(&service_);
   Mock::VerifyAndClearExpectations(&callback_observer_);
@@ -1976,8 +1898,10 @@ TEST_F(CloudPolicyClientTest, UploadAppInstallReportSupersedesPending) {
   ExpectUploadAppInstallReport(request);
   EXPECT_CALL(callback_observer_, OnCallbackComplete(true)).Times(1);
 
+  callback = base::BindOnce(&MockStatusCallbackObserver::OnCallbackComplete,
+                            base::Unretained(&callback_observer_));
   app_install_report.CopyFrom(request.app_install_report_request());
-  client_->UploadAppInstallReport(&app_install_report, callback);
+  client_->UploadAppInstallReport(&app_install_report, std::move(callback));
   EXPECT_EQ(1, client_->GetActiveRequestCountForTest());
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(

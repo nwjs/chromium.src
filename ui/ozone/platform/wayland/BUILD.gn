@@ -45,6 +45,8 @@ source_set("wayland") {
     "host/internal/wayland_data_offer_base.h",
     "host/internal/wayland_data_source_base.cc",
     "host/internal/wayland_data_source_base.h",
+    "host/shell_object_factory.cc",
+    "host/shell_object_factory.h",
     "host/shell_popup_wrapper.cc",
     "host/shell_popup_wrapper.h",
     "host/shell_surface_wrapper.cc",
@@ -83,16 +85,23 @@ source_set("wayland") {
     "host/wayland_output_manager.h",
     "host/wayland_pointer.cc",
     "host/wayland_pointer.h",
+    "host/wayland_popup.cc",
+    "host/wayland_popup.h",
     "host/wayland_screen.cc",
     "host/wayland_screen.h",
     "host/wayland_shm.cc",
     "host/wayland_shm.h",
     "host/wayland_shm_buffer.cc",
     "host/wayland_shm_buffer.h",
+    "host/wayland_subsurface.cc",
+    "host/wayland_subsurface.h",
+    "host/wayland_surface.cc",
+    "host/wayland_surface.h",
     "host/wayland_touch.cc",
     "host/wayland_touch.h",
     "host/wayland_window.cc",
     "host/wayland_window.h",
+    "host/wayland_window_factory.cc",
     "host/wayland_window_manager.cc",
     "host/wayland_window_manager.h",
     "host/wayland_window_observer.cc",
@@ -141,9 +150,9 @@ source_set("wayland") {
     "//ui/gfx",
     "//ui/gfx:memory_buffer",
     "//ui/gfx/geometry",
+    "//ui/gfx/linux:drm",
     "//ui/ozone:ozone_base",
     "//ui/ozone/common",
-    "//ui/ozone/common/linux:drm",
     "//ui/ozone/public/mojom/wayland:wayland_mojom",
     "//ui/platform_window",
     "//ui/platform_window/platform_window_handler",
@@ -169,7 +178,7 @@ source_set("wayland") {
     deps += [
       "//third_party/minigbm",
       "//ui/gfx:memory_buffer",
-      "//ui/ozone/common/linux:gbm",
+      "//ui/gfx/linux:gbm",
     ]
   }
 
@@ -292,10 +301,10 @@ source_set("wayland_unittests") {
     "//ui/base:buildflags",
     "//ui/base/ime/linux",
     "//ui/events/ozone/layout",
+    "//ui/gfx/linux:drm",
+    "//ui/gfx/linux:gbm",
     "//ui/ozone:platform",
     "//ui/ozone:test_support",
-    "//ui/ozone/common/linux:drm",
-    "//ui/ozone/common/linux:gbm",
     "//ui/platform_window/platform_window_handler",
   ]
 
@@ -312,9 +321,7 @@ source_set("wayland_unittests") {
 
 fuzzer_test("wayland_buffer_fuzzer") {
   defines = [ "WL_HIDE_DEPRECATED" ]
-  sources = [
-    "fuzzer/wayland_buffer_fuzzer.cc",
-  ]
+  sources = [ "fuzzer/wayland_buffer_fuzzer.cc" ]
   deps = [
     ":test_support",
     ":wayland",

@@ -25,44 +25,45 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ActivityState;
-import org.chromium.base.ApplicationStatus;
 import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterizedRunner;
-import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.FlakyTest;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
-import org.chromium.chrome.browser.night_mode.NightModeTestUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.partnerbookmarks.PartnerBookmarksShim;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.util.UrlConstants;
-import org.chromium.chrome.browser.widget.selection.SelectableListToolbar;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.util.ActivityUtils;
+import org.chromium.chrome.test.util.ApplicationTestUtils;
 import org.chromium.chrome.test.util.BookmarkTestUtil;
+import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.MenuUtils;
-import org.chromium.chrome.test.util.RenderTestRule;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.RecyclerViewTestUtils;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkType;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectableListToolbar;
 import org.chromium.components.sync.AndroidSyncSettings;
 import org.chromium.components.sync.test.util.MockSyncContentResolverDelegate;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.UiRestriction;
 
 import java.util.ArrayList;
@@ -85,7 +86,7 @@ public class BookmarkTest {
             new ChromeActivityTestRule<>(ChromeActivity.class);
 
     @Rule
-    public RenderTestRule mRenderTestRule = new RenderTestRule();
+    public ChromeRenderTestRule mRenderTestRule = new ChromeRenderTestRule();
 
     protected static final String TEST_PAGE_URL_GOOGLE = "/chrome/test/data/android/google.html";
     protected static final String TEST_PAGE_TITLE_GOOGLE = "The Google";
@@ -105,12 +106,12 @@ public class BookmarkTest {
 
     @BeforeClass
     public static void setUpBeforeActivityLaunched() {
-        NightModeTestUtils.setUpNightModeBeforeChromeActivityLaunched();
+        ChromeNightModeTestUtils.setUpNightModeBeforeChromeActivityLaunched();
     }
 
     @ParameterAnnotations.UseMethodParameterBefore(NightModeTestUtils.NightModeParams.class)
     public void setupNightMode(boolean nightModeEnabled) {
-        NightModeTestUtils.setUpNightModeForChromeActivity(nightModeEnabled);
+        ChromeNightModeTestUtils.setUpNightModeForChromeActivity(nightModeEnabled);
         mRenderTestRule.setNightModeEnabled(nightModeEnabled);
     }
 
@@ -161,7 +162,7 @@ public class BookmarkTest {
 
     @AfterClass
     public static void tearDownAfterActivityDestroyed() {
-        NightModeTestUtils.tearDownNightModeAfterChromeActivityDestroyed();
+        ChromeNightModeTestUtils.tearDownNightModeAfterChromeActivityDestroyed();
     }
 
     protected void openBookmarkManager() throws InterruptedException {
@@ -226,6 +227,35 @@ public class BookmarkTest {
             Assert.assertEquals(mBookmarkModel.getDefaultFolder(), item.getParentId());
             Assert.assertEquals(mTestPage, item.getUrl());
             Assert.assertEquals(TEST_PAGE_TITLE_GOOGLE, item.getTitle());
+        });
+    }
+
+    @Test
+    @SmallTest
+    @DisableIf.Build(sdk_is_less_than = 21, message = "crbug.com/807807")
+    public void testAddBookmarkToOtherFolder() {
+        mActivityTestRule.loadUrl(mTestPage);
+        readPartnerBookmarks();
+        // Set default folder as "Other Folder".
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            SharedPreferencesManager.getInstance().writeString(
+                    ChromePreferenceKeys.BOOKMARKS_LAST_USED_PARENT,
+                    mBookmarkModel.getOtherFolderId().toString());
+        });
+        // Click star button to bookmark the current tab.
+        MenuUtils.invokeCustomMenuActionSync(InstrumentationRegistry.getInstrumentation(),
+                mActivityTestRule.getActivity(), R.id.bookmark_this_page_id);
+        BookmarkTestUtil.waitForBookmarkModelLoaded();
+        // All actions with BookmarkModel needs to run on UI thread.
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            long bookmarkIdLong = BookmarkBridge.getUserBookmarkIdForTab(
+                    mActivityTestRule.getActivity().getActivityTabProvider().get());
+            BookmarkId id = new BookmarkId(bookmarkIdLong, BookmarkType.NORMAL);
+            Assert.assertTrue("The test page is not added as bookmark: ",
+                    mBookmarkModel.doesBookmarkExist(id));
+            BookmarkItem item = mBookmarkModel.getBookmarkById(id);
+            Assert.assertEquals("Bookmark added in a wrong default folder.",
+                    mBookmarkModel.getOtherFolderId(), item.getParentId());
         });
     }
 
@@ -450,7 +480,6 @@ public class BookmarkTest {
     @MediumTest
     @Feature({"RenderTest"})
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
-    @DisabledTest(message = "Flaky. crbug.com/1030561")
     public void testBookmarkFolderIcon(boolean nightModeEnabled) throws Exception {
         BookmarkPromoHeader.forcePromoStateForTests(BookmarkPromoHeader.PromoState.PROMO_NONE);
         BookmarkId testId = addFolder(TEST_FOLDER_TITLE);
@@ -484,17 +513,12 @@ public class BookmarkTest {
 
         openBookmarkManager();
 
-        CallbackHelper activityDestroyedCallback = new CallbackHelper();
-        ApplicationStatus.registerStateListenerForActivity((activity, newState) -> {
-            if (newState == ActivityState.DESTROYED) activityDestroyedCallback.notifyCalled();
-        }, mBookmarkActivity);
-
         final BookmarkActionBar toolbar = mManager.getToolbarForTests();
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> toolbar.onMenuItemClick(toolbar.getMenu().findItem(R.id.close_menu_id)));
 
-        activityDestroyedCallback.waitForCallback(0);
+        ApplicationTestUtils.waitForActivityState(mBookmarkActivity, ActivityState.DESTROYED);
 
         BookmarkManager.preventLoadingForTesting(false);
     }

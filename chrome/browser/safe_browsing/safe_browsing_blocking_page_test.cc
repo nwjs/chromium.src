@@ -42,21 +42,23 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/google/core/common/google_util.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/browser/threat_details.h"
-#include "components/safe_browsing/common/safe_browsing.mojom.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/db/database_manager.h"
-#include "components/safe_browsing/db/test_database_manager.h"
-#include "components/safe_browsing/db/util.h"
-#include "components/safe_browsing/db/v4_protocol_manager_util.h"
-#include "components/safe_browsing/features.h"
-#include "components/safe_browsing/renderer/threat_dom_details.h"
-#include "components/safe_browsing/web_ui/constants.h"
+#include "components/safe_browsing/content/browser/threat_details.h"
+#include "components/safe_browsing/content/common/safe_browsing.mojom.h"
+#include "components/safe_browsing/content/renderer/threat_dom_details.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/db/database_manager.h"
+#include "components/safe_browsing/core/db/test_database_manager.h"
+#include "components/safe_browsing/core/db/util.h"
+#include "components/safe_browsing/core/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/features.h"
+#include "components/safe_browsing/core/web_ui/constants.h"
 #include "components/security_interstitials/content/security_interstitial_controller_client.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/security_interstitials/content/ssl_blocking_page.h"
+#include "components/security_interstitials/content/unsafe_resource_util.h"
 #include "components/security_interstitials/core/controller_client.h"
 #include "components/security_interstitials/core/metrics_helper.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 #include "components/security_interstitials/core/urls.h"
 #include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
@@ -70,7 +72,6 @@
 #include "content/public/browser/security_style_explanations.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/test_browser_thread.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "net/cert/cert_verify_result.h"
@@ -256,7 +257,7 @@ class TestThreatDetailsFactory : public ThreatDetailsFactory {
     auto details = base::WrapUnique(new ThreatDetails(
         delegate, web_contents, unsafe_resource, url_loader_factory,
         history_service, referrer_chain_provider, trim_to_ad_tags,
-        done_callback));
+        std::move(done_callback)));
     details_ = details.get();
     details->StartCollection();
     return details;
@@ -371,7 +372,7 @@ class SafeBrowsingBlockingPageBrowserTest
     base::test::ScopedFeatureList::FeatureAndParams tag_and_attribute(
         safe_browsing::kThreatDomDetailsTagAndAttributeFeature, parameters);
     // Test with and without committed interstitials.
-    if (testing::get<1>(GetParam())) {
+    if (testing::get<2>(GetParam())) {
       std::vector<base::test::ScopedFeatureList::FeatureAndParams>
           enabled_features = {tag_and_attribute,
                               base::test::ScopedFeatureList::FeatureAndParams(
@@ -1868,10 +1869,9 @@ class SafeBrowsingBlockingPageIDNTest
     resource.url = request_url;
     resource.is_subresource = is_subresource;
     resource.threat_type = testing::get<1>(GetParam());
-    resource.web_contents_getter =
-        security_interstitials::UnsafeResource::GetWebContentsGetter(
-            contents->GetMainFrame()->GetProcess()->GetID(),
-            contents->GetMainFrame()->GetRoutingID());
+    resource.web_contents_getter = security_interstitials::GetWebContentsGetter(
+        contents->GetMainFrame()->GetProcess()->GetID(),
+        contents->GetMainFrame()->GetRoutingID());
     resource.threat_source = safe_browsing::ThreatSource::LOCAL_PVER3;
 
     return SafeBrowsingBlockingPage::CreateBlockingPage(
@@ -1883,6 +1883,10 @@ class SafeBrowsingBlockingPageIDNTest
 
 IN_PROC_BROWSER_TEST_P(SafeBrowsingBlockingPageIDNTest,
                        SafeBrowsingBlockingPageDecodesIDN) {
+  // TODO(crbug.com/1039367): VerifyIDNDecoded does not work with committed
+  // interstitials, this test should be re-enabled once it is adapted.
+  if (AreCommittedInterstitialsEnabled())
+    return;
   EXPECT_TRUE(VerifyIDNDecoded());
 }
 

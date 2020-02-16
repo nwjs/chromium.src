@@ -110,7 +110,7 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/test/test_url_loader_client.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/ui_base_features.h"
 
 #if defined(OS_CHROMEOS)
@@ -521,12 +521,21 @@ class ExtensionWebRequestApiAuthRequiredTest
     : public ExtensionWebRequestApiTest,
       public testing::WithParamInterface<ProfileMode> {
  public:
-  int GetFlags() {
+  int GetBrowserTestFlags() {
     switch (GetParam()) {
       case ProfileMode::kUserProfile:
         return kFlagEnableFileAccess;
       case ProfileMode::kIncognito:
-        return kFlagEnableIncognito | kFlagUseIncognito | kFlagEnableFileAccess;
+        return kFlagEnableIncognito | kFlagEnableFileAccess;
+    }
+  }
+
+  int GetApiTestFlags() {
+    switch (GetParam()) {
+      case ProfileMode::kUserProfile:
+        return kFlagNone;
+      case ProfileMode::kIncognito:
+        return kFlagUseIncognito;
     }
   }
 };
@@ -540,7 +549,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
 
   // Pass "debug" as a custom arg to debug test flakiness.
   ASSERT_TRUE(RunExtensionSubtestWithArgAndFlags(
-      "webrequest", "test_auth_required.html", "debug", GetFlags()))
+      "webrequest", "test_auth_required.html", "debug", GetBrowserTestFlags(),
+      GetApiTestFlags()))
       << message_;
 }
 
@@ -554,7 +564,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
 
   // Pass "debug" as a custom arg to debug test flakiness.
   ASSERT_TRUE(RunExtensionSubtestWithArgAndFlags(
-      "webrequest", "test_auth_required_async.html", "debug", GetFlags()))
+      "webrequest", "test_auth_required_async.html", "debug",
+      GetBrowserTestFlags(), GetApiTestFlags()))
       << message_;
 }
 
@@ -566,7 +577,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
 
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionSubtestWithArgAndFlags(
-      "webrequest", "test_auth_required_parallel.html", nullptr, GetFlags()))
+      "webrequest", "test_auth_required_parallel.html", nullptr,
+      GetBrowserTestFlags(), GetApiTestFlags()))
       << message_;
 }
 
@@ -675,15 +687,8 @@ class ExtensionWebRequestApiPolicyTest
   std::string test_name_ = "test_cors.html";
 };
 
-// Flaky on Win10: http://crbug.com/1020185
-#if defined(OS_WIN)
-#define MAYBE_WebRequestCORSWithExtraHeaders \
-  DISABLED_WebRequestCORSWithExtraHeaders
-#else
-#define MAYBE_WebRequestCORSWithExtraHeaders WebRequestCORSWithExtraHeaders
-#endif
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiPolicyTest,
-                       MAYBE_WebRequestCORSWithExtraHeaders) {
+                       WebRequestCORSWithExtraHeaders) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionSubtest("webrequest", test_name())) << message_;
 }
@@ -2188,7 +2193,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTestWithManagementPolicy,
   // Wait until all remote Javascript files have been blocked / pulled down.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), extension_test_url, WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Domain that hosts javascript file referenced by example_com.
   const std::string example2_com = "example2.com";
@@ -2217,7 +2222,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTestWithManagementPolicy,
   // Wait until all remote Javascript files have been pulled down.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), extension_test_url, WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // The server saw a request for the remote Javascript file.
   EXPECT_TRUE(BrowsedTo(example2_com));
@@ -2254,7 +2259,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTestWithManagementPolicy,
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL(protected_domain, test_path),
       WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // The server saw a request for the protected site.
   EXPECT_TRUE(BrowsedTo(protected_domain));
@@ -2270,7 +2275,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTestWithManagementPolicy,
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL(unprotected_domain, test_path),
       WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // The server saw a request for the non-protected site.
   EXPECT_TRUE(BrowsedTo(unprotected_domain));
@@ -2718,7 +2723,7 @@ class ServiceWorkerWebRequestApiTest : public testing::WithParamInterface<bool>,
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(/* No prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          ServiceWorkerWebRequestApiTest,
                          ::testing::Bool());
 
@@ -2920,7 +2925,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, Initiator_SplitIncognito) {
                                                         will_reply);
   const Extension* extension = LoadExtensionWithFlags(
       test_data_dir_.AppendASCII("webrequest").AppendASCII("initiator_split"),
-      ExtensionBrowserTest::kFlagEnableIncognito);
+      kFlagEnableIncognito);
   ASSERT_TRUE(extension);
   EXPECT_TRUE(ready_listener.WaitUntilSatisfied());
 
@@ -3065,6 +3070,55 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, AppCacheRequests) {
   EXPECT_EQ(GetCountFromBackgroundPage(extension, profile(),
                                        "window.numMainResourceRequests"),
             1);
+}
+
+// Regression test for http://crbug.com/996940. Requests that redirected to an
+// appcache handled URL could have request ID collisions.
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, RedirectToAppCacheRequest) {
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  ASSERT_TRUE(StartEmbeddedTestServer());
+
+  GURL main_url = embedded_test_server()->GetURL(
+      "/appcache/simple_page_with_manifest.html");
+
+  base::string16 expected_title = base::ASCIIToUTF16("AppCache updated");
+
+  // Load the main page first to make sure it is cached. After the first
+  // navigation, load the extension, then navigate again.
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
+  content::TitleWatcher title_watcher(
+      browser()->tab_strip_model()->GetActiveWebContents(), expected_title);
+  EXPECT_EQ(expected_title, title_watcher.WaitAndGetTitle());
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(R"({
+        "name": "Web Request Appcache Redirect Test",
+        "manifest_version": 2,
+        "version": "0.1",
+        "background": { "scripts": ["background.js"] },
+        "permissions": ["<all_urls>", "webRequest"]
+      })");
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), R"(
+        window.numErrors = 0;
+        chrome.webRequest.onErrorOccurred.addListener(function(details) {
+          window.numErrors++;
+        }, {urls: ['<all_urls>']});
+
+        chrome.test.sendMessage('ready');
+      )");
+
+  ExtensionTestMessageListener listener("ready", false);
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+  EXPECT_TRUE(listener.WaitUntilSatisfied());
+
+  // This navigation should go through appcache.
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL("/server-redirect?" + main_url.spec())));
+
+  EXPECT_EQ(
+      GetCountFromBackgroundPage(extension, profile(), "window.numErrors"), 0);
 }
 
 // Regression test for https://crbug.com/1019614.

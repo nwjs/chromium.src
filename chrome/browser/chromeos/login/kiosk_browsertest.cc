@@ -72,10 +72,10 @@
 #include "components/crx_file/crx_verifier.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "content/public/browser/audio_service.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
@@ -98,7 +98,6 @@
 #include "services/audio/public/cpp/fake_system_info.h"
 #include "services/audio/public/cpp/sounds/audio_stream_handler.h"
 #include "services/audio/public/cpp/sounds/sounds_manager.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "ui/aura/window.h"
 #include "ui/base/accelerators/accelerator.h"
 
@@ -1170,8 +1169,8 @@ IN_PROC_BROWSER_TEST_F(KioskTest, KioskEnableCancel) {
             GetConsumerKioskModeStatus());
 }
 
-// crbug.com/1029965
-#if defined(MEMORY_SANITIZER)
+// Flaky on MSAN (crbug.com/1029965) and CrOS (crbug.com/1043887).
+#if defined(MEMORY_SANITIZER) || defined(OS_CHROMEOS)
 #define MAYBE_KioskEnableConfirmed DISABLED_KioskEnableConfirmed
 #else
 #define MAYBE_KioskEnableConfirmed KioskEnableConfirmed
@@ -1644,16 +1643,8 @@ IN_PROC_BROWSER_TEST_F(KioskUpdateTest,
               /*wait_for_app_data=*/true);
 }
 
-// crbug.com/949490
-#if defined(OS_CHROMEOS) && !defined(NDEBUG)
-#define MAYBE_LaunchCachedOfflineEnabledAppNoNetwork \
-  DISABLED_LaunchCachedOfflineEnabledAppNoNetwork
-#else
-#define MAYBE_LaunchCachedOfflineEnabledAppNoNetwork \
-  LaunchCachedOfflineEnabledAppNoNetwork
-#endif
 IN_PROC_BROWSER_TEST_F(KioskUpdateTest,
-                       MAYBE_LaunchCachedOfflineEnabledAppNoNetwork) {
+                       LaunchCachedOfflineEnabledAppNoNetwork) {
   set_test_app_id(kTestOfflineEnabledKioskApp);
   EXPECT_TRUE(
       KioskAppManager::Get()->HasCachedCrx(kTestOfflineEnabledKioskApp));
@@ -2373,7 +2364,7 @@ class KioskVirtualKeyboardTestSoundsManagerTestImpl
     }
 
     auto handler = std::make_unique<audio::AudioStreamHandler>(
-        content::GetSystemConnector()->Clone(), iter->second);
+        content::GetAudioServiceStreamFactoryBinder(), iter->second);
     if (!handler->IsInitialized()) {
       LOG(WARNING) << "Can't initialize AudioStreamHandler for key = " << key;
       return false;

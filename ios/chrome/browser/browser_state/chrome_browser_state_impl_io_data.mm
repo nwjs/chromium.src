@@ -45,8 +45,7 @@
 #error "This file requires ARC support."
 #endif
 
-ChromeBrowserStateImplIOData::Handle::Handle(
-    ios::ChromeBrowserState* browser_state)
+ChromeBrowserStateImplIOData::Handle::Handle(ChromeBrowserState* browser_state)
     : io_data_(new ChromeBrowserStateImplIOData),
       browser_state_(browser_state),
       initialized_(false) {
@@ -149,8 +148,7 @@ ChromeBrowserStateImplIOData::LazyParams::LazyParams() : cache_max_size(0) {}
 ChromeBrowserStateImplIOData::LazyParams::~LazyParams() {}
 
 ChromeBrowserStateImplIOData::ChromeBrowserStateImplIOData()
-    : ChromeBrowserStateIOData(
-          ios::ChromeBrowserStateType::REGULAR_BROWSER_STATE),
+    : ChromeBrowserStateIOData(ChromeBrowserStateType::REGULAR_BROWSER_STATE),
       app_cache_max_size_(0) {}
 
 ChromeBrowserStateImplIOData::~ChromeBrowserStateImplIOData() {}
@@ -220,7 +218,8 @@ void ChromeBrowserStateImplIOData::InitializeInternal(
   std::unique_ptr<net::HttpCache::BackendFactory> main_backend(
       new net::HttpCache::DefaultBackend(
           net::DISK_CACHE, net::CACHE_BACKEND_BLOCKFILE,
-          lazy_params_->cache_path, lazy_params_->cache_max_size));
+          lazy_params_->cache_path, lazy_params_->cache_max_size,
+          /*hard_reset=*/false));
   http_network_session_ = CreateHttpNetworkSession(*profile_params);
   main_http_factory_ = CreateMainHttpFactory(http_network_session_.get(),
                                              std::move(main_backend));

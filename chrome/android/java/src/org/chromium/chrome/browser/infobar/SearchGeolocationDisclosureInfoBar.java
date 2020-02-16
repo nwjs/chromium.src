@@ -10,8 +10,8 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ResourceId;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
-import org.chromium.chrome.browser.settings.website.SingleWebsitePreferences;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
+import org.chromium.chrome.browser.settings.website.SingleWebsiteSettings;
 
 /**
  * An infobar to disclose to the user that the default search engine has geolocation access by
@@ -57,7 +57,7 @@ public class SearchGeolocationDisclosureInfoBar extends InfoBar {
     @CalledByNative
     private static void showSettingsPage(String searchUrl) {
         Context context = ContextUtils.getApplicationContext();
-        PreferencesLauncher.launchSettingsPage(context, SingleWebsitePreferences.class,
-                SingleWebsitePreferences.createFragmentArgsForSite(searchUrl));
+        SettingsLauncher.getInstance().launchSettingsPage(context, SingleWebsiteSettings.class,
+                SingleWebsiteSettings.createFragmentArgsForSite(searchUrl));
     }
 }

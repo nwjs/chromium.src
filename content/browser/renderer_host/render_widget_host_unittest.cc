@@ -25,8 +25,6 @@
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "components/viz/test/begin_frame_args_test.h"
-#include "components/viz/test/compositor_frame_helpers.h"
-#include "components/viz/test/mock_compositor_frame_sink_client.h"
 #include "content/browser/gpu/compositor_util.h"
 #include "content/browser/renderer_host/frame_token_message_queue.h"
 #include "content/browser/renderer_host/input/mock_input_router.h"
@@ -47,7 +45,6 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_browser_context.h"
-#include "content/test/fake_renderer_compositor_frame_sink.h"
 #include "content/test/mock_widget_impl.h"
 #include "content/test/mock_widget_input_handler.h"
 #include "content/test/stub_render_widget_host_owner_delegate.h"
@@ -95,6 +92,7 @@ using blink::WebTouchEvent;
 using blink::WebTouchPoint;
 
 using testing::_;
+using testing::Return;
 
 namespace content {
 namespace  {
@@ -185,10 +183,6 @@ class TestView : public TestRenderWidgetHostView {
     local_surface_id_allocator_.GenerateId();
   }
 
-  const viz::BeginFrameAck& last_did_not_produce_frame_ack() {
-    return last_did_not_produce_frame_ack_;
-  }
-
   // RenderWidgetHostView override.
   gfx::Rect GetViewBounds() override { return bounds_; }
   const viz::LocalSurfaceIdAllocation& GetLocalSurfaceIdAllocation()
@@ -218,9 +212,6 @@ class TestView : public TestRenderWidgetHostView {
       return mock_compositor_viewport_pixel_size_;
     return TestRenderWidgetHostView::GetCompositorViewportPixelSize();
   }
-  void OnDidNotProduceFrame(const viz::BeginFrameAck& ack) override {
-    last_did_not_produce_frame_ack_ = ack;
-  }
 
  protected:
   WebMouseWheelEvent unhandled_wheel_event_;
@@ -232,7 +223,6 @@ class TestView : public TestRenderWidgetHostView {
   bool use_fake_compositor_viewport_pixel_size_;
   gfx::Size mock_compositor_viewport_pixel_size_;
   InputEventAckState ack_result_;
-  viz::BeginFrameAck last_did_not_produce_frame_ack_;
   viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
   ScreenInfo screen_info_;
 
@@ -474,6 +464,7 @@ class MockRenderWidgetHostOwnerDelegate
   MOCK_METHOD1(SetBackgroundOpaque, void(bool opaque));
   MOCK_METHOD1(UpdatePageVisualProperties,
                void(const VisualProperties& visual_properties));
+  MOCK_METHOD0(IsMainFrameActive, bool());
 };
 
 // RenderWidgetHostTest --------------------------------------------------------
@@ -519,20 +510,20 @@ class RenderWidgetHostTest : public testing::Test {
                                              process_->GetNextRoutingID()));
     // Set up the RenderWidgetHost as being for a main frame.
     host_->set_owner_delegate(&mock_owner_delegate_);
-    view_.reset(new TestView(host_.get()));
+    // Act like there is no RenderWidget present in the renderer yet.
+    EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+        .WillRepeatedly(Return(false));
+
+    view_ = std::make_unique<TestView>(host_.get());
     ConfigureView(view_.get());
     host_->SetView(view_.get());
-    SetInitialVisualProperties();
-    host_->Init();
     host_->DisableGestureDebounce();
-
-    mojo::PendingRemote<viz::mojom::CompositorFrameSink> sink;
-    mojo::PendingReceiver<viz::mojom::CompositorFrameSink> sink_receiver =
-        sink.InitWithNewPipeAndPassReceiver();
-    renderer_compositor_frame_sink_ =
-        std::make_unique<FakeRendererCompositorFrameSink>(
-            std::move(sink), renderer_compositor_frame_sink_remote_
-                                 .BindNewPipeAndPassReceiver());
+    // Act like we've created a RenderWidget.
+    host_->GetInitialVisualProperties();
+    EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+        .WillRepeatedly(Return(true));
+    // Init() happens once the navigation completes.
+    host_->Init();
 
     mojo::PendingRemote<mojom::RenderFrameMetadataObserver>
         renderer_render_frame_metadata_observer_remote;
@@ -548,9 +539,6 @@ class RenderWidgetHostTest : public testing::Test {
                 .InitWithNewPipeAndPassReceiver(),
             std::move(render_frame_metadata_observer_remote));
 
-    host_->RequestCompositorFrameSink(
-        std::move(sink_receiver),
-        renderer_compositor_frame_sink_remote_.Unbind());
     host_->RegisterRenderFrameMetadataObserver(
         std::move(render_frame_metadata_observer_client_receiver),
         std::move(renderer_render_frame_metadata_observer_remote));
@@ -576,11 +564,6 @@ class RenderWidgetHostTest : public testing::Test {
 
     // Process all pending tasks to avoid leaks.
     base::RunLoop().RunUntilIdle();
-  }
-
-  void SetInitialVisualProperties() {
-    VisualProperties visual_properties = host_->GetVisualProperties();
-    host_->SetInitialVisualProperties(visual_properties);
   }
 
   virtual void ConfigureView(TestView* view) {
@@ -745,16 +728,11 @@ class RenderWidgetHostTest : public testing::Test {
   base::TimeTicks last_simulated_event_time_;
   base::TimeDelta simulated_event_time_delta_;
   IPC::TestSink* sink_;
-  std::unique_ptr<FakeRendererCompositorFrameSink>
-      renderer_compositor_frame_sink_;
   std::unique_ptr<FakeRenderFrameMetadataObserver>
       renderer_render_frame_metadata_observer_;
 
  private:
   SyntheticWebTouchEvent touch_event_;
-
-  mojo::Remote<viz::mojom::CompositorFrameSinkClient>
-      renderer_compositor_frame_sink_remote_;
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostTest);
 };
@@ -830,7 +808,8 @@ TEST_F(RenderWidgetHostTest, SynchronizeVisualProperties) {
   cc::RenderFrameMetadata metadata;
   metadata.viewport_size_in_pixels = original_size.size();
   metadata.local_surface_id_allocation = base::nullopt;
-  host_->DidUpdateVisualProperties(metadata);
+  static_cast<RenderFrameMetadataProvider::Observer&>(*host_)
+      .OnLocalSurfaceIdChanged(metadata);
   EXPECT_FALSE(host_->visual_properties_ack_pending_);
   EXPECT_EQ(1u, sink_->message_count());
 
@@ -860,7 +839,8 @@ TEST_F(RenderWidgetHostTest, SynchronizeVisualProperties) {
   // immediately send a new resize message for the new size to the renderer.
   metadata.viewport_size_in_pixels = original_size.size();
   metadata.local_surface_id_allocation = base::nullopt;
-  host_->DidUpdateVisualProperties(metadata);
+  static_cast<RenderFrameMetadataProvider::Observer&>(*host_)
+      .OnLocalSurfaceIdChanged(metadata);
   EXPECT_TRUE(host_->visual_properties_ack_pending_);
   EXPECT_EQ(third_size.size(), host_->old_visual_properties_->new_size);
   EXPECT_EQ(1u, sink_->message_count());
@@ -870,7 +850,8 @@ TEST_F(RenderWidgetHostTest, SynchronizeVisualProperties) {
   // Send the visual properties ACK for the latest size.
   metadata.viewport_size_in_pixels = third_size.size();
   metadata.local_surface_id_allocation = base::nullopt;
-  host_->DidUpdateVisualProperties(metadata);
+  static_cast<RenderFrameMetadataProvider::Observer&>(*host_)
+      .OnLocalSurfaceIdChanged(metadata);
   EXPECT_FALSE(host_->visual_properties_ack_pending_);
   EXPECT_EQ(third_size.size(), host_->old_visual_properties_->new_size);
   EXPECT_EQ(0u, sink_->message_count());
@@ -978,37 +959,57 @@ TEST_F(RenderWidgetHostTest, ResizeScreenInfo) {
   EXPECT_FALSE(host_->visual_properties_ack_pending_);
 }
 
-// Test for crbug.com/25097. If a renderer crashes between a resize and the
-// corresponding update message, we must be sure to clear the visual properties
-// ACK logic.
-TEST_F(RenderWidgetHostTest, ResizeThenCrash) {
-  sink_->ClearMessages();
-  // Setting the bounds to a "real" rect should send out the notification.
-  view_->SetBounds(gfx::Rect(100, 100));
-  host_->SynchronizeVisualProperties();
-  // WidgetMsg_UpdateVisualProperties is sent to the renderer.
-  ASSERT_EQ(1u, sink_->message_count());
-  {
-    const IPC::Message* msg = sink_->GetMessageAt(0);
-    ASSERT_EQ(WidgetMsg_UpdateVisualProperties::ID, msg->type());
-    WidgetMsg_UpdateVisualProperties::Param params;
-    WidgetMsg_UpdateVisualProperties::Read(msg, &params);
-    VisualProperties visual_properties = std::get<0>(params);
-    // Size sent to the renderer.
-    EXPECT_EQ(gfx::Size(100, 100), visual_properties.new_size);
-  }
-  EXPECT_TRUE(host_->visual_properties_ack_pending_);
+TEST_F(RenderWidgetHostTest, ReceiveFrameTokenFromCrashedRenderer) {
+  // The Renderer sends a monotonically increasing frame token.
+  host_->DidProcessFrame(2);
 
-  // Simulate a renderer crash before an ACK for the UpdateVisualProperties
-  // message arrives. Ensure all the visual properties ACK logic is cleared.
-  // Must clear the view first so it doesn't get deleted.
+  // Simulate a renderer crash.
   host_->SetView(nullptr);
   host_->RendererExited();
-  EXPECT_FALSE(host_->visual_properties_ack_pending_);
-  EXPECT_EQ(nullptr, host_->old_visual_properties_);
 
-  // Reset the view so we can exit the test cleanly.
+  // Receive an in-flight frame token (it needs to monotonically increase)
+  // while the RenderWidget is gone.
+  host_->DidProcessFrame(3);
+
+  // The renderer is recreated.
   host_->SetView(view_.get());
+  // Make a new RenderWidget when the renderer is recreated and inform that a
+  // RenderWidget is being created.
+  VisualProperties props = host_->GetInitialVisualProperties();
+  // The RenderWidget is recreated with the initial VisualProperties.
+  host_->Init();
+
+  // The new RenderWidget sends a frame token, which is lower than what the
+  // previous RenderWidget sent. This should be okay, as the expected token has
+  // been reset.
+  host_->DidProcessFrame(1);
+}
+
+TEST_F(RenderWidgetHostTest, ReceiveFrameTokenFromDeletedRenderWidget) {
+  // The RenderWidget sends a monotonically increasing frame token.
+  host_->DidProcessFrame(2);
+
+  // The RenderWidget is destroyed in the renderer process as the main frame
+  // is removed from this RenderWidgetHost's RenderWidgetView, but the
+  // RenderWidgetView is still kept around for another RenderFrame.
+  EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+      .WillRepeatedly(Return(false));
+
+  // Receive an in-flight frame token (it needs to monotonically increase)
+  // while the RenderWidget is gone.
+  host_->DidProcessFrame(3);
+
+  // Make a new RenderWidget when the renderer is recreated and inform that a
+  // RenderWidget is being created.
+  VisualProperties props = host_->GetInitialVisualProperties();
+  // The RenderWidget is recreated with the initial VisualProperties.
+  EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+      .WillRepeatedly(Return(true));
+
+  // The new RenderWidget sends a frame token, which is lower than what the
+  // previous RenderWidget sent. This should be okay, as the expected token has
+  // been reset.
+  host_->DidProcessFrame(1);
 }
 
 // Unable to include render_widget_host_view_mac.h and compile.
@@ -1075,7 +1076,8 @@ TEST_F(RenderWidgetHostTest, HideShowMessages) {
   cc::RenderFrameMetadata metadata;
   metadata.viewport_size_in_pixels = gfx::Size(100, 100);
   metadata.local_surface_id_allocation = base::nullopt;
-  host_->DidUpdateVisualProperties(metadata);
+  static_cast<RenderFrameMetadataProvider::Observer&>(*host_)
+      .OnLocalSurfaceIdChanged(metadata);
 
   // Now unhide.
   process_->sink().ClearMessages();
@@ -1438,9 +1440,8 @@ TEST_F(RenderWidgetHostTest, IgnoreInputEvent) {
 
 TEST_F(RenderWidgetHostTest, KeyboardListenerIgnoresEvent) {
   host_->SetupForInputRouterTest();
-  host_->AddKeyPressEventCallback(
-      base::Bind(&RenderWidgetHostTest::KeyPressEventCallback,
-                 base::Unretained(this)));
+  host_->AddKeyPressEventCallback(base::BindRepeating(
+      &RenderWidgetHostTest::KeyPressEventCallback, base::Unretained(this)));
   handle_key_press_event_ = false;
   SimulateKeyboardEvent(WebInputEvent::kRawKeyDown);
 
@@ -1450,9 +1451,8 @@ TEST_F(RenderWidgetHostTest, KeyboardListenerIgnoresEvent) {
 TEST_F(RenderWidgetHostTest, KeyboardListenerSuppressFollowingEvents) {
   host_->SetupForInputRouterTest();
 
-  host_->AddKeyPressEventCallback(
-      base::Bind(&RenderWidgetHostTest::KeyPressEventCallback,
-                 base::Unretained(this)));
+  host_->AddKeyPressEventCallback(base::BindRepeating(
+      &RenderWidgetHostTest::KeyPressEventCallback, base::Unretained(this)));
 
   // The callback handles the first event
   handle_key_press_event_ = true;
@@ -1479,9 +1479,8 @@ TEST_F(RenderWidgetHostTest, KeyboardListenerSuppressFollowingEvents) {
 TEST_F(RenderWidgetHostTest, MouseEventCallbackCanHandleEvent) {
   host_->SetupForInputRouterTest();
 
-  host_->AddMouseEventCallback(
-      base::Bind(&RenderWidgetHostTest::MouseEventCallback,
-                 base::Unretained(this)));
+  host_->AddMouseEventCallback(base::BindRepeating(
+      &RenderWidgetHostTest::MouseEventCallback, base::Unretained(this)));
 
   handle_mouse_event_ = true;
   SimulateMouseEvent(WebInputEvent::kMouseDown);
@@ -1573,7 +1572,7 @@ TEST_F(RenderWidgetHostTest, InputEventRWHLatencyComponent) {
   // Tests RWHI::ForwardGestureEvent().
   PressTouchPoint(0, 1);
   SendTouchEvent();
-  host_->input_router()->OnSetTouchAction(cc::kTouchActionAuto);
+  host_->input_router()->OnSetTouchAction(cc::TouchAction::kAuto);
   dispatched_events =
       host_->mock_widget_input_handler_.GetAndResetDispatchedMessages();
   CheckLatencyInfoComponentInMessage(dispatched_events,
@@ -1609,12 +1608,139 @@ TEST_F(RenderWidgetHostTest, InputEventRWHLatencyComponent) {
 }
 
 TEST_F(RenderWidgetHostTest, RendererExitedResetsInputRouter) {
+  EXPECT_EQ(0u, host_->in_flight_event_count());
+  SimulateKeyboardEvent(WebInputEvent::kRawKeyDown);
+  EXPECT_EQ(1u, host_->in_flight_event_count());
+
+  EXPECT_FALSE(host_->input_router()->HasPendingEvents());
+  blink::WebMouseWheelEvent event;
+  event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
+  host_->input_router()->SendWheelEvent(MouseWheelEventWithLatencyInfo(event));
+  EXPECT_TRUE(host_->input_router()->HasPendingEvents());
+
   // RendererExited will delete the view.
   host_->SetView(new TestView(host_.get()));
   host_->RendererExited();
 
+  // The renderer is recreated.
+  host_->SetView(view_.get());
+  // Make a new RenderWidget when the renderer is recreated and inform that a
+  // RenderWidget is being created.
+  VisualProperties props = host_->GetInitialVisualProperties();
+  // The RenderWidget is recreated with the initial VisualProperties.
+  host_->Init();
+
   // Make sure the input router is in a fresh state.
   ASSERT_FALSE(host_->input_router()->HasPendingEvents());
+  // There should be no in flight events. https://crbug.com/615090#152.
+  EXPECT_EQ(0u, host_->in_flight_event_count());
+}
+
+TEST_F(RenderWidgetHostTest, DestroyingRenderWidgetResetsInputRouter) {
+  EXPECT_EQ(0u, host_->in_flight_event_count());
+  SimulateKeyboardEvent(WebInputEvent::kRawKeyDown);
+  EXPECT_EQ(1u, host_->in_flight_event_count());
+
+  EXPECT_FALSE(host_->input_router()->HasPendingEvents());
+  blink::WebMouseWheelEvent event;
+  event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
+  host_->input_router()->SendWheelEvent(MouseWheelEventWithLatencyInfo(event));
+  EXPECT_TRUE(host_->input_router()->HasPendingEvents());
+
+  // The RenderWidget is destroyed in the renderer process as the main frame
+  // is removed from this RenderWidgetHost's RenderWidgetView, but the
+  // RenderWidgetView is still kept around for another RenderFrame.
+  EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+      .WillRepeatedly(Return(false));
+
+  // Make a new RenderWidget when the renderer is recreated and inform that a
+  // RenderWidget is being created.
+  VisualProperties props = host_->GetInitialVisualProperties();
+  // The RenderWidget is recreated with the initial VisualProperties.
+  EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+      .WillRepeatedly(Return(true));
+
+  // Make sure the input router is in a fresh state.
+  EXPECT_FALSE(host_->input_router()->HasPendingEvents());
+  // There should be no in flight events. https://crbug.com/615090#152.
+  EXPECT_EQ(0u, host_->in_flight_event_count());
+}
+
+TEST_F(RenderWidgetHostTest, RendererExitedResetsScreenRectsAck) {
+  auto count_screen_rect_messages = [&]() {
+    int count = 0;
+    for (uint32_t i = 0; i < sink_->message_count(); ++i) {
+      if (sink_->GetMessageAt(i)->type() == WidgetMsg_UpdateScreenRects::ID)
+        ++count;
+    }
+    return count;
+  };
+
+  // Screen rects are sent during initialization, but we are waiting for an ack.
+  EXPECT_EQ(1, count_screen_rect_messages());
+  // Waiting for the ack prevents further sending.
+  host_->SendScreenRects();
+  host_->SendScreenRects();
+  EXPECT_EQ(1, count_screen_rect_messages());
+
+  // RendererExited will delete the view.
+  host_->SetView(new TestView(host_.get()));
+  host_->RendererExited();
+
+  // Still can't send until the RenderWidget is replaced.
+  host_->SendScreenRects();
+  EXPECT_EQ(1, count_screen_rect_messages());
+
+  // The renderer is recreated.
+  host_->SetView(view_.get());
+  // Make a new RenderWidget when the renderer is recreated and inform that a
+  // RenderWidget is being created.
+  VisualProperties props = host_->GetInitialVisualProperties();
+  // The RenderWidget is recreated with the initial VisualProperties.
+  host_->Init();
+
+  // The RenderWidget is shown when navigation completes. This sends screen
+  // rects again. The IPC is sent as it's not waiting for an ack.
+  host_->WasShown(base::nullopt);
+  EXPECT_EQ(2, count_screen_rect_messages());
+}
+
+TEST_F(RenderWidgetHostTest, DestroyingRenderWidgetResetsScreenRectsAck) {
+  auto count_screen_rect_messages = [&]() {
+    int count = 0;
+    for (uint32_t i = 0; i < sink_->message_count(); ++i) {
+      if (sink_->GetMessageAt(i)->type() == WidgetMsg_UpdateScreenRects::ID)
+        ++count;
+    }
+    return count;
+  };
+
+  // Screen rects are sent during initialization, but we are waiting for an ack.
+  EXPECT_EQ(1, count_screen_rect_messages());
+  // Waiting for the ack prevents further sending.
+  host_->SendScreenRects();
+  host_->SendScreenRects();
+  EXPECT_EQ(1, count_screen_rect_messages());
+
+  // The RenderWidget has been destroyed in the renderer.
+  EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+      .WillRepeatedly(Return(false));
+
+  // Still can't send until the RenderWidget is replaced.
+  host_->SendScreenRects();
+  EXPECT_EQ(1, count_screen_rect_messages());
+
+  // Make a new RenderWidget when the renderer is recreated and inform that a
+  // RenderWidget is being created.
+  VisualProperties props = host_->GetInitialVisualProperties();
+  // The RenderWidget is recreated with the initial VisualProperties.
+  EXPECT_CALL(mock_owner_delegate_, IsMainFrameActive())
+      .WillRepeatedly(Return(true));
+
+  // We are able to send screen rects again. The IPC is sent as it's not waiting
+  // for an ack.
+  host_->SendScreenRects();
+  EXPECT_EQ(2, count_screen_rect_messages());
 }
 
 // Regression test for http://crbug.com/401859 and http://crbug.com/522795.
@@ -1737,27 +1863,19 @@ TEST_F(RenderWidgetHostTest, EventDispatchPostDetach) {
 // Check that if messages of a frame arrive earlier than the frame itself, we
 // queue the messages until the frame arrives and then process them.
 TEST_F(RenderWidgetHostTest, FrameToken_MessageThenFrame) {
-  const viz::LocalSurfaceId local_surface_id(1,
-                                             base::UnguessableToken::Create());
+  constexpr uint32_t frame_token = 1;
   std::vector<IPC::Message> messages;
   messages.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(5));
 
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  auto frame = viz::CompositorFrameBuilder()
-                   .AddDefaultRenderPass()
-                   .SetSendFrameTokenToEmbedder(true)
-                   .Build();
-  const uint32_t frame_token = frame.metadata.frame_token;
-
   host_->OnMessageReceived(
       WidgetHostMsg_FrameSwapMessages(0, frame_token, messages));
   EXPECT_EQ(1u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token);
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(1u, host_->processed_frame_messages_count());
 }
@@ -1765,21 +1883,14 @@ TEST_F(RenderWidgetHostTest, FrameToken_MessageThenFrame) {
 // Check that if a frame arrives earlier than its messages, we process the
 // messages immedtiately.
 TEST_F(RenderWidgetHostTest, FrameToken_FrameThenMessage) {
-  const viz::LocalSurfaceId local_surface_id(1,
-                                             base::UnguessableToken::Create());
+  constexpr uint32_t frame_token = 1;
   std::vector<IPC::Message> messages;
   messages.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(5));
 
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  auto frame = viz::CompositorFrameBuilder()
-                   .AddDefaultRenderPass()
-                   .SetSendFrameTokenToEmbedder(true)
-                   .Build();
-  const uint32_t frame_token = frame.metadata.frame_token;
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token);
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
@@ -1792,8 +1903,8 @@ TEST_F(RenderWidgetHostTest, FrameToken_FrameThenMessage) {
 // Check that if messages of multiple frames arrive before the frames, we
 // process each message once it frame arrives.
 TEST_F(RenderWidgetHostTest, FrameToken_MultipleMessagesThenTokens) {
-  const viz::LocalSurfaceId local_surface_id(1,
-                                             base::UnguessableToken::Create());
+  constexpr uint32_t frame_token1 = 1;
+  constexpr uint32_t frame_token2 = 2;
   std::vector<IPC::Message> messages1;
   std::vector<IPC::Message> messages2;
   messages1.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(5));
@@ -1801,17 +1912,6 @@ TEST_F(RenderWidgetHostTest, FrameToken_MultipleMessagesThenTokens) {
 
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
-
-  auto frame1 = viz::CompositorFrameBuilder()
-                    .AddDefaultRenderPass()
-                    .SetSendFrameTokenToEmbedder(true)
-                    .Build();
-  const uint32_t frame_token1 = frame1.metadata.frame_token;
-  auto frame2 = viz::CompositorFrameBuilder()
-                    .AddDefaultRenderPass()
-                    .SetSendFrameTokenToEmbedder(true)
-                    .Build();
-  const uint32_t frame_token2 = frame2.metadata.frame_token;
 
   host_->OnMessageReceived(
       WidgetHostMsg_FrameSwapMessages(0, frame_token1, messages1));
@@ -1823,12 +1923,10 @@ TEST_F(RenderWidgetHostTest, FrameToken_MultipleMessagesThenTokens) {
   EXPECT_EQ(2u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame1),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token1);
   EXPECT_EQ(1u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(1u, host_->processed_frame_messages_count());
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame2),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token2);
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(2u, host_->processed_frame_messages_count());
 }
@@ -1836,8 +1934,8 @@ TEST_F(RenderWidgetHostTest, FrameToken_MultipleMessagesThenTokens) {
 // Check that if multiple frames arrive before their messages, each message is
 // processed immediately as soon as it arrives.
 TEST_F(RenderWidgetHostTest, FrameToken_MultipleTokensThenMessages) {
-  const viz::LocalSurfaceId local_surface_id(1,
-                                             base::UnguessableToken::Create());
+  constexpr uint32_t frame_token1 = 1;
+  constexpr uint32_t frame_token2 = 2;
   std::vector<IPC::Message> messages1;
   std::vector<IPC::Message> messages2;
   messages1.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(5));
@@ -1846,23 +1944,11 @@ TEST_F(RenderWidgetHostTest, FrameToken_MultipleTokensThenMessages) {
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  auto frame = viz::CompositorFrameBuilder()
-                   .AddDefaultRenderPass()
-                   .SetSendFrameTokenToEmbedder(true)
-                   .Build();
-  const uint32_t frame_token1 = frame.metadata.frame_token;
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token1);
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  frame = viz::CompositorFrameBuilder()
-              .AddDefaultRenderPass()
-              .SetSendFrameTokenToEmbedder(true)
-              .Build();
-  const uint32_t frame_token2 = frame.metadata.frame_token;
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token2);
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
@@ -1880,9 +1966,8 @@ TEST_F(RenderWidgetHostTest, FrameToken_MultipleTokensThenMessages) {
 // Check that if one frame is lost but its messages arrive, we process the
 // messages on the arrival of the next frame.
 TEST_F(RenderWidgetHostTest, FrameToken_DroppedFrame) {
-  const uint32_t frame_token1 = 1;
-  const viz::LocalSurfaceId local_surface_id(1,
-                                             base::UnguessableToken::Create());
+  constexpr uint32_t frame_token1 = 1;
+  constexpr uint32_t frame_token2 = 2;
   std::vector<IPC::Message> messages1;
   std::vector<IPC::Message> messages2;
   messages1.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(5));
@@ -1896,100 +1981,14 @@ TEST_F(RenderWidgetHostTest, FrameToken_DroppedFrame) {
   EXPECT_EQ(1u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  auto frame = viz::CompositorFrameBuilder()
-                   .AddDefaultRenderPass()
-                   .SetSendFrameTokenToEmbedder(true)
-                   .Build();
-  const uint32_t frame_token2 = frame.metadata.frame_token;
   host_->OnMessageReceived(
       WidgetHostMsg_FrameSwapMessages(0, frame_token2, messages2));
   EXPECT_EQ(2u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(0u, host_->processed_frame_messages_count());
 
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
+  view_->OnFrameTokenChanged(frame_token2);
   EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
   EXPECT_EQ(2u, host_->processed_frame_messages_count());
-}
-
-// Check that if the renderer crashes, we drop all queued messages and allow
-// smaller frame tokens to be sent by the renderer.
-TEST_F(RenderWidgetHostTest, FrameToken_RendererCrash) {
-  const viz::LocalSurfaceId local_surface_id(1,
-                                             base::UnguessableToken::Create());
-  std::vector<IPC::Message> messages1;
-  std::vector<IPC::Message> messages3;
-  messages1.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(5));
-  messages3.push_back(WidgetHostMsg_DidFirstVisuallyNonEmptyPaint(6));
-
-  // Mocking |renderer_compositor_frame_sink_| to prevent crashes in
-  // renderer_compositor_frame_sink_->DidReceiveCompositorFrameAck(resources).
-  std::unique_ptr<viz::MockCompositorFrameSinkClient>
-      mock_compositor_frame_sink_client =
-          std::make_unique<viz::MockCompositorFrameSinkClient>();
-  host_->SetMockRendererCompositorFrameSink(
-      mock_compositor_frame_sink_client.get());
-
-  // If we don't do this, then RWHI destroys the view in RendererExited and
-  // then a crash occurs when we attempt to destroy it again in TearDown().
-  host_->SetView(nullptr);
-
-  auto frame = viz::CompositorFrameBuilder()
-                   .AddDefaultRenderPass()
-                   .SetSendFrameTokenToEmbedder(true)
-                   .Build();
-  const uint32_t frame_token1 = frame.metadata.frame_token;
-  host_->OnMessageReceived(
-      WidgetHostMsg_FrameSwapMessages(0, frame_token1, messages1));
-  EXPECT_EQ(1u, host_->frame_token_message_queue_->size());
-  EXPECT_EQ(0u, host_->processed_frame_messages_count());
-
-  host_->RendererExited();
-  EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
-  EXPECT_EQ(0u, host_->processed_frame_messages_count());
-  host_->Init();
-
-  frame = viz::CompositorFrameBuilder()
-              .AddDefaultRenderPass()
-              .SetSendFrameTokenToEmbedder(true)
-              .Build();
-  const uint32_t frame_token2 = frame.metadata.frame_token;
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
-  EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
-  EXPECT_EQ(0u, host_->processed_frame_messages_count());
-
-  host_->RendererExited();
-  EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
-  EXPECT_EQ(0u, host_->processed_frame_messages_count());
-  host_->SetView(view_.get());
-  host_->Init();
-
-  host_->OnMessageReceived(
-      WidgetHostMsg_FrameSwapMessages(0, frame_token2, messages3));
-  EXPECT_EQ(1u, host_->frame_token_message_queue_->size());
-  EXPECT_EQ(0u, host_->processed_frame_messages_count());
-
-  frame = viz::CompositorFrameBuilder()
-              .AddDefaultRenderPass()
-              .SetSendFrameTokenToEmbedder(true)
-              .Build();
-  host_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                               base::nullopt, 0);
-  EXPECT_EQ(0u, host_->frame_token_message_queue_->size());
-  EXPECT_EQ(1u, host_->processed_frame_messages_count());
-}
-
-TEST_F(RenderWidgetHostTest, InflightEventCountResetsAfterRebind) {
-  // Simulate a keyboard event.
-  SimulateKeyboardEvent(WebInputEvent::kRawKeyDown);
-
-  EXPECT_EQ(1u, host_->in_flight_event_count());
-  mojo::PendingRemote<mojom::Widget> widget;
-  std::unique_ptr<MockWidgetImpl> widget_impl =
-      std::make_unique<MockWidgetImpl>(widget.InitWithNewPipeAndPassReceiver());
-  host_->SetWidget(std::move(widget));
-  EXPECT_EQ(0u, host_->in_flight_event_count());
 }
 
 TEST_F(RenderWidgetHostTest, ForceEnableZoomShouldUpdateAfterRebind) {
@@ -2061,8 +2060,10 @@ TEST_F(RenderWidgetHostTest, RendererHangRecordsMetrics) {
 
 TEST_F(RenderWidgetHostTest, PendingUserActivationTimeout) {
   base::test::ScopedFeatureList scoped_feature_list_;
-  scoped_feature_list_.InitAndEnableFeature(
-      features::kBrowserVerifiedUserActivation);
+  scoped_feature_list_.InitWithFeatures(
+      {features::kBrowserVerifiedUserActivationMouse,
+       features::kBrowserVerifiedUserActivationKeyboard},
+      {});
 
   // One event allows one activation notification.
   SimulateMouseEvent(WebInputEvent::kMouseDown);

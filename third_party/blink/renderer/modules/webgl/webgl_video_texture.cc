@@ -5,9 +5,9 @@
 #include "third_party/blink/renderer/modules/webgl/webgl_video_texture.h"
 
 #include "build/build_config.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_video_frame_metadata.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.h"
-#include "third_party/blink/renderer/modules/webgl/webgl_video_frame_metadata.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_video_texture_enum.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 
@@ -15,23 +15,17 @@ namespace blink {
 
 WebGLVideoTexture::WebGLVideoTexture(WebGLRenderingContextBase* context)
     : WebGLExtension(context) {
-  context->ExtensionsUtil()->EnsureExtensionEnabled("WEBGL_video_texture");
+  context->ExtensionsUtil()->EnsureExtensionEnabled("GL_WEBGL_video_texture");
 }
 
 WebGLExtensionName WebGLVideoTexture::GetName() const {
   return kWebGLVideoTextureName;
 }
 
-WebGLVideoTexture* WebGLVideoTexture::Create(
-    WebGLRenderingContextBase* context) {
-  return MakeGarbageCollected<WebGLVideoTexture>(context);
-}
-
-// We only need GL_OES_EGL_image_external extension on Android.
 bool WebGLVideoTexture::Supported(WebGLRenderingContextBase* context) {
 #if defined(OS_ANDROID)
-  return context->ExtensionsUtil()->SupportsExtension(
-      "GL_OES_EGL_image_external");
+  // TODO(crbug.com/776222): support extension on Android
+  return false;
 #else  // defined OS_ANDROID
   return true;
 #endif
@@ -46,11 +40,11 @@ void WebGLVideoTexture::Trace(blink::Visitor* visitor) {
   WebGLExtension::Trace(visitor);
 }
 
-WebGLVideoFrameMetadata* WebGLVideoTexture::VideoElementTargetVideoTexture(
+VideoFrameMetadata* WebGLVideoTexture::VideoElementTargetVideoTexture(
     ExecutionContext* execution_context,
     unsigned target,
     HTMLVideoElement* video,
-    ExceptionState& exceptionState) {
+    ExceptionState& exception_state) {
   WebGLExtensionScopedContext scoped(this);
   if (!video || scoped.IsLost())
     return nullptr;
@@ -62,16 +56,23 @@ WebGLVideoFrameMetadata* WebGLVideoTexture::VideoElementTargetVideoTexture(
 
   if (!scoped.Context()->ValidateHTMLVideoElement(
           execution_context->GetSecurityOrigin(), "WEBGLVideoTexture", video,
-          exceptionState) ||
-      !scoped.Context()->ValidateTexFuncDimensions(
-          "WEBGLVideoTexture", WebGLRenderingContextBase::kTexImage, target, 0,
-          video->videoWidth(), video->videoHeight(), 1))
+          exception_state)) {
     return nullptr;
+  }
+
+  if (!scoped.Context()->ValidateTexFuncDimensions(
+          "WEBGLVideoTexture", WebGLRenderingContextBase::kTexImage, target, 0,
+          video->videoWidth(), video->videoHeight(), 1)) {
+    return nullptr;
+  }
 
   WebGLTexture* texture =
       scoped.Context()->ValidateTextureBinding("WEBGLVideoTexture", target);
-  if (!texture)
+  if (!texture) {
+    exception_state.ThrowTypeError(
+        "Failed to get correct binding texture for WEBGL_video_texture");
     return nullptr;
+  }
 
   // For WebGL last-uploaded-frame-metadata API.
   WebMediaPlayer::VideoFrameUploadMetadata frame_metadata = {};
@@ -83,22 +84,35 @@ WebGLVideoFrameMetadata* WebGLVideoTexture::VideoElementTargetVideoTexture(
   }
 
 #if defined(OS_ANDROID)
-  target = GL_TEXTURE_EXTERNAL_OES;
+  // TODO(crbug.com/776222): support extension on Android
+  NOTIMPLEMENTED();
+  return nullptr;
 #else  // defined OS_ANDROID
   target = GL_TEXTURE_2D;
 
 #endif  // defined OS_ANDROID
 
+  // TODO(shaobo.yan@intel.com) : A fallback path or exception needs to be
+  // added when video is not using gpu decoder.
   video->PrepareVideoFrameForWebGL(scoped.Context()->ContextGL(), target,
                                    texture->Object(), already_uploaded_id,
                                    frame_metadata_ptr);
   if (!frame_metadata_ptr) {
+    exception_state.ThrowTypeError("Failed to share video to texture.");
     return nullptr;
   }
 
   if (frame_metadata_ptr) {
-    current_frame_metadata_ =
-        WebGLVideoFrameMetadata::Create(frame_metadata_ptr);
+    current_frame_metadata_ = VideoFrameMetadata::Create();
+    current_frame_metadata_->setPresentationTime(
+        frame_metadata_ptr->timestamp.InMicrosecondsF());
+    current_frame_metadata_->setExpectedPresentationTime(
+        frame_metadata_ptr->expected_timestamp.InMicrosecondsF());
+    current_frame_metadata_->setWidth(frame_metadata_ptr->visible_rect.width());
+    current_frame_metadata_->setHeight(
+        frame_metadata_ptr->visible_rect.height());
+    current_frame_metadata_->setPresentationTimestamp(
+        frame_metadata_ptr->timestamp.InSecondsF());
   }
 
   return current_frame_metadata_;

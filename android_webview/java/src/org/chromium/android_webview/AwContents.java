@@ -103,6 +103,7 @@ import org.chromium.content_public.common.UseZoomForDSFPolicy;
 import org.chromium.device.gamepad.GamepadList;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.network.mojom.ReferrerPolicy;
+import org.chromium.ui.VSyncMonitor;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.PageTransition;
@@ -178,7 +179,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     // Used to record the UMA histogram Android.WebView.LoadDataWithBaseUrl.HistoryUrl. Since these
-    // values are persisted to logs, they should never be renumbered nor reused.
+    // values are persisted to logs, they should never be renumbered or reused.
     @IntDef({HistoryUrl.EMPTY, HistoryUrl.BASEURL, HistoryUrl.DIFFERENT, HistoryUrl.COUNT})
     @interface HistoryUrl {
         int EMPTY = 0;
@@ -188,7 +189,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     // Used to record the UMA histogram Android.WebView.LoadDataWithBaseUrl.UrlScheme. Since these
-    // values are persisted to logs, they should never be renumbered nor reused.
+    // values are persisted to logs, they should never be renumbered or reused.
     @VisibleForTesting
     @IntDef({UrlScheme.EMPTY, UrlScheme.UNKNOWN_SCHEME, UrlScheme.HTTP_SCHEME,
             UrlScheme.HTTPS_SCHEME, UrlScheme.FILE_SCHEME, UrlScheme.FTP_SCHEME,
@@ -445,10 +446,6 @@ public class AwContents implements SmartClipProvider {
 
     private AwViewMethods mAwViewMethods;
     private final FullScreenTransitionsState mFullScreenTransitionsState;
-
-    // This flag indicates that ShouldOverrideUrlNavigation should be posted
-    // through the resourcethrottle. This is only used for popup windows.
-    private boolean mDeferredShouldOverrideUrlLoadingIsPendingForPopup;
 
     // This is a workaround for some qualcomm devices discarding buffer on
     // Activity restore.
@@ -1317,7 +1314,6 @@ public class AwContents implements SmartClipProvider {
     // called on the popup window's content.
     private void receivePopupContents(long popupNativeAwContents) {
         if (isDestroyed(WARN)) return;
-        mDeferredShouldOverrideUrlLoadingIsPendingForPopup = true;
         // Save existing view state.
         final boolean wasAttached = mIsAttachedToWindow;
         final boolean wasViewVisible = mIsViewVisible;
@@ -2935,6 +2931,16 @@ public class AwContents implements SmartClipProvider {
     }
 
     /**
+     * Returns true if the web contents has an associated interstitial.
+     * This method is only called by tests.
+     */
+    @VisibleForTesting
+    public boolean isDisplayingInterstitialForTesting() {
+        return AwContentsJni.get().isDisplayingInterstitialForTesting(
+                mNativeAwContents, AwContents.this);
+    }
+
+    /**
      * Key for opaque state in bundle. Note this is only public for tests.
      */
     public static final String SAVE_RESTORE_STATE_KEY = "WEBVIEW_CHROMIUM_STATE";
@@ -3265,7 +3271,7 @@ public class AwContents implements SmartClipProvider {
 
     @CalledByNative
     private void postInvalidateOnAnimation() {
-        if (!mWindowAndroid.getWindowAndroid().isInsideVSync()) {
+        if (!VSyncMonitor.isInsideVSync()) {
             mContainerView.postInvalidateOnAnimation();
         } else {
             mContainerView.invalidate();
@@ -3696,6 +3702,8 @@ public class AwContents implements SmartClipProvider {
                 mSettings.setSpatialNavigationEnabled(false);
             }
 
+            AwContentsJni.get().onInputEvent(mNativeAwContents, AwContents.this);
+
             mScrollOffsetManager.setProcessingTouchEvent(true);
             boolean rv = mWebContents.getEventForwarder().onTouchEvent(event);
             mScrollOffsetManager.setProcessingTouchEvent(false);
@@ -3985,7 +3993,9 @@ public class AwContents implements SmartClipProvider {
         void onAttachedToWindow(long nativeAwContents, AwContents caller, int w, int h);
         void onDetachedFromWindow(long nativeAwContents, AwContents caller);
         boolean isVisible(long nativeAwContents, AwContents caller);
+        boolean isDisplayingInterstitialForTesting(long nativeAwContents, AwContents caller);
         void setDipScale(long nativeAwContents, AwContents caller, float dipScale);
+        void onInputEvent(long nativeAwContents, AwContents caller);
         // Returns null if save state fails.
         byte[] getOpaqueState(long nativeAwContents, AwContents caller);
 

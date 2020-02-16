@@ -30,7 +30,8 @@ bool MediaSessionController::Initialize(
     bool has_audio,
     bool is_remote,
     media::MediaContentType media_content_type,
-    media_session::MediaPosition* position) {
+    media_session::MediaPosition* position,
+    bool is_pip_available) {
   // Store these as we will need them later.
   is_remote_ = is_remote;
   has_audio_ = has_audio;
@@ -38,6 +39,8 @@ bool MediaSessionController::Initialize(
 
   if (position)
     position_ = *position;
+
+  is_picture_in_picture_available_ = is_pip_available;
 
   // Don't generate a new id if one has already been set.
   if (!has_session_) {
@@ -118,6 +121,18 @@ void MediaSessionController::OnSetVolumeMultiplier(int player_id,
       volume_multiplier));
 }
 
+void MediaSessionController::OnEnterPictureInPicture(int player_id) {
+  DCHECK_EQ(player_id_, player_id);
+  id_.render_frame_host->Send(new MediaPlayerDelegateMsg_EnterPictureInPicture(
+      id_.render_frame_host->GetRoutingID(), id_.delegate_id));
+}
+
+void MediaSessionController::OnExitPictureInPicture(int player_id) {
+  DCHECK_EQ(player_id_, player_id);
+  id_.render_frame_host->Send(new MediaPlayerDelegateMsg_ExitPictureInPicture(
+      id_.render_frame_host->GetRoutingID(), id_.delegate_id));
+}
+
 RenderFrameHost* MediaSessionController::render_frame_host() const {
   return id_.render_frame_host;
 }
@@ -126,6 +141,11 @@ base::Optional<media_session::MediaPosition>
 MediaSessionController::GetPosition(int player_id) const {
   DCHECK_EQ(player_id_, player_id);
   return position_;
+}
+
+bool MediaSessionController::IsPictureInPictureAvailable(int player_id) const {
+  DCHECK_EQ(player_id_, player_id);
+  return is_picture_in_picture_available_;
 }
 
 void MediaSessionController::OnPlaybackPaused() {
@@ -154,6 +174,12 @@ void MediaSessionController::OnMediaPositionStateChanged(
     const media_session::MediaPosition& position) {
   position_ = position;
   media_session_->RebuildAndNotifyMediaPositionChanged();
+}
+
+void MediaSessionController::OnPictureInPictureAvailabilityChanged(
+    bool available) {
+  is_picture_in_picture_available_ = available;
+  media_session_->OnPictureInPictureAvailabilityChanged();
 }
 
 }  // namespace content

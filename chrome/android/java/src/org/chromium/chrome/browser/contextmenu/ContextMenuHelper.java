@@ -24,7 +24,8 @@ import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.contextmenu.ContextMenuParams.PerformanceClass;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
@@ -145,6 +146,7 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
         };
         mOnMenuClosed = (notAbandoned) -> {
             recordTimeToTakeActionHistogram(mSelectedItemBeforeDismiss || notAbandoned);
+            mPopulator.onMenuClosed();
             if (mNativeContextMenuHelper == 0) return;
             ContextMenuHelperJni.get().onContextMenuClosed(
                     mNativeContextMenuHelper, ContextMenuHelper.this);
@@ -239,11 +241,21 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
     }
 
     /**
+     * Copy the image, that triggered the current context menu, to system clipboard.
+     * @param delegate The {@link ContextMenuItemDelegate} from context menu for copying image to
+     *         the clipboard.
+     */
+    void copyImageToClipboard(ContextMenuItemDelegate delegate) {
+        retrieveImage((Uri imageUri) -> { delegate.onSaveImageToClipboard(imageUri); });
+    }
+
+    /**
      * Share the image that triggered the current context menu with the last app used to share.
      */
     private void shareImageWithLastShareComponent() {
         retrieveImage((Uri imageUri) -> {
-            ShareHelper.shareImage(mWindow, ShareHelper.getLastShareComponentName(null), imageUri);
+            ShareHelper.shareImage(
+                    mWindow, ShareHelper.getLastShareByChromeComponentName(), imageUri);
         });
     }
 
@@ -304,10 +316,18 @@ public class ContextMenuHelper implements OnCreateContextMenuListener {
     }
 
     private void recordTimeToTakeActionHistogram(boolean selectedItem) {
-        final String action = selectedItem ? "SelectedItem" : "Abandoned";
-        RecordHistogram.recordTimesHistogram("ContextMenu.TimeToTakeAction." + action,
+        final String histogramName =
+                "ContextMenu.TimeToTakeAction." + (selectedItem ? "SelectedItem" : "Abandoned");
+        final long timeToTakeActionMs =
                 TimeUnit.MICROSECONDS.toMillis(TimeUtilsJni.get().getTimeTicksNowUs())
-                        - mMenuShownTimeMs);
+                - mMenuShownTimeMs;
+        RecordHistogram.recordTimesHistogram(histogramName, timeToTakeActionMs);
+        if (mCurrentContextMenuParams.isAnchor()
+                && mCurrentContextMenuParams.getPerformanceClass()
+                        == PerformanceClass.PERFORMANCE_FAST) {
+            RecordHistogram.recordTimesHistogram(
+                    histogramName + ".PerformanceClassFast", timeToTakeActionMs);
+        }
     }
 
     /**

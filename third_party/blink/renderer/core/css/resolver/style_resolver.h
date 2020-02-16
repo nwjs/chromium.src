@@ -132,9 +132,18 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
 
   static bool HasAuthorBackground(const StyleResolverState&);
 
+  scoped_refptr<ComputedStyle> StyleForInterpolations(
+      Element& target,
+      ActiveInterpolationsMap& animations);
+
   void Trace(blink::Visitor*);
 
  private:
+  void ApplyBaseComputedStyle(Element* element,
+                              StyleResolverState& state,
+                              RuleMatchingBehavior matching_behavior,
+                              bool can_cache_animation_base_computed_style);
+
   // FIXME: This should probably go away, folded into FontBuilder.
   void UpdateFont(StyleResolverState&);
 
@@ -171,7 +180,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
     bool is_inherited_cache_hit;
     bool is_non_inherited_cache_hit;
     unsigned cache_hash;
-    Member<const CachedMatchedProperties> cached_matched_properties;
+    const CachedMatchedProperties* cached_matched_properties;
 
     CacheSuccess(bool is_inherited_cache_hit,
                  bool is_non_inherited_cache_hit,
@@ -221,6 +230,10 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   };
 
   CacheSuccess ApplyMatchedCache(StyleResolverState&, const MatchResult&);
+  void MaybeAddToMatchedPropertiesCache(StyleResolverState&,
+                                        const CacheSuccess&,
+                                        const MatchResult&);
+
   void ApplyCustomProperties(StyleResolverState&,
                              const MatchResult&,
                              const CacheSuccess&,
@@ -250,6 +263,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
                            const MatchResult& match_result,
                            bool apply_inherited_only,
                            NeedsApplyPass& needs_apply_pass);
+  void CascadeAndApplyForcedColors(StyleResolverState&, const MatchResult&);
 
   void CascadeAndApplyMatchedProperties(StyleResolverState&,
                                         const MatchResult&);
@@ -311,6 +325,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   bool WasViewportResized() const { return was_viewport_resized_; }
 
   bool IsForcedColorsModeEnabled() const;
+  bool IsForcedColorsModeEnabled(const StyleResolverState&) const;
 
   MatchedPropertiesCache matched_properties_cache_;
   Member<Document> document_;

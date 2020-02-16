@@ -5,7 +5,6 @@
 
 部分功能可能無法使用，而系統也不會儲存任何偏好設定的變更。</translation>
 <translation id="1104942323762546749">Chromium 想匯出您的密碼。請輸入 Windows 密碼以允許此操作。</translation>
-<translation id="1115445892567829615">Chromium 無法同步處理您的數據，請更新您的同步複雜密碼。</translation>
 <translation id="113122355610423240">Chromium 現為您的預設瀏覽器</translation>
 <translation id="1185134272377778587">關於 Chromium</translation>
 <translation id="1396446129537741364">Chromium 即將顯示密碼。</translation>
@@ -22,7 +21,7 @@
 <translation id="1929939181775079593">Chromium 沒有回應，要立即重新啟動嗎？</translation>
 <translation id="1966382378801805537">Chromium 無法偵測或設定預設瀏覽器</translation>
 <translation id="2008474315282236005">這會刪除此裝置上的 1 個項目。如果日後想擷取資料，請以 <ph name="USER_EMAIL" /> 的身分登入 Chromium。</translation>
-<translation id="2119636228670142020">關於 Chromium 作業系統(&amp;C)</translation>
+<translation id="2147976119693222405">Chromium OS 無法同步您的資料。請立即修正。</translation>
 <translation id="2241627712206172106">如果您與親朋好友共用電腦，每個人均可享有獨立的瀏覽空間，依照自己的偏好設定 Chromium。</translation>
 <translation id="2347108572062610441">擴充功能已變更 Chromium 啟動時所顯示的網頁。</translation>
 <translation id="2396765026452590966">擴充功能「<ph name="EXTENSION_NAME" />」已變更 Chromium 啟動時所顯示的網頁。</translation>
@@ -38,7 +37,7 @@
 <translation id="2718390899429598676">為提高安全性，Chromium 會將您的資料加密。</translation>
 <translation id="2770231113462710648">將預設瀏覽器變更為：</translation>
 <translation id="2799223571221894425">重新啟動</translation>
-<translation id="2838154144102149890">此電腦上的 Chromium 需要停止執行才可更新。這可能會導致其他登入此電腦的使用者遺失尚未儲存的變更。</translation>
+<translation id="2805036593126168338">Chromium OS 無法同步您的密碼。請立即修正。</translation>
 <translation id="2847479871509788944">從 Chromium 中移除…</translation>
 <translation id="2886012850691518054">選擇性：將使用統計資料及當機報告自動傳送給 Google，助我們一臂之力，讓 Chromium 更臻完美。</translation>
 <translation id="2910007522516064972">關於 Chromium(&amp;C)</translation>
@@ -57,7 +56,6 @@
 <translation id="328888136576916638">缺少 Google API 金鑰，系統將停用 Chromium 的部分功能。</translation>
 <translation id="3296368748942286671">在 Chromium 關閉時繼續執行背景應用程式</translation>
 <translation id="331951419404882060">登入時發生錯誤，因此 Chromium 作業系統無法同步處理您的數據。</translation>
-<translation id="3340978935015468852">設定</translation>
 <translation id="3474745554856756813">這會刪除此裝置上的 <ph name="ITEMS_COUNT" /> 個項目。如果日後想擷取資料，請以 <ph name="USER_EMAIL" /> 的身分登入 Chromium。</translation>
 <translation id="3509308970982693815">請關閉所有 Chromium 視窗，然後再試一次。</translation>
 <translation id="3575459661164320785">在您的電腦上發現有害軟件。Chromium 可移除該軟件、復原設定及停用擴充程式，讓瀏覽器恢復正常運作。</translation>
@@ -148,7 +146,6 @@
 <translation id="6847869444787758381">Chromium 會通知您密碼是否曾被盜用</translation>
 <translation id="6857782730669500492">Chromium - <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (已複製至 Chromium)</translation>
-<translation id="6868056391275687737">系統正在執行其他 Chromium 瀏覽器。如要更新，請關閉這些瀏覽器。</translation>
 <translation id="6893813176749746474">Chromium 已更新，但您已至少超過 30 天沒有使用 Chromium。</translation>
 <translation id="6964305034639999644">在 Chromium 無痕式視窗中開啟連結(&amp;G)</translation>
 <translation id="6990124437352146030">Chromium 需要取得權限，才能讓這個網站存取您的麥克風</translation>
@@ -205,8 +202,6 @@ Chromium 無法復原您的設定。</translation>
 <translation id="8682540261359803721">如果此頁面沒有顯示設定，請前往 <ph name="LINK_BEGIN" />Chromium 瀏覽器設定<ph name="LINK_END" /></translation>
 <translation id="8697124171261953979">這個擴充功能也會控管 Chromium 啟動時或您使用網址列搜尋時所顯示的網頁。</translation>
 <translation id="8704119203788522458">這是您專屬的 Chromium</translation>
-<translation id="8739167630197873875">在您離開 Chromium 時清除 Cookie。變更此<ph name="COOKIE_SETTINGS_LINK" />即可保持同步。</translation>
-<translation id="8748383401829947534">請關閉所有 Chromium 瀏覽器。</translation>
 <translation id="8796602469536043152">Chromium 需要取得權限，才能讓這個網站存取您的相機和麥克風</translation>
 <translation id="8803635938069941624">Chromium 作業系統條款</translation>
 <translation id="8821041990367117597">您的帳戶登入詳細資料尚未更新，因此 Chromium 無法同步處理您的數據。</translation>
@@ -216,7 +211,6 @@ Chromium 無法復原您的設定。</translation>
 <translation id="8941642502866065432">無法更新 Chromium</translation>
 <translation id="8974095189086268230">Chromium 作業系統的開發有賴其他<ph name="BEGIN_LINK_CROS_OSS" />開放原始碼軟件<ph name="END_LINK_CROS_OSS" />。</translation>
 <translation id="9019929317751753759">為鞏固 Chromium 的安全性，我們已將未列在 <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> 中的擴充功能停用，因為它們可能在您不知情的情況下加入瀏覽器。</translation>
-<translation id="9022552996538154597">登入 Chromium</translation>
 <translation id="9089354809943900324">Chromium 版本過舊</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium 將於 1 小時後重新啟動}other{Chromium 將於 # 小時後重新啟動}}</translation>
 <translation id="91086099826398415">在 Chromium 的新分頁中開啟連結(&amp;T)</translation>

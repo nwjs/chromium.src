@@ -124,7 +124,8 @@ class FakeSchedulerClient : public SchedulerClient,
     base::AutoReset<bool> mark_inside(&inside_action_, true);
     inside_begin_impl_frame_ = false;
   }
-  void DidNotProduceFrame(const viz::BeginFrameAck& ack) override {
+  void DidNotProduceFrame(const viz::BeginFrameAck& ack,
+                          FrameSkippedReason reason) override {
     EXPECT_FALSE(inside_action_);
     base::AutoReset<bool> mark_inside(&inside_action_, true);
     last_begin_frame_ack_ = ack;
@@ -3400,6 +3401,55 @@ TEST_F(SchedulerTest, SynchronousCompositorPrepareTilesOnDraw) {
   client_->Reset();
 }
 
+// Synchronous compositor does not require the active tree to be drawn at least
+// once before the next activation. This test verifies two commit-activate
+// cycles without draw work correctly.
+TEST_F(SchedulerTest, SynchronousCompositorAllowsActivateBeforeDraw) {
+  scheduler_settings_.using_synchronous_renderer_compositor = true;
+
+  std::unique_ptr<FakeSchedulerClient> client =
+      base::WrapUnique(new SchedulerClientSetNeedsPrepareTilesOnDraw);
+  SetUpScheduler(EXTERNAL_BFS, std::move(client));
+
+  scheduler_->SetNeedsRedraw();
+  EXPECT_ACTIONS("AddObserver(this)");
+  client_->Reset();
+
+  // Next vsync.
+  scheduler_->SetNeedsBeginMainFrame();
+  EXPECT_SCOPED(AdvanceFrame());
+  EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionSendBeginMainFrame",
+                 "ScheduledActionInvalidateLayerTreeFrameSink");
+  client_->Reset();
+
+  // Commit and activate.
+  scheduler_->NotifyBeginMainFrameStarted(task_runner_->NowTicks());
+  scheduler_->NotifyReadyToCommit(nullptr);
+  EXPECT_ACTIONS("ScheduledActionCommit");
+  client_->Reset();
+  scheduler_->NotifyReadyToActivate();
+  EXPECT_ACTIONS("ScheduledActionActivateSyncTree");
+  client_->Reset();
+
+  // No Draw.
+
+  // Next vsync.
+  scheduler_->SetNeedsBeginMainFrame();
+  EXPECT_SCOPED(AdvanceFrame());
+  EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionSendBeginMainFrame",
+                 "ScheduledActionInvalidateLayerTreeFrameSink");
+  client_->Reset();
+
+  // Commit and activate.
+  scheduler_->NotifyBeginMainFrameStarted(task_runner_->NowTicks());
+  scheduler_->NotifyReadyToCommit(nullptr);
+  EXPECT_ACTIONS("ScheduledActionCommit");
+  client_->Reset();
+  scheduler_->NotifyReadyToActivate();
+  EXPECT_ACTIONS("ScheduledActionActivateSyncTree");
+  client_->Reset();
+}
+
 TEST_F(SchedulerTest, SetNeedsRedrawFromWillBeginImplFrame) {
   client_ = std::make_unique<FakeSchedulerClient>();
   CreateScheduler(EXTERNAL_BFS);
@@ -4251,14 +4301,17 @@ TEST_F(SchedulerTest, SendEarlyDidNotProduceFrameIfIdle) {
   EXPECT_SCOPED(AdvanceFrame());
   EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionSendBeginMainFrame");
   auto begin_main_frame_args = client_->last_begin_main_frame_args();
-  EXPECT_NE(client_->last_begin_frame_ack().sequence_number,
-            begin_main_frame_args.sequence_number);
+  EXPECT_NE(client_->last_begin_frame_ack().frame_id.sequence_number,
+            begin_main_frame_args.frame_id.sequence_number);
 
   client_->Reset();
   scheduler_->NotifyBeginMainFrameStarted(task_runner_->NowTicks());
+  // Request a new commit before finishing the current one to simulate behavior
+  // seen in certain OOPIF renderers.
+  scheduler_->SetNeedsBeginMainFrame();
   scheduler_->BeginMainFrameAborted(CommitEarlyOutReason::FINISHED_NO_UPDATES);
-  EXPECT_EQ(client_->last_begin_frame_ack().sequence_number,
-            begin_main_frame_args.sequence_number);
+  EXPECT_EQ(client_->last_begin_frame_ack().frame_id.sequence_number,
+            begin_main_frame_args.frame_id.sequence_number);
 }
 
 }  // namespace

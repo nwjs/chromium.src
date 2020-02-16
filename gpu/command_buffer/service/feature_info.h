@@ -39,7 +39,7 @@ class GPU_GLES2_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
     GpuMemoryBufferFormatSet gpu_memory_buffer_formats = {
         gfx::BufferFormat::BGR_565,   gfx::BufferFormat::RGBA_4444,
         gfx::BufferFormat::RGBA_8888, gfx::BufferFormat::RGBX_8888,
-        gfx::BufferFormat::YVU_420,
+        gfx::BufferFormat::YVU_420,   gfx::BufferFormat::RGBA_1010102,
     };
     // Use glBlitFramebuffer() and glRenderbufferStorageMultisample() with
     // GL_EXT_framebuffer_multisample-style semantics (as opposed to
@@ -53,6 +53,7 @@ class GPU_GLES2_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
     bool use_chromium_screen_space_antialiasing_via_shaders = false;
     bool oes_standard_derivatives = false;
     bool oes_egl_image_external = false;
+    bool oes_egl_image_external_essl3 = false;
     bool nv_egl_stream_consumer_external = false;
     bool oes_depth24 = false;
     bool oes_compressed_etc1_rgb8_texture = false;
@@ -102,7 +103,7 @@ class GPU_GLES2_EXPORT FeatureInfo : public base::RefCounted<FeatureInfo> {
     bool chromium_image_ycbcr_420v = false;
     bool chromium_image_ycbcr_422 = false;
     bool chromium_image_xr30 = false;
-    bool chromium_image_xb30 = false;
+    bool chromium_image_ab30 = false;
     bool chromium_image_ycbcr_p010 = false;
     bool emulate_primitive_restart_fixed_index = false;
     bool ext_render_buffer_format_bgra8888 = false;

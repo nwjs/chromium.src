@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/css/css_property_name.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
+#include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
@@ -21,6 +22,7 @@ class CSSValue;
 class CSSVariableData;
 class CSSVariableReferenceValue;
 class CustomProperty;
+class StyleCascadeSlots;
 class StyleResolverState;
 
 namespace cssvalue {
@@ -110,10 +112,15 @@ class CORE_EXPORT StyleCascade {
 
     Origin GetOrigin() const;
     bool HasOrigin() const { return GetOrigin() != Origin::kNone; }
+    bool HasUAOrigin() const {
+      return GetOrigin() == Origin::kUserAgent ||
+             GetOrigin() == Origin::kImportantUserAgent;
+    }
 
     // This function is used to determine if an incoming Value should win
     // over the Value which already exists in the cascade.
     bool operator>=(const Priority&) const;
+    bool operator<(const Priority& p) const { return !(*this >= p); }
 
     // Returns a copy of this Priority, except that the non-important origin
     // has been converted to its important counterpart.
@@ -195,60 +202,43 @@ class CORE_EXPORT StyleCascade {
   // dispatching any CSSPendingInterpolationValues to the given Animator.
   void Apply(Animator&);
 
-  // Removes all kAnimationPropertyPriority properties from the cascade,
-  // without applying the properties. This is used when pre-emptively copying
-  // the cascade in case there are animations.
+  // Excludes properties with a given flag set or unset.
   //
-  // TODO(crbug.com/985010): Improve with non-destructive Apply.
-  void RemoveAnimationPriority();
-
-  // The Filter class is responsible for resolving situations where
-  // we have multiple (non-alias) properties in the cascade that mutates the
-  // same fields on ComputedStyle.
+  // The exclusion takes effect during Apply, and has no effect for Add.
   //
-  // An example of this is writing-mode and -webkit-writing-mode, which
-  // both result in ComputedStyle::SetWritingMode calls.
+  // Multiple calls to Exclude are combined, and a property is excluded from
+  // application if any of the conditions match.
   //
-  // When applying the cascade (applying each property/value pair to the
-  // ComputedStyle), the order of the application is in the general case
-  // not defined. (It is determined by the iteration order of the HashMap).
-  // This means that if both writing-mode and -webkit-writing-mode exist in
-  // the cascade, we would get non-deterministic behavior: the application order
-  // would not be defined. To fix this, all Values pass through this Filter
-  // before being applied.
+  // For example, the following applies only inherited properties that can't
+  // be interpolated:
+  //
+  //   StyleCascade cascade(state);
+  //   cascade.Add(name1, value1, Priority(Origin::kAuthor));
+  //   cascade.Add(name2, value2, Priority(Origin::kAuthor));
+  //   cascade.Add(name3, value3, Priority(Origin::kAuthor));
+  //   cascade.Exclude(CSSProperty::kInherited, false);
+  //   cascade.Exclude(CSSProperty::kInterpolable, true);
+  //   cascade.Apply();
+  //
+  // Note that calling Apply clears the excludes.
+  //
+  void Exclude(CSSProperty::Flag, bool set);
 
-  // The Filter stores the Priority of the Value that was previously applied
-  // for a certain 'group' of properties (writing_mode_ is one such group).
-  // When we're about to apply a Value, we only actually do so if the call  to
-  // Filter::Add succeeds. If the call to Filter::Add does not succeed, it means
-  // that we  have previously added a Value with higher Priority, and that the
-  // current  Value must be ignored.
-
-  // A key difference between discarding Values in the Filter, vs. discarding
-  // them cascade-time (StyleCascade::Add), is that we are taking the cascade
-  // order into account. This means that, if everything else is equal (origin,
-  // tree order), the Value that entered the cascade last wins. This is crucial
-  // to resolve situations like writing-mode and -webkit-writing-mode.
-
-  // The Filter is also expected to resolve similar difficulties with
-  // direction-aware properties in the future, although this is not yet
-  // implemented.
-  class CORE_EXPORT Filter {
+  class CORE_EXPORT Excluder {
     STACK_ALLOCATED();
 
    public:
-    // Attempts to add a given property/value to the Filter. If this returns
-    // true, the Value may be applied to the ComputedStyle. If not, it means
-    // that we have previously applied a Value with higher Priority, and the
-    // current Value must be discarded.
-    bool Add(const CSSProperty& property, const Value&);
+    void Exclude(CSSProperty::Flag, bool set);
+    bool IsExcluded(const CSSProperty&) const;
+    void Clear();
 
    private:
-    Priority& GetSlot(const CSSProperty&);
-
-    Priority none_;
-    Priority writing_mode_;
-    Priority zoom_;
+    // Specifies which bits are significant in flags_. In other words, mask_
+    // contains a '1' at the corresponding position for each flag seen by
+    // Exclude().
+    CSSProperty::Flags mask_ = 0;
+    // Contains the flags to exclude. Only bits set in mask_ matter.
+    CSSProperty::Flags flags_ = 0;
   };
 
   // Resolver is an object passed on a stack during Apply. Its most important
@@ -273,12 +263,42 @@ class CORE_EXPORT StyleCascade {
     // https://drafts.csswg.org/css-variables/#animation-tainted
     bool AllowSubstitution(CSSVariableData*) const;
 
+    // SetSlot/StyleCascadeSlots is responsible for resolving situations where
+    // we have multiple (non-alias) properties in the cascade that mutates the
+    // same fields on ComputedStyle.
+    //
+    // An example of this is writing-mode and -webkit-writing-mode, which
+    // both result in ComputedStyle::SetWritingMode calls.
+    //
+    // When applying the cascade (applying each property/value pair to the
+    // ComputedStyle), the order of the application is in the general case
+    // not defined. (It is determined by the iteration order of the HashMap).
+    // This means that if both writing-mode and -webkit-writing-mode exist in
+    // the cascade, we would get non-deterministic behavior: the application
+    // order would not be defined. SetSlot/StyleCascadeSlots fixes this.
+    //
+    // StyleCascadeSlots stores the Priority of the value that was previously
+    // applied for a certain 'group' of properties (e.g. writing-mode and
+    // -webkit-writing-mode is one such group). When we're about to apply a
+    // value, we only actually do so if the call to SetSlot succeeds. If the
+    // call to SetSlot does not succeed, it means that we have previously added
+    // a value with higher priority, and that the current value must be ignored.
+    //
+    // A key difference between discarding Values as a result of SetSlot, vs.
+    // discarding them cascade-time (StyleCascade::Add), is that we are taking
+    // the cascade order into account. This means that, if everything else is
+    // equal (origin, tree order), the value that entered the cascade last wins.
+    // This is crucial to resolve situations like writing-mode and
+    // -webkit-writing-mode.
+    bool SetSlot(const CSSProperty&, const Value&, StyleResolverState&);
+
    private:
     friend class AutoLock;
     friend class StyleCascade;
     friend class TestCascadeResolver;
 
-    Resolver(Animator& animator) : animator_(animator) {}
+    Resolver(Animator& animator, Excluder& excluder, StyleCascadeSlots& slots)
+        : animator_(animator), excluder_(excluder), slots_(slots) {}
     // If the given property is already being applied, returns true.
     // The return value is the same value you would get from InCycle(), and
     // is just returned for convenience.
@@ -297,7 +317,8 @@ class CORE_EXPORT StyleCascade {
     NameStack stack_;
     Animator& animator_;
     wtf_size_t cycle_depth_ = kNotFound;
-    Filter filter_;
+    const Excluder& excluder_;
+    StyleCascadeSlots& slots_;
   };
 
   // Automatically locks and unlocks the given property. (See
@@ -367,6 +388,10 @@ class CORE_EXPORT StyleCascade {
   // in practice, it is very inconvenient to detect these dependencies. Hence,
   // we apply font-affecting properties (among others) before all the others.
   void ApplyHighPriority(Resolver&);
+
+  // Applies -webkit-appearance, and excludes -internal-ua-* properties if
+  // we don't have an appearance.
+  void ApplyAppearance(Resolver&);
 
   // Apply a single property (including any dependencies).
   void Apply(const CSSPropertyName&);
@@ -501,6 +526,7 @@ class CORE_EXPORT StyleCascade {
   StyleResolverState& state_;
   HeapHashMap<CSSPropertyName, Value> cascade_;
   uint16_t order_ = 0;
+  Excluder excluder_;
 };
 
 }  // namespace blink

@@ -21,17 +21,18 @@ class VIZ_DAWN_CONTEXT_PROVIDER_EXPORT DawnContextProvider {
   static std::unique_ptr<DawnContextProvider> Create();
   ~DawnContextProvider();
 
-  dawn::Device GetDevice() { return device_; }
+  wgpu::Device GetDevice() { return device_; }
+  wgpu::Instance GetInstance() { return instance_.Get(); }
   GrContext* GetGrContext() { return gr_context_.get(); }
   bool IsValid() { return !!gr_context_; }
 
  private:
   DawnContextProvider();
 
-  dawn::Device CreateDevice(dawn_native::BackendType type);
+  wgpu::Device CreateDevice(dawn_native::BackendType type);
 
   dawn_native::Instance instance_;
-  dawn::Device device_;
+  wgpu::Device device_;
   sk_sp<GrContext> gr_context_;
 
   DISALLOW_COPY_AND_ASSIGN(DawnContextProvider);

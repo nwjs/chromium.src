@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{ເຄື່ອງໝາຍ (`)}other{# ເຄື່ອງໝາຍ (`)}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{​ໂດ​ລາ}other{# ສັນຍາລັກໂດລາ}}</translation>
-<translation id="3658742229777143148">ການ​ດັດ​ແກ້</translation>
 <translation id="3659787053479271466">ການເຕືອນ</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, ກ່ອງລາຍການ</translation>
 <translation id="3681531118904532409">ສີຊົມພູປາປາຢາວິບ</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">ການອ້າງອີງຄຳສັ່ງ ChromeVox</translation>
 <translation id="3930383913623796990">ສີຂຽວສະປຣິງກຣີນ</translation>
 <translation id="3930498801443296724">ການອ້າງອີງ</translation>
+<translation id="3935615366277838204"><ph name="LETTER" /> ຕົວພິມໃຫຍ່</translation>
 <translation id="3936394396199829062">ສີມ່ວງລາເວັນເດີບລັຊ</translation>
 <translation id="3941269780691800708">ເວົ້າຂໍ້ຄວາມຢູ່ກ້ອງເມົ້າ</translation>
 <translation id="394953087167197343">ລະບຸການສະກົດຄຳຜິດ:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">ແຜນທີ່ປຸ່ມພຽງ</translation>
 <translation id="6468049171101508116">ປຸ່ມ​ຕໍ່​ໄປ</translation>
 <translation id="646954774886932461">ດັດຊະນີ</translation>
-<translation id="6479792383819319132">ບໍ່ມີຫຍໍ້ໜ້າຖັດໄປ.</translation>
 <translation id="6493991254603208962">ຄວາມສະຫວ່າງ​ລົງ</translation>
 <translation id="6501595918865591267">ສີຟ້າອົມຂຽວ</translation>
 <translation id="6508059270146105198">ຍ້າຍ​ການສະ​ແດງຕົວໜັງສືນູນໄປດ້ານ​ລຸ່ມ​ຂອງ​ຫນ້າ</translation>
@@ -816,7 +815,6 @@
 <translation id="6637586476836377253">ປື້​ມບັນທຶກ</translation>
 <translation id="6657128831881431364">ແຖບຄວາມ​ຄືບ​ຫນ້າ</translation>
 <translation id="6659594942844771486">ແຖບ</translation>
-<translation id="6675661017770918201">ບໍ່ມີຫຍໍ້ໜ້າຜ່ານມາ.</translation>
 <translation id="667999046851023355">ເອ​ກະ​ສານ</translation>
 <translation id="6688209025607531203">ການແຈ້ງເຕືອນທີ່ບໍ່ແມ່ນແບບວິທີ</translation>
 <translation id="6689672606256159458">ສີຊາມອນເຂັ້ມ</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">ສະກົດຜິດ</translation>
 <translation id="6871161210040114857">ລະເລີຍຕົວພິມໃຫຍ່ນ້ອຍ</translation>
 <translation id="6877435256196695200">ບໍ່ມີກຣາຟິກຕໍ່ໄປ.</translation>
+<translation id="688976158310523235">ເມນູຊອກຫາ</translation>
 <translation id="6897341342232909480">ຍ້າຍ​ໄປທາງຊ້າຍ</translation>
 <translation id="6901540140423170855">ວັນ​ທີ</translation>
 <translation id="6910211073230771657">ລຶບແລ້ວ</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">ຊອກຫາ + O + W</translation>
 <translation id="6994042831499278539">ການອ້າງອີງປະມວນຄຳສັບ</translation>
 <translation id="6996566555547746822">ກ່ອງ combo ຕໍ່ໄປ</translation>
+<translation id="6997224546856374593">ເມື່ອອ່ານອັກສອນຕົວພິມໃຫຍ່:</translation>
 <translation id="700202842116345659">ລາຍການບັນນານຸກົມ</translation>
 <translation id="7005146664810010831">ບໍ່ພົບ URL</translation>
 <translation id="7010712454773919705">ປຸ່ມເຄື່ອງຂະຫຍາຍ ChromeVox</translation>
@@ -937,6 +937,7 @@
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">ແຖບ</translation>
 <translation id="7492049978501397201">ປ້ອນບົດ​ສົນທະນາ​ເຂົ້າແລ້ວ</translation>
+<translation id="7505149250476994901">ເວົ້າ "ຕົວພິມໃຫຍ່" ກ່ອນຕົວອັກສອນ</translation>
 <translation id="7518543783849163354">ເພື່ອຢຸດ ChromeVox ຈາກການເວົ້າໄວ້ຊົ່ວຄາວ, ໃຫ້ກົດປຸ່ມ Control.</translation>
 <translation id="7521682724501952239">ທ່ານສາມາດໃຊ້ ChromeVox ກັບໜ້າຈໍສຳຜັດໄດ້.</translation>
 <translation id="7532613204005497612">ມິ​ຖຸ​ນາ</translation>
@@ -1104,7 +1105,6 @@
 <translation id="812886159861361726">ຢຸດການດາວໂຫຼດໄວ້ແລ້ວ <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">ແຕະ</translation>
 <translation id="8153880621934657047">ບໍ່​ຢູ່ພາຍໃນຕາ​ຕະ​ລາງ​ພາຍ​ໃນ​.</translation>
-<translation id="8161114871611868169">ພາກສ່ວນຄຳເຫັນ</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{ ເສັ້ນຂີດຢູ່ກ້ອງ}other{ # ເສັ້ນຂີດຢູ່ກ້ອງ}}</translation>
 <translation id="8179976553408161302">ປ້ອນເຂົ້າ</translation>
 <translation id="8184828902145951186">ແຖວ</translation>
@@ -1125,6 +1125,7 @@
 <translation id="8313653172105209786">ໄດເຣັກຕໍຣີ</translation>
 <translation id="8316881042119029234">ສີສົ້ມໂອນເລດ</translation>
 <translation id="8326783648485765113">ສີຂຽວໃບຫຍ້າ</translation>
+<translation id="8328063869313048659">ປິດເປີດໜ້າຈໍມືດ</translation>
 <translation id="8344569602005188545">ຊົ່ວ​ໂມງ</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{ ປອນ}other{ # ສັນຍາລັກປອນ}}</translation>
 <translation id="8374154622594089836">ເດືອນ</translation>
@@ -1209,6 +1210,7 @@
 <translation id="9065283790526219006">+ປັອບອັບ</translation>
 <translation id="9066023754636984703">ກົດປຸ່ມຊອກຫາ + A, J ເພື່ອໄປຫາລາຍລະອຽດ.</translation>
 <translation id="9067522039955793016">ແບ່ງໜ້າ</translation>
+<translation id="9074824103975499138">ຊອກຫາເມນູ ChromeVox</translation>
 <translation id="9077213568694924680">ເອົາອອກ​ຈາກ​ການ​​ເລືອກ</translation>
 <translation id="9077305471618729969">ສີຂຽວທະເລອ່ອນ</translation>
 <translation id="9082874451376019682">ບໍ່​ມີຕົວເລື່ອນຜ່ານ​ມາ​.</translation>

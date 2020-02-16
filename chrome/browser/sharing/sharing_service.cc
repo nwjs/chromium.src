@@ -14,13 +14,49 @@
 #include "chrome/browser/sharing/sharing_device_registration_result.h"
 #include "chrome/browser/sharing/sharing_device_source.h"
 #include "chrome/browser/sharing/sharing_fcm_handler.h"
+#include "chrome/browser/sharing/sharing_handler_registry.h"
+#include "chrome/browser/sharing/sharing_message_handler.h"
 #include "chrome/browser/sharing/sharing_metrics.h"
 #include "chrome/browser/sharing/sharing_sync_preference.h"
 #include "chrome/browser/sharing/sharing_utils.h"
 #include "chrome/browser/sharing/vapid_key_manager.h"
+#include "chrome/browser/sharing/webrtc/webrtc_flags.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync_device_info/device_info.h"
 #include "content/public/browser/browser_task_traits.h"
+
+namespace {
+
+SharingMessageSender::DelegateType GetSendDelegateType(
+    const syncer::DeviceInfo& device,
+    const chrome_browser_sharing::SharingMessage& message) {
+  // Messages other than SharedClipboard are always sent via FCM.
+  if (message.payload_case() !=
+      chrome_browser_sharing::SharingMessage::kSharedClipboardMessage) {
+    return SharingMessageSender::DelegateType::kFCM;
+  }
+
+  // Check if the local device support sending and receiving WebRTC messages.
+  if (!base::FeatureList::IsEnabled(kSharingPeerConnectionSender) ||
+      !base::FeatureList::IsEnabled(kSharingPeerConnectionReceiver)) {
+    return SharingMessageSender::DelegateType::kFCM;
+  }
+
+  // Fallback to FCM if remote device does not support WebRTC yet.
+  if (!device.sharing_info() ||
+      !device.sharing_info()->enabled_features.count(
+          sync_pb::SharingSpecificFields::PEER_CONNECTION)) {
+    return SharingMessageSender::DelegateType::kFCM;
+  }
+
+  // TODO(crbug.com/1002436): This will send SharedClipboard messages between
+  // compatible devices that are both in the experiment via WebRTC. Revisit this
+  // logic once we wrap up the experiment and e.g. only send messages over a
+  // certain size via WebRTC.
+  return SharingMessageSender::DelegateType::kWebRtc;
+}
+
+}  // namespace
 
 SharingService::SharingService(
     std::unique_ptr<SharingSyncPreference> sync_prefs,
@@ -28,6 +64,7 @@ SharingService::SharingService(
     std::unique_ptr<SharingDeviceRegistration> sharing_device_registration,
     std::unique_ptr<SharingMessageSender> message_sender,
     std::unique_ptr<SharingDeviceSource> device_source,
+    std::unique_ptr<SharingHandlerRegistry> handler_registry,
     std::unique_ptr<SharingFCMHandler> fcm_handler,
     syncer::SyncService* sync_service)
     : sync_prefs_(std::move(sync_prefs)),
@@ -35,6 +72,7 @@ SharingService::SharingService(
       sharing_device_registration_(std::move(sharing_device_registration)),
       message_sender_(std::move(message_sender)),
       device_source_(std::move(device_source)),
+      handler_registry_(std::move(handler_registry)),
       fcm_handler_(std::move(fcm_handler)),
       sync_service_(sync_service),
       backoff_entry_(&kRetryBackoffPolicy),
@@ -67,8 +105,7 @@ std::unique_ptr<syncer::DeviceInfo> SharingService::GetDeviceByGuid(
 
 SharingService::SharingDeviceList SharingService::GetDeviceCandidates(
     sync_pb::SharingSpecificFields::EnabledFeatures required_feature) const {
-  return FilterDeviceCandidates(device_source_->GetAllDevices(),
-                                required_feature);
+  return device_source_->GetDeviceCandidates(required_feature);
 }
 
 void SharingService::SendMessageToDevice(
@@ -76,8 +113,21 @@ void SharingService::SendMessageToDevice(
     base::TimeDelta response_timeout,
     chrome_browser_sharing::SharingMessage message,
     SharingMessageSender::ResponseCallback callback) {
+  auto delegate_type = GetSendDelegateType(device, message);
   message_sender_->SendMessageToDevice(device, response_timeout,
-                                       std::move(message), std::move(callback));
+                                       std::move(message), delegate_type,
+                                       std::move(callback));
+}
+
+void SharingService::RegisterSharingHandler(
+    std::unique_ptr<SharingMessageHandler> handler,
+    chrome_browser_sharing::SharingMessage::PayloadCase payload_case) {
+  handler_registry_->RegisterSharingHandler(std::move(handler), payload_case);
+}
+
+void SharingService::UnregisterSharingHandler(
+    chrome_browser_sharing::SharingMessage::PayloadCase payload_case) {
+  handler_registry_->UnregisterSharingHandler(payload_case);
 }
 
 SharingDeviceSource* SharingService::GetDeviceSource() const {
@@ -94,6 +144,10 @@ SharingSyncPreference* SharingService::GetSyncPreferencesForTesting() const {
 
 SharingFCMHandler* SharingService::GetFCMHandlerForTesting() const {
   return fcm_handler_.get();
+}
+
+SharingMessageSender* SharingService::GetMessageSenderForTesting() const {
+  return message_sender_.get();
 }
 
 void SharingService::OnSyncShutdown(syncer::SyncService* sync) {
@@ -191,6 +245,7 @@ void SharingService::OnDeviceRegistered(
       break;
     case SharingDeviceRegistrationResult::kEncryptionError:
     case SharingDeviceRegistrationResult::kFcmFatalError:
+    case SharingDeviceRegistrationResult::kInternalError:
       backoff_entry_.InformOfRequest(false);
       // No need to bother retrying in the case of one of fatal errors.
       LOG(ERROR) << "Device registration failed with fatal error";
@@ -222,29 +277,11 @@ void SharingService::OnDeviceUnregistered(
       break;
     case SharingDeviceRegistrationResult::kEncryptionError:
     case SharingDeviceRegistrationResult::kFcmFatalError:
+    case SharingDeviceRegistrationResult::kInternalError:
       LOG(ERROR) << "Device un-registration failed with fatal error";
       break;
     case SharingDeviceRegistrationResult::kDeviceNotRegistered:
       // Device has not been registered, no-op.
       break;
   }
-}
-
-SharingService::SharingDeviceList SharingService::FilterDeviceCandidates(
-    SharingDeviceList devices,
-    sync_pb::SharingSpecificFields::EnabledFeatures required_feature) const {
-  const base::Time min_updated_time =
-      base::Time::Now() -
-      base::TimeDelta::FromHours(kSharingDeviceExpirationHours.Get());
-  base::EraseIf(devices,
-                [this, required_feature, min_updated_time](const auto& device) {
-                  // Checks if |last_updated_timestamp| is not too old.
-                  if (device->last_updated_timestamp() < min_updated_time)
-                    return true;
-
-                  // Checks whether |device| supports |required_feature|.
-                  return !sync_prefs_->GetEnabledFeatures(device.get())
-                              .count(required_feature);
-                });
-  return devices;
 }

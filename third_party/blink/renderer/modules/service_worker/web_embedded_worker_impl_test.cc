@@ -106,7 +106,9 @@ class FakeWebWorkerFetchContext final : public WebWorkerFetchContext {
       const override {
     return mojom::ControllerServiceWorkerMode::kNoController;
   }
-  WebURL SiteForCookies() const override { return WebURL(); }
+  net::SiteForCookies SiteForCookies() const override {
+    return net::SiteForCookies();
+  }
   base::Optional<WebSecurityOrigin> TopFrameOrigin() const override {
     return base::Optional<WebSecurityOrigin>();
   }
@@ -115,6 +117,7 @@ class FakeWebWorkerFetchContext final : public WebWorkerFetchContext {
       int request_id) override {
     return {};
   }
+  void SetIsOfflineMode(bool is_offline_mode) override {}
 
  private:
   FakeWebURLLoaderFactory fake_web_url_loader_factory_;

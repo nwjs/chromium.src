@@ -19,8 +19,8 @@
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/common/swap_buffers_flags.h"
+#include "gpu/config/gpu_feature_info.h"
 #include "ui/gfx/overlay_transform_utils.h"
-#include "ui/gl/color_space_utils.h"
 
 namespace viz {
 
@@ -98,9 +98,10 @@ void GLOutputSurface::Reshape(const gfx::Size& size,
                               bool use_stencil) {
   size_ = size;
   has_set_draw_rectangle_since_last_resize_ = false;
+  set_draw_rectangle_for_frame_ = false;
   context_provider()->ContextGL()->ResizeCHROMIUM(
       size.width(), size.height(), device_scale_factor,
-      gl::ColorSpaceUtils::GetGLColorSpace(color_space), has_alpha);
+      color_space.AsGLColorSpace(), has_alpha);
 }
 
 void GLOutputSurface::SwapBuffers(OutputSurfaceFrame frame) {
@@ -248,5 +249,10 @@ base::ScopedClosureRunner GLOutputSurface::GetCacheBackBufferCb() {
 
 gpu::SurfaceHandle GLOutputSurface::GetSurfaceHandle() const {
   return surface_handle_;
+}
+
+scoped_refptr<gpu::GpuTaskSchedulerHelper>
+GLOutputSurface::GetGpuTaskSchedulerHelper() {
+  return viz_context_provider_->GetGpuTaskSchedulerHelper();
 }
 }  // namespace viz

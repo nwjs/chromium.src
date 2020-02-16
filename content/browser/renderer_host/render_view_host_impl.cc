@@ -46,7 +46,6 @@
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/scoped_active_url.h"
-#include "content/common/browser_plugin/browser_plugin_messages.h"
 #include "content/common/content_switches_internal.h"
 #include "content/common/frame_messages.h"
 #include "content/common/input_messages.h"
@@ -54,7 +53,6 @@
 #include "content/common/page_messages.h"
 #include "content/common/render_message_filter.mojom.h"
 #include "content/common/renderer.mojom.h"
-#include "content/common/swapped_out_messages.h"
 #include "content/common/view_messages.h"
 #include "content/common/widget_messages.h"
 #include "content/public/browser/ax_event_notification_details.h"
@@ -112,7 +110,6 @@
 
 using base::TimeDelta;
 
-using blink::MediaPlayerAction;
 using blink::PluginAction;
 using blink::WebConsoleMessage;
 using blink::WebInputEvent;
@@ -225,7 +222,6 @@ RenderViewHostImpl::RenderViewHostImpl(
     : render_widget_host_(std::move(widget)),
       delegate_(delegate),
       instance_(static_cast<SiteInstanceImpl*>(instance)),
-      is_swapped_out_(swapped_out),
       routing_id_(routing_id),
       main_frame_routing_id_(main_frame_routing_id) {
   DCHECK(instance_.get());
@@ -250,10 +246,11 @@ RenderViewHostImpl::RenderViewHostImpl(
   if (!is_active())
     GetWidget()->UpdatePriority();
 
-  close_timeout_.reset(new TimeoutMonitor(base::Bind(
-      &RenderViewHostImpl::ClosePageTimeout, weak_factory_.GetWeakPtr())));
+  close_timeout_ = std::make_unique<TimeoutMonitor>(base::BindRepeating(
+      &RenderViewHostImpl::ClosePageTimeout, weak_factory_.GetWeakPtr()));
 
-  input_device_change_observer_.reset(new InputDeviceChangeObserver(this));
+  input_device_change_observer_ =
+      std::make_unique<InputDeviceChangeObserver>(this);
 
   GetWidget()->set_owner_delegate(this);
 }
@@ -343,9 +340,10 @@ bool RenderViewHostImpl::CreateRenderView(
       params->renderer_preferences.get());
   params->web_preferences = GetWebkitPreferences();
   params->view_id = GetRoutingID();
-  params->main_frame_routing_id = main_frame_routing_id_;
-  params->main_frame_widget_routing_id = render_widget_host_->GetRoutingID();
   if (main_rfh) {
+    params->main_frame_routing_id = main_frame_routing_id_;
+    params->main_frame_widget_routing_id =
+        main_rfh->GetRenderWidgetHost()->GetRoutingID();
     params->main_frame_interface_bundle =
         mojom::DocumentScopedInterfaceBundle::New();
     main_rfh->BindInterfaceProviderReceiver(
@@ -354,8 +352,6 @@ bool RenderViewHostImpl::CreateRenderView(
     main_rfh->BindBrowserInterfaceBrokerReceiver(
         params->main_frame_interface_bundle->browser_interface_broker
             .InitWithNewPipeAndPassReceiver());
-    RenderWidgetHostImpl* main_rwh = main_rfh->GetRenderWidgetHost();
-    params->main_frame_widget_routing_id = main_rwh->GetRoutingID();
   }
   params->session_storage_namespace_id =
       delegate_->GetSessionStorageNamespace(instance_.get())->id();
@@ -365,7 +361,7 @@ bool RenderViewHostImpl::CreateRenderView(
   params->replicated_frame_state = replicated_frame_state;
   params->proxy_routing_id = proxy_route_id;
   params->hidden = GetWidget()->delegate()->IsHidden();
-  params->never_visible = delegate_->IsNeverVisible();
+  params->never_composited = delegate_->IsNeverComposited();
   params->window_was_created_with_opener = window_was_created_with_opener;
   if (main_rfh) {
     params->has_committed_real_load =
@@ -378,8 +374,7 @@ bool RenderViewHostImpl::CreateRenderView(
 
   // TODO(danakj): Make the visual_properties optional in the message.
   if (proxy_route_id == MSG_ROUTING_NONE) {
-    params->visual_properties = GetWidget()->GetVisualProperties();
-    GetWidget()->SetInitialVisualProperties(params->visual_properties);
+    params->visual_properties = GetWidget()->GetInitialVisualProperties();
   }
 
   // The RenderView is owned by this process. This call must be accompanied by a
@@ -419,6 +414,7 @@ void RenderViewHostImpl::EnterBackForwardCache() {
 
 void RenderViewHostImpl::LeaveBackForwardCache(
     base::TimeTicks navigation_start) {
+  TRACE_EVENT0("navigation", "RenderViewHostImpl::LeaveBackForwardCache");
   FrameTree* frame_tree = GetDelegate()->GetFrameTree();
   // At this point, the frames |this| RenderViewHostImpl belongs to are
   // guaranteed to be committed, so it should be reused going forward.
@@ -441,8 +437,8 @@ bool RenderViewHostImpl::IsMainFrameActive() {
   return is_active();
 }
 
-bool RenderViewHostImpl::IsNeverVisible() {
-  return GetDelegate()->IsNeverVisible();
+bool RenderViewHostImpl::IsNeverComposited() {
+  return GetDelegate()->IsNeverComposited();
 }
 
 WebPreferences RenderViewHostImpl::GetWebkitPreferencesForWidget() {
@@ -799,23 +795,6 @@ bool RenderViewHostImpl::SuddenTerminationAllowed() const {
 // RenderViewHostImpl, IPC message handlers:
 
 bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
-  // Filter out most IPC messages if this renderer is swapped out.
-  // We still want to handle certain ACKs to keep our state consistent.
-  if (is_swapped_out_) {
-    if (!SwappedOutMessages::CanHandleWhileSwappedOut(msg)) {
-      // If this is a synchronous message and we decided not to handle it,
-      // we must send an error reply, or else the renderer will be stuck
-      // and won't respond to future requests.
-      if (msg.is_sync()) {
-        IPC::Message* reply = IPC::SyncMessage::GenerateReply(&msg);
-        reply->set_reply_error();
-        Send(reply);
-      }
-      // Don't continue looking for someone to handle it.
-      return true;
-    }
-  }
-
   // Crash reports trigerred by the IPC messages below should be associated
   // with URL of the main frame.
   ScopedActiveURL scoped_active_url(this);
@@ -830,8 +809,6 @@ bool RenderViewHostImpl::OnMessageReceived(const IPC::Message& msg) {
                         OnShowFullscreenWidget)
     IPC_MESSAGE_HANDLER(ViewHostMsg_RouteCloseEvent, OnRouteCloseEvent)
     IPC_MESSAGE_HANDLER(ViewHostMsg_UpdateTargetURL, OnUpdateTargetURL)
-    IPC_MESSAGE_HANDLER(ViewHostMsg_DocumentAvailableInMainFrame,
-                        OnDocumentAvailableInMainFrame)
     IPC_MESSAGE_HANDLER(ViewHostMsg_DidContentsPreferredSizeChange,
                         OnDidContentsPreferredSizeChange)
     IPC_MESSAGE_HANDLER(ViewHostMsg_TakeFocus, OnTakeFocus)
@@ -897,22 +874,6 @@ void RenderViewHostImpl::OnUpdateTargetURL(const GURL& url) {
   // Send a notification back to the renderer that we are ready to
   // receive more target urls.
   Send(new ViewMsg_UpdateTargetURL_ACK(GetRoutingID()));
-}
-
-void RenderViewHostImpl::OnDocumentAvailableInMainFrame(
-    bool uses_temporary_zoom_level) {
-  delegate_->DocumentAvailableInMainFrame(this);
-
-  if (!uses_temporary_zoom_level)
-    return;
-
-#if !defined(OS_ANDROID)
-  HostZoomMapImpl* host_zoom_map =
-      static_cast<HostZoomMapImpl*>(HostZoomMap::Get(GetSiteInstance()));
-  host_zoom_map->SetTemporaryZoomLevel(GetProcess()->GetID(),
-                                       GetRoutingID(),
-                                       host_zoom_map->GetDefaultZoomLevel());
-#endif  // !defined(OS_ANDROID)
 }
 
 void RenderViewHostImpl::OnDidContentsPreferredSizeChange(

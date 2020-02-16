@@ -13,6 +13,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
 #include "third_party/blink/renderer/modules/xr/xr_frame_request_callback_collection.h"
@@ -39,6 +40,7 @@ class XR;
 class XRAnchor;
 class XRAnchorSet;
 class XRCanvasInputProvider;
+class XRDOMOverlayState;
 class XRHitTestOptionsInit;
 class XRHitTestSource;
 class XRPlane;
@@ -67,8 +69,6 @@ class XRSession final
   USING_GARBAGE_COLLECTED_MIXIN(XRSession);
 
  public:
-  enum SessionMode { kModeInline = 0, kModeImmersiveVR, kModeImmersiveAR };
-
   enum EnvironmentBlendMode {
     kBlendModeOpaque = 0,
     kBlendModeAdditive,
@@ -94,7 +94,7 @@ class XRSession final
   XRSession(XR* xr,
             mojo::PendingReceiver<device::mojom::blink::XRSessionClient>
                 client_receiver,
-            SessionMode mode,
+            device::mojom::blink::XRSessionMode mode,
             EnvironmentBlendMode environment_blend_mode,
             bool uses_input_eventing,
             bool sensorless_session,
@@ -103,6 +103,7 @@ class XRSession final
 
   XR* xr() const { return xr_; }
   const String& environmentBlendMode() const { return blend_mode_string_; }
+  XRDOMOverlayState* domOverlayState() const { return dom_overlay_state_; }
   const String visibilityState() const;
   XRRenderState* renderState() const { return render_state_; }
   XRWorldTrackingState* worldTrackingState() { return world_tracking_state_; }
@@ -184,6 +185,8 @@ class XRSession final
   DoubleSize OutputCanvasSize() const;
   void DetachOutputCanvas(HTMLCanvasElement* output_canvas);
 
+  void SetDOMOverlayElement(Element* element);
+
   void LogGetPose() const;
 
   // EventTarget overrides.
@@ -262,7 +265,8 @@ class XRSession final
   // ScriptWrappable
   bool HasPendingActivity() const override;
 
-  bool CanReportPoses();
+  bool CanReportPoses() const;
+  base::Optional<TransformationMatrix> MojoFromViewer() const;
 
   // Creates presentation frame based on current state of the session.
   // State currently used in XRFrame creation is mojo_from_viewer_ and
@@ -351,19 +355,19 @@ class XRSession final
   void OnEnvironmentProviderError();
 
   void ProcessAnchorsData(
-      const device::mojom::blink::XRAnchorsDataPtr& tracked_anchors_data,
+      const device::mojom::blink::XRAnchorsData* tracked_anchors_data,
       double timestamp);
 
   void CleanUpUnusedHitTestSources();
 
   void ProcessHitTestData(
-      const device::mojom::blink::XRHitTestSubscriptionResultsDataPtr&
+      const device::mojom::blink::XRHitTestSubscriptionResultsData*
           hit_test_data);
 
   void HandleShutdown();
 
   const Member<XR> xr_;
-  const SessionMode mode_;
+  const device::mojom::blink::XRSessionMode mode_;
   const bool environment_integration_;
   String blend_mode_string_;
   XRVisibilityState device_visibility_state_ = XRVisibilityState::VISIBLE;
@@ -407,6 +411,8 @@ class XRSession final
   Member<XRWebGLLayer> prev_base_layer_;
   Member<ResizeObserver> resize_observer_;
   Member<XRCanvasInputProvider> canvas_input_provider_;
+  Member<Element> overlay_element_;
+  Member<XRDOMOverlayState> dom_overlay_state_;
   bool environment_error_handler_subscribed_ = false;
   HeapHashSet<Member<ScriptPromiseResolver>> hit_test_promises_;
   // Set of promises returned from CreateAnchor that are still in-flight.

@@ -122,7 +122,7 @@ void UnifiedMessageCenterView::SetAvailableHeight(int available_height) {
 }
 
 void UnifiedMessageCenterView::SetExpanded() {
-  if (!GetVisible() || !collapsed_)
+  if (!collapsed_)
     return;
 
   collapsed_ = false;
@@ -133,6 +133,11 @@ void UnifiedMessageCenterView::SetExpanded() {
 
 void UnifiedMessageCenterView::SetCollapsed(bool animate) {
   if (!GetVisible() || collapsed_)
+    return;
+
+  // Do not collapse the message center if notification bar is not visible.
+  // i.e. there is only one notification.
+  if (!notification_bar_->GetVisible())
     return;
 
   collapsed_ = true;
@@ -155,6 +160,10 @@ void UnifiedMessageCenterView::ExpandMessageCenter() {
   base::RecordAction(
       base::UserMetricsAction("StatusArea_Notifications_SeeAllNotifications"));
   message_center_bubble_->ExpandMessageCenter();
+}
+
+bool UnifiedMessageCenterView::IsNotificationBarVisible() {
+  return notification_bar_->GetVisible();
 }
 
 void UnifiedMessageCenterView::OnNotificationSlidOut() {
@@ -385,12 +394,17 @@ void UnifiedMessageCenterView::UpdateVisibility() {
       (!session_controller->IsScreenLocked() ||
        AshMessageCenterLockScreenController::IsEnabled()));
 
-  // When notification list went invisible, the last notification should be
-  // targeted next time.
   if (!GetVisible()) {
+    // When notification list went invisible, the last notification should be
+    // targeted next time.
     model_->set_notification_target_mode(
         UnifiedSystemTrayModel::NotificationTargetMode::LAST_NOTIFICATION);
     NotifyRectBelowScroll();
+
+    // Transfer focus to quick settings when going invisible.
+    auto* widget = GetWidget();
+    if (widget && widget->IsActive())
+      FocusOut(false);
   }
 }
 
@@ -498,12 +512,14 @@ void UnifiedMessageCenterView::NotifyRectBelowScroll() {
 }
 
 void UnifiedMessageCenterView::FocusOut(bool reverse) {
-  message_center_bubble_->FocusOut(reverse);
+  if (message_center_bubble_)
+    message_center_bubble_->FocusOut(reverse);
 }
 
 void UnifiedMessageCenterView::FocusEntered(bool reverse) {
   views::View* focus_view =
       reverse ? GetLastFocusableChild() : GetFirstFocusableChild();
+  GetFocusManager()->ClearFocus();
   GetFocusManager()->SetFocusedView(focus_view);
 }
 

@@ -101,6 +101,10 @@ const char kReportDeviceBoardStatus[] =
 // boot should be reported along with device policy requests.
 const char kReportDeviceBootMode[] = "cros.device_status.report_boot_mode";
 
+// A boolean pref that determines whether the device CPU information should be
+// included in status reports to the device management server.
+const char kReportDeviceCpuInfo[] = "cros.device_status.report_cpu_info";
+
 // A boolean pref that indicates whether the current location should be reported
 // along with device policy requests.
 const char kReportDeviceLocation[] = "cros.device_status.report_location";
@@ -133,6 +137,16 @@ const char kReportDeviceHardwareStatus[] =
 // versions, etc) in device status reports to the device management server.
 const char kReportDeviceSessionStatus[] =
     "cros.device_status.report_session_status";
+
+// Determines whether the device reports display and graphics statuses to the
+// device_management server.
+const char kReportDeviceGraphicsStatus[] =
+    "cros.device_status.report_graphics_status";
+
+// Determines whether the device reports crash report information to the device
+// management server.
+const char kReportDeviceCrashReportInfo[] =
+    "cros.device_status.report_crash_report_info";
 
 // Determines whether the device reports os update status (update status,
 // new platform version and new required platform version of the auto

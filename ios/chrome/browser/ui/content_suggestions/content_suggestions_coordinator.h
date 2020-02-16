@@ -7,9 +7,7 @@
 
 #import "ios/chrome/browser/ui/coordinators/chrome_coordinator.h"
 
-namespace ios {
 class ChromeBrowserState;
-}
 
 namespace web {
 class WebState;
@@ -28,7 +26,7 @@ class WebState;
 @interface ContentSuggestionsCoordinator : ChromeCoordinator
 
 // BrowserState used to create the ContentSuggestionFactory.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 // URLLoader used to open pages.
 @property(nonatomic, assign) web::WebState* webState;
 @property(nonatomic, weak) id<NewTabPageControllerDelegate> toolbarDelegate;

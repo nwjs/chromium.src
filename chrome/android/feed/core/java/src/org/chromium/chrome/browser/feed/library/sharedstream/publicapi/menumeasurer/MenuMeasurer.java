@@ -12,6 +12,10 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
 
+import androidx.annotation.Nullable;
+
+import org.chromium.chrome.feed.R;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -76,8 +80,8 @@ public class MenuMeasurer {
 
     /** Minimal method to suppress an incorrect nullness error. */
     @SuppressWarnings("nullness:argument.type.incompatible")
-    private View getViewFromAdapter(ListAdapter arrayAdapter, int index,
-            /*@Nullable*/ View convertView, ViewGroup parentView) {
+    private View getViewFromAdapter(
+            ListAdapter arrayAdapter, int index, @Nullable View convertView, ViewGroup parentView) {
         return arrayAdapter.getView(index, convertView, parentView);
     }
 }

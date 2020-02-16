@@ -13,6 +13,7 @@
 #include "base/containers/flat_map.h"
 #include "base/macros.h"
 #include "base/observer_list.h"
+#include "base/strings/string16.h"
 #include "ui/aura/window_observer.h"
 
 namespace ash {
@@ -41,6 +42,9 @@ class ASH_EXPORT Desk {
     // Called when Desk is at the end of its destructor. Desk automatically
     // removes its Observers before calling this.
     virtual void OnDeskDestroyed(const Desk* desk) = 0;
+
+    // Called  when the desk's name changes.
+    virtual void OnDeskNameChanged(const base::string16& new_name) = 0;
   };
 
   explicit Desk(int associated_container_id);
@@ -49,6 +53,8 @@ class ASH_EXPORT Desk {
   int container_id() const { return container_id_; }
 
   const std::vector<aura::Window*>& windows() const { return windows_; }
+
+  const base::string16& name() const { return name_; }
 
   bool is_active() const { return is_active_; }
 
@@ -66,6 +72,15 @@ class ASH_EXPORT Desk {
   void RemoveWindowFromDesk(aura::Window* window);
 
   base::AutoReset<bool> GetScopedNotifyContentChangedDisabler();
+
+  // Sets the desk's name to |new_name| and updates the observers.
+  void SetName(base::string16 new_name);
+
+  // Prepares for the animation to activate this desk (i.e. this desk is not
+  // active yet), by showing its containers on all root windows while setting
+  // their opacities to 0. Calling Activate() during the animation will set the
+  // opacities back to 1.
+  void PrepareForActivationAnimation();
 
   // Activates this desk. All windows on this desk (if any) will become visible
   // (by means of showing this desk's associated containers on all root
@@ -88,14 +103,28 @@ class ASH_EXPORT Desk {
 
   aura::Window* GetDeskContainerForRoot(aura::Window* root) const;
 
-  void NotifyContentChanged();
+  // Notifies observers that the desk's contents (list of application windows on
+  // the desk) have changed.
+  // If |update_backdrops| is true, the backdrops of all containers associated
+  // with this desk will be updated (even if overview is active).
+  // This is *only* needed if the WorkspaceLayoutManager won't take care of this
+  // for us in desk-modifying operations that happen within overview, such as
+  // removing desks (and move its windows out) or dragging a window and dropping
+  // in another desk.
+  void NotifyContentChanged(bool update_backdrops);
 
-  // Updates the backdrop availability and visibility on the containers (on all
-  // roots) associated with this desk.
+  // Update (even if overview is active) the backdrop availability and
+  // visibility on the containers (on all roots) associated with this desk.
   void UpdateDeskBackdrops();
 
  private:
   void MoveWindowToDeskInternal(aura::Window* window, Desk* target_desk);
+
+  // If `PrepareForActivationAnimation()` was called during the animation to
+  // activate this desk, this function is called from `Activate()` to reset the
+  // opacities of the containers back to 1, and returns true. Otherwise, returns
+  // false.
+  bool MaybeResetContainersOpacities();
 
   // The associated container ID with this desk.
   const int container_id_;
@@ -104,6 +133,9 @@ class ASH_EXPORT Desk {
   // list when they're notified of desk change events.
   // TODO(afakhry): Change this to track MRU windows on this desk.
   std::vector<aura::Window*> windows_;
+
+  // The name given to this desk.
+  base::string16 name_;
 
   // Maps all root windows to observer objects observing the containers
   // associated with this desk on those root windows.
@@ -119,6 +151,10 @@ class ASH_EXPORT Desk {
   // used to throttle those notifications when we add or remove many windows,
   // and we want to notify observers only once.
   bool should_notify_content_changed_ = true;
+
+  // True if the `PrepareForActivationAnimation()` was called, and this desk's
+  // containers are shown while their layer opacities are temporarily set to 0.
+  bool started_activation_animation_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(Desk);
 };

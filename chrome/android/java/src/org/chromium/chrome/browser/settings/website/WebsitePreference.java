@@ -20,9 +20,9 @@ import android.widget.TextView;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.favicon.FaviconHelper;
 import org.chromium.chrome.browser.favicon.FaviconHelper.FaviconImageCallback;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.ChromeImageViewPreference;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
 
 /**
  * A preference that displays a website's favicon and URL and, optionally, the amount of local
@@ -119,11 +119,20 @@ class WebsitePreference extends ChromeImageViewPreference implements FaviconImag
 
     private void refresh() {
         setTitle(mSite.getTitle());
-        String subtitleText = mSite.getSummary();
-        if (subtitleText != null) {
-            setSummary(String.format(getContext().getString(R.string.website_settings_embedded_in),
-                                     subtitleText));
+
+        if (mSite.getEmbedder() == null) return;
+
+        String subtitleText;
+        if (mSite.representsThirdPartiesOnSite()) {
+            subtitleText = getContext().getString(
+                    R.string.website_settings_third_party_cookies_exception_label);
+        } else {
+            subtitleText =
+                    String.format(getContext().getString(R.string.website_settings_embedded_on),
+                            mSite.getEmbedder().getTitle());
         }
+
+        setSummary(subtitleText);
     }
 
     @Override

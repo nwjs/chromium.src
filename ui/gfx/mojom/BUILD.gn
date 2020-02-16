@@ -11,6 +11,7 @@ mojom("mojom") {
     "buffer_types.mojom",
     "ca_layer_params.mojom",
     "color_space.mojom",
+    "display_color_spaces.mojom",
     "font_render_params.mojom",
     "gpu_fence_handle.mojom",
     "overlay_transform.mojom",
@@ -33,11 +34,7 @@ mojom("mojom") {
 }
 
 mojom("test_interfaces") {
-  sources = [
-    "traits_test_service.mojom",
-  ]
+  sources = [ "traits_test_service.mojom" ]
 
-  public_deps = [
-    ":mojom",
-  ]
+  public_deps = [ ":mojom" ]
 }

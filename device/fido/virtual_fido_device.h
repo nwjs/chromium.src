@@ -33,6 +33,10 @@ class ECPrivateKey;
 
 namespace device {
 
+constexpr size_t kMaxPinRetries = 8;
+
+constexpr size_t kMaxUvRetries = 5;
+
 class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
  public:
   // Encapsulates information corresponding to one registered key on the virtual
@@ -106,9 +110,9 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
     bool non_zero_aaguid_with_self_attestation = false;
 
     // Number of PIN retries remaining.
-    int retries = 8;
+    int pin_retries = kMaxPinRetries;
     // The number of failed PIN attempts since the token was "inserted".
-    int retries_since_insertion = 0;
+    int pin_retries_since_insertion = 0;
     // True if the token is soft-locked due to too many failed PIN attempts
     // since "insertion".
     bool soft_locked = false;
@@ -120,17 +124,35 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualFidoDevice : public FidoDevice {
     // itself.
     uint8_t pin_token[32];
 
+    // Number of internal UV retries remaining.
+    int uv_retries = kMaxUvRetries;
+
     // Whether a device with internal-UV support has fingerprints enrolled.
     bool fingerprints_enrolled = false;
 
     // Whether a device with bio enrollment support has been provisioned.
     bool bio_enrollment_provisioned = false;
+
     // Current template ID being enrolled, if any.
     base::Optional<uint8_t> bio_current_template_id;
+
     // Number of remaining samples in current enrollment.
     uint8_t bio_remaining_samples = 4;
+
     // Backing storage for enrollments and their friendly names.
     std::map<uint8_t, std::string> bio_templates;
+
+    // Whether the next authenticatorBioEnrollment command with a
+    // enrollCaptureNextSample subCommand should return a
+    // CTAP2_ENROLL_FEEDBACK_TOO_HIGH response. Will be reset to false upon
+    // returning the error.
+    bool bio_enrollment_next_sample_error = false;
+
+    // Whether the next authenticatorBioEnrollment command with a
+    // enrollCaptureNextSample subCommand should return a
+    // CTAP2_ENROLL_FEEDBACK_NO_USER_ACTIVITY response. Will be reset to false
+    // upon returning the error.
+    bool bio_enrollment_next_sample_timeout = false;
 
     // pending_assertions contains the second and subsequent assertions
     // resulting from a GetAssertion call. These values are awaiting a

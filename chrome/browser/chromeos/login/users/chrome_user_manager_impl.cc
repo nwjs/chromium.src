@@ -29,7 +29,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
-#include "base/task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
@@ -355,7 +354,7 @@ void ChromeUserManagerImpl::ResetPublicAccountDelegatesForTesting() {
 ChromeUserManagerImpl::ChromeUserManagerImpl()
     : ChromeUserManager(base::ThreadTaskRunnerHandle::IsSet()
                             ? base::ThreadTaskRunnerHandle::Get()
-                            : scoped_refptr<base::TaskRunner>()),
+                            : nullptr),
       cros_settings_(CrosSettings::Get()),
       device_local_account_policy_service_(NULL),
       supervised_user_manager_(new SupervisedUserManagerImpl(this)) {
@@ -1018,7 +1017,7 @@ void ChromeUserManagerImpl::ArcKioskAppLoggedIn(user_manager::User* user) {
       user_manager::User::USER_IMAGE_INVALID, false);
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  command_line->AppendSwitch(::switches::kForceAndroidAppMode);
+  command_line->AppendSwitch(::switches::kForceAppMode);
   command_line->AppendSwitch(::switches::kSilentLaunch);
 
   // Disable window animation since kiosk app runs in a single full screen
@@ -1037,7 +1036,7 @@ void ChromeUserManagerImpl::WebKioskAppLoggedIn(user_manager::User* user) {
       user_manager::User::USER_IMAGE_INVALID, false);
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  command_line->AppendSwitch(::switches::kForceWebAppMode);
+  command_line->AppendSwitch(::switches::kForceAppMode);
   command_line->AppendSwitch(
       ::switches::kSilentLaunch);  // To open no extra windows.
 
@@ -1320,6 +1319,15 @@ void ChromeUserManagerImpl::OnProfileAdded(Profile* profile) {
 
     if (user->HasGaiaAccount())
       GetUserImageManager(user->GetAccountId())->UserProfileCreated();
+
+    // Allow managed guest session user to lock if
+    // |kLoginExtensionApiLaunchExtensionId| is set.
+    if (user->GetType() == user_manager::USER_TYPE_PUBLIC_ACCOUNT &&
+        !profile->GetPrefs()
+             ->GetString(prefs::kLoginExtensionApiLaunchExtensionId)
+             .empty()) {
+      user->set_can_lock(true);
+    }
   }
 
   // If there is pending user switch, do it now.

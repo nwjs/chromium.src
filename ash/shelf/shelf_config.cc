@@ -4,6 +4,8 @@
 
 #include "ash/public/cpp/shelf_config.h"
 
+#include "ash/accessibility/accessibility_controller_impl.h"
+#include "ash/accessibility/accessibility_observer.h"
 #include "ash/app_list/app_list_controller_impl.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/session/session_controller_impl.h"
@@ -11,6 +13,7 @@
 #include "ash/style/ash_color_provider.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "base/scoped_observer.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "ui/gfx/color_analysis.h"
 #include "ui/gfx/color_palette.h"
@@ -30,10 +33,49 @@ bool IsTabletMode() {
          Shell::Get()->tablet_mode_controller()->InTabletMode();
 }
 
+// Whether the the shelf control buttons must be shown for accessibility
+// reasons.
+bool ShelfControlsForcedShownForAccessibility() {
+  AccessibilityControllerImpl* accessibility_controller =
+      Shell::Get()->accessibility_controller();
+  return accessibility_controller->spoken_feedback_enabled() ||
+         accessibility_controller->autoclick_enabled() ||
+         accessibility_controller->switch_access_enabled();
+}
+
 }  // namespace
+
+class ShelfConfig::ShelfAccessibilityObserver : public AccessibilityObserver {
+ public:
+  ShelfAccessibilityObserver(
+      const base::RepeatingClosure& accessibility_state_changed_callback)
+      : accessibility_state_changed_callback_(
+            accessibility_state_changed_callback) {
+    observer_.Add(Shell::Get()->accessibility_controller());
+  }
+
+  ShelfAccessibilityObserver(const ShelfAccessibilityObserver& other) = delete;
+  ShelfAccessibilityObserver& operator=(
+      const ShelfAccessibilityObserver& other) = delete;
+
+  ~ShelfAccessibilityObserver() override = default;
+
+  // AccessibilityObserver:
+  void OnAccessibilityStatusChanged() override {
+    accessibility_state_changed_callback_.Run();
+  }
+  void OnAccessibilityControllerShutdown() override { observer_.RemoveAll(); }
+
+ private:
+  base::RepeatingClosure accessibility_state_changed_callback_;
+
+  ScopedObserver<AccessibilityControllerImpl, AccessibilityObserver> observer_{
+      this};
+};
 
 ShelfConfig::ShelfConfig()
     : is_dense_(false),
+      shelf_controls_shown_(true),
       is_app_list_visible_(false),
       shelf_button_icon_size_(44),
       shelf_button_icon_size_dense_(36),
@@ -59,8 +101,13 @@ ShelfConfig::ShelfConfig()
       shelf_tooltip_preview_max_ratio_(1.5),    // = 3/2
       shelf_tooltip_preview_min_ratio_(0.666),  // = 2/3
       shelf_blur_radius_(30),
-      mousewheel_scroll_offset_threshold_(20) {
-  UpdateIsDense();
+      mousewheel_scroll_offset_threshold_(20),
+      in_app_control_button_height_inset_(4),
+      app_icon_end_padding_(4) {
+  accessibility_observer_ = std::make_unique<ShelfAccessibilityObserver>(
+      base::BindRepeating(&ShelfConfig::UpdateConfigForAccessibilityState,
+                          base::Unretained(this)));
+  UpdateConfig(is_app_list_visible_);
 }
 
 ShelfConfig::~ShelfConfig() = default;
@@ -98,17 +145,22 @@ void ShelfConfig::Shutdown() {
   shell->tablet_mode_controller()->RemoveObserver(this);
 }
 
-void ShelfConfig::OnTabletModeStarted() {
-  UpdateIsDense();
+void ShelfConfig::OnTabletModeStarting() {
+  // Update the shelf config at the "starting" stage of the tablet mode
+  // transition, so that the shelf bounds are set and remains stable during the
+  // transition animation. Otherwise, updating the shelf bounds during the
+  // animation will lead to work-area bounds changes which lead to many
+  // re-layouts, hurting the animation's smoothness. https://crbug.com/1044316.
+  UpdateConfig(is_app_list_visible_);
 }
 
 void ShelfConfig::OnTabletModeEnded() {
-  UpdateIsDense();
+  UpdateConfig(is_app_list_visible_);
 }
 
 void ShelfConfig::OnDisplayMetricsChanged(const display::Display& display,
                                           uint32_t changed_metrics) {
-  UpdateIsDense();
+  UpdateConfig(is_app_list_visible_);
 }
 
 void ShelfConfig::OnAppListVisibilityWillChange(bool shown,
@@ -117,8 +169,7 @@ void ShelfConfig::OnAppListVisibilityWillChange(bool shown,
   // would lead to a lot of extraneous relayout work.
   DCHECK_NE(is_app_list_visible_, shown);
 
-  is_app_list_visible_ = shown;
-  OnShelfConfigUpdated();
+  UpdateConfig(shown /*app_list_visible*/);
 }
 
 int ShelfConfig::shelf_size() const {
@@ -169,7 +220,7 @@ int ShelfConfig::control_size() const {
 int ShelfConfig::control_border_radius() const {
   return (chromeos::switches::ShouldShowShelfHotseat() && is_in_app() &&
           IsTabletMode())
-             ? 0
+             ? control_size() / 2 - in_app_control_button_height_inset_
              : control_size() / 2;
 }
 
@@ -207,19 +258,33 @@ bool ShelfConfig::is_in_app() const {
          !is_app_list_visible_;
 }
 
-void ShelfConfig::UpdateIsDense() {
+void ShelfConfig::UpdateConfig(bool app_list_visible) {
   const gfx::Rect screen_size =
       display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
 
+  const bool in_tablet_mode = IsTabletMode();
   const bool new_is_dense =
       chromeos::switches::ShouldShowShelfHotseat() &&
-      (!IsTabletMode() ||
+      (!in_tablet_mode ||
        (screen_size.width() <= kDenseShelfScreenSizeThreshold ||
         screen_size.height() <= kDenseShelfScreenSizeThreshold));
-  if (new_is_dense == is_dense_)
+
+  // TODO(http::crbug.com/1008956): Add a user preference that would allow the
+  // user or a policy to override this behavior.
+  const bool new_shelf_controls_shown =
+      !(in_tablet_mode && features::IsHideShelfControlsInTabletModeEnabled()) ||
+      ShelfControlsForcedShownForAccessibility();
+
+  if (new_is_dense == is_dense_ &&
+      shelf_controls_shown_ == new_shelf_controls_shown &&
+      is_app_list_visible_ == app_list_visible) {
     return;
+  }
 
   is_dense_ = new_is_dense;
+  shelf_controls_shown_ = new_shelf_controls_shown;
+  is_app_list_visible_ = app_list_visible;
+
   OnShelfConfigUpdated();
 }
 
@@ -239,10 +304,14 @@ int ShelfConfig::GetShelfSize(bool ignore_in_app_state) const {
 }
 
 SkColor ShelfConfig::GetShelfControlButtonColor() const {
+  const session_manager::SessionState session_state =
+      Shell::Get()->session_controller()->GetSessionState();
+
   if (chromeos::switches::ShouldShowShelfHotseat() && IsTabletMode() &&
-      Shell::Get()->session_controller()->GetSessionState() ==
-          session_manager::SessionState::ACTIVE) {
+      session_state == session_manager::SessionState::ACTIVE) {
     return is_in_app() ? SK_ColorTRANSPARENT : GetDefaultShelfColor();
+  } else if (session_state == session_manager::SessionState::OOBE) {
+    return SkColorSetA(SK_ColorBLACK, 16);  // 6% opacity
   }
   return shelf_control_permanent_highlight_background_;
 }
@@ -258,21 +327,9 @@ SkColor ShelfConfig::GetMaximizedShelfColor() const {
   return SkColorSetA(GetDefaultShelfColor(), 254);  // ~100% opacity
 }
 
-SkColor ShelfConfig::GetDefaultShelfColor() const {
-  if (!features::IsBackgroundBlurEnabled()) {
-    return AshColorProvider::Get()->GetBaseLayerColor(
-        AshColorProvider::BaseLayerType::kTransparent90,
-        AshColorProvider::AshColorMode::kDark);
-  }
-
-  SkColor final_color = AshColorProvider::Get()->GetBaseLayerColor(
-      IsTabletMode() ? AshColorProvider::BaseLayerType::kTransparent60
-                     : AshColorProvider::BaseLayerType::kTransparent74,
-      AshColorProvider::AshColorMode::kDark);
-  int final_alpha = SkColorGetA(final_color);
-
+SkColor ShelfConfig::GetThemedColorFromWallpaper(SkColor base_color) const {
   if (!Shell::Get()->wallpaper_controller())
-    return final_color;
+    return base_color;
 
   SkColor dark_muted_color =
       Shell::Get()->wallpaper_controller()->GetProminentColor(
@@ -280,13 +337,39 @@ SkColor ShelfConfig::GetDefaultShelfColor() const {
                                     color_utils::SaturationRange::MUTED));
 
   if (dark_muted_color == kInvalidWallpaperColor)
-    return final_color;
+    return base_color;
 
+  int base_alpha = SkColorGetA(base_color);
   // Combine SK_ColorBLACK at 50% opacity with |dark_muted_color|.
-  final_color = color_utils::GetResultingPaintColor(
+  base_color = color_utils::GetResultingPaintColor(
       SkColorSetA(SK_ColorBLACK, 127), dark_muted_color);
 
-  return SkColorSetA(final_color, final_alpha);
+  return SkColorSetA(base_color, base_alpha);
+}
+
+SkColor ShelfConfig::GetDefaultShelfColor() const {
+  if (!features::IsBackgroundBlurEnabled()) {
+    return AshColorProvider::Get()->GetBaseLayerColor(
+        AshColorProvider::BaseLayerType::kTransparent90,
+        AshColorProvider::AshColorMode::kDark);
+  }
+
+  AshColorProvider::BaseLayerType layer_type;
+  if (!chromeos::switches::ShouldShowShelfHotseat()) {
+    layer_type = IsTabletMode()
+                     ? AshColorProvider::BaseLayerType::kTransparent60
+                     : AshColorProvider::BaseLayerType::kTransparent80;
+  } else if (IsTabletMode()) {
+    layer_type = is_in_app() ? AshColorProvider::BaseLayerType::kTransparent90
+                             : AshColorProvider::BaseLayerType::kTransparent60;
+  } else {
+    layer_type = AshColorProvider::BaseLayerType::kTransparent80;
+  }
+
+  SkColor final_color = AshColorProvider::Get()->GetBaseLayerColor(
+      layer_type, AshColorProvider::AshColorMode::kDark);
+
+  return GetThemedColorFromWallpaper(final_color);
 }
 
 int ShelfConfig::GetShelfControlButtonBlurRadius() const {
@@ -296,6 +379,24 @@ int ShelfConfig::GetShelfControlButtonBlurRadius() const {
     return shelf_blur_radius_;
   }
   return 0;
+}
+
+int ShelfConfig::GetAppIconEndPadding() const {
+  return (chromeos::switches::ShouldShowShelfHotseat() && IsTabletMode())
+             ? app_icon_end_padding_
+             : 0;
+}
+
+base::TimeDelta ShelfConfig::DimAnimationDuration() const {
+  return base::TimeDelta::FromMilliseconds(1000);
+}
+
+gfx::Tween::Type ShelfConfig::DimAnimationTween() const {
+  return gfx::Tween::LINEAR;
+}
+
+void ShelfConfig::UpdateConfigForAccessibilityState() {
+  UpdateConfig(is_app_list_visible_);
 }
 
 void ShelfConfig::OnShelfConfigUpdated() {

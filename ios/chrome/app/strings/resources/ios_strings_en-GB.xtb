@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">Incognito Search</translation>
 <translation id="277771892408211951">Select language</translation>
 <translation id="2780046210906776326">No Email Accounts</translation>
+<translation id="2781331604911854368">On</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">Leave Tab Switcher</translation>
 <translation id="2830972654601096923">Manage Addresses…</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">Open Tabs</translation>
 <translation id="3277021493514034324">Site address copied</translation>
 <translation id="3290875554372353449">Choose an Account</translation>
+<translation id="3311748811247479259">Off</translation>
 <translation id="3324193307694657476">Address 2</translation>
 <translation id="3329904751041170572">Could not connect to the server.</translation>
 <translation id="3335947283844343239">Re-open Closed Tab</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">Forms filled.</translation>
 <translation id="3478058380795961209">Month of Expiry</translation>
 <translation id="3482959374254649722">Syncing your tabs...</translation>
+<translation id="3484946776651937681">Open in downloads</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Find out more<ph name="END_LINK" /> about suggested content</translation>
 <translation id="3494788280727468875">Confirm Clear Browsing Data</translation>
+<translation id="35083190962747987">Open ${url}</translation>
 <translation id="3519193562722059437">Open a tab to browse the web.</translation>
 <translation id="3527085408025491307">Folder</translation>
 <translation id="3529024052484145543">Not secure</translation>
@@ -301,6 +305,7 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 <translation id="5062321486222145940">Install Google Drive</translation>
 <translation id="5083464117946352670">Cannot determine file size.</translation>
 <translation id="5094827893301452931">Tweet completed.</translation>
+<translation id="5118764316110575523">Off</translation>
 <translation id="5127805178023152808">Sync is off</translation>
 <translation id="5132942445612118989">Sync your passwords, history and more on all devices</translation>
 <translation id="5140288047769711648">Chrome will remember this password for you. You don't have to remember it.</translation>
@@ -349,13 +354,11 @@ Handoff must also be enabled in the General section of Settings, and your device
 <translation id="5854790677617711513">Older than 30 days</translation>
 <translation id="5857090052475505287">New Folder</translation>
 <translation id="5857770089550859117">Passphrase required to start sync.</translation>
-<translation id="5860033963881614850">Off</translation>
 <translation id="5869029295770560994">OK, got it</translation>
 <translation id="5871497086027727873">1 item moved</translation>
 <translation id="5897956970858271241">Visit copied link</translation>
 <translation id="5911030830365207728">Google Translate</translation>
 <translation id="5913600720976431809">Options to translate the page</translation>
-<translation id="5916664084637901428">On</translation>
 <translation id="5938160824633642847">Your device is almost full. Free up space and try again.</translation>
 <translation id="5948291296578561264">This lets you save photos to your photo library.</translation>
 <translation id="5955891643922670672">Viewing Offline Version</translation>
@@ -365,6 +368,7 @@ Handoff must also be enabled in the General section of Settings, and your device
 <translation id="5979837087407522202">Search passwords</translation>
 <translation id="5982717868370722439">Add existing data to <ph name="USER_EMAIL" />.</translation>
 <translation id="5984222099446776634">Recently Visited</translation>
+<translation id="5988851877894965432">Open URLs in Chrome</translation>
 <translation id="6012140227487808125">Encrypting…</translation>
 <translation id="6021332621416007159">Open in...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />, <ph name="PUBLISHER_INFORMATION" />, <ph name="PUBLICATION_DATE" /></translation>
@@ -475,6 +479,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="734758817008927353">Options to save card</translation>
 <translation id="7348502496356775519">Bookmark</translation>
 <translation id="7383797227493018512">Reading List</translation>
+<translation id="7392048574806661116">Sign out and clear synced data</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> unread articles.</translation>
 <translation id="7425346204213733349">Changes to your bookmarks, history, passwords and other settings will no longer be synced to your Google Account. However, your existing data will remain stored in your Google Account.</translation>
@@ -514,6 +519,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="7961015016161918242">Never</translation>
 <translation id="7971521879845308059">Block Pop-ups</translation>
 <translation id="7982789257301363584">Network</translation>
+<translation id="800361585186029508">Opens the inputted URLs in Google Chrome.</translation>
 <translation id="8007420562015504427">Incognito Search</translation>
 <translation id="8019783059653722575">This lets you save and upload photos.</translation>
 <translation id="802154636333426148">Download failed</translation>
@@ -533,6 +539,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="8319076807703933069">New Search</translation>
 <translation id="8323906514956095947">Touch and hold for more tab options</translation>
 <translation id="8328777765163860529">Close All</translation>
+<translation id="8386068868580335421">Reset</translation>
 <translation id="8407669440184693619">No passwords found for this site</translation>
 <translation id="842017693807136194">Signed in with</translation>
 <translation id="8428045167754449968">City / Town</translation>

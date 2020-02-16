@@ -55,6 +55,7 @@
 #include "ui/display/manager/test/touch_device_manager_test_api.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/display_manager_test_api.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/events/devices/touchscreen_device.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/font_render_params.h"
@@ -1097,7 +1098,7 @@ TEST_F(DisplayManagerTest, OverscanInsetsTest) {
             updated_display_info2.GetOverscanInsetsInPixel().ToString());
 
   // Make sure switching primary display applies the overscan offset only once.
-  ash::Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(
+  Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(
       display_manager()->GetSecondaryDisplay().id());
   EXPECT_EQ("-500,0 500x500",
             display_manager()->GetSecondaryDisplay().bounds().ToString());
@@ -1699,7 +1700,7 @@ TEST_F(DisplayManagerTest, TestNativeDisplaysChangedNoInternal) {
   EXPECT_EQ(1U, display_manager()->GetNumDisplays());
   EXPECT_EQ("1,1 100x100",
             GetDisplayInfoForId(10).bounds_in_native().ToString());
-  EXPECT_EQ("100x100", ash::Shell::GetPrimaryRootWindow()
+  EXPECT_EQ("100x100", Shell::GetPrimaryRootWindow()
                            ->GetHost()
                            ->GetBoundsInPixels()
                            .size()
@@ -1725,7 +1726,7 @@ TEST_F(DisplayManagerTest, NativeDisplaysChangedAfterPrimaryChange) {
             GetDisplayForId(internal_display_id).bounds().ToString());
   EXPECT_EQ("500,0 100x100", GetDisplayForId(10).bounds().ToString());
 
-  ash::Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(
+  Shell::Get()->window_tree_host_manager()->SetPrimaryDisplayId(
       secondary_display_info.id());
   EXPECT_EQ("-500,0 500x500",
             GetDisplayForId(internal_display_id).bounds().ToString());
@@ -4522,13 +4523,28 @@ TEST_F(DisplayManagerTest, DISABLED_SoftwareMirrorRotationForNonTablet) {
 TEST_F(DisplayManagerTest, DPSizeTest) {
   display::test::DisplayManagerTestApi(display_manager())
       .SetFirstDisplayAsInternalDisplay();
-  UpdateDisplay("3840x2160*2.66666");
-  EXPECT_EQ(gfx::Size(1440, 810),
-            display::Screen::GetScreen()->GetPrimaryDisplay().size());
+  UpdateDisplay(base::StringPrintf("3840x2160*%s", display::kDsfStr_2_666));
+  {
+    gfx::Size expected(1440, 810);
+    EXPECT_EQ(expected,
+              display::Screen::GetScreen()->GetPrimaryDisplay().size());
+    EXPECT_EQ(expected, Shell::GetPrimaryRootWindow()->bounds().size());
+  }
 
-  UpdateDisplay("1920x1200*1.77777");
-  EXPECT_EQ(gfx::Size(1080, 675),
-            display::Screen::GetScreen()->GetPrimaryDisplay().size());
+  UpdateDisplay(base::StringPrintf("1920x1200*%s", display::kDsfStr_1_777));
+  {
+    gfx::Size expected(1080, 675);
+    EXPECT_EQ(expected,
+              display::Screen::GetScreen()->GetPrimaryDisplay().size());
+    EXPECT_EQ(expected, Shell::GetPrimaryRootWindow()->bounds().size());
+  }
+  UpdateDisplay(base::StringPrintf("3000x2000*%s", display::kDsfStr_2_252));
+  {
+    gfx::Size expected(1332, 888);
+    EXPECT_EQ(expected,
+              display::Screen::GetScreen()->GetPrimaryDisplay().size());
+    EXPECT_EQ(expected, Shell::GetPrimaryRootWindow()->bounds().size());
+  }
 }
 
 TEST_F(DisplayManagerTest, PanelOrientation) {

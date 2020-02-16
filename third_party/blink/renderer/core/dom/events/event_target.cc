@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/js_based_event_listener.h"
 #include "third_party/blink/renderer/bindings/core/v8/js_event_listener.h"
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
+#include "third_party/blink/renderer/core/dom/events/add_event_listener_options_resolved.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
 #include "third_party/blink/renderer/core/dom/events/event_target_impl.h"
@@ -210,19 +211,6 @@ void CountFiringEventListeners(const Event& event,
   for (const auto& counted_event : counted_events) {
     if (CheckTypeThenUseCount(event, counted_event.event_type,
                               counted_event.feature, document))
-      return;
-  }
-
-  if (event.eventPhase() == Event::kCapturingPhase ||
-      event.eventPhase() == Event::kBubblingPhase) {
-    if (CheckTypeThenUseCount(
-            event, event_type_names::kDOMNodeRemoved,
-            WebFeature::kDOMNodeRemovedEventListenedAtNonTarget, document))
-      return;
-    if (CheckTypeThenUseCount(
-            event, event_type_names::kDOMNodeRemovedFromDocument,
-            WebFeature::kDOMNodeRemovedFromDocumentEventListenedAtNonTarget,
-            document))
       return;
   }
 }

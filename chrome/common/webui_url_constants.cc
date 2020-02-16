@@ -7,8 +7,12 @@
 #include "base/stl_util.h"
 #include "base/strings/string_piece.h"
 #include "components/nacl/common/buildflags.h"
-#include "components/safe_browsing/web_ui/constants.h"
+#include "components/safe_browsing/core/web_ui/constants.h"
 #include "extensions/buildflags/buildflags.h"
+
+#if defined(OS_CHROMEOS)
+#include "chromeos/constants/chromeos_features.h"
+#endif
 
 namespace chrome {
 
@@ -94,6 +98,7 @@ const char kChromeUIManagementURL[] = "chrome://management";
 const char kChromeUIMdUserManagerHost[] = "md-user-manager";
 const char kChromeUIMdUserManagerUrl[] = "chrome://md-user-manager/";
 const char kChromeUIMediaEngagementHost[] = "media-engagement";
+const char kChromeUIMediaHistoryHost[] = "media-history";
 const char kChromeUIMediaRouterInternalsHost[] = "media-router-internals";
 const char kChromeUIMemoryInternalsHost[] = "memory-internals";
 const char kChromeUINTPTilesInternalsHost[] = "ntp-tiles-internals";
@@ -388,7 +393,7 @@ const char kTriggeredResetProfileSettingsSubPage[] =
 const char kAccessibilitySubPage[] = "accessibility";
 const char kAccountManagerSubPage[] = "accountManager";
 const char kAccountSubPage[] = "accounts";
-const char kAndroidAppsDetailsSubPage[] = "apps/androidAppsDetails";
+const char kAndroidAppsDetailsSubPage[] = "androidAppsDetails";
 const char kAndroidAppsDetailsSubPageInBrowserSettings[] =
     "androidApps/details";
 const char kAppManagementDetailSubPage[] = "app-management/detail";
@@ -470,8 +475,6 @@ bool IsOSSettingsSubPage(const std::string& sub_page) {
       kStorageSubPage,
       kStylusSubPage,
       kSwitchAccessSubPage,
-      // sync is both an OS and browser sub page, but prefer the OS version
-      kSyncSetupSubPage,
       kVPNSettingsSubPage,
       kWiFiSettingsSubPage,
   };
@@ -480,6 +483,12 @@ bool IsOSSettingsSubPage(const std::string& sub_page) {
   std::string::size_type index = sub_page.find('?');
   if (index != std::string::npos)
     sub_page_without_query.resize(index);
+
+  // SplitSettingsSync doesn't use the same sync subpage as browser.
+  if (!chromeos::features::IsSplitSettingsSyncEnabled() &&
+      sub_page_without_query == kSyncSetupSubPage) {
+    return true;
+  }
 
   for (const char* p : kSubPages) {
     if (sub_page_without_query == p)

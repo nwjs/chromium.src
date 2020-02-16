@@ -12,11 +12,11 @@ import com.google.android.gms.common.ConnectionResult;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.AppHooks;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
-import org.chromium.chrome.browser.settings.password.SavePasswordsPreferences;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
+import org.chromium.chrome.browser.settings.password.PasswordSettings;
 import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.sync.ModelType;
@@ -61,7 +61,7 @@ public class PasswordManagerLauncher {
             }
         }
 
-        PreferencesLauncher.launchSettingsPage(activity, SavePasswordsPreferences.class);
+        SettingsLauncher.getInstance().launchSettingsPage(activity, PasswordSettings.class);
     }
 
     @CalledByNative

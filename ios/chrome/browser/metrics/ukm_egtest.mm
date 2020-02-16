@@ -4,6 +4,7 @@
 
 #import <XCTest/XCTest.h>
 
+#include "base/ios/ios_util.h"
 #include "base/macros.h"
 #include "base/stl_util.h"
 #import "base/test/ios/wait_util.h"
@@ -18,7 +19,6 @@
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/public/provider/chrome/browser/signin/fake_chrome_identity.h"
-#import "ios/public/provider/chrome/browser/signin/fake_chrome_identity_service.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -201,6 +201,13 @@ void SignOut() {
 
 // Make sure that UKM is disabled while an incognito tab is open.
 - (void)testRegularPlusIncognito {
+#if defined(CHROME_EARL_GREY_1)
+  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+  if (!base::ios::IsRunningOnIOS13OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
+  }
+#endif
+
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
 
   OpenNewIncognitoTab();
@@ -231,6 +238,13 @@ void SignOut() {
 
 // Make sure opening a real tab after Incognito doesn't enable UKM.
 - (void)testIncognitoPlusRegular {
+#if defined(CHROME_EARL_GREY_1)
+  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+  if (!base::ios::IsRunningOnIOS13OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
+  }
+#endif
+
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
   [ChromeEarlGrey closeAllTabs];
   [ChromeEarlGrey waitForMainTabCount:0];
@@ -258,6 +272,13 @@ void SignOut() {
 
 // Make sure that UKM is disabled when metrics consent is revoked.
 - (void)testMetricsConsent {
+#if defined(CHROME_EARL_GREY_1)
+  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+  if (!base::ios::IsRunningOnIOS13OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
+  }
+#endif
+
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
 
   [MetricsAppInterface setMetricsAndCrashReportingForTesting:NO];
@@ -292,6 +313,13 @@ void SignOut() {
 
 // Make sure that UKM is disabled when sync is disabled.
 - (void)testSingleDisableSync {
+#if defined(CHROME_EARL_GREY_1)
+  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+  if (!base::ios::IsRunningOnIOS13OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
+  }
+#endif
+
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
 
   [ChromeEarlGreyUI openSettingsMenu];
@@ -330,6 +358,12 @@ void SignOut() {
 
 // Make sure that UKM is disabled when sync is not enabled.
 - (void)testSingleSyncSignout {
+#if defined(CHROME_EARL_GREY_1)
+  // TODO(crbug.com/1033726): EG1 Test fails on iOS 12.
+  if (!base::ios::IsRunningOnIOS13OrLater()) {
+    EARL_GREY_TEST_DISABLED(@"EG1 Fails on iOS 12.");
+  }
+#endif
   uint64_t originalClientID = [MetricsAppInterface UKMClientID];
 
   SignOut();

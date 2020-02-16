@@ -51,6 +51,7 @@
 #include "components/content_settings/core/browser/cookie_settings_policy_handler.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_pref_names.h"
+#include "components/embedder_support/pref_names.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -68,7 +69,7 @@
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/schema.h"
 #include "components/policy/policy_constants.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/search_engines/default_search_policy_handler.h"
 #include "components/security_state/core/security_state_pref_names.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -159,7 +160,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kURLsToRestoreOnStartup,
     base::Value::Type::LIST },
   { key::kAlternateErrorPagesEnabled,
-    prefs::kAlternateErrorPagesEnabled,
+    embedder_support::kAlternateErrorPagesEnabled,
     base::Value::Type::BOOLEAN },
   { key::kSearchSuggestEnabled,
     prefs::kSearchSuggestEnabled,
@@ -303,9 +304,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kEnableOnlineRevocationChecks,
     prefs::kCertRevocationCheckingEnabled,
     base::Value::Type::BOOLEAN },
-  { key::kMachineLevelUserCloudPolicyEnrollmentToken,
-    policy_prefs::kMachineLevelUserCloudPolicyEnrollmentToken,
-    base::Value::Type::STRING },
   { key::kCloudManagementEnrollmentMandatory,
     policy_prefs::kCloudManagementEnrollmentMandatory,
     base::Value::Type::BOOLEAN },
@@ -515,12 +513,18 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kVideoCaptureAllowedUrls,
     prefs::kVideoCaptureAllowedUrls,
     base::Value::Type::LIST },
+  { key::kScreenCaptureAllowed,
+    prefs::kScreenCaptureAllowed,
+    base::Value::Type::BOOLEAN },
   { key::kHideWebStoreIcon,
     prefs::kHideWebStoreIcon,
     base::Value::Type::BOOLEAN },
   { key::kVariationsRestrictParameter,
     variations::prefs::kVariationsRestrictParameter,
     base::Value::Type::STRING },
+  { key::kChromeVariations,
+    variations::prefs::kVariationsRestrictionsByPolicy,
+    base::Value::Type::INTEGER },
   { key::kForceEphemeralProfiles,
     prefs::kForceEphemeralProfiles,
     base::Value::Type::BOOLEAN },
@@ -644,6 +648,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDictationEnabled,
     ash::prefs::kAccessibilityDictationEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kPrimaryMouseButtonSwitch,
+    prefs::kPrimaryMouseButtonRight,
+    base::Value::Type::BOOLEAN },
   { key::kKeyboardFocusHighlightEnabled,
     ash::prefs::kAccessibilityFocusHighlightEnabled,
     base::Value::Type::BOOLEAN },
@@ -665,6 +672,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kHighContrastEnabled,
     ash::prefs::kAccessibilityHighContrastEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kAccessibilityShortcutsEnabled,
+    ash::prefs::kAccessibilityShortcutsEnabled,
+    base::Value::Type::BOOLEAN },
   { key::kVirtualKeyboardEnabled,
     ash::prefs::kAccessibilityVirtualKeyboardEnabled,
     base::Value::Type::BOOLEAN },
@@ -680,6 +690,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDeviceLoginScreenShowOptionsInSystemTrayMenu,
     nullptr,
     base::Value::Type::BOOLEAN },
+  { key::kDeviceLoginScreenPrimaryMouseButtonSwitch,
+    nullptr,
+    base::Value::Type::BOOLEAN },
   { key::kDeviceLoginScreenDefaultSpokenFeedbackEnabled,
     nullptr,
     base::Value::Type::BOOLEAN },
@@ -693,6 +706,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     nullptr,
     base::Value::Type::BOOLEAN },
   { key::kDeviceLoginScreenDefaultVirtualKeyboardEnabled,
+    nullptr,
+    base::Value::Type::BOOLEAN },
+  { key::kDeviceLoginScreenAccessibilityShortcutsEnabled,
     nullptr,
     base::Value::Type::BOOLEAN },
   { key::kDeviceLoginScreenVirtualKeyboardEnabled,
@@ -955,9 +971,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kCloudPolicyOverridesPlatformPolicy,
     policy_prefs::kCloudPolicyOverridesPlatformPolicy,
     base::Value::Type::BOOLEAN },
-  { key::kCloudReportingEnabled,
-    prefs::kCloudReportingEnabled,
-    base::Value::Type::BOOLEAN },
 #endif  // !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
 
 #if !defined(OS_ANDROID)
@@ -965,6 +978,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kCloudExtensionRequestEnabled,
     base::Value::Type::BOOLEAN
   },
+  { key::kCloudReportingEnabled,
+    prefs::kCloudReportingEnabled,
+    base::Value::Type::BOOLEAN },
 #endif
 
 #if defined(OS_WIN)
@@ -1177,27 +1193,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kBrowserSwitcherDelay,
     browser_switcher::prefs::kDelay,
     base::Value::Type::INTEGER },
-  { key::kDelayDeliveryUntilVerdict,
-    prefs::kDelayDeliveryUntilVerdict,
-    base::Value::Type::INTEGER },
-  { key::kBlockLargeFileTransfer,
-    prefs::kBlockLargeFileTransfer,
-    base::Value::Type::INTEGER },
-  { key::kAllowPasswordProtectedFiles,
-    prefs::kAllowPasswordProtectedFiles,
-    base::Value::Type::INTEGER },
-  { key::kCheckContentCompliance,
-    prefs::kCheckContentCompliance,
-    base::Value::Type::INTEGER },
-  { key::kURLsToCheckComplianceOfDownloadedContent,
-    prefs::kURLsToCheckComplianceOfDownloadedContent,
-    base::Value::Type::LIST },
-  { key::kURLsToCheckForMalwareOfUploadedContent,
-    prefs::kURLsToCheckForMalwareOfUploadedContent,
-    base::Value::Type::LIST },
-  { key::kURLsToNotCheckComplianceOfUploadedContent,
-    prefs::kURLsToNotCheckComplianceOfUploadedContent,
-    base::Value::Type::LIST },
 #endif
 #if defined(OS_WIN)
   { key::kBrowserSwitcherUseIeSitelist,
@@ -1217,6 +1212,33 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kUnsafeEventsReportingEnabled,
     prefs::kUnsafeEventsReportingEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kDelayDeliveryUntilVerdict,
+    prefs::kDelayDeliveryUntilVerdict,
+    base::Value::Type::INTEGER },
+  { key::kBlockLargeFileTransfer,
+    prefs::kBlockLargeFileTransfer,
+    base::Value::Type::INTEGER },
+  { key::kAllowPasswordProtectedFiles,
+    prefs::kAllowPasswordProtectedFiles,
+    base::Value::Type::INTEGER },
+  { key::kCheckContentCompliance,
+    prefs::kCheckContentCompliance,
+    base::Value::Type::INTEGER },
+  { key::kBlockUnsupportedFiletypes,
+    prefs::kBlockUnsupportedFiletypes,
+    base::Value::Type::INTEGER },
+  { key::kURLsToCheckComplianceOfDownloadedContent,
+    prefs::kURLsToCheckComplianceOfDownloadedContent,
+    base::Value::Type::LIST },
+  { key::kURLsToCheckForMalwareOfUploadedContent,
+    prefs::kURLsToCheckForMalwareOfUploadedContent,
+    base::Value::Type::LIST },
+  { key::kURLsToNotCheckForMalwareOfDownloadedContent,
+    prefs::kURLsToNotCheckForMalwareOfDownloadedContent,
+    base::Value::Type::LIST },
+  { key::kURLsToNotCheckComplianceOfUploadedContent,
+    prefs::kURLsToNotCheckComplianceOfUploadedContent,
+    base::Value::Type::LIST },
 #endif
   { key::kPasswordLeakDetectionEnabled,
     password_manager::prefs::kPasswordLeakDetectionEnabled,
@@ -1256,6 +1278,16 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::BOOLEAN },
   { key::kDNSInterceptionChecksEnabled,
     prefs::kDNSInterceptionChecksEnabled,
+    base::Value::Type::BOOLEAN },
+
+#if BUILDFLAG(ENABLE_SERVICE_DISCOVERY)
+  { key::kLocalDiscoveryEnabled,
+    prefs::kLocalDiscoveryEnabled,
+    base::Value::Type::BOOLEAN },
+#endif
+
+  { key::kAdvancedProtectionDeepScanningEnabled,
+    prefs::kAdvancedProtectionDeepScanningEnabled,
     base::Value::Type::BOOLEAN },
 };
 // clang-format on
@@ -1682,6 +1714,11 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
       key::kPrintJobHistoryExpirationPeriod,
       prefs::kPrintJobHistoryExpirationPeriod, -1, INT_MAX, true));
+#if defined(USE_CUPS)
+  handlers->AddHandler(std::make_unique<extensions::ExtensionListPolicyHandler>(
+      key::kPrintingAPIExtensionsWhitelist,
+      prefs::kPrintingAPIExtensionsWhitelist, /*allow_wildcards=*/false));
+#endif
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
       key::kNetworkFileSharesPreconfiguredShares,
       prefs::kNetworkFileSharesPreconfiguredShares, chrome_schema,
@@ -1696,6 +1733,11 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
       key::kPerAppTimeLimits, prefs::kPerAppTimeLimitsPolicy, chrome_schema,
       SCHEMA_ALLOW_UNKNOWN,
+      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
+      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
+      key::kPerAppTimeLimitsWhitelist, prefs::kPerAppTimeLimitsWhitelistPolicy,
+      chrome_schema, SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
   handlers->AddHandler(

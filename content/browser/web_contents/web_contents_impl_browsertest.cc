@@ -830,7 +830,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   ASSERT_EQ(2U, observer.resource_load_infos().size());
   const mojom::ResourceLoadInfoPtr& page_load_info =
       observer.resource_load_infos()[0];
-  EXPECT_EQ(page_destination_url, page_load_info->url);
+  EXPECT_EQ(page_destination_url, page_load_info->final_url);
   EXPECT_EQ(page_original_url, page_load_info->original_url);
 
   GURL image_destination_url(embedded_test_server()->GetURL("/blank.jpg"));
@@ -838,7 +838,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
       embedded_test_server()->GetURL("/server-redirect?blank.jpg"));
   const mojom::ResourceLoadInfoPtr& image_load_info =
       observer.resource_load_infos()[1];
-  EXPECT_EQ(image_destination_url, image_load_info->url);
+  EXPECT_EQ(image_destination_url, image_load_info->final_url);
   EXPECT_EQ(image_original_url, image_load_info->original_url);
 }
 
@@ -915,19 +915,22 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
       NavigateToURL(shell(), start_url, target_url /* expected_commit_url */));
 
   ASSERT_EQ(1U, observer.resource_load_infos().size());
-  EXPECT_EQ(target_url, observer.resource_load_infos()[0]->url);
+  EXPECT_EQ(target_url, observer.resource_load_infos()[0]->final_url);
 
   ASSERT_EQ(2U, observer.resource_load_infos()[0]->redirect_info_chain.size());
-  EXPECT_EQ(intermediate_url,
-            observer.resource_load_infos()[0]->redirect_info_chain[0]->url);
+  EXPECT_EQ(url::Origin::Create(intermediate_url),
+            observer.resource_load_infos()[0]
+                ->redirect_info_chain[0]
+                ->origin_of_new_url);
   EXPECT_TRUE(observer.resource_load_infos()[0]
                   ->redirect_info_chain[0]
                   ->network_info->network_accessed);
   EXPECT_FALSE(observer.resource_load_infos()[0]
                    ->redirect_info_chain[0]
                    ->network_info->always_access_network);
-  EXPECT_EQ(target_url,
-            observer.resource_load_infos()[0]->redirect_info_chain[1]->url);
+  EXPECT_EQ(url::Origin::Create(target_url), observer.resource_load_infos()[0]
+                                                 ->redirect_info_chain[1]
+                                                 ->origin_of_new_url);
   EXPECT_TRUE(observer.resource_load_infos()[0]
                   ->redirect_info_chain[1]
                   ->network_info->network_accessed);
@@ -944,7 +947,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   GURL url(embedded_test_server()->GetURL("/page_with_image.html"));
   EXPECT_TRUE(NavigateToURL(shell(), url));
   ASSERT_EQ(2U, observer.resource_load_infos().size());
-  EXPECT_EQ(url, observer.resource_load_infos()[0]->url);
+  EXPECT_EQ(url, observer.resource_load_infos()[0]->original_url);
+  EXPECT_EQ(url, observer.resource_load_infos()[0]->final_url);
   EXPECT_TRUE(observer.resource_is_associated_with_main_frame()[0]);
   EXPECT_TRUE(observer.resource_is_associated_with_main_frame()[1]);
   observer.Reset();
@@ -953,8 +957,10 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   GURL data_url("data:text/html,<iframe src='" + url.spec() + "'></iframe>");
   EXPECT_TRUE(NavigateToURL(shell(), data_url));
   ASSERT_EQ(3U, observer.resource_load_infos().size());
-  EXPECT_EQ(data_url, observer.resource_load_infos()[0]->url);
-  EXPECT_EQ(url, observer.resource_load_infos()[1]->url);
+  EXPECT_EQ(data_url, observer.resource_load_infos()[0]->original_url);
+  EXPECT_EQ(data_url, observer.resource_load_infos()[0]->final_url);
+  EXPECT_EQ(url, observer.resource_load_infos()[1]->original_url);
+  EXPECT_EQ(url, observer.resource_load_infos()[1]->final_url);
   EXPECT_TRUE(observer.resource_is_associated_with_main_frame()[0]);
   EXPECT_FALSE(observer.resource_is_associated_with_main_frame()[1]);
   EXPECT_FALSE(observer.resource_is_associated_with_main_frame()[2]);
@@ -1058,9 +1064,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   // Also simulate a DidChangeLoadProgress, but not a DidStopLoading.
   RenderFrameHostImpl* main_frame = static_cast<RenderFrameHostImpl*>(
       shell()->web_contents()->GetMainFrame());
-  FrameHostMsg_DidChangeLoadProgress progress_msg(main_frame->GetRoutingID(),
-                                                  1.0);
-  main_frame->OnMessageReceived(progress_msg);
+
+  main_frame->DidChangeLoadProgress(1.0);
   EXPECT_TRUE(delegate->did_start_loading);
   EXPECT_FALSE(delegate->did_stop_loading);
 
@@ -2946,8 +2951,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, NotifyFullscreenAcquired) {
 }
 
 // Regression test for https://crbug.com/855018.
-// RenderFrameHostImpls exit fullscreen as soon as they are swapped out.
-IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, FullscreenAfterFrameSwap) {
+// RenderFrameHostImpls exit fullscreen as soon as they are unloaded.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, FullscreenAfterFrameUnload) {
   ASSERT_TRUE(embedded_test_server()->Start());
   WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(shell()->web_contents());
@@ -2969,13 +2974,13 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, FullscreenAfterFrameSwap) {
   EXPECT_EQ(1u, web_contents->fullscreen_frames_.size());
 
   // 3) Navigate cross origin. Act as if the old frame was very slow delivering
-  //    the swapout ack and stayed in pending deletion for a while. Even if the
+  //    the unload ack and stayed in pending deletion for a while. Even if the
   //    frame is still present, it must be removed from the list of frame in
   //    fullscreen immediately.
   auto filter = base::MakeRefCounted<DropMessageFilter>(
-      FrameMsgStart, FrameHostMsg_SwapOut_ACK::ID);
+      FrameMsgStart, FrameHostMsg_Unload_ACK::ID);
   main_frame->GetProcess()->AddFilter(filter.get());
-  main_frame->DisableSwapOutTimerForTesting();
+  main_frame->DisableUnloadTimerForTesting();
   EXPECT_TRUE(NavigateToURL(shell(), url_b));
   EXPECT_EQ(0u, web_contents->fullscreen_frames_.size());
 }
@@ -3287,9 +3292,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, MouseButtonsNavigate) {
     TestNavigationObserver back_observer(web_contents);
     web_contents->GetRenderWidgetHostWithPageFocus()->ForwardMouseEvent(
         blink::WebMouseEvent(
-            blink::WebInputEvent::kMouseUp, blink::WebFloatPoint(51, 50),
-            blink::WebFloatPoint(51, 50),
-            blink::WebPointerProperties::Button::kBack, 0,
+            blink::WebInputEvent::kMouseUp, gfx::PointF(51, 50),
+            gfx::PointF(51, 50), blink::WebPointerProperties::Button::kBack, 0,
             blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
     back_observer.Wait();
     ASSERT_EQ(url_a, web_contents->GetLastCommittedURL());
@@ -3299,10 +3303,9 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, MouseButtonsNavigate) {
     TestNavigationObserver forward_observer(web_contents);
     web_contents->GetRenderWidgetHostWithPageFocus()->ForwardMouseEvent(
         blink::WebMouseEvent(
-            blink::WebInputEvent::kMouseUp, blink::WebFloatPoint(51, 50),
-            blink::WebFloatPoint(51, 50),
-            blink::WebPointerProperties::Button::kForward, 0,
-            blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
+            blink::WebInputEvent::kMouseUp, gfx::PointF(51, 50),
+            gfx::PointF(51, 50), blink::WebPointerProperties::Button::kForward,
+            0, blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
     forward_observer.Wait();
     ASSERT_EQ(url_b, web_contents->GetLastCommittedURL());
   }
@@ -3331,9 +3334,9 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, MouseButtonsDontNavigate) {
   RenderWidgetHostImpl* render_widget_host =
       web_contents->GetRenderWidgetHostWithPageFocus();
   render_widget_host->ForwardMouseEvent(blink::WebMouseEvent(
-      blink::WebInputEvent::kMouseUp, blink::WebFloatPoint(51, 50),
-      blink::WebFloatPoint(51, 50), blink::WebPointerProperties::Button::kBack,
-      0, blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
+      blink::WebInputEvent::kMouseUp, gfx::PointF(51, 50), gfx::PointF(51, 50),
+      blink::WebPointerProperties::Button::kBack, 0,
+      blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
   RunUntilInputProcessed(render_widget_host);
 
   // Wait an action timeout and assert the URL is correct.
@@ -3363,8 +3366,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, MouseButtonsDontNavigate) {
 
   render_widget_host = web_contents->GetRenderWidgetHostWithPageFocus();
   render_widget_host->ForwardMouseEvent(blink::WebMouseEvent(
-      blink::WebInputEvent::kMouseUp, blink::WebFloatPoint(51, 50),
-      blink::WebFloatPoint(51, 50),
+      blink::WebInputEvent::kMouseUp, gfx::PointF(51, 50), gfx::PointF(51, 50),
       blink::WebPointerProperties::Button::kForward, 0,
       blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
   RunUntilInputProcessed(render_widget_host);
@@ -3574,8 +3576,7 @@ class LoadingObserver : public WebContentsObserver {
 
   void DidFailLoad(RenderFrameHost* render_frame_host,
                    const GURL& url,
-                   int error_code,
-                   const base::string16& error_description) override {
+                   int error_code) override {
     events_.push_back("DidFailLoad");
   }
 

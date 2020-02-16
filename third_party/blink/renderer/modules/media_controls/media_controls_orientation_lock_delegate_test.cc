@@ -119,7 +119,9 @@ class MockChromeClientForOrientationLockDelegate final
   }
   // The real ChromeClient::EnterFullscreen/ExitFullscreen implementation is
   // async due to IPC, emulate that by posting tasks:
-  void EnterFullscreen(LocalFrame& frame, const FullscreenOptions*) override {
+  void EnterFullscreen(LocalFrame& frame,
+                       const FullscreenOptions*,
+                       bool for_cross_process_descendant) override {
     Thread::Current()->GetTaskRunner()->PostTask(
         FROM_HERE,
         WTF::Bind(DidEnterFullscreen, WrapPersistent(frame.GetDocument())));
@@ -1474,10 +1476,9 @@ TEST_F(MediaControlsOrientationLockAndRotateToFullscreenDelegateTest,
   // And immediately detach the document by synchronously navigating.
   // One easy way to do this is to replace the document with a JavaScript URL.
   GetFrame().GetSettings()->SetScriptEnabled(true);
-  GetFrame().Navigate(
-      FrameLoadRequest(&GetDocument(),
-                       ResourceRequest("javascript:'Hello, world!'")),
-      WebFrameLoadType::kStandard);
+  FrameLoadRequest request(&GetDocument(),
+                           ResourceRequest("javascript:'Hello, world!'"));
+  GetFrame().Navigate(request, WebFrameLoadType::kStandard);
 
   // We should not crash after the unlock delay.
   test::RunDelayedTasks(GetUnlockDelay());

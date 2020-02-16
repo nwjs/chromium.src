@@ -21,6 +21,7 @@
 #include "net/log/net_log_values.h"
 #include "net/quic/address_utils.h"
 #include "net/quic/quic_address_mismatch.h"
+#include "net/third_party/quiche/src/common/platform/api/quiche_string_piece.h"
 #include "net/third_party/quiche/src/quic/core/crypto/crypto_handshake_message.h"
 #include "net/third_party/quiche/src/quic/core/crypto/crypto_protocol.h"
 #include "net/third_party/quiche/src/quic/core/quic_connection_id.h"
@@ -28,8 +29,8 @@
 #include "net/third_party/quiche/src/quic/core/quic_socket_address_coder.h"
 #include "net/third_party/quiche/src/quic/core/quic_time.h"
 #include "net/third_party/quiche/src/quic/core/quic_utils.h"
-#include "net/third_party/quiche/src/quic/platform/api/quic_string_piece.h"
 
+using quic::kMaxOutgoingPacketSize;
 using std::string;
 
 namespace net {
@@ -596,6 +597,44 @@ void QuicConnectionLogger::OnPacketSent(
     const quic::SerializedPacket& serialized_packet,
     quic::TransmissionType transmission_type,
     quic::QuicTime sent_time) {
+  // 4.4.1.4.  Minimum Packet Size
+  // The payload of a UDP datagram carrying the Initial packet MUST be
+  // expanded to at least 1200 octets
+  const quic::QuicPacketLength kMinClientInitialPacketLength = 1200;
+  const quic::QuicPacketLength encrypted_length =
+      serialized_packet.encrypted_length;
+  switch (serialized_packet.encryption_level) {
+    case quic::ENCRYPTION_INITIAL:
+      UMA_HISTOGRAM_CUSTOM_COUNTS("Net.QuicSession.SendPacketSize.Initial",
+                                  encrypted_length, 1, kMaxOutgoingPacketSize,
+                                  50);
+      if (encrypted_length < kMinClientInitialPacketLength) {
+        UMA_HISTOGRAM_CUSTOM_COUNTS(
+            "Net.QuicSession.TooSmallInitialSentPacket",
+            kMinClientInitialPacketLength - encrypted_length, 1,
+            kMinClientInitialPacketLength, 50);
+      }
+      break;
+    case quic::ENCRYPTION_HANDSHAKE:
+      UMA_HISTOGRAM_CUSTOM_COUNTS("Net.QuicSession.SendPacketSize.Hanshake",
+                                  encrypted_length, 1, kMaxOutgoingPacketSize,
+                                  50);
+      break;
+    case quic::ENCRYPTION_ZERO_RTT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS("Net.QuicSession.SendPacketSize.0RTT",
+                                  encrypted_length, 1, kMaxOutgoingPacketSize,
+                                  50);
+      break;
+    case quic::ENCRYPTION_FORWARD_SECURE:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Net.QuicSession.SendPacketSize.ForwardSecure", encrypted_length, 1,
+          kMaxOutgoingPacketSize, 50);
+      break;
+    case quic::NUM_ENCRYPTION_LEVELS:
+      NOTREACHED();
+      break;
+  }
+
   if (!net_log_.IsCapturing())
     return;
   net_log_.AddEvent(NetLogEventType::QUIC_SESSION_PACKET_SENT, [&] {
@@ -938,7 +977,7 @@ void QuicConnectionLogger::OnVersionNegotiationPacket(
 void QuicConnectionLogger::OnCryptoHandshakeMessageReceived(
     const quic::CryptoHandshakeMessage& message) {
   if (message.tag() == quic::kSHLO) {
-    quic::QuicStringPiece address;
+    quiche::QuicheStringPiece address;
     quic::QuicSocketAddressCoder decoder;
     if (message.GetStringPiece(quic::kCADR, &address) &&
         decoder.Decode(address.data(), address.size())) {

@@ -7,13 +7,13 @@ package org.chromium.chrome.browser.customtabs.content;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.provider.Browser;
 import android.text.TextUtils;
 import android.view.Window;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.browser.customtabs.CustomTabsSessionToken;
+import androidx.browser.trusted.sharing.ShareTarget;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ActivityTabProvider;
@@ -27,8 +27,6 @@ import org.chromium.chrome.browser.browserservices.BrowserServicesActivityTabCon
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.customtabs.CustomTabDelegateFactory;
-import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
-import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider.LaunchSourceType;
 import org.chromium.chrome.browser.customtabs.CustomTabNavigationEventObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabTabPersistencePolicy;
@@ -44,11 +42,11 @@ import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
+import org.chromium.chrome.browser.tab_activity_glue.ReparentingDelegateFactory;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParams;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManager;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
@@ -87,7 +85,7 @@ public class CustomTabActivityTabController
     }
 
     private final Lazy<CustomTabDelegateFactory> mCustomTabDelegateFactory;
-    private final ChromeActivity mActivity;
+    private final ChromeActivity<?> mActivity;
     private final CustomTabsConnection mConnection;
     private final BrowserServicesIntentDataProvider mIntentDataProvider;
     private final TabObserverRegistrar mTabObserverRegistrar;
@@ -116,7 +114,7 @@ public class CustomTabActivityTabController
     };
 
     @Inject
-    public CustomTabActivityTabController(ChromeActivity activity,
+    public CustomTabActivityTabController(ChromeActivity<?> activity,
             Lazy<CustomTabDelegateFactory> customTabDelegateFactory,
             CustomTabsConnection connection, BrowserServicesIntentDataProvider intentDataProvider,
             ActivityTabProvider activityTabProvider, TabObserverRegistrar tabObserverRegistrar,
@@ -257,6 +255,15 @@ public class CustomTabActivityTabController
         // Don't overwrite any pre-existing tab.
         if (mTabProvider.getTab() != null) return null;
 
+        ShareTarget shareTarget = mIntentDataProvider.getShareTarget();
+        if (mIntentDataProvider.getShareData() != null && shareTarget != null
+                && ShareTarget.METHOD_POST.equals(shareTarget.method)) {
+            // The navigation is likely a POST (We don't do a POST navigation if the POST
+            // target is outside of the TWA scope.) This does not match
+            // StartupTabPreloader's GET navigation.
+            return null;
+        }
+
         LoadUrlParams loadUrlParams = new LoadUrlParams(mIntentDataProvider.getUrlToLoad());
         String referrer = mConnection.getReferrer(mSession, mIntent);
         if (referrer != null && !referrer.isEmpty()) {
@@ -317,7 +324,8 @@ public class CustomTabActivityTabController
         if (mode == TabCreationMode.HIDDEN) {
             TabReparentingParams params =
                     (TabReparentingParams) AsyncTabParamsManager.remove(tab.getId());
-            mReparentingTaskProvider.get(tab).finish(mActivity, mCustomTabDelegateFactory.get(),
+            mReparentingTaskProvider.get(tab).finish(
+                    ReparentingDelegateFactory.createReparentingTaskDelegate(mActivity),
                     (params == null ? null : params.getFinalizeCallback()));
         }
 
@@ -362,15 +370,7 @@ public class CustomTabActivityTabController
     private Tab createTab() {
         WebContents webContents = takeWebContents();
         Tab tab = mTabFactory.createTab(webContents, mCustomTabDelegateFactory.get());
-        int launchSource = mIntent.getIntExtra(
-                CustomTabIntentDataProvider.EXTRA_BROWSER_LAUNCH_SOURCE, LaunchSourceType.OTHER);
-        if (launchSource == LaunchSourceType.WEBAPK) {
-            String webapkPackageName = mIntent.getStringExtra(Browser.EXTRA_APPLICATION_ID);
-            TabAssociatedApp.from(tab).setAppId(webapkPackageName);
-        } else {
-            TabAssociatedApp.from(tab).setAppId(
-                    mConnection.getClientPackageNameForSession(mSession));
-        }
+        TabAssociatedApp.from(tab).setAppId(mConnection.getClientPackageNameForSession(mSession));
 
         if (mIntentDataProvider.shouldEnableEmbeddedMediaExperience()) {
             if (tab.getWebContents() != null) tab.getWebContents().notifyRendererPreferenceUpdate();
@@ -459,8 +459,7 @@ public class CustomTabActivityTabController
                 // Blink has rendered the page by this point, but we need to wait for the compositor
                 // frame swap to avoid flash of white content.
                 mCompositorViewHolder.get().getCompositorView().surfaceRedrawNeededAsync(() -> {
-                    if (!((TabImpl) tab).isInitialized()
-                            || mActivity.isActivityFinishingOrDestroyed()) {
+                    if (!tab.isInitialized() || mActivity.isActivityFinishingOrDestroyed()) {
                         return;
                     }
                     tab.getView().setBackgroundResource(0);

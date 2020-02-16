@@ -75,6 +75,7 @@ public abstract class SigninFragmentBase
             "SigninFragmentBase.AccountPickerDialogFragment";
 
     private static final int ADD_ACCOUNT_REQUEST_CODE = 1;
+    private static final int ACCOUNT_PICKER_DIALOG_REQUEST_CODE = 2;
 
     @IntDef({SigninFlowType.DEFAULT, SigninFlowType.FORCED, SigninFlowType.CHOOSE_ACCOUNT,
             SigninFlowType.ADD_ACCOUNT})
@@ -412,7 +413,7 @@ public abstract class SigninFragmentBase
         // as this is needed for the previous account check.
         final long seedingStartTime = SystemClock.elapsedRealtime();
         final AccountTrackerService accountTrackerService =
-                IdentityServicesProvider.getAccountTrackerService();
+                IdentityServicesProvider.get().getAccountTrackerService();
         if (accountTrackerService.checkAndSeedSystemAccounts()) {
             recordAccountTrackerServiceSeedingTime(seedingStartTime);
             runStateMachineAndSignin(settingsClicked);
@@ -435,10 +436,10 @@ public abstract class SigninFragmentBase
     }
 
     private void runStateMachineAndSignin(boolean settingsClicked) {
-        mConfirmSyncDataStateMachine = new ConfirmSyncDataStateMachine(getContext(),
-                getChildFragmentManager(),
+        mConfirmSyncDataStateMachine = new ConfirmSyncDataStateMachine(
+                new ConfirmSyncDataStateMachineDelegate(getChildFragmentManager()),
                 PrefServiceBridge.getInstance().getString(Pref.SYNC_LAST_ACCOUNT_NAME),
-                mSelectedAccountName, new ConfirmImportSyncDataDialog.Listener() {
+                mSelectedAccountName, new ConfirmSyncDataStateMachine.Listener() {
                     @Override
                     public void onConfirm(boolean wipeData) {
                         mConfirmSyncDataStateMachine = null;
@@ -492,13 +493,14 @@ public abstract class SigninFragmentBase
 
         AccountPickerDialogFragment dialog =
                 AccountPickerDialogFragment.create(mSelectedAccountName);
-        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        dialog.setTargetFragment(this, ACCOUNT_PICKER_DIALOG_REQUEST_CODE);
+        FragmentTransaction transaction = getFragmentManager().beginTransaction();
         transaction.add(dialog, ACCOUNT_PICKER_DIALOG_TAG);
         transaction.commitAllowingStateLoss();
     }
 
     private AccountPickerDialogFragment getAccountPickerDialogFragment() {
-        return (AccountPickerDialogFragment) getChildFragmentManager().findFragmentByTag(
+        return (AccountPickerDialogFragment) getFragmentManager().findFragmentByTag(
                 ACCOUNT_PICKER_DIALOG_TAG);
     }
 
@@ -659,7 +661,8 @@ public abstract class SigninFragmentBase
                 && mGooglePlayServicesUpdateErrorHandler.isShowing()) {
             return;
         }
-        boolean cancelable = !IdentityServicesProvider.getSigninManager().isForceSigninEnabled();
+        boolean cancelable =
+                !IdentityServicesProvider.get().getSigninManager().isForceSigninEnabled();
         mGooglePlayServicesUpdateErrorHandler =
                 new UserRecoverableErrorHandler.ModalDialog(getActivity(), cancelable);
         mGooglePlayServicesUpdateErrorHandler.handleError(getActivity(), gmsErrorCode);

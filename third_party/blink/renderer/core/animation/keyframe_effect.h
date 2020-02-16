@@ -77,8 +77,13 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   bool IsKeyframeEffect() const override { return true; }
 
   // IDL implementation.
-  Element* target() const { return target_; }
+
+  // Returns the target element. If the animation targets a pseudo-element,
+  // this returns the originating element.
+  Element* target() const { return target_element_; }
   void setTarget(Element*);
+  const String& pseudoElement();
+  void setPseudoElement(String, ExceptionState&);
   String composite() const;
   void setComposite(String);
   HeapVector<ScriptValue> getKeyframes(ScriptState*);
@@ -86,6 +91,9 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
                     const ScriptValue& keyframes,
                     ExceptionState&);
 
+  // Returns blink's representation of the effect target.
+  // This can be a blink::PseudoElement which should not be web-exposed.
+  Element* EffectTarget() const { return effect_target_; }
   void SetKeyframes(StringKeyframeVector keyframes);
 
   bool Affects(const PropertyHandle&) const;
@@ -105,14 +113,14 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   // Must only be called once.
   void StartAnimationOnCompositor(int group,
                                   base::Optional<double> start_time,
-                                  double time_offset,
+                                  base::TimeDelta time_offset,
                                   double animation_playback_rate,
                                   CompositorAnimation* = nullptr);
   bool HasActiveAnimationsOnCompositor() const;
   bool HasActiveAnimationsOnCompositor(const PropertyHandle&) const;
   bool CancelAnimationOnCompositor(CompositorAnimation*);
   void CancelIncompatibleAnimationsOnCompositor();
-  void PauseAnimationForTestingOnCompositor(double pause_time);
+  void PauseAnimationForTestingOnCompositor(base::TimeDelta pause_time);
 
   void AttachCompositedLayers();
 
@@ -125,6 +133,8 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
 
   bool AnimationsPreserveAxisAlignment() const;
 
+  ActiveInterpolationsMap InterpolationsForCommitStyles();
+
  private:
   EffectModel::CompositeOperation CompositeInternal() const;
 
@@ -135,16 +145,19 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   void Detach() override;
   void AttachTarget(Animation*);
   void DetachTarget(Animation*);
+  void RefreshTarget();
   AnimationTimeDelta CalculateTimeToEffectChange(
       bool forwards,
       base::Optional<double> inherited_time,
-      double time_to_next_iteration) const override;
+      AnimationTimeDelta time_to_next_iteration) const override;
   bool HasIncompatibleStyle() const;
   bool HasMultipleTransformProperties() const;
 
   bool AnimationsPreserveAxisAlignment(const PropertyHandle&) const;
 
-  Member<Element> target_;
+  Member<Element> effect_target_;
+  Member<Element> target_element_;
+  String target_pseudo_;
   Member<KeyframeEffectModelBase> model_;
   Member<SampledEffect> sampled_effect_;
 
@@ -153,11 +166,12 @@ class CORE_EXPORT KeyframeEffect final : public AnimationEffect {
   Vector<int> compositor_keyframe_model_ids_;
 };
 
-DEFINE_TYPE_CASTS(KeyframeEffect,
-                  AnimationEffect,
-                  animationNode,
-                  animationNode->IsKeyframeEffect(),
-                  animationNode.IsKeyframeEffect());
+template <>
+struct DowncastTraits<KeyframeEffect> {
+  static bool AllowFrom(const AnimationEffect& animationNode) {
+    return animationNode.IsKeyframeEffect();
+  }
+};
 
 }  // namespace blink
 

@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "ash/assistant/ui/assistant_ui_constants.h"
-#include "ash/public/cpp/app_list/app_list_config.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/gfx/canvas.h"
@@ -29,6 +28,8 @@ constexpr SkColor kStrokeColor = SkColorSetA(gfx::kGoogleGrey900, 0x24);
 constexpr SkColor kTextColor = gfx::kGoogleGrey700;
 constexpr int kStrokeWidthDip = 1;
 constexpr int kIconMarginDip = 8;
+constexpr int kIconSizeDip = 16;
+constexpr int kIconCornerRadiusDip = kIconSizeDip / 2;
 constexpr int kChipPaddingDip = 16;
 constexpr int kPreferredHeightDip = 32;
 
@@ -44,9 +45,7 @@ SuggestionChipView::Params::~Params() = default;
 
 SuggestionChipView::SuggestionChipView(const Params& params,
                                        views::ButtonListener* listener)
-    : Button(listener),
-      icon_view_(new views::ImageView()),
-      text_view_(new views::Label()) {
+    : Button(listener) {
   // Configure focus. Note that we don't install the default focus ring as we
   // use custom highlighting instead.
   SetFocusBehavior(FocusBehavior::ALWAYS);
@@ -89,26 +88,29 @@ void SuggestionChipView::InitLayout(const Params& params) {
       views::BoxLayout::CrossAxisAlignment::kCenter);
 
   // Icon.
-  const int icon_size =
-      AppListConfig::instance().suggestion_chip_icon_dimension();
-  icon_view_->SetImageSize(gfx::Size(icon_size, icon_size));
-  icon_view_->SetPreferredSize(gfx::Size(icon_size, icon_size));
+  icon_view_ = AddChildView(std::make_unique<views::ImageView>());
+  icon_view_->SetImageSize(gfx::Size(kIconSizeDip, kIconSizeDip));
+  icon_view_->SetPreferredSize(gfx::Size(kIconSizeDip, kIconSizeDip));
 
   if (params.icon)
     icon_view_->SetImage(params.icon.value());
   else
     icon_view_->SetVisible(false);
 
-  AddChildView(icon_view_);
+  icon_view_->SetPaintToLayer();
+  icon_view_->layer()->SetFillsBoundsOpaquely(false);
+  icon_view_->layer()->SetRoundedCornerRadius(
+      {kIconCornerRadiusDip, kIconCornerRadiusDip, kIconCornerRadiusDip,
+       kIconCornerRadiusDip});
 
   // Text.
+  text_view_ = AddChildView(std::make_unique<views::Label>());
   text_view_->SetAutoColorReadabilityEnabled(false);
   text_view_->SetEnabledColor(kTextColor);
   text_view_->SetSubpixelRenderingEnabled(false);
   text_view_->SetFontList(
-      ash::assistant::ui::GetDefaultFontList().DeriveWithSizeDelta(1));
+      assistant::ui::GetDefaultFontList().DeriveWithSizeDelta(1));
   SetText(params.text);
-  AddChildView(text_view_);
 }
 
 void SuggestionChipView::OnPaintBackground(gfx::Canvas* canvas) {

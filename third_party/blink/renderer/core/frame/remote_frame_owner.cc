@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/frame/remote_frame_owner.h"
 
-#include "third_party/blink/public/platform/web_resource_timing_info.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/renderer/core/exported/web_remote_frame_impl.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -57,16 +56,17 @@ void RemoteFrameOwner::ClearContentFrame() {
 
 void RemoteFrameOwner::AddResourceTiming(const ResourceTimingInfo& info) {
   LocalFrame* frame = To<LocalFrame>(frame_.Get());
-  WebResourceTimingInfo resource_timing = Performance::GenerateResourceTiming(
-      *frame->Tree().Parent()->GetSecurityContext()->GetSecurityOrigin(), info,
-      *frame->GetDocument());
-  frame->Client()->ForwardResourceTimingToParent(resource_timing);
+  mojom::blink::ResourceTimingInfoPtr resource_timing =
+      Performance::GenerateResourceTiming(
+          *frame->Tree().Parent()->GetSecurityContext()->GetSecurityOrigin(),
+          info, *frame->GetDocument());
+  frame->GetLocalFrameHostRemote().ForwardResourceTimingToParent(
+      std::move(resource_timing));
 }
 
 void RemoteFrameOwner::DispatchLoad() {
-  WebLocalFrameImpl* web_frame =
-      WebLocalFrameImpl::FromFrame(To<LocalFrame>(*frame_));
-  web_frame->Client()->DispatchLoad();
+  auto& local_frame_host = To<LocalFrame>(*frame_).GetLocalFrameHostRemote();
+  local_frame_host.DispatchLoad();
 }
 
 void RemoteFrameOwner::RenderFallbackContent(Frame* failed_frame) {
@@ -75,9 +75,7 @@ void RemoteFrameOwner::RenderFallbackContent(Frame* failed_frame) {
   DCHECK(failed_frame->IsLocalFrame());
   LocalFrame* local_frame = To<LocalFrame>(failed_frame);
   DCHECK(local_frame->IsProvisional() || ContentFrame() == local_frame);
-  WebLocalFrameImpl::FromFrame(local_frame)
-      ->Client()
-      ->RenderFallbackContentInParentProcess();
+  local_frame->GetLocalFrameHostRemote().RenderFallbackContentInParentProcess();
 }
 
 void RemoteFrameOwner::IntrinsicSizingInfoChanged() {

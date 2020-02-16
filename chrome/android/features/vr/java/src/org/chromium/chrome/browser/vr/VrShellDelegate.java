@@ -49,9 +49,9 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ApplicationLifetime;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.help.HelpAndFeedback;
 import org.chromium.chrome.browser.infobar.InfoBarIdentifier;
 import org.chromium.chrome.browser.infobar.SimpleConfirmInfoBarBuilder;
@@ -714,7 +714,7 @@ public class VrShellDelegate
             sRegisteredVrAssetsComponent = true;
         }
         SharedPreferencesManager.getInstance().writeBoolean(
-                ChromePreferenceKeys.SHOULD_REGISTER_VR_ASSETS_COMPONENT_ON_STARTUP,
+                ChromePreferenceKeys.VR_SHOULD_REGISTER_ASSETS_COMPONENT_ON_STARTUP,
                 isDaydreamCurrentViewer);
     }
 
@@ -1365,15 +1365,15 @@ public class VrShellDelegate
     /* package */ void exitWebVRPresent() {
         if (!mInVr) return;
 
-        if (!isVrBrowsingEnabled()) {
-            if (isDaydreamCurrentViewerInternal()) {
-                getVrDaydreamApi().launchVrHomescreen();
-            } else {
-                shutdownVr(true /* disableVrMode */, true /* stayingInChrome */);
-            }
-        } else {
-            mVrBrowserUsed = true;
+        // If we have previously used the VRBrowser this session, go back to it.
+        // If not, and we're on Daydream go back to Daydream home.
+        // Otherwise, exit VR.
+        if (mVrBrowserUsed) {
             mVrShell.setWebVrModeEnabled(false);
+        } else if (isDaydreamCurrentViewerInternal()) {
+            getVrDaydreamApi().launchVrHomescreen();
+        } else {
+            shutdownVr(true /* disableVrMode */, true /* stayingInChrome */);
         }
     }
 

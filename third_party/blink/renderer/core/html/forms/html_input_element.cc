@@ -32,7 +32,6 @@
 
 #include "third_party/blink/public/mojom/choosers/date_time_chooser.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
@@ -72,6 +71,7 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/to_v8.h"
@@ -81,6 +81,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
+#include "ui/base/ui_base_features.h"
 
 namespace blink {
 
@@ -185,27 +186,27 @@ bool HTMLInputElement::IsValidValue(const String& value) const {
 }
 
 bool HTMLInputElement::TooLong() const {
-  return willValidate() && TooLong(value(), kCheckDirtyFlag);
+  return TooLong(value(), kCheckDirtyFlag);
 }
 
 bool HTMLInputElement::TooShort() const {
-  return willValidate() && TooShort(value(), kCheckDirtyFlag);
+  return TooShort(value(), kCheckDirtyFlag);
 }
 
 bool HTMLInputElement::TypeMismatch() const {
-  return willValidate() && input_type_->TypeMismatch();
+  return input_type_->TypeMismatch();
 }
 
 bool HTMLInputElement::ValueMissing() const {
-  return willValidate() && input_type_->ValueMissing(value());
+  return input_type_->ValueMissing(value());
 }
 
 bool HTMLInputElement::HasBadInput() const {
-  return willValidate() && input_type_view_->HasBadInput();
+  return input_type_view_->HasBadInput();
 }
 
 bool HTMLInputElement::PatternMismatch() const {
-  return willValidate() && input_type_->PatternMismatch(value());
+  return input_type_->PatternMismatch(value());
 }
 
 bool HTMLInputElement::TooLong(const String& value,
@@ -219,17 +220,16 @@ bool HTMLInputElement::TooShort(const String& value,
 }
 
 bool HTMLInputElement::RangeUnderflow() const {
-  return willValidate() && input_type_->RangeUnderflow(value());
+  return input_type_->RangeUnderflow(value());
 }
 
 bool HTMLInputElement::RangeOverflow() const {
-  return willValidate() && input_type_->RangeOverflow(value());
+  return input_type_->RangeOverflow(value());
 }
 
 String HTMLInputElement::validationMessage() const {
   if (!willValidate())
     return String();
-
   if (CustomError())
     return CustomValidationMessage();
 
@@ -237,7 +237,7 @@ String HTMLInputElement::validationMessage() const {
 }
 
 String HTMLInputElement::ValidationSubMessage() const {
-  if (!willValidate() || CustomError())
+  if (CustomError())
     return String();
   return input_type_->ValidationMessage(*input_type_view_).second;
 }
@@ -251,7 +251,7 @@ double HTMLInputElement::Maximum() const {
 }
 
 bool HTMLInputElement::StepMismatch() const {
-  return willValidate() && input_type_->StepMismatch(value());
+  return input_type_->StepMismatch(value());
 }
 
 bool HTMLInputElement::GetAllowedValueStep(Decimal* step) const {
@@ -295,6 +295,16 @@ bool HTMLInputElement::MayTriggerVirtualKeyboard() const {
   return input_type_->MayTriggerVirtualKeyboard();
 }
 
+bool HTMLInputElement::ShouldHaveFocusAppearance() const {
+  // For FormControlsRefresh don't draw focus ring for an input that has its
+  // popup open.
+  if (::features::IsFormControlsRefreshEnabled() &&
+      input_type_view_->HasOpenedPopup())
+    return false;
+
+  return TextControlElement::ShouldHaveFocusAppearance();
+}
+
 void HTMLInputElement::UpdateFocusAppearanceWithOptions(
     SelectionBehaviorOnFocus selection_behavior,
     const FocusOptions* options) {
@@ -316,7 +326,7 @@ void HTMLInputElement::UpdateFocusAppearanceWithOptions(
     if (!options->preventScroll()) {
       if (GetLayoutObject()) {
         GetLayoutObject()->ScrollRectToVisible(BoundingBoxForScrollIntoView(),
-                                               WebScrollIntoViewParams());
+                                               CreateScrollIntoViewParams());
       }
       if (GetDocument().GetFrame())
         GetDocument().GetFrame()->Selection().RevealSelection();
@@ -343,7 +353,7 @@ void HTMLInputElement::EndEditing() {
 void HTMLInputElement::DispatchFocusInEvent(
     const AtomicString& event_type,
     Element* old_focused_element,
-    WebFocusType type,
+    mojom::blink::FocusType type,
     InputDeviceCapabilities* source_capabilities) {
   if (event_type == event_type_names::kDOMFocusIn)
     input_type_view_->HandleFocusInEvent(old_focused_element, type);
@@ -751,7 +761,7 @@ void HTMLInputElement::ParseAttribute(
     AddToRadioButtonGroup();
     TextControlElement::ParseAttribute(params);
   } else if (name == html_names::kAutocompleteAttr) {
-    if (DeprecatedEqualIgnoringCase(value, "off")) {
+    if (EqualIgnoringASCIICase(value, "off")) {
       autocomplete_ = kOff;
     } else {
       if (value.IsEmpty())
@@ -885,6 +895,11 @@ bool HTMLInputElement::LayoutObjectIsNeeded(const ComputedStyle& style) const {
          TextControlElement::LayoutObjectIsNeeded(style);
 }
 
+// TODO(crbug.com/1040826): Remove this override.
+bool HTMLInputElement::TypeShouldForceLegacyLayout() const {
+  return input_type_view_->TypeShouldForceLegacyLayout();
+}
+
 LayoutObject* HTMLInputElement::CreateLayoutObject(const ComputedStyle& style,
                                                    LegacyLayout legacy) {
   return input_type_view_->CreateLayoutObject(style, legacy);
@@ -983,6 +998,7 @@ void HTMLInputElement::setChecked(bool now_checked,
   if (checked() == now_checked)
     return;
 
+  input_type_->WillUpdateCheckedness(now_checked);
   is_checked_ = now_checked;
 
   if (RadioButtonGroupScope* scope = GetRadioButtonGroupScope())
@@ -1214,7 +1230,7 @@ void HTMLInputElement::setValueAsDate(ScriptState* script_state,
                                       ExceptionState& exception_state) {
   UseCounter::Count(GetDocument(), WebFeature::kInputElementValueAsDateSetter);
   base::Optional<base::Time> date =
-      NativeValueTraits<IDLDateOrNull>::NativeValue(
+      NativeValueTraits<IDLNullable<IDLDate>>::NativeValue(
           script_state->GetIsolate(), value.V8Value(), exception_state);
   if (exception_state.HadException())
     return;
@@ -1540,8 +1556,12 @@ void HTMLInputElement::SetCanReceiveDroppedFiles(
   if (!!can_receive_dropped_files_ == can_receive_dropped_files)
     return;
   can_receive_dropped_files_ = can_receive_dropped_files;
-  if (GetLayoutObject())
-    GetLayoutObject()->UpdateFromElement();
+  if (HTMLInputElement* button = UploadButton())
+    button->SetActive(can_receive_dropped_files);
+}
+
+HTMLInputElement* HTMLInputElement::UploadButton() const {
+  return input_type_view_->UploadButton();
 }
 
 String HTMLInputElement::SanitizeValue(const String& proposed_value) const {
@@ -1647,9 +1667,8 @@ void HTMLInputElement::SelectColorInColorChooser(const Color& color) {
     client->DidChooseColor(color);
 }
 
-void HTMLInputElement::EndColorChooser() {
-  if (ColorChooserClient* client = input_type_->GetColorChooserClient())
-    client->DidEndChooser();
+void HTMLInputElement::EndColorChooserForTesting() {
+  input_type_view_->ClosePopupView();
 }
 
 HTMLElement* HTMLInputElement::list() const {
@@ -1779,16 +1798,12 @@ String HTMLInputElement::DefaultToolTip() const {
   return input_type_->DefaultToolTip(*input_type_view_);
 }
 
-bool HTMLInputElement::ShouldAppearIndeterminate() const {
-  return input_type_->ShouldAppearIndeterminate();
+String HTMLInputElement::FileStatusText() const {
+  return input_type_view_->FileStatusText();
 }
 
-bool HTMLInputElement::IsInRequiredRadioButtonGroup() {
-  // TODO(tkent): Remove type check.
-  DCHECK_EQ(type(), input_type_names::kRadio);
-  if (RadioButtonGroupScope* scope = GetRadioButtonGroupScope())
-    return scope->IsInRequiredGroup(this);
-  return false;
+bool HTMLInputElement::ShouldAppearIndeterminate() const {
+  return input_type_->ShouldAppearIndeterminate();
 }
 
 const AtomicString& HTMLInputElement::nwworkingdir() const
@@ -1799,14 +1814,6 @@ const AtomicString& HTMLInputElement::nwworkingdir() const
 void HTMLInputElement::setNwworkingdir(const AtomicString& value)
 {
   setAttribute(html_names::kNwworkingdirAttr, value);
-}
-
-HTMLInputElement* HTMLInputElement::CheckedRadioButtonForGroup() {
-  if (checked())
-    return this;
-  if (RadioButtonGroupScope* scope = GetRadioButtonGroupScope())
-    return scope->CheckedButtonForGroup(GetName());
-  return nullptr;
 }
 
 String HTMLInputElement::nwsaveas() const
@@ -2031,6 +2038,10 @@ PaintLayerScrollableArea* HTMLInputElement::GetScrollableArea() const {
     return InnerEditorElement()->GetScrollableArea();
 
   return Element::GetScrollableArea();
+}
+
+bool HTMLInputElement::IsDraggedSlider() const {
+  return input_type_view_->IsDraggedSlider();
 }
 
 }  // namespace blink

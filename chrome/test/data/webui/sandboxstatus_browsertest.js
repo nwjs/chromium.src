@@ -23,7 +23,7 @@ SandboxStatusUITest.prototype = {
 // - If failures of this test are a problem on a bot under your care,
 //   the proper way to address such failures is to install the SUID
 //   sandbox. See:
-//     https://chromium.googlesource.com/chromium/src/+/master/docs/linux_suid_sandbox_development.md
+//     https://chromium.googlesource.com/chromium/src/+/master/docs/linux/suid_sandbox_development.md
 // - PLEASE DO NOT GLOBALLY DISABLE THIS TEST.
 GEN('#if defined(OS_LINUX)');
 GEN('# define MAYBE_testSUIDorNamespaceSandboxEnabled \\');
@@ -142,7 +142,8 @@ SandboxStatusWindowsUITest.prototype = {
 // This test is for Windows only.
 GEN('#if defined(OS_WIN)');
 GEN('# define MAYBE_testSandboxStatus \\');
-GEN('     testSandboxStatus');
+// TODO(https://crbug.com/1045564) Flaky on Windows.
+GEN('     DISABLED_testSandboxStatus');
 GEN('#else');
 GEN('# define MAYBE_testSandboxStatus \\');
 GEN('     DISABLED_testSandboxStatus');

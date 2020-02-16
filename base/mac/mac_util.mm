@@ -20,7 +20,6 @@
 #include "base/mac/scoped_cftyperef.h"
 #include "base/mac/scoped_ioobject.h"
 #include "base/mac/scoped_nsobject.h"
-#include "base/mac/sdk_forward_declarations.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/sys_string_conversions.h"
@@ -491,6 +490,29 @@ std::string GetOSDisplayName() {
   std::string version_string = base::SysNSStringToUTF8(
       [[NSProcessInfo processInfo] operatingSystemVersionString]);
   return os_name + " " + version_string;
+}
+
+std::string GetPlatformSerialNumber() {
+  base::mac::ScopedIOObject<io_service_t> expert_device(
+      IOServiceGetMatchingService(kIOMasterPortDefault,
+                                  IOServiceMatching("IOPlatformExpertDevice")));
+  if (!expert_device) {
+    DLOG(ERROR) << "Error retrieving the machine serial number.";
+    return std::string();
+  }
+
+  base::ScopedCFTypeRef<CFTypeRef> serial_number(
+      IORegistryEntryCreateCFProperty(expert_device,
+                                      CFSTR(kIOPlatformSerialNumberKey),
+                                      kCFAllocatorDefault, 0));
+  CFStringRef serial_number_cfstring =
+      base::mac::CFCast<CFStringRef>(serial_number);
+  if (!serial_number_cfstring) {
+    DLOG(ERROR) << "Error retrieving the machine serial number.";
+    return std::string();
+  }
+
+  return base::SysCFStringRefToUTF8(serial_number_cfstring);
 }
 
 }  // namespace mac

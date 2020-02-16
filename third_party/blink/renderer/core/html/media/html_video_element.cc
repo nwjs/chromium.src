@@ -31,6 +31,8 @@
 #include "cc/paint/paint_canvas.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/platform/web_fullscreen_video_status.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_fullscreen_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -40,7 +42,6 @@
 #include "third_party/blink/renderer/core/frame/picture_in_picture_controller.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
-#include "third_party/blink/renderer/core/fullscreen/fullscreen_options.h"
 #include "third_party/blink/renderer/core/html/media/media_custom_controls_fullscreen_detector.h"
 #include "third_party/blink/renderer/core/html/media/media_element_parser_helpers.h"
 #include "third_party/blink/renderer/core/html/media/media_remoting_interstitial.h"
@@ -50,8 +51,8 @@
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
-#include "third_party/blink/renderer/core/imagebitmap/image_bitmap_options.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/intersection_observer/intersection_observer_entry.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -95,7 +96,8 @@ HTMLVideoElement::HTMLVideoElement(Document& document)
   }
 
   if (media_element_parser_helpers::IsMediaElement(this) &&
-      !document.IsFeatureEnabled(mojom::FeaturePolicyFeature::kUnsizedMedia)) {
+      !document.IsFeatureEnabled(
+          mojom::blink::FeaturePolicyFeature::kUnsizedMedia)) {
     is_default_overridden_intrinsic_size_ = true;
     overridden_intrinsic_size_ =
         IntSize(LayoutReplaced::kDefaultWidth, LayoutReplaced::kDefaultHeight);
@@ -294,6 +296,14 @@ void HTMLVideoElement::SetDisplayMode(DisplayMode mode) {
     GetLayoutObject()->UpdateFromElement();
 }
 
+void HTMLVideoElement::UpdatePictureInPictureAvailability() {
+  if (!web_media_player_)
+    return;
+
+  web_media_player_->OnPictureInPictureAvailabilityChanged(
+      SupportsPictureInPicture());
+}
+
 // TODO(zqzhang): this callback could be used to hide native controls instead of
 // using a settings. See `HTMLMediaElement::onMediaControlsEnabledChange`.
 void HTMLVideoElement::OnBecamePersistentVideo(bool value) {
@@ -379,6 +389,11 @@ void HTMLVideoElement::UpdateDisplayState() {
 }
 
 void HTMLVideoElement::OnPlay() {
+  if (!video_has_played_) {
+    video_has_played_ = true;
+    UpdatePictureInPictureAvailability();
+  }
+
   if (!RuntimeEnabledFeatures::VideoAutoFullscreenEnabled() ||
       FastHasAttribute(html_names::kPlaysinlineAttr)) {
     return;
@@ -553,8 +568,10 @@ void HTMLVideoElement::DidEnterFullscreen() {
   // Cache this in case the player is destroyed before leaving fullscreen.
   in_overlay_fullscreen_video_ = UsesOverlayFullscreenVideo();
   if (in_overlay_fullscreen_video_) {
-    GetDocument().GetLayoutView()->Compositor()->SetNeedsCompositingUpdate(
-        kCompositingUpdateRebuildTree);
+    if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+      auto* compositor = GetDocument().GetLayoutView()->Compositor();
+      compositor->SetNeedsCompositingUpdate(kCompositingUpdateRebuildTree);
+    }
   }
 }
 
@@ -567,8 +584,10 @@ void HTMLVideoElement::DidExitFullscreen() {
   }
 
   if (in_overlay_fullscreen_video_) {
-    GetDocument().GetLayoutView()->Compositor()->SetNeedsCompositingUpdate(
-        kCompositingUpdateRebuildTree);
+    if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+      auto* compositor = GetDocument().GetLayoutView()->Compositor();
+      compositor->SetNeedsCompositingUpdate(kCompositingUpdateRebuildTree);
+    }
   }
   in_overlay_fullscreen_video_ = false;
 
@@ -668,26 +687,28 @@ ScriptPromise HTMLVideoElement::CreateImageBitmap(
     ScriptState* script_state,
     EventTarget& event_target,
     base::Optional<IntRect> crop_rect,
-    const ImageBitmapOptions* options) {
+    const ImageBitmapOptions* options,
+    ExceptionState& exception_state) {
   DCHECK(event_target.ToLocalDOMWindow());
   if (getNetworkState() == HTMLMediaElement::kNetworkEmpty) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidStateError,
-                          "The provided element has not retrieved data."));
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "The provided element has not retrieved data.");
+    return ScriptPromise();
   }
   if (getReadyState() <= HTMLMediaElement::kHaveMetadata) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        MakeGarbageCollected<DOMException>(
-            DOMExceptionCode::kInvalidStateError,
-            "The provided element's player has no current data."));
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "The provided element's player has no current data.");
+    return ScriptPromise();
   }
 
   return ImageBitmapSource::FulfillImageBitmap(
-      script_state, ImageBitmap::Create(
-                        this, crop_rect,
-                        event_target.ToLocalDOMWindow()->document(), options));
+      script_state,
+      MakeGarbageCollected<ImageBitmap>(
+          this, crop_rect, event_target.ToLocalDOMWindow()->document(),
+          options),
+      exception_state);
 }
 
 void HTMLVideoElement::MediaRemotingStarted(
@@ -727,6 +748,17 @@ WebMediaPlayer::DisplayType HTMLVideoElement::DisplayType() const {
 
 bool HTMLVideoElement::IsInAutoPIP() const {
   return is_auto_picture_in_picture_;
+}
+
+void HTMLVideoElement::RequestEnterPictureInPicture() {
+  PictureInPictureController::From(GetDocument())
+      .EnterPictureInPicture(this, nullptr /* promise */,
+                             nullptr /* options */);
+}
+
+void HTMLVideoElement::RequestExitPictureInPicture() {
+  PictureInPictureController::From(GetDocument())
+      .ExitPictureInPicture(this, nullptr);
 }
 
 void HTMLVideoElement::OnPictureInPictureStateChange() {
@@ -825,6 +857,13 @@ void HTMLVideoElement::OnWebMediaPlayerCreated() {
     if (auto* video_raf = VideoRequestAnimationFrame::From(*this))
       video_raf->OnWebMediaPlayerCreated();
   }
+}
+
+void HTMLVideoElement::AttributeChanged(
+    const AttributeModificationParams& params) {
+  HTMLElement::AttributeChanged(params);
+  if (params.name == html_names::kDisablepictureinpictureAttr)
+    UpdatePictureInPictureAvailability();
 }
 
 void HTMLVideoElement::OnRequestAnimationFrame(

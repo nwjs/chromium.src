@@ -39,24 +39,22 @@ static_library("core") {
     "//components/password_manager/core/browser",
     "//components/pref_registry",
     "//components/prefs",
+    "//components/signin/public/identity_manager",
     "//components/strings",
     "//components/sync",
     "//components/version_info",
     "//components/webdata/common",
+    "//services/network/public/cpp",
     "//ui/base",
   ]
 }
 
 if (is_android) {
   java_cpp_enum("browsing_data_utils_java") {
-    sources = [
-      "browsing_data_utils.h",
-    ]
+    sources = [ "browsing_data_utils.h" ]
   }
   java_cpp_enum("clear_browsing_data_tab_java") {
-    sources = [
-      "clear_browsing_data_tab.h",
-    ]
+    sources = [ "clear_browsing_data_tab.h" ]
   }
 }
 

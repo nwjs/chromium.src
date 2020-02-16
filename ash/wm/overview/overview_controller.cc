@@ -160,101 +160,6 @@ bool OverviewController::AcceptSelection() {
   return overview_session_->AcceptSelection();
 }
 
-void OverviewController::OnOverviewButtonTrayLongPressed(
-    const gfx::Point& event_location) {
-  // Do nothing if split view is not enabled.
-  if (!ShouldAllowSplitView())
-    return;
-
-  // Depending on the state of the windows and split view, a long press has many
-  // different results.
-  // 1. Already in split view - exit split view. The active snapped window
-  // becomes maximized. If overview was seen alongside a snapped window, then
-  // overview mode ends.
-  // 2. Not in overview mode - enter split view iff there is an active window
-  // and it is snappable.
-  // 3. In overview mode - enter split view iff there are at least two windows
-  // in the overview grid for the display where the overview button was long
-  // pressed, and the first window in that overview grid is snappable.
-
-  // TODO(crbug.com/970013): Properly implement the multi-display behavior (in
-  // tablet position with an external pointing device).
-  auto* split_view_controller =
-      SplitViewController::Get(Shell::GetPrimaryRootWindow());
-  // Exit split view mode if we are already in it.
-  if (split_view_controller->InSplitViewMode()) {
-    // In some cases the window returned by window_util::GetActiveWindow will be
-    // an item in overview mode (maybe the overview mode dummy focus widget).
-    // The active window may also be a transient descendant of the left or right
-    // snapped window, in which we want to activate the transient window's
-    // ancestor (left or right snapped window). Manually set |active_window| as
-    // either the left or right window.
-    aura::Window* active_window = window_util::GetActiveWindow();
-    while (::wm::GetTransientParent(active_window))
-      active_window = ::wm::GetTransientParent(active_window);
-    if (!split_view_controller->IsWindowInSplitView(active_window))
-      active_window = split_view_controller->GetDefaultSnappedWindow();
-    DCHECK(active_window);
-    split_view_controller->EndSplitView();
-    EndOverview();
-    MaximizeIfSnapped(active_window);
-    wm::ActivateWindow(active_window);
-    base::RecordAction(
-        base::UserMetricsAction("Tablet_LongPressOverviewButtonExitSplitView"));
-    return;
-  }
-
-  OverviewItem* item_to_snap = nullptr;
-  if (!InOverviewSession()) {
-    // The current active window may be a transient child.
-    aura::Window* active_window = window_util::GetActiveWindow();
-    while (active_window && ::wm::GetTransientParent(active_window))
-      active_window = ::wm::GetTransientParent(active_window);
-
-    // Do nothing if there are no active windows.
-    if (!active_window)
-      return;
-
-    // Show a toast if the window cannot be snapped.
-    if (!split_view_controller->CanSnapWindow(active_window)) {
-      ShowAppCannotSnapToast();
-      return;
-    }
-
-    // If we are not in overview mode, enter overview mode and then find the
-    // window item to snap.
-    StartOverview();
-    DCHECK(overview_session_);
-    OverviewGrid* current_grid = overview_session_->GetGridWithRootWindow(
-        active_window->GetRootWindow());
-    if (current_grid)
-      item_to_snap = current_grid->GetOverviewItemContaining(active_window);
-  } else {
-    // Currently in overview mode, with no snapped windows. Retrieve the first
-    // overview item and attempt to snap that window.
-    DCHECK(overview_session_);
-    OverviewGrid* current_grid = overview_session_->GetGridWithRootWindow(
-        window_util::GetRootWindowAt(event_location));
-    if (current_grid) {
-      const auto& windows = current_grid->window_list();
-      if (windows.size() > 1)
-        item_to_snap = windows[0].get();
-    }
-  }
-
-  // Do nothing if no item was retrieved, or if the retrieved item is
-  // unsnappable.
-  if (!item_to_snap ||
-      !split_view_controller->CanSnapWindow(item_to_snap->GetWindow())) {
-    return;
-  }
-
-  split_view_controller->SnapWindow(item_to_snap->GetWindow(),
-                                    SplitViewController::LEFT);
-  base::RecordAction(
-      base::UserMetricsAction("Tablet_LongPressOverviewButtonEnterSplitView"));
-}
-
 bool OverviewController::IsInStartAnimation() {
   return !start_animations_.empty();
 }
@@ -351,14 +256,6 @@ void OverviewController::OnAttemptToReactivateWindow(
   }
 }
 
-bool OverviewController::HasBlurForTest() const {
-  return overview_wallpaper_controller_->has_blur();
-}
-
-bool OverviewController::HasBlurAnimationForTest() const {
-  return overview_wallpaper_controller_->HasBlurAnimationForTesting();
-}
-
 std::vector<aura::Window*>
 OverviewController::GetWindowsListInOverviewGridsForTest() {
   std::vector<aura::Window*> windows;
@@ -431,16 +328,15 @@ void OverviewController::ToggleOverview(
       // those widgets will be slid out of overview. Otherwise,
       // HomeLauncherGestureHandler will handle sliding the windows out and when
       // this function is called, we do not need to create minimized widgets.
-      std::vector<aura::Window*> windows_to_hide_minimize(windows.size());
-      auto it = std::copy_if(windows.begin(), windows.end(),
-                             windows_to_hide_minimize.begin(),
-                             [](aura::Window* window) {
-                               return !WindowState::Get(window)->IsMinimized();
-                             });
-      windows_to_hide_minimize.resize(
-          std::distance(windows_to_hide_minimize.begin(), it));
-      window_util::HideAndMaybeMinimizeWithoutAnimation(
-          windows_to_hide_minimize, true);
+      std::vector<aura::Window*> windows_to_minimize(windows.size());
+      auto it =
+          std::copy_if(windows.begin(), windows.end(),
+                       windows_to_minimize.begin(), [](aura::Window* window) {
+                         return !WindowState::Get(window)->IsMinimized();
+                       });
+      windows_to_minimize.resize(
+          std::distance(windows_to_minimize.begin(), it));
+      window_util::MinimizeAndHideWithoutAnimation(windows_to_minimize);
     }
 
     // Do not show mask and show during overview shutdown.
@@ -450,11 +346,14 @@ void OverviewController::ToggleOverview(
       observer.OnOverviewModeEnding(overview_session_.get());
     overview_session_->Shutdown();
 
-    if (overview_session_->enter_exit_overview_type() ==
-        OverviewSession::EnterExitOverviewType::kImmediateExit) {
+    const bool should_end_immediately =
+        overview_session_->enter_exit_overview_type() ==
+        OverviewSession::EnterExitOverviewType::kImmediateExit;
+    if (should_end_immediately) {
       for (const auto& animation : delayed_animations_)
         animation->Shutdown();
       delayed_animations_.clear();
+      OnEndingAnimationComplete(/*canceled=*/false);
     }
 
     // Don't delete |overview_session_| yet since the stack is still using it.
@@ -463,7 +362,7 @@ void OverviewController::ToggleOverview(
     last_overview_session_time_ = base::Time::Now();
     for (auto& observer : observers_)
       observer.OnOverviewModeEnded();
-    if (delayed_animations_.empty())
+    if (!should_end_immediately && delayed_animations_.empty())
       OnEndingAnimationComplete(/*canceled=*/false);
   } else {
     DCHECK(CanEnterOverview());
@@ -498,6 +397,16 @@ void OverviewController::ToggleOverview(
           split_view_state == SplitViewController::State::kRightSnapped) {
         should_focus_overview_ = false;
         break;
+      }
+    }
+    // |should_focus_overview_| should also be false if overview starts when
+    // there is a window being dragged. Do not change the window activation as
+    // it might cause the unnecessary shelf item activition indicator change.
+    if (should_focus_overview_) {
+      aura::Window* active_window = window_util::GetActiveWindow();
+      if (active_window && WindowState::Get(active_window)->is_dragged()) {
+        DCHECK(window_util::ShouldExcludeForOverview(active_window));
+        should_focus_overview_ = false;
       }
     }
 

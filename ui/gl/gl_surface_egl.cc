@@ -266,7 +266,9 @@ class EGLSyncControlVSyncProvider : public SyncControlVSyncProvider {
   }
 
   bool GetMscRate(int32_t* numerator, int32_t* denominator) override {
-    return false;
+    bool result = eglGetMscRateCHROMIUM(g_egl_display, surface_, numerator,
+                                        denominator) == EGL_TRUE;
+    return result;
   }
 
   bool IsHWClock() const override { return true; }
@@ -1603,7 +1605,7 @@ gfx::Size NativeViewGLSurfaceEGL::GetSize() {
 
 bool NativeViewGLSurfaceEGL::Resize(const gfx::Size& size,
                                     float scale_factor,
-                                    ColorSpace color_space,
+                                    const gfx::ColorSpace& color_space,
                                     bool has_alpha) {
   if (size == GetSize())
     return true;
@@ -1998,7 +2000,7 @@ gfx::Size PbufferGLSurfaceEGL::GetSize() {
 
 bool PbufferGLSurfaceEGL::Resize(const gfx::Size& size,
                                  float scale_factor,
-                                 ColorSpace color_space,
+                                 const gfx::ColorSpace& color_space,
                                  bool has_alpha) {
   if (size == size_)
     return true;
@@ -2086,7 +2088,7 @@ gfx::Size SurfacelessEGL::GetSize() {
 
 bool SurfacelessEGL::Resize(const gfx::Size& size,
                             float scale_factor,
-                            ColorSpace color_space,
+                            const gfx::ColorSpace& color_space,
                             bool has_alpha) {
   size_ = size;
   return true;

@@ -147,7 +147,9 @@ CSSMathExpressionNumericLiteral* CSSMathExpressionNumericLiteral::Create(
 CSSMathExpressionNumericLiteral::CSSMathExpressionNumericLiteral(
     const CSSNumericLiteralValue* value,
     bool is_integer)
-    : CSSMathExpressionNode(UnitCategory(value->GetType()), is_integer),
+    : CSSMathExpressionNode(UnitCategory(value->GetType()),
+                            is_integer,
+                            false /* has_comparisons*/),
       value_(value) {}
 
 bool CSSMathExpressionNumericLiteral::IsZero() const {
@@ -473,8 +475,10 @@ CSSMathExpressionBinaryOperation::CSSMathExpressionBinaryOperation(
     const CSSMathExpressionNode* right_side,
     CSSMathOperator op,
     CalculationCategory category)
-    : CSSMathExpressionNode(category,
-                            IsIntegerResult(left_side, right_side, op)),
+    : CSSMathExpressionNode(
+          category,
+          IsIntegerResult(left_side, right_side, op),
+          left_side->HasComparisons() || right_side->HasComparisons()),
       left_side_(left_side),
       right_side_(right_side),
       operator_(op) {}
@@ -816,7 +820,9 @@ CSSMathExpressionVariadicOperation::CSSMathExpressionVariadicOperation(
     bool is_integer_result,
     Operands&& operands,
     CSSMathOperator op)
-    : CSSMathExpressionNode(category, is_integer_result),
+    : CSSMathExpressionNode(category,
+                            is_integer_result,
+                            true /* has_comparisons */),
       operands_(std::move(operands)),
       operator_(op) {}
 
@@ -1123,22 +1129,20 @@ class CSSMathExpressionNodeParser {
       return result;
     }
 
-    if (RuntimeEnabledFeatures::CSSComparisonFunctionsEnabled()) {
-      if (tokens.Peek().GetType() == kFunctionToken) {
-        CSSValueID function_id = tokens.Peek().FunctionId();
-        CSSParserTokenRange inner_range = tokens.ConsumeBlock();
-        tokens.ConsumeWhitespace();
-        inner_range.ConsumeWhitespace();
-        switch (function_id) {
-          case CSSValueID::kMin:
-            return ParseMinOrMax(inner_range, CSSMathOperator::kMin, depth);
-          case CSSValueID::kMax:
-            return ParseMinOrMax(inner_range, CSSMathOperator::kMax, depth);
-          case CSSValueID::kClamp:
-            return ParseClamp(inner_range, depth);
-          default:
-            break;
-        }
+    if (tokens.Peek().GetType() == kFunctionToken) {
+      CSSValueID function_id = tokens.Peek().FunctionId();
+      CSSParserTokenRange inner_range = tokens.ConsumeBlock();
+      tokens.ConsumeWhitespace();
+      inner_range.ConsumeWhitespace();
+      switch (function_id) {
+        case CSSValueID::kMin:
+          return ParseMinOrMax(inner_range, CSSMathOperator::kMin, depth);
+        case CSSValueID::kMax:
+          return ParseMinOrMax(inner_range, CSSMathOperator::kMax, depth);
+        case CSSValueID::kClamp:
+          return ParseClamp(inner_range, depth);
+        default:
+          break;
       }
     }
 

@@ -9,7 +9,6 @@
 Sumir eiginleikar kunna að vera óaðgengilegir og breytingar á kjörstillingum verða ekki vistaðar.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> var áður að nota Chrome</translation>
 <translation id="1097330777386562916">Hreinsa fótspor og vefsvæðisgögn þegar þú lokar Chrome</translation>
-<translation id="1104959162601287462">Um &amp;Chrome OS</translation>
 <translation id="110877069173485804">Þetta er þitt Chrome</translation>
 <translation id="1142745911746664600">Ekki er hægt að uppfæra Chrome</translation>
 <translation id="1154147086299354128">&amp;Opna í Chrome</translation>
@@ -21,10 +20,8 @@ Sumir eiginleikar kunna að vera óaðgengilegir og breytingar á kjörstillingu
 <translation id="1553358976309200471">Uppfæra Chrome</translation>
 <translation id="1587223624401073077">Google Chrome er að nota myndavélina þína.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> er skaðleg skrá og Chrome útilokaði hana.</translation>
-<translation id="1590588151039584890">Hætta þarf notkun Chrome í þessari tölvu til að uppfæra. Það kann að verða til þess að aðrir notendur sem skráðir eru inn í þessari tölvu glati óvistuðum breytingum.</translation>
 <translation id="1619887657840448962">Til að gera Chrome öruggara höfum við slökkt á eftirfarandi viðbót sem ekki er á skrá hjá <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> og kann að hafa verið bætt við án þinnar vitneskju.</translation>
 <translation id="1628000112320670027">Fá hjálp með Chrome</translation>
-<translation id="1635734105302489219">Fótspor eru hreinsuð þegar þú lokar Chrome. Breyttu <ph name="COOKIE_SETTINGS_LINK" /> til að halda áfram að samstilla.</translation>
 <translation id="1662639173275167396">Chrome OS á tilvist sína að þakka öðrum <ph name="BEGIN_LINK_CROS_OSS" />opnum hugbúnaði<ph name="END_LINK_CROS_OSS" />, rétt eins og <ph name="BEGIN_LINK_LINUX_OSS" />Linux (tilraunaútgáfa)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">Næstum því uppfært! Endurræstu Google Chrome til að ljúka uppfærslunni. Huliðsgluggar enduropnast ekki.</translation>
 <translation id="1674870198290878346">Opna tengil í h&amp;uliðsglugga í Chrome</translation>
@@ -53,6 +50,7 @@ Sumir eiginleikar kunna að vera óaðgengilegir og breytingar á kjörstillingu
 <translation id="2290014774651636340">Lykla fyrir forritaskil Google vantar. Vissir eiginleikar Google Chrome verða óvirkir.</translation>
 <translation id="2290095356545025170">Ertu viss um að þú viljir fjarlægja Google Chrome?</translation>
 <translation id="2309047409763057870">Þetta er aukaleg uppsetning á Google Chrome sem ekki er hægt að gera að sjálfgefnum vafra.</translation>
+<translation id="2341767445688917208">Chrome OS gat ekki samstillt aðgangsorðin þín. Laga núna.</translation>
 <translation id="2348335408836342058">Chrome þarf leyfi til að nota myndavélina og hljóðnemann á þessu vefsvæði</translation>
 <translation id="2429317896000329049">Google Chrome gat ekki samstillt gögnin þín vegna þess að samstilling er ekki í boði fyrir lénið þitt.</translation>
 <translation id="2467438592969358367">Google Chrome vill flytja út aðgangsorðin þín. Sláðu inn Windows-aðgangsorðið þitt til að leyfa það.</translation>
@@ -77,8 +75,6 @@ Sumir eiginleikar kunna að vera óaðgengilegir og breytingar á kjörstillingu
 <translation id="3080151273017101988">Halda áfram að keyra forrit í bakgrunni þegar Google Chrome er lokað</translation>
 <translation id="3089968997497233615">Ný og öruggari útgáfa af Google Chrome er í boði.</translation>
 <translation id="3149510190863420837">Chrome forrit</translation>
-<translation id="3282568296779691940">Skráðu þig inn á Chrome</translation>
-<translation id="3340978935015468852">stillingar</translation>
 <translation id="3360895254066713204">Chrome hjálpari</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome verður endurræst núna}=1{Chrome verður endurræst eftir 1 sekúndu}one{Chrome verður endurræst eftir # sekúndu}other{Chrome verður endurræst eftir # sekúndur}}</translation>
 <translation id="3395323229510056640">Fá hjálp með Chrome OS</translation>
@@ -131,7 +127,6 @@ Sumir eiginleikar kunna að vera óaðgengilegir og breytingar á kjörstillingu
 <translation id="4953650215774548573">Stilla Google Chrome sem sjálfgefinn vafra</translation>
 <translation id="495931528404527476">Í Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Google Chrome gat ekki samstillt gögnin þín. Uppfærðu aðgangsorðið þitt fyrir samstillingu.</translation>
 <translation id="5062123544085870375">Endurræstu Chrome OS</translation>
 <translation id="5132929315877954718">Uppgötvaðu frábær forrit, leiki, viðbætur og þemu fyrir Google Chrome</translation>
 <translation id="5170938038195470297">Ekki er hægt að nota prófílinn þinn því að hann er úr nýrri útgáfu Google Chrome.
@@ -146,7 +141,6 @@ Sumir eiginleikar kunna að vera óaðgengilegir. Tilgreindu aðra prófílmöpp
 <translation id="5430073640787465221">Kjörstillingaskráin þín er skemmd eða ógild.
 
 Google Chrome getur ekki endurheimt stillingarnar þínar.</translation>
-<translation id="5543953544073077331">Önnur afrit af Chrome eru í notkun. Lokaðu þeim til að uppfæra.</translation>
 <translation id="556024056938947818">Google Chrome er að reyna að birta aðgangsorð.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-inn)</translation>
 <translation id="5657226924540934362">Ef stilling sést ekki á þessari síðu skaltu athuga <ph name="LINK_BEGIN" />
@@ -196,7 +190,6 @@ Google Chrome getur ekki endurheimt stillingarnar þínar.</translation>
 <translation id="7408085963519505752">Skilmálar Chrome OS</translation>
 <translation id="7419046106786626209">Chrome OS gat ekki samstillt gögnin þín vegna þess að samstilling er ekki í boði fyrir lénið þitt.</translation>
 <translation id="7486227612705979895">Chrome mun fá aðgang að svæðinu þínu á Drive til þess að bjóða upp á tillögur í veffangastikunni</translation>
-<translation id="7531671357096394523">Loka öllum afritum af Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Opnaðu <ph name="LINK_BEGIN" />stillingar Chrome OS<ph name="LINK_END" /> til að sjá hvort tækið sé uppfært</translation>
 <translation id="7589360514048265910">Þessi tölva fær ekki fleiri uppfærslur á Google Chrome vegna þess að Mac OS X 10.9 er ekki lengur stutt.</translation>
@@ -215,6 +208,7 @@ Google Chrome getur ekki endurheimt stillingarnar þínar.</translation>
 <translation id="7855730255114109580">Google Chrome er uppfært</translation>
 <translation id="7890208801193284374">Ef nokkrir eru um sömu tölvu geta vinir og fjölskyldumeðlimir vafrað hver á sínum prófíl og sett Chrome upp eins og hverjum og einum líkar best.</translation>
 <translation id="7896673875602241923">Einhver hefur skráð sig inn á Chrome í þessari tölvu sem <ph name="ACCOUNT_EMAIL_LAST" />. Búðu til nýjan notanda í Chrome til að halda upplýsingum ykkar aðskildum.</translation>
+<translation id="7916016681687251387">Chrome OS gat ekki samstillt gögnin þín. Laga núna.</translation>
 <translation id="7962410387636238736">Þessi tölva tekur ekki lengur við uppfærslum á Google Chrome vegna þess að stýrikerfin Windows XP og Windows Vista eru ekki lengur studd</translation>
 <translation id="8008534537613507642">Setja Chrome aftur upp</translation>
 <translation id="8013993649590906847">Ef gagnlega lýsingu vantar við mynd reynir Chrome að útvega þér lýsingu. Til að búa til lýsingar eru myndir sendar til Google.</translation>

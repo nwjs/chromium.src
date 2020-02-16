@@ -16,15 +16,14 @@
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/time/time.h"
 #include "chrome/common/safe_browsing/client_model.pb.h"
-#include "components/safe_browsing/db/v4_protocol_manager_util.h"
-#include "components/safe_browsing/proto/csd.pb.h"
+#include "components/safe_browsing/core/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/proto/csd.pb.h"
 #include "components/variations/variations_associated_data.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/resource_request.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "url/gurl.h"
@@ -91,7 +90,8 @@ ModelLoader::ModelLoader(
     : name_(FillInModelName(is_extended_reporting, GetModelNumber())),
       url_(kClientModelUrlPrefix + name_),
       update_renderers_callback_(update_renderers_callback),
-      url_loader_factory_(url_loader_factory) {
+      url_loader_factory_(url_loader_factory),
+      last_client_model_status_(ClientModelStatus::MODEL_NEVER_FETCHED) {
   DCHECK(url_.is_valid());
 }
 
@@ -103,7 +103,8 @@ ModelLoader::ModelLoader(
     : name_(model_name),
       url_(kClientModelUrlPrefix + name_),
       update_renderers_callback_(update_renderers_callback),
-      url_loader_factory_(url_loader_factory) {
+      url_loader_factory_(url_loader_factory),
+      last_client_model_status_(ClientModelStatus::MODEL_NEVER_FETCHED) {
   DCHECK(url_.is_valid());
 }
 
@@ -214,12 +215,12 @@ void ModelLoader::OnURLLoaderComplete(
 void ModelLoader::EndFetch(ClientModelStatus status, base::TimeDelta max_age) {
   DCHECK(fetch_sequence_checker_.CalledOnValidSequence());
   // We don't differentiate models in the UMA stats.
-  UMA_HISTOGRAM_ENUMERATION("SBClientPhishing.ClientModelStatus",
-                            status,
-                            MODEL_STATUS_MAX);
+  UMA_HISTOGRAM_ENUMERATION("SBClientPhishing.ClientModelStatus", status);
+
   if (status == MODEL_SUCCESS) {
     update_renderers_callback_.Run();
   }
+  last_client_model_status_ = status;
   int delay_ms = kClientModelFetchIntervalMs;
   // If the most recently fetched model had a valid max-age and the model was
   // valid we're scheduling the next model update for after the max-age expired.

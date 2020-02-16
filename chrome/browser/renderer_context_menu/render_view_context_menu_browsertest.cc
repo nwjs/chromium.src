@@ -79,7 +79,7 @@
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/context_menu_data/media_type.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/base/models/menu_model.h"
 
@@ -1127,7 +1127,7 @@ class LoadImageRequestObserver : public content::WebContentsObserver {
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
       const content::mojom::ResourceLoadInfo& resource_load_info) override {
-    if (resource_load_info.url.path() == path_) {
+    if (resource_load_info.original_url.path() == path_) {
       ASSERT_GT(resource_load_info.raw_body_bytes, 0);
       ASSERT_EQ(resource_load_info.mime_type, "image/png");
       run_loop_.Quit();

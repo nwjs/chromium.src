@@ -11,6 +11,7 @@ _typemap_imports = [
   "//chromecast/typemaps.gni",
   "//chromeos/typemaps.gni",
   "//chromeos/components/multidevice/mojom/typemaps.gni",
+  "//chromeos/services/cros_healthd/public/mojom/typemaps.gni",
   "//chromeos/services/device_sync/public/mojom/typemaps.gni",
   "//chromeos/services/network_config/public/mojom/typemaps.gni",
   "//chromeos/services/secure_channel/public/mojom/typemaps.gni",
@@ -24,6 +25,7 @@ _typemap_imports = [
   "//device/bluetooth/public/mojom/typemaps.gni",
   "//device/bluetooth/public/mojom/test/typemaps.gni",
   "//device/gamepad/public/cpp/typemaps.gni",
+  "//device/vr/public/mojom/typemaps.gni",
   "//fuchsia/mojom/test_typemaps.gni",
   "//gpu/ipc/common/typemaps.gni",
   "//ipc/typemaps.gni",
@@ -59,7 +61,6 @@ _typemap_imports = [
   "//ui/gfx/typemaps.gni",
   "//ui/gl/typemaps.gni",
   "//ui/latency/mojom/typemaps.gni",
-  "//ui/ozone/public/mojom/typemaps.gni",
   "//url/mojom/typemaps.gni",
 ]
 

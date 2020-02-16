@@ -94,6 +94,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   void static RecordTypeToUMA(ResourceProviderType type);
 
+  // TODO(juanmihd): Clean up creation methods/usage. See crbug.com/1035589.
   static std::unique_ptr<CanvasResourceProvider> CreateForCanvas(
       const IntSize&,
       ResourceUsage,
@@ -115,6 +116,13 @@ class PLATFORM_EXPORT CanvasResourceProvider
       uint8_t presentation_mode,
       base::WeakPtr<CanvasResourceDispatcher>,
       bool is_origin_top_left = true);
+
+  static std::unique_ptr<CanvasResourceProvider> CreateAccelerated(
+      const IntSize&,
+      base::WeakPtr<WebGraphicsContext3DProviderWrapper>,
+      const CanvasColorParams&,
+      bool is_origin_top_left,
+      uint32_t shared_image_usage_flags);
 
   // Use Snapshot() for capturing a frame that is intended to be displayed via
   // the compositor. Cases that are destined to be transferred via a
@@ -172,9 +180,11 @@ class PLATFORM_EXPORT CanvasResourceProvider
                    size_t row_bytes,
                    int x,
                    int y);
-  virtual GLuint GetBackingTextureHandleForOverwrite() {
+
+  virtual gpu::Mailbox GetBackingMailboxForOverwrite(
+      MailboxSyncMode sync_mode) {
     NOTREACHED();
-    return 0;
+    return gpu::Mailbox();
   }
   virtual GLenum GetBackingTextureTarget() const { return GL_TEXTURE_2D; }
   virtual void* GetPixelBufferAddressForOverwrite() {
@@ -195,6 +205,8 @@ class PLATFORM_EXPORT CanvasResourceProvider
   size_t cached_resources_count_for_testing() const {
     return canvas_resources_.size();
   }
+
+  void RestoreBackBuffer(const cc::PaintImage&);
 
  protected:
   gpu::gles2::GLES2Interface* ContextGL() const;
@@ -266,6 +278,12 @@ class PLATFORM_EXPORT CanvasResourceProvider
   WTF::Vector<scoped_refptr<CanvasResource>> canvas_resources_;
   bool resource_recycling_enabled_ = true;
   bool is_single_buffered_ = false;
+
+  // The maximum number of in-flight resources waiting to be used for recycling.
+  static constexpr int kMaxRecycledCanvasResources = 2;
+  // The maximum number of draw ops executed on the canvas, after which the
+  // underlying GrContext is flushed.
+  static constexpr int kMaxDrawsBeforeContextFlush = 50;
 
   base::WeakPtrFactory<CanvasResourceProvider> weak_ptr_factory_{this};
 

@@ -5,7 +5,6 @@
 
 Кейбір мүмкіндіктер қолжетімсіз болуы мүмкін және параметрлерге жасалған өзгертулер сақталмайды.</translation>
 <translation id="1104942323762546749">Chromium құпия сөздерді экспорттағысы келеді. Бұған рұқсат беру үшін Windows құпия сөзіңізді теріңіз.</translation>
-<translation id="1115445892567829615">Chromium деректеріңізді синхрондай алмайды. Синхрондау құпия фразасын жаңартыңыз.</translation>
 <translation id="113122355610423240">Chromium әдепкі браузеріңіз болып табылады</translation>
 <translation id="1185134272377778587">Chromium туралы ақпарат</translation>
 <translation id="1396446129537741364">Chromium құпия сөздерді көрсетпек.</translation>
@@ -22,7 +21,7 @@
 <translation id="1929939181775079593">Chromium жауап бермейді. Қазір қайта іске қосасыз ба?</translation>
 <translation id="1966382378801805537">Chromium әдепкі браузерді анықтай не орната алмайды</translation>
 <translation id="2008474315282236005">Құрылғыдан 1 элемент жойылады. Деректерді кейінірек алу үшін Chromium браузеріне <ph name="USER_EMAIL" /> болып кіріңіз.</translation>
-<translation id="2119636228670142020">&amp;Chromium OS туралы</translation>
+<translation id="2147976119693222405">Chromium OS деректеріңізді синхрондай алмады. Қазір түзетіңіз.</translation>
 <translation id="2241627712206172106">Компьютерді бөлісетін болсаңыз, достарыңыз интернетке бөлек кіріп, Chromium жүйесін қалауынша орната алады.</translation>
 <translation id="2347108572062610441">Бұл кеңейтім Chromium браузерін іске қосқан кезде көрсетілетін бетті өзгертті.</translation>
 <translation id="2396765026452590966">«<ph name="EXTENSION_NAME" />» кеңейтімі Chromium браузерін іске қосқан кезде көрсетілетін бетті өзгертті.</translation>
@@ -38,7 +37,7 @@
 <translation id="2718390899429598676">Қосымша қауіпсіздік үшін Chromium деректеріңізді шифрлайды.</translation>
 <translation id="2770231113462710648">Әдепкі браузерді келесіге өзгерту:</translation>
 <translation id="2799223571221894425">Қайта іске қосу</translation>
-<translation id="2838154144102149890">Chromium браузерін жаңарту үшін ол осы компьютерде жұмысын тоқтатуы керек. Бұл компьютердегі есептік жазбасына кірген пайдаланушылардың сақталмаған өзгерістері жоғалып кетуі мүмкін.</translation>
+<translation id="2805036593126168338">Chromium OS құпия сөздеріңізді синхрондай алмады. Қазір түзетіңіз.</translation>
 <translation id="2847479871509788944">Chromium жүйесінен алып тастау…</translation>
 <translation id="2886012850691518054">Қосымша: Google компаниясына пайдалану статистикасы мен жаңылыс есептерін автоматты түрде жіберу арқылы Chromium қызметін жақсартуға көмектесіңіз.</translation>
 <translation id="2910007522516064972">&amp;Chromium туралы</translation>
@@ -57,7 +56,6 @@
 <translation id="328888136576916638">Google API пернелері жоқ. Кейбір Chromium функциялары өшіріледі.</translation>
 <translation id="3296368748942286671">Chromium жабылғанда, фондық қолданбаларды пайдалануды жалғастыру</translation>
 <translation id="331951419404882060">Кіру кезіндегі қате себебінен Chromium OS деректеріңізді синхрондай алмайды.</translation>
-<translation id="3340978935015468852">параметрлер</translation>
 <translation id="3474745554856756813">Құрылғыдан <ph name="ITEMS_COUNT" /> элемент жойылады. Деректерді кейінірек алу үшін Chromium браузеріне <ph name="USER_EMAIL" /> болып кіріңіз.</translation>
 <translation id="3509308970982693815">Барлық Chromium терезелерін жауып, әрекетті қайталап көріңіз.</translation>
 <translation id="3575459661164320785">Компьютеріңізде зиянды бағдарламалық құрал бар. Chromium браузері оны өшіріп, параметрлеріңізді қалпына келтіреді де, кеңейтімдерді ажыратады. Соның арқасында браузеріңіз қалыпты жұмысын жалғастырады.</translation>
@@ -148,7 +146,6 @@
 <translation id="6847869444787758381">Құпия сөздеріңіз ұрланған жағдайда, Chromium бұл туралы хабарлайды.</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (Chromium браузеріне көшірілген)</translation>
-<translation id="6868056391275687737">Chromium браузерінің басқа көшірмелері жұмыс істеп тұр. Жаңарту үшін оларды жабуыңыз керек.</translation>
 <translation id="6893813176749746474">Chromium жаңартылды, бірақ оны кемінде 30 күн пайдаланбадыңыз.</translation>
 <translation id="6964305034639999644">Сілтемені Chromium инкогнито терезесінде ашу</translation>
 <translation id="6990124437352146030">Chromium браузеріне бұл сайтта микрофонды пайдалану үшін рұқсат керек</translation>
@@ -207,8 +204,6 @@ Chromium параметрлеріңізді қалпына келтіре алм
       Chromium браузерінің параметрлері<ph name="LINK_END" /> бөлімінен қарап көріңіз.</translation>
 <translation id="8697124171261953979">Сонымен қатар ол Chromium іске қосқаныңызда немесе Omnibox ішінен іздегеніңізде қайсы бет көрсетілетінін бақылайды.</translation>
 <translation id="8704119203788522458">Сізге арналған Chromium.</translation>
-<translation id="8739167630197873875">Chromium браузерінен шыққанда, cookie файлдарын тазартасыз. Синхрондай беру үшін <ph name="COOKIE_SETTINGS_LINK" /> параметрін өзгертіңіз.</translation>
-<translation id="8748383401829947534">Chromium браузерінің барлық көшірмесінен шығыңыз.</translation>
 <translation id="8796602469536043152">Chromium браузеріне бұл сайтта камераны және микрофонды пайдалану үшін рұқсат керек</translation>
 <translation id="8803635938069941624">Chromium OS шарттары</translation>
 <translation id="8821041990367117597">Chromium деректеріңізді синхрондай алмайды, себебі есептік жазбаңызға кіру мәліметтері ескірген.</translation>
@@ -218,7 +213,6 @@ Chromium параметрлеріңізді қалпына келтіре алм
 <translation id="8941642502866065432">Chromium браузерін жаңарту мүмкін емес</translation>
 <translation id="8974095189086268230">Chromium OS қосымша <ph name="BEGIN_LINK_CROS_OSS" />ашық дереккөз бағдарламалық жасақтамасы<ph name="END_LINK_CROS_OSS" /> арқылы жасалды.</translation>
 <translation id="9019929317751753759">Chromium браузерін қауіпсіз ету үшін, <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> тізімінде жоқ келесі кеңейтім өшірілді, ол сізге ескертілмей қосылған болуы мүмкін.</translation>
-<translation id="9022552996538154597">Chromium жүйесіне кіру</translation>
 <translation id="9089354809943900324">Chromium ескірген</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium браузері бір сағаттан кейін қайта іске қосылады}other{Chromium браузері # сағаттан кейін қайта іске қосылады}}</translation>
 <translation id="91086099826398415">Сілтемені жаңа Chromium қойындысында ашу</translation>

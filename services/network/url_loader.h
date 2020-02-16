@@ -138,8 +138,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
 
   net::LoadState GetLoadStateForTesting() const;
 
-  uint32_t GetRenderFrameId() const;
-  uint32_t GetProcessId() const;
+  int32_t GetRenderFrameId() const;
+  int32_t GetProcessId() const;
   uint32_t GetResourceType() const;
 
   // Whether this URLLoader should allow sending/setting cookies for requests
@@ -297,6 +297,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   mojo::SimpleWatcher writable_handle_watcher_;
   mojo::SimpleWatcher peer_closed_handle_watcher_;
 
+  // True if there's a URLRequest::Read() call in progress.
+  bool read_in_progress_ = false;
+
   // Used when deferring sending the data to the client until mime sniffing is
   // finished.
   mojom::URLResponseHeadPtr response_;
@@ -358,6 +361,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   mojom::RequestMode request_mode_;
 
   bool has_user_activation_;
+
+  mojom::RequestDestination request_destination_ =
+      mojom::RequestDestination::kEmpty;
 
   scoped_refptr<ResourceSchedulerClient> resource_scheduler_client_;
 

@@ -61,7 +61,7 @@ WeakPtr<AutofillPopupControllerImpl> AutofillPopupControllerImpl::GetOrCreate(
   }
 
   if (previous.get())
-    previous->Hide();
+    previous->Hide(PopupHidingReason::kViewDestroyed);
 
   AutofillPopupControllerImpl* controller =
       new AutofillPopupControllerImpl(
@@ -104,7 +104,7 @@ void AutofillPopupControllerImpl::Show(
     // treat the popup as hiding right away.
     if (!view_) {
       delegate_->OnPopupSuppressed();
-      Hide();
+      Hide(PopupHidingReason::kViewDestroyed);
       return;
     }
     just_created = true;
@@ -149,6 +149,7 @@ void AutofillPopupControllerImpl::Show(
       ->RegisterKeyPressHandler(
           base::Bind(&AutofillPopupControllerImpl::HandleKeyPressEvent,
                      base::Unretained(this)));
+  pinned_until_update_ = false;
   delegate_->OnPopupShown();
 
   DCHECK_EQ(suggestions_.size(), elided_values_.size());
@@ -185,7 +186,7 @@ void AutofillPopupControllerImpl::UpdateDataListValues(
     if (HasSuggestions())
       OnSuggestionsChanged();
     else
-      Hide();
+      Hide(PopupHidingReason::kNoSuggestions);
 
     return;
   }
@@ -220,7 +221,22 @@ void AutofillPopupControllerImpl::UpdateDataListValues(
   DCHECK_EQ(suggestions_.size(), elided_labels_.size());
 }
 
-void AutofillPopupControllerImpl::Hide() {
+void AutofillPopupControllerImpl::PinViewUntilUpdate() {
+  pinned_until_update_ = true;
+}
+
+base::span<const Suggestion>
+AutofillPopupControllerImpl::GetUnelidedSuggestions() const {
+  return base::span<const Suggestion>(suggestions_);
+}
+
+void AutofillPopupControllerImpl::Hide(PopupHidingReason reason) {
+  // If the reason for hiding is only stale data or a user interacting with
+  // native Chrome UI (kEndEditing), the popup might be kept open.
+  if (pinned_until_update_ && (reason == PopupHidingReason::kEndEditing ||
+                               reason == PopupHidingReason::kStaleData)) {
+    return;  // Don't close the popup while waiting for an update.
+  }
   if (delegate_) {
     delegate_->ClearPreviewedForm();
     delegate_->OnPopupHidden();
@@ -233,9 +249,9 @@ void AutofillPopupControllerImpl::Hide() {
 
 void AutofillPopupControllerImpl::ViewDestroyed() {
   // The view has already been destroyed so clear the reference to it.
-  view_ = NULL;
+  view_ = nullptr;
 
-  Hide();
+  Hide(PopupHidingReason::kViewDestroyed);
 }
 
 bool AutofillPopupControllerImpl::HandleKeyPressEvent(
@@ -257,7 +273,7 @@ bool AutofillPopupControllerImpl::HandleKeyPressEvent(
       SetSelectedLine(GetLineCount() - 1);
       return true;
     case ui::VKEY_ESCAPE:
-      Hide();
+      Hide(PopupHidingReason::kUserAborted);
       return true;
     case ui::VKEY_DELETE:
       return (event.GetModifiers() &
@@ -415,7 +431,7 @@ bool AutofillPopupControllerImpl::RemoveSuggestion(int list_index) {
     delegate_->ClearPreviewedForm();
     OnSuggestionsChanged();
   } else {
-    Hide();
+    Hide(PopupHidingReason::kNoSuggestions);
   }
 
   return true;

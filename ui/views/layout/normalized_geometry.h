@@ -147,16 +147,15 @@ class VIEWS_EXPORT NormalizedInsets {
 class VIEWS_EXPORT NormalizedSizeBounds {
  public:
   NormalizedSizeBounds();
-  NormalizedSizeBounds(const base::Optional<int>& main,
-                       const base::Optional<int>& cross);
+  NormalizedSizeBounds(base::Optional<int> main, base::Optional<int> cross);
   explicit NormalizedSizeBounds(const NormalizedSize& size);
   NormalizedSizeBounds(const NormalizedSizeBounds& size_bounds);
 
   const base::Optional<int>& main() const { return main_; }
-  void set_main(const base::Optional<int>& main) { main_ = main; }
+  void set_main(base::Optional<int> main) { main_ = std::move(main); }
 
   const base::Optional<int>& cross() const { return cross_; }
-  void set_cross(const base::Optional<int>& cross) { cross_ = cross; }
+  void set_cross(base::Optional<int> cross) { cross_ = std::move(cross); }
 
   void Expand(int main, int cross);
   void Inset(const NormalizedInsets& insets);
@@ -259,24 +258,47 @@ gfx::Point VIEWS_EXPORT Denormalize(LayoutOrientation orientation,
                                     const NormalizedPoint& point);
 
 NormalizedSize VIEWS_EXPORT Normalize(LayoutOrientation orientation,
-                                      const gfx::Size& point);
+                                      const gfx::Size& size);
 gfx::Size VIEWS_EXPORT Denormalize(LayoutOrientation orientation,
-                                   const NormalizedSize& point);
+                                   const NormalizedSize& size);
 
 NormalizedSizeBounds VIEWS_EXPORT Normalize(LayoutOrientation orientation,
-                                            const SizeBounds& point);
+                                            const SizeBounds& bounds);
 SizeBounds VIEWS_EXPORT Denormalize(LayoutOrientation orientation,
-                                    const NormalizedSizeBounds& point);
+                                    const NormalizedSizeBounds& bounds);
 
 NormalizedInsets VIEWS_EXPORT Normalize(LayoutOrientation orientation,
-                                        const gfx::Insets& point);
+                                        const gfx::Insets& insets);
 gfx::Insets VIEWS_EXPORT Denormalize(LayoutOrientation orientation,
-                                     const NormalizedInsets& point);
+                                     const NormalizedInsets& insets);
 
 NormalizedRect VIEWS_EXPORT Normalize(LayoutOrientation orientation,
                                       const gfx::Rect& rect);
 gfx::Rect VIEWS_EXPORT Denormalize(LayoutOrientation orientation,
                                    const NormalizedRect& rect);
+
+// Convenience methods to get and set main and cross-axis elements of
+// denormalized geometry elements.
+int VIEWS_EXPORT GetMainAxis(LayoutOrientation orientation,
+                             const gfx::Size& size);
+int VIEWS_EXPORT GetCrossAxis(LayoutOrientation orientation,
+                              const gfx::Size& size);
+base::Optional<int> VIEWS_EXPORT GetMainAxis(LayoutOrientation orientation,
+                                             const SizeBounds& size);
+base::Optional<int> VIEWS_EXPORT GetCrossAxis(LayoutOrientation orientation,
+                                              const SizeBounds& size);
+void VIEWS_EXPORT SetMainAxis(gfx::Size* size,
+                              LayoutOrientation orientation,
+                              int main);
+void VIEWS_EXPORT SetCrossAxis(gfx::Size* size,
+                               LayoutOrientation orientation,
+                               int cross);
+void VIEWS_EXPORT SetMainAxis(SizeBounds* size,
+                              LayoutOrientation orientation,
+                              base::Optional<int> main);
+void VIEWS_EXPORT SetCrossAxis(SizeBounds* size,
+                               LayoutOrientation orientation,
+                               base::Optional<int> cross);
 
 }  // namespace views
 

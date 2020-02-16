@@ -72,9 +72,15 @@ template("chrome_public_common_apk_or_module_tmpl") {
   _is_modern = defined(invoker.is_modern) && invoker.is_modern
   _is_monochrome = defined(invoker.is_monochrome) && invoker.is_monochrome
   _is_trichrome = defined(invoker.is_trichrome) && invoker.is_trichrome
+  _is_64_bit_browser =
+      defined(invoker.is_64_bit_browser) && invoker.is_64_bit_browser
   assert(_is_modern || !_is_modern)  # Mark as used.
+  assert(_is_64_bit_browser || !_is_64_bit_browser)  # Mark as used.
   assert(!(_is_monochrome && _is_trichrome),
          "Cannot be both trichrome and monochrome!")
+  assert(_is_trichrome == defined(invoker.static_library_provider),
+         "If trichrome library is used, static_library_provider must be set " +
+             "so that a dep can be added on the library APK.")
 
   # Adds unwind table asset to the chrome apk for the given library target. This
   # is not part of generic apk assets target since it depends on the main shared
@@ -83,10 +89,13 @@ template("chrome_public_common_apk_or_module_tmpl") {
     _add_unwind_tables = invoker.add_unwind_tables_in_apk
   } else {
     _needs_32bit_lib =
-        target_cpu == "arm" || (_is_monochrome && target_cpu == "arm64")
+        target_cpu == "arm" ||
+        (_is_monochrome && target_cpu == "arm64" && !_is_64_bit_browser)
     _add_unwind_tables =
         _needs_32bit_lib && _add_unwind_tables_in_chrome_32bit_apk &&
-        defined(invoker.shared_libraries)
+        ((android_64bit_target_cpu &&
+          defined(invoker.secondary_abi_shared_libraries)) ||
+         (!android_64bit_target_cpu && defined(invoker.shared_libraries)))
   }
 
   if (_add_unwind_tables) {
@@ -99,11 +108,17 @@ template("chrome_public_common_apk_or_module_tmpl") {
       if (defined(invoker.shared_library_for_unwind_asset)) {
         library_target = invoker.shared_library_for_unwind_asset
       } else {
-        library_target = "chrome"
+        if (_is_monochrome || _is_trichrome) {
+          library_target = "monochrome"
+        } else {
+          library_target = "chrome"
+        }
       }
-      deps = invoker.shared_libraries
-      if (defined(android_secondary_abi_cpu)) {
-        deps += [ "//chrome/android:lib${library_target}($android_secondary_abi_toolchain)" ]
+
+      if (android_64bit_target_cpu) {
+        deps = [ "//chrome/android:lib${library_target}($android_secondary_abi_toolchain)" ]
+      } else {
+        deps = [ "//chrome/android:lib${library_target}" ]
       }
     }
   } else if (defined(invoker.shared_library_for_unwind_asset)) {
@@ -184,11 +199,14 @@ template("chrome_public_common_apk_or_module_tmpl") {
       if (target_type == "android_apk") {
         # For APKs, do not include the resource strings files from our
         # omitted locale list in order to save size.
-        aapt_locale_whitelist = android_non_bundle_locales
+        aapt_locale_whitelist = android_apk_locales
       } else {
         # For bundles, only include resource strings files from our full
         # locale list, but nothing more.
         aapt_locale_whitelist = locales
+
+        # zh_hk is supported in Android bundles.
+        support_zh_hk = false
       }
     }
 
@@ -210,7 +228,7 @@ template("chrome_public_common_apk_or_module_tmpl") {
         if (!defined(negative_main_dex_globs)) {
           negative_main_dex_globs = [
             "*ApplicationStatus*",  # Doesn't work in non-browser process.
-            "*ChromeActivity*",  # Pulls in the world, so ensure it doesn't slip in.
+            "*ChromeActivity*",  # Pulls in the world; ensure it stays out.
             "*GoogleApiAvailability*",  # Play Services only in browser process.
             "*R\$*",  # Should not use resources from non-browser process.
           ]
@@ -302,6 +320,12 @@ template("chrome_public_common_apk_or_module_tmpl") {
 template("monochrome_public_common_apk_or_module_tmpl") {
   _is_bundle_module = defined(invoker.target_type) &&
                       invoker.target_type == "android_app_bundle_module"
+  if (_is_bundle_module) {
+    assert(
+        defined(invoker.is_base_module),
+        "_is_bundle_module is true but the invoker does not define is_base_module!")
+  }
+
   if (defined(invoker.enable_multidex)) {
     _enable_multidex = invoker.enable_multidex
   } else {
@@ -312,6 +336,7 @@ template("monochrome_public_common_apk_or_module_tmpl") {
                            [
                              "failed_manifest_expectation_file",
                              "failed_proguard_expectation_file",
+                             "is_64_bit_browser",
                              "version_code",
                              "verify_manifest",
                            ])
@@ -319,13 +344,41 @@ template("monochrome_public_common_apk_or_module_tmpl") {
         defined(invoker.use_trichrome_library) && invoker.use_trichrome_library
     is_monochrome = !is_trichrome
 
+    shared_libraries = []
     loadable_modules = []
     secondary_abi_loadable_modules = []
 
     _deps = [
-      "//components/crash/android:handler_java",
       "//chrome/android:chrome_public_non_pak_assets",
+      "//components/crash/android:handler_java",
     ]
+
+    if (_is_bundle_module && invoker.is_base_module && enable_arcore) {
+      # AR DFM is disabled - bring in the ar_java target along with ARCore SDK
+      # and set the loadable_modules / secondary_abi_loadable_modules to what
+      # would be brought in by the module.
+      # This needs to happen for monochrome & trichrome builds of base module if ARCore is enabled.
+
+      _deps += [
+        "//chrome/browser/android/vr:ar_java",
+        "//third_party/arcore-android-sdk-client:com_google_ar_core_java",
+      ]
+
+      _libarcore_dir = get_label_info(
+                           "//third_party/arcore-android-sdk-client:com_google_ar_core_java($default_toolchain)",
+                           "target_out_dir") + "/com_google_ar_core_java/jni"
+
+      if (android_64bit_target_cpu) {
+        if (invoker.is_64_bit_browser) {
+          loadable_modules = [ "$_libarcore_dir/arm64-v8a/libarcore_sdk_c.so" ]
+        } else {
+          secondary_abi_loadable_modules =
+              [ "$_libarcore_dir/armeabi-v7a/libarcore_sdk_c.so" ]
+        }
+      } else {
+        loadable_modules = [ "$_libarcore_dir/armeabi-v7a/libarcore_sdk_c.so" ]
+      }
+    }
 
     if (is_monochrome) {
       product_config_java_packages = [
@@ -365,34 +418,35 @@ template("monochrome_public_common_apk_or_module_tmpl") {
         _include_primary_support = true
       }
 
-      shared_library_for_unwind_asset = "monochrome"
-
       _deps += [
-        "//android_webview:monochrome_webview_assets",
-        "//android_webview/nonembedded:nonembedded_java",
         "//android_webview/glue",
+        "//android_webview/nonembedded:nonembedded_java",
         "//chrome/android:monochrome_java",
       ]
 
-      if (webview_devui_show_icon) {
-        _deps +=
-            [ "//android_webview/nonembedded:devui_launcher_icon_resources" ]
-      }
-
       if (_include_primary_support) {
         _deps += [
+          "//android_webview:monochrome_webview_primary_abi_assets",
           "//third_party/crashpad/crashpad/handler:crashpad_handler_trampoline",
         ]
         loadable_modules +=
             [ "$root_out_dir/libcrashpad_handler_trampoline.so" ]
       }
       if (_include_secondary_support) {
-        _trampoline = "//third_party/crashpad/crashpad/handler:crashpad_handler_trampoline($android_secondary_abi_toolchain)"
-        _deps += [ _trampoline ]
+        _trampoline =
+            "//third_party/crashpad/crashpad/handler:" +
+            "crashpad_handler_trampoline($android_secondary_abi_toolchain)"
+
+        _deps += [
+          "//android_webview:monochrome_webview_secondary_abi_assets",
+          _trampoline,
+        ]
+
         _secondary_out_dir = get_label_info(_trampoline, "root_out_dir")
         secondary_abi_loadable_modules +=
             [ "$_secondary_out_dir/libcrashpad_handler_trampoline.so" ]
       }
+
       alternative_android_sdk_dep = webview_framework_dep
       app_as_shared_lib = true
       _pak_prefix = "monochrome"
@@ -424,6 +478,19 @@ template("monochrome_public_common_apk_or_module_tmpl") {
 
     use_chromium_linker = is_trichrome && chromium_linker_supported
     use_modern_linker = use_chromium_linker
+
+    if (build_hwasan_splits && android_64bit_target_cpu &&
+        invoker.is_64_bit_browser) {
+      _hwasan_toolchain = "//build/toolchain/android:android_clang_arm64_hwasan"
+      shared_libraries +=
+          [ "//chrome/android:libmonochrome_64($_hwasan_toolchain)" ]
+
+      if (use_chromium_linker) {
+        shared_libraries += [
+          "//base/android/linker:chromium_android_linker($_hwasan_toolchain)",
+        ]
+      }
+    }
 
     # Resources config for blocklisting resource names from obfuscation
     resources_config_path = "//android_webview/aapt2.config"

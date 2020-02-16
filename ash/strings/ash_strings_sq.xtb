@@ -15,10 +15,10 @@
 <translation id="1153356358378277386">Pajisjet e çiftuara</translation>
 <translation id="1175572348579024023">Lëviz</translation>
 <translation id="1178581264944972037">Pauzë</translation>
+<translation id="1190609913194133056">Qendra e njoftimeve</translation>
 <translation id="1195412055398077112">mbiskanim</translation>
 <translation id="119944043368869598">Pastroji të gjitha</translation>
 <translation id="1247372569136754018">Mikrofoni (i brendshëm)</translation>
-<translation id="1249456112629248620"><ph name="FEATURE_NAME" /> Ky cilësim zbatohet nga administratori yt.</translation>
 <translation id="1252999807265626933">Po karikohet nga <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Si është moti?</translation>
 <translation id="1267032506238418139">Ndryshim në shkurtore</translation>
@@ -45,6 +45,7 @@
 <translation id="1460620680449458626">Volumi është i çaktivizuar.</translation>
 <translation id="1467432559032391204">Majtas</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
+<translation id="1508507608940204251">Aktive</translation>
 <translation id="1516740043221086139">Modaliteti "Mos shqetëso" është aktiv.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Shfaq cilësimet e njoftimeve. Njoftimet janë joaktive për një aplikacion}other{Shfaq cilësimet e njoftimeve. Njoftimet janë joaktive për # aplikacione}}</translation>
 <translation id="1525508553941733066">ANULO</translation>
@@ -69,6 +70,7 @@
 <translation id="1836215606488044471">Asistenti (po ngarkohet...)</translation>
 <translation id="1838895407229022812">"Drita e natës" është joaktive.</translation>
 <translation id="1850504506766569011">Wi-Fi është i çaktivizuar.</translation>
+<translation id="1859889070386344428">Joaktiv</translation>
 <translation id="1864454756846565995">Pajisja USB-C (porta prapa)</translation>
 <translation id="1882897271359938046">Po pasqyron në <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Shkyçe me gjurmën e gishtit</translation>
@@ -110,17 +112,19 @@
 <translation id="2352467521400612932">Cilësimet e stilolapsit</translation>
 <translation id="2354174487190027830">Po aktivizon <ph name="NAME" /></translation>
 <translation id="2359808026110333948">Vazhdo</translation>
+<translation id="2364154243880592194">Tabakaja e statusit, ora <ph name="TIME" />, <ph name="BATTERY" />. Shtyp "kërko" + tastin "majtas" për të pasur qasje te qendra e njoftimeve.</translation>
 <translation id="2365393535144473978">Aktivizimi i të dhënave celulare do të aktivizojë Bluetooth.</translation>
 <translation id="2391579633712104609">180°</translation>
 <translation id="2412593942846481727">Ka përditësim</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> është sesion i menaxhuar që menaxhohet nga <ph name="DOMAIN" /></translation>
 <translation id="2427507373259914951">Klikimi me butonin majtas</translation>
 <translation id="2429753432712299108">Pajisja me Bluetooth, "<ph name="DEVICE_NAME" />" kërkon leje për çiftim. Përpara se të pranosh, konfirmo që ky kod shfaqet në atë pajisje: <ph name="PASSKEY" /></translation>
+<translation id="2473177541599297363">Konfirmo rezolucionin</translation>
 <translation id="2482878487686419369">Njoftimet</translation>
 <translation id="2484513351006226581">Shtyp <ph name="KEYBOARD_SHORTCUT" /> për të ndryshuar planin e tastierës.</translation>
 <translation id="2501920221385095727">Tastet e përhershme</translation>
 <translation id="2509468283778169019">KYÇJA E KAPITALEVE është aktive</translation>
-<translation id="2517825809102302935">Çaktivizoje për sonte</translation>
+<translation id="2519465031217098801">Aktiv</translation>
 <translation id="2542089167727451762">Trokit imazhin e profilit tënd</translation>
 <translation id="255671100581129685">"Asistenti i Google" nuk ofrohet në një sesion publik.</translation>
 <translation id="256712445991462162">zmadhuesi i lidhur me stacionin</translation>
@@ -134,10 +138,10 @@
 <translation id="2704781753052663061">Bashkohu me rrjete të tjera Wi-Fi</translation>
 <translation id="2718395828230677721">Drita e natës</translation>
 <translation id="2727977024730340865">E lidhur me një karikues me fuqi të ulët. Ngarkimi i baterisë mund të mos jetë i sigurt.</translation>
-<translation id="2761704814324807722">Kutia e statusit, koha <ph name="TIME" />, <ph name="BATTERY" /></translation>
 <translation id="2792498699870441125">Alt+Kërko</translation>
 <translation id="2803734122639935495">Për ta shkyçur, fut fjalëkalimin tënd</translation>
 <translation id="2819276065543622893">Do të dalësh nga llogaria tani.</translation>
+<translation id="2825224105325558319"><ph name="DISPLAY_NAME" /> nuk e mbështet <ph name="SPECIFIED_RESOLUTION" />. Rezolucioni është ndryshuar në <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="2825619548187458965">Rafti</translation>
 <translation id="2844169650293029770">Pajisja USB-C (porta e përparme, majtas)</translation>
 <translation id="2865888419503095837">Informacioni i rrjetit</translation>
@@ -167,6 +171,7 @@
 <translation id="3151786313568798007">Orientimi</translation>
 <translation id="3153444934357957346">Mund të kesh vetëm deri në <ph name="MULTI_PROFILE_USER_LIMIT" /> llogari në identifikimin e shumëfishtë.</translation>
 <translation id="3154351730702813399">Administratori i pajisjes mund të monitorojë aktivitetin tënd të shfletimit.</translation>
+<translation id="3181441307743005334">Rindezja mund të zgjasë pak</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Lidhur me një pajisje}other{Lidhur me # pajisje}}</translation>
 <translation id="3217205077783620295">Volumi është aktiv. Ndërrimi do ta heqë audion.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> më shumë</translation>
@@ -224,6 +229,7 @@
 <translation id="3901991538546252627">Po lidhet me <ph name="NAME" /></translation>
 <translation id="394485226368336402">Cilësimet e audios</translation>
 <translation id="3962859241508114581">Kënga e mëparshme</translation>
+<translation id="3965097803111112935">Joaktive</translation>
 <translation id="397105322502079400">Po llogarit...</translation>
 <translation id="3977512764614765090">Bateria është në <ph name="PERCENTAGE" />% dhe po karikohet.</translation>
 <translation id="3995138139523574647">Pajisja USB-C (porta e pasme, djathtas)</translation>
@@ -235,6 +241,7 @@
 <translation id="4112140312785995938">Kërko prapa</translation>
 <translation id="4129129681837227511">Për të parë njoftime në ekranin e kyçjes, shkyçe për të ndryshuar cilësimin</translation>
 <translation id="4146833061457621061">Luaj muzikë</translation>
+<translation id="4149156641122542261"><ph name="DEVICE_TYPE" /> menaxhohet nga <ph name="DOMAIN" /></translation>
 <translation id="4181841719683918333">Gjuhët</translation>
 <translation id="4195877955194704651">Butoni i klikimeve automatike</translation>
 <translation id="4217571870635786043">Diktimi</translation>
@@ -297,7 +304,6 @@
 <translation id="4924411785043111640">Rinis dhe rivendos</translation>
 <translation id="495046168593986294">Lëviz lart</translation>
 <translation id="4961318399572185831">Ekrani i transmetimit</translation>
-<translation id="5018302031617932556">"Drita e natës" e bën më të lehtë shikimin e ekranit ose leximin në dritë të zbehtë. Trokit për ta ndryshuar këtë.</translation>
 <translation id="5030687792513154421">Koha mbaroi</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" /> u lidh me një telefon të ri</translation>
 <translation id="5083553833479578423">Shkyç më shumë funksione të "Asistentit".</translation>
@@ -306,6 +312,7 @@
 <translation id="5207949376430453814">Thekso kursorin e tekstit</translation>
 <translation id="5222676887888702881">Dil</translation>
 <translation id="523505283826916779">Cilësimet e qasjes</translation>
+<translation id="5250225880026334010">Joaktive</translation>
 <translation id="5260676007519551770">Tavolina e punës 4</translation>
 <translation id="5283198616748585639">Shto 1 minutë</translation>
 <translation id="5286194356314741248">Po skanon</translation>
@@ -333,6 +340,7 @@
 <translation id="5669267381087807207">Po aktivizohet</translation>
 <translation id="5673434351075758678">Nga "<ph name="FROM_LOCALE" />" në "<ph name="TO_LOCALE" />" pas sinkronizimit të cilësimeve të tua.</translation>
 <translation id="5682642926269496722">"Asistenti i Google" nuk ofrohet për llogarinë aktuale të përdoruesit.</translation>
+<translation id="5689633613396158040">"Drita e natës" e bën më të lehtë shikimin e ekranit ose leximin në dritë të zbehtë. Trokit për të ndryshuar se kur aktivizohet ose çaktivizohet plotësisht "Drita e natës".</translation>
 <translation id="5691772641933328258">Gjurma e gishtit nuk njihet</translation>
 <translation id="5710450975648804523">"Mos shqetëso" është aktiv</translation>
 <translation id="573413375004481890">Kjo pajisje nuk mund t'i mbështeste të gjitha ekranet, kështu që një prej tyre është shkëputur</translation>
@@ -344,7 +352,6 @@
 <translation id="5777841717266010279">Dëshiron të ndalosh ndarjen e ekranit?</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5837036133683224804">Ndalo <ph name="ROUTE_TITLE" /> në <ph name="RECEIVER_NAME" /></translation>
-<translation id="5860033963881614850">Çaktivizuar</translation>
 <translation id="5895138241574237353">Rinis</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
@@ -395,6 +402,7 @@
 <translation id="6490471652906364588">Pajisja USB-C (porta djathtas)</translation>
 <translation id="649452524636452238">Kodi PIN i kartës inteligjente</translation>
 <translation id="6501401484702599040">Po transmeton ekranin te <ph name="RECEIVER_NAME" /></translation>
+<translation id="652139407789908527">Ekrani yt do të jetë bosh për një kohë më të gjatë se zakonisht (deri në një minutë) gjatë këtij përditësimi. Mos e shtyp butonin e energjisë kur përditësimi është në vazhdim.</translation>
 <translation id="6521655319214113338">Hyrja me shkrim dore</translation>
 <translation id="6528179044667508675">Mos shqetëso</translation>
 <translation id="6537270692134705506">Regjistro ekranin</translation>
@@ -408,6 +416,7 @@
 <translation id="6650933572246256093">Pajisja me Bluetooth "<ph name="DEVICE_NAME" />" kërkon leje për çiftim. Fut çelësin e kalimit në atë pajisje: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Fjalëkalimi</translation>
 <translation id="6665545700722362599">Jepi leje sajteve të uebit, aplikacioneve dhe shtesave të përdorin shërbimet e vendndodhjes, mikrofonin e pajisjes, kamerën ose funksione të tjera</translation>
+<translation id="6669268301501499730">Aktive</translation>
 <translation id="6670153871843998651">Tavolina e punës 3</translation>
 <translation id="6691659475504239918">Kërko+Shift+H</translation>
 <translation id="6696025732084565524">Tastiera jote e shkëputshme ka nevojë për një përditësim me rëndësi</translation>
@@ -446,6 +455,7 @@
 <translation id="7143207342074048698">Po lidhet</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358">Po rikthehet te rezolucioni i vjetër për <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7246071203293827765"><ph name="UPDATE_TEXT" />. Kjo pajisje Chromebook duhet të riniset për të zbatuar një përditësim. Kjo mund të zgjasë deri në 1 minutë.</translation>
 <translation id="7256634071279256947">Mikrofoni i pasmë</translation>
 <translation id="726276584504105859">Zvarrit këtu për të përdorur ekranin e ndarë</translation>
 <translation id="7262906531272962081">Krijo alarm rikujtues</translation>
@@ -464,7 +474,6 @@
 <translation id="7526573455193969409">Rrjeti mund të jetë i monitoruar</translation>
 <translation id="7536035074519304529">Adresa IP: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Koha për gjumë</translation>
-<translation id="7561014039265304140"><ph name="DISPLAY_NAME" /> nuk e mbështet rezolucionin <ph name="SPECIFIED_RESOLUTION" />. Rezolucioni u ndryshua në <ph name="FALLBACK_RESOLUTION" /></translation>
 <translation id="7562368315689366235">Paleta e emoji-t</translation>
 <translation id="7564874036684306347">Zhvendosja e dritareve te një desktop tjetër mund të shkaktojë një sjellje të papritur. Njoftimet pasuese, dritarja dhe dialogët mund të ndahen mes desktopëve.</translation>
 <translation id="7568294522609223312">Çaktivizo klikimet automatike</translation>
@@ -507,11 +516,13 @@
 <translation id="8061464966246066292">Kontrast i lartë</translation>
 <translation id="8098591350844501178">Ndalo transmetimin e ekranit te <ph name="RECEIVER_NAME" /></translation>
 <translation id="8113423164597455979">Aktiv, të gjitha aplikacionet</translation>
+<translation id="8131740175452115882">Konfirmo</translation>
 <translation id="8132793192354020517">Lidhur me <ph name="NAME" /></translation>
 <translation id="813913629614996137">Po fillon...</translation>
 <translation id="8142441511840089262">Kliko dy herë</translation>
 <translation id="8142699993796781067">Rrjet privat</translation>
 <translation id="8152092012181020186">Shtyp Ctrl + W për ta mbyllur</translation>
+<translation id="8155007568264258537"><ph name="FEATURE_NAME" /> Ky cilësim menaxhohet nga administratori yt.</translation>
 <translation id="8167567890448493835">Po përdor <ph name="LOCALE_NAME" /></translation>
 <translation id="8190698733819146287">Personalizo gjuhët dhe hyrjen...</translation>
 <translation id="8192202700944119416">Njoftimet janë të fshehura.</translation>
@@ -539,6 +550,7 @@
 <translation id="847056008324733326">Cilësimet e shkallës së ekranit</translation>
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" /> ka <ph name="FEATURE_STATE" /> <ph name="FEATURE_NAME" />.</translation>
 <translation id="8477270416194247200">Shtyp Alt+"Kërko" ose "Shift" për të anuluar.</translation>
+<translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> nuk e mbështet <ph name="SPECIFIED_RESOLUTION" />. Rezolucioni është ndryshuar në <ph name="FALLBACK_RESOLUTION" />. Kliko te "Konfirmo" për t'i mbajtur ndryshimet. Cilësimet e mëparshme do të restaurohen për <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="8513108775083588393">Rrotullim automatik</translation>
 <translation id="8517041960877371778">Pajisja jote <ph name="DEVICE_TYPE" /> mund të mos ngarkohet kur është e ndezur.</translation>
 <translation id="8627191004499078455">I lidhur me <ph name="DEVICE_NAME" /></translation>
@@ -588,12 +600,13 @@
 <translation id="9089416786594320554">Metodat e hyrjes</translation>
 <translation id="9091626656156419976">Ekrani <ph name="DISPLAY_NAME" /> u hoq</translation>
 <translation id="9151726767154816831">Rifillo dhe bëj Powerwash për të përditësuar</translation>
+<translation id="9168436347345867845">Bëje më vonë</translation>
 <translation id="9179259655489829027">Ky funksion të lejon që të qasesh me shpejtësi te çdo përdorues i identifikuar pa kërkuar një fjalëkalim. Përdore këtë funksion vetëm me llogaritë që u beson.</translation>
 <translation id="9183456764293710005">Zmadhuesi i ekranit të plotë</translation>
 <translation id="9193626018745640770">Po transmeton në një marrës të panjohur</translation>
 <translation id="9194617393863864469">Identifiko një përdorues tjetër...</translation>
+<translation id="9198992156681343238">Rezolucioni i <ph name="DISPLAY_NAME" /> u ndryshua në <ph name="RESOLUTION" />. Kliko te "Konfirmo" për t'i mbajtur ndryshimet. Cilësimet e mëparshme do të restaurohen për <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, menaxhuar nga administratori yt</translation>
-<translation id="9205817095063786319">Pajisja menaxhohet nga <ph name="DOMAIN" /></translation>
 <translation id="9210037371811586452">Po del nga modaliteti i desktopit të unifikuar</translation>
 <translation id="9211681782751733685"><ph name="TIME_REMAINING" /> të mbetura deri sa bateria të karikohet plotësisht.</translation>
 <translation id="9215934040295798075">Cakto imazhin e sfondit</translation>

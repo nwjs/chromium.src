@@ -69,12 +69,28 @@ grit("help_app_bundle_resources") {
   }
 
   source_is_generated = true
+  use_brotli = true
 
   outputs = [
     "grit/chromeos_help_app_bundle_resources.h",
     "grit/chromeos_help_app_bundle_resources_map.cc",
     "grit/chromeos_help_app_bundle_resources_map.h",
     "chromeos_help_app_bundle_resources.pak",
+  ]
+  output_dir = "$root_gen_dir/chromeos"
+}
+
+# Resources used by chrome://sample-system-web-app
+grit("sample_system_web_app_resources") {
+  source = "../components/sample_system_web_app_ui/resources/sample_system_web_app_resources.grd"
+
+  source_is_generated = true
+
+  outputs = [
+    "grit/chromeos_sample_system_web_app_resources.h",
+    "grit/chromeos_sample_system_web_app_resources_map.cc",
+    "grit/chromeos_sample_system_web_app_resources_map.h",
+    "chromeos_sample_system_web_app_resources.pak",
   ]
   output_dir = "$root_gen_dir/chromeos"
 }
@@ -103,6 +119,7 @@ grit("media_app_bundle_resources") {
   }
 
   source_is_generated = true
+  use_brotli = true
 
   outputs = [
     "grit/chromeos_media_app_bundle_resources.h",

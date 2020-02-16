@@ -9,7 +9,7 @@ import android.graphics.drawable.Drawable;
 import android.support.annotation.VisibleForTesting;
 
 import org.chromium.base.Consumer;
-import org.chromium.base.Supplier;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.feed.library.piet.host.TypefaceProvider.GoogleSansTypeface;
 import org.chromium.components.feed.core.proto.ui.piet.ImagesProto.Image;
 
@@ -57,8 +57,7 @@ public class AssetProvider {
      *     succeeds. {@literal null} should be passed to this if no source succeeds in loading the
      *     image
      */
-    public void getImage(
-            Image image, int widthPx, int heightPx, Consumer</*@Nullable*/ Drawable> consumer) {
+    public void getImage(Image image, int widthPx, int heightPx, Consumer<Drawable> consumer) {
         mImageLoader.getImage(image, widthPx, heightPx, consumer);
     }
 
@@ -94,8 +93,7 @@ public class AssetProvider {
      * the {@link GoogleSansTypeface} StringDef. Piet will report errors if Google Sans is requested
      * and not found.
      */
-    public void getTypeface(
-            String typeface, boolean isItalic, Consumer</*@Nullable*/ Typeface> consumer) {
+    public void getTypeface(String typeface, boolean isItalic, Consumer<Typeface> consumer) {
         mTypefaceProvider.getTypeface(typeface, isItalic, consumer);
     }
 

@@ -101,8 +101,9 @@ void CacheStorageContextImpl::Shutdown() {
 }
 
 void CacheStorageContextImpl::AddReceiver(
-    mojo::PendingReceiver<blink::mojom::CacheStorage> receiver,
-    const url::Origin& origin) {
+    network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy,
+    const url::Origin& origin,
+    mojo::PendingReceiver<blink::mojom::CacheStorage> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (!dispatcher_host_) {
     dispatcher_host_ =
@@ -111,7 +112,8 @@ void CacheStorageContextImpl::AddReceiver(
                           base::RetainedRef(this));
   }
   dispatcher_host_.Post(FROM_HERE, &CacheStorageDispatcherHost::AddReceiver,
-                        std::move(receiver), origin);
+                        cross_origin_embedder_policy, origin,
+                        std::move(receiver));
 }
 
 scoped_refptr<CacheStorageManager> CacheStorageContextImpl::CacheManager() {
@@ -192,17 +194,17 @@ void CacheStorageContextImpl::GetAllOriginsInfo(
           base::RetainedRef(this), std::move(callback)));
 }
 
-void CacheStorageContextImpl::DeleteForOrigin(const GURL& origin) {
+void CacheStorageContextImpl::DeleteForOrigin(const url::Origin& origin) {
   // Can be called on any sequence.
   task_runner_->PostTask(
       FROM_HERE, base::BindOnce(
                      [](scoped_refptr<CacheStorageContextImpl> context,
-                        const GURL& origin) {
+                        const url::Origin& origin) {
                        scoped_refptr<CacheStorageManager> manager =
                            context->CacheManager();
                        if (!manager)
                          return;
-                       manager->DeleteOriginData(url::Origin::Create(origin),
+                       manager->DeleteOriginData(origin,
                                                  CacheStorageOwner::kCacheAPI);
                      },
                      base::RetainedRef(this), origin));

@@ -25,6 +25,12 @@
 
 namespace ui {
 
+namespace {
+// A function to call when focus changes, for testing only.
+base::LazyInstance<std::map<ax::mojom::Event, base::RepeatingClosure>>::
+    DestructorAtExit g_on_notify_event_for_testing;
+}  // namespace
+
 const base::char16 AXPlatformNodeBase::kEmbeddedCharacter = L'\xfffc';
 
 // Map from each AXPlatformNode's unique id to its instance.
@@ -54,6 +60,13 @@ AXPlatformNode* AXPlatformNodeBase::GetFromUniqueId(int32_t unique_id) {
 // static
 size_t AXPlatformNodeBase::GetInstanceCountForTesting() {
   return g_unique_id_map.Get().size();
+}
+
+// static
+void AXPlatformNodeBase::SetOnNotifyEventCallbackForTesting(
+    ax::mojom::Event event_type,
+    base::RepeatingClosure callback) {
+  g_on_notify_event_for_testing.Get()[event_type] = std::move(callback);
 }
 
 AXPlatformNodeBase::AXPlatformNodeBase() = default;
@@ -124,6 +137,11 @@ gfx::NativeViewAccessible AXPlatformNodeBase::GetNativeViewAccessible() {
 }
 
 void AXPlatformNodeBase::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
+  if (g_on_notify_event_for_testing.Get().find(event_type) !=
+          g_on_notify_event_for_testing.Get().end() &&
+      g_on_notify_event_for_testing.Get()[event_type]) {
+    g_on_notify_event_for_testing.Get()[event_type].Run();
+  }
 }
 
 #if defined(OS_MACOSX)
@@ -403,9 +421,7 @@ bool AXPlatformNodeBase::IsDocument() const {
 }
 
 bool AXPlatformNodeBase::IsTextOnlyObject() const {
-  return GetData().role == ax::mojom::Role::kStaticText ||
-         GetData().role == ax::mojom::Role::kLineBreak ||
-         GetData().role == ax::mojom::Role::kInlineTextBox;
+  return ui::IsText(GetData().role);
 }
 
 bool AXPlatformNodeBase::IsPlainTextField() const {
@@ -425,7 +441,11 @@ base::string16 AXPlatformNodeBase::GetHypertext() const {
 }
 
 base::string16 AXPlatformNodeBase::GetInnerText() const {
-  if (IsTextOnlyObject())
+  // TODO(https://crbug.com/1030703): The check for IsInvisibleOrIgnored()
+  // should not be needed. ChildAtIndex() and GetChildCount() are already
+  // supposed to skip over nodes that are invisible or ignored, but
+  // ViewAXPlatformNodeDelegate does not currently implement this behavior.
+  if (IsTextOnlyObject() && !IsInvisibleOrIgnored())
     return GetString16Attribute(ax::mojom::StringAttribute::kName);
 
   base::string16 text;
@@ -450,6 +470,11 @@ bool AXPlatformNodeBase::IsSelectionItemSupported() const {
     case ax::mojom::Role::kColumnHeader:
     case ax::mojom::Role::kRow:
     case ax::mojom::Role::kRowHeader: {
+      // An ARIA grid subwidget is only selectable if explicitly marked as
+      // selected (or not) with the aria-selected property.
+      if (!HasBoolAttribute(ax::mojom::BoolAttribute::kSelected))
+        return false;
+
       AXPlatformNodeBase* table = GetTable();
       if (!table)
         return false;

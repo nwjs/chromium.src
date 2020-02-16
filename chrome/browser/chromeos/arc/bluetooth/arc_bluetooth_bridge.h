@@ -23,7 +23,7 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/chromeos/arc/bluetooth/arc_bluetooth_task_queue.h"
 #include "components/arc/mojom/bluetooth.mojom.h"
-#include "components/arc/mojom/intent_helper.mojom.h"
+#include "components/arc/mojom/intent_helper.mojom-forward.h"
 #include "components/arc/session/connection_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "device/bluetooth/bluetooth_adapter.h"
@@ -37,6 +37,7 @@
 #include "device/bluetooth/bluetooth_remote_gatt_descriptor.h"
 #include "device/bluetooth/bluetooth_remote_gatt_service.h"
 #include "device/bluetooth/bluez/bluetooth_adapter_bluez.h"
+#include "mojo/public/cpp/bindings/remote.h"
 
 namespace content {
 class BrowserContext;
@@ -399,6 +400,12 @@ class ArcBluetoothBridge
                                 AdapterStateCallback callback);
   void DequeueRemotePowerChange(AdapterPowerState powered);
 
+  // Sends properties of cached devices to Android. The list of cached devices
+  // is got by BluetoothAdapter::GetDevices(), which includes all devices have
+  // been discovered (not necessarily paired or connected) but not yet expired.
+  // This function should be called when Bluetooth service in Android is ready.
+  void SendCachedDevices() const;
+
   std::vector<mojom::BluetoothPropertyPtr> GetDeviceProperties(
       mojom::BluetoothPropertyType type,
       const device::BluetoothDevice* device) const;
@@ -521,14 +528,14 @@ class ArcBluetoothBridge
   // Data structures for RFCOMM listening/connecting sockets that live in
   // Chrome.
   struct RfcommListeningSocket {
-    mojom::RfcommListeningSocketClientPtr remote;
+    mojo::Remote<mojom::RfcommListeningSocketClient> remote;
     base::ScopedFD file;
     std::unique_ptr<base::FileDescriptorWatcher::Controller> controller;
     RfcommListeningSocket();
     ~RfcommListeningSocket();
   };
   struct RfcommConnectingSocket {
-    mojom::RfcommConnectingSocketClientPtr remote;
+    mojo::Remote<mojom::RfcommConnectingSocketClient> remote;
     base::ScopedFD file;
     std::unique_ptr<base::FileDescriptorWatcher::Controller> controller;
     RfcommConnectingSocket();
@@ -566,6 +573,8 @@ class ArcBluetoothBridge
   scoped_refptr<bluez::BluetoothAdapterBlueZ> bluetooth_adapter_;
   scoped_refptr<device::BluetoothAdvertisement> advertisment_;
   std::unique_ptr<device::BluetoothDiscoverySession> discovery_session_;
+  // Discovered devices in the current discovery session.
+  std::set<std::string> discovered_devices_;
   std::unordered_map<std::string,
                      std::unique_ptr<device::BluetoothGattNotifySession>>
       notification_session_;

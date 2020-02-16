@@ -22,10 +22,13 @@ static struct EncodingParameters {
 } const kEncodingParameters[] = {
     {true, "video/webm;codecs=VP8"},
     {true, "video/webm;codecs=VP9"},
-    {true, "video/x-matroska;codecs=AVC1"},
     {false, ""},  // Instructs the platform to choose any accelerated codec.
     {false, "video/webm;codecs=VP8"},
     {false, "video/webm;codecs=VP9"},
+};
+
+static const EncodingParameters kProprietaryEncodingParameters[] = {
+    {true, "video/x-matroska;codecs=AVC1"},
     {false, "video/x-matroska;codecs=AVC1"},
 };
 
@@ -81,7 +84,14 @@ IN_PROC_BROWSER_TEST_F(MAYBE_WebRtcMediaRecorderTest, StartAndStop) {
   MakeTypicalCall("testStartStopAndRecorderState();", kMediaRecorderHtmlFile);
 }
 
-IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest, StartAndDataAvailable) {
+// Flaky on TSAN. See https://crbug.com/1043828
+#if defined(THREAD_SANITIZER)
+#define MAYBE_StartAndDataAvailable DISABLED_StartAndDataAvailable
+#else
+#define MAYBE_StartAndDataAvailable StartAndDataAvailable
+#endif
+IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest,
+                       MAYBE_StartAndDataAvailable) {
   MaybeForceDisableEncodeAccelerator(GetParam().disable_accelerator);
   MakeTypicalCall(base::StringPrintf("testStartAndDataAvailable(\"%s\");",
                                      GetParam().mime_type.c_str()),
@@ -112,7 +122,14 @@ IN_PROC_BROWSER_TEST_F(MAYBE_WebRtcMediaRecorderTest,
   MakeTypicalCall("testIllegalResumeThrowsDOMError();", kMediaRecorderHtmlFile);
 }
 
-IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest, ResumeAndDataAvailable) {
+// Flaky on TSAN and ASAN. See https://crbug.com/1045381
+#if defined(THREAD_SANITIZER) || defined(ADDRESS_SANITIZER)
+#define MAYBE_ResumeAndDataAvailable DISABLED_ResumeAndDataAvailable
+#else
+#define MAYBE_ResumeAndDataAvailable ResumeAndDataAvailable
+#endif
+IN_PROC_BROWSER_TEST_P(MAYBE_WebRtcMediaRecorderTest,
+                       MAYBE_ResumeAndDataAvailable) {
   MaybeForceDisableEncodeAccelerator(GetParam().disable_accelerator);
   MakeTypicalCall(base::StringPrintf("testResumeAndDataAvailable(\"%s\");",
                                      GetParam().mime_type.c_str()),
@@ -233,8 +250,16 @@ IN_PROC_BROWSER_TEST_F(MAYBE_WebRtcMediaRecorderTest,
                   kMediaRecorderHtmlFile);
 }
 
-INSTANTIATE_TEST_SUITE_P(All,
+INSTANTIATE_TEST_SUITE_P(OpenCodec,
                          MAYBE_WebRtcMediaRecorderTest,
                          testing::ValuesIn(kEncodingParameters));
+
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+
+INSTANTIATE_TEST_SUITE_P(ProprietaryCodec,
+                         MAYBE_WebRtcMediaRecorderTest,
+                         testing::ValuesIn(kProprietaryEncodingParameters));
+
+#endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
 
 }  // namespace content

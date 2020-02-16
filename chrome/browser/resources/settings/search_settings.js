@@ -2,21 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-cr.exportPath('settings');
-
-/**
- * A data structure used by callers to combine the results of multiple search
- * requests.
- *
- * @typedef {{
- *   canceled: Boolean,
- *   didFindMatches: Boolean,
- *   wasClearSearch: Boolean,
- * }}
- */
-settings.SearchResult;
-
 cr.define('settings', function() {
+  /**
+   * A data structure used by callers to combine the results of multiple search
+   * requests.
+   *
+   * @typedef {{
+   *   canceled: Boolean,
+   *   didFindMatches: Boolean,
+   *   wasClearSearch: Boolean,
+   * }}
+   */
+  let SearchResult;
+
   /**
    * A CSS attribute indicating that a node should be ignored during searching.
    * @type {string}
@@ -54,12 +52,12 @@ cr.define('settings', function() {
    *
    * @param {!settings.SearchRequest} request
    * @param {!Node} root The root of the sub-tree to be searched
+   * @return {boolean} Whether or not matches were found.
    * @private
    */
   function findAndHighlightMatches_(request, root) {
     let foundMatches = false;
     const highlights = [];
-    const bubbles = [];
 
     function doSearch(node) {
       // NOTE: For subpage wrappers <template route-path="..."> when |no-search|
@@ -91,28 +89,45 @@ cr.define('settings', function() {
       }
 
       if (node.nodeType == Node.TEXT_NODE) {
-        const textContent = node.nodeValue.trim();
-        if (textContent.length == 0) {
+        const textContent = node.nodeValue;
+        if (textContent.trim().length === 0) {
           return;
         }
 
-        if (request.regExp.test(textContent)) {
-          foundMatches = true;
-          const bubble = revealParentSection_(node, request.rawQuery_);
-          if (bubble) {
-            bubbles.push(bubble);
-          }
+        const strippedText =
+            cr.search_highlight_utils.stripDiacritics(textContent);
+        const ranges = [];
+        for (let match; match = request.regExp.exec(strippedText);) {
+          ranges.push({start: match.index, length: match[0].length});
+        }
 
-          // Don't highlight <select> nodes, yellow rectangles can't be
-          // displayed within an <option>.
-          // TODO(dpapad): highlight <select> controls with a search bubble
-          // instead.
-          if (node.parentNode.nodeName != 'OPTION') {
+        if (ranges.length > 0) {
+          foundMatches = true;
+          revealParentSection_(
+              node, /*numResults=*/ ranges.length, request.bubbles);
+
+          if (node.parentNode.nodeName === 'OPTION') {
+            const select = node.parentNode.parentNode;
+            assert(select.nodeName === 'SELECT');
+
+            // TODO(crbug.com/355446): support showing bubbles inside subpages.
+            // Currently, they're incorrectly positioned and there's no great
+            // signal at which to know when to reposition them (because every
+            // page asynchronously loads/renders things differently).
+            const isSubpage = n => n.nodeName === 'SETTINGS-SUBPAGE';
+            if (findAncestor(select, isSubpage, true)) {
+              return;
+            }
+
+            showBubble_(
+                select, /*numResults=*/ ranges.length, request.bubbles,
+                /*horizontallyCenter=*/ true);
+          } else {
             request.addTextObserver(node);
-            highlights.push(cr.search_highlight_utils.highlight(
-                node, textContent.split(request.regExp)));
+            highlights.push(cr.search_highlight_utils.highlight(node, ranges));
           }
         }
+
         // Returning early since TEXT_NODE nodes never have children.
         return;
       }
@@ -133,20 +148,20 @@ cr.define('settings', function() {
     }
 
     doSearch(root);
-    request.addHighlightsAndBubbles(highlights, bubbles);
+    request.addHighlights(highlights);
     return foundMatches;
   }
 
   /**
    * Finds and makes visible the <settings-section> parent of |node|.
    * @param {!Node} node
-   * @param {string} rawQuery
-   * @return {?Node} The search bubble created while revealing the section, if
-   *     any.
+   * @param {number} numResults
+   * @param {!Map<!Node, number>} bubbles A map of bubbles created so far.
    * @private
    */
-  function revealParentSection_(node, rawQuery) {
+  function revealParentSection_(node, numResults, bubbles) {
     let associatedControl = null;
+
     // Find corresponding SETTINGS-SECTION parent and make it visible.
     let parent = node;
     while (parent.nodeName !== 'SETTINGS-SECTION') {
@@ -155,7 +170,7 @@ cr.define('settings', function() {
           parent.parentNode;
       if (!parent) {
         // |node| wasn't inside a SETTINGS-SECTION.
-        return null;
+        return;
       }
       if (parent.nodeName == 'SETTINGS-SUBPAGE') {
         // TODO(dpapad): Cast to SettingsSubpageElement here.
@@ -170,10 +185,26 @@ cr.define('settings', function() {
     // Need to add the search bubble after the parent SETTINGS-SECTION has
     // become visible, otherwise |offsetWidth| returns zero.
     if (associatedControl) {
-      return cr.search_highlight_utils.highlightControlWithBubble(
-          associatedControl, rawQuery);
+      showBubble_(
+          associatedControl, numResults, bubbles,
+          /* horizontallyCenter= */ false);
     }
-    return null;
+  }
+
+  /**
+   * @param {!Node} control
+   * @param {number} numResults
+   * @param {!Map<!Node, number>} bubbles
+   * @param {boolean} horizontallyCenter
+   */
+  function showBubble_(control, numResults, bubbles, horizontallyCenter) {
+    const bubble = cr.search_highlight_utils.createEmptySearchBubble(
+        control, horizontallyCenter);
+    const numHits = numResults + (bubbles.get(bubble) || 0);
+    bubbles.set(bubble, numHits);
+    const msgName =
+        numHits === 1 ? 'searchResultBubbleText' : 'searchResultsBubbleText';
+    bubble.firstChild.textContent = loadTimeData.getStringF(msgName, numHits);
   }
 
   /** @abstract */
@@ -422,17 +453,13 @@ cr.define('settings', function() {
       /** @private {!Array<!Node>} */
       this.highlights_ = [];
 
-      /** @private {!Array<!Node>} */
-      this.bubbles_ = [];
+      /** @type {!Map<!Node, number>} */
+      this.bubbles = new Map;
     }
 
-    /**
-     * @param {!Array<!Node>} highlights The highlight wrappers to add
-     * @param {!Array<!Node>} bubbles The search bubbles to add.
-     */
-    addHighlightsAndBubbles(highlights, bubbles) {
+    /** @param {!Array<!Node>} highlights The highlight wrappers to add */
+    addHighlights(highlights) {
       this.highlights_.push(...highlights);
-      this.bubbles_.push(...bubbles);
     }
 
     removeAllTextObservers() {
@@ -444,11 +471,9 @@ cr.define('settings', function() {
 
     removeAllHighlightsAndBubbles() {
       cr.search_highlight_utils.removeHighlights(this.highlights_);
-      for (const bubble of this.bubbles_) {
-        bubble.remove();
-      }
+      this.bubbles.forEach((count, bubble) => bubble.remove());
       this.highlights_ = [];
-      this.bubbles_ = [];
+      this.bubbles.clear();
     }
 
     /** @param {!Node} textNode */
@@ -482,14 +507,14 @@ cr.define('settings', function() {
      */
     generateRegExp_() {
       let regExp = null;
-
       // Generate search text by escaping any characters that would be
       // problematic for regular expressions.
-      const searchText = this.rawQuery_.trim().replace(SANITIZE_REGEX, '\\$&');
-      if (searchText.length > 0) {
-        regExp = new RegExp(`(${searchText})`, 'i');
+      const strippedQuery =
+          cr.search_highlight_utils.stripDiacritics(this.rawQuery_.trim());
+      const sanitizedQuery = strippedQuery.replace(SANITIZE_REGEX, '\\$&');
+      if (sanitizedQuery.length > 0) {
+        regExp = new RegExp(`(${sanitizedQuery})`, 'ig');
       }
-
       return regExp;
     }
 
@@ -578,7 +603,7 @@ cr.define('settings', function() {
   let instance = null;
 
   /** @return {!SearchManager} */
-  function getSearchManager() {
+  /* #export */ function getSearchManager() {
     if (instance === null) {
       instance = new SearchManagerImpl();
     }
@@ -593,9 +618,11 @@ cr.define('settings', function() {
     instance = searchManager;
   }
 
+  // #cr_define_end
   return {
-    getSearchManager: getSearchManager,
-    setSearchManagerForTesting: setSearchManagerForTesting,
-    SearchRequest: SearchRequest,
+    getSearchManager,
+    setSearchManagerForTesting,
+    SearchRequest,
+    SearchResult,
   };
 });

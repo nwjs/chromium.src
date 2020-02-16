@@ -302,7 +302,7 @@
           "--browser=android-chromium",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --use-cmd-decoder=validating --force_high_performance_gpu",
           "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json"
         ],
         "isolate_name": "telemetry_gpu_integration_test",
@@ -310,7 +310,7 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "webgl_conformance_tests",
+        "name": "webgl_conformance_validating_tests",
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -352,7 +352,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -380,7 +380,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -408,7 +408,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -436,7 +436,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -477,7 +477,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -519,7 +519,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -549,7 +549,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -577,7 +577,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -590,7 +590,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--webgl-conformance-version=2.0.1",
           "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl2_conformance_tests_output.json"
         ],
@@ -607,7 +607,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -621,7 +621,8 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating"
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json"
         ],
         "isolate_name": "telemetry_gpu_integration_test",
         "merge": {
@@ -636,7 +637,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -669,7 +670,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -697,7 +698,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -725,7 +726,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -753,7 +754,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -794,7 +795,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -836,7 +837,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -866,7 +867,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -894,7 +895,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -907,7 +908,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--webgl-conformance-version=2.0.1",
           "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl2_conformance_tests_output.json"
         ],
@@ -924,7 +925,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -938,7 +939,8 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating"
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json"
         ],
         "isolate_name": "telemetry_gpu_integration_test",
         "merge": {
@@ -953,7 +955,7 @@
             {
               "gpu": "nvidia-quadro-p400-ubuntu-stable",
               "os": "linux-nvidia-stable",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -1216,7 +1218,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--webgl-conformance-version=2.0.1",
           "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl2_conformance_tests_output.json"
         ],
@@ -1246,7 +1248,8 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating"
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json"
         ],
         "isolate_name": "telemetry_gpu_integration_test",
         "merge": {
@@ -1293,14 +1296,14 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       }
     ],
     "isolated_scripts": [
       {
         "args": [
-          "--num-retries=3",
-          "--fuzzy-diff"
+          "--num-retries=3"
         ],
         "isolate_name": "blink_web_tests",
         "merge": {
@@ -1319,7 +1322,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -1342,15 +1346,15 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       }
     ],
     "isolated_scripts": [
       {
         "args": [
           "--num-retries=3",
-          "--debug",
-          "--fuzzy-diff"
+          "--debug"
         ],
         "isolate_name": "blink_web_tests",
         "merge": {
@@ -1369,7 +1373,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -1392,15 +1397,15 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       }
     ],
     "isolated_scripts": [
       {
         "args": [
           "--num-retries=3",
-          "--additional-driver-flag=--js-flags=--future",
-          "--fuzzy-diff"
+          "--additional-driver-flag=--js-flags=--future"
         ],
         "isolate_name": "blink_web_tests",
         "merge": {
@@ -1419,7 +1424,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -1443,7 +1449,8 @@
           ],
           "hard_timeout": 900
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       }
     ],
     "isolated_scripts": [
@@ -1469,7 +1476,8 @@
           ],
           "hard_timeout": 900,
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -1492,7 +1500,8 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       }
     ],
     "isolated_scripts": [
@@ -1517,7 +1526,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -1544,7 +1554,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -1622,7 +1633,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -1650,7 +1661,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -1678,7 +1689,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -1706,7 +1717,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -1747,7 +1758,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -1789,7 +1800,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -1819,7 +1830,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -1847,7 +1858,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false
@@ -1860,7 +1871,7 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating",
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
           "--webgl-conformance-version=2.0.1",
           "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl2_conformance_tests_output.json"
         ],
@@ -1877,7 +1888,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,
@@ -1891,7 +1902,8 @@
           "--browser=release",
           "--passthrough",
           "-v",
-          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu --use-cmd-decoder=validating"
+          "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --force_high_performance_gpu",
+          "--read-abbreviated-json-results-from=../../content/test/data/gpu/webgl_conformance_tests_output.json"
         ],
         "isolate_name": "telemetry_gpu_integration_test",
         "merge": {
@@ -1906,7 +1918,7 @@
             {
               "gpu": "nvidia-quadro-p400-win10-stable",
               "os": "Windows-10",
-              "pool": "Chrome-GPU"
+              "pool": "chromium.tests.gpu"
             }
           ],
           "idempotent": false,

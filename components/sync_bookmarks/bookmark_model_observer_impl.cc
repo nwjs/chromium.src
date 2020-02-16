@@ -66,8 +66,8 @@ void BookmarkModelObserverImpl::BookmarkNodeMoved(
   const sync_pb::UniquePosition unique_position =
       ComputePosition(*new_parent, new_index, sync_id).ToProto();
 
-  sync_pb::EntitySpecifics specifics =
-      CreateSpecificsFromBookmarkNode(node, model, /*force_favicon_load=*/true);
+  sync_pb::EntitySpecifics specifics = CreateSpecificsFromBookmarkNode(
+      node, model, /*force_favicon_load=*/true, entity->has_final_guid());
 
   bookmark_tracker_->Update(sync_id, entity->metadata()->server_version(),
                             modification_time, unique_position, specifics);
@@ -96,18 +96,18 @@ void BookmarkModelObserverImpl::BookmarkNodeAdded(
   // Assign a temp server id for the entity. Will be overriden by the actual
   // server id upon receiving commit response.
   DCHECK(base::IsValidGUID(node->guid()));
-  const std::string sync_id =
-      base::FeatureList::IsEnabled(switches::kMergeBookmarksUsingGUIDs)
-          ? node->guid()
-          : base::GenerateGUID();
+
+  // Local bookmark creations should have used a random GUID so it's safe to
+  // use it as originator client item ID, without the risk for collision.
+  const std::string sync_id = node->guid();
   const int64_t server_version = syncer::kUncommittedVersion;
   const base::Time creation_time = base::Time::Now();
   const sync_pb::UniquePosition unique_position =
       ComputePosition(*parent, index, sync_id).ToProto();
 
   sync_pb::EntitySpecifics specifics =
-      CreateSpecificsFromBookmarkNode(node, model, /*force_favicon_load=*/true);
-
+      CreateSpecificsFromBookmarkNode(node, model, /*force_favicon_load=*/true,
+                                      /*include_guid=*/true);
   bookmark_tracker_->Add(sync_id, node, server_version, creation_time,
                          unique_position, specifics);
   // Mark the entity that it needs to be committed.
@@ -184,9 +184,11 @@ void BookmarkModelObserverImpl::BookmarkNodeChanged(
     //    start tracking the node.
     return;
   }
+
   const base::Time modification_time = base::Time::Now();
-  sync_pb::EntitySpecifics specifics =
-      CreateSpecificsFromBookmarkNode(node, model, /*force_favicon_load=*/true);
+  sync_pb::EntitySpecifics specifics = CreateSpecificsFromBookmarkNode(
+      node, model, /*force_favicon_load=*/true, entity->has_final_guid());
+
   // TODO(crbug.com/516866): The below CHECKs are added to debug some crashes.
   // Should be removed after figuring out the reason for the crash.
   CHECK_EQ(entity, bookmark_tracker_->GetEntityForBookmarkNode(node));
@@ -266,7 +268,8 @@ void BookmarkModelObserverImpl::BookmarkNodeChildrenReordered(
                    : syncer::UniquePosition::After(position, suffix);
 
     const sync_pb::EntitySpecifics specifics = CreateSpecificsFromBookmarkNode(
-        node, model, /*force_favicon_load=*/true);
+        child.get(), model, /*force_favicon_load=*/true,
+        entity->has_final_guid());
 
     bookmark_tracker_->Update(sync_id, entity->metadata()->server_version(),
                               modification_time, position.ToProto(), specifics);

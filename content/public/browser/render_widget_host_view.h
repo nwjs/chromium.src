@@ -11,7 +11,7 @@
 #include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -19,6 +19,7 @@
 #include "ui/gfx/range/range.h"
 
 namespace gfx {
+class Insets;
 class Point;
 class Rect;
 class Size;
@@ -227,15 +228,6 @@ class CONTENT_EXPORT RenderWidgetHostView {
   virtual std::unique_ptr<viz::ClientFrameSinkVideoCapturer>
   CreateVideoCapturer() = 0;
 
-  // Informs the view that its associated render widget has frames to draw and
-  // wants to have BeginFrame messages sent to it.  This should only be called
-  // when the value has changed.  Views must initially default to false.
-  virtual void SetNeedsBeginFrames(bool needs_begin_frames) = 0;
-
-  // Informs the view that its associated render widget also wants to receive
-  // animate_only BeginFrames.
-  virtual void SetWantsAnimateOnlyBeginFrames() = 0;
-
   // This method returns the ScreenInfo used by the view to render. If the
   // information is not knowable (e.g, because the view is not attached to a
   // screen yet), then a default best-guess will be used.
@@ -260,10 +252,27 @@ class CONTENT_EXPORT RenderWidgetHostView {
   virtual void TakeFallbackContentFrom(RenderWidgetHostView* view) = 0;
 
   // Set the last time a tab change starts to be processed for this
-  // RenderWidgetHostView. Will overwrite any previously stored value.
-  virtual void SetRecordTabSwitchTimeRequest(base::TimeTicks start_time,
-                                             bool destination_is_loaded,
-                                             bool destination_is_frozen) = 0;
+  // RenderWidgetHostView. Will merge with the previous value if exists (which
+  // means that several events may happen at the same time and must be
+  // induvidually reported).  |start_time| marks event start time to calculate
+  // the duration later.
+  //
+  // |destination_is_loaded| is true when
+  //   ResourceCoordinatorTabHelper::IsLoaded() is true for the new tab
+  //   contents.
+  // |destination_is_frozen| is true when
+  //   ResourceCoordinatorTabHelper::IsFrozen() is true for the new tab
+  //   contents.
+  // |show_reason_tab_switching| is true when tab switch event should be
+  //   reported.
+  // |show_reason_unoccluded| is true when "unoccluded" event should be
+  //   reported.
+  virtual void SetRecordContentToVisibleTimeRequest(
+      base::TimeTicks start_time,
+      base::Optional<bool> destination_is_loaded,
+      base::Optional<bool> destination_is_frozen,
+      bool show_reason_tab_switching,
+      bool show_reason_unoccluded) = 0;
 };
 
 }  // namespace content

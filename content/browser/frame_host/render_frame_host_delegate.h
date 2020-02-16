@@ -10,12 +10,15 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_forward.h"
 #include "base/i18n/rtl.h"
 #include "base/optional.h"
 #include "build/build_config.h"
 #include "components/viz/common/surfaces/surface_id.h"
+#include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/browser/webui/web_ui_impl.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/javascript_dialog_manager.h"
 #include "content/public/browser/media_player_watch_time.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/site_instance.h"
@@ -31,9 +34,9 @@
 #include "services/device/public/mojom/geolocation_context.mojom.h"
 #include "services/device/public/mojom/wake_lock.mojom.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
-#include "third_party/blink/public/common/frame/blocked_navigation_types.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
+#include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/base/window_open_disposition.h"
@@ -69,12 +72,15 @@ class FullscreenOptions;
 }
 }  // namespace blink
 
+namespace ui {
+class ClipboardFormatType;
+}
+
 namespace content {
 class FileSelectListener;
 class FrameTreeNode;
 class InterstitialPage;
 class PageState;
-class RenderFrameHost;
 class RenderFrameHostImpl;
 class SessionStorageNamespace;
 class WebContents;
@@ -91,6 +97,16 @@ class CreateNewWindowParams;
 // of the RenderFrameHost.
 class CONTENT_EXPORT RenderFrameHostDelegate {
  public:
+  // Callback used with HandleClipboardPaste() method.  If the clipboard paste
+  // is allowed to proceed, the callback is called with true.  Otherwise the
+  // callback is called with false.
+  using ClipboardPasteAllowed = RenderFrameHostImpl::ClipboardPasteAllowed;
+  using IsClipboardPasteAllowedCallback =
+      RenderFrameHostImpl::IsClipboardPasteAllowedCallback;
+
+  using JavaScriptDialogCallback =
+      content::JavaScriptDialogManager::DialogClosedCallback;
+
   // This is used to give the delegate a chance to filter IPC messages.
   virtual bool OnMessageReceived(RenderFrameHostImpl* render_frame_host,
                                  const IPC::Message& message);
@@ -114,9 +130,10 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // |blocked_url| is the blocked navigation target, |initiator_url| is the URL
   // of the frame initiating the navigation, |reason| specifies why the
   // navigation was blocked.
-  virtual void OnDidBlockNavigation(const GURL& blocked_url,
-                                    const GURL& initiator_url,
-                                    blink::NavigationBlockedReason reason) {}
+  virtual void OnDidBlockNavigation(
+      const GURL& blocked_url,
+      const GURL& initiator_url,
+      blink::mojom::NavigationBlockedReason reason) {}
 
   // Gets the last committed URL. See WebContents::GetLastCommittedURL for a
   // description of the semantics.
@@ -149,11 +166,11 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
                                    const base::string16& message,
                                    const base::string16& default_prompt,
                                    JavaScriptDialogType type,
-                                   IPC::Message* reply_msg) {}
+                                   JavaScriptDialogCallback callback) {}
 
   virtual void RunBeforeUnloadConfirm(RenderFrameHost* render_frame_host,
                                       bool is_reload,
-                                      IPC::Message* reply_msg) {}
+                                      JavaScriptDialogCallback callback) {}
 
   // Called when a file selection is to be done.
   // Overrides of this function must call either listener->FileSelected() or
@@ -388,6 +405,9 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // Notifies that mixed content was displayed or ran.
   virtual void DidDisplayInsecureContent() {}
   virtual void DidContainInsecureFormAction() {}
+  // The main frame document element is ready. This happens when the document
+  // has finished parsing.
+  virtual void DocumentAvailableInMainFrame() {}
   virtual void DidRunInsecureContent(const GURL& security_origin,
                                      const GURL& target_url) {}
 
@@ -487,8 +507,39 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
                                          const GURL& url,
                                          bool user_gesture) {}
 
+  // Go to the session history entry at the given offset (ie, -1 will return the
+  // "back" item).
+  virtual void OnGoToEntryAtOffset(RenderFrameHostImpl* source,
+                                   int32_t offset,
+                                   bool has_user_gesture) {}
+
   virtual media::MediaMetricsProvider::RecordAggregateWatchTimeCallback
   GetRecordAggregateWatchTimeCallback();
+
+  // Determines if a clipboard paste using |data| of type |data_type| is allowed
+  // in this renderer frame.  Possible data types supported for paste can be
+  // seen in the ClipboardHostImpl class.  Text based formats will use the
+  // data_type ui::ClipboardFormatType::GetPlainTextType() unless it is known
+  // to be of a more specific type, like RTF or HTML, in which case a type
+  // such as ui::ClipboardFormatType::GetRtfType() or
+  // ui::ClipboardFormatType::GetHtmlType() is used.
+  //
+  // It is also possible for the data type to be
+  // ui::ClipboardFormatType::GetWebCustomDataType() indicating that the paste
+  // uses a custom data format.  It is up to the implementation to attempt to
+  // understand the type if possible.  It is acceptable to deny pastes of
+  // unknown data types.
+  //
+  // The implementation is expected to show UX to the user if needed.  If
+  // shown, the UX should be associated with the specific render frame host.
+  //
+  // The callback is called, possibly asynchronously, with a status indicating
+  // whether the operation is allowed or not.
+  virtual void IsClipboardPasteAllowed(
+      const GURL& url,
+      const ui::ClipboardFormatType& data_type,
+      const std::string& data,
+      IsClipboardPasteAllowedCallback callback);
 
  protected:
   virtual ~RenderFrameHostDelegate() {}

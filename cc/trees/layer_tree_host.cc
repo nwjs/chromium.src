@@ -628,17 +628,6 @@ void LayerTreeHost::SetNeedsCommitWithForcedRedraw() {
   proxy_->SetNeedsCommit();
 }
 
-void LayerTreeHost::SetAnimationEvents(std::unique_ptr<MutatorEvents> events) {
-  DCHECK(task_runner_provider_->IsMainThread());
-  mutator_host_->SetAnimationEvents(std::move(events));
-
-  // Events are added to a queue to be dispatched but we need a main frame
-  // in order to dispatch the events. Also, finished animations require
-  // a commit in order to clean up their KeyframeModels but without a main
-  // frame we could indefinitely delay cleaning up the animation.
-  SetNeedsAnimate();
-}
-
 void LayerTreeHost::SetDebugState(const LayerTreeDebugState& debug_state) {
   LayerTreeDebugState new_debug_state =
       LayerTreeDebugState::Unite(settings_.initial_debug_state, debug_state);
@@ -906,7 +895,7 @@ void LayerTreeHost::ApplyScrollAndScale(ScrollAndScaleSet* info) {
   TRACE_EVENT0("cc", "LayerTreeHost::ApplyScrollAndScale");
   for (auto& swap_promise : info->swap_promises) {
     TRACE_EVENT_WITH_FLOW1("input,benchmark", "LatencyInfo.Flow",
-                           TRACE_ID_DONT_MANGLE(swap_promise->TraceId()),
+                           TRACE_ID_GLOBAL(swap_promise->TraceId()),
                            TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
                            "step", "Main thread scroll update");
     swap_promise_manager_.QueueSwapPromise(std::move(swap_promise));
@@ -946,6 +935,12 @@ void LayerTreeHost::ApplyScrollAndScale(ScrollAndScaleSet* info) {
   ApplyViewportChanges(*info);
 
   RecordManipulationTypeCounts(*info);
+}
+
+void LayerTreeHost::ApplyMutatorEvents(std::unique_ptr<MutatorEvents> events) {
+  DCHECK(task_runner_provider_->IsMainThread());
+  if (!events->IsEmpty())
+    mutator_host_->SetAnimationEvents(std::move(events));
 }
 
 void LayerTreeHost::RecordStartOfFrameMetrics() {
@@ -1296,10 +1291,6 @@ void LayerTreeHost::SetExternalPageScaleFactor(
   external_page_scale_factor_ = page_scale_factor;
   is_external_pinch_gesture_active_ = is_external_pinch_gesture_active;
   SetNeedsCommit();
-}
-
-void LayerTreeHost::ClearCachesOnNextCommit() {
-  clear_caches_on_next_commit_ = true;
 }
 
 void LayerTreeHost::SetLocalSurfaceIdAllocationFromParent(
@@ -1802,6 +1793,9 @@ void LayerTreeHost::RequestBeginMainFrameNotExpected(bool new_state) {
 }
 
 void LayerTreeHost::SetSourceURL(ukm::SourceId source_id, const GURL& url) {
+  // Clears image caches and resets the scheduling history for the content
+  // produced by this host so far.
+  clear_caches_on_next_commit_ = true;
   proxy_->SetSourceURL(source_id, url);
 }
 

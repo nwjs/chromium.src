@@ -74,11 +74,11 @@ void MultiDeviceSetupClientImpl::GetEligibleHostDevices(
 }
 
 void MultiDeviceSetupClientImpl::SetHostDevice(
-    const std::string& host_device_id,
+    const std::string& host_instance_id_or_legacy_device_id,
     const std::string& auth_token,
     mojom::MultiDeviceSetup::SetHostDeviceCallback callback) {
-  multidevice_setup_remote_->SetHostDevice(host_device_id, auth_token,
-                                           std::move(callback));
+  multidevice_setup_remote_->SetHostDevice(host_instance_id_or_legacy_device_id,
+                                           auth_token, std::move(callback));
 }
 
 void MultiDeviceSetupClientImpl::RemoveHostDevice() {
@@ -122,8 +122,8 @@ void MultiDeviceSetupClientImpl::OnHostStatusChanged(
   if (host_device) {
     remote_device_cache_->SetRemoteDevices({*host_device});
     host_status_with_device_ = std::make_pair(
-        host_status,
-        remote_device_cache_->GetRemoteDevice(host_device->GetDeviceId()));
+        host_status, remote_device_cache_->GetRemoteDevice(
+                         host_device->instance_id, host_device->GetDeviceId()));
   } else {
     host_status_with_device_ =
         std::make_pair(host_status, base::nullopt /* host_device */);
@@ -144,12 +144,12 @@ void MultiDeviceSetupClientImpl::OnGetEligibleHostDevicesCompleted(
   remote_device_cache_->SetRemoteDevices(eligible_host_devices);
 
   multidevice::RemoteDeviceRefList eligible_host_device_refs;
-  std::transform(
-      eligible_host_devices.begin(), eligible_host_devices.end(),
-      std::back_inserter(eligible_host_device_refs),
-      [this](const auto& device) {
-        return *remote_device_cache_->GetRemoteDevice(device.GetDeviceId());
-      });
+  std::transform(eligible_host_devices.begin(), eligible_host_devices.end(),
+                 std::back_inserter(eligible_host_device_refs),
+                 [this](const auto& device) {
+                   return *remote_device_cache_->GetRemoteDevice(
+                       device.instance_id, device.GetDeviceId());
+                 });
 
   std::move(callback).Run(eligible_host_device_refs);
 }

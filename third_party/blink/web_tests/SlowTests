@@ -1,3 +1,8 @@
+# tags: [ Android Fuchsia IOS IOS12.2 IOS13.0 Linux Mac Mac10.10 Mac10.11 Mac10.12 Retina
+#         Mac10.13 Win Win7 Win10 ]
+# tags: [ Release Debug ]
+# results: [ Timeout Crash Pass Failure Slow Skip ]
+
 # This file should only mark tests as Slow. If they are failing in some other way, that listing should be in TestExpectations.
 # Lines listed in both files will have the *union* of the expectations.
 #
@@ -64,32 +69,32 @@ crbug.com/24182 svg/hixie/perf/003.xml [ Slow ]
 crbug.com/24182 svg/hixie/perf/004.xml [ Slow ]
 crbug.com/24182 svg/hixie/perf/005.xml [ Slow ]
 crbug.com/24182 svg/hixie/perf/006.xml [ Slow ]
-crbug.com/451577 [ Debug ] fast/dom/gc-treescope.html  [ Slow ]
+crbug.com/451577 [ Debug ] fast/dom/gc-treescope.html [ Slow ]
 crbug.com/451577 [ Debug ] fast/frames/calculate-round.html [ Slow ]
 
 crbug.com/237245 [ Debug Win7 ] editing/selection/programmatic-selection-on-mac-is-directionless.html [ Slow ]
 
 # Most DevTools tests are slow in Debug.
-webkit.org/b/90488 [ Debug ] http/tests/devtools/ [ Slow ]
-webkit.org/b/90488 [ Debug ] inspector-protocol/ [ Slow ]
+webkit.org/b/90488 [ Debug ] http/tests/devtools/* [ Slow ]
+webkit.org/b/90488 [ Debug ] inspector-protocol/* [ Slow ]
 
 # DevTools console, debugger and profiler tests are slow in Release as well.
-crbug.com/451577 http/tests/devtools/console [ Slow ]
-crbug.com/450493 http/tests/devtools/sources/ [ Slow ]
-crbug.com/450493 http/tests/devtools/startup/sources/ [ Slow ]
-crbug.com/450493 http/tests/devtools/csp/ [ Slow ]
-crbug.com/450493 http/tests/devtools/profiler/ [ Slow ]
-crbug.com/420008 http/tests/devtools/tracing/ [ Slow ]
-crbug.com/420008 virtual/threaded/http/tests/devtools/tracing/ [ Slow ]
-crbug.com/902685 http/tests/devtools/isolated-code-cache/ [ Slow ]
-crbug.com/902685 virtual/site-isolated-code-cache/http/tests/devtools/isolated-code-cache/ [ Slow ]
-crbug.com/902685 virtual/not-split-http-cache-not-site-per-process/http/tests/devtools/isolated-code-cache/ [ Slow ]
+crbug.com/451577 http/tests/devtools/console/* [ Slow ]
+crbug.com/450493 http/tests/devtools/sources/* [ Slow ]
+crbug.com/450493 http/tests/devtools/startup/sources/* [ Slow ]
+crbug.com/450493 http/tests/devtools/csp/* [ Slow ]
+crbug.com/450493 http/tests/devtools/profiler/* [ Slow ]
+crbug.com/420008 http/tests/devtools/tracing/* [ Slow ]
+crbug.com/420008 virtual/threaded/http/tests/devtools/tracing/* [ Slow ]
+crbug.com/902685 http/tests/devtools/isolated-code-cache/* [ Slow ]
+crbug.com/902685 virtual/site-isolated-code-cache/http/tests/devtools/isolated-code-cache/* [ Slow ]
+crbug.com/902685 virtual/not-split-http-cache-not-site-per-process/http/tests/devtools/isolated-code-cache/* [ Slow ]
 crbug.com/902685 http/tests/devtools/wasm-isolated-code-cache/wasm-cache-test.js [ Slow ]
 crbug.com/902685 virtual/wasm-site-isolated-code-cache/http/tests/devtools/wasm-isolated-code-cache/wasm-cache-test.js [ Slow ]
-crbug.com/902685 virtual/split-http-cache-not-site-per-process/http/tests/devtools/isolated-code-cache/ [ Slow ]
+crbug.com/902685 virtual/split-http-cache-not-site-per-process/http/tests/devtools/isolated-code-cache/* [ Slow ]
 
 # Misc DevTools tests that are slow
-crbug.com/246190 [ Release ] http/tests/devtools/indexeddb/ [ Slow ]
+crbug.com/246190 [ Release ] http/tests/devtools/indexeddb/* [ Slow ]
 crbug.com/451577 [ Mac ] http/tests/devtools/extensions/extensions-sidebar.js [ Slow ]
 crbug.com/941860 http/tests/devtools/extensions/extensions-events.js [ Slow ]
 crbug.com/667560 http/tests/devtools/startup/console/console-format-startup.js [ Slow ]
@@ -111,8 +116,7 @@ crbug.com/451577 [ Mac ] http/tests/devtools/layers/layer-canvas-log.js [ Slow ]
 crbug.com/451577 [ Mac ] http/tests/devtools/network/network-domain-filter.js [ Slow ]
 
 crbug.com/510337 cssom/cssvalue-comparison.html [ Slow ]
-
-crbug.com/680917 http/tests/devtools/audits/ [ Slow ]
+crbug.com/1034030 [ Mac ] http/tests/devtools/resource-har-conversion.js [ Slow ]
 
 # These tests are intentionally SLOW because of throttled loading.
 crbug.com/73609 http/tests/media/video-play-stall.html [ Slow ]
@@ -125,7 +129,7 @@ crbug.com/869829 virtual/audio-service/http/tests/media/video-cancel-load.html [
 crbug.com/870259 virtual/audio-service/http/tests/media/video-throttled-load-metadata.html [ Slow ]
 
 # Many of the virtual animations tests are slow.
-crbug.com/243871 virtual/threaded-prefer-compositing/fast/scroll-behavior/ [ Slow ]
+crbug.com/243871 virtual/threaded-prefer-compositing/fast/scroll-behavior/* [ Slow ]
 
 # These html5lib tests are generated tests that test a huge amount of permutations so they need a bit more time.
 crbug.com/453312 html5lib/generated/run-doctype01-data.html [ Slow ]
@@ -178,11 +182,11 @@ crbug.com/372424 fast/dom/DOMImplementation/createDocument-with-used-doctype.htm
 
 crbug.com/372424 http/tests/serviceworker/registration-stress.html [ Slow ]
 crbug.com/448670 http/tests/serviceworker/register-different-script-many-times.html [ Slow ]
-crbug.com/516319 [ Win ] http/tests/fetch/ [ Slow ]
-crbug.com/516319 [ Win ] virtual/streaming-preload/http/tests/fetch/ [ Slow ]
+crbug.com/516319 [ Win ] http/tests/fetch/* [ Slow ]
+crbug.com/516319 [ Win ] virtual/streaming-preload/http/tests/fetch/* [ Slow ]
 
 # Most crypto/subtle tests are slow some or most of the time.
-crbug.com/459009 crypto/subtle/ [ Slow ]
+crbug.com/459009 crypto/subtle/* [ Slow ]
 
 
 crbug.com/528419 http/tests/devtools/elements/styles-2/pseudo-elements.js [ Slow ]
@@ -194,6 +198,7 @@ crbug.com/614910 virtual/gpu-rasterization/images/yuv-decode-eligible/color-prof
 crbug.com/623798 paint/images/animated-gif-last-frame-crash.html [ Slow ]
 
 crbug.com/606649 fast/dom/gc-dom-tree-lifetime.html [ Slow ]
+crbug.com/606649 virtual/web-components-v0-disabled/fast/dom/gc-dom-tree-lifetime.html [ Slow ]
 
 # Slow on Win Debug in part due to incremental linking.
 crbug.com/647192 [ Win Debug ] fast/css3-text/css3-word-break/word-break-all-ascii.html [ Slow ]
@@ -366,7 +371,6 @@ crbug.com/874695 fast/forms/color/color-suggestion-picker-one-row-appearance.htm
 crbug.com/874695 fast/forms/color/color-suggestion-picker-two-row-appearance.html [ Slow ]
 crbug.com/874695 fast/forms/number/number-spinbutton-gets-disabled-or-readonly.html [ Slow ]
 crbug.com/874695 fast/forms/select/input-select-after-resize.html [ Slow ]
-crbug.com/874695 fast/forms/suggestion-picker/date-suggestion-picker-key-operations.html [ Slow ]
 crbug.com/874695 fast/history/history-back-twice-with-subframes-assert.html [ Slow ]
 crbug.com/874695 fast/media/mq-color-gamut-picture.html [ Slow ]
 crbug.com/874695 fast/peerconnection/RTCPeerConnection-many.html [ Slow ]
@@ -389,8 +393,6 @@ crbug.com/874695 http/tests/cookies/same-site/framed.https.html [ Slow ]
 crbug.com/874695 http/tests/credentialmanager/credentialscontainer-create-with-virtual-authenticator.html [ Slow ]
 crbug.com/874695 http/tests/credentialmanager/credentialscontainer-get-origins.html [ Slow ]
 crbug.com/874695 http/tests/credentialmanager/register-then-sign.html [ Slow ]
-crbug.com/874695 http/tests/devtools/audits/audits-limited-run.js [ Slow ]
-crbug.com/874695 http/tests/devtools/audits/audits-successful-run.js [ Slow ]
 crbug.com/874695 http/tests/devtools/console/console-correct-suggestions.js [ Slow ]
 crbug.com/874695 http/tests/devtools/editor/text-editor-formatter.js [ Slow ]
 crbug.com/874695 http/tests/devtools/inspect-iframe-from-different-domain.js [ Slow ]
@@ -409,18 +411,18 @@ crbug.com/874695 http/tests/fetch/serviceworker/body-mixin-base-https-other-http
 crbug.com/874695 http/tests/fetch/serviceworker/body-mixin.html [ Slow ]
 crbug.com/874695 http/tests/fetch/serviceworker/stream-reader-base-https-other-https.html [ Slow ]
 crbug.com/874695 http/tests/fetch/serviceworker/stream-reader.html [ Slow ]
-crbug.com/874695 http/tests/fetch/serviceworker/thorough/ [ Slow ]
-crbug.com/874695 http/tests/fetch/serviceworker-proxied/thorough/ [ Slow ]
+crbug.com/874695 http/tests/fetch/serviceworker/thorough/* [ Slow ]
+crbug.com/874695 http/tests/fetch/serviceworker-proxied/thorough/* [ Slow ]
 crbug.com/874695 http/tests/fetch/window/body-mixin-base-https-other-https.html [ Slow ]
 crbug.com/874695 http/tests/fetch/window/body-mixin.html [ Slow ]
 crbug.com/874695 http/tests/fetch/window/stream-reader-base-https-other-https.html [ Slow ]
 crbug.com/874695 http/tests/fetch/window/stream-reader.html [ Slow ]
-crbug.com/874695 http/tests/fetch/window/thorough/ [ Slow ]
+crbug.com/874695 http/tests/fetch/window/thorough/* [ Slow ]
 crbug.com/874695 http/tests/fetch/workers/body-mixin-base-https-other-https.html [ Slow ]
 crbug.com/874695 http/tests/fetch/workers/body-mixin.html [ Slow ]
 crbug.com/874695 http/tests/fetch/workers/stream-reader-base-https-other-https.html [ Slow ]
 crbug.com/874695 http/tests/fetch/workers/stream-reader.html [ Slow ]
-crbug.com/874695 http/tests/fetch/workers/thorough/ [ Slow ]
+crbug.com/874695 http/tests/fetch/workers/thorough/* [ Slow ]
 crbug.com/874695 http/tests/images/png-progressive-load.html [ Slow ]
 crbug.com/874695 http/tests/images/webp-progressive-load.html [ Slow ]
 crbug.com/874695 http/tests/inspector-protocol/request-mixed-content-status-blockable.js [ Slow ]
@@ -577,18 +579,18 @@ crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker/body-m
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker/body-mixin.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker/stream-reader-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker/stream-reader.html [ Slow ]
-crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker/thorough/ [ Slow ]
-crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker-proxied/thorough/ [ Slow ]
+crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker/thorough/* [ Slow ]
+crbug.com/874695 virtual/streaming-preload/http/tests/fetch/serviceworker-proxied/thorough/* [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/window/body-mixin-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/window/body-mixin.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/window/stream-reader-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/window/stream-reader.html [ Slow ]
-crbug.com/874695 virtual/streaming-preload/http/tests/fetch/window/thorough/ [ Slow ]
+crbug.com/874695 virtual/streaming-preload/http/tests/fetch/window/thorough/* [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/body-mixin-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/body-mixin.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/stream-reader-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/stream-reader.html [ Slow ]
-crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/thorough/ [ Slow ]
+crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/thorough/* [ Slow ]
 crbug.com/874695 http/tests/devtools/sxg/sxg-cert-not-found.js [ Slow ]
 crbug.com/874695 http/tests/devtools/sxg/sxg-disable-cache.js [ Slow ]
 crbug.com/874695 virtual/sxg-with-network-service/http/tests/devtools/sxg/sxg-disable-cache.js [ Slow ]
@@ -665,7 +667,15 @@ crbug.com/984003 http/tests/virtual-scroller/find-element-66-10px.html [ Slow ]
 # Slow when using Vulkan.
 crbug.com/994331 compositing/lots-of-img-layers.html [ Slow ]
 
-crbug.com/1028478 [ Mac ] http/tests/devtools/a11y-axe-core/changes/changes-a11y-test.js [ Slow ]
-crbug.com/1020379 http/tests/devtools/a11y-axe-core/performance/landing-page-a11y-test.js [ Slow ]
 crbug.com/1028479 [ Mac ] http/tests/devtools/bindings/jssourcemap-navigator-overlapping-sources.js [ Slow ]
 crbug.com/1027439 http/tests/devtools/storage-panel-dom-storage-update.js [ Slow ]
+
+# Mark all axe audit tests slow.
+crbug.com/1020379 http/tests/devtools/a11y-axe-core/* [ Slow ]
+
+crbug.com/1040054 http/tests/devtools/cache-storage/cache-data.js [ Slow ]
+crbug.com/1040450 http/tests/devtools/persistence/persistence-external-change-breakpoints.js [ Slow ]
+
+# Reaching the stack size limit makes for a consistently slow test with
+# occasional timeouts on Win7
+crbug.com/937546 [ Win7 ] http/tests/security/xss-DENIED-cross-origin-stack-overflow.html [ Slow ]

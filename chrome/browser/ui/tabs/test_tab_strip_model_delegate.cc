@@ -15,10 +15,11 @@ TestTabStripModelDelegate::TestTabStripModelDelegate() {
 TestTabStripModelDelegate::~TestTabStripModelDelegate() {
 }
 
-void TestTabStripModelDelegate::AddTabAt(const GURL& url,
-                                         int index,
-                                         bool foreground,
-                                         base::Optional<TabGroupId> group) {}
+void TestTabStripModelDelegate::AddTabAt(
+    const GURL& url,
+    int index,
+    bool foreground,
+    base::Optional<tab_groups::TabGroupId> group) {}
 
 Browser* TestTabStripModelDelegate::CreateNewStripWithContents(
     std::vector<NewStripContents> contentses,
@@ -45,6 +46,13 @@ bool TestTabStripModelDelegate::CanDuplicateContentsAt(int index) {
 
 void TestTabStripModelDelegate::DuplicateContentsAt(int index) {
 }
+
+bool TestTabStripModelDelegate::CanMoveTabsToWindow(
+    const std::vector<int>& indices) {
+  return false;
+}
+void TestTabStripModelDelegate::MoveTabsToNewWindow(
+    const std::vector<int>& indices) {}
 
 void TestTabStripModelDelegate::CreateHistoricalTab(
     content::WebContents* contents) {

@@ -4,7 +4,9 @@
 
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/v8_scroll_timeline_options.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
@@ -46,11 +48,13 @@ bool StringToScrollDirection(String scroll_direction,
   return false;
 }
 
-bool StringToScrollOffset(String scroll_offset, CSSPrimitiveValue** result) {
+bool StringToScrollOffset(String scroll_offset,
+                          const CSSParserContext& context,
+                          CSSPrimitiveValue** result) {
   CSSTokenizer tokenizer(scroll_offset);
   const auto tokens = tokenizer.TokenizeToEOF();
   CSSParserTokenRange range(tokens);
-  CSSValue* value = css_parsing_utils::ConsumeScrollOffset(range);
+  CSSValue* value = css_parsing_utils::ConsumeScrollOffset(range, context);
   if (!value)
     return false;
 
@@ -79,6 +83,10 @@ ScrollTimeline* ScrollTimeline::Create(Document& document,
                                ? options->scrollSource()
                                : document.scrollingElement();
 
+  // TODO(xiaochengh): Try reusing an existing context in document.
+  const CSSParserContext* context =
+      MakeGarbageCollected<CSSParserContext>(document);
+
   ScrollDirection orientation;
   if (!StringToScrollDirection(options->orientation(), orientation)) {
     exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
@@ -87,14 +95,15 @@ ScrollTimeline* ScrollTimeline::Create(Document& document,
   }
 
   CSSPrimitiveValue* start_scroll_offset = nullptr;
-  if (!StringToScrollOffset(options->startScrollOffset(),
+  if (!StringToScrollOffset(options->startScrollOffset(), *context,
                             &start_scroll_offset)) {
     exception_state.ThrowTypeError("Invalid startScrollOffset");
     return nullptr;
   }
 
   CSSPrimitiveValue* end_scroll_offset = nullptr;
-  if (!StringToScrollOffset(options->endScrollOffset(), &end_scroll_offset)) {
+  if (!StringToScrollOffset(options->endScrollOffset(), *context,
+                            &end_scroll_offset)) {
     exception_state.ThrowTypeError("Invalid endScrollOffset");
     return nullptr;
   }
@@ -120,7 +129,7 @@ ScrollTimeline::ScrollTimeline(Document* document,
                                CSSPrimitiveValue* end_scroll_offset,
                                double time_range,
                                Timing::FillMode fill)
-    : document_(document),
+    : AnimationTimeline(document),
       scroll_source_(scroll_source),
       resolved_scroll_source_(ResolveScrollSource(scroll_source_)),
       orientation_(orientation),
@@ -142,14 +151,20 @@ ScrollTimeline::InitialStartTimeForAnimations() {
   return base::TimeDelta();
 }
 
-double ScrollTimeline::currentTime(bool& is_null) {
-  is_null = true;
+void ScrollTimeline::ScheduleNextService() {
+  DCHECK_EQ(outdated_animation_count_, 0U);
+  if (AnimationsNeedingUpdateCount() == 0)
+    return;
+  if (CurrentTimeInternal() != last_current_time_internal_)
+    ScheduleServiceOnNextFrame();
+}
 
+base::Optional<base::TimeDelta> ScrollTimeline::CurrentTimeInternal() {
   // 1. If scroll timeline is inactive, return an unresolved time value.
   // https://github.com/WICG/scroll-animations/issues/31
   // https://wicg.github.io/scroll-animations/#current-time-algorithm
   if (!IsActive()) {
-    return std::numeric_limits<double>::quiet_NaN();
+    return base::nullopt;
   }
   LayoutBox* layout_box = resolved_scroll_source_->GetLayoutBox();
   // 2. Otherwise, let current scroll offset be the current scroll offset of
@@ -168,11 +183,10 @@ double ScrollTimeline::currentTime(bool& is_null) {
   if (current_offset < resolved_start_scroll_offset) {
     // Return an unresolved time value if fill is none or forwards.
     if (fill_ == Timing::FillMode::NONE || fill_ == Timing::FillMode::FORWARDS)
-      return std::numeric_limits<double>::quiet_NaN();
+      return base::nullopt;
 
     // Otherwise, return 0.
-    is_null = false;
-    return 0;
+    return base::TimeDelta();
   }
 
   // 4. If current scroll offset is greater than or equal to endScrollOffset:
@@ -183,27 +197,26 @@ double ScrollTimeline::currentTime(bool& is_null) {
     if (resolved_end_scroll_offset < max_offset &&
         (fill_ == Timing::FillMode::NONE ||
          fill_ == Timing::FillMode::BACKWARDS)) {
-      return std::numeric_limits<double>::quiet_NaN();
+      return base::nullopt;
     }
 
     // Otherwise, return the effective time range.
-    is_null = false;
-    return time_range_;
+    return base::TimeDelta::FromMillisecondsD(time_range_);
   }
 
   // This is not by the spec, but avoids a negative current time.
   // See https://github.com/WICG/scroll-animations/issues/20
   if (resolved_start_scroll_offset >= resolved_end_scroll_offset) {
-    return std::numeric_limits<double>::quiet_NaN();
+    return base::nullopt;
   }
 
   // 5. Return the result of evaluating the following expression:
   //   ((current scroll offset - startScrollOffset) /
   //      (endScrollOffset - startScrollOffset)) * effective time range
-  is_null = false;
-  return ((current_offset - resolved_start_scroll_offset) /
-          (resolved_end_scroll_offset - resolved_start_scroll_offset)) *
-         time_range_;
+  return base::TimeDelta::FromMillisecondsD(
+      ((current_offset - resolved_start_scroll_offset) /
+       (resolved_end_scroll_offset - resolved_start_scroll_offset)) *
+      time_range_);
 }
 
 Element* ScrollTimeline::scrollSource() {
@@ -316,22 +329,25 @@ void ScrollTimeline::ResolveScrollStartAndEnd(
   }
 }
 
-void ScrollTimeline::AnimationAttached(Animation*) {
+void ScrollTimeline::AnimationAttached(Animation* animation) {
+  if (animation) {
+    AnimationTimeline::AnimationAttached(animation);
+  }
   if (!resolved_scroll_source_)
     return;
-
   GetActiveScrollTimelineSet().insert(resolved_scroll_source_);
 }
 
-void ScrollTimeline::AnimationDetached(Animation*) {
+void ScrollTimeline::AnimationDetached(Animation* animation) {
+  if (animation) {
+    AnimationTimeline::AnimationDetached(animation);
+  }
   if (!resolved_scroll_source_)
     return;
-
   GetActiveScrollTimelineSet().erase(resolved_scroll_source_);
 }
 
 void ScrollTimeline::Trace(blink::Visitor* visitor) {
-  visitor->Trace(document_);
   visitor->Trace(scroll_source_);
   visitor->Trace(resolved_scroll_source_);
   visitor->Trace(start_scroll_offset_);

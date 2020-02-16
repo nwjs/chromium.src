@@ -197,8 +197,8 @@ NGInlineItemsBuilderTemplate<OffsetMappingBuilder>::BoxInfo::BoxInfo(
     const NGInlineItem& item)
     : item_index(item_index),
       should_create_box_fragment(item.ShouldCreateBoxFragment()),
-      style(*item.Style()),
-      text_metrics(NGLineHeightMetrics(style)) {
+      may_have_margin_(item.Style()->MayHaveMargin()),
+      text_metrics(NGLineHeightMetrics(*item.Style())) {
   DCHECK(item.Style());
 }
 
@@ -208,7 +208,7 @@ bool NGInlineItemsBuilderTemplate<OffsetMappingBuilder>::BoxInfo::
     ShouldCreateBoxFragmentForChild(const BoxInfo& child) const {
   // When a child inline box has margins, the parent has different width/height
   // from the union of children.
-  if (child.style.MayHaveMargin())
+  if (child.may_have_margin_)
     return true;
 
   // Returns true when parent and child boxes have different font metrics, since
@@ -1228,6 +1228,27 @@ void NGInlineItemsBuilderTemplate<OffsetMappingBuilder>::Exit(
     AppendOpaque(NGInlineItem::kBidiControl, bidi_context_.back().exit);
     bidi_context_.pop_back();
   }
+}
+
+template <typename OffsetMappingBuilder>
+bool NGInlineItemsBuilderTemplate<OffsetMappingBuilder>::MayBeBidiEnabled()
+    const {
+  return !text_.Is8Bit() || HasBidiControls();
+}
+
+template <typename OffsetMappingBuilder>
+void NGInlineItemsBuilderTemplate<
+    OffsetMappingBuilder>::DidFinishCollectInlines(NGInlineNodeData* data) {
+  data->text_content = ToString();
+
+  // Set |is_bidi_enabled_| for all UTF-16 strings for now, because at this
+  // point the string may or may not contain RTL characters.
+  // |SegmentText()| will analyze the text and reset |is_bidi_enabled_| if it
+  // doesn't contain any RTL characters.
+  data->is_bidi_enabled_ = MayBeBidiEnabled();
+  data->is_empty_inline_ = IsEmptyInline();
+  data->is_block_level_ = IsBlockLevel();
+  data->changes_may_affect_earlier_lines_ = ChangesMayAffectEarlierLines();
 }
 
 template <typename OffsetMappingBuilder>

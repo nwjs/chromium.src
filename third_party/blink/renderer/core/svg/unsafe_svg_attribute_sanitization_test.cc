@@ -7,6 +7,7 @@
 
 #include <memory>
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/core/clipboard/system_clipboard.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
@@ -20,10 +21,11 @@
 #include "third_party/blink/renderer/core/svg/properties/svg_property_info.h"
 #include "third_party/blink/renderer/core/svg/svg_a_element.h"
 #include "third_party/blink/renderer/core/svg/svg_animate_element.h"
-#include "third_party/blink/renderer/core/svg/svg_discard_element.h"
 #include "third_party/blink/renderer/core/svg/svg_set_element.h"
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
+#include "third_party/blink/renderer/core/testing/mock_clipboard_host.h"
+#include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/core/xlink_names.h"
 #include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -46,7 +48,6 @@
 // The following SVG elements, although related to animation, cannot
 // set JavaScript URLs:
 //
-// - 'discard' can only remove elements, not set their attributes
 // - 'animateMotion' does not use attribute name and produces floats
 // - 'animateTransform' can only animate transform lists
 
@@ -57,6 +58,11 @@ namespace blink {
 String ContentAfterPastingHTML(DummyPageHolder* page_holder,
                                const char* html_to_paste) {
   LocalFrame& frame = page_holder->GetFrame();
+
+  // Setup a mock clipboard host.
+  PageTestBase::MockClipboardHostProvider mock_clipboard_host_provider(
+      frame.GetBrowserInterfaceBroker());
+
   HTMLElement* body = page_holder->GetDocument().body();
 
   // Make the body editable, and put the caret in it.
@@ -70,9 +76,9 @@ String ContentAfterPastingHTML(DummyPageHolder* page_holder,
       frame.Selection().ComputeVisibleSelectionInDOMTree().IsContentEditable())
       << "We should be pasting into something editable.";
 
-  SystemClipboard::GetInstance().WriteHTML(
-      html_to_paste, BlankURL(), "", SystemClipboard::kCannotSmartReplace);
-  SystemClipboard::GetInstance().CommitWrite();
+  frame.GetSystemClipboard()->WriteHTML(html_to_paste, BlankURL(), "",
+                                        SystemClipboard::kCannotSmartReplace);
+  frame.GetSystemClipboard()->CommitWrite();
   // Run all tasks in a message loop to allow asynchronous clipboard writing
   // to happen before reading from it synchronously.
   test::RunPendingTasks();

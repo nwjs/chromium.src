@@ -42,7 +42,7 @@ class CONTENT_EXPORT NavigationURLLoaderImpl : public NavigationURLLoader {
       StoragePartition* storage_partition,
       std::unique_ptr<NavigationRequestInfo> request_info,
       std::unique_ptr<NavigationUIData> navigation_ui_data,
-      ServiceWorkerNavigationHandle* service_worker_handle,
+      ServiceWorkerMainResourceHandle* service_worker_handle,
       AppCacheNavigationHandle* appcache_handle,
       scoped_refptr<PrefetchedSignedExchangeCache>
           prefetched_signed_exchange_cache,
@@ -86,10 +86,6 @@ class CONTENT_EXPORT NavigationURLLoaderImpl : public NavigationURLLoader {
           header_client,
       mojo::PendingReceiver<network::mojom::URLLoaderFactory> factory_receiver,
       StoragePartitionImpl* partition);
-
-  // Returns a Request ID for browser-initiated navigation requests. Called on
-  // the IO thread.
-  static GlobalRequestID MakeGlobalRequestID();
 
  private:
   class URLLoaderRequestController;

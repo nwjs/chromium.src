@@ -26,10 +26,10 @@
 // https://w3c.github.io/FileAPI/#filelist-section
 
 [
-    CustomConstructor,
     Exposed=(Window,Worker),
     Serializable
 ] interface FileList {
+    [Custom] constructor();
     getter File? item(unsigned long index);
     readonly attribute unsigned long length;
     void clear();

@@ -535,7 +535,7 @@
     Connect to network
   </message>
   <message name="IDS_NETWORK_SELECTION_HINT" desc="Under-title line on the network selection screen" meaning="A hint to the user why device should be connected to the network">
-    To restore your data, you need an Internet connection.
+    To restore your data, connect to the internet
   </message>
   <message name="IDS_NETWORK_SELECTION_ERROR" desc="Error shown when connection to network failed or timed out.">
     <ph name="PRODUCT_NAME">$1<ex>Chrome OS</ex></ph> was unable to connect to <ph name="NETWORK_ID">$2<ex>Public Wifi</ex></ph>. Please select another network or try again.
@@ -607,7 +607,7 @@
     Select timezone
   </message>
   <message name="IDS_OOBE_EULA_SECTION_TITLE" desc="Title of Terms of Service screen">
-    Google Chrome OS terms
+    Google Chrome OS Terms
   </message>
   <message name="IDS_OOBE_EULA_IFRAME_LABEL" desc="Accessibility label on an iframe with full Chrome OS Terms text">
     Google Chrome OS Terms contents
@@ -793,6 +793,20 @@
   <message name="IDS_LOGIN_SYNC_CONSENT_SCREEN_ACCEPT_AND_CONTINUE" desc="The label on the button that closes dialog while accepting the selected settings.">
     Accept and continue
   </message>
+
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_TITLE" desc="OS sync consent screen dialog title/header">
+    Sync for a personalized experience across devices
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_TOGGLE_NAME" desc="Label for the toggle button that enables OS sync">
+    Sync my <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph>
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_TOGGLE_DESCRIPTION" desc="Description for the toggle button that enables OS sync">
+    Your apps, settings, and Wi-Fi preferences will be synced. To make changes, go to Settings at any time after setup.
+  </message>
+  <message name="IDS_LOGIN_OS_SYNC_CONSENT_CONTINUE" desc="Button label for OS sync consent screen.">
+    Continue
+  </message>
+
   <message name="IDS_LOGIN_RECOMMEND_APPS_SCREEN_TITLE" desc="The title of the dialog that recommend apps which user has installed in other devices">
     Install apps from your other devices
   </message>
@@ -893,7 +907,7 @@
     Confirm your password
   </message>
   <message name="IDS_DISCOVER_PIN_SETUP_PASSWORD_SUBTITLE" desc="A sub-title of the dialog that starts 'PIN-unlock' setup process, and asks user to type their password first.">
-    Enter your password to configure screen lock and sign-in
+    Enter your password to configure security and sign-in
   </message>
   <message name="IDS_DISCOVER_PIN_SETUP_DONE" desc="Label for the done button on the success screen in 'PIN-unlock' setup dialog.">
     Done
@@ -907,6 +921,11 @@
   <message name="IDS_APP_START_WAIT_FOR_APP_WINDOW_MESSAGE" desc="Message displayed while waiting for the application to create its window in kiosk mode.">
     Waiting for application window...
   </message>
+  <message name="IDS_APP_START_WAIT_FOR_APP_WINDOW_INSTALL_FAILED_MESSAGE" desc="Message displayed when kiosk app meta-data obtention fails, but we try to run the app anyway without it.">
+    Failed to obtain app data, trying to run the app anyway...
+  </message>
+
+
   <message name="IDS_APP_START_CONFIGURE_NETWORK" desc="Text displayed for configure network button while installing and/or launching web application in kiosk mode.">
     Configure network
   </message>
@@ -993,6 +1012,9 @@
   </message>
   <message name="IDS_LOGIN_FATAL_ERROR_TRY_AGAIN_BUTTON" desc="Label for a button which starts sign-in from the beginning after fatal error.">
     Try again
+  </message>
+  <message name="IDS_LOGIN_FATAL_ERROR_NO_AUTH_TOKEN" desc="Message to show when the authentication could not be completed because the user's auth token retrieved.">
+    Sign-in failed because your access token could not be retrieved. Please check your network connection and try again.
   </message>
   <message name="IDS_LOGIN_SAML_INTERSTITIAL_MESSAGE" desc="Message to show on the SAML interstitial page to tell the user to continue signing in using their enterprise account.">
     This device is managed by <ph name="BEGIN_BOLD">&lt;strong&gt;</ph><ph name="DOMAIN">$1<ex>acmecorp.com</ex></ph><ph name="END_BOLD">&lt;/strong&gt;</ph>.
@@ -1341,6 +1363,9 @@
   <message name="IDS_NETWORK_ACTIVATION_NEEDS_CONNECTION" desc="Message when attempting to activate a mobile network that requires a connection">
     To activate '<ph name="name">$1<ex>Generic Wireless</ex></ph>' data, first connect to a Wi-Fi network
   </message>
+  <message name="IDS_NETWORK_IP_ADDRESS_NA" desc="IP address value to be shown in network configuration section in network details page when the IP address is not available.">
+    Not available
+  </message>
 
   <!-- Strings shown within Tether notifications -->
   <message name="IDS_TETHER_NOTIFICATION_CONNECTION_FAILED_TITLE" desc="Title of the notification shown to the user when an attempt to tether to another device has failed.">
@@ -1537,10 +1562,10 @@
     <ph name="BEGIN_BOLD">&lt;b&gt;</ph>Note:<ph name="END_BOLD">&lt;/b&gt;</ph>  The system will reboot during the process.
   </message>
   <message name="IDS_ENABLE_ARC_ADB_SIDELOADING_SETUP_TITLE" desc="Title of the enable ARC ADB Sideloading screen upon reboot">
-    Do you want to proceed?
+    Enable ADB debugging?
   </message>
   <message name="IDS_ENABLE_ARC_ADB_SIDELOADING_SETUP_MESSAGE" desc="Setup message in dialog for enabling ARC ADB Sideloading.">
-    Continuing will enable ADB debugging for creating and testing Android apps. Note that ADB debugging allows installation of test apps that haven't been verified by Google.
+    Continuing will enable ADB debugging for creating and testing Android apps. Note that this action allows installation of Android apps that haven't been verified by Google, and requires a factory reset to disable.
   </message>
   <message name="IDS_ENABLE_ARC_ADB_SIDELOADING_SETUP_ILLUSTRATION_TITLE" desc="Accessible title of ARC ADB sideloading illustration depicting the setup screen.">
     Enabling adb to create apps illustration
@@ -1685,6 +1710,30 @@
   </message>
   <message name="IDS_STATUSBAR_NETWORK_DEVICE_CELLULAR" desc="Label for a cellular network device.">
     Mobile data
+  </message>
+
+
+  <!-- Network icon accessibility descriptions -->
+  <message name="IDS_NETWORK_ICON_LABEL_ETHERNET" desc="Network icon accessibility label for an Ethernet network.">
+    Ethernet network
+  </message>
+  <message name="IDS_NETWORK_ICON_LABEL_VPN" desc="Network icon accessibility label for a VPN network.">
+    VPN network
+  </message>
+  <message name="IDS_NETWORK_ICON_LABEL_NETWORK_OFF" desc="Network icon accessibility label for a network that is turned off.">
+    <ph name="NETWORK_TYPE">$1<ex>Instant Tethering</ex></ph> network, off
+  </message>
+  <message name="IDS_NETWORK_ICON_LABEL_NO_NETWORK" desc="Network icon accessibility label for a celluar or tether connection with no network available.">
+    <ph name="NETWORK_TYPE">$1<ex>Instant Tethering</ex></ph>, no network
+  </message>
+  <message name="IDS_NETWORK_ICON_LABEL_CONNECTING" desc="Network icon accessibility label for a network that is currently attempting to connect.">
+    <ph name="NETWORK_TYPE">$1<ex>Instant Tethering</ex></ph> network, connecting
+  </message>
+  <message name="IDS_NETWORK_ICON_LABEL_NOT_CONNECTED" desc="Network icon accessibility label for a network that is not connected.">
+    <ph name="NETWORK_TYPE">$1<ex>Instant Tethering</ex></ph> network, not connected
+  </message>
+  <message name="IDS_NETWORK_ICON_LABEL_SIGNAL_STRENGTH" desc="Network icon accessibility label for a network that is currently connected with signal strength percentage available.">
+    <ph name="NETWORK_TYPE">$1<ex>Instant Tethering</ex></ph> network, signal strength <ph name="SIGNAL_STRENGTH">$2<ex>80</ex></ph>%
   </message>
 
   <!-- Common Network type strings -->
@@ -1906,6 +1955,9 @@
   <message name="IDS_LOGIN_ERROR_DETACHABLE_BASE_CHANGED" desc="Text for error dialog shown on the login screen when a detachable base different than the base last used by the user is attached.">
         A different keyboard has been connected since you last entered your password. It may be attempting to steal your keystrokes.
       </message>
+  <message name="IDS_LOGIN_ERROR_TPM_UPDATE_REQUIRED" desc="Text for error dialog shown on the login screen when the Trusted Platform Module needs to be updated due to a vulnerability.">
+    An update for the Trusted Platform Module firmware needs to be installed. See <ph name="TPM_FIRMWARE_UPDATE_LINK">https://www.chromium.org/chromium-os/tpm_firmware_update</ph>
+  </message>
   <message name="IDS_LOGIN_PROXY_ERROR_MESSAGE" desc="An offline message shown when a proxy error has appeared.">
     The sign-in page failed to load using the current proxy settings. Please <ph name="GAIA_RELOAD_LINK_START">$1<ex>&gt;a&lt;</ex></ph>try to sign in again<ph name="GAIA_RELOAD_LINK_END">$2<ex>&gt;/a&lt;</ex></ph>, or use different <ph name="PROXY_SETTINGS_LINK_START">$3<ex>&gt;a&lt;</ex></ph>proxy settings<ph name="PROXY_SETTINGS_LINK_END">$4<ex>&gt;/a&lt;</ex></ph>.
   </message>
@@ -2517,9 +2569,6 @@
   <message name="IDS_ENTERPRISE_ENROLLMENT_ERROR_ACTIVE_DIRECTORY_POLICY_FETCH" desc="Error message shown on the enrollment screen when the system failed to fetch device policy from the local server, e.g. Samba or Active Directory.">
     Oops!  The system failed to fetch policy for your device.
   </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_ERROR_LICENSE_REQUEST" desc="Error message shown on the enrollment screen when the system failed to retrieve available license types.">
-    Oops!  The system failed to load available licenses.
-  </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_ERROR_SAVE_DEVICE_CONFIGURATION" desc="Error message shown on the enrollment screen when the system failed to save some part of the device configuration. E.g. token from the Device Management server.">
     Oops!  The system failed to save device configuration.
   </message>
@@ -2714,24 +2763,6 @@
   </message>
   <message name="IDS_ENTERPRISE_ENROLLMENT_EXPLAIN_ATTRIBUTE_LINK" desc="Text on the link to the device attribute update help article.">
     Learn more.
-  </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_LICENSE_SELECTION" desc="The subtitle on the license selection prompt screen.">
-    Choose license type
-  </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_LICENSE_SELECTION_EXPLANATION" desc="Multiple licenses message to be shown on license selection prompt screen.">
-    We have detected multiple license types for your domain. Please chose one to continue.
-  </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_PERPETUAL_LICENSE_TYPE" desc="Text on radio button to select Perpetual License during enrollment.">
-    Perpetual
-  </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_ANNUAL_LICENSE_TYPE" desc="Text on radio button to select Annual License during enrollment.">
-    Annual
-  </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_KIOSK_LICENSE_TYPE" desc="Text on radio button to select Single App Kiosk License during enrollment.">
-    Single App Kiosk
-  </message>
-  <message name="IDS_ENTERPRISE_ENROLLMENT_LICENSES_REMAINING_TEMPLATE"  desc="Label indicating the number of remaining licenses for some license type.">
-    <ph name="LICENSE_TYPE">$1<ex>Perpetual</ex></ph> (<ph name="LICENSE_COUNT">$2<ex>10</ex></ph> rem.)
   </message>
 
   <!-- About network UI (chrome://network) display strings (for developer
@@ -3145,25 +3176,25 @@
   <message name="IDS_ARC_USB_ACCESS_PERMISSION_HEADING" desc="Heading text in the content area of the Android app USB device access permission prompt. Tells the user the app will be able to access the usb device if confirmed.">
     Allow "<ph name="APP_NAME">$1<ex>Gmail Checker</ex></ph>" to access:
   </message>
-  <message name="IDS_ASSISTANT_VALUE_PROP_LOADING" desc="Loading message of the voice interaction value prop dialog.">
+  <message name="IDS_ASSISTANT_OPT_IN_LOADING" desc="Loading message of the Assistasnt opt-in flow dialog.">
     Loading Google Assistant...
   </message>
-  <message name="IDS_ASSISTANT_VALUE_PROP_LOAD_ERROR_TITLE" desc="Load error title of the voice interaction value prop dialog.">
+  <message name="IDS_ASSISTANT_OPT_IN_LOAD_ERROR_TITLE" desc="Load error title of the Assistasnt opt-in flow dialog.">
     Google Assistant
   </message>
-  <message name="IDS_ASSISTANT_VALUE_PROP_LOAD_ERROR_MESSAGE" desc="Load error message of the voice interaction value prop dialog.">
+  <message name="IDS_ASSISTANT_OPT_IN_LOAD_ERROR_MESSAGE" desc="Load error message of the Assistasnt opt-in flow dialog.">
     Google Assistant was unable to load, please check your network connection and retry.
   </message>
-  <message name="IDS_ASSISTANT_VALUE_PROP_SKIP_BUTTON" desc="Button label for skipping voice interaction value prop upon error.">
+  <message name="IDS_ASSISTANT_OPT_IN_SKIP_BUTTON" desc="Button label for skipping the Assistasnt opt-in flow upon error.">
     Skip
   </message>
-  <message name="IDS_ASSISTANT_VALUE_PROP_RETRY_BUTTON" desc="Button label for retry loading voice interaction value prop.">
+  <message name="IDS_ASSISTANT_OPT_IN_RETRY_BUTTON" desc="Button label for retry loading the Assistasnt opt-in flow.">
     Retry
   </message>
   <message name="IDS_WAIT_FOR_CONTAINER_READY_INTRO_MESSAGE" desc="Introduction message for the wait for container ready OOBE screen">
     Ask it questions. Tell it to do things. It's your personal Google, always ready to help.
   </message>
-  <message name="IDS_ASSISTANT_LOGO" desc="Logo label for voice interaction.">
+  <message name="IDS_ASSISTANT_LOGO" desc="Logo label for the Assistasnt.">
     Google assistant logo
   </message>
   <message name="IDS_ASSISTANT_OOBE_USER_IMAGE" desc="Image label for the user image.">
@@ -3449,9 +3480,6 @@
   <message name="IDS_INTERNAL_APP_CONTINUOUS_READING" desc="The default title of Chrome browser to allow users to seamlessly continue reading a web page when they switch from phones or tablets to Chromebook.">
     Continue reading in Chrome
   </message>
-  <message name="IDS_INTERNAL_APP_CAMERA" desc="The name of the Camera app in the app list.">
-    Camera
-  </message>
   <message name="IDS_INTERNAL_APP_DISCOVER" desc="Name for the Discover app in the app list.">
     Discover
   </message>
@@ -3473,6 +3501,9 @@
   <message name="IDS_CROSTINI_INSTALLER_BODY" desc="Description for the Crostini installer, a dialog for installing Linux.">
     Get tools for developing websites, Android apps, and more. Installing Linux will download <ph name="DOWNLOAD_SIZE">$1<ex>300MB</ex></ph> of data.
   </message>
+  <message name="IDS_CROSTINI_INSTALLER_NEXT_BUTTON" desc="Label for the button in the Crostini installer dialog to progress to the next page.">
+    Next
+  </message>
   <message name="IDS_CROSTINI_INSTALLER_INSTALL_BUTTON" desc="Label for the button in the Crostini installer dialog to begin installing Linux.">
     Install
   </message>
@@ -3486,7 +3517,7 @@
     This window will close after cancellation is complete.
   </message>
   <message name="IDS_CROSTINI_INSTALLER_ERROR_TITLE" desc="Title of the Crostini installer when an error occurs.">
-    Error installing Linux...
+    Error installing Linux
   </message>
   <message name="IDS_CROSTINI_INSTALLER_LOAD_TERMINA_MESSAGE" desc="Text shown in the Crostini installer dialog when the VM component is loading">
     This process may take a few minutes. Downloading the virtual machine.
@@ -3503,7 +3534,7 @@
   <message name="IDS_CROSTINI_INSTALLER_START_CONTAINER_MESSAGE" desc="Text shown in the Crostini installer dialog when the container inside the VM is starting">
     This process may take a few minutes. Starting the Linux container.
   </message>
-  <message name="IDS_CROSTINI_INSTALLER_CONFIGURE_CONTAINER_MESSAGE" desc="Text shown in the Crostini installer dialog when the container inside the VM is being configured" translateable="false">
+  <message name="IDS_CROSTINI_INSTALLER_CONFIGURE_CONTAINER_MESSAGE" desc="Text shown in the Crostini installer dialog when the container inside the VM is being configured">
     Configuring the Linux container. This might take up to 30 minutes.
   </message>
   <message name="IDS_CROSTINI_INSTALLER_SETUP_CONTAINER_MESSAGE" desc="Text shown in the Crostini installer dialog when the container inside the VM is being set up">
@@ -3539,7 +3570,7 @@
   <message name="IDS_CROSTINI_INSTALLER_START_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container fails to start inside the VM">
     The Linux container didn't start. Please try again.
   </message>
-  <message name="IDS_CROSTINI_INSTALLER_CONFIGURE_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container fails to be configured inside the VM" translateable="false">
+  <message name="IDS_CROSTINI_INSTALLER_CONFIGURE_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container fails to be configured inside the VM">
     The was an error while configuring Linux. Contact your administrator.
   </message>
   <message name="IDS_CROSTINI_INSTALLER_SETUP_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container fails to be set up inside the VM">
@@ -3550,6 +3581,18 @@
   </message>
   <message name="IDS_CROSTINI_INSTALLER_MOUNT_CONTAINER_ERROR" desc="Text shown in the Crostini installer dialog when the container ssh mount fails">
     Error mounting Linux files. Please try again.
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_UNKNOWN_ERROR" desc="Text shown in the Crostini installer dialog when some unknown error happens">
+    Something went wrong. Please try again.
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_CONFIGURE_MESSAGE" desc="Text shown in the Crostini installer dialog describing the purpose of the page for entering extra user-specified options">
+    Change how Linux apps will work.
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_DISK_SIZE_MESSAGE" desc="Text shown in the Crostini installer dialog describing how and why to choose the initial size of the Crostini disk">
+    Disk space to reserve for Crostini (you can change this later).
+  </message>
+  <message name="IDS_CROSTINI_INSTALLER_USERNAME_MESSAGE" desc="Text shown in the Crostini installer dialog prompting the user to pick their username">
+    Select a username
   </message>
   <message name="IDS_CROSTINI_UNINSTALLER_TITLE" desc="Title of the Crostini uninstaller, a dialog for uninstalling Linux, the associated VM and Linux files.">
     Delete Linux (Beta)
@@ -3584,6 +3627,9 @@
   <message name="IDS_CROSTINI_UPGRADER_LAUNCH_BUTTON" desc="Label for the button in the Crostini upgrader dialog to launch the Linux terminal after upgrading Linux.">
     Launch
   </message>
+    <message name="IDS_CROSTINI_UPGRADER_RESTORE_BUTTON" desc="Label for the button in the Crostini upgrader dialog to restore a backup if there was an error upgrading Linux.">
+    Restore
+  </message>
   <message name="IDS_CROSTINI_UPGRADER_BACKING_UP_TITLE" desc="Title of the Crostini upgrader when the container backup is in progress.">
     Backing up Linux apps and files
   </message>
@@ -3596,6 +3642,18 @@
   <message name="IDS_CROSTINI_UPGRADER_BACKUP_SUCCEEDED_MESSAGE" desc="Text shown by the Crostini upgrader when the container backup completed successfully, prior to the main upgrade.">
     Linux apps and files have been successfully backed up. Upgrade will begin shortly.
   </message>
+  <message name="IDS_CROSTINI_UPGRADER_PRECHECKS_FAILED_TITLE" desc="Title of the Crostini upgrader when the upgrade prechecks failed.">
+    Error starting upgrade
+  </message>
+  <message name="IDS_CROSTINI_UPGRADER_PRECHECKS_FAILED_NETWORK" desc="Text shown by the Crostini upgrader when the upgrade did not start because there was no network connection.">
+    A network connection is required to upgrade Linux. Please connect to the internet and try again.
+  </message>
+  <message name="IDS_CROSTINI_UPGRADER_PRECHECKS_FAILED_POWER" desc="Text shown by the Crostini upgrader when the upgrade did not start because there wasn't enough power.">
+    Upgrading Linux can drain your battery significantly. Please connect your device to a charger and try again.
+  </message>
+  <message name="IDS_CROSTINI_UPGRADER_PRECHECKS_FAILED_SPACE" desc="Text shown by the Crostini upgrader when the upgrade did not start because there wasn't enough free disk space.">
+    At least <ph name="REQUIRED_SPACE">$1<ex>1GB</ex></ph> of free disk space is required to upgrade Linux. Please free some space on your device and try again.
+  </message>
   <message name="IDS_CROSTINI_UPGRADER_UPGRADING_TITLE" desc="Title of the Crostini upgrader when the upgrade is in progress.">
     Upgrading Linux
   </message>
@@ -3607,6 +3665,9 @@
   </message>
   <message name="IDS_CROSTINI_UPGRADER_SUCCEEDED" desc="Text shown by the Crostini upgrader when the upgrade is finished successfully.">
     Linux has been successfully upgraded.
+  </message>
+  <message name="IDS_CROSTINI_UPGRADER_RESTORE_TITLE" desc="Title of the Crostini upgrader when the container upgrade fails and restore of a backup is in progress.">
+    Restoring Linux
   </message>
   <message name="IDS_CROSTINI_UPGRADER_ERROR_TITLE" desc="Title of the Crostini upgrader when an error occurs.">
     Error upgrading Linux
@@ -3623,25 +3684,31 @@
   <message name="IDS_CROSTINI_UPGRADER_BACKUP_CHANGE_LOCATION" desc="Text shown in the Crostini upgrader dialog next to the backup checkbox with a link enabling the user to change the location to which files are backed up.">
     Change location
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_LABEL" translateable="false" desc="Label for dialog warning user of unavailable Linux container until software configurations are applied.">
+  <message name="IDS_CROSTINI_UPGRADER_OFFER_RESTORE_MESSAGE" desc="Text shown in the Crostini upgrader dialog when the upgrade has failed and the previous container backup can be restored.">
+    There was an error while upgrading Linux. We'll restore the container using your backup.
+  </message>
+  <message name="IDS_CROSTINI_UPGRADER_RESTORE_MESSAGE" desc="Title of the Crostini upgrader when the container upgrade fails and restore of a backup is in progress.">
+    Linux files and apps are being restored to their backed up state.
+  </message>
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_LABEL" desc="Label for dialog warning user of unavailable Linux container until software configurations are applied.">
     Configuring Linux
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_SUBTEXT" translateable="false" desc="Description for dialog warning user of unavailable Linux container until software configurations are applied.">
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_SUBTEXT" desc="Description for dialog warning user of unavailable Linux container until software configurations are applied.">
     Linux is being configured by your administrator. Configuration will take a few minutes.
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_LABEL" translateable="false" desc="Label for Crostini software config dialog when there is an error in Ansible playbook application or installation.">
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_LABEL" desc="Label for Crostini software config dialog when there is an error in Ansible playbook application or installation.">
     Error configuring Linux
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_SUBTEXT" translateable="false" desc="Text shown for Crostini software config dialog when there is an error in Ansible playbook application or installation.">
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_SUBTEXT" desc="Text shown for Crostini software config dialog when there is an error in Ansible playbook application or installation.">
     There was an error while configuring Linux. Please contact your administrator.
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_OFFLINE_LABEL" translateable="false" desc="Label for dialog warning user of missing internet connection required for container configuration.">
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_OFFLINE_LABEL" desc="Label for dialog warning user of missing internet connection required for container configuration.">
     <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> is offline
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_OFFLINE_SUBTEXT" translateable="false" desc="Text shown for Crostini software config dialog when there is an error in Ansible playbook application or installation due to missing internet connection.">
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_ERROR_OFFLINE_SUBTEXT" desc="Text shown for Crostini software config dialog when there is an error in Ansible playbook application or installation due to missing internet connection.">
     Could not configure Linux. Connect to the internet and try again.
   </message>
-  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_RETRY_BUTTON" translateable="false" desc="Retry button of the Crostini software config dialog that starts the configuration steps again.">
+  <message name="IDS_CROSTINI_ANSIBLE_SOFTWARE_CONFIG_RETRY_BUTTON" desc="Retry button of the Crostini software config dialog that starts the configuration steps again.">
     Retry
   </message>
   <message name="IDS_CROSTINI_SHUT_DOWN_LINUX_MENU_ITEM" desc="Text shown in the context menu for the Linux terminal app, allowing users to shut down the Linux virtual machine.">
@@ -3653,6 +3720,8 @@
   <message name="IDS_CROSTINI_TERMINA_UPDATE_OFFLINE" desc="Text shown in the Crostini update dialog when the VM component needs updating but the user is offline.">
     Please connect to the internet and try again.
   </message>
+
+  <!-- Linux install package messages -->
   <message name="IDS_CROSTINI_PACKAGE_INSTALL_NOTIFICATION_DISPLAY_SOURCE" desc="Source of the Notification for Linux package installation.">
     Linux installer
   </message>
@@ -3675,6 +3744,14 @@
     Error while installing
   </message>
   <message name="IDS_CROSTINI_PACKAGE_INSTALL_NOTIFICATION_ERROR_MESSAGE" desc="Message in the Notification for Linux package installation when there is an error during installation.">
+    An error occurred during installation of your Linux application. Click on the notification for details.
+  </message>
+
+  <!-- Linux package installation failure messages -->
+  <message name="IDS_CROSTINI_PACKAGE_INSTALL_FAILURE_VIEW_TITLE" desc="Title of the crostini package-install-failure dialog, which shows detailed error messages when installing .deb packages.">
+    Error installing Linux application
+  </message>
+  <message name="IDS_CROSTINI_PACKAGE_INSTALL_FAILURE_VIEW_MESSAGE" desc="Message displayed to the user in the package-install-failure dialog.">
     An error occurred during installation of your Linux application.
   </message>
 
@@ -4064,49 +4141,58 @@
   <message name="IDS_PLUGIN_VM_APP_NAME" desc="Name of the 'Plugin VM' app.">
     Plugin VM
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_ENVIRONMENT_SETTING_TITLE" desc="Title of the Plugin VM installer during installation.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_ENVIRONMENT_SETTING_TITLE" desc="Title of the Plugin VM installer during installation.">
     Setting up Plugin VM...
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_FINISHED_TITLE" desc="Title of the Plugin VM installer after successful installation.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_FINISHED_TITLE" desc="Title of the Plugin VM installer after successful installation.">
     Setup complete
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_ERROR_TITLE" desc="Title of the Plugin VM installer if there was an error during installation.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_TITLE" desc="Title of the Plugin VM installer if there was an error during installation.">
     Setup couldn't complete
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_NOT_ALLOWED_TITLE" desc="Title of the Plugin VM installer if Plugin VM is disallowed.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_TITLE" desc="Title of the Plugin VM installer if Plugin VM is disallowed.">
     Plugin VM needs permission to run
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_START_DOWNLOADING_MESSAGE" desc="Text of the Plugin VM installer that informs the user that setup may take a while.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_START_DOWNLOADING_MESSAGE" desc="Text of the Plugin VM installer that informs the user that setup may take a while.">
     This may take awhile
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_DOWNLOADING_MESSAGE" desc="Text of the Plugin VM installer while downloading the VM.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_DOWNLOADING_MESSAGE" desc="Text of the Plugin VM installer while downloading the VM.">
     Downloading the virtual machine
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_IMPORTING_MESSAGE" desc="Text of the Plugin VM installer while configuring the VM.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_IMPORTING_MESSAGE" desc="Text of the Plugin VM installer while configuring the VM.">
     Configuring the virtual machine. This may take a few minutes.
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_FINISHED_MESSAGE" desc="Text of the Plugin VM installer after successful installation.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_FINISHED_MESSAGE" desc="Text of the Plugin VM installer after successful installation.">
     Plugin VM is ready to use
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_ERROR_MESSAGE" desc="Text of the Plugin VM installer if the installation failed.">
-    Try installing again
+  <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_MESSAGE_LOGIC_ERROR" desc="Text of the Plugin VM installer if the installation failed due to an internal error.">
+    Couldn't install Plugin VM. Please try again, or contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_NOT_ALLOWED_MESSAGE" desc="Error message to be shown if a setup/launch is attempted although Plugin VM is disallowed.">
-    Contact your organization's device admin
+  <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_MESSAGE_CONFIG_ERROR" desc="Text of the Plugin VM installer if the installation failed because there was an error in the configuration.">
+    Couldn't set up Plugin VM because of a configuration problem. Please contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_DOWNLOAD_PROGRESS_MESSAGE" desc="Text of the Plugin VM installer during downloading Plugin VM image, showing download progress.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_MESSAGE_DOWNLOAD_FAILED" desc="Text of the Plugin VM installer if the installation failed because something went wrong while downloading the virtual machine.">
+    Couldn't install the virtual machine because of a network error. Please try again, or contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+  </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_ERROR_MESSAGE_INSTALLING_FAILED" desc="Text of the Plugin VM installer if the installation failed because downloaded Plugin VM could not be installed.">
+    Couldn't install the virtual machine. Please try again, or contact your organization's device administrator. Error code: <ph name="ERROR_CODE">$1<ex>7</ex></ph>.
+  </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_NOT_ALLOWED_MESSAGE" desc="Error message to be shown if a setup/launch is attempted although Plugin VM is disallowed.">
+    Plugin VM isn't allowed on this device. Contact your organization's device administrator.
+  </message>
+  <message name="IDS_PLUGIN_VM_INSTALLER_DOWNLOAD_PROGRESS_MESSAGE" desc="Text of the Plugin VM installer during downloading Plugin VM image, showing download progress.">
     <ph name="DOWNLOADED_SIZE">$1<ex>1.2</ex></ph>/<ph name="DOWNLOAD_SIZE">$2<ex>3.4 GB</ex></ph>
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_DOWNLOAD_PROGRESS_WITHOUT_DOWNLOAD_SIZE_MESSAGE" desc="Text of the Plugin VM installer while downloading Plugin VM image, showing download progress when the full download size is not known.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_DOWNLOAD_PROGRESS_WITHOUT_DOWNLOAD_SIZE_MESSAGE" desc="Text of the Plugin VM installer while downloading Plugin VM image, showing download progress when the full download size is not known.">
     <ph name="DOWNLOADED_SIZE">$1<ex>1.2 GB</ex></ph>
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_TIME_LEFT_MESSAGE" desc="Text of the Plugin VM installer that shows estimated time left before current installation stage ends.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_TIME_LEFT_MESSAGE" desc="Text of the Plugin VM installer that shows estimated time left before current installation stage ends.">
     <ph name="TIME_LEFT">$1<ex>30 mins</ex></ph> left
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_LAUNCH_BUTTON" desc="Label for the button in the Plugin VM installer to launch Plugin VM after successful installation.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_LAUNCH_BUTTON" desc="Label for the button in the Plugin VM installer to launch Plugin VM after successful installation.">
     Launch
   </message>
-  <message name="IDS_PLUGIN_VM_LAUNCHER_RETRY_BUTTON" desc="Label for the button in the Plugin VM installer to retry installation on failure.">
+  <message name="IDS_PLUGIN_VM_INSTALLER_RETRY_BUTTON" desc="Label for the button in the Plugin VM installer to retry installation on failure.">
     Retry
   </message>
   <message name="IDS_PLUGIN_VM_SHUT_DOWN_MENU_ITEM" desc="Text shown in the launcher and shelf context menus for the Plugin VM app to shut it down.">
@@ -4117,6 +4203,15 @@
   </message>
   <message name="IDS_PLUGIN_VM_INVALID_LICENSE_NOTIFICATION_MESSAGE" desc="Message in the notification shown when launching the 'Plugin VM' app failed due to an invalid or missing license.">
     Contact the device admin for your organization
+  </message>
+  <message name="IDS_PLUGIN_VM_REMOVING_NOTIFICATION_IN_PROGRESS_MESSAGE" desc="Message in the notification shown when removing the 'Plugin VM' app.">
+    Uninstalling Plugin VM...
+  </message>
+  <message name="IDS_PLUGIN_VM_REMOVING_NOTIFICATION_COMPLETE_MESSAGE" desc="Message in the notification shown when removing the 'Plugin VM' app has completed successfully.">
+    Plugin VM has been uninstalled
+  </message>
+  <message name="IDS_PLUGIN_VM_REMOVING_NOTIFICATION_FAILED_MESSAGE" desc="Message in the notification shown when removing the 'Plugin VM' app failed.">
+    Couldn't uninstall Plugin VM
   </message>
 
   <!-- Strings for Account Manager error screen -->

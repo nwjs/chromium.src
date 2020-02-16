@@ -30,24 +30,24 @@ import org.chromium.base.Log;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.infobar.InfoBar;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.omnibox.UrlBar;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
 import org.chromium.chrome.browser.settings.SettingsActivity;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
 import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTestSupport;
 import org.chromium.chrome.test.util.ApplicationTestUtils;
@@ -195,7 +195,7 @@ public class ChromeActivityTestRule<T extends ChromeActivity> extends ActivityTe
      */
     public static void waitForActivityNativeInitializationComplete(ChromeActivity activity) {
         CriteriaHelper.pollUiThread(()
-                                            -> ChromeBrowserInitializer.getInstance(activity)
+                                            -> ChromeBrowserInitializer.getInstance()
                                                        .hasNativeInitializationCompleted(),
                 "Native initialization never finished",
                 20 * CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL,
@@ -607,7 +607,8 @@ public class ChromeActivityTestRule<T extends ChromeActivity> extends ActivityTe
      */
     public SettingsActivity startSettingsActivity(String fragmentName) {
         Context context = InstrumentationRegistry.getTargetContext();
-        Intent intent = PreferencesLauncher.createIntentForSettingsPage(context, fragmentName);
+        Intent intent =
+                SettingsLauncher.getInstance().createIntentForSettingsPage(context, fragmentName);
         Activity activity = InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
         Assert.assertTrue(activity instanceof SettingsActivity);
         return (SettingsActivity) activity;

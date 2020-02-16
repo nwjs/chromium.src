@@ -24,23 +24,17 @@ class Origin;
 
 namespace content {
 
-struct StorageUsageInfo;
-
 // Represents the per-BrowserContext IndexedDB data.
-// Call these methods only via the exposed TaskRunner.
+// Call these methods only via the exposed IDBTaskRunner.
 // Refcounted because this class is used throughout the codebase on different
 // threads.
+// This class is in the process of being removed in lieu of the
+// IndexedDBControl mojo interface.
 class IndexedDBContext
     : public base::RefCountedDeleteOnSequence<IndexedDBContext> {
  public:
-  // Only call the below methods by posting to this TaskRunner.
-  virtual base::SequencedTaskRunner* TaskRunner() = 0;
-
-  // Methods used in response to QuotaManager requests.
-  virtual std::vector<StorageUsageInfo> GetAllOriginsInfo() = 0;
-
-  // Deletes all indexed db files for the given origin.
-  virtual void DeleteForOrigin(const url::Origin& origin) = 0;
+  // Only call the below methods by posting to this IDBTaskRunner.
+  virtual base::SequencedTaskRunner* IDBTaskRunner() = 0;
 
   // Copies the indexed db files from this context to another. The
   // indexed db directory in the destination context needs to be empty.
@@ -64,7 +58,7 @@ class IndexedDBContext
       : base::RefCountedDeleteOnSequence<IndexedDBContext>(
             std::move(owning_task_runner)) {}
 
-  virtual ~IndexedDBContext() {}
+  virtual ~IndexedDBContext() = default;
 };
 
 }  // namespace content

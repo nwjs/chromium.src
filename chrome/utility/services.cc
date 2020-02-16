@@ -33,6 +33,8 @@
 
 #if !defined(OS_ANDROID)
 #include "chrome/common/importer/profile_import.mojom.h"
+#include "chrome/services/sharing/public/mojom/sharing.mojom.h"
+#include "chrome/services/sharing/sharing_impl.h"
 #include "chrome/utility/importer/profile_import_impl.h"
 #include "components/mirroring/service/features.h"
 #include "components/mirroring/service/mirroring_service.h"
@@ -71,8 +73,8 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
-#include "components/services/pdf_compositor/pdf_compositor_impl.h"  // nogncheck
-#include "components/services/pdf_compositor/public/mojom/pdf_compositor.mojom.h"  // nogncheck
+#include "components/services/print_compositor/print_compositor_impl.h"  // nogncheck
+#include "components/services/print_compositor/public/mojom/print_compositor.mojom.h"  // nogncheck
 #endif
 
 #include "components/services/paint_preview_compositor/paint_preview_compositor_collection_impl.h"
@@ -128,6 +130,10 @@ auto RunMirroringService(
   DCHECK(base::FeatureList::IsEnabled(mirroring::features::kMirroringService));
   return std::make_unique<mirroring::MirroringService>(
       std::move(receiver), content::UtilityThread::Get()->GetIOTaskRunner());
+}
+
+auto RunSharing(mojo::PendingReceiver<sharing::mojom::Sharing> receiver) {
+  return std::make_unique<sharing::SharingImpl>(std::move(receiver));
 }
 #endif  // !defined(OS_ANDROID)
 
@@ -185,9 +191,9 @@ auto RunPaintPreviewCompositor(
 #endif  // BUILDFLAG(ENABLE_PAINT_PREVIEW)
 
 #if BUILDFLAG(ENABLE_PRINTING)
-auto RunPdfCompositor(
-    mojo::PendingReceiver<printing::mojom::PdfCompositor> receiver) {
-  return std::make_unique<printing::PdfCompositorImpl>(
+auto RunPrintCompositor(
+    mojo::PendingReceiver<printing::mojom::PrintCompositor> receiver) {
+  return std::make_unique<printing::PrintCompositorImpl>(
       std::move(receiver), true /* initialize_environment */,
       content::UtilityThread::Get()->GetIOTaskRunner());
 }
@@ -234,6 +240,7 @@ mojo::ServiceFactory* GetMainThreadServiceFactory() {
 #if !defined(OS_ANDROID)
     RunProfileImporter,
     RunMirroringService,
+    RunSharing,
 #endif
 
 #if defined(OS_WIN)
@@ -268,7 +275,7 @@ mojo::ServiceFactory* GetMainThreadServiceFactory() {
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
-    RunPdfCompositor,
+    RunPrintCompositor,
 #endif
 
 #if BUILDFLAG(ENABLE_PAINT_PREVIEW)

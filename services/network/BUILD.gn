@@ -54,6 +54,8 @@ jumbo_component("network_service") {
     "ignore_errors_cert_verifier.h",
     "keepalive_statistics_recorder.cc",
     "keepalive_statistics_recorder.h",
+    "legacy_tls_config_distributor.cc",
+    "legacy_tls_config_distributor.h",
     "loader_util.cc",
     "loader_util.h",
     "mojo_host_resolver_impl.cc",
@@ -120,6 +122,8 @@ jumbo_component("network_service") {
     "proxy_resolving_socket_mojo.h",
     "proxy_service_mojo.cc",
     "proxy_service_mojo.h",
+    "quic_transport.cc",
+    "quic_transport.h",
     "resolve_host_request.cc",
     "resolve_host_request.h",
     "resource_scheduler/resource_scheduler.cc",
@@ -221,6 +225,7 @@ jumbo_component("network_service") {
 
   deps = [
     "//base",
+    "//build:chromecast_buildflags",
     "//components/content_settings/core/common",
     "//components/cookie_config",
     "//components/domain_reliability",
@@ -237,6 +242,7 @@ jumbo_component("network_service") {
     "//services/network/public/cpp",
     "//services/network/public/cpp/cert_verifier",
     "//services/network/public/mojom",
+    "//services/network/public/proto",
     "//services/service_manager/public/cpp",
     "//services/service_manager/public/mojom",
     "//services/service_manager/sandbox:sandbox",
@@ -244,9 +250,7 @@ jumbo_component("network_service") {
     "//url",
   ]
 
-  public_deps = [
-    "//services/network/public/cpp:buildflags",
-  ]
+  public_deps = [ "//services/network/public/cpp:buildflags" ]
 
   if (is_ct_supported) {
     sources += [
@@ -275,10 +279,6 @@ jumbo_component("network_service") {
   }
 
   defines = [ "IS_NETWORK_SERVICE_IMPL" ]
-
-  if (is_chromecast) {
-    defines += [ "IS_CHROMECAST" ]
-  }
 
   if (trial_comparison_cert_verifier_supported) {
     sources += [
@@ -327,6 +327,7 @@ source_set("tests") {
     "proxy_config_service_mojo_unittest.cc",
     "proxy_resolving_client_socket_unittest.cc",
     "proxy_resolving_socket_mojo_unittest.cc",
+    "quic_transport_unittest.cc",
     "resource_scheduler/resource_scheduler_params_manager_unittest.cc",
     "resource_scheduler/resource_scheduler_unittest.cc",
     "restricted_cookie_manager_unittest.cc",
@@ -392,6 +393,8 @@ source_set("tests") {
     "//mojo/public/cpp/system",
     "//net",
     "//net:extras",
+    "//net:quic_test_tools",
+    "//net:simple_quic_tools",
     "//net:test_support",
     "//net/http:transport_security_state_unittest_data_default",
     "//services/network/public/cpp",
@@ -426,6 +429,8 @@ jumbo_source_set("test_support") {
     "test/test_cookie_manager.h",
     "test/test_data_pipe_getter.cc",
     "test/test_data_pipe_getter.h",
+    "test/test_dns_util.cc",
+    "test/test_dns_util.h",
     "test/test_network_connection_tracker.cc",
     "test/test_network_connection_tracker.h",
     "test/test_network_context.h",
@@ -435,6 +440,7 @@ jumbo_source_set("test_support") {
     "test/test_network_quality_tracker.h",
     "test/test_network_service_client.cc",
     "test/test_network_service_client.h",
+    "test/test_resource_scheduler.h",
     "test/test_shared_url_loader_factory.cc",
     "test/test_shared_url_loader_factory.h",
     "test/test_url_loader_client.cc",
@@ -471,9 +477,7 @@ jumbo_source_set("test_support") {
 }
 
 fuzzer_test("network_content_security_policy_fuzzer") {
-  sources = [
-    "content_security_policy_fuzzer.cc",
-  ]
+  sources = [ "content_security_policy_fuzzer.cc" ]
   deps = [
     "//base",
     "//net",

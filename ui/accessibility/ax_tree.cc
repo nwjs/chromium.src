@@ -16,6 +16,7 @@
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "ui/accessibility/accessibility_switches.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_language_detection.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_position.h"
@@ -237,10 +238,23 @@ struct PendingStructureChanges {
   const AXNodeData* last_known_data;
 };
 
+// Represents the different states when computing PendingStructureChanges
+// required for tree Unserialize.
+enum class AXTreePendingStructureStatus {
+  // PendingStructureChanges have not begun computation.
+  kNotStarted,
+  // PendingStructureChanges are currently being computed.
+  kComputing,
+  // All PendingStructureChanges have successfully been computed.
+  kComplete,
+  // An error occurred when computing pending changes.
+  kFailed,
+};
+
 // Intermediate state to keep track of during a tree update.
 struct AXTreeUpdateState {
   AXTreeUpdateState(const AXTree& tree)
-      : computing_pending_changes(false),
+      : pending_update_status(AXTreePendingStructureStatus::kNotStarted),
         root_will_be_created(false),
         tree(tree) {}
 
@@ -259,29 +273,39 @@ struct AXTreeUpdateState {
     return IsCreatedNode(node->id());
   }
 
-  // If this node is removed, it should be considered reparented.
-  bool IsPotentiallyReparentedNode(const AXNode* node) const {
-    return base::Contains(node_ids_found_in_update, node->id());
-  }
-
   // Returns whether this update reparents |node|.
   bool IsReparentedNode(const AXNode* node) const {
-    return IsPotentiallyReparentedNode(node) && IsRemovedNode(node);
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
+    PendingStructureChanges* data = GetPendingStructureChanges(node->id());
+    if (!data)
+      return false;
+    // In order to know if the node will be reparented during the update,
+    // we check if either the node will be destroyed or has been destroyed at
+    // least once during the update.
+    // Since this method is only allowed to be called after calculating all
+    // pending structure changes, |node_exists| tells us if the node should
+    // exist after all updates have been applied.
+    return (data->DoesNodeExpectNodeWillBeDestroyed() || IsRemovedNode(node)) &&
+           data->node_exists;
   }
 
   // Returns true if the node should exist in the tree but doesn't have
   // any node data yet.
   bool DoesPendingNodeRequireInit(AXNode::AXID node_id) const {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     PendingStructureChanges* data = GetPendingStructureChanges(node_id);
     return data && data->DoesNodeRequireInit();
   }
 
   // Returns the parent node id for the pending node.
   base::Optional<AXNode::AXID> GetParentIdForPendingNode(AXNode::AXID node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     PendingStructureChanges* data = GetOrCreatePendingStructureChanges(node_id);
     DCHECK(!data->parent_node_id ||
            ShouldPendingNodeExistInTree(*data->parent_node_id));
@@ -290,15 +314,17 @@ struct AXTreeUpdateState {
 
   // Returns true if this node should exist in the tree.
   bool ShouldPendingNodeExistInTree(AXNode::AXID node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     return GetOrCreatePendingStructureChanges(node_id)->node_exists;
   }
 
   // Returns the last known node data for a pending node.
   const AXNodeData& GetLastKnownPendingNodeData(AXNode::AXID node_id) const {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     static base::NoDestructor<ui::AXNodeData> empty_data;
     PendingStructureChanges* data = GetPendingStructureChanges(node_id);
     return (data && data->last_known_data) ? *data->last_known_data
@@ -307,15 +333,17 @@ struct AXTreeUpdateState {
 
   // Clear the last known pending data for |node_id|.
   void ClearLastKnownPendingNodeData(AXNode::AXID node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     GetOrCreatePendingStructureChanges(node_id)->last_known_data = nullptr;
   }
 
   // Update the last known pending node data for |node_data.id|.
   void SetLastKnownPendingNodeData(const AXNodeData* node_data) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     GetOrCreatePendingStructureChanges(node_data->id)->last_known_data =
         node_data;
   }
@@ -323,9 +351,9 @@ struct AXTreeUpdateState {
   // Returns the number of times the update is expected to destroy a
   // subtree rooted at |node_id|.
   int32_t GetPendingDestroySubtreeCount(AXNode::AXID node_id) const {
-    DCHECK(!computing_pending_changes)
-        << "This method should not be called before any updates are made to "
-           "the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
     if (PendingStructureChanges* data = GetPendingStructureChanges(node_id))
       return data->destroy_subtree_count;
     return 0;
@@ -335,8 +363,9 @@ struct AXTreeUpdateState {
   // destroy a subtree rooted at |node_id|.
   // Returns true on success, false on failure when the node will not exist.
   bool IncrementPendingDestroySubtreeCount(AXNode::AXID node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     PendingStructureChanges* data = GetOrCreatePendingStructureChanges(node_id);
     if (!data->node_exists)
       return false;
@@ -348,9 +377,9 @@ struct AXTreeUpdateState {
   // Decrements the number of times the update is expected to
   // destroy a subtree rooted at |node_id|.
   void DecrementPendingDestroySubtreeCount(AXNode::AXID node_id) {
-    DCHECK(!computing_pending_changes)
-        << "This method should not be called before any updates are made to "
-           "the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
     if (PendingStructureChanges* data = GetPendingStructureChanges(node_id)) {
       DCHECK_GT(data->destroy_subtree_count, 0);
       --data->destroy_subtree_count;
@@ -360,9 +389,9 @@ struct AXTreeUpdateState {
   // Returns the number of times the update is expected to destroy
   // a node with |node_id|.
   int32_t GetPendingDestroyNodeCount(AXNode::AXID node_id) const {
-    DCHECK(!computing_pending_changes)
-        << "This method should not be called before any updates are made to "
-           "the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
     if (PendingStructureChanges* data = GetPendingStructureChanges(node_id))
       return data->destroy_node_count;
     return 0;
@@ -372,8 +401,9 @@ struct AXTreeUpdateState {
   // destroy a node with |node_id|.
   // Returns true on success, false on failure when the node will not exist.
   bool IncrementPendingDestroyNodeCount(AXNode::AXID node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     PendingStructureChanges* data = GetOrCreatePendingStructureChanges(node_id);
     if (!data->node_exists)
       return false;
@@ -390,9 +420,9 @@ struct AXTreeUpdateState {
   // Decrements the number of times the update is expected to
   // destroy a node with |node_id|.
   void DecrementPendingDestroyNodeCount(AXNode::AXID node_id) {
-    DCHECK(!computing_pending_changes)
-        << "This method should not be called before any updates are made to "
-           "the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
     if (PendingStructureChanges* data = GetPendingStructureChanges(node_id)) {
       DCHECK_GT(data->destroy_node_count, 0);
       --data->destroy_node_count;
@@ -402,9 +432,9 @@ struct AXTreeUpdateState {
   // Returns the number of times the update is expected to create
   // a node with |node_id|.
   int32_t GetPendingCreateNodeCount(AXNode::AXID node_id) const {
-    DCHECK(!computing_pending_changes)
-        << "This method should not be called before any updates are made to "
-           "the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
     if (PendingStructureChanges* data = GetPendingStructureChanges(node_id))
       return data->create_node_count;
     return 0;
@@ -416,8 +446,9 @@ struct AXTreeUpdateState {
   bool IncrementPendingCreateNodeCount(
       AXNode::AXID node_id,
       base::Optional<AXNode::AXID> parent_node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     PendingStructureChanges* data = GetOrCreatePendingStructureChanges(node_id);
     if (data->node_exists)
       return false;
@@ -431,9 +462,9 @@ struct AXTreeUpdateState {
   // Decrements the number of times the update is expected to
   // create a node with |node_id|.
   void DecrementPendingCreateNodeCount(AXNode::AXID node_id) {
-    DCHECK(!computing_pending_changes)
-        << "This method should not be called before any updates are made to "
-           "the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComplete, pending_update_status)
+        << "This method should not be called before pending changes have "
+           "finished computing.";
     if (PendingStructureChanges* data = GetPendingStructureChanges(node_id)) {
       DCHECK_GT(data->create_node_count, 0);
       --data->create_node_count;
@@ -449,8 +480,9 @@ struct AXTreeUpdateState {
   // Adds the parent of |node_id| to the list of nodes to invalidate unignored
   // cached values.
   void InvalidateParentNodeUnignoredCacheValues(AXNode::AXID node_id) {
-    DCHECK(computing_pending_changes) << "This method should be called before "
-                                         "any updates are made to the tree.";
+    DCHECK_EQ(AXTreePendingStructureStatus::kComputing, pending_update_status)
+        << "This method should only be called while computing pending changes, "
+           "before updates are made to the tree.";
     base::Optional<AXNode::AXID> parent_node_id =
         GetParentIdForPendingNode(node_id);
     if (parent_node_id) {
@@ -458,9 +490,9 @@ struct AXTreeUpdateState {
     }
   }
 
-  // Indicates if the tree is calculating what changes will occur during
+  // Indicates the status for calculating what changes will occur during
   // an update before the update applies changes.
-  bool computing_pending_changes;
+  AXTreePendingStructureStatus pending_update_status;
 
   // Keeps track of the root node id when calculating what changes will occur
   // during an update before the update applies changes.
@@ -481,11 +513,6 @@ struct AXTreeUpdateState {
   // Keeps track of nodes whose cached unignored child count, or unignored
   // index in parent may have changed, and must be updated.
   std::set<AXNode::AXID> invalidate_unignored_cached_values_ids;
-
-  // All child node ids touched by the update, as well as the new root
-  // node id. Nodes are considered reparented if they are in this list
-  // and removed from somewhere else.
-  std::set<AXNode::AXID> node_ids_found_in_update;
 
   // Keeps track of nodes that have changed their node data.
   std::set<AXNode::AXID> node_data_changed_ids;
@@ -550,13 +577,15 @@ AXTree::AXTree() {
   // TODO(chrishall): do we want to initialize all the time, on demand, or only
   //                  when feature flag is set?
   DCHECK(!language_detection_manager);
-  language_detection_manager = std::make_unique<AXLanguageDetectionManager>();
+  language_detection_manager =
+      std::make_unique<AXLanguageDetectionManager>(this);
 }
 
 AXTree::AXTree(const AXTreeUpdate& initial_state) {
   CHECK(Unserialize(initial_state)) << error();
   DCHECK(!language_detection_manager);
-  language_detection_manager = std::make_unique<AXLanguageDetectionManager>();
+  language_detection_manager =
+      std::make_unique<AXLanguageDetectionManager>(this);
 }
 
 AXTree::~AXTree() {
@@ -821,16 +850,6 @@ bool AXTree::Unserialize(const AXTreeUpdate& update) {
   AXTreeUpdateState update_state(*this);
   const AXNode::AXID old_root_id = root_ ? root_->id() : AXNode::kInvalidAXID;
 
-  // Get all of the node ids that are certain to exist after the update.
-  // These are the nodes that are considered reparented if they are removed from
-  // somewhere else.
-  if (update.root_id != AXNode::kInvalidAXID)
-    update_state.node_ids_found_in_update.emplace(update.root_id);
-  for (const AXNodeData& update_node_data : update.nodes) {
-    update_state.node_ids_found_in_update.insert(
-        update_node_data.child_ids.begin(), update_node_data.child_ids.end());
-  }
-
   // Accumulates the work that will be required to update the AXTree.
   // This allows us to notify observers of structure changes when the
   // tree is still in a stable and unchanged state.
@@ -962,9 +981,10 @@ bool AXTree::Unserialize(const AXTreeUpdate& update) {
 
   std::vector<AXTreeObserver::Change> changes;
   changes.reserve(update.nodes.size());
+  std::set<AXNode::AXID> visited_observer_changes;
   for (size_t i = 0; i < update.nodes.size(); ++i) {
     AXNode* node = GetFromId(update.nodes[i].id);
-    if (!node)
+    if (!node || !visited_observer_changes.emplace(update.nodes[i].id).second)
       continue;
 
     bool is_new_node = update_state.IsCreatedNode(node);
@@ -1134,8 +1154,11 @@ AXNode* AXTree::CreateNode(AXNode* parent,
 
 bool AXTree::ComputePendingChanges(const AXTreeUpdate& update,
                                    AXTreeUpdateState& update_state) {
-  base::AutoReset<bool> computing_pending_changes_resetter(
-      &update_state.computing_pending_changes, true);
+  DCHECK_EQ(AXTreePendingStructureStatus::kNotStarted,
+            update_state.pending_update_status)
+      << "Pending changes have already started being computed.";
+  update_state.pending_update_status = AXTreePendingStructureStatus::kComputing;
+
   base::AutoReset<base::Optional<AXNode::AXID>> pending_root_id_resetter(
       &update_state.pending_root_id,
       root_ ? base::Optional<AXNode::AXID>{root_->id()} : base::nullopt);
@@ -1179,10 +1202,13 @@ bool AXTree::ComputePendingChanges(const AXTreeUpdate& update,
     bool is_new_root =
         update_state.root_will_be_created && new_data.id == update.root_id;
     if (!ComputePendingChangesToNode(new_data, is_new_root, &update_state)) {
+      update_state.pending_update_status =
+          AXTreePendingStructureStatus::kFailed;
       return false;
     }
   }
 
+  update_state.pending_update_status = AXTreePendingStructureStatus::kComplete;
   return true;
 }
 
@@ -1391,7 +1417,7 @@ void AXTree::NotifySubtreeWillBeReparentedOrDeleted(
     return;
 
   for (AXTreeObserver& observer : observers_) {
-    if (update_state->IsPotentiallyReparentedNode(node)) {
+    if (update_state->IsReparentedNode(node)) {
       observer.OnSubtreeWillBeReparented(this, node);
     } else {
       observer.OnSubtreeWillBeDeleted(this, node);
@@ -1407,7 +1433,7 @@ void AXTree::NotifyNodeWillBeReparentedOrDeleted(
     return;
 
   for (AXTreeObserver& observer : observers_) {
-    if (update_state->IsPotentiallyReparentedNode(node)) {
+    if (update_state->IsReparentedNode(node)) {
       observer.OnNodeWillBeReparented(this, node);
     } else {
       observer.OnNodeWillBeDeleted(this, node);
@@ -1872,6 +1898,7 @@ void AXTree::PopulateOrderedSetItems(const AXNode* ordered_set,
     // matches ordered set role.
     if ((node_is_radio_button &&
          child->data().role == ax::mojom::Role::kRadioButton) ||
+        child->data().role == ax::mojom::Role::kComment ||
         (!node_is_radio_button && child->SetRoleMatchesItemRole(ordered_set))) {
       int child_level =
           child->GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
@@ -1933,14 +1960,14 @@ void AXTree::ComputeSetSizePosInSetAndCache(const AXNode& node,
   int32_t num_elements = 0;
   // Necessary for calculating set_size.
   int32_t largest_assigned_set_size = 0;
-  int hierarchical_level =
-      node.GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
 
   // Compute pos_in_set_values.
   for (size_t i = 0; i < items.size(); ++i) {
     const AXNode* item = items[i];
     ordered_set_info_map_[item->id()] = OrderedSetInfo();
     int32_t pos_in_set_value = 0;
+    int hierarchical_level =
+        item->GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
 
     pos_in_set_value = num_elements + 1;
 
@@ -1991,6 +2018,8 @@ void AXTree::ComputeSetSizePosInSetAndCache(const AXNode& node,
   if (node.SetRoleMatchesItemRole(ordered_set) || ordered_set == &node) {
     auto ordered_set_info_result =
         ordered_set_info_map_.find(ordered_set->id());
+    int hierarchical_level =
+        node.GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
     // If ordered_set is not in the cache, assign it a new set_size.
     if (ordered_set_info_result == ordered_set_info_map_.end()) {
       ordered_set_info_map_[ordered_set->id()] = OrderedSetInfo();
@@ -2009,6 +2038,8 @@ void AXTree::ComputeSetSizePosInSetAndCache(const AXNode& node,
   // Assign set_size to items.
   for (size_t j = 0; j < items.size(); ++j) {
     const AXNode* item = items[j];
+    int hierarchical_level =
+        item->GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
     // If level is specified, use author-provided value, if present.
     if (hierarchical_level != 0 &&
         item->HasIntAttribute(ax::mojom::IntAttribute::kSetSize))
@@ -2054,59 +2085,108 @@ AXTree::Selection AXTree::GetUnignoredSelection() const {
   AXNode* focus_node = GetFromId(data().sel_focus_object_id);
 
   AXNodePosition::AXPositionInstance anchor_position =
-      anchor_node ? AXNodePosition::CreatePosition(data().tree_id, *anchor_node,
+      anchor_node ? AXNodePosition::CreatePosition(*anchor_node,
                                                    data().sel_anchor_offset,
                                                    data().sel_anchor_affinity)
                   : AXNodePosition::CreateNullPosition();
-  if (anchor_position->IsIgnoredPosition()) {
-    anchor_position = anchor_position->AsUnignoredTextPosition(
-        data().sel_is_backward ? AXNodePosition::AdjustmentBehavior::kMoveRight
-                               : AXNodePosition::AdjustmentBehavior::kMoveLeft);
+
+  // Null positions are never ignored.
+  if (anchor_position->IsIgnored()) {
+    anchor_position = anchor_position->AsUnignoredPosition(
+        data().sel_is_backward ? AXPositionAdjustmentBehavior::kMoveForwards
+                               : AXPositionAdjustmentBehavior::kMoveBackwards);
+
+    // Any selection endpoint that is inside a leaf node is expressed as a text
+    // position in AXTreeData.
+    if (anchor_position->IsLeafTreePosition())
+      anchor_position = anchor_position->AsTextPosition();
+
     // We do not expect the selection to have an endpoint on an inline text
-    // box.
-    if (!anchor_position->IsNullPosition() &&
+    // box as this will create issues with parts of the code that don't use
+    // inline text boxes.
+    if (anchor_position->IsTextPosition() &&
         anchor_position->GetAnchor()->data().role ==
-            ax::mojom::Role::kInlineTextBox)
+            ax::mojom::Role::kInlineTextBox) {
       anchor_position = anchor_position->CreateParentPosition();
-    unignored_selection.anchor_object_id = anchor_position->anchor_id();
-    unignored_selection.anchor_offset = anchor_position->text_offset();
-    unignored_selection.anchor_affinity = anchor_position->affinity();
-  } else if (anchor_position->IsTreePosition()) {
-    // Fix offset to be in terms of the unignored index.
-    if (data().sel_anchor_offset == int32_t{anchor_node->children().size()}) {
-      unignored_selection.anchor_offset = anchor_node->GetUnignoredChildCount();
-    } else {
-      AXNode* child = anchor_node->children()[data().sel_anchor_offset];
-      unignored_selection.anchor_offset = child->GetUnignoredIndexInParent();
+    }
+
+    switch (anchor_position->kind()) {
+      case AXPositionKind::NULL_POSITION:
+        // If one of the selection endpoints is invalid, then both endpoints
+        // should be unset.
+        unignored_selection.anchor_object_id = AXNode::kInvalidAXID;
+        unignored_selection.anchor_offset = -1;
+        unignored_selection.anchor_affinity =
+            ax::mojom::TextAffinity::kDownstream;
+        unignored_selection.focus_object_id = AXNode::kInvalidAXID;
+        unignored_selection.focus_offset = -1;
+        unignored_selection.focus_affinity =
+            ax::mojom::TextAffinity::kDownstream;
+        return unignored_selection;
+      case AXPositionKind::TREE_POSITION:
+        unignored_selection.anchor_object_id = anchor_position->anchor_id();
+        unignored_selection.anchor_offset = anchor_position->child_index();
+        unignored_selection.anchor_affinity =
+            ax::mojom::TextAffinity::kDownstream;
+        break;
+      case AXPositionKind::TEXT_POSITION:
+        unignored_selection.anchor_object_id = anchor_position->anchor_id();
+        unignored_selection.anchor_offset = anchor_position->text_offset();
+        unignored_selection.anchor_affinity = anchor_position->affinity();
+        break;
     }
   }
 
   AXNodePosition::AXPositionInstance focus_position =
-      focus_node ? AXNodePosition::CreatePosition(data().tree_id, *focus_node,
-                                                  data().sel_focus_offset,
-                                                  data().sel_focus_affinity)
-                 : AXNodePosition::CreateNullPosition();
-  if (focus_position->IsIgnoredPosition()) {
-    focus_position = focus_position->AsUnignoredTextPosition(
-        !data().sel_is_backward
-            ? AXNodePosition::AdjustmentBehavior::kMoveRight
-            : AXNodePosition::AdjustmentBehavior::kMoveLeft);
+      focus_node
+          ? AXNodePosition::CreatePosition(*focus_node, data().sel_focus_offset,
+                                           data().sel_focus_affinity)
+          : AXNodePosition::CreateNullPosition();
+
+  // Null positions are never ignored.
+  if (focus_position->IsIgnored()) {
+    focus_position = focus_position->AsUnignoredPosition(
+        !data().sel_is_backward ? AXPositionAdjustmentBehavior::kMoveForwards
+                                : AXPositionAdjustmentBehavior::kMoveBackwards);
+
+    // Any selection endpoint that is inside a leaf node is expressed as a text
+    // position in AXTreeData.
+    if (focus_position->IsLeafTreePosition())
+      focus_position = focus_position->AsTextPosition();
+
     // We do not expect the selection to have an endpoint on an inline text
-    // box.
-    if (!focus_position->IsNullPosition() &&
+    // box as this will create issues with parts of the code that don't use
+    // inline text boxes.
+    if (focus_position->IsTextPosition() &&
         focus_position->GetAnchor()->data().role ==
-            ax::mojom::Role::kInlineTextBox)
+            ax::mojom::Role::kInlineTextBox) {
       focus_position = focus_position->CreateParentPosition();
-    unignored_selection.focus_object_id = focus_position->anchor_id();
-    unignored_selection.focus_offset = focus_position->text_offset();
-    unignored_selection.focus_affinity = focus_position->affinity();
-  } else if (focus_position->IsTreePosition()) {
-    // Fix offset to be in terms of the unignored index.
-    if (data().sel_focus_offset == int32_t{focus_node->children().size()}) {
-      unignored_selection.focus_offset = focus_node->GetUnignoredChildCount();
-    } else {
-      AXNode* child = focus_node->children()[data().sel_focus_offset];
-      unignored_selection.focus_offset = child->GetUnignoredIndexInParent();
+    }
+
+    switch (focus_position->kind()) {
+      case AXPositionKind::NULL_POSITION:
+        // If one of the selection endpoints is invalid, then both endpoints
+        // should be unset.
+        unignored_selection.anchor_object_id = AXNode::kInvalidAXID;
+        unignored_selection.anchor_offset = -1;
+        unignored_selection.anchor_affinity =
+            ax::mojom::TextAffinity::kDownstream;
+        unignored_selection.focus_object_id = AXNode::kInvalidAXID;
+        unignored_selection.focus_offset = -1;
+        unignored_selection.focus_affinity =
+            ax::mojom::TextAffinity::kDownstream;
+        return unignored_selection;
+      case AXPositionKind::TREE_POSITION:
+        unignored_selection.focus_object_id = focus_position->anchor_id();
+        unignored_selection.focus_offset = focus_position->child_index();
+        unignored_selection.focus_affinity =
+            ax::mojom::TextAffinity::kDownstream;
+        break;
+      case AXPositionKind::TEXT_POSITION:
+        unignored_selection.focus_object_id = focus_position->anchor_id();
+        unignored_selection.focus_offset = focus_position->text_offset();
+        unignored_selection.focus_affinity = focus_position->affinity();
+        break;
     }
   }
 

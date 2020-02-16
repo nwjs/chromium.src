@@ -3834,8 +3834,8 @@ TEST_F(LegacySWPictureLayerImplTest, SharedQuadStateContainsMaxTilingScale) {
   EXPECT_EQ(2.5f, max_contents_scale);
 
   gfx::Transform scaled_draw_transform = active_layer()->DrawTransform();
-  scaled_draw_transform.Scale(SK_MScalar1 / max_contents_scale,
-                              SK_MScalar1 / max_contents_scale);
+  scaled_draw_transform.Scale(SK_Scalar1 / max_contents_scale,
+                              SK_Scalar1 / max_contents_scale);
 
   AppendQuadsData data;
   active_layer()->AppendQuads(render_pass.get(), &data);
@@ -5194,7 +5194,7 @@ TEST_F(LegacySWPictureLayerImplTest, CompositedImageCalculateContentsScale) {
   std::unique_ptr<FakePictureLayerImpl> pending_layer =
       FakePictureLayerImpl::Create(pending_tree, root_id(),
                                    pending_raster_source);
-  pending_layer->set_is_directly_composited_image(true);
+  pending_layer->SetDirectlyCompositedImageSize(layer_bounds);
   pending_layer->SetDrawsContent(true);
   FakePictureLayerImpl* pending_layer_ptr = pending_layer.get();
   pending_tree->SetRootLayerForTesting(std::move(pending_layer));
@@ -5219,7 +5219,7 @@ TEST_F(LegacySWPictureLayerImplTest, CompositedImageIgnoreIdealContentsScale) {
   std::unique_ptr<FakePictureLayerImpl> pending_layer =
       FakePictureLayerImpl::Create(pending_tree, root_id(),
                                    pending_raster_source);
-  pending_layer->set_is_directly_composited_image(true);
+  pending_layer->SetDirectlyCompositedImageSize(layer_bounds);
   pending_layer->SetDrawsContent(true);
   FakePictureLayerImpl* pending_layer_ptr = pending_layer.get();
   pending_tree->SetRootLayerForTesting(std::move(pending_layer));
@@ -5277,7 +5277,7 @@ TEST_F(LegacySWPictureLayerImplTest, CompositedImageRasterScaleChanges) {
       FakeRasterSource::CreateFilled(layer_bounds);
 
   SetupPendingTree(pending_raster_source);
-  pending_layer()->set_is_directly_composited_image(true);
+  pending_layer()->SetDirectlyCompositedImageSize(layer_bounds);
 
   float expected_contents_scale = 0.25f;
   for (int i = 1; i < 30; ++i) {

@@ -12,6 +12,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
+#include "build/build_config.h"
 #include "components/password_manager/core/browser/password_store_sync.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/model/data_batch.h"
@@ -259,12 +260,12 @@ class PasswordSyncBridgeTest : public testing::Test {
   }
 
   // Creates an EntityData around a copy of the given specifics.
-  std::unique_ptr<syncer::EntityData> SpecificsToEntity(
+  syncer::EntityData SpecificsToEntity(
       const sync_pb::PasswordSpecifics& specifics) {
-    auto data = std::make_unique<syncer::EntityData>();
-    *data->specifics.mutable_password() = specifics;
-    data->client_tag_hash = syncer::ClientTagHash::FromUnhashed(
-        syncer::PASSWORDS, bridge()->GetClientTag(*data));
+    syncer::EntityData data;
+    *data.specifics.mutable_password() = specifics;
+    data.client_tag_hash = syncer::ClientTagHash::FromUnhashed(
+        syncer::PASSWORDS, bridge()->GetClientTag(data));
     return data;
   }
 
@@ -436,7 +437,7 @@ TEST_F(PasswordSyncBridgeTest,
 
   EXPECT_CALL(mock_processor(),
               UntrackEntityForClientTagHash(
-                  SpecificsToEntity(specifics)->client_tag_hash));
+                  SpecificsToEntity(specifics).client_tag_hash));
 
   syncer::EntityChangeList entity_change_list;
   entity_change_list.push_back(syncer::EntityChange::CreateAdd(
@@ -732,7 +733,7 @@ TEST_F(PasswordSyncBridgeTest,
 
   EXPECT_CALL(mock_processor(),
               UntrackEntityForClientTagHash(
-                  SpecificsToEntity(specifics)->client_tag_hash));
+                  SpecificsToEntity(specifics).client_tag_hash));
 
   syncer::EntityChangeList entity_change_list;
   entity_change_list.push_back(syncer::EntityChange::CreateAdd(
@@ -789,6 +790,7 @@ TEST_F(PasswordSyncBridgeTest,
                             mock_password_store_sync(), base::DoNothing());
 }
 
+#if defined(OS_MACOSX) && !defined(OS_IOS)
 // Tests that in case ReadAllLogins() during initial merge returns encryption
 // service failure, the bridge would try to do a DB clean up.
 TEST_F(PasswordSyncBridgeTest, ShouldDeleteUndecryptableLoginsDuringMerge) {
@@ -806,6 +808,7 @@ TEST_F(PasswordSyncBridgeTest, ShouldDeleteUndecryptableLoginsDuringMerge) {
       bridge()->MergeSyncData(bridge()->CreateMetadataChangeList(), {});
   EXPECT_FALSE(error);
 }
+#endif
 
 TEST_F(PasswordSyncBridgeTest,
        ShouldDeleteSyncMetadataWhenApplyStopSyncChanges) {

@@ -19,13 +19,18 @@
 
 namespace {
 
-const GURL kTestUrl("https://chromium.org");
+// TODO(https://crbug.com/1042727): Fix test GURL scoping and remove this getter
+// function.
+GURL TestUrl() {
+  return GURL("https://chromium.org");
+}
 
 page_load_metrics::mojom::ResourceDataUpdatePtr CreateBaseResource(
     bool was_cached,
     bool is_complete) {
   return CreateResource(was_cached, 1234 /* delta_bytes */,
-                        1234 /* encoded_body_length */, is_complete);
+                        1234 /* encoded_body_length */,
+                        1234 /* decoded_body_length */, is_complete);
 }
 
 }  // namespace
@@ -148,7 +153,7 @@ class SubresourceLoadingPageLoadMetricsObserverTest
   TestSubresourceLoadingPageLoadMetricsObserver* plm_observer_ = nullptr;
   page_load_metrics::mojom::PageLoadTiming timing_;
 
-  GURL navigation_url_ = kTestUrl;
+  GURL navigation_url_ = TestUrl();
   bool in_main_frame_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(SubresourceLoadingPageLoadMetricsObserverTest);

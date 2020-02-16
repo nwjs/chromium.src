@@ -228,16 +228,16 @@ class RenderProcessHostTest : public ContentBrowserTest,
     impl->visible_clients_ = visible_clients;
   }
  protected:
-  void set_process_exit_callback(const base::Closure& callback) {
-    process_exit_callback_ = callback;
+  void set_process_exit_callback(base::OnceClosure callback) {
+    process_exit_callback_ = std::move(callback);
   }
 
   // RenderProcessHostObserver:
   void RenderProcessExited(RenderProcessHost* host,
                            const ChildProcessTerminationInfo& info) override {
     ++process_exits_;
-    if (!process_exit_callback_.is_null())
-      process_exit_callback_.Run();
+    if (process_exit_callback_)
+      std::move(process_exit_callback_).Run();
   }
   void RenderProcessHostDestroyed(RenderProcessHost* host) override {
     ++host_destructions_;
@@ -249,7 +249,7 @@ class RenderProcessHostTest : public ContentBrowserTest,
 
   int process_exits_;
   int host_destructions_;
-  base::Closure process_exit_callback_;
+  base::OnceClosure process_exit_callback_;
   bool use_frame_priority_;
   base::test::ScopedFeatureList feature_list_;
   base::HistogramTester histogram_tester_;
@@ -950,7 +950,6 @@ class CaptureStreamRenderProcessHostTest : public RenderProcessHostTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     // These flags are necessary to emulate camera input for getUserMedia()
     // tests.
-    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
     command_line->AppendSwitch(switches::kUseFakeUIForMediaStream);
     RenderProcessHostTest::SetUpCommandLine(command_line);
   }

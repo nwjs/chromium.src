@@ -107,6 +107,11 @@ SVGImage::~SVGImage() {
     frame_client_->ClearImage();
 
   if (page_) {
+    // It is safe to allow UA events within this scope, because event
+    // dispatching inside the SVG image's document doesn't trigger JavaScript
+    // execution. All script execution is forbidden when an SVG is loaded as an
+    // image subresource - see SetScriptEnabled in SVGImage::DataChanged().
+    EventDispatchForbiddenScope::AllowUserAgentEvents allow_events;
     // Store m_page in a local variable, clearing m_page, so that
     // SVGImageChromeClient knows we're destructed.
     Page* current_page = page_.Release();
@@ -178,18 +183,18 @@ static SVGSVGElement* SvgRootElement(Page* page) {
   return frame->GetDocument()->AccessSVGExtensions().rootElement();
 }
 
-IntSize SVGImage::ContainerSize() const {
+LayoutSize SVGImage::ContainerSize() const {
   SVGSVGElement* root_element = SvgRootElement(page_.Get());
   if (!root_element)
-    return IntSize();
+    return LayoutSize();
 
   LayoutSVGRoot* layout_object =
       ToLayoutSVGRoot(root_element->GetLayoutObject());
   if (!layout_object)
-    return IntSize();
+    return LayoutSize();
 
   // If a container size is available it has precedence.
-  IntSize container_size = layout_object->ContainerSize();
+  LayoutSize container_size = layout_object->ContainerSize();
   if (!container_size.IsEmpty())
     return container_size;
 
@@ -198,6 +203,10 @@ IntSize SVGImage::ContainerSize() const {
 
   // No set container size; use concrete object size.
   return intrinsic_size_;
+}
+
+IntSize SVGImage::Size() const {
+  return RoundedIntSize(intrinsic_size_);
 }
 
 static float ResolveWidthForRatio(float height,
@@ -298,7 +307,7 @@ void SVGImage::ForContainer(const FloatSize& container_size, Func&& func) {
   // re-laying out the image.
   ImageObserverDisabler image_observer_disabler(this);
 
-  IntSize rounded_container_size = RoundedIntSize(container_size);
+  LayoutSize rounded_container_size = RoundedLayoutSize(container_size);
 
   if (SVGSVGElement* root_element = SvgRootElement(page_.Get())) {
     if (LayoutSVGRoot* layout_object =
@@ -326,8 +335,8 @@ void SVGImage::DrawForContainer(cc::PaintCanvas* canvas,
     adjusted_src_size.Scale(residual_scale.Width(), residual_scale.Height());
     scaled_src.SetSize(adjusted_src_size);
 
-    DrawInternal(canvas, flags, dst_rect, scaled_src,
-                 kDoNotRespectImageOrientation, kClampImageToSourceRect, url);
+    DrawInternal(canvas, flags, dst_rect, scaled_src, kRespectImageOrientation,
+                 kClampImageToSourceRect, url);
   });
 }
 
@@ -443,12 +452,11 @@ static bool DrawNeedsLayer(const PaintFlags& flags) {
 bool SVGImage::ApplyShaderInternal(PaintFlags& flags,
                                    const SkMatrix& local_matrix,
                                    const KURL& url) {
-  const IntSize size(ContainerSize());
+  const FloatSize size(ContainerSize());
   if (size.IsEmpty())
     return false;
 
-  IntRect bounds(IntPoint(), size);
-
+  FloatRect bounds(FloatPoint(), size);
   flags.setShader(PaintShader::MakePaintRecord(
       PaintRecordForCurrentFrame(url), bounds, SkTileMode::kRepeat,
       SkTileMode::kRepeat, &local_matrix));
@@ -500,8 +508,9 @@ void SVGImage::Draw(
 sk_sp<PaintRecord> SVGImage::PaintRecordForCurrentFrame(const KURL& url) {
   DCHECK(page_);
   LocalFrameView* view = To<LocalFrame>(page_->MainFrame())->View();
-  view->Resize(ContainerSize());
-  page_->GetVisualViewport().SetSize(ContainerSize());
+  IntSize rounded_container_size = RoundedIntSize(ContainerSize());
+  view->Resize(rounded_container_size);
+  page_->GetVisualViewport().SetSize(rounded_container_size);
 
   // Always call processUrlFragment, even if the url is empty, because
   // there may have been a previous url/fragment that needs to be reset.
@@ -515,8 +524,7 @@ sk_sp<PaintRecord> SVGImage::PaintRecordForCurrentFrame(const KURL& url) {
   FlushPendingTimelineRewind();
 
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
-    view->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kOther);
+    view->UpdateAllLifecyclePhases(DocumentUpdateReason::kOther);
     return view->GetPaintRecord();
   }
 
@@ -542,18 +550,10 @@ void SVGImage::DrawInternal(cc::PaintCanvas* canvas,
     // We can only draw the entire frame, clipped to the rect we want. So
     // compute where the top left of the image would be if we were drawing
     // without clipping, and translate accordingly.
-    FloatSize scale(dst_rect.Width() / src_rect.Width(),
-                    dst_rect.Height() / src_rect.Height());
-    FloatSize top_left_offset(src_rect.Location().X() * scale.Width(),
-                              src_rect.Location().Y() * scale.Height());
-    FloatPoint dest_offset = dst_rect.Location() - top_left_offset;
-    AffineTransform transform =
-        AffineTransform::Translation(dest_offset.X(), dest_offset.Y());
-    transform.Scale(scale.Width(), scale.Height());
-
     canvas->save();
     canvas->clipRect(EnclosingIntRect(dst_rect));
-    canvas->concat(AffineTransformToSkMatrix(transform));
+    canvas->concat(SkMatrix::MakeRectToRect(src_rect, dst_rect,
+                                            SkMatrix::kFill_ScaleToFit));
     canvas->drawPicture(PaintRecordForCurrentFrame(url));
     canvas->restore();
   }
@@ -660,9 +660,10 @@ void SVGImage::ServiceAnimations(
   // know SVG images never have composited animations, we can update animations
   // directly without worrying about including PaintArtifactCompositor's
   // analysis of whether animations should be composited.
-  DocumentAnimations::UpdateAnimations(
-      frame_view->GetLayoutView()->GetDocument(),
-      DocumentLifecycle::kLayoutClean, nullptr);
+  frame_view->GetLayoutView()
+      ->GetDocument()
+      .GetDocumentAnimations()
+      .UpdateAnimations(DocumentLifecycle::kLayoutClean, nullptr);
 }
 
 void SVGImage::AdvanceAnimationForTesting() {
@@ -819,7 +820,7 @@ Image::SizeAvailability SVGImage::DataChanged(bool all_data_received) {
   frame->GetDocument()->UpdateStyleAndLayoutTree();
 
   // Set the concrete object size before a container size is available.
-  intrinsic_size_ = RoundedIntSize(ConcreteObjectSize(FloatSize(
+  intrinsic_size_ = RoundedLayoutSize(ConcreteObjectSize(FloatSize(
       LayoutReplaced::kDefaultWidth, LayoutReplaced::kDefaultHeight)));
 
   DCHECK(page_);

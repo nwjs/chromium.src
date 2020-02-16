@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
+#include "ui/base/ui_base_features.h"
 
 namespace blink {
 
@@ -69,24 +70,32 @@ TEST(ComputedStyleTest, ClipPathEqual) {
 
 TEST(ComputedStyleTest, FocusRingWidth) {
   scoped_refptr<ComputedStyle> style = ComputedStyle::Create();
-  style->SetEffectiveZoom(3.5);
-  style->SetOutlineStyle(EBorderStyle::kSolid);
+  if (::features::IsFormControlsRefreshEnabled()) {
+    style->SetOutlineStyleIsAuto(static_cast<bool>(OutlineIsAuto::kOn));
+    EXPECT_EQ(3, style->GetOutlineStrokeWidthForFocusRing());
+    style->SetEffectiveZoom(3.5);
+    style->SetOutlineWidth(4);
+    EXPECT_EQ(3.5, style->GetOutlineStrokeWidthForFocusRing());
+  } else {
+    style->SetEffectiveZoom(3.5);
+    style->SetOutlineStyle(EBorderStyle::kSolid);
 #if defined(OS_MACOSX)
-  EXPECT_EQ(3, style->GetOutlineStrokeWidthForFocusRing());
+    EXPECT_EQ(3, style->GetOutlineStrokeWidthForFocusRing());
 #else
-  style->SetOutlineStyleIsAuto(static_cast<bool>(OutlineIsAuto::kOn));
-  static uint16_t outline_width = 4;
-  style->SetOutlineWidth(outline_width);
+    style->SetOutlineStyleIsAuto(static_cast<bool>(OutlineIsAuto::kOn));
+    static uint16_t outline_width = 4;
+    style->SetOutlineWidth(outline_width);
 
-  double expected_width =
-      LayoutTheme::GetTheme().IsFocusRingOutset() ? outline_width : 3.5;
-  EXPECT_EQ(expected_width, style->GetOutlineStrokeWidthForFocusRing());
+    double expected_width =
+        LayoutTheme::GetTheme().IsFocusRingOutset() ? outline_width : 3.5;
+    EXPECT_EQ(expected_width, style->GetOutlineStrokeWidthForFocusRing());
 
-  expected_width =
-      LayoutTheme::GetTheme().IsFocusRingOutset() ? outline_width : 1.0;
-  style->SetEffectiveZoom(0.5);
-  EXPECT_EQ(expected_width, style->GetOutlineStrokeWidthForFocusRing());
+    expected_width =
+        LayoutTheme::GetTheme().IsFocusRingOutset() ? outline_width : 1.0;
+    style->SetEffectiveZoom(0.5);
+    EXPECT_EQ(expected_width, style->GetOutlineStrokeWidthForFocusRing());
 #endif
+  }
 }
 
 TEST(ComputedStyleTest, FocusRingOutset) {
@@ -94,11 +103,17 @@ TEST(ComputedStyleTest, FocusRingOutset) {
   style->SetOutlineStyle(EBorderStyle::kSolid);
   style->SetOutlineStyleIsAuto(static_cast<bool>(OutlineIsAuto::kOn));
   style->SetEffectiveZoom(4.75);
+  if (::features::IsFormControlsRefreshEnabled()) {
+    EXPECT_EQ(4, style->OutlineOutsetExtent());
+    style->SetEffectiveAppearance(kRadioPart);
+    EXPECT_EQ(6, style->OutlineOutsetExtent());
+  } else {
 #if defined(OS_MACOSX)
-  EXPECT_EQ(4, style->OutlineOutsetExtent());
+    EXPECT_EQ(4, style->OutlineOutsetExtent());
 #else
-  EXPECT_EQ(3, style->OutlineOutsetExtent());
+    EXPECT_EQ(3, style->OutlineOutsetExtent());
 #endif
+  }
 }
 
 TEST(ComputedStyleTest, SVGStackingContext) {
@@ -508,6 +523,7 @@ TEST(ComputedStyleTest, CustomPropertiesEqual_Data) {
 
 TEST(ComputedStyleTest, ApplyColorSchemeLightOnDark) {
   ScopedCSSColorSchemeForTest scoped_property_enabled(true);
+  ScopedCSSColorSchemeUARenderingForTest scoped_ua_enabled(true);
 
   std::unique_ptr<DummyPageHolder> dummy_page_holder_ =
       std::make_unique<DummyPageHolder>(IntSize(0, 0), nullptr);
@@ -540,6 +556,7 @@ TEST(ComputedStyleTest, ApplyColorSchemeLightOnDark) {
 
 TEST(ComputedStyleTest, ApplyInternalLightDarkColor) {
   ScopedCSSColorSchemeForTest scoped_property_enabled(true);
+  ScopedCSSColorSchemeUARenderingForTest scoped_ua_enabled(true);
 
   std::unique_ptr<DummyPageHolder> dummy_page_holder_ =
       std::make_unique<DummyPageHolder>(IntSize(0, 0), nullptr);
@@ -570,22 +587,45 @@ TEST(ComputedStyleTest, ApplyInternalLightDarkColor) {
   CSSValueList* light_value = CSSValueList::CreateSpaceSeparated();
   light_value->Append(*CSSIdentifierValue::Create(CSSValueID::kLight));
 
-  CSSPropertyRef scheme_property("color-scheme", state.GetDocument());
-  CSSPropertyRef color_property("color", state.GetDocument());
+  auto origin = StyleCascade::Origin::kUserAgent;
 
-  To<Longhand>(color_property.GetProperty())
-      .ApplyValue(state, *internal_light_dark);
-  To<Longhand>(scheme_property.GetProperty()).ApplyValue(state, *dark_value);
-  if (!RuntimeEnabledFeatures::CSSCascadeEnabled())
-    resolver.ApplyCascadedColorValue(state);
-  EXPECT_EQ(Color::kWhite, style->VisitedDependentColor(GetCSSPropertyColor()));
+  {
+    ScopedCSSCascadeForTest scoped_cascade_enabled(false);
 
-  To<Longhand>(color_property.GetProperty())
-      .ApplyValue(state, *internal_light_dark);
-  To<Longhand>(scheme_property.GetProperty()).ApplyValue(state, *light_value);
-  if (!RuntimeEnabledFeatures::CSSCascadeEnabled())
+    To<Longhand>(GetCSSPropertyColor()).ApplyValue(state, *internal_light_dark);
+    To<Longhand>(GetCSSPropertyColorScheme()).ApplyValue(state, *dark_value);
     resolver.ApplyCascadedColorValue(state);
-  EXPECT_EQ(Color::kBlack, style->VisitedDependentColor(GetCSSPropertyColor()));
+    EXPECT_EQ(Color::kWhite,
+              style->VisitedDependentColor(GetCSSPropertyColor()));
+
+    To<Longhand>(GetCSSPropertyColor()).ApplyValue(state, *internal_light_dark);
+    To<Longhand>(GetCSSPropertyColorScheme()).ApplyValue(state, *light_value);
+    resolver.ApplyCascadedColorValue(state);
+    EXPECT_EQ(Color::kBlack,
+              style->VisitedDependentColor(GetCSSPropertyColor()));
+  }
+
+  {
+    ScopedCSSCascadeForTest scoped_cascade_enabled(true);
+
+    StyleCascade cascade1(state);
+    cascade1.Add(*CSSPropertyName::From(&state.GetDocument(), "color"),
+                 internal_light_dark, origin);
+    cascade1.Add(*CSSPropertyName::From(&state.GetDocument(), "color-scheme"),
+                 dark_value, origin);
+    cascade1.Apply();
+    EXPECT_EQ(Color::kWhite,
+              style->VisitedDependentColor(GetCSSPropertyColor()));
+
+    StyleCascade cascade2(state);
+    cascade2.Add(*CSSPropertyName::From(&state.GetDocument(), "color"),
+                 internal_light_dark, origin);
+    cascade2.Add(*CSSPropertyName::From(&state.GetDocument(), "color-scheme"),
+                 light_value, origin);
+    cascade2.Apply();
+    EXPECT_EQ(Color::kBlack,
+              style->VisitedDependentColor(GetCSSPropertyColor()));
+  }
 }
 
 }  // namespace blink

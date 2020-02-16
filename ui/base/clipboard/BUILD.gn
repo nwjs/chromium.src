@@ -45,11 +45,9 @@ jumbo_component("clipboard_types") {
     sources += [ "clipboard_format_type.h" ]
   }
 
-  defines = [ "IS_BASE_CLIPBOARD_TYPES_IMPL" ]
+  defines = [ "IS_UI_BASE_CLIPBOARD_TYPES_IMPL" ]
 
-  deps = [
-    "//base",
-  ]
+  deps = [ "//base" ]
 
   libs = []
   if (is_mac) {
@@ -100,21 +98,18 @@ jumbo_component("clipboard") {
     ]
   }
 
-  defines = [ "IS_BASE_CLIPBOARD_IMPL" ]
+  defines = [ "IS_UI_BASE_CLIPBOARD_IMPL" ]
 
   deps = [
     "//base",
     "//mojo/public/cpp/base",
     "//net",
     "//skia",
-    "//ui/events/platform",
     "//ui/gfx",
     "//ui/gfx/geometry",
   ]
 
-  public_deps = [
-    ":clipboard_types",
-  ]
+  public_deps = [ ":clipboard_types" ]
 
   if (use_aura) {
     # Aura clipboard.
@@ -135,6 +130,7 @@ jumbo_component("clipboard") {
         deps += [
           "//ui/base",
           "//ui/base/x",
+          "//ui/events/platform",
           "//ui/events/x",
           "//ui/gfx/x",
         ]

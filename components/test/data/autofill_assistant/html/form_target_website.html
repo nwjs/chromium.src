@@ -5,8 +5,30 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Form tests.</title>
   </head>
+  <style>
+      .terms {
+        background-color: yellow;
+        height: 5em;
+      }
+  </style>
+  <script>
+    function onClick() {
+      var on = document.getElementById("toggle_on");
+      if (on.style.display === "none") {
+        on.style.display = "block";
+      } else {
+        on.style.display = "none";
+      }
+    }
+  </script>
   <body>
     <h3>Form filling</h3>
+
+    <h4>Terms and conditions</h4>
+    <div id="terms" class="terms">
+      <button id="button" onclick="onClick()"> Button </button>
+      <div id="toggle_on" style="display: none"> Toggle on </div>
+  </div>
 
     <h4>Credit card</h4>
     <div>
@@ -46,5 +68,15 @@
         EMail: <input type="text" id="email" name="email" autocomplete="email"/>
       </form>
     </div>
+
+    <h4>Password Form</h4>
+    <div>
+      <form id="form3" action="https://example.com/" method="post">
+        Username: <input type="text" id="username" name="username"><br>
+        Password: <input type="password" id="password" name="password"><br>
+        Confirmation password: <input type="password" id="password-conf" name="password-conf">
+      </form>
+    </div>
+
   </body>
 </html>

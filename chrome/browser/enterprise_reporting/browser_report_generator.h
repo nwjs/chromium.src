@@ -5,9 +5,13 @@
 #ifndef CHROME_BROWSER_ENTERPRISE_REPORTING_BROWSER_REPORT_GENERATOR_H_
 #define CHROME_BROWSER_ENTERPRISE_REPORTING_BROWSER_REPORT_GENERATOR_H_
 
+#include <memory>
+#include <vector>
+
 #include "base/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "components/policy/proto/device_management_backend.pb.h"
+#include "ppapi/buildflags/buildflags.h"
 
 namespace em = enterprise_management;
 
@@ -35,8 +39,21 @@ class BrowserReportGenerator {
   void Generate(ReportCallback callback);
 
  private:
+  // Generate browser_version, channel, executable_path info in the given
+  // report instance.
+  void GenerateBasicInfos(em::BrowserReport* report);
+
+  // Generate user profiles info in the given report instance.
+  void GenerateProfileInfos(em::BrowserReport* report);
+
+  // Generate plugin info in the given report instance, if needed. It requires
+  // the ownership of report instance to pass into ReportCallback method.
+  void GeneratePluginsIfNeeded(std::unique_ptr<em::BrowserReport> report);
+
+#if BUILDFLAG(ENABLE_PLUGINS)
   void OnPluginsReady(std::unique_ptr<em::BrowserReport> report,
                       const std::vector<content::WebPluginInfo>& plugins);
+#endif
 
   ReportCallback callback_;
 

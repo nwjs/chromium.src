@@ -18,8 +18,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/db/v4_local_database_manager.h"
-#include "components/safe_browsing/verdict_cache_manager.h"
+#include "components/safe_browsing/core/db/v4_local_database_manager.h"
+#include "components/safe_browsing/core/verdict_cache_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
@@ -123,6 +123,9 @@ void ServicesDelegateDesktop::ShutdownServices() {
   // Delete the ChromePasswordProtectionService instances.
   password_protection_service_map_.clear();
 
+  // Delete the BinaryUploadService instances.
+  binary_upload_service_map_.clear();
+
   // Must shut down last.
   download_service_.reset();
 }
@@ -203,6 +206,11 @@ void ServicesDelegateDesktop::StartOnIOThread(
 
 void ServicesDelegateDesktop::StopOnIOThread(bool shutdown) {
   database_manager_->StopOnIOThread(shutdown);
+}
+
+void ServicesDelegateDesktop::OnProfileWillBeDestroyedOnIOThread(
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
+  database_manager_->OnProfileWillBeDestroyedOnIOThread(url_loader_factory);
 }
 
 void ServicesDelegateDesktop::CreateBinaryUploadService(Profile* profile) {

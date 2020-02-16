@@ -31,7 +31,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_MULTIPLE_FIELDS_TEMPORAL_INPUT_TYPE_VIEW_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_MULTIPLE_FIELDS_TEMPORAL_INPUT_TYPE_VIEW_H_
 
-#include "third_party/blink/public/platform/web_focus_type.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/html/forms/clear_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/date_time_edit_element.h"
 #include "third_party/blink/renderer/core/html/forms/input_type_view.h"
@@ -60,8 +60,8 @@ class MultipleFieldsTemporalInputTypeView final
 
  private:
   // DateTimeEditElement::EditControlOwner functions
-  void DidBlurFromControl(WebFocusType) final;
-  void DidFocusOnControl(WebFocusType) final;
+  void DidBlurFromControl(mojom::blink::FocusType) final;
+  void DidFocusOnControl(mojom::blink::FocusType) final;
   void EditControlValueChanged() final;
   String FormatDateTimeFieldsState(const DateTimeFieldsState&) const override;
   bool IsEditControlOwnerDisabled() const final;
@@ -84,6 +84,7 @@ class MultipleFieldsTemporalInputTypeView final
   void PickerIndicatorChooseValue(double) final;
   Element& PickerOwnerElement() const final;
   bool SetupDateTimeChooserParameters(DateTimeChooserParameters&) final;
+  void DidEndChooser() final;
 
   // ClearButtonElement::ClearButtonOwner functions.
   void FocusAndSelectClearButtonOwner() override;
@@ -93,6 +94,7 @@ class MultipleFieldsTemporalInputTypeView final
   // InputTypeView functions
   void Blur() final;
   void ClosePopupView() override;
+  bool HasOpenedPopup() const override;
   scoped_refptr<ComputedStyle> CustomStyleForLayoutObject(
       scoped_refptr<ComputedStyle>) override;
   void CreateShadowSubtree() final;
@@ -100,7 +102,8 @@ class MultipleFieldsTemporalInputTypeView final
   void DisabledAttributeChanged() final;
   void ForwardEvent(Event&) final;
   void HandleClickEvent(MouseEvent&) final;
-  void HandleFocusInEvent(Element* old_focused_element, WebFocusType) final;
+  void HandleFocusInEvent(Element* old_focused_element,
+                          mojom::blink::FocusType) final;
   void HandleKeydownEvent(KeyboardEvent&) final;
   bool HasBadInput() const override;
   bool HasCustomFocusLogic() const final;
@@ -117,6 +120,7 @@ class MultipleFieldsTemporalInputTypeView final
   void UpdateClearButtonVisibility() final;
   TextDirection ComputedTextDirection() final;
   AXObject* PopupRootAXObject() final;
+  bool TypeShouldForceLegacyLayout() const final;
 
   DateTimeEditElement* GetDateTimeEditElement() const;
   SpinButtonElement* GetSpinButtonElement() const;

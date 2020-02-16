@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_loader.h"
 
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/dom/dom_implementation.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -116,7 +117,8 @@ void ModuleScriptLoader::FetchInternal(
 #endif
 
   // <spec step="5">... destination is destination, ...</spec>
-  resource_request.SetRequestContext(module_request.Destination());
+  resource_request.SetRequestContext(module_request.ContextType());
+  resource_request.SetRequestDestination(module_request.Destination());
 
   ResourceLoaderOptions options;
 
@@ -248,9 +250,14 @@ void ModuleScriptLoader::NotifyFetchFinished(
   // url, and options.</spec>
   switch (params->GetModuleType()) {
     case ModuleScriptCreationParams::ModuleType::kJSONModule:
-      DCHECK(RuntimeEnabledFeatures::JSONModulesEnabled());
+      DCHECK(base::FeatureList::IsEnabled(blink::features::kJSONModules));
       module_script_ = ValueWrapperSyntheticModuleScript::
           CreateJSONWrapperSyntheticModuleScript(params, modulator_);
+      break;
+    case ModuleScriptCreationParams::ModuleType::kCSSModule:
+      DCHECK(RuntimeEnabledFeatures::CSSModulesEnabled());
+      module_script_ = ValueWrapperSyntheticModuleScript::
+          CreateCSSWrapperSyntheticModuleScript(params, modulator_);
       break;
     case ModuleScriptCreationParams::ModuleType::kJavaScriptModule:
       // Step 9. "Let source text be the result of UTF-8 decoding response's

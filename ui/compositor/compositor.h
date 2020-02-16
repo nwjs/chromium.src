@@ -33,7 +33,7 @@
 #include "ui/compositor/compositor_lock.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/compositor/layer_animator_collection.h"
-#include "ui/gfx/color_space.h"
+#include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/gpu_memory_buffer.h"
@@ -75,40 +75,15 @@ namespace ui {
 
 class Compositor;
 class Layer;
-class Reflector;
 class ScopedAnimationDurationScaleMode;
 class ScrollInputHandler;
 
 constexpr int kCompositorLockTimeoutMs = 67;
 
-class COMPOSITOR_EXPORT ContextFactoryObserver {
- public:
-  virtual ~ContextFactoryObserver() {}
-
-  // Notifies that the viz::ContextProviders returned from
-  // ui::ContextFactory::SharedMainThreadContextProvider and/or
-  // ui::ContextFactory::SharedMainThreadRasterContextProvider were lost.
-  // When this is called, the old resources (e.g. shared context, GL helper)
-  // still exist, but are about to be destroyed. Getting a reference to those
-  // resources from the ContextFactory (e.g. through
-  // SharedMainThreadContextProvider()) will return newly recreated, valid
-  // resources.
-  virtual void OnLostSharedContext() = 0;
-};
-
 // This is privileged interface to the compositor. It is a global object.
 class COMPOSITOR_EXPORT ContextFactoryPrivate {
  public:
   virtual ~ContextFactoryPrivate() {}
-
-  // Creates a reflector that copies the content of the |mirrored_compositor|
-  // onto |mirroring_layer|.
-  virtual std::unique_ptr<Reflector> CreateReflector(
-      Compositor* mirrored_compositor,
-      Layer* mirroring_layer) = 0;
-
-  // Removes the reflector, which stops the mirroring.
-  virtual void RemoveReflector(Reflector* reflector) = 0;
 
   // Allocate a new client ID for the display compositor.
   virtual viz::FrameSinkId AllocateFrameSinkId() = 0;
@@ -135,9 +110,9 @@ class COMPOSITOR_EXPORT ContextFactoryPrivate {
                                      const SkMatrix44& matrix) = 0;
 
   // Set the output color profile into which this compositor should render.
-  virtual void SetDisplayColorSpace(ui::Compositor* compositor,
-                                    const gfx::ColorSpace& output_color_space,
-                                    float sdr_white_level) = 0;
+  virtual void SetDisplayColorSpaces(
+      ui::Compositor* compositor,
+      const gfx::DisplayColorSpaces& display_color_spaces) = 0;
 
   // Mac path for transporting vsync parameters to the display.  Other platforms
   // update it via the BrowserCompositorLayerTreeFrameSink directly.
@@ -189,12 +164,6 @@ class COMPOSITOR_EXPORT ContextFactory {
 
   // Gets the task graph runner.
   virtual cc::TaskGraphRunner* GetTaskGraphRunner() = 0;
-
-  virtual void AddObserver(ContextFactoryObserver* observer) = 0;
-
-  virtual void RemoveObserver(ContextFactoryObserver* observer) = 0;
-
-  virtual bool SyncTokensRequiredForDisplayCompositor() = 0;
 };
 
 // Compositor object to take care of GPU painting.
@@ -251,11 +220,6 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   // compositing layers on.
   float device_scale_factor() const { return device_scale_factor_; }
 
-  // The color space of the device that this compositor is being displayed on.
-  const gfx::ColorSpace& output_color_space() const {
-    return output_color_space_;
-  }
-
   // Gets and sets the color matrix used to transform the output colors of what
   // this compositor renders.
   const SkMatrix44& display_color_matrix() const {
@@ -285,9 +249,8 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
 
   // Set the output color profile into which this compositor should render. Also
   // sets the SDR white level (in nits) used to scale HDR color space primaries.
-  void SetDisplayColorSpace(
-      const gfx::ColorSpace& color_space,
-      float sdr_white_level = gfx::ColorSpace::kDefaultSDRWhiteLevel);
+  void SetDisplayColorSpaces(
+      const gfx::DisplayColorSpaces& display_color_spaces);
 
   // Set the transform/rotation info for the display output surface.
   void SetDisplayTransformHint(gfx::OverlayTransform hint);
@@ -501,10 +464,7 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   std::unique_ptr<ScopedAnimationDurationScaleMode> slow_animations_;
 
   SkMatrix44 display_color_matrix_;
-
-  gfx::ColorSpace output_color_space_;
-
-  float sdr_white_level_ = gfx::ColorSpace::kDefaultSDRWhiteLevel;
+  gfx::DisplayColorSpaces display_color_spaces_;
 
   // If true, all paint commands are recorded at pixel size instead of DIP.
   const bool is_pixel_canvas_;

@@ -8,6 +8,7 @@ cr.define('settings_people_page_sync_controls', function() {
     let browserProxy = null;
 
     setup(function() {
+      sync_test_util.setupRouterWithSyncRoutes();
       browserProxy = new TestSyncBrowserProxy();
       settings.SyncBrowserProxyImpl.instance_ = browserProxy;
 
@@ -116,14 +117,16 @@ cr.define('settings_people_page_sync_controls', function() {
       PolymerTest.clearBody();
 
       syncControls = document.createElement('settings-sync-controls');
-      settings.navigateTo(settings.routes.SYNC_ADVANCED);
+      settings.Router.getInstance().navigateTo(settings.routes.SYNC_ADVANCED);
       document.body.appendChild(syncControls);
 
       syncControls
           .syncStatus = {disabled: false, hasError: false, signedIn: true};
       Polymer.dom.flush();
 
-      assertEquals(settings.routes.SYNC_ADVANCED, settings.getCurrentRoute());
+      assertEquals(
+          settings.routes.SYNC_ADVANCED,
+          settings.Router.getInstance().getCurrentRoute());
     });
 
     teardown(function() {
@@ -133,7 +136,9 @@ cr.define('settings_people_page_sync_controls', function() {
     test('SignedOut', function() {
       syncControls
           .syncStatus = {disabled: false, hasError: false, signedIn: false};
-      assertEquals(settings.routes.SYNC, settings.getCurrentRoute());
+      assertEquals(
+          settings.routes.SYNC,
+          settings.Router.getInstance().getCurrentRoute());
     });
 
     test('PassphraseError', function() {
@@ -143,7 +148,9 @@ cr.define('settings_people_page_sync_controls', function() {
         signedIn: true,
         statusAction: settings.StatusAction.ENTER_PASSPHRASE
       };
-      assertEquals(settings.routes.SYNC_ADVANCED, settings.getCurrentRoute());
+      assertEquals(
+          settings.routes.SYNC_ADVANCED,
+          settings.Router.getInstance().getCurrentRoute());
     });
 
     test('SyncPaused', function() {
@@ -153,7 +160,9 @@ cr.define('settings_people_page_sync_controls', function() {
         signedIn: true,
         statusAction: settings.StatusAction.REAUTHENTICATE
       };
-      assertEquals(settings.routes.SYNC, settings.getCurrentRoute());
+      assertEquals(
+          settings.routes.SYNC,
+          settings.Router.getInstance().getCurrentRoute());
     });
   });
 });

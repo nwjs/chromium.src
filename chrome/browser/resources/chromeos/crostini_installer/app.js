@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_elements/cr_button/cr_button.m.js';
+import 'chrome://resources/cr_elements/cr_input/cr_input.m.js';
+import 'chrome://resources/cr_elements/cr_slider/cr_slider.m.js';
 import 'chrome://resources/cr_elements/shared_vars_css.m.js';
 import 'chrome://resources/polymer/v3_0/paper-progress/paper-progress.js';
 import './strings.m.js';
@@ -20,6 +22,7 @@ import {BrowserProxy} from './browser_proxy.js';
  */
 const State = {
   PROMPT: 'prompt',
+  CONFIGURE: 'configure',
   INSTALLING: 'installing',
   ERROR: 'error',
   CANCELING: 'canceling',
@@ -34,7 +37,7 @@ Polymer({
   _template: html`{__html_template__}`,
 
   properties: {
-    /** @private */
+    /** @private {!State} */
     state_: {
       type: String,
       value: State.PROMPT,
@@ -63,10 +66,45 @@ Polymer({
       type: Object,
       value: State,
     },
+
+    /**
+     * @private
+     */
+    minDisk_: {
+      type: String,
+    },
+
+    /**
+     * @private
+     */
+    maxDisk_: {
+      type: String,
+    },
+
+    /**
+     * @private
+     */
+    defaultDiskSizeTick_: {
+      type: Number,
+    },
+
+    diskSizeTicks_: {
+      type: Array,
+    },
+
+    chosenDiskSize_: {
+      type: Number,
+    },
+
+    username_: {
+      type: String,
+      notify: true,
+      value: loadTimeData.getString('defaultContainerUsername'),
+    },
   },
 
   /** @override */
-  attached: function() {
+  attached() {
     const callbackRouter = BrowserProxy.getInstance().callbackRouter;
 
     this.listenerIds_ = [
@@ -86,6 +124,21 @@ Polymer({
         }
       }),
       callbackRouter.onCanceled.addListener(() => this.closeDialog_()),
+      callbackRouter.onAmountOfFreeDiskSpace.addListener(
+          (ticks, defaultIndex, min, max) => {
+            if (ticks.length === 0) {
+              // Error getting the data we need for the slider e.g. unable to
+              // get the amount of free space.
+              // TODO(crbug/1043838): Handle this e.g. show an error to the
+              // user.
+            } else {
+              this.defaultDiskSizeTick_ = defaultIndex;
+              this.diskSizeTicks_ = ticks;
+
+              this.minDisk_ = ticks[0].label;
+              this.maxDisk_ = ticks[ticks.length - 1].label;
+            }
+          }),
     ];
 
     document.addEventListener('keyup', event => {
@@ -95,28 +148,40 @@ Polymer({
       }
     });
 
+    BrowserProxy.getInstance().handler.requestAmountOfFreeDiskSpace();
     this.$$('.action-button').focus();
   },
 
   /** @override */
-  detached: function() {
+  detached() {
     const callbackRouter = BrowserProxy.getInstance().callbackRouter;
     this.listenerIds_.forEach(id => callbackRouter.removeListener(id));
   },
 
   /** @private */
-  onInstallButtonClick_: function() {
-    assert(this.state_ === State.PROMPT || this.state_ === State.ERROR);
-    this.installerState_ = InstallerState.kStart;
-    this.installerProgress_ = 0;
-    this.state_ = State.INSTALLING;
-    BrowserProxy.getInstance().handler.install();
+  onNextButtonClick_() {
+    assert(this.state_ === State.PROMPT);
+    this.state_ = State.CONFIGURE;
   },
 
   /** @private */
-  onCancelButtonClick_: function() {
+  onInstallButtonClick_() {
+    assert(this.canInstall_(this.state_));
+    var diskSize = 0;
+    if (loadTimeData.getBoolean('diskResizingEnabled')) {
+      diskSize = this.diskSizeTicks_[this.$.diskSlider.value].value;
+    }
+    this.installerState_ = InstallerState.kStart;
+    this.installerProgress_ = 0;
+    this.state_ = State.INSTALLING;
+    BrowserProxy.getInstance().handler.install(diskSize, this.username_);
+  },
+
+  /** @private */
+  onCancelButtonClick_() {
     switch (this.state_) {
       case State.PROMPT:
+      case State.CONFIGURE:
         BrowserProxy.getInstance().handler.cancelBeforeStart();
         this.closeDialog_();
         break;
@@ -137,7 +202,7 @@ Polymer({
   },
 
   /** @private */
-  closeDialog_: function() {
+  closeDialog_() {
     BrowserProxy.getInstance().handler.close();
   },
 
@@ -146,10 +211,11 @@ Polymer({
    * @returns {string}
    * @private
    */
-  getTitle_: function(state) {
+  getTitle_(state) {
     let titleId;
     switch (state) {
       case State.PROMPT:
+      case State.CONFIGURE:
         titleId = 'promptTitle';
         break;
       case State.INSTALLING:
@@ -173,7 +239,7 @@ Polymer({
    * @returns {boolean}
    * @private
    */
-  isState_: function(state1, state2) {
+  isState_(state1, state2) {
     return state1 === state2;
   },
 
@@ -182,8 +248,29 @@ Polymer({
    * @returns {boolean}
    * @private
    */
-  canInstall_: function(state) {
-    return state === State.PROMPT || state === State.ERROR;
+  canInstall_(state) {
+    if (this.configurePageAccessible_()) {
+      return state === State.CONFIGURE || state === State.ERROR;
+    } else {
+      return state === State.PROMPT || state === State.ERROR;
+    }
+  },
+
+  /**
+   * @param {State} state
+   * @returns {boolean}
+   * @private
+   */
+  showNextButton_(state) {
+    return this.configurePageAccessible_() && state === State.PROMPT;
+  },
+
+  /**
+   * @returns {string}
+   * @private
+   */
+  getNextButtonLabel_() {
+    return loadTimeData.getString('next');
   },
 
   /**
@@ -191,14 +278,18 @@ Polymer({
    * @returns {string}
    * @private
    */
-  getInstallButtonLabel_: function(state) {
+  getInstallButtonLabel_(state) {
+    if (!this.configurePageAccessible_() && state === State.PROMPT) {
+      return loadTimeData.getString('install');
+    }
     switch (state) {
-      case State.PROMPT:
+      case State.CONFIGURE:
         return loadTimeData.getString('install');
       case State.ERROR:
         return loadTimeData.getString('retry');
+      default:
+        return '';
     }
-    return '';
   },
 
   /**
@@ -206,7 +297,7 @@ Polymer({
    * @returns {string}
    * @private
    */
-  getProgressMessage_: function(installerState) {
+  getProgressMessage_(installerState) {
     let messageId = null;
     switch (installerState) {
       case InstallerState.kStart:
@@ -257,7 +348,7 @@ Polymer({
    * @returns {string}
    * @private
    */
-  getErrorMessage_: function(error) {
+  getErrorMessage_(error) {
     let messageId = null;
     switch (error) {
       case InstallerError.kErrorLoadingTermina:
@@ -293,10 +384,37 @@ Polymer({
       case InstallerError.kErrorInsufficientDiskSpace:
         messageId = 'insufficientDiskError';
         break;
+      case InstallerError.kErrorCreateContainer:
+        messageId = 'setupContainerError';
+        break;
+      case InstallerError.kErrorUnknown:
+        messageId = 'unknownError';
+        break;
       default:
         assertNotReached();
     }
 
     return messageId ? loadTimeData.getString(messageId) : '';
+  },
+
+  /**
+   * @private
+   */
+  configurePageAccessible_() {
+    return this.showDiskResizing_() || this.showUsernameSelection_();
+  },
+
+  /**
+   * @private
+   */
+  showDiskResizing_() {
+    return loadTimeData.getBoolean('diskResizingEnabled');
+  },
+
+  /**
+   * @private
+   */
+  showUsernameSelection_() {
+    return loadTimeData.getBoolean('crostiniCustomUsername');
   },
 });

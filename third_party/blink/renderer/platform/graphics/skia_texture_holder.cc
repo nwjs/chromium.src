@@ -17,33 +17,20 @@
 namespace blink {
 
 namespace {
-bool IsSkImageOriginTopLeft(sk_sp<SkImage> image) {
-  GrSurfaceOrigin origin;
-  image->getBackendTexture(false, &origin);
-  return origin == kTopLeft_GrSurfaceOrigin;
-}
 
 struct ReleaseContext {
   scoped_refptr<TextureHolder::MailboxRef> mailbox_ref;
   GLuint texture_id = 0u;
-  bool is_shared_image = false;
-  GrTexture* gr_texture = nullptr;
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper;
 };
 
 void ReleaseTexture(void* ctx) {
   auto* release_ctx = static_cast<ReleaseContext*>(ctx);
   if (release_ctx->context_provider_wrapper) {
-    if (release_ctx->gr_texture) {
-      release_ctx->context_provider_wrapper->Utils()->RemoveCachedMailbox(
-          release_ctx->gr_texture);
-    }
-
     if (release_ctx->texture_id) {
       auto* gl =
           release_ctx->context_provider_wrapper->ContextProvider()->ContextGL();
-      if (release_ctx->is_shared_image)
-        gl->EndSharedImageAccessDirectCHROMIUM(release_ctx->texture_id);
+      gl->EndSharedImageAccessDirectCHROMIUM(release_ctx->texture_id);
       gl->DeleteTextures(1u, &release_ctx->texture_id);
     }
   }
@@ -54,22 +41,13 @@ void ReleaseTexture(void* ctx) {
 }  // namespace
 
 SkiaTextureHolder::SkiaTextureHolder(
-    sk_sp<SkImage> image,
-    base::WeakPtr<WebGraphicsContext3DProviderWrapper>&&
-        context_provider_wrapper)
-    : TextureHolder(std::move(context_provider_wrapper),
-                    base::MakeRefCounted<MailboxRef>(nullptr),
-                    IsSkImageOriginTopLeft(image)),
-      image_(std::move(image)) {}
-
-SkiaTextureHolder::SkiaTextureHolder(
     const MailboxTextureHolder* mailbox_texture_holder,
     GLuint shared_image_texture_id)
     : TextureHolder(SharedGpuContext::ContextProviderWrapper(),
                     mailbox_texture_holder->mailbox_ref(),
                     mailbox_texture_holder->IsOriginTopLeft()) {
   const gpu::Mailbox mailbox = mailbox_texture_holder->GetMailbox();
-  DCHECK(!shared_image_texture_id || mailbox.IsSharedImage());
+  DCHECK(mailbox.IsSharedImage());
   DCHECK(!shared_image_texture_id || !mailbox_texture_holder->IsCrossThread());
 
   const gpu::SyncToken sync_token = mailbox_texture_holder->GetSyncToken();
@@ -92,15 +70,10 @@ SkiaTextureHolder::SkiaTextureHolder(
     should_delete_texture_on_release = false;
   } else {
     shared_gl->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
-    if (mailbox.IsSharedImage()) {
-      shared_context_texture_id =
-          shared_gl->CreateAndTexStorage2DSharedImageCHROMIUM(mailbox.name);
-      shared_gl->BeginSharedImageAccessDirectCHROMIUM(
-          shared_context_texture_id, GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    } else {
-      shared_context_texture_id =
-          shared_gl->CreateAndConsumeTextureCHROMIUM(mailbox.name);
-    }
+    shared_context_texture_id =
+        shared_gl->CreateAndTexStorage2DSharedImageCHROMIUM(mailbox.name);
+    shared_gl->BeginSharedImageAccessDirectCHROMIUM(
+        shared_context_texture_id, GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
   }
 
   GrGLTextureInfo texture_info;
@@ -119,21 +92,14 @@ SkiaTextureHolder::SkiaTextureHolder(
   release_ctx->mailbox_ref = mailbox_ref();
   if (should_delete_texture_on_release)
     release_ctx->texture_id = shared_context_texture_id;
-  release_ctx->is_shared_image = mailbox.IsSharedImage();
   release_ctx->context_provider_wrapper = ContextProviderWrapper();
 
   image_ = SkImage::MakeFromTexture(
       shared_gr_context, backend_texture, origin, sk_image_info.colorType(),
       sk_image_info.alphaType(), sk_image_info.refColorSpace(), &ReleaseTexture,
       release_ctx);
-  if (image_) {
-    release_ctx->gr_texture = image_->getTexture();
-    DCHECK(release_ctx->gr_texture);
-    ContextProviderWrapper()->Utils()->RegisterMailbox(image_->getTexture(),
-                                                       mailbox);
-  } else {
+  if (!image_)
     ReleaseTexture(release_ctx);
-  }
 }
 
 SkiaTextureHolder::~SkiaTextureHolder() {

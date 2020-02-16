@@ -151,10 +151,12 @@ void OnReadServiceRevisionBitfieldError(
 
 FidoBleConnection::FidoBleConnection(BluetoothAdapter* adapter,
                                      std::string device_address,
+                                     BluetoothUUID service_uuid,
                                      ReadCallback read_callback)
     : adapter_(adapter),
       address_(std::move(device_address)),
-      read_callback_(std::move(read_callback)) {
+      read_callback_(std::move(read_callback)),
+      service_uuid_(service_uuid) {
   DCHECK(adapter_);
   adapter_->AddObserver(this);
   DCHECK(!address_.empty());
@@ -170,12 +172,6 @@ BluetoothDevice* FidoBleConnection::GetBleDevice() {
 
 const BluetoothDevice* FidoBleConnection::GetBleDevice() const {
   return adapter_->GetDevice(address());
-}
-
-FidoBleConnection::FidoBleConnection(BluetoothAdapter* adapter,
-                                     std::string device_address)
-    : adapter_(adapter), address_(std::move(device_address)) {
-  adapter_->AddObserver(this);
 }
 
 void FidoBleConnection::Connect(ConnectionCallback callback) {
@@ -194,7 +190,8 @@ void FidoBleConnection::Connect(ConnectionCallback callback) {
       base::BindRepeating(&FidoBleConnection::OnCreateGattConnection,
                           weak_factory_.GetWeakPtr()),
       base::BindRepeating(&FidoBleConnection::OnCreateGattConnectionError,
-                          weak_factory_.GetWeakPtr()));
+                          weak_factory_.GetWeakPtr()),
+      BluetoothUUID(kCableAdvertisementUUID128));
 }
 
 void FidoBleConnection::ReadControlPointLength(
@@ -277,6 +274,7 @@ void FidoBleConnection::WriteControlPoint(const std::vector<uint8_t>& data,
 
 void FidoBleConnection::OnCreateGattConnection(
     std::unique_ptr<BluetoothGattConnection> connection) {
+  FIDO_LOG(DEBUG) << "GATT connection created";
   DCHECK(pending_connection_callback_);
   connection_ = std::move(connection);
 
@@ -289,10 +287,13 @@ void FidoBleConnection::OnCreateGattConnection(
     return;
   }
 
-  if (device->IsGattServicesDiscoveryComplete())
-    ConnectToFidoService();
-  else
+  if (!device->IsGattServicesDiscoveryComplete()) {
+    FIDO_LOG(DEBUG) << "Waiting for GATT service discovery to complete";
     waiting_for_gatt_discovery_ = true;
+    return;
+  }
+
+  ConnectToFidoService();
 }
 
 void FidoBleConnection::OnCreateGattConnectionError(
@@ -347,7 +348,10 @@ void FidoBleConnection::ConnectToFidoService() {
       service_revision_bitfield_id_ = characteristic->GetIdentifier();
       FIDO_LOG(DEBUG) << "Got Fido Service Revision Bitfield: "
                       << *service_revision_bitfield_id_;
+      continue;
     }
+
+    FIDO_LOG(DEBUG) << "Unknown FIDO service characteristic: " << uuid;
   }
 
   if (!control_point_length_id_ || !control_point_id_ || !status_id_ ||
@@ -481,8 +485,11 @@ void FidoBleConnection::GattCharacteristicValueChanged(
 
 void FidoBleConnection::GattServicesDiscovered(BluetoothAdapter* adapter,
                                                BluetoothDevice* device) {
-  if (adapter != adapter_ || device->GetAddress() != address_)
+  if (adapter != adapter_ || device->GetAddress() != address_) {
     return;
+  }
+
+  FIDO_LOG(DEBUG) << "GATT services discovered for " << device->GetAddress();
 
   if (waiting_for_gatt_discovery_) {
     waiting_for_gatt_discovery_ = false;
@@ -500,10 +507,7 @@ const BluetoothRemoteGattService* FidoBleConnection::GetFidoService() {
   BluetoothDevice* device = GetBleDevice();
 
   for (const auto* service : device->GetGattServices()) {
-    // This assumes that no device is representing as both a FIDO BLE
-    // and a caBLE device.
-    if (service->GetUUID() == BluetoothUUID(kFidoServiceUUID) ||
-        service->GetUUID() == BluetoothUUID(kCableAdvertisementUUID128)) {
+    if (service->GetUUID() == service_uuid_) {
       return service;
     }
   }

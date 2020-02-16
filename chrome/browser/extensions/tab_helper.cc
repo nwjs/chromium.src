@@ -23,16 +23,18 @@
 #include "chrome/browser/extensions/install_tracker_factory.h"
 #include "chrome/browser/installable/installable_metrics.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
+#include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/common/buildflags.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/common/url_constants.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -45,6 +47,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/frame_navigate_params.h"
 #include "extensions/browser/api/declarative/rules_registry_service.h"
+#include "extensions/browser/api/declarative_net_request/web_contents_helper.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
@@ -61,6 +64,11 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "url/url_constants.h"
 
+#if BUILDFLAG(ENABLE_SESSION_SERVICE)
+#include "chrome/browser/sessions/session_service.h"
+#include "chrome/browser/sessions/session_service_factory.h"
+#endif
+
 using content::NavigationController;
 using content::NavigationEntry;
 using content::WebContents;
@@ -74,15 +82,17 @@ TabHelper::TabHelper(content::WebContents* web_contents)
       profile_(Profile::FromBrowserContext(web_contents->GetBrowserContext())),
       extension_app_(NULL),
       script_executor_(new ScriptExecutor(web_contents)),
-      extension_action_runner_(new ExtensionActionRunner(web_contents)) {
+      extension_action_runner_(new ExtensionActionRunner(web_contents)),
+      declarative_net_request_helper_(web_contents) {
   // The ActiveTabPermissionManager requires a session ID; ensure this
   // WebContents has one.
-  SessionTabHelper::CreateForWebContents(web_contents);
+  CreateSessionServiceTabHelper(web_contents);
   // The Unretained() is safe because ForEachFrame() is synchronous.
   web_contents->ForEachFrame(
       base::BindRepeating(&TabHelper::SetTabId, base::Unretained(this)));
   active_tab_permission_granter_.reset(new ActiveTabPermissionGranter(
-      web_contents, SessionTabHelper::IdForTab(web_contents).id(), profile_));
+      web_contents, sessions::SessionTabHelper::IdForTab(web_contents).id(),
+      profile_));
 
   ActivityLog::GetInstance(profile_)->ObserveScripts(script_executor_.get());
 
@@ -115,10 +125,19 @@ void TabHelper::SetExtensionApp(const Extension* extension) {
 
   UpdateExtensionAppIcon(extension_app_);
 
+#if BUILDFLAG(ENABLE_SESSION_SERVICE)
   if (extension_app_) {
-    SessionTabHelper::FromWebContents(web_contents())
-        ->SetTabExtensionAppID(GetAppId());
+    SessionService* session_service = SessionServiceFactory::GetForProfile(
+        Profile::FromBrowserContext(web_contents()->GetBrowserContext()));
+    if (session_service) {
+      sessions::SessionTabHelper* session_tab_helper =
+          sessions::SessionTabHelper::FromWebContents(web_contents());
+      session_service->SetTabExtensionAppID(session_tab_helper->window_id(),
+                                            session_tab_helper->session_id(),
+                                            GetAppId());
+    }
   }
+#endif
 }
 
 void TabHelper::SetExtensionAppById(const ExtensionId& extension_app_id) {
@@ -168,7 +187,7 @@ void TabHelper::RenderFrameCreated(content::RenderFrameHost* host) {
 
 void TabHelper::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
-  if (!navigation_handle->IsInMainFrame() || !navigation_handle->HasCommitted())
+  if (!navigation_handle->HasCommitted() || !navigation_handle->IsInMainFrame())
     return;
 
   InvokeForContentRulesRegistries(
@@ -318,7 +337,7 @@ void TabHelper::OnExtensionUnloaded(content::BrowserContext* browser_context,
 void TabHelper::SetTabId(content::RenderFrameHost* render_frame_host) {
   render_frame_host->Send(new ExtensionMsg_SetTabId(
       render_frame_host->GetRoutingID(),
-      SessionTabHelper::IdForTab(web_contents()).id()));
+      sessions::SessionTabHelper::IdForTab(web_contents()).id()));
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(TabHelper)

@@ -52,11 +52,13 @@
 #include "third_party/blink/renderer/core/dom/static_node_list.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/dom/v0_insertion_point.h"
+#include "third_party/blink/renderer/core/dom/xml_document.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/remote_frame.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
@@ -158,56 +160,45 @@ Response InspectorDOMAgent::ToResponse(ExceptionState& exception_state) {
   return Response::OK();
 }
 
-bool InspectorDOMAgent::GetPseudoElementType(PseudoId pseudo_id,
-                                             protocol::DOM::PseudoType* type) {
+protocol::DOM::PseudoType InspectorDOMAgent::ProtocolPseudoElementType(
+    PseudoId pseudo_id) {
   switch (pseudo_id) {
     case kPseudoIdFirstLine:
-      *type = protocol::DOM::PseudoTypeEnum::FirstLine;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::FirstLine;
     case kPseudoIdFirstLetter:
-      *type = protocol::DOM::PseudoTypeEnum::FirstLetter;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::FirstLetter;
     case kPseudoIdBefore:
-      *type = protocol::DOM::PseudoTypeEnum::Before;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::Before;
     case kPseudoIdAfter:
-      *type = protocol::DOM::PseudoTypeEnum::After;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::After;
+    case kPseudoIdMarker:
+      return protocol::DOM::PseudoTypeEnum::Marker;
     case kPseudoIdBackdrop:
-      *type = protocol::DOM::PseudoTypeEnum::Backdrop;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::Backdrop;
     case kPseudoIdSelection:
-      *type = protocol::DOM::PseudoTypeEnum::Selection;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::Selection;
     case kPseudoIdFirstLineInherited:
-      *type = protocol::DOM::PseudoTypeEnum::FirstLineInherited;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::FirstLineInherited;
     case kPseudoIdScrollbar:
-      *type = protocol::DOM::PseudoTypeEnum::Scrollbar;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::Scrollbar;
     case kPseudoIdScrollbarThumb:
-      *type = protocol::DOM::PseudoTypeEnum::ScrollbarThumb;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::ScrollbarThumb;
     case kPseudoIdScrollbarButton:
-      *type = protocol::DOM::PseudoTypeEnum::ScrollbarButton;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::ScrollbarButton;
     case kPseudoIdScrollbarTrack:
-      *type = protocol::DOM::PseudoTypeEnum::ScrollbarTrack;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::ScrollbarTrack;
     case kPseudoIdScrollbarTrackPiece:
-      *type = protocol::DOM::PseudoTypeEnum::ScrollbarTrackPiece;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::ScrollbarTrackPiece;
     case kPseudoIdScrollbarCorner:
-      *type = protocol::DOM::PseudoTypeEnum::ScrollbarCorner;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::ScrollbarCorner;
     case kPseudoIdResizer:
-      *type = protocol::DOM::PseudoTypeEnum::Resizer;
-      return true;
+      return protocol::DOM::PseudoTypeEnum::Resizer;
     case kPseudoIdInputListButton:
-      *type = protocol::DOM::PseudoTypeEnum::InputListButton;
-      return true;
-    default:
-      return false;
+      return protocol::DOM::PseudoTypeEnum::InputListButton;
+    case kAfterLastInternalPseudoId:
+    case kPseudoIdNone:
+      CHECK(false);
+      return "";
   }
 }
 
@@ -330,6 +321,8 @@ void InspectorDOMAgent::Unbind(Node* node, NodeToIdMap* nodes_map) {
       Unbind(element->GetPseudoElement(kPseudoIdBefore), nodes_map);
     if (element->GetPseudoElement(kPseudoIdAfter))
       Unbind(element->GetPseudoElement(kPseudoIdAfter), nodes_map);
+    if (element->GetPseudoElement(kPseudoIdMarker))
+      Unbind(element->GetPseudoElement(kPseudoIdMarker), nodes_map);
 
     if (auto* link_element = DynamicTo<HTMLLinkElement>(*element)) {
       if (link_element->IsImport() && link_element->import())
@@ -753,7 +746,7 @@ Response InspectorDOMAgent::setAttributesAsText(int element_id,
   DocumentFragment* fragment = element->GetDocument().createDocumentFragment();
 
   bool should_ignore_case =
-      element->GetDocument().IsHTMLDocument() && element->IsHTMLElement();
+      IsA<HTMLDocument>(element->GetDocument()) && element->IsHTMLElement();
   // Not all elements can represent the context (i.e. IFRAME), hence using
   // document.body.
   if (should_ignore_case && element->GetDocument().body()) {
@@ -894,7 +887,8 @@ Response InspectorDOMAgent::setOuterHTML(int node_id,
 
   Document* document =
       IsA<Document>(node) ? To<Document>(node) : node->ownerDocument();
-  if (!document || (!document->IsHTMLDocument() && !document->IsXMLDocument()))
+  if (!document ||
+      (!IsA<HTMLDocument>(document) && !IsA<XMLDocument>(document)))
     return Response::Error("Not an HTML/XML document");
 
   Node* new_node = nullptr;
@@ -1544,19 +1538,16 @@ std::unique_ptr<protocol::DOM::Node> InspectorDOMAgent::BuildObjectForNode(
     }
 
     if (element->GetPseudoId()) {
-      protocol::DOM::PseudoType pseudo_type;
-      if (InspectorDOMAgent::GetPseudoElementType(element->GetPseudoId(),
-                                                  &pseudo_type))
-        value->setPseudoType(pseudo_type);
+      value->setPseudoType(ProtocolPseudoElementType(element->GetPseudoId()));
     } else {
-      std::unique_ptr<protocol::Array<protocol::DOM::Node>> pseudo_elements =
-          BuildArrayForPseudoElements(element, nodes_map);
-      if (pseudo_elements) {
-        value->setPseudoElements(std::move(pseudo_elements));
-        force_push_children = true;
-      }
       if (!element->ownerDocument()->xmlVersion().IsEmpty())
         value->setXmlVersion(element->ownerDocument()->xmlVersion());
+    }
+    std::unique_ptr<protocol::Array<protocol::DOM::Node>> pseudo_elements =
+        BuildArrayForPseudoElements(element, nodes_map);
+    if (pseudo_elements) {
+      value->setPseudoElements(std::move(pseudo_elements));
+      force_push_children = true;
     }
 
     if (auto* insertion_point = DynamicTo<V0InsertionPoint>(element)) {
@@ -1668,21 +1659,24 @@ InspectorDOMAgent::BuildArrayForContainerChildren(
 std::unique_ptr<protocol::Array<protocol::DOM::Node>>
 InspectorDOMAgent::BuildArrayForPseudoElements(Element* element,
                                                NodeToIdMap* nodes_map) {
-  if (!element->GetPseudoElement(kPseudoIdBefore) &&
-      !element->GetPseudoElement(kPseudoIdAfter))
-    return nullptr;
-
-  auto pseudo_elements =
-      std::make_unique<protocol::Array<protocol::DOM::Node>>();
+  protocol::Array<protocol::DOM::Node> pseudo_elements;
   if (element->GetPseudoElement(kPseudoIdBefore)) {
-    pseudo_elements->emplace_back(BuildObjectForNode(
+    pseudo_elements.emplace_back(BuildObjectForNode(
         element->GetPseudoElement(kPseudoIdBefore), 0, false, nodes_map));
   }
   if (element->GetPseudoElement(kPseudoIdAfter)) {
-    pseudo_elements->emplace_back(BuildObjectForNode(
+    pseudo_elements.emplace_back(BuildObjectForNode(
         element->GetPseudoElement(kPseudoIdAfter), 0, false, nodes_map));
   }
-  return pseudo_elements;
+  if (element->GetPseudoElement(kPseudoIdMarker) &&
+      RuntimeEnabledFeatures::CSSMarkerPseudoElementEnabled()) {
+    pseudo_elements.emplace_back(BuildObjectForNode(
+        element->GetPseudoElement(kPseudoIdMarker), 0, false, nodes_map));
+  }
+  if (pseudo_elements.empty())
+    return nullptr;
+  return std::make_unique<protocol::Array<protocol::DOM::Node>>(
+      std::move(pseudo_elements));
 }
 
 std::unique_ptr<protocol::Array<protocol::DOM::BackendNode>>
@@ -2089,6 +2083,10 @@ void InspectorDOMAgent::FrameOwnerContentUpdated(
 }
 
 void InspectorDOMAgent::PseudoElementCreated(PseudoElement* pseudo_element) {
+  if (pseudo_element->IsMarkerPseudoElement() &&
+      !RuntimeEnabledFeatures::CSSMarkerPseudoElementEnabled()) {
+    return;
+  }
   Element* parent = pseudo_element->ParentOrShadowHostElement();
   if (!parent)
     return;

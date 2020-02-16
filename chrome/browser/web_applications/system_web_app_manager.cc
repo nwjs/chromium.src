@@ -36,6 +36,7 @@
 #include "chromeos/components/help_app_ui/url_constants.h"
 #include "chromeos/components/media_app_ui/url_constants.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "extensions/common/constants.h"
 #endif  // defined(OS_CHROMEOS)
 
 namespace web_app {
@@ -60,23 +61,14 @@ base::flat_map<SystemAppType, SystemAppInfo> CreateSystemWebApps() {
     infos.emplace(SystemAppType::CAMERA,
                   SystemAppInfo("Camera", GURL("chrome://camera/pwa.html")));
     infos.at(SystemAppType::CAMERA).uninstall_and_replace = {
-        ash::kInternalAppIdCamera};
+        extension_misc::kCameraAppId};
   }
 
-  if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings)) {
-    infos.emplace(
-        SystemAppType::SETTINGS,
-        SystemAppInfo("OSSettings", GURL("chrome://os-settings/pwa.html")));
-    infos.at(SystemAppType::SETTINGS).uninstall_and_replace = {
-        chromeos::default_web_apps::kSettingsAppId,
-        ash::kInternalAppIdSettings};
-  } else {
-    infos.emplace(
-        SystemAppType::SETTINGS,
-        SystemAppInfo("BrowserSettings", GURL("chrome://settings/pwa.html")));
-    infos.at(SystemAppType::SETTINGS).uninstall_and_replace = {
-        ash::kInternalAppIdSettings};
-  }
+  infos.emplace(
+      SystemAppType::SETTINGS,
+      SystemAppInfo("OSSettings", GURL("chrome://os-settings/pwa.html")));
+  infos.at(SystemAppType::SETTINGS).uninstall_and_replace = {
+      chromeos::default_web_apps::kSettingsAppId, ash::kInternalAppIdSettings};
   // Large enough to see the heading text "Settings" in the top-left.
   infos.at(SystemAppType::SETTINGS).minimum_window_size = {300, 100};
 
@@ -96,6 +88,13 @@ base::flat_map<SystemAppType, SystemAppInfo> CreateSystemWebApps() {
     infos.emplace(SystemAppType::MEDIA,
                   SystemAppInfo("Media", GURL("chrome://media-app/pwa.html")));
   }
+
+#if !defined(OFFICIAL_BUILD)
+  infos.emplace(
+      SystemAppType::SAMPLE,
+      SystemAppInfo("Sample", GURL("chrome://sample-system-web-app/pwa.html")));
+#endif  // !defined(OFFICIAL_BUILD)
+
 #endif  // OS_CHROMEOS
 
   return infos;
@@ -149,6 +148,11 @@ bool SystemWebAppManager::IsAppEnabled(SystemAppType type) {
       return base::FeatureList::IsEnabled(chromeos::features::kMediaApp);
     case SystemAppType::HELP:
       return base::FeatureList::IsEnabled(chromeos::features::kHelpAppV2);
+#if !defined(OFFICIAL_BUILD)
+    case SystemAppType::SAMPLE:
+      NOTREACHED();
+      return false;
+#endif  // !defined(OFFICIAL_BUILD)
   }
 #else
   return false;
@@ -252,6 +256,14 @@ bool SystemWebAppManager::IsSingleWindow(SystemAppType type) const {
   return it->second.single_window;
 }
 
+bool SystemWebAppManager::AppShouldReceiveLaunchDirectory(
+    SystemAppType type) const {
+  auto it = system_app_infos_.find(type);
+  if (it == system_app_infos_.end())
+    return false;
+  return it->second.include_launch_directory;
+}
+
 gfx::Size SystemWebAppManager::GetMinimumWindowSize(const AppId& app_id) const {
   auto app_type_it = app_id_to_app_type_.find(app_id);
   if (app_type_it == app_id_to_app_type_.end())
@@ -303,10 +315,11 @@ void SystemWebAppManager::RecordSystemWebAppInstallMetrics(
 
   // Record aggregate result.
   for (const auto& url_and_result : install_results)
-    base::UmaHistogramEnumeration(kInstallResultHistogramName,
-                                  shutting_down_
-                                      ? InstallResultCode::kFailedShuttingDown
-                                      : url_and_result.second);
+    base::UmaHistogramEnumeration(
+        kInstallResultHistogramName,
+        shutting_down_
+            ? InstallResultCode::kCancelledOnWebAppProviderShuttingDown
+            : url_and_result.second);
 
   // Record per-app result.
   for (const auto type_and_app_info : system_app_infos_) {
@@ -316,19 +329,21 @@ void SystemWebAppManager::RecordSystemWebAppInstallMetrics(
       const std::string app_histogram_name =
           std::string(kInstallResultHistogramName) + ".Apps." +
           type_and_app_info.second.name_for_logging;
-      base::UmaHistogramEnumeration(app_histogram_name,
-                                    shutting_down_
-                                        ? InstallResultCode::kFailedShuttingDown
-                                        : url_and_result->second);
+      base::UmaHistogramEnumeration(
+          app_histogram_name,
+          shutting_down_
+              ? InstallResultCode::kCancelledOnWebAppProviderShuttingDown
+              : url_and_result->second);
     }
   }
 
   // Record per-profile result.
   for (const auto url_and_result : install_results) {
-    base::UmaHistogramEnumeration(install_result_per_profile_histogram_name_,
-                                  shutting_down_
-                                      ? InstallResultCode::kFailedShuttingDown
-                                      : url_and_result.second);
+    base::UmaHistogramEnumeration(
+        install_result_per_profile_histogram_name_,
+        shutting_down_
+            ? InstallResultCode::kCancelledOnWebAppProviderShuttingDown
+            : url_and_result.second);
   }
 }
 

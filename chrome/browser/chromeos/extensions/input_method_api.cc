@@ -102,7 +102,7 @@ InputMethodEngineBase* GetEngineIfActive(
   Profile* profile = Profile::FromBrowserContext(browser_context);
   extensions::InputImeEventRouter* event_router =
       extensions::GetInputImeEventRouter(profile);
-  CHECK(event_router) << kErrorRouterNotAvailable;
+  DCHECK(event_router) << kErrorRouterNotAvailable;
   InputMethodEngineBase* engine =
       event_router->GetEngineIfActive(extension_id, error);
   return engine;
@@ -461,6 +461,17 @@ InputMethodPrivateSetSelectionRangeFunction::Run() {
         std::move(results), InformativeError(error, function_name())));
   }
   return RespondNow(OneArgument(std::make_unique<base::Value>(true)));
+}
+
+ExtensionFunction::ResponseAction InputMethodPrivateResetFunction::Run() {
+  std::string error;
+  InputMethodEngineBase* engine =
+      GetEngineIfActive(browser_context(), extension_id(), &error);
+  if (!engine)
+    return RespondNow(Error(InformativeError(error, function_name())));
+
+  engine->Reset();
+  return RespondNow(NoArguments());
 }
 
 InputMethodAPI::InputMethodAPI(content::BrowserContext* context)

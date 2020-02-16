@@ -41,16 +41,23 @@ blink::CSPSourceListPtr ConvertToBlink(CSPSourceListPtr source_list) {
     sources.push_back(ConvertToBlink(std::move(it)));
 
   return blink::CSPSourceList::New(std::move(sources), source_list->allow_self,
-                                   source_list->allow_star);
+                                   source_list->allow_star,
+                                   source_list->allow_response_redirects);
 }
 
-blink::CSPDirective::Name ConvertToBlink(CSPDirective::Name name) {
-  return static_cast<blink::CSPDirective::Name>(name);
+blink::CSPDirectiveName ConvertToBlink(CSPDirectiveName name) {
+  return static_cast<blink::CSPDirectiveName>(name);
 }
 
 blink::CSPDirectivePtr ConvertToBlink(CSPDirectivePtr csp) {
   return blink::CSPDirective::New(ConvertToBlink(csp->name),
                                   ConvertToBlink(std::move(csp->source_list)));
+}
+
+blink::ContentSecurityPolicyHeaderPtr ConvertToBlink(
+    ContentSecurityPolicyHeaderPtr header) {
+  return blink::ContentSecurityPolicyHeader::New(
+      String::FromUTF8(header->header_value), header->type, header->source);
 }
 
 blink::ContentSecurityPolicyPtr ConvertToBlink(ContentSecurityPolicyPtr csp) {
@@ -62,9 +69,18 @@ blink::ContentSecurityPolicyPtr ConvertToBlink(ContentSecurityPolicyPtr csp) {
   for (auto& endpoint : csp->report_endpoints)
     report_endpoints.push_back(String::FromUTF8(endpoint));
 
-  return blink::ContentSecurityPolicy::New(std::move(directives),
-                                           csp->use_reporting_api,
-                                           std::move(report_endpoints));
+  return blink::ContentSecurityPolicy::New(
+      std::move(directives), ConvertToBlink(std::move(csp->header)),
+      csp->use_reporting_api, std::move(report_endpoints));
+}
+
+WTF::Vector<blink::ContentSecurityPolicyPtr> ConvertToBlink(
+    std::vector<ContentSecurityPolicyPtr> policies) {
+  WTF::Vector<blink::ContentSecurityPolicyPtr> blink_policies;
+  for (auto& policy : policies)
+    blink_policies.push_back(ConvertToBlink(std::move(policy)));
+
+  return blink_policies;
 }
 
 }  // namespace mojom
@@ -74,10 +90,10 @@ namespace blink {
 
 namespace {
 
-Vector<String> HeaderSetToVector(const WebHTTPHeaderSet& headers) {
+Vector<String> HeaderSetToVector(const HTTPHeaderSet& headers) {
   Vector<String> result;
   result.ReserveInitialCapacity(SafeCast<wtf_size_t>(headers.size()));
-  // WebHTTPHeaderSet stores headers using Latin1 encoding.
+  // HTTPHeaderSet stores headers using Latin1 encoding.
   for (const auto& header : headers)
     result.push_back(String(header.data(), header.size()));
   return result;
@@ -128,7 +144,7 @@ FetchResponseData* FetchResponseData::CreateBasicFilteredResponse() const {
 }
 
 FetchResponseData* FetchResponseData::CreateCorsFilteredResponse(
-    const WebHTTPHeaderSet& exposed_headers) const {
+    const HTTPHeaderSet& exposed_headers) const {
   DCHECK_EQ(type_, Type::kDefault);
   // "A CORS filtered response is a filtered response whose type is |CORS|,
   // header list excludes all headers in internal response's header list,
@@ -313,6 +329,7 @@ mojom::blink::FetchAPIResponsePtr FetchResponseData::PopulateFetchAPIResponse(
   response->cors_exposed_header_names =
       HeaderSetToVector(cors_exposed_header_names_);
   response->side_data_blob = side_data_blob_;
+  response->loaded_with_credentials = loaded_with_credentials_;
   for (const auto& header : HeaderList()->List())
     response->headers.insert(header.first, header.second);
 
@@ -325,12 +342,21 @@ mojom::blink::FetchAPIResponsePtr FetchResponseData::PopulateFetchAPIResponse(
     if (HeaderList()->Get("content-security-policy",
                           content_security_policy_header)) {
       network::ContentSecurityPolicy policy;
-      if (policy.Parse(request_url,
-                       StringUTF8Adaptor(content_security_policy_header)
-                           .AsStringPiece())) {
-        response->content_security_policy =
-            ConvertToBlink(policy.TakeContentSecurityPolicy());
-      }
+      policy.Parse(
+          request_url, network::mojom::ContentSecurityPolicyType::kEnforce,
+          StringUTF8Adaptor(content_security_policy_header).AsStringPiece());
+      response->content_security_policy =
+          ConvertToBlink(policy.TakeContentSecurityPolicy());
+    }
+    if (HeaderList()->Get("content-security-policy-report-only",
+                          content_security_policy_header)) {
+      network::ContentSecurityPolicy policy;
+      policy.Parse(
+          request_url, network::mojom::ContentSecurityPolicyType::kReport,
+          StringUTF8Adaptor(content_security_policy_header).AsStringPiece());
+      auto blink_policies = ConvertToBlink(policy.TakeContentSecurityPolicy());
+      for (auto& policy : blink_policies)
+        response->content_security_policy.push_back(std::move(policy));
     }
   }
   return response;
@@ -345,7 +371,8 @@ FetchResponseData::FetchResponseData(Type type,
       status_(status),
       status_message_(status_message),
       header_list_(MakeGarbageCollected<FetchHeaderList>()),
-      response_time_(base::Time::Now()) {}
+      response_time_(base::Time::Now()),
+      loaded_with_credentials_(false) {}
 
 void FetchResponseData::ReplaceBodyStreamBuffer(BodyStreamBuffer* buffer) {
   if (type_ == Type::kBasic || type_ == Type::kCors) {

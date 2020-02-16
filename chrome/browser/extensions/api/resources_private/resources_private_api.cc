@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/api/resources_private/resources_private_api.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -13,6 +14,7 @@
 #include "chrome/common/extensions/api/resources_private.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/zoom/page_zoom_constants.h"
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -41,6 +43,7 @@ void AddStringsForIdentity(base::DictionaryValue* dict) {
 }
 
 void AddStringsForPdf(base::DictionaryValue* dict) {
+#if BUILDFLAG(ENABLE_PDF)
   static constexpr webui::LocalizedString kPdfResources[] = {
     {"passwordDialogTitle", IDS_PDF_PASSWORD_DIALOG_TITLE},
     {"passwordPrompt", IDS_PDF_NEED_PASSWORD},
@@ -114,6 +117,9 @@ void AddStringsForPdf(base::DictionaryValue* dict) {
   };
   for (const auto& resource : kPdfResources)
     dict->SetString(resource.name, l10n_util::GetStringUTF16(resource.id));
+
+  dict->SetString("presetZoomFactors", zoom::GetPresetZoomFactorsAsJSON());
+#endif  // BUILDFLAG(ENABLE_PDF)
 }
 
 void AddAdditionalDataForPdf(base::DictionaryValue* dict) {

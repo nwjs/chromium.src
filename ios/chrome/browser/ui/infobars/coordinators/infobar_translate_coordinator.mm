@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/ui/commands/snackbar_commands.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_presentation_state.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_view_controller.h"
+#import "ios/chrome/browser/ui/infobars/coordinators/infobar_coordinator+subclassing.h"
 #import "ios/chrome/browser/ui/infobars/coordinators/infobar_coordinator_implementation.h"
 #import "ios/chrome/browser/ui/infobars/coordinators/infobar_translate_mediator.h"
 #import "ios/chrome/browser/ui/infobars/infobar_badge_ui_delegate.h"
@@ -113,7 +114,12 @@ NSString* const kTranslateNotificationSnackbarCategory =
 - (void)translateInfoBarDelegate:(translate::TranslateInfoBarDelegate*)delegate
           didChangeTranslateStep:(translate::TranslateStep)step
                    withErrorType:(translate::TranslateErrors::Type)errorType {
-  DCHECK(self.currentStep != step);
+  if (self.currentStep == step) {
+    // No need to re-present or take any action if the new step is already the
+    // same as the current state. (e.g. the page is already translated and
+    // Translate is tapped in the overflow menu).
+    return;
+  }
   self.currentStep = step;
   self.mediator.currentStep = step;
   switch (self.currentStep) {
@@ -122,6 +128,13 @@ NSString* const kTranslateNotificationSnackbarCategory =
       break;
     case translate::TranslateStep::TRANSLATE_STEP_AFTER_TRANSLATE: {
       self.displayShowOriginalBanner = YES;
+      // Once the user asks for the page to be translated once, always make the
+      // banner presentation high priority even if the user requests to show the
+      // original language, since there is a possibility the user will be
+      // toggling between languages. In addition, reverting an infobar does not
+      // show the "Translate?" banner, so every subsequent banner presentation
+      // will be a "Show Original" one.
+      self.highPriorityPresentation = YES;
       [self.badgeDelegate infobarWasAccepted:self.infobarType
                                  forWebState:self.webState];
 
@@ -286,14 +299,14 @@ NSString* const kTranslateNotificationSnackbarCategory =
   [self performInfobarAction];
   [TranslateInfobarMetricsRecorder
       recordModalEvent:MobileMessagesTranslateModalEvent::ShowOriginal];
-  [self dismissInfobarModal:self animated:YES completion:nil];
+  [self dismissInfobarModalAnimated:YES completion:nil];
 }
 
 - (void)translateWithNewLanguages {
   [self.mediator updateLanguagesIfNecessary];
   [self performInfobarActionForStep:translate::TranslateStep::
                                         TRANSLATE_STEP_BEFORE_TRANSLATE];
-  [self dismissInfobarModal:self animated:YES completion:nil];
+  [self dismissInfobarModalAnimated:YES completion:nil];
 }
 
 - (void)showChangeSourceLanguageOptions {
@@ -354,14 +367,14 @@ NSString* const kTranslateNotificationSnackbarCategory =
       translate::TranslateStep::TRANSLATE_STEP_BEFORE_TRANSLATE)
     [self performInfobarAction];
 
-  [self dismissInfobarModal:self animated:YES completion:nil];
+  [self dismissInfobarModalAnimated:YES completion:nil];
 }
 
 - (void)undoAlwaysTranslateSourceLanguage {
   DCHECK(self.translateInfobarDelegate->ShouldAlwaysTranslate());
   [self recordInfobarEvent:InfobarEvent::INFOBAR_ALWAYS_TRANSLATE_UNDO];
   self.translateInfobarDelegate->ToggleAlwaysTranslate();
-  [self dismissInfobarModal:self animated:YES completion:nil];
+  [self dismissInfobarModalAnimated:YES completion:nil];
 }
 
 - (void)neverTranslateSourceLanguage {
@@ -375,19 +388,18 @@ NSString* const kTranslateNotificationSnackbarCategory =
                        languageCode:self.translateInfobarDelegate
                                         ->original_language_code()];
   self.translateInfobarDelegate->ToggleTranslatableLanguageByPrefs();
-  [self dismissInfobarModal:self
-                   animated:YES
-                 completion:^{
-                   // Completely remove the Infobar along with its badge after
-                   // blacklisting the Website.
-                   [self detachView];
-                 }];
+  [self dismissInfobarModalAnimated:YES
+                         completion:^{
+                           // Completely remove the Infobar along with its badge
+                           // after blacklisting the Website.
+                           [self detachView];
+                         }];
 }
 
 - (void)undoNeverTranslateSourceLanguage {
   DCHECK(!self.translateInfobarDelegate->IsTranslatableLanguageByPrefs());
   self.translateInfobarDelegate->ToggleTranslatableLanguageByPrefs();
-  [self dismissInfobarModal:self animated:YES completion:nil];
+  [self dismissInfobarModalAnimated:YES completion:nil];
   // TODO(crbug.com/1014959): implement else logic. Should anything be done?
 }
 
@@ -399,19 +411,18 @@ NSString* const kTranslateNotificationSnackbarCategory =
   [TranslateInfobarMetricsRecorder
       recordModalEvent:MobileMessagesTranslateModalEvent::
                            TappedNeverForThisSite];
-  [self dismissInfobarModal:self
-                   animated:YES
-                 completion:^{
-                   // Completely remove the Infobar along with its badge after
-                   // blacklisting the Website.
-                   [self detachView];
-                 }];
+  [self dismissInfobarModalAnimated:YES
+                         completion:^{
+                           // Completely remove the Infobar along with its badge
+                           // after blacklisting the Website.
+                           [self detachView];
+                         }];
 }
 
 - (void)undoNeverTranslateSite {
   DCHECK(self.translateInfobarDelegate->IsSiteBlacklisted());
   self.translateInfobarDelegate->ToggleSiteBlacklist();
-  [self dismissInfobarModal:self animated:YES completion:nil];
+  [self dismissInfobarModalAnimated:YES completion:nil];
   // TODO(crbug.com/1014959): implement else logic. Should aything be done?
 }
 
@@ -504,17 +515,17 @@ NSString* const kTranslateNotificationSnackbarCategory =
          presentsModal:self.hasBadge
                   type:InfobarType::kInfobarTypeTranslate];
   [self updateBannerTextForCurrentTranslateStep];
-  self.bannerViewController.iconImage =
-      [UIImage imageNamed:@"infobar_translate_icon"];
-  self.bannerViewController.optionalAccessibilityLabel =
-      self.bannerViewController.titleText;
+  [self.bannerViewController
+      setIconImage:[UIImage imageNamed:@"infobar_translate_icon"]];
+  [self.bannerViewController
+      setBannerAccessibilityLabel:[self bannerTitleText]];
 }
 
 // Updates the banner's text for |self.currentStep|.
 - (void)updateBannerTextForCurrentTranslateStep {
-  self.bannerViewController.titleText = [self bannerTitleText];
-  self.bannerViewController.buttonText = [self infobarButtonText];
-  self.bannerViewController.subTitleText = [self bannerSubtitleText];
+  [self.bannerViewController setTitleText:[self bannerTitleText]];
+  [self.bannerViewController setButtonText:[self infobarButtonText]];
+  [self.bannerViewController setSubtitleText:[self bannerSubtitleText]];
 }
 
 // Returns the title text of the banner depending on the |currentStep|.

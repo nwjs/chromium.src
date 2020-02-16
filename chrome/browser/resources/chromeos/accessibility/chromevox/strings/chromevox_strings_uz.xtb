@@ -384,7 +384,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{teskari tutuq belgisi}other{# ta teskari tutuq belgisi}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollar belgisi}other{# ta dollar belgisi}}</translation>
-<translation id="3658742229777143148">Versiya</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, ro‘yxat bandi</translation>
 <translation id="3681531118904532409">Pardozrang</translation>
@@ -419,6 +418,7 @@
 <translation id="3914732343065571127">ChromeVox buyruqlari qo‘llanmasi</translation>
 <translation id="3930383913623796990">Och bahoriy yashil</translation>
 <translation id="3930498801443296724">Iqtibos</translation>
+<translation id="3935615366277838204">Katta <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Oqimtir binafsharang</translation>
 <translation id="3941269780691800708">Sichqoncha ostidagi matnni ovoz chiqarib oʻqish.</translation>
 <translation id="394953087167197343">Xato kiritilishi aniqlansin:</translation>
@@ -792,7 +792,6 @@
 <translation id="6459511626086141404">Odatiy tugmalar joylashuvi</translation>
 <translation id="6468049171101508116">Keyingi tugmasi</translation>
 <translation id="646954774886932461">Indeks</translation>
-<translation id="6479792383819319132">Bundan keyin xatboshi yoʻq.</translation>
 <translation id="6493991254603208962">Yorqinlikni pasaytirish</translation>
 <translation id="6501595918865591267">Feruzarang</translation>
 <translation id="6508059270146105198">Breyl ekranini sahifa tepasiga joylash</translation>
@@ -814,8 +813,7 @@
 <translation id="6633350132811819843">Bundan keyin boshqa jadval yo‘q.</translation>
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">Ahvol qatori</translation>
-<translation id="6659594942844771486">Varaq</translation>
-<translation id="6675661017770918201">Bundan avval xatboshi yoʻq.</translation>
+<translation id="6659594942844771486">Tab</translation>
 <translation id="667999046851023355">Hujjat</translation>
 <translation id="6688209025607531203">Nomodal bildirishnoma</translation>
 <translation id="6689672606256159458">Och xira qizil</translation>
@@ -844,6 +842,7 @@
 <translation id="6865519907510167493">imloviy xato</translation>
 <translation id="6871161210040114857">Katta-kichik harflar ahamiyatsiz.</translation>
 <translation id="6877435256196695200">Keyingi diagramma yo‘q.</translation>
+<translation id="688976158310523235">Qidiruv menyusi</translation>
 <translation id="6897341342232909480">Chapga ko‘chirish</translation>
 <translation id="6901540140423170855">date</translation>
 <translation id="6910211073230771657">O‘chirib tashlandi</translation>
@@ -856,6 +855,7 @@
 <translation id="699159175332639490">Search + O + W</translation>
 <translation id="6994042831499278539">Lug‘at havolasi</translation>
 <translation id="6996566555547746822">Keyingi ro‘yxatli maydon</translation>
+<translation id="6997224546856374593">Katta harflarni oʻqish vaqtida:</translation>
 <translation id="700202842116345659">Bibliografiya yozuvi</translation>
 <translation id="7005146664810010831">URL manzil topilmadi</translation>
 <translation id="7010712454773919705">ChromeVox modifikator tugmasi</translation>
@@ -935,6 +935,7 @@ Chrome brauzeri menyusini ochish uchun “Alt + F” tugmalarini bosing.</transl
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">Muloqot oynasi ochildi</translation>
+<translation id="7505149250476994901">Harfdan oldin “katta” deb ayting</translation>
 <translation id="7518543783849163354">ChromeVox ovozli ta’rifni vaqtincha to‘xtatish uchun Control tugmasini bosing.</translation>
 <translation id="7521682724501952239">ChromeVox sensorli ekranlarda ham ishlaydi.</translation>
 <translation id="7532613204005497612">iyun</translation>
@@ -1102,7 +1103,6 @@ Chrome brauzeri menyusini ochish uchun “Alt + F” tugmalarini bosing.</transl
 <translation id="812886159861361726"><ph name="FILE_NAME" /> faylini yuklab olish toʻxtatildi</translation>
 <translation id="8138880386467279117">Teginish</translation>
 <translation id="8153880621934657047">Xatolik yuz berdi. Jadvalga o‘ting.</translation>
-<translation id="8161114871611868169">Fikrlar boʻlimi</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{tagiga chizish belgisi}other{# ta tagiga chizish belgisi}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">qator</translation>
@@ -1123,6 +1123,7 @@ Chrome brauzeri menyusini ochish uchun “Alt + F” tugmalarini bosing.</transl
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Oq suyakrang</translation>
 <translation id="8326783648485765113">Yorqin yashil</translation>
+<translation id="8328063869313048659">Toʻq ekranga almashtirish tugmasi</translation>
 <translation id="8344569602005188545">soat</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{funt}other{# ta funt belgisi}}</translation>
 <translation id="8374154622594089836">oy</translation>
@@ -1207,6 +1208,7 @@ Chrome brauzeri menyusini ochish uchun “Alt + F” tugmalarini bosing.</transl
 <translation id="9065283790526219006">+popup</translation>
 <translation id="9066023754636984703">Tafsilotlarni ochish uchun Qidiruv+A va J tugmalarini bosing.</translation>
 <translation id="9067522039955793016">Sahifa oxiri</translation>
+<translation id="9074824103975499138">ChromeVox menyularini qidirish</translation>
 <translation id="9077213568694924680">tanlashdan olib tashlandi</translation>
 <translation id="9077305471618729969">Och dengizrang</translation>
 <translation id="9082874451376019682">Avvalgi slayder yo‘q.</translation>

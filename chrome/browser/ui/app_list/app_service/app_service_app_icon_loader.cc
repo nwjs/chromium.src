@@ -12,6 +12,10 @@
 #include "chrome/services/app_service/public/cpp/app_update.h"
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 
+namespace {
+const char kArcIntentHelperAppId[] = "lomchfnmkmhfhbibboadbgabihofenaa";
+}
+
 AppServiceAppIconLoader::AppServiceAppIconLoader(
     Profile* profile,
     int resource_size_in_dip,
@@ -27,20 +31,33 @@ AppServiceAppIconLoader::AppServiceAppIconLoader(
 AppServiceAppIconLoader::~AppServiceAppIconLoader() = default;
 
 bool AppServiceAppIconLoader::CanLoadImageForApp(const std::string& app_id) {
-  apps::AppServiceProxy* proxy =
-      apps::AppServiceProxyFactory::GetForProfile(profile());
-  if (!proxy || proxy->AppRegistryCache().GetAppType(app_id) ==
-                    apps::mojom::AppType::kUnknown) {
+  // Skip the ARC intent helper, the system Android app that proxies links to
+  // Chrome, which should be hidden.
+  if (app_id == kArcIntentHelperAppId) {
     return false;
   }
 
-  return true;
+  apps::AppServiceProxy* proxy =
+      apps::AppServiceProxyFactory::GetForProfile(profile());
+
+  // Support icon loading for apps registered in AppService or Crostini apps
+  // with the prefix "crostini:".
+  if (proxy && (proxy->AppRegistryCache().GetAppType(app_id) !=
+                    apps::mojom::AppType::kUnknown ||
+                base::StartsWith(app_id, crostini::kCrostiniAppIdPrefix,
+                                 base::CompareCase::SENSITIVE))) {
+    return true;
+  }
+
+  return false;
 }
 
 void AppServiceAppIconLoader::FetchImage(const std::string& app_id) {
   AppIDToIconMap::const_iterator it = icon_map_.find(app_id);
   if (it != icon_map_.end()) {
-    delegate()->OnAppImageUpdated(app_id, it->second);
+    if (!it->second.isNull()) {
+      delegate()->OnAppImageUpdated(app_id, it->second);
+    }
     return;
   }
 
@@ -56,7 +73,7 @@ void AppServiceAppIconLoader::ClearImage(const std::string& app_id) {
 
 void AppServiceAppIconLoader::UpdateImage(const std::string& app_id) {
   AppIDToIconMap::const_iterator it = icon_map_.find(app_id);
-  if (it == icon_map_.end()) {
+  if (it == icon_map_.end() || it->second.isNull()) {
     return;
   }
 

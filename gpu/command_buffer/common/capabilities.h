@@ -132,6 +132,7 @@ struct GPU_EXPORT Capabilities {
   bool swap_buffers_with_bounds = false;
   bool commit_overlay_planes = false;
   bool egl_image_external = false;
+  bool egl_image_external_essl3 = false;
   bool texture_format_astc = false;
   bool texture_format_atc = false;
   bool texture_format_bgra8888 = false;
@@ -155,7 +156,7 @@ struct GPU_EXPORT Capabilities {
   bool image_ycbcr_420v = false;
   bool image_ycbcr_420v_disabled_for_video_frames = false;
   bool image_xr30 = false;
-  bool image_xb30 = false;
+  bool image_ab30 = false;
   bool image_ycbcr_p010 = false;
   bool render_buffer_format_bgra8888 = false;
   bool occlusion_query = false;
@@ -210,7 +211,6 @@ struct GPU_EXPORT Capabilities {
 
   // Used by OOP raster.
   bool context_supports_distance_field_text = true;
-  uint64_t glyph_cache_max_texture_bytes = 0.f;
 
   GpuMemoryBufferFormatSet gpu_memory_buffer_formats = {
       gfx::BufferFormat::BGR_565,   gfx::BufferFormat::RGBA_4444,

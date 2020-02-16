@@ -117,9 +117,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void SetActive(bool active) override;
   void ShowDefinitionForSelection() override;
   void SpeakSelection() override;
-  void SetNeedsBeginFrames(bool needs_begin_frames) override;
   void GetScreenInfo(ScreenInfo* screen_info) override;
-  void SetWantsAnimateOnlyBeginFrames() override;
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
 
   // Implementation of RenderWidgetHostViewBase.
@@ -146,14 +144,6 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void EnsureSurfaceSynchronizedForWebTest() override;
   void FocusedNodeChanged(bool is_editable_node,
                           const gfx::Rect& node_bounds_in_screen) override;
-  void DidCreateNewRendererCompositorFrameSink(
-      viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink)
-      override;
-  void SubmitCompositorFrame(
-      const viz::LocalSurfaceId& local_surface_id,
-      viz::CompositorFrame frame,
-      base::Optional<viz::HitTestRegionList> hit_test_region_list) override;
-  void OnDidNotProduceFrame(const viz::BeginFrameAck& ack) override;
   void ResetFallbackToFirstNavigationSurface() override;
   bool RequestRepaintForTesting() override;
   BrowserAccessibilityManager* CreateBrowserAccessibilityManager(
@@ -404,7 +394,6 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
 
   // BrowserCompositorMacClient implementation.
   SkColor BrowserCompositorMacGetGutterColor() const override;
-  void BrowserCompositorMacOnBeginFrame(base::TimeTicks frame_time) override;
   void OnFrameTokenChanged(uint32_t frame_token) override;
   void DestroyCompositorForShutdown() override;
   bool OnBrowserCompositorSurfaceIdChanged() override;

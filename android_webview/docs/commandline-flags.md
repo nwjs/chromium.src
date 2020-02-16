@@ -1,12 +1,32 @@
 # Commandline flags
 
-## Applying flags
+## Can I apply commandline flags on my device?
 
 *** note
-**Note:** this requires either a `userdebug` or `eng` Android build (you can
-check with `adb shell getprop ro.build.type`). Flags cannot be enabled on
-production builds of Android.
+**Note:** WebView only permits toggling commandline flags on devices/emulators
+running a debuggable Android OS image. **Most users cannot apply commandline
+flags, because they're using devices with production Android images.**
 ***
+
+You can check which Android image you have on your device with the following:
+
+```sh
+# If you don't have `adb` in your path, you can source this file to use
+# the copy from chromium's Android SDK.
+$ source build/android/envsetup.sh
+
+# If this outputs "userdebug" or "eng" then you can apply flags following this
+# guide. If it outputs "user" then you cannot apply flags on this device.
+$ adb shell getprop ro.build.type
+userdebug
+```
+
+If the above outputs "user," then you **cannot** apply flags on the
+device/emulator. If you intend to use this device for chromium development, then
+you may consider [re-flashing the device or creating a debuggable Android
+emulator](device-setup.md).
+
+## Applying flags
 
 WebView reads flags from a specific file on the device as part of the startup
 sequence. Therefore, it's important to always **kill the WebView-based app**
@@ -78,25 +98,40 @@ WebView app.
 
 ## Applying Features with flags
 
-WebView supports the same `--enable-features=feature1,feature2` and
-`--disable-features=feature3,feature4` syntax as the rest of Chromium. You can
-use these like any other flag. Please consult
-[`base/feature_list.h`](https://cs.chromium.org/chromium/src/base/feature_list.h)
-for details.
+[`base::Feature`s](/base/feature_list.h) (or, "Features") are Chromium's
+mechanism for toggling off-by-default code paths. While debugging flags are also
+off-by-default, Features typically guard soon-to-launch product enhancements
+until they're tested enough for field trials or public launch, at which point
+the Feature is removed and the legacy code path is no longer supported and
+removed from the codebase. On the other hand, debugging flags don't "launch," as
+they're typically only helpful for debugging issues.
 
-## Interesting flags
+WebView supports the same syntax for toggling Features as the rest of chromium:
+`--enable-features=feature1,feature2` and
+`--disable-features=feature3,feature4`. You can apply `--enable-features` and
+`--disable-features` like any other flags, per the steps above. Please consult
+[`base/feature_list.h`](/base/feature_list.h) for details.
 
-WebView supports any flags supported in any layer we depend on (ex. content).
+## Finding Features and flags
+
+WebView supports toggling any flags/Features supported in any layer we
+depend on (ex. content). For more details on Chromium's layer architecture, see
+[this diagram](https://www.chromium.org/developers/content-module) (replace
+"chrome" with "android\_webview"). Although we support toggling these flags, not
+all flags will have an effect when toggled, nor do we guarantee WebView
+functions correctly when the flag is toggled.
+
 Some interesting flags and Features:
 
  * `--show-composited-layer-borders`: highlight rendering layers, which is
    useful for identifying which content in the app is rendered by a WebView.
  * `--force-enable-metrics-reporting`: enable UMA metrics reporting (does not
    override app opt-out)
+ * `--finch-seed-expiration-age=0 --finch-seed-min-update-period=0 --finch-seed-min-download-period=0 --finch-seed-ignore-pending-download`: always request a new finch seed when an app starts
 
 WebView also defines its own flags and Features:
 
- * [AwSwitches.java](https://cs.chromium.org/chromium/src/android_webview/java/src/org/chromium/android_webview/AwSwitches.java)
+ * [AwSwitches.java](https://cs.chromium.org/chromium/src/android_webview/java/src/org/chromium/android_webview/common/AwSwitches.java)
    (and its [native
    counterpart](https://cs.chromium.org/chromium/src/android_webview/common/aw_switches.h))
  * [AwFeatureList.java](https://cs.chromium.org/chromium/src/android_webview/java/src/org/chromium/android_webview/AwFeatureList.java)

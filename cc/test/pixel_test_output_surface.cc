@@ -13,8 +13,8 @@
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "ui/gfx/presentation_feedback.h"
+#include "ui/gfx/swap_result.h"
 #include "ui/gfx/transform.h"
-#include "ui/gl/color_space_utils.h"
 
 namespace cc {
 
@@ -58,7 +58,7 @@ void PixelTestOutputSurface::Reshape(const gfx::Size& size,
   if (context_provider()) {
     context_provider()->ContextGL()->ResizeCHROMIUM(
         size.width(), size.height(), device_scale_factor,
-        gl::ColorSpaceUtils::GetGLColorSpace(color_space), has_alpha);
+        color_space.AsGLColorSpace(), has_alpha);
   } else {
     software_device()->Resize(size, device_scale_factor);
   }
@@ -112,6 +112,11 @@ void PixelTestOutputSurface::SetUpdateVSyncParametersCallback(
 
 gfx::OverlayTransform PixelTestOutputSurface::GetDisplayTransform() {
   return gfx::OVERLAY_TRANSFORM_NONE;
+}
+
+scoped_refptr<gpu::GpuTaskSchedulerHelper>
+PixelTestOutputSurface::GetGpuTaskSchedulerHelper() {
+  return nullptr;
 }
 
 }  // namespace cc

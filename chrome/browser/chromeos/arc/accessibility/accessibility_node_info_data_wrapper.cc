@@ -6,6 +6,7 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "chrome/browser/chromeos/arc/accessibility/arc_accessibility_util.h"
 #include "chrome/browser/chromeos/arc/accessibility/ax_tree_source_arc.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node.h"
@@ -30,10 +31,14 @@ using AXStringProperty = mojom::AccessibilityStringProperty;
 AccessibilityNodeInfoDataWrapper::AccessibilityNodeInfoDataWrapper(
     AXTreeSourceArc* tree_source,
     AXNodeInfoData* node,
-    bool is_clickable_leaf)
+    bool is_clickable_leaf,
+    bool is_important)
     : AccessibilityInfoDataWrapper(tree_source),
       node_ptr_(node),
-      is_clickable_leaf_(is_clickable_leaf) {}
+      is_clickable_leaf_(is_clickable_leaf),
+      is_important_(is_important) {}
+
+AccessibilityNodeInfoDataWrapper::~AccessibilityNodeInfoDataWrapper() = default;
 
 bool AccessibilityNodeInfoDataWrapper::IsNode() const {
   return true;
@@ -68,8 +73,6 @@ bool AccessibilityNodeInfoDataWrapper::CanBeAccessibilityFocused() const {
   // - interesting leaf nodes
   ui::AXNodeData data;
   PopulateAXRole(&data);
-  bool important = GetProperty(AXBooleanProperty::IMPORTANCE) ||
-                   IsFocusableNativeWeb(data.role);
   bool non_generic_role = data.role != ax::mojom::Role::kGenericContainer &&
                           data.role != ax::mojom::Role::kGroup &&
                           data.role != ax::mojom::Role::kList &&
@@ -79,7 +82,7 @@ bool AccessibilityNodeInfoDataWrapper::CanBeAccessibilityFocused() const {
                     GetProperty(AXBooleanProperty::CHECKABLE);
   bool top_level_scrollable = HasProperty(AXStringProperty::TEXT) &&
                               GetProperty(AXBooleanProperty::SCROLLABLE);
-  return important && non_generic_role &&
+  return is_important_ && non_generic_role &&
          (actionable || top_level_scrollable || IsInterestingLeaf());
 }
 
@@ -89,6 +92,11 @@ void AccessibilityNodeInfoDataWrapper::PopulateAXRole(
   if (GetProperty(AXStringProperty::CLASS_NAME, &class_name)) {
     out_data->AddStringAttribute(ax::mojom::StringAttribute::kClassName,
                                  class_name);
+  }
+
+  if (role_) {
+    out_data->role = *role_;
+    return;
   }
 
   if (GetProperty(AXBooleanProperty::EDITABLE)) {
@@ -264,11 +272,7 @@ void AccessibilityNodeInfoDataWrapper::PopulateAXState(
   if (!GetProperty(AXBooleanProperty::VISIBLE_TO_USER))
     out_data->AddState(ax::mojom::State::kInvisible);
 
-  // WebView and its child nodes do not have accessibility importance set.
-  // IsFocusableNativeWeb can be removed once the change in crrev/c/1890402 is
-  // landed in all ARC containers.
-  if (!GetProperty(AXBooleanProperty::IMPORTANCE) &&
-      !IsFocusableNativeWeb(out_data->role))
+  if (!is_important_)
     out_data->AddState(ax::mojom::State::kIgnored);
 }
 
@@ -282,7 +286,8 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
   int labelled_by = -1;
 
   // Accessible name computation is a concatenated string comprising of:
-  // content description, text, labelled by text, and pane title.
+  // content description, text, labelled by text, pane title, and cached name
+  // from previous events.
   std::string text;
   std::string content_description;
   std::string label;
@@ -309,7 +314,7 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
   GetProperty(AXStringProperty::HINT_TEXT, &hint_text);
 
   if (!text.empty() || !content_description.empty() || !label.empty() ||
-      !pane_title.empty() || !hint_text.empty()) {
+      !pane_title.empty() || !hint_text.empty() || cached_name_) {
     // Append non empty properties to name attribute.
     std::vector<std::string> names;
     if (!content_description.empty())
@@ -333,6 +338,9 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
     if (!hint_text.empty())
       names.push_back(hint_text);
 
+    if (cached_name_ && !(*cached_name_).empty())
+      names.push_back(*cached_name_);
+
     // TODO (sarakato): Exposing all possible labels for a node, may result in
     // too much being spoken. For ARC ++, this may result in divergent behaviour
     // from Talkback.
@@ -344,6 +352,19 @@ void AccessibilityNodeInfoDataWrapper::Serialize(
     ComputeNameFromContents(this, &names);
     if (!names.empty())
       out_data->SetName(base::JoinString(names, " "));
+  } else if (is_node_tree_root) {
+    AccessibilityInfoDataWrapper* parent =
+        tree_source_->GetParent(tree_source_->GetFromId(node_ptr_->id));
+    if (parent && parent->GetWindow()) {
+      std::string title;
+      if (arc::GetProperty(parent->GetWindow()->string_properties,
+                           mojom::AccessibilityWindowStringProperty::TITLE,
+                           &title) &&
+          !title.empty()) {
+        out_data->SetName(title);
+        out_data->SetNameFrom(ax::mojom::NameFrom::kTitle);
+      }
+    }
   }
 
   std::string role_description;
@@ -591,45 +612,12 @@ void AccessibilityNodeInfoDataWrapper::ComputeNameFromContents(
   }
 }
 
-// Returns true if the node is (or is inside) WebView and it's accessibility
-// focusable.
-bool AccessibilityNodeInfoDataWrapper::IsFocusableNativeWeb(
-    ax::mojom::Role role) const {
-  std::vector<int32_t> standard_action_ids;
-  if (GetProperty(AXIntListProperty::STANDARD_ACTION_IDS,
-                  &standard_action_ids)) {
-    bool is_native_web = false;
-    bool is_focusable = GetProperty(AXBooleanProperty::FOCUSABLE);
-    for (const int32_t id : standard_action_ids) {
-      switch (static_cast<AXActionType>(id)) {
-        case AXActionType::NEXT_HTML_ELEMENT:
-        case AXActionType::PREVIOUS_HTML_ELEMENT:
-          is_native_web = true;
-          break;
-        case AXActionType::CLICK:
-        case AXActionType::FOCUS:
-        case AXActionType::ACCESSIBILITY_FOCUS:
-          is_focusable = true;
-          break;
-        default:
-          // unused.
-          break;
-      }
-    }
-    return is_native_web &&
-           (is_focusable || ui::IsControl(role) || IsInterestingLeaf());
-  }
-  return false;
-}
-
 bool AccessibilityNodeInfoDataWrapper::IsInterestingLeaf() const {
-  bool has_text = HasProperty(AXStringProperty::CONTENT_DESCRIPTION) ||
-                  HasProperty(AXStringProperty::TEXT);
   std::vector<AccessibilityInfoDataWrapper*> children;
   GetChildren(&children);
   // TODO(hirokisato) Even if the node has children, they might be empty. In
   // this case we should return true.
-  return has_text && children.empty();
+  return HasImportantProperty(node_ptr_) && children.empty();
 }
 
 }  // namespace arc

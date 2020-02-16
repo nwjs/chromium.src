@@ -48,6 +48,7 @@ const FilesQuickView = Polymer({
 
   listeners: {
     'files-safe-media-tap-outside': 'close',
+    'files-safe-media-load-error': 'loaderror',
   },
 
   /**
@@ -80,11 +81,20 @@ const FilesQuickView = Polymer({
         autoplay: false,
         browsable: false,
     });
+
     const video = this.$.contentPanel.querySelector('#videoSafeMedia');
     if (video) {
       video.src = '';
       video.fire('src-changed');
     }
+
+    this.removeAttribute('load-error');
+  },
+
+  // Handle load error from the files-safe-media container.
+  loaderror: function() {
+    this.setAttribute('load-error', '');
+    this.contentUrl = '';
   },
 
   /** @return {boolean} */

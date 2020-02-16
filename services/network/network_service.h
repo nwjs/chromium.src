@@ -54,6 +54,7 @@ namespace network {
 class CRLSetDistributor;
 class DnsConfigChangeManager;
 class HttpAuthCacheCopier;
+class LegacyTLSConfigDistributor;
 class NetworkContext;
 class NetworkUsageAccumulator;
 
@@ -128,7 +129,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       mojom::HttpAuthStaticParamsPtr http_auth_static_params) override;
   void ConfigureHttpAuthPrefs(
       mojom::HttpAuthDynamicParamsPtr http_auth_dynamic_params) override;
-  void SetRawHeadersAccess(uint32_t process_id,
+  void SetRawHeadersAccess(int32_t process_id,
                            const std::vector<url::Origin>& origins) override;
   void SetMaxConnectionsPerProxy(int32_t max_connections) override;
   void GetNetworkChangeManager(
@@ -143,7 +144,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void GetNetworkList(
       uint32_t policy,
       mojom::NetworkService::GetNetworkListCallback callback) override;
-  void UpdateCRLSet(base::span<const uint8_t> crl_set) override;
+  void UpdateCRLSet(
+      base::span<const uint8_t> crl_set,
+      mojom::NetworkService::UpdateCRLSetCallback callback) override;
+  void UpdateLegacyTLSConfig(
+      base::span<const uint8_t> config,
+      mojom::NetworkService::UpdateLegacyTLSConfigCallback callback) override;
   void OnCertDBChanged() override;
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   void SetCryptConfig(mojom::CryptConfigPtr crypt_config) override;
@@ -151,10 +157,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 #if defined(OS_WIN) || (defined(OS_MACOSX) && !defined(OS_IOS))
   void SetEncryptionKey(const std::string& encryption_key) override;
 #endif
-  void AddCorbExceptionForPlugin(uint32_t process_id) override;
-  void RemoveCorbExceptionForPlugin(uint32_t process_id) override;
-  void AddExtraMimeTypesForCorb(
-      const std::vector<std::string>& mime_types) override;
+  void AddCorbExceptionForPlugin(int32_t process_id) override;
+  void RemoveCorbExceptionForPlugin(int32_t process_id) override;
   void OnMemoryPressure(base::MemoryPressureListener::MemoryPressureLevel
                             memory_pressure_level) override;
   void OnPeerToPeerConnectionsCountChange(uint32_t count) override;
@@ -177,7 +181,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void OnBeforeURLRequest();
 
   bool quic_disabled() const { return quic_disabled_; }
-  bool HasRawHeadersAccess(uint32_t process_id, const GURL& resource_url) const;
+  bool HasRawHeadersAccess(int32_t process_id, const GURL& resource_url) const;
 
   mojom::NetworkServiceClient* client() {
     return client_.is_bound() ? client_.get() : nullptr;
@@ -204,6 +208,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   CRLSetDistributor* crl_set_distributor() {
     return crl_set_distributor_.get();
+  }
+
+  LegacyTLSConfigDistributor* legacy_tls_config_distributor() {
+    return legacy_tls_config_distributor_.get();
   }
 
   bool os_crypt_config_set() const { return os_crypt_config_set_; }
@@ -300,7 +308,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   // A per-process_id map of origins that are white-listed to allow
   // them to request raw headers for resources they request.
-  std::map<uint32_t, base::flat_set<url::Origin>>
+  std::map<int32_t, base::flat_set<url::Origin>>
       raw_headers_access_origins_by_pid_;
 
   bool quic_disabled_ = false;
@@ -308,6 +316,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   bool os_crypt_config_set_ = false;
 
   std::unique_ptr<CRLSetDistributor> crl_set_distributor_;
+
+  std::unique_ptr<LegacyTLSConfigDistributor> legacy_tls_config_distributor_;
 
   // A timer that periodically calls UpdateLoadInfo while there are pending
   // loads and not waiting on an ACK from the client for the last sent

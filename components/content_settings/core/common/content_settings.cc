@@ -61,8 +61,6 @@ constexpr HistogramValue kHistogramValue[] = {
     {ContentSettingsType::CLIENT_HINTS, 37},
     {ContentSettingsType::SENSORS, 38},
     {ContentSettingsType::ACCESSIBILITY_EVENTS, 39},
-    {ContentSettingsType::CLIPBOARD_READ, 40},
-    {ContentSettingsType::CLIPBOARD_WRITE, 41},
     {ContentSettingsType::PLUGINS_DATA, 42},
     {ContentSettingsType::PAYMENT_HANDLER, 43},
     {ContentSettingsType::USB_GUARD, 44},
@@ -82,6 +80,11 @@ constexpr HistogramValue kHistogramValue[] = {
     {ContentSettingsType::INSTALLED_WEB_APP_METADATA, 58},
     {ContentSettingsType::NFC, 59},
     {ContentSettingsType::BLUETOOTH_CHOOSER_DATA, 60},
+    {ContentSettingsType::CLIPBOARD_READ_WRITE, 61},
+    {ContentSettingsType::CLIPBOARD_SANITIZED_WRITE, 62},
+    {ContentSettingsType::SAFE_BROWSING_URL_CHECK_DATA, 63},
+    {ContentSettingsType::VR, 64},
+    {ContentSettingsType::AR, 65},
 };
 
 }  // namespace

@@ -9,8 +9,8 @@
 #include "third_party/blink/public/mojom/webaudio/audio_context_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_audio_context_options.h"
 #include "third_party/blink/renderer/core/html/media/autoplay_policy.h"
-#include "third_party/blink/renderer/modules/webaudio/audio_context_options.h"
 #include "third_party/blink/renderer/modules/webaudio/base_audio_context.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 
@@ -48,11 +48,11 @@ class MODULES_EXPORT AudioContext : public BaseAudioContext {
   void ContextDestroyed(ExecutionContext*) final;
   bool HasPendingActivity() const override;
 
-  ScriptPromise closeContext(ScriptState*);
+  ScriptPromise closeContext(ScriptState*, ExceptionState&);
   bool IsContextClosed() const final;
 
   ScriptPromise suspendContext(ScriptState*);
-  ScriptPromise resumeContext(ScriptState*);
+  ScriptPromise resumeContext(ScriptState*, ExceptionState&);
 
   bool HasRealtimeConstraint() final { return true; }
 
@@ -133,7 +133,13 @@ class MODULES_EXPORT AudioContext : public BaseAudioContext {
   // Record the current autoplay metrics.
   void RecordAutoplayMetrics();
 
+  // Called when the context is being closed to stop rendering audio and clean
+  // up handlers.
   void StopRendering();
+
+  // Called when suspending the context to stop reundering audio, but don't
+  // clean up handlers because we expect to be resuming where we left off.
+  void SuspendRendering();
 
   void DidClose();
 

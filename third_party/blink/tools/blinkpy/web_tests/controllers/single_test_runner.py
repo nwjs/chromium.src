@@ -32,7 +32,6 @@ import logging
 import re
 
 from blinkpy.web_tests.port.driver import DeviceFailure, DriverInput, DriverOutput
-from blinkpy.web_tests.models import test_expectations
 from blinkpy.web_tests.models import test_failures
 from blinkpy.web_tests.models.test_results import TestResult, build_test_result
 from blinkpy.web_tests.models import testharness_results
@@ -44,8 +43,9 @@ _log = logging.getLogger(__name__)
 def run_single_test(port, options, results_directory, worker_name, driver, test_input):
     runner = SingleTestRunner(port, options, results_directory, worker_name, driver, test_input)
     try:
-        test_result =  runner.run()
-        test_result.create_artifacts()
+        test_result = runner.run()
+        if not options.no_expectations:
+            test_result.create_artifacts()
         return test_result
     except DeviceFailure as error:
         _log.error('device failed: %s', error)

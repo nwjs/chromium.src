@@ -154,7 +154,7 @@ Polymer({
   openDialogs_: [],
 
   /** @override */
-  created: function() {
+  created() {
     // Regular expression that captures the leading slash, the content and the
     // trailing slash in three different groups.
     const CANONICAL_PATH_REGEX = /(^\/)([\/-\w]+)(\/$)/;
@@ -165,12 +165,12 @@ Polymer({
   },
 
   /** @override */
-  ready: function() {
+  ready() {
     FocusOutlineManager.forDocument(document);
   },
 
   /** @override */
-  attached: function() {
+  attached() {
     document.documentElement.classList.remove('loading');
     this.nativeLayer_ = NativeLayer.getInstance();
     this.addWebUIListener('print-failed', this.onPrintFailed_.bind(this));
@@ -184,13 +184,13 @@ Polymer({
   },
 
   /** @override */
-  detached: function() {
+  detached() {
     this.tracker_.removeAll();
     this.whenReady_ = null;
   },
 
   /** @private */
-  onSidebarFocus_: function() {
+  onSidebarFocus_() {
     this.$.previewArea.hideToolbars();
   },
 
@@ -200,13 +200,13 @@ Polymer({
    * @param {!KeyboardEvent} e The keyboard event.
    * @private
    */
-  onKeyDown_: function(e) {
+  onKeyDown_(e) {
     // Escape key closes the topmost dialog that is currently open within
     // Print Preview. If no such dialog exists, then the Print Preview dialog
     // itself is closed.
-    if (e.code == 'Escape' && !hasKeyModifiers(e)) {
+    if (e.code === 'Escape' && !hasKeyModifiers(e)) {
       // Don't close the Print Preview dialog if there is a child dialog open.
-      if (this.openDialogs_.length != 0) {
+      if (this.openDialogs_.length !== 0) {
         // Manually cancel the dialog, since we call preventDefault() to prevent
         // views from closing the Print Preview dialog.
         const dialogToClose = this.openDialogs_[this.openDialogs_.length - 1];
@@ -225,14 +225,14 @@ Polymer({
     }
 
     // On Mac, Cmd+Period should close the print dialog.
-    if (isMac && e.code == 'Period' && e.metaKey) {
+    if (isMac && e.code === 'Period' && e.metaKey) {
       this.close_();
       e.preventDefault();
       return;
     }
 
     // Ctrl + Shift + p / Mac equivalent.
-    if (e.code == 'KeyP') {
+    if (e.code === 'KeyP') {
       if ((isMac && e.metaKey && e.altKey && !e.shiftKey && !e.ctrlKey) ||
           (!isMac && e.shiftKey && e.ctrlKey && !e.altKey && !e.metaKey)) {
         // Don't use system dialog if the link isn't available.
@@ -243,7 +243,7 @@ Polymer({
         // Don't try to print with system dialog on Windows if the document is
         // not ready, because we send the preview document to the printer on
         // Windows.
-        if (!isWindows || this.state == State.READY) {
+        if (!isWindows || this.state === State.READY) {
           this.onPrintWithSystemDialog_();
         }
         e.preventDefault();
@@ -272,7 +272,7 @@ Polymer({
    * @param {!Event} e The cr-dialog-open event.
    * @private
    */
-  onCrDialogOpen_: function(e) {
+  onCrDialogOpen_(e) {
     this.openDialogs_.push(
         /** @type {!CrDialogElement} */ (e.composedPath()[0]));
   },
@@ -281,13 +281,13 @@ Polymer({
    * @param {!Event} e The close event.
    * @private
    */
-  onCrDialogClose_: function(e) {
+  onCrDialogClose_(e) {
     // Note: due to event re-firing in cr_dialog.js, this event will always
     // appear to be coming from the outermost child dialog.
     // TODO(rbpotter): Fix event re-firing so that the event comes from the
     // dialog that has been closed, and add an assertion that the removed
     // dialog matches e.composedPath()[0].
-    if (e.composedPath()[0].nodeName == 'CR-DIALOG') {
+    if (e.composedPath()[0].nodeName === 'CR-DIALOG') {
       this.openDialogs_.pop();
     }
   },
@@ -296,7 +296,7 @@ Polymer({
    * @param {!NativeInitialSettings} settings
    * @private
    */
-  onInitialSettingsSet_: function(settings) {
+  onInitialSettingsSet_(settings) {
     if (!this.whenReady_) {
       // This element and its corresponding model were detached while waiting
       // for the callback. This can happen in tests; return early.
@@ -346,7 +346,7 @@ Polymer({
    * @param {string} uiLocale The UI locale.
    * @private
    */
-  initializeCloudPrint_: function(cloudPrintUrl, appKioskMode, uiLocale) {
+  initializeCloudPrint_(cloudPrintUrl, appKioskMode, uiLocale) {
     assert(!this.cloudPrintInterface_);
     this.cloudPrintInterface_ = getCloudPrintInterface(
         cloudPrintUrl, assert(this.nativeLayer_), appKioskMode, uiLocale);
@@ -364,12 +364,12 @@ Polymer({
    *     are managed.
    * @private
    */
-  computeControlsManaged_: function() {
+  computeControlsManaged_() {
     return this.destinationsManaged_ || this.settingsManaged_;
   },
 
   /** @private */
-  onDestinationStateChange_: function() {
+  onDestinationStateChange_() {
     switch (this.destinationState_) {
       case DestinationState.SELECTED:
       case DestinationState.SET:
@@ -407,12 +407,12 @@ Polymer({
    * @param {!CustomEvent<string>} e Event containing the new sticky settings.
    * @private
    */
-  onStickySettingChanged_: function(e) {
+  onStickySettingChanged_(e) {
     this.nativeLayer_.saveAppState(e.detail);
   },
 
   /** @private */
-  onPreviewSettingChanged_: function() {
+  onPreviewSettingChanged_() {
     if (this.state === State.READY) {
       this.$.previewArea.startPreview(false);
       this.startPreviewWhenReady_ = false;
@@ -422,8 +422,8 @@ Polymer({
   },
 
   /** @private */
-  onStateChanged_: function() {
-    if (this.state == State.READY) {
+  onStateChanged_() {
+    if (this.state === State.READY) {
       if (this.startPreviewWhenReady_) {
         this.$.previewArea.startPreview(false);
         this.startPreviewWhenReady_ = false;
@@ -433,16 +433,16 @@ Polymer({
         // Reset in case printing fails.
         this.printRequested_ = false;
       }
-    } else if (this.state == State.CLOSING) {
+    } else if (this.state === State.CLOSING) {
       this.remove();
       this.nativeLayer_.dialogClose(this.cancelled_);
-    } else if (this.state == State.HIDDEN) {
+    } else if (this.state === State.HIDDEN) {
       if (this.destination_.isLocal &&
           this.destination_.id !== Destination.GooglePromotedId.SAVE_AS_PDF) {
         // Only hide the preview for local, non PDF destinations.
         this.nativeLayer_.hidePreview();
       }
-    } else if (this.state == State.PRINTING) {
+    } else if (this.state === State.PRINTING) {
       const destination = assert(this.destination_);
       const whenPrintDone =
           this.nativeLayer_.print(this.$.model.createPrintTicket(
@@ -450,7 +450,7 @@ Polymer({
               this.showSystemDialogBeforePrint_));
       if (destination.isLocal) {
         const onError =
-            destination.id == Destination.GooglePromotedId.SAVE_AS_PDF ?
+            destination.id === Destination.GooglePromotedId.SAVE_AS_PDF ?
             this.onFileSelectionCancel_.bind(this) :
             this.onPrintFailed_.bind(this);
         whenPrintDone.then(this.close_.bind(this), onError);
@@ -465,7 +465,7 @@ Polymer({
   },
 
   /** @private */
-  onPrintRequested_: function() {
+  onPrintRequested_() {
     if (this.state === State.NOT_READY) {
       this.printRequested_ = true;
       return;
@@ -475,7 +475,7 @@ Polymer({
   },
 
   /** @private */
-  onCancelRequested_: function() {
+  onCancelRequested_() {
     this.cancelled_ = true;
     this.$.state.transitTo(State.CLOSING);
   },
@@ -484,7 +484,7 @@ Polymer({
    * @param {!CustomEvent<boolean>} e The event containing the new validity.
    * @private
    */
-  onSettingValidChanged_: function(e) {
+  onSettingValidChanged_(e) {
     if (e.detail) {
       this.$.state.transitTo(State.READY);
     } else {
@@ -494,7 +494,7 @@ Polymer({
   },
 
   /** @private */
-  onFileSelectionCancel_: function() {
+  onFileSelectionCancel_() {
     this.$.state.transitTo(State.READY);
   },
 
@@ -504,9 +504,10 @@ Polymer({
    * @param {string} data The body to send in the HTTP request.
    * @private
    */
-  onPrintToCloud_: function(data) {
+  onPrintToCloud_(data) {
     assert(
-        this.cloudPrintInterface_ != null, 'Google Cloud Print is not enabled');
+        this.cloudPrintInterface_ !== null,
+        'Google Cloud Print is not enabled');
     const destination = assert(this.destination_);
     this.cloudPrintInterface_.submit(
         destination, this.$.model.createCloudJobTicket(destination),
@@ -515,7 +516,7 @@ Polymer({
 
   // <if expr="not chromeos">
   /** @private */
-  onPrintWithSystemDialog_: function() {
+  onPrintWithSystemDialog_() {
     // <if expr="is_win">
     this.showSystemDialogBeforePrint_ = true;
     this.onPrintRequested_();
@@ -529,7 +530,7 @@ Polymer({
 
   // <if expr="is_macosx">
   /** @private */
-  onOpenPdfInPreview_: function() {
+  onOpenPdfInPreview_() {
     this.openPdfInPreview_ = true;
     this.$.previewArea.setOpeningPdfInPreview();
     this.onPrintRequested_();
@@ -542,14 +543,14 @@ Polymer({
    *     the error, if not an HTTP error.
    * @private
    */
-  onPrintFailed_: function(httpError) {
+  onPrintFailed_(httpError) {
     console.error('Printing failed with error code ' + httpError);
     this.error_ = Error.PRINT_FAILED;
     this.$.state.transitTo(State.FATAL_ERROR);
   },
 
   /** @private */
-  onPreviewStateChange_: function() {
+  onPreviewStateChange_() {
     switch (this.previewState_) {
       case PreviewAreaState.DISPLAY_PREVIEW:
       case PreviewAreaState.OPEN_IN_PREVIEW_LOADED:
@@ -577,15 +578,15 @@ Polymer({
    *     event Contains the error message.
    * @private
    */
-  onCloudPrintError_: function(appKioskMode, event) {
-    if (event.detail.status == 0 ||
-        (event.detail.status == 403 && !appKioskMode)) {
+  onCloudPrintError_(appKioskMode, event) {
+    if (event.detail.status === 0 ||
+        (event.detail.status === 403 && !appKioskMode)) {
       return;  // No internet connectivity or not signed in.
     }
     this.cloudPrintErrorMessage_ = event.detail.message;
     this.error_ = Error.CLOUD_PRINT_ERROR;
     this.$.state.transitTo(State.FATAL_ERROR);
-    if (event.detail.status == 200) {
+    if (event.detail.status === 200) {
       console.error(
           'Google Cloud Print Error: ' +
           `(${event.detail.errorCode}) ${event.detail.message}`);
@@ -604,7 +605,7 @@ Polymer({
    *     from the document.
    * @private
    */
-  onPrintPresetOptions_: function(disableScaling, copies, duplex) {
+  onPrintPresetOptions_(disableScaling, copies, duplex) {
     if (disableScaling) {
       this.$.documentInfo.updateIsScalingDisabled(true);
     }
@@ -635,12 +636,12 @@ Polymer({
    * @param {!CustomEvent<number>} e Contains the new preview request ID.
    * @private
    */
-  onPreviewStart_: function(e) {
+  onPreviewStart_(e) {
     this.$.documentInfo.inFlightRequestId = e.detail;
   },
 
   /** @private */
-  close_: function() {
+  close_() {
     this.$.state.transitTo(State.CLOSING);
   },
 });

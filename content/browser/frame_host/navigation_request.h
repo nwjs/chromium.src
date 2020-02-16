@@ -39,6 +39,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/proxy_server.h"
+#include "net/dns/public/resolve_error_info.h"
 #include "services/network/public/cpp/origin_policy.h"
 
 #if defined(OS_ANDROID)
@@ -64,7 +65,7 @@ class NavigationURLLoader;
 class NavigationUIData;
 class NavigatorDelegate;
 class PrefetchedSignedExchangeCache;
-class ServiceWorkerNavigationHandle;
+class ServiceWorkerMainResourceHandle;
 class SiteInstanceImpl;
 struct SubresourceLoaderParams;
 
@@ -233,6 +234,7 @@ class CONTENT_EXPORT NavigationRequest
   net::HttpResponseInfo::ConnectionInfo GetConnectionInfo() override;
   const base::Optional<net::SSLInfo>& GetSSLInfo() override;
   const base::Optional<net::AuthChallengeInfo>& GetAuthChallengeInfo() override;
+  net::ResolveErrorInfo GetResolveErrorInfo() override;
   net::NetworkIsolationKey GetNetworkIsolationKey() override;
   void RegisterThrottleForTesting(
       std::unique_ptr<NavigationThrottle> navigation_throttle) override;
@@ -255,7 +257,6 @@ class CONTENT_EXPORT NavigationRequest
   const base::Optional<url::Origin>& GetInitiatorOrigin() override;
   bool IsSameProcess() override;
   int GetNavigationEntryOffset() override;
-  bool FromDownloadCrossOriginRedirect() override;
   void RegisterSubresourceOverride(
       mojom::TransferrableURLLoaderPtr transferrable_loader) override;
   GlobalFrameRoutingId GetPreviousRenderFrameHostId() override;
@@ -448,8 +449,7 @@ class CONTENT_EXPORT NavigationRequest
   // navigation in a subframe. This allows a browser-initiated NavigationRequest
   // to be canceled by the renderer.
   void SetNavigationClient(
-      mojo::PendingAssociatedRemote<mojom::NavigationClient> navigation_client,
-      int32_t associated_site_instance_id);
+      mojo::PendingAssociatedRemote<mojom::NavigationClient> navigation_client);
 
   // Whether the new document created by this navigation will be loaded from a
   // MHTML document. In this case, the navigation will commit in the main frame
@@ -457,6 +457,10 @@ class CONTENT_EXPORT NavigationRequest
   bool IsForMhtmlSubframe() const;
 
   std::unique_ptr<AppCacheNavigationHandle> TakeAppCacheHandle();
+
+  AppCacheNavigationHandle* appcache_handle() const {
+    return appcache_handle_.get();
+  }
 
   void set_complete_callback_for_testing(
       ThrottleChecksFinishedCallback callback) {
@@ -516,6 +520,17 @@ class CONTENT_EXPORT NavigationRequest
 
   std::unique_ptr<PeakGpuMemoryTracker> TakePeakGpuMemoryTracker();
 
+  // Returns true for navigation responses to be rendered in a renderer process.
+  // This excludes:
+  //  - 204/205 navigation responses.
+  //  - downloads.
+  //
+  // Must not be called before having received the response.
+  bool response_should_be_rendered() const {
+    DCHECK_GE(state_, WILL_PROCESS_RESPONSE);
+    return response_should_be_rendered_;
+  }
+
  private:
   friend class NavigationRequestTest;
 
@@ -534,6 +549,13 @@ class CONTENT_EXPORT NavigationRequest
       mojo::PendingRemote<blink::mojom::NavigationInitiator>
           navigation_initiator,
       RenderFrameHostImpl* rfh_restored_from_back_forward_cache);
+
+  // Checks if the OriginPolicy in a NavigationRequest's response contains a
+  // request to isolate the url's origin, and if so registers it with the global
+  // origin isolation map.
+  void CheckForOriginPolicyIsolationOptIn(
+      const GURL& url,
+      const network::mojom::URLResponseHead* response);
 
   // NavigationURLLoaderDelegate implementation.
   void OnRequestRedirected(
@@ -589,7 +611,7 @@ class CONTENT_EXPORT NavigationRequest
   // allows the navigation. This is called to perform the frame-src
   // and navigate-to checks.
   bool IsAllowedByCSPDirective(CSPContext* context,
-                               CSPDirective::Name directive,
+                               network::mojom::CSPDirectiveName directive,
                                bool has_followed_redirect,
                                bool url_upgraded_after_redirect,
                                bool is_response_check,
@@ -916,6 +938,13 @@ class CONTENT_EXPORT NavigationRequest
   // checks are performed by the NavigationHandle.
   bool has_stale_copy_in_cache_;
   net::Error net_error_ = net::OK;
+  // Detailed host resolution error information. The error code in
+  // |resolve_error_info_.error| should be consistent with (but not necessarily
+  // the same as) |net_error_|. In the case of a host resolution error, for
+  // example, |net_error_| should be ERR_NAME_NOT_RESOLVED while
+  // |resolve_error_info_.error| may give a more detailed error such as
+  // ERR_DNS_TIMED_OUT.
+  net::ResolveErrorInfo resolve_error_info_;
 
   // Identifies in which RenderProcessHost this navigation is expected to
   // commit.
@@ -942,9 +971,7 @@ class CONTENT_EXPORT NavigationRequest
   // The NavigationClient interface for that requested this navigation in the
   // case of a renderer initiated navigation. It is expected to be bound until
   // this navigation commits or is canceled.
-  // Only valid when PerNavigationMojoInterface is enabled.
   mojo::AssociatedRemote<mojom::NavigationClient> request_navigation_client_;
-  base::Optional<int32_t> associated_site_instance_id_;
 
   // The NavigationClient interface used to commit the navigation. For now, this
   // is only used for same-site renderer-initiated navigation.
@@ -1058,7 +1085,7 @@ class CONTENT_EXPORT NavigationRequest
 
   // Manages the lifetime of a pre-created ServiceWorkerProviderHost until a
   // corresponding provider is created in the renderer.
-  std::unique_ptr<ServiceWorkerNavigationHandle> service_worker_handle_;
+  std::unique_ptr<ServiceWorkerMainResourceHandle> service_worker_handle_;
 
   // Timer for detecting an unexpectedly long time to commit a navigation.
   base::OneShotTimer commit_timeout_timer_;

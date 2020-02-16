@@ -97,8 +97,9 @@ BaseFetchContext::CheckCSPForRequestInternal(
     SecurityViolationReportingPolicy reporting_policy,
     ResourceRequest::RedirectStatus redirect_status,
     ContentSecurityPolicy::CheckHeaderType check_header_type) const {
-  if (ShouldBypassMainWorldCSP() || options.content_security_policy_option ==
-                                        kDoNotCheckContentSecurityPolicy) {
+  if (ShouldBypassMainWorldCSP() ||
+      options.content_security_policy_option ==
+          network::mojom::CSPDisposition::DO_NOT_CHECK) {
     return base::nullopt;
   }
 
@@ -137,8 +138,8 @@ BaseFetchContext::CanRequestInternal(
   // On navigation cases, Context().GetSecurityOrigin() may return nullptr, so
   // the request's origin may be nullptr.
   // TODO(yhirano): Figure out if it's actually fine.
-  DCHECK(network::IsNavigationRequestMode(request_mode) || origin);
-  if (!network::IsNavigationRequestMode(request_mode) &&
+  DCHECK(request_mode == network::mojom::RequestMode::kNavigate || origin);
+  if (request_mode != network::mojom::RequestMode::kNavigate &&
       !resource_request.CanDisplay(url)) {
     if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
       AddConsoleMessage(ConsoleMessage::Create(

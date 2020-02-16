@@ -9,31 +9,18 @@
 
 #import "ios/chrome/browser/ui/coordinators/chrome_coordinator.h"
 
-// The a11y identifier for the translate infobar's language selection menu.
-extern NSString* const kLanguageSelectorPopupMenuId;
-// The a11y identifier for the translate infobar's translate options menu.
-extern NSString* const kTranslateOptionsPopupMenuId;
-
-@protocol SnackbarCommands;
-class WebStateList;
-
 // Coordinator responsible for presenting and dismissing the translate infobar's
 // language selection popup menu, translate options popup menu, and translate
 // options notifications.
 @interface LegacyTranslateInfobarCoordinator : ChromeCoordinator
 
-// Creates a coordinator that uses |viewController|, |browserState|, and
-// |webStateList|.
+// Unavailable, use -initWithBaseViewController:browser:.
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                              browserState:
-                                  (ios::ChromeBrowserState*)browserState
-                              webStateList:(WebStateList*)webStateList
-                                dispatcher:(id<SnackbarCommands>)dispatcher;
+    NS_UNAVAILABLE;
 
-// Unavailable, use -initWithBaseViewController:browserState:webStateList:.
+// Unavailable, use -initWithBaseViewController:browser:.
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                              browserState:
-                                  (ios::ChromeBrowserState*)browserState
+                              browserState:(ChromeBrowserState*)browserState
     NS_UNAVAILABLE;
 
 @end

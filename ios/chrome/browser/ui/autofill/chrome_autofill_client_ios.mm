@@ -83,7 +83,7 @@ autofill::CardUnmaskPromptView* CreateCardUnmaskPromptViewBridge(
 namespace autofill {
 
 ChromeAutofillClientIOS::ChromeAutofillClientIOS(
-    ios::ChromeBrowserState* browser_state,
+    ChromeBrowserState* browser_state,
     web::WebState* web_state,
     infobars::InfoBarManager* infobar_manager,
     id<AutofillClientIOSBridge> bridge,
@@ -123,7 +123,7 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
           base::Closure())) {}
 
 ChromeAutofillClientIOS::~ChromeAutofillClientIOS() {
-  HideAutofillPopup();
+  HideAutofillPopup(PopupHidingReason::kTabGone);
 }
 
 void ChromeAutofillClientIOS::SetBaseViewController(
@@ -158,6 +158,10 @@ signin::IdentityManager* ChromeAutofillClientIOS::GetIdentityManager() {
 
 FormDataImporter* ChromeAutofillClientIOS::GetFormDataImporter() {
   return form_data_importer_.get();
+}
+
+SmsClient* ChromeAutofillClientIOS::GetSmsClient() {
+  return nullptr;
 }
 
 payments::PaymentsClient* ChromeAutofillClientIOS::GetPaymentsClient() {
@@ -330,8 +334,7 @@ bool ChromeAutofillClientIOS::HasCreditCardScanFeature() {
   return false;
 }
 
-void ChromeAutofillClientIOS::ScanCreditCard(
-    const CreditCardScanCallback& callback) {
+void ChromeAutofillClientIOS::ScanCreditCard(CreditCardScanCallback callback) {
   NOTREACHED();
 }
 
@@ -351,7 +354,23 @@ void ChromeAutofillClientIOS::UpdateAutofillPopupDataListValues(
   NOTREACHED();
 }
 
-void ChromeAutofillClientIOS::HideAutofillPopup() {
+base::span<const autofill::Suggestion>
+ChromeAutofillClientIOS::GetPopupSuggestions() const {
+  NOTIMPLEMENTED();
+  return base::span<const autofill::Suggestion>();
+}
+
+void ChromeAutofillClientIOS::PinPopupViewUntilUpdate() {
+  NOTIMPLEMENTED();
+}
+
+void ChromeAutofillClientIOS::UpdatePopup(
+    const std::vector<autofill::Suggestion>& suggestions,
+    autofill::PopupType popup_type) {
+  NOTIMPLEMENTED();
+}
+
+void ChromeAutofillClientIOS::HideAutofillPopup(PopupHidingReason reason) {
   [bridge_ hideAutofillPopup];
 }
 

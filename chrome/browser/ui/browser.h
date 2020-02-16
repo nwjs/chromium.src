@@ -50,7 +50,7 @@
 #include "content/public/common/page_zoom.h"
 #include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
-#include "third_party/blink/public/common/frame/blocked_navigation_types.h"
+#include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -140,6 +140,10 @@ class Browser : public TabStripModelObserver,
     TYPE_APP,
     // Devtools browser.
     TYPE_DEVTOOLS,
+    // App popup browser. It behaves like an app browser (e.g. it should have an
+    // AppBrowserController) but looks like a popup (e.g. it never has a tab
+    // strip).
+    TYPE_APP_POPUP,
     // If you add a new type, consider updating the test
     // BrowserTest.StartMaximized.
   };
@@ -203,6 +207,12 @@ class Browser : public TabStripModelObserver,
                                      Profile* profile,
                                      bool user_gesture);
 
+    static CreateParams CreateForAppPopup(const std::string& app_name,
+                                          bool trusted_source,
+                                          const gfx::Rect& window_bounds,
+                                          Profile* profile,
+                                          bool user_gesture);
+
     static CreateParams CreateForDevTools(Profile* profile);
 
     bool frameless = false;
@@ -252,8 +262,15 @@ class Browser : public TabStripModelObserver,
     friend class Browser;
     friend class WindowSizerAshTest;
 
+    static CreateParams CreateForAppBase(bool is_popup,
+                                         const std::string& app_name,
+                                         bool trusted_source,
+                                         const gfx::Rect& window_bounds,
+                                         Profile* profile,
+                                         bool user_gesture);
+
     // The application name that is also the name of the window to the shell.
-    // Do not set this value directly, use CreateForApp.
+    // Do not set this value directly, use CreateForApp/CreateForAppPopup.
     // This name will be set for:
     // 1) v1 applications launched via an application shortcut or extension API.
     // 2) undocked devtool windows.
@@ -559,7 +576,7 @@ class Browser : public TabStripModelObserver,
   void TabPinnedStateChanged(TabStripModel* tab_strip_model,
                              content::WebContents* contents,
                              int index) override;
-  void TabGroupedStateChanged(base::Optional<TabGroupId> group,
+  void TabGroupedStateChanged(base::Optional<tab_groups::TabGroupId> group,
                               int index) override;
   void TabStripEmpty() override;
 
@@ -604,10 +621,11 @@ class Browser : public TabStripModelObserver,
                                          bool allowed_per_prefs,
                                          const url::Origin& origin,
                                          const GURL& resource_url) override;
-  void OnDidBlockNavigation(content::WebContents* web_contents,
-                            const GURL& blocked_url,
-                            const GURL& initiator_url,
-                            blink::NavigationBlockedReason reason) override;
+  void OnDidBlockNavigation(
+      content::WebContents* web_contents,
+      const GURL& blocked_url,
+      const GURL& initiator_url,
+      blink::mojom::NavigationBlockedReason reason) override;
   content::PictureInPictureResult EnterPictureInPicture(
       content::WebContents* web_contents,
       const viz::SurfaceId&,
@@ -626,13 +644,16 @@ class Browser : public TabStripModelObserver,
   bool is_type_normal() const { return type_ == TYPE_NORMAL; }
   bool is_type_popup() const { return type_ == TYPE_POPUP; }
   bool is_type_app() const { return type_ == TYPE_APP; }
+  bool is_type_app_popup() const { return type_ == TYPE_APP_POPUP; }
   bool is_type_devtools() const { return type_ == TYPE_DEVTOOLS; }
   // TODO(crbug.com/990158): |deprecated_is_app()| is added for backwards
   // compatibility for previous callers to |is_app()| which returned true when
-  // |app_name_| is non-empty.  This includes TYPE_APP and TYPE_DEVTOOLS.
-  // Existing callers should change to use the appropriate is_type_* functions.
+  // |app_name_| is non-empty.  This includes TYPE_APP, TYPE_DEVTOOLS and
+  // TYPE_APP_POPUP. Existing callers should change to use the appropriate
+  // is_type_* functions.
   bool deprecated_is_app() const {
-    return type_ == TYPE_APP || type_ == TYPE_DEVTOOLS;
+    return type_ == TYPE_APP || type_ == TYPE_DEVTOOLS ||
+           type_ == TYPE_APP_POPUP;
   }
 
   // True when the mouse cursor is locked.
@@ -774,6 +795,8 @@ class Browser : public TabStripModelObserver,
                           const GURL& target_url,
                           content::WebContents* new_contents, const base::string16& nw_window_manifest) override;
   void PortalWebContentsCreated(
+      content::WebContents* portal_web_contents) override;
+  void WebContentsBecamePortal(
       content::WebContents* portal_web_contents) override;
   void RendererUnresponsive(
       content::WebContents* source,

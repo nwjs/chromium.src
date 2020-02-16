@@ -43,7 +43,8 @@ class CORE_EXPORT DevToolsSession : public GarbageCollected<DevToolsSession>,
           main_receiver,
       mojo::PendingReceiver<mojom::blink::DevToolsSession> io_receiver,
       mojom::blink::DevToolsSessionStatePtr reattach_session_state,
-      bool client_expects_binary_responses);
+      bool client_expects_binary_responses,
+      const String& session_id);
   ~DevToolsSession() override;
 
   void ConnectToV8(v8_inspector::V8Inspector*, int context_group_id);
@@ -63,13 +64,12 @@ class CORE_EXPORT DevToolsSession : public GarbageCollected<DevToolsSession>,
   class IOSession;
 
   // mojom::blink::DevToolsSession implementation.
-  void DispatchProtocolCommand(
-      int call_id,
-      const String& method,
-      mojom::blink::DevToolsMessagePtr message) override;
+  void DispatchProtocolCommand(int call_id,
+                               const String& method,
+                               base::span<const uint8_t> message) override;
   void DispatchProtocolCommandImpl(int call_id,
                                    const String& method,
-                                   Vector<uint8_t> message);
+                                   base::span<const uint8_t> message);
 
   // protocol::FrontendChannel implementation.
   void sendProtocolResponse(
@@ -79,7 +79,7 @@ class CORE_EXPORT DevToolsSession : public GarbageCollected<DevToolsSession>,
       std::unique_ptr<protocol::Serializable> message) override;
   void fallThrough(int call_id,
                    const String& method,
-                   const protocol::ProtocolMessage& message) override;
+                   crdtp::span<uint8_t> message) override;
   void flushProtocolNotifications() override;
 
   // v8_inspector::V8Inspector::Channel implementation.
@@ -111,6 +111,7 @@ class CORE_EXPORT DevToolsSession : public GarbageCollected<DevToolsSession>,
   const bool client_expects_binary_responses_;
   InspectorAgentState v8_session_state_;
   InspectorAgentState::Bytes v8_session_state_cbor_;
+  const String session_id_;
 
   DISALLOW_COPY_AND_ASSIGN(DevToolsSession);
 };

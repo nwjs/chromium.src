@@ -88,8 +88,8 @@ class TestBatchableDelegate : public BatchableDelegate {
   std::vector<std::string> GetExtraRequestHeaders() const override {
     return std::vector<std::string>();
   }
-  void Prepare(const PrepareCallback& callback) override {
-    callback.Run(HTTP_SUCCESS);
+  void Prepare(PrepareCallback callback) override {
+    std::move(callback).Run(HTTP_SUCCESS);
   }
   bool GetContentData(std::string* upload_content_type,
                       std::string* upload_content) override {
@@ -100,9 +100,9 @@ class TestBatchableDelegate : public BatchableDelegate {
   void NotifyError(DriveApiErrorCode code) override { callback_.Run(); }
   void NotifyResult(DriveApiErrorCode code,
                     const std::string& body,
-                    const base::Closure& closure) override {
+                    base::OnceClosure closure) override {
     callback_.Run();
-    closure.Run();
+    std::move(closure).Run();
   }
   void NotifyUploadProgress(int64_t current, int64_t total) override {
     progress_values_.push_back(current);

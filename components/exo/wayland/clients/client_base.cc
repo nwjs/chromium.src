@@ -5,6 +5,7 @@
 #include "components/exo/wayland/clients/client_base.h"
 
 #include <aura-shell-client-protocol.h>
+#include <color-space-unstable-v1-client-protocol.h>
 #include <fcntl.h>
 #include <fullscreen-shell-unstable-v1-client-protocol.h>
 #include <linux-dmabuf-unstable-v1-client-protocol.h>
@@ -144,6 +145,9 @@ void RegistryHandler(void* data,
   } else if (strcmp(interface, "zcr_vsync_feedback_v1") == 0) {
     globals->vsync_feedback.reset(static_cast<zcr_vsync_feedback_v1*>(
         wl_registry_bind(registry, id, &zcr_vsync_feedback_v1_interface, 1)));
+  } else if (strcmp(interface, "zcr_color_space_v1") == 0) {
+    globals->color_space.reset(static_cast<zcr_color_space_v1*>(
+        wl_registry_bind(registry, id, &zcr_color_space_v1_interface, 1)));
   }
 }
 
@@ -161,12 +165,6 @@ wl_registry_listener g_registry_listener = {RegistryHandler, RegistryRemover};
 wl_buffer_listener g_buffer_listener = {BufferRelease};
 
 #if defined(USE_GBM)
-const GrGLInterface* GrGLCreateNativeInterface() {
-  return GrGLAssembleInterface(nullptr, [](void* ctx, const char name[]) {
-    return eglGetProcAddress(name);
-  });
-}
-
 #if defined(USE_VULKAN)
 uint32_t VulkanChooseGraphicsQueueFamily(VkPhysicalDevice device) {
   uint32_t properties_number = 0;
@@ -442,7 +440,6 @@ bool ClientBase::Init(const InitParams& params) {
   }
 
 #if defined(USE_GBM)
-  sk_sp<const GrGLInterface> native_interface;
   if (params.use_drm) {
     // Number of files to look for when discovering DRM devices.
     const uint32_t kDrmMaxMinor = 15;
@@ -500,7 +497,9 @@ bool ClientBase::Init(const InitParams& params) {
       egl_sync_type_ = EGL_SYNC_NATIVE_FENCE_ANDROID;
     }
 
-    native_interface = sk_sp<const GrGLInterface>(GrGLCreateNativeInterface());
+    sk_sp<const GrGLInterface> native_interface = GrGLMakeAssembledInterface(
+        nullptr,
+        [](void* ctx, const char name[]) { return eglGetProcAddress(name); });
     DCHECK(native_interface);
     gr_context_ = GrContext::MakeGL(std::move(native_interface));
     DCHECK(gr_context_);

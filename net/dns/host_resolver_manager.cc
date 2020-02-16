@@ -600,7 +600,9 @@ class HostResolverManager::RequestImpl
     results_ = std::move(results);
   }
 
-  void set_error_info(int error) { error_info_ = ResolveErrorInfo(error); }
+  void set_error_info(int error, bool is_secure_network_error) {
+    error_info_ = ResolveErrorInfo(error, is_secure_network_error);
+  }
 
   void set_stale_info(HostCache::EntryStaleness stale_info) {
     // Should only be called at most once and before request is marked
@@ -634,9 +636,10 @@ class HostResolverManager::RequestImpl
   }
 
   // Cleans up Job assignment, marks request completed, and calls the completion
-  // callback.
-  void OnJobCompleted(Job* job, int error) {
-    set_error_info(error);
+  // callback. |is_secure_network_error| indicates whether |error| came from a
+  // secure DNS lookup.
+  void OnJobCompleted(Job* job, int error, bool is_secure_network_error) {
+    set_error_info(error, is_secure_network_error);
 
     DCHECK_EQ(job_, job);
     job_ = nullptr;
@@ -647,7 +650,7 @@ class HostResolverManager::RequestImpl
     LogFinishRequest(error);
 
     DCHECK(callback_);
-    std::move(callback_).Run(error);
+    std::move(callback_).Run(HostResolver::SquashErrorCode(error));
   }
 
   Job* job() const { return job_; }
@@ -759,27 +762,45 @@ class HostResolverManager::ProbeRequestImpl : public CancellableProbeRequest {
   ~ProbeRequestImpl() override { Cancel(); }
 
   void Cancel() override {
-    if (!needs_cancel_ || !resolver_)
-      return;
-
-    resolver_->CancelDohProbes();
-    needs_cancel_ = false;
+    runner_.reset();
     context_ = nullptr;
+
+    if (resolver_)
+      resolver_->started_doh_probe_requests_.erase(this);
   }
 
   int Start() override {
     DCHECK(resolver_);
-    DCHECK(!needs_cancel_);
+    DCHECK(context_);
+    DCHECK_EQ(0u, resolver_->started_doh_probe_requests_.count(this));
 
-    resolver_->ActivateDohProbes(context_);
-    needs_cancel_ = true;
+    resolver_->started_doh_probe_requests_.insert(this);
+
+    RestartRunner(false /* network_change */);
     return ERR_IO_PENDING;
   }
 
+  void RestartRunner(bool network_change) {
+    DCHECK(resolver_);
+
+    // If network change, the current runner can be reused if there is one.
+    if (!runner_ || !network_change)
+      runner_ = resolver_->CreateDohProbeRunner(context_);
+
+    if (runner_) {
+      if (network_change)
+        runner_->RestartForNetworkChange();
+      else
+        runner_->Start();
+    }
+  }
+
+  void CancelRunner() { runner_.reset(); }
+
  private:
   URLRequestContext* context_;
+  std::unique_ptr<DnsProbeRunner> runner_;
   base::WeakPtr<HostResolverManager> resolver_;
-  bool needs_cancel_ = false;
 };
 
 //------------------------------------------------------------------------------
@@ -2591,7 +2612,9 @@ class HostResolverManager::Job : public PrioritizedDispatcher::Job,
         req->set_results(
             results.CopyWithDefaultPort(req->request_host().port()));
       }
-      req->OnJobCompleted(this, results.error());
+      req->OnJobCompleted(
+          this, results.error(),
+          secure && results.error() != OK /* is_secure_network_error */);
 
       // Check if the resolver was destroyed as a result of running the
       // callback. If it was, we could continue, but we choose to bail.
@@ -2880,6 +2903,11 @@ void HostResolverManager::SetDnsConfigOverrides(DnsConfigOverrides overrides) {
     if (transactions_allowed_before) {
       UpdateJobsForChangedConfig();
     }
+
+    // Restart DoH probes for the new configuration.
+    for (auto* probe_request : started_doh_probe_requests_) {
+      probe_request->RestartRunner(false /* network_change */);
+    }
   }
 }
 
@@ -2985,8 +3013,9 @@ int HostResolverManager::Resolve(RequestImpl* request) {
       request->set_stale_info(std::move(stale_info).value());
     RecordTotalTime(request->parameters().is_speculative, true /* from_cache */,
                     effective_secure_dns_mode, base::TimeDelta());
-    request->set_error_info(results.error());
-    return results.error();
+    request->set_error_info(results.error(),
+                            false /* is_secure_network_error */);
+    return HostResolver::SquashErrorCode(results.error());
   }
 
   CreateAndStartJob(effective_query_type, effective_host_resolver_flags,
@@ -3712,6 +3741,14 @@ void HostResolverManager::OnConnectionTypeChanged(
       GetTimeDeltaForConnectionTypeFromFieldTrialOrDefault(
           "DnsUnresponsiveDelayMsByConnectionType",
           ProcTaskParams::kDnsDefaultUnresponsiveDelay, type);
+
+  // Restart all DoH probe requests.
+  for (auto* probe_request : started_doh_probe_requests_) {
+    if (type == NetworkChangeNotifier::CONNECTION_NONE)
+      probe_request->CancelRunner();
+    else
+      probe_request->RestartRunner(true /* network_change */);
+  }
 }
 
 void HostResolverManager::OnSystemDnsConfigChanged(
@@ -3727,10 +3764,16 @@ void HostResolverManager::OnSystemDnsConfigChanged(
   // Always invalidate cache, even if no change is seen.
   InvalidateCaches();
 
-  // Need to update jobs iff transactions were previously allowed because
-  // in-progress jobs may be running using a now-invalid configuration.
-  if (changed && transactions_allowed_before) {
-    UpdateJobsForChangedConfig();
+  if (changed) {
+    // Need to update jobs iff transactions were previously allowed because
+    // in-progress jobs may be running using a now-invalid configuration.
+    if (transactions_allowed_before)
+      UpdateJobsForChangedConfig();
+
+    // Restart DoH probes for the new configuration.
+    for (auto* probe_request : started_doh_probe_requests_) {
+      probe_request->RestartRunner(false /* network_change */);
+    }
   }
 }
 
@@ -3808,19 +3851,16 @@ void HostResolverManager::InvalidateCaches() {
 #endif
 }
 
-void HostResolverManager::ActivateDohProbes(
+std::unique_ptr<DnsProbeRunner> HostResolverManager::CreateDohProbeRunner(
     URLRequestContext* url_request_context) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(dns_client_);
+  if (!dns_client_->CanUseSecureDnsTransactions() ||
+      NetworkChangeNotifier::GetConnectionType() ==
+          NetworkChangeNotifier::CONNECTION_NONE) {
+    return nullptr;
+  }
 
-  dns_client_->ActivateDohProbes(url_request_context);
-}
-
-void HostResolverManager::CancelDohProbes() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(dns_client_);
-
-  dns_client_->CancelDohProbes();
+  return dns_client_->GetTransactionFactory()->CreateDohProbeRunner(
+      url_request_context);
 }
 
 void HostResolverManager::RequestImpl::Cancel() {

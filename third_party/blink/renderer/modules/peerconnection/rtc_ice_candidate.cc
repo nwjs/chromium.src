@@ -34,11 +34,12 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_ice_candidate_init.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_ice_candidate_init.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 
 namespace blink {
@@ -64,19 +65,19 @@ RTCIceCandidate* RTCIceCandidate::Create(
                       WebFeature::kRTCIceCandidateDefaultSdpMLineIndex);
   }
 
-  return MakeGarbageCollected<RTCIceCandidate>(RTCIceCandidatePlatform::Create(
-      candidate_init->candidate(), sdp_mid, std::move(sdp_m_line_index),
-      candidate_init->usernameFragment()));
+  return MakeGarbageCollected<RTCIceCandidate>(
+      MakeGarbageCollected<RTCIceCandidatePlatform>(
+          candidate_init->candidate(), sdp_mid, std::move(sdp_m_line_index),
+          candidate_init->usernameFragment()));
 }
 
 RTCIceCandidate* RTCIceCandidate::Create(
-    scoped_refptr<RTCIceCandidatePlatform> platform_candidate) {
-  return MakeGarbageCollected<RTCIceCandidate>(std::move(platform_candidate));
+    RTCIceCandidatePlatform* platform_candidate) {
+  return MakeGarbageCollected<RTCIceCandidate>(platform_candidate);
 }
 
-RTCIceCandidate::RTCIceCandidate(
-    scoped_refptr<RTCIceCandidatePlatform> platform_candidate)
-    : platform_candidate_(std::move(platform_candidate)) {}
+RTCIceCandidate::RTCIceCandidate(RTCIceCandidatePlatform* platform_candidate)
+    : platform_candidate_(platform_candidate) {}
 
 String RTCIceCandidate::candidate() const {
   return platform_candidate_->Candidate();
@@ -91,9 +92,13 @@ uint16_t RTCIceCandidate::sdpMLineIndex(bool& is_null) const {
   return platform_candidate_->SdpMLineIndex().value_or(0);
 }
 
-scoped_refptr<RTCIceCandidatePlatform> RTCIceCandidate::PlatformCandidate()
-    const {
+RTCIceCandidatePlatform* RTCIceCandidate::PlatformCandidate() const {
   return platform_candidate_;
+}
+
+void RTCIceCandidate::Trace(Visitor* visitor) {
+  visitor->Trace(platform_candidate_);
+  ScriptWrappable::Trace(visitor);
 }
 
 String RTCIceCandidate::foundation() const {

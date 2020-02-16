@@ -18,8 +18,8 @@
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom-blink.h"
 #include "services/viz/public/mojom/hit_test/hit_test_region_list.mojom-blink.h"
+#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/frame_sinks/embedded_frame_sink.mojom-blink.h"
-#include "third_party/blink/public/platform/interface_provider.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "ui/gfx/presentation_feedback.h"
@@ -200,12 +200,16 @@ void VideoFrameSubmitter::OnBeginFrame(
 
     ignorable_submitted_frames_.erase(pair.key);
 
-    TRACE_EVENT_ASYNC_END_WITH_TIMESTAMP0(
-        "media", "VideoFrameSubmitter", pair.key,
+    TRACE_EVENT_NESTABLE_ASYNC_END_WITH_TIMESTAMP0(
+        "media", "VideoFrameSubmitter", TRACE_ID_LOCAL(pair.key),
         pair.value->presentation_feedback->timestamp);
   }
 
   frame_trackers_.NotifyBeginImplFrame(args);
+
+  base::ScopedClosureRunner end_frame(
+      base::BindOnce(&cc::FrameSequenceTrackerCollection::NotifyFrameEnd,
+                     base::Unretained(&frame_trackers_), args));
 
   // Don't call UpdateCurrentFrame() for MISSED BeginFrames. Also don't call it
   // after StopRendering() has been called (forbidden by API contract).
@@ -274,6 +278,8 @@ void VideoFrameSubmitter::OnReceivedContextProvider(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (!use_gpu_compositing) {
     resource_provider_->Initialize(nullptr, this);
+    if (frame_sink_id_.is_valid())
+      StartSubmitting();
     return;
   }
 
@@ -317,7 +323,7 @@ void VideoFrameSubmitter::StartSubmitting() {
   DCHECK(frame_sink_id_.is_valid());
 
   mojo::Remote<mojom::blink::EmbeddedFrameSinkProvider> provider;
-  Platform::Current()->GetInterfaceProvider()->GetInterface(
+  Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
       provider.BindNewPipeAndPassReceiver());
 
   provider->CreateCompositorFrameSink(
@@ -535,22 +541,27 @@ viz::CompositorFrame VideoFrameSubmitter::CreateCompositorFrame(
   base::TimeTicks value;
   if (video_frame && video_frame->metadata()->GetTimeTicks(
                          media::VideoFrameMetadata::DECODE_END_TIME, &value)) {
-    TRACE_EVENT_ASYNC_BEGIN_WITH_TIMESTAMP0("media", "VideoFrameSubmitter",
-                                            *next_frame_token_, value);
-    TRACE_EVENT_ASYNC_STEP_PAST0("media", "VideoFrameSubmitter",
-                                 *next_frame_token_, "Pre-submit buffering");
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+        "media", "VideoFrameSubmitter", TRACE_ID_LOCAL(*next_frame_token_),
+        value);
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+        "media", "Pre-submit buffering", TRACE_ID_LOCAL(*next_frame_token_),
+        value);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("media", "Pre-submit buffering",
+                                    TRACE_ID_LOCAL(*next_frame_token_));
 
     frame_token_to_timestamp_map_[*next_frame_token_] = value;
 
-    if (begin_frame_ack.source_id == viz::BeginFrameArgs::kManualSourceId)
+    if (begin_frame_ack.frame_id.source_id ==
+        viz::BeginFrameArgs::kManualSourceId)
       ignorable_submitted_frames_.insert(*next_frame_token_);
 
     UMA_HISTOGRAM_TIMES("Media.VideoFrameSubmitter.PreSubmitBuffering",
                         base::TimeTicks::Now() - value);
   } else {
-    TRACE_EVENT_ASYNC_BEGIN_WITH_TIMESTAMP1(
-        "media", "VideoFrameSubmitter", *next_frame_token_,
-        base::TimeTicks::Now(), "empty video frame?", !video_frame);
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("media", "VideoFrameSubmitter",
+                                      TRACE_ID_LOCAL(*next_frame_token_),
+                                      "empty video frame?", !video_frame);
   }
 
   // We don't assume that the ack is marked as having damage.  However, we're

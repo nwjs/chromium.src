@@ -15,7 +15,6 @@
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
-#include "third_party/blink/public/platform/web_rtc_stats.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_heap.h"
 #include "third_party/blink/renderer/modules/peerconnection/mock_peer_connection_dependency_factory.h"
@@ -109,9 +108,10 @@ class RTCRtpSenderImplTest : public ::testing::Test {
     // On complete, |*result_holder| is set with the result of replaceTrack()
     // and the |run_loop| quit.
     sender_->ReplaceTrack(
-        web_track, base::BindOnce(&RTCRtpSenderImplTest::CallbackOnComplete,
-                                  base::Unretained(this), result_holder.get(),
-                                  run_loop.get()));
+        web_track,
+        WTF::Bind(&RTCRtpSenderImplTest::CallbackOnComplete,
+                  WTF::Unretained(this), WTF::Unretained(result_holder.get()),
+                  WTF::Unretained(run_loop.get())));
     // When the resulting callback is invoked, waits for |run_loop| to complete
     // and returns |*result_holder|.
     return base::BindOnce(&RTCRtpSenderImplTest::RunLoopAndReturnResult,

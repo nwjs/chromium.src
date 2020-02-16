@@ -199,8 +199,7 @@ bool ParseMultipartResponse(const std::string& content_type,
         content_type_piece.substr(1, content_type_piece.size() - 2);
   }
 
-  std::string boundary;
-  content_type_piece.CopyToString(&boundary);
+  std::string boundary(content_type_piece);
   const std::string header = "--" + boundary;
   const std::string terminator = "--" + boundary + "--";
 
@@ -1128,8 +1127,8 @@ SingleBatchableDelegateRequest::GetExtraRequestHeaders() const {
   return delegate_->GetExtraRequestHeaders();
 }
 
-void SingleBatchableDelegateRequest::Prepare(const PrepareCallback& callback) {
-  delegate_->Prepare(callback);
+void SingleBatchableDelegateRequest::Prepare(PrepareCallback callback) {
+  delegate_->Prepare(std::move(callback));
 }
 
 bool SingleBatchableDelegateRequest::GetContentData(
@@ -1144,7 +1143,7 @@ void SingleBatchableDelegateRequest::ProcessURLFetchResults(
     std::string response_body) {
   delegate_->NotifyResult(
       GetErrorCode(), response_body,
-      base::Bind(
+      base::BindOnce(
           &SingleBatchableDelegateRequest::OnProcessURLFetchResultsComplete,
           weak_ptr_factory_.GetWeakPtr()));
 }
@@ -1225,10 +1224,10 @@ void BatchUploadRequest::Commit() {
   }
 }
 
-void BatchUploadRequest::Prepare(const PrepareCallback& callback) {
+void BatchUploadRequest::Prepare(PrepareCallback callback) {
   DCHECK(CalledOnValidThread());
-  DCHECK(!callback.is_null());
-  prepare_callback_ = callback;
+  DCHECK(callback);
+  prepare_callback_ = std::move(callback);
   MayCompletePrepare();
 }
 
@@ -1290,7 +1289,7 @@ void BatchUploadRequest::MayCompletePrepare() {
   for (size_t i = 0; i < child_requests_.size(); ++i) {
     child_requests_[i]->data_offset += part_data_offset[i];
   }
-  prepare_callback_.Run(HTTP_SUCCESS);
+  std::move(prepare_callback_).Run(HTTP_SUCCESS);
 }
 
 bool BatchUploadRequest::GetContentData(std::string* upload_content_type,
@@ -1347,9 +1346,10 @@ void BatchUploadRequest::ProcessURLFetchResults(
     BatchableDelegate* delegate = child_requests_[i]->request.get();
     // Pass ownership of |delegate| so that child_requests_.clear() won't
     // kill the delegate. It has to be deleted after the notification.
-    delegate->NotifyResult(parts[i].code, parts[i].body,
-                           base::Bind(&base::DeletePointer<BatchableDelegate>,
-                                      child_requests_[i]->request.release()));
+    delegate->NotifyResult(
+        parts[i].code, parts[i].body,
+        base::BindOnce(&base::DeletePointer<BatchableDelegate>,
+                       child_requests_[i]->request.release()));
   }
   child_requests_.clear();
 

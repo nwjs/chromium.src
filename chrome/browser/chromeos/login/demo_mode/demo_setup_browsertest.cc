@@ -331,9 +331,16 @@ class DemoSetupTest : public LoginManagerTest {
   // Simulates click on the network list item. |element| should specify
   // the aria-label of the desired network-list-item.
   void ClickNetworkListElement(const std::string& name) {
-    const std::string query = base::StrCat(
-        {ScreenToContentQuery(NetworkScreenView::kScreenId),
-         ".getNetworkListItemByNameForTest('", name, "').click()"});
+    const std::string element =
+        base::StrCat({ScreenToContentQuery(NetworkScreenView::kScreenId),
+                      ".getNetworkListItemByNameForTest('", name, "')"});
+    // We are looking up element by localized text. In Polymer v2 we might
+    // get to this point when element still not have proper localized string,
+    // and getNetworkListItemByNameForTest would return null.
+    test::OobeJS().CreateWaiter(element)->Wait();
+    test::OobeJS().CreateVisibilityWaiter(true, element)->Wait();
+
+    const std::string query = base::StrCat({element, ".click()"});
     test::ExecuteOobeJSAsync(query);
   }
 
@@ -577,16 +584,8 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowSuccess) {
   EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
 }
 
-// Disabled on debug builds for flakiness. See crbug.com/1030782.
-#if !defined(NDEBUG)
-#define MAYBE_OnlineSetupFlowSuccessWithCountryCustomization \
-  DISABLED_OnlineSetupFlowSuccessWithCountryCustomization
-#else
-#define MAYBE_OnlineSetupFlowSuccessWithCountryCustomization \
-  OnlineSetupFlowSuccessWithCountryCustomization
-#endif
 IN_PROC_BROWSER_TEST_F(DemoSetupTest,
-                       MAYBE_OnlineSetupFlowSuccessWithCountryCustomization) {
+                       OnlineSetupFlowSuccessWithCountryCustomization) {
   // Simulate successful online setup.
   enrollment_helper_.ExpectEnrollmentMode(
       policy::EnrollmentConfig::MODE_ATTESTATION);
@@ -610,10 +609,12 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest,
        {"fr", "France"},
        {"de", "Germany"},
        {"ie", "Ireland"},
+       {"it", "Italy"},
        {"jp", "Japan"},
        {"lu", "Luxembourg"},
        {"nl", "Netherlands"},
        {"no", "Norway"},
+       {"es", "Spain"},
        {"se", "Sweden"},
        {"gb", "United Kingdom"}});
   for (const std::string country_code : DemoSession::kSupportedCountries) {
@@ -737,16 +738,7 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowErrorDefault) {
   EXPECT_FALSE(StartupUtils::IsDeviceRegistered());
 }
 
-// Consistently timing out on xxx. http://crbug/com/1025213
-#if defined(OS_LINUX)
-#define MAYBE_OnlineSetupFlowErrorPowerwashRequired \
-  DISABLED_OnlineSetupFlowErrorPowerwashRequired
-#else
-#define MAYBE_OnlineSetupFlowErrorPowerwashRequired \
-  OnlineSetupFlowErrorPowerwashRequired
-#endif
-IN_PROC_BROWSER_TEST_F(DemoSetupTest,
-                       MAYBE_OnlineSetupFlowErrorPowerwashRequired) {
+IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowErrorPowerwashRequired) {
   // Simulate online setup failure that requires powerwash.
   enrollment_helper_.ExpectEnrollmentMode(
       policy::EnrollmentConfig::MODE_ATTESTATION);

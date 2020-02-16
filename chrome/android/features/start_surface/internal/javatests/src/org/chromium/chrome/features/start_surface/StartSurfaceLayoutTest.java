@@ -11,18 +11,23 @@ import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
+import static android.support.test.espresso.matcher.ViewMatchers.withParent;
 
+import static org.hamcrest.core.AllOf.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.areAnimatorsEnabled;
+import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.rotateDeviceToOrientation;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabModelTabCount;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.verifyTabSwitcherCardCount;
 import static org.chromium.chrome.browser.util.UrlConstants.NTP_URL;
 import static org.chromium.content_public.browser.test.util.CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL;
 import static org.chromium.content_public.browser.test.util.CriteriaHelper.DEFAULT_POLLING_INTERVAL;
 
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
@@ -33,6 +38,7 @@ import android.support.test.espresso.NoMatchingViewException;
 import android.support.test.espresso.ViewAssertion;
 import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.filters.MediumTest;
+import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.View;
@@ -55,26 +61,29 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFeatureUtilities;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tasks.tab_management.TabProperties;
+import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorTestingRobot;
+import org.chromium.chrome.browser.tasks.tab_management.TabSuggestionMessageService;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
+import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherCoordinator;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
-import org.chromium.chrome.test.ui.DisableAnimationsTestRule;
 import org.chromium.chrome.test.util.ApplicationTestUtils;
+import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.chrome.test.util.OverviewModeBehaviorWatcher;
-import org.chromium.chrome.test.util.RenderTestRule;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -82,6 +91,7 @@ import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.WebContentsUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.PageTransition;
+import org.chromium.ui.test.util.DisableAnimationsTestRule;
 import org.chromium.ui.test.util.UiRestriction;
 import org.chromium.ui.widget.ViewLookupCachingFrameLayout;
 
@@ -117,7 +127,7 @@ public class StartSurfaceLayoutTest {
     public TestRule mProcessor = new Features.InstrumentationProcessor();
 
     @Rule
-    public RenderTestRule mRenderTestRule = new RenderTestRule();
+    public ChromeRenderTestRule mRenderTestRule = new ChromeRenderTestRule();
 
     private StartSurfaceLayout mStartSurfaceLayout;
     private String mUrl;
@@ -666,17 +676,30 @@ public class StartSurfaceLayoutTest {
         int currentFetchCount = mTabListDelegate.getBitmapFetchCountForTesting();
         assertEquals(2, currentFetchCount - oldFetchCount);
         oldFetchCount = currentFetchCount;
+        int oldHistogramRecord = RecordHistogram.getHistogramValueCountForTesting(
+                TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
+                TabContentManager.ThumbnailFetchingResult.GOT_JPEG);
 
         for (int i = 0; i < mRepeat; i++) {
             switchTabModel(false);
             currentFetchCount = mTabListDelegate.getBitmapFetchCountForTesting();
+            int currentHistogramRecord = RecordHistogram.getHistogramValueCountForTesting(
+                    TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
+                    TabContentManager.ThumbnailFetchingResult.GOT_JPEG);
             assertEquals(1, currentFetchCount - oldFetchCount);
+            assertEquals(1, currentHistogramRecord - oldHistogramRecord);
             oldFetchCount = currentFetchCount;
+            oldHistogramRecord = currentHistogramRecord;
 
             switchTabModel(true);
             currentFetchCount = mTabListDelegate.getBitmapFetchCountForTesting();
+            currentHistogramRecord = RecordHistogram.getHistogramValueCountForTesting(
+                    TabContentManager.UMA_THUMBNAIL_FETCHING_RESULT,
+                    TabContentManager.ThumbnailFetchingResult.GOT_JPEG);
             assertEquals(2, currentFetchCount - oldFetchCount);
+            assertEquals(2, currentHistogramRecord - oldHistogramRecord);
             oldFetchCount = currentFetchCount;
+            oldHistogramRecord = currentHistogramRecord;
         }
         leaveGTSAndVerifyThumbnailsAreReleased();
     }
@@ -687,7 +710,7 @@ public class StartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS})
     @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
                     ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
-    public void testUrlUpdatedForUndoableClosedTabNotCrashing() throws Exception {
+    public void testUrlUpdatedNotCrashing_ForUndoableClosedTab() throws Exception {
         // clang-format on
         FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
 
@@ -709,10 +732,99 @@ public class StartSurfaceLayoutTest {
 
     @Test
     @MediumTest
+    // clang-format off
+    @CommandLineFlags.Add({BASE_PARAMS})
+    @Features.EnableFeatures({ChromeFeatureList.TAB_GROUPS_ANDROID,
+            ChromeFeatureList.TAB_GROUPS_CONTINUATION_ANDROID})
+    public void testUrlUpdatedNotCrashing_ForTabNotInCurrentModel() throws Exception {
+        // clang-format on
+        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(true);
+
+        // Restart Chrome to have Group.
+        ApplicationTestUtils.finishActivity(mActivityTestRule.getActivity());
+        mActivityTestRule.startMainActivityFromLauncher();
+        prepareTabs(1, 1, null);
+        enterGTSWithThumbnailChecking();
+
+        Tab tab = mActivityTestRule.getActivity().getTabModelSelector().getCurrentTab();
+        switchTabModel(false);
+
+        mActivityTestRule.loadUrlInTab(
+                mUrl, PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR, tab);
+    }
+
+    @Test
+    @MediumTest
+    @Feature("TabSuggestion")
+    // clang-format off
+    @Features.EnableFeatures(ChromeFeatureList.CLOSE_TAB_SUGGESTIONS + "<Study")
+    @CommandLineFlags.Add({BASE_PARAMS + "/close_tab_suggestions_stale_time_ms/0"})
+    public void testTabSuggestionMessageCard_dismiss() throws InterruptedException {
+        // clang-format on
+        prepareTabs(3, 0, null);
+
+        // TODO(meiliang): Avoid using static variable for tracking state,
+        // TabSuggestionMessageService.isSuggestionAvailableForTesting(). Instead, we can add a
+        // dummy MessageObserver to track the availability of the suggestions.
+        CriteriaHelper.pollInstrumentationThread(
+                ()
+                        -> TabSuggestionMessageService.isSuggestionAvailableForTesting()
+                        && mActivityTestRule.getActivity()
+                                        .getTabModelSelector()
+                                        .getCurrentModel()
+                                        .getCount()
+                                == 3);
+
+        enterGTSWithThumbnailChecking();
+
+        // TODO(meiliang): Avoid using static variable for tracking state,
+        // TabSwitcherCoordinator::hasAppendedMessagesForTesting. Instead, we can query the number
+        // of items that the inner model of the TabSwitcher has.
+        CriteriaHelper.pollInstrumentationThread(
+                TabSwitcherCoordinator::hasAppendedMessagesForTesting);
+        onView(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
+        onView(allOf(withId(R.id.close_button), withParent(withId(R.id.tab_grid_message_item))))
+                .perform(click());
+        onView(withId(R.id.tab_grid_message_item)).check(doesNotExist());
+    }
+
+    @Test
+    @MediumTest
+    @Feature("TabSuggestion")
+    // clang-format off
+    @Features.EnableFeatures(ChromeFeatureList.CLOSE_TAB_SUGGESTIONS + "<Study")
+    @CommandLineFlags.Add({BASE_PARAMS + "/close_tab_suggestions_stale_time_ms/0"})
+    public void testTabSuggestionMessageCard_review() throws InterruptedException {
+        // clang-format on
+        prepareTabs(3, 0, null);
+
+        CriteriaHelper.pollInstrumentationThread(
+                ()
+                        -> TabSuggestionMessageService.isSuggestionAvailableForTesting()
+                        && mActivityTestRule.getActivity()
+                                        .getTabModelSelector()
+                                        .getCurrentModel()
+                                        .getCount()
+                                == 3);
+
+        enterGTSWithThumbnailChecking();
+
+        CriteriaHelper.pollInstrumentationThread(
+                TabSwitcherCoordinator::hasAppendedMessagesForTesting);
+        onView(withId(R.id.tab_grid_message_item)).check(matches(isDisplayed()));
+        onView(allOf(withId(R.id.action_button), withParent(withId(R.id.tab_grid_message_item))))
+                .perform(click());
+
+        TabSelectionEditorTestingRobot tabSelectionEditorTestingRobot =
+                new TabSelectionEditorTestingRobot();
+        tabSelectionEditorTestingRobot.resultRobot.verifyTabSelectionEditorIsVisible();
+    }
+
+    @Test
+    @MediumTest
     @Feature("NewTabTile")
     // clang-format off
-    @Features.DisableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION,
-            ChromeFeatureList.CLOSE_TAB_SUGGESTIONS})
+    @Features.DisableFeatures({ChromeFeatureList.CLOSE_TAB_SUGGESTIONS})
     @CommandLineFlags.Add({BASE_PARAMS + "/tab_grid_layout_android_new_tab_tile/NewTabTile"
             + "/tab_grid_layout_android_new_tab/false"})
     public void testNewTabTile() throws InterruptedException {
@@ -761,6 +873,77 @@ public class StartSurfaceLayoutTest {
         switchTabModel(true);
         onView(withId(R.id.tab_list_view)).check(TabCountAssertion.havingTabCount(1));
         onView(withId(R.id.new_tab_tile)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @MediumTest
+    @Feature("TabSuggestion")
+    // clang-format off
+    @Features.EnableFeatures(ChromeFeatureList.CLOSE_TAB_SUGGESTIONS + "<Study")
+    @CommandLineFlags.Add({BASE_PARAMS + "/close_tab_suggestions_stale_time_ms/0"})
+    public void testTabSuggestionMessageCard_orientation() throws InterruptedException {
+        // clang-format on
+        ChromeTabbedActivity cta = mActivityTestRule.getActivity();
+        prepareTabs(3, 0, null);
+
+        CriteriaHelper.pollInstrumentationThread(
+                ()
+                        -> TabSuggestionMessageService.isSuggestionAvailableForTesting()
+                        && mActivityTestRule.getActivity()
+                                        .getTabModelSelector()
+                                        .getCurrentModel()
+                                        .getCount()
+                                == 3);
+
+        enterGTSWithThumbnailChecking();
+        CriteriaHelper.pollInstrumentationThread(
+                TabSwitcherCoordinator::hasAppendedMessagesForTesting);
+
+        onView(withId(R.id.tab_list_view))
+                .check(MessageCardWidthAssertion.checkMessageItemSpanSize(3, 2));
+
+        rotateDeviceToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
+
+        onView(withId(R.id.tab_list_view))
+                .check(MessageCardWidthAssertion.checkMessageItemSpanSize(3, 3));
+
+        // Reset device orientation.
+        rotateDeviceToOrientation(cta, Configuration.ORIENTATION_PORTRAIT);
+    }
+
+    private static class MessageCardWidthAssertion implements ViewAssertion {
+        private int mIndex;
+        private int mSpanCount;
+
+        public static MessageCardWidthAssertion checkMessageItemSpanSize(int index, int spanCount) {
+            return new MessageCardWidthAssertion(index, spanCount);
+        }
+
+        public MessageCardWidthAssertion(int index, int spanCount) {
+            mIndex = index;
+            mSpanCount = spanCount;
+        }
+
+        @Override
+        public void check(View view, NoMatchingViewException noMatchException) {
+            if (noMatchException != null) throw noMatchException;
+            int tabListPadding =
+                    (int) view.getResources().getDimension(R.dimen.tab_list_card_padding);
+
+            assertTrue(view instanceof RecyclerView);
+            RecyclerView recyclerView = (RecyclerView) view;
+            GridLayoutManager layoutManager = (GridLayoutManager) recyclerView.getLayoutManager();
+            assertEquals(mSpanCount, layoutManager.getSpanCount());
+
+            RecyclerView.ViewHolder messageItemViewHolder =
+                    recyclerView.findViewHolderForAdapterPosition(mIndex);
+            assertNotNull(messageItemViewHolder);
+            assertEquals(TabProperties.UiType.MESSAGE, messageItemViewHolder.getItemViewType());
+            View messageItemView = messageItemViewHolder.itemView;
+
+            // The message card item width should always be recyclerView width minus padding.
+            assertEquals(recyclerView.getWidth() - 2 * tabListPadding, messageItemView.getWidth());
+        }
     }
 
     @Test
@@ -1013,7 +1196,7 @@ public class StartSurfaceLayoutTest {
     // clang-format off
     @Features.EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study")
     @DisableIf.Build(sdk_is_less_than = Build.VERSION_CODES.M,
-            message = "https://crbug.com/1023833")
+        message = "https://crbug.com/1023833")
     @CommandLineFlags.Add({BASE_PARAMS})
     public void testRecycling_defaultAspectRatio() throws InterruptedException {
         // clang-format on
@@ -1028,7 +1211,7 @@ public class StartSurfaceLayoutTest {
     // clang-format off
     @Features.EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study")
     @DisableIf.Build(sdk_is_less_than = Build.VERSION_CODES.M,
-            message = "https://crbug.com/1023833")
+        message = "https://crbug.com/1023833")
     @CommandLineFlags.Add({BASE_PARAMS + "/thumbnail_aspect_ratio/0.75"})
     public void testRecycling_aspectRatioPoint75() throws InterruptedException {
         // clang-format on
@@ -1043,13 +1226,70 @@ public class StartSurfaceLayoutTest {
     // clang-format off
     @Features.EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION + "<Study")
     @DisableIf.Build(sdk_is_less_than = Build.VERSION_CODES.M,
-            message = "https://crbug.com/1023833")
+        message = "https://crbug.com/1023833")
     @CommandLineFlags.Add({BASE_PARAMS + "/thumbnail_aspect_ratio/0.75"})
     public void testExpandTab_withAspectRatioPoint75() throws InterruptedException {
         // clang-format on
         prepareTabs(1, 0, mUrl);
         enterGTSWithThumbnailChecking();
         leaveGTSAndVerifyThumbnailsAreReleased();
+    }
+
+    private static class TabCountAssertion implements ViewAssertion {
+        private int mExpectedCount;
+
+        public static TabCountAssertion havingTabCount(int tabCount) {
+            return new TabCountAssertion(tabCount);
+        }
+
+        public TabCountAssertion(int expectedCount) {
+            mExpectedCount = expectedCount;
+        }
+
+        @Override
+        public void check(View view, NoMatchingViewException noMatchException) {
+            if (noMatchException != null) throw noMatchException;
+
+            RecyclerView.Adapter adapter = ((RecyclerView) view).getAdapter();
+            assertEquals(mExpectedCount, adapter.getItemCount());
+        }
+    }
+
+    private static class ThumbnailAspectRatioAssertion implements ViewAssertion {
+        private double mExpectedRatio;
+
+        public static ThumbnailAspectRatioAssertion havingAspectRatio(double ratio) {
+            return new ThumbnailAspectRatioAssertion(ratio);
+        }
+
+        private ThumbnailAspectRatioAssertion(double expectedRatio) {
+            mExpectedRatio = expectedRatio;
+        }
+
+        @Override
+        public void check(View view, NoMatchingViewException noMatchException) {
+            if (noMatchException != null) throw noMatchException;
+
+            RecyclerView recyclerView = (RecyclerView) view;
+
+            RecyclerView.Adapter adapter = recyclerView.getAdapter();
+            for (int i = 0; i < adapter.getItemCount(); i++) {
+                RecyclerView.ViewHolder viewHolder =
+                        recyclerView.findViewHolderForAdapterPosition(i);
+                if (viewHolder != null) {
+                    ViewLookupCachingFrameLayout tabView =
+                            (ViewLookupCachingFrameLayout) viewHolder.itemView;
+                    ImageView thumbnail = (ImageView) tabView.fastFindViewById(R.id.tab_thumbnail);
+                    BitmapDrawable drawable = (BitmapDrawable) thumbnail.getDrawable();
+                    Bitmap bitmap = drawable.getBitmap();
+                    double bitmapRatio = bitmap.getWidth() * 1.0 / bitmap.getHeight();
+                    assertTrue(
+                            "Actual ratio: " + bitmapRatio + "; Expected ratio: " + mExpectedRatio,
+                            Math.abs(bitmapRatio - mExpectedRatio)
+                                    <= TabContentManager.ASPECT_RATIO_PRECISION);
+                }
+            }
+        }
     }
 
     private void switchTabModel(boolean isIncognito) {
@@ -1108,26 +1348,6 @@ public class StartSurfaceLayoutTest {
                 mActivityTestRule.getActivity().getCurrentTabModel());
     }
 
-    private static class TabCountAssertion implements ViewAssertion {
-        private int mExpectedCount;
-
-        public static TabCountAssertion havingTabCount(int tabCount) {
-            return new TabCountAssertion(tabCount);
-        }
-
-        public TabCountAssertion(int expectedCount) {
-            mExpectedCount = expectedCount;
-        }
-
-        @Override
-        public void check(View view, NoMatchingViewException noMatchException) {
-            if (noMatchException != null) throw noMatchException;
-
-            RecyclerView.Adapter adapter = ((RecyclerView) view).getAdapter();
-            assertEquals(mExpectedCount, adapter.getItemCount());
-        }
-    }
-
     /**
      * TODO(wychen): create a version without thumbnail checking, which uses
      *  {@link TabUiTestHelper#clickFirstCardFromTabSwitcher} or simply {@link Espresso#pressBack},
@@ -1135,6 +1355,7 @@ public class StartSurfaceLayoutTest {
      */
     private void leaveGTSAndVerifyThumbnailsAreReleased() {
         assertTrue(mActivityTestRule.getActivity().getLayoutManager().overviewVisible());
+
         StartSurface startSurface = mStartSurfaceLayout.getStartSurfaceForTesting();
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> { startSurface.getController().onBackPressed(); });
@@ -1164,43 +1385,6 @@ public class StartSurfaceLayoutTest {
             }
         }
         checkCaptureCount(expected, initCount);
-    }
-
-    private static class ThumbnailAspectRatioAssertion implements ViewAssertion {
-        private double mExpectedRatio;
-
-        public static ThumbnailAspectRatioAssertion havingAspectRatio(double ratio) {
-            return new ThumbnailAspectRatioAssertion(ratio);
-        }
-
-        private ThumbnailAspectRatioAssertion(double expectedRatio) {
-            mExpectedRatio = expectedRatio;
-        }
-
-        @Override
-        public void check(View view, NoMatchingViewException noMatchException) {
-            if (noMatchException != null) throw noMatchException;
-
-            RecyclerView recyclerView = (RecyclerView) view;
-
-            RecyclerView.Adapter adapter = recyclerView.getAdapter();
-            for (int i = 0; i < adapter.getItemCount(); i++) {
-                RecyclerView.ViewHolder viewHolder =
-                        recyclerView.findViewHolderForAdapterPosition(i);
-                if (viewHolder != null) {
-                    ViewLookupCachingFrameLayout tabView =
-                            (ViewLookupCachingFrameLayout) viewHolder.itemView;
-                    ImageView thumbnail = (ImageView) tabView.fastFindViewById(R.id.tab_thumbnail);
-                    BitmapDrawable drawable = (BitmapDrawable) thumbnail.getDrawable();
-                    Bitmap bitmap = drawable.getBitmap();
-                    double bitmapRatio = bitmap.getWidth() * 1.0 / bitmap.getHeight();
-                    assertTrue(
-                            "Actual ratio: " + bitmapRatio + "; Expected ratio: " + mExpectedRatio,
-                            Math.abs(bitmapRatio - mExpectedRatio)
-                                    <= TabContentManager.ASPECT_RATIO_PRECISION);
-                }
-            }
-        }
     }
 
     private void checkCaptureCount(int expectedDelta, int initCount) {
@@ -1238,7 +1422,7 @@ public class StartSurfaceLayoutTest {
         TabModel currentModel = mActivityTestRule.getActivity().getCurrentTabModel();
         for (int i = 0; i < currentModel.getCount(); i++) {
             Tab tab = currentModel.getTabAt(i);
-            Bitmap bitmap = TabContentManager.getJpegForTab(tab);
+            Bitmap bitmap = TabContentManager.getJpegForTab(tab.getId());
             bitmap = Bitmap.createScaledBitmap(
                     bitmap, bitmap.getWidth(), (int) (bitmap.getWidth() * 1.0 / 0.75), false);
             encodeJpeg(tab, bitmap);
@@ -1247,17 +1431,17 @@ public class StartSurfaceLayoutTest {
 
     private void encodeJpeg(Tab tab, Bitmap bitmap) throws IOException {
         FileOutputStream outputStream =
-                new FileOutputStream(TabContentManager.getTabThumbnailFileJpeg(tab));
+                new FileOutputStream(TabContentManager.getTabThumbnailFileJpeg(tab.getId()));
         bitmap.compress(Bitmap.CompressFormat.JPEG, 50, outputStream);
         outputStream.close();
-        Bitmap decodedBitmap = TabContentManager.getJpegForTab(tab);
+        Bitmap decodedBitmap = TabContentManager.getJpegForTab(tab.getId());
     }
 
     private void verifyAllThumbnailHasAspectRatio(double ratio) {
         TabModel currentModel = mActivityTestRule.getActivity().getCurrentTabModel();
         for (int i = 0; i < currentModel.getCount(); i++) {
             Tab tab = currentModel.getTabAt(i);
-            Bitmap bitmap = TabContentManager.getJpegForTab(tab);
+            Bitmap bitmap = TabContentManager.getJpegForTab(tab.getId());
             double bitmapRatio = bitmap.getWidth() * 1.0 / bitmap.getHeight();
             assertTrue("Actual ratio: " + bitmapRatio + "; Expected ratio: " + ratio,
                     Math.abs(bitmapRatio - ratio) <= TabContentManager.ASPECT_RATIO_PRECISION);

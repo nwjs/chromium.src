@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{बैकटिक}one{# बैकटिक}other{# बैकटिक}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{डॉलर}one{# डॉलर चिह्न}other{# डॉलर चिह्न}}</translation>
-<translation id="3658742229777143148">पुनरीक्षण</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, सूची बॉक्‍स</translation>
 <translation id="3681531118904532409">पपाया विप जैसा रंग</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">ChromeVox का निर्देश संदर्भ</translation>
 <translation id="3930383913623796990">बसंती हरा</translation>
 <translation id="3930498801443296724">पुलकोट</translation>
+<translation id="3935615366277838204">बड़ा <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">बैंगनी लाल</translation>
 <translation id="3941269780691800708">माउस के नीचे वाला टेक्स्ट बोलें</translation>
 <translation id="394953087167197343">स्पेलिंग की गलती दिखाएं:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">फ़्लैट कीमैप</translation>
 <translation id="6468049171101508116">अगला बटन</translation>
 <translation id="646954774886932461">इंडेक्स</translation>
-<translation id="6479792383819319132">अगला पैराग्राफ़ नहीं है.</translation>
 <translation id="6493991254603208962">स्‍क्रीन की रोशनी कम करें</translation>
 <translation id="6501595918865591267">फ़िरोज़ी रंग</translation>
 <translation id="6508059270146105198">ब्रेल डिसप्ले को पेज के नीचे वाले हिस्से में ले जाएं</translation>
@@ -816,7 +815,6 @@
 <translation id="6637586476836377253">लॉग</translation>
 <translation id="6657128831881431364">प्रगति बार</translation>
 <translation id="6659594942844771486">टैब</translation>
-<translation id="6675661017770918201">पिछला पैराग्राफ़ नहीं है.</translation>
 <translation id="667999046851023355">दस्तावेज़</translation>
 <translation id="6688209025607531203">गैर मॉडल सूचना</translation>
 <translation id="6689672606256159458">सामन जैसा गहरा रंग</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">गलत वर्तनी</translation>
 <translation id="6871161210040114857">केस को अनदेखा करना.</translation>
 <translation id="6877435256196695200">कोई अगला ग्राफ़िक नहीं.</translation>
+<translation id="688976158310523235">खोज मेन्यू</translation>
 <translation id="6897341342232909480">बाएं ले जाएं</translation>
 <translation id="6901540140423170855">तारीख</translation>
 <translation id="6910211073230771657">हटाया गया</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">खोज + O + W</translation>
 <translation id="6994042831499278539">संदर्भ के लिए शब्दावली</translation>
 <translation id="6996566555547746822">अगला कॉम्बो बॉक्स</translation>
+<translation id="6997224546856374593">बड़े अक्षर पढ़ते समय:</translation>
 <translation id="700202842116345659">संदर्भ सूची प्रविष्टि</translation>
 <translation id="7005146664810010831">कोई URL नहीं मिला</translation>
 <translation id="7010712454773919705">ChromeVox बदलने वाली की</translation>
@@ -937,6 +937,7 @@
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">टैब</translation>
 <translation id="7492049978501397201">डाला गया डॉयलॉग</translation>
+<translation id="7505149250476994901">अक्षर से पहले "बड़ा" कहें</translation>
 <translation id="7518543783849163354">ChromeVox को अस्थायी रूप से बोलने से रोकने के लिए, Control कुंजी दबाएं.</translation>
 <translation id="7521682724501952239">आप टचस्क्रीन के ज़रिए ChromeVox का इस्तेमाल कर सकते हैं.</translation>
 <translation id="7532613204005497612">जून</translation>
@@ -1104,7 +1105,6 @@
 <translation id="812886159861361726">डाउनलोड बंद हो गया <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">स्पर्श करें</translation>
 <translation id="8153880621934657047">टेबल में नहीं है.</translation>
-<translation id="8161114871611868169">टिप्पणियों वाला सेक्शन</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{अंडरस्कोर}one{# अंडरस्कोर}other{# अंडरस्कोर}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">पंक्ति</translation>
@@ -1125,6 +1125,7 @@
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">ओल्ड लेस</translation>
 <translation id="8326783648485765113">हल्का हरा</translation>
+<translation id="8328063869313048659">बिना चमक वाली स्क्रीन टॉगल करें</translation>
 <translation id="8344569602005188545">घंटे</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{पाउंड}one{# पाउंड चिह्न}other{# पाउंड चिह्न}}</translation>
 <translation id="8374154622594089836">महीना</translation>
@@ -1209,6 +1210,7 @@
 <translation id="9065283790526219006">+popup</translation>
 <translation id="9066023754636984703">ज़्यादा जानकारी के लिए Search+A, J दबाएं.</translation>
 <translation id="9067522039955793016">नया पेज</translation>
+<translation id="9074824103975499138">ChromeVox के मेन्यू खोजें</translation>
 <translation id="9077213568694924680">चुने जाने से निकाले गए</translation>
 <translation id="9077305471618729969">हल्का समुद्री हरा</translation>
 <translation id="9082874451376019682">कोई पिछला स्लाइडर नहीं.</translation>

@@ -12,6 +12,7 @@
 #include "ash/public/cpp/keyboard/keyboard_config.h"
 #include "base/feature_list.h"
 #include "base/macros.h"
+#include "base/strings/stringprintf.h"
 #include "chrome/browser/chromeos/input_method/input_method_engine.h"
 #include "chrome/browser/chromeos/input_method/native_input_method_engine.h"
 #include "chrome/browser/chromeos/login/lock/screen_locker.h"
@@ -21,6 +22,7 @@
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/common/extensions/api/input_ime.h"
 #include "chrome/common/extensions/api/input_method_private.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/common/manifest_handlers/background_info.h"
@@ -387,7 +389,7 @@ InputMethodEngine* GetEngineIfActive(Profile* profile,
                                      const std::string& extension_id,
                                      std::string* error) {
   InputImeEventRouter* event_router = GetInputImeEventRouter(profile);
-  CHECK(event_router) << kErrorRouterNotAvailable;
+  DCHECK(event_router) << kErrorRouterNotAvailable;
   InputMethodEngine* engine = static_cast<InputMethodEngine*>(
       event_router->GetEngineIfActive(extension_id, error));
   return engine;
@@ -398,7 +400,7 @@ InputMethodEngine* GetEngine(content::BrowserContext* browser_context,
                              std::string* error) {
   Profile* profile = Profile::FromBrowserContext(browser_context);
   InputImeEventRouter* event_router = GetInputImeEventRouter(profile);
-  CHECK(event_router) << kErrorRouterNotAvailable;
+  DCHECK(event_router) << kErrorRouterNotAvailable;
   InputMethodEngine* engine =
       static_cast<InputMethodEngine*>(event_router->GetEngine(extension_id));
   DCHECK(engine) << kErrorEngineNotAvailable;
@@ -461,9 +463,11 @@ bool InputImeEventRouter::RegisterImeExtension(
   }
 
   auto observer = std::make_unique<ImeObserverChromeOS>(extension_id, profile);
-  auto engine = (extension_id == "jkghodnilhceideoidjikpgommlajknk")
-                    ? std::make_unique<chromeos::NativeInputMethodEngine>()
-                    : std::make_unique<chromeos::InputMethodEngine>();
+  auto engine =
+      (extension_id == "jkghodnilhceideoidjikpgommlajknk" &&
+       base::FeatureList::IsEnabled(chromeos::features::kNativeRuleBasedTyping))
+          ? std::make_unique<chromeos::NativeInputMethodEngine>()
+          : std::make_unique<chromeos::InputMethodEngine>();
   engine->Initialize(std::move(observer), extension_id.c_str(), profile);
   engine_map_[extension_id] = std::move(engine);
 
@@ -699,9 +703,11 @@ ExtensionFunction::ResponseAction InputImeSetMenuItemsFunction::Run() {
     SetMenuItemToMenu(item_in, &items_out.back());
   }
 
-  if (!engine->SetMenuItems(items_out))
-    return RespondNow(
-        Error(InformativeError(kErrorSetMenuItemsFail, function_name())));
+  if (!engine->SetMenuItems(items_out, &error)) {
+    return RespondNow(Error(InformativeError(
+        base::StringPrintf("%s %s", kErrorSetMenuItemsFail, error.c_str()),
+        function_name())));
+  }
   return RespondNow(NoArguments());
 }
 
@@ -724,9 +730,11 @@ ExtensionFunction::ResponseAction InputImeUpdateMenuItemsFunction::Run() {
     SetMenuItemToMenu(item_in, &items_out.back());
   }
 
-  if (!engine->UpdateMenuItems(items_out))
-    return RespondNow(
-        Error(InformativeError(kErrorUpdateMenuItemsFail, function_name())));
+  if (!engine->UpdateMenuItems(items_out, &error)) {
+    return RespondNow(Error(InformativeError(
+        base::StringPrintf("%s %s", kErrorUpdateMenuItemsFail, error.c_str()),
+        function_name())));
+  }
   return RespondNow(NoArguments());
 }
 

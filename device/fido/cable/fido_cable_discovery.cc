@@ -296,8 +296,11 @@ FidoCableDiscovery::FidoCableDiscovery(
 // discovery data.
 // TODO(https://crbug.com/837088): Add support for multiple EIDs on Windows.
 #if defined(OS_WIN)
-  if (discovery_data_.size() > 1u)
+  if (discovery_data_.size() > 1u) {
+    FIDO_LOG(ERROR) << "discovery_data_.size()=" << discovery_data_.size()
+                    << ", trimming to 1.";
     discovery_data_.erase(discovery_data_.begin() + 1, discovery_data_.end());
+  }
 #endif
 }
 
@@ -378,21 +381,33 @@ void FidoCableDiscovery::DeviceRemoved(BluetoothAdapter* adapter,
 
 void FidoCableDiscovery::AdapterPoweredChanged(BluetoothAdapter* adapter,
                                                bool powered) {
-  // If Bluetooth adapter is powered on, resume scanning for nearby Cable
-  // devices and start advertising client EIDs.
-  if (powered) {
-    StartCableDiscovery();
-  } else {
+  if (!powered) {
     // In order to prevent duplicate client EIDs from being advertised when
     // BluetoothAdapter is powered back on, unregister all existing client
     // EIDs.
     StopAdvertisements(base::DoNothing());
+    return;
   }
+
+#if defined(OS_WIN)
+  // On Windows, the power-on event appears to race against initialization of
+  // the adapter, such that one of the WinRT API calls inside
+  // BluetoothAdapter::StartDiscoverySessionWithFilter() can fail with "Device
+  // not ready for use". So wait for things to actually be ready.
+  // TODO(crbug/1046140): Remove this delay once the Bluetooth layer handles
+  // the spurious failure.
+  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&FidoCableDiscovery::StartCableDiscovery,
+                     weak_factory_.GetWeakPtr()),
+      base::TimeDelta::FromMilliseconds(500));
+#else
+  StartCableDiscovery();
+#endif  // defined(OS_WIN)
 }
 
 void FidoCableDiscovery::OnSetPowered() {
   DCHECK(adapter());
-
   base::SequencedTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(&FidoCableDiscovery::StartCableDiscovery,
                                 weak_factory_.GetWeakPtr()));
@@ -405,14 +420,14 @@ void FidoCableDiscovery::StartCableDiscovery() {
       std::make_unique<BluetoothDiscoveryFilter>(
           BluetoothTransport::BLUETOOTH_TRANSPORT_LE),
       base::AdaptCallbackForRepeating(
-          base::BindOnce(&FidoCableDiscovery::OnStartDiscoverySessionWithFilter,
+          base::BindOnce(&FidoCableDiscovery::OnStartDiscoverySession,
                          weak_factory_.GetWeakPtr())),
       base::AdaptCallbackForRepeating(
           base::BindOnce(&FidoCableDiscovery::OnStartDiscoverySessionError,
                          weak_factory_.GetWeakPtr())));
 }
 
-void FidoCableDiscovery::OnStartDiscoverySessionWithFilter(
+void FidoCableDiscovery::OnStartDiscoverySession(
     std::unique_ptr<BluetoothDiscoverySession> session) {
   SetDiscoverySession(std::move(session));
   FIDO_LOG(DEBUG) << "Discovery session started.";
@@ -424,6 +439,10 @@ void FidoCableDiscovery::OnStartDiscoverySessionWithFilter(
       base::BindOnce(&FidoCableDiscovery::StartAdvertisement,
                      weak_factory_.GetWeakPtr()),
       base::TimeDelta::FromMilliseconds(500));
+}
+
+void FidoCableDiscovery::OnStartDiscoverySessionError() {
+  FIDO_LOG(ERROR) << "Failed to start caBLE discovery";
 }
 
 void FidoCableDiscovery::StartAdvertisement() {
@@ -450,11 +469,19 @@ void FidoCableDiscovery::StartAdvertisement() {
 }
 
 void FidoCableDiscovery::StopAdvertisements(base::OnceClosure callback) {
+  FIDO_LOG(DEBUG) << "Stopping " << advertisements_.size()
+                  << " caBLE advertisements";
   auto barrier_closure =
-      base::BarrierClosure(advertisement_success_counter_, std::move(callback));
+      base::BarrierClosure(advertisements_.size(), std::move(callback));
+  auto error_closure = base::BindRepeating(
+      [](base::RepeatingClosure cb, BluetoothAdvertisement::ErrorCode code) {
+        FIDO_LOG(ERROR) << "BluetoothAdvertisement::Unregister() failed: "
+                        << code;
+        cb.Run();
+      },
+      barrier_closure);
   for (auto advertisement : advertisements_) {
-    advertisement.second->Unregister(barrier_closure, base::DoNothing());
-    FIDO_LOG(DEBUG) << "Stopped caBLE advertisement.";
+    advertisement.second->Unregister(barrier_closure, error_closure);
   }
 
 #if !defined(OS_WIN)
@@ -470,22 +497,11 @@ void FidoCableDiscovery::OnAdvertisementRegistered(
     scoped_refptr<BluetoothAdvertisement> advertisement) {
   FIDO_LOG(DEBUG) << "Advertisement registered.";
   advertisements_.emplace(client_eid, std::move(advertisement));
-  RecordAdvertisementResult(true /* is_success */);
 }
 
 void FidoCableDiscovery::OnAdvertisementRegisterError(
     BluetoothAdvertisement::ErrorCode error_code) {
   FIDO_LOG(ERROR) << "Failed to register advertisement: " << error_code;
-  RecordAdvertisementResult(false /* is_success */);
-}
-
-void FidoCableDiscovery::RecordAdvertisementResult(bool is_success) {
-  // If at least one advertisement succeeds, then notify discovery start.
-  if (is_success) {
-    advertisement_success_counter_++;
-  } else {
-    advertisement_failure_counter_++;
-  }
 }
 
 void FidoCableDiscovery::CableDeviceFound(BluetoothAdapter* adapter,
@@ -505,8 +521,20 @@ void FidoCableDiscovery::CableDeviceFound(BluetoothAdapter* adapter,
   active_devices_.insert(device_address);
   active_authenticator_eids_.insert(maybe_result->eid);
 
+#if defined(OS_CHROMEOS) || defined(OS_LINUX)
+  // Speed up GATT service discovery on ChromeOS/BlueZ.
+  // SetConnectionLatency() is NOTIMPLEMENTED() on other platforms.
+  if (base::FeatureList::IsEnabled(device::kWebAuthCableLowLatency)) {
+    device->SetConnectionLatency(BluetoothDevice::CONNECTION_LATENCY_LOW,
+                                 base::DoNothing(), base::BindRepeating([]() {
+                                   FIDO_LOG(ERROR)
+                                       << "SetConnectionLatency() failed";
+                                 }));
+  }
+#endif  // defined(OS_CHROMEOS) || defined(OS_LINUX)
+
   auto cable_device =
-      std::make_unique<FidoCableDevice>(adapter, device->GetAddress());
+      std::make_unique<FidoCableDevice>(adapter, device_address);
   StopAdvertisements(
       base::BindOnce(&FidoCableDiscovery::ConductEncryptionHandshake,
                      weak_factory_.GetWeakPtr(), std::move(cable_device),

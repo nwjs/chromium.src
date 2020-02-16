@@ -20,8 +20,7 @@
 namespace cc {
 
 OcclusionTracker::OcclusionTracker(const gfx::Rect& screen_space_clip_rect)
-    : screen_space_clip_rect_(screen_space_clip_rect) {
-}
+    : screen_space_clip_rect_(screen_space_clip_rect) {}
 
 OcclusionTracker::~OcclusionTracker() = default;
 
@@ -29,15 +28,14 @@ Occlusion OcclusionTracker::GetCurrentOcclusionForLayer(
     const gfx::Transform& draw_transform) const {
   DCHECK(!stack_.empty());
   const StackObject& back = stack_.back();
-  return Occlusion(draw_transform,
-                   back.occlusion_from_outside_target,
+  return Occlusion(draw_transform, back.occlusion_from_outside_target,
                    back.occlusion_from_inside_target);
 }
 
 Occlusion OcclusionTracker::GetCurrentOcclusionForContributingSurface(
     const gfx::Transform& draw_transform) const {
   DCHECK(!stack_.empty());
-  if (stack_.size() < 2)
+  if (stack_.size() < 2 || stack_.back().ignores_parent_occlusion)
     return Occlusion();
   // A contributing surface doesn't get occluded by things inside its own
   // surface, so only things outside the surface can occlude it. That occlusion
@@ -49,10 +47,12 @@ Occlusion OcclusionTracker::GetCurrentOcclusionForContributingSurface(
 
 const RenderSurfaceImpl*
 OcclusionTracker::OcclusionSurfaceForContributingSurface() const {
+  if (stack_.size() < 2 || stack_.back().ignores_parent_occlusion)
+    return nullptr;
   // A contributing surface doesn't get occluded by things inside its own
   // surface, so only things outside the surface can occlude it. That occlusion
   // is found just below the top of the stack (if it exists).
-  return (stack_.size() < 2) ? nullptr : stack_[stack_.size() - 2].target;
+  return stack_[stack_.size() - 2].target;
 }
 
 void OcclusionTracker::EnterLayer(
@@ -158,12 +158,12 @@ void OcclusionTracker::EnterRenderTarget(
       new_target_surface->render_target() == new_target_surface;
 
   bool copy_outside_occlusion_forward =
-      stack_.size() > 1 &&
-      !entering_unoccluded_subtree &&
-      have_transform_from_screen_to_new_target &&
-      !entering_root_target;
-  if (!copy_outside_occlusion_forward)
+      stack_.size() > 1 && !entering_unoccluded_subtree &&
+      have_transform_from_screen_to_new_target && !entering_root_target;
+  if (!copy_outside_occlusion_forward) {
+    stack_.back().ignores_parent_occlusion = true;
     return;
+  }
 
   size_t last_index = stack_.size() - 1;
   gfx::Transform old_target_to_new_target_transform(
@@ -223,8 +223,12 @@ static void ReduceOcclusionBelowSurface(
     return;
 
   gfx::Rect affected_area_in_target =
-      contributing_surface->BackdropFilters().MapRectReverse(target_rect,
-                                                             SkMatrix::I());
+      contributing_surface->BackdropFilters().HasFilterOfType(
+          FilterOperation::FilterType::BLUR)
+          ? contributing_surface->BackdropFilters().MapRect(target_rect,
+                                                            SkMatrix::I())
+          : contributing_surface->BackdropFilters().MapRectReverse(
+                target_rect, SkMatrix::I());
   // Unite target_rect because we only care about positive outsets.
   affected_area_in_target.Union(target_rect);
 

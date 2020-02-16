@@ -14,6 +14,7 @@
 #include "base/optional.h"
 #include "build/build_config.h"
 #include "components/viz/service/display/output_surface.h"
+#include "components/viz/service/display/overlay_processor_interface.h"
 #include "components/viz/service/display/skia_output_surface.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
@@ -25,17 +26,15 @@ class SkSurface;
 
 namespace gfx {
 class ColorSpace;
-class GpuFence;
 class Rect;
 class Size;
 struct PresentationFeedback;
 }  // namespace gfx
 
-// TODO(crbug.com/996004): Remove this once we use BufferQueue SharedImage
-// implementation.
-namespace gl {
-class GLImage;
-}
+namespace gpu {
+class MemoryTracker;
+class MemoryTypeTracker;
+}  // namespace gpu
 
 namespace viz {
 
@@ -56,6 +55,10 @@ class SkiaOutputDevice {
       semaphore_ = semaphore;
     }
 
+    std::vector<GrBackendSemaphore> GetEndPaintSemaphores(void) {
+      return device_->TakeEndPaintSemaphores();
+    }
+
    private:
     SkiaOutputDevice* const device_;
     SkSurface* const sk_surface_;
@@ -71,6 +74,7 @@ class SkiaOutputDevice {
                                    const gfx::Size& pixel_size)>;
   SkiaOutputDevice(
       bool need_swap_semaphore,
+      gpu::MemoryTracker* memory_tracker,
       DidSwapBufferCompleteCallback did_swap_buffer_complete_callback);
   virtual ~SkiaOutputDevice();
 
@@ -87,16 +91,22 @@ class SkiaOutputDevice {
   virtual void PostSubBuffer(const gfx::Rect& rect,
                              BufferPresentedCallback feedback,
                              std::vector<ui::LatencyInfo> latency_info);
-
-  // TODO(crbug.com/996004): Should use BufferQueue SharedImage
-  // implementation instead of GLImage.
-  virtual gl::GLImage* GetOverlayImage();
-  virtual std::unique_ptr<gfx::GpuFence> SubmitOverlayGpuFence();
+  virtual void CommitOverlayPlanes(BufferPresentedCallback feedback,
+                                   std::vector<ui::LatencyInfo> latency_info);
 
   // Set the rectangle that will be drawn into on the surface.
   virtual void SetDrawRectangle(const gfx::Rect& draw_rectangle);
 
   virtual void SetGpuVSyncEnabled(bool enabled);
+
+  // Schedule the output device's back buffer as an overlay plane. The scheduled
+  // primary plane will be on screen when SwapBuffers() or PostSubBuffer() is
+  // called.
+  virtual void SchedulePrimaryPlane(
+      const OverlayProcessorInterface::OutputSurfaceOverlayPlane& plane);
+
+  // Schedule overlays which will be on screen when SwapBuffers() or
+  // PostSubBuffer() is called.
   virtual void ScheduleOverlays(SkiaOutputSurface::OverlayList overlays);
 
 #if defined(OS_WIN)
@@ -137,6 +147,9 @@ class SkiaOutputDevice {
   // End paint the back buffer.
   virtual void EndPaint(const GrBackendSemaphore& semaphore) = 0;
 
+  // Get End paint semaphore buffer.
+  virtual std::vector<GrBackendSemaphore> TakeEndPaintSemaphores();
+
   // Helper method for SwapBuffers() and PostSubBuffer(). It should be called
   // at the beginning of SwapBuffers() and PostSubBuffer() implementations
   void StartSwapBuffers(BufferPresentedCallback feedback);
@@ -159,6 +172,8 @@ class SkiaOutputDevice {
 
   // RGBX format is emulated with RGBA.
   bool is_emulated_rgbx_ = false;
+
+  std::unique_ptr<gpu::MemoryTypeTracker> memory_type_tracker_;
 
   DISALLOW_COPY_AND_ASSIGN(SkiaOutputDevice);
 };

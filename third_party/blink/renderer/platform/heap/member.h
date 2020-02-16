@@ -113,21 +113,21 @@ class MemberBase {
   MemberBase(const MemberBase& other) : raw_(other) {
     SaveCreationThreadState();
     CheckPointer();
-    WriteBarrier();
+    // No write barrier for initializing stores.
   }
 
   template <typename U>
   MemberBase(const Persistent<U>& other) : raw_(other) {
     SaveCreationThreadState();
     CheckPointer();
-    WriteBarrier();
+    // No write barrier for initializing stores.
   }
 
   template <typename U>
   MemberBase(const MemberBase<U>& other) : raw_(other) {
     SaveCreationThreadState();
     CheckPointer();
-    WriteBarrier();
+    // No write barrier for initializing stores.
   }
 
   template <typename U>
@@ -195,16 +195,19 @@ class MemberBase {
     return result;
   }
 
+  static bool IsMemberHashTableDeletedValue(T* t) {
+    return t == reinterpret_cast<T*>(kHashTableDeletedRawValue);
+  }
+
   bool IsHashTableDeletedValue() const {
-    return GetRaw() == reinterpret_cast<T*>(kHashTableDeletedRawValue);
+    return IsMemberHashTableDeletedValue(GetRaw());
   }
 
  protected:
   static constexpr intptr_t kHashTableDeletedRawValue = -1;
 
   void WriteBarrier() const {
-    MarkingVisitor::WriteBarrier(
-        const_cast<typename std::remove_const<T>::type*>(GetRaw()));
+    MarkingVisitor::WriteBarrier(const_cast<std::remove_const_t<T>**>(&raw_));
   }
 
   void CheckPointer() {
@@ -224,10 +227,7 @@ class MemberBase {
   }
 
   ALWAYS_INLINE void SetRaw(T* raw) {
-    // TOOD(omerkatz): replace this cast with std::atomic_ref (C++20) once it
-    // becomes available
-    reinterpret_cast<std::atomic<T*>*>(&raw_)->store(raw,
-                                                     std::memory_order_relaxed);
+    WTF::AsAtomicPtr(&raw_)->store(raw, std::memory_order_relaxed);
   }
   ALWAYS_INLINE T* GetRaw() const { return raw_; }
 
@@ -238,14 +238,7 @@ class MemberBase {
   T* GetSafe() const {
     // TOOD(omerkatz): replace this cast with std::atomic_ref (C++20) once it
     // becomes available
-    return reinterpret_cast<std::atomic<T*>*>(
-               const_cast<typename std::remove_const<T>::type**>(&raw_))
-        ->load(std::memory_order_relaxed);
-  }
-
-  // Thread safe version of IsHashTableDeletedValue for use while tracing.
-  bool IsHashTableDeletedValueSafe() const {
-    return GetSafe() == reinterpret_cast<T*>(kHashTableDeletedRawValue);
+    return WTF::AsAtomicPtr(&raw_)->load(std::memory_order_relaxed);
   }
 
   T* raw_;
@@ -403,6 +396,12 @@ class UntracedMember final
   UntracedMember(const Member<U>& other) : Parent(other) {}
 
   UntracedMember(WTF::HashTableDeletedValueType x) : Parent(x) {}
+
+  UntracedMember& operator=(const UntracedMember& other) {
+    this->SetRaw(other);
+    this->CheckPointer();
+    return *this;
+  }
 
   template <typename U>
   UntracedMember& operator=(const Persistent<U>& other) {

@@ -91,21 +91,14 @@ const CGFloat kClearButtonSize = 28.0f;
       [UIColor colorNamed:kBlueColor], self.incognito,
       [UIColor colorNamed:kBlueDarkColor]);
   UIColor* iconTintColor;
-  if (base::FeatureList::IsEnabled(kNewOmniboxPopupLayout)) {
-    iconTintColor = color::DarkModeDynamicColor(
-        [UIColor colorNamed:kToolbarButtonColor], self.incognito,
-        [UIColor colorNamed:kToolbarButtonDarkColor]);
-  } else {
-    iconTintColor = color::DarkModeDynamicColor(
-        [UIColor colorNamed:kToolbarButtonColor], self.incognito,
-        [UIColor colorNamed:kToolbarButtonDarkColor]);
-  }
+  iconTintColor = color::DarkModeDynamicColor(
+      [UIColor colorNamed:kToolbarButtonColor], self.incognito,
+      [UIColor colorNamed:kToolbarButtonDarkColor]);
 
-  self.view = [[OmniboxContainerView alloc]
-      initWithFrame:CGRectZero
-          textColor:textColor
-      textFieldTint:textFieldTintColor
-           iconTint:iconTintColor];
+  self.view = [[OmniboxContainerView alloc] initWithFrame:CGRectZero
+                                                textColor:textColor
+                                            textFieldTint:textFieldTintColor
+                                                 iconTint:iconTintColor];
   self.view.incognito = self.incognito;
 
   self.textField.delegate = self;
@@ -139,8 +132,6 @@ const CGFloat kClearButtonSize = 28.0f;
          selector:@selector(textInputModeDidChange)
              name:UITextInputCurrentInputModeDidChangeNotification
            object:nil];
-
-  [self updateLeadingImageVisibility];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -154,11 +145,6 @@ const CGFloat kClearButtonSize = 28.0f;
   self.textField.selectedTextRange =
       [self.textField textRangeFromPosition:self.textField.beginningOfDocument
                                  toPosition:self.textField.beginningOfDocument];
-}
-
-- (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
-  [super traitCollectionDidChange:previousTraitCollection];
-  [self updateLeadingImageVisibility];
 }
 
 - (void)setTextChangeDelegate:(OmniboxTextChangeDelegate*)textChangeDelegate {
@@ -297,13 +283,6 @@ const CGFloat kClearButtonSize = 28.0f;
 
 #pragma mark - private
 
-- (void)updateLeadingImageVisibility {
-  BOOL newOmniboxPopupLayout =
-      base::FeatureList::IsEnabled(kNewOmniboxPopupLayout);
-  [self.view setLeadingImageHidden:!newOmniboxPopupLayout &&
-                                   !IsRegularXRegularSizeClass(self)];
-}
-
 // Tint color for the textfield placeholder and the clear button.
 - (UIColor*)placeholderAndClearButtonColor {
   return color::DarkModeDynamicColor(
@@ -389,10 +368,6 @@ const CGFloat kClearButtonSize = 28.0f;
 - (void)setSemanticContentAttribute:
     (UISemanticContentAttribute)semanticContentAttribute {
   _semanticContentAttribute = semanticContentAttribute;
-
-  if (!base::FeatureList::IsEnabled(kNewOmniboxPopupLayout)) {
-    return;
-  }
 
   self.view.semanticContentAttribute = self.semanticContentAttribute;
   self.textField.semanticContentAttribute = self.semanticContentAttribute;

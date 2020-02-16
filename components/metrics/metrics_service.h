@@ -165,6 +165,9 @@ class MetricsService : public base::HistogramFlattener {
   // should not be called more than once.
   void CheckForClonedInstall();
 
+  // Checks if the cloned install detector says that client ids should be reset.
+  bool ShouldResetClientIdsOnClonedInstall();
+
   // Clears the stability metrics that are saved in local state.
   void ClearSavedStabilityMetrics();
 
@@ -175,8 +178,16 @@ class MetricsService : public base::HistogramFlattener {
     return &synthetic_trial_registry_;
   }
 
+  // Test hook to close out the current log after adding any last information.
+  void CloseCurrentLogForTest() { CloseCurrentLog(); }
+
+  MetricsLogStore* LogStoreForTest() {
+    return reporting_service_.metrics_log_store();
+  }
+
  protected:
   // Exposed for testing.
+  // TODO(1034679): migrate these to public FooForTest() methods.
   MetricsLogManager* log_manager() { return &log_manager_; }
   MetricsLogStore* log_store() {
     return reporting_service_.metrics_log_store();

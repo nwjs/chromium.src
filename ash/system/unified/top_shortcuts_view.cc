@@ -19,6 +19,7 @@
 #include "ash/system/unified/sign_out_button.h"
 #include "ash/system/unified/top_shortcut_button.h"
 #include "ash/system/unified/unified_system_tray_controller.h"
+#include "ash/system/unified/unified_system_tray_view.h"
 #include "ash/system/unified/user_chooser_detailed_view_controller.h"
 #include "ash/system/unified/user_chooser_view.h"
 #include "base/numerics/ranges.h"
@@ -52,6 +53,7 @@ UserAvatarButton::UserAvatarButton(views::ButtonListener* listener)
   SetFocusForPlatform();
 
   views::InstallCircleHighlightPathGenerator(this);
+  focus_ring()->SetColor(UnifiedSystemTrayView::GetFocusRingColor());
 }
 
 }  // namespace
@@ -162,7 +164,7 @@ TopShortcutsView::TopShortcutsView(UnifiedSystemTrayController* controller)
   container_ = new TopShortcutButtonContainer();
   AddChildView(container_);
 
-  ash::Shell* shell = Shell::Get();
+  Shell* shell = Shell::Get();
 
   bool is_on_login_screen =
       shell->session_controller()->login_status() == LoginStatus::NOT_LOGGED_IN;

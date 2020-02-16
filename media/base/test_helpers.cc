@@ -45,22 +45,22 @@ class MockCallback : public base::RefCountedThreadSafe<MockCallback> {
 MockCallback::MockCallback() = default;
 MockCallback::~MockCallback() = default;
 
-base::Closure NewExpectedClosure() {
+base::OnceClosure NewExpectedClosure() {
   StrictMock<MockCallback>* callback = new StrictMock<MockCallback>();
   EXPECT_CALL(*callback, Run());
-  return base::Bind(&MockCallback::Run, WrapRefCounted(callback));
+  return base::BindOnce(&MockCallback::Run, WrapRefCounted(callback));
 }
 
-base::Callback<void(bool)> NewExpectedBoolCB(bool success) {
+base::OnceCallback<void(bool)> NewExpectedBoolCB(bool success) {
   StrictMock<MockCallback>* callback = new StrictMock<MockCallback>();
   EXPECT_CALL(*callback, RunWithBool(success));
-  return base::Bind(&MockCallback::RunWithBool, WrapRefCounted(callback));
+  return base::BindOnce(&MockCallback::RunWithBool, WrapRefCounted(callback));
 }
 
-PipelineStatusCB NewExpectedStatusCB(PipelineStatus status) {
+PipelineStatusCallback NewExpectedStatusCB(PipelineStatus status) {
   StrictMock<MockCallback>* callback = new StrictMock<MockCallback>();
   EXPECT_CALL(*callback, RunWithStatus(status));
-  return base::Bind(&MockCallback::RunWithStatus, WrapRefCounted(callback));
+  return base::BindOnce(&MockCallback::RunWithStatus, WrapRefCounted(callback));
 }
 
 WaitableMessageLoopEvent::WaitableMessageLoopEvent()

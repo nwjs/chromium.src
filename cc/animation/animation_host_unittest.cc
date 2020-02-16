@@ -137,14 +137,14 @@ TEST_F(AnimationHostTest, ImplOnlyScrollAnimationUpdateTargetIfDetached) {
 
   time += base::TimeDelta::FromSecondsD(0.1);
   EXPECT_TRUE(host_impl_->ImplOnlyScrollAnimationUpdateTarget(
-      element_id_, scroll_delta, max_scroll_offset, time, base::TimeDelta()));
+      scroll_delta, max_scroll_offset, time, base::TimeDelta()));
 
   // Detach all animations from layers and timelines.
   host_impl_->ClearMutators();
 
   time += base::TimeDelta::FromSecondsD(0.1);
   EXPECT_FALSE(host_impl_->ImplOnlyScrollAnimationUpdateTarget(
-      element_id_, scroll_delta, max_scroll_offset, time, base::TimeDelta()));
+      scroll_delta, max_scroll_offset, time, base::TimeDelta()));
 }
 
 // Tests that verify interaction of AnimationHost with LayerTreeMutator.
@@ -177,7 +177,7 @@ TEST_F(AnimationHostTest, FastLayerTreeMutatorUpdateTakesEffectInSameFrame) {
 
   // Ticking host should cause layer tree mutator to update output state which
   // should take effect in the same animation frame.
-  TickAnimationsTransferEvents(base::TimeTicks(), 1u);
+  TickAnimationsTransferEvents(base::TimeTicks(), 0u);
 
   // Emulate behavior in PrepareToDraw. Animation worklet updates are best
   // effort, and the animation tick is deferred until draw to allow time for the
@@ -332,7 +332,7 @@ TEST_F(AnimationHostTest, LayerTreeMutatorUpdateReflectsScrollAnimations) {
 
   // Create scroll timeline that links scroll animation and worklet animation
   // together. Use timerange so that we have 1:1 time & scroll mapping.
-  auto scroll_timeline = std::make_unique<ScrollTimeline>(
+  auto scroll_timeline = ScrollTimeline::Create(
       element_id, ScrollTimeline::ScrollDown, base::nullopt, base::nullopt, 100,
       KeyframeModel::FillMode::NONE);
 

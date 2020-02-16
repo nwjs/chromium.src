@@ -168,8 +168,8 @@ class MODULES_EXPORT RTCRtpTransceiverImpl : public RTCRtpTransceiverPlatform {
   RTCRtpTransceiverPlatformImplementationType ImplementationType()
       const override;
   uintptr_t Id() const override;
-  blink::WebString Mid() const override;
-  void SetMid(base::Optional<blink::WebString>) override;
+  String Mid() const override;
+  void SetMid(base::Optional<String>) override;
   std::unique_ptr<RTCRtpSenderPlatform> Sender() const override;
   std::unique_ptr<RTCRtpReceiverPlatform> Receiver() const override;
   bool Stopped() const override;
@@ -180,7 +180,7 @@ class MODULES_EXPORT RTCRtpTransceiverImpl : public RTCRtpTransceiverPlatform {
   base::Optional<webrtc::RtpTransceiverDirection> FiredDirection()
       const override;
   webrtc::RTCError SetCodecPreferences(
-      blink::WebVector<webrtc::RtpCodecCapability>) override;
+      Vector<webrtc::RtpCodecCapability>) override;
 
  private:
   class RTCRtpTransceiverInternal;

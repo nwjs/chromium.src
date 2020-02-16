@@ -10,12 +10,17 @@
 
 #include <memory>
 
+#include "base/files/scoped_temp_dir.h"
 #include "components/search_engines/template_url_service.h"
 #import "ios/chrome/browser/browser_state/test_chrome_browser_state.h"
+#include "ios/chrome/browser/favicon/favicon_service_factory.h"
+#include "ios/chrome/browser/favicon/ios_chrome_favicon_loader_factory.h"
 #include "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/main/test_browser.h"
 #include "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
+#import "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
+#import "ios/chrome/browser/sessions/test_session_service.h"
 #import "ios/chrome/browser/tabs/tab_helper_util.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/ui/browser_container/browser_container_view_controller.h"
@@ -64,6 +69,10 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     BlockCleanupTest::SetUp();
     // Set up a TestChromeBrowserState instance.
     TestChromeBrowserState::Builder test_cbs_builder;
+
+    ASSERT_TRUE(state_dir_.CreateUniqueTempDir());
+    test_cbs_builder.SetPath(state_dir_.GetPath());
+
     test_cbs_builder.AddTestingFactory(
         IOSChromeTabRestoreServiceFactory::GetInstance(),
         IOSChromeTabRestoreServiceFactory::GetDefaultFactory());
@@ -73,7 +82,15 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     test_cbs_builder.AddTestingFactory(
         IOSChromeLargeIconServiceFactory::GetInstance(),
         IOSChromeLargeIconServiceFactory::GetDefaultFactory());
+    test_cbs_builder.AddTestingFactory(
+        IOSChromeFaviconLoaderFactory::GetInstance(),
+        IOSChromeFaviconLoaderFactory::GetDefaultFactory());
+    test_cbs_builder.AddTestingFactory(
+        ios::FaviconServiceFactory::GetInstance(),
+        ios::FaviconServiceFactory::GetDefaultFactory());
+
     chrome_browser_state_ = test_cbs_builder.Build();
+    ASSERT_TRUE(chrome_browser_state_->CreateHistoryService(true));
 
     // Set up mock TabModel.
     id tabModel = [OCMockObject niceMockForClass:[TabModel class]];
@@ -82,7 +99,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
         .andReturn(
             // As OCMock compare types as string, the cast is required otherwise
             // it will complain that the value has an incompatible type.
-            static_cast<ios::ChromeBrowserState*>(chrome_browser_state_.get()));
+            static_cast<ChromeBrowserState*>(chrome_browser_state_.get()));
 
     // Enable web usage for the mock TabModel's WebStateList.
     WebStateListWebUsageEnabler* enabler =
@@ -111,11 +128,13 @@ class BrowserViewControllerTest : public BlockCleanupTest {
                                       forProtocol:@protocol(PageInfoCommands)];
     id mockApplicationCommandHandler =
         OCMProtocolMock(@protocol(ApplicationCommands));
-    [[tabModel stub] saveSessionImmediately:NO];
+
     [[tabModel stub] closeAllTabs];
 
     browser_ =
         std::make_unique<TestBrowser>(chrome_browser_state_.get(), tabModel_);
+    SessionRestorationBrowserAgent::CreateForBrowser(
+        browser_.get(), [[TestSessionService alloc] init]);
 
     // Create three web states.
     for (int i = 0; i < 3; i++) {
@@ -138,6 +157,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
                        initWithBrowser:browser_.get()
                      dependencyFactory:factory
             applicationCommandEndpoint:mockApplicationCommandHandler
+           browsingDataCommandEndpoint:nil
                      commandDispatcher:command_dispatcher_
         browserContainerViewController:[[BrowserContainerViewController alloc]
                                            init]];
@@ -165,6 +185,11 @@ class BrowserViewControllerTest : public BlockCleanupTest {
   }
 
   MOCK_METHOD0(OnCompletionCalled, void());
+
+  // A state directory that outlives |task_environment_| is needed because
+  // CreateHistoryService/CreateBookmarkModel use the directory to host
+  // databases. See https://crbug.com/546640 for more details.
+  base::ScopedTempDir state_dir_;
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState local_state_;
@@ -247,6 +272,27 @@ TEST_F(BrowserViewControllerTest, TestFocusNextPrevious) {
   EXPECT_EQ(web_state_list->active_index(), 1);
   [keyHandler focusPreviousTab];
   EXPECT_EQ(web_state_list->active_index(), 0);
+}
+
+// Tests that WebState::WasShown() and WebState::WasHidden() is properly called
+// for WebState activations in the BrowserViewController's WebStateList.
+TEST_F(BrowserViewControllerTest, UpdateWebStateVisibility) {
+  WebStateList* web_state_list = tabModel_.webStateList;
+  ASSERT_EQ(3, web_state_list->count());
+
+  // Activate each WebState in the list and check the visibility.
+  web_state_list->ActivateWebStateAt(0);
+  EXPECT_EQ(web_state_list->GetWebStateAt(0)->IsVisible(), true);
+  EXPECT_EQ(web_state_list->GetWebStateAt(1)->IsVisible(), false);
+  EXPECT_EQ(web_state_list->GetWebStateAt(2)->IsVisible(), false);
+  web_state_list->ActivateWebStateAt(1);
+  EXPECT_EQ(web_state_list->GetWebStateAt(0)->IsVisible(), false);
+  EXPECT_EQ(web_state_list->GetWebStateAt(1)->IsVisible(), true);
+  EXPECT_EQ(web_state_list->GetWebStateAt(2)->IsVisible(), false);
+  web_state_list->ActivateWebStateAt(2);
+  EXPECT_EQ(web_state_list->GetWebStateAt(0)->IsVisible(), false);
+  EXPECT_EQ(web_state_list->GetWebStateAt(1)->IsVisible(), false);
+  EXPECT_EQ(web_state_list->GetWebStateAt(2)->IsVisible(), true);
 }
 
 }  // namespace

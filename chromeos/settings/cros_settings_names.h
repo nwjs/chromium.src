@@ -81,6 +81,7 @@ extern const char kReportDeviceActivityTimes[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kReportDeviceBoardStatus[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kReportDeviceBootMode[];
+COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kReportDeviceCpuInfo[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kReportDeviceLocation[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kReportDeviceNetworkInterfaces[];
@@ -93,6 +94,10 @@ COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kReportDeviceHardwareStatus[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kReportDeviceSessionStatus[];
+COMPONENT_EXPORT(CHROMEOS_SETTINGS)
+extern const char kReportDeviceGraphicsStatus[];
+COMPONENT_EXPORT(CHROMEOS_SETTINGS)
+extern const char kReportDeviceCrashReportInfo[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kReportOsUpdateStatus[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kReportRunningKioskApp[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kReportUploadFrequency[];

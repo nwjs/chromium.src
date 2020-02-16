@@ -180,13 +180,14 @@ extern const char kAccessibilityCaptionsTextOpacity[];
 extern const char kAccessibilityCaptionsBackgroundColor[];
 extern const char kAccessibilityCaptionsTextShadow[];
 extern const char kAccessibilityCaptionsBackgroundOpacity[];
+extern const char kLiveCaptionEnabled[];
+extern const char kSODAPath[];
 #if defined(OS_MACOSX)
 extern const char kConfirmToQuitEnabled[];
 extern const char kShowFullscreenToolbar[];
 extern const char kAllowJavascriptAppleEvents[];
 #endif
 extern const char kPromptForDownload[];
-extern const char kAlternateErrorPagesEnabled[];
 extern const char kQuicAllowed[];
 extern const char kNetworkQualities[];
 extern const char kNetworkEasterEggHighScore[];
@@ -310,6 +311,7 @@ extern const char kNetworkFileSharesPreconfiguredShares[];
 extern const char kMostRecentlyUsedNetworkFileShareURL[];
 extern const char kParentAccessCodeConfig[];
 extern const char kPerAppTimeLimitsPolicy[];
+extern const char kPerAppTimeLimitsWhitelistPolicy[];
 extern const char kDeviceWallpaperImageFilePath[];
 extern const char kKerberosRememberPasswordEnabled[];
 extern const char kKerberosAddAccountsAllowed[];
@@ -318,6 +320,7 @@ extern const char kKerberosActivePrincipalName[];
 extern const char kAppReinstallRecommendationEnabled[];
 extern const char kStartupBrowserWindowLaunchSuppressed[];
 extern const char kLoginExtensionApiDataForNextLoginAttempt[];
+extern const char kLoginExtensionApiLaunchExtensionId[];
 extern const char kSettingsShowBrowserBanner[];
 extern const char kSettingsShowOSBanner[];
 extern const char kDeviceLoginScreenWebUsbAllowDevicesForUrls[];
@@ -436,6 +439,7 @@ extern const char kPrintingPinDefault[];
 extern const char kPrintingSizeDefault[];
 extern const char kPrintingSendUsernameAndFilenameEnabled[];
 extern const char kPrintJobHistoryExpirationPeriod[];
+extern const char kPrintingAPIExtensionsWhitelist[];
 #endif  // OS_CHROMEOS
 
 extern const char kDefaultSupervisedUserFilteringBehavior[];
@@ -446,6 +450,7 @@ extern const char kMessageCenterDisabledExtensionIds[];
 
 extern const char kFullscreenAllowed[];
 
+extern const char kLocalDiscoveryEnabled[];
 extern const char kLocalDiscoveryNotificationsEnabled[];
 
 #if defined(OS_ANDROID)
@@ -646,6 +651,7 @@ extern const char kAudioCaptureAllowed[];
 extern const char kAudioCaptureAllowedUrls[];
 extern const char kVideoCaptureAllowed[];
 extern const char kVideoCaptureAllowedUrls[];
+extern const char kScreenCaptureAllowed[];
 
 #if defined(OS_CHROMEOS)
 extern const char kDemoModeConfig[];
@@ -818,6 +824,7 @@ extern const char kMediaGalleriesRememberedGalleries[];
 #if defined(OS_CHROMEOS)
 extern const char kPolicyPinnedLauncherApps[];
 extern const char kShelfDefaultPinLayoutRolls[];
+extern const char kShelfDefaultPinLayoutRollsForTabletFormFactor[];
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_WIN)

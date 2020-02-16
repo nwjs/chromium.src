@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "components/sync/driver/sync_service.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -26,7 +27,7 @@ class FakeSyncService : public SyncService {
   // SyncService implementation.
   syncer::SyncUserSettings* GetUserSettings() override;
   const syncer::SyncUserSettings* GetUserSettings() const override;
-  int GetDisableReasons() const override;
+  DisableReasonSet GetDisableReasons() const override;
   TransportState GetTransportState() const override;
   CoreAccountInfo GetAuthenticatedAccountInfo() const override;
   bool IsAuthenticatedAccountPrimary() const override;
@@ -64,9 +65,13 @@ class FakeSyncService : public SyncService {
   void RemoveTypeDebugInfoObserver(TypeDebugInfoObserver* observer) override;
   base::WeakPtr<JsController> GetJsController() override;
   void GetAllNodesForDebugging(
-      const base::Callback<void(std::unique_ptr<base::ListValue>)>& callback)
+      base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback)
       override;
   void SetInvalidationsForSessionsEnabled(bool enabled) override;
+  void AddTrustedVaultDecryptionKeysFromWeb(
+      const std::string& gaia_id,
+      const std::vector<std::vector<uint8_t>>& keys,
+      int last_key_version) override;
   UserDemographicsResult GetUserNoisedBirthYearAndGender(
       base::Time now) override;
 

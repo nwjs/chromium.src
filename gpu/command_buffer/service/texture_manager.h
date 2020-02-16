@@ -41,7 +41,9 @@ class ServiceDiscardableManager;
 class SharedImageBackingGLTexture;
 class SharedImageBackingFactoryGLTexture;
 class SharedImageBackingAHB;
+class SharedImageBackingEglImage;
 class SharedImageRepresentationGLTexture;
+class SharedImageRepresentationEglImageGLTexture;
 class SharedImageRepresentationGLTextureAHB;
 class SharedImageRepresentationSkiaGLAHB;
 class SharedImageBackingIOSurface;
@@ -51,6 +53,7 @@ class SharedImageBackingD3D;
 class SharedImageVideo;
 class StreamTexture;
 class SharedImageBackingFactoryD3D;
+class TestSharedImageBacking;
 
 namespace gles2 {
 class GLStreamTextureImage;
@@ -436,7 +439,9 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   friend class gpu::SharedImageBackingGLTexture;
   friend class gpu::SharedImageBackingFactoryGLTexture;
   friend class gpu::SharedImageBackingAHB;
+  friend class gpu::SharedImageBackingEglImage;
   friend class gpu::SharedImageRepresentationGLTextureAHB;
+  friend class gpu::SharedImageRepresentationEglImageGLTexture;
   friend class gpu::SharedImageRepresentationSkiaGLAHB;
   friend class gpu::SharedImageBackingIOSurface;
   friend class gpu::SharedImageBackingD3D;
@@ -444,12 +449,12 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   friend class gpu::SharedImageRepresentationGLTextureIOSurface;
   friend class gpu::SharedImageRepresentationSkiaIOSurface;
   friend class gpu::StreamTexture;
+  friend class gpu::TestSharedImageBacking;
   friend class AbstractTextureImplOnSharedContext;
   friend class TextureDefinition;
   friend class TextureManager;
   friend class TextureRef;
   friend class TextureTestHelper;
-  friend class TestSharedImageBacking;
   FRIEND_TEST_ALL_PREFIXES(TextureMemoryTrackerTest, LightweightRef);
 
   ~Texture() override;
@@ -794,7 +799,7 @@ class GPU_GLES2_EXPORT TextureRef : public base::RefCounted<TextureRef> {
   SharedImageRepresentationGLTexture* shared_image() const {
     return shared_image_.get();
   }
-  const base::Optional<SharedImageRepresentationGLTexture::ScopedAccess>&
+  const std::unique_ptr<SharedImageRepresentationGLTexture::ScopedAccess>&
   shared_image_scoped_access() const {
     return shared_image_scoped_access_;
   }
@@ -823,7 +828,7 @@ class GPU_GLES2_EXPORT TextureRef : public base::RefCounted<TextureRef> {
   bool force_context_lost_;
 
   std::unique_ptr<SharedImageRepresentationGLTexture> shared_image_;
-  base::Optional<SharedImageRepresentationGLTexture::ScopedAccess>
+  std::unique_ptr<SharedImageRepresentationGLTexture::ScopedAccess>
       shared_image_scoped_access_;
 
   DISALLOW_COPY_AND_ASSIGN(TextureRef);

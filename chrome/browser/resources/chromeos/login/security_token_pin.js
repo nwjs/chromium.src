@@ -10,7 +10,7 @@
 Polymer({
   is: 'security-token-pin',
 
-  behaviors: [OobeDialogHostBehavior, I18nBehavior],
+  behaviors: [OobeI18nBehavior, OobeDialogHostBehavior],
 
   properties: {
     /**
@@ -47,6 +47,15 @@ Polymer({
     },
 
     /**
+     * Whether the input is currently non-empty.
+     * @private
+     */
+    hasValue_: {
+      type: Boolean,
+      value: false,
+    },
+
+    /**
      * Whether the user has made changes in the input field since the dialog
      * was initialized or reset.
      * @private
@@ -57,13 +66,23 @@ Polymer({
     },
 
     /**
+     * Whether the user can change the value in the input field.
+     * @private
+     */
+    canEdit_: {
+      type: Boolean,
+      computed:
+          'computeCanEdit_(parameters.attemptsLeft, processingCompletion_)',
+    },
+
+    /**
      * Whether the user can submit a login request.
      * @private
      */
     canSubmit_: {
       type: Boolean,
-      computed:
-          'computeCanSubmit_(parameters.attemptsLeft, processingCompletion_)',
+      computed: 'computeCanSubmit_(parameters.attemptsLeft, ' +
+          'hasValue_, processingCompletion_)',
     },
   },
 
@@ -73,7 +92,7 @@ Polymer({
    * @return {string|undefined}
    * @private
    */
-  computeErrorLabelId_: function(parameters) {
+  computeErrorLabelId_(parameters) {
     if (!parameters)
       return;
     switch (parameters.errorLabel) {
@@ -93,20 +112,33 @@ Polymer({
   },
 
   /**
-   * Returns whether the user can make more attempts to log in.
-   * @param {OobeTypes.SecurityTokenPinDialogParameters} parameters
+   * Computes the value of the canEdit_ property.
+   * @param {number} attemptsLeft
+   * @param {boolean} processingCompletion
    * @return {boolean}
    * @private
    */
-  computeCanSubmit_: function(attemptsLeft, processingCompletion) {
+  computeCanEdit_(attemptsLeft, processingCompletion) {
     return attemptsLeft != 0 && !processingCompletion;
+  },
+
+  /**
+   * Computes the value of the canSubmit_ property.
+   * @param {number} attemptsLeft
+   * @param {boolean} hasValue
+   * @param {boolean} processingCompletion
+   * @return {boolean}
+   * @private
+   */
+  computeCanSubmit_(attemptsLeft, hasValue, processingCompletion) {
+    return attemptsLeft != 0 && hasValue && !processingCompletion;
   },
 
   /**
    * Invoked when the "Back" button is clicked.
    * @private
    */
-  onBackClicked_: function() {
+  onBackClicked_() {
     this.fire('cancel');
   },
 
@@ -114,11 +146,10 @@ Polymer({
    * Invoked when the "Next" button is clicked or Enter is pressed.
    * @private
    */
-  onSubmit_: function() {
-    if (this.processingCompletion_) {
-      // Race condition: This could happen if the previous request has not yet
-      // been completed before the next one is sent (for example by pressing
-      // Enter twice)
+  onSubmit_() {
+    if (!this.canSubmit_) {
+      // Disallow submitting when it's not allowed or while proceeding the
+      // previous submission.
       return;
     }
     this.processingCompletion_ = true;
@@ -129,19 +160,22 @@ Polymer({
    * Observer that is called when the |parameters| property gets changed.
    * @private
    */
-  onParametersChanged_: function() {
+  onParametersChanged_() {
     // Reset the dialog to the initial state.
     this.$.pinKeyboard.value = '';
     this.processingCompletion_ = false;
+    this.hasValue_ = false;
     this.userEdited_ = false;
     this.$.pinKeyboard.focusInput();
   },
 
   /**
    * Observer that is called when the user changes the PIN input field.
+   * @param {!CustomEvent<{pin: string}>} e
    * @private
    */
-  onPinChange_: function() {
+  onPinChange_(e) {
+    this.hasValue_ = e.detail.pin.length > 0;
     this.userEdited_ = true;
   },
 
@@ -152,7 +186,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  isErrorLabelVisible_: function(parameters, userEdited) {
+  isErrorLabelVisible_(parameters, userEdited) {
     return parameters &&
         parameters.errorLabel !==
         OobeTypes.SecurityTokenPinDialogErrorType.NONE &&
@@ -166,7 +200,7 @@ Polymer({
    * @return {string}
    * @private
    */
-  isAriaInvalid_: function(parameters, userEdited) {
+  isAriaInvalid_(parameters, userEdited) {
     return this.isErrorLabelVisible_(parameters, userEdited) ? 'true' : 'false';
   },
 
@@ -176,7 +210,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  isAttemptsLeftVisible_: function(parameters) {
+  isAttemptsLeftVisible_(parameters) {
     return parameters && parameters.attemptsLeft != -1;
   },
 
@@ -187,7 +221,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  isLabelVisible_: function(parameters, userEdited) {
+  isLabelVisible_(parameters, userEdited) {
     return this.isErrorLabelVisible_(parameters, userEdited) ||
         this.isAttemptsLeftVisible_(parameters);
   },
@@ -201,7 +235,7 @@ Polymer({
    * @return {string}
    * @private
    */
-  getLabel_: function(locale, parameters, errorLabelId, userEdited) {
+  getLabel_(locale, parameters, errorLabelId, userEdited) {
     if (!this.isLabelVisible_(parameters, userEdited)) {
       return '';
     }

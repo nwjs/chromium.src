@@ -12,10 +12,10 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
+#include "content/common/content_navigation_policy.h"
 #include "content/common/content_switches_internal.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/navigation_policy.h"
 #include "content/public/common/referrer.h"
 #include "device/fido/features.h"
 #include "gpu/config/gpu_switches.h"
@@ -182,15 +182,10 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnablePeriodicBackgroundSync, features::kPeriodicBackgroundSync,
            kEnableOnly},
           {wf::EnableWebXR, features::kWebXr, kUseFeatureState},
-          {wf::EnableWebXRARDOMOverlay, features::kWebXrArDOMOverlay,
+          {wf::EnableWebXRARModule, features::kWebXrArModule, kUseFeatureState},
+          {wf::EnableWebXRHitTest, features::kWebXrHitTest, kUseFeatureState},
+          {wf::EnableWebXRIncubations, features::kWebXrIncubations,
            kEnableOnly},
-          {wf::EnableWebXRARModule, features::kWebXrArModule, kEnableOnly},
-          {wf::EnableWebXRHitTest, features::kWebXrHitTest, kEnableOnly},
-          {wf::EnableWebXRAnchors, features::kWebXrAnchors, kEnableOnly},
-          {wf::EnableWebXRPlaneDetection, features::kWebXrPlaneDetection,
-           kEnableOnly},
-          {wf::EnableWebXrGamepadModule, features::kWebXrGamepadModule,
-           kUseFeatureState},
           {wf::EnableFetchMetadata, network::features::kFetchMetadata,
            kUseFeatureState},
           {wf::EnableFetchMetadataDestination,
@@ -253,15 +248,14 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableFeaturePolicyForSandbox,
            features::kFeaturePolicyForSandbox, kEnableOnly},
           {wf::EnableAccessibilityExposeARIAAnnotations,
-           features::kEnableAccessibilityExposeARIAAnnotations,
-           kUseFeatureState},
+           features::kEnableAccessibilityExposeARIAAnnotations, kEnableOnly},
           {wf::EnableAccessibilityExposeDisplayNone,
-           features::kEnableAccessibilityExposeDisplayNone, kUseFeatureState},
+           features::kEnableAccessibilityExposeDisplayNone, kEnableOnly},
           {wf::EnableAllowSyncXHRInPageDismissal,
            blink::features::kAllowSyncXHRInPageDismissal, kEnableOnly},
           {wf::EnableAutoplayIgnoresWebAudio, media::kAutoplayIgnoreWebAudio,
            kUseFeatureState},
-          {wf::EnablePortals, blink::features::kPortals, kUseFeatureState},
+          {wf::EnablePortals, blink::features::kPortals, kEnableOnly},
           {wf::EnableImplicitRootScroller,
            blink::features::kImplicitRootScroller, kUseFeatureState},
           {wf::EnableCSSOMViewScrollCoordinates,
@@ -314,6 +308,10 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
            kEnableOnly},
           {wf::EnableVideoPlaybackQuality, features::kVideoPlaybackQuality,
            kUseFeatureState},
+          {wf::EnableBrowserVerifiedUserActivationKeyboard,
+           features::kBrowserVerifiedUserActivationKeyboard, kEnableOnly},
+          {wf::EnableBrowserVerifiedUserActivationMouse,
+           features::kBrowserVerifiedUserActivationMouse, kEnableOnly},
       };
   for (const auto& mapping : blinkFeatureToBaseFeatureMapping) {
     const bool featureEnabled =
@@ -336,8 +334,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
   // function and using feature string name with EnableFeatureFromString.
   const RuntimeFeatureToChromiumFeatureMap<const char*>
       runtimeFeatureNameToChromiumFeatureMapping[] = {
-          {"FastBorderRadius", blink::features::kFastBorderRadius,
-           kUseFeatureState},
           {"FontSrcLocalMatching", features::kFontSrcLocalMatching,
            kUseFeatureState},
           {"LegacyWindowsDWriteFontFallback",
@@ -523,9 +519,6 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
   // They're moved here to distinguish them from actual base checks
   WebRuntimeFeatures::EnableOverlayScrollbars(ui::IsOverlayScrollbarEnabled());
 
-  WebRuntimeFeatures::EnableFormControlsRefresh(
-      features::IsFormControlsRefreshEnabled());
-
   if (base::FeatureList::GetInstance()->IsFeatureOverriddenFromCommandLine(
           blink::features::kNativeFileSystemAPI.name,
           base::FeatureList::OVERRIDE_ENABLE_FEATURE)) {
@@ -552,7 +545,6 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
     WebRuntimeFeatures::EnableNetInfoDownlinkMax(true);
     WebRuntimeFeatures::EnableFetchMetadata(true);
     WebRuntimeFeatures::EnableFetchMetadataDestination(true);
-    WebRuntimeFeatures::EnableFeatureFromString("FastBorderRadius", true);
     WebRuntimeFeatures::EnableDisplayLocking(true);
   }
 

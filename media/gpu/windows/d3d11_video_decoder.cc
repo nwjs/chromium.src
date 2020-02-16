@@ -11,10 +11,12 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/memory/ref_counted_delete_on_sequence.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/trace_event/trace_event.h"
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/cdm_context.h"
 #include "media/base/decoder_buffer.h"
@@ -149,6 +151,7 @@ HRESULT D3D11VideoDecoder::InitializeAcceleratedDecoder(
     const VideoDecoderConfig& config,
     CdmProxyContext* proxy_context,
     ComD3D11VideoDecoder video_decoder) {
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::InitializeAcceleratedDecoder");
   // If we got an 11.1 D3D11 Device, we can use a |ID3D11VideoContext1|,
   // otherwise we have to make sure we only use a |ID3D11VideoContext|.
   HRESULT hr;
@@ -189,6 +192,7 @@ void D3D11VideoDecoder::Initialize(const VideoDecoderConfig& config,
                                    InitCB init_cb,
                                    const OutputCB& output_cb,
                                    const WaitingCB& waiting_cb) {
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::Initialize");
   if (already_initialized_)
     AddLifetimeProgressionStage(D3D11LifetimeProgression::kPlaybackSucceeded);
   AddLifetimeProgressionStage(D3D11LifetimeProgression::kInitializeStarted);
@@ -242,7 +246,8 @@ void D3D11VideoDecoder::Initialize(const VideoDecoderConfig& config,
     return;
   }
 
-  if (!GetD3D11FeatureLevel(device_, &usable_feature_level_)) {
+  if (!GetD3D11FeatureLevel(device_, gpu_workarounds_,
+                            &usable_feature_level_)) {
     NotifyError("D3D11 feature level not supported");
     return;
   }
@@ -357,9 +362,7 @@ void D3D11VideoDecoder::Initialize(const VideoDecoderConfig& config,
 
   // At this point, playback is supported so add a line in the media log to help
   // us figure that out.
-  media_log_->AddEvent(
-      media_log_->CreateStringEvent(MediaLogEvent::MEDIA_INFO_LOG_ENTRY, "info",
-                                    "Video is supported by D3D11VideoDecoder"));
+  MEDIA_LOG(INFO, media_log_) << "Video is supported by D3D11VideoDecoder";
 
   if (base::FeatureList::IsEnabled(kD3D11PrintCodecOnCrash)) {
     static base::debug::CrashKeyString* codec_name =
@@ -418,6 +421,7 @@ void D3D11VideoDecoder::AddLifetimeProgressionStage(
 void D3D11VideoDecoder::ReceivePictureBufferFromClient(
     scoped_refptr<D3D11PictureBuffer> buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::ReceivePictureBufferFromClient");
 
   // We may decode into this buffer again.
   // Note that |buffer| might no longer be in |picture_buffers_| if we've
@@ -430,6 +434,7 @@ void D3D11VideoDecoder::ReceivePictureBufferFromClient(
 
 void D3D11VideoDecoder::OnGpuInitComplete(bool success) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::OnGpuInitComplete");
 
   if (!init_cb_) {
     // We already failed, so just do nothing.
@@ -451,6 +456,12 @@ void D3D11VideoDecoder::OnGpuInitComplete(bool success) {
 void D3D11VideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
                                DecodeCB decode_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::Decode");
+
+  // If we aren't given a decode cb, then record that.
+  // crbug.com/1012464 .
+  if (!decode_cb)
+    base::debug::DumpWithoutCrashing();
 
   if (state_ == State::kError) {
     // TODO(liberato): consider posting, though it likely doesn't matter.
@@ -470,6 +481,7 @@ void D3D11VideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
 
 void D3D11VideoDecoder::DoDecode() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::DoDecode");
 
   if (state_ != State::kRunning) {
     DVLOG(2) << __func__ << ": Do nothing in " << static_cast<int>(state_)
@@ -483,6 +495,11 @@ void D3D11VideoDecoder::DoDecode() {
     }
     current_buffer_ = std::move(input_buffer_queue_.front().first);
     current_decode_cb_ = std::move(input_buffer_queue_.front().second);
+    // If we pop a null decode cb off the stack, record it so we can see if this
+    // is from a top-level call, or through Decode.
+    // crbug.com/1012464 .
+    if (!current_decode_cb_)
+      base::debug::DumpWithoutCrashing();
     input_buffer_queue_.pop_front();
     if (current_buffer_->end_of_stream()) {
       // Flush, then signal the decode cb once all pictures have been output.
@@ -515,6 +532,16 @@ void D3D11VideoDecoder::DoDecode() {
     // crbug.com/1012464 for more information.
     if (!current_buffer_)
       break;
+
+    // Record if we get here with a buffer, but without a decode cb.  This
+    // shouldn't happen, but does.  This will prevent the crash, and record how
+    // we got here.
+    // crbug.com/1012464 .
+    if (!current_decode_cb_) {
+      base::debug::DumpWithoutCrashing();
+      current_buffer_ = nullptr;
+      break;
+    }
 
     media::AcceleratedVideoDecoder::DecodeResult result =
         accelerated_video_decoder_->Decode();
@@ -564,6 +591,7 @@ void D3D11VideoDecoder::DoDecode() {
 void D3D11VideoDecoder::Reset(base::OnceClosure closure) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK_NE(state_, State::kInitializing);
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::Reset");
 
   current_buffer_ = nullptr;
   if (current_decode_cb_)
@@ -617,6 +645,7 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
   // to signal success / failure asynchronously.  We'll need to transition into
   // a "waiting for pictures" state, since D3D11PictureBuffer will post the gpu
   // thread work.
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::CreatePictureBuffers");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(texture_selector_);
   gfx::Size size = accelerated_video_decoder_->GetPicSize();
@@ -671,6 +700,7 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
                                      D3D11PictureBuffer* picture_buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(texture_selector_);
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::OutputResult");
 
   picture_buffer->set_in_client_use(true);
 
@@ -755,17 +785,17 @@ void D3D11VideoDecoder::OnCdmContextEvent(CdmContext::Event event) {
 }
 
 void D3D11VideoDecoder::NotifyError(const char* reason) {
+  TRACE_EVENT0("gpu", "D3D11VideoDecoder::NotifyError");
   state_ = State::kError;
   DLOG(ERROR) << reason;
-  media_log_->AddEvent(media_log_->CreateStringEvent(
-      MediaLogEvent::MEDIA_ERROR_LOG_ENTRY, "error", reason));
+  MEDIA_LOG(ERROR, media_log_) << reason;
 
   if (init_cb_)
     std::move(init_cb_).Run(false);
 
+  current_buffer_ = nullptr;
   if (current_decode_cb_)
     std::move(current_decode_cb_).Run(DecodeStatus::DECODE_ERROR);
-  current_buffer_ = nullptr;
 
   for (auto& queue_pair : input_buffer_queue_)
     std::move(queue_pair.second).Run(DecodeStatus::DECODE_ERROR);
@@ -773,8 +803,10 @@ void D3D11VideoDecoder::NotifyError(const char* reason) {
 }
 
 // static
-bool D3D11VideoDecoder::GetD3D11FeatureLevel(ComD3D11Device dev,
-                                             D3D_FEATURE_LEVEL* feature_level) {
+bool D3D11VideoDecoder::GetD3D11FeatureLevel(
+    ComD3D11Device dev,
+    const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
+    D3D_FEATURE_LEVEL* feature_level) {
   if (!dev || !feature_level)
     return false;
 
@@ -783,8 +815,11 @@ bool D3D11VideoDecoder::GetD3D11FeatureLevel(ComD3D11Device dev,
     return false;
 
   // TODO(tmathmeyer) should we log this to UMA?
-  if (base::FeatureList::IsEnabled(kD3D11LimitTo11_0))
+  if (gpu_workarounds.limit_d3d11_video_decoder_to_11_0 &&
+      !base::FeatureList::IsEnabled(kD3D11VideoDecoderIgnoreWorkarounds)) {
     *feature_level = D3D_FEATURE_LEVEL_11_0;
+  }
+
   return true;
 }
 
@@ -799,8 +834,8 @@ D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
   // This workaround accounts for almost half of all startup results, and it's
   // unclear that it's relevant here.  If it's off, or if we're allowed to copy
   // pictures in case binding isn't allowed, then proceed with init.
-  if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderIgnoreWorkarounds) &&
-      !base::FeatureList::IsEnabled(kD3D11VideoDecoderCopyPictures)) {
+  // NOTE: experimentation showed that, yes, it does actually matter.
+  if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderCopyPictures)) {
     // Must allow zero-copy of nv12 textures.
     if (!gpu_preferences.enable_zero_copy_dxgi_video) {
       UMA_HISTOGRAM_ENUMERATION(uma_name,
@@ -811,6 +846,14 @@ D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
     if (gpu_workarounds.disable_dxgi_zero_copy_video) {
       UMA_HISTOGRAM_ENUMERATION(uma_name,
                                 NotSupportedReason::kZeroCopyVideoRequired);
+      return {};
+    }
+  }
+
+  if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderIgnoreWorkarounds)) {
+    // Allow all of d3d11 to be turned off by workaround.
+    if (gpu_workarounds.disable_d3d11_video_decoder) {
+      UMA_HISTOGRAM_ENUMERATION(uma_name, NotSupportedReason::kOffByWorkaround);
       return {};
     }
   }
@@ -831,7 +874,8 @@ D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
   }
 
   D3D_FEATURE_LEVEL usable_feature_level;
-  if (!GetD3D11FeatureLevel(d3d11_device, &usable_feature_level)) {
+  if (!GetD3D11FeatureLevel(d3d11_device, gpu_workarounds,
+                            &usable_feature_level)) {
     UMA_HISTOGRAM_ENUMERATION(
         uma_name, NotSupportedReason::kInsufficientD3D11FeatureLevel);
     return {};

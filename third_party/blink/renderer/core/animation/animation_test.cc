@@ -35,6 +35,8 @@
 #include "base/bits.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/bindings/core/v8/double_or_scroll_timeline_auto_keyword.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_scroll_timeline_options.h"
 #include "third_party/blink/renderer/core/animation/animation_clock.h"
 #include "third_party/blink/renderer/core/animation/css/compositor_keyframe_double.h"
 #include "third_party/blink/renderer/core/animation/css_number_interpolation_type.h"
@@ -1029,10 +1031,10 @@ TEST_F(AnimationAnimationTestNoCompositing, AttachedAnimations) {
   EXPECT_TRUE(element->GetElementAnimations()->Animations().IsEmpty());
 }
 
-TEST_F(AnimationAnimationTestNoCompositing, HasLowerPriority) {
+TEST_F(AnimationAnimationTestNoCompositing, HasLowerCompositeOrdering) {
   Animation* animation1 = timeline->Play(nullptr);
   Animation* animation2 = timeline->Play(nullptr);
-  EXPECT_TRUE(Animation::HasLowerPriority(animation1, animation2));
+  EXPECT_TRUE(Animation::HasLowerCompositeOrdering(animation1, animation2));
 }
 
 TEST_F(AnimationAnimationTestNoCompositing, PlayAfterCancel) {
@@ -1269,7 +1271,7 @@ TEST_F(AnimationAnimationTestCompositing, PreCommitRecordsHistograms) {
                                     SecureContextMode::kInsecureContext,
                                     nullptr);
 
-  ToKeyframeEffect(animation->effect())
+  To<KeyframeEffect>(animation->effect())
       ->SetKeyframes({start_keyframe, end_keyframe});
   UpdateAllLifecyclePhasesForTest();
   {
@@ -1307,7 +1309,7 @@ TEST_F(AnimationAnimationTestCompositing, SetKeyframesCausesCompositorPending) {
   keyframes.push_back(start_keyframe);
   keyframes.push_back(end_keyframe);
 
-  ToKeyframeEffect(animation->effect())->SetKeyframes(keyframes);
+  To<KeyframeEffect>(animation->effect())->SetKeyframes(keyframes);
 
   EXPECT_TRUE(animation->CompositorPendingForTesting());
 }
@@ -1328,7 +1330,9 @@ TEST_F(AnimationAnimationTestNoCompositing, ScrollLinkedAnimationCreation) {
   LayoutBoxModelObject* scroller =
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"));
   PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
-  scrollable_area->SetScrollOffset(ScrollOffset(0, 20), kProgrammaticScroll);
+  scrollable_area->SetScrollOffset(
+      ScrollOffset(0, 20),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
   DoubleOrScrollTimelineAutoKeyword time_range =
       DoubleOrScrollTimelineAutoKeyword::FromDouble(100);
@@ -1353,7 +1357,7 @@ TEST_F(AnimationAnimationTestNoCompositing, ScrollLinkedAnimationCreation) {
   // Verify start and current times in Pending state.
   scroll_animation->startTime(is_null);
   EXPECT_TRUE(is_null);
-  EXPECT_EQ(0, scroll_animation->currentTime(is_null));
+  EXPECT_EQ(20, scroll_animation->currentTime(is_null));
   EXPECT_FALSE(is_null);
 
   UpdateAllLifecyclePhasesForTest();
@@ -1364,7 +1368,9 @@ TEST_F(AnimationAnimationTestNoCompositing, ScrollLinkedAnimationCreation) {
   EXPECT_FALSE(is_null);
 
   // Verify current time after scroll.
-  scrollable_area->SetScrollOffset(ScrollOffset(0, 40), kProgrammaticScroll);
+  scrollable_area->SetScrollOffset(
+      ScrollOffset(0, 40),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   EXPECT_EQ(40, scroll_animation->currentTime(is_null));
   EXPECT_FALSE(is_null);
 }
@@ -1485,6 +1491,145 @@ TEST_F(AnimationAnimationTestNoCompositing,
   EXPECT_EQ("idle", animation->playState());
   EXPECT_FALSE(animation->Update(kTimingUpdateForAnimationFrame));
   EXPECT_FALSE(animation->HasPendingActivity());
+}
+
+class AnimationPendingAnimationsTest : public RenderingTest {
+ public:
+  AnimationPendingAnimationsTest()
+      : RenderingTest(MakeGarbageCollected<SingleChildLocalFrameClient>()) {}
+
+  enum CompositingMode { kComposited, kNonComposited };
+
+  void SetUp() override {
+    EnableCompositing();
+    RenderingTest::SetUp();
+    GetDocument().GetAnimationClock().ResetTimeForTesting();
+    timeline = GetDocument().Timeline();
+    timeline->ResetForTesting();
+  }
+
+  Animation* MakeAnimation(const char* target, CompositingMode mode) {
+    Timing timing;
+    timing.iteration_duration = AnimationTimeDelta::FromSecondsD(30);
+    Persistent<StringKeyframe> start_keyframe =
+        MakeGarbageCollected<StringKeyframe>();
+    start_keyframe->SetCSSPropertyValue(CSSPropertyID::kOpacity, "1.0",
+                                        SecureContextMode::kInsecureContext,
+                                        nullptr);
+    Persistent<StringKeyframe> end_keyframe =
+        MakeGarbageCollected<StringKeyframe>();
+    end_keyframe->SetCSSPropertyValue(CSSPropertyID::kOpacity, "0.0",
+                                      SecureContextMode::kInsecureContext,
+                                      nullptr);
+
+    StringKeyframeVector keyframes;
+    keyframes.push_back(start_keyframe);
+    keyframes.push_back(end_keyframe);
+
+    Element* element = GetElementById(target);
+    auto* model = MakeGarbageCollected<StringKeyframeEffectModel>(keyframes);
+
+    Animation* animation = timeline->Play(
+        MakeGarbageCollected<KeyframeEffect>(element, model, timing));
+
+    if (mode == kNonComposited) {
+      // Having a playback rate of zero is one of several ways to force an
+      // animation to be non-composited.
+      animation->updatePlaybackRate(0);
+    }
+
+    return animation;
+  }
+
+  bool Update() {
+    UpdateAllLifecyclePhasesForTest();
+    GetDocument().GetAnimationClock().UpdateTime(base::TimeTicks());
+    return GetDocument().GetPendingAnimations().Update(nullptr, true);
+  }
+
+  void NotifyAnimationStarted(Animation* animation) {
+    animation->GetDocument()
+        ->GetPendingAnimations()
+        .NotifyCompositorAnimationStarted(0, animation->CompositorGroup());
+  }
+
+  void restartAnimation(Animation* animation) {
+    animation->cancel();
+    animation->play();
+  }
+
+  Persistent<DocumentTimeline> timeline;
+};
+
+TEST_F(AnimationPendingAnimationsTest, PendingAnimationStartSynchronization) {
+  RunDocumentLifecycle();
+  SetBodyInnerHTML("<div id='foo'></div><div id='bar'></div>");
+
+  Persistent<Animation> animA = MakeAnimation("foo", kComposited);
+  Persistent<Animation> animB = MakeAnimation("bar", kNonComposited);
+
+  // B's start time synchronized with A's start time.
+  EXPECT_TRUE(Update());
+  EXPECT_TRUE(animA->pending());
+  EXPECT_TRUE(animB->pending());
+  EXPECT_TRUE(animA->HasActiveAnimationsOnCompositor());
+  EXPECT_FALSE(animB->HasActiveAnimationsOnCompositor());
+  NotifyAnimationStarted(animA);
+  EXPECT_FALSE(animA->pending());
+  EXPECT_FALSE(animB->pending());
+}
+
+TEST_F(AnimationPendingAnimationsTest,
+       PendingAnimationCancelUnblocksSynchronizedStart) {
+  RunDocumentLifecycle();
+  SetBodyInnerHTML("<div id='foo'></div><div id='bar'></div>");
+
+  Persistent<Animation> animA = MakeAnimation("foo", kComposited);
+  Persistent<Animation> animB = MakeAnimation("bar", kNonComposited);
+
+  EXPECT_TRUE(Update());
+  EXPECT_TRUE(animA->pending());
+  EXPECT_TRUE(animB->pending());
+  animA->cancel();
+
+  // Animation A no longer blocks B from starting.
+  EXPECT_FALSE(Update());
+  EXPECT_FALSE(animB->pending());
+}
+
+TEST_F(AnimationPendingAnimationsTest,
+       PendingAnimationOnlySynchronizeStartsOfNewlyPendingAnimations) {
+  RunDocumentLifecycle();
+  SetBodyInnerHTML(
+      "<div id='foo'></div><div id='bar'></div><div id='baz'></div>");
+
+  Persistent<Animation> animA = MakeAnimation("foo", kComposited);
+  Persistent<Animation> animB = MakeAnimation("bar", kNonComposited);
+
+  // This test simulates the conditions in crbug.com/666710. The start of a
+  // non-composited animation is deferred in order to synchronize with a
+  // composited animation, which is canceled before it starts. Subsequent frames
+  // produce new composited animations which prevented the non-composited
+  // animation from ever starting. Non-composited animations should not be
+  // synchronize with new composited animations if queued up in a prior call to
+  // PendingAnimations::Update.
+  EXPECT_TRUE(Update());
+  EXPECT_TRUE(animA->pending());
+  EXPECT_TRUE(animB->pending());
+  animA->cancel();
+
+  Persistent<Animation> animC = MakeAnimation("baz", kComposited);
+  Persistent<Animation> animD = MakeAnimation("bar", kNonComposited);
+
+  EXPECT_TRUE(Update());
+  // B's is unblocked despite newly created composited animation.
+  EXPECT_FALSE(animB->pending());
+  EXPECT_TRUE(animC->pending());
+  // D's start time is synchronized with C's start.
+  EXPECT_TRUE(animD->pending());
+  NotifyAnimationStarted(animC);
+  EXPECT_FALSE(animC->pending());
+  EXPECT_FALSE(animD->pending());
 }
 
 }  // namespace blink

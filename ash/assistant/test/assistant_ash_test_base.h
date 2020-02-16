@@ -14,21 +14,31 @@
 #include "base/macros.h"
 #include "base/test/scoped_feature_list.h"
 
+namespace aura {
+class Window;
+}  // namespace aura
+
 namespace views {
 class Textfield;
 class View;
+class Widget;
 }  // namespace views
 
 namespace ash {
 
 class AssistantController;
 class AssistantInteractionController;
-class TestAssistantService;
+class AssistantInteractionModel;
 class AssistantTestApi;
+class TestAssistantService;
+class TestAssistantWebViewFactory;
 
 // Helper class to make testing the Assistant Ash UI easier.
 class AssistantAshTestBase : public AshTestBase {
  public:
+  using AssistantEntryPoint = chromeos::assistant::mojom::AssistantEntryPoint;
+  using AssistantExitPoint = chromeos::assistant::mojom::AssistantExitPoint;
+
   AssistantAshTestBase();
   ~AssistantAshTestBase() override;
 
@@ -44,6 +54,9 @@ class AssistantAshTestBase : public AshTestBase {
   // Assistant.
   void CloseAssistantUi(
       AssistantExitPoint exit_point = AssistantExitPoint::kUnspecified);
+
+  // Open the launcher (but do not open the Assistant UI).
+  void OpenLauncher();
   // Close the Assistant UI by closing the launcher.
   void CloseLauncher();
 
@@ -68,6 +81,10 @@ class AssistantAshTestBase : public AshTestBase {
   // Can only be used after |ShowAssistantUi| has been called.
   views::View* app_list_view();
 
+  // Return the root view hosting the Assistant page view.
+  // Can only be used after |ShowAssistantUi| has been called.
+  views::View* root_view();
+
   // Spoof sending a request to the Assistant service,
   // and receiving |response_text| as a response to display.
   void MockAssistantInteractionWithResponse(const std::string& response_text);
@@ -83,6 +100,10 @@ class AssistantAshTestBase : public AshTestBase {
   // Waits for the event to be processed.
   void TapOnAndWait(views::View* view);
 
+  // Simulate the user tapping at the given position.
+  // Waits for the event to be processed.
+  void TapAndWait(gfx::Point position);
+
   // Simulate a mouse click on the given view.
   // Waits for the event to be processed.
   void ClickOnAndWait(views::View* view);
@@ -92,11 +113,15 @@ class AssistantAshTestBase : public AshTestBase {
   base::Optional<chromeos::assistant::mojom::AssistantInteractionMetadata>
   current_interaction();
 
-  // Create a new App window, and activate it. This will take the focus away
-  // from the Assistant UI (and force it to close).
+  // Creates a new App window, and activate it.
   // Returns a pointer to the newly created window.
-  // The window will be destroyed when the test if finished.
+  // The window will be destroyed when the test is finished.
   aura::Window* SwitchToNewAppWindow();
+
+  // Creates a new Widget, and activate it.
+  // Returns a pointer to the newly created widget.
+  // The widget will be destroyed when the test is finished.
+  views::Widget* SwitchToNewWidget();
 
   // Return the window containing the Assistant UI.
   // Note that this window is shared for all components of the |AppList|.
@@ -117,21 +142,30 @@ class AssistantAshTestBase : public AshTestBase {
   // Return the button to enable text mode.
   views::View* keyboard_input_toggle();
 
-  // Show the on-screen keyboard.
+  // Show/Dismiss the on-screen keyboard.
   void ShowKeyboard();
+  void DismissKeyboard();
 
   // Returns if the on-screen keyboard is being displayed.
   bool IsKeyboardShowing() const;
 
- private:
+  // Enable/Disable the on-screen keyboard.
+  void EnableKeyboard() { SetVirtualKeyboardEnabled(true); }
+  void DisableKeyboard() { SetVirtualKeyboardEnabled(false); }
+
   AssistantInteractionController* interaction_controller();
+  const AssistantInteractionModel* interaction_model();
+
+ private:
   TestAssistantService* assistant_service();
 
   std::unique_ptr<AssistantTestApi> test_api_;
+  std::unique_ptr<TestAssistantWebViewFactory> test_web_view_factory_;
   base::test::ScopedFeatureList scoped_feature_list_;
   AssistantController* controller_ = nullptr;
 
   std::vector<std::unique_ptr<aura::Window>> windows_;
+  std::vector<std::unique_ptr<views::Widget>> widgets_;
 
   DISALLOW_COPY_AND_ASSIGN(AssistantAshTestBase);
 };

@@ -412,9 +412,13 @@ bool SchedulerStateMachine::ShouldActivateSyncTree() const {
 
   // We should not activate a second tree before drawing the first one.
   // Even if we need to force activation of the pending tree, we should abort
-  // drawing the active tree first.
-  if (active_tree_needs_first_draw_)
+  // drawing the active tree first. Relax this requirement for synchronous
+  // compositor where scheduler does not control draw, and blocking commit
+  // may lead to bad scheduling.
+  if (!settings_.using_synchronous_renderer_compositor &&
+      active_tree_needs_first_draw_) {
     return false;
+  }
 
   // Delay pending tree activation until paint worklets have completed painting
   // the pending tree. This must occur before the |ShouldAbortCurrentFrame|
@@ -1133,8 +1137,7 @@ bool SchedulerStateMachine::ProactiveBeginFrameWanted() const {
   return false;
 }
 
-void SchedulerStateMachine::OnBeginImplFrame(uint64_t source_id,
-                                             uint64_t sequence_number,
+void SchedulerStateMachine::OnBeginImplFrame(const viz::BeginFrameId& frame_id,
                                              bool animate_only) {
   begin_impl_frame_state_ = BeginImplFrameState::INSIDE_BEGIN_FRAME;
   current_frame_number_++;
@@ -1357,8 +1360,9 @@ void SchedulerStateMachine::SetNeedsPrepareTiles() {
   }
 }
 void SchedulerStateMachine::DidSubmitCompositorFrame() {
-  TRACE_EVENT_ASYNC_BEGIN1("cc", "Scheduler:pending_submit_frames", this,
-                           "pending_frames", pending_submit_frames_);
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("cc", "Scheduler:pending_submit_frames",
+                                    TRACE_ID_LOCAL(this), "pending_frames",
+                                    pending_submit_frames_);
   DCHECK_LT(pending_submit_frames_, kMaxPendingSubmitFrames);
 
   pending_submit_frames_++;
@@ -1369,8 +1373,9 @@ void SchedulerStateMachine::DidSubmitCompositorFrame() {
 }
 
 void SchedulerStateMachine::DidReceiveCompositorFrameAck() {
-  TRACE_EVENT_ASYNC_END1("cc", "Scheduler:pending_submit_frames", this,
-                         "pending_frames", pending_submit_frames_);
+  TRACE_EVENT_NESTABLE_ASYNC_END1("cc", "Scheduler:pending_submit_frames",
+                                  TRACE_ID_LOCAL(this), "pending_frames",
+                                  pending_submit_frames_);
   pending_submit_frames_--;
 }
 

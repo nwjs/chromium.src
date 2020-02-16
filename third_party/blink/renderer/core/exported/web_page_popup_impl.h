@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/core/page/page_popup.h"
 #include "third_party/blink/renderer/core/page/page_widget_delegate.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/ref_counted.h"
 
 namespace cc {
@@ -96,7 +97,7 @@ class CORE_EXPORT WebPagePopupImpl final : public WebPagePopup,
   WebInputEventResult DispatchBufferedTouchEvents() override;
 
   // WebPagePopup implementation.
-  WebPoint PositionRelativeToOwner() override;
+  gfx::Point PositionRelativeToOwner() override;
   WebDocument GetDocument() override;
   WebPagePopupClient* GetClientForTesting() const override;
 
@@ -118,7 +119,7 @@ class CORE_EXPORT WebPagePopupImpl final : public WebPagePopup,
   void BeginFrame(base::TimeTicks last_frame_time,
                   bool record_main_frame_metrics) override;
   void UpdateLifecycle(LifecycleUpdate requested_update,
-                       LifecycleUpdateReason reason) override;
+                       DocumentUpdateReason reason) override;
   void Resize(const WebSize&) override;
   void Close() override;
   WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&) override;
@@ -180,8 +181,11 @@ class CORE_EXPORT WebPagePopupImpl final : public WebPagePopup,
 
 // WebPagePopupImpl is the only implementation of WebPagePopup and PagePopup, so
 // no further checking required.
-DEFINE_TYPE_CASTS(WebPagePopupImpl, WebPagePopup, widget, true, true);
-DEFINE_TYPE_CASTS(WebPagePopupImpl, PagePopup, popup, true, true);
+template <>
+struct DowncastTraits<WebPagePopupImpl> {
+  static bool AllowFrom(const WebPagePopup& widget) { return true; }
+  static bool AllowFrom(const PagePopup& popup) { return true; }
+};
 
 }  // namespace blink
 #endif  // THIRD_PARTY_BLINK_RENDERER_CORE_EXPORTED_WEB_PAGE_POPUP_IMPL_H_

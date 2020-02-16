@@ -16,7 +16,6 @@ using StartupMetricsTest = InProcessBrowserTest;
 namespace {
 
 constexpr const char* kStartupMetrics[] = {
-    "Startup.BrowserMainToRendererMain",
     "Startup.BrowserMessageLoopStartTime",
     "Startup.BrowserMessageLoopStartTimeFromMainEntry3",
     "Startup.BrowserOpenTabs",
@@ -30,7 +29,6 @@ constexpr const char* kStartupMetrics[] = {
     "Startup.LoadTime.ExeMainToDllMain2",
     "Startup.LoadTime.ProcessCreateToDllMain2",
     "Startup.LoadTime.ProcessCreateToExeMain2",
-    "Startup.SystemUptime",
 
 #if defined(OS_WIN)
     "Startup.BrowserMessageLoopStartHardFaultCount",

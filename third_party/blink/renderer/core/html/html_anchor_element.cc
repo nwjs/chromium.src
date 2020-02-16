@@ -26,6 +26,7 @@
 
 #include "base/metrics/histogram_macros.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_prescient_networking.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -110,7 +111,7 @@ bool HTMLAnchorElement::SupportsFocus() const {
 }
 
 bool HTMLAnchorElement::ShouldHaveFocusAppearance() const {
-  return (GetDocument().LastFocusType() != kWebFocusTypeMouse) ||
+  return (GetDocument().LastFocusType() != mojom::blink::FocusType::kMouse) ||
          HTMLElement::SupportsFocus();
 }
 
@@ -276,7 +277,7 @@ bool HTMLAnchorElement::CanStartSelection() const {
 bool HTMLAnchorElement::draggable() const {
   // Should be draggable if we have an href attribute.
   const AtomicString& value = FastGetAttribute(html_names::kDraggableAttr);
-  if (DeprecatedEqualIgnoringCase(value, "true"))
+  if (EqualIgnoringASCIICase(value, "true"))
     return true;
   if (DeprecatedEqualIgnoringCase(value, "false"))
     return false;
@@ -421,19 +422,13 @@ void HTMLAnchorElement::HandleClick(Event& event) {
   const AtomicString& target = FastGetAttribute(html_names::kTargetAttr);
   FrameLoadRequest frame_request(&GetDocument(), request);
   frame_request.SetNavigationPolicy(NavigationPolicyFromEvent(&event));
+  frame_request.SetClientRedirectReason(ClientNavigationReason::kAnchorClick);
   if (HasRel(kRelationNoReferrer)) {
     frame_request.SetNoReferrer();
     frame_request.SetNoOpener();
   }
   if (HasRel(kRelationNoOpener))
     frame_request.SetNoOpener();
-  if (RuntimeEnabledFeatures::HrefTranslateEnabled(&GetDocument()) &&
-      FastHasAttribute(html_names::kHreftranslateAttr)) {
-    frame_request.SetHrefTranslate(
-        FastGetAttribute(html_names::kHreftranslateAttr));
-    UseCounter::Count(GetDocument(),
-                      WebFeature::kHTMLAnchorElementHrefTranslateAttribute);
-  }
   frame_request.SetTriggeringEventInfo(
       event.isTrusted() ? TriggeringEventInfo::kFromTrustedEvent
                         : TriggeringEventInfo::kFromUntrustedEvent);
@@ -447,6 +442,18 @@ void HTMLAnchorElement::HandleClick(Event& event) {
               frame_request,
               target.IsEmpty() ? GetDocument().BaseTarget() : target)
           .frame;
+
+  // If hrefTranslate is enabled and set restrict processing it
+  // to same frame or navigations with noopener set.
+  if (RuntimeEnabledFeatures::HrefTranslateEnabled(&GetDocument()) &&
+      FastHasAttribute(html_names::kHreftranslateAttr) &&
+      (target_frame == frame || frame_request.GetWindowFeatures().noopener)) {
+    frame_request.SetHrefTranslate(
+        FastGetAttribute(html_names::kHreftranslateAttr));
+    UseCounter::Count(GetDocument(),
+                      WebFeature::kHTMLAnchorElementHrefTranslateAttribute);
+  }
+
   if (target_frame)
     target_frame->Navigate(frame_request, WebFrameLoadType::kStandard);
 }

@@ -19,6 +19,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autocomplete_history_manager.h"
 #include "components/autofill/core/browser/autofill_driver.h"
+#include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/autofill_metrics.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
@@ -149,7 +150,7 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
   if (suggestions.empty()) {
     OnAutofillAvailabilityEvent(mojom::AutofillState::kNoSuggestions);
     // No suggestions, any popup currently showing is obsolete.
-    manager_->client()->HideAutofillPopup();
+    manager_->client()->HideAutofillPopup(PopupHidingReason::kNoSuggestions);
     return;
   }
 
@@ -239,7 +240,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(const base::string16& value,
     AutofillMetrics::LogAutocompleteSuggestionAcceptedIndex(position);
     manager_->OnAutocompleteEntrySelected(value);
   } else if (identifier == POPUP_ITEM_ID_SCAN_CREDIT_CARD) {
-    manager_->client()->ScanCreditCard(base::Bind(
+    manager_->client()->ScanCreditCard(base::BindOnce(
         &AutofillExternalDelegate::OnCreditCardScanned, GetWeakPtr()));
   } else if (identifier == POPUP_ITEM_ID_CREDIT_CARD_SIGNIN_PROMO) {
     manager_->client()->ExecuteCommand(identifier);
@@ -248,6 +249,18 @@ void AutofillExternalDelegate::DidAcceptSuggestion(const base::string16& value,
   } else if (identifier == POPUP_ITEM_ID_HIDE_AUTOFILL_SUGGESTIONS) {
     // No-op as the popup will be closed in the end of the method.
     manager_->OnUserHideSuggestions(query_form_, query_field_);
+  } else if (identifier == POPUP_ITEM_ID_USE_VIRTUAL_CARD) {
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+    manager_->FetchVirtualCardCandidates();
+#else
+    NOTREACHED();
+#endif
+  } else if (identifier == POPUP_ITEM_ID_ONE_TIME_CODE) {
+    if (IsAutofillSmsReceiverEnabled()) {
+      driver_->RendererShouldFillFieldWithValue(value);
+    } else {
+      NOTREACHED();
+    }
   } else {
     if (identifier > 0) {  // Denotes an Autofill suggestion.
       AutofillMetrics::LogAutofillSuggestionAcceptedIndex(
@@ -267,7 +280,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(const base::string16& value,
     should_show_cards_from_account_option_ = false;
     manager_->RefetchCardsAndUpdatePopup(query_id_, query_form_, query_field_);
   } else {
-    manager_->client()->HideAutofillPopup();
+    manager_->client()->HideAutofillPopup(PopupHidingReason::kAcceptSuggestion);
   }
 }
 
@@ -293,7 +306,7 @@ bool AutofillExternalDelegate::RemoveSuggestion(const base::string16& value,
 }
 
 void AutofillExternalDelegate::DidEndTextFieldEditing() {
-  manager_->client()->HideAutofillPopup();
+  manager_->client()->HideAutofillPopup(PopupHidingReason::kEndEditing);
 }
 
 void AutofillExternalDelegate::ClearPreviewedForm() {
@@ -318,7 +331,7 @@ void AutofillExternalDelegate::RegisterDeletionCallback(
 }
 
 void AutofillExternalDelegate::Reset() {
-  manager_->client()->HideAutofillPopup();
+  manager_->client()->HideAutofillPopup(PopupHidingReason::kNavigation);
 }
 
 base::WeakPtr<AutofillExternalDelegate> AutofillExternalDelegate::GetWeakPtr() {

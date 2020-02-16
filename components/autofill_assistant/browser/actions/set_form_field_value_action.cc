@@ -8,6 +8,9 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "components/autofill/core/common/form_data.h"
+#include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/signatures_util.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
 #include "components/autofill_assistant/browser/client_status.h"
 
@@ -20,8 +23,15 @@ SetFormFieldValueAction::FieldInput::FieldInput(
 SetFormFieldValueAction::FieldInput::FieldInput(std::string _value)
     : value(_value) {}
 
-SetFormFieldValueAction::FieldInput::FieldInput(bool _use_password)
-    : use_password(_use_password) {}
+SetFormFieldValueAction::FieldInput::FieldInput(
+    PasswordValueType _password_type,
+    const std::string& _memory_key)
+    : password_type(_password_type), memory_key(_memory_key) {
+  DCHECK_EQ(password_type == PasswordValueType::GENERATED_PASSWORD,
+            !memory_key.empty())
+      << "Wrong |FieldInput| initialisation: iff the password action type is "
+         "|GENERATED_PASSWORD|, the memory should not be empty";
+}
 
 SetFormFieldValueAction::FieldInput::FieldInput(FieldInput&& other) = default;
 
@@ -81,7 +91,7 @@ void SetFormFieldValueAction::InternalProcessAction(
         FALLTHROUGH;
       case SetFormFieldValueProto_KeyPress::kUsePassword:
         // Login information must have been stored by a previous action.
-        if (!delegate_->GetClientMemory()->has_selected_login()) {
+        if (!delegate_->GetUserData()->selected_login_.has_value()) {
           DVLOG(1) << "SetFormFieldValueAction: requested login details not "
                       "available in client memory.";
           EndAction(ClientStatus(PRECONDITION_FAILED));
@@ -89,11 +99,11 @@ void SetFormFieldValueAction::InternalProcessAction(
         }
         if (keypress.keypress_case() ==
             SetFormFieldValueProto_KeyPress::kUseUsername) {
-          field_inputs_.emplace_back(/* value = */ delegate_->GetClientMemory()
-                                         ->selected_login()
-                                         ->username);
+          field_inputs_.emplace_back(/* value = */ delegate_->GetUserData()
+                                         ->selected_login_->username);
         } else {
-          field_inputs_.emplace_back(/* use_password = */ true);
+          field_inputs_.emplace_back(
+              /* password_type = */ PasswordValueType::STORED_PASSWORD);
         }
         break;
       case SetFormFieldValueProto_KeyPress::kText:
@@ -106,7 +116,7 @@ void SetFormFieldValueAction::InternalProcessAction(
           EndAction(ClientStatus(INVALID_ACTION));
           return;
         }
-        if (!delegate_->GetClientMemory()->has_additional_value(
+        if (!delegate_->GetUserData()->has_additional_value(
                 keypress.client_memory_key())) {
           DVLOG(1) << "SetFormFieldValueAction: requested key '"
                    << keypress.client_memory_key()
@@ -115,8 +125,19 @@ void SetFormFieldValueAction::InternalProcessAction(
           return;
         }
         field_inputs_.emplace_back(
-            /* value = */ *delegate_->GetClientMemory()->additional_value(
+            /* value = */ *delegate_->GetUserData()->additional_value(
                 keypress.client_memory_key()));
+        break;
+      case SetFormFieldValueProto_KeyPress::kGeneratePassword:
+        if (keypress.generate_password().memory_key().empty()) {
+          DVLOG(1) << "SetFormFieldValueAction_kGeneratePassword: "
+                      "|memory_key| cannot be empty.";
+          EndAction(ClientStatus(INVALID_ACTION));
+          return;
+        }
+        field_inputs_.emplace_back(
+            /* password_type = */ PasswordValueType::GENERATED_PASSWORD,
+            /* memory_key = */ keypress.generate_password().memory_key());
         break;
       default:
         DVLOG(1) << "Unrecognized field for SetFormFieldValueProto_KeyPress";
@@ -158,12 +179,27 @@ void SetFormFieldValueAction::OnSetFieldValue(int next,
     delegate_->SendKeyboardInput(selector_, *field_input.keyboard_input,
                                  delay_in_millisecond,
                                  std::move(next_field_callback));
-  } else if (field_input.use_password) {
-    delegate_->GetWebsiteLoginFetcher()->GetPasswordForLogin(
-        *delegate_->GetClientMemory()->selected_login(),
-        base::BindOnce(&SetFormFieldValueAction::OnGetPassword,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       /* field_index = */ next));
+  } else if (field_input.password_type != PasswordValueType::NOT_SET) {
+    switch (field_input.password_type) {
+      case PasswordValueType::NOT_SET:
+        DCHECK(false);
+        break;
+      case PasswordValueType::GENERATED_PASSWORD:
+        delegate_->RetrieveElementFormAndFieldData(
+            selector_,
+            base::BindOnce(
+                &SetFormFieldValueAction::OnGetFormAndFieldDataForGeneration,
+                weak_ptr_factory_.GetWeakPtr(),
+                /* field_index = */ next, field_input.memory_key));
+        break;
+      case PasswordValueType::STORED_PASSWORD:
+        delegate_->GetWebsiteLoginFetcher()->GetPasswordForLogin(
+            *delegate_->GetUserData()->selected_login_,
+            base::BindOnce(&SetFormFieldValueAction::OnGetStoredPassword,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           /* field_index = */ next));
+        break;
+    }
   } else {
     if (simulate_key_presses || field_input.value.empty()) {
       delegate_->SetFieldValue(selector_, field_input.value,
@@ -230,9 +266,9 @@ void SetFormFieldValueAction::OnGetFieldValue(
   OnSetFieldValue(field_index + 1, OkClientStatus());
 }
 
-void SetFormFieldValueAction::OnGetPassword(int field_index,
-                                            bool success,
-                                            std::string password) {
+void SetFormFieldValueAction::OnGetStoredPassword(int field_index,
+                                                  bool success,
+                                                  std::string password) {
   if (!success) {
     EndAction(ClientStatus(AUTOFILL_INFO_NOT_AVAILABLE));
     return;
@@ -253,6 +289,51 @@ void SetFormFieldValueAction::OnGetPassword(int field_index,
             weak_ptr_factory_.GetWeakPtr(),
             /* next = */ field_index, /* requested_value = */ password));
   }
+}
+
+void SetFormFieldValueAction::OnGetFormAndFieldDataForGeneration(
+    int field_index,
+    const std::string memory_key,
+    const ClientStatus& status,
+    const autofill::FormData& form_data,
+    const autofill::FormFieldData& field_data) {
+  if (!status.ok()) {
+    EndAction(status);
+  }
+  uint64_t max_length = field_data.max_length;
+  std::string password = delegate_->GetWebsiteLoginFetcher()->GeneratePassword(
+      autofill::CalculateFormSignature(form_data),
+      autofill::CalculateFieldSignatureForField(field_data), max_length);
+  delegate_->WriteUserData(
+      base::BindOnce(&SetFormFieldValueAction::StoreGeneratedPasswordToUserData,
+                     weak_ptr_factory_.GetWeakPtr(), memory_key, password));
+
+  bool simulate_key_presses = proto_.set_form_value().simulate_key_presses();
+  int delay_in_millisecond = proto_.set_form_value().delay_in_millisecond();
+  if (simulate_key_presses) {
+    delegate_->SetFieldValue(
+        selector_, password, simulate_key_presses, delay_in_millisecond,
+        base::BindOnce(&SetFormFieldValueAction::OnSetFieldValue,
+                       weak_ptr_factory_.GetWeakPtr(),
+                       /* next = */ field_index + 1));
+  } else {
+    delegate_->SetFieldValue(
+        selector_, password, simulate_key_presses, delay_in_millisecond,
+        base::BindOnce(
+            &SetFormFieldValueAction::OnSetFieldValueAndCheckFallback,
+            weak_ptr_factory_.GetWeakPtr(),
+            /* next = */ field_index, /* requested_value = */ password));
+  }
+}
+
+void SetFormFieldValueAction::StoreGeneratedPasswordToUserData(
+    const std::string memory_key,
+    const std::string generated_password,
+    UserData* user_data,
+    UserData::FieldChange* field_change) {
+  DCHECK(user_data);
+
+  user_data->additional_values_[memory_key] = generated_password;
 }
 
 void SetFormFieldValueAction::EndAction(const ClientStatus& status) {

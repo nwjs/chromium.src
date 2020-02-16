@@ -12,20 +12,17 @@
 
 @protocol ApplicationCommands;
 @protocol BrowserCommands;
+class ChromeBrowserState;
 @protocol PopupMenuLongPressDelegate;
 @class TabModel;
 @protocol TabStripPresentation;
-
-namespace ios {
-class ChromeBrowserState;
-}  // namespace
 
 // A legacy coordinator that presents the public interface for the tablet tab
 // strip feature.
 @interface TabStripLegacyCoordinator : ChromeCoordinator<TabStripHighlighting>
 
 // BrowserState for this coordinator.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 
 // Dispatcher for sending commands.
 @property(nonatomic, weak) id dispatcher;

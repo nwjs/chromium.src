@@ -27,7 +27,6 @@
 #include "content/public/browser/notification_types.h"
 #include "content/public/common/page_state.h"
 #include "content/public/common/url_utils.h"
-#include "content/public/test/browser_side_navigation_test_utils.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/test/test_render_view_host.h"
@@ -50,8 +49,7 @@ TestWebContents::TestWebContents(BrowserContext* browser_context)
       expect_set_history_offset_and_length_(false),
       expect_set_history_offset_and_length_history_length_(0),
       pause_subresource_loading_called_(false),
-      audio_group_id_(base::UnguessableToken::Create()),
-      is_connected_to_bluetooth_device_(false) {
+      audio_group_id_(base::UnguessableToken::Create()) {
   if (!RenderProcessHostImpl::get_render_process_host_factory_for_testing()) {
     // Most unit tests should prefer to create a generic MockRenderProcessHost
     // (instead of a real RenderProcessHostImpl).  Tests that need to use a
@@ -253,11 +251,9 @@ void TestWebContents::TestDidFinishLoad(const GURL& url) {
   frame_tree_.root()->current_frame_host()->OnMessageReceived(msg);
 }
 
-void TestWebContents::TestDidFailLoadWithError(
-    const GURL& url,
-    int error_code,
-    const base::string16& error_description) {
-  GetMainFrame()->DidFailLoadWithError(url, error_code, error_description);
+void TestWebContents::TestDidFailLoadWithError(const GURL& url,
+                                               int error_code) {
+  GetMainFrame()->DidFailLoadWithError(url, error_code);
 }
 
 bool TestWebContents::CrossProcessNavigationPending() {
@@ -439,22 +435,16 @@ void TestWebContents::ResetPauseSubresourceLoadingCalled() {
   pause_subresource_loading_called_ = false;
 }
 
-void TestWebContents::SetPageImportanceSignals(PageImportanceSignals signals) {
-  page_importance_signals_ = signals;
-}
-
 void TestWebContents::SetLastActiveTime(base::TimeTicks last_active_time) {
   last_active_time_ = last_active_time;
 }
 
-void TestWebContents::SetIsConnectedToBluetoothDevice(
-    bool is_connected_to_bluetooth_device) {
-  is_connected_to_bluetooth_device_ = is_connected_to_bluetooth_device;
+void TestWebContents::TestIncrementBluetoothConnectedDeviceCount() {
+  IncrementBluetoothConnectedDeviceCount();
 }
 
-bool TestWebContents::IsConnectedToBluetoothDevice() {
-  return is_connected_to_bluetooth_device_ ||
-         WebContentsImpl::IsConnectedToBluetoothDevice();
+void TestWebContents::TestDecrementBluetoothConnectedDeviceCount() {
+  DecrementBluetoothConnectedDeviceCount();
 }
 
 base::UnguessableToken TestWebContents::GetAudioGroupId() {

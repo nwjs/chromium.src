@@ -19,7 +19,7 @@
 #include "content/browser/renderer_host/input/timeout_monitor.h"
 #include "content/common/input/synthetic_web_input_event_builders.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/events/base_event_utils.h"
 
 using blink::WebGestureEvent;
@@ -36,10 +36,10 @@ const float kWheelScrollGlobalY = 72;
 
 #define EXPECT_GESTURE_SCROLL_BEGIN_IMPL(event)                    \
   EXPECT_EQ(WebInputEvent::kGestureScrollBegin, event->GetType()); \
-  EXPECT_EQ(kWheelScrollX, event->PositionInWidget().x);           \
-  EXPECT_EQ(kWheelScrollY, event->PositionInWidget().y);           \
-  EXPECT_EQ(kWheelScrollGlobalX, event->PositionInScreen().x);     \
-  EXPECT_EQ(kWheelScrollGlobalY, event->PositionInScreen().y);     \
+  EXPECT_EQ(kWheelScrollX, event->PositionInWidget().x());         \
+  EXPECT_EQ(kWheelScrollY, event->PositionInWidget().y());         \
+  EXPECT_EQ(kWheelScrollGlobalX, event->PositionInScreen().x());   \
+  EXPECT_EQ(kWheelScrollGlobalY, event->PositionInScreen().y());   \
   EXPECT_EQ(scroll_units, event->data.scroll_begin.delta_hint_units);
 
 #define EXPECT_GESTURE_SCROLL_BEGIN(event)                         \
@@ -75,10 +75,10 @@ const float kWheelScrollGlobalY = 72;
 #define EXPECT_GESTURE_SCROLL_UPDATE_IMPL(event)                    \
   EXPECT_EQ(WebInputEvent::kGestureScrollUpdate, event->GetType()); \
   EXPECT_EQ(scroll_units, event->data.scroll_update.delta_units);   \
-  EXPECT_EQ(kWheelScrollX, event->PositionInWidget().x);            \
-  EXPECT_EQ(kWheelScrollY, event->PositionInWidget().y);            \
-  EXPECT_EQ(kWheelScrollGlobalX, event->PositionInScreen().x);      \
-  EXPECT_EQ(kWheelScrollGlobalY, event->PositionInScreen().y);
+  EXPECT_EQ(kWheelScrollX, event->PositionInWidget().x());          \
+  EXPECT_EQ(kWheelScrollY, event->PositionInWidget().y());          \
+  EXPECT_EQ(kWheelScrollGlobalX, event->PositionInScreen().x());    \
+  EXPECT_EQ(kWheelScrollGlobalY, event->PositionInScreen().y());
 
 #define EXPECT_GESTURE_SCROLL_UPDATE(event)                        \
   EXPECT_GESTURE_SCROLL_UPDATE_IMPL(event);                        \
@@ -98,10 +98,10 @@ const float kWheelScrollGlobalY = 72;
 #define EXPECT_GESTURE_SCROLL_END_IMPL(event)                    \
   EXPECT_EQ(WebInputEvent::kGestureScrollEnd, event->GetType()); \
   EXPECT_EQ(scroll_units, event->data.scroll_end.delta_units);   \
-  EXPECT_EQ(kWheelScrollX, event->PositionInWidget().x);         \
-  EXPECT_EQ(kWheelScrollY, event->PositionInWidget().y);         \
-  EXPECT_EQ(kWheelScrollGlobalX, event->PositionInScreen().x);   \
-  EXPECT_EQ(kWheelScrollGlobalY, event->PositionInScreen().y);
+  EXPECT_EQ(kWheelScrollX, event->PositionInWidget().x());       \
+  EXPECT_EQ(kWheelScrollY, event->PositionInWidget().y());       \
+  EXPECT_EQ(kWheelScrollGlobalX, event->PositionInScreen().x()); \
+  EXPECT_EQ(kWheelScrollGlobalY, event->PositionInScreen().y());
 
 #define EXPECT_GESTURE_SCROLL_END(event)                           \
   EXPECT_GESTURE_SCROLL_END_IMPL(event);                           \
@@ -156,11 +156,19 @@ class MouseWheelEventQueueTest : public testing::Test,
 
   // MouseWheelEventQueueClient
   void SendMouseWheelEventImmediately(
-      const MouseWheelEventWithLatencyInfo& event) override {
+      const MouseWheelEventWithLatencyInfo& event,
+      MouseWheelEventHandledCallback callback) override {
     WebMouseWheelEvent* cloned_event = new WebMouseWheelEvent();
     std::unique_ptr<WebInputEvent> cloned_event_holder(cloned_event);
     *cloned_event = event.event;
     sent_events_.push_back(std::move(cloned_event_holder));
+    callbacks_.emplace_back(base::BindOnce(
+        [](MouseWheelEventHandledCallback callback,
+           const MouseWheelEventWithLatencyInfo& event,
+           InputEventAckSource ack_source, InputEventAckState ack_result) {
+          std::move(callback).Run(event, ack_source, ack_result);
+        },
+        std::move(callback), event));
   }
 
   void ForwardGestureEventWithLatencyInfo(
@@ -192,6 +200,10 @@ class MouseWheelEventQueueTest : public testing::Test,
   bool IsAutoscrollInProgress() override { return false; }
 
  protected:
+  using HandleEventCallback =
+      base::OnceCallback<void(InputEventAckSource ack_source,
+                              InputEventAckState ack_result)>;
+
   size_t queued_event_count() const { return queue_->queued_size(); }
 
   bool event_in_flight() const { return queue_->event_in_flight(); }
@@ -222,11 +234,11 @@ class MouseWheelEventQueueTest : public testing::Test,
   }
 
   void SendMouseWheelEventAck(InputEventAckState ack_result) {
-    const MouseWheelEventWithLatencyInfo mouse_event_with_latency_info(
-        queue_->get_wheel_event_awaiting_ack_for_testing(), ui::LatencyInfo());
-    queue_->ProcessMouseWheelAck(InputEventAckSource::COMPOSITOR_THREAD,
-                                 ack_result, mouse_event_with_latency_info);
+    std::move(callbacks_.front())
+        .Run(InputEventAckSource::COMPOSITOR_THREAD, ack_result);
+    callbacks_.pop_front();
   }
+
   void SendMouseWheel(float x,
                       float y,
                       float global_x,
@@ -382,6 +394,7 @@ class MouseWheelEventQueueTest : public testing::Test,
   base::test::SingleThreadTaskEnvironment task_environment_;
   std::unique_ptr<MouseWheelEventQueue> queue_;
   std::vector<std::unique_ptr<WebInputEvent>> sent_events_;
+  base::circular_deque<HandleEventCallback> callbacks_;
   size_t acked_event_count_;
   InputEventAckState last_acked_event_state_;
   WebMouseWheelEvent last_acked_event_;

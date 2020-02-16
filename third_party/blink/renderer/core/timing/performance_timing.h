@@ -86,8 +86,6 @@ class CORE_EXPORT PerformanceTiming final : public ScriptWrappable,
 
   // The below are non-spec timings, for Page Load UMA metrics.
 
-  // The time the first document layout is performed.
-  uint64_t FirstLayout() const;
   // The time the first paint operation was performed.
   uint64_t FirstPaint() const;
   // The time the first paint operation for image was performed.
@@ -144,6 +142,10 @@ class CORE_EXPORT PerformanceTiming final : public ScriptWrappable,
   uint64_t ParseBlockedOnScriptLoadFromDocumentWriteDuration() const;
   uint64_t ParseBlockedOnScriptExecutionDuration() const;
   uint64_t ParseBlockedOnScriptExecutionFromDocumentWriteDuration() const;
+
+  typedef uint64_t (PerformanceTiming::*PerformanceTimingGetter)() const;
+  using NameToAttributeMap = HashMap<AtomicString, PerformanceTimingGetter>;
+  static const NameToAttributeMap& GetAttributeMapping();
 
   ScriptValue toJSONForBinding(ScriptState*) const;
 

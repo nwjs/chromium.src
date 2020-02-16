@@ -72,7 +72,9 @@ enum class CrostiniResult {
   CONCIERGE_START_FAILED = 46,
   CONTAINER_CONFIGURATION_FAILED = 47,
   LOAD_COMPONENT_UPDATE_IN_PROGRESS = 48,
-  kMaxValue = LOAD_COMPONENT_UPDATE_IN_PROGRESS,
+  NEVER_FINISHED = 49,
+  CONTAINER_SETUP_FAILED = 50,
+  kMaxValue = CONTAINER_SETUP_FAILED,
 };
 
 enum class InstallLinuxPackageProgressStatus {
@@ -138,7 +140,10 @@ struct StreamingExportStatus {
 struct ContainerInfo {
   ContainerInfo(std::string name, std::string username, std::string homedir);
   ~ContainerInfo();
+  ContainerInfo(ContainerInfo&&);
   ContainerInfo(const ContainerInfo&);
+  ContainerInfo& operator=(ContainerInfo&&);
+  ContainerInfo& operator=(const ContainerInfo&);
 
   std::string name;
   std::string username;
@@ -156,7 +161,10 @@ struct Icon {
 
 struct LinuxPackageInfo {
   LinuxPackageInfo();
+  LinuxPackageInfo(LinuxPackageInfo&&);
   LinuxPackageInfo(const LinuxPackageInfo&);
+  LinuxPackageInfo& operator=(LinuxPackageInfo&&);
+  LinuxPackageInfo& operator=(const LinuxPackageInfo&);
   ~LinuxPackageInfo();
 
   bool success;
@@ -185,5 +193,14 @@ enum class CorruptionStates {
 };
 
 }  // namespace crostini
+
+enum class ContainerOsVersion {
+  kUnknown = 0,
+  kDebianStretch = 1,
+  kDebianBuster = 2,
+  kDebianOther = 3,
+  kOtherOs = 4,
+  kMaxValue = kOtherOs,
+};
 
 #endif  // CHROME_BROWSER_CHROMEOS_CROSTINI_CROSTINI_SIMPLE_TYPES_H_

@@ -338,7 +338,7 @@ void AudioRendererImpl::StartPlaying() {
 void AudioRendererImpl::Initialize(DemuxerStream* stream,
                                    CdmContext* cdm_context,
                                    RendererClient* client,
-                                   const PipelineStatusCB& init_cb) {
+                                   PipelineStatusCallback init_cb) {
   DVLOG(1) << __func__;
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(client);
@@ -360,7 +360,7 @@ void AudioRendererImpl::Initialize(DemuxerStream* stream,
 
   // Always post |init_cb_| because |this| could be destroyed if initialization
   // failed.
-  init_cb_ = BindToCurrentLoop(init_cb);
+  init_cb_ = BindToCurrentLoop(std::move(init_cb));
 
   // Retrieve hardware device parameters asynchronously so we don't block the
   // media thread on synchronous IPC.
@@ -609,11 +609,14 @@ void AudioRendererImpl::OnAudioDecoderStreamInitialized(bool success) {
                           audio_parameters_)
                     : base::nullopt);
   if (params && !client_->IsVideoStreamAvailable()) {
-    algorithm_ = std::make_unique<AudioRendererAlgorithm>(params.value());
+    algorithm_ =
+        std::make_unique<AudioRendererAlgorithm>(media_log_, params.value());
   } else {
-    algorithm_ = std::make_unique<AudioRendererAlgorithm>();
+    algorithm_ = std::make_unique<AudioRendererAlgorithm>(media_log_);
   }
   algorithm_->Initialize(audio_parameters_, is_encrypted_);
+  if (latency_hint_)
+    algorithm_->SetLatencyHint(latency_hint_);
   ConfigureChannelMask();
 
   ChangeState_Locked(kFlushed);
@@ -670,8 +673,9 @@ void AudioRendererImpl::OnBufferingStateChange(BufferingState buffering_state) {
                                               : DECODER_UNDERFLOW;
   }
 
-  media_log_->AddEvent(media_log_->CreateBufferingStateChangedEvent(
-      "audio_buffering_state", buffering_state, reason));
+  media_log_->AddEvent<MediaLogEvent::kBufferingStateChanged>(
+      SerializableBufferingState<SerializableBufferingStateType::kAudio>{
+          buffering_state, reason});
 
   client_->OnBufferingStateChange(buffering_state, reason);
 }
@@ -685,6 +689,21 @@ void AudioRendererImpl::SetVolume(float volume) {
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(sink_.get());
   sink_->SetVolume(volume);
+}
+
+void AudioRendererImpl::SetLatencyHint(
+    base::Optional<base::TimeDelta> latency_hint) {
+  base::AutoLock auto_lock(lock_);
+
+  latency_hint_ = latency_hint;
+
+  if (algorithm_) {
+    algorithm_->SetLatencyHint(latency_hint);
+
+    // See if we need further reads to fill up to the new playback threshold.
+    // This may be needed if rendering isn't active to schedule regular reads.
+    AttemptRead_Locked();
+  }
 }
 
 void AudioRendererImpl::OnSuspend() {
@@ -869,7 +888,7 @@ bool AudioRendererImpl::HandleDecodedBuffer_Locked(
       return false;
 
     case kPlaying:
-      if (received_end_of_stream_ || algorithm_->IsQueueFull()) {
+      if (received_end_of_stream_ || algorithm_->IsQueueAdequateForPlayback()) {
         if (buffering_state_ == BUFFERING_HAVE_NOTHING)
           SetBufferingState_Locked(BUFFERING_HAVE_ENOUGH);
         return false;
@@ -1093,7 +1112,11 @@ int AudioRendererImpl::Render(base::TimeDelta delay,
         frames_after_end_of_stream = frames_requested;
       } else if (state_ == kPlaying &&
                  buffering_state_ != BUFFERING_HAVE_NOTHING) {
-        algorithm_->IncreaseQueueCapacity();
+        // Don't increase queue capacity if the queue latency is explicitly
+        // specified.
+        if (!latency_hint_)
+          algorithm_->IncreasePlaybackThreshold();
+
         SetBufferingState_Locked(BUFFERING_HAVE_NOTHING);
       }
     } else if (frames_written < frames_requested && !received_end_of_stream_ &&
@@ -1102,7 +1125,13 @@ int AudioRendererImpl::Render(base::TimeDelta delay,
       // If we only partially filled the request and should have more data, go
       // ahead and increase queue capacity to try and meet the next request.
       // Trigger underflow to give us a chance to refill up to the new cap.
-      algorithm_->IncreaseQueueCapacity();
+      // When a latency hint is present, don't override the user's preference
+      // with a queue increase, but still signal HAVE_NOTHING for them to take
+      // action if they choose.
+
+      if (!latency_hint_)
+        algorithm_->IncreasePlaybackThreshold();
+
       SetBufferingState_Locked(BUFFERING_HAVE_NOTHING);
     }
 

@@ -13,6 +13,7 @@
 #include "content/public/browser/indexed_db_context.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/common/extension.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "storage/browser/file_system/sandbox_file_system_backend_delegate.h"
@@ -69,7 +70,7 @@ void MigrateOnFileSystemThread(FileSystemContext* old_fs_context,
 void MigrateOnIndexedDBThread(IndexedDBContext* old_indexed_db_context,
                               IndexedDBContext* indexed_db_context,
                               const extensions::Extension* extension) {
-  DCHECK(old_indexed_db_context->TaskRunner()->RunsTasksInCurrentSequence());
+  DCHECK(old_indexed_db_context->IDBTaskRunner()->RunsTasksInCurrentSequence());
 
   url::Origin extension_origin = url::Origin::Create(
       extensions::Extension::GetBaseURLFromExtensionId(extension->id()));
@@ -81,7 +82,7 @@ void MigrateFileSystem(WeakPtr<extensions::AppDataMigrator> migrator,
                        StoragePartition* old_partition,
                        StoragePartition* current_partition,
                        const extensions::Extension* extension,
-                       const base::Closure& reply) {
+                       base::OnceClosure reply) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // Since this method is static and it's being run as a closure task, check to
@@ -102,14 +103,14 @@ void MigrateFileSystem(WeakPtr<extensions::AppDataMigrator> migrator,
       base::BindOnce(
           &MigrateOnFileSystemThread, base::RetainedRef(old_fs_context),
           base::RetainedRef(fs_context), base::RetainedRef(extension)),
-      reply);
+      std::move(reply));
 }
 
 void MigrateLegacyPartition(WeakPtr<extensions::AppDataMigrator> migrator,
                             StoragePartition* old_partition,
                             StoragePartition* current_partition,
                             const extensions::Extension* extension,
-                            const base::Closure& reply) {
+                            base::OnceClosure reply) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   IndexedDBContext* indexed_db_context =
@@ -119,18 +120,18 @@ void MigrateLegacyPartition(WeakPtr<extensions::AppDataMigrator> migrator,
 
   // Create a closure for the file system migration. This is the next step in
   // the migration flow after the IndexedDB migration.
-  base::Closure migrate_fs =
-      base::Bind(&MigrateFileSystem, migrator, old_partition, current_partition,
-                 base::RetainedRef(extension), reply);
+  base::OnceClosure migrate_fs = base::BindOnce(
+      &MigrateFileSystem, migrator, old_partition, current_partition,
+      base::RetainedRef(extension), std::move(reply));
 
   // Perform the IndexedDB migration on the old context's sequenced task
   // runner. After completion, it should call MigrateFileSystem.
-  old_indexed_db_context->TaskRunner()->PostTaskAndReply(
+  old_indexed_db_context->IDBTaskRunner()->PostTaskAndReply(
       FROM_HERE,
       base::BindOnce(
           &MigrateOnIndexedDBThread, base::RetainedRef(old_indexed_db_context),
           base::RetainedRef(indexed_db_context), base::RetainedRef(extension)),
-      migrate_fs);
+      std::move(migrate_fs));
 }
 
 }  // namespace
@@ -150,22 +151,21 @@ bool AppDataMigrator::NeedsMigration(const Extension* old,
 
 void AppDataMigrator::DoMigrationAndReply(const Extension* old,
                                           const Extension* extension,
-                                          const base::Closure& reply) {
+                                          base::OnceClosure reply) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(NeedsMigration(old, extension));
 
   // This should retrieve the general storage partition.
   content::StoragePartition* old_partition =
-      BrowserContext::GetStoragePartitionForSite(
-          profile_, Extension::GetBaseURLFromExtensionId(extension->id()));
+      util::GetStoragePartitionForExtensionId(extension->id(), profile_);
 
   // Enable the new extension so we can access its storage partition.
   bool old_was_disabled = registry_->AddEnabled(extension);
 
   // This should create a new isolated partition for the new version of the
   // extension.
-  StoragePartition* new_partition = BrowserContext::GetStoragePartitionForSite(
-      profile_, Extension::GetBaseURLFromExtensionId(extension->id()));
+  StoragePartition* new_partition =
+      util::GetStoragePartitionForExtensionId(extension->id(), profile_);
 
   // Now, restore the enabled/disabled state of the new and old extensions.
   if (old_was_disabled)
@@ -174,7 +174,7 @@ void AppDataMigrator::DoMigrationAndReply(const Extension* old,
     registry_->AddEnabled(old);
 
   MigrateLegacyPartition(weak_factory_.GetWeakPtr(), old_partition,
-                         new_partition, extension, reply);
+                         new_partition, extension, std::move(reply));
 }
 
 }  // namespace extensions

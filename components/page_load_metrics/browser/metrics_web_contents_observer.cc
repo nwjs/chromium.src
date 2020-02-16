@@ -309,7 +309,7 @@ void MetricsWebContentsObserver::ResourceLoadComplete(
     content::RenderFrameHost* render_frame_host,
     const content::GlobalRequestID& request_id,
     const content::mojom::ResourceLoadInfo& resource_load_info) {
-  if (!resource_load_info.url.SchemeIsHTTPOrHTTPS())
+  if (!resource_load_info.final_url.SchemeIsHTTPOrHTTPS())
     return;
 
   PageLoadTracker* tracker = GetTrackerOrNullForRequest(
@@ -329,7 +329,7 @@ void MetricsWebContentsObserver::ResourceLoadComplete(
     const content::mojom::CommonNetworkInfoPtr& network_info =
         resource_load_info.network_info;
     ExtraRequestCompleteInfo extra_request_complete_info(
-        url::Origin::Create(resource_load_info.url),
+        url::Origin::Create(resource_load_info.final_url),
         network_info->remote_endpoint.value(),
         render_frame_host->GetFrameTreeNodeId(), resource_load_info.was_cached,
         resource_load_info.raw_body_bytes, original_content_length,
@@ -582,15 +582,15 @@ void MetricsWebContentsObserver::OnVisibilityChanged(
 
   if (in_foreground_) {
     if (committed_load_)
-      committed_load_->WebContentsShown();
+      committed_load_->PageShown();
     for (const auto& kv : provisional_loads_) {
-      kv.second->WebContentsShown();
+      kv.second->PageShown();
     }
   } else {
     if (committed_load_)
-      committed_load_->WebContentsHidden();
+      committed_load_->PageHidden();
     for (const auto& kv : provisional_loads_) {
-      kv.second->WebContentsHidden();
+      kv.second->PageHidden();
     }
   }
 }

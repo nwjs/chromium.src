@@ -33,6 +33,7 @@
 #include "net/base/request_priority.h"
 #include "net/base/upload_progress.h"
 #include "net/cookies/canonical_cookie.h"
+#include "net/cookies/site_for_cookies.h"
 #include "net/http/http_raw_request_headers.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
@@ -271,13 +272,9 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   //          by starting from some page that redirects to the
   //          host-to-be-attacked.
   //
-  // TODO(mkwst): Convert this to a 'url::Origin'. Several callsites are using
-  // this value as a proxy for the "top-level frame URL", which is simply
-  // incorrect and fragile. We don't need the full URL for any //net checks,
-  // so we should drop the pieces we don't need. https://crbug.com/577565
-  const GURL& site_for_cookies() const { return site_for_cookies_; }
+  const SiteForCookies& site_for_cookies() const { return site_for_cookies_; }
   // This method may only be called before Start().
-  void set_site_for_cookies(const GURL& site_for_cookies);
+  void set_site_for_cookies(const SiteForCookies& site_for_cookies);
 
   // This key is used to isolate requests from different contexts in accessing
   // shared network resources like the cache.
@@ -686,10 +683,6 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   // encryption, 0 for cached responses.
   int raw_header_size() const { return raw_header_size_; }
 
-  // Returns the error status of the request.
-  // Do not use! Going to be protected!
-  const URLRequestStatus& status() const { return status_; }
-
   const NetworkTrafficAnnotationTag& traffic_annotation() const {
     return traffic_annotation_;
   }
@@ -735,6 +728,9 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
 
   // Allow the URLRequestJob class to set our status too.
   void set_status(URLRequestStatus status);
+
+  // Returns the error status of the request.
+  const URLRequestStatus& status() const { return status_; }
 
   // Allow the URLRequestJob to redirect this request. If non-null,
   // |removed_headers| and |modified_headers| are changes
@@ -844,7 +840,7 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   std::unique_ptr<UploadDataStream> upload_data_stream_;
 
   std::vector<GURL> url_chain_;
-  GURL site_for_cookies_;
+  SiteForCookies site_for_cookies_;
 
   NetworkIsolationKey network_isolation_key_;
 

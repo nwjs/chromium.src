@@ -208,7 +208,7 @@ class ClipboardOzone::AsyncClipboardOzone {
 
     // TODO(https://crbug.com/913422): the implementation is known to be
     // dangerous, and may cause blocks in ui thread. But base::Clipboard was
-    // designed to have synchrous APIs rather than asynchronous ones that at
+    // designed to have synchronous APIs rather than asynchronous ones that at
     // least two system clipboards on X11 and Wayland provide.
     base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
     request->finish_closure = run_loop.QuitClosure();
@@ -336,7 +336,7 @@ bool ClipboardOzone::IsFormatAvailable(const ClipboardFormatType& format,
   DCHECK(CalledOnValidThread());
 
   auto available_types = async_clipboard_ozone_->RequestMimeTypes(buffer);
-  return base::Contains(available_types, format.ToString());
+  return base::Contains(available_types, format.GetName());
 }
 
 void ClipboardOzone::Clear(ClipboardBuffer buffer) {
@@ -355,14 +355,28 @@ void ClipboardOzone::ReadAvailableTypes(ClipboardBuffer buffer,
     // Special handling for chromium/x-web-custom-data.
     // We must read the data and deserialize it to find the list
     // of mime types to report.
-    if (mime_type == ClipboardFormatType::GetWebCustomDataType().ToString()) {
+    if (mime_type == ClipboardFormatType::GetWebCustomDataType().GetName()) {
       auto data = async_clipboard_ozone_->ReadClipboardDataAndWait(
-          buffer, ClipboardFormatType::GetWebCustomDataType().ToString());
+          buffer, ClipboardFormatType::GetWebCustomDataType().GetName());
       ui::ReadCustomDataTypes(data.data(), data.size(), types);
     } else {
       types->push_back(base::UTF8ToUTF16(mime_type));
     }
   }
+}
+
+std::vector<base::string16>
+ClipboardOzone::ReadAvailablePlatformSpecificFormatNames(
+    ClipboardBuffer buffer) const {
+  DCHECK(CalledOnValidThread());
+
+  std::vector<std::string> mime_types =
+      async_clipboard_ozone_->RequestMimeTypes(buffer);
+  std::vector<base::string16> types;
+  types.reserve(mime_types.size());
+  for (auto& mime_type : mime_types)
+    types.push_back(base::UTF8ToUTF16(mime_type));
+  return types;
 }
 
 void ClipboardOzone::ReadText(ClipboardBuffer buffer,
@@ -401,7 +415,7 @@ void ClipboardOzone::ReadHTML(ClipboardBuffer buffer,
       async_clipboard_ozone_->ReadClipboardDataAndWait(buffer, kMimeTypeHTML);
   *markup = base::UTF8ToUTF16(base::StringPiece(
       reinterpret_cast<char*>(clipboard_data.data()), clipboard_data.size()));
-  DCHECK(markup->length() <= std::numeric_limits<uint32_t>::max());
+  DCHECK_LE(markup->length(), std::numeric_limits<uint32_t>::max());
   *fragment_end = static_cast<uint32_t>(markup->length());
 }
 
@@ -449,7 +463,7 @@ void ClipboardOzone::ReadData(const ClipboardFormatType& format,
   DCHECK(CalledOnValidThread());
 
   auto clipboard_data = async_clipboard_ozone_->ReadClipboardDataAndWait(
-      ClipboardBuffer::kCopyPaste, format.ToString());
+      ClipboardBuffer::kCopyPaste, format.GetName());
   result->assign(clipboard_data.begin(), clipboard_data.end());
 }
 
@@ -541,7 +555,7 @@ void ClipboardOzone::WriteData(const ClipboardFormatType& format,
                                const char* data_data,
                                size_t data_len) {
   std::vector<uint8_t> data(data_data, data_data + data_len);
-  async_clipboard_ozone_->InsertData(std::move(data), format.ToString());
+  async_clipboard_ozone_->InsertData(std::move(data), format.GetName());
 }
 
 }  // namespace ui

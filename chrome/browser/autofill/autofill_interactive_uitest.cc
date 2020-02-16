@@ -731,7 +731,8 @@ class AutofillInteractiveTestWithHistogramTester
     // Only allow requests to be loaded that are necessary for the test. This
     // allows a histogram to test properties of some specific requests.
     std::vector<std::string> allowlist = {
-        "/internal/test_url_path", "https://clients1.google.com/tbproxy"};
+        "/internal/test_url_path", "https://clients1.google.com/tbproxy",
+        "https://content-autofill.googleapis.com/"};
     url_loader_interceptor_ =
         std::make_unique<URLLoaderInterceptor>(base::BindLambdaForTesting(
             [&](URLLoaderInterceptor::RequestParams* params) {
@@ -758,9 +759,15 @@ class AutofillInteractiveTestWithHistogramTester
   std::unique_ptr<URLLoaderInterceptor> url_loader_interceptor_;
 };
 
+// Test is flaky on Linux TSAN, see http://crbug.com/1045709.
+#if defined(THREAD_SANITIZER)
+#define MAYBE_BasicFormFill DISABLED_BasicFormFill
+#else
+#define MAYBE_BasicFormFill BasicFormFill
+#endif  // THREAD_SANITIZER
 // Test that basic form fill is working.
 IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestWithHistogramTester,
-                       BasicFormFill) {
+                       MAYBE_BasicFormFill) {
   LOG(ERROR) << "crbug/967588: In case of flakes, report log statements to "
                 "crbug.com/967588";
   CreateTestProfile();
@@ -780,6 +787,8 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestWithHistogramTester,
   // Assert that the network isolation key is populated for 2 requests:
   // - Navigation: /internal/test_url_path
   // - Autofill query: https://clients1.google.com/tbproxy/af/query?...
+  //   or "https://content-autofill.googleapis.com/..." (depending on the
+  //   finch configuration of the AutofillUseApi feature).
   histogram_tester().ExpectBucketCount("HttpCache.NetworkIsolationKeyPresent2",
                                        2 /*kPresent*/, 2 /*count*/);
 }
@@ -892,7 +901,13 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, ModifySelectFieldAndFill) {
 }
 
 // Test that autofill works when the website prefills the form.
-IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, PrefillFormAndFill) {
+#if defined(OS_MACOSX)
+// Flaky on Mac https://crbug.com/1045545
+#define MAYBE_PrefillFormAndFill DISABLED_PrefillFormAndFill
+#else
+#define MAYBE_PrefillFormAndFill PrefillFormAndFill
+#endif
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, MAYBE_PrefillFormAndFill) {
   const char kPrefillScript[] =
       "<script>"
       "document.getElementById('firstname').value = 'Seb';"

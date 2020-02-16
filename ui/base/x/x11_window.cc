@@ -13,6 +13,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/hit_test_x11.h"
+#include "ui/base/wm_role_names_linux.h"
 #include "ui/base/x/x11_pointer_grab.h"
 #include "ui/base/x/x11_util.h"
 #include "ui/base/x/x11_util_internal.h"
@@ -28,6 +29,7 @@
 #include "ui/gfx/image/image_skia_rep.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/x/x11_atom_cache.h"
+#include "ui/gfx/x/x11_error_tracker.h"
 #include "ui/gfx/x/x11_path.h"
 #include "ui/platform_window/common/platform_window_defaults.h"
 
@@ -42,6 +44,12 @@ const int kAllWorkspaces = 0xFFFFFFFF;
 constexpr char kX11WindowRolePopup[] = "popup";
 constexpr char kX11WindowRoleBubble[] = "bubble";
 constexpr unsigned char kDarkGtkThemeVariant[] = "dark";
+
+constexpr long kSystemTrayRequestDock = 0;
+
+constexpr int kXembedInfoProtocolVersion = 0;
+constexpr int kXembedFlagMap = 1 << 0;
+constexpr int kXembedInfoFlags = kXembedFlagMap;
 
 // In some situations, views tries to make a zero sized window, and that
 // makes us crash. Make sure we have valid sizes.
@@ -205,8 +213,17 @@ void XWindow::Init(const Configuration& config) {
       enable_transparent_visuals = config.type == WindowType::kDrag;
   }
 
+  int visual_id;
+  if (config.wm_role_name == kStatusIconWmRoleName) {
+    std::string atom_name =
+        "_NET_SYSTEM_TRAY_S" + base::NumberToString(DefaultScreen(xdisplay_));
+    XID manager =
+        XGetSelectionOwner(xdisplay_, gfx::GetAtom(atom_name.c_str()));
+    if (ui::GetIntProperty(manager, "_NET_SYSTEM_TRAY_VISUAL", &visual_id))
+      visual_id_ = visual_id;
+  }
+
   Visual* visual = CopyFromParent;
-  SetVisualId(config.visual_id);
   int depth = CopyFromParent;
   Colormap colormap = CopyFromParent;
   ui::XVisualManager* visual_manager = ui::XVisualManager::GetInstance();
@@ -234,6 +251,16 @@ void XWindow::Init(const Configuration& config) {
                            bounds_in_pixels_.height(),
                            0,  // border width
                            depth, InputOutput, visual, attribute_mask, &swa);
+
+  // It can be a status icon window. If it fails to initialize, don't provide
+  // him with a native window handle, close self and let the client destroy
+  // ourselves.
+  if (config.wm_role_name == kStatusIconWmRoleName &&
+      !InitializeAsStatusIcon()) {
+    Close();
+    return;
+  }
+
   OnXWindowCreated();
 
   // TODO(erg): Maybe need to set a ViewProp here like in RWHL::RWHL().
@@ -466,6 +493,9 @@ bool XWindow::Hide() {
   if (!window_mapped_in_client_)
     return false;
 
+  // Make sure no resize task will run after the window is unmapped.
+  CancelResize();
+
   XWithdrawWindow(xdisplay_, xwindow_, 0);
   window_mapped_in_client_ = false;
   return true;
@@ -551,17 +581,7 @@ bool XWindow::IsActive() const {
   // a window is topmost iff it has focus, just use the focus state to determine
   // if a window is active.  Note that Activate() and Deactivate() change the
   // stacking order in addition to changing the focus state.
-  bool is_active =
-      (has_window_focus_ || has_pointer_focus_) && !ignore_keyboard_input_;
-
-  // is_active => window_mapped_in_server_
-  // !window_mapped_in_server_ => !is_active
-  DCHECK(!is_active || window_mapped_in_server_);
-
-  // |has_window_focus_| and |has_pointer_focus_| are mutually exclusive.
-  DCHECK(!has_window_focus_ || !has_pointer_focus_);
-
-  return is_active;
+  return (has_window_focus_ || has_pointer_focus_) && !ignore_keyboard_input_;
 }
 void XWindow::SetSize(const gfx::Size& size_in_pixels) {
   XResizeWindow(xdisplay_, xwindow_, size_in_pixels.width(),
@@ -1260,7 +1280,6 @@ void XWindow::ProcessEvent(XEvent* xev) {
       has_pointer_grab_ = false;
       has_pointer_focus_ = false;
       has_window_focus_ = false;
-      OnXWindowUnmapped();
       break;
     }
     case ClientMessage: {
@@ -1363,7 +1382,6 @@ void XWindow::UpdateWMUserTime(XEvent* xev) {
 
 void XWindow::OnWindowMapped() {
   window_mapped_in_server_ = true;
-  OnXWindowMapped();
   // Some WMs only respect maximize hints after the window has been mapped.
   // Check whether we need to re-do a maximization.
   if (should_maximize_after_map_) {
@@ -1584,7 +1602,7 @@ void XWindow::SetXWindowShape(std::unique_ptr<NativeShapeRects> native_shape,
       SkPath path_in_dip;
       if (native_region.getBoundaryPath(&path_in_dip)) {
         SkPath path_in_pixels;
-        path_in_dip.transform(transform.matrix(), &path_in_pixels);
+        path_in_dip.transform(SkMatrix(transform.matrix()), &path_in_pixels);
         xregion = gfx::CreateRegionFromSkPath(path_in_pixels);
       } else {
         xregion = XCreateRegion();
@@ -1608,14 +1626,6 @@ void XWindow::UnconfineCursor() {
   pointer_barriers_.fill(x11::None);
 
   has_pointer_barriers_ = false;
-}
-
-void XWindow::SetVisualId(base::Optional<int> visual_id) {
-  if (!visual_id.has_value())
-    return;
-
-  DCHECK_GE(visual_id.value(), 0);
-  visual_id_ = visual_id.value();
 }
 
 void XWindow::UpdateWindowRegion(XRegion* xregion) {
@@ -1659,6 +1669,45 @@ void XWindow::UpdateWindowRegion(XRegion* xregion) {
 void XWindow::NotifyBoundsChanged(const gfx::Rect& new_bounds_in_px) {
   ResetWindowRegion();
   OnXWindowBoundsChanged(new_bounds_in_px);
+}
+
+bool XWindow::InitializeAsStatusIcon() {
+  std::string atom_name =
+      "_NET_SYSTEM_TRAY_S" + base::NumberToString(DefaultScreen(xdisplay_));
+  XID manager = XGetSelectionOwner(xdisplay_, gfx::GetAtom(atom_name.c_str()));
+  if (manager == x11::None)
+    return false;
+
+  ui::SetIntArrayProperty(xwindow_, "_XEMBED_INFO", "CARDINAL",
+                          {kXembedInfoProtocolVersion, kXembedInfoFlags});
+
+  XSetWindowAttributes attrs;
+  unsigned long flags = 0;
+  if (has_alpha()) {
+    flags |= CWBackPixel;
+    attrs.background_pixel = 0;
+  } else {
+    ui::SetIntProperty(xwindow_, "CHROMIUM_COMPOSITE_WINDOW", "CARDINAL", 1);
+    flags |= CWBackPixmap;
+    attrs.background_pixmap = ParentRelative;
+  }
+  XChangeWindowAttributes(xdisplay_, xwindow_, flags, &attrs);
+  XEvent ev;
+  memset(&ev, 0, sizeof(ev));
+  ev.xclient.type = ClientMessage;
+  ev.xclient.window = manager;
+  ev.xclient.message_type = gfx::GetAtom("_NET_SYSTEM_TRAY_OPCODE");
+  ev.xclient.format = 32;
+  ev.xclient.data.l[0] = ui::X11EventSource::GetInstance()->GetTimestamp();
+  ev.xclient.data.l[1] = kSystemTrayRequestDock;
+  ev.xclient.data.l[2] = xwindow_;
+  bool error;
+  {
+    gfx::X11ErrorTracker error_tracker;
+    XSendEvent(xdisplay_, manager, false, NoEventMask, &ev);
+    error = error_tracker.FoundNewError();
+  }
+  return !error;
 }
 
 }  // namespace ui

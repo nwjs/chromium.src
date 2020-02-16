@@ -6,9 +6,11 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/barrier_closure.h"
 #include "base/bind.h"
@@ -606,7 +608,7 @@ void LegacyCacheStorage::AddHandleRef() {
 
 void LegacyCacheStorage::DropHandleRef() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(handle_ref_count_ > 0);
+  DCHECK_GT(handle_ref_count_, 0U);
   handle_ref_count_ -= 1;
   if (!handle_ref_count_ && cache_storage_manager_) {
     ReleaseUnreferencedCaches();
@@ -622,9 +624,7 @@ void LegacyCacheStorage::OpenCache(const std::string& cache_name,
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   // TODO: Hold a handle to this CacheStorage instance while executing
   //       operations to better support use by internal code that may
@@ -648,9 +648,7 @@ void LegacyCacheStorage::HasCache(const std::string& cache_name,
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -670,9 +668,7 @@ void LegacyCacheStorage::DoomCache(const std::string& cache_name,
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -691,9 +687,7 @@ void LegacyCacheStorage::EnumerateCaches(int64_t trace_id,
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -717,9 +711,7 @@ void LegacyCacheStorage::MatchCache(
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -743,9 +735,7 @@ void LegacyCacheStorage::MatchAllCaches(
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   auto id = scheduler_->CreateId();
   scheduler_->ScheduleOperation(
@@ -769,9 +759,7 @@ void LegacyCacheStorage::WriteToCache(
   if (!initialized_)
     LazyInit();
 
-  quota_manager_proxy_->NotifyStorageAccessed(
-      CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
-      StorageType::kTemporary);
+  quota_manager_proxy_->NotifyStorageAccessed(origin_, StorageType::kTemporary);
 
   // Note, this is a shared operation since it only reads CacheStorage data.
   // The CacheStorageCache is responsible for making its put operation

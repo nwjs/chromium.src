@@ -36,6 +36,7 @@
 #include "components/sync/protocol/search_engine_specifics.pb.h"
 #include "components/sync/protocol/send_tab_to_self_specifics.pb.h"
 #include "components/sync/protocol/session_specifics.pb.h"
+#include "components/sync/protocol/sharing_message_specifics.pb.h"
 #include "components/sync/protocol/sync.pb.h"
 #include "components/sync/protocol/theme_specifics.pb.h"
 #include "components/sync/protocol/typed_url_specifics.pb.h"
@@ -369,7 +370,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntityMetadata& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(40 == ModelType::NUM_ENTRIES,
+  static_assert(41 == ModelType::NUM_ENTRIES,
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -403,6 +404,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(security_event);
   VISIT(send_tab_to_self);
   VISIT(session);
+  VISIT(sharing_message);
   VISIT(theme);
   VISIT(typed_url);
   VISIT(user_consent);
@@ -792,6 +794,25 @@ VISIT_PROTO_FIELDS(const sync_pb::SessionWindow& proto) {
   VISIT_ENUM(browser_type);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::SharingMessageSpecifics& proto) {
+  VISIT(message_id);
+  VISIT(channel_configuration);
+  VISIT_BYTES(payload);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharingMessageSpecifics::
+                       ChannelConfiguration::FCMChannelConfiguration& proto) {
+  VISIT(token);
+  VISIT(ttl);
+  VISIT(priority);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::SharingMessageSpecifics::ChannelConfiguration& proto) {
+  VISIT(fcm);
+  VISIT_BYTES(server);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::SyncCycleCompletedEventInfo& proto) {
   VISIT(num_encryption_conflicts);
   VISIT(num_hierarchy_conflicts);
@@ -1049,7 +1070,6 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletMaskedCreditCard& proto) {
   VISIT(exp_month);
   VISIT(exp_year);
   VISIT(billing_address_id);
-  VISIT_ENUM(card_class);
   VISIT(bank_name);
 }
 

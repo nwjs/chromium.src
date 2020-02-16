@@ -261,9 +261,7 @@ _BANNED_IOS_EGTEST_FUNCTIONS = (
 # RepeatingCallback, BindOnce, BindRepeating) in order to enable presubmit
 # checks for them and prevent regressions.
 _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
-  '^android_webview/browser/',
   '^apps/',
-  '^ash/',
   '^base/callback.h',  # Intentional.
   '^chrome/app/',
   '^chrome/browser/',
@@ -276,31 +274,23 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^chrome/test/',
   '^chrome/tools/',
   '^chrome/utility/',
-  '^chromecast/app/',
-  '^chromecast/browser/',
-  '^chromecast/crash/',
   '^chromecast/media/',
   '^chromecast/metrics/',
   '^chromecast/net/',
   '^chromeos/attestation/',
   '^chromeos/components/',
-  '^chromeos/dbus/',
-  '^chromeos/login/',
   '^chromeos/network/',
   '^chromeos/services/',
-  '^chromeos/settings/',
   '^components/arc/',
   '^components/assist_ranker/',
   '^components/autofill/',
   '^components/autofill_assistant/',
-  '^components/bookmarks/',
   '^components/browser_watcher/',
   '^components/browsing_data/',
   '^components/cast_channel/',
   '^components/chromeos_camera/',
   '^components/component_updater/',
   '^components/content_settings/',
-  '^components/crash/',
   '^components/cronet/',
   '^components/data_reduction_proxy/',
   '^components/discardable_memory/',
@@ -335,11 +325,8 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/payments/',
   '^components/plugins/',
   '^components/policy/',
-  '^components/pref_registry/',
-  '^components/prefs/',
   '^components/proxy_config/',
   '^components/quirks/',
-  '^components/rappor/',
   '^components/remote_cocoa/',
   '^components/rlz/',
   '^components/safe_browsing/',
@@ -368,15 +355,10 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^components/webcrypto/',
   '^components/webdata/',
   '^components/webdata_services/',
-  '^components/wifi/',
-  '^content/browser/',
-  '^content/public/',
   '^device/bluetooth/',
   '^extensions/',
   '^google_apis/dive/',
-  '^google_apis/gaia/',
   '^google_apis/gcm/',
-  '^headless/',
   '^ios/chrome/',
   '^ios/components/',
   '^ios/net/',
@@ -415,21 +397,8 @@ _NOT_CONVERTED_TO_MODERN_BIND_AND_CALLBACK = '|'.join((
   '^remoting/test/',
   '^services/',
   '^third_party/blink/',
-  '^third_party/crashpad/crashpad/test/gtest_main.cc',
-  '^third_party/leveldatabase/leveldb_chrome.cc',
-  '^third_party/boringssl/gtest_main_chromium.cc',
-  '^third_party/cacheinvalidation/overrides/' +
-     'google/cacheinvalidation/deps/callback.h',
-  '^third_party/libaddressinput/chromium/chrome_address_validator.cc',
-  '^third_party/zlib/google/',
-  '^tools/android/',
   '^tools/clang/base_bind_rewriters/',  # Intentional.
   '^tools/gdb/gdb_chrome.py',  # Intentional.
-  '^ui/accelerated_widget_mac/',
-  '^ui/base/',
-  '^ui/compositor/',
-  '^ui/display/',
-  '^weblayer/',
 ))
 
 # Format: Sequence of tuples containing:
@@ -1106,6 +1075,16 @@ _BANNED_CPP_FUNCTIONS = (
       ),
     ),
     (
+      'GetInterfaceProvider',
+      (
+        'InterfaceProvider is deprecated.',
+        'Please use ExecutionContext::GetBrowserInterfaceBroker and overrides',
+        'or Platform::GetBrowserInterfaceBroker.'
+      ),
+      False,
+      (),
+    ),
+    (
       'CComPtr',
       (
         'New code should use Microsoft::WRL::ComPtr from wrl/client.h as a ',
@@ -1306,12 +1285,13 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/gyp/apkbuilder.pydeps',
     'build/android/gyp/assert_static_initializers.pydeps',
     'build/android/gyp/bytecode_processor.pydeps',
+    'build/android/gyp/compile_java.pydeps',
     'build/android/gyp/compile_resources.pydeps',
-    'build/android/gyp/create_app_bundle_apks.pydeps',
-    'build/android/gyp/create_bundle_wrapper_script.pydeps',
     'build/android/gyp/copy_ex.pydeps',
-    'build/android/gyp/create_app_bundle.pydeps',
     'build/android/gyp/create_apk_operations_script.pydeps',
+    'build/android/gyp/create_app_bundle_apks.pydeps',
+    'build/android/gyp/create_app_bundle.pydeps',
+    'build/android/gyp/create_bundle_wrapper_script.pydeps',
     'build/android/gyp/create_java_binary_script.pydeps',
     'build/android/gyp/create_size_info_files.pydeps',
     'build/android/gyp/desugar.pydeps',
@@ -1325,7 +1305,6 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/gyp/jacoco_instr.pydeps',
     'build/android/gyp/java_cpp_enum.pydeps',
     'build/android/gyp/java_cpp_strings.pydeps',
-    'build/android/gyp/javac.pydeps',
     'build/android/gyp/jinja_template.pydeps',
     'build/android/gyp/lint.pydeps',
     'build/android/gyp/main_dex_list.pydeps',
@@ -1356,6 +1335,8 @@ _GENERIC_PYDEPS_FILES = [
     'third_party/blink/renderer/bindings/scripts/build_web_idl_database.pydeps',
     'third_party/blink/renderer/bindings/scripts/collect_idl_files.pydeps',
     'third_party/blink/renderer/bindings/scripts/generate_bindings.pydeps',
+    ('third_party/blink/renderer/bindings/scripts/'
+     'generate_high_entropy_list.pydeps'),
     'tools/binary_size/sizes.pydeps',
     'tools/binary_size/supersize.pydeps',
 ]
@@ -1908,24 +1889,38 @@ def _CheckNoBannedFunctions(input_api, output_api):
 def _CheckNoDeprecatedMojoTypes(input_api, output_api):
   """Make sure that old Mojo types are not used."""
   warnings = []
+  errors = []
+
+  # For any path that is not an "ok" or an "error" path, a warning will be
+  # raised if deprecated mojo types are found.
+  ok_paths = ['components/arc']
+  error_paths = ['third_party/blink', 'content']
 
   file_filter = lambda f: f.LocalPath().endswith(('.cc', '.mm', '.h'))
   for f in input_api.AffectedFiles(file_filter=file_filter):
-    # Only need to check Blink for warnings for now.
-    if not f.LocalPath().startswith('third_party/blink'):
+    # Don't check //components/arc, not yet migrated (see crrev.com/c/1868870).
+    if any(map(lambda path: f.LocalPath().startswith(path), ok_paths)):
       continue
 
     for line_num, line in f.ChangedContents():
       for func_name, message in _DEPRECATED_MOJO_TYPES:
         problems = _GetMessageForMatchingType(input_api, f, line_num, line,
                                               func_name, message)
+
         if problems:
+          # Raise errors inside |error_paths| and warnings everywhere else.
+          if any(map(lambda path: f.LocalPath().startswith(path), error_paths)):
+            errors.extend(problems)
+          else:
             warnings.extend(problems)
 
   result = []
   if (warnings):
     result.append(output_api.PresubmitPromptWarning(
         'Banned Mojo types were used.\n' + '\n'.join(warnings)))
+  if (errors):
+    result.append(output_api.PresubmitError(
+        'Banned Mojo types were used.\n' + '\n'.join(errors)))
   return result
 
 
@@ -2864,6 +2859,8 @@ def _GetOwnersFilesToCheckForIpcOwners(input_api):
       # These files are just used to communicate between class loaders running
       # in the same process.
       'weblayer/browser/java/org/chromium/weblayer_private/interfaces/*',
+      'weblayer/browser/java/org/chromium/weblayer_private/test_interfaces/*',
+
   ]
 
   # Dictionary mapping an OWNERS file path to Patterns.
@@ -3309,7 +3306,7 @@ def _CheckAndroidTestJUnitFrameworkImport(input_api, output_api):
   sources = lambda x: input_api.FilterSourceFile(
       x, white_list=[r'.*\.java$'], black_list=None)
   errors = []
-  for f in input_api.AffectedFiles(sources):
+  for f in input_api.AffectedFiles(file_filter=sources):
     for line_num, line in f.ChangedContents():
       if deprecated_junit_framework_pattern.search(line):
         errors.append("%s:%d" % (f.LocalPath(), line_num))
@@ -3333,7 +3330,7 @@ def _CheckAndroidTestJUnitInheritance(input_api, output_api):
   sources = lambda x: input_api.FilterSourceFile(
       x, white_list=[r'.*Test\.java$'], black_list=None)
   errors = []
-  for f in input_api.AffectedFiles(sources):
+  for f in input_api.AffectedFiles(file_filter=sources):
     if not f.OldContents():
       class_declaration_start_flag = False
       for line_num, line in f.ChangedContents():
@@ -3362,7 +3359,7 @@ def _CheckAndroidTestAnnotationUsage(input_api, output_api):
   sources = lambda x: input_api.FilterSourceFile(
       x, white_list=[r'.*\.java$'], black_list=None)
   errors = []
-  for f in input_api.AffectedFiles(sources):
+  for f in input_api.AffectedFiles(file_filter=sources):
     for line_num, line in f.ChangedContents():
       if deprecated_annotation_import_pattern.search(line):
         errors.append("%s:%d" % (f.LocalPath(), line_num))
@@ -4638,54 +4635,9 @@ def CheckChangeOnCommit(input_api, output_api):
 
 
 def _CheckTranslationScreenshots(input_api, output_api):
-  PART_FILE_TAG = "part"
   import os
   import sys
   from io import StringIO
-
-  try:
-    old_sys_path = sys.path
-    sys.path = sys.path + [input_api.os_path.join(
-          input_api.PresubmitLocalPath(), 'tools', 'grit')]
-    import grit.grd_reader
-    import grit.node.message
-    import grit.util
-  finally:
-    sys.path = old_sys_path
-
-  def _GetGrdMessages(grd_path_or_string, dir_path='.'):
-    """Load the grd file and return a dict of message ids to messages.
-
-    Ignores any nested grdp files pointed by <part> tag.
-    """
-    doc = grit.grd_reader.Parse(grd_path_or_string, dir_path,
-        stop_after=None, first_ids_file=None,
-        debug=False, defines={'_chromium': 1},
-        tags_to_ignore=set([PART_FILE_TAG]))
-    return {
-      msg.attrs['name']:msg for msg in doc.GetChildrenOfType(
-        grit.node.message.MessageNode)
-    }
-
-  def _GetGrdpMessagesFromString(grdp_string):
-    """Parses the contents of a grdp file given in grdp_string.
-
-    grd_reader can't parse grdp files directly. Instead, this creates a
-    temporary directory with a grd file pointing to the grdp file, and loads the
-    grd from there. Any nested grdp files (pointed by <part> tag) are ignored.
-    """
-    WRAPPER = """<?xml version="1.0" encoding="utf-8"?>
-    <grit latest_public_release="1" current_release="1">
-      <release seq="1">
-        <messages>
-          <part file="sub.grdp" />
-        </messages>
-      </release>
-    </grit>
-    """
-    with grit.util.TempDir({'main.grd': WRAPPER,
-                            'sub.grdp': grdp_string}) as temp_dir:
-      return _GetGrdMessages(temp_dir.GetPath('main.grd'), temp_dir.GetPath())
 
   new_or_added_paths = set(f.LocalPath()
       for f in input_api.AffectedFiles()
@@ -4697,6 +4649,9 @@ def _CheckTranslationScreenshots(input_api, output_api):
   affected_grds = [f for f in input_api.AffectedFiles()
       if (f.LocalPath().endswith('.grd') or
           f.LocalPath().endswith('.grdp'))]
+  if not affected_grds:
+    return []
+
   affected_png_paths = [f.AbsoluteLocalPath()
       for f in input_api.AffectedFiles()
       if (f.LocalPath().endswith('.png'))]
@@ -4740,6 +4695,13 @@ def _CheckTranslationScreenshots(input_api, output_api):
     if input_api.os_path.exists(sha1_path) and sha1_path not in removed_paths:
       unnecessary_sha1_files.append(sha1_path)
 
+  try:
+    old_sys_path = sys.path
+    sys.path = sys.path + [input_api.os_path.join(
+          input_api.PresubmitLocalPath(), 'tools', 'translation')]
+    from helper import grd_helper
+  finally:
+    sys.path = old_sys_path
 
   for f in affected_grds:
     file_path = f.LocalPath()
@@ -4747,18 +4709,19 @@ def _CheckTranslationScreenshots(input_api, output_api):
     new_id_to_msg_map = {}
     if file_path.endswith('.grdp'):
       if f.OldContents():
-        old_id_to_msg_map = _GetGrdpMessagesFromString(
+        old_id_to_msg_map = grd_helper.GetGrdpMessagesFromString(
           unicode('\n'.join(f.OldContents())))
       if f.NewContents():
-        new_id_to_msg_map = _GetGrdpMessagesFromString(
+        new_id_to_msg_map = grd_helper.GetGrdpMessagesFromString(
           unicode('\n'.join(f.NewContents())))
     else:
+      file_dir = input_api.os_path.dirname(file_path) or '.'
       if f.OldContents():
-        old_id_to_msg_map = _GetGrdMessages(
-          StringIO(unicode('\n'.join(f.OldContents()))))
+        old_id_to_msg_map = grd_helper.GetGrdMessages(
+          StringIO(unicode('\n'.join(f.OldContents()))), file_dir)
       if f.NewContents():
-        new_id_to_msg_map = _GetGrdMessages(
-          StringIO(unicode('\n'.join(f.NewContents()))))
+        new_id_to_msg_map = grd_helper.GetGrdMessages(
+          StringIO(unicode('\n'.join(f.NewContents()))), file_dir)
 
     # Compute added, removed and modified message IDs.
     old_ids = set(old_id_to_msg_map)

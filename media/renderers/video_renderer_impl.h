@@ -18,6 +18,7 @@
 #include "base/timer/timer.h"
 #include "media/base/decryptor.h"
 #include "media/base/demuxer_stream.h"
+#include "media/base/frame_rate_estimator.h"
 #include "media/base/media_log.h"
 #include "media/base/pipeline_status.h"
 #include "media/base/video_decoder.h"
@@ -65,7 +66,7 @@ class MEDIA_EXPORT VideoRendererImpl
                   CdmContext* cdm_context,
                   RendererClient* client,
                   const TimeSource::WallClockTimeCB& wall_clock_time_cb,
-                  const PipelineStatusCB& init_cb) override;
+                  PipelineStatusCallback init_cb) override;
   void Flush(base::OnceClosure callback) override;
   void StartPlayingFrom(base::TimeDelta timestamp) override;
   void OnTimeProgressing() override;
@@ -131,6 +132,10 @@ class MEDIA_EXPORT VideoRendererImpl
   // them to 0. If |force_update| is true, sends an update even if no frames
   // have been decoded since the last update.
   void UpdateStats_Locked(bool force_update = false);
+
+  // Notifies |client_| if the current frame rate has changed since it was last
+  // reported, and tracks what the most recently reported frame rate was.
+  void ReportFrameRateIfNeeded_Locked();
 
   // Returns true if there is no more room for additional buffered frames.
   bool HaveReachedBufferingCap() const;
@@ -261,7 +266,7 @@ class MEDIA_EXPORT VideoRendererImpl
   BufferingState buffering_state_;
 
   // Playback operation callbacks.
-  PipelineStatusCB init_cb_;
+  PipelineStatusCallback init_cb_;
   base::OnceClosure flush_cb_;
   TimeSource::WallClockTimeCB wall_clock_time_cb_;
 
@@ -307,6 +312,12 @@ class MEDIA_EXPORT VideoRendererImpl
   // triggering underflow when background rendering.
   base::TimeTicks last_render_time_;
   base::TimeTicks last_frame_ready_time_;
+
+  // Running average of frame durations, without changes due to playback rate.
+  FrameRateEstimator fps_estimator_;
+
+  // Last FPS, if any, reported to the client.
+  base::Optional<int> last_reported_fps_;
 
   // NOTE: Weak pointers must be invalidated before all other member variables.
   base::WeakPtrFactory<VideoRendererImpl> weak_factory_{this};

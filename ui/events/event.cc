@@ -756,9 +756,9 @@ TouchEvent::TouchEvent(const TouchEvent& copy)
 
 TouchEvent::~TouchEvent() {
 #if defined(USE_X11)
-  // In ctor TouchEvent(native_event) we call GetTouchId() which in X11
-  // platform setups the tracking_id to slot mapping. So in dtor here,
-  // if this touch event is a release event, we clear the mapping accordingly.
+  // In ctor TouchEvent(native_event) we call GetTouchIdFromXEvent() which
+  // setups the tracking_id to slot mapping. So in dtor here, if this touch
+  // event is a release event, we clear the mapping accordingly.
   if (type() == ET_TOUCH_RELEASED || type() == ET_TOUCH_CANCELLED)
     TouchFactory::GetInstance()->ReleaseSlot(pointer_details().id);
 #endif
@@ -1119,6 +1119,8 @@ ScrollEvent::ScrollEvent(const PlatformEvent& native_event)
       finger_count_(0),
       momentum_phase_(EventMomentumPhase::NONE),
       scroll_event_phase_(ScrollEventPhase::kNone) {
+  // TODO(bokan): This should be populating the |scroll_event_phase_| member but
+  // currently isn't.
   if (type() == ET_SCROLL) {
     GetScrollOffsets(native_event, &x_offset_, &y_offset_, &x_offset_ordinal_,
                      &y_offset_ordinal_, &finger_count_, &momentum_phase_);

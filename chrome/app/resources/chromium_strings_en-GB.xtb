@@ -5,7 +5,6 @@
 
 Some features may be unavailable and changes to preferences won't be saved.</translation>
 <translation id="1104942323762546749">Chromium wants to export your passwords. Type your Windows password to allow this.</translation>
-<translation id="1115445892567829615">Chromium could not sync your data. Please update your Sync passphrase.</translation>
 <translation id="113122355610423240">Chromium is your default browser</translation>
 <translation id="1185134272377778587">About Chromium</translation>
 <translation id="1396446129537741364">Chromium is trying to show passwords.</translation>
@@ -22,7 +21,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1929939181775079593">Chromium is unresponsive. Relaunch now?</translation>
 <translation id="1966382378801805537">Chromium cannot determine or set the default browser</translation>
 <translation id="2008474315282236005">This will delete 1 item from this device. To retrieve your data later, sign in to Chromium as <ph name="USER_EMAIL" />.</translation>
-<translation id="2119636228670142020">About &amp;Chromium OS</translation>
+<translation id="2147976119693222405">Chromium OS could not sync your data. Fix now.</translation>
 <translation id="2241627712206172106">If you share a computer, friends and family can browse separately and set up Chromium just the way they want.</translation>
 <translation id="2347108572062610441">This extension has changed the page that is shown when you start Chromium.</translation>
 <translation id="2396765026452590966">The extension "<ph name="EXTENSION_NAME" />" has changed the page that is shown when you start Chromium.</translation>
@@ -38,7 +37,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2718390899429598676">For added security, Chromium will encrypt your data.</translation>
 <translation id="2770231113462710648">Change default browser to:</translation>
 <translation id="2799223571221894425">Relaunch</translation>
-<translation id="2838154144102149890">To update, Chromium needs to stop running on this computer. This may cause other users logged into this computer to lose unsaved changes.</translation>
+<translation id="2805036593126168338">Chromium OS could not sync your passwords. Fix now.</translation>
 <translation id="2847479871509788944">Remove from Chromium...</translation>
 <translation id="2886012850691518054">Optional: Help make Chrome better by automatically sending usage statistics and crash reports to Google.</translation>
 <translation id="2910007522516064972">About &amp;Chromium</translation>
@@ -57,7 +56,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="328888136576916638">Google API keys are missing. Some functionality of Chromium will be disabled.</translation>
 <translation id="3296368748942286671">Continue running background apps when Chromium is closed</translation>
 <translation id="331951419404882060">Chromium OS could not sync your data due to an error signing in.</translation>
-<translation id="3340978935015468852">settings</translation>
 <translation id="3474745554856756813">This will delete <ph name="ITEMS_COUNT" /> items from this device. To retrieve your data later, sign in to Chromium as <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Please close all Chromium windows and try again.</translation>
 <translation id="3575459661164320785">There's harmful software on your computer. Chromium can remove it, restore your settings and disable extensions to make your browser work normally again.</translation>
@@ -148,7 +146,6 @@ Some features may be unavailable. Please specify a different profile directory o
 <translation id="6847869444787758381">Chromium lets you know if your passwords are ever compromised</translation>
 <translation id="6857782730669500492">Chromium - <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (copied to Chromium)</translation>
-<translation id="6868056391275687737">Other copies of Chromium are running. To update, close them.</translation>
 <translation id="6893813176749746474">Chromium has been updated, but you haven't used it for 30 days or more.</translation>
 <translation id="6964305034639999644">Open link in Chromium inco&amp;gnito window</translation>
 <translation id="6990124437352146030">Chromium needs permission to access your microphone for this site</translation>
@@ -207,8 +204,6 @@ Google Chrome is unable to recover your settings.</translation>
       Chromium browser settings<ph name="LINK_END" /></translation>
 <translation id="8697124171261953979">It also controls what page is shown when you start Chromium or search from the Omnibox.</translation>
 <translation id="8704119203788522458">This is your Chromium</translation>
-<translation id="8739167630197873875">You clear cookies when you quit Chromium. To keep syncing, change this <ph name="COOKIE_SETTINGS_LINK" />.</translation>
-<translation id="8748383401829947534">Quit all copies of Chromium.</translation>
 <translation id="8796602469536043152">Chromium needs permission to access your camera and microphone for this site</translation>
 <translation id="8803635938069941624">Chromium OS terms</translation>
 <translation id="8821041990367117597">Chromium could not sync your data because your account sign-in details are out of date.</translation>
@@ -218,7 +213,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8941642502866065432">Can't update Chromium</translation>
 <translation id="8974095189086268230">Chromium OS is made possible by additional <ph name="BEGIN_LINK_CROS_OSS" />open source software<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="9019929317751753759">To make Chromium safer, we disabled the following extension that isn't listed in the <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> and may have been added without your knowledge.</translation>
-<translation id="9022552996538154597">Sign in to Chromium</translation>
 <translation id="9089354809943900324">Chromium is out of date</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium will relaunch in an hour}other{Chromium will relaunch in # hours}}</translation>
 <translation id="91086099826398415">Open Link in New Chromium &amp;tab</translation>

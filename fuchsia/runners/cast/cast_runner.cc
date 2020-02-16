@@ -35,7 +35,8 @@ fuchsia::web::CreateContextParams BuildCreateContextParamsForIsolatedRunners(
   output.set_features(
       fuchsia::web::ContextFeatureFlags::AUDIO |
       fuchsia::web::ContextFeatureFlags::VULKAN |
-      fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER);
+      fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER |
+      fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER_ONLY);
 
   if (create_context_params.has_user_agent_product()) {
     output.set_user_agent_product(create_context_params.user_agent_product());
@@ -52,25 +53,19 @@ fuchsia::web::CreateContextParams BuildCreateContextParamsForIsolatedRunners(
 
 }  // namespace
 
-CastRunner::CastRunner(sys::OutgoingDirectory* outgoing_directory,
-                       fuchsia::web::CreateContextParams create_context_params)
-    : WebContentRunner(outgoing_directory,
-                       base::BindOnce(&CastRunner::CreateCastRunnerWebContext,
-                                      base::Unretained(this))),
-      create_context_params_(std::move(create_context_params)),
+CastRunner::CastRunner(fuchsia::web::CreateContextParams create_context_params,
+                       sys::OutgoingDirectory* outgoing_directory)
+    : WebContentRunner(std::move(create_context_params), outgoing_directory),
       common_create_context_params_(
-          BuildCreateContextParamsForIsolatedRunners(create_context_params_)) {}
+          BuildCreateContextParamsForIsolatedRunners(create_params_)) {}
 
 CastRunner::CastRunner(OnDestructionCallback on_destruction_callback,
-                       fuchsia::web::ContextPtr context)
-    : WebContentRunner(std::move(context)),
+                       fuchsia::web::ContextPtr context,
+                       bool is_headless)
+    : WebContentRunner(std::move(context), is_headless),
       on_destruction_callback_(std::move(on_destruction_callback)) {}
 
 CastRunner::~CastRunner() = default;
-
-fuchsia::web::ContextPtr CastRunner::CreateCastRunnerWebContext() {
-  return WebContentRunner::CreateWebContext(std::move(create_context_params_));
-}
 
 void CastRunner::StartComponent(
     fuchsia::sys::Package package,
@@ -101,38 +96,9 @@ void CastRunner::StartComponent(
       pending_component->startup_context->component_context()->svc().get());
   pending_component->controller_request = std::move(controller_request);
 
-  // Get binding details from the Agent.
-  fidl::InterfaceHandle<chromium::cast::ApiBindings> api_bindings_client;
-  pending_component->agent_manager->ConnectToAgentService(
-      kAgentComponentUrl, api_bindings_client.NewRequest());
-  pending_component->api_bindings_client = std::make_unique<ApiBindingsClient>(
-      std::move(api_bindings_client),
-      base::BindOnce(&CastRunner::MaybeStartComponent, base::Unretained(this),
-                     base::Unretained(pending_component.get())),
-      base::BindOnce(&CastRunner::CancelComponentLaunch, base::Unretained(this),
-                     base::Unretained(pending_component.get())));
-
-  // Get UrlRequestRewriteRulesProvider from the Agent.
-  fidl::InterfaceHandle<chromium::cast::UrlRequestRewriteRulesProvider>
-      url_request_rules_provider;
-  pending_component->agent_manager->ConnectToAgentService(
-      kAgentComponentUrl, url_request_rules_provider.NewRequest());
-  pending_component->rewrite_rules_provider = url_request_rules_provider.Bind();
-  pending_component->rewrite_rules_provider.set_error_handler(
-      [this, pending_component = pending_component.get()](zx_status_t status) {
-        ZX_LOG(ERROR, status) << "UrlRequestRewriteRulesProvider disconnected.";
-        CancelComponentLaunch(pending_component);
-      });
-  pending_component->rewrite_rules_provider->GetUrlRequestRewriteRules(
-      [this, pending_component = pending_component.get()](
-          std::vector<fuchsia::web::UrlRequestRewriteRule> rewrite_rules) {
-        pending_component->rewrite_rules =
-            base::Optional<std::vector<fuchsia::web::UrlRequestRewriteRule>>(
-                std::move(rewrite_rules));
-        MaybeStartComponent(pending_component);
-      });
-
-  // Request the configuration for the specified application.
+  // Request the configuration for this application from the app_config_manager.
+  // This will return the configuration for the application, as well as the
+  // agent that should handle this application.
   pending_component->agent_manager->ConnectToAgentService(
       kAgentComponentUrl, pending_component->app_config_manager.NewRequest());
   pending_component->app_config_manager.set_error_handler(
@@ -199,9 +165,52 @@ void CastRunner::GetConfigCallback(
     return;
   }
 
+  if (!app_config.has_agent_url()) {
+    pending_components_.erase(it);
+    DLOG(WARNING) << "No agent has been associated with this app.";
+    return;
+  }
+
   pending_component->app_config = std::move(app_config);
 
-  MaybeStartComponent(pending_component);
+  // Request binding details from the Agent.
+  fidl::InterfaceHandle<chromium::cast::ApiBindings> api_bindings_client;
+  pending_component->agent_manager->ConnectToAgentService(
+      pending_component->app_config.agent_url(),
+      api_bindings_client.NewRequest());
+  pending_component->api_bindings_client = std::make_unique<ApiBindingsClient>(
+      std::move(api_bindings_client),
+      base::BindOnce(&CastRunner::MaybeStartComponent, base::Unretained(this),
+                     base::Unretained(pending_component)),
+      base::BindOnce(&CastRunner::CancelComponentLaunch, base::Unretained(this),
+                     base::Unretained(pending_component)));
+
+  // Request UrlRequestRewriteRulesProvider from the Agent.
+  pending_component->agent_manager->ConnectToAgentService(
+      pending_component->app_config.agent_url(),
+      pending_component->rewrite_rules_provider.NewRequest());
+  pending_component->rewrite_rules_provider.set_error_handler(
+      [this, pending_component = pending_component](zx_status_t status) {
+        if (status != ZX_ERR_PEER_CLOSED) {
+          ZX_LOG(ERROR, status)
+              << "UrlRequestRewriteRulesProvider disconnected.";
+          CancelComponentLaunch(pending_component);
+          return;
+        }
+        ZX_LOG(WARNING, status)
+            << "UrlRequestRewriteRulesProvider unsupported.";
+        pending_component->rewrite_rules =
+            std::vector<fuchsia::web::UrlRequestRewriteRule>();
+        MaybeStartComponent(pending_component);
+      });
+  pending_component->rewrite_rules_provider->GetUrlRequestRewriteRules(
+      [this, pending_component = pending_component](
+          std::vector<fuchsia::web::UrlRequestRewriteRule> rewrite_rules) {
+        pending_component->rewrite_rules =
+            base::Optional<std::vector<fuchsia::web::UrlRequestRewriteRule>>(
+                std::move(rewrite_rules));
+        MaybeStartComponent(pending_component);
+      });
 }
 
 void CastRunner::MaybeStartComponent(
@@ -217,6 +226,9 @@ void CastRunner::MaybeStartComponent(
     // CastComponent.
     component_owner =
         CreateChildRunnerForIsolatedComponent(pending_component_params);
+
+    if (!component_owner)
+      return;
   }
 
   component_owner->CreateAndRegisterCastComponent(
@@ -249,17 +261,22 @@ CastRunner* CastRunner::CreateChildRunnerForIsolatedComponent(
   fuchsia::web::CreateContextParams isolated_context_params;
   zx_status_t status =
       common_create_context_params_.Clone(&isolated_context_params);
-  ZX_CHECK(status == ZX_OK, status) << "clone";
   isolated_context_params.set_service_directory(base::fuchsia::OpenDirectory(
       base::FilePath(base::fuchsia::kServiceDirectoryPath)));
+  CHECK(isolated_context_params.service_directory());
+  if (status != ZX_OK) {
+    ZX_LOG(ERROR, status) << "clone";
+    return nullptr;
+  }
+
   isolated_context_params.set_content_directories(
       std::move(*params->app_config
                      .mutable_content_directories_for_isolated_application()));
 
-  std::unique_ptr<CastRunner> cast_runner(
-      new CastRunner(base::BindOnce(&CastRunner::OnChildRunnerDestroyed,
-                                    base::Unretained(this)),
-                     CreateWebContext(std::move(isolated_context_params))));
+  std::unique_ptr<CastRunner> cast_runner(new CastRunner(
+      base::BindOnce(&CastRunner::OnChildRunnerDestroyed,
+                     base::Unretained(this)),
+      CreateWebContext(std::move(isolated_context_params)), is_headless()));
 
   // If test code is listening for Component creation events, then wire up the
   // isolated CastRunner to signal component creation events.

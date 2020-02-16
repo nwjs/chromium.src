@@ -56,6 +56,7 @@
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_br_element.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
+#include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_quote_element.h"
 #include "third_party/blink/renderer/core/html/html_span_element.h"
@@ -125,7 +126,8 @@ static void CompleteURLs(DocumentFragment& fragment, const String& base_url) {
 
 static bool IsHTMLBlockElement(const Node* node) {
   DCHECK(node);
-  return IsHTMLTableCellElement(*node) || IsNonTableCellHTMLBlockElement(node);
+  return IsA<HTMLTableCellElement>(*node) ||
+         IsNonTableCellHTMLBlockElement(node);
 }
 
 static HTMLElement* AncestorToRetainStructureAndAppearanceForBlock(
@@ -451,7 +453,7 @@ String CreateMarkup(const Node* node,
     return "";
 
   MarkupAccumulator accumulator(should_resolve_urls,
-                                node->GetDocument().IsHTMLDocument()
+                                IsA<HTMLDocument>(node->GetDocument())
                                     ? SerializationType::kHTML
                                     : SerializationType::kXML);
   return accumulator.SerializeNodes<EditingStrategy>(*node, children_only);
@@ -609,7 +611,7 @@ DocumentFragment* CreateFragmentForInnerOuterHTML(
           : context_element->GetDocument();
   DocumentFragment* fragment = DocumentFragment::Create(document);
 
-  if (document.IsHTMLDocument()) {
+  if (IsA<HTMLDocument>(document)) {
     fragment->ParseHTML(markup, context_element, parser_content_policy);
     return fragment;
   }
@@ -783,7 +785,7 @@ static Document* CreateStagingDocumentForMarkupSanitization() {
 
   Document* document = frame->GetDocument();
   DCHECK(document);
-  DCHECK(document->IsHTMLDocument());
+  DCHECK(IsA<HTMLDocument>(document));
   DCHECK(document->body());
 
   document->SetIsForMarkupSanitization(true);

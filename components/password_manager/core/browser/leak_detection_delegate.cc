@@ -9,6 +9,7 @@
 #include "components/autofill/core/common/password_form.h"
 #include "components/autofill/core/common/save_password_progress_logger.h"
 #include "components/password_manager/core/browser/compromised_credentials_table.h"
+#include "components/password_manager/core/browser/form_parsing/form_parser.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check_factory_impl.h"
 #include "components/password_manager/core/browser/leak_detection_delegate_helper.h"
@@ -19,7 +20,7 @@
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 namespace password_manager {
@@ -81,15 +82,11 @@ void LeakDetectionDelegate::OnLeakDetectionDone(bool is_leaked,
 
   password_manager::PasswordStore* password_store =
       client_->GetProfilePasswordStore();
-  if (base::FeatureList::IsEnabled(password_manager::features::kLeakHistory)) {
-    if (is_leaked) {
-      password_store->AddCompromisedCredentials(CompromisedCredentials(
-          url, username, base::Time::Now(), CompromiseType::kLeaked));
-    } else {
-      // If the credentials are not saved as leaked in the database, this call
-      // will just get ignored.
-      password_store->RemoveCompromisedCredentials(url, username);
-    }
+  if (base::FeatureList::IsEnabled(password_manager::features::kLeakHistory) &&
+      is_leaked) {
+    password_store->AddCompromisedCredentials(
+        CompromisedCredentials(GetSignonRealm(url), username, base::Time::Now(),
+                               CompromiseType::kLeaked));
   }
 
   if (is_leaked) {

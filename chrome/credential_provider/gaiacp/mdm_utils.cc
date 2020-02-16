@@ -25,23 +25,28 @@
 #include "build/branding_buildflags.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gcp_utils.h"
+#include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
 
 namespace credential_provider {
 
+constexpr wchar_t kRegInitializeCrashReporting[] = L"init_crash_reporting";
 constexpr wchar_t kRegMdmUrl[] = L"mdm";
 constexpr wchar_t kRegMdmEnableForcePasswordReset[] =
     L"mdm_enable_force_password";
 constexpr wchar_t kRegEscrowServiceServerUrl[] = L"mdm_ess_url";
 constexpr wchar_t kRegMdmSupportsMultiUser[] = L"mdm_mu";
 constexpr wchar_t kRegMdmAllowConsumerAccounts[] = L"mdm_aca";
+constexpr wchar_t kRegDeviceDetailsUploadStatus[] =
+    L"device_details_upload_status";
 constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     L"Chrome-GCPW-";
 #else
     L"Chromium-GCPW-";
 #endif
+const char kErrorKeyInRequestResult[] = "error";
 
 // Overridden in tests to force the MDM enrollment to either succeed or fail.
 enum class EnrollmentStatus {
@@ -73,6 +78,14 @@ enum class EscrowServiceStatus {
 EscrowServiceStatus g_escrow_service_enabled = EscrowServiceStatus::kDisabled;
 #endif
 
+enum class DeviceDetailsUploadNeeded {
+  kForceTrue,
+  kForceFalse,
+  kDontForce,
+};
+DeviceDetailsUploadNeeded g_device_details_upload_needed =
+    DeviceDetailsUploadNeeded::kDontForce;
+
 namespace {
 
 constexpr wchar_t kDefaultMdmUrl[] =
@@ -95,12 +108,6 @@ T GetMdmFunctionPointer(const base::ScopedNativeLibrary& library,
 
 base::string16 GetMdmUrl() {
   return GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
-}
-
-base::string16 GetSerialNumber() {
-  if (g_use_test_serial_number)
-    return g_test_serial_number;
-  return base::win::WmiComputerSystemInfo::Get().serial_number();
 }
 
 bool IsEnrolledWithGoogleMdm(const base::string16& mdm_url) {
@@ -358,6 +365,29 @@ bool NeedsToEnrollWithMdm() {
   return !mdm_url.empty() && !IsEnrolledWithGoogleMdm(mdm_url);
 }
 
+bool UploadDeviceDetailsNeeded(const base::string16& sid) {
+  switch (g_device_details_upload_needed) {
+    case DeviceDetailsUploadNeeded::kForceTrue:
+      return true;
+    case DeviceDetailsUploadNeeded::kForceFalse:
+      return false;
+    case DeviceDetailsUploadNeeded::kDontForce:
+      break;
+  }
+
+  DWORD status = 0;
+  GetUserProperty(sid, kRegDeviceDetailsUploadStatus, &status);
+  base::string16 mdm_url = GetMdmUrl();
+
+  return status != 1;
+}
+
+base::string16 GetSerialNumber() {
+  if (g_use_test_serial_number)
+    return g_test_serial_number;
+  return base::win::WmiComputerSystemInfo::Get().serial_number();
+}
+
 bool MdmEnrollmentEnabled() {
   base::string16 mdm_url = GetMdmUrl();
   return !mdm_url.empty();
@@ -383,6 +413,11 @@ bool PasswordRecoveryEnabled() {
     return false;
 
   return true;
+}
+
+bool IsGemEnabled() {
+  // The gem features are enabled by default.
+  return GetGlobalFlagOrDefault(kKeyEnableGemFeatures, 1);
 }
 
 HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties) {
@@ -452,6 +487,22 @@ GoogleRegistrationDataForTesting::~GoogleRegistrationDataForTesting() {
 }
 
 // GoogleSerialNumberForTesting //////////////////////////////////////////
+
+// GoogleUploadDeviceDetailsNeededForTesting //////////////////////////////////
+
+GoogleUploadDeviceDetailsNeededForTesting::
+    GoogleUploadDeviceDetailsNeededForTesting(bool success) {
+  g_device_details_upload_needed = success
+                                       ? DeviceDetailsUploadNeeded::kForceTrue
+                                       : DeviceDetailsUploadNeeded::kForceFalse;
+}
+
+GoogleUploadDeviceDetailsNeededForTesting::
+    ~GoogleUploadDeviceDetailsNeededForTesting() {
+  g_device_details_upload_needed = DeviceDetailsUploadNeeded::kDontForce;
+}
+
+// GoogleUploadDeviceDetailsNeededForTesting //////////////////////////////////
 
 GoogleMdmEscrowServiceEnablerForTesting::
     GoogleMdmEscrowServiceEnablerForTesting() {

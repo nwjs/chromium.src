@@ -5,10 +5,12 @@
 #include "third_party/blink/renderer/core/workers/dedicated_worker_messaging_proxy.h"
 
 #include <memory>
+#include "base/optional.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/sanitize_script_errors.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_cache_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_worker_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/events/error_event.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
@@ -20,7 +22,6 @@
 #include "third_party/blink/renderer/core/workers/dedicated_worker.h"
 #include "third_party/blink/renderer/core/workers/dedicated_worker_object_proxy.h"
 #include "third_party/blink/renderer/core/workers/dedicated_worker_thread.h"
-#include "third_party/blink/renderer/core/workers/worker_options.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
@@ -90,16 +91,16 @@ void DedicatedWorkerMessagingProxy::StartWorkerGlobalScope(
     // settings."
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kModuleDedicatedWorker);
-    network::mojom::CredentialsMode credentials_mode;
-    bool result = Request::ParseCredentialsMode(options->credentials(),
-                                                &credentials_mode);
-    DCHECK(result);
+    base::Optional<network::mojom::CredentialsMode> credentials_mode =
+        Request::ParseCredentialsMode(options->credentials());
+    DCHECK(credentials_mode);
+
     auto* resource_timing_notifier =
         WorkerResourceTimingNotifierImpl::CreateForOutsideResourceFetcher(
             *GetExecutionContext());
     GetWorkerThread()->FetchAndRunModuleScript(
         script_url, outside_settings_object.CopyData(),
-        resource_timing_notifier, credentials_mode);
+        resource_timing_notifier, *credentials_mode);
   } else {
     NOTREACHED();
   }

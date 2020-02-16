@@ -34,7 +34,6 @@
 #include "net/ssl/client_cert_identity.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/service_manager/sandbox/switches.h"
-#include "storage/browser/quota/quota_settings.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/switches.h"
 
@@ -149,15 +148,6 @@ HeadlessContentBrowserClient::CreateQuotaPermissionContext() {
   return new HeadlessQuotaPermissionContext();
 }
 
-void HeadlessContentBrowserClient::GetQuotaSettings(
-    content::BrowserContext* context,
-    content::StoragePartition* partition,
-    ::storage::OptionalQuotaSettingsCallback callback) {
-  ::storage::GetNominalDynamicSettings(
-      partition->GetPath(), context->IsOffTheRecord(),
-      ::storage::GetDefaultDeviceInfoHelper(), std::move(callback));
-}
-
 content::GeneratedCodeCacheSettings
 HeadlessContentBrowserClient::GetGeneratedCodeCacheSettings(
     content::BrowserContext* context) {
@@ -199,6 +189,9 @@ void HeadlessContentBrowserClient::AppendExtraCommandLineSwitches(
   if (breakpad::IsCrashReporterEnabled())
     command_line->AppendSwitch(::switches::kEnableCrashReporter);
 #endif  // defined(HEADLESS_USE_BREAKPAD)
+
+  if (old_command_line.HasSwitch(switches::kExportTaggedPDF))
+    command_line->AppendSwitch(switches::kExportTaggedPDF);
 
   // If we're spawning a renderer, then override the language switch.
   std::string process_type =

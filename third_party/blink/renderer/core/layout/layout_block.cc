@@ -103,7 +103,6 @@ LayoutBlock::LayoutBlock(ContainerNode* node)
     : LayoutBox(node),
       has_margin_before_quirk_(false),
       has_margin_after_quirk_(false),
-      being_destroyed_(false),
       has_markup_truncation_(false),
       width_available_to_children_changed_(false),
       height_available_to_children_changed_(false),
@@ -461,6 +460,7 @@ void LayoutBlock::ComputeVisualOverflow(bool) {
   AddVisualOverflowFromTheme();
 
   if (VisualOverflowRect() != previous_visual_overflow_rect) {
+    InvalidateIntersectionObserverCachedRects();
     SetShouldCheckForPaintInvalidation();
     GetFrameView()->SetIntersectionObservationState(LocalFrameView::kDesired);
   }
@@ -1532,6 +1532,9 @@ void LayoutBlock::ComputeBlockPreferredLogicalWidths(
       // We don't really know whether the containing block of this child did
       // change or is going to change size. However, this is our only
       // opportunity to make sure that it gets its min/max widths calculated.
+      // This is also an important hook for flow threads; if the container of a
+      // flow thread needs its preferred logical widths recalculated, so does
+      // the flow thread, potentially.
       child->SetPreferredLogicalWidthsDirty();
     }
 
@@ -1664,18 +1667,34 @@ void LayoutBlock::ComputeChildPreferredLogicalWidths(
 }
 
 bool LayoutBlock::HasLineIfEmpty() const {
-  if (!GetNode())
-    return false;
-
-  if (IsRootEditableElement(*GetNode()))
-    return true;
-
-  if (auto* shadow_root = DynamicTo<ShadowRoot>(GetNode())) {
-    if (IsA<HTMLInputElement>(shadow_root->host()))
+  if (GetNode()) {
+    if (IsRootEditableElement(*GetNode()))
       return true;
-  }
 
-  return false;
+    if (auto* shadow_root = DynamicTo<ShadowRoot>(GetNode())) {
+      if (IsA<HTMLInputElement>(shadow_root->host()))
+        return true;
+    }
+  }
+  return FirstLineStyleRef().HasLineIfEmpty();
+}
+
+LayoutUnit LayoutBlock::EmptyLineBaseline(
+    LineDirectionMode line_direction) const {
+  if (!HasLineIfEmpty())
+    return LayoutUnit(-1);
+  const SimpleFontData* font_data = FirstLineStyle()->GetFont().PrimaryFont();
+  if (!font_data)
+    return LayoutUnit(-1);
+  const auto& font_metrics = font_data->GetFontMetrics();
+  const LayoutUnit line_height =
+      LineHeight(true, line_direction, kPositionOfInteriorLineBoxes);
+  const LayoutUnit border_padding = line_direction == kHorizontalLine
+                                        ? BorderTop() + PaddingTop()
+                                        : BorderRight() + PaddingRight();
+  return LayoutUnit((font_metrics.Ascent() +
+                     (line_height - font_metrics.Height()) / 2 + border_padding)
+                        .ToInt());
 }
 
 LayoutUnit LayoutBlock::LineHeight(bool first_line,
@@ -1845,18 +1864,8 @@ LayoutUnit LayoutBlock::InlineBlockBaseline(
       }
     }
   }
-  const SimpleFontData* font_data = FirstLineStyle()->GetFont().PrimaryFont();
-  if (font_data && !have_normal_flow_child && HasLineIfEmpty()) {
-    const FontMetrics& font_metrics = font_data->GetFontMetrics();
-    return LayoutUnit(
-        (font_metrics.Ascent() +
-         (LineHeight(true, line_direction, kPositionOfInteriorLineBoxes) -
-          font_metrics.Height()) /
-             2 +
-         (line_direction == kHorizontalLine ? BorderTop() + PaddingTop()
-                                            : BorderRight() + PaddingRight()))
-            .ToInt());
-  }
+  if (!have_normal_flow_child)
+    return EmptyLineBaseline(line_direction);
   return LayoutUnit(-1);
 }
 

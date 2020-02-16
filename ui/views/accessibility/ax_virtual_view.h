@@ -8,7 +8,6 @@
 #include <stdint.h>
 
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "base/callback_forward.h"
@@ -74,6 +73,10 @@ class VIEWS_EXPORT AXVirtualView : public ui::AXPlatformNodeDelegateBase {
   // |view| to the end.
   void ReorderChildView(AXVirtualView* view, int index);
 
+  // Removes this virtual view from its parent, which could either be a virtual
+  // or a real view. Hands ownership of this view back to the caller.
+  std::unique_ptr<AXVirtualView> RemoveFromParentView();
+
   // Removes |view| from this virtual view. The view's parent will change to
   // nullptr. Hands ownership back to the caller.
   std::unique_ptr<AXVirtualView> RemoveChildView(AXVirtualView* view);
@@ -120,7 +123,7 @@ class VIEWS_EXPORT AXVirtualView : public ui::AXPlatformNodeDelegateBase {
   // via a callback. This should be used for attributes that change often and
   // would be queried every time a client accesses this view's AXNodeData.
   void SetPopulateDataCallback(
-      base::RepeatingCallback<void(const View&, ui::AXNodeData*)> callback);
+      base::RepeatingCallback<void(ui::AXNodeData*)> callback);
   void UnsetPopulateDataCallback();
 
   // ui::AXPlatformNodeDelegate. Note that some of these functions have
@@ -186,8 +189,7 @@ class VIEWS_EXPORT AXVirtualView : public ui::AXPlatformNodeDelegateBase {
 
   ui::AXUniqueId unique_id_;
   ui::AXNodeData custom_data_;
-  base::RepeatingCallback<void(const View&, ui::AXNodeData*)>
-      populate_data_callback_;
+  base::RepeatingCallback<void(ui::AXNodeData*)> populate_data_callback_;
 
   std::unique_ptr<AXVirtualViewWrapper> wrapper_;
 

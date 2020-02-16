@@ -27,6 +27,7 @@
 #include "chrome/browser/web_applications/components/web_app_utils.h"
 #include "chrome/browser/web_applications/test/test_app_shortcut_manager.h"
 #include "chrome/browser/web_applications/test/test_data_retriever.h"
+#include "chrome/browser/web_applications/test/test_file_handler_manager.h"
 #include "chrome/browser/web_applications/test/test_file_utils.h"
 #include "chrome/browser/web_applications/test/test_install_finalizer.h"
 #include "chrome/browser/web_applications/test/test_web_app_database_factory.h"
@@ -47,7 +48,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "ui/gfx/codec/png_codec.h"
 #include "url/gurl.h"
 
 #if defined(OS_CHROMEOS)
@@ -64,18 +64,6 @@
 namespace web_app {
 
 namespace {
-
-bool ReadBitmap(FileUtilsWrapper* utils,
-                const base::FilePath& file_path,
-                SkBitmap* bitmap) {
-  std::string icon_data;
-  if (!utils->ReadFileToString(file_path, &icon_data))
-    return false;
-
-  return gfx::PNGCodec::Decode(
-      reinterpret_cast<const unsigned char*>(icon_data.c_str()),
-      icon_data.size(), bitmap);
-}
 
 constexpr int kIconSizes[] = {
     icon_size::k32, icon_size::k64,  icon_size::k48,
@@ -146,15 +134,18 @@ class WebAppInstallTaskTest : public WebAppTest {
     install_finalizer_ = std::make_unique<WebAppInstallFinalizer>(
         profile(), &controller().sync_bridge(), icon_manager_.get());
     shortcut_manager_ = std::make_unique<TestAppShortcutManager>(profile());
+    file_handler_manager_ = std::make_unique<TestFileHandlerManager>(profile());
 
     install_finalizer_->SetSubsystems(&registrar(), ui_manager_.get());
     shortcut_manager_->SetSubsystems(&registrar());
+    file_handler_manager_->SetSubsystems(&registrar());
 
     auto data_retriever = std::make_unique<TestDataRetriever>();
     data_retriever_ = data_retriever.get();
 
     install_task_ = std::make_unique<WebAppInstallTask>(
-        profile(), shortcut_manager_.get(), install_finalizer_.get(),
+        profile(), &registrar(), shortcut_manager_.get(),
+        file_handler_manager_.get(), install_finalizer_.get(),
         std::move(data_retriever));
 
     url_loader_ = std::make_unique<TestWebAppUrlLoader>();
@@ -388,6 +379,7 @@ class WebAppInstallTaskTest : public WebAppTest {
   std::unique_ptr<TestWebAppUiManager> ui_manager_;
   std::unique_ptr<InstallFinalizer> install_finalizer_;
   std::unique_ptr<TestAppShortcutManager> shortcut_manager_;
+  std::unique_ptr<TestFileHandlerManager> file_handler_manager_;
 
   // Owned by install_task_:
   TestFileUtils* file_utils_ = nullptr;
@@ -1113,7 +1105,8 @@ TEST_F(WebAppInstallTaskTest, InstallWebAppWithParams_GuestProfile) {
                                              /*scope=*/GURL{});
 
   auto install_task = std::make_unique<WebAppInstallTask>(
-      guest_profile, shortcut_manager_.get(), install_finalizer_.get(),
+      guest_profile, &registrar(), shortcut_manager_.get(),
+      file_handler_manager_.get(), install_finalizer_.get(),
       std::move(data_retriever));
 
   base::RunLoop run_loop;
@@ -1293,7 +1286,8 @@ TEST_F(WebAppInstallTaskTest, LoadAndRetrieveWebApplicationInfoWithIcons) {
     url_loader().SetNextLoadUrlResult(url, WebAppUrlLoader::Result::kUrlLoaded);
 
     auto task = std::make_unique<WebAppInstallTask>(
-        profile(), shortcut_manager_.get(), install_finalizer_.get(),
+        profile(), &registrar(), shortcut_manager_.get(),
+        file_handler_manager_.get(), install_finalizer_.get(),
         std::move(data_retriever));
 
     std::unique_ptr<WebApplicationInfo> info;

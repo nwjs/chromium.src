@@ -38,40 +38,62 @@ class AssistantCollectUserDataDelegate {
       const base::android::JavaParamRef<jobject>& jcaller,
       jint state);
 
-  void OnTermsAndConditionsLinkClicked(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& jcaller,
-      jint link);
+  void OnTextLinkClicked(JNIEnv* env,
+                         const base::android::JavaParamRef<jobject>& jcaller,
+                         jint link);
 
   void OnLoginChoiceChanged(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller,
       const base::android::JavaParamRef<jstring>& jidentifier);
 
-  void OnDateTimeRangeStartChanged(
+  void OnDateTimeRangeStartDateChanged(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller,
       jint year,
       jint month,
-      jint day,
-      jint hour,
-      jint minute,
-      jint second);
+      jint day);
 
-  void OnDateTimeRangeEndChanged(
+  void OnDateTimeRangeStartDateCleared(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller);
+
+  void OnDateTimeRangeStartTimeSlotChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      jint index);
+
+  void OnDateTimeRangeStartTimeSlotCleared(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller);
+
+  void OnDateTimeRangeEndDateChanged(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jcaller,
       jint year,
       jint month,
-      jint day,
-      jint hour,
-      jint minute,
-      jint second);
+      jint day);
+
+  void OnDateTimeRangeEndDateCleared(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller);
+
+  void OnDateTimeRangeEndTimeSlotChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller,
+      jint index);
+
+  void OnDateTimeRangeEndTimeSlotCleared(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jcaller);
 
   void OnKeyValueChanged(JNIEnv* env,
                          const base::android::JavaParamRef<jobject>& jcaller,
                          const base::android::JavaParamRef<jstring>& jkey,
                          const base::android::JavaParamRef<jstring>& jvalue);
+
+  void OnTextFocusLost(JNIEnv* env,
+                       const base::android::JavaParamRef<jobject>& jcaller);
 
   base::android::ScopedJavaGlobalRef<jobject> GetJavaObject();
 

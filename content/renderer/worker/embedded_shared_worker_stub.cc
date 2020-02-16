@@ -17,6 +17,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
+#include "third_party/blink/public/mojom/devtools/devtools_agent.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_shared_worker.h"
@@ -91,7 +92,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
   if (service_worker_provider_info) {
     service_worker_provider_context_ =
         base::MakeRefCounted<ServiceWorkerProviderContext>(
-            blink::mojom::ServiceWorkerProviderType::kForDedicatedWorker,
+            blink::mojom::ServiceWorkerContainerType::kForDedicatedWorker,
             std::move(service_worker_provider_info->client_receiver),
             std::move(service_worker_provider_info->host_remote),
             std::move(controller_info), subresource_loader_factory_bundle_);
@@ -99,7 +100,8 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
 
   impl_ = blink::WebSharedWorker::Create(this);
   impl_->StartWorkerContext(nodejs_, root_path_,
-      url_, blink::WebString::FromUTF8(info->name),
+      url_, info->options->type, info->options->credentials,
+      blink::WebString::FromUTF8(info->options->name),
       blink::WebString::FromUTF8(user_agent),
       blink::WebString::FromUTF8(info->content_security_policy),
       info->content_security_policy_type, info->creation_address_space,
@@ -174,7 +176,8 @@ EmbeddedSharedWorkerStub::CreateWorkerFetchContext() {
   // worker, we need to check the all documents bounded by the shared worker.
   // (crbug.com/723553)
   // https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-07#section-2.1.2
-  worker_fetch_context->set_site_for_cookies(url_);
+  worker_fetch_context->set_site_for_cookies(
+      net::SiteForCookies::FromUrl(url_));
   worker_fetch_context->set_origin_url(url_.GetOrigin());
 
   DCHECK(response_override_);

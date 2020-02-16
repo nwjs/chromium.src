@@ -507,14 +507,19 @@ void ContentVerifier::GetContentHash(
                      std::move(callback)));
 }
 
+bool ContentVerifier::ShouldComputeHashesOnInstall(const Extension& extension) {
+  return delegate_->GetVerifierSourceType(extension) ==
+         ContentVerifierDelegate::VerifierSourceType::UNSIGNED_HASHES;
+}
+
 void ContentVerifier::OnHashReady(const std::string& extension_id,
                                   const base::FilePath& extension_root,
                                   const base::FilePath& relative_path,
                                   scoped_refptr<ContentVerifyJob> verify_job) {
   base::PostTaskAndReplyWithResult(
                                    FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::Bind(&ContentVerifier::OpenFile, this, extension_root, relative_path, verify_job),
-      base::Bind(&ContentVerifier::OnFileReady, this, extension_root, relative_path, verify_job));
+      base::BindOnce(&ContentVerifier::OpenFile, this, extension_root, relative_path, verify_job),
+      base::BindOnce(&ContentVerifier::OnFileReady, this, extension_root, relative_path, verify_job));
 }
 
 bool ContentVerifier::OpenFile(const base::FilePath& extension_root,
@@ -532,8 +537,8 @@ void ContentVerifier::OnFileReady(const base::FilePath& extension_root,
 
   base::PostTaskAndReplyWithResult(
                                    FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::Bind(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
-     base::Bind(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
+      base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
+     base::BindOnce(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
 }
 bool ContentVerifier::ReadFile(const base::FilePath& extension_root,
                                const base::FilePath& relative_path,
@@ -552,9 +557,9 @@ void ContentVerifier::BytesRead(const base::FilePath& extension_root,
   } else {
     job->Read(job->buf_, job->len_, base::File::FILE_OK);
     base::PostTaskAndReplyWithResult(
-                                     FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::Bind(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
-     base::Bind(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
+      FROM_HERE, {base::ThreadPool(), base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+      base::BindOnce(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),
+      base::BindOnce(&ContentVerifier::BytesRead, this, extension_root, relative_path, job));
   }
 }
 

@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">מחוון</translation>
 <translation id="1211441953136645838">הערת סיום</translation>
 <translation id="1281252709823657822">דו-שיח</translation>
+<translation id="1306460908038601864">כבוי</translation>
 <translation id="1335095011850992622">קרדיטים</translation>
 <translation id="1342835525016946179">article</translation>
 <translation id="1359897965706325498">מודעת באנר</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">הארך טקסט זה ל-<ph name="MIN_CHARACTERS" /> תווים או יותר (אתה משתמש כרגע ב-<ph name="CURRENT_LENGTH" /> תווים).</translation>
 <translation id="383465348367842624">חלק ולאחריו '<ph name="ATSIGN" />' לא אמור לכלול את הסמל '<ph name="INVALIDCHARACTER" />'.</translation>
 <translation id="3846214748874656680">צא ממסך מלא</translation>
-<translation id="3889183436948184105">תיקון</translation>
 <translation id="3920932319529768807">סיכום</translation>
 <translation id="3924558731517983934">יישום</translation>
 <translation id="3944740393230681990">פרולוג</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">יש להזין מספר.</translation>
 <translation id="4912536737030637138">ערך ביבליוגרפי</translation>
 <translation id="492244087561876220">תגובה</translation>
+<translation id="4971739861736909480">הפריט <ph name="ACCNAME" /> נבחר</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> נבחרו</translation>
 <translation id="4992066212339426712">בטל השתקה</translation>
 <translation id="49969490063480558">הזן חלק ולאחריו '<ph name="ATSIGN" />'‏. השדה '<ph name="INVALIDADDRESS" />' אינו מלא.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">הזן חלק ולאחריו '<ph name="ATSIGN" />'‏. השדה '<ph name="INVALIDADDRESS" />' אינו מלא.</translation>
 <translation id="5334352251556557839">לא ניתן להפעיל את המדיה.</translation>
+<translation id="537648784377940524">התאריך המוקדם ביותר (<ph name="MIN_DATE_OR_TIME" />) חייב לחול לפני התאריך המאוחר ביותר (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">ספרה</translation>
 <translation id="5453733299334684579">פריט בעץ</translation>
 <translation id="5466621249238537318">בחר קובץ אחד או יותר.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">אפשרויות נוספות</translation>
 <translation id="576709008726043716">מבוא</translation>
 <translation id="57838592816432529">השתקה</translation>
-<translation id="5860033963881614850">כבוי</translation>
 <translation id="588258955323874662">מסך מלא</translation>
 <translation id="5888666972993069672">מתבצעת העברה אל <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">תיבת חיפוש</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">כלול '<ph name="ATSIGN" />' בכתובת האימייל. ב-'<ph name="INVALIDADDRESS" />' חסר '<ph name="ATSIGN" />'.</translation>
 <translation id="7891486169920085145">מפצל</translation>
 <translation id="795667975304826397">לא נבחר קובץ</translation>
+<translation id="7962328325860248200">הפריט <ph name="ACCNAME" /> לא נבחר</translation>
 <translation id="8034303206267677282">חשוב</translation>
 <translation id="8053789581856978548">שדה טקסט לחיפוש</translation>
 <translation id="8057695513531652401">הודעה</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">חודש</translation>
 <translation id="901493112792887934">זמן נוכחי בשניות</translation>
 <translation id="901834265349196618">אימייל</translation>
-<translation id="9023835124071926463">קטע התגובות</translation>
 <translation id="9048119486235211610">ניווט</translation>
 <translation id="9062295712474918030">מסמך</translation>
 <translation id="9093215626363556771">יציאה ממצב 'תמונה בתוך תמונה'</translation>

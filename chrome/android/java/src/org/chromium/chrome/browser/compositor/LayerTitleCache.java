@@ -14,11 +14,11 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.layouts.content.TitleBitmapFactory;
 import org.chromium.chrome.browser.favicon.FaviconHelper;
 import org.chromium.chrome.browser.favicon.FaviconHelper.DefaultFaviconHelper;
 import org.chromium.chrome.browser.favicon.FaviconHelper.FaviconImageCallback;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFavicon;
@@ -165,10 +165,7 @@ public class LayerTitleCache implements TitleCache {
         if (mFaviconHelper == null) mFaviconHelper = new FaviconHelper();
 
         // Since tab#getProfile() is not available by this time, we will use whatever last used
-        // profile. This should be normal profile since fetching favicons should normally happen on
-        // a cold start. Return otherwise.
-        if (Profile.getLastUsedProfile().hasOffTheRecordProfile()) return;
-
+        // profile.
         mFaviconHelper.getLocalFaviconImageForURL(
                 Profile.getLastUsedProfile(),
                 tab.getUrl(),
@@ -201,7 +198,7 @@ public class LayerTitleCache implements TitleCache {
     }
 
     private void updateFaviconFromHistory(Tab tab, Bitmap faviconBitmap) {
-        if (!((TabImpl) tab).isInitialized()) return;
+        if (!tab.isInitialized()) return;
 
         int tabId = tab.getId();
         Title title = mTitles.get(tabId);

@@ -65,6 +65,10 @@ class ASH_EXPORT UnifiedMessageCenterBubble : public TrayBubbleBase,
   TrayBubbleView* GetBubbleView() const override;
   views::Widget* GetBubbleWidget() const override;
 
+  // TrayBubbleView::Delegate:
+  base::string16 GetAccessibleNameForBubble() override;
+  bool ShouldEnableExtraKeyboardAccessibility() override;
+
   // views::ViewObserver:
   void OnViewPreferredSizeChanged(views::View* observed_view) override;
 

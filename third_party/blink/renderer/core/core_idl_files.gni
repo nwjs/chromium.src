@@ -117,7 +117,6 @@ core_idl_files =
                     "dom/dom_token_list.idl",
                     "dom/document_fragment.idl",
                     "dom/document_type.idl",
-                    "dom/element.idl",
                     "dom/idle_deadline.idl",
                     "dom/iterator.idl",
                     "dom/mutation_observer.idl",
@@ -286,6 +285,7 @@ core_idl_files =
                     "html/forms/html_output_element.idl",
                     "html/forms/html_select_element.idl",
                     "html/forms/html_text_area_element.idl",
+                    "html/forms/submit_event.idl",
                     "html/forms/radio_node_list.idl",
                     "html/forms/validity_state.idl",
                     "html/media/html_audio_element.idl",
@@ -311,6 +311,7 @@ core_idl_files =
                     "intersection_observer/intersection_observer.idl",
                     "intersection_observer/intersection_observer_entry.idl",
                     "invisible_dom/activate_invisible_event.idl",
+                    "layout/ng/custom/intrinsic_sizes.idl",
                     "layout/ng/custom/layout_constraints.idl",
                     "layout/ng/custom/layout_edges.idl",
                     "layout/ng/custom/layout_fragment.idl",
@@ -329,6 +330,7 @@ core_idl_files =
                     "page/scrolling/scroll_state.idl",
                     "resize_observer/resize_observer.idl",
                     "resize_observer/resize_observer_entry.idl",
+                    "resize_observer/resize_observer_size.idl",
                     "streams/byte_length_queuing_strategy.idl",
                     "streams/count_queuing_strategy.idl",
                     "streams/readable_stream.idl",
@@ -364,7 +366,6 @@ core_idl_files =
                     "svg/svg_component_transfer_function_element.idl",
                     "svg/svg_defs_element.idl",
                     "svg/svg_desc_element.idl",
-                    "svg/svg_discard_element.idl",
                     "svg/svg_element.idl",
                     "svg/svg_ellipse_element.idl",
                     "svg/svg_fe_blend_element.idl",
@@ -499,6 +500,7 @@ core_idl_with_modules_dependency_files =
                     "clipboard/data_transfer_item.idl",
                     "css/css.idl",
                     "dom/document.idl",
+                    "dom/element.idl",
                     "dom/shadow_root.idl",
                     "frame/navigator.idl",
                     "frame/screen.idl",
@@ -678,6 +680,7 @@ core_dictionary_idl_files =
                     "html/canvas/image_encode_options.idl",
                     "html/custom/validity_state_flags.idl",
                     "html/forms/form_data_event_init.idl",
+                    "html/forms/submit_event_init.idl",
                     "html/portal/portal_activate_event_init.idl",
                     "html/portal/portal_activate_options.idl",
                     "html/track/track_event_init.idl",
@@ -687,6 +690,7 @@ core_dictionary_idl_files =
                     "intersection_observer/intersection_observer_init.idl",
                     "layout/ng/custom/custom_layout_constraints_options.idl",
                     "layout/ng/custom/fragment_result_options.idl",
+                    "layout/ng/custom/intrinsic_sizes_result_options.idl",
                     "messaging/post_message_options.idl",
                     "mojo/mojo_create_data_pipe_options.idl",
                     "mojo/mojo_create_data_pipe_result.idl",
@@ -704,6 +708,7 @@ core_dictionary_idl_files =
                     "mojo/mojo_write_data_result.idl",
                     "mojo/test/mojo_interface_request_event_init.idl",
                     "page/scrolling/scroll_state_init.idl",
+                    "resize_observer/resize_observer_options.idl",
                     "streams/queuing_strategy_init.idl",
                     "timing/measure_memory/measure_memory.idl",
                     "timing/measure_memory/measure_memory_entry.idl",
@@ -788,7 +793,8 @@ core_static_dependency_idl_files =
     core_dependency_idl_files + webcore_testing_dependency_idl_files
 
 # Generated IDL files
-core_generated_interface_idl_files = generated_webcore_testing_idl_files  # interfaces
+core_generated_interface_idl_files =
+    generated_webcore_testing_idl_files  # interfaces
 core_generated_dependency_idl_files =
     core_global_constructors_generated_idl_files  # partial interfaces
 

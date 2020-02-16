@@ -32,6 +32,7 @@
 #include "base/optional.h"
 #include "cc/layers/picture_layer.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/public/web/web_device_emulation_params.h"
@@ -182,11 +183,13 @@
 #include "third_party/blink/renderer/platform/wtf/dtoa.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
+#include "ui/base/ui_base_features.h"
 #include "v8/include/v8.h"
 
 namespace blink {
 
 using ui::mojom::ImeTextSpanThickness;
+using ui::mojom::ImeTextSpanUnderlineStyle;
 
 namespace {
 
@@ -220,9 +223,9 @@ static base::Optional<DocumentMarker::MarkerType> MarkerTypeFrom(
     const String& marker_type) {
   if (DeprecatedEqualIgnoringCase(marker_type, "Spelling"))
     return DocumentMarker::kSpelling;
-  if (DeprecatedEqualIgnoringCase(marker_type, "Grammar"))
+  if (EqualIgnoringASCIICase(marker_type, "Grammar"))
     return DocumentMarker::kGrammar;
-  if (DeprecatedEqualIgnoringCase(marker_type, "TextMatch"))
+  if (EqualIgnoringASCIICase(marker_type, "TextMatch"))
     return DocumentMarker::kTextMatch;
   if (DeprecatedEqualIgnoringCase(marker_type, "Composition"))
     return DocumentMarker::kComposition;
@@ -235,7 +238,7 @@ static base::Optional<DocumentMarker::MarkerType> MarkerTypeFrom(
 
 static base::Optional<DocumentMarker::MarkerTypes> MarkerTypesFrom(
     const String& marker_type) {
-  if (marker_type.IsEmpty() || DeprecatedEqualIgnoringCase(marker_type, "all"))
+  if (marker_type.IsEmpty() || EqualIgnoringASCIICase(marker_type, "all"))
     return DocumentMarker::MarkerTypes::All();
   base::Optional<DocumentMarker::MarkerType> type = MarkerTypeFrom(marker_type);
   if (!type)
@@ -287,8 +290,8 @@ void Internals::ResetToConsistentState(Page* page) {
   }
 
   LocalFrame* frame = page->DeprecatedLocalMainFrame();
-  frame->View()->LayoutViewport()->SetScrollOffset(ScrollOffset(),
-                                                   kProgrammaticScroll);
+  frame->View()->LayoutViewport()->SetScrollOffset(
+      ScrollOffset(), mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   OverrideUserPreferredLanguagesForTesting(Vector<AtomicString>());
   if (page->DeprecatedLocalMainFrame()->GetEditor().IsOverwriteModeEnabled())
     page->DeprecatedLocalMainFrame()->GetEditor().ToggleOverwriteModeEnabled();
@@ -332,6 +335,10 @@ InternalRuntimeFlags* Internals::runtimeFlags() const {
 
 unsigned Internals::workerThreadCount() const {
   return WorkerThread::WorkerThreadCount();
+}
+
+bool Internals::isFormControlsRefreshEnabled() const {
+  return ::features::IsFormControlsRefreshEnabled();
 }
 
 GCObservation* Internals::observeGC(ScriptValue script_value) {
@@ -588,8 +595,7 @@ void Internals::pauseAnimations(double pause_time,
   if (!GetFrame())
     return;
 
-  GetFrame()->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  GetFrame()->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   GetFrame()->GetDocument()->Timeline().PauseAnimationsForTesting(pause_time);
 }
 
@@ -730,7 +736,7 @@ String Internals::elementLayoutTreeAsText(Element* element,
                                           ExceptionState& exception_state) {
   DCHECK(element);
   element->GetDocument().View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 
   String representation = ExternalRepresentation(element);
   if (representation.IsEmpty()) {
@@ -846,7 +852,7 @@ void Internals::selectColorInColorChooser(Element* element,
 void Internals::endColorChooser(Element* element) {
   DCHECK(element);
   if (auto* input = DynamicTo<HTMLInputElement>(*element))
-    input->EndColorChooser();
+    input->EndColorChooserForTesting();
 }
 
 bool Internals::hasAutofocusRequest(Document* document) {
@@ -1128,17 +1134,34 @@ static base::Optional<ImeTextSpanThickness> ThicknessFrom(
   return base::nullopt;
 }
 
+static base::Optional<ImeTextSpanUnderlineStyle> UnderlineStyleFrom(
+    const String& underline_style) {
+  if (EqualIgnoringASCIICase(underline_style, "none"))
+    return ImeTextSpanUnderlineStyle::kNone;
+  if (EqualIgnoringASCIICase(underline_style, "solid"))
+    return ImeTextSpanUnderlineStyle::kSolid;
+  if (EqualIgnoringASCIICase(underline_style, "dot"))
+    return ImeTextSpanUnderlineStyle::kDot;
+  if (EqualIgnoringASCIICase(underline_style, "dash"))
+    return ImeTextSpanUnderlineStyle::kDash;
+  return base::nullopt;
+}
+
 namespace {
 
-void addStyleableMarkerHelper(
-    const Range* range,
-    const String& underline_color_value,
-    const String& thickness_value,
-    const String& background_color_value,
-    ExceptionState& exception_state,
-    std::function<
-        void(const EphemeralRange&, Color, ImeTextSpanThickness, Color)>
-        create_marker) {
+void addStyleableMarkerHelper(const Range* range,
+                              const String& underline_color_value,
+                              const String& thickness_value,
+                              const String& underline_style_value,
+                              const String& text_color_value,
+                              const String& background_color_value,
+                              ExceptionState& exception_state,
+                              std::function<void(const EphemeralRange&,
+                                                 Color,
+                                                 ImeTextSpanThickness,
+                                                 ImeTextSpanUnderlineStyle,
+                                                 Color,
+                                                 Color)> create_marker) {
   DCHECK(range);
   range->OwnerDocument().UpdateStyleAndLayout();
 
@@ -1151,14 +1174,27 @@ void addStyleableMarkerHelper(
     return;
   }
 
+  base::Optional<ImeTextSpanUnderlineStyle> underline_style =
+      UnderlineStyleFrom(underline_style_value);
+  if (!underline_style_value) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kSyntaxError,
+                                      "The underline style provided ('" +
+                                          underline_style_value +
+                                          "') is invalid.");
+    return;
+  }
+
   Color underline_color;
   Color background_color;
+  Color text_color;
   if (ParseColor(underline_color_value, underline_color, exception_state,
                  "Invalid underline color.") &&
+      ParseColor(text_color_value, text_color, exception_state,
+                 "Invalid text color.") &&
       ParseColor(background_color_value, background_color, exception_state,
                  "Invalid background color.")) {
     create_marker(EphemeralRange(range), underline_color, thickness.value(),
-                  background_color);
+                  underline_style.value(), text_color, background_color);
   }
 }
 
@@ -1167,18 +1203,23 @@ void addStyleableMarkerHelper(
 void Internals::addCompositionMarker(const Range* range,
                                      const String& underline_color_value,
                                      const String& thickness_value,
+                                     const String& underline_style_value,
+                                     const String& text_color_value,
                                      const String& background_color_value,
                                      ExceptionState& exception_state) {
   DocumentMarkerController& document_marker_controller =
       range->OwnerDocument().Markers();
   addStyleableMarkerHelper(
-      range, underline_color_value, thickness_value, background_color_value,
-      exception_state,
-      [&document_marker_controller](
-          const EphemeralRange& range, Color underline_color,
-          ImeTextSpanThickness thickness, Color background_color) {
+      range, underline_color_value, thickness_value, underline_style_value,
+      text_color_value, background_color_value, exception_state,
+      [&document_marker_controller](const EphemeralRange& range,
+                                    Color underline_color,
+                                    ImeTextSpanThickness thickness,
+                                    ImeTextSpanUnderlineStyle underline_style,
+                                    Color text_color, Color background_color) {
         document_marker_controller.AddCompositionMarker(
-            range, underline_color, thickness, background_color);
+            range, underline_color, thickness, underline_style, text_color,
+            background_color);
       });
 }
 
@@ -1187,16 +1228,23 @@ void Internals::addActiveSuggestionMarker(const Range* range,
                                           const String& thickness_value,
                                           const String& background_color_value,
                                           ExceptionState& exception_state) {
+  // Underline style and text color aren't really supported for suggestions so
+  // providing default values for now.
+  String underline_style_value = "solid";
+  String text_color_value = "transparent";
   DocumentMarkerController& document_marker_controller =
       range->OwnerDocument().Markers();
   addStyleableMarkerHelper(
-      range, underline_color_value, thickness_value, background_color_value,
-      exception_state,
-      [&document_marker_controller](
-          const EphemeralRange& range, Color underline_color,
-          ImeTextSpanThickness thickness, Color background_color) {
+      range, underline_color_value, thickness_value, underline_style_value,
+      text_color_value, background_color_value, exception_state,
+      [&document_marker_controller](const EphemeralRange& range,
+                                    Color underline_color,
+                                    ImeTextSpanThickness thickness,
+                                    ImeTextSpanUnderlineStyle underline_style,
+                                    Color text_color, Color background_color) {
         document_marker_controller.AddActiveSuggestionMarker(
-            range, underline_color, thickness, background_color);
+            range, underline_color, thickness, underline_style, text_color,
+            background_color);
       });
 }
 
@@ -1208,6 +1256,10 @@ void Internals::addSuggestionMarker(
     const String& thickness_value,
     const String& background_color_value,
     ExceptionState& exception_state) {
+  // Underline style and text color aren't really supported for suggestions so
+  // providing default values for now.
+  String underline_style_value = "solid";
+  String text_color_value = "transparent";
   Color suggestion_highlight_color;
   if (!ParseColor(suggestion_highlight_color_value, suggestion_highlight_color,
                   exception_state, "Invalid suggestion highlight color."))
@@ -1216,11 +1268,13 @@ void Internals::addSuggestionMarker(
   DocumentMarkerController& document_marker_controller =
       range->OwnerDocument().Markers();
   addStyleableMarkerHelper(
-      range, underline_color_value, thickness_value, background_color_value,
-      exception_state,
+      range, underline_color_value, thickness_value, underline_style_value,
+      text_color_value, background_color_value, exception_state,
       [&document_marker_controller, &suggestions, &suggestion_highlight_color](
           const EphemeralRange& range, Color underline_color,
-          ImeTextSpanThickness thickness, Color background_color) {
+          ImeTextSpanThickness thickness,
+          ImeTextSpanUnderlineStyle underline_style, Color text_color,
+          Color background_color) {
         document_marker_controller.AddSuggestionMarker(
             range,
             SuggestionMarkerProperties::Builder()
@@ -1229,6 +1283,8 @@ void Internals::addSuggestionMarker(
                 .SetHighlightColor(suggestion_highlight_color)
                 .SetUnderlineColor(underline_color)
                 .SetThickness(thickness)
+                .SetUnderlineStyle(underline_style)
+                .SetTextColor(text_color)
                 .SetBackgroundColor(background_color)
                 .Build());
       });
@@ -1838,8 +1894,7 @@ HitTestLayerRectList* Internals::touchEventTargetLayerRects(
 
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     auto* pac = document->View()->GetPaintArtifactCompositor();
-    document->View()->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    document->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
     auto* hit_test_rects = MakeGarbageCollected<HitTestLayerRectList>();
     for (const auto& layer : pac->RootLayer()->children()) {
@@ -2101,7 +2156,7 @@ bool Internals::scrollsWithRespectTo(Element* element1,
                                      ExceptionState& exception_state) {
   DCHECK(element1 && element2);
   element1->GetDocument().View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 
   LayoutObject* layout_object1 = element1->GetLayoutObject();
   LayoutObject* layout_object2 = element2->GetLayoutObject();
@@ -2146,8 +2201,7 @@ String Internals::layerTreeAsText(Document* document,
     return String();
   }
 
-  document->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  document->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   return document->GetFrame()->GetLayerTreeAsTextForTesting(flags);
 }
@@ -2167,7 +2221,7 @@ String Internals::mainThreadScrollingReasons(
   }
 
   document->GetFrame()->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 
   return document->GetFrame()->View()->MainThreadScrollingReasonsAsText();
 }
@@ -2197,8 +2251,7 @@ DOMRectList* Internals::nonFastScrollableRects(
   // ScrollingCoordinator::UpdateAfterPaint, which computes the non-fast
   // scrollable region. For CompositeAfterPaint, this includes running
   // PaintArtifactCompositor which updates the non-fast regions.
-  frame->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame->View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   auto* pac = document->View()->GetPaintArtifactCompositor();
   auto* layer_tree_host = pac->RootLayer()->layer_tree_host();
@@ -2225,7 +2278,7 @@ DOMRectList* Internals::nonFastScrollableRects(
     }
   }
 
-  return DOMRectList::Create(layer_non_fast_scrollable_rects);
+  return MakeGarbageCollected<DOMRectList>(layer_non_fast_scrollable_rects);
 }
 
 void Internals::evictAllResources() const {
@@ -2510,8 +2563,7 @@ void Internals::startTrackingRepaints(Document* document,
   }
 
   LocalFrameView* frame_view = document->View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   frame_view->SetTracksRasterInvalidations(true);
 }
 
@@ -2525,8 +2577,7 @@ void Internals::stopTrackingRepaints(Document* document,
   }
 
   LocalFrameView* frame_view = document->View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   frame_view->SetTracksRasterInvalidations(false);
 }
 
@@ -2583,7 +2634,7 @@ DOMRectList* Internals::AnnotatedRegions(Document* document,
   if (!document->View()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
                                       "The document provided is invalid.");
-    return DOMRectList::Create();
+    return MakeGarbageCollected<DOMRectList>();
   }
 
   document->UpdateStyleAndLayout();
@@ -2595,7 +2646,7 @@ DOMRectList* Internals::AnnotatedRegions(Document* document,
     if (region.draggable == draggable)
       quads.push_back(FloatQuad(FloatRect(region.bounds)));
   }
-  return DOMRectList::Create(quads);
+  return MakeGarbageCollected<DOMRectList>(quads);
 }
 
 static const char* CursorTypeToString(ui::CursorType cursor_type) {
@@ -2765,30 +2816,6 @@ scoped_refptr<SerializedScriptValue> Internals::deserializeBuffer(
     DOMArrayBuffer* buffer) const {
   return SerializedScriptValue::Create(static_cast<const char*>(buffer->Data()),
                                        buffer->ByteLengthAsSizeT());
-}
-
-DOMArrayBuffer* Internals::serializeWithInlineWasm(ScriptValue value) const {
-  v8::Isolate* isolate = value.GetIsolate();
-  ExceptionState exception_state(isolate, ExceptionState::kExecutionContext,
-                                 "Internals", "serializeWithInlineWasm");
-  v8::Local<v8::Value> v8_value = value.V8Value();
-  SerializedScriptValue::SerializeOptions options;
-  options.wasm_policy = SerializedScriptValue::SerializeOptions::kSerialize;
-  scoped_refptr<SerializedScriptValue> obj = SerializedScriptValue::Serialize(
-      isolate, v8_value, options, exception_state);
-  if (exception_state.HadException())
-    return nullptr;
-  return serializeObject(obj);
-}
-
-ScriptValue Internals::deserializeBufferContainingWasm(
-    ScriptState* state,
-    DOMArrayBuffer* buffer) const {
-  DummyExceptionStateForTesting exception_state;
-  SerializedScriptValue::DeserializeOptions options;
-  options.read_wasm_from_stream = true;
-  return ScriptValue::From(state, deserializeBuffer(buffer)->Deserialize(
-                                      state->GetIsolate(), options));
 }
 
 void Internals::forceReload(bool bypass_cache) {
@@ -2977,7 +3004,7 @@ void Internals::forceCompositingUpdate(Document* document,
   }
 
   document->GetFrame()->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 }
 
 void Internals::setShouldRevealPassword(Element* element,
@@ -3115,7 +3142,8 @@ void Internals::setInitialFocus(bool reverse) {
 
   GetFrame()->GetDocument()->ClearFocusedElement();
   GetFrame()->GetPage()->GetFocusController().SetInitialFocus(
-      reverse ? kWebFocusTypeBackward : kWebFocusTypeForward);
+      reverse ? mojom::blink::FocusType::kBackward
+              : mojom::blink::FocusType::kForward);
 }
 
 Element* Internals::interestedElement() {
@@ -3196,13 +3224,14 @@ bool Internals::isUseCounted(Document* document, uint32_t feature) {
 
 bool Internals::isCSSPropertyUseCounted(Document* document,
                                         const String& property_name) {
-  return document->IsPropertyCounted(unresolvedCSSPropertyID(property_name));
+  return document->IsPropertyCounted(
+      unresolvedCSSPropertyID(document, property_name));
 }
 
 bool Internals::isAnimatedCSSPropertyUseCounted(Document* document,
                                                 const String& property_name) {
   return document->IsAnimatedPropertyCounted(
-      unresolvedCSSPropertyID(property_name));
+      unresolvedCSSPropertyID(document, property_name));
 }
 
 void Internals::clearUseCounter(Document* document, uint32_t feature) {

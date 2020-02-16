@@ -51,10 +51,6 @@ target(link_target_type, "renderer") {
     "android/synchronous_layer_tree_frame_sink.h",
     "browser_exposed_renderer_interfaces.cc",
     "browser_exposed_renderer_interfaces.h",
-    "browser_plugin/browser_plugin.cc",
-    "browser_plugin/browser_plugin.h",
-    "browser_plugin/browser_plugin_manager.cc",
-    "browser_plugin/browser_plugin_manager.h",
     "categorized_worker_pool.cc",
     "categorized_worker_pool.h",
     "child_frame_compositing_helper.cc",
@@ -130,6 +126,8 @@ target(link_target_type, "renderer") {
     "loader/code_cache_loader_impl.h",
     "loader/frame_request_blocker.cc",
     "loader/frame_request_blocker.h",
+    "loader/internet_disconnected_web_url_loader.cc",
+    "loader/internet_disconnected_web_url_loader.h",
     "loader/navigation_body_loader.cc",
     "loader/navigation_body_loader.h",
     "loader/navigation_response_override_parameters.cc",
@@ -195,6 +193,8 @@ target(link_target_type, "renderer") {
     "media/media_factory.h",
     "media/media_permission_dispatcher.cc",
     "media/media_permission_dispatcher.h",
+    "media/power_status_helper_impl.cc",
+    "media/power_status_helper_impl.h",
     "media/render_media_client.cc",
     "media/render_media_client.h",
     "media/render_media_event_handler.cc",
@@ -253,8 +253,6 @@ target(link_target_type, "renderer") {
     "renderer_main_platform_delegate_linux.cc",
     "renderer_main_platform_delegate_mac.mm",
     "renderer_main_platform_delegate_win.cc",
-    "resource_timing_info_conversions.cc",
-    "resource_timing_info_conversions.h",
     "sad_plugin.cc",
     "sad_plugin.h",
     "savable_resources.cc",
@@ -345,8 +343,8 @@ target(link_target_type, "renderer") {
     "//components/url_formatter",
     "//components/viz/client",
     "//components/viz/common",
-    "//components/viz/service",
-    "//content:resources",
+    "//content:content_resources",
+    "//content:dev_ui_content_resources",
     "//content/child",
     "//content/common",
     "//content/common:buildflags",
@@ -385,7 +383,6 @@ target(link_target_type, "renderer") {
     "//services/audio/public/mojom",
     "//services/device/public/cpp/generic_sensor",
     "//services/device/public/mojom",
-    "//services/device/public/mojom:constants",
     "//services/device/public/mojom:usb",
     "//services/image_annotation/public/cpp:cpp",
     "//services/image_annotation/public/mojom:mojom",
@@ -443,6 +440,8 @@ target(link_target_type, "renderer") {
     set_sources_assignment_filter(sources_assignment_filter)
 
     deps += [
+      # Used by Android WebView only.
+      "//components/viz/service",
       "//third_party/android_ndk:cpu_features",
       "//third_party/ashmem",
       "//third_party/libphonenumber",
@@ -670,10 +669,6 @@ target(link_target_type, "renderer") {
   if (enable_ipc_fuzzer) {
     configs += [ "//tools/ipc_fuzzer:ipc_fuzzer_config" ]
   }
-
-  if (is_chromecast) {
-    defines += [ "IS_CHROMECAST" ]
-  }
 }
 
 # See comment at the top of //content/BUILD.gn for how this works.
@@ -684,16 +679,12 @@ group("for_content_tests") {
   ]
 
   if (!is_component_build) {
-    public_deps = [
-      ":renderer",
-    ]
+    public_deps = [ ":renderer" ]
   }
 }
 
 fuzzer_test("audio_decoder_fuzzer") {
-  sources = [
-    "media/audio_decoder_fuzzer.cpp",
-  ]
+  sources = [ "media/audio_decoder_fuzzer.cpp" ]
   deps = [
     "//content/public/renderer:renderer_sources",
     "//content/renderer:renderer",

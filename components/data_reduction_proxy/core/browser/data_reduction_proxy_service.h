@@ -16,6 +16,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
+#include "base/values.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_metrics.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_util.h"
 #include "components/data_reduction_proxy/core/browser/db_data_owner.h"
@@ -119,9 +120,9 @@ class DataReductionProxyService
   virtual void SetProxyPrefs(bool enabled, bool at_startup);
 
   void LoadHistoricalDataUsage(
-      const HistoricalDataUsageCallback& load_data_usage_callback);
+      HistoricalDataUsageCallback load_data_usage_callback);
   void LoadCurrentDataUsageBucket(
-      const LoadCurrentDataUsageCallback& load_current_data_usage_callback);
+      LoadCurrentDataUsageCallback load_current_data_usage_callback);
   void StoreCurrentDataUsageBucket(std::unique_ptr<DataUsageBucket> current);
   void DeleteHistoricalDataUsage();
   void DeleteBrowsingHistory(const base::Time& start, const base::Time& end);
@@ -163,6 +164,10 @@ class DataReductionProxyService
           observer) override;
   void Clone(
       mojo::PendingReceiver<mojom::DataReductionProxy> receiver) override;
+
+  // Returns the percentage of data savings estimate provided by save-data for
+  // an origin.
+  double GetSaveDataSavingsPercentEstimate(const std::string& origin) const;
 
   // Accessor methods.
   DataReductionProxyCompressionStats* compression_stats() const {
@@ -308,6 +313,9 @@ class DataReductionProxyService
   // IO thread is still available at the time of destruction. If the IO thread
   // is unavailable, then the destruction will happen on the UI thread.
   std::unique_ptr<NetworkPropertiesManager> network_properties_manager_;
+
+  // Dictionary of save-data savings estimates by origin.
+  const base::Optional<base::Value> save_data_savings_estimate_dict_;
 
   // The set of clients that will get updates about changes to the proxy config.
   mojo::RemoteSet<network::mojom::CustomProxyConfigClient>

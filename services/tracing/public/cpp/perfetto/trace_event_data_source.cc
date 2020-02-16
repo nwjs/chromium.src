@@ -33,8 +33,10 @@
 #include "base/trace_event/trace_log.h"
 #include "build/build_config.h"
 #include "components/tracing/common/tracing_switches.h"
+#include "services/tracing/public/cpp/perfetto/macros.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_producer.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
+#include "services/tracing/public/cpp/perfetto/trace_time.h"
 #include "services/tracing/public/cpp/perfetto/traced_value_proto_writer.h"
 #include "services/tracing/public/cpp/perfetto/track_event_thread_local_event_sink.h"
 #include "services/tracing/public/cpp/trace_event_args_whitelist.h"
@@ -44,11 +46,14 @@
 #include "third_party/perfetto/include/perfetto/ext/tracing/core/startup_trace_writer.h"
 #include "third_party/perfetto/include/perfetto/ext/tracing/core/startup_trace_writer_registry.h"
 #include "third_party/perfetto/include/perfetto/ext/tracing/core/trace_writer.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/perfetto/protos/perfetto/trace/chrome/chrome_metadata.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/chrome/chrome_trace_event.pbzero.h"
-#include "third_party/perfetto/protos/perfetto/trace/clock_snapshot.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/trace_packet.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_histogram_sample.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_process_descriptor.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/process_descriptor.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/track_event/track_descriptor.pbzero.h"
 
 #if defined(OS_ANDROID)
 #include "base/android/build_info.h"
@@ -60,30 +65,32 @@ using TraceConfig = base::trace_event::TraceConfig;
 using TracePacketHandle = perfetto::TraceWriter::TracePacketHandle;
 using TraceRecordMode = base::trace_event::TraceRecordMode;
 using perfetto::protos::pbzero::ChromeMetadataPacket;
+using perfetto::protos::pbzero::ChromeProcessDescriptor;
 using perfetto::protos::pbzero::ProcessDescriptor;
+using perfetto::protos::pbzero::TrackDescriptor;
 
 namespace tracing {
 namespace {
 
 TraceEventMetadataSource* g_trace_event_metadata_source_for_testing = nullptr;
 
-ProcessDescriptor::ChromeProcessType GetProcessType(const std::string& name) {
+ChromeProcessDescriptor::ProcessType GetProcessType(const std::string& name) {
   if (name == "Browser") {
-    return ProcessDescriptor::PROCESS_BROWSER;
+    return ChromeProcessDescriptor::PROCESS_BROWSER;
   } else if (name == "Renderer") {
-    return ProcessDescriptor::PROCESS_RENDERER;
+    return ChromeProcessDescriptor::PROCESS_RENDERER;
   } else if (name == "GPU Process") {
-    return ProcessDescriptor::PROCESS_GPU;
+    return ChromeProcessDescriptor::PROCESS_GPU;
   } else if (base::MatchPattern(name, "Service:*")) {
-    return ProcessDescriptor::PROCESS_UTILITY;
+    return ChromeProcessDescriptor::PROCESS_UTILITY;
   } else if (name == "HeadlessBrowser") {
-    return ProcessDescriptor::PROCESS_BROWSER;
+    return ChromeProcessDescriptor::PROCESS_BROWSER;
   } else if (name == "PPAPI Process") {
-    return ProcessDescriptor::PROCESS_PPAPI_PLUGIN;
+    return ChromeProcessDescriptor::PROCESS_PPAPI_PLUGIN;
   } else if (name == "PPAPI Broker Process") {
-    return ProcessDescriptor::PROCESS_PPAPI_BROKER;
+    return ChromeProcessDescriptor::PROCESS_PPAPI_BROKER;
   }
-  return ProcessDescriptor::PROCESS_UNSPECIFIED;
+  return ChromeProcessDescriptor::PROCESS_UNSPECIFIED;
 }
 
 void WriteMetadataProto(ChromeMetadataPacket* metadata_proto,
@@ -101,22 +108,24 @@ void WriteMetadataProto(ChromeMetadataPacket* metadata_proto,
 #endif  // defined(OS_ANDROID) && defined(OFFICIAL_BUILD)
 }
 
-#if defined(OS_LINUX) || defined(OS_ANDROID) || defined(OS_FUCHSIA)
-// Linux, Android, and Fuchsia all use CLOCK_MONOTONIC. See crbug.com/166153
-// about efforts to unify base::TimeTicks across all platforms.
-constexpr perfetto::protos::pbzero::ClockSnapshot::Clock::BuiltinClocks
-    kTraceClockId = perfetto::protos::pbzero::ClockSnapshot::Clock::MONOTONIC;
-#else
-// Mac and Windows TimeTicks advance when sleeping, so are closest to BOOTTIME
-// in behavior.
-// TODO(eseckler): Support specifying Mac/Win platform clocks in BuiltinClocks.
-constexpr perfetto::protos::pbzero::ClockSnapshot::Clock::BuiltinClocks
-    kTraceClockId = perfetto::protos::pbzero::ClockSnapshot::Clock::BOOTTIME;
-#endif
-
 static_assert(
     sizeof(TraceEventDataSource::SessionFlags) <= sizeof(uint64_t),
     "SessionFlags should remain small to ensure lock-free atomic operations");
+
+// Helper class used to ensure no tasks are posted while
+// TraceEventDataSource::lock_ is held.
+class AutoLockWithDeferredTaskPosting {
+ public:
+  explicit AutoLockWithDeferredTaskPosting(base::Lock& lock)
+      : autolock_(lock) {}
+
+ private:
+  // The ordering is important: |defer_task_posting_| must be destroyed
+  // after |autolock_| to ensure the lock is not held when any deferred
+  // tasks are posted..
+  base::ScopedDeferTaskPosting defer_task_posting_;
+  base::AutoLock autolock_;
+};
 
 }  // namespace
 
@@ -184,7 +193,7 @@ void TraceEventMetadataSource::GenerateMetadataFromGenerator(
   DCHECK(origin_task_runner_->RunsTasksInCurrentSequence());
   perfetto::TraceWriter::TracePacketHandle trace_packet;
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     if (!emit_metadata_at_start_ || !trace_writer_) {
       return;
     }
@@ -204,7 +213,7 @@ void TraceEventMetadataSource::GenerateJsonMetadataFromGenerator(
   perfetto::TraceWriter::TracePacketHandle trace_packet;
   if (!event_bundle) {
     {
-      base::AutoLock lock(lock_);
+      AutoLockWithDeferredTaskPosting lock(lock_);
       if (!emit_metadata_at_start_ || !trace_writer_) {
         return;
       }
@@ -279,7 +288,7 @@ void TraceEventMetadataSource::GenerateMetadata(
   TracePacketHandle trace_packet;
   bool privacy_filtering_enabled;
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     trace_packet = trace_writer_->NewTracePacket();
     privacy_filtering_enabled = privacy_filtering_enabled_;
   }
@@ -311,7 +320,7 @@ void TraceEventMetadataSource::StartTracing(
   auto proto_generators =
       std::make_unique<std::vector<MetadataGeneratorFunction>>();
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     privacy_filtering_enabled_ =
         data_source_config.chrome_config().privacy_filtering_enabled();
     chrome_config_ = data_source_config.chrome_config().trace_config();
@@ -346,7 +355,7 @@ void TraceEventMetadataSource::StopTracing(
     base::OnceClosure stop_complete_callback) {
   base::OnceClosure maybe_generate_task = base::DoNothing();
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     if (!emit_metadata_at_start_ && trace_writer_) {
       // Write metadata at the end of tracing if not emitted at start (in ring
       // buffer mode), to make it less likely that it is overwritten by other
@@ -370,7 +379,7 @@ void TraceEventMetadataSource::StopTracing(
           [](TraceEventMetadataSource* ds,
              base::OnceClosure stop_complete_callback) {
             {
-              base::AutoLock lock(ds->lock_);
+              AutoLockWithDeferredTaskPosting lock(ds->lock_);
               ds->producer_ = nullptr;
               ds->trace_writer_.reset();
               ds->chrome_config_ = std::string();
@@ -525,7 +534,7 @@ bool TraceEventDataSource::IsEnabled() {
 
 void TraceEventDataSource::SetupStartupTracing(bool privacy_filtering_enabled) {
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     // Do not enable startup registry if trace log is being flushed. The
     // previous tracing session has not ended yet.
     if (flushing_trace_log_) {
@@ -546,7 +555,7 @@ void TraceEventDataSource::SetupStartupTracing(bool privacy_filtering_enabled) {
     DCHECK(!trace_writer_);
     trace_writer_ = CreateTraceWriterLocked();
   }
-  EmitProcessDescriptor();
+  EmitTrackDescriptor();
   RegisterWithTraceLog();
   if (base::SequencedTaskRunnerHandle::IsSet()) {
     OnTaskSchedulerAvailable();
@@ -580,7 +589,7 @@ void TraceEventDataSource::StartupTracingTimeoutFired() {
   std::unique_ptr<perfetto::StartupTraceWriterRegistry> registry;
   std::unique_ptr<perfetto::StartupTraceWriter> trace_writer;
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     if (!startup_writer_registry_) {
       return;
     }
@@ -639,7 +648,7 @@ void TraceEventDataSource::OnFlushFinished(
   DCHECK_CALLED_ON_VALID_SEQUENCE(perfetto_sequence_checker_);
   base::OnceClosure task;
   {
-    base::AutoLock l(lock_);
+    AutoLockWithDeferredTaskPosting l(lock_);
     // Run any pending start or stop tracing
     // task.
     task = std::move(flush_complete_task_);
@@ -659,7 +668,7 @@ void TraceEventDataSource::StartTracing(
     PerfettoProducer* producer,
     const perfetto::DataSourceConfig& data_source_config) {
   {
-    base::AutoLock l(lock_);
+    AutoLockWithDeferredTaskPosting l(lock_);
     if (flushing_trace_log_) {
       DCHECK(!flush_complete_task_);
       // Delay start tracing until flush is finished.
@@ -680,7 +689,7 @@ void TraceEventDataSource::StartTracingInternal(
   DCHECK_CALLED_ON_VALID_SEQUENCE(perfetto_sequence_checker_);
   std::unique_ptr<perfetto::StartupTraceWriterRegistry> unbound_writer_registry;
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     bool should_enable_filtering =
         data_source_config.chrome_config().privacy_filtering_enabled();
     if (should_enable_filtering) {
@@ -710,14 +719,23 @@ void TraceEventDataSource::StartTracingInternal(
     producer->BindStartupTraceWriterRegistry(
         std::move(unbound_writer_registry), data_source_config.target_buffer());
   } else {
-    EmitProcessDescriptor();
     RegisterWithTraceLog();
   }
+
+  // We emit the track/process descriptor another time even if we were
+  // previously startup tracing, because the process name may have changed.
+  EmitTrackDescriptor();
 
   auto trace_config =
       TraceConfig(data_source_config.chrome_config().trace_config());
   TraceLog::GetInstance()->SetEnabled(trace_config, TraceLog::RECORDING_MODE);
   ResetHistograms(trace_config);
+
+  if (trace_config.IsCategoryGroupEnabled(
+          TRACE_DISABLED_BY_DEFAULT("histogram_samples"))) {
+    base::StatisticsRecorder::SetGlobalSampleCallback(
+        &TraceEventDataSource::OnMetricsSampleCallback);
+  }
 }
 
 void TraceEventDataSource::StopTracing(
@@ -748,7 +766,7 @@ void TraceEventDataSource::StopTracing(
 
   std::unique_ptr<perfetto::StartupTraceWriter> trace_writer;
   {
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
     if (flush_complete_task_) {
       DCHECK(!producer_);
       // Skip start tracing task at this point if we still have not flushed
@@ -789,6 +807,8 @@ void TraceEventDataSource::StopTracing(
     on_tracing_stopped_callback(this, scoped_refptr<base::RefCountedString>(),
                                 false);
   }
+
+  base::StatisticsRecorder::SetGlobalSampleCallback(nullptr);
 }
 
 void TraceEventDataSource::LogHistogram(base::HistogramBase* histogram) {
@@ -838,18 +858,12 @@ void TraceEventDataSource::Flush(
 
 void TraceEventDataSource::ClearIncrementalState() {
   TrackEventThreadLocalEventSink::ClearIncrementalState();
-  EmitProcessDescriptor();
+  EmitTrackDescriptor();
 }
 
 std::unique_ptr<perfetto::StartupTraceWriter>
 TraceEventDataSource::CreateTraceWriterLocked() {
   lock_.AssertAcquired();
-
-  // The call to CreateTraceWriter() below posts a task which is not allowed
-  // while holding |lock_|. Since we have to call it while holding |lock_|, we
-  // defer the task posting until after the lock is released.
-  base::ScopedDeferTaskPosting defer_task_posting;
-
   // |startup_writer_registry_| only exists during startup tracing before we
   // connect to the service. |producer_| is reset when tracing is
   // stopped.
@@ -872,7 +886,7 @@ TraceEventDataSource::CreateTraceWriterLocked() {
 
 TrackEventThreadLocalEventSink*
 TraceEventDataSource::CreateThreadLocalEventSink(bool thread_will_flush) {
-  base::AutoLock lock(lock_);
+  AutoLockWithDeferredTaskPosting lock(lock_);
   uint32_t session_id =
       session_flags_.load(std::memory_order_relaxed).session_id;
 
@@ -938,11 +952,27 @@ void TraceEventDataSource::FlushCurrentThread() {
   }
 }
 
+// static
+void TraceEventDataSource::OnMetricsSampleCallback(
+    const char* histogram_name,
+    uint64_t name_hash,
+    base::HistogramBase::Sample sample) {
+  // TODO(oysteine): Write an interned histogram name during local dev tracing
+  // when we're less space constrained.
+  TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("histogram_samples"), "HistogramSample",
+              [&](perfetto::EventContext ctx) {
+                perfetto::protos::pbzero::ChromeHistogramSample* new_sample =
+                    ctx.event()->set_chrome_histogram_sample();
+                new_sample->set_name_hash(name_hash);
+                new_sample->set_sample(sample);
+              });
+}
+
 void TraceEventDataSource::ReturnTraceWriter(
     std::unique_ptr<perfetto::StartupTraceWriter> trace_writer) {
   {
     // Prevent concurrent binding of the registry.
-    base::AutoLock lock(lock_);
+    AutoLockWithDeferredTaskPosting lock(lock_);
 
     // If we don't have a task runner yet, we must be attempting to return a
     // writer before the (very first) registry was bound. We cannot create the
@@ -980,40 +1010,52 @@ void TraceEventDataSource::ReturnTraceWriter(
           trace_writer_raw));
 }
 
-void TraceEventDataSource::EmitProcessDescriptor() {
-  // TODO(ssid): Emitting process descriptor for dead process will cause
-  // telemetry failures due to multiple main threads with same pid. So, fix the
-  // json exporter.
-  if (!privacy_filtering_enabled_) {
-    return;
-  }
-  // Initialize here since the constructor can be called before the process id
-  // in trace log is set.
-  if (process_id_ == base::kNullProcessId) {
-    process_name_ = TraceLog::GetInstance()->process_name();
-    process_id_ = TraceLog::GetInstance()->process_id();
-  }
-  if (process_id_ == base::kNullProcessId) {
+void TraceEventDataSource::EmitTrackDescriptor() {
+  AutoLockWithDeferredTaskPosting lock(lock_);
+
+  int process_id = TraceLog::GetInstance()->process_id();
+  if (process_id == base::kNullProcessId) {
     // Do not emit descriptor without process id.
     return;
   }
 
-  TracePacketHandle trace_packet;
-  {
-    base::AutoLock lock(lock_);
-    if (!trace_writer_) {
-      return;
-    }
-    trace_packet = trace_writer_->NewTracePacket();
+  if (!trace_writer_) {
+    return;
   }
-  trace_packet->set_incremental_state_cleared(true);
+
+  std::string process_name = TraceLog::GetInstance()->process_name();
+
+  TracePacketHandle trace_packet = trace_writer_->NewTracePacket();
+
+  trace_packet->set_sequence_flags(
+      perfetto::protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
   trace_packet->set_timestamp(
       TRACE_TIME_TICKS_NOW().since_origin().InNanoseconds());
   trace_packet->set_timestamp_clock_id(kTraceClockId);
-  auto process_type = GetProcessType(TraceLog::GetInstance()->process_name());
-  ProcessDescriptor* process_desc = trace_packet->set_process_descriptor();
-  process_desc->set_pid(process_id_);
-  process_desc->set_chrome_process_type(process_type);
+
+  TrackDescriptor* track_descriptor = trace_packet->set_track_descriptor();
+  auto process_track = perfetto::ProcessTrack::Current();
+
+  // TODO(eseckler): Call process_track.Serialize() here instead once the
+  // client lib also fills in the ProcessDescriptor's process_name, gets the
+  // correct pid from Chrome, and supports privacy filtering.
+  track_descriptor->set_uuid(process_track.uuid);
+  PERFETTO_DCHECK(!process_track.parent_uuid);
+
+  ProcessDescriptor* process = track_descriptor->set_process();
+  process->set_pid(process_id);
+  if (!privacy_filtering_enabled_ && !process_name.empty()) {
+    process->set_process_name(process_name);
+  }
+
+  ChromeProcessDescriptor* chrome_process =
+      track_descriptor->set_chrome_process();
+  auto process_type = GetProcessType(process_name);
+  if (process_type != ChromeProcessDescriptor::PROCESS_UNSPECIFIED) {
+    chrome_process->set_process_type(process_type);
+  }
+
+  // TODO(eseckler): Set other fields on |chrome_process|.
 
   trace_packet = TracePacketHandle();
   trace_writer_->Flush();

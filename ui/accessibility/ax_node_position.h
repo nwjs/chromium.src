@@ -22,10 +22,12 @@ namespace ui {
 // knowledge of the AXPosition AXNodeType (which is unknown by AXPosition).
 class AX_EXPORT AXNodePosition : public AXPosition<AXNodePosition, AXNode> {
  public:
-  static AXPositionInstance CreatePosition(AXTreeID tree_id,
-                                           const AXNode& node,
-                                           int offset,
-                                           ax::mojom::TextAffinity affinity);
+  // Creates either a text or a tree position, depending on the type of the node
+  // provided.
+  static AXPositionInstance CreatePosition(
+      const AXNode& node,
+      int child_index_or_text_offset,
+      ax::mojom::TextAffinity affinity = ax::mojom::TextAffinity::kDownstream);
 
   static void SetTree(AXTree* tree) { tree_ = tree; }
 
@@ -41,10 +43,6 @@ class AX_EXPORT AXNodePosition : public AXPosition<AXNodePosition, AXNode> {
   bool IsInWhiteSpace() const override;
   int MaxTextOffset() const override;
 
-  bool IsIgnoredPosition() const override;
-  AXPositionInstance AsUnignoredTextPosition(
-      AdjustmentBehavior adjustment_behavior) const override;
-
  protected:
   void AnchorChild(int child_index,
                    AXTreeID* tree_id,
@@ -54,6 +52,8 @@ class AX_EXPORT AXNodePosition : public AXPosition<AXNodePosition, AXNode> {
   base::stack<AXNode*> GetAncestorAnchors() const override;
   void AnchorParent(AXTreeID* tree_id, AXNode::AXID* parent_id) const override;
   AXNode* GetNodeInTree(AXTreeID tree_id, AXNode::AXID node_id) const override;
+  int32_t GetAnchorID(AXNode* node) const override;
+  AXTreeID GetTreeID(AXNode* node) const override;
 
   bool IsInLineBreakingObject() const override;
   ax::mojom::Role GetRole() const override;
@@ -71,9 +71,6 @@ class AX_EXPORT AXNodePosition : public AXPosition<AXNodePosition, AXNode> {
                            AXTreeID child_tree_id,
                            AXTreeID* parent_tree_id,
                            AXNode::AXID* parent_id);
-
-  AXPositionInstance CreateUnignoredPositionFromLeafTextPosition(
-      AdjustmentBehavior adjustment_behavior) const;
 
   static AXTree* tree_;
 };

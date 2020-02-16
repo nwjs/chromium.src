@@ -181,6 +181,13 @@ class MockLargeIconServiceWithFake : public LargeIconService {
                    favicon_base::LargeIconCallback callback,
                    base::CancelableTaskTracker* tracker));
 
+  MOCK_METHOD4(GetIconRawBitmapOrFallbackStyleForPageUrl,
+               base::CancelableTaskTracker::TaskId(
+                   const GURL& page_url,
+                   int desired_size_in_pixel,
+                   favicon_base::LargeIconCallback callback,
+                   base::CancelableTaskTracker* tracker));
+
   MOCK_METHOD1(TouchIconFromGoogleServer, void(const GURL& icon_url));
 
   // Will make the object respond by storing a valid local favicon for

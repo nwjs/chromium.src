@@ -38,9 +38,7 @@ source_set("main") {
     "//ui/gl/init",
   ]
 
-  public_deps = [
-    "//services/network/public/mojom",
-  ]
+  public_deps = [ "//services/network/public/mojom" ]
 
   if (use_ozone) {
     deps += [ "//ui/ozone:ozone" ]
@@ -51,7 +49,6 @@ source_set("main") {
   }
 
   if (is_chromecast) {
-    defines += [ "IS_CHROMECAST" ]
     deps += [ "//chromecast/media/service/mojom" ]
   }
 }

@@ -97,14 +97,15 @@ bool SignOutAndClearAccounts() {
   // important to autorelease all objects that make network requests to avoid
   // EarlGrey being confused about on-going network traffic..
   @autoreleasepool {
-    ios::ChromeBrowserState* browser_state = GetOriginalBrowserState();
+    ChromeBrowserState* browser_state = GetOriginalBrowserState();
     DCHECK(browser_state);
 
     // Sign out current user.
     AuthenticationService* authentication_service =
         AuthenticationServiceFactory::GetForBrowserState(browser_state);
     if (authentication_service->IsAuthenticated()) {
-      authentication_service->SignOut(signin_metrics::SIGNOUT_TEST, nil);
+      authentication_service->SignOut(signin_metrics::SIGNOUT_TEST,
+                                      /*force_clear_browsing_data=*/false, nil);
     }
 
     // Clear last signed in user preference.
@@ -126,7 +127,7 @@ void ResetMockAuthentication() {
 }
 
 void ResetSigninPromoPreferences() {
-  ios::ChromeBrowserState* browser_state = GetOriginalBrowserState();
+  ChromeBrowserState* browser_state = GetOriginalBrowserState();
   PrefService* prefs = browser_state->GetPrefs();
   prefs->SetInteger(prefs::kIosBookmarkSigninPromoDisplayedCount, 0);
   prefs->SetBoolean(prefs::kIosBookmarkPromoAlreadySeen, false);

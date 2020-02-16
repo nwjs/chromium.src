@@ -116,6 +116,11 @@ bool IsAutoFetchFeatureEnabled() {
 }
 #endif  // OS_ANDROID
 
+bool IsRunningInForcedAppMode() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kForceAppMode);
+}
+
 const net::NetworkTrafficAnnotationTag& GetNetworkTrafficAnnotationTag() {
   static const net::NetworkTrafficAnnotationTag network_traffic_annotation_tag =
       net::DefineNetworkTrafficAnnotation("net_error_helper", R"(
@@ -278,6 +283,7 @@ std::unique_ptr<network::ResourceRequest> NetErrorHelper::CreatePostRequest(
   resource_request->method = "POST";
   resource_request->fetch_request_context_type =
       static_cast<int>(blink::mojom::RequestContextType::INTERNAL);
+  resource_request->destination = network::mojom::RequestDestination::kEmpty;
   resource_request->resource_type =
       static_cast<int>(content::ResourceType::kSubResource);
 
@@ -334,10 +340,12 @@ LocalizedError::PageState NetErrorHelper::GenerateLocalizedErrorPage(
 
   LocalizedError::PageState page_state = LocalizedError::GetPageState(
       error.reason(), error.domain(), error.url(), is_failed_post,
+      error.resolve_error_info().is_secure_network_error,
       error.stale_copy_in_cache(), can_show_network_diagnostics_dialog,
       ChromeRenderThreadObserver::is_incognito_process(),
       IsOfflineContentOnNetErrorFeatureEnabled(), IsAutoFetchFeatureEnabled(),
-      RenderThread::Get()->GetLocale(), std::move(params));
+      IsRunningInForcedAppMode(), RenderThread::Get()->GetLocale(),
+      std::move(params));
   DCHECK(!template_html.empty()) << "unable to load template.";
   // "t" is the id of the template's root node.
   *error_html =
@@ -365,10 +373,12 @@ LocalizedError::PageState NetErrorHelper::UpdateErrorPage(
     bool can_show_network_diagnostics_dialog) {
   LocalizedError::PageState page_state = LocalizedError::GetPageState(
       error.reason(), error.domain(), error.url(), is_failed_post,
+      error.resolve_error_info().is_secure_network_error,
       error.stale_copy_in_cache(), can_show_network_diagnostics_dialog,
       ChromeRenderThreadObserver::is_incognito_process(),
       IsOfflineContentOnNetErrorFeatureEnabled(), IsAutoFetchFeatureEnabled(),
-      RenderThread::Get()->GetLocale(), std::unique_ptr<ErrorPageParams>());
+      IsRunningInForcedAppMode(), RenderThread::Get()->GetLocale(),
+      std::unique_ptr<ErrorPageParams>());
 
   std::string json;
   JSONWriter::Write(page_state.strings, &json);

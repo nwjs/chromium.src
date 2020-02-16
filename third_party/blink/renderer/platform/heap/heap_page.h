@@ -32,6 +32,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_HEAP_HEAP_PAGE_H_
 
 #include <stdint.h>
+#include <array>
 #include <atomic>
 
 #include "base/bits.h"
@@ -219,7 +220,6 @@ class PLATFORM_EXPORT HeapObjectHeader {
   DISALLOW_NEW();
 
  public:
-  enum HeaderLocation : uint8_t { kNormalPage, kLargePage };
   enum class AccessMode : uint8_t { kNonAtomic, kAtomic };
 
   static HeapObjectHeader* FromPayload(const void*);
@@ -230,7 +230,7 @@ class PLATFORM_EXPORT HeapObjectHeader {
   static void CheckFromPayload(const void*);
 
   // If |gc_info_index| is 0, this header is interpreted as a free list header.
-  HeapObjectHeader(size_t, size_t, HeaderLocation);
+  HeapObjectHeader(size_t, size_t);
 
   template <AccessMode mode = AccessMode::kNonAtomic>
   NO_SANITIZE_ADDRESS bool IsFree() const {
@@ -247,6 +247,7 @@ class PLATFORM_EXPORT HeapObjectHeader {
   size_t size() const;
   void SetSize(size_t size);
 
+  template <AccessMode = AccessMode::kNonAtomic>
   bool IsLargeObject() const;
 
   template <AccessMode = AccessMode::kNonAtomic>
@@ -297,11 +298,7 @@ class FreeListEntry final : public HeapObjectHeader {
  public:
   NO_SANITIZE_ADDRESS
   explicit FreeListEntry(size_t size)
-      : HeapObjectHeader(size,
-                         kGcInfoIndexForFreeListHeader,
-                         HeapObjectHeader::kNormalPage),
-        next_(nullptr) {
-  }
+      : HeapObjectHeader(size, kGcInfoIndexForFreeListHeader), next_(nullptr) {}
 
   Address GetAddress() { return reinterpret_cast<Address>(this); }
 
@@ -386,7 +383,7 @@ class FreeList {
 };
 
 // Blink heap pages are set up with a guard page before and after the payload.
-inline size_t BlinkPagePayloadSize() {
+constexpr size_t BlinkPagePayloadSize() {
   return kBlinkPageSize - 2 * kBlinkGuardPageSize;
 }
 
@@ -465,6 +462,7 @@ class BasePage {
   // Does not create free list entries for empty pages.
   virtual bool Sweep(FinalizeType) = 0;
   virtual void MakeConsistentForMutator() = 0;
+  virtual void Unmark() = 0;
 
   // Calls finalizers after sweeping is done.
   virtual void FinalizeSweep(SweepResult) = 0;
@@ -481,7 +479,9 @@ class BasePage {
 #endif
   virtual size_t size() = 0;
 
-  Address GetAddress() { return reinterpret_cast<Address>(this); }
+  Address GetAddress() const {
+    return reinterpret_cast<Address>(const_cast<BasePage*>(this));
+  }
   PageMemory* Storage() const { return storage_; }
   BaseArena* Arena() const { return arena_; }
   ThreadState* thread_state() const { return thread_state_; }
@@ -597,7 +597,8 @@ class PLATFORM_EXPORT ObjectStartBitmap {
   // Finds an object header based on a
   // address_maybe_pointing_to_the_middle_of_object. Will search for an object
   // start in decreasing address order.
-  Address FindHeader(Address address_maybe_pointing_to_the_middle_of_object);
+  Address FindHeader(
+      Address address_maybe_pointing_to_the_middle_of_object) const;
 
   inline void SetBit(Address);
   inline void ClearBit(Address);
@@ -636,12 +637,12 @@ class PLATFORM_EXPORT NormalPage final : public BasePage {
   NormalPage(PageMemory*, BaseArena*);
   ~NormalPage() override;
 
-  Address Payload() { return GetAddress() + PageHeaderSize(); }
-  size_t PayloadSize() {
+  Address Payload() const { return GetAddress() + PageHeaderSize(); }
+  static constexpr size_t PayloadSize() {
     return (BlinkPagePayloadSize() - PageHeaderSize()) & ~kAllocationMask;
   }
-  Address PayloadEnd() { return Payload() + PayloadSize(); }
-  bool ContainedInObjectPayload(Address address) {
+  Address PayloadEnd() const { return Payload() + PayloadSize(); }
+  bool ContainedInObjectPayload(Address address) const {
     return Payload() <= address && address < PayloadEnd();
   }
 
@@ -649,6 +650,7 @@ class PLATFORM_EXPORT NormalPage final : public BasePage {
   void RemoveFromHeap() override;
   bool Sweep(FinalizeType) override;
   void MakeConsistentForMutator() override;
+  void Unmark() override;
   void FinalizeSweep(SweepResult) override;
 #if defined(ADDRESS_SANITIZER)
   void PoisonUnmarkedObjects() override;
@@ -664,14 +666,14 @@ class PLATFORM_EXPORT NormalPage final : public BasePage {
   bool Contains(Address) override;
 #endif
   size_t size() override { return kBlinkPageSize; }
-  static size_t PageHeaderSize() {
+  static constexpr size_t PageHeaderSize() {
     // Compute the amount of padding we have to add to a header to make the size
     // of the header plus the padding a multiple of 8 bytes.
-    size_t padding_size =
+    constexpr size_t kPaddingSize =
         (sizeof(NormalPage) + kAllocationGranularity -
          (sizeof(HeapObjectHeader) % kAllocationGranularity)) %
         kAllocationGranularity;
-    return sizeof(NormalPage) + padding_size;
+    return sizeof(NormalPage) + kPaddingSize;
   }
 
   inline NormalPageArena* ArenaForNormalPage() const;
@@ -717,7 +719,76 @@ class PLATFORM_EXPORT NormalPage final : public BasePage {
 
   void VerifyMarking() override;
 
+  // Marks a card corresponding to address.
+  void MarkCard(Address address);
+
+  // Iterates over all objects in marked cards.
+  template <typename Function>
+  void IterateCardTable(Function function) const;
+
+  // Clears all bits in the card table.
+  void ClearCardTable() { card_table_.Clear(); }
+
  private:
+  // Data structure that divides a page in a number of cards each of 512 bytes
+  // size. Marked cards are stored in bytes, not bits, to make write barrier
+  // faster and reduce chances of false sharing. This gives only ~0.1% of memory
+  // overhead. Also, since there are guard pages before and after a Blink page,
+  // some of card bits are wasted and unneeded.
+  class CardTable final {
+   public:
+    struct value_type {
+      uint8_t bit;
+      size_t index;
+    };
+
+    struct iterator {
+      iterator& operator++() {
+        ++index;
+        return *this;
+      }
+      value_type operator*() const { return {table->table_[index], index}; }
+      bool operator!=(iterator other) const {
+        return table != other.table || index != other.index;
+      }
+
+      size_t index = 0;
+      const CardTable* table = nullptr;
+    };
+
+    using const_iterator = iterator;
+
+    static constexpr size_t kBitsPerCard = 9;
+    static constexpr size_t kCardSize = 1 << kBitsPerCard;
+
+    const_iterator begin() const { return {FirstPayloadCard(), this}; }
+    const_iterator end() const { return {LastPayloadCard(), this}; }
+
+    void Mark(size_t card) {
+      DCHECK_LE(FirstPayloadCard(), card);
+      DCHECK_GT(LastPayloadCard(), card);
+      table_[card] = 1;
+    }
+
+    bool IsMarked(size_t card) const {
+      DCHECK_LE(FirstPayloadCard(), card);
+      DCHECK_GT(LastPayloadCard(), card);
+      return table_[card];
+    }
+
+    void Clear() { std::fill(table_.begin(), table_.end(), 0); }
+
+   private:
+    static constexpr size_t FirstPayloadCard() {
+      return (kBlinkGuardPageSize + NormalPage::PageHeaderSize()) / kCardSize;
+    }
+    static constexpr size_t LastPayloadCard() {
+      return (kBlinkGuardPageSize + BlinkPagePayloadSize()) / kCardSize;
+    }
+
+    std::array<uint8_t, kBlinkPageSize / kCardSize> table_{};
+  };
+
   struct ToBeFinalizedObject {
     HeapObjectHeader* header;
     void Finalize();
@@ -727,16 +798,22 @@ class PLATFORM_EXPORT NormalPage final : public BasePage {
     size_t size;
   };
 
+  template <typename Function>
+  void IterateOnCard(Function function, size_t card_number) const;
+
   void MergeFreeLists();
   void AddToFreeList(Address start,
                      size_t size,
                      FinalizeType finalize_type,
                      bool found_finalizer);
 
+  CardTable card_table_;
   ObjectStartBitmap object_start_bit_map_;
   Vector<ToBeFinalizedObject> to_be_finalized_objects_;
   FreeList cached_freelist_;
   Vector<FutureFreelistEntry> unfinalized_freelist_;
+
+  friend class CardTableTest;
 };
 
 // Large allocations are allocated as separate objects and linked in a list.
@@ -800,6 +877,7 @@ class PLATFORM_EXPORT LargeObjectPage final : public BasePage {
   void RemoveFromHeap() override;
   bool Sweep(FinalizeType) override;
   void MakeConsistentForMutator() override;
+  void Unmark() override;
   void FinalizeSweep(SweepResult) override;
 
   void CollectStatistics(
@@ -823,12 +901,19 @@ class PLATFORM_EXPORT LargeObjectPage final : public BasePage {
   bool IsVectorBackingPage() const { return is_vector_backing_page_; }
 #endif
 
+  // Remembers the page as containing inter-generational pointers.
+  void SetRemembered(bool remembered) {
+    is_remembered_ = remembered;
+  }
+  bool IsRemembered() const { return is_remembered_; }
+
  private:
   // The size of the underlying object including HeapObjectHeader.
   size_t object_size_;
 #ifdef ANNOTATE_CONTIGUOUS_CONTAINER
   bool is_vector_backing_page_;
 #endif
+  bool is_remembered_ = false;
 };
 
 // Each thread has a number of thread arenas (e.g., Generic arenas, typed arenas
@@ -858,6 +943,7 @@ class PLATFORM_EXPORT BaseArena {
   virtual void MakeIterable() {}
   virtual void MakeConsistentForGC();
   void MakeConsistentForMutator();
+  void Unmark();
 #if DCHECK_IS_ON()
   virtual bool IsConsistentForGC() = 0;
 #endif
@@ -919,15 +1005,7 @@ class PLATFORM_EXPORT BaseArena {
 class PLATFORM_EXPORT NormalPageArena final : public BaseArena {
  public:
   NormalPageArena(ThreadState*, int index);
-  void AddToFreeList(Address address, size_t size) {
-#if DCHECK_IS_ON()
-    DCHECK(FindPageFromAddress(address));
-    // TODO(palmer): Do we need to handle about integer overflow here (and in
-    // similar expressions elsewhere)?
-    DCHECK(FindPageFromAddress(address + size - 1));
-#endif
-    free_list_.Add(address, size);
-  }
+  void AddToFreeList(Address address, size_t size);
   void AddToFreeList(FreeList* other) { free_list_.MoveFrom(other); }
   void ClearFreeLists() override;
   void CollectFreeListStatistics(
@@ -974,6 +1052,9 @@ class PLATFORM_EXPORT NormalPageArena final : public BaseArena {
 
   void MakeConsistentForGC() override;
 
+  template <typename Function>
+  void IterateAndClearCardTables(Function function);
+
  private:
   void AllocatePage();
 
@@ -1016,6 +1097,9 @@ class LargeObjectArena final : public BaseArena {
 #if DCHECK_IS_ON()
   bool IsConsistentForGC() override { return true; }
 #endif
+
+  template <typename Function>
+  void IterateAndClearRememberedPages(Function function);
 
  private:
   Address DoAllocateLargeObjectPage(size_t, size_t gc_info_index);
@@ -1072,8 +1156,7 @@ NO_SANITIZE_ADDRESS inline size_t HeapObjectHeader::size() const {
     internal::AsanUnpoisonScope unpoison_scope(
         static_cast<const void*>(&encoded_low_), sizeof(encoded_low_));
     encoded_low_value =
-        reinterpret_cast<const std::atomic<uint16_t>&>(encoded_low_)
-            .load(std::memory_order_relaxed);
+        WTF::AsAtomicPtr(&encoded_low_)->load(std::memory_order_relaxed);
   }
   const size_t result = internal::DecodeSize(encoded_low_value);
   // Large objects should not refer to header->size() but use
@@ -1090,8 +1173,18 @@ NO_SANITIZE_ADDRESS inline void HeapObjectHeader::SetSize(size_t size) {
                                        (encoded_low_ & ~kHeaderSizeMask));
 }
 
+template <HeapObjectHeader::AccessMode mode>
 NO_SANITIZE_ADDRESS inline bool HeapObjectHeader::IsLargeObject() const {
-  return internal::DecodeSize(encoded_low_) == kLargeObjectSizeInHeader;
+  uint16_t encoded_low_value;
+  if (mode == AccessMode::kNonAtomic) {
+    encoded_low_value = encoded_low_;
+  } else {
+    internal::AsanUnpoisonScope unpoison_scope(
+        static_cast<const void*>(&encoded_low_), sizeof(encoded_low_));
+    encoded_low_value =
+        WTF::AsAtomicPtr(&encoded_low_)->load(std::memory_order_relaxed);
+  }
+  return internal::DecodeSize(encoded_low_value) == kLargeObjectSizeInHeader;
 }
 
 template <HeapObjectHeader::AccessMode mode>
@@ -1158,8 +1251,7 @@ NO_SANITIZE_ADDRESS inline bool HeapObjectHeader::TryMark() {
   }
   internal::AsanUnpoisonScope unpoison_scope(
       static_cast<const void*>(&encoded_low_), sizeof(encoded_low_));
-  auto* atomic_encoded =
-      reinterpret_cast<std::atomic<uint16_t>*>(&encoded_low_);
+  auto* atomic_encoded = WTF::AsAtomicPtr(&encoded_low_);
   uint16_t old_value = atomic_encoded->load(std::memory_order_relaxed);
   if (old_value & kHeaderMarkBitMask)
     return false;
@@ -1176,8 +1268,12 @@ inline Address NormalPageArena::AllocateObject(size_t allocation_size,
     current_allocation_point_ += allocation_size;
     remaining_allocation_size_ -= allocation_size;
     DCHECK_GT(gc_info_index, 0u);
-    new (NotNull, header_address) HeapObjectHeader(
-        allocation_size, gc_info_index, HeapObjectHeader::kNormalPage);
+    new (NotNull, header_address)
+        HeapObjectHeader(allocation_size, gc_info_index);
+    DCHECK(!PageFromObject(header_address)->IsLargeObjectPage());
+    static_cast<NormalPage*>(PageFromObject(header_address))
+        ->object_start_bit_map()
+        ->SetBit(header_address);
     Address result = header_address + sizeof(HeapObjectHeader);
     DCHECK(!(reinterpret_cast<uintptr_t>(result) & kAllocationMask));
 
@@ -1192,6 +1288,29 @@ inline Address NormalPageArena::AllocateObject(size_t allocation_size,
 
 inline NormalPageArena* NormalPage::ArenaForNormalPage() const {
   return static_cast<NormalPageArena*>(Arena());
+}
+
+// Iterates over all card tables and clears them.
+template <typename Function>
+inline void NormalPageArena::IterateAndClearCardTables(Function function) {
+  for (BasePage* page : swept_pages_) {
+    auto* normal_page = static_cast<NormalPage*>(page);
+    normal_page->IterateCardTable(function);
+    normal_page->ClearCardTable();
+  }
+}
+
+// Iterates over all pages that may contain inter-generational pointers.
+template <typename Function>
+inline void LargeObjectArena::IterateAndClearRememberedPages(
+    Function function) {
+  for (BasePage* page : swept_pages_) {
+    auto* large_page = static_cast<LargeObjectPage*>(page);
+    if (large_page->IsRemembered()) {
+      function(large_page->ObjectHeader());
+      large_page->SetRemembered(false);
+    }
+  }
 }
 
 inline void ObjectStartBitmap::SetBit(Address header_address) {
@@ -1248,8 +1367,7 @@ inline void ObjectStartBitmap::Iterate(Callback callback) const {
 
 NO_SANITIZE_ADDRESS inline HeapObjectHeader::HeapObjectHeader(
     size_t size,
-    size_t gc_info_index,
-    HeaderLocation header_location) {
+    size_t gc_info_index) {
   // sizeof(HeapObjectHeader) must be equal to or smaller than
   // |kAllocationGranularity|, because |HeapObjectHeader| is used as a header
   // for a freed entry. Given that the smallest entry size is
@@ -1264,14 +1382,6 @@ NO_SANITIZE_ADDRESS inline HeapObjectHeader::HeapObjectHeader(
   encoded_high_ =
       static_cast<uint16_t>(gc_info_index << kHeaderGCInfoIndexShift);
   encoded_low_ = internal::EncodeSize(size);
-  if (header_location == kNormalPage) {
-    DCHECK(!PageFromObject(this)->IsLargeObjectPage());
-    static_cast<NormalPage*>(PageFromObject(this))
-        ->object_start_bit_map()
-        ->SetBit(reinterpret_cast<Address>(this));
-  } else {
-    DCHECK(PageFromObject(this)->IsLargeObjectPage());
-  }
   DCHECK(IsInConstruction());
 }
 
@@ -1283,8 +1393,7 @@ NO_SANITIZE_ADDRESS inline uint16_t HeapObjectHeader::LoadEncoded() const {
                                              sizeof(half));
   if (mode == AccessMode::kNonAtomic)
     return half;
-  return reinterpret_cast<const std::atomic<uint16_t>&>(half).load(
-      std::memory_order_acquire);
+  return WTF::AsAtomicPtr(&half)->load(std::memory_order_acquire);
 }
 
 // Sets bits selected by the mask to the given value. Please note that atomicity
@@ -1302,7 +1411,7 @@ NO_SANITIZE_ADDRESS inline void HeapObjectHeader::StoreEncoded(uint16_t bits,
   }
   // We don't perform CAS loop here assuming that the data is constant and no
   // one except for us can change this half concurrently.
-  auto* atomic_encoded = reinterpret_cast<std::atomic<uint16_t>*>(half);
+  auto* atomic_encoded = WTF::AsAtomicPtr(half);
   uint16_t value = atomic_encoded->load(std::memory_order_relaxed);
   value = (value & ~mask) | bits;
   atomic_encoded->store(value, std::memory_order_release);
@@ -1317,6 +1426,54 @@ HeapObjectHeader* NormalPage::FindHeaderFromAddress(Address address) {
   DCHECK_LT(0u, header->GcInfoIndex());
   DCHECK_GT(header->PayloadEnd<mode>(), address);
   return header;
+}
+
+template <typename Function>
+void NormalPage::IterateCardTable(Function function) const {
+  // TODO(bikineev): Consider introducing a "dirty" per-page bit to avoid
+  // the loop (this may in turn pessimize barrier implementation).
+  for (auto card : card_table_) {
+    if (UNLIKELY(card.bit)) {
+      IterateOnCard(std::move(function), card.index);
+    }
+  }
+}
+
+// Iterates over all objects in the specified marked card. Please note that
+// since objects are not aligned by the card boundary, it starts from the
+// object which may reside on a previous card.
+template <typename Function>
+void NormalPage::IterateOnCard(Function function, size_t card_number) const {
+#if DCHECK_IS_ON()
+  DCHECK(card_table_.IsMarked(card_number));
+  DCHECK(ArenaForNormalPage()->IsConsistentForGC());
+#endif
+
+  const Address card_begin = RoundToBlinkPageStart(GetAddress()) +
+                             (card_number << CardTable::kBitsPerCard);
+  const Address card_end = card_begin + CardTable::kCardSize;
+  // Generational barrier marks cards corresponding to slots (not source
+  // objects), therefore the potential source object may reside on a
+  // previous card.
+  HeapObjectHeader* header = reinterpret_cast<HeapObjectHeader*>(
+      card_number == card_table_.begin().index
+          ? Payload()
+          : object_start_bit_map_.FindHeader(card_begin));
+  for (; header < reinterpret_cast<HeapObjectHeader*>(card_end);
+       reinterpret_cast<Address&>(header) += header->size()) {
+    if (!header->IsFree()) {
+      function(header);
+    }
+  }
+}
+
+inline void NormalPage::MarkCard(Address address) {
+#if DCHECK_IS_ON()
+  DCHECK(Contains(address));
+#endif
+  const size_t byte = reinterpret_cast<size_t>(address) & kBlinkPageOffsetMask;
+  const size_t card = byte / CardTable::kCardSize;
+  card_table_.Mark(card);
 }
 
 }  // namespace blink

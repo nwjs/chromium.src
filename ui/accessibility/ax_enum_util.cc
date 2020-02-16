@@ -40,6 +40,8 @@ const char* ToString(ax::mojom::Event event) {
       return "expandedChanged";
     case ax::mojom::Event::kFocus:
       return "focus";
+    case ax::mojom::Event::kFocusAfterMenuClose:
+      return "focusAfterMenuClose";
     case ax::mojom::Event::kFocusContext:
       return "focusContext";
     case ax::mojom::Event::kHide:
@@ -168,6 +170,8 @@ ax::mojom::Event ParseEvent(const char* event) {
     return ax::mojom::Event::kExpandedChanged;
   if (0 == strcmp(event, "focus"))
     return ax::mojom::Event::kFocus;
+  if (0 == strcmp(event, "focusAfterMenuClose"))
+    return ax::mojom::Event::kFocusAfterMenuClose;
   if (0 == strcmp(event, "focusContext"))
     return ax::mojom::Event::kFocusContext;
   if (0 == strcmp(event, "hide"))
@@ -313,8 +317,6 @@ const char* ToString(ax::mojom::Role role) {
       return "comboBoxMenuButton";
     case ax::mojom::Role::kComment:
       return "comment";
-    case ax::mojom::Role::kCommentSection:
-      return "commentSection";
     case ax::mojom::Role::kComplementary:
       return "complementary";
     case ax::mojom::Role::kContentDeletion:
@@ -539,8 +541,14 @@ const char* ToString(ax::mojom::Role role) {
       return "pane";
     case ax::mojom::Role::kParagraph:
       return "paragraph";
+    case ax::mojom::Role::kPdfActionableHighlight:
+      return "pdfActionableHighlight";
+    case ax::mojom::Role::kPluginObject:
+      return "pluginObject";
     case ax::mojom::Role::kPopUpButton:
       return "popUpButton";
+    case ax::mojom::Role::kPortal:
+      return "portal";
     case ax::mojom::Role::kPre:
       return "pre";
     case ax::mojom::Role::kPresentational:
@@ -553,8 +561,6 @@ const char* ToString(ax::mojom::Role role) {
       return "radioGroup";
     case ax::mojom::Role::kRegion:
       return "region";
-    case ax::mojom::Role::kRevision:
-      return "revision";
     case ax::mojom::Role::kRootWebArea:
       return "rootWebArea";
     case ax::mojom::Role::kRow:
@@ -695,8 +701,6 @@ ax::mojom::Role ParseRole(const char* role) {
     return ax::mojom::Role::kComboBoxMenuButton;
   if (0 == strcmp(role, "comment"))
     return ax::mojom::Role::kComment;
-  if (0 == strcmp(role, "commentSection"))
-    return ax::mojom::Role::kCommentSection;
   if (0 == strcmp(role, "complementary"))
     return ax::mojom::Role::kComplementary;
   if (0 == strcmp(role, "contentDeletion"))
@@ -841,6 +845,8 @@ ax::mojom::Role ParseRole(const char* role) {
     return ax::mojom::Role::kHeader;
   if (0 == strcmp(role, "headerAsNonLandmark"))
     return ax::mojom::Role::kHeaderAsNonLandmark;
+  if (0 == strcmp(role, "pdfActionableHighlight"))
+    return ax::mojom::Role::kPdfActionableHighlight;
   if (0 == strcmp(role, "iframe"))
     return ax::mojom::Role::kIframe;
   if (0 == strcmp(role, "iframePresentational"))
@@ -921,8 +927,12 @@ ax::mojom::Role ParseRole(const char* role) {
     return ax::mojom::Role::kPane;
   if (0 == strcmp(role, "paragraph"))
     return ax::mojom::Role::kParagraph;
+  if (0 == strcmp(role, "pluginObject"))
+    return ax::mojom::Role::kPluginObject;
   if (0 == strcmp(role, "popUpButton"))
     return ax::mojom::Role::kPopUpButton;
+  if (0 == strcmp(role, "portal"))
+    return ax::mojom::Role::kPortal;
   if (0 == strcmp(role, "pre"))
     return ax::mojom::Role::kPre;
   if (0 == strcmp(role, "presentational"))
@@ -935,8 +945,6 @@ ax::mojom::Role ParseRole(const char* role) {
     return ax::mojom::Role::kRadioGroup;
   if (0 == strcmp(role, "region"))
     return ax::mojom::Role::kRegion;
-  if (0 == strcmp(role, "revision"))
-    return ax::mojom::Role::kRevision;
   if (0 == strcmp(role, "rootWebArea"))
     return ax::mojom::Role::kRootWebArea;
   if (0 == strcmp(role, "row"))
@@ -1585,8 +1593,6 @@ const char* ToString(ax::mojom::IntAttribute int_attribute) {
       return "descriptionFrom";
     case ax::mojom::IntAttribute::kActivedescendantId:
       return "activedescendantId";
-    case ax::mojom::IntAttribute::kDetailsId:
-      return "detailsId";
     case ax::mojom::IntAttribute::kErrormessageId:
       return "errormessageId";
     case ax::mojom::IntAttribute::kInPageLinkTargetId:
@@ -1639,6 +1645,8 @@ const char* ToString(ax::mojom::IntAttribute int_attribute) {
       return "nextFocusId";
     case ax::mojom::IntAttribute::kImageAnnotationStatus:
       return "imageAnnotationStatus";
+    case ax::mojom::IntAttribute::kDOMNodeId:
+      return "domNodeId";
   }
 
   return "";
@@ -1711,8 +1719,6 @@ ax::mojom::IntAttribute ParseIntAttribute(const char* int_attribute) {
     return ax::mojom::IntAttribute::kDescriptionFrom;
   if (0 == strcmp(int_attribute, "activedescendantId"))
     return ax::mojom::IntAttribute::kActivedescendantId;
-  if (0 == strcmp(int_attribute, "detailsId"))
-    return ax::mojom::IntAttribute::kDetailsId;
   if (0 == strcmp(int_attribute, "errormessageId"))
     return ax::mojom::IntAttribute::kErrormessageId;
   if (0 == strcmp(int_attribute, "inPageLinkTargetId"))
@@ -1765,6 +1771,8 @@ ax::mojom::IntAttribute ParseIntAttribute(const char* int_attribute) {
     return ax::mojom::IntAttribute::kNextFocusId;
   if (0 == strcmp(int_attribute, "imageAnnotationStatus"))
     return ax::mojom::IntAttribute::kImageAnnotationStatus;
+  if (0 == strcmp(int_attribute, "domNodeId"))
+    return ax::mojom::IntAttribute::kDOMNodeId;
   return ax::mojom::IntAttribute::kNone;
 }
 
@@ -1843,6 +1851,8 @@ const char* ToString(ax::mojom::BoolAttribute bool_attribute) {
       return "isLineBreakingObject";
     case ax::mojom::BoolAttribute::kIsPageBreakingObject:
       return "isPageBreakingObject";
+    case ax::mojom::BoolAttribute::kHasAriaAttribute:
+      return "hasAriaAttribute";
   }
 
   return "";
@@ -1883,6 +1893,8 @@ ax::mojom::BoolAttribute ParseBoolAttribute(const char* bool_attribute) {
     return ax::mojom::BoolAttribute::kIsLineBreakingObject;
   if (0 == strcmp(bool_attribute, "isPageBreakingObject"))
     return ax::mojom::BoolAttribute::kIsPageBreakingObject;
+  if (0 == strcmp(bool_attribute, "hasAriaAttribute"))
+    return ax::mojom::BoolAttribute::kHasAriaAttribute;
   return ax::mojom::BoolAttribute::kNone;
 }
 
@@ -1894,6 +1906,8 @@ const char* ToString(ax::mojom::IntListAttribute int_list_attribute) {
       return "indirectChildIds";
     case ax::mojom::IntListAttribute::kControlsIds:
       return "controlsIds";
+    case ax::mojom::IntListAttribute::kDetailsIds:
+      return "detailsIds";
     case ax::mojom::IntListAttribute::kDescribedbyIds:
       return "describedbyIds";
     case ax::mojom::IntListAttribute::kFlowtoIds:
@@ -1931,6 +1945,8 @@ ax::mojom::IntListAttribute ParseIntListAttribute(
     return ax::mojom::IntListAttribute::kIndirectChildIds;
   if (0 == strcmp(int_list_attribute, "controlsIds"))
     return ax::mojom::IntListAttribute::kControlsIds;
+  if (0 == strcmp(int_list_attribute, "detailsIds"))
+    return ax::mojom::IntListAttribute::kDetailsIds;
   if (0 == strcmp(int_list_attribute, "describedbyIds"))
     return ax::mojom::IntListAttribute::kDescribedbyIds;
   if (0 == strcmp(int_list_attribute, "flowtoIds"))

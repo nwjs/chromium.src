@@ -60,7 +60,8 @@ class SynchronousLayerTreeFrameSinkClient {
   virtual void Invalidate(bool needs_draw) = 0;
   virtual void SubmitCompositorFrame(
       uint32_t layer_tree_frame_sink_id,
-      base::Optional<viz::CompositorFrame> frame) = 0;
+      base::Optional<viz::CompositorFrame> frame,
+      base::Optional<viz::HitTestRegionList> hit_test_region_list) = 0;
   virtual void SetNeedsBeginFrames(bool needs_begin_frames) = 0;
   virtual void SinkDestroyed() = 0;
 
@@ -150,8 +151,6 @@ class SynchronousLayerTreeFrameSink
   void DeliverMessages();
   bool CalledOnValidThread() const;
 
-  void CancelFallbackTick();
-  void FallbackTickFired();
 
   const int routing_id_;
   const uint32_t layer_tree_frame_sink_id_;
@@ -173,10 +172,6 @@ class SynchronousLayerTreeFrameSink
   bool in_software_draw_ = false;
   bool did_submit_frame_ = false;
   scoped_refptr<FrameSwapMessageQueue> frame_swap_message_queue_;
-
-  base::CancelableOnceClosure fallback_tick_;
-  bool fallback_tick_pending_ = false;
-  bool fallback_tick_running_ = false;
 
   mojo::PendingRemote<viz::mojom::CompositorFrameSink>
       unbound_compositor_frame_sink_;
@@ -227,8 +222,9 @@ class SynchronousLayerTreeFrameSink
   base::ThreadChecker thread_checker_;
 
   // Indicates that webview using viz
-  bool viz_for_webview_enabled_;
+  const bool viz_frame_submission_enabled_;
   bool begin_frames_paused_ = false;
+  bool needs_begin_frames_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(SynchronousLayerTreeFrameSink);
 };

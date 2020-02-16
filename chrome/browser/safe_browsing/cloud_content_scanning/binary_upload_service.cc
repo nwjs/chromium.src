@@ -19,12 +19,14 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
+#include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_fcm_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/multipart_uploader.h"
 #include "chrome/browser/safe_browsing/dm_token_utils.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/proto/webprotect.pb.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/proto/webprotect.pb.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/http/http_status_code.h"
@@ -34,8 +36,18 @@ namespace {
 
 const int kScanningTimeoutSeconds = 5 * 60;  // 5 minutes
 
-const char kSbBinaryUploadUrl[] =
+const char kSbEnterpriseUploadUrl[] =
     "https://safebrowsing.google.com/safebrowsing/uploads/scan";
+
+const char kSbAppUploadUrl[] =
+    "https://safebrowsing.google.com/safebrowsing/uploads/app";
+
+bool IsAdvancedProtectionRequest(const BinaryUploadService::Request& request) {
+  return !request.deep_scanning_request().has_dlp_scan_request() &&
+         request.deep_scanning_request().has_malware_scan_request() &&
+         request.deep_scanning_request().malware_scan_request().population() ==
+             MalwareDeepScanningClientRequest::POPULATION_TITANIUM;
+}
 
 }  // namespace
 
@@ -49,10 +61,11 @@ BinaryUploadService::BinaryUploadService(
 
 BinaryUploadService::BinaryUploadService(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+    Profile* profile,
     std::unique_ptr<BinaryFCMService> binary_fcm_service)
     : url_loader_factory_(url_loader_factory),
       binary_fcm_service_(std::move(binary_fcm_service)),
-      profile_(nullptr),
+      profile_(profile),
       weakptr_factory_(this) {}
 
 BinaryUploadService::~BinaryUploadService() {}
@@ -60,7 +73,16 @@ BinaryUploadService::~BinaryUploadService() {}
 void BinaryUploadService::MaybeUploadForDeepScanning(
     std::unique_ptr<BinaryUploadService::Request> request) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (!can_upload_data_.has_value()) {
+  if (IsAdvancedProtectionRequest(*request)) {
+    MaybeUploadForDeepScanningCallback(
+        std::move(request),
+        /*authorized=*/safe_browsing::AdvancedProtectionStatusManagerFactory::
+            GetForProfile(profile_)
+                ->IsUnderAdvancedProtection());
+    return;
+  }
+
+  if (!can_upload_enterprise_data_.has_value()) {
     IsAuthorized(
         base::BindOnce(&BinaryUploadService::MaybeUploadForDeepScanningCallback,
                        weakptr_factory_.GetWeakPtr(), std::move(request)));
@@ -68,7 +90,7 @@ void BinaryUploadService::MaybeUploadForDeepScanning(
   }
 
   MaybeUploadForDeepScanningCallback(std::move(request),
-                                     can_upload_data_.value());
+                                     can_upload_enterprise_data_.value());
 }
 
 void BinaryUploadService::MaybeUploadForDeepScanningCallback(
@@ -190,8 +212,8 @@ void BinaryUploadService::OnGetRequestData(Request* request,
   base::Base64Encode(metadata, &metadata);
 
   auto upload_request = MultipartUploadRequest::Create(
-      url_loader_factory_, GURL(kSbBinaryUploadUrl), metadata, data.contents,
-      traffic_annotation,
+      url_loader_factory_, GetUploadUrl(IsAdvancedProtectionRequest(*request)),
+      metadata, data.contents, traffic_annotation,
       base::BindOnce(&BinaryUploadService::OnUploadComplete,
                      weakptr_factory_.GetWeakPtr(), request));
   upload_request->Start();
@@ -294,6 +316,11 @@ void BinaryUploadService::FinishRequest(Request* request,
   auto token_it = active_tokens_.find(request);
   if (token_it != active_tokens_.end()) {
     binary_fcm_service_->ClearCallbackForToken(token_it->second);
+
+    // The BinaryFCMService will handle all recoverable errors. In case of
+    // unrecoverable error, there's nothing we can do here.
+    binary_fcm_service_->UnregisterInstanceID(token_it->second,
+                                              base::DoNothing());
     active_tokens_.erase(token_it);
   }
 }
@@ -389,7 +416,7 @@ void BinaryUploadService::IsAuthorized(AuthorizationCallback callback) {
                  &BinaryUploadService::ResetAuthorizationData);
   }
 
-  if (!can_upload_data_.has_value()) {
+  if (!can_upload_enterprise_data_.has_value()) {
     // Send a request to check if the browser can upload data.
     if (!pending_validate_data_upload_request_) {
       auto dm_token = GetDMToken(profile_);
@@ -408,54 +435,42 @@ void BinaryUploadService::IsAuthorized(AuthorizationCallback callback) {
     authorization_callbacks_.push_back(std::move(callback));
     return;
   }
-  std::move(callback).Run(can_upload_data_.value());
+  std::move(callback).Run(can_upload_enterprise_data_.value());
 }
 
 void BinaryUploadService::ValidateDataUploadRequestCallback(
     BinaryUploadService::Result result,
     DeepScanningClientResponse response) {
   pending_validate_data_upload_request_ = false;
-  can_upload_data_ = result == BinaryUploadService::Result::SUCCESS;
+  can_upload_enterprise_data_ = result == BinaryUploadService::Result::SUCCESS;
   RunAuthorizationCallbacks();
 }
 
 void BinaryUploadService::RunAuthorizationCallbacks() {
-  DCHECK(can_upload_data_.has_value());
+  DCHECK(can_upload_enterprise_data_.has_value());
   for (auto& callback : authorization_callbacks_) {
-    std::move(callback).Run(can_upload_data_.value());
+    std::move(callback).Run(can_upload_enterprise_data_.value());
   }
   authorization_callbacks_.clear();
 }
 
 void BinaryUploadService::ResetAuthorizationData() {
-  // Setting |can_upload_data_| to base::nullopt will make the next call to
-  // IsAuthorized send out a request to validate data uploads.
-  can_upload_data_ = base::nullopt;
+  // Setting |can_upload_enterprise_data_| to base::nullopt will make the next
+  // call to IsAuthorized send out a request to validate data uploads.
+  can_upload_enterprise_data_ = base::nullopt;
 
-  // Call IsAuthorized  to update |can_upload_data_| right away.
+  // Call IsAuthorized  to update |can_upload_enterprise_data_| right away.
   IsAuthorized(base::DoNothing());
 }
 
 void BinaryUploadService::SetAuthForTesting(bool authorized) {
-  can_upload_data_ = authorized;
+  can_upload_enterprise_data_ = authorized;
 }
 
 // static
-bool BinaryUploadService::ShouldBlockFileSize(size_t file_size) {
-  int block_large_file_transfer = g_browser_process->local_state()->GetInteger(
-      prefs::kBlockLargeFileTransfer);
-  if (block_large_file_transfer !=
-          BlockLargeFileTransferValues::BLOCK_LARGE_DOWNLOADS &&
-      block_large_file_transfer !=
-          BlockLargeFileTransferValues::BLOCK_LARGE_UPLOADS_AND_DOWNLOADS)
-    return false;
-
-  return (file_size > kMaxUploadSizeBytes);
-}
-
-// static
-GURL BinaryUploadService::GetUploadUrl() {
-  return GURL(kSbBinaryUploadUrl);
+GURL BinaryUploadService::GetUploadUrl(bool is_advanced_protection) {
+  return is_advanced_protection ? GURL(kSbAppUploadUrl)
+                                : GURL(kSbEnterpriseUploadUrl);
 }
 
 }  // namespace safe_browsing

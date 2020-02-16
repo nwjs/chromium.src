@@ -11,9 +11,10 @@
 #include "chrome/browser/ui/webui/policy_ui_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/url_constants.h"
-#include "components/grit/components_resources.h"
+#include "components/grit/dev_ui_components_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_ui.h"
+#include "ui/base/webui/web_ui_util.h"
 
 namespace {
 

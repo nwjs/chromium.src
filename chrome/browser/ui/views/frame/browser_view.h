@@ -68,6 +68,7 @@ class TabStrip;
 class TabStripRegionView;
 class ToolbarButtonProvider;
 class ToolbarView;
+class TopContainerLoadingBar;
 class TopContainerView;
 class TopControlsSlideControllerTest;
 class WebContentsCloseHandler;
@@ -141,6 +142,11 @@ class BrowserView : public BrowserWindow,
   const TopControlsSlideController* top_controls_slide_controller() const {
     return top_controls_slide_controller_.get();
   }
+
+  // This suppresses the slide behaviors of top-controls and so the top controls
+  // will stay showing under any situation. This is only for testing behaviors
+  // of top controls which should be visible always.
+  void DisableTopControlsSlideForTesting();
 
   // Initializes (or re-initializes) the status bubble.  We try to only create
   // the bubble once and re-use it for the life of the browser, but certain
@@ -337,7 +343,8 @@ class BrowserView : public BrowserWindow,
   void Minimize() override;
   void Restore() override;
   void EnterFullscreen(const GURL& url,
-                       ExclusiveAccessBubbleType bubble_type) override;
+                       ExclusiveAccessBubbleType bubble_type,
+                       int64_t display_id) override;
   void ExitFullscreen() override;
   void UpdateExclusiveAccessExitBubbleContent(
       const GURL& url,
@@ -358,7 +365,6 @@ class BrowserView : public BrowserWindow,
   void UpdateCustomTabBarVisibility(bool visible, bool animate) override;
   void ResetToolbarTabState(content::WebContents* contents) override;
   void FocusToolbar() override;
-  ToolbarActionsBar* GetToolbarActionsBar() override;
   ExtensionsContainer* GetExtensionsContainer() override;
   void ToolbarSizeChanged(bool is_animating) override;
   void TabDraggingStatusChanged(bool is_dragging) override;
@@ -487,8 +493,6 @@ class BrowserView : public BrowserWindow,
   void OnWindowBeginUserBoundsChange() override;
   void OnWindowEndUserBoundsChange() override;
   void OnWidgetMove() override;
-  views::Widget* GetWidget() override;
-  const views::Widget* GetWidget() const override;
   void GetAccessiblePanes(std::vector<View*>* panes) override;
 
   // views::WidgetObserver:
@@ -510,8 +514,8 @@ class BrowserView : public BrowserWindow,
   void OnGestureEvent(ui::GestureEvent* event) override;
   void ViewHierarchyChanged(
       const views::ViewHierarchyChangedDetails& details) override;
+  void AddedToWidget() override;
   void PaintChildren(const views::PaintInfo& paint_info) override;
-  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void ChildPreferredSizeChanged(View* child) override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
   void OnThemeChanged() override;
@@ -591,9 +595,6 @@ class BrowserView : public BrowserWindow,
   // affected.
   void RevealTabStripIfNeeded();
 
-  // Constructs and initializes the child views.
-  void InitViews();
-
   // Make sure the WebUI tab strip exists if it should.
   void MaybeInitializeWebUITabStrip();
 
@@ -647,9 +648,13 @@ private:
   // (via the fullscreen JS API).
   // |bubble_type| determines what should be shown in the fullscreen exit
   // bubble.
+  // If the Window Placement experiment is enabled, fullscreen may be requested
+  // on a particular display. In that case, |display_id| is the display's id;
+  // otherwise, display::kInvalidDisplayId indicates no display is specified.
   void ProcessFullscreen(bool fullscreen,
                          const GURL& url,
-                         ExclusiveAccessBubbleType bubble_type);
+                         ExclusiveAccessBubbleType bubble_type,
+                         int64_t display_id);
 
   // Returns whether immmersive fullscreen should replace fullscreen. This
   // should only occur for "browser-fullscreen" for tabbed-typed windows (not
@@ -766,6 +771,9 @@ private:
   // Separator between top container and contents.
   views::View* contents_separator_ = nullptr;
 
+  // Loading bar (part of top container for / WebUI tab strip).
+  TopContainerLoadingBar* loading_bar_ = nullptr;
+
   // The do-nothing view which controls the z-order of the find bar widget
   // relative to views which paint into layers and views with an associated
   // NativeView.
@@ -855,6 +863,14 @@ private:
   // This is non-null on Chrome OS only.
   std::unique_ptr<TopControlsSlideController> top_controls_slide_controller_;
 
+  // Used to allow a single layout operation once the top controls slide
+  // behavior starts. This needed since sliding the top controls and the page
+  // contents is done using layer transform. A layout operation while sliding is
+  // in progress might break the view, and will make sliding feel janky.
+  // A single layout is needed right before sliding begins. (See
+  // TopControlsSlideControllerChromeOS::OnBeginSliding()).
+  bool did_first_layout_while_top_controls_are_sliding_ = false;
+
   std::unique_ptr<ImmersiveModeController> immersive_mode_controller_;
 
   ScopedObserver<ui::MaterialDesignController,
@@ -871,20 +887,17 @@ private:
 
   std::unique_ptr<FullscreenControlHost> fullscreen_control_host_;
 
+  // If the Window Placement experiment is enabled and fullscreen is requested
+  // on a particular display, these are the original bounds before the window
+  // was moved to the requested display; they are restored on fullscreen exit.
+  base::Optional<gfx::Rect> pre_fullscreen_bounds_;
+
   ReopenTabPromoController reopen_tab_promo_controller_{this};
 
   ScopedObserver<banners::AppBannerManager, banners::AppBannerManager::Observer>
       app_banner_manager_observer_{this};
 
-  struct ResizeSession {
-    // The time when user started resizing the window.
-    base::TimeTicks begin_timestamp;
-    base::TimeTicks last_resize_timestamp;
-    // The number of times the window size is changed from the start (i.e. since
-    // begin_timestamp).
-    size_t step_count = 0;
-  };
-  base::Optional<ResizeSession> interactive_resize_;
+  bool interactive_resize_in_progress_ = false;
 
   mutable base::WeakPtrFactory<BrowserView> activate_modal_dialog_factory_{
       this};

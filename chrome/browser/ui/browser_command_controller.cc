@@ -43,6 +43,7 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui/inspect_ui.h"
 #include "chrome/common/content_restriction.h"
@@ -465,6 +466,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       base::RecordAction(base::UserMetricsAction("OpenActiveTabInPwaWindow"));
       web_app::ReparentWebAppForSecureActiveTab(browser_);
       break;
+    case IDC_MOVE_TAB_TO_NEW_WINDOW:
+      MoveActiveTabToNewWindow(browser_);
+      break;
 
 #if defined(OS_CHROMEOS)
     case IDC_VISIT_DESKTOP_OF_LRU_USER_2:
@@ -637,13 +641,13 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_CREATE_SHORTCUT:
       base::RecordAction(base::UserMetricsAction("CreateShortcut"));
-      CreateBookmarkAppFromCurrentWebContents(browser_,
-                                              true /* force_shortcut_app */);
+      web_app::CreateWebAppFromCurrentWebContents(
+          browser_, true /* force_shortcut_app */);
       break;
     case IDC_INSTALL_PWA:
       base::RecordAction(base::UserMetricsAction("InstallWebAppFromMenu"));
-      CreateBookmarkAppFromCurrentWebContents(browser_,
-                                              false /* force_shortcut_app */);
+      web_app::CreateWebAppFromCurrentWebContents(
+          browser_, false /* force_shortcut_app */);
       break;
     case IDC_DEV_TOOLS:
       ToggleDevToolsWindow(browser_, DevToolsToggleAction::Show());
@@ -742,13 +746,16 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       ToggleDistilledView(browser_);
       break;
     case IDC_ROUTE_MEDIA:
-      RouteMedia(browser_);
+      RouteMediaInvokedFromAppMenu(browser_);
       break;
     case IDC_WINDOW_MUTE_SITE:
       MuteSite(browser_);
       break;
     case IDC_WINDOW_PIN_TAB:
       PinTab(browser_);
+      break;
+    case IDC_WINDOW_GROUP_TAB:
+      GroupTab(browser_);
       break;
     case IDC_WINDOW_CLOSE_TABS_TO_RIGHT:
       CloseTabsToRight(browser_);
@@ -765,6 +772,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_PIN_TARGET_TAB:
       PinKeyboardFocusedTab(browser_);
+      break;
+    case IDC_GROUP_TARGET_TAB:
+      GroupKeyboardFocusedTab(browser_);
       break;
     case IDC_DUPLICATE_TARGET_TAB:
       DuplicateKeyboardFocusedTab(browser_);
@@ -1050,6 +1060,7 @@ void BrowserCommandController::InitCommandState() {
 
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_MUTE_SITE, normal_window);
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_PIN_TAB, normal_window);
+  command_updater_.UpdateCommandEnabled(IDC_WINDOW_GROUP_TAB, normal_window);
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_CLOSE_TABS_TO_RIGHT,
                                         normal_window);
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_CLOSE_OTHER_TABS,
@@ -1137,10 +1148,14 @@ void BrowserCommandController::UpdateCommandsForTabState() {
                                         !browser_->deprecated_is_app());
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_PIN_TAB,
                                         !browser_->deprecated_is_app());
+  command_updater_.UpdateCommandEnabled(IDC_WINDOW_GROUP_TAB,
+                                        !browser_->deprecated_is_app());
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_CLOSE_TABS_TO_RIGHT,
                                         CanCloseTabsToRight(browser_));
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_CLOSE_OTHER_TABS,
                                         CanCloseOtherTabs(browser_));
+  command_updater_.UpdateCommandEnabled(IDC_MOVE_TAB_TO_NEW_WINDOW,
+                                        CanMoveActiveTabToNewWindow(browser_));
 
   // Page-related commands
   window()->SetStarredState(
@@ -1153,13 +1168,14 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   if (browser_->is_type_devtools())
     command_updater_.UpdateCommandEnabled(IDC_OPEN_FILE, false);
 
-  bool can_create_bookmark_app = CanCreateBookmarkApp(browser_);
-  command_updater_.UpdateCommandEnabled(IDC_INSTALL_PWA,
-                                        can_create_bookmark_app);
+  bool can_create_web_app = web_app::CanCreateWebApp(browser_);
+  command_updater_.UpdateCommandEnabled(IDC_INSTALL_PWA, can_create_web_app);
   command_updater_.UpdateCommandEnabled(IDC_CREATE_SHORTCUT,
-                                        can_create_bookmark_app);
+                                        can_create_web_app);
+  // Note that additional logic in AppMenuModel::Build() controls the presence
+  // of this command.
   command_updater_.UpdateCommandEnabled(IDC_OPEN_IN_PWA_WINDOW,
-                                        can_create_bookmark_app);
+                                        web_app::CanPopOutWebApp(profile()));
 
   command_updater_.UpdateCommandEnabled(
       IDC_TOGGLE_REQUEST_TABLET_SITE,
@@ -1483,6 +1499,8 @@ void BrowserCommandController::UpdateCommandsForTabKeyboardFocus(
       IDC_MUTE_TARGET_SITE, normal_window && target_index.has_value());
   command_updater_.UpdateCommandEnabled(
       IDC_PIN_TARGET_TAB, normal_window && target_index.has_value());
+  command_updater_.UpdateCommandEnabled(
+      IDC_GROUP_TARGET_TAB, normal_window && target_index.has_value());
 }
 
 void BrowserCommandController::AddInterstitialObservers(WebContents* contents) {

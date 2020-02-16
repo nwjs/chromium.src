@@ -13,7 +13,6 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/core/execution_context/security_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/web_feature_forward.h"
 #include "third_party/blink/renderer/core/script/modulator.h"
@@ -38,12 +37,8 @@ class WorkerReportingProxy;
 class WorkerThread;
 
 class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
-                                               public ExecutionContext,
-                                               public SecurityContext {
+                                               public ExecutionContext {
  public:
-  using SecurityContext::GetSecurityOrigin;
-  using SecurityContext::GetContentSecurityPolicy;
-
   WorkerOrWorkletGlobalScope(
       v8::Isolate*,
       scoped_refptr<SecurityOrigin> origin,
@@ -165,13 +160,19 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
   void FetchModuleScript(const KURL& module_url_record,
                          const FetchClientSettingsObjectSnapshot&,
                          WorkerResourceTimingNotifier&,
-                         mojom::RequestContextType destination,
+                         mojom::RequestContextType context_type,
+                         network::mojom::RequestDestination destination,
                          network::mojom::CredentialsMode,
                          ModuleScriptCustomFetchType,
                          ModuleTreeClient*);
 
   const Vector<CSPHeaderAndType>& OutsideContentSecurityPolicyHeaders() const {
     return outside_content_security_policy_headers_;
+  }
+
+  void SetIsOfflineMode(bool is_offline_mode) {
+    DCHECK(web_worker_fetch_context_);
+    web_worker_fetch_context_->SetIsOfflineMode(is_offline_mode);
   }
 
  private:

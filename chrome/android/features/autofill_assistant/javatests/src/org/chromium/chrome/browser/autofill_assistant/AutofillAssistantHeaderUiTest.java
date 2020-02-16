@@ -47,8 +47,8 @@ import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderMode
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
 import org.chromium.chrome.browser.customtabs.CustomTabsTestUtils;
-import org.chromium.chrome.browser.ui.widget.MaterialProgressBar;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.components.browser_ui.widget.MaterialProgressBar;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 /**
@@ -101,8 +101,7 @@ public class AutofillAssistantHeaderUiTest {
 
             ViewGroup chromeCoordinatorView = getActivity().findViewById(R.id.coordinator);
             chromeCoordinatorView.addView(coordinator.getView(), lp);
-            coordinator.disableAnimationsForTesting(true);
-
+            model.set(AssistantHeaderModel.DISABLE_ANIMATIONS_FOR_TESTING, true);
             return coordinator;
         });
     }

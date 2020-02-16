@@ -20,6 +20,7 @@
 #include "base/values.h"
 #include "printing/backend/print_backend.h"
 #include "printing/backend/print_backend_consts.h"
+#include "printing/printing_utils.h"
 #include "printing/units.h"
 #include "url/gurl.h"
 
@@ -30,13 +31,14 @@ namespace printing {
 // This section contains helper code for PPD parsing for semantic capabilities.
 namespace {
 
-const char kColorDevice[] = "ColorDevice";
-const char kColorModel[] = "ColorModel";
-const char kColorMode[] = "ColorMode";
-const char kProcessColorModel[] = "ProcessColorModel";
-const char kPrintoutMode[] = "PrintoutMode";
-const char kDraftGray[] = "Draft.Gray";
-const char kHighGray[] = "High.Gray";
+constexpr char kColorDevice[] = "ColorDevice";
+constexpr char kColorModel[] = "ColorModel";
+constexpr char kColorMode[] = "ColorMode";
+constexpr char kInk[] = "Ink";
+constexpr char kProcessColorModel[] = "ProcessColorModel";
+constexpr char kPrintoutMode[] = "PrintoutMode";
+constexpr char kDraftGray[] = "Draft.Gray";
+constexpr char kHighGray[] = "High.Gray";
 
 constexpr char kDuplex[] = "Duplex";
 constexpr char kDuplexNone[] = "None";
@@ -48,6 +50,11 @@ constexpr char kPageSize[] = "PageSize";
 constexpr char kBrotherDuplex[] = "BRDuplex";
 constexpr char kBrotherMonoColor[] = "BRMonoColor";
 constexpr char kBrotherPrintQuality[] = "BRPrintQuality";
+
+// HP printer specific options.
+constexpr char kHpColorMode[] = "HPColorMode";
+constexpr char kHpColorPrint[] = "ColorPrint";
+constexpr char kHpGrayscalePrint[] = "GrayscalePrint";
 
 // Samsung printer specific options.
 constexpr char kSamsungColorTrue[] = "True";
@@ -317,7 +324,7 @@ bool GetHPColorSettings(ppd_file_t* ppd,
                         ColorModel* color_model_for_black,
                         ColorModel* color_model_for_color,
                         bool* color_is_default) {
-  // HP printers use "Color/Color Model" attribute in their PPDs.
+  // Some HP printers use "Color/Color Model" attribute in their PPDs.
   ppd_option_t* color_mode_option = ppdFindOption(ppd, kColor);
   if (!color_mode_option)
     return false;
@@ -332,6 +339,58 @@ bool GetHPColorSettings(ppd_file_t* ppd,
     mode_choice =
         ppdFindChoice(color_mode_option, color_mode_option->defchoice);
   }
+  if (mode_choice) {
+    *color_is_default = EqualsCaseInsensitiveASCII(mode_choice->choice, kColor);
+  }
+  return true;
+}
+
+bool GetHPColorModeSettings(ppd_file_t* ppd,
+                            ColorModel* color_model_for_black,
+                            ColorModel* color_model_for_color,
+                            bool* color_is_default) {
+  // Some HP printers use "HPColorMode/Mode" attribute in their PPDs.
+  ppd_option_t* color_mode_option = ppdFindOption(ppd, kHpColorMode);
+  if (!color_mode_option)
+    return false;
+
+  if (ppdFindChoice(color_mode_option, kHpColorPrint))
+    *color_model_for_color = HP_COLOR_COLOR;
+  if (ppdFindChoice(color_mode_option, kHpGrayscalePrint))
+    *color_model_for_black = HP_COLOR_BLACK;
+
+  ppd_choice_t* mode_choice = ppdFindMarkedChoice(ppd, kHpColorMode);
+  if (!mode_choice) {
+    mode_choice =
+        ppdFindChoice(color_mode_option, color_mode_option->defchoice);
+  }
+  if (mode_choice) {
+    *color_is_default =
+        EqualsCaseInsensitiveASCII(mode_choice->choice, kHpColorPrint);
+  }
+  return true;
+}
+
+bool GetEpsonInkSettings(ppd_file_t* ppd,
+                         ColorModel* color_model_for_black,
+                         ColorModel* color_model_for_color,
+                         bool* color_is_default) {
+  // Epson printers use "Ink" attribute in their PPDs.
+  ppd_option_t* color_mode_option = ppdFindOption(ppd, kInk);
+  if (!color_mode_option)
+    return false;
+
+  if (ppdFindChoice(color_mode_option, kColor))
+    *color_model_for_color = EPSON_INK_COLOR;
+  if (ppdFindChoice(color_mode_option, kMono))
+    *color_model_for_black = EPSON_INK_MONO;
+
+  ppd_choice_t* mode_choice = ppdFindMarkedChoice(ppd, kInk);
+  if (!mode_choice) {
+    mode_choice =
+        ppdFindChoice(color_mode_option, color_mode_option->defchoice);
+  }
+
   if (mode_choice) {
     *color_is_default = EqualsCaseInsensitiveASCII(mode_choice->choice, kColor);
   }
@@ -383,7 +442,9 @@ bool GetColorModelSettings(ppd_file_t* ppd,
          GetPrintOutModeColorSettings(ppd, cm_black, cm_color, is_color) ||
          GetColorModeSettings(ppd, cm_black, cm_color, is_color) ||
          GetHPColorSettings(ppd, cm_black, cm_color, is_color) ||
+         GetHPColorModeSettings(ppd, cm_black, cm_color, is_color) ||
          GetBrotherColorSettings(ppd, cm_black, cm_color, is_color) ||
+         GetEpsonInkSettings(ppd, cm_black, cm_color, is_color) ||
          GetProcessColorModelSettings(ppd, cm_black, cm_color, is_color);
 }
 
@@ -426,6 +487,7 @@ http_t* HttpConnectionCUPS::http() {
 }
 
 bool ParsePpdCapabilities(base::StringPiece printer_name,
+                          base::StringPiece locale,
                           base::StringPiece printer_capabilities,
                           PrinterSemanticCapsAndDefaults* printer_info) {
   base::FilePath ppd_file_path;
@@ -474,11 +536,12 @@ bool ParsePpdCapabilities(base::StringPiece printer_name,
   if (ppd->num_sizes > 0 && ppd->sizes) {
     VLOG(1) << "Paper list size - " << ppd->num_sizes;
     ppd_option_t* paper_option = ppdFindOption(ppd, kPageSize);
+    bool is_default_found = false;
     for (int i = 0; i < ppd->num_sizes; ++i) {
       gfx::Size paper_size_microns(
           ConvertUnit(ppd->sizes[i].width, kPointsPerInch, kMicronsPerInch),
           ConvertUnit(ppd->sizes[i].length, kPointsPerInch, kMicronsPerInch));
-      if (paper_size_microns.width() > 0 && paper_size_microns.height() > 0) {
+      if (!paper_size_microns.IsEmpty()) {
         PrinterSemanticCapsAndDefaults::Paper paper;
         paper.size_um = paper_size_microns;
         paper.vendor_id = ppd->sizes[i].name;
@@ -492,10 +555,32 @@ bool ParsePpdCapabilities(base::StringPiece printer_name,
           }
         }
         caps.papers.push_back(paper);
-        if (i == 0 || ppd->sizes[i].marked) {
+        if (ppd->sizes[i].marked) {
           caps.default_paper = paper;
+          is_default_found = true;
         }
       }
+    }
+    if (!is_default_found) {
+      gfx::Size locale_paper_microns =
+          GetDefaultPaperSizeFromLocaleMicrons(locale);
+      for (const PrinterSemanticCapsAndDefaults::Paper& paper : caps.papers) {
+        // Set epsilon to 500 microns to allow tolerance of rounded paper sizes.
+        // While the above utility function returns paper sizes in microns, they
+        // are still rounded to the nearest millimeter (1000 microns).
+        constexpr int kSizeEpsilon = 500;
+        if (SizesEqualWithinEpsilon(paper.size_um, locale_paper_microns,
+                                    kSizeEpsilon)) {
+          caps.default_paper = paper;
+          is_default_found = true;
+          break;
+        }
+      }
+
+      // If no default was set in the PPD or if the locale default is not within
+      // the printer's capabilities, select the first on the list.
+      if (!is_default_found)
+        caps.default_paper = caps.papers[0];
     }
   }
 

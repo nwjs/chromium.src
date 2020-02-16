@@ -858,14 +858,15 @@ class AdvanceFocusWidgetDelegate : public WidgetDelegate {
     should_advance_focus_to_parent_ = value;
   }
 
-  // WidgetDelegate overrides:
+  // WidgetDelegate:
   bool ShouldAdvanceFocusToTopLevelWidget() const override {
     return should_advance_focus_to_parent_;
   }
-  Widget* GetWidget() override { return widget_; }
-  const Widget* GetWidget() const override { return widget_; }
 
  private:
+  // WidgetDelegate:
+  const Widget* GetWidgetImpl() const override { return widget_; }
+
   Widget* widget_;
   bool should_advance_focus_to_parent_;
 
@@ -875,16 +876,15 @@ class AdvanceFocusWidgetDelegate : public WidgetDelegate {
 class TestBubbleDialogDelegateView : public BubbleDialogDelegateView {
  public:
   explicit TestBubbleDialogDelegateView(View* anchor)
-      : BubbleDialogDelegateView(anchor, BubbleBorder::NONE) {}
+      : BubbleDialogDelegateView(anchor, BubbleBorder::NONE) {
+    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  }
   ~TestBubbleDialogDelegateView() override = default;
 
   // If this is called, the bubble will be forced to use a NativeWidgetAura.
   // If not set, it might get a DesktopNativeWidgetAura depending on the
   // platform and other factors.
   void UseNativeWidgetAura() { use_native_widget_aura_ = true; }
-
-  // BubbleDialogDelegateView:
-  int GetDialogButtons() const override { return 0; }
 
   void OnBeforeBubbleWidgetInit(Widget::InitParams* params,
                                 Widget* widget) const override {

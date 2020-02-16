@@ -100,6 +100,16 @@ suite('SiteDetails', function() {
       test_util.createContentSettingTypeToValuePair(
           settings.ContentSettingsTypes.MIXEDSCRIPT,
           [test_util.createRawSiteException('https://foo.com:443')]),
+      test_util.createContentSettingTypeToValuePair(
+          settings.ContentSettingsTypes.HID_DEVICES,
+          [test_util.createRawSiteException('https://foo.com:443')]),
+      test_util.createContentSettingTypeToValuePair(
+          settings.ContentSettingsTypes.AR,
+          [test_util.createRawSiteException('https://foo.com:443')]),
+      test_util.createContentSettingTypeToValuePair(
+          settings.ContentSettingsTypes.VR,
+          [test_util.createRawSiteException('https://foo.com:443')]),
+
     ], [
       test_util.createContentSettingTypeToValuePair(
           settings.ContentSettingsTypes.USB_DEVICES,
@@ -117,7 +127,7 @@ suite('SiteDetails', function() {
     const siteDetailsElement = document.createElement('site-details');
     document.body.appendChild(siteDetailsElement);
     siteDetailsElement.origin = origin;
-    settings.navigateTo(
+    settings.Router.getInstance().navigateTo(
         settings.routes.SITE_SETTINGS_SITE_DETAILS,
         new URLSearchParams('site=' + origin));
     return siteDetailsElement;
@@ -135,9 +145,6 @@ suite('SiteDetails', function() {
       nonSiteDetailsContentSettingsTypes.push(
           settings.ContentSettingsTypes.PROTECTED_CONTENT);
     }
-    const experimentalSiteDetailsContentSettingsTypes = [
-      settings.ContentSettingsTypes.BLUETOOTH_SCANNING,
-    ];
 
     // A list of optionally shown content settings mapped to their loadTimeData
     // flag string.
@@ -156,6 +163,25 @@ suite('SiteDetails', function() {
     optionalSiteDetailsContentSettingsTypes[settings.ContentSettingsTypes
                                                 .MIXEDSCRIPT] =
         'enableInsecureContentContentSetting';
+    optionalSiteDetailsContentSettingsTypes[settings.ContentSettingsTypes
+                                                .BLUETOOTH_SCANNING] =
+        'enableExperimentalWebPlatformFeatures';
+    optionalSiteDetailsContentSettingsTypes[settings.ContentSettingsTypes
+                                                .HID_DEVICES] =
+        'enableExperimentalWebPlatformFeatures';
+    optionalSiteDetailsContentSettingsTypes[settings.ContentSettingsTypes.AR] =
+        'enableWebXrContentSetting';
+    optionalSiteDetailsContentSettingsTypes[settings.ContentSettingsTypes.VR] =
+        'enableWebXrContentSetting';
+
+    const controlledSettingsCount = /** @type{string : int } */ ({});
+
+    controlledSettingsCount['enableSafeBrowsingSubresourceFilter'] = 1;
+    controlledSettingsCount['enablePaymentHandlerContentSetting'] = 1;
+    controlledSettingsCount['enableNativeFileSystemWriteContentSetting'] = 1;
+    controlledSettingsCount['enableInsecureContentContentSetting'] = 1;
+    controlledSettingsCount['enableWebXrContentSetting'] = 2;
+    controlledSettingsCount['enableExperimentalWebPlatformFeatures'] = 2;
 
     browserProxy.setPrefs(prefs);
 
@@ -173,7 +199,6 @@ suite('SiteDetails', function() {
       const numContentSettings =
           Object.keys(settings.ContentSettingsTypes).length -
           nonSiteDetailsContentSettingsTypes.length -
-          experimentalSiteDetailsContentSettingsTypes.length -
           Object.keys(optionalSiteDetailsContentSettingsTypes).length;
 
       const loadTimeDataOverride = {};
@@ -182,7 +207,10 @@ suite('SiteDetails', function() {
       loadTimeData.overrideValues(loadTimeDataOverride);
       testElement = createSiteDetails('https://foo.com:443');
       assertEquals(
-          numContentSettings + 1, testElement.getCategoryList().length);
+          numContentSettings +
+              controlledSettingsCount[optionalSiteDetailsContentSettingsTypes[
+                  [contentSetting]]],
+          testElement.getCategoryList().length);
 
       // Check for setting = off at the end to ensure that the setting does
       // not carry over for the next iteration.
@@ -192,27 +220,6 @@ suite('SiteDetails', function() {
       testElement = createSiteDetails('https://foo.com:443');
       assertEquals(numContentSettings, testElement.getCategoryList().length);
     }
-
-    const numContentSettings =
-        Object.keys(settings.ContentSettingsTypes).length -
-        nonSiteDetailsContentSettingsTypes.length -
-        Object.keys(optionalSiteDetailsContentSettingsTypes).length;
-
-    // Explicitly set all the optional settings to true.
-    const loadTimeDataOverride = {};
-    loadTimeDataOverride['enableExperimentalWebPlatformFeatures'] = true;
-    loadTimeData.overrideValues(loadTimeDataOverride);
-    testElement = createSiteDetails('https://foo.com:443');
-    assertEquals(numContentSettings, testElement.getCategoryList().length);
-
-    // Check for setting = off at the end to ensure that the setting does
-    // not carry over for the next iteration.
-    loadTimeDataOverride['enableExperimentalWebPlatformFeatures'] = false;
-    loadTimeData.overrideValues(loadTimeDataOverride);
-    testElement = createSiteDetails('https://foo.com:443');
-    assertEquals(
-        numContentSettings - experimentalSiteDetailsContentSettingsTypes.length,
-        testElement.getCategoryList().length);
   });
 
   test('usage heading shows properly', function() {
@@ -328,6 +335,7 @@ suite('SiteDetails', function() {
     loadTimeData.overrideValues({enablePaymentHandlerContentSetting: true});
     loadTimeData.overrideValues(
         {enableNativeFileSystemWriteContentSetting: true});
+    loadTimeData.overrideValues({enableWebXrContentSetting: true});
     testElement = createSiteDetails('https://foo.com:443');
 
     return browserProxy.whenCalled('isOriginValid')
@@ -503,12 +511,12 @@ suite('SiteDetails', function() {
     const invalid_url = 'invalid url';
     browserProxy.setIsOriginValid(false);
 
-    settings.navigateTo(settings.routes.SITE_SETTINGS);
+    settings.Router.getInstance().navigateTo(settings.routes.SITE_SETTINGS);
 
     testElement = createSiteDetails(invalid_url);
     assertEquals(
         settings.routes.SITE_SETTINGS_SITE_DETAILS.path,
-        settings.getCurrentRoute().path);
+        settings.Router.getInstance().getCurrentRoute().path);
     return browserProxy.whenCalled('isOriginValid')
         .then((args) => {
           assertEquals(invalid_url, args);
@@ -519,7 +527,7 @@ suite('SiteDetails', function() {
         .then(() => {
           assertEquals(
               settings.routes.SITE_SETTINGS.path,
-              settings.getCurrentRoute().path);
+              settings.Router.getInstance().getCurrentRoute().path);
         });
   });
 

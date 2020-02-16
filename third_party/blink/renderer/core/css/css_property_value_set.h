@@ -37,6 +37,7 @@
 namespace blink {
 
 class CSSStyleDeclaration;
+class ExecutionContext;
 class ImmutableCSSPropertyValueSet;
 class MutableCSSPropertyValueSet;
 class StyleSheetContents;
@@ -81,7 +82,7 @@ class CORE_EXPORT CSSPropertyValueSet
    private:
     const CSSValue& PropertyValue() const;
 
-    Member<const CSSPropertyValueSet> property_set_;
+    const CSSPropertyValueSet* property_set_;
     unsigned index_;
   };
 
@@ -182,7 +183,6 @@ class CORE_EXPORT ALIGNAS(alignof(Member<const CSSValue>))
   ImmutableCSSPropertyValueSet(const CSSPropertyValue*,
                                unsigned count,
                                CSSParserMode);
-  ~ImmutableCSSPropertyValueSet();
 
   static ImmutableCSSPropertyValueSet*
   Create(const CSSPropertyValue* properties, unsigned count, CSSParserMode);
@@ -277,7 +277,8 @@ class CORE_EXPORT MutableCSSPropertyValueSet : public CSSPropertyValueSet {
                             SecureContextMode,
                             StyleSheetContents* context_style_sheet);
 
-  CSSStyleDeclaration* EnsureCSSStyleDeclaration();
+  CSSStyleDeclaration* EnsureCSSStyleDeclaration(
+      ExecutionContext* execution_context);
 
   template <typename T>  // CSSPropertyID or AtomicString
   int FindPropertyIndex(T property) const;
@@ -309,7 +310,7 @@ struct DowncastTraits<MutableCSSPropertyValueSet> {
 inline const CSSPropertyValueMetadata&
 CSSPropertyValueSet::PropertyReference::PropertyMetadata() const {
   if (auto* mutable_property_set =
-          DynamicTo<MutableCSSPropertyValueSet>(property_set_.Get())) {
+          DynamicTo<MutableCSSPropertyValueSet>(property_set_)) {
     return mutable_property_set->property_vector_.at(index_).Metadata();
   }
   return To<ImmutableCSSPropertyValueSet>(*property_set_)
@@ -319,7 +320,7 @@ CSSPropertyValueSet::PropertyReference::PropertyMetadata() const {
 inline const CSSValue& CSSPropertyValueSet::PropertyReference::PropertyValue()
     const {
   if (auto* mutable_property_set =
-          DynamicTo<MutableCSSPropertyValueSet>(property_set_.Get())) {
+          DynamicTo<MutableCSSPropertyValueSet>(property_set_)) {
     return *mutable_property_set->property_vector_.at(index_).Value();
   }
   return *To<ImmutableCSSPropertyValueSet>(*property_set_).ValueArray()[index_];

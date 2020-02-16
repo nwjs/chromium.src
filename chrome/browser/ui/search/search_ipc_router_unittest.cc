@@ -108,7 +108,14 @@ class MockSearchIPCRouterDelegate : public SearchIPCRouter::Delegate {
                void(const base::string16& input,
                     bool prevent_inline_autocomplete));
   MOCK_METHOD1(StopAutocomplete, void(bool clear_result));
+  MOCK_METHOD1(LogCharTypedToRepaintLatency, void(uint32_t latency_ms));
   MOCK_METHOD1(BlocklistPromo, void(const std::string& promo_id));
+  MOCK_METHOD5(OpenExtensionsPage,
+               void(double button,
+                    bool alt_key,
+                    bool ctrl_key,
+                    bool meta_key,
+                    bool shift_key));
   MOCK_METHOD9(OpenAutocompleteMatch,
                void(uint8_t line,
                     const GURL& url,
@@ -154,9 +161,12 @@ class MockSearchIPCRouterPolicy : public SearchIPCRouter::Policy {
   MOCK_METHOD0(ShouldSendLocalBackgroundSelected, bool());
   MOCK_METHOD0(ShouldProcessThemeChangeMessages, bool());
   MOCK_METHOD1(ShouldProcessAutocompleteResultChanged, bool(bool));
+  MOCK_METHOD1(ShouldProcessAutocompleteMatchImageAvailable, bool(bool));
   MOCK_METHOD1(ShouldProcessQueryAutocomplete, bool(bool));
   MOCK_METHOD0(ShouldProcessStopAutocomplete, bool());
+  MOCK_METHOD0(ShouldProcessLogCharTypedToRepaintLatency, bool());
   MOCK_METHOD0(ShouldProcessBlocklistPromo, bool());
+  MOCK_METHOD0(ShouldProcessOpenExtensionsPage, bool());
   MOCK_METHOD1(ShouldProcessOpenAutocompleteMatch, bool(bool));
   MOCK_METHOD0(ShouldProcessDeleteAutocompleteMatch, bool());
 };
@@ -1113,6 +1123,36 @@ TEST_F(SearchIPCRouterTest, IgnoreAutocompleteResultChanged) {
           std::vector<chrome::mojom::AutocompleteMatchPtr>()));
 }
 
+TEST_F(SearchIPCRouterTest, SendAutocompleteMatchImageAvailable) {
+  NavigateAndCommitActiveTab(GURL("chrome-search://foo/bar"));
+  SetupMockDelegateAndPolicy();
+  MockSearchIPCRouterPolicy* policy = GetSearchIPCRouterPolicy();
+  EXPECT_CALL(*policy, ShouldProcessAutocompleteMatchImageAvailable(_))
+      .Times(1)
+      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_embedded_search_client(),
+              AutocompleteMatchImageAvailable(_, _, _))
+      .Times(1);
+
+  GetSearchIPCRouter().AutocompleteMatchImageAvailable(0, std::string(),
+                                                       std::string());
+}
+
+TEST_F(SearchIPCRouterTest, IgnoreAutocompleteMatchImageAvailable) {
+  NavigateAndCommitActiveTab(GURL("chrome-search://foo/bar"));
+  SetupMockDelegateAndPolicy();
+  MockSearchIPCRouterPolicy* policy = GetSearchIPCRouterPolicy();
+  EXPECT_CALL(*policy, ShouldProcessAutocompleteMatchImageAvailable(_))
+      .Times(1)
+      .WillOnce(Return(false));
+  EXPECT_CALL(*mock_embedded_search_client(),
+              AutocompleteMatchImageAvailable(_, _, _))
+      .Times(0);
+
+  GetSearchIPCRouter().AutocompleteMatchImageAvailable(0, std::string(),
+                                                       std::string());
+}
+
 TEST_F(SearchIPCRouterTest, IgnoreQueryAutocomplete) {
   NavigateAndCommitActiveTab(GURL("chrome-search://foo/bar"));
   SetupMockDelegateAndPolicy();
@@ -1174,4 +1214,28 @@ TEST_F(SearchIPCRouterTest, IgnoreStopAutoComplete) {
       .WillOnce(Return(false));
 
   GetSearchIPCRouter().StopAutocomplete(false);
+}
+
+TEST_F(SearchIPCRouterTest, SendLogCharTypedToRepaintLatency) {
+  NavigateAndCommitActiveTab(GURL("chrome-search://foo/bar"));
+  SetupMockDelegateAndPolicy();
+  MockSearchIPCRouterPolicy* policy = GetSearchIPCRouterPolicy();
+  EXPECT_CALL(*policy, ShouldProcessLogCharTypedToRepaintLatency())
+      .Times(1)
+      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_delegate(), LogCharTypedToRepaintLatency(_)).Times(1);
+
+  GetSearchIPCRouter().LogCharTypedToRepaintLatency(0);
+}
+
+TEST_F(SearchIPCRouterTest, IgnoreLogCharTypedToRepaintLatency) {
+  NavigateAndCommitActiveTab(GURL("chrome-search://foo/bar"));
+  SetupMockDelegateAndPolicy();
+  MockSearchIPCRouterPolicy* policy = GetSearchIPCRouterPolicy();
+  EXPECT_CALL(*policy, ShouldProcessLogCharTypedToRepaintLatency())
+      .Times(1)
+      .WillOnce(Return(false));
+  EXPECT_CALL(*mock_delegate(), LogCharTypedToRepaintLatency(_)).Times(0);
+
+  GetSearchIPCRouter().LogCharTypedToRepaintLatency(0);
 }

@@ -39,6 +39,7 @@
 #import "ios/web/public/web_view_only/wk_web_view_configuration_util.h"
 #include "ios/web_view/cwv_web_view_buildflags.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_controller_internal.h"
+#import "ios/web_view/internal/cwv_back_forward_list_internal.h"
 #import "ios/web_view/internal/cwv_favicon_internal.h"
 #import "ios/web_view/internal/cwv_html_element_internal.h"
 #import "ios/web_view/internal/cwv_navigation_action_internal.h"
@@ -140,7 +141,7 @@ WEB_STATE_USER_DATA_KEY_IMPL(WebViewHolder)
 #endif  // BUILDFLAG(IOS_WEB_VIEW_ENABLE_AUTOFILL)
 
 // Updates the availability of the back/forward navigation properties exposed
-// through |canGoBack| and |canGoForward|.
+// through |canGoBack| and |canGoForward|, and also updates |backForwardList|.
 - (void)updateNavigationAvailability;
 // Updates the URLs exposed through |lastCommittedURL| and |visibleURL|.
 - (void)updateCurrentURLs;
@@ -157,13 +158,17 @@ WEB_STATE_USER_DATA_KEY_IMPL(WebViewHolder)
 
 @end
 
-static NSString* gUserAgentProduct = nil;
+namespace {
+NSString* gUserAgentProduct = nil;
+BOOL gChromeLongPressAndForceTouchHandlingEnabled = YES;
+}  // namespace
 
 @implementation CWVWebView
 
 #if BUILDFLAG(IOS_WEB_VIEW_ENABLE_AUTOFILL)
 @synthesize autofillController = _autofillController;
 #endif  // BUILDFLAG(IOS_WEB_VIEW_ENABLE_AUTOFILL)
+@synthesize backForwardList = _backForwardList;
 @synthesize canGoBack = _canGoBack;
 @synthesize canGoForward = _canGoForward;
 @synthesize configuration = _configuration;
@@ -184,6 +189,14 @@ static NSString* gUserAgentProduct = nil;
   }
 
   ios_web_view::InitializeGlobalState();
+}
+
++ (BOOL)chromeLongPressAndForceTouchHandlingEnabled {
+  return gChromeLongPressAndForceTouchHandlingEnabled;
+}
+
++ (void)setChromeLongPressAndForceTouchHandlingEnabled:(BOOL)newValue {
+  gChromeLongPressAndForceTouchHandlingEnabled = newValue;
 }
 
 + (NSString*)userAgentProduct {
@@ -271,6 +284,26 @@ static NSString* gUserAgentProduct = nil;
     _webState->GetNavigationManager()->GoForward();
 }
 
+- (BOOL)goToBackForwardListItem:(CWVBackForwardListItem*)item {
+  if (!_backForwardList) {
+    return NO;  // Do nothing if |_backForwardList| is not generated yet.
+  }
+
+  if ([item isEqual:_backForwardList.currentItem]) {
+    return NO;
+  }
+
+  int index = [_backForwardList internalIndexOfItem:item];
+  if (index == -1) {
+    return NO;
+  }
+
+  DCHECK(_webState);
+  web::NavigationManager* navigationManager = _webState->GetNavigationManager();
+  navigationManager->GoToIndex(index);
+  return YES;
+}
+
 - (void)reload {
   // |check_for_repost| is false because CWVWebView does not support repost form
   // dialogs.
@@ -319,11 +352,6 @@ static NSString* gUserAgentProduct = nil;
 - (void)webStateDestroyed:(web::WebState*)webState {
   webState->RemoveObserver(_webStateObserver.get());
   _webStateObserver.reset();
-}
-
-- (void)webState:(web::WebState*)webState
-    navigationItemsPruned:(size_t)pruned_item_count {
-  [self updateCurrentURLs];
 }
 
 - (void)webState:(web::WebState*)webState
@@ -402,8 +430,8 @@ static NSString* gUserAgentProduct = nil;
 
 - (void)webState:(web::WebState*)webState
     handleContextMenu:(const web::ContextMenuParams&)params {
-  SEL selector = @selector(webView:runContextMenuWithTitle:forHTMLElement:inView
-                                  :userGestureLocation:);
+  SEL selector = @selector(webView:
+           runContextMenuWithTitle:forHTMLElement:inView:userGestureLocation:);
   if (![_UIDelegate respondsToSelector:selector]) {
     return;
   }
@@ -419,6 +447,8 @@ static NSString* gUserAgentProduct = nil;
                        inView:params.view
           userGestureLocation:params.location];
 }
+
+#pragma mark - CRWWebStateDelegate
 
 - (web::WebState*)webState:(web::WebState*)webState
     createNewWebStateForURL:(const GURL&)URL
@@ -487,6 +517,54 @@ static NSString* gUserAgentProduct = nil;
   if ([_UIDelegate respondsToSelector:selector]) {
     [_UIDelegate webView:self
         commitPreviewingViewController:previewingViewController];
+  }
+}
+
+- (void)webState:(web::WebState*)webState
+    contextMenuConfigurationForLinkWithURL:(const GURL&)linkURL
+                         completionHandler:
+                             (void (^)(UIContextMenuConfiguration*))
+                                 completionHandler API_AVAILABLE(ios(13.0)) {
+  SEL selector = @selector(webView:
+      contextMenuConfigurationForLinkWithURL:completionHandler:);
+  if ([_UIDelegate respondsToSelector:selector]) {
+    [_UIDelegate webView:self
+        contextMenuConfigurationForLinkWithURL:net::NSURLWithGURL(linkURL)
+                             completionHandler:completionHandler];
+  }
+}
+
+- (void)webState:(web::WebState*)webState
+    contextMenuWillPresentForLinkWithURL:(const GURL&)linkURL
+    API_AVAILABLE(ios(13.0)) {
+  SEL selector = @selector(webView:contextMenuWillPresentForLinkWithURL:);
+  if ([_UIDelegate respondsToSelector:selector]) {
+    [_UIDelegate webView:self
+        contextMenuWillPresentForLinkWithURL:net::NSURLWithGURL(linkURL)];
+  }
+}
+
+- (void)webState:(web::WebState*)webState
+    contextMenuForLinkWithURL:(const GURL&)linkURL
+       willCommitWithAnimator:
+           (id<UIContextMenuInteractionCommitAnimating>)animator
+    API_AVAILABLE(ios(13.0)) {
+  SEL selector = @selector(webView:
+         contextMenuForLinkWithURL:willCommitWithAnimator:);
+  if ([_UIDelegate respondsToSelector:selector]) {
+    [_UIDelegate webView:self
+        contextMenuForLinkWithURL:net::NSURLWithGURL(linkURL)
+           willCommitWithAnimator:animator];
+  }
+}
+
+- (void)webState:(web::WebState*)webState
+    contextMenuDidEndForLinkWithURL:(const GURL&)linkURL
+    API_AVAILABLE(ios(13.0)) {
+  SEL selector = @selector(webView:contextMenuDidEndForLinkWithURL:);
+  if ([_UIDelegate respondsToSelector:selector]) {
+    [_UIDelegate webView:self
+        contextMenuDidEndForLinkWithURL:net::NSURLWithGURL(linkURL)];
   }
 }
 
@@ -661,12 +739,14 @@ static NSString* gUserAgentProduct = nil;
   // |web::EnsureWebViewCreatedWithConfiguration()|, as this is the requirement
   // of |web::EnsureWebViewCreatedWithConfiguration()|
 
-  WKWebView* webView = nil;
-  if (wkConfiguration) {
-    webView = web::EnsureWebViewCreatedWithConfiguration(_webState.get(),
-                                                         wkConfiguration);
-  }
+  // Creates a WKWebView immediately to assure the class property
+  // |chromeLongPressAndForceTouchHandlingEnabled| is consumed when a
+  // CWVWebView is initializing instead of some time later. Then
+  // "longPressActionsEnabled" will be set in WKWebViewConfigurationProvider.
+  WKWebView* webView = web::EnsureWebViewCreatedWithConfiguration(
+      _webState.get(), wkConfiguration);
   if (createdWebView) {
+    // If the created webView is needed, returns it by the out variable way.
     *createdWebView = webView;
   }
 
@@ -678,6 +758,9 @@ static NSString* gUserAgentProduct = nil;
   }
   _webState->AddObserver(_webStateObserver.get());
 
+  if (_backForwardList) {
+    _backForwardList.navigationManager = _webState->GetNavigationManager();
+  }
   [self updateWebStateVisibility];
 
   _webStateDelegate = std::make_unique<web::WebStateDelegateBridge>(self);
@@ -728,7 +811,7 @@ static NSString* gUserAgentProduct = nil;
 
   // TODO(crbug.com/873729): The session will not be restored until
   // LoadIfNecessary call. Fix the bug and remove extra call.
-  if (web::GetWebClient()->IsSlimNavigationManagerEnabled() && sessionStorage) {
+  if (sessionStorage) {
     _webState->GetNavigationManager()->LoadIfNecessary();
   }
 }
@@ -745,10 +828,20 @@ static NSString* gUserAgentProduct = nil;
   [self addSubview:subview];
 }
 
+- (CWVBackForwardList*)backForwardList {
+  if (!_backForwardList) {
+    _backForwardList = [[CWVBackForwardList alloc]
+        initWithNavigationManager:_webState->GetNavigationManager()];
+  }
+  return _backForwardList;
+}
+
 - (void)updateNavigationAvailability {
   self.canGoBack = _webState && _webState->GetNavigationManager()->CanGoBack();
   self.canGoForward =
       _webState && _webState->GetNavigationManager()->CanGoForward();
+
+  self.backForwardList.navigationManager = _webState->GetNavigationManager();
 }
 
 - (void)updateCurrentURLs {

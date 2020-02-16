@@ -10,12 +10,13 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_request_adapter_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_adapter.h"
-#include "third_party/blink/renderer/modules/webgpu/gpu_request_adapter_options.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/dawn_control_client_holder.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -104,8 +105,8 @@ void GPU::ContextDestroyed(ExecutionContext* execution_context) {
 void GPU::OnRequestAdapterCallback(ScriptPromiseResolver* resolver,
                                    uint32_t adapter_server_id,
                                    const WGPUDeviceProperties& properties) {
-  GPUAdapter* adapter = GPUAdapter::Create("Default", adapter_server_id,
-                                           properties, dawn_control_client_);
+  auto* adapter = MakeGarbageCollected<GPUAdapter>(
+      "Default", adapter_server_id, properties, dawn_control_client_);
   resolver->Resolve(adapter);
 }
 

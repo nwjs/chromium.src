@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "base/component_export.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/memory/scoped_refptr.h"
 #include "mojo/public/cpp/base/file_mojom_traits.h"
 #include "mojo/public/cpp/base/file_path_mojom_traits.h"
@@ -23,6 +22,7 @@
 #include "services/network/public/cpp/network_isolation_key_mojom_traits.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/resource_request_body.h"
+#include "services/network/public/cpp/site_for_cookies_mojom_traits.h"
 #include "services/network/public/mojom/chunked_data_pipe_getter.mojom.h"
 #include "services/network/public/mojom/data_pipe_getter.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom-shared.h"
@@ -82,7 +82,8 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   static const GURL& url(const network::ResourceRequest& request) {
     return request.url;
   }
-  static const GURL& site_for_cookies(const network::ResourceRequest& request) {
+  static const net::SiteForCookies& site_for_cookies(
+      const network::ResourceRequest& request) {
     return request.site_for_cookies;
   }
   static bool attach_same_site_cookies(
@@ -101,7 +102,9 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest& request) {
     return request.isolated_world_origin;
   }
-  static const GURL& referrer(const network::ResourceRequest& request);
+  static const GURL& referrer(const network::ResourceRequest& request) {
+    return request.referrer;
+  }
   static net::URLRequest::ReferrerPolicy referrer_policy(
       const network::ResourceRequest& request) {
     return request.referrer_policy;
@@ -166,6 +169,10 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   static int32_t fetch_request_context_type(
       const network::ResourceRequest& request) {
     return request.fetch_request_context_type;
+  }
+  static network::mojom::RequestDestination destination(
+      const network::ResourceRequest& request) {
+    return request.destination;
   }
   static const scoped_refptr<network::ResourceRequestBody>& request_body(
       const network::ResourceRequest& request) {

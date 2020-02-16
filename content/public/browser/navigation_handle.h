@@ -18,6 +18,7 @@
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_isolation_key.h"
+#include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_response_info.h"
 #include "services/network/public/cpp/resource_request_body.h"
 #include "ui/base/page_transition_types.h"
@@ -285,6 +286,9 @@ class CONTENT_EXPORT NavigationHandle {
   virtual const base::Optional<net::AuthChallengeInfo>&
   GetAuthChallengeInfo() = 0;
 
+  // Returns host resolution error info associated with the request.
+  virtual net::ResolveErrorInfo GetResolveErrorInfo() = 0;
+
   // Gets the NetworkIsolationKey associated with the navigation. Updated as
   // redirects are followed. When one of the origins used to construct the
   // NetworkIsolationKey is opaque, the returned NetworkIsolationKey will not be
@@ -369,10 +373,6 @@ class CONTENT_EXPORT NavigationHandle {
 
   // Returns whether this navigation is currently deferred.
   virtual bool IsDeferredForTesting() = 0;
-
-  // Whether this navigation was triggered by a x-origin redirect following a
-  // prior (most likely <a download>) download attempt.
-  virtual bool FromDownloadCrossOriginRedirect() = 0;
 };
 
 }  // namespace content

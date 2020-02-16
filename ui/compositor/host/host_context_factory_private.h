@@ -67,9 +67,6 @@ class HostContextFactoryPrivate : public ContextFactoryPrivate {
   base::flat_set<Compositor*> GetAllCompositors();
 
   // ContextFactoryPrivate implementation.
-  std::unique_ptr<Reflector> CreateReflector(Compositor* source,
-                                             Layer* target) override;
-  void RemoveReflector(Reflector* reflector) override;
   viz::FrameSinkId AllocateFrameSinkId() override;
   viz::HostFrameSinkManager* GetHostFrameSinkManager() override;
   void SetDisplayVisible(Compositor* compositor, bool visible) override;
@@ -77,9 +74,9 @@ class HostContextFactoryPrivate : public ContextFactoryPrivate {
   void DisableSwapUntilResize(Compositor* compositor) override;
   void SetDisplayColorMatrix(Compositor* compositor,
                              const SkMatrix44& matrix) override;
-  void SetDisplayColorSpace(Compositor* compositor,
-                            const gfx::ColorSpace& output_color_space,
-                            float sdr_white_level) override;
+  void SetDisplayColorSpaces(
+      Compositor* compositor,
+      const gfx::DisplayColorSpaces& display_color_spaces) override;
   void SetDisplayVSyncParameters(Compositor* compositor,
                                  base::TimeTicks timebase,
                                  base::TimeDelta interval) override;

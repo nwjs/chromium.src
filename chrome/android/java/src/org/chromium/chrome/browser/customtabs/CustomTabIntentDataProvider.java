@@ -41,18 +41,18 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeApplication;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.dynamicmodule.ModuleMetrics;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
-import org.chromium.chrome.browser.ui.styles.ChromeColors;
-import org.chromium.chrome.browser.ui.widget.TintedDrawable;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.widget.TintedDrawable;
+import org.chromium.ui.util.ColorUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -70,13 +70,10 @@ import java.util.regex.Pattern;
 public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvider {
     private static final String TAG = "CustomTabIntentData";
 
-    @IntDef({LaunchSourceType.OTHER, LaunchSourceType.WEBAPP, LaunchSourceType.WEBAPK,
-            LaunchSourceType.MEDIA_LAUNCHER_ACTIVITY})
+    @IntDef({LaunchSourceType.OTHER, LaunchSourceType.MEDIA_LAUNCHER_ACTIVITY})
     @Retention(RetentionPolicy.SOURCE)
     public @interface LaunchSourceType {
         int OTHER = -1;
-        int WEBAPP = 0;
-        int WEBAPK = 1;
         int MEDIA_LAUNCHER_ACTIVITY = 3;
     }
 
@@ -129,8 +126,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             "org.chromium.chrome.browser.customtabs.EXTRA_IS_OPENED_BY_WEBAPK";
 
     /**
-     * Indicates the source where the Custom Tab is launched. This is only used for
-     * WebApp/WebAPK/TrustedWebActivity. The value is defined as
+     * Indicates the source where the Custom Tab is launched. The value is defined as
      * {@link LaunchSourceType}.
      */
     public static final String EXTRA_BROWSER_LAUNCH_SOURCE =

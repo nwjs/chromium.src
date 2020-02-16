@@ -6,13 +6,13 @@
 
 #include <utility>
 
+#include "third_party/blink/renderer/bindings/modules/v8/v8_barcode_detector_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_point_2d.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_image_source.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
-#include "third_party/blink/renderer/modules/imagecapture/point_2d.h"
-#include "third_party/blink/renderer/modules/shapedetection/barcode_detector_options.h"
 #include "third_party/blink/renderer/modules/shapedetection/barcode_detector_statics.h"
 #include "third_party/blink/renderer/modules/shapedetection/detected_barcode.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -127,8 +127,8 @@ void BarcodeDetector::OnDetectBarcodes(
     HeapVector<Member<Point2D>> corner_points;
     for (const auto& corner_point : barcode->corner_points) {
       Point2D* point = Point2D::Create();
-      point->setX(corner_point.x);
-      point->setY(corner_point.y);
+      point->setX(corner_point.x());
+      point->setY(corner_point.y());
       corner_points.push_back(point);
     }
     detected_barcodes.push_back(MakeGarbageCollected<DetectedBarcode>(

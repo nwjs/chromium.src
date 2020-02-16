@@ -5,10 +5,13 @@
 #include "chrome/browser/chromeos/child_accounts/child_user_service.h"
 
 #include "base/time/time.h"
+#include "chrome/browser/chromeos/child_accounts/time_limits/app_activity_registry.h"
 #include "chrome/browser/chromeos/child_accounts/time_limits/app_time_controller.h"
 #include "chrome/browser/chromeos/child_accounts/time_limits/web_time_limit_enforcer.h"
+#include "chrome/browser/profiles/profile.h"
 #include "content/public/browser/browser_context.h"
 #include "url/gurl.h"
+
 namespace chromeos {
 
 ChildUserService::TestApi::TestApi(ChildUserService* service)
@@ -27,13 +30,16 @@ app_time::WebTimeLimitEnforcer* ChildUserService::TestApi::web_time_enforcer() {
 }
 
 ChildUserService::ChildUserService(content::BrowserContext* context) {
-  if (app_time::AppTimeController::ArePerAppTimeLimitsEnabled())
-    app_time_controller_ = std::make_unique<app_time::AppTimeController>();
+  DCHECK(context);
+  if (app_time::AppTimeController::ArePerAppTimeLimitsEnabled()) {
+    app_time_controller_ = std::make_unique<app_time::AppTimeController>(
+        Profile::FromBrowserContext(context));
+  }
 }
 
 ChildUserService::~ChildUserService() = default;
 
-void ChildUserService::PauseWebActivity() {
+void ChildUserService::PauseWebActivity(const std::string& app_id) {
   DCHECK(app_time_controller_);
 
   app_time::WebTimeLimitEnforcer* web_time_enforcer =
@@ -44,7 +50,7 @@ void ChildUserService::PauseWebActivity() {
   web_time_enforcer->OnWebTimeLimitReached();
 }
 
-void ChildUserService::ResumeWebActivity() {
+void ChildUserService::ResumeWebActivity(const std::string& app_id) {
   DCHECK(app_time_controller_);
 
   app_time::WebTimeLimitEnforcer* web_time_enforcer =
@@ -55,10 +61,24 @@ void ChildUserService::ResumeWebActivity() {
   web_time_enforcer->OnWebTimeLimitEnded();
 }
 
+app_time::AppActivityReportInterface::ReportParams
+ChildUserService::GenerateAppActivityReport(
+    enterprise_management::ChildStatusReportRequest* report) const {
+  DCHECK(app_time_controller_);
+  return app_time_controller_->app_registry()->GenerateAppActivityReport(
+      report);
+}
+
+void ChildUserService::AppActivityReportSubmitted(
+    base::Time report_generation_timestamp) {
+  DCHECK(app_time_controller_);
+  app_time_controller_->app_registry()->CleanRegistry(
+      report_generation_timestamp);
+}
+
 bool ChildUserService::WebTimeLimitReached() const {
-  if (!app_time_controller_)
+  if (!app_time_controller_ || !app_time_controller_->web_time_enforcer())
     return false;
-  DCHECK(app_time_controller_->web_time_enforcer());
   return app_time_controller_->web_time_enforcer()->blocked();
 }
 

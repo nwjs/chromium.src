@@ -54,14 +54,11 @@ bool BasicCardCapabilitiesMatch(
     const mojom::PaymentMethodDataPtr& request) {
   for (const auto& capability : capabilities) {
     if (CapabilityMatches(request->supported_networks,
-                          capability.supported_card_networks) &&
-        CapabilityMatches(request->supported_types,
-                          capability.supported_card_types)) {
+                          capability.supported_card_networks)) {
       return true;
     }
   }
-  return capabilities.empty() && request->supported_networks.empty() &&
-         request->supported_types.empty();
+  return capabilities.empty() && request->supported_networks.empty();
 }
 
 // Returns true if |app| supports at least one of the |requests|.
@@ -147,10 +144,27 @@ class SelfDeletingServiceWorkerPaymentAppFinder {
   }
 
  private:
+  static void RemoveUnrequestedMethods(
+      const std::vector<mojom::PaymentMethodDataPtr>& requested_method_data,
+      content::PaymentAppProvider::PaymentApps* apps) {
+    std::set<std::string> requested_methods;
+    for (const auto& requested_method_datum : requested_method_data) {
+      requested_methods.insert(requested_method_datum->supported_method);
+    }
+    for (auto& app : *apps) {
+      std::sort(app.second->enabled_methods.begin(),
+                app.second->enabled_methods.end());
+      app.second->enabled_methods =
+          base::STLSetIntersection<std::vector<std::string>>(
+              app.second->enabled_methods, requested_methods);
+    }
+  }
+
   void OnGotAllPaymentApps(content::PaymentAppProvider::PaymentApps apps) {
     if (ignore_port_in_origin_comparison_for_testing_)
       RemovePortNumbersFromScopesForTest(&apps);
 
+    RemoveUnrequestedMethods(requested_method_data_, &apps);
     ServiceWorkerPaymentAppFinder::RemoveAppsWithoutMatchingMethodData(
         requested_method_data_, &apps);
     if (apps.empty()) {

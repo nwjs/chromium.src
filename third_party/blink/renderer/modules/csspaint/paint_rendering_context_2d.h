@@ -8,8 +8,8 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_paint_rendering_context_2d_settings.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
-#include "third_party/blink/renderer/modules/csspaint/paint_rendering_context_2d_settings.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record.h"
@@ -72,7 +72,7 @@ class MODULES_EXPORT PaintRenderingContext2D : public ScriptWrappable,
   sk_sp<PaintFilter> StateGetFilter() final;
   void SnapshotStateForFilter() final {}
 
-  void ValidateStateStack() const final;
+  void ValidateStateStackWithCanvas(const cc::PaintCanvas*) const final;
 
   bool HasAlpha() const final { return context_settings_->alpha(); }
 
@@ -84,13 +84,8 @@ class MODULES_EXPORT PaintRenderingContext2D : public ScriptWrappable,
   bool CanCreateCanvas2dResourceProvider() const final { return false; }
   bool IsAccelerated() const final { return false; }
 
-  void setTransform(double m11,
-                    double m12,
-                    double m21,
-                    double m22,
-                    double dx,
-                    double dy) final;
-  void setTransform(DOMMatrix2DInit*, ExceptionState&) final;
+  DOMMatrix* getTransform() final;
+  void resetTransform() final;
 
   sk_sp<PaintRecord> GetRecord();
 

@@ -176,6 +176,18 @@
       ToolbarExpandedHeight(self.traitCollection.preferredContentSizeCategory));
 }
 
+- (void)willMoveToWindow:(UIWindow*)newWindow {
+  [super willMoveToWindow:newWindow];
+  [NamedGuide guideWithName:kPrimaryToolbarGuide view:self].constrainedView =
+      nil;
+}
+
+- (void)didMoveToWindow {
+  [super didMoveToWindow];
+  [NamedGuide guideWithName:kPrimaryToolbarGuide view:self].constrainedView =
+      self;
+}
+
 #pragma mark - Setup
 
 // Sets up the toolbar background.
@@ -245,10 +257,16 @@
   self.tabGridButton = [self.buttonFactory tabGridButton];
   self.toolsMenuButton = [self.buttonFactory toolsMenuButton];
 
-  self.trailingStackViewButtons = @[
-    self.bookmarkButton, self.shareButton, self.tabGridButton,
-    self.toolsMenuButton
-  ];
+  if (base::FeatureList::IsEnabled(kChangeTabSwitcherPosition)) {
+    self.trailingStackViewButtons =
+        @[ self.shareButton, self.tabGridButton, self.toolsMenuButton ];
+  } else {
+    self.trailingStackViewButtons = @[
+      self.bookmarkButton, self.shareButton, self.tabGridButton,
+      self.toolsMenuButton
+    ];
+  }
+
   self.trailingStackView = [[UIStackView alloc]
       initWithArrangedSubviews:self.trailingStackViewButtons];
   self.trailingStackView.translatesAutoresizingMaskIntoConstraints = NO;

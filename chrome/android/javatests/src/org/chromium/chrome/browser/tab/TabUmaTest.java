@@ -14,6 +14,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.MetricsUtils.HistogramDelta;
@@ -21,13 +22,13 @@ import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.TabbedModeTabDelegateFactory;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.content_public.common.BrowserControlsState;
 import org.chromium.net.test.EmbeddedTestServer;
 
 import java.util.concurrent.Callable;
@@ -62,7 +63,10 @@ public class TabUmaTest {
     }
 
     private TabbedModeTabDelegateFactory createTabDelegateFactory() {
-        return new TabbedModeTabDelegateFactory(mActivityTestRule.getActivity());
+        BrowserControlsVisibilityDelegate visibilityDelegate =
+                new BrowserControlsVisibilityDelegate(BrowserControlsState.BOTH) {};
+        return new TabbedModeTabDelegateFactory(mActivityTestRule.getActivity(), visibilityDelegate,
+                new ObservableSupplierImpl<ShareDelegate>());
     }
 
     /**
@@ -91,13 +95,11 @@ public class TabUmaTest {
         Assert.assertEquals(0, lazyLoadCount.getDelta()); // Sanity check.
 
         // Show the tab and verify that one sample was recorded in the lazy load bucket.
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> { ((TabImpl) tab).show(TabSelectionType.FROM_USER); });
+        TestThreadUtils.runOnUiThreadBlocking(() -> { tab.show(TabSelectionType.FROM_USER); });
         Assert.assertEquals(1, lazyLoadCount.getDelta());
 
         // Show the tab again and verify that we didn't record another sample.
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> { ((TabImpl) tab).show(TabSelectionType.FROM_USER); });
+        TestThreadUtils.runOnUiThreadBlocking(() -> { tab.show(TabSelectionType.FROM_USER); });
         Assert.assertEquals(1, lazyLoadCount.getDelta());
     }
 
@@ -130,7 +132,7 @@ public class TabUmaTest {
                                     .setInitiallyHidden(true)
                                     .build();
                 bgTab.loadUrl(new LoadUrlParams(mTestUrl));
-                ((TabImpl) bgTab).show(TabSelectionType.FROM_USER);
+                bgTab.show(TabSelectionType.FROM_USER);
                 return bgTab;
             }
         });
@@ -151,7 +153,7 @@ public class TabUmaTest {
                 bgTab.loadUrl(new LoadUrlParams(mTestUrl));
                 // Simulate the renderer being killed by the OS.
                 ChromeTabUtils.simulateRendererKilledForTesting(bgTab, false);
-                ((TabImpl) bgTab).show(TabSelectionType.FROM_USER);
+                bgTab.show(TabSelectionType.FROM_USER);
                 return bgTab;
             }
         });
@@ -169,7 +171,7 @@ public class TabUmaTest {
                                     .setDelegateFactory(createTabDelegateFactory())
                                     .setInitiallyHidden(true)
                                     .build();
-                ((TabImpl) bgTab).show(TabSelectionType.FROM_USER);
+                bgTab.show(TabSelectionType.FROM_USER);
                 return bgTab;
             }
         });
@@ -180,9 +182,9 @@ public class TabUmaTest {
         // Show every tab again and make sure we didn't record more samples - this metric should be
         // recorded only on first display.
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            ((TabImpl) liveBgTab).show(TabSelectionType.FROM_USER);
-            ((TabImpl) killedBgTab).show(TabSelectionType.FROM_USER);
-            ((TabImpl) frozenBgTab).show(TabSelectionType.FROM_USER);
+            liveBgTab.show(TabSelectionType.FROM_USER);
+            killedBgTab.show(TabSelectionType.FROM_USER);
+            frozenBgTab.show(TabSelectionType.FROM_USER);
         });
         Assert.assertEquals(1, shownLoadCount.getDelta());
         Assert.assertEquals(1, lostLoadCount.getDelta());

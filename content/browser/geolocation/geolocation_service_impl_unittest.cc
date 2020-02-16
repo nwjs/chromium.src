@@ -8,22 +8,18 @@
 #include "base/bind_helpers.h"
 #include "base/run_loop.h"
 #include "content/browser/permissions/permission_controller_impl.h"
+#include "content/public/browser/device_service.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_type.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/test/mock_permission_manager.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_browser_context.h"
-#include "content/public/test/test_service_manager_context.h"
 #include "content/test/test_render_frame_host.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/device/public/cpp/test/scoped_geolocation_overrider.h"
-#include "services/device/public/mojom/constants.mojom.h"
 #include "services/device/public/mojom/geolocation.mojom.h"
 #include "services/device/public/mojom/geolocation_context.mojom.h"
 #include "services/device/public/mojom/geoposition.mojom.h"
-#include "services/service_manager/public/cpp/bind_source_info.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom.h"
 
@@ -39,8 +35,15 @@ using PermissionCallback = base::OnceCallback<void(PermissionStatus)>;
 
 double kMockLatitude = 1.0;
 double kMockLongitude = 10.0;
-GURL kMainUrl = GURL("https://www.google.com/maps");
-GURL kEmbeddedUrl = GURL("https://embeddables.com/someframe");
+
+// TODO(https://crbug.com/1042727): Fix test GURL scoping and remove this getter
+// function.
+GURL MainUrl() {
+  return GURL("https://www.google.com/maps");
+}
+GURL EmbeddedUrl() {
+  return GURL("https://embeddables.com/someframe");
+}
 
 class TestPermissionManager : public MockPermissionManager {
  public:
@@ -80,23 +83,21 @@ class GeolocationServiceTest : public RenderViewHostImplTestHarness {
 
   void SetUp() override {
     RenderViewHostImplTestHarness::SetUp();
-    NavigateAndCommit(kMainUrl);
+    NavigateAndCommit(MainUrl());
     browser_context_.reset(new content::TestBrowserContext());
     browser_context_->SetPermissionControllerDelegate(
         std::make_unique<TestPermissionManager>());
 
-    service_manager_context_ = std::make_unique<TestServiceManagerContext>();
     geolocation_overrider_ =
         std::make_unique<device::ScopedGeolocationOverrider>(kMockLatitude,
                                                              kMockLongitude);
-    GetSystemConnector()->Connect(device::mojom::kServiceName,
-                                  context_.BindNewPipeAndPassReceiver());
+    GetDeviceService().BindGeolocationContext(
+        context_.BindNewPipeAndPassReceiver());
   }
 
   void TearDown() override {
     context_.reset();
     geolocation_overrider_.reset();
-    service_manager_context_.reset();
     browser_context_.reset();
     RenderViewHostImplTestHarness::TearDown();
   }
@@ -106,13 +107,13 @@ class GeolocationServiceTest : public RenderViewHostImplTestHarness {
       RenderFrameHostTester::For(main_rfh())
           ->SimulateFeaturePolicyHeader(
               blink::mojom::FeaturePolicyFeature::kGeolocation,
-              std::vector<url::Origin>{url::Origin::Create(kEmbeddedUrl)});
+              std::vector<url::Origin>{url::Origin::Create(EmbeddedUrl())});
     }
     RenderFrameHost* embedded_rfh =
         RenderFrameHostTester::For(main_rfh())->AppendChild("");
     RenderFrameHostTester::For(embedded_rfh)->InitializeRenderFrameIfNeeded();
     auto navigation_simulator = NavigationSimulator::CreateRendererInitiated(
-        kEmbeddedUrl, embedded_rfh);
+        EmbeddedUrl(), embedded_rfh);
     navigation_simulator->Commit();
     embedded_rfh = navigation_simulator->GetFinalRenderFrameHost();
 
@@ -133,7 +134,6 @@ class GeolocationServiceTest : public RenderViewHostImplTestHarness {
   }
 
  private:
-  std::unique_ptr<TestServiceManagerContext> service_manager_context_;
   std::unique_ptr<device::ScopedGeolocationOverrider> geolocation_overrider_;
 
   std::unique_ptr<TestBrowserContext> browser_context_;

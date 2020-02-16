@@ -34,8 +34,8 @@ class CORE_EXPORT InspectedFrames final
    private:
     friend class InspectedFrames;
     Iterator(LocalFrame* root, LocalFrame* current);
-    Member<LocalFrame> root_;
-    Member<LocalFrame> current_;
+    LocalFrame* root_;
+    LocalFrame* current_;
   };
 
   explicit InspectedFrames(LocalFrame*);

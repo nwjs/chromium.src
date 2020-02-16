@@ -45,7 +45,6 @@
 #include "content/public/common/navigation_policy.h"
 #include "content/public/common/url_utils.h"
 #include "net/base/net_errors.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "url/gurl.h"
 #include "url/url_util.h"
@@ -125,14 +124,11 @@ NavigationController* NavigatorImpl::GetController() {
   return controller_;
 }
 
-void NavigatorImpl::DidFailLoadWithError(
-    RenderFrameHostImpl* render_frame_host,
-    const GURL& url,
-    int error_code,
-    const base::string16& error_description) {
+void NavigatorImpl::DidFailLoadWithError(RenderFrameHostImpl* render_frame_host,
+                                         const GURL& url,
+                                         int error_code) {
   if (delegate_) {
-    delegate_->DidFailLoadWithError(render_frame_host, url, error_code,
-                                    error_description);
+    delegate_->DidFailLoadWithError(render_frame_host, url, error_code);
   }
 }
 
@@ -172,6 +168,12 @@ void NavigatorImpl::DidNavigate(
     }
   }
 
+  // For browser initiated navigation and same document navigation, frame policy
+  // in commit_params is nullopt and should use fallback value instead.
+  const blink::FramePolicy pending_frame_policy =
+      navigation_request->commit_params().frame_policy.value_or(
+          frame_tree_node->pending_frame_policy());
+
   // DidNavigateFrame() must be called before replicating the new origin and
   // other properties to proxies.  This is because it destroys the subframes of
   // the frame we're navigating from, which might trigger those subframes to
@@ -179,7 +181,7 @@ void NavigatorImpl::DidNavigate(
   // frame's origin.  See https://crbug.com/825283.
   frame_tree_node->render_manager()->DidNavigateFrame(
       render_frame_host, params.gesture == NavigationGestureUser,
-      is_same_document_navigation);
+      is_same_document_navigation, pending_frame_policy);
 
   // Save the new page's origin and other properties, and replicate them to
   // proxies, including the proxy created in DidNavigateFrame() to replace the
@@ -191,13 +193,23 @@ void NavigatorImpl::DidNavigate(
 
   // Save the activation status of the previous page here before it gets reset
   // in FrameTreeNode::ResetForNavigation.
-  bool previous_document_was_activated = frame_tree->root()->HasBeenActivated();
+  bool previous_document_was_activated =
+      frame_tree->root()->HasStickyUserActivation();
 
-  // Navigating to a new location means a new, fresh set of http headers and/or
-  // <meta> elements - we need to reset CSP and Feature Policy.
   if (!is_same_document_navigation) {
+    // Navigating to a new location means a new, fresh set of http headers
+    // and/or <meta> elements - we need to reset CSP and Feature Policy.
     render_frame_host->ResetContentSecurityPolicies();
     frame_tree_node->ResetForNavigation();
+
+    // Save the new page's embedding token and propagate to any frames that
+    // embed it.
+    // - A token will have a value if it is a cross-origin frame.
+    // - An empty token will occur for;
+    //   - main frames
+    //   - a previously out-of-process frame that navigated to be same-process
+    //     as its parent
+    frame_tree_node->SetEmbeddingToken(params.embedding_token);
   }
 
   // Update the site of the SiteInstance if it doesn't have one yet, unless

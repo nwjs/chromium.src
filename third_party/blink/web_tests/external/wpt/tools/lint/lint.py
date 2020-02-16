@@ -392,6 +392,7 @@ regexps = [item() for item in  # type: ignore
             rules.MissingDepsRegexp,
             rules.SpecialPowersRegexp]]
 
+
 def check_regexp_line(repo_root, path, f):
     # type: (str, str, IO[bytes]) -> List[rules.Error]
     errors = []  # type: List[rules.Error]
@@ -404,6 +405,7 @@ def check_regexp_line(repo_root, path, f):
                 errors.append((regexp.name, regexp.description, path, i+1))
 
     return errors
+
 
 def check_parsed(repo_root, path, f):
     # type: (str, str, IO[bytes]) -> List[rules.Error]
@@ -474,6 +476,9 @@ def check_parsed(repo_root, path, f):
             errors.append(rules.InvalidTimeout.error(path, (timeout_value,)))
 
     if source_file.testharness_nodes:
+        test_type = source_file.manifest_items()[0]
+        if test_type not in ("testharness", "manual"):
+            errors.append(rules.TestharnessInOtherType.error(path, (test_type,)))
         if len(source_file.testharness_nodes) > 1:
             errors.append(rules.MultipleTestharness.error(path))
 
@@ -483,10 +488,6 @@ def check_parsed(repo_root, path, f):
         else:
             if len(testharnessreport_nodes) > 1:
                 errors.append(rules.MultipleTestharnessReport.error(path))
-
-        testharnesscss_nodes = source_file.root.findall(".//{http://www.w3.org/1999/xhtml}link[@href='/resources/testharness.css']")
-        if testharnesscss_nodes:
-            errors.append(rules.PresentTestharnessCSS.error(path))
 
         for element in source_file.variant_nodes:
             if "content" not in element.attrib:
@@ -842,7 +843,7 @@ def create_parser():
                         help="Output machine-readable JSON format")
     parser.add_argument("--markdown", action="store_true",
                         help="Output markdown")
-    parser.add_argument("--repo-root", help="The WPT directory. Use this"
+    parser.add_argument("--repo-root", help="The WPT directory. Use this "
                         "option if the lint script exists outside the repository")
     parser.add_argument("--ignore-glob", help="Additional file glob to ignore.")
     parser.add_argument("--all", action="store_true", help="If no paths are passed, try to lint the whole "

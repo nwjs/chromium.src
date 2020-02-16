@@ -98,6 +98,28 @@ InvalidationParsingStatus ParseIncomingMessage(
   return InvalidationParsingStatus::kSuccess;
 }
 
+void RecordFCMMessageStatus(InvalidationParsingStatus status,
+                            const std::string& sender_id) {
+  // These histograms are recorded quite frequently, so use the macros rather
+  // than the functions.
+  UMA_HISTOGRAM_ENUMERATION("FCMInvalidations.FCMMessageStatus", status);
+  // Also split the histogram by a few well-known senders. The actual constants
+  // aren't accessible here (they're defined in higher layers), so we simply
+  // duplicate them here, strictly only for the purpose of metrics.
+  constexpr char kInvalidationGCMSenderId[] = "8181035976";
+  constexpr char kDriveFcmSenderId[] = "947318989803";
+  constexpr char kPolicyFCMInvalidationSenderID[] = "1013309121859";
+  if (sender_id == kInvalidationGCMSenderId) {
+    UMA_HISTOGRAM_ENUMERATION("FCMInvalidations.FCMMessageStatus.Sync", status);
+  } else if (sender_id == kDriveFcmSenderId) {
+    UMA_HISTOGRAM_ENUMERATION("FCMInvalidations.FCMMessageStatus.Drive",
+                              status);
+  } else if (sender_id == kPolicyFCMInvalidationSenderID) {
+    UMA_HISTOGRAM_ENUMERATION("FCMInvalidations.FCMMessageStatus.Policy",
+                              status);
+  }
+}
+
 }  // namespace
 
 FCMNetworkHandler::FCMNetworkHandler(
@@ -153,8 +175,8 @@ bool FCMNetworkHandler::IsListening() const {
 
 void FCMNetworkHandler::DidRetrieveToken(const std::string& subscription_token,
                                          InstanceID::Result result) {
-  UMA_HISTOGRAM_ENUMERATION("FCMInvalidations.InitialTokenRetrievalStatus",
-                            result, InstanceID::Result::LAST_RESULT + 1);
+  base::UmaHistogramEnumeration("FCMInvalidations.InitialTokenRetrievalStatus",
+                                result);
   diagnostic_info_.registration_result = result;
   diagnostic_info_.token = subscription_token;
   diagnostic_info_.instance_id_token_was_received = base::Time::Now();
@@ -239,16 +261,15 @@ void FCMNetworkHandler::OnStoreReset() {}
 void FCMNetworkHandler::OnMessage(const std::string& app_id,
                                   const gcm::IncomingMessage& message) {
   DCHECK_EQ(app_id, app_id_);
+
   std::string payload;
   std::string private_topic;
   std::string public_topic;
   int64_t version = 0;
-
   InvalidationParsingStatus status = ParseIncomingMessage(
       message, &payload, &private_topic, &public_topic, &version);
-  // This histogram is recorded quite frequently, so use the macro rather than
-  // the function.
-  UMA_HISTOGRAM_ENUMERATION("FCMInvalidations.FCMMessageStatus", status);
+
+  RecordFCMMessageStatus(status, sender_id_);
 
   if (status == InvalidationParsingStatus::kSuccess)
     DeliverIncomingMessage(payload, private_topic, public_topic, version);

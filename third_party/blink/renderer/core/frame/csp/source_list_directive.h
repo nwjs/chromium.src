@@ -6,7 +6,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_CSP_SOURCE_LIST_DIRECTIVE_H_
 
 #include "base/macros.h"
-#include "third_party/blink/public/platform/web_content_security_policy.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/csp/csp_directive.h"
 #include "third_party/blink/renderer/core/frame/csp/csp_source.h"
@@ -46,11 +45,13 @@ class CORE_EXPORT SourceListDirective final : public CSPDirective {
   bool AllowUnsafeHashes() const;
   bool AllowReportSample() const;
   bool IsNone() const;
+  bool IsSelf() const;
   bool IsHashOrNoncePresent() const;
   uint8_t HashAlgorithmsUsed() const;
   bool AllowAllInline() const;
+  bool AllowsURLBasedMatching() const;
 
-  // The algorothm is described more extensively here:
+  // The algorithm is described more extensively here:
   // https://w3c.github.io/webappsec-csp/embedded/#subsume-source-list
   bool Subsumes(const HeapVector<Member<SourceListDirective>>&) const;
 

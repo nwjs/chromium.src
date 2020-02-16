@@ -64,8 +64,9 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   void StartSyncingWithServer() override;
   void SetEncryptionPassphrase(const std::string& passphrase) override;
   void SetDecryptionPassphrase(const std::string& passphrase) override;
-  void AddTrustedVaultDecryptionKeys(const std::vector<std::string>& keys,
-                                     base::OnceClosure done_cb) override;
+  void AddTrustedVaultDecryptionKeys(
+      const std::vector<std::vector<uint8_t>>& keys,
+      base::OnceClosure done_cb) override;
   void StopSyncingForShutdown() override;
   void Shutdown(ShutdownReason reason) override;
   void ConfigureDataTypes(ConfigureParams params) override;
@@ -92,7 +93,7 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   void DisableDirectoryTypeDebugInfoForwarding() override;
   void OnCookieJarChanged(bool account_mismatch,
                           bool empty_jar,
-                          const base::Closure& callback) override;
+                          base::OnceClosure callback) override;
   void SetInvalidationsForSessionsEnabled(bool enabled) override;
   void GetNigoriNodeForDebugging(AllNodesCallback callback) override;
 
@@ -112,7 +113,7 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
       const ModelTypeSet enabled_types,
       const ModelTypeSet succeeded_configuration_types,
       const ModelTypeSet failed_configuration_types,
-      const base::Callback<void(ModelTypeSet, ModelTypeSet)>& ready_task);
+      base::OnceCallback<void(ModelTypeSet, ModelTypeSet)> ready_task);
 
   // Reports backend initialization success.  Includes some objects from sync
   // manager initialization to be passed back to the UI thread.
@@ -183,7 +184,7 @@ class SyncEngineImpl : public SyncEngine, public InvalidationHandler {
   // frontend UI components.
   void HandleConnectionStatusChangeOnFrontendLoop(ConnectionStatus status);
 
-  void OnCookieJarChangedDoneOnFrontendLoop(const base::Closure& callback);
+  void OnCookieJarChangedDoneOnFrontendLoop(base::OnceClosure callback);
 
   // The task runner where all the sync engine operations happen.
   scoped_refptr<base::SequencedTaskRunner> sync_task_runner_;

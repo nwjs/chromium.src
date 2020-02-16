@@ -198,6 +198,69 @@ TEST_F(IndexedDBTransactionTest, Timeout) {
   EXPECT_EQ(1, transaction->diagnostics().tasks_completed);
 }
 
+TEST_F(IndexedDBTransactionTest, TimeoutPreemptive) {
+  const int64_t id = 0;
+  const std::set<int64_t> scope;
+  const leveldb::Status commit_success = leveldb::Status::OK();
+  std::unique_ptr<IndexedDBConnection> connection = CreateConnection();
+  IndexedDBTransaction* transaction = connection->CreateTransaction(
+      id, scope, blink::mojom::IDBTransactionMode::ReadWrite,
+      new IndexedDBFakeBackingStore::FakeTransaction(commit_success));
+  db_->RegisterAndScheduleTransaction(transaction);
+
+  // No conflicting transactions, so coordinator will start it immediately:
+  EXPECT_EQ(IndexedDBTransaction::STARTED, transaction->state());
+  EXPECT_FALSE(transaction->IsTimeoutTimerRunning());
+  EXPECT_EQ(0, transaction->diagnostics().tasks_scheduled);
+  EXPECT_EQ(0, transaction->diagnostics().tasks_completed);
+
+  // Add a preemptive task.
+  transaction->ScheduleTask(
+      blink::mojom::IDBTaskType::Preemptive,
+      base::BindOnce(&IndexedDBTransactionTest::DummyOperation,
+                     base::Unretained(this), leveldb::Status::OK()));
+  transaction->AddPreemptiveEvent();
+
+  EXPECT_TRUE(transaction->HasPendingTasks());
+  EXPECT_FALSE(transaction->IsTimeoutTimerRunning());
+  EXPECT_TRUE(transaction->task_queue_.empty());
+  EXPECT_FALSE(transaction->preemptive_task_queue_.empty());
+
+  // Pump the message loop so that the transaction completes all pending tasks,
+  // otherwise it will defer the commit.
+  RunPostedTasks();
+  EXPECT_TRUE(transaction->HasPendingTasks());
+  EXPECT_FALSE(transaction->IsTimeoutTimerRunning());
+  EXPECT_TRUE(transaction->task_queue_.empty());
+  EXPECT_TRUE(transaction->preemptive_task_queue_.empty());
+
+  // Schedule a task - timer won't be started until preemptive tasks are done.
+  transaction->ScheduleTask(
+      base::BindOnce(&IndexedDBTransactionTest::DummyOperation,
+                     base::Unretained(this), leveldb::Status::OK()));
+  EXPECT_FALSE(transaction->IsTimeoutTimerRunning());
+  EXPECT_EQ(1, transaction->diagnostics().tasks_scheduled);
+  EXPECT_EQ(0, transaction->diagnostics().tasks_completed);
+
+  // This shouldn't do anything - the preemptive task is still lurking.
+  RunPostedTasks();
+  EXPECT_TRUE(transaction->HasPendingTasks());
+  EXPECT_FALSE(transaction->IsTimeoutTimerRunning());
+  EXPECT_EQ(1, transaction->diagnostics().tasks_scheduled);
+  EXPECT_EQ(0, transaction->diagnostics().tasks_completed);
+
+  // Finish the preemptive task, which unblocks regular tasks.
+  transaction->DidCompletePreemptiveEvent();
+  // TODO(dmurph): Should this explicit call be necessary?
+  transaction->RunTasks();
+
+  // The task's completion should start the timer.
+  EXPECT_FALSE(transaction->HasPendingTasks());
+  EXPECT_TRUE(transaction->IsTimeoutTimerRunning());
+  EXPECT_EQ(1, transaction->diagnostics().tasks_scheduled);
+  EXPECT_EQ(1, transaction->diagnostics().tasks_completed);
+}
+
 TEST_F(IndexedDBTransactionTest, NoTimeoutReadOnly) {
   const int64_t id = 0;
   const std::set<int64_t> scope;
@@ -545,7 +608,7 @@ TEST_F(IndexedDBTransactionTest, AbortCancelsLockRequest) {
   EXPECT_EQ(transaction->state(), IndexedDBTransaction::CREATED);
 
   // Abort the transaction, which should cancel the
-  // |RegisterAndScheduleTransaction()| pending lock request.
+  // RegisterAndScheduleTransaction() pending lock request.
   transaction->Abort(
       IndexedDBDatabaseError(blink::mojom::IDBException::kUnknownError));
   EXPECT_EQ(transaction->state(), IndexedDBTransaction::FINISHED);
@@ -561,6 +624,48 @@ TEST_F(IndexedDBTransactionTest, AbortCancelsLockRequest) {
                                temp_lock_receiver.weak_factory.GetWeakPtr(),
                                base::BindOnce(SetToTrue, &locks_recieved));
   EXPECT_TRUE(locks_recieved);
+}
+
+TEST_F(IndexedDBTransactionTest, PostedStartTaskRunAfterAbort) {
+  int64_t id = 0;
+  const int64_t object_store_id = 1ll;
+  const std::set<int64_t> scope = {object_store_id};
+  std::unique_ptr<IndexedDBConnection> connection = CreateConnection();
+
+  IndexedDBTransaction* transaction1 = connection->CreateTransaction(
+      id, scope, blink::mojom::IDBTransactionMode::ReadWrite,
+      new IndexedDBFakeBackingStore::FakeTransaction(leveldb::Status::OK()));
+
+  db_->RegisterAndScheduleTransaction(transaction1);
+  EXPECT_EQ(transaction1->state(), IndexedDBTransaction::STARTED);
+
+  // Register another transaction, which will block on the first transaction.
+  IndexedDBTransaction* transaction2 = connection->CreateTransaction(
+      ++id, scope, blink::mojom::IDBTransactionMode::ReadWrite,
+      new IndexedDBFakeBackingStore::FakeTransaction(leveldb::Status::OK()));
+
+  db_->RegisterAndScheduleTransaction(transaction2);
+  EXPECT_EQ(transaction2->state(), IndexedDBTransaction::CREATED);
+
+  // Flush posted tasks before making the Abort calls since there are
+  // posted RunTasksForDatabase() tasks which, if we waited to run them
+  // until after Abort is called, would destroy our transactions and mask
+  // a potential race condition.
+  RunPostedTasks();
+
+  // Abort all of the transactions, which should cause the second transaction's
+  // posted Start() task to run.
+  connection->AbortAllTransactions(
+      IndexedDBDatabaseError(blink::mojom::IDBException::kUnknownError));
+
+  EXPECT_EQ(transaction2->state(), IndexedDBTransaction::FINISHED);
+
+  // Run tasks to ensure Start() is called but does not DCHECK.
+  RunPostedTasks();
+
+  // It's not safe to check the state of the transaction at this point since it
+  // is freed when the IndexedDBDatabase::RunTasks call happens via the posted
+  // RunTasksForDatabase task.
 }
 
 }  // namespace indexed_db_transaction_unittest

@@ -105,7 +105,7 @@ const CGFloat kEstimatedTableSectionFooterHeight = 40;
 // Redefined to be readwrite.
 @property(nonatomic, strong) BookmarkFolderViewController* folderViewController;
 
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 
 // Dispatcher for sending commands.
 @property(nonatomic, readonly, weak) id<BrowserCommands> dispatcher;
@@ -179,12 +179,11 @@ const CGFloat kEstimatedTableSectionFooterHeight = 40;
 #pragma mark - Lifecycle
 
 - (instancetype)initWithBookmark:(const BookmarkNode*)bookmark
-                    browserState:(ios::ChromeBrowserState*)browserState
+                    browserState:(ChromeBrowserState*)browserState
                       dispatcher:(id<BrowserCommands>)dispatcher {
   DCHECK(bookmark);
   DCHECK(browserState);
-  self = [super initWithTableViewStyle:UITableViewStylePlain
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:UITableViewStylePlain];
   if (self) {
     DCHECK(!bookmark->is_folder());
     DCHECK(!browserState->IsOffTheRecord());

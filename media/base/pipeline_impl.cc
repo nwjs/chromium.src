@@ -144,6 +144,7 @@ class PipelineImpl::RendererWrapper : public DemuxerHost,
   void OnVideoConfigChange(const VideoDecoderConfig& config) final;
   void OnVideoNaturalSizeChange(const gfx::Size& size) final;
   void OnVideoOpacityChange(bool opaque) final;
+  void OnVideoFrameRateChange(base::Optional<int> fps) final;
 
   // Common handlers for notifications from renderers and demuxer.
   void OnPipelineError(PipelineStatus error);
@@ -580,8 +581,7 @@ void PipelineImpl::RendererWrapper::OnBufferedTimeRangesChanged(
 void PipelineImpl::RendererWrapper::SetDuration(base::TimeDelta duration) {
   // TODO(alokp): Add thread DCHECK after ensuring that all Demuxer
   // implementations call DemuxerHost on the media thread.
-  media_log_->AddEvent(media_log_->CreateTimeEvent(MediaLogEvent::DURATION_SET,
-                                                   "duration", duration));
+  media_log_->AddEvent<MediaLogEvent::kDurationChanged>(duration);
   main_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&PipelineImpl::OnDurationChange, weak_pipeline_,
                                 duration));
@@ -602,7 +602,7 @@ void PipelineImpl::RendererWrapper::OnError(PipelineStatus error) {
 
 void PipelineImpl::RendererWrapper::OnEnded() {
   DCHECK(media_task_runner_->BelongsToCurrentThread());
-  media_log_->AddEvent(media_log_->CreateEvent(MediaLogEvent::ENDED));
+  media_log_->AddEvent<MediaLogEvent::kEnded>();
 
   if (state_ != kPlaying)
     return;
@@ -818,6 +818,15 @@ void PipelineImpl::RendererWrapper::OnVideoOpacityChange(bool opaque) {
                                 weak_pipeline_, opaque));
 }
 
+void PipelineImpl::RendererWrapper::OnVideoFrameRateChange(
+    base::Optional<int> fps) {
+  DCHECK(media_task_runner_->BelongsToCurrentThread());
+
+  main_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&PipelineImpl::OnVideoFrameRateChange,
+                                weak_pipeline_, fps));
+}
+
 void PipelineImpl::RendererWrapper::OnAudioConfigChange(
     const AudioDecoderConfig& config) {
   DCHECK(media_task_runner_->BelongsToCurrentThread());
@@ -890,7 +899,11 @@ void PipelineImpl::RendererWrapper::SetState(State next_state) {
            << PipelineImpl::GetStateString(next_state);
 
   state_ = next_state;
-  media_log_->AddEvent(media_log_->CreatePipelineStateChangedEvent(next_state));
+
+  // TODO(tmathmeyer) Make State serializable so GetStateString won't need
+  // to be called here.
+  media_log_->AddEvent<MediaLogEvent::kPipelineStateChange>(
+      std::string(PipelineImpl::GetStateString(next_state)));
 }
 
 void PipelineImpl::RendererWrapper::CompleteSeek(base::TimeDelta seek_time,
@@ -1155,7 +1168,7 @@ PipelineImpl::~PipelineImpl() {
 void PipelineImpl::Start(StartType start_type,
                          Demuxer* demuxer,
                          Client* client,
-                         const PipelineStatusCB& seek_cb) {
+                         PipelineStatusCallback seek_cb) {
   DVLOG(2) << __func__ << ": start_type=" << static_cast<int>(start_type);
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(demuxer);
@@ -1165,7 +1178,7 @@ void PipelineImpl::Start(StartType start_type,
   DCHECK(!client_);
   DCHECK(!seek_cb_);
   client_ = client;
-  seek_cb_ = seek_cb;
+  seek_cb_ = std::move(seek_cb);
   last_media_time_ = base::TimeDelta();
   seek_time_ = kNoTimestamp;
 
@@ -1216,19 +1229,19 @@ void PipelineImpl::Stop() {
   weak_factory_.InvalidateWeakPtrs();
 }
 
-void PipelineImpl::Seek(base::TimeDelta time, const PipelineStatusCB& seek_cb) {
+void PipelineImpl::Seek(base::TimeDelta time, PipelineStatusCallback seek_cb) {
   DVLOG(2) << __func__ << " to " << time.InMicroseconds();
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(seek_cb);
 
   if (!IsRunning()) {
     DLOG(ERROR) << "Media pipeline isn't running. Ignoring Seek().";
-    seek_cb.Run(PIPELINE_ERROR_INVALID_STATE);
+    std::move(seek_cb).Run(PIPELINE_ERROR_INVALID_STATE);
     return;
   }
 
   DCHECK(!seek_cb_);
-  seek_cb_ = seek_cb;
+  seek_cb_ = std::move(seek_cb);
   seek_time_ = time;
   last_media_time_ = base::TimeDelta();
   media_task_runner_->PostTask(
@@ -1237,13 +1250,13 @@ void PipelineImpl::Seek(base::TimeDelta time, const PipelineStatusCB& seek_cb) {
                      base::Unretained(renderer_wrapper_.get()), time));
 }
 
-void PipelineImpl::Suspend(const PipelineStatusCB& suspend_cb) {
+void PipelineImpl::Suspend(PipelineStatusCallback suspend_cb) {
   DVLOG(2) << __func__;
   DCHECK(suspend_cb);
 
   DCHECK(IsRunning());
   DCHECK(!suspend_cb_);
-  suspend_cb_ = suspend_cb;
+  suspend_cb_ = std::move(suspend_cb);
 
   media_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&RendererWrapper::Suspend,
@@ -1251,14 +1264,14 @@ void PipelineImpl::Suspend(const PipelineStatusCB& suspend_cb) {
 }
 
 void PipelineImpl::Resume(base::TimeDelta time,
-                          const PipelineStatusCB& seek_cb) {
+                          PipelineStatusCallback seek_cb) {
   DVLOG(2) << __func__;
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(seek_cb);
 
   DCHECK(IsRunning());
   DCHECK(!seek_cb_);
-  seek_cb_ = seek_cb;
+  seek_cb_ = std::move(seek_cb);
   seek_time_ = time;
   last_media_time_ = base::TimeDelta();
 
@@ -1529,6 +1542,15 @@ void PipelineImpl::OnVideoOpacityChange(bool opaque) {
 
   DCHECK(client_);
   client_->OnVideoOpacityChange(opaque);
+}
+
+void PipelineImpl::OnVideoFrameRateChange(base::Optional<int> fps) {
+  DVLOG(2) << __func__;
+  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK(IsRunning());
+
+  DCHECK(client_);
+  client_->OnVideoFrameRateChange(fps);
 }
 
 void PipelineImpl::OnAudioConfigChange(const AudioDecoderConfig& config) {

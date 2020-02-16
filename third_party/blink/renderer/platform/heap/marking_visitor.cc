@@ -23,6 +23,7 @@ MarkingVisitorCommon::MarkingVisitorCommon(ThreadState* state,
                                            int task_id)
     : Visitor(state),
       marking_worklist_(Heap().GetMarkingWorklist(), task_id),
+      write_barrier_worklist_(Heap().GetWriteBarrierWorklist(), task_id),
       not_fully_constructed_worklist_(Heap().GetNotFullyConstructedWorklist(),
                                       task_id),
       weak_callback_worklist_(Heap().GetWeakCallbackWorklist(), task_id),
@@ -97,10 +98,16 @@ void MarkingVisitorCommon::VisitBackingStoreWeakly(
     WeakCallback weak_callback,
     void* weak_callback_parameter) {
   RegisterBackingStoreReference(object_slot);
+
+  // In case there's no object present, weakness processing is omitted. The GC
+  // relies on the fact that in such cases touching the weak data structure will
+  // strongify its references.
   if (!object)
     return;
-  RegisterWeakCallback(weak_callback, weak_callback_parameter);
 
+  // Register final weak processing of the backing store.
+  RegisterWeakCallback(weak_callback, weak_callback_parameter);
+  // Register ephemeron callbacks if necessary.
   if (weak_desc.callback)
     weak_table_worklist_.Push(weak_desc);
 }
@@ -189,9 +196,7 @@ void MarkingVisitor::TraceMarkedBackingStoreSlow(void* value) {
 }
 
 MarkingVisitor::MarkingVisitor(ThreadState* state, MarkingMode marking_mode)
-    : MarkingVisitorBase(state, marking_mode, WorklistTaskId::MutatorThread),
-      write_barrier_worklist_(Heap().GetWriteBarrierWorklist(),
-                              WorklistTaskId::MutatorThread) {
+    : MarkingVisitorBase(state, marking_mode, WorklistTaskId::MutatorThread) {
   DCHECK(state->InAtomicMarkingPause());
   DCHECK(state->CheckThread());
 }
@@ -206,6 +211,20 @@ void MarkingVisitor::DynamicallyMarkAddress(Address address) {
     marking_worklist_.Push(
         {reinterpret_cast<void*>(header->Payload()), gc_info->trace});
   }
+}
+
+void MarkingVisitor::VisitMarkedHeader(HeapObjectHeader* header) {
+  // This is currently only called for remembered set visitation. The design of
+  // young generation requires collections to be executed at the top level (with
+  // the guarantee that no objects are currently being in construction). This
+  // can be ensured by running young GCs from safe points or by reintroducing
+  // nested allocation scopes that avoid finalization.
+  DCHECK(header->IsMarked());
+  DCHECK(!IsInConstruction(header));
+  const GCInfo* gc_info =
+      GCInfoTable::Get().GCInfoFromIndex(header->GcInfoIndex());
+  marking_worklist_.Push(
+      {reinterpret_cast<void*>(header->Payload()), gc_info->trace});
 }
 
 void MarkingVisitor::ConservativelyMarkAddress(BasePage* page,
@@ -260,14 +279,18 @@ void MarkingVisitor::ConservativelyMarkAddress(BasePage* page,
   AccountMarkedBytes(header);
 }
 
-void MarkingVisitor::FlushMarkingWorklist() {
+void MarkingVisitor::FlushMarkingWorklists() {
   marking_worklist_.FlushToGlobal();
+  write_barrier_worklist_.FlushToGlobal();
 }
 
 ConcurrentMarkingVisitor::ConcurrentMarkingVisitor(ThreadState* state,
                                                    MarkingMode marking_mode,
                                                    int task_id)
-    : MarkingVisitorBase(state, marking_mode, task_id) {
+    : MarkingVisitorBase(state, marking_mode, task_id),
+      not_safe_to_concurrently_trace_worklist_(
+          Heap().GetNotSafeToConcurrentlyTraceWorklist(),
+          task_id) {
   DCHECK(!state->CheckThread());
   DCHECK_NE(WorklistTaskId::MutatorThread, task_id);
 }
@@ -275,9 +298,11 @@ ConcurrentMarkingVisitor::ConcurrentMarkingVisitor(ThreadState* state,
 void ConcurrentMarkingVisitor::FlushWorklists() {
   // Flush marking worklists for further marking on the mutator thread.
   marking_worklist_.FlushToGlobal();
+  write_barrier_worklist_.FlushToGlobal();
   not_fully_constructed_worklist_.FlushToGlobal();
   weak_callback_worklist_.FlushToGlobal();
   weak_table_worklist_.FlushToGlobal();
+  not_safe_to_concurrently_trace_worklist_.FlushToGlobal();
   // Flush compaction worklists.
   movable_reference_worklist_.FlushToGlobal();
   backing_store_callback_worklist_.FlushToGlobal();

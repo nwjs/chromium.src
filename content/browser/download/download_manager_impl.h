@@ -153,7 +153,8 @@ class CONTENT_EXPORT DownloadManagerImpl
       mojo::ScopedDataPipeConsumerHandle response_body,
       network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
       net::CertStatus cert_status,
-      int frame_tree_node_id);
+      int frame_tree_node_id,
+      bool from_download_cross_origin_redirect);
 
  private:
   using DownloadSet = std::set<download::DownloadItem*>;
@@ -212,12 +213,12 @@ class CONTENT_EXPORT DownloadManagerImpl
 
   // Overridden from DownloadItemImplDelegate
   void DetermineDownloadTarget(download::DownloadItemImpl* item,
-                               const DownloadTargetCallback& callback) override;
+                               DownloadTargetCallback callback) override;
   bool ShouldCompleteDownload(download::DownloadItemImpl* item,
-                              const base::Closure& complete_callback) override;
+                              base::OnceClosure complete_callback) override;
   bool ShouldOpenFileBasedOnExtension(const base::FilePath& path) override;
   bool ShouldOpenDownload(download::DownloadItemImpl* item,
-                          const ShouldOpenDownloadCallback& callback) override;
+                          ShouldOpenDownloadCallback callback) override;
   void CheckForFileRemoval(download::DownloadItemImpl* download_item) override;
   std::string GetApplicationClientIdForFileScanning() const override;
   void ResumeInterruptedDownload(
@@ -229,7 +230,8 @@ class CONTENT_EXPORT DownloadManagerImpl
   void DownloadInterrupted(download::DownloadItemImpl* download) override;
   bool IsOffTheRecord() const override;
   void ReportBytesWasted(download::DownloadItemImpl* download) override;
-  service_manager::Connector* GetServiceManagerConnector() override;
+  void BindWakeLockProvider(
+      mojo::PendingReceiver<device::mojom::WakeLockProvider> receiver) override;
   download::QuarantineConnectionCallback GetQuarantineConnectionCallback()
       override;
 

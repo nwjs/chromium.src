@@ -24,9 +24,9 @@
     function testBreakpointsInOriginalAndFormattedSource(next) {
       SourcesTestRunner.showScriptSource('script-formatter-breakpoints-1.html', didShowScriptSource);
 
-      function didShowScriptSource(frame) {
+      async function didShowScriptSource(frame) {
         sourceFrame = frame;
-        SourcesTestRunner.setBreakpoint(sourceFrame, 9, '', true);
+        await SourcesTestRunner.setBreakpoint(sourceFrame, 9, '', true);
         Promise.all([SourcesTestRunner.waitBreakpointSidebarPane(true), SourcesTestRunner.waitUntilPausedPromise()])
             .then(pausedInF1);
         TestRunner.evaluateInPageWithTimeout('f1()');
@@ -52,7 +52,7 @@
 
       function pausedInF1Again(callFrames) {
         SourcesTestRunner.dumpBreakpointSidebarPane('while paused in pretty printed');
-        Sources.sourceFormatter.discardFormattedUISourceCode(panel.visibleView.uiSourceCode());
+        Formatter.sourceFormatter.discardFormattedUISourceCode(panel.visibleView.uiSourceCode());
         SourcesTestRunner.waitBreakpointSidebarPane().then(onBreakpointsUpdated);
       }
 

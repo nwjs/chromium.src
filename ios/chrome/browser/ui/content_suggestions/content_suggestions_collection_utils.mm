@@ -69,6 +69,8 @@ CGFloat doodleHeight(BOOL logoIsShowing) {
 CGFloat doodleTopMargin(BOOL toolbarPresent, CGFloat topInset) {
   if (!IsCompactWidth() && !IsCompactHeight())
     return kDoodleTopMarginRegularXRegular;
+  if (IsCompactHeight())
+    return topInset;
   return topInset + kDoodleTopMarginOther +
          AlignValueToPixel(kDoodleScaledTopMarginOther *
                            SystemSuggestedFontSizeMultiplier());
@@ -122,7 +124,6 @@ void configureSearchHintLabel(UILabel* searchHintLabel,
     [searchHintLabel setTextAlignment:NSTextAlignmentRight];
   }
   searchHintLabel.textColor = [UIColor colorNamed:kTextfieldPlaceholderColor];
-  searchHintLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
   searchHintLabel.adjustsFontForContentSizeCategory = YES;
   searchHintLabel.textAlignment = NSTextAlignmentCenter;
 }

@@ -34,11 +34,9 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/permissions/chooser_context_base.h"
-#include "chrome/browser/permissions/permission_decision_auto_blocker.h"
+#include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_result.h"
 #include "chrome/browser/permissions/permission_uma_util.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ssl/chrome_ssl_host_state_delegate.h"
@@ -58,9 +56,12 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/permissions/permission_decision_auto_blocker.h"
+#include "components/permissions/permission_result.h"
+#include "components/permissions/permission_util.h"
 #include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/password_protection/metrics_util.h"
-#include "components/safe_browsing/proto/csd.pb.h"
+#include "components/safe_browsing/content/password_protection/metrics_util.h"
+#include "components/safe_browsing/core/proto/csd.pb.h"
 #include "components/security_state/core/features.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/ssl_errors/error_info.h"
@@ -132,7 +133,7 @@ ContentSettingsType kPermissionType[] = {
     ContentSettingsType::PROTECTED_MEDIA_IDENTIFIER,
 #endif
     ContentSettingsType::MIDI_SYSEX,
-    ContentSettingsType::CLIPBOARD_READ,
+    ContentSettingsType::CLIPBOARD_READ_WRITE,
 #if defined(OS_ANDROID)
     ContentSettingsType::NFC,
 #endif
@@ -142,6 +143,8 @@ ContentSettingsType kPermissionType[] = {
     ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD,
 #endif
     ContentSettingsType::BLUETOOTH_SCANNING,
+    ContentSettingsType::VR,
+    ContentSettingsType::AR,
 };
 
 // Checks whether this permission is currently the factory default, as set by
@@ -546,14 +549,14 @@ void PageInfo::OnSitePermissionChanged(ContentSettingsType type,
     }
   }
 
-  PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+  PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
       profile_, site_url_, site_url_, type, PermissionSourceUI::OIB);
 
   // The permission may have been blocked due to being under embargo, so if it
   // was changed away from BLOCK, clear embargo status if it exists.
   if (setting != CONTENT_SETTING_BLOCK) {
-    PermissionDecisionAutoBlocker::GetForProfile(profile_)->RemoveEmbargoByUrl(
-        site_url_, type);
+    PermissionDecisionAutoBlockerFactory::GetForProfile(profile_)
+        ->RemoveEmbargoByUrl(site_url_, type);
   }
   content_settings_->SetNarrowestContentSetting(site_url_, site_url_, type,
                                                 setting);
@@ -924,7 +927,7 @@ __attribute__((optnone)) void PageInfo::ComputeUIInputs(
   // Safe Browsing error (since otherwise it's confusing which warning you're
   // re-enabling).
   show_ssl_decision_revoke_button_ =
-      delegate->HasAllowException(url.host()) &&
+      delegate->HasAllowException(url.host(), web_contents()) &&
       visible_security_state.malicious_content_status ==
           security_state::MALICIOUS_CONTENT_STATUS_NONE;
 }
@@ -966,23 +969,23 @@ void PageInfo::PresentSitePermissions() {
 
     // For permissions that are still prompting the user and haven't been
     // explicitly set by another source, check its embargo status.
-    if (PermissionUtil::IsPermission(permission_info.type) &&
+    if (permissions::PermissionUtil::IsPermission(permission_info.type) &&
         permission_info.setting == CONTENT_SETTING_DEFAULT &&
         permission_info.source ==
             content_settings::SettingSource::SETTING_SOURCE_USER) {
       // TODO(raymes): Use GetPermissionStatus() to retrieve information
       // about *all* permissions once it has default behaviour implemented for
       // ContentSettingTypes that aren't permissions.
-      PermissionResult permission_result =
+      permissions::PermissionResult permission_result =
           PermissionManager::Get(profile_)->GetPermissionStatus(
               permission_info.type, site_url_, site_url_);
 
       // If under embargo, update |permission_info| to reflect that.
       if (permission_result.content_setting == CONTENT_SETTING_BLOCK &&
           (permission_result.source ==
-               PermissionStatusSource::MULTIPLE_DISMISSALS ||
+               permissions::PermissionStatusSource::MULTIPLE_DISMISSALS ||
            permission_result.source ==
-               PermissionStatusSource::MULTIPLE_IGNORES)) {
+               permissions::PermissionStatusSource::MULTIPLE_IGNORES)) {
         permission_info.setting = permission_result.content_setting;
       }
     }

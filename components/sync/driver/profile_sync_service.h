@@ -116,7 +116,7 @@ class ProfileSyncService : public SyncService,
   // SyncService implementation
   SyncUserSettings* GetUserSettings() override;
   const SyncUserSettings* GetUserSettings() const override;
-  int GetDisableReasons() const override;
+  DisableReasonSet GetDisableReasons() const override;
   TransportState GetTransportState() const override;
   bool IsLocalSyncEnabled() const override;
   CoreAccountInfo GetAuthenticatedAccountInfo() const override;
@@ -137,6 +137,10 @@ class ProfileSyncService : public SyncService,
   void TriggerRefresh(const ModelTypeSet& types) override;
   void DataTypePreconditionChanged(ModelType type) override;
   void SetInvalidationsForSessionsEnabled(bool enabled) override;
+  void AddTrustedVaultDecryptionKeysFromWeb(
+      const std::string& gaia_id,
+      const std::vector<std::vector<uint8_t>>& keys,
+      int last_key_version) override;
   UserDemographicsResult GetUserNoisedBirthYearAndGender(
       base::Time now) override;
   void AddObserver(SyncServiceObserver* observer) override;
@@ -157,7 +161,7 @@ class ProfileSyncService : public SyncService,
   void RemoveTypeDebugInfoObserver(TypeDebugInfoObserver* observer) override;
   base::WeakPtr<JsController> GetJsController() override;
   void GetAllNodesForDebugging(
-      const base::Callback<void(std::unique_ptr<base::ListValue>)>& callback)
+      base::OnceCallback<void(std::unique_ptr<base::ListValue>)> callback)
       override;
 
   // SyncEngineHost implementation.
@@ -197,7 +201,7 @@ class ProfileSyncService : public SyncService,
   // Similar to above but with a callback that will be invoked on completion.
   void OnAccountsInCookieUpdatedWithCallback(
       const std::vector<gaia::ListedAccount>& signed_in_accounts,
-      const base::Closure& callback);
+      base::OnceClosure callback);
 
   // Returns true if currently signed in account is not present in the list of
   // accounts from cookie jar.
@@ -306,6 +310,10 @@ class ProfileSyncService : public SyncService,
 
   // Helper to install and configure a data type manager.
   void ConfigureDataTypeManager(ConfigureReason reason);
+
+  // Returns the ModelTypes allowed in transport-only mode (i.e. those that are
+  // not tied to sync-the-feature).
+  ModelTypeSet GetModelTypesForTransportOnlyMode() const;
 
   // Shuts down the engine sync components.
   // |reason| dictates if syncing is being disabled or not.

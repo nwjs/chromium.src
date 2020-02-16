@@ -7,7 +7,11 @@
 #include <map>
 
 #include "net/third_party/quiche/src/quic/core/crypto/crypto_protocol.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 
 namespace net {
 namespace test {
@@ -26,35 +30,53 @@ TEST(QuicUtilsChromiumTest, ParseQuicConnectionOptions) {
   EXPECT_EQ(expected_options, parsed_options);
 }
 
-TEST(QuicUtilsChromiumTest, FindOrNullTest) {
-  std::map<int, int> m;
-  m[0] = 2;
+TEST(QuicUtilsChromiumTest, ParseQuicVersions) {
+  EXPECT_THAT(ParseQuicVersions(""), IsEmpty());
 
-  // Check FindOrNull
-  int* p1 = FindOrNull(m, 0);
-  CHECK_EQ(*p1, 2);
-  ++(*p1);
-  const std::map<int, int>& const_m = m;
-  const int* p2 = FindOrNull(const_m, 0);
-  CHECK_EQ(*p2, 3);
-  CHECK(FindOrNull(m, 1) == nullptr);
-}
+  quic::ParsedQuicVersion expected_version1 = {quic::PROTOCOL_QUIC_CRYPTO,
+                                               quic::QUIC_VERSION_50};
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_50"),
+              ElementsAre(expected_version1));
+  EXPECT_THAT(ParseQuicVersions("h3-Q050"), ElementsAre(expected_version1));
 
-TEST(QuicUtilsChromiumTest, FindOrDieTest) {
-  std::map<int, int> m;
-  m[10] = 15;
-  EXPECT_EQ(15, FindOrDie(m, 10));
-  // TODO(rtenneti): Use the latest DEATH macros after merging with latest rch's
-  // changes.
-  // ASSERT_DEATH(FindOrDie(m, 8), "Map key not found: 8");
+  quic::ParsedQuicVersion expected_version2 = {quic::PROTOCOL_TLS1_3,
+                                               quic::QUIC_VERSION_50};
+  EXPECT_THAT(ParseQuicVersions("h3-T050"), ElementsAre(expected_version2));
 
-  // Make sure the non-const reference returning version works.
-  FindOrDie(m, 10) = 20;
-  EXPECT_EQ(20, FindOrDie(m, 10));
+  EXPECT_THAT(ParseQuicVersions("h3-Q050, h3-T050"),
+              ElementsAre(expected_version1, expected_version2));
+  EXPECT_THAT(ParseQuicVersions("h3-T050, h3-Q050"),
+              ElementsAre(expected_version2, expected_version1));
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_50,h3-T050"),
+              ElementsAre(expected_version1, expected_version2));
+  EXPECT_THAT(ParseQuicVersions("h3-T050,QUIC_VERSION_50"),
+              ElementsAre(expected_version2, expected_version1));
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_50, h3-T050"),
+              ElementsAre(expected_version1, expected_version2));
+  EXPECT_THAT(ParseQuicVersions("h3-T050, QUIC_VERSION_50"),
+              ElementsAre(expected_version2, expected_version1));
 
-  // Make sure we can lookup values in a const map.
-  const std::map<int, int>& const_m = m;
-  EXPECT_EQ(20, FindOrDie(const_m, 10));
+  quic::ParsedQuicVersion expected_version3 = {quic::PROTOCOL_QUIC_CRYPTO,
+                                               quic::QUIC_VERSION_49};
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_50,QUIC_VERSION_49"),
+              ElementsAre(expected_version1, expected_version3));
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_49,QUIC_VERSION_50"),
+              ElementsAre(expected_version3, expected_version1));
+
+  // Regression test for https://crbug.com/1044952.
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_50, QUIC_VERSION_50"),
+              ElementsAre(expected_version1));
+  EXPECT_THAT(ParseQuicVersions("h3-Q050, h3-Q050"),
+              ElementsAre(expected_version1));
+  EXPECT_THAT(ParseQuicVersions("h3-T050, h3-T050"),
+              ElementsAre(expected_version2));
+  EXPECT_THAT(ParseQuicVersions("h3-Q050, QUIC_VERSION_50"),
+              ElementsAre(expected_version1));
+  EXPECT_THAT(
+      ParseQuicVersions("QUIC_VERSION_50, h3-Q050, QUIC_VERSION_50, h3-Q050"),
+      ElementsAre(expected_version1));
+  EXPECT_THAT(ParseQuicVersions("QUIC_VERSION_50, h3-T050, h3-Q050"),
+              ElementsAre(expected_version1, expected_version2));
 }
 
 }  // namespace

@@ -53,7 +53,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }  // namespace
 
 @interface SyncEncryptionTableViewController () <SyncObserverModelBridge> {
-  ios::ChromeBrowserState* _browserState;
+  ChromeBrowserState* _browserState;
   std::unique_ptr<SyncObserverBridge> _syncObserver;
   BOOL _isUsingSecondaryPassphrase;
 }
@@ -61,13 +61,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 @implementation SyncEncryptionTableViewController
 
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState {
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState {
   DCHECK(browserState);
   UITableViewStyle style = base::FeatureList::IsEnabled(kSettingsRefresh)
                                ? UITableViewStylePlain
                                : UITableViewStyleGrouped;
-  self = [super initWithTableViewStyle:style
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:style];
   if (self) {
     self.title = l10n_util::GetNSString(IDS_IOS_SYNC_ENCRYPTION_TITLE);
     _browserState = browserState;

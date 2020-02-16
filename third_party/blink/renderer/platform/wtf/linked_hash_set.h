@@ -313,12 +313,21 @@ class LinkedHashSet {
 
   template <typename VisitorDispatcher>
   void Trace(VisitorDispatcher visitor) {
+    if (visitor->ConcurrentTracingBailOut(
+            {this, [](blink::Visitor* visitor, void* object) {
+               reinterpret_cast<LinkedHashSet<ValueArg, HashFunctions,
+                                              TraitsArg, Allocator>*>(object)
+                   ->Trace(visitor);
+             }}))
+      return;
+
     impl_.Trace(visitor);
     // Should the underlying table be moved by GC, register a callback
     // that fixes up the interior pointers that the (Heap)LinkedHashSet keeps.
-    if (impl_.table_) {
+    auto* table = AsAtomicPtr(&impl_.table_)->load(std::memory_order_relaxed);
+    if (table) {
       Allocator::RegisterBackingStoreCallback(
-          visitor, impl_.table_,
+          visitor, table,
           NodeHashTraits::template MoveBackingCallback<ImplType>);
     }
   }

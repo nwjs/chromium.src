@@ -1,0 +1,8 @@
+include_rules = [
+  "+chrome/browser/ui/messages/android/java",
+  "+chrome/lib/lifecycle/public",
+  "+components/background_task_scheduler",
+  "+components/feature_engagement",
+  "+components/feed",
+  "+content/public/android/java/src/org/chromium/content_public",
+]

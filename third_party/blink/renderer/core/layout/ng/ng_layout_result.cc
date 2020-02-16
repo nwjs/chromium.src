@@ -39,6 +39,7 @@ static_assert(sizeof(NGLayoutResult) == sizeof(SameSizeAsNGLayoutResult),
 }  // namespace
 
 NGLayoutResult::NGLayoutResult(
+    NGBoxFragmentBuilderPassKey passkey,
     scoped_refptr<const NGPhysicalContainerFragment> physical_fragment,
     NGBoxFragmentBuilder* builder)
     : NGLayoutResult(std::move(physical_fragment),
@@ -62,10 +63,9 @@ NGLayoutResult::NGLayoutResult(
     rare_data->has_tallest_unbreakable_block_size = true;
 #endif
   }
-  if (builder->unconstrained_intrinsic_block_size_ != kIndefiniteSize &&
-      builder->unconstrained_intrinsic_block_size_ != intrinsic_block_size_) {
-    EnsureRareData()->unconstrained_intrinsic_block_size_ =
-        builder->unconstrained_intrinsic_block_size_;
+  if (builder->overflow_block_size_ != kIndefiniteSize &&
+      builder->overflow_block_size_ != intrinsic_block_size_) {
+    EnsureRareData()->overflow_block_size_ = builder->overflow_block_size_;
   }
   if (builder->custom_layout_data_) {
     EnsureRareData()->custom_layout_data =
@@ -81,12 +81,15 @@ NGLayoutResult::NGLayoutResult(
 }
 
 NGLayoutResult::NGLayoutResult(
+    NGLineBoxFragmentBuilderPassKey passkey,
     scoped_refptr<const NGPhysicalContainerFragment> physical_fragment,
     NGLineBoxFragmentBuilder* builder)
     : NGLayoutResult(std::move(physical_fragment),
                      static_cast<NGContainerFragmentBuilder*>(builder)) {}
 
-NGLayoutResult::NGLayoutResult(EStatus status, NGBoxFragmentBuilder* builder)
+NGLayoutResult::NGLayoutResult(NGBoxFragmentBuilderPassKey key,
+                               EStatus status,
+                               NGBoxFragmentBuilder* builder)
     : NGLayoutResult(/* physical_fragment */ nullptr,
                      static_cast<NGContainerFragmentBuilder*>(builder)) {
   bitfields_.status = status;

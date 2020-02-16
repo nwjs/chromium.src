@@ -17,12 +17,14 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/root_window_controller.h"
 #include "ash/session/session_controller_impl.h"
+#include "ash/shelf/drag_handle.h"
 #include "ash/shelf/home_button.h"
 #include "ash/shelf/hotseat_transition_animator.h"
 #include "ash/shelf/hotseat_widget.h"
 #include "ash/shelf/login_shelf_view.h"
 #include "ash/shelf/overflow_bubble.h"
 #include "ash/shelf/overflow_bubble_view.h"
+#include "ash/shelf/scrollable_shelf_view.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_background_animator_observer.h"
 #include "ash/shelf/shelf_layout_manager.h"
@@ -111,8 +113,6 @@ class ShelfWidget::DelegateView : public views::WidgetDelegate,
 
   // views::WidgetDelegate:
   void DeleteDelegate() override { delete this; }
-  views::Widget* GetWidget() override { return View::GetWidget(); }
-  const views::Widget* GetWidget() const override { return View::GetWidget(); }
 
   bool CanActivate() const override;
   void ReorderChildLayers(ui::Layer* parent_layer) override;
@@ -144,6 +144,8 @@ class ShelfWidget::DelegateView : public views::WidgetDelegate,
 
   ui::Layer* opaque_background() { return &opaque_background_; }
   ui::Layer* animating_background() { return &animating_background_; }
+  ui::Layer* animating_drag_handle() { return &animating_drag_handle_; }
+  views::View* drag_handle() { return drag_handle_; }
 
  private:
   // Whether |opaque_background_| is explicitly hidden during an animation.
@@ -159,9 +161,12 @@ class ShelfWidget::DelegateView : public views::WidgetDelegate,
   // A background layer used to animate hotseat transitions.
   ui::Layer animating_background_;
 
+  // A layer to animate the drag handle during hotseat transitions.
+  ui::Layer animating_drag_handle_;
+
   // A drag handle shown in tablet mode when we are not on the home screen.
   // Owned by the view hierarchy.
-  views::View* drag_handle_ = nullptr;
+  DragHandle* drag_handle_ = nullptr;
 
   // When true, the default focus of the shelf is the last focusable child.
   bool default_last_focusable_child_ = false;
@@ -177,7 +182,12 @@ ShelfWidget::DelegateView::DelegateView(ShelfWidget* shelf_widget)
     : shelf_widget_(shelf_widget),
       focus_cycler_(nullptr),
       opaque_background_(ui::LAYER_SOLID_COLOR),
-      animating_background_(ui::LAYER_SOLID_COLOR) {
+      animating_background_(ui::LAYER_SOLID_COLOR),
+      animating_drag_handle_(ui::LAYER_SOLID_COLOR) {
+  opaque_background_.SetName("shelf/Background");
+  animating_background_.SetName("shelf/Animation");
+  animating_background_.Add(&animating_drag_handle_);
+
   DCHECK(shelf_widget_);
   set_owned_by_client();  // Deleted by DeleteDelegate().
 
@@ -186,26 +196,20 @@ ShelfWidget::DelegateView::DelegateView(ShelfWidget* shelf_widget)
 
   // |animating_background_| will be made visible during hotseat animations.
   ShowAnimatingBackground(false);
-  if (features::IsBackgroundBlurEnabled()) {
-    animating_background_.SetBackdropFilterQuality(0.33f);
-    animating_background_.SetColor(
-        ShelfConfig::Get()->GetMaximizedShelfColor());
-  }
-  std::unique_ptr<views::View> drag_handle_ptr =
-      std::make_unique<views::View>();
-  const int radius = kDragHandleCornerRadius;
+  animating_background_.SetColor(ShelfConfig::Get()->GetMaximizedShelfColor());
+
   const AshColorProvider::RippleAttributes ripple_attributes =
       AshColorProvider::Get()->GetRippleAttributes(
           ShelfConfig::Get()->GetDefaultShelfColor());
-  drag_handle_ = AddChildView(std::move(drag_handle_ptr));
-  drag_handle_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
-  drag_handle_->layer()->SetColor(ripple_attributes.base_color);
-  // TODO(manucornet): Figure out why we need a manual opacity adjustment
-  // to make this color look the same as the status area highlight.
-  drag_handle_->layer()->SetOpacity(ripple_attributes.inkdrop_opacity + 0.075);
-  drag_handle_->layer()->SetRoundedCornerRadius(
-      {radius, radius, radius, radius});
-  drag_handle_->SetSize(kDragHandleSize);
+
+  drag_handle_ = AddChildView(std::make_unique<DragHandle>(
+      kDragHandleSize, ripple_attributes, kDragHandleCornerRadius));
+
+  animating_drag_handle_.SetColor(ripple_attributes.base_color);
+  animating_drag_handle_.SetOpacity(ripple_attributes.inkdrop_opacity + 0.075);
+  animating_drag_handle_.SetRoundedCornerRadius(
+      {kDragHandleCornerRadius, kDragHandleCornerRadius,
+       kDragHandleCornerRadius, kDragHandleCornerRadius});
 }
 
 ShelfWidget::DelegateView::~DelegateView() = default;
@@ -237,11 +241,13 @@ void ShelfWidget::DelegateView::SetParentLayer(ui::Layer* layer) {
 void ShelfWidget::DelegateView::HideOpaqueBackground() {
   hide_background_for_transitions_ = true;
   opaque_background_.SetVisible(false);
+  drag_handle_->SetVisible(false);
 }
 
 void ShelfWidget::DelegateView::ShowOpaqueBackground() {
   hide_background_for_transitions_ = false;
   UpdateOpaqueBackground();
+  UpdateDragHandle();
   UpdateBackgroundBlur();
 }
 
@@ -339,7 +345,8 @@ void ShelfWidget::DelegateView::UpdateOpaqueBackground() {
 
 void ShelfWidget::DelegateView::UpdateDragHandle() {
   if (!IsInTabletMode() || !ShelfConfig::Get()->is_in_app() ||
-      !chromeos::switches::ShouldShowShelfHotseat()) {
+      !chromeos::switches::ShouldShowShelfHotseat() ||
+      hide_background_for_transitions_) {
     drag_handle_->SetVisible(false);
     return;
   }
@@ -348,9 +355,8 @@ void ShelfWidget::DelegateView::UpdateDragHandle() {
   const int x = (shelf_widget_->GetClientAreaBoundsInScreen().width() -
                  kDragHandleSize.width()) /
                 2;
-  const int y = (shelf_widget_->GetClientAreaBoundsInScreen().height() -
-                 kDragHandleSize.height()) /
-                2;
+  const int y =
+      (ShelfConfig::Get()->in_app_shelf_size() - kDragHandleSize.height()) / 2;
   drag_handle_->SetBounds(x, y, kDragHandleSize.width(),
                           kDragHandleSize.height());
 }
@@ -397,17 +403,15 @@ void ShelfWidget::DelegateView::OnHotseatTransitionAnimationEnded(
     HotseatState from_state,
     HotseatState to_state) {
   ShowAnimatingBackground(false);
-  if (from_state == HotseatState::kShown)
+  // NOTE: The from and to state may not match the transition states for which
+  // the background was hidden (if the original animation got interrupted by
+  // another transition, only the later animation end will be reported).
+  if (hide_background_for_transitions_)
     ShowOpaqueBackground();
 }
 
 void ShelfWidget::DelegateView::ShowAnimatingBackground(bool show) {
   animating_background_.SetVisible(show);
-
-  // To ensure smooth scrollable shelf animations, we disable blur when the
-  // |animating_background_| is not visible.
-  if (features::IsBackgroundBlurEnabled())
-    animating_background_.SetBackgroundBlur(show ? 30 : 0);
 }
 
 SkColor ShelfWidget::DelegateView::GetShelfBackgroundColor() const {
@@ -448,6 +452,19 @@ ui::Layer* ShelfWidget::GetOpaqueBackground() {
 
 ui::Layer* ShelfWidget::GetAnimatingBackground() {
   return delegate_view_->animating_background();
+}
+
+ui::Layer* ShelfWidget::GetAnimatingDragHandle() {
+  return delegate_view_->animating_drag_handle();
+}
+
+views::View* ShelfWidget::GetDragHandle() {
+  return delegate_view_->drag_handle();
+}
+
+void ShelfWidget::SetLoginShelfButtonOpacity(float target_opacity) {
+  if (login_shelf_view_->GetVisible())
+    login_shelf_view_->SetButtonOpacity(target_opacity);
 }
 
 void ShelfWidget::ForceToHideHotseat() {
@@ -518,7 +535,6 @@ void ShelfWidget::Initialize(aura::Window* shelf_container) {
 
 void ShelfWidget::Shutdown() {
   hotseat_transition_animator_->RemoveObserver(delegate_view_);
-  hotseat_transition_animator_.reset();
   // Shutting down the status area widget may cause some widgets (e.g. bubbles)
   // to close, so uninstall the ShelfLayoutManager event filters first. Don't
   // reset the pointer until later because other widgets (e.g. app list) may
@@ -614,7 +630,8 @@ void ShelfWidget::PostCreateShelf() {
 }
 
 bool ShelfWidget::IsShowingAppList() const {
-  return GetHomeButton() && GetHomeButton()->IsShowingAppList();
+  return navigation_widget()->GetHomeButton() &&
+         navigation_widget()->GetHomeButton()->IsShowingAppList();
 }
 
 bool ShelfWidget::IsShowingMenu() const {
@@ -637,6 +654,12 @@ gfx::Rect ShelfWidget::GetScreenBoundsOfItemIconForWindow(
   if (id.IsNull())
     return gfx::Rect();
 
+  if (chromeos::switches::ShouldShowShelfHotseat()) {
+    return hotseat_widget()
+        ->scrollable_shelf_view()
+        ->GetTargetScreenBoundsOfItemIcon(id);
+  }
+
   gfx::Rect bounds(
       hotseat_widget()->GetShelfView()->GetIdealBoundsOfItemIcon(id));
   gfx::Point screen_origin;
@@ -645,14 +668,6 @@ gfx::Rect ShelfWidget::GetScreenBoundsOfItemIconForWindow(
   return gfx::Rect(screen_origin.x() + bounds.x(),
                    screen_origin.y() + bounds.y(), bounds.width(),
                    bounds.height());
-}
-
-HomeButton* ShelfWidget::GetHomeButton() const {
-  return navigation_widget_.get()->GetHomeButton();
-}
-
-BackButton* ShelfWidget::GetBackButton() const {
-  return navigation_widget_.get()->GetBackButton();
 }
 
 ApplicationDragAndDropHost* ShelfWidget::GetDragAndDropHostForAppList() {
@@ -695,6 +710,21 @@ void ShelfWidget::OnBackgroundTypeChanged(ShelfBackgroundType background_type,
   delegate_view_->UpdateOpaqueBackground();
 }
 
+void ShelfWidget::CalculateTargetBounds() {
+  // TODO(manucornet): Move target bounds calculations from the shelf layout
+  // manager.
+}
+
+void ShelfWidget::UpdateLayout(bool animate) {
+  // TODO(manucornet): Refactor layout update logic into this method.
+}
+
+gfx::Rect ShelfWidget::GetTargetBounds() const {
+  // TODO(manucornet): Store these locally and do not depend on the layout
+  // manager.
+  return shelf_->shelf_layout_manager()->GetShelfBoundsInScreen();
+}
+
 void ShelfWidget::OnSessionStateChanged(session_manager::SessionState state) {
   // Do not show shelf widget:
   // * when views based shelf is disabled
@@ -722,6 +752,8 @@ void ShelfWidget::OnSessionStateChanged(session_manager::SessionState state) {
   } else {
     bool show_hotseat = (state == session_manager::SessionState::ACTIVE);
     hotseat_widget()->GetShelfView()->SetVisible(show_hotseat);
+    hotseat_transition_animator_->SetAnimationsEnabledInSessionState(
+        show_hotseat);
     login_shelf_view()->SetVisible(!show_hotseat);
     delegate_view_->SetLayoutManager(
         show_hotseat ? nullptr : std::make_unique<views::FillLayout>());
@@ -733,10 +765,12 @@ void ShelfWidget::OnSessionStateChanged(session_manager::SessionState state) {
 
     ShowIfHidden();
   }
+  shelf_layout_manager_->SetDimmed(false);
   login_shelf_view_->UpdateAfterSessionChange();
 }
 
 void ShelfWidget::OnUserSessionAdded(const AccountId& account_id) {
+  shelf_layout_manager_->SetDimmed(false);
   login_shelf_view_->UpdateAfterSessionChange();
 }
 
@@ -787,14 +821,8 @@ void ShelfWidget::OnGestureEvent(ui::GestureEvent* event) {
 }
 
 void ShelfWidget::OnAccessibilityStatusChanged() {
-  // Only handles when the spoken feedback is disabled.
-  if (Shell::Get()->accessibility_controller()->spoken_feedback_enabled())
-    return;
-
-  if (!is_hotseat_forced_to_show_)
-    return;
-
-  is_hotseat_forced_to_show_ = false;
+  is_hotseat_forced_to_show_ =
+      Shell::Get()->accessibility_controller()->spoken_feedback_enabled();
   shelf_layout_manager_->UpdateVisibilityState();
 }
 

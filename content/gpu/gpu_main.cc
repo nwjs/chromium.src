@@ -18,6 +18,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
+#include "base/task/post_task.h"
 #include "base/task/single_thread_task_executor.h"
 #include "base/threading/platform_thread.h"
 #include "base/timer/hi_res_timer_manager.h"
@@ -77,9 +78,10 @@
 #endif
 
 #if defined(USE_X11)
-#include "ui/base/x/x11_util.h"       // nogncheck
-#include "ui/gfx/x/x11_connection.h"  // nogncheck
-#include "ui/gfx/x/x11_switches.h"    // nogncheck
+#include "ui/base/x/x11_util.h"                          // nogncheck
+#include "ui/gfx/linux/gpu_memory_buffer_support_x11.h"  // nogncheck
+#include "ui/gfx/x/x11_connection.h"                     // nogncheck
+#include "ui/gfx/x/x11_switches.h"                       // nogncheck
 #endif
 
 #if defined(OS_LINUX)
@@ -91,6 +93,7 @@
 
 #if defined(OS_MACOSX)
 #include "base/message_loop/message_pump_mac.h"
+#include "components/metal_util/device_removal.h"
 #include "components/metal_util/test_shader.h"
 #include "content/public/common/content_features.h"
 #include "media/gpu/mac/vt_video_decode_accelerator_mac.h"
@@ -307,6 +310,10 @@ int GpuMain(const MainFunctionParams& parameters) {
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
             base::MessagePumpType::NS_RUNLOOP);
+    // As part of the migration to DoSomeWork(), this policy is required to keep
+    // previous behavior and avoid regressions.
+    // TODO(crbug.com/1041853): Consider updating the policy.
+    main_thread_task_executor->SetWorkBatchSize(2);
 #else
     main_thread_task_executor =
         std::make_unique<base::SingleThreadTaskExecutor>(
@@ -366,6 +373,16 @@ int GpuMain(const MainFunctionParams& parameters) {
   GpuProcess gpu_process(io_thread_priority);
 #endif
 
+#if defined(USE_X11)
+  // ui::GbmDevice() takes >50ms with amdgpu, so kick off
+  // GpuMemoryBufferSupportX11 creation on another thread now.
+  base::PostTask(
+      FROM_HERE, base::BindOnce([]() {
+        SCOPED_UMA_HISTOGRAM_TIMER("Linux.X11.GbmSupportX11CreationTime");
+        ui::GpuMemoryBufferSupportX11::GetInstance();
+      }));
+#endif
+
   auto* client = GetContentClient()->gpu();
   if (client)
     client->PostIOThreadCreated(gpu_process.io_task_runner());
@@ -385,6 +402,22 @@ int GpuMain(const MainFunctionParams& parameters) {
       tracing::TracingSamplerProfiler::CreateOnMainThread();
 
 #if defined(OS_MACOSX)
+  // A GPUEjectPolicy of 'wait' is set in the Info.plist of the browser
+  // process, meaning it is "responsible" for making sure it and its
+  // subordinate processes (i.e. the GPU process) drop references to the
+  // external GPU. Despite this, the system still sends the device removal
+  // notifications to the GPU process, so the GPU process handles its own
+  // graceful shutdown without help from the browser process.
+  //
+  // Using the "SafeEjectGPU" tool, we can see that when the browser process
+  // has a policy of 'wait', the GPU process gets the 'rwait' policy: "Eject
+  // actions apply to the responsible process, who in turn deals with
+  // subordinates to eliminate their ejecting eGPU references" [man 8
+  // SafeEjectGPU]. Empirically, the browser does not relaunch. Once the GPU
+  // process exits, it appears that the browser process is no longer considered
+  // to be using the GPU, so it "succeeds" the 'wait'.
+  metal::RegisterGracefulExitOnDeviceRemoval();
+
   // Launch a test metal shader compile to see how long it takes to complete (if
   // it ever completes).
   // https://crbug.com/974219
@@ -426,6 +459,8 @@ bool StartSandboxLinux(gpu::GpuWatchdogThread* watchdog_thread,
   service_manager::SandboxLinux::Options sandbox_options;
   sandbox_options.use_amd_specific_policies =
       gpu_info && angle::IsAMD(gpu_info->active_gpu().vendor_id);
+  sandbox_options.use_intel_specific_policies =
+      gpu_info && angle::IsIntel(gpu_info->active_gpu().vendor_id);
   sandbox_options.accelerated_video_decode_enabled =
       !gpu_prefs.disable_accelerated_video_decode;
   sandbox_options.accelerated_video_encode_enabled =

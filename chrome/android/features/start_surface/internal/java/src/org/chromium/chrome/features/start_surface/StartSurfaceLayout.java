@@ -17,10 +17,10 @@ import android.text.TextUtils;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
-import org.chromium.base.Supplier;
+import org.chromium.base.MathUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimationHandler;
@@ -33,14 +33,14 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.EventFilter;
 import org.chromium.chrome.browser.compositor.scene_layer.SceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.TabListSceneLayer;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFeatureUtilities;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
-import org.chromium.chrome.browser.ui.widget.animation.Interpolators;
-import org.chromium.chrome.browser.util.MathUtils;
+import org.chromium.components.browser_ui.widget.animation.Interpolators;
 import org.chromium.ui.resources.ResourceManager;
 
 import java.util.ArrayList;
@@ -171,8 +171,10 @@ public class StartSurfaceLayout extends Layout implements StartSurface.OverviewM
         // Lazy initialization if needed.
         mStartSurface.initialize();
 
-        boolean showShrinkingAnimation =
-                animate && TabFeatureUtilities.isTabToGtsAnimationEnabled();
+        // Skip shrinking animation when there is no tab in current tab model.
+        boolean isCurrentTabModelEmpty = mTabModelSelector.getCurrentModel().getCount() == 0;
+        boolean showShrinkingAnimation = animate && TabFeatureUtilities.isTabToGtsAnimationEnabled()
+                && !isCurrentTabModelEmpty;
         boolean quick = mTabListDelegate.prepareOverview();
         Log.d(TAG, "SkipSlowZooming = " + getSkipSlowZooming());
         if (getSkipSlowZooming()) {

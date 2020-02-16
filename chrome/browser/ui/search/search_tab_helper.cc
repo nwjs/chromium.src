@@ -6,6 +6,8 @@
 
 #include <memory>
 
+#include "base/base64.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
@@ -14,7 +16,10 @@
 #include "build/build_config.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
+#include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service.h"
+#include "chrome/browser/bitmap_fetcher/bitmap_fetcher_service_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/extensions/extension_checkup.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -29,7 +34,6 @@
 #include "chrome/browser/search/search_suggest/search_suggest_service.h"
 #include "chrome/browser/search/search_suggest/search_suggest_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
@@ -63,6 +67,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search/search.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -75,6 +80,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/common/extension_features.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -103,6 +109,8 @@ std::vector<chrome::mojom::AutocompleteMatchPtr> CreateAutocompleteMatches(
                                                     description_class.style));
     }
     mojom_match->destination_url = match.destination_url.spec();
+    mojom_match->image_dominant_color = match.image_dominant_color;
+    mojom_match->image_url = match.image_url;
     mojom_match->fill_into_edit = match.fill_into_edit;
     mojom_match->inline_autocompletion = match.inline_autocompletion;
     mojom_match->is_search_type = AutocompleteMatch::IsSearchType(match.type);
@@ -512,6 +520,35 @@ void SearchTabHelper::OnResultChanged(bool default_result_changed) {
   ipc_router_.AutocompleteResultChanged(chrome::mojom::AutocompleteResult::New(
       autocomplete_controller_->input().text(),
       CreateAutocompleteMatches(autocomplete_controller_->result())));
+
+  // Create new bitmap requests.
+  BitmapFetcherService* bitmap_fetcher_service =
+      BitmapFetcherServiceFactory::GetForBrowserContext(profile());
+
+  int match_index = -1;
+  for (const auto& match : autocomplete_controller_->result()) {
+    match_index++;
+    if (match.ImageUrl().is_empty()) {
+      continue;
+    }
+    bitmap_fetcher_service->RequestImage(
+        match.ImageUrl(), base::BindOnce(&SearchTabHelper::OnBitmapFetched,
+                                         weak_factory_.GetWeakPtr(),
+                                         match_index, match.ImageUrl().spec()));
+  }
+}
+
+void SearchTabHelper::OnBitmapFetched(int match_index,
+                                      const std::string& image_url,
+                                      const SkBitmap& bitmap) {
+  auto data = gfx::Image::CreateFrom1xBitmap(bitmap).As1xPNGBytes();
+  std::string base_64;
+  base::Base64Encode(base::StringPiece(data->front_as<char>(), data->size()),
+                     &base_64);
+  const char kDataUrlPrefix[] = "data:image/png;base64,";
+  std::string data_url = GURL(kDataUrlPrefix + base_64).spec();
+
+  ipc_router_.AutocompleteMatchImageAvailable(match_index, image_url, data_url);
 }
 
 void SearchTabHelper::OnSelectLocalBackgroundImage() {
@@ -743,6 +780,11 @@ void SearchTabHelper::StopAutocomplete(bool clear_result) {
     time_of_first_autocomplete_query_ = base::TimeTicks();
 }
 
+void SearchTabHelper::LogCharTypedToRepaintLatency(uint32_t latency_ms) {
+  UMA_HISTOGRAM_TIMES("NewTabPage.Realbox.CharTypedToRepaintLatency.ToPaint",
+                      base::TimeDelta::FromMillisecondsD(latency_ms));
+}
+
 void SearchTabHelper::BlocklistPromo(const std::string& promo_id) {
   auto* promo_service = PromoServiceFactory::GetForProfile(profile());
   if (!promo_service) {
@@ -751,6 +793,30 @@ void SearchTabHelper::BlocklistPromo(const std::string& promo_id) {
   }
 
   promo_service->BlocklistPromo(promo_id);
+}
+
+void SearchTabHelper::OpenExtensionsPage(double button,
+                                         bool alt_key,
+                                         bool ctrl_key,
+                                         bool meta_key,
+                                         bool shift_key) {
+  if (!search::DefaultSearchProviderIsGoogle(profile()))
+    return;
+  UMA_HISTOGRAM_ENUMERATION(
+      "Extensions.Checkup.NtpPromoClicked",
+      static_cast<extensions::CheckupMessage>(
+          base::GetFieldTrialParamByFeatureAsInt(
+              extensions_features::kExtensionsCheckup,
+              extensions_features::kExtensionsCheckupBannerMessageParameter,
+              static_cast<int>(extensions::CheckupMessage::NEUTRAL))));
+
+  WindowOpenDisposition disposition =
+      (button > 1) ? WindowOpenDisposition::NEW_FOREGROUND_TAB
+                   : ui::DispositionFromClick((button == 1.0), alt_key,
+                                              ctrl_key, meta_key, shift_key);
+  web_contents_->OpenURL(content::OpenURLParams(
+      GURL(chrome::kChromeUIExtensionsURL), content::Referrer(), disposition,
+      ui::PAGE_TRANSITION_LINK, false));
 }
 
 void SearchTabHelper::OpenAutocompleteMatch(
@@ -846,7 +912,7 @@ void SearchTabHelper::OpenAutocompleteMatch(
       /*selected_index=*/line,
       /*disposition=*/disposition,
       /*is_paste_and_go=*/false,
-      /*tab_id=*/SessionTabHelper::IdForTab(web_contents_),
+      /*tab_id=*/sessions::SessionTabHelper::IdForTab(web_contents_),
       /*current_page_classification=*/metrics::OmniboxEventProto::NTP_REALBOX,
       /*elapsed_time_since_user_first_modified_omnibox=*/
       elapsed_time_since_first_autocomplete_query,

@@ -35,18 +35,18 @@
 #include "chromecast/browser/cast_http_user_agent_settings.h"
 #include "chromecast/browser/cast_navigation_ui_data.h"
 #include "chromecast/browser/cast_network_contexts.h"
-#include "chromecast/browser/cast_network_delegate.h"
 #include "chromecast/browser/cast_overlay_manifests.h"
 #include "chromecast/browser/cast_quota_permission_context.h"
 #include "chromecast/browser/cast_session_id_map.h"
+#include "chromecast/browser/cast_web_contents.h"
 #include "chromecast/browser/default_navigation_throttle.h"
 #include "chromecast/browser/devtools/cast_devtools_manager_delegate.h"
 #include "chromecast/browser/general_audience_browsing_navigation_throttle.h"
 #include "chromecast/browser/general_audience_browsing_service.h"
 #include "chromecast/browser/media/media_caps_impl.h"
 #include "chromecast/browser/service/cast_service_simple.h"
+#include "chromecast/browser/service_connector.h"
 #include "chromecast/browser/tts/tts_controller.h"
-#include "chromecast/browser/url_request_context_factory.h"
 #include "chromecast/common/cast_content_client.h"
 #include "chromecast/common/global_descriptors.h"
 #include "chromecast/media/audio/cast_audio_manager.h"
@@ -82,6 +82,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/url_request/url_request_context_getter.h"
+#include "services/network/public/cpp/network_switches.h"
 #include "services/service_manager/embedder/descriptors.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -107,12 +108,12 @@
 #endif  // defined(USE_ALSA)
 
 #if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)
-#include "chromecast/browser/cast_extension_message_filter.h"  // nogncheck
+#include "chromecast/browser/cast_extension_message_filter.h"      // nogncheck
 #include "chromecast/browser/cast_extension_url_loader_factory.h"  // nogncheck
-#include "extensions/browser/extension_message_filter.h"  // nogncheck
-#include "extensions/browser/extension_protocols.h"       // nogncheck
-#include "extensions/browser/extension_registry.h"        // nogncheck
-#include "extensions/browser/extension_system.h"          // nogncheck
+#include "extensions/browser/extension_message_filter.h"           // nogncheck
+#include "extensions/browser/extension_protocols.h"                // nogncheck
+#include "extensions/browser/extension_registry.h"                 // nogncheck
+#include "extensions/browser/extension_system.h"                   // nogncheck
 #include "extensions/browser/guest_view/extensions_guest_view_message_filter.h"  // nogncheck
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"  // nogncheck
 #include "extensions/browser/info_map.h"                            // nogncheck
@@ -124,9 +125,9 @@
 #include "chromecast/external_mojo/broker_service/broker_service.h"
 #endif
 
-#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#if defined(OS_LINUX) && defined(USE_OZONE)
 #include "chromecast/browser/webview/webview_controller.h"
-#endif  // BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#endif  // defined(OS_LINUX) && defined(USE_OZONE)
 
 #if BUILDFLAG(ENABLE_CAST_RENDERER)
 #include "base/sequenced_task_runner.h"
@@ -149,7 +150,6 @@ CastContentBrowserClient::CastContentBrowserClient(
       cast_browser_main_parts_(nullptr),
       cast_network_contexts_(
           std::make_unique<CastNetworkContexts>(GetCorsExemptHeadersList())),
-      url_request_context_factory_(new URLRequestContextFactory()),
       cast_feature_list_creator_(cast_feature_list_creator) {
   cast_feature_list_creator_->SetExtraEnableFeatures({
     ::media::kInternalMediaSession, features::kNetworkServiceInProcess,
@@ -169,8 +169,11 @@ CastContentBrowserClient::~CastContentBrowserClient() {
   DCHECK(!media_resource_tracker_)
       << "ResetMediaResourceTracker was not called";
   cast_network_contexts_.reset();
-  base::DeleteSoon(FROM_HERE, {content::BrowserThread::IO},
-                   url_request_context_factory_.release());
+}
+
+std::unique_ptr<ServiceConnector>
+CastContentBrowserClient::CreateServiceConnector() {
+  return std::make_unique<ServiceConnector>();
 }
 
 std::unique_ptr<CastService> CastContentBrowserClient::CreateCastService(
@@ -256,7 +259,8 @@ CastContentBrowserClient::CreateAudioManager(
                           base::Unretained(this)),
       base::BindRepeating(&shell::CastSessionIdMap::GetSessionId),
       base::CreateSingleThreadTaskRunner({content::BrowserThread::UI}),
-      GetMediaTaskRunner(), content::GetSystemConnector(),
+      GetMediaTaskRunner(),
+      ServiceConnector::MakeRemote(kBrowserProcessClientId),
       BUILDFLAG(ENABLE_CAST_AUDIO_MANAGER_MIXER));
 #else
   return std::make_unique<media::CastAudioManager>(
@@ -265,7 +269,8 @@ CastContentBrowserClient::CreateAudioManager(
                           base::Unretained(this)),
       base::BindRepeating(&shell::CastSessionIdMap::GetSessionId),
       base::CreateSingleThreadTaskRunner({content::BrowserThread::UI}),
-      GetMediaTaskRunner(), content::GetSystemConnector(),
+      GetMediaTaskRunner(),
+      ServiceConnector::MakeRemote(kBrowserProcessClientId),
       BUILDFLAG(ENABLE_CAST_AUDIO_MANAGER_MIXER));
 #endif  // defined(USE_ALSA)
 }
@@ -316,8 +321,7 @@ CastContentBrowserClient::CreateBrowserMainParts(
     const content::MainFunctionParams& parameters) {
   DCHECK(!cast_browser_main_parts_);
 
-  auto main_parts = CastBrowserMainParts::Create(
-      parameters, url_request_context_factory_.get(), this);
+  auto main_parts = CastBrowserMainParts::Create(parameters, this);
 
   cast_browser_main_parts_ = main_parts.get();
   CastBrowserProcess::GetInstance()->SetCastContentBrowserClient(this);
@@ -433,7 +437,8 @@ void CastContentBrowserClient::AppendExtraCommandLineSwitches(
     // the renderer go here.
     static const char* const kForwardSwitches[] = {
         switches::kForceMediaResolutionHeight,
-        switches::kForceMediaResolutionWidth};
+        switches::kForceMediaResolutionWidth,
+        network::switches::kUnsafelyTreatInsecureOriginAsSecure};
     command_line->CopySwitchesFrom(*browser_command_line, kForwardSwitches,
                                    base::size(kForwardSwitches));
   } else if (process_type == switches::kUtilityProcess) {
@@ -444,15 +449,16 @@ void CastContentBrowserClient::AppendExtraCommandLineSwitches(
     }
   } else if (process_type == switches::kGpuProcess) {
 #if defined(OS_LINUX)
-  // Necessary for accelerated 2d canvas.  By default on Linux, Chromium assumes
-  // GLES2 contexts can be lost to a power-save mode, which breaks GPU canvas
-  // apps.
+    // Necessary for accelerated 2d canvas.  By default on Linux, Chromium
+    // assumes GLES2 contexts can be lost to a power-save mode, which breaks GPU
+    // canvas apps.
     command_line->AppendSwitch(switches::kGpuNoContextLost);
 #endif
 
 #if defined(USE_AURA)
     static const char* const kForwardSwitches[] = {
-        switches::kCastInitialScreenHeight, switches::kCastInitialScreenWidth,
+        switches::kCastInitialScreenHeight,
+        switches::kCastInitialScreenWidth,
         switches::kVSyncInterval,
     };
     command_line->CopySwitchesFrom(*browser_command_line, kForwardSwitches,
@@ -516,6 +522,18 @@ void CastContentBrowserClient::OverrideWebkitPrefs(
   DCHECK(prefs->viewport_meta_enabled);
   prefs->viewport_style = content::ViewportStyle::TELEVISION;
 #endif  // defined(OS_ANDROID)
+
+  // Disable WebSQL databases by default.
+  prefs->databases_enabled = false;
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderViewHost(render_view_host);
+  if (web_contents) {
+    chromecast::CastWebContents* cast_web_contents =
+        chromecast::CastWebContents::FromWebContents(web_contents);
+    if (cast_web_contents && cast_web_contents->is_websql_enabled()) {
+      prefs->databases_enabled = true;
+    }
+  }
 }
 
 std::string CastContentBrowserClient::GetApplicationLocale() {
@@ -526,15 +544,6 @@ std::string CastContentBrowserClient::GetApplicationLocale() {
 scoped_refptr<content::QuotaPermissionContext>
 CastContentBrowserClient::CreateQuotaPermissionContext() {
   return new CastQuotaPermissionContext();
-}
-
-void CastContentBrowserClient::GetQuotaSettings(
-    content::BrowserContext* context,
-    content::StoragePartition* partition,
-    storage::OptionalQuotaSettingsCallback callback) {
-  storage::GetNominalDynamicSettings(
-      partition->GetPath(), context->IsOffTheRecord(),
-      storage::GetDefaultDeviceInfoHelper(), std::move(callback));
 }
 
 void CastContentBrowserClient::AllowCertificateError(
@@ -571,7 +580,7 @@ base::OnceClosure CastContentBrowserClient::SelectClientCertificate(
   // we need to return (if permitted) is the Cast device cert, which we can
   // access directly through the ClientAuthSigner instance. However, we need to
   // be on the IO thread to determine whether the app is whitelisted to return
-  // it, because CastNetworkDelegate is bound to the IO thread.
+  // it.
   // Subsequently, the callback must then itself be performed back here
   // on the UI thread.
   //
@@ -587,10 +596,19 @@ base::OnceClosure CastContentBrowserClient::SelectClientCertificate(
           web_contents->GetMainFrame()->GetProcess()->GetID(),
           web_contents->GetMainFrame()->GetRoutingID(),
           base::SequencedTaskRunnerHandle::Get(),
-          base::Bind(
+          base::BindOnce(
               &content::ClientCertificateDelegate::ContinueWithCertificate,
               base::Owned(delegate.release()))));
   return base::OnceClosure();
+}
+
+bool CastContentBrowserClient::IsWhitelisted(
+    const GURL& /* gurl */,
+    const std::string& /* session_id */,
+    int /* render_process_id */,
+    int /* render_frame_id */,
+    bool /* for_device_auth */) {
+  return false;
 }
 
 void CastContentBrowserClient::SelectClientCertificateOnIOThread(
@@ -599,18 +617,15 @@ void CastContentBrowserClient::SelectClientCertificateOnIOThread(
     int render_process_id,
     int render_frame_id,
     scoped_refptr<base::SequencedTaskRunner> original_runner,
-    const base::Callback<void(scoped_refptr<net::X509Certificate>,
-                              scoped_refptr<net::SSLPrivateKey>)>&
+    base::OnceCallback<void(scoped_refptr<net::X509Certificate>,
+                            scoped_refptr<net::SSLPrivateKey>)>
         continue_callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  CastNetworkDelegate* network_delegate =
-      url_request_context_factory_->app_network_delegate();
-  if (network_delegate->IsWhitelisted(requesting_url, session_id,
-                                      render_process_id, render_frame_id,
-                                      false)) {
+  if (IsWhitelisted(requesting_url, session_id, render_process_id,
+                    render_frame_id, false)) {
     original_runner->PostTask(
-        FROM_HERE,
-        base::BindOnce(continue_callback, DeviceCert(), DeviceKey()));
+        FROM_HERE, base::BindOnce(std::move(continue_callback), DeviceCert(),
+                                  DeviceKey()));
     return;
   } else {
     LOG(ERROR) << "Invalid host for client certificate request: "
@@ -619,7 +634,8 @@ void CastContentBrowserClient::SelectClientCertificateOnIOThread(
                << " and render_frame_id: " << render_frame_id;
   }
   original_runner->PostTask(
-      FROM_HERE, base::BindOnce(continue_callback, nullptr, nullptr));
+      FROM_HERE,
+      base::BindOnce(std::move(continue_callback), nullptr, nullptr));
 }
 
 bool CastContentBrowserClient::CanCreateWindow(
@@ -644,8 +660,16 @@ void CastContentBrowserClient::GetApplicationMediaInfo(
     std::string* application_session_id,
     bool* mixer_audio_enabled,
     content::RenderFrameHost* render_frame_host) {
-  *application_session_id = "";
-  *mixer_audio_enabled = true;
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(render_frame_host);
+  if (web_contents) {
+    *application_session_id =
+        CastNavigationUIData::GetSessionIdForWebContents(web_contents);
+    chromecast::CastWebContents* cast_web_contents =
+        chromecast::CastWebContents::FromWebContents(web_contents);
+    *mixer_audio_enabled =
+        (cast_web_contents && cast_web_contents->is_mixer_audio_enabled());
+  }
 }
 
 base::Optional<service_manager::Manifest>
@@ -789,12 +813,12 @@ CastContentBrowserClient::CreateThrottlesForNavigation(
             handle, general_audience_browsing_service_.get()));
   }
 
-#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#if defined(OS_LINUX) && defined(USE_OZONE)
   auto webview_throttle = WebviewController::MaybeGetNavigationThrottle(handle);
   if (webview_throttle) {
     throttles.push_back(std::move(webview_throttle));
   }
-#endif  // BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#endif  // defined(OS_LINUX) && defined(USE_OZONE)
 
   return throttles;
 }
@@ -896,8 +920,7 @@ void CastContentBrowserClient::BindMediaRenderer(
       std::make_unique<media::CastRenderer>(
           GetCmaBackendFactory(), std::move(media_task_runner),
           GetVideoModeSwitcher(), GetVideoResolutionPolicy(),
-          base::UnguessableToken::Create(), nullptr /* connector */,
-          nullptr /* host_interfaces */),
+          base::UnguessableToken::Create(), nullptr /* host_interfaces */),
       std::move(receiver));
 }
 

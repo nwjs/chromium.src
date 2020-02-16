@@ -10,13 +10,13 @@
 Polymer({
   is: 'marketing-opt-in',
 
-  behaviors: [I18nBehavior, OobeDialogHostBehavior],
+  behaviors: [OobeI18nBehavior, OobeDialogHostBehavior],
 
   /**
    * This is 'on-tap' event handler for 'AcceptAndContinue/Next' buttons.
    * @private
    */
-  onAllSet_: function() {
+  onAllSet_() {
     chrome.send('login.MarketingOptInScreen.allSet', [
       this.$.playUpdatesOption.checked, this.$.chromebookUpdatesOption.checked
     ]);

@@ -81,6 +81,10 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 
 #pragma mark - Navigation Utilities (EG2)
 
+// Instructs the application delegate to open |URL| with default opening
+// options.
+- (void)applicationOpenURL:(const GURL&)URL;
+
 // Loads |URL| in the current WebState with transition type
 // ui::PAGE_TRANSITION_TYPED, and if waitForCompletion is YES
 // waits for the loading to complete within a timeout.
@@ -128,6 +132,12 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Waits for there to be |count| number of incognito tabs within a timeout, or a
 // GREYAssert is induced.
 - (void)waitForIncognitoTabCount:(NSUInteger)count;
+
+// Loads |URL| as if it was opened from an external application.
+- (void)openURLFromExternalApp:(const GURL&)URL;
+
+// Programmatically dismisses settings screen.
+- (void)dismissSettings;
 
 #pragma mark - Settings Utilities (EG2)
 
@@ -216,6 +226,9 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // timeout, or a GREYAssert is induced.
 - (void)openNewTab;
 
+// Simulates opening http://www.example.com/ from another application.
+- (void)simulateExternalAppURLOpening;
+
 // Closes the current tab and waits for the UI to complete.
 - (void)closeCurrentTab;
 
@@ -256,6 +269,9 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 
 // Returns the number of incognito tabs.
 - (NSUInteger)incognitoTabCount WARN_UNUSED_RESULT;
+
+// Returns the index of active tab in normal (non-incognito) mode.
+- (NSUInteger)indexOfActiveNormalTab;
 
 // Simulates a backgrounding and raises an EarlGrey exception if simulation not
 // succeeded.
@@ -336,6 +352,10 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // not met within a timeout a GREYAssert is induced.
 - (void)waitForWebStateContainingText:(const std::string&)UTF8Text;
 
+// Waits for the main frame or an iframe to contain |UTF8Text|. If the condition
+// is not met within a timeout a GREYAssert is induced.
+- (void)waitForWebStateFrameContainingText:(const std::string&)UTF8Text;
+
 // Waits for the current web state to contain |UTF8Text|. If the condition is
 // not met within the given |timeout| a GREYAssert is induced.
 - (void)waitForWebStateContainingText:(const std::string&)UTF8Text
@@ -403,6 +423,9 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // induced.
 - (id)executeJavaScript:(NSString*)javaScript;
 
+// Returns the user agent that should be used for the mobile version.
+- (NSString*)mobileUserAgentString;
+
 #pragma mark - Cookie Utilities (EG2)
 
 // Returns cookies as key value pairs, where key is a cookie name and value is a
@@ -419,14 +442,14 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 
 #pragma mark - Feature enables checkers (EG2)
 
-// Returns YES if SlimNavigationManager feature is enabled.
-- (BOOL)isSlimNavigationManagerEnabled WARN_UNUSED_RESULT;
-
 // Returns YES if BlockNewTabPagePendingLoad feature is enabled.
 - (BOOL)isBlockNewTabPagePendingLoadEnabled WARN_UNUSED_RESULT;
 
-// Returns YES if NewOmniboxPopupLayout feature is enabled.
-- (BOOL)isNewOmniboxPopupLayoutEnabled WARN_UNUSED_RESULT;
+// Returns YES if |variationID| is enabled.
+- (BOOL)isVariationEnabled:(int)variationID;
+
+// Returns YES if a variation triggering server-side behavior is enabled.
+- (BOOL)isTriggerVariationEnabled:(int)variationID;
 
 // Returns YES if UmaCellular feature is enabled.
 - (BOOL)isUMACellularEnabled WARN_UNUSED_RESULT;
@@ -434,11 +457,8 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // Returns YES if UKM feature is enabled.
 - (BOOL)isUKMEnabled WARN_UNUSED_RESULT;
 
-// Returns YES if WebPaymentsModifiers feature is enabled.
-- (BOOL)isWebPaymentsModifiersEnabled WARN_UNUSED_RESULT;
-
-// Returns YES if SettingsAddPaymentMethod feature is enabled.
-- (BOOL)isSettingsAddPaymentMethodEnabled WARN_UNUSED_RESULT;
+// Returns YES if kTestFeature is enabled.
+- (BOOL)isTestFeatureEnabled;
 
 // Returns YES if CreditCardScanner feature is enabled.
 - (BOOL)isCreditCardScannerEnabled WARN_UNUSED_RESULT;
@@ -461,8 +481,27 @@ id ExecuteJavaScript(NSString* javascript, NSError* __autoreleasing* out_error);
 // browser state.
 - (void)setPopupPrefValue:(ContentSetting)value;
 
+#pragma mark - Keyboard utilities
+
 // The count of key commands registered with the currently active BVC.
 - (NSInteger)registeredKeyCommandCount;
+
+// Simulates a physical keyboard event.
+// The input is similar to UIKeyCommand parameters, and is designed for testing
+// keyboard shortcuts.
+// Accepts any strings and also UIKeyInput{Up|Down|Left|Right}Arrow and
+// UIKeyInputEscape constants as |input|.
+- (void)simulatePhysicalKeyboardEvent:(NSString*)input
+                                flags:(UIKeyModifierFlags)flags;
+
+#pragma mark - Pref Utilities (EG2)
+
+// Sets the value of a boolean user pref in the original browser state.
+- (void)setBoolValue:(BOOL)value forUserPref:(const std::string&)UTF8PrefName;
+
+// Resets the BrowsingDataPrefs, which defines if its selected or not when
+// clearing Browsing data.
+- (void)resetBrowsingDataPrefs;
 
 @end
 

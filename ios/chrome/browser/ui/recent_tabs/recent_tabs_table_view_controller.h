@@ -9,9 +9,7 @@
 #import "ios/chrome/browser/ui/table_view/chrome_table_view_controller.h"
 #include "ui/base/window_open_disposition.h"
 
-namespace ios {
 class ChromeBrowserState;
-}
 enum class UrlLoadStrategy;
 class WebStateList;
 
@@ -24,7 +22,7 @@ class WebStateList;
     : ChromeTableViewController <RecentTabsConsumer,
                                  UIAdaptivePresentationControllerDelegate>
 // The coordinator's BrowserState.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 // The command handler used by this ViewController.
 @property(nonatomic, weak) id<ApplicationCommands> handler;
 // Opaque instructions on how to open urls.
@@ -45,10 +43,7 @@ class WebStateList;
 
 // Initializers.
 - (instancetype)init NS_DESIGNATED_INITIALIZER;
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)style
-                           appBarStyle:
-                               (ChromeTableViewControllerStyle)appBarStyle
-    NS_UNAVAILABLE;
+- (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
 
 @end
 

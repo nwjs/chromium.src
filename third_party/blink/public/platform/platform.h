@@ -58,7 +58,6 @@
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_dedicated_worker_host_factory_client.h"
-#include "third_party/blink/public/platform/web_gesture_device.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_error.h"
@@ -230,8 +229,9 @@ class BLINK_PLATFORM_EXPORT Platform {
   // See comments on ImageDecoder::max_decoded_bytes_.
   virtual size_t MaxDecodedImageBytes() { return kNoDecodedImageByteLimit; }
 
-  // Returns true if this is a low-end device.
-  // This is the same as base::SysInfo::IsLowEndDevice.
+  // See: SysUtils::IsLowEndDevice for the full details of what "low-end" means.
+  // This returns true for devices that can use more extreme tradeoffs for
+  // performance. Many low memory devices (<=1GB) are not considered low-end.
   virtual bool IsLowEndDevice() { return false; }
 
   // Process -------------------------------------------------------------
@@ -578,7 +578,7 @@ class BLINK_PLATFORM_EXPORT Platform {
 
   virtual bool IsWebRtcSrtpEncryptedHeadersEnabled() { return false; }
 
-  virtual base::Optional<std::string> WebRtcStunProbeTrialParameter() {
+  virtual base::Optional<WebString> WebRtcStunProbeTrialParameter() {
     return base::nullopt;
   }
 

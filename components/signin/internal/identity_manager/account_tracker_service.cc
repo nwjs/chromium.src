@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -25,6 +26,7 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/signin/internal/identity_manager/account_info_util.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "ui/gfx/image/image.h"
 
 #if defined(OS_ANDROID)
@@ -183,7 +185,7 @@ AccountInfo AccountTrackerService::FindAccountInfoByEmail(
 // static
 bool AccountTrackerService::IsMigrationSupported() {
 #if defined(OS_CHROMEOS)
-  return false;
+  return base::FeatureList::IsEnabled(switches::kAccountIdMigration);
 #else
   return true;
 #endif
@@ -273,7 +275,7 @@ void AccountTrackerService::SetAccountImage(const CoreAccountId& account_id,
 
 void AccountTrackerService::SetIsChildAccount(const CoreAccountId& account_id,
                                               bool is_child_account) {
-  DCHECK(base::Contains(accounts_, account_id));
+  DCHECK(base::Contains(accounts_, account_id)) << account_id.ToString();
   AccountInfo& account_info = accounts_[account_id];
   if (account_info.is_child_account == is_child_account)
     return;
@@ -286,7 +288,7 @@ void AccountTrackerService::SetIsChildAccount(const CoreAccountId& account_id,
 void AccountTrackerService::SetIsAdvancedProtectionAccount(
     const CoreAccountId& account_id,
     bool is_under_advanced_protection) {
-  DCHECK(base::Contains(accounts_, account_id));
+  DCHECK(base::Contains(accounts_, account_id)) << account_id.ToString();
   AccountInfo& account_info = accounts_[account_id];
   if (account_info.is_under_advanced_protection == is_under_advanced_protection)
     return;
@@ -306,6 +308,10 @@ void AccountTrackerService::SetOnAccountRemovedCallback(
     AccountInfoCallback callback) {
   DCHECK(!on_account_removed_callback_);
   on_account_removed_callback_ = callback;
+}
+
+void AccountTrackerService::CommitPendingAccountChanges() {
+  pref_service_->CommitPendingWrite();
 }
 
 void AccountTrackerService::MigrateToGaiaId() {
@@ -640,6 +646,11 @@ CoreAccountId AccountTrackerService::SeedAccountInfo(AccountInfo info) {
 
     SaveToPrefs(account_info);
   }
+
+  if (!already_exists && !info.account_image.IsEmpty()) {
+    SetAccountImage(account_info.account_id, info.account_image);
+  }
+
   return info.account_id;
 }
 

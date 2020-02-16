@@ -29,6 +29,7 @@
 #include <memory>
 #include <utility>
 
+#include "services/network/public/mojom/content_security_policy.mojom-shared.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/platform/web_content_security_policy_struct.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
@@ -76,7 +77,8 @@ enum class ResourceType : uint8_t;
 using SandboxFlags = WebSandboxFlags;
 typedef HeapVector<Member<CSPDirectiveList>> CSPDirectiveListVector;
 typedef HeapVector<Member<ConsoleMessage>> ConsoleMessageVector;
-typedef std::pair<String, ContentSecurityPolicyHeaderType> CSPHeaderAndType;
+typedef std::pair<String, network::mojom::ContentSecurityPolicyType>
+    CSPHeaderAndType;
 using RedirectStatus = ResourceRequest::RedirectStatus;
 
 //  A delegate interface to implement violation reporting, support for some
@@ -191,6 +193,7 @@ class CORE_EXPORT ContentSecurityPolicy final
     kUndefined,
     kUpgradeInsecureRequests,
     kWorkerSrc,
+    kRequireTrustedTypesFor,
   };
 
   // CheckHeaderType can be passed to Allow*FromSource methods to control which
@@ -222,14 +225,21 @@ class CORE_EXPORT ContentSecurityPolicy final
 
   void DidReceiveHeaders(const ContentSecurityPolicyResponseHeaders&);
   void DidReceiveHeader(const String&,
-                        ContentSecurityPolicyHeaderType,
-                        ContentSecurityPolicyHeaderSource);
+                        network::mojom::ContentSecurityPolicyType,
+                        network::mojom::ContentSecurityPolicySource);
   void AddPolicyFromHeaderValue(const String&,
-                                ContentSecurityPolicyHeaderType,
-                                ContentSecurityPolicyHeaderSource);
+                                network::mojom::ContentSecurityPolicyType,
+                                network::mojom::ContentSecurityPolicySource);
   void ReportAccumulatedHeaders(LocalFrameClient*) const;
 
   Vector<CSPHeaderAndType> Headers() const;
+
+  // Returns whether or not the Javascript code generation should call back the
+  // CSP checker before any script evaluation from a string attempts.
+  //
+  // CSP has two mechanisms for controlling eval: script-src and TrustedTypes.
+  // This returns true when any of those should to be checked.
+  bool ShouldCheckEval() const;
 
   // When the reporting status is |SendReport|, the |ExceptionStatus|
   // should indicate whether the caller will throw a JavaScript
@@ -341,8 +351,10 @@ class CORE_EXPORT ContentSecurityPolicy final
 
   // Determine whether to enforce the assignment failure. Also handle reporting.
   // Returns whether enforcing Trusted Types CSP directives are present.
-  bool AllowTrustedTypeAssignmentFailure(const String& message,
-                                         const String& sample = String()) const;
+  bool AllowTrustedTypeAssignmentFailure(
+      const String& message,
+      const String& sample = String(),
+      const String& sample_prefix = String()) const;
 
   void UsesScriptHashAlgorithms(uint8_t content_security_policy_hash_algorithm);
   void UsesStyleHashAlgorithms(uint8_t content_security_policy_hash_algorithm);
@@ -393,13 +405,14 @@ class CORE_EXPORT ContentSecurityPolicy final
                        const Vector<String>& report_endpoints,
                        bool use_reporting_api,
                        const String& header,
-                       ContentSecurityPolicyHeaderType,
+                       network::mojom::ContentSecurityPolicyType,
                        ViolationType,
                        std::unique_ptr<SourceLocation>,
                        LocalFrame* = nullptr,
                        RedirectStatus = RedirectStatus::kFollowedRedirect,
                        Element* = nullptr,
-                       const String& source = g_empty_string);
+                       const String& source = g_empty_string,
+                       const String& source_prefix = g_empty_string);
 
   // Called when mixed content is detected on a page; will trigger a violation
   // report if the 'block-all-mixed-content' directive is specified for a
@@ -474,7 +487,7 @@ class CORE_EXPORT ContentSecurityPolicy final
   // there is no execution context to enforce the sandbox flags.
   SandboxFlags GetSandboxMask() const { return sandbox_mask_; }
 
-  bool HasPolicyFromSource(ContentSecurityPolicyHeaderSource) const;
+  bool HasPolicyFromSource(network::mojom::ContentSecurityPolicySource) const;
 
   static bool IsScriptDirective(
       ContentSecurityPolicy::DirectiveType directive_type) {
@@ -513,9 +526,10 @@ class CORE_EXPORT ContentSecurityPolicy final
       const String& message,
       mojom::ConsoleMessageLevel = mojom::ConsoleMessageLevel::kError);
 
-  void AddAndReportPolicyFromHeaderValue(const String&,
-                                         ContentSecurityPolicyHeaderType,
-                                         ContentSecurityPolicyHeaderSource);
+  void AddAndReportPolicyFromHeaderValue(
+      const String&,
+      network::mojom::ContentSecurityPolicyType,
+      network::mojom::ContentSecurityPolicySource);
 
   bool ShouldSendViolationReport(const String&) const;
   void DidSendViolationReport(const String&);

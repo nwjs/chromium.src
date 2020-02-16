@@ -745,7 +745,7 @@ class TokenPreloadScanner::StartTagScanner {
   mojom::FetchImportanceMode importance_;
   bool importance_mode_set_;
   String nonce_;
-  Member<MediaValuesCached> media_values_;
+  MediaValuesCached* media_values_;
   bool referrer_policy_set_;
   network::mojom::ReferrerPolicy referrer_policy_;
   bool integrity_attr_set_;
@@ -878,13 +878,13 @@ static void HandleMetaNameAttribute(
     return;
 
   String content_attribute_value(content_attribute->Value());
-  if (DeprecatedEqualIgnoringCase(name_attribute_value, "viewport")) {
+  if (EqualIgnoringASCIICase(name_attribute_value, "viewport")) {
     HandleMetaViewport(content_attribute_value, document_parameters,
                        media_values, viewport);
     return;
   }
 
-  if (DeprecatedEqualIgnoringCase(name_attribute_value, "referrer")) {
+  if (EqualIgnoringASCIICase(name_attribute_value, "referrer")) {
     HandleMetaReferrer(content_attribute_value, document_parameters,
                        css_scanner);
   }
@@ -963,8 +963,8 @@ void TokenPreloadScanner::ScanCommon(
           if (DeprecatedEqualIgnoringCase(equiv_attribute_value,
                                           "content-security-policy")) {
             *is_csp_meta_tag = true;
-          } else if (DeprecatedEqualIgnoringCase(equiv_attribute_value,
-                                                 "accept-ch")) {
+          } else if (EqualIgnoringASCIICase(equiv_attribute_value,
+                                            "accept-ch")) {
             const typename Token::Attribute* content_attribute =
                 token.GetAttributeItem(html_names::kContentAttr);
             if (content_attribute) {

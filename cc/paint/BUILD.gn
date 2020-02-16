@@ -109,12 +109,17 @@ cc_component("paint") {
     "//ui/gfx/animation",
     "//ui/gfx/ipc/color",
   ]
+
+  if (!is_android) {
+    sources += [
+      "skottie_transfer_cache_entry.cc",
+      "skottie_transfer_cache_entry.h",
+    ]
+  }
 }
 
 fuzzer_test("paint_op_buffer_fuzzer") {
-  sources = [
-    "paint_op_buffer_fuzzer.cc",
-  ]
+  sources = [ "paint_op_buffer_fuzzer.cc" ]
 
   libfuzzer_options = [ "max_len=4096" ]
 
@@ -128,9 +133,7 @@ fuzzer_test("paint_op_buffer_fuzzer") {
 }
 
 fuzzer_test("transfer_cache_fuzzer") {
-  sources = [
-    "transfer_cache_fuzzer.cc",
-  ]
+  sources = [ "transfer_cache_fuzzer.cc" ]
 
   libfuzzer_options = [ "max_len=4096" ]
 

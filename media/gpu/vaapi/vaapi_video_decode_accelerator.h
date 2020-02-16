@@ -44,6 +44,7 @@ class GLImage;
 namespace media {
 
 class AcceleratedVideoDecoder;
+class VaapiVideoDecoderDelegate;
 class VaapiPicture;
 
 // Class to provide video decode acceleration for Intel systems with hardware
@@ -90,7 +91,7 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
 
   // DecodeSurfaceHandler implementation.
   scoped_refptr<VASurface> CreateSurface() override;
-  void SurfaceReady(const scoped_refptr<VASurface>& va_surface,
+  void SurfaceReady(scoped_refptr<VASurface> va_surface,
                     int32_t bitstream_id,
                     const gfx::Rect& visible_rect,
                     const VideoColorSpace& color_space) override;
@@ -165,7 +166,7 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   // available VaapiPicture in |available_picture_buffers_| for output. Puts
   // contents of |va_surface| into the latter, releases the surface and passes
   // the resulting picture to |client_| along with |visible_rect|.
-  void OutputPicture(const scoped_refptr<VASurface>& va_surface,
+  void OutputPicture(scoped_refptr<VASurface> va_surface,
                      int32_t input_id,
                      gfx::Rect visible_rect,
                      const VideoColorSpace& picture_color_space);
@@ -246,6 +247,9 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   scoped_refptr<VaapiWrapper> vaapi_wrapper_;
   // Only used on |decoder_thread_task_runner_|.
   std::unique_ptr<AcceleratedVideoDecoder> decoder_;
+  // TODO(crbug.com/1022246): Instead of having the raw pointer here, getting
+  // the pointer from AcceleratedVideoDecoder.
+  VaapiVideoDecoderDelegate* decoder_delegate_ = nullptr;
 
   // Filled in during Initialize().
   BufferAllocationMode buffer_allocation_mode_;

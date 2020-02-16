@@ -27,6 +27,7 @@ import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.content_public.common.BrowserControlsState;
 
 /**
  * Custom {@link ChromeActivityTestRule} for tests using {@link WebappActivity}.
@@ -36,7 +37,7 @@ public class WebappActivityTestRule extends ChromeActivityTestRule<WebappActivit
     public static final String WEBAPP_NAME = "webapp name";
     public static final String WEBAPP_SHORT_NAME = "webapp short name";
 
-    private static final long STARTUP_TIMEOUT = 10000L;
+    private static final long STARTUP_TIMEOUT = 15000L;
 
     // Empty 192x192 image generated with:
     // ShortcutHelper.encodeBitmapAsString(Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_4444));
@@ -150,12 +151,13 @@ public class WebappActivityTestRule extends ChromeActivityTestRule<WebappActivit
     }
 
     public static void assertToolbarShowState(ChromeActivity activity, boolean showState) {
-        Assert.assertEquals(showState,
-                TestThreadUtils.runOnUiThreadBlockingNoException(
+        @BrowserControlsState
+        int expectedState = showState ? BrowserControlsState.SHOWN : BrowserControlsState.HIDDEN;
+        Assert.assertEquals(expectedState,
+                (int) TestThreadUtils.runOnUiThreadBlockingNoException(
                         ()
-                                -> TabBrowserControlsConstraintsHelper
-                                           .get(activity.getActivityTab())
-                                           .canShow()));
+                                -> TabBrowserControlsConstraintsHelper.getConstraints(
+                                        activity.getActivityTab())));
     }
 
     /**

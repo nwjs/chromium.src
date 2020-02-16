@@ -9,9 +9,17 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/apps/launch_service/launch_manager.h"
 
+class Browser;
+enum class WindowOpenDisposition;
+class GURL;
+
 namespace apps {
 struct AppLaunchParams;
 }  // namespace apps
+
+namespace content {
+class WebContents;
+}  // namespace content
 
 namespace web_app {
 
@@ -28,14 +36,20 @@ class WebAppLaunchManager : public apps::LaunchManager {
   content::WebContents* OpenApplication(
       const apps::AppLaunchParams& params) override;
 
-  bool OpenApplicationWindow(const std::string& app_id,
-                             const base::CommandLine& command_line,
-                             const base::FilePath& current_directory) override;
-
-  bool OpenApplicationTab(const std::string& app_id) override;
+  void LaunchApplication(
+      const std::string& app_id,
+      const base::CommandLine& command_line,
+      const base::FilePath& current_directory,
+      base::OnceCallback<void(Browser* browser,
+                              apps::mojom::LaunchContainer container)> callback)
+      override;
 
  private:
-  void OpenWebApplication(const apps::AppLaunchParams& params);
+  void LaunchWebApplication(
+      apps::AppLaunchParams params,
+      base::OnceCallback<void(Browser* browser,
+                              apps::mojom::LaunchContainer container)>
+          callback);
 
   WebAppProvider* const provider_;
 
@@ -43,6 +57,15 @@ class WebAppLaunchManager : public apps::LaunchManager {
 
   DISALLOW_COPY_AND_ASSIGN(WebAppLaunchManager);
 };
+
+Browser* CreateWebApplicationWindow(Profile* profile,
+                                    const std::string& app_id);
+
+content::WebContents* NavigateWebApplicationWindow(
+    Browser* browser,
+    const std::string& app_id,
+    const GURL& url,
+    WindowOpenDisposition disposition);
 
 void RecordAppWindowLaunch(Profile* profile, const std::string& app_id);
 

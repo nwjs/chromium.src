@@ -22,7 +22,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
 
@@ -198,7 +198,8 @@ void SSLErrorControllerClient::Proceed() {
       profile->GetSSLHostStateDelegate());
   // ChromeSSLHostStateDelegate can be null during tests.
   if (state) {
-    state->AllowCert(request_url_.host(), *ssl_info_.cert.get(), cert_error_);
+    state->AllowCert(request_url_.host(), *ssl_info_.cert.get(), cert_error_,
+                     web_contents_);
     Reload();
   }
 }

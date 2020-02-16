@@ -8,7 +8,6 @@
 
 #include "components/security_state/core/security_state.h"
 #include "components/security_state/ios/ssl_status_input_event_data.h"
-#import "ios/web/common/origin_util.h"
 #include "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #include "ios/web/public/security/security_style.h"
@@ -52,8 +51,7 @@ security_state::SecurityLevel GetSecurityLevelForWebState(
   }
   return security_state::GetSecurityLevel(
       *GetVisibleSecurityStateForWebState(web_state),
-      false /* used policy installed certificate */,
-      base::BindRepeating(&web::IsOriginSecure));
+      false /* used policy installed certificate */);
 }
 
 }  // namespace security_state

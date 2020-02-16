@@ -9,9 +9,9 @@
 #include "base/task/post_task.h"
 #include "components/safe_browsing/android/remote_database_manager.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler_bridge.h"
-#include "components/safe_browsing/browser/browser_url_loader_throttle.h"
-#include "components/safe_browsing/browser/mojo_safe_browsing_impl.h"
-#include "components/safe_browsing/browser/safe_browsing_network_context.h"
+#include "components/safe_browsing/content/browser/browser_url_loader_throttle.h"
+#include "components/safe_browsing/content/browser/mojo_safe_browsing_impl.h"
+#include "components/safe_browsing/core/browser/safe_browsing_network_context.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -19,6 +19,7 @@
 #include "content/public/browser/resource_context.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+#include "weblayer/browser/safe_browsing/safe_browsing_navigation_throttle.h"
 #include "weblayer/browser/safe_browsing/url_checker_delegate_impl.h"
 
 namespace weblayer {
@@ -69,18 +70,28 @@ void SafeBrowsingService::Initialize() {
 
 std::unique_ptr<blink::URLLoaderThrottle>
 SafeBrowsingService::CreateURLLoaderThrottle(
-    content::ResourceContext* resource_context,
     const base::RepeatingCallback<content::WebContents*()>& wc_getter,
     int frame_tree_node_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   return safe_browsing::BrowserURLLoaderThrottle::Create(
       base::BindOnce(
-          [](SafeBrowsingService* sb_service, content::ResourceContext*) {
+          [](SafeBrowsingService* sb_service) {
             return sb_service->GetSafeBrowsingUrlCheckerDelegate();
           },
           base::Unretained(this)),
-      wc_getter, frame_tree_node_id, resource_context);
+      wc_getter, frame_tree_node_id,
+      // cache_manager and identity_manager are used to perform real time url
+      // check, which is gated by UKM opted in. Since WebLayer currently doesn't
+      // support UKM, this feature is not enabled.
+      /*cache_manager*/ nullptr, /*identity_manager*/ nullptr);
+}
+
+std::unique_ptr<content::NavigationThrottle>
+SafeBrowsingService::CreateSafeBrowsingNavigationThrottle(
+    content::NavigationHandle* handle) {
+  return std::make_unique<SafeBrowsingNavigationThrottle>(
+      handle, GetSafeBrowsingUIManager());
 }
 
 scoped_refptr<safe_browsing::UrlCheckerDelegate>

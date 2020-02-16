@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
 
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -176,16 +176,20 @@ void PaintTimingDetector::StopRecordingLargestContentfulPaint() {
 }
 
 void PaintTimingDetector::NotifyInputEvent(WebInputEvent::Type type) {
+  // A single keyup event should be ignored. It could be caused by user actions
+  // such as refreshing via Ctrl+R.
   if (type == WebInputEvent::kMouseMove || type == WebInputEvent::kMouseEnter ||
-      type == WebInputEvent::kMouseLeave ||
+      type == WebInputEvent::kMouseLeave || type == WebInputEvent::kKeyUp ||
       WebInputEvent::IsPinchGestureEventType(type)) {
     return;
   }
   StopRecordingLargestContentfulPaint();
 }
 
-void PaintTimingDetector::NotifyScroll(ScrollType scroll_type) {
-  if (scroll_type != kUserScroll && scroll_type != kCompositorScroll)
+void PaintTimingDetector::NotifyScroll(
+    mojom::blink::ScrollIntoViewParams::Type scroll_type) {
+  if (scroll_type != mojom::blink::ScrollIntoViewParams::Type::kUser &&
+      scroll_type != mojom::blink::ScrollIntoViewParams::Type::kCompositor)
     return;
   StopRecordingLargestContentfulPaint();
 }

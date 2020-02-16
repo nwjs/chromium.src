@@ -148,8 +148,9 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewChildFrameTest,
   metadata.viewport_size_in_pixels = gfx::Size(75, 75);
   metadata.local_surface_id_allocation =
       viz::LocalSurfaceIdAllocation(local_surface_id, base::TimeTicks::Now());
-  root->current_frame_host()->GetRenderWidgetHost()->DidUpdateVisualProperties(
-      metadata);
+  RenderFrameMetadataProvider::Observer* metadata_receiver =
+      root->current_frame_host()->GetRenderWidgetHost();
+  metadata_receiver->OnLocalSurfaceIdChanged(metadata);
 
   // The child frame's RenderWidgetHostView should now use the auto-resize value
   // for its visible viewport.
@@ -176,9 +177,10 @@ IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewChildFrameTest,
   // Hide the frame and make it visible again, to force it to record the
   // tab-switch time, which is generated from presentation-feedback.
   child_rwh_impl->WasHidden();
-  child_rwh_impl->WasShown(RecordTabSwitchTimeRequest{
+  child_rwh_impl->WasShown(RecordContentToVisibleTimeRequest{
       base::TimeTicks::Now(), /* destination_is_loaded */ true,
-      /* destination_is_frozen */ false});
+      /* destination_is_frozen */ false, /* show_reason_tab_switching */ true,
+      /* show_reason_unoccluded */ false});
   // Force the child to submit a new frame.
   ASSERT_TRUE(ExecuteScript(root->child_at(0)->current_frame_host(),
                             "document.write('Force a new frame.');"));

@@ -38,7 +38,6 @@ class CastMojoMediaClient : public ::media::MojoMediaClient {
 #endif
 
   // MojoMediaClient implementation:
-  void Initialize(service_manager::Connector* connector) override;
 #if BUILDFLAG(ENABLE_CAST_RENDERER)
   std::unique_ptr<::media::Renderer> CreateCastRenderer(
       service_manager::mojom::InterfaceProvider* host_interfaces,
@@ -55,7 +54,6 @@ class CastMojoMediaClient : public ::media::MojoMediaClient {
       service_manager::mojom::InterfaceProvider* host_interfaces) override;
 
  private:
-  service_manager::Connector* connector_;
   CmaBackendFactory* const backend_factory_;
   const CreateCdmFactoryCB create_cdm_factory_cb_;
   VideoModeSwitcher* video_mode_switcher_;

@@ -204,6 +204,8 @@ class Internals final : public ScriptWrappable {
   void addCompositionMarker(const Range*,
                             const String& underline_color_value,
                             const String& thickness_value,
+                            const String& underline_style_value,
+                            const String& text_color_value,
                             const String& background_color_value,
                             ExceptionState&);
   void addActiveSuggestionMarker(const Range*,
@@ -328,6 +330,8 @@ class Internals final : public ScriptWrappable {
   InternalRuntimeFlags* runtimeFlags() const;
   unsigned workerThreadCount() const;
 
+  bool isFormControlsRefreshEnabled() const;
+
   String resolveModuleSpecifier(const String& specifier,
                                 const String& base_url_string,
                                 Document*,
@@ -425,10 +429,6 @@ class Internals final : public ScriptWrappable {
 
   DOMArrayBuffer* serializeObject(scoped_refptr<SerializedScriptValue>) const;
   scoped_refptr<SerializedScriptValue> deserializeBuffer(DOMArrayBuffer*) const;
-
-  DOMArrayBuffer* serializeWithInlineWasm(ScriptValue) const;
-  ScriptValue deserializeBufferContainingWasm(ScriptState*,
-                                              DOMArrayBuffer*) const;
 
   String getCurrentCursorInfo();
 

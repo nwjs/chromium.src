@@ -10,8 +10,6 @@ import android.os.Bundle;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 
-import org.chromium.base.Log;
-
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -326,14 +324,14 @@ public class TaskInfo {
     /**
      * Specifies information regarding exact tasks.
      */
-    static class ExactInfo implements TimingInfo {
+    public static class ExactInfo implements TimingInfo {
         private final long mTriggerAtMs;
 
         private ExactInfo(Builder builder) {
             mTriggerAtMs = builder.mTriggerAtMs;
         }
 
-        long getTriggerAtMs() {
+        public long getTriggerAtMs() {
             return mTriggerAtMs;
         }
 
@@ -352,7 +350,7 @@ public class TaskInfo {
         /**
          * @return a new {@link Builder} object to set the values of the exact task.
          */
-        static Builder create() {
+        public static Builder create() {
             return new Builder();
         }
 
@@ -361,7 +359,7 @@ public class TaskInfo {
          *
          * @see #create()
          */
-        static final class Builder {
+        public static final class Builder {
             private long mTriggerAtMs;
 
             /**
@@ -369,7 +367,7 @@ public class TaskInfo {
              * @param triggerAtMs the UTC timestamp at which the task should be started.
              * @return the {@link Builder} for creating the {@link ExactInfo} object.
              */
-            Builder setTriggerAtMs(long triggerAtMs) {
+            public Builder setTriggerAtMs(long triggerAtMs) {
                 mTriggerAtMs = triggerAtMs;
                 return this;
             }
@@ -379,7 +377,7 @@ public class TaskInfo {
              *
              * @return the {@link ExactInfo} object.
              */
-            ExactInfo build() {
+            public ExactInfo build() {
                 return new ExactInfo(this);
             }
         }
@@ -461,20 +459,6 @@ public class TaskInfo {
      */
     public int getTaskId() {
         return mTaskId;
-    }
-
-    /**
-     * @return the {@link BackgroundTask} class that will be instantiated for this task.
-     */
-    @NonNull
-    public Class<? extends BackgroundTask> getBackgroundTaskClass() {
-        BackgroundTask backgroundTask =
-                BackgroundTaskSchedulerFactory.getBackgroundTaskFromTaskId(mTaskId);
-        if (backgroundTask == null) {
-            Log.w(TAG, "Cannot get BackgorundTask class from task id " + mTaskId);
-            return null;
-        }
-        return backgroundTask.getClass();
     }
 
     /**

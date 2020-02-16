@@ -6,6 +6,7 @@
 
 #include "base/stl_util.h"
 #include "base/strings/string_piece.h"
+#include "build/chromecast_buildflags.h"
 
 namespace extensions {
 
@@ -19,6 +20,8 @@ const base::FilePath::CharType kLocaleFolder[] =
     FILE_PATH_LITERAL("_locales");
 const base::FilePath::CharType kMessagesFilename[] =
     FILE_PATH_LITERAL("messages.json");
+const base::FilePath::CharType kGzippedMessagesFilename[] =
+    FILE_PATH_LITERAL("messages.json.gz");
 const base::FilePath::CharType kPlatformSpecificFolder[] =
     FILE_PATH_LITERAL("_platform_specific");
 const base::FilePath::CharType kMetadataFolder[] =
@@ -101,7 +104,7 @@ const base::FilePath::CharType kNWJSManifestFilename[] =
 
 namespace extension_misc {
 
-#if defined(OS_CHROMEOS) || defined(IS_CHROMECAST)
+#if defined(OS_CHROMEOS) || BUILDFLAG(IS_CHROMECAST)
 // The extension id for the built-in component extension.
 const char kChromeVoxExtensionId[] = "mndnfokpggljbaajbnioimlmbfngpief";
 #else
@@ -118,6 +121,7 @@ const char kQuickOfficeExtensionId[] = "gbkeegbaiigmenfmjfclcdgdpimamgkj";
 const char kMimeHandlerPrivateTestExtensionId[] =
     "oickdpebdnfbgkcaoklfcdhjniefkcji";
 const char kCameraAppId[] = "hfhhnacclhffhdffklopdkcgdhifgngh";
+const char kCameraAppDevId[] = "flgnmkgjffmkephdokeeliiopbjaafpm";
 const char kChromeAppId[] = "mgndgikekgjfcpckkfioiadnlibdjbkf";
 const char kFilesManagerAppId[] = "hhaomjibdihmijegdhdafkllkbggdgoj";
 const char kGoogleKeepAppId[] = "hmjkmjkepdijhoojdojkdfohbdgmmhki";

@@ -48,10 +48,8 @@ class NavigationManager {
     const newGroup = this.node_.asRootNode();
     if (newGroup) {
       this.groupStack_.push(this.group_);
-      this.group_ = newGroup;
+      this.setGroup_(newGroup);
     }
-
-    this.setNode_(this.group_.firstChild);
   }
 
   /**
@@ -106,7 +104,7 @@ class NavigationManager {
       return;
     }
 
-    this.setNode_(this.node_.previous);
+    this.setNode(this.node_.previous);
   }
 
   /**
@@ -119,7 +117,53 @@ class NavigationManager {
       return;
     }
 
-    this.setNode_(this.node_.next);
+    this.setNode(this.node_.next);
+  }
+
+  /**
+   * Moves to the Switch Access focus up the group stack closest to the ancestor
+   * that hasn't been invalidated.
+   */
+  moveToValidNode() {
+    if (this.node_.isValidAndVisible() && this.group_.isValidGroup()) {
+      return;
+    }
+
+    if (this.node_.isValidAndVisible()) {
+      // Our group has been invalidated. Move to this node to repair the group
+      // stack.
+      const node = this.node_.automationNode;
+      if (node) {
+        this.moveTo_(node);
+        return;
+      }
+    }
+
+    if (this.group_.isValidGroup()) {
+      this.setNode(this.group_.firstChild);
+      return;
+    }
+
+    let group = this.groupStack_.pop();
+    while (group) {
+      if (group.isValidGroup()) {
+        this.setGroup_(group);
+        return;
+      }
+      group = this.groupStack_.pop();
+    }
+
+    // If there is no valid node in the group stack, go to the desktop.
+    this.setGroup_(RootNodeWrapper.buildDesktopTree(this.desktop_));
+    this.groupStack_ = [];
+  }
+
+
+  /**
+   * Updates the focus ring locations in response to an automation event.
+   */
+  refreshFocusRings() {
+    this.focusRingManager_.setFocusNodes(this.node_, this.group_);
   }
 
   /**
@@ -149,6 +193,18 @@ class NavigationManager {
       SwitchAccessMetrics.recordMenuAction(SAConstants.MenuAction.SELECT);
       this.node_.performAction(SAConstants.MenuAction.SELECT);
     }
+  }
+
+  /**
+   * Set |this.node_| to |node|, and update what is displayed onscreen.
+   * @param {!SAChildNode} node
+   */
+  setNode(node) {
+    this.node_.onUnfocus();
+    this.node_ = node;
+    this.node_.onFocus();
+    this.focusRingManager_.setFocusNodes(this.node_, this.group_);
+    SwitchAccess.get().restartAutoScan();
   }
 
   // -------------------------------------------------------
@@ -205,10 +261,9 @@ class NavigationManager {
    * @private
    */
   onTreeChange_(treeChange) {
-    if (treeChange.type === chrome.automation.TreeChangeType.TEXT_CHANGED) {
-      return;
+    if (treeChange.type === chrome.automation.TreeChangeType.NODE_REMOVED) {
+      this.moveToValidNode();
     }
-    this.moveToValidNode_();
   }
 
   // -------------------------------------------------------
@@ -223,25 +278,26 @@ class NavigationManager {
    */
   buildGroupStack_(node) {
     // Create a list of ancestors.
-    let ancestorList = [];
+    const ancestorList = [];
     while (node.parent) {
       ancestorList.push(node.parent);
       node = node.parent;
     }
 
     this.groupStack_ = [];
-    this.group_ = RootNodeWrapper.buildDesktopTree(this.desktop_);
+    let group = RootNodeWrapper.buildDesktopTree(this.desktop_);
     while (ancestorList.length > 0) {
-      let ancestor = ancestorList.pop();
+      const ancestor = ancestorList.pop();
       if (ancestor.role === chrome.automation.RoleType.DESKTOP) {
         continue;
       }
 
-      if (SwitchAccessPredicate.isGroup(ancestor, this.group_)) {
-        this.groupStack_.push(this.group_);
-        this.group_ = RootNodeWrapper.buildTree(ancestor);
+      if (SwitchAccessPredicate.isGroup(ancestor, group)) {
+        this.groupStack_.push(group);
+        group = RootNodeWrapper.buildTree(ancestor);
       }
     }
+    this.setGroup_(group, false /* shouldSetNode */);
   }
 
   /**
@@ -255,17 +311,21 @@ class NavigationManager {
 
     this.group_.onExit();
 
+    let group = this.groupStack_.pop();
     // Find a group that is still valid.
-    do {
-      this.group_ = this.groupStack_.pop();
-    } while (!this.group_.isValid() && this.groupStack_.length);
+    while (!group.isValidGroup() && this.groupStack_.length) {
+      group = this.groupStack_.pop();
+    }
 
-    this.setNode_(this.group_.firstChild);
+    this.setGroup_(group);
   }
 
 
   /** @private */
   init_() {
+    this.group_.onFocus();
+    this.node_.onFocus();
+
     if (SwitchAccess.get().prefsAreReady()) {
       this.onPrefsReady();
     }
@@ -293,8 +353,7 @@ class NavigationManager {
     this.menuManager_.exit();
 
     this.groupStack_.push(this.group_);
-    this.group_ = group;
-    this.setNode_(this.group_.firstChild);
+    this.setGroup_(group);
   }
 
   /**
@@ -319,63 +378,21 @@ class NavigationManager {
     }
 
     this.menuManager_.exit();
-    this.setNode_(node);
+    this.setNode(node);
   }
 
   /**
-   * Moves the Switch Access focus up the group stack to the closest ancestor
-   *     that hasn't been invalidated.
-   * @private
+   * Set |this.group_| to |group|.
+   * @param {!SARootNode} group
+   * @param {boolean} shouldSetNode
    */
-  moveToValidNode_() {
-    if (this.node_.role && this.group_.isValid()) {
-      return;
+  setGroup_(group, shouldSetNode = true) {
+    this.group_.onUnfocus();
+    this.group_ = group;
+    this.group_.onFocus();
+
+    if (shouldSetNode) {
+      this.setNode(this.group_.firstChild);
     }
-
-    if (this.node_.role) {
-      // Our group has been invalidated. Move to this node to repair the group
-      // stack.
-      const node = this.node_.automationNode;
-      if (node) {
-        this.moveTo_(node);
-        return;
-      }
-    }
-
-    if (this.group_.isValid()) {
-      const group = this.group_.automationNode;
-      if (group) {
-        this.moveTo_(group);
-        return;
-      }
-    }
-
-    for (let group of this.groupStack_) {
-      if (group.isValid()) {
-        group = group.automationNode;
-        if (group) {
-          this.moveTo_(group);
-          return;
-        }
-      }
-    }
-
-    // If there is no valid node in the group stack, go to the desktop.
-    this.group_ = RootNodeWrapper.buildDesktopTree(this.desktop_);
-    this.node_ = this.group_.firstChild;
-    this.groupStack_ = [];
-  }
-
-  /**
-   * Set |this.node_| to |node|, and update what is displayed onscreen.
-   * @param {!SAChildNode} node
-   * @private
-   */
-  setNode_(node) {
-    this.node_.onUnfocus();
-    this.node_ = node;
-    this.node_.onFocus();
-    this.focusRingManager_.setFocusNodes(this.node_, this.group_);
-    SwitchAccess.get().restartAutoScan();
   }
 }

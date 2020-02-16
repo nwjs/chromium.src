@@ -8,7 +8,6 @@ import android.annotation.TargetApi;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.content.SharedPreferences;
 import android.os.Build;
 import android.support.v4.app.NotificationManagerCompat;
 import android.text.format.DateUtils;
@@ -17,11 +16,13 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.MathUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.CachedMetrics;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
-import org.chromium.chrome.browser.util.MathUtils;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -132,15 +133,12 @@ public class NotificationUmaTracker {
         int NUM_ENTRIES = 15;
     }
 
-    private static final String LAST_SHOWN_NOTIFICATION_TYPE_KEY =
-            "NotificationUmaTracker.LastShownNotificationType";
-
     private static class LazyHolder {
         private static final NotificationUmaTracker INSTANCE = new NotificationUmaTracker();
     }
 
     /** Cached objects. */
-    private final SharedPreferences mSharedPreferences;
+    private final SharedPreferencesManager mSharedPreferences;
     private final NotificationManagerCompat mNotificationManager;
 
     public static NotificationUmaTracker getInstance() {
@@ -148,7 +146,7 @@ public class NotificationUmaTracker {
     }
 
     private NotificationUmaTracker() {
-        mSharedPreferences = ContextUtils.getAppSharedPreferences();
+        mSharedPreferences = SharedPreferencesManager.getInstance();
         mNotificationManager = NotificationManagerCompat.from(ContextUtils.getApplicationContext());
     }
 
@@ -302,14 +300,17 @@ public class NotificationUmaTracker {
     }
 
     private void saveLastShownNotification(@SystemNotificationType int type) {
-        mSharedPreferences.edit().putInt(LAST_SHOWN_NOTIFICATION_TYPE_KEY, type).apply();
+        mSharedPreferences.writeInt(
+                ChromePreferenceKeys.NOTIFICATIONS_LAST_SHOWN_NOTIFICATION_TYPE, type);
     }
 
     private void logPotentialBlockedCause() {
-        int lastType = mSharedPreferences.getInt(
-                LAST_SHOWN_NOTIFICATION_TYPE_KEY, SystemNotificationType.UNKNOWN);
+        int lastType = mSharedPreferences.readInt(
+                ChromePreferenceKeys.NOTIFICATIONS_LAST_SHOWN_NOTIFICATION_TYPE,
+                SystemNotificationType.UNKNOWN);
         if (lastType == -1) return;
-        mSharedPreferences.edit().remove(LAST_SHOWN_NOTIFICATION_TYPE_KEY).apply();
+        mSharedPreferences.removeKey(
+                ChromePreferenceKeys.NOTIFICATIONS_LAST_SHOWN_NOTIFICATION_TYPE);
 
         recordHistogram("Mobile.SystemNotification.BlockedAfterShown", lastType);
     }

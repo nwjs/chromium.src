@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">ਸਲਾਈਡਰ</translation>
 <translation id="1211441953136645838">ਵਿਸ਼ੇਸ਼ ਜਾਣਕਾਰੀ</translation>
 <translation id="1281252709823657822">ਡਾਇਲੌਗ</translation>
+<translation id="1306460908038601864">ਬੰਦ</translation>
 <translation id="1335095011850992622">ਕ੍ਰੈਡਿਟ</translation>
 <translation id="1342835525016946179">ਲੇਖ</translation>
 <translation id="1359897965706325498">ਬੈਨਰ</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">ਕਿਰਪਾ ਕਰਕੇ ਇਸ ਲਿਖਤ ਨੂੰ <ph name="MIN_CHARACTERS" /> ਅੱਖਰਾਂ ਤੱਕ ਜਾਂ ਇਸ ਤੋਂ ਵੱਧ ਵਿੱਚ ਵਧਾਓ (ਇਸ ਵੇਲੇ ਤੁਸੀਂ <ph name="CURRENT_LENGTH" /> ਅੱਖਰ ਵਰਤ ਰਹੇ ਹੋ)।</translation>
 <translation id="383465348367842624">'<ph name="ATSIGN" />' ਤੋਂ ਬਾਅਦ ਦੇ ਭਾਗ ਵਿੱਚ ਚਿੰਨ੍ਹ '<ph name="INVALIDCHARACTER" />' ਨਹੀਂ ਹੋਣਾ ਚਾਹੀਦਾ।</translation>
 <translation id="3846214748874656680">ਫੁਲਸਕ੍ਰੀਨ ਤੋਂ ਬਾਹਰ ਜਾਓ</translation>
-<translation id="3889183436948184105">ਸੰਸ਼ੋਧਨ</translation>
 <translation id="3920932319529768807">ਸਿੱਟਾ</translation>
 <translation id="3924558731517983934">ਐਪਲੀਕੇਸ਼ਨ</translation>
 <translation id="3944740393230681990">ਮੁੱਖਬੰਧ</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਨੰਬਰ ਦਰਜ ਕਰੋ।</translation>
 <translation id="4912536737030637138">ਪੁਸਤਕ ਮਾਲਾ ਦਾ ਇੰਦਰਾਜ਼</translation>
 <translation id="492244087561876220">ਟਿੱਪਣੀ</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> ਨੂੰ ਚੁਣਿਆ ਗਿਆ</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> ਚੁਣਿਆ ਗਿਆ</translation>
 <translation id="4992066212339426712">ਅਨਮਿਊਟ ਕਰੋ</translation>
 <translation id="49969490063480558">ਕਿਰਪਾ ਕਰਕੇ '<ph name="ATSIGN" />' ਤੋਂ ਬਾਅਦ ਇੱਕ ਭਾਗ ਦਰਜ ਕਰੋ। '<ph name="INVALIDADDRESS" />' ਅਧੂਰਾ ਹੈ।</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">ਕਿਰਪਾ ਕਰਕੇ  '<ph name="ATSIGN" />' ਤੋਂ ਬਾਅਦ ਇੱਕ ਭਾਗ ਦਰਜ ਕਰੋ। '<ph name="INVALIDADDRESS" />' ਅਧੂਰਾ ਹੈ।</translation>
 <translation id="5334352251556557839">ਮੀਡੀਆ ਚਲਾਇਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।</translation>
+<translation id="537648784377940524">ਘੱਟੋ ਘੱਟ ਤਾਰੀਖ (<ph name="MIN_DATE_OR_TIME" />) ਵੱਧ ਤੋਂ ਵੱਧ ਤਾਰੀਖ (<ph name="MAX_DATE_OR_TIME" />) ਤੋਂ ਪਹਿਲਾਂ ਆਉਣੀ ਲਾਜ਼ਮੀ ਹੈ।</translation>
 <translation id="5406322316791861025">ਅੰਕ</translation>
 <translation id="5453733299334684579">ਟ੍ਰੀ ਆਈਟਮ</translation>
 <translation id="5466621249238537318">ਕਿਰਪਾ ਕਰਕੇ ਇੱਕ ਜਾਂ ਵੱਧ ਫਾਈਲਾਂ ਚੁਣੋ।</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">ਹੋਰ ਵਿਕਲਪ</translation>
 <translation id="576709008726043716">ਜਾਣ-ਪਛਾਣ</translation>
 <translation id="57838592816432529">ਮਿਊਟ ਕਰੋ</translation>
-<translation id="5860033963881614850">ਬੰਦ ਕਰੋ</translation>
 <translation id="588258955323874662">ਫੁਲਸਕ੍ਰੀਨ</translation>
 <translation id="5888666972993069672">ਹੁਣ <ph name="DEVICE_FRIENDLY_NAME" /> 'ਤੇ ਕਾਸਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ</translation>
 <translation id="591047860372322273">ਖੋਜ ਬਾਕਸ</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">ਕਿਰਪਾ ਕਰਕੇ ਈਮੇਲ ਪਤੇ ਵਿੱਚ ਇੱਕ '<ph name="ATSIGN" />' ਸ਼ਾਮਲ ਕਰੋ। '<ph name="INVALIDADDRESS" />' ਵਿੱਚ ਇੱਕ '<ph name="ATSIGN" />' ਲੁਪਤ ਹੈ।</translation>
 <translation id="7891486169920085145">ਸਪਲਿਟਰ</translation>
 <translation id="795667975304826397">ਕੋਈ ਫਾਈਲ ਨਹੀਂ ਚੁਣੀ</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> ਨੂੰ ਨਹੀਂ ਚੁਣਿਆ ਗਿਆ</translation>
 <translation id="8034303206267677282">ਮਜ਼ਬੂਤ</translation>
 <translation id="8053789581856978548">ਲਿਖਤ ਖੇਤਰ ਖੋਜੋ</translation>
 <translation id="8057695513531652401">ਸੂਚਨਾ</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">ਮਹੀਨਾ</translation>
 <translation id="901493112792887934">ਸਕਿੰਟਾਂ ਵਿੱਚ ਮੌਜੂਦਾ ਸਮਾਂ</translation>
 <translation id="901834265349196618">ਈਮੇਲ</translation>
-<translation id="9023835124071926463">ਟਿੱਪਣੀ ਸੈਕਸ਼ਨ</translation>
 <translation id="9048119486235211610">ਨੈਵੀਗੇਸ਼ਨ</translation>
 <translation id="9062295712474918030">ਦਸਤਾਵੇਜ਼</translation>
 <translation id="9093215626363556771">ਤਸਵੀਰ-ਵਿੱਚ-ਤਸਵੀਰ ਤੋਂ ਬਾਹਰ ਜਾਓ</translation>

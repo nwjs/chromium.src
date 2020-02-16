@@ -14,7 +14,8 @@
 #include "ui/events/devices/x11/touch_factory_x11.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
 #include "ui/events/ozone/layout/stub/stub_keyboard_layout_engine.h"
-#include "ui/events/platform/x11/x11_event_source_default.h"
+#include "ui/events/platform/x11/x11_event_source.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/x/x11_connection.h"
 #include "ui/gfx/x/x11_types.h"
 #include "ui/ozone/common/stub_overlay_manager.h"
@@ -108,7 +109,8 @@ class OzonePlatformX11 : public OzonePlatform {
   }
 
   std::unique_ptr<InputMethod> CreateInputMethod(
-      internal::InputMethodDelegate* delegate) override {
+      internal::InputMethodDelegate* delegate,
+      gfx::AcceleratedWidget) override {
 #if defined(OS_CHROMEOS)
     return std::make_unique<InputMethodChromeOS>(delegate);
 #else
@@ -175,7 +177,7 @@ class OzonePlatformX11 : public OzonePlatform {
       return;
 
     XDisplay* display = gfx::GetXDisplay();
-    event_source_ = std::make_unique<X11EventSourceDefault>(display);
+    event_source_ = std::make_unique<X11EventSource>(display);
   }
 
   bool common_initialized_ = false;
@@ -192,7 +194,7 @@ class OzonePlatformX11 : public OzonePlatform {
   std::unique_ptr<X11SurfaceFactory> surface_factory_ozone_;
 
   // Objects in both UI and GPU process.
-  std::unique_ptr<X11EventSourceDefault> event_source_;
+  std::unique_ptr<X11EventSource> event_source_;
 
   DISALLOW_COPY_AND_ASSIGN(OzonePlatformX11);
 };

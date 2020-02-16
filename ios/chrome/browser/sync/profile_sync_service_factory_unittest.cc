@@ -43,7 +43,7 @@ class ProfileSyncServiceFactoryTest : public PlatformTest {
  protected:
   // Returns the collection of default datatypes.
   std::vector<syncer::ModelType> DefaultDatatypes() {
-    static_assert(40 == syncer::ModelType::NUM_ENTRIES,
+    static_assert(41 == syncer::ModelType::NUM_ENTRIES,
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
@@ -101,7 +101,7 @@ class ProfileSyncServiceFactoryTest : public PlatformTest {
         syncer::ModelTypeSetToString(disabled_types));
   }
 
-  ios::ChromeBrowserState* chrome_browser_state() {
+  ChromeBrowserState* chrome_browser_state() {
     return chrome_browser_state_.get();
   }
 

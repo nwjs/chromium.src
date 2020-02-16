@@ -36,7 +36,6 @@
 
 #include "base/memory/scoped_refptr.h"
 
-#include "mojo/public/cpp/bindings/binding_set.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
@@ -46,6 +45,7 @@
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
 
@@ -54,7 +54,6 @@ class WebDevToolsAgentImpl;
 class WebLocalFrameImpl;
 class WebSpellCheckPanelHostClient;
 enum class GlobalObjectReusePolicy;
-struct WebScrollIntoViewParams;
 
 class LocalFrameClientImpl final : public LocalFrameClient {
  public:
@@ -115,7 +114,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   void BeginNavigation(
       const ResourceRequest&,
-      network::mojom::RequestContextFrameType,
+      mojom::RequestContextFrameType,
       Document* origin_document,
       DocumentLoader*,
       WebNavigationType,
@@ -125,7 +124,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       bool is_client_redirect,
       TriggeringEventInfo,
       HTMLFormElement*,
-      ContentSecurityPolicyDisposition should_bypass_main_world_csp,
+      network::mojom::CSPDisposition should_bypass_main_world_csp,
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
       base::TimeTicks input_start_time,
       const String& href_translate,
@@ -135,12 +134,9 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
-  void ProgressEstimateChanged(double progress_estimate) override;
-  void ForwardResourceTimingToParent(const WebResourceTimingInfo&) override;
   void DownloadURL(const ResourceRequest&,
                    network::mojom::RedirectMode) override;
   bool NavigateBackForward(int offset) const override;
-  void DidAccessInitialDocument() override;
   void DidRunInsecureContent(const SecurityOrigin*,
                              const KURL& insecure_url) override;
   void DidDispatchPingLoader(const KURL&) override;
@@ -165,6 +161,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   DocumentLoader* CreateDocumentLoader(
       LocalFrame*,
       WebNavigationType,
+      ContentSecurityPolicy*,
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
 
@@ -205,7 +202,8 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DidChangeFramePolicy(Frame* child_frame, const FramePolicy&) override;
   void DidSetFramePolicyHeaders(
       WebSandboxFlags,
-      const ParsedFeaturePolicy& parsed_header) override;
+      const ParsedFeaturePolicy& fp_header,
+      const blink::DocumentPolicy::FeatureState& dp_header) override;
   void DidAddContentSecurityPolicies(
       const blink::WebVector<WebContentSecurityPolicy>&) override;
   void DidChangeFrameOwnerProperties(HTMLFrameOwnerElement*) override;
@@ -225,9 +223,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   KURL OverrideFlashEmbedWithHTML(const KURL&) override;
 
   void NotifyUserActivation(bool need_browser_verification) override;
-  void ConsumeUserActivation() override;
-
-  void SetHasReceivedUserGestureBeforeNavigation(bool value) override;
+  void ConsumeTransientUserActivation() override;
 
   void AbortClientNavigation() override;
 
@@ -246,18 +242,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   void AnnotatedRegionsChanged() override;
 
-  void DidBlockNavigation(const KURL& blocked_url,
-                          const KURL& initiator_url,
-                          blink::NavigationBlockedReason reason) override;
-
   base::UnguessableToken GetDevToolsFrameToken() const override;
-
-  void ScrollRectToVisibleInParentFrame(
-      const WebRect&,
-      const WebScrollIntoViewParams&) override;
-
-  void BubbleLogicalScrollInParentFrame(ScrollDirection direction,
-                                        ScrollGranularity granularity) override;
 
   String evaluateInInspectorOverlayForTesting(const String& script) override;
 
@@ -270,6 +255,9 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   Frame* FindFrame(const AtomicString& name) const override;
 
   void FrameRectsChanged(const IntRect&) override;
+
+  void OnMainFrameDocumentIntersectionChanged(
+      const IntRect& intersection_rect) override;
 
   bool IsPluginHandledExternally(HTMLPlugInElement&,
                                  const KURL&,
@@ -306,11 +294,12 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   blink::UserAgentMetadata user_agent_metadata_;
 };
 
-DEFINE_TYPE_CASTS(LocalFrameClientImpl,
-                  LocalFrameClient,
-                  client,
-                  client->IsLocalFrameClientImpl(),
-                  client.IsLocalFrameClientImpl());
+template <>
+struct DowncastTraits<LocalFrameClientImpl> {
+  static bool AllowFrom(const LocalFrameClient& client) {
+    return client.IsLocalFrameClientImpl();
+  }
+};
 
 }  // namespace blink
 

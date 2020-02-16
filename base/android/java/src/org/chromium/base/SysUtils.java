@@ -177,6 +177,7 @@ public class SysUtils {
             return false;
         }
 
+        // If this logic changes, update the comments above base::SysUtils::IsLowEndDevice.
         sAmountOfPhysicalMemoryKB = detectAmountOfPhysicalMemoryKB();
         boolean isLowEnd = true;
         if (sAmountOfPhysicalMemoryKB <= 0) {
@@ -228,6 +229,11 @@ public class SysUtils {
             Log.v(TAG, "Cannot get disk data capacity", e);
         }
         return false;
+    }
+
+    @VisibleForTesting
+    public static void setAmountOfPhysicalMemoryKBForTesting(int physicalMemoryKB) {
+        sAmountOfPhysicalMemoryKB = physicalMemoryKB;
     }
 
     @NativeMethods

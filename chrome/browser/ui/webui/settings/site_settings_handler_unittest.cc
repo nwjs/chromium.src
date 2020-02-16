@@ -28,7 +28,7 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/permissions/chooser_context_base.h"
 #include "chrome/browser/permissions/chooser_context_base_mock_permission_observer.h"
-#include "chrome/browser/permissions/permission_decision_auto_blocker.h"
+#include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/permissions/permission_uma_util.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -46,6 +46,7 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/infobars/core/infobar.h"
+#include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/navigation_controller.h"
@@ -611,8 +612,8 @@ TEST_F(SiteSettingsHandlerTest, MAYBE_GetAllSites) {
   }
 
   // Test embargoed settings also appear.
-  PermissionDecisionAutoBlocker* auto_blocker =
-      PermissionDecisionAutoBlocker::GetForProfile(profile());
+  permissions::PermissionDecisionAutoBlocker* auto_blocker =
+      PermissionDecisionAutoBlockerFactory::GetForProfile(profile());
   base::SimpleTestClock clock;
   clock.SetNow(base::Time::Now());
   auto_blocker->SetClockForTesting(&clock);
@@ -947,7 +948,7 @@ TEST_F(SiteSettingsHandlerTest, NotificationPermissionRevokeUkm) {
   EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "PermissionType"),
             static_cast<int64_t>(ContentSettingsType::NOTIFICATIONS));
   EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "Action"),
-            static_cast<int64_t>(PermissionAction::REVOKED));
+            static_cast<int64_t>(permissions::PermissionAction::REVOKED));
 }
 
 TEST_F(SiteSettingsHandlerTest, DefaultSettingSource) {
@@ -1564,10 +1565,6 @@ TEST_F(SiteSettingsHandlerTest, BlockAutoplay_Update) {
 
 namespace {
 
-const GURL kAndroidUrl("https://android.com");
-const GURL kChromiumUrl("https://chromium.org");
-const GURL kGoogleUrl("https://google.com");
-
 constexpr char kUsbPolicySetting[] = R"(
     [
       {
@@ -1584,6 +1581,18 @@ constexpr char kUsbPolicySetting[] = R"(
         "urls": ["https://google.com,https://google.com"]
       }
     ])";
+
+// TODO(https://crbug.com/1042727): Fix test GURL scoping and remove this getter
+// function.
+GURL AndroidUrl() {
+  return GURL("https://android.com");
+}
+GURL ChromiumUrl() {
+  return GURL("https://chromium.org");
+}
+GURL GoogleUrl() {
+  return GURL("https://google.com");
+}
 
 }  // namespace
 
@@ -1627,9 +1636,9 @@ class SiteSettingsHandlerChooserExceptionTest : public SiteSettingsHandlerTest {
         base::DoNothing::Once<std::vector<device::mojom::UsbDeviceInfoPtr>>());
     base::RunLoop().RunUntilIdle();
 
-    const auto kAndroidOrigin = url::Origin::Create(kAndroidUrl);
-    const auto kChromiumOrigin = url::Origin::Create(kChromiumUrl);
-    const auto kGoogleOrigin = url::Origin::Create(kGoogleUrl);
+    const auto kAndroidOrigin = url::Origin::Create(AndroidUrl());
+    const auto kChromiumOrigin = url::Origin::Create(ChromiumUrl());
+    const auto kGoogleOrigin = url::Origin::Create(GoogleUrl());
 
     // Add the user granted permissions for testing.
     // These two persistent device permissions should be lumped together with
@@ -1670,8 +1679,8 @@ class SiteSettingsHandlerChooserExceptionTest : public SiteSettingsHandlerTest {
         base::DoNothing::Once<std::vector<device::mojom::UsbDeviceInfoPtr>>());
     base::RunLoop().RunUntilIdle();
 
-    const auto kAndroidOrigin = url::Origin::Create(kAndroidUrl);
-    const auto kChromiumOrigin = url::Origin::Create(kChromiumUrl);
+    const auto kAndroidOrigin = url::Origin::Create(AndroidUrl());
+    const auto kChromiumOrigin = url::Origin::Create(ChromiumUrl());
     chooser_context->GrantDevicePermission(kChromiumOrigin, kAndroidOrigin,
                                            *off_the_record_device_);
 
@@ -1836,10 +1845,10 @@ TEST_F(SiteSettingsHandlerChooserExceptionTest,
   const std::string kUsbChooserGroupName =
       site_settings::ContentSettingsTypeToGroupName(
           ContentSettingsType::USB_CHOOSER_DATA);
-  const auto kAndroidOrigin = url::Origin::Create(kAndroidUrl);
-  const auto kChromiumOrigin = url::Origin::Create(kChromiumUrl);
-  const std::string kAndroidOriginStr = kAndroidUrl.GetOrigin().spec();
-  const std::string kChromiumOriginStr = kChromiumUrl.GetOrigin().spec();
+  const auto kAndroidOrigin = url::Origin::Create(AndroidUrl());
+  const auto kChromiumOrigin = url::Origin::Create(ChromiumUrl());
+  const std::string kAndroidOriginStr = AndroidUrl().GetOrigin().spec();
+  const std::string kChromiumOriginStr = ChromiumUrl().GetOrigin().spec();
 
   {
     const base::Value& exceptions = GetChooserExceptionListFromWebUiCallData(

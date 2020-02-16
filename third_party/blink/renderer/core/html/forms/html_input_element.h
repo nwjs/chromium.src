@@ -26,6 +26,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_HTML_INPUT_ELEMENT_H_
 
 #include "base/gtest_prod_util.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/create_element_flags.h"
@@ -126,6 +127,9 @@ class CORE_EXPORT HTMLInputElement
   // by JS to determine checked state
   bool ShouldAppearChecked() const;
   bool ShouldAppearIndeterminate() const override;
+
+  // Returns null if this isn't associated with any radio button group.
+  RadioButtonGroupScope* GetRadioButtonGroupScope() const;
 
   unsigned size() const;
   bool SizeShouldIncludeDecoration(int& preferred_size) const;
@@ -232,6 +236,10 @@ class CORE_EXPORT HTMLInputElement
   bool CanReceiveDroppedFiles() const;
   void SetCanReceiveDroppedFiles(bool);
 
+  // Returns 'Choose File(s)' button in a file control. This returns
+  // nullptr for other input types.
+  HTMLInputElement* UploadButton() const;
+
   void OnSearch();
 
   void UpdateClearButtonVisibility();
@@ -245,9 +253,6 @@ class CORE_EXPORT HTMLInputElement
   // Associated <datalist> options which match to the current INPUT value.
   HeapVector<Member<HTMLOptionElement>> FilteredDataListOptions() const;
 
-  HTMLInputElement* CheckedRadioButtonForGroup();
-  bool IsInRequiredRadioButtonGroup();
-
   // Functions for InputType classes.
   void SetNonAttributeValue(const String&);
   void SetNonAttributeValueByUserEdit(const String&);
@@ -257,9 +262,14 @@ class CORE_EXPORT HTMLInputElement
 
   // For test purposes.
   void SelectColorInColorChooser(const Color&);
-  void EndColorChooser();
+  void EndColorChooserForTesting();
 
   String DefaultToolTip() const override;
+
+  // Type=file only: Text not in the button such as "No file chosen". The string
+  // is not truncated by ellipsis.
+  // Return a null string for other types.
+  String FileStatusText() const;
 
   unsigned height() const;
   unsigned width() const;
@@ -320,6 +330,8 @@ class CORE_EXPORT HTMLInputElement
 
   void SetHasBeenPasswordField() { has_been_password_field_ = true; }
 
+  bool IsDraggedSlider() const;
+
  protected:
   void DefaultEventHandler(Event&) override;
   void CreateShadowSubtree();
@@ -337,6 +349,7 @@ class CORE_EXPORT HTMLInputElement
   bool HasCustomFocusLogic() const final;
   bool IsKeyboardFocusable() const final;
   bool MayTriggerVirtualKeyboard() const final;
+  bool ShouldHaveFocusAppearance() const final;
   bool IsEnumeratable() const final;
   bool IsInteractiveContent() const final;
   bool IsLabelable() const final;
@@ -366,6 +379,7 @@ class CORE_EXPORT HTMLInputElement
 
   void CloneNonAttributePropertiesFrom(const Element&, CloneChildrenFlag) final;
 
+  bool TypeShouldForceLegacyLayout() const final;
   void AttachLayoutTree(AttachContext&) final;
 
   void AppendToFormData(FormData&) final;
@@ -397,7 +411,7 @@ class CORE_EXPORT HTMLInputElement
   void HandleBlurEvent() final;
   void DispatchFocusInEvent(const AtomicString& event_type,
                             Element* old_focused_element,
-                            WebFocusType,
+                            mojom::blink::FocusType,
                             InputDeviceCapabilities* source_capabilities) final;
 
   bool IsOptionalFormControl() const final { return !IsRequiredFormControl(); }
@@ -414,8 +428,6 @@ class CORE_EXPORT HTMLInputElement
   void SetListAttributeTargetObserver(ListAttributeTargetObserver*);
   void ResetListAttributeTargetObserver();
 
-  // Returns null if this isn't associated with any radio button group.
-  RadioButtonGroupScope* GetRadioButtonGroupScope() const;
   void AddToRadioButtonGroup();
   void RemoveFromRadioButtonGroup();
   scoped_refptr<ComputedStyle> CustomStyleForLayoutObject() override;

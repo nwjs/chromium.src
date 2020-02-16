@@ -62,6 +62,7 @@
 #include "net/http/http_auth_handler_digest.h"
 #include "net/http/http_auth_handler_mock.h"
 #include "net/http/http_auth_handler_ntlm.h"
+#include "net/http/http_auth_ntlm_mechanism.h"
 #include "net/http/http_auth_scheme.h"
 #include "net/http/http_basic_stream.h"
 #include "net/http/http_network_session.h"
@@ -880,6 +881,32 @@ TEST_F(HttpNetworkTransactionTest, SimpleGETNoReadDestroyRequestInfo) {
   }  // Let request info be destroyed.
 
   trans.reset();
+}
+
+// Test that a failure in resolving the hostname is retrievable.
+TEST_F(HttpNetworkTransactionTest, SimpleGETHostResolutionFailure) {
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("http://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  RecordingTestNetLog log;
+  MockHostResolver* resolver = new MockHostResolver();
+  resolver->rules()->AddSimulatedTimeoutFailure("www.example.org");
+  session_deps_.net_log = &log;
+  session_deps_.host_resolver.reset(resolver);
+  std::unique_ptr<HttpNetworkSession> session = CreateSession(&session_deps_);
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+  TestCompletionCallback callback;
+
+  int rv = trans.Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+  EXPECT_THAT(callback.WaitForResult(), IsError(ERR_NAME_NOT_RESOLVED));
+
+  const HttpResponseInfo* response = trans.GetResponseInfo();
+  ASSERT_TRUE(response);
+  EXPECT_THAT(response->resolve_error_info.error, IsError(ERR_DNS_TIMED_OUT));
 }
 
 // Allow up to 4 bytes of junk to precede status line.
@@ -6041,6 +6068,35 @@ TEST_F(HttpNetworkTransactionTest, ProxyResolvedWithNetworkIsolationKey) {
   EXPECT_THAT(callback.GetResult(rv), IsError(ERR_FAILED));
 }
 
+// Test that a failure in resolving the proxy hostname is retrievable.
+TEST_F(HttpNetworkTransactionTest, ProxyHostResolutionFailure) {
+  HttpRequestInfo request;
+  request.method = "GET";
+  request.url = GURL("http://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  RecordingTestNetLog log;
+  // Configure against https proxy server "proxy:70".
+  session_deps_.proxy_resolution_service = ProxyResolutionService::CreateFixed(
+      "https://proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
+  MockHostResolver* resolver = new MockHostResolver();
+  resolver->rules()->AddSimulatedTimeoutFailure("proxy");
+  session_deps_.net_log = &log;
+  session_deps_.host_resolver.reset(resolver);
+  std::unique_ptr<HttpNetworkSession> session = CreateSession(&session_deps_);
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+  TestCompletionCallback callback;
+
+  int rv = trans.Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+  EXPECT_THAT(callback.WaitForResult(), IsError(ERR_PROXY_CONNECTION_FAILED));
+
+  const HttpResponseInfo* response = trans.GetResponseInfo();
+  ASSERT_TRUE(response);
+  EXPECT_THAT(response->resolve_error_info.error, IsError(ERR_DNS_TIMED_OUT));
+}
+
 // Test a simple get through an HTTPS Proxy.
 TEST_F(HttpNetworkTransactionTest, HttpsProxyGet) {
   HttpRequestInfo request;
@@ -7835,7 +7891,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2) {
   // to other auth schemes.
   request.load_flags = LOAD_DO_NOT_USE_EMBEDDED_IDENTITY;
 
-  HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
+  HttpAuthNtlmMechanism::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 
@@ -7987,7 +8043,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2WrongThenRightPassword) {
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
-  HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
+  HttpAuthNtlmMechanism::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 
@@ -8211,7 +8267,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2WrongThenRightPassword) {
 // Server requests NTLM authentication, which is not supported over HTTP/2.
 // Subsequent request with authorization header should be sent over HTTP/1.1.
 TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
-  HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
+  HttpAuthNtlmMechanism::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
 
   const char* kUrl = "https://server/kids/login.aspx";
@@ -8374,7 +8430,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
 TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2WithWebsockets) {
   const GURL kInitialUrl("https://server/");
   const GURL kWebSocketUrl("wss://server/");
-  HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
+  HttpAuthNtlmMechanism::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
 
   // Initial request establishes an H2 connection, which will then be reused for
@@ -8613,7 +8669,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
   // to other auth schemes.
   request.load_flags = LOAD_DO_NOT_USE_EMBEDDED_IDENTITY;
 
-  HttpAuthHandlerNTLM::ScopedProcSetter proc_setter(
+  HttpAuthNtlmMechanism::ScopedProcSetter proc_setter(
       MockGetMSTime, MockGenerateRandom, MockGetHostName);
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 

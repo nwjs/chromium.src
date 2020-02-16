@@ -7,9 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
-namespace ios {
 class ChromeBrowserState;
-}
 class WebOmniboxEditController;
 @class CommandDispatcher;
 @protocol EditViewAnimatee;
@@ -24,7 +22,7 @@ class WebOmniboxEditController;
 // code. Needs to be set before the coordinator is started.
 @property(nonatomic, assign) WebOmniboxEditController* editController;
 // Weak reference to ChromeBrowserState;
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 // The dispatcher for this view controller.
 @property(nonatomic, weak) CommandDispatcher* dispatcher;
 // Returns the animatee for the omnibox focus orchestrator.

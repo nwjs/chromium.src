@@ -47,8 +47,6 @@
 #include "device/fido/virtual_fido_device_factory.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/dns/mock_host_resolver.h"
-#include "services/device/public/mojom/constants.mojom.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
@@ -370,8 +368,7 @@ class WebAuthBrowserTestContentBrowserClient : public ContentBrowserClient {
 
   std::unique_ptr<AuthenticatorRequestClientDelegate>
   GetWebAuthenticationRequestDelegate(
-      RenderFrameHost* render_frame_host,
-      const std::string& relying_party_id) override {
+      RenderFrameHost* render_frame_host) override {
     test_state_->delegate_create_count++;
     return std::make_unique<WebAuthBrowserTestClientDelegate>(test_state_);
   }
@@ -388,9 +385,7 @@ class WebAuthBrowserTestBase : public content::ContentBrowserTest {
   WebAuthBrowserTestBase()
       : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {}
 
-  virtual std::vector<base::Feature> GetFeaturesToEnable() {
-    return {features::kWebAuth, features::kWebAuthBle};
-  }
+  virtual std::vector<base::Feature> GetFeaturesToEnable() { return {}; }
 
   void SetUpOnMainThread() override {
     ContentBrowserTest::SetUpOnMainThread();
@@ -697,7 +692,7 @@ IN_PROC_BROWSER_TEST_F(WebAuthLocalClientBrowserTest,
   // serviced at all, so the fake request should still be pending on the fake
   // factory.
   auto hid_discovery = discovery_factory_->Create(
-      ::device::FidoTransportProtocol::kUsbHumanInterfaceDevice, nullptr);
+      ::device::FidoTransportProtocol::kUsbHumanInterfaceDevice);
   ASSERT_TRUE(!!hid_discovery);
 
   // The next active document should be able to successfully call
@@ -784,7 +779,7 @@ class WebAuthJavascriptClientBrowserTest : public WebAuthBrowserTestBase {
 
  protected:
   std::vector<base::Feature> GetFeaturesToEnable() override {
-    return {features::kWebAuth, device::kWebAuthFeaturePolicy};
+    return {device::kWebAuthFeaturePolicy};
   }
 
  private:
@@ -1465,10 +1460,6 @@ class WebAuthBrowserBleDisabledTest : public WebAuthLocalClientBrowserTest {
   WebAuthBrowserBleDisabledTest() {}
 
  protected:
-  std::vector<base::Feature> GetFeaturesToEnable() override {
-    return {features::kWebAuth};
-  }
-
   device::test::FakeFidoDiscoveryFactory* discovery_factory;
 
  private:

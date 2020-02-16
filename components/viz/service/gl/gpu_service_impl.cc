@@ -16,6 +16,7 @@
 #include "base/task_runner_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
+#include "components/viz/common/features.h"
 #include "components/viz/common/gpu/metal_context_provider.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "components/viz/common/gpu/vulkan_in_process_context_provider.h"
@@ -29,6 +30,7 @@
 #include "gpu/config/gpu_info_collector.h"
 #include "gpu/config/gpu_switches.h"
 #include "gpu/config/gpu_util.h"
+#include "gpu/config/skia_limits.h"
 #include "gpu/ipc/common/gpu_client_ids.h"
 #include "gpu/ipc/common/gpu_memory_buffer_support.h"
 #include "gpu/ipc/common/memory_stats.h"
@@ -169,10 +171,22 @@ GpuServiceImpl::GpuServiceImpl(
   protected_buffer_manager_ = new arc::ProtectedBufferManager();
 #endif  // defined(OS_CHROMEOS)
 
+  size_t max_resource_cache_bytes;
+  size_t max_glyph_cache_texture_bytes;
+  gpu::DetermineGrCacheLimitsFromAvailableMemory(
+      &max_resource_cache_bytes, &max_glyph_cache_texture_bytes);
+  GrContextOptions context_options;
+  context_options.fGlyphCacheTextureMaximumBytes =
+      max_glyph_cache_texture_bytes;
+  if (gpu_preferences_.force_max_texture_size) {
+    context_options.fMaxTextureSizeOverride =
+        gpu_preferences_.force_max_texture_size;
+  }
+
 #if BUILDFLAG(ENABLE_VULKAN)
   if (vulkan_implementation_) {
-    vulkan_context_provider_ =
-        VulkanInProcessContextProvider::Create(vulkan_implementation_);
+    vulkan_context_provider_ = VulkanInProcessContextProvider::Create(
+        vulkan_implementation_, context_options);
     if (vulkan_context_provider_) {
       // If Vulkan is supported, then OOP-R is supported.
       gpu_info_.oop_rasterization_supported = true;
@@ -205,7 +219,7 @@ GpuServiceImpl::GpuServiceImpl(
 #if defined(OS_MACOSX)
   if (gpu_feature_info_.status_values[gpu::GPU_FEATURE_TYPE_METAL] ==
       gpu::kGpuFeatureStatusEnabled) {
-    metal_context_provider_ = MetalContextProvider::Create();
+    metal_context_provider_ = MetalContextProvider::Create(context_options);
   }
 #endif
 
@@ -284,11 +298,6 @@ void GpuServiceImpl::UpdateGPUInfo() {
   // Record initialization only after collecting the GPU info because that can
   // take a significant amount of time.
   gpu_info_.initialization_time = base::Time::Now() - start_time_;
-
-  // For the GPU watchdog - how long the init might take on a slow machine?
-  UMA_HISTOGRAM_CUSTOM_TIMES(
-      "GPU.GPUInitializationTime", gpu_info_.initialization_time,
-      base::TimeDelta::FromSeconds(1), base::TimeDelta::FromSeconds(60), 50);
 }
 
 void GpuServiceImpl::InitializeWithHost(
@@ -320,11 +329,17 @@ void GpuServiceImpl::InitializeWithHost(
   }
 
   if (!shared_image_manager) {
-    // The shared image will be only used on GPU main thread, so it doesn't need
-    // to be thread safe.
-    owned_shared_image_manager_ =
-        std::make_unique<gpu::SharedImageManager>(false /* thread_safe */);
+    // When using real buffers for testing overlay configurations, we need
+    // access to SharedImageManager on the viz thread to obtain the buffer
+    // corresponding to a mailbox.
+    bool thread_safe_manager = features::ShouldUseRealBuffersForPageFlipTest();
+    owned_shared_image_manager_ = std::make_unique<gpu::SharedImageManager>(
+        thread_safe_manager, false /* display_context_on_another_thread */);
     shared_image_manager = owned_shared_image_manager_.get();
+  } else {
+    // With this feature enabled, we don't expect to receive an external
+    // SharedImageManager.
+    DCHECK(!features::ShouldUseRealBuffersForPageFlipTest());
   }
 
   shutdown_event_ = shutdown_event;
@@ -837,6 +852,20 @@ void GpuServiceImpl::GpuSwitched(gl::GpuPreference active_gpu_heuristic) {
         active_gpu_heuristic);
 }
 
+void GpuServiceImpl::DisplayAdded() {
+  DVLOG(1) << "GPU: A monitor is plugged in";
+
+  if (!in_host_process())
+    ui::GpuSwitchingManager::GetInstance()->NotifyDisplayAdded();
+}
+
+void GpuServiceImpl::DisplayRemoved() {
+  DVLOG(1) << "GPU: A monitor is unplugged ";
+
+  if (!in_host_process())
+    ui::GpuSwitchingManager::GetInstance()->NotifyDisplayRemoved();
+}
+
 void GpuServiceImpl::DestroyAllChannels() {
   if (io_runner_->BelongsToCurrentThread()) {
     main_runner_->PostTask(
@@ -882,6 +911,14 @@ void GpuServiceImpl::OnForegrounded() {
   if (watchdog_thread_)
     watchdog_thread_->OnForegrounded();
 }
+
+#if !defined(OS_ANDROID)
+void GpuServiceImpl::OnMemoryPressure(
+    ::base::MemoryPressureListener::MemoryPressureLevel level) {
+  // Forward the notification to the registry of MemoryPressureListeners.
+  base::MemoryPressureListener::NotifyMemoryPressure(level);
+}
+#endif
 
 #if defined(OS_MACOSX)
 void GpuServiceImpl::BeginCATransaction() {

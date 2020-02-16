@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.chrome.browser.tasks.tab_management.MessageCardViewProperties.MESSAGE_TYPE;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_ALPHA;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
 
@@ -14,12 +16,16 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.content.res.AppCompatResources;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Pair;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -38,24 +44,24 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFeatureUtilities;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelFilter;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.EmptyTabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.util.UrlUtilities;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -92,7 +98,7 @@ class TabListMediator {
          * @see TabContentManager#getTabThumbnailWithCallback
          */
         void getTabThumbnailWithCallback(
-                Tab tab, Callback<Bitmap> callback, boolean forceUpdate, boolean writeToCache);
+                int tabId, Callback<Bitmap> callback, boolean forceUpdate, boolean writeToCache);
     }
 
     /**
@@ -121,6 +127,30 @@ class TabListMediator {
     }
 
     /**
+     * An interface to expose functionality needed to support reordering in grid layouts in
+     * accessibility mode.
+     */
+    public interface TabGridAccessibilityHelper {
+        /**
+         * This method gets the possible actions for reordering a tab in grid layout.
+         *
+         * @param view The host view that triggers the accessibility action.
+         * @return The list of possible {@link AccessibilityAction}s for host view.
+         */
+        List<AccessibilityAction> getPotentialActionsForView(View view);
+
+        /**
+         * This method gives the previous and target position of current reordering based on the
+         * host view and current action.
+         *
+         * @param view   The host view that triggers the accessibility action.
+         * @param action The id of the action.
+         * @return {@link Pair} that contains previous and target position of this action.
+         */
+        Pair<Integer, Integer> getPositionsOfReorderAction(View view, int action);
+    }
+
+    /**
      * The object to set to {@link TabProperties#THUMBNAIL_FETCHER} for the TabGridViewBinder to
      * obtain the thumbnail asynchronously.
      */
@@ -146,8 +176,9 @@ class TabListMediator {
                 callback.onResult(bitmap);
             };
             sFetchCountForTesting++;
+            int tabId = mTab != null ? mTab.getId() : Tab.INVALID_TAB_ID;
             mThumbnailProvider.getTabThumbnailWithCallback(
-                    mTab, forking, mForceUpdate, mWriteToCache);
+                    tabId, forking, mForceUpdate, mWriteToCache);
         }
     }
 
@@ -239,7 +270,6 @@ class TabListMediator {
     private ComponentCallbacks mComponentCallbacks;
     private TabGridItemTouchHelperCallback mTabGridItemTouchHelperCallback;
     private int mNextTabId = Tab.INVALID_TAB_ID;
-    private boolean mTabRestoreCompleted;
     private @UiType int mUiType;
 
     private final TabActionListener mTabSelectedListener = new TabActionListener() {
@@ -345,12 +375,13 @@ class TabListMediator {
 
         @Override
         public void onUrlUpdated(Tab tab) {
+            if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) return;
             int index = mModel.indexFromId(tab.getId());
 
-            if (index == TabModel.INVALID_TAB_INDEX && mActionsOnAllRelatedTabs
-                    && FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
+            if (index == TabModel.INVALID_TAB_INDEX && mActionsOnAllRelatedTabs) {
                 Tab currentGroupSelectedTab =
                         TabGroupUtils.getSelectedTabInGroupForTab(mTabModelSelector, tab);
+                if (currentGroupSelectedTab == null) return;
                 index = mModel.indexFromId(currentGroupSelectedTab.getId());
             }
 
@@ -364,6 +395,8 @@ class TabListMediator {
     private TabGroupTitleEditor mTabGroupTitleEditor;
 
     private TabGroupModelFilter.Observer mTabGroupObserver;
+
+    private View.AccessibilityDelegate mAccessibilityDelegate;
 
     /**
      * Interface for implementing a {@link Runnable} that takes a tabId for a generic action.
@@ -473,7 +506,10 @@ class TabListMediator {
 
             @Override
             public void didAddTab(Tab tab, @TabLaunchType int type) {
-                if (!mTabRestoreCompleted) return;
+                boolean isTabModelRestoreCompleted = mTabModelSelector.getTabModelFilterProvider()
+                                                             .getCurrentTabModelFilter()
+                                                             .isTabModelRestored();
+                if (!isTabModelRestoreCompleted) return;
                 onTabAdded(tab, !mActionsOnAllRelatedTabs);
                 if (type == TabLaunchType.FROM_RESTORE && mActionsOnAllRelatedTabs) {
                     // When tab is restored after restoring stage (e.g. exiting multi-window mode,
@@ -515,11 +551,6 @@ class TabListMediator {
             public void tabRemoved(Tab tab) {
                 if (mModel.indexFromId(tab.getId()) == TabModel.INVALID_TAB_INDEX) return;
                 mModel.removeAt(mModel.indexFromId(tab.getId()));
-            }
-
-            @Override
-            public void restoreCompleted() {
-                mTabRestoreCompleted = true;
             }
         };
 
@@ -853,7 +884,10 @@ class TabListMediator {
         if (tabs.size() != tabsCount) return false;
 
         for (int i = 0; i < tabs.size(); i++) {
-            if (tabs.get(i).getId() != mModel.get(i).model.get(TabProperties.TAB_ID)) return false;
+            if (mModel.get(i).model.get(CARD_TYPE) == TAB
+                    && mModel.get(i).model.get(TabProperties.TAB_ID) != tabs.get(i).getId()) {
+                return false;
+            }
         }
         return true;
     }
@@ -987,7 +1021,7 @@ class TabListMediator {
     }
 
     /**
-     * Update the grid layout span count base on orientation.
+     * Update the grid layout span count and span size lookup base on orientation.
      * @param manager     The {@link GridLayoutManager} used to update the span count.
      * @param orientation The orientation base on which we update the span count.
      */
@@ -997,9 +1031,53 @@ class TabListMediator {
             manager.setSpanCount(TabListCoordinator.GRID_LAYOUT_SPAN_COUNT_PORTRAIT);
             return;
         }
-        manager.setSpanCount(orientation == Configuration.ORIENTATION_PORTRAIT
-                        ? TabListCoordinator.GRID_LAYOUT_SPAN_COUNT_PORTRAIT
-                        : TabListCoordinator.GRID_LAYOUT_SPAN_COUNT_LANDSCAPE);
+        int spanCount = orientation == Configuration.ORIENTATION_PORTRAIT
+                ? TabListCoordinator.GRID_LAYOUT_SPAN_COUNT_PORTRAIT
+                : TabListCoordinator.GRID_LAYOUT_SPAN_COUNT_LANDSCAPE;
+        manager.setSpanCount(spanCount);
+        manager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                int itemType = mModel.get(position).type;
+
+                if (itemType == TabProperties.UiType.MESSAGE) return spanCount;
+                return 1;
+            }
+        });
+    }
+
+    /**
+     * Setup the {@link View.AccessibilityDelegate} for grid layout.
+     * @param helper The {@link TabGridAccessibilityHelper} used to setup accessibility support.
+     */
+    void setupAccessibilityDelegate(TabGridAccessibilityHelper helper) {
+        if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) {
+            return;
+        }
+        mAccessibilityDelegate = new View.AccessibilityDelegate() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                    return;
+                }
+                for (AccessibilityAction action : helper.getPotentialActionsForView(host)) {
+                    info.addAction(action);
+                }
+            }
+
+            @Override
+            public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                Pair<Integer, Integer> positions = helper.getPositionsOfReorderAction(host, action);
+                int currentPosition = positions.first;
+                int targetPosition = positions.second;
+                if (!isValidMovePosition(currentPosition) || !isValidMovePosition(targetPosition)) {
+                    return false;
+                }
+                mModel.move(currentPosition, targetPosition);
+                return true;
+            }
+        };
     }
 
     /**
@@ -1080,7 +1158,7 @@ class TabListMediator {
                         .with(TabProperties.TAB_CLOSED_LISTENER, mTabClosedListener)
                         .with(TabProperties.CREATE_GROUP_LISTENER,
                                 getCreateGroupButtonListener(tab, isSelected))
-                        .with(TabProperties.ALPHA, 1f)
+                        .with(CARD_ALPHA, 1f)
                         .with(TabProperties.CARD_ANIMATION_STATUS,
                                 ClosableTabGridView.AnimationStatus.CARD_RESTORE)
                         .with(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER,
@@ -1091,6 +1169,7 @@ class TabListMediator {
                                 selectedTabBackgroundDrawableId)
                         .with(TabProperties.TABSTRIP_FAVICON_BACKGROUND_COLOR_ID,
                                 tabstripFaviconBackgroundDrawableId)
+                        .with(TabProperties.ACCESSIBILITY_DELEGATE, mAccessibilityDelegate)
                         .with(CARD_TYPE, TAB)
                         .build();
 
@@ -1103,7 +1182,7 @@ class TabListMediator {
                                       : R.color.default_icon_color_inverse);
             ColorStateList actionButtonBackgroundColorList =
                     AppCompatResources.getColorStateList(mContext,
-                            tab.isIncognito() ? R.color.default_icon_color_white
+                            tab.isIncognito() ? R.color.default_icon_color_light
                                               : R.color.default_icon_color);
             // TODO(995876): Update color modern_blue_300 to active_color_dark when the associated
             // bug is landed.
@@ -1136,6 +1215,7 @@ class TabListMediator {
     }
 
     private String getUrlForTab(Tab tab) {
+        if (!FeatureUtilities.isTabGroupsAndroidContinuationEnabled()) return "";
         if (!mActionsOnAllRelatedTabs) return tab.getUrl();
 
         List<Tab> relatedTabs = getRelatedTabsForId(tab.getId());
@@ -1258,7 +1338,9 @@ class TabListMediator {
      */
     void removeSpecialItemFromModel(@UiType int uiType, int itemIdentifier) {
         int index = TabModel.INVALID_TAB_INDEX;
-        if (uiType == UiType.NEW_TAB_TILE) {
+        if (uiType == UiType.MESSAGE) {
+            index = mModel.lastIndexForMessageItemFromType(itemIdentifier);
+        } else if (uiType == UiType.NEW_TAB_TILE) {
             index = mModel.getIndexForNewTabTile();
         }
 
@@ -1269,7 +1351,10 @@ class TabListMediator {
     }
 
     private boolean validateItemAt(int index, @UiType int uiType, int itemIdentifier) {
-        if (uiType == UiType.NEW_TAB_TILE) {
+        if (uiType == UiType.MESSAGE) {
+            return mModel.get(index).type == uiType
+                    && mModel.get(index).model.get(MESSAGE_TYPE) == itemIdentifier;
+        } else if (uiType == UiType.NEW_TAB_TILE) {
             return mModel.get(index).type == uiType;
         }
 
@@ -1277,7 +1362,7 @@ class TabListMediator {
     }
 
     @VisibleForTesting
-    void setTabRestoreCompletedForTesting(boolean isRestored) {
-        mTabRestoreCompleted = isRestored;
+    View.AccessibilityDelegate getAccessibilityDelegateForTesting() {
+        return mAccessibilityDelegate;
     }
 }

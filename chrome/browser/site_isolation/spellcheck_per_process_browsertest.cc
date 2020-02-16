@@ -131,17 +131,6 @@ class MockSpellCheckHost : spellcheck::mojom::SpellCheckHost {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
     std::move(callback).Run(std::vector<std::vector<base::string16>>());
   }
-
-  void RequestPartialTextCheck(
-      const base::string16& text,
-      int route_id,
-      const std::vector<SpellCheckResult>& partial_results,
-      bool fill_suggestions,
-      RequestPartialTextCheckCallback callback) override {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    std::move(callback).Run(std::vector<SpellCheckResult>());
-    TextReceived(text);
-  }
 #endif  // BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
 
 #if defined(OS_ANDROID)
@@ -297,7 +286,14 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest, OOPIFDisabledSpellCheckTest) {
 #if BUILDFLAG(HAS_SPELLCHECK_PANEL)
 // Tests that the OSX spell check panel can be opened from an out-of-process
 // subframe, crbug.com/712395
-IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest, OOPIFSpellCheckPanelTest) {
+#if defined(OS_MACOSX)
+// https://crbug.com/1032617
+#define MAYBE_OOPIFSpellCheckPanelTest DISABLED_OOPIFSpellCheckPanelTest
+#else
+#define MAYBE_OOPIFSpellCheckPanelTest OOPIFSpellCheckPanelTest
+#endif
+IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
+                       MAYBE_OOPIFSpellCheckPanelTest) {
   spellcheck::SpellCheckPanelBrowserTestHelper test_helper;
 
   GURL main_url(embedded_test_server()->GetURL(

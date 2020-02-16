@@ -20,8 +20,8 @@ import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChip.Typ
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderModel;
 import org.chromium.chrome.browser.autofill_assistant.metrics.DropOutReason;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
-import org.chromium.chrome.browser.snackbar.SnackbarManager.SnackbarController;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarController;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
@@ -193,8 +193,18 @@ class AutofillAssistantUiController {
     }
 
     @CalledByNative
+    private void showContentAndExpandBottomSheet() {
+        mCoordinator.getBottomBarCoordinator().showContentAndExpand();
+    }
+
+    @CalledByNative
     private void expandBottomSheet() {
-        mCoordinator.getBottomBarCoordinator().showAndExpand();
+        mCoordinator.getBottomBarCoordinator().expand();
+    }
+
+    @CalledByNative
+    private void collapseBottomSheet() {
+        mCoordinator.getBottomBarCoordinator().collapse();
     }
 
     @CalledByNative
@@ -210,6 +220,11 @@ class AutofillAssistantUiController {
     @CalledByNative
     private void hideKeyboard() {
         mCoordinator.getKeyboardCoordinator().hideKeyboard();
+    }
+
+    @CalledByNative
+    private void hideKeyboardIfFocusNotOnText() {
+        mCoordinator.getKeyboardCoordinator().hideKeyboardIfFocusNotOnText();
     }
 
     @CalledByNative

@@ -7,7 +7,9 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -30,6 +32,7 @@
 #include "ui/accessibility/ax_tree_manager.h"
 #include "ui/accessibility/ax_tree_observer.h"
 #include "ui/accessibility/ax_tree_update.h"
+#include "ui/accessibility/platform/ax_platform_node.h"
 #include "ui/gfx/native_widget_types.h"
 
 struct AccessibilityHostMsg_LocationChangeParams;
@@ -191,16 +194,14 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeObserver,
   // view lost focus.
   virtual void OnWindowBlurred();
 
-  virtual void UserIsReloading();
-
-  // WebContentsObserver implementation.
   // Notify the accessibility manager about page navigation.
-  // BrowserAccessibilityManager used to be manually notified at the same time
-  // WebContentsObserver's DidStartLoading(), DidStopLoading(), and
-  // DidFinishNavigation() methods were called. Since then, it was determined
-  // BrowserAccessibilityManager does not need to distinguish between
-  // DidFinishNavigation() and DidStopLoading().
-  void DidStartLoading() override;
+  // TODO(domfarolino, dmazzoni): Implement WebContentsObserver methods that
+  // correspond to the ones we provide today, so we can stop being manually
+  // notified of navigation events when they happen.
+  void UserIsNavigatingAway();
+  virtual void UserIsReloading();
+  void NavigationSucceeded();
+  void NavigationFailed();
   void DidStopLoading() override;
 
   // Keep track of if this page is hidden by an interstitial, in which case
@@ -467,6 +468,14 @@ class CONTENT_EXPORT BrowserAccessibilityManager : public ui::AXTreeObserver,
   // after it's updated the internal data structure.
   virtual void SendLocationChangeEvents(
       const std::vector<AccessibilityHostMsg_LocationChangeParams>& params);
+
+  // Given the data from an atomic update, collect the nodes that need updating
+  // assuming that this platform is one where plain text node content is
+  // directly included in parents' hypertext.
+  void CollectChangedNodesAndParentsForAtomicUpdate(
+      ui::AXTree* tree,
+      const std::vector<ui::AXTreeObserver::Change>& changes,
+      std::set<ui::AXPlatformNode*>* nodes_needing_update);
 
   static void SetLastFocusedNode(BrowserAccessibility* node);
   static BrowserAccessibility* GetLastFocusedNode();

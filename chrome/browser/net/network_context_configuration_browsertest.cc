@@ -14,6 +14,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/guid.h"
 #include "base/location.h"
+#include "base/optional.h"
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
@@ -51,6 +52,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/network_service_util.h"
 #include "content/public/common/url_constants.h"
@@ -58,6 +60,7 @@
 #include "content/public/test/simple_url_loader_test_helper.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
+#include "net/base/address_list.h"
 #include "net/base/filename_util.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/load_flags.h"
@@ -66,6 +69,7 @@
 #include "net/cookies/cookie_options.h"
 #include "net/cookies/cookie_util.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_response_headers.h"
 #include "net/reporting/reporting_policy.h"
 #include "net/ssl/ssl_config.h"
@@ -82,13 +86,13 @@
 #include "net/url_request/url_request.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_connection_tracker.h"
-#include "services/network/public/cpp/resource_response.h"
-#include "services/network/public/cpp/resource_response_info.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "services/network/public/mojom/host_resolver.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
+#include "services/network/test/test_dns_util.h"
 #include "services/network/test/test_url_loader_client.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -104,6 +108,9 @@
 #endif
 
 namespace {
+
+constexpr char kHostname[] = "foo.test";
+constexpr char kAddress[] = "5.8.13.21";
 
 const char kCacheRandomPath[] = "/cacherandom";
 
@@ -236,6 +243,8 @@ class NetworkContextConfigurationBrowserTest
   void SetUpOnMainThread() override {
     // Used in a bunch of proxy tests. Should not resolve.
     host_resolver()->AddSimulatedFailure("does.not.resolve.test");
+
+    host_resolver()->AddRule(kHostname, kAddress);
 
     controllable_http_response_ =
         std::make_unique<net::test_server::ControllableHttpResponse>(
@@ -549,12 +558,13 @@ class NetworkContextConfigurationBrowserTest
     if (cookie_type == CookieType::kThirdParty)
       cookie_line += ";SameSite=None;Secure";
     request->url = server->GetURL("/set-cookie?" + cookie_line);
+    url::Origin origin;
     if (cookie_type == CookieType::kThirdParty)
-      request->site_for_cookies = GURL("http://example.com");
+      origin = url::Origin::Create(GURL("http://example.com"));
     else
-      request->site_for_cookies = server->base_url();
+      origin = url::Origin::Create(server->base_url());
+    request->site_for_cookies = net::SiteForCookies::FromOrigin(origin);
 
-    url::Origin origin = url::Origin::Create(request->site_for_cookies);
     request->trusted_params = network::ResourceRequest::TrustedParams();
     request->trusted_params->network_isolation_key =
         net::NetworkIsolationKey(origin, origin);
@@ -788,8 +798,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
   std::unique_ptr<network::ResourceRequest> request =
       std::make_unique<network::ResourceRequest>();
   request->url = https_server.GetURL("/echoheader?Cookie");
-  request->site_for_cookies = GURL(chrome::kChromeUIPrintURL);
-  url::Origin origin = url::Origin::Create(request->site_for_cookies);
+  url::Origin origin = url::Origin::Create(GURL(chrome::kChromeUIPrintURL));
+  request->site_for_cookies = net::SiteForCookies::FromOrigin(origin);
   request->trusted_params = network::ResourceRequest::TrustedParams();
   request->trusted_params->network_isolation_key =
       net::NetworkIsolationKey(origin, origin);
@@ -1107,6 +1117,54 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, DiskCache) {
     ASSERT_TRUE(simple_loader_helper.response_body());
     EXPECT_EQ(original_response, *simple_loader_helper.response_body());
   }
+}
+
+// Make sure that NetworkContexts have separate DNS caches.
+IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
+                       DISABLED_DnsCacheIsolation) {
+  net::NetworkIsolationKey network_isolation_key =
+      net::NetworkIsolationKey::CreateTransient();
+  net::HostPortPair host_port_pair(kHostname, 0);
+  // Resolve |host_port_pair|, which should succeed and put it in the
+  // NetworkContext's cache.
+  network::DnsLookupResult result =
+      network::BlockingDnsLookup(network_context(), host_port_pair,
+                                 nullptr /* params */, network_isolation_key);
+  EXPECT_EQ(net::OK, result.error);
+  ASSERT_TRUE(result.resolved_addresses.has_value());
+  ASSERT_EQ(1u, result.resolved_addresses->size());
+  EXPECT_EQ(kAddress,
+            result.resolved_addresses.value()[0].ToStringWithoutPort());
+  // Make a cache-only request for the same hostname, for each other network
+  // context, and make sure no result is returned.
+  ForEachOtherContext(
+      base::BindLambdaForTesting([&](NetworkContextType network_context_type) {
+        network::mojom::ResolveHostParametersPtr params =
+            network::mojom::ResolveHostParameters::New();
+        // Cache only lookup.
+        params->cache_usage =
+            network::mojom::ResolveHostParameters::CacheUsage::STALE_ALLOWED;
+        params->source = net::HostResolverSource::LOCAL_ONLY;
+        network::DnsLookupResult result = network::BlockingDnsLookup(
+            GetNetworkContextForContextType(network_context_type),
+            host_port_pair, std::move(params), network_isolation_key);
+        EXPECT_EQ(net::ERR_NAME_NOT_RESOLVED, result.error);
+      }));
+  // Do a cache-only lookup using the original network context, which should
+  // return the same result it initially did.
+  network::mojom::ResolveHostParametersPtr params =
+      network::mojom::ResolveHostParameters::New();
+  // Cache only lookup.
+  params->source = net::HostResolverSource::LOCAL_ONLY;
+  params->cache_usage =
+      network::mojom::ResolveHostParameters::CacheUsage::STALE_ALLOWED;
+  result = network::BlockingDnsLookup(network_context(), host_port_pair,
+                                      std::move(params), network_isolation_key);
+  EXPECT_EQ(net::OK, result.error);
+  ASSERT_TRUE(result.resolved_addresses.has_value());
+  ASSERT_EQ(1u, result.resolved_addresses->size());
+  EXPECT_EQ(kAddress,
+            result.resolved_addresses.value()[0].ToStringWithoutPort());
 }
 
 // Visits a URL with an HSTS header, and makes sure it is respected.
@@ -1777,11 +1835,15 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationDataPacBrowserTest, DataPac) {
 // results in an error, since the spawned test server is designed so that it can
 // run remotely (So can't just write a script to a local file and have the
 // server serve it).
+//
+// TODO(https://crbug.com/333943): Remove these tests when FTP support is
+// removed.
 class NetworkContextConfigurationFtpPacBrowserTest
     : public NetworkContextConfigurationBrowserTest {
  public:
   NetworkContextConfigurationFtpPacBrowserTest()
       : ftp_server_(net::SpawnedTestServer::TYPE_FTP, GetChromeTestDataDir()) {
+    scoped_feature_list_.InitAndEnableFeature(features::kFtpProtocol);
     EXPECT_TRUE(ftp_server_.Start());
   }
   ~NetworkContextConfigurationFtpPacBrowserTest() override {}
@@ -1794,6 +1856,7 @@ class NetworkContextConfigurationFtpPacBrowserTest
 
  private:
   net::SpawnedTestServer ftp_server_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkContextConfigurationFtpPacBrowserTest);
 };

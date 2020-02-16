@@ -31,7 +31,6 @@
 #include "third_party/blink/public/web/web_ax_object.h"
 
 #include "third_party/blink/public/platform/web_float_rect.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -65,23 +64,23 @@
 namespace blink {
 
 namespace {
-blink::ScrollAlignmentBehavior ToBlinkScrollAlignmentBehavior(
+mojom::blink::ScrollAlignment::Behavior ToBlinkScrollAlignmentBehavior(
     ax::mojom::ScrollAlignment alignment) {
   switch (alignment) {
     case ax::mojom::ScrollAlignment::kNone:
-      return blink::kScrollAlignmentNoScroll;
+      return mojom::blink::ScrollAlignment::Behavior::kNoScroll;
     case ax::mojom::ScrollAlignment::kScrollAlignmentCenter:
-      return blink::kScrollAlignmentCenter;
+      return mojom::blink::ScrollAlignment::Behavior::kCenter;
     case ax::mojom::ScrollAlignment::kScrollAlignmentTop:
-      return blink::kScrollAlignmentTop;
+      return mojom::blink::ScrollAlignment::Behavior::kTop;
     case ax::mojom::ScrollAlignment::kScrollAlignmentBottom:
-      return blink::kScrollAlignmentBottom;
+      return mojom::blink::ScrollAlignment::Behavior::kBottom;
     case ax::mojom::ScrollAlignment::kScrollAlignmentLeft:
-      return blink::kScrollAlignmentLeft;
+      return mojom::blink::ScrollAlignment::Behavior::kLeft;
     case ax::mojom::ScrollAlignment::kScrollAlignmentRight:
-      return blink::kScrollAlignmentRight;
+      return mojom::blink::ScrollAlignment::Behavior::kRight;
     case ax::mojom::ScrollAlignment::kScrollAlignmentClosestEdge:
-      return blink::kScrollAlignmentClosestEdge;
+      return mojom::blink::ScrollAlignment::Behavior::kClosestEdge;
   }
   NOTREACHED() << alignment;
 }
@@ -442,6 +441,13 @@ bool WebAXObject::IsVisited() const {
   return private_->IsVisited();
 }
 
+bool WebAXObject::HasAriaAttribute() const {
+  if (IsDetached())
+    return false;
+
+  return private_->HasAriaAttribute();
+}
+
 WebString WebAXObject::AccessKey() const {
   if (IsDetached())
     return WebString();
@@ -698,14 +704,14 @@ int WebAXObject::HierarchicalLevel() const {
 // that (0, 0) is the top left of the visual viewport. In other words, the
 // point has the VisualViewport scale applied, but not the VisualViewport
 // offset. crbug.com/459591.
-WebAXObject WebAXObject::HitTest(const WebPoint& point) const {
+WebAXObject WebAXObject::HitTest(const gfx::Point& point) const {
   if (IsDetached())
     return WebAXObject();
 
   ScopedActionAnnotator annotater(private_.Get());
   IntPoint contents_point =
       private_->DocumentFrameView()->SoonToBeRemovedUnscaledViewportToContents(
-          point);
+          IntPoint(point));
   AXObject* hit = private_->AccessibilityHitTest(contents_point);
 
   if (hit)
@@ -1521,32 +1527,32 @@ bool WebAXObject::IsScrollableContainer() const {
   return private_->IsScrollableContainer();
 }
 
-WebPoint WebAXObject::GetScrollOffset() const {
+gfx::Point WebAXObject::GetScrollOffset() const {
   if (IsDetached())
-    return WebPoint();
+    return gfx::Point();
 
   return private_->GetScrollOffset();
 }
 
-WebPoint WebAXObject::MinimumScrollOffset() const {
+gfx::Point WebAXObject::MinimumScrollOffset() const {
   if (IsDetached())
-    return WebPoint();
+    return gfx::Point();
 
   return private_->MinimumScrollOffset();
 }
 
-WebPoint WebAXObject::MaximumScrollOffset() const {
+gfx::Point WebAXObject::MaximumScrollOffset() const {
   if (IsDetached())
-    return WebPoint();
+    return gfx::Point();
 
   return private_->MaximumScrollOffset();
 }
 
-void WebAXObject::SetScrollOffset(const WebPoint& offset) const {
+void WebAXObject::SetScrollOffset(const gfx::Point& offset) const {
   if (IsDetached())
     return;
 
-  private_->SetScrollOffset(offset);
+  private_->SetScrollOffset(IntPoint(offset));
 }
 
 void WebAXObject::Dropeffects(
@@ -1605,14 +1611,14 @@ bool WebAXObject::ScrollToMakeVisibleWithSubFocus(
   auto vertical_behavior =
       ToBlinkScrollAlignmentBehavior(vertical_scroll_alignment);
 
-  blink::ScrollAlignmentBehavior visible_horizontal_behavior =
+  mojom::blink::ScrollAlignment::Behavior visible_horizontal_behavior =
       scroll_behavior == ax::mojom::ScrollBehavior::kScrollIfVisible
           ? horizontal_behavior
-          : kScrollAlignmentNoScroll;
-  blink::ScrollAlignmentBehavior visible_vertical_behavior =
+          : mojom::blink::ScrollAlignment::Behavior::kNoScroll;
+  mojom::blink::ScrollAlignment::Behavior visible_vertical_behavior =
       scroll_behavior == ax::mojom::ScrollBehavior::kScrollIfVisible
           ? vertical_behavior
-          : kScrollAlignmentNoScroll;
+          : mojom::blink::ScrollAlignment::Behavior::kNoScroll;
 
   blink::ScrollAlignment blink_horizontal_scroll_alignment = {
       visible_horizontal_behavior, horizontal_behavior, horizontal_behavior};
@@ -1623,12 +1629,12 @@ bool WebAXObject::ScrollToMakeVisibleWithSubFocus(
       blink_vertical_scroll_alignment);
 }
 
-bool WebAXObject::ScrollToGlobalPoint(const WebPoint& point) const {
+bool WebAXObject::ScrollToGlobalPoint(const gfx::Point& point) const {
   if (IsDetached())
     return false;
 
   ScopedActionAnnotator annotater(private_.Get());
-  return private_->RequestScrollToGlobalPointAction(point);
+  return private_->RequestScrollToGlobalPointAction(IntPoint(point));
 }
 
 void WebAXObject::Swap(WebAXObject& other) {
@@ -1647,6 +1653,13 @@ void WebAXObject::HandleAutofillStateChanged(
     return;
 
   private_->HandleAutofillStateChanged(state);
+}
+
+int WebAXObject::GetDOMNodeId() const {
+  if (IsDetached())
+    return 0;
+
+  return private_->GetDOMNodeId();
 }
 
 WebString WebAXObject::ToString() const {
@@ -1707,7 +1720,7 @@ WebAXObject::operator AXObject*() const {
 WebAXObject WebAXObject::FromWebNode(const WebNode& web_node) {
   WebDocument web_document = web_node.GetDocument();
   const Document* doc = web_document.ConstUnwrap<Document>();
-  AXObjectCacheImpl* cache = ToAXObjectCacheImpl(doc->ExistingAXObjectCache());
+  auto* cache = To<AXObjectCacheImpl>(doc->ExistingAXObjectCache());
   const Node* node = web_node.ConstUnwrap<Node>();
   return cache ? WebAXObject(cache->Get(node)) : WebAXObject();
 }
@@ -1715,8 +1728,7 @@ WebAXObject WebAXObject::FromWebNode(const WebNode& web_node) {
 // static
 WebAXObject WebAXObject::FromWebDocument(const WebDocument& web_document) {
   const Document* document = web_document.ConstUnwrap<Document>();
-  AXObjectCacheImpl* cache =
-      ToAXObjectCacheImpl(document->ExistingAXObjectCache());
+  auto* cache = To<AXObjectCacheImpl>(document->ExistingAXObjectCache());
   return cache ? WebAXObject(cache->GetOrCreate(document->GetLayoutView()))
                : WebAXObject();
 }
@@ -1725,8 +1737,7 @@ WebAXObject WebAXObject::FromWebDocument(const WebDocument& web_document) {
 WebAXObject WebAXObject::FromWebDocumentByID(const WebDocument& web_document,
                                              int ax_id) {
   const Document* document = web_document.ConstUnwrap<Document>();
-  AXObjectCacheImpl* cache =
-      ToAXObjectCacheImpl(document->ExistingAXObjectCache());
+  auto* cache = To<AXObjectCacheImpl>(document->ExistingAXObjectCache());
   return cache ? WebAXObject(cache->ObjectFromAXID(ax_id)) : WebAXObject();
 }
 
@@ -1734,8 +1745,7 @@ WebAXObject WebAXObject::FromWebDocumentByID(const WebDocument& web_document,
 WebAXObject WebAXObject::FromWebDocumentFocused(
     const WebDocument& web_document) {
   const Document* document = web_document.ConstUnwrap<Document>();
-  AXObjectCacheImpl* cache =
-      ToAXObjectCacheImpl(document->ExistingAXObjectCache());
+  auto* cache = To<AXObjectCacheImpl>(document->ExistingAXObjectCache());
   return cache ? WebAXObject(cache->FocusedObject()) : WebAXObject();
 }
 

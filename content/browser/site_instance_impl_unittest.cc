@@ -386,25 +386,17 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
   EXPECT_EQ("file", site_url.scheme());
   EXPECT_FALSE(site_url.has_host());
 
-  // Data URLs should include the whole URL, except for the hash, when Site
-  // Isolation is enabled.  Otherwise they just include the scheme.
+  // Data URLs should include the whole URL, except for the hash.
   test_url = GURL("data:text/html,foo");
   site_url = SiteInstance::GetSiteForURL(&context, test_url);
-  if (AreAllSitesIsolatedForTesting())
-    EXPECT_EQ(test_url, site_url);
-  else
-    EXPECT_EQ(GURL("data:"), site_url);
+  EXPECT_EQ(test_url, site_url);
   EXPECT_EQ("data", site_url.scheme());
   EXPECT_FALSE(site_url.has_host());
   test_url = GURL("data:text/html,foo#bar");
   site_url = SiteInstance::GetSiteForURL(&context, test_url);
   EXPECT_FALSE(site_url.has_ref());
-  if (AreAllSitesIsolatedForTesting()) {
-    EXPECT_NE(test_url, site_url);
-    EXPECT_TRUE(site_url.EqualsIgnoringRef(test_url));
-  } else {
-    EXPECT_EQ(GURL("data:"), site_url);
-  }
+  EXPECT_NE(test_url, site_url);
+  EXPECT_TRUE(site_url.EqualsIgnoringRef(test_url));
 
   // Javascript URLs should include the scheme.
   test_url = GURL("javascript:foo();");
@@ -427,24 +419,16 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
   EXPECT_EQ("file", site_url.scheme());
   EXPECT_FALSE(site_url.has_host());
 
-  // Blob URLs created from a unique origin use the full URL as the site URL
-  // when Site Isolation is enabled, except for the hash.  Otherwise they just
-  // include the scheme.
+  // Blob URLs created from a unique origin use the full URL as the site URL,
+  // except for the hash.
   test_url = GURL("blob:null/1029e5a4-2983-4b90-a585-ed217563acfeb");
   site_url = SiteInstance::GetSiteForURL(&context, test_url);
-  if (AreAllSitesIsolatedForTesting())
-    EXPECT_EQ(test_url, site_url);
-  else
-    EXPECT_EQ(GURL("blob:"), site_url);
+  EXPECT_EQ(test_url, site_url);
   test_url = GURL("blob:null/1029e5a4-2983-4b90-a585-ed217563acfeb#foo");
   site_url = SiteInstance::GetSiteForURL(&context, test_url);
   EXPECT_FALSE(site_url.has_ref());
-  if (AreAllSitesIsolatedForTesting()) {
-    EXPECT_NE(test_url, site_url);
-    EXPECT_TRUE(site_url.EqualsIgnoringRef(test_url));
-  } else {
-    EXPECT_EQ(GURL("blob:"), site_url);
-  }
+  EXPECT_NE(test_url, site_url);
+  EXPECT_TRUE(site_url.EqualsIgnoringRef(test_url));
 
   // Private domains are preserved, appspot being such a site.
   test_url = GURL(
@@ -457,14 +441,6 @@ TEST_F(SiteInstanceTest, GetSiteForURL) {
   test_url = GURL("filesystem:http://www.google.com/foo/bar.html?foo#bar");
   site_url = SiteInstance::GetSiteForURL(&context, test_url);
   EXPECT_EQ(GURL("http://google.com"), site_url);
-
-  // Guest URLs are special and need to have the path in the site as well,
-  // since it affects the StoragePartition configuration.
-  std::string guest_url(kGuestScheme);
-  guest_url.append("://abc123/path");
-  test_url = GURL(guest_url);
-  site_url = SiteInstance::GetSiteForURL(&context, test_url);
-  EXPECT_EQ(test_url, site_url);
 
   DrainMessageLoop();
 }
@@ -896,9 +872,9 @@ TEST_F(SiteInstanceTest, NoProcessPerSiteForEmptySite) {
   host.reset(instance->GetProcess());
 
   EXPECT_FALSE(RenderProcessHostImpl::GetSoleProcessHostForURL(
-      browser_context.get(), instance->GetIsolationContext(), GURL()));
+      instance->GetIsolationContext(), GURL()));
   EXPECT_FALSE(RenderProcessHostImpl::GetSoleProcessHostForSite(
-      browser_context.get(), instance->GetIsolationContext(), GURL(), GURL()));
+      instance->GetIsolationContext(), GURL(), GURL(), false));
 
   DrainMessageLoop();
 }
@@ -1401,7 +1377,6 @@ TEST_F(SiteInstanceTest, CreateForURL) {
   const GURL kNonIsolatedUrl("https://bar.com/");
   const GURL kIsolatedUrl("https://isolated.com/");
   const GURL kFileUrl("file:///C:/Downloads/");
-  const GURL kGuestUrl(std::string(kGuestScheme) + "://abc123/path");
 
   ChildProcessSecurityPolicyImpl::GetInstance()->AddIsolatedOrigins(
       {url::Origin::Create(kIsolatedUrl)}, IsolatedOriginSource::TEST);
@@ -1409,8 +1384,7 @@ TEST_F(SiteInstanceTest, CreateForURL) {
   auto instance1 = SiteInstanceImpl::CreateForURL(context(), kNonIsolatedUrl);
   auto instance2 = SiteInstanceImpl::CreateForURL(context(), kIsolatedUrl);
   auto instance3 = SiteInstanceImpl::CreateForURL(context(), kFileUrl);
-  auto instance4 = SiteInstanceImpl::CreateForURL(context(), kGuestUrl);
-  auto instance5 =
+  auto instance4 =
       SiteInstanceImpl::CreateForURL(context(), GURL(url::kAboutBlankURL));
 
   if (AreDefaultSiteInstancesEnabled()) {
@@ -1426,14 +1400,42 @@ TEST_F(SiteInstanceTest, CreateForURL) {
   EXPECT_FALSE(instance3->IsDefaultSiteInstance());
   EXPECT_EQ(GURL("file:"), instance3->GetSiteURL());
 
-  EXPECT_FALSE(instance4->IsDefaultSiteInstance());
-  EXPECT_EQ(kGuestUrl, instance4->GetSiteURL());
-
   // about:blank URLs generate a SiteInstance without the site URL set because
   // ShouldAssignSiteForURL() returns false and the expectation is that the
   // site URL will be set at a later time.
-  EXPECT_FALSE(instance5->IsDefaultSiteInstance());
-  EXPECT_FALSE(instance5->HasSite());
+  EXPECT_FALSE(instance4->IsDefaultSiteInstance());
+  EXPECT_FALSE(instance4->HasSite());
+}
+
+TEST_F(SiteInstanceTest, CreateForGuest) {
+  const GURL kGuestUrl(std::string(kGuestScheme) + "://abc123/path");
+
+  // Verify that a SiteInstance created with CreateForURL() is not considered
+  // a <webview> guest and has the path removed for the site URL like any other
+  // standard URL.
+  auto instance1 = SiteInstanceImpl::CreateForURL(context(), kGuestUrl);
+  EXPECT_FALSE(instance1->IsGuest());
+  if (AreAllSitesIsolatedForTesting()) {
+    EXPECT_NE(kGuestUrl, instance1->GetSiteURL());
+    EXPECT_EQ(GURL(std::string(kGuestScheme) + "://abc123/"),
+              instance1->GetSiteURL());
+  } else {
+    EXPECT_TRUE(instance1->IsDefaultSiteInstance());
+  }
+
+  // Verify that a SiteInstance created with CreateForGuest() is considered
+  // a <webview> guest and has a site URL that is identical to what was passed
+  // to CreateForGuest().
+  auto instance2 = SiteInstanceImpl::CreateForGuest(context(), kGuestUrl);
+  EXPECT_TRUE(instance2->IsGuest());
+  EXPECT_EQ(kGuestUrl, instance2->GetSiteURL());
+
+  // Verify that a SiteInstance being considered a <webview> guest does not
+  // depend on using a specific scheme.
+  const GURL kGuestUrl2("my-special-scheme://abc123/path");
+  auto instance3 = SiteInstanceImpl::CreateForGuest(context(), kGuestUrl2);
+  EXPECT_TRUE(instance3->IsGuest());
+  EXPECT_EQ(kGuestUrl2, instance3->GetSiteURL());
 }
 
 TEST_F(SiteInstanceTest, DoesSiteRequireDedicatedProcess) {

@@ -33,9 +33,9 @@ import math
 import optparse
 
 from blinkpy.web_tests.models import test_expectations
+from blinkpy.web_tests.models.typ_types import ResultType
 from blinkpy.web_tests.views.metered_stream import MeteredStream
 from blinkpy.tool import grammar
-
 
 NUM_SLOW_TESTS_TO_LOG = 10
 
@@ -79,7 +79,7 @@ class Printer(object):
     def print_config(self, port):
         self._print_default("Using port '%s'" % port.name())
         self._print_default('Test configuration: %s' % port.test_configuration())
-        self._print_default('View the test results at file://%s/results.html' % port.results_directory())
+        self._print_default('View the test results at file://%s/results.html' % port.artifacts_directory())
         if self._options.order == 'random':
             self._print_default('Using random order with seed: %d' % self._options.seed)
 
@@ -257,7 +257,7 @@ class Printer(object):
     def _result_message(self, result_type, failures, expected, timing, test_run_time):
         exp_string = ' unexpectedly' if not expected else ''
         timing_string = ' %.4fs' % test_run_time if timing else ''
-        if result_type == test_expectations.PASS:
+        if result_type == ResultType.Pass:
             return ' passed%s%s' % (exp_string, timing_string)
         else:
             return ' failed%s (%s)%s' % (exp_string, ', '.join(failure.message() for failure in failures), timing_string)

@@ -209,11 +209,6 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
 
   // WebContentsDelegate implementation.
   bool CanLoadFileSubresource(const GURL& url) final;
-  bool DidAddMessageToConsole(content::WebContents* source,
-                              blink::mojom::ConsoleMessageLevel log_level,
-                              const base::string16& message,
-                              int32_t line_no,
-                              const base::string16& source_id) final;
   void CloseContents(content::WebContents* source) final;
   bool HandleContextMenu(content::RenderFrameHost* render_frame_host,
                          const content::ContextMenuParams& params) final;
@@ -283,6 +278,10 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void FrameNameChanged(content::RenderFrameHost* render_frame_host,
                         const std::string& name) final;
   void OnAudioStateChanged(bool audible) final;
+  void OnDidAddMessageToConsole(blink::mojom::ConsoleMessageLevel log_level,
+                                const base::string16& message,
+                                int32_t line_no,
+                                const base::string16& source_id) final;
 
   // Informs the embedder of a frame name change.
   void ReportFrameNameChange(const std::string& name);

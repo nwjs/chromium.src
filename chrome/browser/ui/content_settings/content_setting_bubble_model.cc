@@ -31,7 +31,6 @@
 #include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/permissions/permission_uma_util.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/permissions/quiet_notification_permission_ui_config.h"
 #include "chrome/browser/plugins/chrome_plugin_service_filter.h"
 #include "chrome/browser/plugins/plugin_utils.h"
@@ -51,6 +50,7 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/permissions/permission_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
@@ -210,14 +210,14 @@ void ContentSettingSimpleBubbleModel::SetTitle() {
        IDS_BLOCKED_DISPLAYING_INSECURE_CONTENT_TITLE},
       {ContentSettingsType::PPAPI_BROKER, IDS_BLOCKED_PPAPI_BROKER_TITLE},
       {ContentSettingsType::SOUND, IDS_BLOCKED_SOUND_TITLE},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_BLOCKED_CLIPBOARD_TITLE},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE, IDS_BLOCKED_CLIPBOARD_TITLE},
       {ContentSettingsType::SENSORS, IDS_BLOCKED_SENSORS_TITLE},
   };
   // Fields as for kBlockedTitleIDs, above.
   static const ContentSettingsTypeIdEntry kAccessedTitleIDs[] = {
       {ContentSettingsType::COOKIES, IDS_ACCESSED_COOKIES_TITLE},
       {ContentSettingsType::PPAPI_BROKER, IDS_ALLOWED_PPAPI_BROKER_TITLE},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_ALLOWED_CLIPBOARD_TITLE},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE, IDS_ALLOWED_CLIPBOARD_TITLE},
       {ContentSettingsType::SENSORS, IDS_ALLOWED_SENSORS_TITLE},
   };
   const ContentSettingsTypeIdEntry* title_ids = kBlockedTitleIDs;
@@ -246,7 +246,8 @@ void ContentSettingSimpleBubbleModel::SetMessage() {
       {ContentSettingsType::MIXEDSCRIPT,
        IDS_BLOCKED_DISPLAYING_INSECURE_CONTENT},
       {ContentSettingsType::PPAPI_BROKER, IDS_BLOCKED_PPAPI_BROKER_MESSAGE},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_BLOCKED_CLIPBOARD_MESSAGE},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE,
+       IDS_BLOCKED_CLIPBOARD_MESSAGE},
       {ContentSettingsType::SENSORS,
        base::FeatureList::IsEnabled(features::kGenericSensorExtraClasses)
            ? IDS_BLOCKED_SENSORS_MESSAGE
@@ -256,7 +257,8 @@ void ContentSettingSimpleBubbleModel::SetMessage() {
   const ContentSettingsTypeIdEntry kAccessedMessageIDs[] = {
       {ContentSettingsType::COOKIES, IDS_ACCESSED_COOKIES_MESSAGE},
       {ContentSettingsType::PPAPI_BROKER, IDS_ALLOWED_PPAPI_BROKER_MESSAGE},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_ALLOWED_CLIPBOARD_MESSAGE},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE,
+       IDS_ALLOWED_CLIPBOARD_MESSAGE},
       {ContentSettingsType::SENSORS,
        base::FeatureList::IsEnabled(features::kGenericSensorExtraClasses)
            ? IDS_ALLOWED_SENSORS_MESSAGE
@@ -334,8 +336,6 @@ ContentSettingMixedScriptBubbleModel::ContentSettingMixedScriptBubbleModel(
     : ContentSettingSimpleBubbleModel(delegate,
                                       web_contents,
                                       ContentSettingsType::MIXEDSCRIPT) {
-  content_settings::RecordMixedScriptAction(
-      content_settings::MIXED_SCRIPT_ACTION_DISPLAYED_BUBBLE);
   set_custom_link_enabled(true);
   set_show_learn_more(true);
   SetManageText();
@@ -344,9 +344,6 @@ ContentSettingMixedScriptBubbleModel::ContentSettingMixedScriptBubbleModel(
 void ContentSettingMixedScriptBubbleModel::OnLearnMoreClicked() {
   if (delegate())
     delegate()->ShowLearnMorePage(content_type());
-
-  content_settings::RecordMixedScriptAction(
-      content_settings::MIXED_SCRIPT_ACTION_CLICKED_LEARN_MORE);
 }
 
 void ContentSettingMixedScriptBubbleModel::OnCustomLinkClicked() {
@@ -361,9 +358,6 @@ void ContentSettingMixedScriptBubbleModel::OnCustomLinkClicked() {
   // Update renderer side settings to allow active mixed content.
   web_contents()->ForEachFrame(
       base::BindRepeating(&::SetAllowRunningInsecureContent));
-
-  content_settings::RecordMixedScriptAction(
-      content_settings::MIXED_SCRIPT_ACTION_CLICKED_ALLOW);
 }
 
 // Don't set any manage text since none is displayed.
@@ -569,7 +563,7 @@ void ContentSettingMidiSysExBubbleModel::OnCustomLinkClicked() {
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
   for (const std::pair<GURL, ContentSetting>& map_entry : state_map) {
-    PermissionUtil::ScopedRevocationReporter(
+    PermissionUmaUtil::ScopedRevocationReporter(
         GetProfile(), map_entry.first, embedder_url,
         ContentSettingsType::MIDI_SYSEX, PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(map_entry.first, embedder_url,
@@ -657,7 +651,7 @@ void ContentSettingDomainListBubbleModel::OnCustomLinkClicked() {
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
   for (const std::pair<GURL, ContentSetting>& map_entry : state_map) {
-    PermissionUtil::ScopedRevocationReporter(
+    PermissionUmaUtil::ScopedRevocationReporter(
         GetProfile(), map_entry.first, embedder_url,
         ContentSettingsType::GEOLOCATION, PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(map_entry.first, embedder_url,
@@ -800,14 +794,16 @@ void ContentSettingSingleRadioGroup::SetRadioGroup() {
       {ContentSettingsType::POPUPS, IDS_BLOCKED_POPUPS_REDIRECTS_UNBLOCK},
       {ContentSettingsType::PPAPI_BROKER, IDS_BLOCKED_PPAPI_BROKER_UNBLOCK},
       {ContentSettingsType::SOUND, IDS_BLOCKED_SOUND_UNBLOCK},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_BLOCKED_CLIPBOARD_UNBLOCK},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE,
+       IDS_BLOCKED_CLIPBOARD_UNBLOCK},
       {ContentSettingsType::SENSORS, IDS_BLOCKED_SENSORS_UNBLOCK},
   };
   // Fields as for kBlockedAllowIDs, above.
   static const ContentSettingsTypeIdEntry kAllowedAllowIDs[] = {
       {ContentSettingsType::COOKIES, IDS_ALLOWED_COOKIES_NO_ACTION},
       {ContentSettingsType::PPAPI_BROKER, IDS_ALLOWED_PPAPI_BROKER_NO_ACTION},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_ALLOWED_CLIPBOARD_NO_ACTION},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE,
+       IDS_ALLOWED_CLIPBOARD_NO_ACTION},
       {ContentSettingsType::SENSORS, IDS_ALLOWED_SENSORS_NO_ACTION},
   };
 
@@ -830,13 +826,14 @@ void ContentSettingSingleRadioGroup::SetRadioGroup() {
       {ContentSettingsType::POPUPS, IDS_BLOCKED_POPUPS_REDIRECTS_NO_ACTION},
       {ContentSettingsType::PPAPI_BROKER, IDS_BLOCKED_PPAPI_BROKER_NO_ACTION},
       {ContentSettingsType::SOUND, IDS_BLOCKED_SOUND_NO_ACTION},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_BLOCKED_CLIPBOARD_NO_ACTION},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE,
+       IDS_BLOCKED_CLIPBOARD_NO_ACTION},
       {ContentSettingsType::SENSORS, IDS_BLOCKED_SENSORS_NO_ACTION},
   };
   static const ContentSettingsTypeIdEntry kAllowedBlockIDs[] = {
       {ContentSettingsType::COOKIES, IDS_ALLOWED_COOKIES_BLOCK},
       {ContentSettingsType::PPAPI_BROKER, IDS_ALLOWED_PPAPI_BROKER_BLOCK},
-      {ContentSettingsType::CLIPBOARD_READ, IDS_ALLOWED_CLIPBOARD_BLOCK},
+      {ContentSettingsType::CLIPBOARD_READ_WRITE, IDS_ALLOWED_CLIPBOARD_BLOCK},
       {ContentSettingsType::SENSORS, IDS_ALLOWED_SENSORS_BLOCK},
   };
 
@@ -1237,7 +1234,7 @@ void ContentSettingMediaStreamBubbleModel::UpdateSettings(
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
   if (MicrophoneAccessed()) {
-    PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+    PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
         GetProfile(), tab_content_settings->media_stream_access_origin(),
         GURL(), ContentSettingsType::MEDIASTREAM_MIC,
         PermissionSourceUI::PAGE_ACTION);
@@ -1246,7 +1243,7 @@ void ContentSettingMediaStreamBubbleModel::UpdateSettings(
         ContentSettingsType::MEDIASTREAM_MIC, std::string(), setting);
   }
   if (CameraAccessed()) {
-    PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+    PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
         GetProfile(), tab_content_settings->media_stream_access_origin(),
         GURL(), ContentSettingsType::MEDIASTREAM_CAMERA,
         PermissionSourceUI::PAGE_ACTION);
@@ -1726,7 +1723,7 @@ ContentSettingBubbleModel::CreateContentSettingBubbleModel(
       content_type == ContentSettingsType::JAVASCRIPT ||
       content_type == ContentSettingsType::PPAPI_BROKER ||
       content_type == ContentSettingsType::SOUND ||
-      content_type == ContentSettingsType::CLIPBOARD_READ ||
+      content_type == ContentSettingsType::CLIPBOARD_READ_WRITE ||
       content_type == ContentSettingsType::SENSORS) {
     return std::make_unique<ContentSettingSingleRadioGroup>(
         delegate, web_contents, content_type);

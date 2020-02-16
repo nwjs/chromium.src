@@ -1,0 +1,15 @@
+// Copyright 2019 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+    RuntimeEnabled=WebCodecs
+] interface VideoDecoder {
+    constructor();
+    [CallWith=ScriptState, RaisesException] Promise<void> Initialize(VideoDecoderInitParameters params);
+    [CallWith=ScriptState, RaisesException] Promise<void> Flush();
+    void Close();
+
+    readonly attribute WritableStream writable;  // of EncodedVideoFrame
+    readonly attribute ReadableStream readable;  // of VideoFrame
+};

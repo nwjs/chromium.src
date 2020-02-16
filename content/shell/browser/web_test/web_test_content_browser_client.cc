@@ -30,10 +30,12 @@
 #include "content/shell/browser/web_test/fake_bluetooth_chooser.h"
 #include "content/shell/browser/web_test/fake_bluetooth_chooser_factory.h"
 #include "content/shell/browser/web_test/mojo_web_test_helper.h"
+#include "content/shell/browser/web_test/web_test_blink_test_client.h"
 #include "content/shell/browser/web_test/web_test_bluetooth_fake_adapter_setter_impl.h"
 #include "content/shell/browser/web_test/web_test_browser_context.h"
 #include "content/shell/browser/web_test/web_test_browser_main_parts.h"
 #include "content/shell/browser/web_test/web_test_message_filter.h"
+#include "content/shell/browser/web_test/web_test_permission_manager.h"
 #include "content/shell/browser/web_test/web_test_tts_controller_delegate.h"
 #include "content/shell/browser/web_test/web_test_tts_platform.h"
 #include "content/shell/common/web_test/web_test_switches.h"
@@ -43,7 +45,8 @@
 #include "device/bluetooth/test/fake_bluetooth.h"
 #include "gpu/config/gpu_switches.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
+#include "services/service_manager/public/cpp/binder_map.h"
+#include "storage/browser/quota/quota_settings.h"
 #include "url/origin.h"
 
 namespace content {
@@ -51,8 +54,9 @@ namespace {
 
 WebTestContentBrowserClient* g_web_test_browser_client;
 
-void BindWebTestHelper(mojo::PendingReceiver<mojom::MojoWebTestHelper> receiver,
-                       RenderFrameHost* render_frame_host) {
+void BindWebTestHelper(
+    RenderFrameHost* render_frame_host,
+    mojo::PendingReceiver<mojom::MojoWebTestHelper> receiver) {
   MojoWebTestHelper::Create(std::move(receiver));
 }
 
@@ -96,6 +100,12 @@ WebTestContentBrowserClient::WebTestContentBrowserClient() {
   DCHECK(!g_web_test_browser_client);
 
   g_web_test_browser_client = this;
+
+  // The 1GB limit is intended to give a large headroom to tests that need to
+  // build up a large data set and issue many concurrent reads or writes.
+  static storage::QuotaSettings quota_settings(
+      storage::GetHardCodedSettings(1024 * 1024 * 1024));
+  StoragePartition::SetDefaultQuotaSettingsForTesting(&quota_settings);
 }
 
 WebTestContentBrowserClient::~WebTestContentBrowserClient() {
@@ -147,6 +157,9 @@ void WebTestContentBrowserClient::ExposeInterfacesToRenderer(
       base::BindRepeating(&WebTestBluetoothFakeAdapterSetterImpl::Create),
       ui_task_runner);
 
+  registry->AddInterface(base::BindRepeating(&WebTestBlinkTestClient::Create),
+                         ui_task_runner);
+
   registry->AddInterface(base::BindRepeating(&bluetooth::FakeBluetooth::Create),
                          ui_task_runner);
   // This class outlives |render_process_host|, which owns |registry|. Since
@@ -161,29 +174,15 @@ void WebTestContentBrowserClient::ExposeInterfacesToRenderer(
   registry->AddInterface(base::BindRepeating(&MojoWebTestHelper::Create));
   registry->AddInterface(
       base::BindRepeating(
-          &WebTestContentBrowserClient::BindClipboardHostForRequest,
+          &WebTestContentBrowserClient::BindClientHintsControllerDelegate,
           base::Unretained(this)),
       ui_task_runner);
 
   registry->AddInterface(
       base::BindRepeating(
-          &WebTestContentBrowserClient::BindClientHintsControllerDelegate,
+          &WebTestContentBrowserClient::BindPermissionAutomation,
           base::Unretained(this)),
       ui_task_runner);
-}
-
-void WebTestContentBrowserClient::BindClipboardHostForRequest(
-    blink::mojom::ClipboardHostRequest request) {
-  // Implicit conversion from ClipboardHostRequest to
-  // mojo::PendingReceiver<blink::mojom::ClipboardHost>.
-  BindClipboardHost(std::move(request));
-}
-
-void WebTestContentBrowserClient::BindClipboardHost(
-    mojo::PendingReceiver<blink::mojom::ClipboardHost> receiver) {
-  if (!mock_clipboard_host_)
-    mock_clipboard_host_ = std::make_unique<MockClipboardHost>();
-  mock_clipboard_host_->Bind(std::move(receiver));
 }
 
 void WebTestContentBrowserClient::BindClientHintsControllerDelegate(
@@ -192,6 +191,12 @@ void WebTestContentBrowserClient::BindClientHintsControllerDelegate(
       browser_context()->GetClientHintsControllerDelegate();
   DCHECK(delegate);
   delegate->Bind(std::move(receiver));
+}
+
+void WebTestContentBrowserClient::BindPermissionAutomation(
+    mojo::PendingReceiver<blink::test::mojom::PermissionAutomation> receiver) {
+  GetWebTestBrowserContext()->GetWebTestPermissionManager()->Bind(
+      std::move(receiver));
 }
 
 void WebTestContentBrowserClient::OverrideWebkitPrefs(
@@ -237,15 +242,6 @@ WebTestContentBrowserClient::CreateBrowserMainParts(
   set_browser_main_parts(browser_main_parts.get());
 
   return browser_main_parts;
-}
-
-void WebTestContentBrowserClient::GetQuotaSettings(
-    BrowserContext* context,
-    StoragePartition* partition,
-    storage::OptionalQuotaSettingsCallback callback) {
-  // The 1GB limit is intended to give a large headroom to tests that need to
-  // build up a large data set and issue many concurrent reads or writes.
-  std::move(callback).Run(storage::GetHardCodedSettings(1024 * 1024 * 1024));
 }
 
 std::unique_ptr<OverlayWindow>
@@ -337,6 +333,14 @@ bool WebTestContentBrowserClient::CanCreateWindow(
   return !block_popups_ || user_gesture;
 }
 
+void WebTestContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
+    RenderFrameHost* render_frame_host,
+    service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
+  map->Add<mojom::MojoWebTestHelper>(base::BindRepeating(&BindWebTestHelper));
+  map->Add<blink::mojom::ClipboardHost>(base::BindRepeating(
+      &WebTestContentBrowserClient::BindClipboardHost, base::Unretained(this)));
+}
+
 bool WebTestContentBrowserClient::CanAcceptUntrustedExchangesIfNeeded() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kRunWebTests);
@@ -351,10 +355,12 @@ content::TtsPlatform* WebTestContentBrowserClient::GetTtsPlatform() {
   return WebTestTtsPlatform::GetInstance();
 }
 
-void WebTestContentBrowserClient::ExposeInterfacesToFrame(
-    service_manager::BinderRegistryWithArgs<content::RenderFrameHost*>*
-        registry) {
-  registry->AddInterface(base::BindRepeating(&BindWebTestHelper));
+void WebTestContentBrowserClient::BindClipboardHost(
+    RenderFrameHost* render_frame_host,
+    mojo::PendingReceiver<blink::mojom::ClipboardHost> receiver) {
+  if (!mock_clipboard_host_)
+    mock_clipboard_host_ = std::make_unique<MockClipboardHost>();
+  mock_clipboard_host_->Bind(std::move(receiver));
 }
 
 std::unique_ptr<LoginDelegate> WebTestContentBrowserClient::CreateLoginDelegate(

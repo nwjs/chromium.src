@@ -10,165 +10,91 @@ js_type_check("closure_compile") {
     ":printing_page",
   ]
 
-  if (is_chromeos) {
-    deps += [
-      ":cups_add_printer_dialog",
-      ":cups_add_printer_dialog_elements",
-      ":cups_edit_printer_dialog",
-      ":cups_nearby_printers",
-      ":cups_printer_dialog_util",
-      ":cups_printer_types",
-      ":cups_printers",
-      ":cups_printers_browser_proxy",
-      ":cups_printers_entry",
-      ":cups_printers_entry_list_behavior",
-      ":cups_printers_entry_manager",
-      ":cups_printers_list",
-      ":cups_saved_printers",
-      ":printing_browser_proxy",
-    ]
+  if (!is_chromeos) {
+    deps += [ ":printing_browser_proxy" ]
   }
 }
 
 js_library("cloud_printers") {
-  deps = [
-    "//ui/webui/resources/js:load_time_data",
-  ]
+  deps = [ "//ui/webui/resources/js:load_time_data" ]
 }
 
 js_library("printing_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
+  deps = [ "//ui/webui/resources/js:cr" ]
 }
 
 js_library("printing_page") {
   deps = [
     ":printing_browser_proxy",
     "..:route",
+    "..:router",
     "../settings_page:settings_animated_pages",
     "//ui/webui/resources/js:assert",
     "//ui/webui/resources/js:load_time_data",
   ]
-  if (is_chromeos) {
-    deps += [ ":cups_printers_browser_proxy" ]
+  if (!is_chromeos) {
+    deps += [ ":printing_browser_proxy" ]
   }
 }
 
-if (is_chromeos) {
-  js_library("cups_add_printer_dialog") {
-    deps = [
-      ":cups_printers_browser_proxy",
-      "//ui/webui/resources/js:load_time_data",
-      "//ui/webui/resources/js:web_ui_listener_behavior",
-    ]
-  }
+# TODO(crbug.com/1026426): Fix and enable.
+#js_type_check("closure_compile_module") {
+#  is_polymer3 = true
+#  deps = [
+#    ":cloud_printers.m",
+#    ":printing_browser_proxy.m",
+#    ":printing_page.m",
+#  ]
+#}
 
-  js_library("cups_add_printer_dialog_elements") {
-    deps = [
-      ":cups_printers_browser_proxy",
-    ]
-  }
+js_library("cloud_printers.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/printing_page/cloud_printers.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":cloud_printers_module" ]
+}
 
-  js_library("cups_edit_printer_dialog") {
-    deps = [
-      "//ui/webui/resources/cr_components/chromeos/network:mojo_interface_provider",
-      "//ui/webui/resources/cr_components/chromeos/network:network_listener_behavior",
-      "//ui/webui/resources/cr_components/chromeos/network:onc_mojo",
-      "//ui/webui/resources/cr_elements:cr_scrollable_behavior",
-    ]
-  }
+js_library("printing_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/printing_page/printing_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
 
-  js_library("cups_nearby_printers") {
-    deps = [
-      ":cups_printer_types",
-      ":cups_printers_browser_proxy",
-      ":cups_printers_entry",
-      ":cups_printers_entry_list_behavior",
-      ":cups_printers_entry_manager",
-      "//ui/webui/resources/js:list_property_update_behavior",
-      "//ui/webui/resources/js:web_ui_listener_behavior",
-    ]
-  }
+js_library("printing_page.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/printing_page/printing_page.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":printing_page_module" ]
+}
 
-  js_library("cups_printer_types") {
-    deps = [
-      ":cups_printers_browser_proxy",
-    ]
-  }
+import("//tools/polymer/polymer.gni")
 
-  js_library("cups_printer_dialog_util") {
-    deps = [
-      "//ui/webui/resources/js:cr",
-    ]
-  }
+group("polymer3_elements") {
+  deps = [
+    ":cloud_printers_module",
+    ":modulize",
+    ":printing_page_module",
+  ]
+}
 
-  js_library("cups_printers") {
-    deps = [
-      ":cups_nearby_printers",
-      ":cups_printers_browser_proxy",
-      ":cups_printers_entry_manager",
-      ":cups_saved_printers",
-      "..:route",
-      "//ui/webui/resources/cr_components/chromeos/network:mojo_interface_provider",
-      "//ui/webui/resources/cr_components/chromeos/network:network_listener_behavior",
-      "//ui/webui/resources/cr_components/chromeos/network:onc_mojo",
-      "//ui/webui/resources/cr_elements/cr_toast:cr_toast",
-      "//ui/webui/resources/js:assert",
-      "//ui/webui/resources/js:load_time_data",
-      "//ui/webui/resources/js:web_ui_listener_behavior",
-      "//ui/webui/resources/js/cr/ui:focus_without_ink",
-    ]
-  }
+polymer_modulizer("cloud_printers") {
+  js_file = "cloud_printers.js"
+  html_file = "cloud_printers.html"
+  html_type = "dom-module"
+}
 
-  js_library("cups_printers_browser_proxy") {
-    deps = [
-      "//ui/webui/resources/js:cr",
-    ]
-  }
+polymer_modulizer("printing_page") {
+  js_file = "printing_page.js"
+  html_file = "printing_page.html"
+  html_type = "dom-module"
+}
 
-  js_library("cups_printers_entry") {
-    deps = [
-      ":cups_printer_types",
-      ":cups_printers_browser_proxy",
-    ]
-  }
+import("//ui/webui/resources/tools/js_modulizer.gni")
 
-  js_library("cups_printers_entry_list_behavior") {
-    deps = [
-      ":cups_printer_types",
-      "//ui/webui/resources/js:list_property_update_behavior",
-    ]
-  }
-
-  js_library("cups_printers_entry_manager") {
-    deps = [
-      ":cups_printer_types",
-      ":cups_printers_browser_proxy",
-      "//ui/webui/resources/js:assert",
-      "//ui/webui/resources/js:cr",
-    ]
-  }
-
-  js_library("cups_printers_list") {
-    deps = [
-      ":cups_printers_browser_proxy",
-      "//ui/webui/resources/cr_elements/cr_action_menu:cr_action_menu",
-      "//ui/webui/resources/js:cr",
-      "//ui/webui/resources/js:icon",
-    ]
-  }
-
-  js_library("cups_saved_printers") {
-    deps = [
-      ":cups_printer_types",
-      ":cups_printers_browser_proxy",
-      ":cups_printers_entry",
-      ":cups_printers_entry_list_behavior",
-      ":cups_printers_entry_manager",
-      "//ui/webui/resources/cr_elements/cr_action_menu:cr_action_menu",
-      "//ui/webui/resources/js:list_property_update_behavior",
-      "//ui/webui/resources/js:web_ui_listener_behavior",
-    ]
-  }
+js_modulizer("modulize") {
+  input_files = [ "printing_browser_proxy.js" ]
 }

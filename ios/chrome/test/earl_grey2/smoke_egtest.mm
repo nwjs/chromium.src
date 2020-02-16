@@ -196,15 +196,33 @@
 // ensureAppLaunchedWithFeaturesEnabled]
 - (void)testAppLaunchManagerLaunchWithFeatures {
   [[AppLaunchManager sharedManager]
-      ensureAppLaunchedWithFeaturesEnabled:
-          {kNewOmniboxPopupLayout, web::features::kSlimNavigationManager}
+      ensureAppLaunchedWithFeaturesEnabled:{kTestFeature}
                                   disabled:{}
                             relaunchPolicy:NoForceRelaunchAndResetState];
 
-  GREYAssertTrue([ChromeEarlGrey isNewOmniboxPopupLayoutEnabled],
-                 @"NewOmniboxPopupLayout should be enabled");
-  GREYAssertTrue([ChromeEarlGrey isSlimNavigationManagerEnabled],
-                 @"SlimNavigationManager should be enabled");
+  GREYAssertTrue([ChromeEarlGrey isTestFeatureEnabled],
+                 @"kTestFeature should be enabled");
+
+  GREYAssertEqual([ChromeEarlGrey mainTabCount], 1U,
+                  @"Exactly one new tab should be opened.");
+}
+
+// Tests enabling variations and trigger variations through [AppLaunchManager
+// ensureAppLaunchedWithLaunchConfiguration:]
+- (void)testAppLaunchManagerLaunchWithVariations {
+  AppLaunchConfiguration config;
+  config.variations_enabled = {111111, 222222};
+  config.trigger_variations_enabled = {999999, 777777};
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  GREYAssertTrue([ChromeEarlGrey isTriggerVariationEnabled:999999],
+                 @"Trigger variation 123456 should be enabled");
+  GREYAssertTrue([ChromeEarlGrey isTriggerVariationEnabled:777777],
+                 @"Trigger variation 123456 should be enabled");
+  GREYAssertTrue([ChromeEarlGrey isVariationEnabled:111111],
+                 @"Variation 987654 should be enabled");
+  GREYAssertTrue([ChromeEarlGrey isVariationEnabled:222222],
+                 @"Variation 987654 should be enabled");
 
   GREYAssertEqual([ChromeEarlGrey mainTabCount], 1U,
                   @"Exactly one new tab should be opened.");
@@ -238,7 +256,7 @@
   [self disableMockAuthentication];
   [ChromeEarlGrey openNewTab];
   [[AppLaunchManager sharedManager]
-      ensureAppLaunchedWithFeaturesEnabled:{kNewOmniboxPopupLayout}
+      ensureAppLaunchedWithFeaturesEnabled:{kTestFeature}
                                   disabled:{}
                             relaunchPolicy:NoForceRelaunchAndResetState];
   [ChromeEarlGrey waitForMainTabCount:1];

@@ -11,19 +11,12 @@
 #include "ash/public/cpp/login_screen.h"
 #include "base/macros.h"
 #include "chrome/browser/ui/ash/test_login_screen_model.h"
-#include "mojo/public/cpp/bindings/binding.h"
 
 namespace ash {
 class ScopedGuestButtonBlocker;
 }
 
 // Test implementation of ash's mojo LoginScreen interface.
-//
-// Registers itself to ServiceManager on construction and deregisters
-// on destruction.
-//
-// Note: A ServiceManagerConnection must be initialized before constructing this
-// object. Consider using content::TestServiceManagerContext on your tests.
 class TestLoginScreen : public ash::LoginScreen {
  public:
   TestLoginScreen();

@@ -4,8 +4,6 @@
 
 #include "extensions/browser/extension_web_contents_observer.h"
 
-#include "content/public/browser/guest_mode.h"
-
 #include "base/logging.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/navigation_handle.h"
@@ -18,7 +16,6 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "extensions/browser/mojo/interface_registration.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/browser/url_loader_factory_manager.h"
@@ -94,8 +91,6 @@ void ExtensionWebContentsObserver::InitializeRenderFrame(
   //moved here for NWJS#5181: getall() with remote window
   if (!frame_extension)
     return;
-  ExtensionsBrowserClient::Get()->RegisterExtensionInterfaces(
-      &registry_, render_frame_host, frame_extension);
   ProcessManager::Get(browser_context_)
       ->RegisterRenderFrameHost(web_contents(), render_frame_host,
                                 frame_extension);
@@ -331,10 +326,10 @@ bool ExtensionWebContentsObserver::Send(IPC::Message* message) {
     return false;
   }
 
-  if (tmp_render_frame_host_ && content::GuestMode::IsCrossProcessFrameGuest(web_contents())) {
+  if (tmp_render_frame_host_ && web_contents()->IsInnerWebContentsForGuest()) {
     return tmp_render_frame_host_->Send(message);
   }
-  
+
   return web_contents()->GetMainFrame()->Send(message);
 }
 #endif

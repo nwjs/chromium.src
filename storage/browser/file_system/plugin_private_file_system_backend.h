@@ -32,6 +32,10 @@ namespace leveldb {
 class Env;
 }
 
+namespace url {
+class Origin;
+}
+
 namespace storage {
 
 class ObfuscatedFileUtil;
@@ -60,7 +64,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) PluginPrivateFileSystemBackend
   // isolation, e.g. name, MIME type etc.
   // NOTE: |plugin_id| must be sanitized ASCII string that doesn't
   // include *any* dangerous character like '/'.
-  void OpenPrivateFileSystem(const GURL& origin_url,
+  void OpenPrivateFileSystem(const url::Origin& origin,
                              FileSystemType type,
                              const std::string& filesystem_id,
                              const std::string& plugin_id,
@@ -121,7 +125,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) PluginPrivateFileSystemBackend
                                          const GURL& origin_url,
                                          FileSystemType type) override;
   scoped_refptr<QuotaReservation> CreateQuotaReservationOnFileTaskRunner(
-      const GURL& origin_url,
+      const url::Origin& origin,
       FileSystemType type) override;
 
   // Get details on the files saved for the specified |origin_url|. Returns
@@ -129,7 +133,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) PluginPrivateFileSystemBackend
   // for the particular origin. |total_size| = 0 and |last_modified_time| =
   // base::Time::UnixEpoch() if no files found.
   void GetOriginDetailsOnFileTaskRunner(FileSystemContext* context,
-                                        const GURL& origin_url,
+                                        const url::Origin& origin,
                                         int64_t* total_size,
                                         base::Time* last_modified_time);
 

@@ -25,6 +25,7 @@
 
 #include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/media_query_matcher.h"
 #include "third_party/blink/renderer/core/css/media_values_dynamic.h"
@@ -49,7 +50,6 @@
 #include "third_party/blink/renderer/core/html/parser/html_srcset_parser.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
-#include "third_party/blink/renderer/core/imagebitmap/image_bitmap_options.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
@@ -106,7 +106,8 @@ HTMLImageElement::HTMLImageElement(Document& document, bool created_by_parser)
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault) {
   SetHasCustomStyleCallbacks();
   if (media_element_parser_helpers::IsMediaElement(this) &&
-      !document.IsFeatureEnabled(mojom::FeaturePolicyFeature::kUnsizedMedia)) {
+      !document.IsFeatureEnabled(
+          mojom::blink::FeaturePolicyFeature::kUnsizedMedia)) {
     is_default_overridden_intrinsic_size_ = true;
     overridden_intrinsic_size_ =
         IntSize(LayoutReplaced::kDefaultWidth, LayoutReplaced::kDefaultHeight);
@@ -658,14 +659,14 @@ bool HTMLImageElement::IsInteractiveContent() const {
 FloatSize HTMLImageElement::DefaultDestinationSize(
     const FloatSize& default_object_size) const {
   ImageResourceContent* image_content = CachedImage();
-  if (!image_content)
+  if (!image_content || !image_content->HasImage())
     return FloatSize();
 
   Image* image = image_content->GetImage();
   if (image->IsSVGImage())
     return ToSVGImage(image)->ConcreteObjectSize(default_object_size);
 
-  LayoutSize size(image_content->IntrinsicSize(
+  LayoutSize size(image->Size(
       LayoutObject::ShouldRespectImageOrientation(GetLayoutObject())));
   if (GetLayoutObject() && GetLayoutObject()->IsLayoutImage() &&
       image->HasIntrinsicSize())
@@ -735,6 +736,17 @@ void HTMLImageElement::SelectSourceURL(
     EnsurePrimaryContent();
   else
     EnsureCollapsedOrFallbackContent();
+}
+
+void HTMLImageElement::StartLoadingImageDocument(
+    ImageResourceContent* image_content) {
+  // This element is being used to load an image in an ImageDocument. The
+  // provided ImageResource is owned/managed by the ImageDocumentParser. Set it
+  // on our ImageLoader and then update the 'src' attribute to reflect the URL
+  // of the image. This latter step will also initiate the load from the
+  // ImageLoader's PoV.
+  GetImageLoader().SetImageDocumentContent(image_content);
+  setAttribute(html_names::kSrcAttr, AtomicString(image_content->Url()));
 }
 
 void HTMLImageElement::DidAddUserAgentShadowRoot(ShadowRoot&) {

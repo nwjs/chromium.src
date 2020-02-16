@@ -90,7 +90,7 @@ String EmptyChromeClient::AcceptLanguages() {
 
 void EmptyLocalFrameClient::BeginNavigation(
     const ResourceRequest&,
-    network::mojom::RequestContextFrameType,
+    mojom::RequestContextFrameType,
     Document* origin_document,
     DocumentLoader*,
     WebNavigationType,
@@ -100,7 +100,7 @@ void EmptyLocalFrameClient::BeginNavigation(
     bool,
     TriggeringEventInfo,
     HTMLFormElement*,
-    ContentSecurityPolicyDisposition,
+    network::mojom::CSPDisposition,
     mojo::PendingRemote<mojom::blink::BlobURLToken>,
     base::TimeTicks,
     const String&,
@@ -113,10 +113,12 @@ void EmptyLocalFrameClient::DispatchWillSendSubmitEvent(HTMLFormElement*) {}
 DocumentLoader* EmptyLocalFrameClient::CreateDocumentLoader(
     LocalFrame* frame,
     WebNavigationType navigation_type,
+    ContentSecurityPolicy* content_security_policy,
     std::unique_ptr<WebNavigationParams> navigation_params,
     std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) {
   DCHECK(frame);
   return MakeGarbageCollected<DocumentLoader>(frame, navigation_type,
+                                              content_security_policy,
                                               std::move(navigation_params));
 }
 

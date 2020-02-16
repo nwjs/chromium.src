@@ -134,7 +134,6 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
   ax::mojom::HasPopup HasPopup() const override;
   bool SupportsARIADragging() const override;
   void Dropeffects(Vector<ax::mojom::Dropeffect>& dropeffects) const override;
-  bool SupportsARIAFlowTo() const override;
   bool SupportsARIAOwns() const override;
 
   // ARIA live-region features.
@@ -232,6 +231,7 @@ class MODULES_EXPORT AXLayoutObject : public AXNodeObject {
   bool HasAriaCellRole(Element*) const;
   bool IsPlaceholder() const;
   ax::mojom::Dropeffect ParseDropeffect(String& dropeffect) const;
+  bool SelectionShouldFollowFocus() const;
 
   static ax::mojom::TextDecorationStyle
   TextDecorationStyleToAXTextDecorationStyle(

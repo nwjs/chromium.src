@@ -17,10 +17,10 @@
 #include "extensions/browser/api/declarative_net_request/utils.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/permissions/permissions_data.h"
-#include "extensions/common/url_pattern_set.h"
 
 namespace content {
 class BrowserContext;
+class RenderFrameHost;
 }
 
 namespace extensions {
@@ -57,8 +57,7 @@ class RulesetManager {
   // Adds the ruleset for the given |extension_id|. Should not be called twice
   // in succession for an extension.
   void AddRuleset(const ExtensionId& extension_id,
-                  std::unique_ptr<CompositeMatcher> matcher,
-                  URLPatternSet allowed_pages);
+                  std::unique_ptr<CompositeMatcher> matcher);
 
   // Removes the ruleset for |extension_id|. Should be called only after a
   // corresponding AddRuleset.
@@ -67,9 +66,6 @@ class RulesetManager {
   // Returns the CompositeMatcher corresponding to the |extension_id| or null
   // if no matcher is present for the extension.
   CompositeMatcher* GetMatcherForExtension(const ExtensionId& extension_id);
-
-  void UpdateAllowedPages(const ExtensionId& extension_id,
-                          URLPatternSet allowed_pages);
 
   // Returns the action to take for the given request; does not return an
   // |ALLOW| action. Note: the returned action is owned by |request|.
@@ -88,6 +84,9 @@ class RulesetManager {
   bool HasExtraHeadersMatcherForRequest(const WebRequestInfo& request,
                                         bool is_incognito_context) const;
 
+  void OnRenderFrameDeleted(content::RenderFrameHost* host);
+  void OnDidFinishNavigation(content::RenderFrameHost* host);
+
   // Returns the number of CompositeMatchers currently being managed.
   size_t GetMatcherCountForTest() const { return rulesets_.size(); }
 
@@ -98,8 +97,7 @@ class RulesetManager {
   struct ExtensionRulesetData {
     ExtensionRulesetData(const ExtensionId& extension_id,
                          const base::Time& extension_install_time,
-                         std::unique_ptr<CompositeMatcher> matcher,
-                         URLPatternSet allowed_pages);
+                         std::unique_ptr<CompositeMatcher> matcher);
     ~ExtensionRulesetData();
     ExtensionRulesetData(ExtensionRulesetData&& other);
     ExtensionRulesetData& operator=(ExtensionRulesetData&& other);
@@ -107,17 +105,13 @@ class RulesetManager {
     ExtensionId extension_id;
     base::Time extension_install_time;
     std::unique_ptr<CompositeMatcher> matcher;
-    URLPatternSet allowed_pages;
 
     bool operator<(const ExtensionRulesetData& other) const;
 
     DISALLOW_COPY_AND_ASSIGN(ExtensionRulesetData);
   };
 
-  base::Optional<RequestAction> GetBlockOrCollapseAction(
-      const std::vector<const ExtensionRulesetData*>& rulesets,
-      const RequestParams& params) const;
-  base::Optional<RequestAction> GetRedirectOrUpgradeAction(
+  base::Optional<RequestAction> GetBeforeRequestAction(
       const std::vector<const ExtensionRulesetData*>& rulesets,
       const WebRequestInfo& request,
       const int tab_id,

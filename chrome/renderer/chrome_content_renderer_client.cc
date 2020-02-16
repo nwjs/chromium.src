@@ -73,7 +73,6 @@
 #include "components/content_capture/renderer/content_capture_sender.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/contextual_search/content/renderer/overlay_js_render_frame_observer.h"
-#include "components/data_reduction_proxy/content/renderer/content_previews_render_frame_observer.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_headers.h"
 #include "components/dom_distiller/content/renderer/distillability_agent.h"
 #include "components/dom_distiller/content/renderer/distiller_js_render_frame_observer.h"
@@ -84,11 +83,11 @@
 #include "components/error_page/common/localized_error.h"
 #include "components/network_hints/renderer/web_prescient_networking_impl.h"
 #include "components/page_load_metrics/renderer/metrics_render_frame_observer.h"
+#include "components/paint_preview/buildflags/buildflags.h"
 #include "components/pdf/renderer/pepper_pdf_host.h"
 #include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/renderer/threat_dom_details.h"
+#include "components/safe_browsing/content/renderer/threat_dom_details.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
-#include "components/startup_metric_utils/common/startup_metric.mojom.h"
 #include "components/subresource_filter/content/renderer/subresource_filter_agent.h"
 #include "components/subresource_filter/content/renderer/unverified_ruleset_dealer.h"
 #include "components/subresource_filter/core/common/common_features.h"
@@ -193,6 +192,10 @@
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 #include "chrome/renderer/pepper/chrome_pdf_print_client.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PAINT_PREVIEW)
+#include "components/paint_preview/renderer/paint_preview_recorder_impl.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SPELLCHECK)
@@ -318,7 +321,7 @@ std::unique_ptr<base::Unwinder> CreateV8Unwinder(
 }  // namespace
 
 ChromeContentRendererClient::ChromeContentRendererClient()
-    : main_entry_time_(base::TimeTicks::Now()),
+    :
 #if defined(OS_WIN)
       remote_module_watcher_(nullptr, base::OnTaskRunnerDeleter(nullptr)),
 #endif
@@ -355,13 +358,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
       IsStandaloneContentExtensionProcess()
           ? blink::scheduler::WebRendererProcessType::kExtensionRenderer
           : blink::scheduler::WebRendererProcessType::kRenderer);
-
-  {
-    mojo::Remote<startup_metric_utils::mojom::StartupMetricHost>
-        startup_metric_host;
-    thread->BindHostReceiver(startup_metric_host.BindNewPipeAndPassReceiver());
-    startup_metric_host->RecordRendererMainEntryTime(main_entry_time_);
-  }
 
 #if defined(OS_WIN)
   mojo::PendingRemote<mojom::ModuleEventSink> module_event_sink;
@@ -522,6 +518,10 @@ void ChromeContentRendererClient::RenderFrameCreated(
       render_frame, std::make_unique<ChromePrintRenderFrameHelperDelegate>());
 #endif
 
+#if BUILDFLAG(ENABLE_PAINT_PREVIEW)
+  new paint_preview::PaintPreviewRecorderImpl(render_frame);
+#endif
+
 #if defined(OS_ANDROID)
   SandboxStatusExtension::Create(render_frame);
 #endif
@@ -621,9 +621,6 @@ void ChromeContentRendererClient::RenderFrameCreated(
   new SpellCheckPanel(render_frame, registry, this);
 #endif  // BUILDFLAG(HAS_SPELLCHECK_PANEL)
 #endif
-
-  if (render_frame->IsMainFrame())
-    new data_reduction_proxy::ContentPreviewsRenderFrameObserver(render_frame);
 }
 
 void ChromeContentRendererClient::RenderViewCreated(
@@ -1237,6 +1234,7 @@ void ChromeContentRendererClient::PrepareErrorPage(
   NetErrorHelper::Get(render_frame)
       ->PrepareErrorPage(
           error_page::Error::NetError(web_error.url(), web_error.reason(),
+                                      web_error.resolve_error_info(),
                                       web_error.has_copy_in_cache()),
           http_method == "POST", error_html);
 
@@ -1256,18 +1254,6 @@ void ChromeContentRendererClient::PrepareErrorPageForHttpStatusError(
       ->PrepareErrorPage(
           error_page::Error::HttpError(unreachable_url, http_status),
           http_method == "POST", error_html);
-}
-
-void ChromeContentRendererClient::GetErrorDescription(
-    const blink::WebURLError& web_error,
-    const std::string& http_method,
-    base::string16* error_description) {
-  error_page::Error error = error_page::Error::NetError(
-      web_error.url(), web_error.reason(), web_error.has_copy_in_cache());
-  if (error_description) {
-    *error_description = error_page::LocalizedError::GetErrorDetails(
-        error.domain(), error.reason(), http_method == "POST");
-  }
 }
 
 void ChromeContentRendererClient::PostIOThreadCreated(
@@ -1326,7 +1312,7 @@ void ChromeContentRendererClient::WillSendRequest(
     WebLocalFrame* frame,
     ui::PageTransition transition_type,
     const blink::WebURL& url,
-    const blink::WebURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const url::Origin* initiator_origin,
     GURL* new_url,
     bool* attach_same_site_cookies) {

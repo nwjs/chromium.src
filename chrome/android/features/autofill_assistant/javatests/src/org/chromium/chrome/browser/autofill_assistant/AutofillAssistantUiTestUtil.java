@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.autofill_assistant;
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import static org.chromium.content_public.browser.test.util.CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL;
 import static org.chromium.content_public.browser.test.util.CriteriaHelper.DEFAULT_POLLING_INTERVAL;
 
@@ -20,13 +22,17 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.espresso.NoMatchingViewException;
 import android.support.test.espresso.UiController;
 import android.support.test.espresso.ViewAction;
+import android.support.test.espresso.ViewAssertion;
+import android.support.test.espresso.core.deps.guava.base.Preconditions;
 import android.support.test.espresso.matcher.BoundedMatcher;
-import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.style.ClickableSpan;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -40,8 +46,8 @@ import org.json.JSONArray;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
-import org.chromium.base.Supplier;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager;
@@ -56,6 +62,7 @@ import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestCallbackHelperContainer;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.content_public.browser.test.util.TestTouchUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -186,6 +193,35 @@ class AutofillAssistantUiTestUtil {
         };
     }
 
+    public static Matcher<View> isNextAfterSibling(final Matcher<View> siblingMatcher) {
+        Preconditions.checkNotNull(siblingMatcher);
+        return new TypeSafeMatcher<View>() {
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("is next after sibling: ");
+                siblingMatcher.describeTo(description);
+            }
+
+            @Override
+            public boolean matchesSafely(View view) {
+                ViewParent parent = view.getParent();
+                if (!(parent instanceof ViewGroup)) {
+                    return false;
+                } else {
+                    ViewGroup parentGroup = (ViewGroup) parent;
+
+                    for (int i = 1; i < parentGroup.getChildCount(); ++i) {
+                        if (view == parentGroup.getChildAt(i)) {
+                            return siblingMatcher.matches(parentGroup.getChildAt(i - 1));
+                        }
+                    }
+
+                    return false;
+                }
+            }
+        };
+    }
+
     public static ViewAction openTextLink(String textLink) {
         return new ViewAction() {
             @Override
@@ -201,13 +237,13 @@ class AutofillAssistantUiTestUtil {
             @Override
             public void perform(UiController uiController, View view) {
                 TextView textView = (TextView) view;
-                SpannableString spannableString = (SpannableString) textView.getText();
+                Spanned spannedString = (Spanned) textView.getText();
                 ClickableSpan[] spans =
-                        spannableString.getSpans(0, spannableString.length(), ClickableSpan.class);
+                        spannedString.getSpans(0, spannedString.length(), ClickableSpan.class);
                 for (ClickableSpan span : spans) {
                     if (textLink.contentEquals(
-                                spannableString.subSequence(spannableString.getSpanStart(span),
-                                        spannableString.getSpanEnd(span)))) {
+                                spannedString.subSequence(spannedString.getSpanStart(span),
+                                        spannedString.getSpanEnd(span)))) {
                         span.onClick(view);
                         return;
                     }
@@ -265,6 +301,57 @@ class AutofillAssistantUiTestUtil {
     }
 
     /**
+     * Same as {@link #waitUntilViewMatchesCondition(Matcher, Matcher, long)}, but waits for a view
+     * assertion instead.
+     */
+    public static void waitUntilViewAssertionTrue(
+            Matcher<View> matcher, ViewAssertion viewAssertion, long maxTimeoutMs) {
+        CriteriaHelper.pollInstrumentationThread(
+                new Criteria(
+                        "Timeout while waiting for " + matcher + " to satisfy " + viewAssertion) {
+                    @Override
+                    public boolean isSatisfied() {
+                        try {
+                            onView(matcher).check(viewAssertion);
+                            return true;
+                        } catch (NoMatchingViewException | AssertionError e) {
+                            // Note: all other exceptions are let through, in particular
+                            // AmbiguousViewMatcherException.
+                            return false;
+                        }
+                    }
+                },
+                maxTimeoutMs, DEFAULT_POLLING_INTERVAL);
+    }
+
+    /**
+     * Waits until keyboard is visible or not based on {@code isShowing}. Will automatically fail
+     * after a default timeout.
+     */
+    public static void waitUntilKeyboardMatchesCondition(
+            CustomTabActivityTestRule testRule, boolean isShowing) {
+        CriteriaHelper.pollInstrumentationThread(new Criteria(
+                "Timeout while waiting for the keyboard to be "
+                + (isShowing ? "visible" : "hidden")) {
+            @Override
+            public boolean isSatisfied() {
+                try {
+                    boolean isKeyboardShowing =
+                            testRule.getActivity()
+                                    .getWindowAndroid()
+                                    .getKeyboardDelegate()
+                                    .isKeyboardShowing(testRule.getActivity(),
+                                            testRule.getActivity().getCompositorViewHolder());
+                    assertThat("", isKeyboardShowing == isShowing);
+                    return true;
+                } catch (AssertionError e) {
+                    return false;
+                }
+            }
+        });
+    }
+
+    /**
      * Creates a {@link BottomSheetController} for the activity, suitable for testing.
      *
      * <p>The returned controller is different from the one returned by {@link
@@ -285,7 +372,7 @@ class AutofillAssistantUiTestUtil {
         };
 
         return new BottomSheetController(activity.getLifecycleDispatcher(),
-                activity.getActivityTabProvider(), activity.getScrim(), sheetSupplier,
+                activity.getActivityTabProvider(), activity::getScrim, sheetSupplier,
                 panelManagerProvider, activity.getFullscreenManager(), activity.getWindow(),
                 activity.getWindowAndroid().getKeyboardDelegate());
     }
@@ -310,6 +397,7 @@ class AutofillAssistantUiTestUtil {
         testRule.startCustomTabActivityWithIntent(CustomTabsTestUtils.createMinimalCustomTabIntent(
                 InstrumentationRegistry.getTargetContext(), "about:blank"));
     }
+
     /**
      * Starts Autofill Assistant on the given {@code activity} and injects the given {@code
      * testService}.
@@ -318,6 +406,23 @@ class AutofillAssistantUiTestUtil {
             ChromeActivity activity, AutofillAssistantTestService testService) {
         testService.scheduleForInjection();
         TestThreadUtils.runOnUiThreadBlocking(() -> AutofillAssistantFacade.start(activity));
+    }
+
+    /** Performs a single tap on the center of the specified element. */
+    public static void tapElement(String elementId, CustomTabActivityTestRule testRule)
+            throws Exception {
+        Rect coords = getAbsoluteBoundingRect(elementId, testRule);
+        float x = coords.left + 0.5f * (coords.right - coords.left);
+        float y = coords.top + 0.5f * (coords.bottom - coords.top);
+
+        // Sanity check, can only click on coordinates on screen.
+        DisplayMetrics displayMetrics = testRule.getActivity().getResources().getDisplayMetrics();
+        if (x < 0 || x > displayMetrics.widthPixels || y < 0 || y > displayMetrics.heightPixels) {
+            throw new IllegalArgumentException(elementId + " not on screen: tried to tap x=" + x
+                    + ", y=" + y + ", which is outside of display with w="
+                    + displayMetrics.widthPixels + ", h=" + displayMetrics.heightPixels);
+        }
+        TestTouchUtils.singleClick(InstrumentationRegistry.getInstrumentation(), x, y);
     }
 
     /** Computes the bounding rectangle of the specified DOM element in absolute screen space. */
@@ -378,6 +483,21 @@ class AutofillAssistantUiTestUtil {
         javascriptHelper.evaluateJavaScriptForTests(webContents,
                 "(function() {"
                         + " return [document.getElementById('" + elementId + "') != null]; "
+                        + "})()");
+        javascriptHelper.waitUntilHasValue();
+        JSONArray result = new JSONArray(javascriptHelper.getJsonResultAndClear());
+        return result.getBoolean(0);
+    }
+
+    /** Checks whether the specified element is displayed in the DOM tree. */
+    public static boolean checkElementIsDisplayed(String elementId, WebContents webContents)
+            throws Exception {
+        TestCallbackHelperContainer.OnEvaluateJavaScriptResultHelper javascriptHelper =
+                new TestCallbackHelperContainer.OnEvaluateJavaScriptResultHelper();
+        javascriptHelper.evaluateJavaScriptForTests(webContents,
+                "(function() {"
+                        + " return [document.getElementById('" + elementId
+                        + "').style.display != \"none\"]; "
                         + "})()");
         javascriptHelper.waitUntilHasValue();
         JSONArray result = new JSONArray(javascriptHelper.getJsonResultAndClear());

@@ -14,6 +14,9 @@
 #include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_bluetooth_advertising_event_init.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_bluetooth_le_scan_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_request_device_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -22,16 +25,14 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_advertising_event.h"
-#include "third_party/blink/renderer/modules/bluetooth/bluetooth_advertising_event_init.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_device.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_error.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_le_scan.h"
-#include "third_party/blink/renderer/modules/bluetooth/bluetooth_le_scan_options.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_manufacturer_data_map.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_remote_gatt_characteristic.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_service_data_map.h"
 #include "third_party/blink/renderer/modules/bluetooth/bluetooth_uuid.h"
-#include "third_party/blink/renderer/modules/bluetooth/request_device_options.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -45,6 +46,8 @@ const size_t kMaxDeviceNameLength = 248;
 const char kDeviceNameTooLong[] =
     "A device name can't be longer than 248 bytes.";
 const char kInactiveDocumentError[] = "Document not active";
+const char kHandleGestureForPermissionRequest[] =
+    "Must be handling a user gesture to show a permission request.";
 }  // namespace
 
 static void CanonicalizeFilter(
@@ -144,12 +147,12 @@ static void ConvertRequestDeviceOptions(
   }
 }
 
-ScriptPromise Bluetooth::getAvailability(ScriptState* script_state) {
+ScriptPromise Bluetooth::getAvailability(ScriptState* script_state,
+                                         ExceptionState& exception_state) {
   ExecutionContext* context = GetExecutionContext();
   if (!context || context->IsContextDestroyed()) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), kInactiveDocumentError));
+    exception_state.ThrowTypeError(kInactiveDocumentError);
+    return ScriptPromise();
   }
 
   CHECK(context->IsSecureContext());
@@ -189,9 +192,8 @@ ScriptPromise Bluetooth::requestDevice(ScriptState* script_state,
                                        ExceptionState& exception_state) {
   ExecutionContext* context = GetExecutionContext();
   if (!context) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), kInactiveDocumentError));
+    exception_state.ThrowTypeError(kInactiveDocumentError);
+    return ScriptPromise();
   }
 
 // Remind developers when they are using Web Bluetooth on unsupported platforms.
@@ -212,17 +214,13 @@ ScriptPromise Bluetooth::requestDevice(ScriptState* script_state,
   auto& doc = *To<Document>(context);
   auto* frame = doc.GetFrame();
   if (!frame) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), kInactiveDocumentError));
+    exception_state.ThrowTypeError(kInactiveDocumentError);
+    return ScriptPromise();
   }
 
   if (!LocalFrame::HasTransientUserActivation(frame)) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        MakeGarbageCollected<DOMException>(
-            DOMExceptionCode::kSecurityError,
-            "Must be handling a user gesture to show a permission request."));
+    exception_state.ThrowSecurityError(kHandleGestureForPermissionRequest);
+    return ScriptPromise();
   }
 
   EnsureServiceConnection(context);
@@ -308,9 +306,8 @@ ScriptPromise Bluetooth::requestLEScan(ScriptState* script_state,
                                        ExceptionState& exception_state) {
   ExecutionContext* context = GetExecutionContext();
   if (!context) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), kInactiveDocumentError));
+    exception_state.ThrowTypeError(kInactiveDocumentError);
+    return ScriptPromise();
   }
 
   // Remind developers when they are using Web Bluetooth on unsupported
@@ -329,17 +326,13 @@ ScriptPromise Bluetooth::requestLEScan(ScriptState* script_state,
   auto& doc = *To<Document>(context);
   auto* frame = doc.GetFrame();
   if (!frame) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), kInactiveDocumentError));
+    exception_state.ThrowTypeError(kInactiveDocumentError);
+    return ScriptPromise();
   }
 
   if (!LocalFrame::HasTransientUserActivation(frame)) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        MakeGarbageCollected<DOMException>(
-            DOMExceptionCode::kSecurityError,
-            "Must be handling a user gesture to show a permission request."));
+    exception_state.ThrowSecurityError(kHandleGestureForPermissionRequest);
+    return ScriptPromise();
   }
 
   EnsureServiceConnection(context);

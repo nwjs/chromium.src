@@ -8,6 +8,17 @@ if (is_android) {
   import("//build/config/android/rules.gni")
 }
 
+jumbo_static_library("skeleton_generator") {
+  sources = [
+    "spoof_checks/skeleton_generator.cc",
+    "spoof_checks/skeleton_generator.h",
+  ]
+  deps = [
+    "//base",
+    "//base:i18n",
+  ]
+}
+
 jumbo_static_library("url_formatter") {
   sources = [
     "elide_url.cc",
@@ -31,6 +42,7 @@ jumbo_static_library("url_formatter") {
   deps = [
     "//base",
     "//base:i18n",
+    "//components/url_formatter:skeleton_generator",
     "//components/url_formatter/spoof_checks/top_domains:common",
     "//components/url_formatter/spoof_checks/top_domains:generate_top_domains_trie",
     "//net",
@@ -39,12 +51,16 @@ jumbo_static_library("url_formatter") {
     "//url",
   ]
 
-  public_deps = [
-    "//third_party/icu",
-  ]
+  public_deps = [ "//third_party/icu" ]
 
   if (is_android) {
     deps += [ "android:jni_headers" ]
+  }
+}
+
+if (is_android) {
+  java_cpp_enum("url_formatter_java_enums_srcjar") {
+    sources = [ "elide_url.h" ]
   }
 }
 

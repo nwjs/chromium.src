@@ -15,10 +15,10 @@
 <translation id="1153356358378277386">Spárovaná zařízení</translation>
 <translation id="1175572348579024023">Posunout</translation>
 <translation id="1178581264944972037">Pozastavit</translation>
+<translation id="1190609913194133056">Centrum oznámení</translation>
 <translation id="1195412055398077112">přesah obrazu</translation>
 <translation id="119944043368869598">Vymazat vše</translation>
 <translation id="1247372569136754018">Mikrofon (interní)</translation>
-<translation id="1249456112629248620"><ph name="FEATURE_NAME" /> Toto nastavení je vynuceno administrátorem.</translation>
 <translation id="1252999807265626933">Zdroj nabíjení: <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Jaké je počasí?</translation>
 <translation id="1267032506238418139">Změna klávesové zkratky</translation>
@@ -45,6 +45,7 @@
 <translation id="1460620680449458626">Zvuk je vypnutý.</translation>
 <translation id="1467432559032391204">Doleva</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
+<translation id="1508507608940204251">Zapnuto</translation>
 <translation id="1516740043221086139">Režim Nerušit je zapnutý.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Zobrazit nastavení oznámení. U jedné aplikace jsou oznámení vypnutá}few{Zobrazit nastavení oznámení. U # aplikací jsou oznámení vypnutá}many{Zobrazit nastavení oznámení. U # aplikace jsou oznámení vypnutá}other{Zobrazit nastavení oznámení. U # aplikací jsou oznámení vypnutá}}</translation>
 <translation id="1525508553941733066">ZAVŘÍT</translation>
@@ -69,6 +70,7 @@
 <translation id="1836215606488044471">Asistent (načítání...)</translation>
 <translation id="1838895407229022812">Noční režim je vypnutý.</translation>
 <translation id="1850504506766569011">Připojení Wi-Fi je vypnuto.</translation>
+<translation id="1859889070386344428">Vypnuto</translation>
 <translation id="1864454756846565995">Zařízení USB Type-C (zadní port)</translation>
 <translation id="1882897271359938046">Zrcadlení na displej <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Odemknutí otiskem prstu</translation>
@@ -110,17 +112,19 @@
 <translation id="2352467521400612932">Nastavení dotykového pera</translation>
 <translation id="2354174487190027830">Aktivace sítě <ph name="NAME" /></translation>
 <translation id="2359808026110333948">Pokračovat</translation>
+<translation id="2364154243880592194">Stavový panel, čas <ph name="TIME" />, <ph name="BATTERY" /> Stisknutím tlačítka Hledat a šipky vlevo přejdete do centra oznámení.</translation>
 <translation id="2365393535144473978">Zapnutím mobilních dat aktivujete Bluetooth.</translation>
 <translation id="2391579633712104609">180°</translation>
 <translation id="2412593942846481727">K dispozici je aktualizace</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> je návštěvy spravovaná doménou <ph name="DOMAIN" /></translation>
 <translation id="2427507373259914951">Kliknutí levým tlačítkem</translation>
 <translation id="2429753432712299108">Zařízení Bluetooth „<ph name="DEVICE_NAME" />“ žádá o povolení ke spárování. Než toto povolení schválíte, zkontrolujte si, zda je na zařízení zobrazen následující přístupový klíč: <ph name="PASSKEY" /></translation>
+<translation id="2473177541599297363">Potvrďte rozlišení</translation>
 <translation id="2482878487686419369">Oznámení</translation>
 <translation id="2484513351006226581">Rozložení klávesnice změníte stisknutím kláves <ph name="KEYBOARD_SHORTCUT" /></translation>
 <translation id="2501920221385095727">Jedním prstem</translation>
 <translation id="2509468283778169019">CAPS LOCK je zapnutý</translation>
-<translation id="2517825809102302935">Pro dnešní noc vypnout</translation>
+<translation id="2519465031217098801">Zapnuto</translation>
 <translation id="2542089167727451762">Klepněte na profilovou fotku</translation>
 <translation id="255671100581129685">Asistent Google není ve veřejné relaci k dispozici.</translation>
 <translation id="256712445991462162">zabudovaná lupa</translation>
@@ -134,10 +138,10 @@
 <translation id="2704781753052663061">Připojit se k dalším sítím Wi-Fi</translation>
 <translation id="2718395828230677721">Noční režim</translation>
 <translation id="2727977024730340865">Byla připojena nabíječka s nízkým výkonem. Nabíjení baterie nemusí probíhat spolehlivě.</translation>
-<translation id="2761704814324807722">Systémový panel, čas <ph name="TIME" />, <ph name="BATTERY" /></translation>
 <translation id="2792498699870441125">Alt + Vyhledávání</translation>
 <translation id="2803734122639935495">Chcete-li zařízení odemknout, zadejte heslo</translation>
 <translation id="2819276065543622893">Nyní budete odhlášeni.</translation>
+<translation id="2825224105325558319"><ph name="DISPLAY_NAME" /> rozlišení <ph name="SPECIFIED_RESOLUTION" /> nepodporuje. Rozlišení bylo změněno na <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="2825619548187458965">Polička</translation>
 <translation id="2844169650293029770">Zařízení USB Type-C (levý přední port)</translation>
 <translation id="2865888419503095837">Informace o síti</translation>
@@ -167,6 +171,7 @@
 <translation id="3151786313568798007">Orientace</translation>
 <translation id="3153444934357957346">Počet účtů, které lze v rámci vícenásobného přihlášení používat, je omezen na <ph name="MULTI_PROFILE_USER_LIMIT" />.</translation>
 <translation id="3154351730702813399">Správce zařízení může sledovat vaši aktivitu při procházení.</translation>
+<translation id="3181441307743005334">Restartování může chvíli trvat</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Připojeno k zařízení}few{Připojeno k # zařízením}many{Připojeno k # zařízení}other{Připojeno k # zařízením}}</translation>
 <translation id="3217205077783620295">Zvuk je zapnutý. Přepnutím ho vypnete.</translation>
 <translation id="3226991577105957773">a ještě <ph name="COUNT" /></translation>
@@ -224,6 +229,7 @@
 <translation id="3901991538546252627">Připojování k síti <ph name="NAME" /></translation>
 <translation id="394485226368336402">Nastavení zvuku</translation>
 <translation id="3962859241508114581">Předchozí skladba</translation>
+<translation id="3965097803111112935">Vypnuto</translation>
 <translation id="397105322502079400">Probíhá výpočet…</translation>
 <translation id="3977512764614765090">Baterie je nabitá na <ph name="PERCENTAGE" /> % a nabíjí se.</translation>
 <translation id="3995138139523574647">Zařízení USB Type-C (pravý zadní port)</translation>
@@ -235,6 +241,7 @@
 <translation id="4112140312785995938">Přetočit dozadu</translation>
 <translation id="4129129681837227511">Chcete-li zobrazovat oznámení na obrazovce uzamčení, odemkněte zařízení a změňte příslušné nastavení.</translation>
 <translation id="4146833061457621061">Přehrát hudbu</translation>
+<translation id="4149156641122542261">Zařízení <ph name="DEVICE_TYPE" /> spravované doménou <ph name="DOMAIN" /></translation>
 <translation id="4181841719683918333">Jazyky</translation>
 <translation id="4195877955194704651">Tlačítko automatických kliknutí</translation>
 <translation id="4217571870635786043">Diktování</translation>
@@ -297,7 +304,6 @@
 <translation id="4924411785043111640">Restartovat a resetovat</translation>
 <translation id="495046168593986294">Posunout nahoru</translation>
 <translation id="4961318399572185831">Odesílání obrazovky</translation>
-<translation id="5018302031617932556">Noční režim usnadňuje sledování obrazovky nebo čtení při tlumeném osvětlení. Toto nastavení změníte klepnutím.</translation>
 <translation id="5030687792513154421">Čas vypršel</translation>
 <translation id="5035236842988137213">Zařízení <ph name="DEVICE_NAME" /> je připojeno k novému telefonu</translation>
 <translation id="5083553833479578423">Odemkněte další funkce Asistenta.</translation>
@@ -306,6 +312,7 @@
 <translation id="5207949376430453814">Zvýraznit textový kurzor</translation>
 <translation id="5222676887888702881">Odhlásit se</translation>
 <translation id="523505283826916779">Nastavení usnadnění přístupu</translation>
+<translation id="5250225880026334010">Vypnuto</translation>
 <translation id="5260676007519551770">Plocha 4</translation>
 <translation id="5283198616748585639">Přidat 1 min</translation>
 <translation id="5286194356314741248">Skenování</translation>
@@ -333,6 +340,7 @@
 <translation id="5669267381087807207">Probíhá aktivace</translation>
 <translation id="5673434351075758678">Po synchronizaci nastavení se oznámení změní z jazyka <ph name="FROM_LOCALE" /> na jazyk <ph name="TO_LOCALE" />.</translation>
 <translation id="5682642926269496722">Asistent Google pro aktuální uživatelský účet není k dispozici.</translation>
+<translation id="5689633613396158040">Noční režim usnadňuje sledování obrazovky nebo čtení při tlumeném osvětlení. Klepnutím můžete změnit čas zapínání nočního režimu, případně ho úplně vypnout.</translation>
 <translation id="5691772641933328258">Otisk prstu nebyl rozpoznán</translation>
 <translation id="5710450975648804523">Režim Nerušit je zapnutý</translation>
 <translation id="573413375004481890">Toto zařízení nemohlo podporovat všechny vaše obrazovky, jedna proto byla odpojena</translation>
@@ -344,7 +352,6 @@
 <translation id="5777841717266010279">Ukončit sdílení obrazovky?</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5837036133683224804">Zastavit <ph name="ROUTE_TITLE" /> na přijímači <ph name="RECEIVER_NAME" /></translation>
-<translation id="5860033963881614850">Vypnuto</translation>
 <translation id="5895138241574237353">Restartovat</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> <ph name="MAIL" /></translation>
@@ -395,6 +402,7 @@
 <translation id="6490471652906364588">Zařízení USB Type-C (pravý port)</translation>
 <translation id="649452524636452238">PIN chytré karty</translation>
 <translation id="6501401484702599040">Odesílání obrazovky do zařízení <ph name="RECEIVER_NAME" /></translation>
+<translation id="652139407789908527">Během této aktualizace bude obrazovka prázdná delší dobu než obvykle (až minutu). V průběhu aktualizace nemačkejte vypínač.</translation>
 <translation id="6521655319214113338">Zadávání psaním rukou</translation>
 <translation id="6528179044667508675">Nerušit</translation>
 <translation id="6537270692134705506">Pořídit snímek obrazovky</translation>
@@ -408,6 +416,7 @@
 <translation id="6650933572246256093">Zařízení Bluetooth „<ph name="DEVICE_NAME" />“ žádá o povolení ke spárování. V zařízení prosím zadejte následující přístupový klíč: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Heslo</translation>
 <translation id="6665545700722362599">Udělit webům, aplikacím a rozšířením oprávnění používat služby určování polohy, mikrofon či fotoaparát zařízení nebo další funkce</translation>
+<translation id="6669268301501499730">Zapnuto</translation>
 <translation id="6670153871843998651">Plocha 3</translation>
 <translation id="6691659475504239918">Hledat+Shift+H</translation>
 <translation id="6696025732084565524">Odpojitelná klávesnice vyžaduje kritickou aktualizaci</translation>
@@ -446,6 +455,7 @@
 <translation id="7143207342074048698">Připojování</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Původní rozlišení bude obnoveno za <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7246071203293827765"><ph name="UPDATE_TEXT" />. Kvůli použití aktualizace je třeba Chromebook restartovat. Může to trvat až minutu.</translation>
 <translation id="7256634071279256947">Zadní mikrofon</translation>
 <translation id="726276584504105859">Chcete-li použít rozdělenou obrazovku, přetáhněte okno sem</translation>
 <translation id="7262906531272962081">Vytvořit připomenutí</translation>
@@ -464,7 +474,6 @@
 <translation id="7526573455193969409">Síť může být sledována</translation>
 <translation id="7536035074519304529">IP adresa: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Čas jít spát</translation>
-<translation id="7561014039265304140"><ph name="DISPLAY_NAME" /> rozlišení <ph name="SPECIFIED_RESOLUTION" /> nepodporuje. Rozlišení bylo změněno zpět na <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="7562368315689366235">Paleta emodži</translation>
 <translation id="7564874036684306347">Přesunutí oken na jinou plochu může vést k neočekávanému chování. Následná oznámení, okna a dialogy mohou být rozděleny mezi plochy.</translation>
 <translation id="7568294522609223312">Vypnout automatická kliknutí</translation>
@@ -507,11 +516,13 @@
 <translation id="8061464966246066292">Vysoký kontrast</translation>
 <translation id="8098591350844501178">Ukončit odesílání obrazovky do přijímače <ph name="RECEIVER_NAME" /></translation>
 <translation id="8113423164597455979">Zapnuto, všechny aplikace</translation>
+<translation id="8131740175452115882">Potvrdit</translation>
 <translation id="8132793192354020517">Připojeno k síti <ph name="NAME" /></translation>
 <translation id="813913629614996137">Probíhá inicializace...</translation>
 <translation id="8142441511840089262">Dvojité kliknutí</translation>
 <translation id="8142699993796781067">Soukromá síť</translation>
 <translation id="8152092012181020186">Zavřete stisknutím kláves Ctrl + W.</translation>
+<translation id="8155007568264258537"><ph name="FEATURE_NAME" /> Toto nastavení spravuje administrátor.</translation>
 <translation id="8167567890448493835">Používá se <ph name="LOCALE_NAME" /></translation>
 <translation id="8190698733819146287">Personalizovat jazyky a zadávání...</translation>
 <translation id="8192202700944119416">Oznámení jsou skryta.</translation>
@@ -539,6 +550,7 @@
 <translation id="847056008324733326">Zobrazit nastavení měřítka</translation>
 <translation id="8473301994082929012">Organizace <ph name="ORGANIZATION_NAME" /> <ph name="FEATURE_STATE" /> funkci <ph name="FEATURE_NAME" />.</translation>
 <translation id="8477270416194247200">Vypnete jej stisknutím kombinace kláves Alt + Hledat nebo klávesy Shift.</translation>
+<translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> rozlišení <ph name="SPECIFIED_RESOLUTION" /> nepodporuje. Rozlišení bylo změněno na <ph name="FALLBACK_RESOLUTION" />. Chcete-li změny ponechat, potvrďte je. Předchozí nastavení bude obnoveno za <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="8513108775083588393">Automatické otáčení</translation>
 <translation id="8517041960877371778">Je možné, že když bude zařízení <ph name="DEVICE_TYPE" /> zapnuté, nebude se nabíjet.</translation>
 <translation id="8627191004499078455">Připojeno k zařízení <ph name="DEVICE_NAME" /></translation>
@@ -588,12 +600,13 @@
 <translation id="9089416786594320554">Metody zadávání dat</translation>
 <translation id="9091626656156419976">Obrazovka <ph name="DISPLAY_NAME" /> byla odebrána</translation>
 <translation id="9151726767154816831">Chcete-li zařízení aktualizovat, restartujte je a resetujte pomocí funkce Powerwash</translation>
+<translation id="9168436347345867845">Později</translation>
 <translation id="9179259655489829027">Tato funkce umožňuje rychle získat přístup ke kterémukoliv přihlášenému uživateli, aniž by bylo potřeba zadávat heslo. Tuto funkci používejte pouze s účty, kterým důvěřujete.</translation>
 <translation id="9183456764293710005">Zvětšení obrazovky</translation>
 <translation id="9193626018745640770">Odesílání do neznámého přijímače</translation>
 <translation id="9194617393863864469">Přihlásit dalšího uživatele...</translation>
+<translation id="9198992156681343238">Rozlišení displeje <ph name="DISPLAY_NAME" /> bylo změněno na <ph name="RESOLUTION" />. Chcete-li změny ponechat, potvrďte je. Předchozí nastavení bude obnoveno za <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, spravováno vaším administrátorem</translation>
-<translation id="9205817095063786319">Zařízení spravuje organizace <ph name="DOMAIN" /></translation>
 <translation id="9210037371811586452">Ukončování režimu jednotné plochy</translation>
 <translation id="9211681782751733685">Doba zbývající do úplného nabití baterie: <ph name="TIME_REMAINING" />.</translation>
 <translation id="9215934040295798075">Nastavit tapetu</translation>

@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/radio_node_list.h"
 #include "third_party/blink/renderer/core/html/html_collection.h"
+#include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html/html_tag_collection.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
@@ -84,9 +85,9 @@ class DOMTreeMutationDetector {
  public:
   DOMTreeMutationDetector(const Node& node, const Node& parent)
       : node_(&node),
-        node_document_(node.GetDocument()),
-        parent_document_(parent.GetDocument()),
-        parent_(parent),
+        node_document_(&node.GetDocument()),
+        parent_document_(&parent.GetDocument()),
+        parent_(&parent),
         original_node_document_version_(node_document_->DomTreeVersion()),
         original_parent_document_version_(parent_document_->DomTreeVersion()) {}
 
@@ -105,10 +106,10 @@ class DOMTreeMutationDetector {
   }
 
  private:
-  const Member<const Node> node_;
-  const Member<Document> node_document_;
-  const Member<Document> parent_document_;
-  const Member<const Node> parent_;
+  const Node* const node_;
+  Document* const node_document_;
+  Document* const parent_document_;
+  const Node* const parent_;
   const uint64_t original_node_document_version_;
   const uint64_t original_parent_document_version_;
 };
@@ -1007,13 +1008,15 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
   GetDocument().IncDOMTreeVersion();
   GetDocument().NotifyChangeChildren(*this);
   InvalidateNodeListCachesInAncestors(nullptr, nullptr, &change);
-
   if (change.IsChildRemoval() || change.type == kAllChildrenRemoved) {
     GetDocument().GetStyleEngine().ChildrenRemoved(*this);
     return;
   }
   if (!change.IsChildInsertion())
     return;
+  Node* inserted_node = change.sibling_changed;
+  if (inserted_node->IsContainerNode() || inserted_node->IsTextNode())
+    inserted_node->ClearFlatTreeNodeDataIfHostChanged(*this);
   if (!InActiveDocument())
     return;
   if (IsElementNode() && !GetComputedStyle()) {
@@ -1024,11 +1027,8 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
     // the ComputedStyle goes from null to non-null.
     return;
   }
-  Node* inserted_node = change.sibling_changed;
-  if (inserted_node->IsContainerNode() || inserted_node->IsTextNode()) {
-    inserted_node->ClearFlatTreeNodeDataIfHostChanged(*this);
+  if (inserted_node->IsContainerNode() || inserted_node->IsTextNode())
     inserted_node->SetStyleChangeOnInsertion();
-  }
 }
 
 void ContainerNode::CloneChildNodesFrom(const ContainerNode& node) {
@@ -1101,7 +1101,8 @@ void ContainerNode::FocusWithinStateChanged() {
     this_element->PseudoStateChanged(CSSSelector::kPseudoFocusWithin);
 }
 
-void ContainerNode::SetFocused(bool received, WebFocusType focus_type) {
+void ContainerNode::SetFocused(bool received,
+                               mojom::blink::FocusType focus_type) {
   // Recurse up author shadow trees to mark shadow hosts if it matches :focus.
   // TODO(kochi): Handle UA shadows which marks multiple nodes as focused such
   // as <input type="date"> the same way as author shadow.
@@ -1227,12 +1228,7 @@ Element* ContainerNode::QuerySelector(const AtomicString& selectors,
       selectors, GetDocument(), exception_state);
   if (!selector_query)
     return nullptr;
-  Element* element = selector_query->QueryFirst(*this);
-  if (element && element->GetDocument().InDOMNodeRemovedHandler()) {
-    if (NodeChildRemovalTracker::IsBeingRemoved(*element))
-      GetDocument().CountDetachingNodeAccessInDOMNodeRemovedHandler();
-  }
-  return element;
+  return selector_query->QueryFirst(*this);
 }
 
 Element* ContainerNode::QuerySelector(const AtomicString& selectors) {
@@ -1300,43 +1296,20 @@ static void DispatchChildRemovalEvents(Node& child) {
   // Dispatch pre-removal mutation events.
   if (c->parentNode() &&
       document.HasListenerType(Document::kDOMNodeRemovedListener)) {
-    bool original_node_flag = c->InDOMNodeRemovedHandler();
-    auto original_document_state = document.GetInDOMNodeRemovedHandlerState();
-    if (ScopedEventQueue::Instance()->ShouldQueueEvents()) {
-      UseCounter::Count(document, WebFeature::kDOMNodeRemovedEventDelayed);
-    } else {
-      c->SetInDOMNodeRemovedHandler(true);
-      document.SetInDOMNodeRemovedHandlerState(
-          Document::InDOMNodeRemovedHandlerState::kDOMNodeRemoved);
-    }
     NodeChildRemovalTracker scope(child);
     c->DispatchScopedEvent(
         *MutationEvent::Create(event_type_names::kDOMNodeRemoved,
                                Event::Bubbles::kYes, c->parentNode()));
-    document.SetInDOMNodeRemovedHandlerState(original_document_state);
-    c->SetInDOMNodeRemovedHandler(original_node_flag);
   }
 
   // Dispatch the DOMNodeRemovedFromDocument event to all descendants.
   if (c->isConnected() &&
       document.HasListenerType(Document::kDOMNodeRemovedFromDocumentListener)) {
-    bool original_node_flag = c->InDOMNodeRemovedHandler();
-    auto original_document_state = document.GetInDOMNodeRemovedHandlerState();
-    if (ScopedEventQueue::Instance()->ShouldQueueEvents()) {
-      UseCounter::Count(document,
-                        WebFeature::kDOMNodeRemovedFromDocumentEventDelayed);
-    } else {
-      c->SetInDOMNodeRemovedHandler(true);
-      document.SetInDOMNodeRemovedHandlerState(
-          Document::InDOMNodeRemovedHandlerState::kDOMNodeRemovedFromDocument);
-    }
     NodeChildRemovalTracker scope(child);
     for (; c; c = NodeTraversal::Next(*c, &child)) {
       c->DispatchScopedEvent(*MutationEvent::Create(
           event_type_names::kDOMNodeRemovedFromDocument, Event::Bubbles::kNo));
     }
-    document.SetInDOMNodeRemovedHandlerState(original_document_state);
-    child.SetInDOMNodeRemovedHandler(original_node_flag);
   }
 }
 
@@ -1521,7 +1494,7 @@ HTMLCollection* ContainerNode::getElementsByTagName(
     const AtomicString& qualified_name) {
   DCHECK(!qualified_name.IsNull());
 
-  if (GetDocument().IsHTMLDocument()) {
+  if (IsA<HTMLDocument>(GetDocument())) {
     return EnsureCachedCollection<HTMLTagCollection>(kHTMLTagCollectionType,
                                                      qualified_name);
   }

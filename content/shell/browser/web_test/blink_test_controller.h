@@ -15,6 +15,7 @@
 
 #include "base/cancelable_callback.h"
 #include "base/files/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
@@ -148,6 +149,15 @@ class BlinkTestController : public WebContentsObserver,
 
   void DevToolsProcessCrashed();
 
+  // Returns a path to a temporary directory. Each call to this method will
+  // return a new (empty) directory, as well as delete any directories that
+  // might have been created by previous calls.
+  base::FilePath GetWritableDirectoryForTests();
+
+  // For the duration of the current test this causes all file choosers to
+  // return the passed in path.
+  void SetFilePathForMockFileDialog(const base::FilePath& path);
+
   // WebContentsObserver implementation.
   bool OnMessageReceived(const IPC::Message& message) override;
   void PluginCrashed(const base::FilePath& plugin_path,
@@ -173,6 +183,21 @@ class BlinkTestController : public WebContentsObserver,
       const {
     return accumulated_web_test_runtime_flags_changes_;
   }
+
+  void OnInitiateLayoutDump();
+  void OnResetDone();
+  void OnPrintMessageToStderr(const std::string& message);
+  void OnReload();
+  void OnOverridePreferences(const WebPreferences& prefs);
+  void OnCloseRemainingWindows();
+  void OnGoToOffset(int offset);
+  void OnSetBluetoothManualChooser(bool enable);
+  void OnGetBluetoothManualChooserEvents();
+  void OnSendBluetoothManualChooserEvent(const std::string& event,
+                                         const std::string& argument);
+  void OnSetPopupBlockingEnabled(bool block_popups);
+  void OnLoadURLForFrame(const GURL& url, const std::string& frame_name);
+  void OnNavigateSecondaryWindow(const GURL& url);
 
  private:
   enum TestPhase { BETWEEN_TESTS, DURING_TEST, CLEAN_UP };
@@ -201,26 +226,12 @@ class BlinkTestController : public WebContentsObserver,
   void OnAudioDump(const std::vector<unsigned char>& audio_dump);
   void OnImageDump(const std::string& actual_pixel_hash, const SkBitmap& image);
   void OnTextDump(const std::string& dump);
-  void OnInitiateLayoutDump();
   void OnDumpFrameLayoutResponse(int frame_tree_node_id,
                                  const std::string& dump);
-  void OnPrintMessageToStderr(const std::string& message);
   void OnPrintMessage(const std::string& message);
-  void OnOverridePreferences(const WebPreferences& prefs);
-  void OnSetPopupBlockingEnabled(bool block_popups);
   void OnTestFinished();
-  void OnNavigateSecondaryWindow(const GURL& url);
-  void OnGoToOffset(int offset);
-  void OnReload();
-  void OnLoadURLForFrame(const GURL& url, const std::string& frame_name);
   void OnCaptureSessionHistory();
-  void OnCloseRemainingWindows();
-  void OnResetDone();
   void OnLeakDetectionDone(const LeakDetector::LeakDetectionReport& report);
-  void OnSetBluetoothManualChooser(bool enable);
-  void OnGetBluetoothManualChooserEvents();
-  void OnSendBluetoothManualChooserEvent(const std::string& event,
-                                         const std::string& argument);
   void OnBlockThirdPartyCookies(bool block);
   mojo::AssociatedRemote<mojom::WebTestControl>& GetWebTestControlRemote(
       RenderFrameHost* frame);
@@ -324,6 +335,8 @@ class BlinkTestController : public WebContentsObserver,
   // Map from one frame to one mojo pipe.
   std::map<GlobalFrameRoutingId, mojo::AssociatedRemote<mojom::WebTestControl>>
       web_test_control_map_;
+
+  base::ScopedTempDir writable_directory_for_tests_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

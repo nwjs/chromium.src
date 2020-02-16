@@ -19,13 +19,13 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_code_cache.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_request_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_response.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
 #include "third_party/blink/renderer/core/fetch/fetch_data_loader.h"
 #include "third_party/blink/renderer/core/fetch/request.h"
-#include "third_party/blink/renderer/core/fetch/request_init.h"
 #include "third_party/blink/renderer/core/fetch/response.h"
 #include "third_party/blink/renderer/core/frame/deprecation.h"
 #include "third_party/blink/renderer/core/html/parser/text_resource_decoder.h"
@@ -90,12 +90,12 @@ CodeCachePolicy GetCodeCachePolicy(ExecutionContext* context,
   if (!RuntimeEnabledFeatures::CacheStorageCodeCacheHintEnabled(context))
     return CodeCachePolicy::kAuto;
 
-  // We should never see an opaque response here.  We should have bailed out
-  // from generating code cache when we failed to determine its mime type.
   // It's important we don't look at the header hint for opaque responses since
   // it could leak cross-origin information.
-  DCHECK_NE(response->GetResponse()->GetType(),
-            network::mojom::FetchResponseType::kOpaque);
+  if (response->GetResponse()->GetType() ==
+      network::mojom::FetchResponseType::kOpaque) {
+    return CodeCachePolicy::kAuto;
+  }
 
   String header_name(
       features::kCacheStorageCodeCacheHintHeaderName.Get().data());
@@ -445,6 +445,10 @@ class Cache::CodeCacheHandleCallbackForPut final
     fetch_api_request_ = request->CreateFetchAPIRequest();
     fetch_api_response_ = response->PopulateFetchAPIResponse(request->url());
     url_ = fetch_api_request_->url;
+    opaque_mode_ = fetch_api_response_->response_type ==
+                           network::mojom::FetchResponseType::kOpaque
+                       ? V8CodeCache::OpaqueMode::kOpaque
+                       : V8CodeCache::OpaqueMode::kNotOpaque;
   }
   ~CodeCacheHandleCallbackForPut() override = default;
 
@@ -860,18 +864,15 @@ ScriptPromise Cache::AddAllImpl(ScriptState* script_state,
   promises.resize(requests.size());
   for (wtf_size_t i = 0; i < requests.size(); ++i) {
     if (!requests[i]->url().ProtocolIsInHTTPFamily()) {
-      return ScriptPromise::Reject(script_state,
-                                   V8ThrowException::CreateTypeError(
-                                       script_state->GetIsolate(),
-                                       "Add/AddAll does not support schemes "
-                                       "other than \"http\" or \"https\""));
+      exception_state.ThrowTypeError(
+          "Add/AddAll does not support schemes "
+          "other than \"http\" or \"https\"");
+      return ScriptPromise();
     }
     if (requests[i]->method() != http_names::kGET) {
-      return ScriptPromise::Reject(
-          script_state,
-          V8ThrowException::CreateTypeError(
-              script_state->GetIsolate(),
-              "Add/AddAll only supports the GET request method."));
+      exception_state.ThrowTypeError(
+          "Add/AddAll only supports the GET request method.");
+      return ScriptPromise();
     }
     request_infos[i].SetRequest(requests[i]);
 

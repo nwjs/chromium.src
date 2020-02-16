@@ -5,11 +5,12 @@
 #include "third_party/blink/renderer/core/layout/ng/custom/ng_custom_layout_algorithm.h"
 
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_fragment_result_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_intrinsic_sizes_result_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/layout/ng/custom/custom_layout_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/custom/custom_layout_scope.h"
-#include "third_party/blink/renderer/core/layout/ng/custom/fragment_result_options.h"
 #include "third_party/blink/renderer/core/layout/ng/custom/layout_worklet.h"
 #include "third_party/blink/renderer/core/layout/ng/custom/layout_worklet_global_scope_proxy.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_layout_algorithm.h"
@@ -30,13 +31,59 @@ NGCustomLayoutAlgorithm::NGCustomLayoutAlgorithm(
   container_builder_.SetIsNewFormattingContext(
       params.space.IsNewFormattingContext());
   container_builder_.SetInitialFragmentGeometry(params.fragment_geometry);
+  const NGConstraintSpace& space = ConstraintSpace();
+  child_percentage_resolution_block_size_for_min_max_ =
+      CalculateChildPercentageBlockSizeForMinMax(
+          space, Node(), border_padding_,
+          space.PercentageResolutionBlockSize());
 }
 
 base::Optional<MinMaxSize> NGCustomLayoutAlgorithm::ComputeMinMaxSize(
     const MinMaxSizeInput& input) const {
-  // TODO(ikilpatrick): Invoke the web-developer defined "intrinsicSizes"
-  // method.
-  return FallbackMinMaxSize(input);
+  if (!Node().IsCustomLayoutLoaded())
+    return FallbackMinMaxSize(input);
+
+  ScriptForbiddenScope::AllowUserAgentScript allow_script;
+  CustomLayoutScope scope;
+
+  const AtomicString& name = Style().DisplayLayoutCustomName();
+  const Document& document = Node().GetDocument();
+  LayoutWorklet* worklet = LayoutWorklet::From(*document.domWindow());
+  CSSLayoutDefinition* definition = worklet->Proxy()->FindDefinition(name);
+
+  // TODO(ikilpatrick): Cache the instance of the layout class.
+  CSSLayoutDefinition::Instance* instance = definition->CreateInstance();
+
+  if (!instance) {
+    // TODO(ikilpatrick): Report this error to the developer.
+    return FallbackMinMaxSize(input);
+  }
+
+  IntrinsicSizesResultOptions* intrinsic_sizes_result_options =
+      IntrinsicSizesResultOptions::Create();
+  if (!instance->IntrinsicSizes(
+          ConstraintSpace(), document, Node(),
+          container_builder_.InitialBorderBoxSize(), border_scrollbar_padding_,
+          child_percentage_resolution_block_size_for_min_max_, &scope,
+          intrinsic_sizes_result_options)) {
+    // TODO(ikilpatrick): Report this error to the developer.
+    return FallbackMinMaxSize(input);
+  }
+
+  MinMaxSize sizes;
+  sizes.max_size = LayoutUnit::FromDoubleRound(
+      intrinsic_sizes_result_options->maxContentSize());
+  sizes.min_size = std::min(
+      sizes.max_size, LayoutUnit::FromDoubleRound(
+                          intrinsic_sizes_result_options->minContentSize()));
+
+  if (input.size_type == NGMinMaxSizeType::kContentBoxSize)
+    sizes -= border_scrollbar_padding_.InlineSum();
+
+  sizes.min_size.ClampNegativeToZero();
+  sizes.max_size.ClampNegativeToZero();
+
+  return sizes;
 }
 
 scoped_refptr<const NGLayoutResult> NGCustomLayoutAlgorithm::Layout() {
@@ -64,10 +111,11 @@ scoped_refptr<const NGLayoutResult> NGCustomLayoutAlgorithm::Layout() {
   FragmentResultOptions* fragment_result_options =
       FragmentResultOptions::Create();
   scoped_refptr<SerializedScriptValue> fragment_result_data;
-  if (!instance->Layout(ConstraintSpace(), document, Node(),
-                        container_builder_.InitialBorderBoxSize(),
-                        border_scrollbar_padding_, &scope,
-                        fragment_result_options, &fragment_result_data)) {
+  if (!instance->Layout(
+          ConstraintSpace(), document, Node(),
+          container_builder_.InitialBorderBoxSize(), border_scrollbar_padding_,
+          child_percentage_resolution_block_size_for_min_max_, &scope,
+          fragment_result_options, &fragment_result_data)) {
     // TODO(ikilpatrick): Report this error to the developer.
     return FallbackLayout();
   }
@@ -122,6 +170,12 @@ scoped_refptr<const NGLayoutResult> NGCustomLayoutAlgorithm::Layout() {
       LayoutUnit::FromDoubleRound(fragment_result_options->autoBlockSize()));
   LayoutUnit block_size = ComputeBlockSizeForFragment(
       ConstraintSpace(), Style(), border_padding_, auto_block_size);
+
+  if (fragment_result_options->hasBaseline()) {
+    LayoutUnit baseline =
+        LayoutUnit::FromDoubleRound(fragment_result_options->baseline());
+    container_builder_.SetBaseline(baseline);
+  }
 
   container_builder_.SetCustomLayoutData(std::move(fragment_result_data));
   container_builder_.SetIntrinsicBlockSize(auto_block_size);

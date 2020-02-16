@@ -30,9 +30,9 @@
 #include "media/base/android/media_codec_util.h"
 #include "media/base/android/media_drm_bridge_client.h"
 #include "media/base/android/media_drm_bridge_delegate.h"
-#include "media/base/android/media_drm_key_type.h"
 #include "media/base/android/media_jni_headers/MediaDrmBridge_jni.h"
 #include "media/base/cdm_key_information.h"
+#include "media/base/media_drm_key_type.h"
 #include "media/base/media_switches.h"
 #include "media/base/provision_fetcher.h"
 #include "third_party/widevine/cdm/widevine_cdm_common.h"
@@ -579,10 +579,11 @@ MediaCryptoContext* MediaDrmBridge::GetMediaCryptoContext() {
   return &media_crypto_context_;
 }
 
-int MediaDrmBridge::RegisterPlayer(const base::Closure& new_key_cb,
-                                   const base::Closure& cdm_unset_cb) {
+int MediaDrmBridge::RegisterPlayer(base::RepeatingClosure new_key_cb,
+                                   base::RepeatingClosure cdm_unset_cb) {
   // |player_tracker_| can be accessed from any thread.
-  return player_tracker_.RegisterPlayer(new_key_cb, cdm_unset_cb);
+  return player_tracker_.RegisterPlayer(std::move(new_key_cb),
+                                        std::move(cdm_unset_cb));
 }
 
 void MediaDrmBridge::UnregisterPlayer(int registration_id) {

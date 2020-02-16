@@ -25,6 +25,7 @@ class CreditCard;
 class FormStructure;
 class MigratableCreditCard;
 class PersonalDataManager;
+class SmsClient;
 class StrikeDatabase;
 }
 
@@ -68,6 +69,7 @@ class AwAutofillClient : public autofill::AutofillClient,
   syncer::SyncService* GetSyncService() override;
   signin::IdentityManager* GetIdentityManager() override;
   autofill::FormDataImporter* GetFormDataImporter() override;
+  autofill::SmsClient* GetSmsClient() override;
   autofill::payments::PaymentsClient* GetPaymentsClient() override;
   autofill::StrikeDatabase* GetStrikeDatabase() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
@@ -115,7 +117,7 @@ class AwAutofillClient : public autofill::AutofillClient,
   void ConfirmCreditCardFillAssist(const autofill::CreditCard& card,
                                    base::OnceClosure callback) override;
   bool HasCreditCardScanFeature() override;
-  void ScanCreditCard(const CreditCardScanCallback& callback) override;
+  void ScanCreditCard(CreditCardScanCallback callback) override;
   void ShowAutofillPopup(
       const gfx::RectF& element_bounds,
       base::i18n::TextDirection text_direction,
@@ -126,7 +128,11 @@ class AwAutofillClient : public autofill::AutofillClient,
   void UpdateAutofillPopupDataListValues(
       const std::vector<base::string16>& values,
       const std::vector<base::string16>& labels) override;
-  void HideAutofillPopup() override;
+  base::span<const autofill::Suggestion> GetPopupSuggestions() const override;
+  void PinPopupViewUntilUpdate() override;
+  void UpdatePopup(const std::vector<autofill::Suggestion>& suggestions,
+                   autofill::PopupType popup_type) override;
+  void HideAutofillPopup(autofill::PopupHidingReason reason) override;
   bool IsAutocompleteEnabled() override;
   void PropagateAutofillPredictions(
       content::RenderFrameHost* rfh,

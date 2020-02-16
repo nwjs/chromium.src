@@ -14,8 +14,8 @@
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_controllee_request_handler.h"
-#include "content/browser/service_worker/service_worker_navigation_handle.h"
-#include "content/browser/service_worker/service_worker_navigation_handle_core.h"
+#include "content/browser/service_worker/service_worker_main_resource_handle.h"
+#include "content/browser/service_worker/service_worker_main_resource_handle_core.h"
 #include "content/browser/service_worker/service_worker_provider_host.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -29,7 +29,7 @@ namespace {
 // Core thread helpers
 
 void LoaderCallbackWrapperOnCoreThread(
-    ServiceWorkerNavigationHandleCore* handle_core,
+    ServiceWorkerMainResourceHandleCore* handle_core,
     base::WeakPtr<ServiceWorkerNavigationLoaderInterceptor> interceptor_on_ui,
     NavigationLoaderInterceptor::LoaderCallback loader_callback,
     SingleRequestURLLoaderFactory::RequestHandler handler) {
@@ -77,7 +77,7 @@ void InvokeRequestHandlerOnCoreThread(
 // |interceptor_on_ui->LoaderCallbackWrapper()| on the UI thread.
 void MaybeCreateLoaderOnCoreThread(
     base::WeakPtr<ServiceWorkerNavigationLoaderInterceptor> interceptor_on_ui,
-    ServiceWorkerNavigationHandleCore* handle_core,
+    ServiceWorkerMainResourceHandleCore* handle_core,
     const ServiceWorkerNavigationLoaderInterceptorParams& params,
     mojo::PendingAssociatedReceiver<blink::mojom::ServiceWorkerContainerHost>
         host_receiver,
@@ -106,7 +106,7 @@ void MaybeCreateLoaderOnCoreThread(
   if (!handle_core->container_host()) {
     // This is the initial request before redirects, so make the container host.
     // Its lifetime is tied to the |provider_info| in the
-    // ServiceWorkerNavigationHandle on the UI thread and which will be passed
+    // ServiceWorkerMainResourceHandle on the UI thread and which will be passed
     // to the renderer when the navigation commits.
     DCHECK(host_receiver);
     DCHECK(client_remote);
@@ -114,26 +114,20 @@ void MaybeCreateLoaderOnCoreThread(
 
     if (params.resource_type == ResourceType::kMainFrame ||
         params.resource_type == ResourceType::kSubFrame) {
-      container_host =
-          ServiceWorkerProviderHost::CreateForWindow(
-              context_core->AsWeakPtr(), params.are_ancestors_secure,
-              params.frame_tree_node_id, std::move(host_receiver),
-              std::move(client_remote))
-              ->container_host()
-              ->GetWeakPtr();
+      container_host = ServiceWorkerContainerHost::CreateForWindow(
+          context_core->AsWeakPtr(), params.are_ancestors_secure,
+          params.frame_tree_node_id, std::move(host_receiver),
+          std::move(client_remote));
     } else {
       DCHECK(params.resource_type == ResourceType::kWorker ||
              params.resource_type == ResourceType::kSharedWorker);
       auto container_type =
           params.resource_type == ResourceType::kWorker
-              ? blink::mojom::ServiceWorkerProviderType::kForDedicatedWorker
-              : blink::mojom::ServiceWorkerProviderType::kForSharedWorker;
-      container_host =
-          ServiceWorkerProviderHost::CreateForWebWorker(
-              context_core->AsWeakPtr(), params.process_id, container_type,
-              std::move(host_receiver), std::move(client_remote))
-              ->container_host()
-              ->GetWeakPtr();
+              ? blink::mojom::ServiceWorkerContainerType::kForDedicatedWorker
+              : blink::mojom::ServiceWorkerContainerType::kForSharedWorker;
+      container_host = ServiceWorkerContainerHost::CreateForWebWorker(
+          context_core->AsWeakPtr(), params.process_id, container_type,
+          std::move(host_receiver), std::move(client_remote));
     }
     DCHECK(container_host);
     handle_core->set_container_host(container_host);
@@ -177,7 +171,7 @@ void MaybeCreateLoaderOnCoreThread(
 ServiceWorkerNavigationLoaderInterceptor::
     ServiceWorkerNavigationLoaderInterceptor(
         const ServiceWorkerNavigationLoaderInterceptorParams& params,
-        base::WeakPtr<ServiceWorkerNavigationHandle> handle)
+        base::WeakPtr<ServiceWorkerMainResourceHandle> handle)
     : handle_(std::move(handle)), params_(params) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(handle_);

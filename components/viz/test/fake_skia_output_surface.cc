@@ -81,11 +81,14 @@ void FakeSkiaOutputSurface::Reshape(const gfx::Size& size,
 }
 
 void FakeSkiaOutputSurface::SwapBuffers(OutputSurfaceFrame frame) {
-  NOTIMPLEMENTED();
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(&FakeSkiaOutputSurface::SwapBuffersAck,
+                                weak_ptr_factory_.GetWeakPtr()));
 }
 
 void FakeSkiaOutputSurface::ScheduleOutputSurfaceAsOverlay(
-    OverlayProcessor::OutputSurfaceOverlayPlane output_surface_plane) {
+    OverlayProcessorInterface::OutputSurfaceOverlayPlane output_surface_plane) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   NOTIMPLEMENTED();
 }
@@ -186,13 +189,6 @@ FakeSkiaOutputSurface::CreateImageContext(
     sk_sp<SkColorSpace> color_space) {
   return std::make_unique<ExternalUseClient::ImageContext>(
       holder, size, format, ycbcr_info, std::move(color_space));
-}
-
-void FakeSkiaOutputSurface::SkiaSwapBuffers(OutputSurfaceFrame frame) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(&FakeSkiaOutputSurface::SwapBuffersAck,
-                                weak_ptr_factory_.GetWeakPtr()));
 }
 
 SkCanvas* FakeSkiaOutputSurface::BeginPaintRenderPass(
@@ -363,11 +359,9 @@ void FakeSkiaOutputSurface::ScheduleGpuTaskForTesting(
   NOTIMPLEMENTED();
 }
 
-void FakeSkiaOutputSurface::SendOverlayPromotionNotification(
-    std::vector<gpu::SyncToken> sync_tokens,
-    base::flat_set<gpu::Mailbox> promotion_denied,
-    base::flat_map<gpu::Mailbox, gfx::Rect> possible_promotions) {
+scoped_refptr<gpu::GpuTaskSchedulerHelper>
+FakeSkiaOutputSurface::GetGpuTaskSchedulerHelper() {
   NOTIMPLEMENTED();
+  return nullptr;
 }
-
 }  // namespace viz

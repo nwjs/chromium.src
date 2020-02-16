@@ -14,7 +14,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/cpp/cross_origin_resource_policy.h"
 #include "services/network/public/cpp/features.h"
-#include "services/network/public/cpp/resource_response_info.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink-forward.h"
@@ -120,11 +119,11 @@ const String GetMessageForResponseError(ServiceWorkerResponseError error,
   return error_message;
 }
 
-bool IsNavigationRequest(network::mojom::RequestContextFrameType frame_type) {
-  return frame_type != network::mojom::RequestContextFrameType::kNone;
+bool IsNavigationRequest(mojom::RequestContextFrameType frame_type) {
+  return frame_type != mojom::RequestContextFrameType::kNone;
 }
 
-bool IsClientRequest(network::mojom::RequestContextFrameType frame_type,
+bool IsClientRequest(mojom::RequestContextFrameType frame_type,
                      mojom::RequestContextType request_context) {
   return IsNavigationRequest(frame_type) ||
          request_context == mojom::RequestContextType::SHARED_WORKER ||
@@ -193,16 +192,6 @@ class FetchLoaderClient final : public GarbageCollected<FetchLoaderClient>,
 };
 
 }  // namespace
-
-FetchRespondWithObserver* FetchRespondWithObserver::Create(
-    ExecutionContext* context,
-    int fetch_event_id,
-    network::mojom::blink::CrossOriginEmbedderPolicy requestor_coep,
-    const mojom::blink::FetchAPIRequest& request,
-    WaitUntilObserver* observer) {
-  return MakeGarbageCollected<FetchRespondWithObserver>(
-      context, fetch_event_id, requestor_coep, request, observer);
-}
 
 // This function may be called when an exception is scheduled. Thus, it must
 // never invoke any code that might throw. In particular, it must never invoke

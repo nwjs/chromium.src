@@ -385,7 +385,6 @@ Nëse ke mbaruar me udhëzuesin, përdor ChromeVox për të naviguar te butoni "
 <translation id="3646890046000188562">{COUNT,plural, =1{thonjëza njëshe}other{# thonjëza njëshe}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollar}other{# shenja dollari}}</translation>
-<translation id="3658742229777143148">Rishikim</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, kutia e listës</translation>
 <translation id="3681531118904532409">Papaja e rrahur</translation>
@@ -420,6 +419,7 @@ Nëse ke mbaruar me udhëzuesin, përdor ChromeVox për të naviguar te butoni "
 <translation id="3914732343065571127">Referenca e komandave të ChromeVox</translation>
 <translation id="3930383913623796990">E gjelbër pranverore</translation>
 <translation id="3930498801443296724">Citim i theksuar</translation>
+<translation id="3935615366277838204"><ph name="LETTER" /> në kapitale</translation>
 <translation id="3936394396199829062">Skuqje vjollcë</translation>
 <translation id="3941269780691800708">Thuaj tekstin poshtë miut.</translation>
 <translation id="394953087167197343">Trego gabimin drejtshkrimor:</translation>
@@ -793,7 +793,6 @@ Nëse ke mbaruar me udhëzuesin, përdor ChromeVox për të naviguar te butoni "
 <translation id="6459511626086141404">Harta eksperimentale e rrafshët</translation>
 <translation id="6468049171101508116">Butoni tjetër</translation>
 <translation id="646954774886932461">Indeks</translation>
-<translation id="6479792383819319132">Nuk ka paragraf tjetër</translation>
 <translation id="6493991254603208962">Ul ndriçimin</translation>
 <translation id="6501595918865591267">Gurkali</translation>
 <translation id="6508059270146105198">Zhvendose ekranin e Braille në fund të faqes</translation>
@@ -816,7 +815,6 @@ Nëse ke mbaruar me udhëzuesin, përdor ChromeVox për të naviguar te butoni "
 <translation id="6637586476836377253">ditari</translation>
 <translation id="6657128831881431364">Shiriti i progresit</translation>
 <translation id="6659594942844771486">Skeda</translation>
-<translation id="6675661017770918201">Nuk ka një paragraf të mëparshëm.</translation>
 <translation id="667999046851023355">Dokument</translation>
 <translation id="6688209025607531203">Një sinjalizim jo modaliteti</translation>
 <translation id="6689672606256159458">Salmon i errët</translation>
@@ -845,6 +843,7 @@ Nëse ke mbaruar me udhëzuesin, përdor ChromeVox për të naviguar te butoni "
 <translation id="6865519907510167493">Me gabim drejtshkrimor</translation>
 <translation id="6871161210040114857">Shkronja e madhe ose e vogël shpërfillet.</translation>
 <translation id="6877435256196695200">Nuk ka grafik tjetër.</translation>
+<translation id="688976158310523235">Menyja e kërkimit</translation>
 <translation id="6897341342232909480">Lëviz majtas</translation>
 <translation id="6901540140423170855">data</translation>
 <translation id="6910211073230771657">Fshirë</translation>
@@ -857,6 +856,7 @@ Nëse ke mbaruar me udhëzuesin, përdor ChromeVox për të naviguar te butoni "
 <translation id="699159175332639490">"Kërko" + O + W</translation>
 <translation id="6994042831499278539">Referencë fjalorthi</translation>
 <translation id="6996566555547746822">Kutia tjetër e kombinuar</translation>
+<translation id="6997224546856374593">Kur lexon kapitale:</translation>
 <translation id="700202842116345659">Hyrje bibliografike</translation>
 <translation id="7005146664810010831">Nuk u gjet asnjë URL</translation>
 <translation id="7010712454773919705">Çelësi modifikues i ChromeVox</translation>
@@ -937,6 +937,7 @@ Për të hapur menynë e shfletuesit Chrome, shtyp Alt+F.</translation>
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">Dialogu i shkruar</translation>
+<translation id="7505149250476994901">Thuaj "kapitale" para shkronjës</translation>
 <translation id="7518543783849163354">Për ta ndaluar përkohësisht ChromeVox që të flasë, shtyp tastin Control.</translation>
 <translation id="7521682724501952239">Mund të përdorësh ChromeVox me ekranin me prekje.</translation>
 <translation id="7532613204005497612">Qershor</translation>
@@ -1104,7 +1105,6 @@ Për të hapur menynë e shfletuesit Chrome, shtyp Alt+F.</translation>
 <translation id="812886159861361726">Shkarkimi i <ph name="FILE_NAME" /> ndaloi</translation>
 <translation id="8138880386467279117">Prek</translation>
 <translation id="8153880621934657047">Jo brenda tabelës.</translation>
-<translation id="8161114871611868169">Seksioni i komenteve</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{nënvizim}other{# nënvizime}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">rreshti</translation>
@@ -1125,6 +1125,7 @@ Për të hapur menynë e shfletuesit Chrome, shtyp Alt+F.</translation>
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Lidhëse blu</translation>
 <translation id="8326783648485765113">E gjelbër lëndine</translation>
+<translation id="8328063869313048659">Aktivizo ose çaktivizo ekranin e errët</translation>
 <translation id="8344569602005188545">orë</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{thurje}other{# shenja thurjeje}}</translation>
 <translation id="8374154622594089836">muaj</translation>
@@ -1209,6 +1210,7 @@ Për të hapur menynë e shfletuesit Chrome, shtyp Alt+F.</translation>
 <translation id="9065283790526219006">+ dritare kërcyese</translation>
 <translation id="9066023754636984703">Shtyp Kërkim+A, J për të kaluar te detajet.</translation>
 <translation id="9067522039955793016">Thyerje faqeje</translation>
+<translation id="9074824103975499138">Kërko në menytë e ChromeVox</translation>
 <translation id="9077213568694924680">u hoq nga zgjedhja</translation>
 <translation id="9077305471618729969">E gjelbër deti e çelur</translation>
 <translation id="9082874451376019682">Nuk ka asnjë rrëshqitës të mëparshëm.</translation>

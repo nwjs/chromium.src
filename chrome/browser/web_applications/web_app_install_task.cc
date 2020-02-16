@@ -14,11 +14,14 @@
 #include "chrome/browser/installable/installable_metrics.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
+#include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/app_shortcut_manager.h"
+#include "chrome/browser/web_applications/components/file_handler_manager.h"
 #include "chrome/browser/web_applications/components/install_bounce_metric.h"
 #include "chrome/browser/web_applications/components/install_finalizer.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_data_retriever.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_icon_generator.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
@@ -68,11 +71,15 @@ constexpr bool kAddAppsToQuickLaunchBarByDefault = true;
 
 WebAppInstallTask::WebAppInstallTask(
     Profile* profile,
+    AppRegistrar* registrar,
     AppShortcutManager* shortcut_manager,
+    FileHandlerManager* file_handler_manager,
     InstallFinalizer* install_finalizer,
     std::unique_ptr<WebAppDataRetriever> data_retriever)
     : data_retriever_(std::move(data_retriever)),
+      registrar_(registrar),
       shortcut_manager_(shortcut_manager),
+      file_handler_manager_(file_handler_manager),
       install_finalizer_(install_finalizer),
       profile_(profile) {}
 
@@ -455,13 +462,14 @@ void WebAppInstallTask::OnGetWebApplicationInfo(
 void WebAppInstallTask::OnDidPerformInstallableCheck(
     std::unique_ptr<WebApplicationInfo> web_app_info,
     bool force_shortcut_app,
-    base::Optional<blink::Manifest> opt_manifest,
+    base::Optional<blink::Manifest> manifest,
     bool valid_manifest_for_web_app,
     bool is_installable) {
   if (ShouldStopInstall())
     return;
 
   DCHECK(web_app_info);
+  DCHECK(!manifest || !manifest->IsEmpty());
 
   if (install_params_ && install_params_->require_manifest &&
       !valid_manifest_for_web_app) {
@@ -475,9 +483,8 @@ void WebAppInstallTask::OnDidPerformInstallableCheck(
                                         ? ForInstallableSite::kYes
                                         : ForInstallableSite::kNo;
 
-  const blink::Manifest manifest = opt_manifest.value_or(blink::Manifest{});
-  UpdateWebAppInfoFromManifest(manifest, web_app_info.get(),
-                               for_installable_site);
+  if (manifest)
+    UpdateWebAppInfoFromManifest(*manifest, web_app_info.get());
 
   AppId app_id = GenerateAppIdFromURL(web_app_info->app_url);
 
@@ -492,11 +499,12 @@ void WebAppInstallTask::OnDidPerformInstallableCheck(
 
   // A system app should always have a manifest icon.
   if (install_source_ == WebappInstallSource::SYSTEM_DEFAULT) {
-    DCHECK(!manifest.icons.empty());
+    DCHECK(manifest);
+    DCHECK(!manifest->icons.empty());
   }
 
   // If the manifest specified icons, don't use the page icons.
-  const bool skip_page_favicons = !manifest.icons.empty();
+  const bool skip_page_favicons = manifest && !manifest->icons.empty();
 
   CheckForPlayStoreIntentOrGetIcons(manifest, std::move(web_app_info),
                                     std::move(icon_urls), for_installable_site,
@@ -504,7 +512,7 @@ void WebAppInstallTask::OnDidPerformInstallableCheck(
 }
 
 void WebAppInstallTask::CheckForPlayStoreIntentOrGetIcons(
-    const blink::Manifest& manifest,
+    base::Optional<blink::Manifest> manifest,
     std::unique_ptr<WebApplicationInfo> web_app_info,
     std::vector<GURL> icon_urls,
     ForInstallableSite for_installable_site,
@@ -514,8 +522,8 @@ void WebAppInstallTask::CheckForPlayStoreIntentOrGetIcons(
   // be sent to the store.
   if (base::FeatureList::IsEnabled(features::kApkWebAppInstalls) &&
       for_installable_site == ForInstallableSite::kYes &&
-      !background_installation_) {
-    for (const auto& application : manifest.related_applications) {
+      !background_installation_ && manifest) {
+    for (const auto& application : manifest->related_applications) {
       std::string id = base::UTF16ToUTF8(application.id.string());
       if (!base::EqualsASCII(application.platform.string(),
                              kChromeOsPlayPlatform)) {
@@ -780,6 +788,10 @@ void WebAppInstallTask::OnShortcutsCreated(
     if (can_reparent_tab && install_finalizer_->CanRevealAppShim())
       install_finalizer_->RevealAppShim(app_id);
   }
+
+  // Enable file handlers, if the app is locally installed.
+  if (registrar_->IsLocallyInstalled(app_id))
+    file_handler_manager_->EnableAndRegisterOsFileHandlers(app_id);
 
   CallInstallCallback(app_id, InstallResultCode::kSuccessNewInstall);
 }

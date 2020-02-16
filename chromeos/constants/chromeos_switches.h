@@ -93,8 +93,6 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kDisableRollbackOption[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kDisableSigninFrameClientCerts[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const char kDisableSigninFrameClientCertUserSelection[];
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kDisableVolumeAdjustSound[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kDisableWakeOnWifi[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnableArc[];
@@ -122,8 +120,6 @@ extern const char kEnableTouchCalibrationSetting[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnableTouchpadThreeFingerClick[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kEnterpriseDisableArc[];
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-extern const char kEnterpriseDisableLicenseTypeSelection[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kEnterpriseEnableForcedReEnrollment[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
@@ -202,6 +198,8 @@ extern const char kWaitForInitialPolicyFetchForTest[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) extern const char kWakeOnWifiPacket[];
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
 extern const char kUnfilteredBluetoothDevices[];
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
+extern const char kUseUnconsentedPrimaryAccount[];
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -221,11 +219,6 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsCellularFirstDevice();
 // Returns true if client certificate authentication for the sign-in frame on
 // the Chrome OS sign-in screen is enabled.
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsSigninFrameClientCertsEnabled();
-
-// Returns true if user selection of certificates is enabled for the sign-in
-// frame on the Chrome OS sign-in screen.
-COMPONENT_EXPORT(CHROMEOS_CONSTANTS)
-bool IsSigninFrameClientCertUserSelectionEnabled();
 
 // Returns true if we should show the modular shelf with the hotseat UI and
 // a smaller shelf in clamshell mode.
@@ -258,6 +251,9 @@ COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsArcCpuRestrictionDisabled();
 
 // Returns true if all Bluetooth devices in UI (System Tray/Settings Page.)
 COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool IsUnfilteredBluetoothDevicesEnabled();
+
+// See kUseUnconsentedPrimaryAccount.
+COMPONENT_EXPORT(CHROMEOS_CONSTANTS) bool UseUnconsentedPrimaryAccount();
 
 }  // namespace switches
 }  // namespace chromeos

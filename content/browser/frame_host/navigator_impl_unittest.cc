@@ -17,15 +17,14 @@
 #include "content/browser/frame_host/navigator.h"
 #include "content/browser/frame_host/render_frame_host_manager.h"
 #include "content/browser/site_instance_impl.h"
+#include "content/common/content_navigation_policy.h"
 #include "content/common/frame.mojom.h"
 #include "content/common/frame_messages.h"
 #include "content/common/navigation_params.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/common/content_features.h"
-#include "content/public/common/navigation_policy.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
-#include "content/public/test/browser_side_navigation_test_utils.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_utils.h"
@@ -289,7 +288,8 @@ TEST_F(NavigatorTest, BeginNavigation) {
   EXPECT_EQ(kUrl2, subframe_request->common_params().url);
   EXPECT_EQ(kUrl2, subframe_loader->request_info()->common_params->url);
   // First party for cookies url should be that of the main frame.
-  EXPECT_EQ(kUrl1, subframe_loader->request_info()->site_for_cookies);
+  EXPECT_TRUE(subframe_loader->request_info()->site_for_cookies.IsEquivalent(
+      net::SiteForCookies::FromUrl(kUrl1)));
 
   EXPECT_EQ(net::NetworkIsolationKey(url::Origin::Create(kUrl1),
                                      url::Origin::Create(kUrl2)),
@@ -328,7 +328,8 @@ TEST_F(NavigatorTest, BeginNavigation) {
       GetLoaderForNavigationRequest(main_request);
   EXPECT_EQ(kUrl3, main_request->common_params().url);
   EXPECT_EQ(kUrl3, main_loader->request_info()->common_params->url);
-  EXPECT_EQ(kUrl3, main_loader->request_info()->site_for_cookies);
+  EXPECT_TRUE(main_loader->request_info()->site_for_cookies.IsEquivalent(
+      net::SiteForCookies::FromUrl(kUrl3)));
   EXPECT_TRUE(main_loader->request_info()->is_main_frame);
   EXPECT_FALSE(main_loader->request_info()->parent_is_main_frame);
   EXPECT_TRUE(main_request->browser_initiated());

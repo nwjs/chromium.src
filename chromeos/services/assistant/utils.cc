@@ -51,7 +51,8 @@ base::FilePath GetRootPath() {
   return home_dir;
 }
 
-std::string CreateLibAssistantConfig() {
+std::string CreateLibAssistantConfig(
+    base::Optional<std::string> s3_server_uri_override) {
   using Value = base::Value;
   using Type = base::Value::Type;
 
@@ -84,7 +85,7 @@ std::string CreateLibAssistantConfig() {
 
   // Set DeviceProperties.visibility to Visibility::PRIVATE.
   // See //libassistant/shared/proto/device_properties.proto.
-  internal.SetKey("visibility", Value(1));
+  internal.SetKey("visibility", Value("PRIVATE"));
 
   if (base::SysInfo::IsRunningOnChromeOS()) {
     Value logging(Type::DICTIONARY);
@@ -123,6 +124,18 @@ std::string CreateLibAssistantConfig() {
   audio_input.SetKey("sources", std::move(sources));
 
   config.SetKey("audio_input", std::move(audio_input));
+
+  // Use http unless we're using the fake s3 server, which requires grpc.
+  if (s3_server_uri_override)
+    config.SetStringPath("internal.transport_type", "GRPC");
+  else
+    config.SetStringPath("internal.transport_type", "HTTP");
+
+  // Finally add in the server uri override.
+  if (s3_server_uri_override) {
+    config.SetStringPath("testing.s3_grpc_server_uri",
+                         s3_server_uri_override.value());
+  }
 
   std::string json;
   base::JSONWriter::Write(config, &json);

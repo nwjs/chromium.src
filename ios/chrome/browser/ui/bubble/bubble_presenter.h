@@ -7,12 +7,10 @@
 
 #import <UIKit/UIKit.h>
 
-namespace ios {
-class ChromeBrowserState;
-}
 
 @protocol BubblePresenterDelegate;
 @class BubbleViewControllerPresenter;
+class ChromeBrowserState;
 @protocol ToolbarCommands;
 
 // Object handling the presentation of the different bubbles tips. The class is
@@ -21,7 +19,7 @@ class ChromeBrowserState;
 
 // Initializes a BubblePresenter whose bubbles are presented on the
 // |rootViewController|.
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
                             delegate:(id<BubblePresenterDelegate>)delegate
                   rootViewController:(UIViewController*)rootViewController
     NS_DESIGNATED_INITIALIZER;

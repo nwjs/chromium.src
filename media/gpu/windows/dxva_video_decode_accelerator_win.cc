@@ -575,6 +575,7 @@ bool DXVAVideoDecodeAccelerator::Initialize(const Config& config,
       config.profile == H264PROFILE_HIGH10PROFILE) {
     // Input file has more than 8 bits per channel.
     use_fp16_ = true;
+    decoder_output_p010_or_p016_ = true;
   }
 
   // Unfortunately, the profile is currently unreliable for
@@ -867,6 +868,9 @@ bool DXVAVideoDecodeAccelerator::CreateDX11DevManager() {
     hr = d3d11_device_.As(&video_device_);
     RETURN_ON_HR_FAILURE(hr, "Failed to get video device", false);
   }
+
+  // Create the display information.
+  display_helper_.emplace(D3D11Device());
 
   hr = d3d11_device_context_.As(&video_context_);
   RETURN_ON_HR_FAILURE(hr, "Failed to get video context", false);
@@ -2718,7 +2722,9 @@ bool DXVAVideoDecodeAccelerator::InitializeID3D11VideoProcessor(
   // This code path is never used by PictureBufferMechanism::BIND paths.
   DCHECK_NE(GetPictureBufferMechanism(), PictureBufferMechanism::BIND);
 
-  if (width < processor_width_ || height != processor_height_) {
+  // TODO(liberato): Reset the video processor if the color space info
+  // changes also.
+  if (width != processor_width_ || height != processor_height_) {
     d3d11_processor_.Reset();
     enumerator_.Reset();
     processor_width_ = 0;
@@ -2749,6 +2755,8 @@ bool DXVAVideoDecodeAccelerator::InitializeID3D11VideoProcessor(
 
     video_context_->VideoProcessorSetStreamAutoProcessingMode(
         d3d11_processor_.Get(), 0, false);
+
+    SetDX11ProcessorHDRMetadataIfNeeded();
   }
 
   // If we're copying textures or just not using color space information, set
@@ -2827,6 +2835,36 @@ bool DXVAVideoDecodeAccelerator::InitializeID3D11VideoProcessor(
                                   dx11_converter_output_color_space_));
 
   return true;
+}
+
+void DXVAVideoDecodeAccelerator::SetDX11ProcessorHDRMetadataIfNeeded() {
+  DCHECK(display_helper_);
+  // TODO: check workarounds.
+
+  // If we don't know the input metadata, then do nothing.
+  if (!config_.hdr_metadata)
+    return;
+
+  // Similarly, do nothing without display metadata.
+  auto display_metadata = display_helper_->GetDisplayMetadata();
+  if (!display_metadata)
+    return;
+
+  // If we can't get a VideoContext2, then just hope for the best.
+  ComD3D11VideoContext2 video_context2;
+  if (FAILED(video_context_.As(&video_context2)))
+    return;
+
+  DXGI_HDR_METADATA_HDR10 stream_metadata =
+      DisplayHelper::HdrMetadataToDXGI(*config_.hdr_metadata);
+
+  video_context2->VideoProcessorSetStreamHDRMetaData(
+      d3d11_processor_.Get(), 0, DXGI_HDR_METADATA_TYPE_HDR10,
+      sizeof(stream_metadata), &stream_metadata);
+
+  video_context2->VideoProcessorSetOutputHDRMetaData(
+      d3d11_processor_.Get(), DXGI_HDR_METADATA_TYPE_HDR10,
+      sizeof(*display_metadata), &(*display_metadata));
 }
 
 bool DXVAVideoDecodeAccelerator::GetVideoFrameDimensions(IMFSample* sample,
@@ -2949,7 +2987,10 @@ DXVAVideoDecodeAccelerator::PictureBufferMechanism
 DXVAVideoDecodeAccelerator::GetPictureBufferMechanism() const {
   if (use_fp16_)
     return PictureBufferMechanism::COPY_TO_RGB;
-  if (support_share_nv12_textures_)
+  // In Intel platform, VideoProcessor cannot convert P010/P016 into FP16.
+  // It works fine dealing P010/P016 with BIND mode.
+  if (support_share_nv12_textures_ ||
+      (decoder_output_p010_or_p016_ && !use_fp16_))
     return PictureBufferMechanism::BIND;
   if (support_delayed_copy_nv12_textures_ && support_copy_nv12_textures_)
     return PictureBufferMechanism::DELAYED_COPY_TO_NV12;

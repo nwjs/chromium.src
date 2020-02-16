@@ -14,7 +14,6 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_path.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d_state.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_style.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
 
 namespace blink {
 class CanvasImageSource;
@@ -89,15 +88,15 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
                  double m22,
                  double dx,
                  double dy);
-  virtual void setTransform(double m11,
-                            double m12,
-                            double m21,
-                            double m22,
-                            double dx,
-                            double dy);
-  virtual void setTransform(DOMMatrix2DInit*, ExceptionState&);
-  DOMMatrix* getTransform();
-  void resetTransform();
+  void setTransform(double m11,
+                    double m12,
+                    double m21,
+                    double m22,
+                    double dx,
+                    double dy);
+  void setTransform(DOMMatrix2DInit*, ExceptionState&);
+  virtual DOMMatrix* getTransform();
+  virtual void resetTransform();
 
   void beginPath();
 
@@ -236,7 +235,10 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
   virtual sk_sp<PaintFilter> StateGetFilter() = 0;
   virtual void SnapshotStateForFilter() = 0;
 
-  virtual void ValidateStateStack() const = 0;
+  void ValidateStateStack() const {
+    ValidateStateStackWithCanvas(ExistingDrawingCanvas());
+  }
+  virtual void ValidateStateStackWithCanvas(const cc::PaintCanvas*) const = 0;
 
   virtual bool HasAlpha() const = 0;
 
@@ -248,7 +250,7 @@ class MODULES_EXPORT BaseRenderingContext2D : public GarbageCollectedMixin,
     return kSRGBCanvasColorSpaceName;
   }
   virtual CanvasPixelFormat PixelFormat() const {
-    return CanvasPixelFormat::kRGBA8;
+    return CanvasColorParams::GetNativeCanvasPixelFormat();
   }
 
   void RestoreMatrixClipStack(cc::PaintCanvas*) const;

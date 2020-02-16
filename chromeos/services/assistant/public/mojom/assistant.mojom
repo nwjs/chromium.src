@@ -28,8 +28,7 @@ interface AssistantService {
   // Initiates assistant and provides interfaces for assistant to call into the
   // browser.
   Init(pending_remote<Client> assistant_client_interface,
-       pending_remote<DeviceActions> device_actions_interface,
-       bool is_test);
+       pending_remote<DeviceActions> device_actions_interface);
 
   // Binds the main assistant backend interface.
   BindAssistant(pending_receiver<Assistant> receiver);
@@ -44,6 +43,8 @@ interface AssistantController {
   // Provides a reference to the underlying |assistant| service.
   SetAssistant(pending_remote<Assistant> assistant);
 
+  // All other methods may only be called after |SetAssistant| is called.
+
   // Show speaker id enrollment flow.
   StartSpeakerIdEnrollmentFlow();
 
@@ -54,6 +55,14 @@ interface AssistantController {
     bool pii_allowed,
     string feedback_description,
     string screenshot_png);
+
+  // Start Assistant text interaction.
+  // TODO(b/146074655): Move the API to appropriate module as part of the
+  // Assistant controller mojo interface cleanup effort.
+  StartTextInteraction(
+    string query,
+    bool allow_tts,
+    AssistantQuerySource source);
 };
 
 // Interface to communicate with assistant backend.
@@ -130,12 +139,52 @@ interface Assistant {
   // Send Assistant feedback to Assistant server.
   SendAssistantFeedback(AssistantFeedback feedback);
 
+  // Invoked on entry to Assistant UI.
+  NotifyEntryIntoAssistantUi(AssistantEntryPoint entry_point);
+
   // ===== Alarm/Timer management methods =====
   // Stops timer or alarm ringing.
   StopAlarmTimerRinging();
 
   // Create timer with |duration|.
   CreateTimer(mojo_base.mojom.TimeDelta duration);
+};
+
+// Enumeration of Assistant entry points. These values are persisted to logs.
+// Entries should not be renumbered and numeric values should never be reused.
+// Only append to this enum is allowed if the possible entry source grows.
+enum AssistantEntryPoint {
+  kUnspecified = 0,
+  kDeepLink = 1,
+  kHotkey = 2,
+  kHotword = 3,
+  kLauncherSearchBox = 4,
+  kLongPressLauncher = 5,
+  kSetup = 6,
+  kStylus = 7,
+  kLauncherSearchResult = 8,
+  kLauncherSearchBoxMic = 9,
+  kProactiveSuggestions = 10,
+};
+
+// Enumeration of Assistant exit points. These values are persisted to logs.
+// Entries should not be renumbered and numeric values should never be reused.
+// Only append to this enum is allowed if the possible exit source grows.
+enum AssistantExitPoint {
+  // Includes keyboard interruptions (e.g. launching Chrome OS feedback
+  // using keyboard shortcuts, pressing search button).
+  kUnspecified = 0,
+  kCloseButton = 1,
+  kHotkey = 2,
+  kNewBrowserTabFromServer = 3,
+  kNewBrowserTabFromUser = 4,
+  kOutsidePress = 5,
+  kSetup = 6,
+  kStylus = 7,
+  kBackInLauncher = 8,
+  kLauncherClose = 9,
+  kLauncherOpen = 10,
+  kScreenshot = 11,
 };
 
 // Describes an Assistant interaction.
@@ -166,6 +215,7 @@ enum AssistantQuerySource {
   kWarmerWelcome = 8,
   kConversationStarter = 9,
   kWhatsOnMyScreen = 10,
+  kQuickAnswers = 11,
 };
 
 // Subscribes to Assistant's interaction event. These events are server driven

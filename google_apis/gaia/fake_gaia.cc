@@ -32,12 +32,13 @@
 #include "url/third_party/mozilla/url_parse.h"
 
 #define REGISTER_RESPONSE_HANDLER(url, method) \
-  request_handlers_.insert(std::make_pair( \
-        url.path(), base::Bind(&FakeGaia::method, base::Unretained(this))))
+  request_handlers_.insert(std::make_pair(     \
+      url.path(),                              \
+      base::BindRepeating(&FakeGaia::method, base::Unretained(this))))
 
 #define REGISTER_PATH_RESPONSE_HANDLER(path, method) \
-  request_handlers_.insert(std::make_pair( \
-        path, base::Bind(&FakeGaia::method, base::Unretained(this))))
+  request_handlers_.insert(std::make_pair(           \
+      path, base::BindRepeating(&FakeGaia::method, base::Unretained(this))))
 
 using net::test_server::BasicHttpResponse;
 using net::test_server::HttpRequest;
@@ -59,9 +60,6 @@ const char kTestCookieAttributes[] =
     "; Path=/; HttpOnly; SameSite=None; Secure";
 
 const char kDefaultGaiaId[] = "12345";
-
-const base::FilePath::CharType kServiceLogin[] =
-    FILE_PATH_LITERAL("google_apis/test/service_login.html");
 
 const base::FilePath::CharType kEmbeddedSetupChromeos[] =
     FILE_PATH_LITERAL("google_apis/test/embedded_setup_chromeos.html");
@@ -105,6 +103,22 @@ void SetCookies(BasicHttpResponse* http_response,
                                        kTestCookieAttributes));
 }
 
+std::string FormatCookieForMultilogin(std::string name, std::string value) {
+  std::string format = R"(
+    {
+      "name":"%s",
+      "value":"%s",
+      "domain":".google.fr",
+      "path":"/",
+      "isSecure":true,
+      "isHttpOnly":false,
+      "priority":"HIGH",
+      "maxAge":63070000
+    }
+  )";
+  return base::StringPrintf(format.c_str(), name.c_str(), value.c_str());
+}
+
 }  // namespace
 
 FakeGaia::AccessTokenInfo::AccessTokenInfo() = default;
@@ -141,9 +155,6 @@ void FakeGaia::MergeSessionParams::Update(const MergeSessionParams& update) {
 FakeGaia::FakeGaia() : issue_oauth_code_cookie_(false) {
   base::FilePath source_root_dir;
   base::PathService::Get(base::DIR_SOURCE_ROOT, &source_root_dir);
-  CHECK(base::ReadFileToString(
-      source_root_dir.Append(base::FilePath(kServiceLogin)),
-      &service_login_response_));
   CHECK(base::ReadFileToString(
       source_root_dir.Append(base::FilePath(kEmbeddedSetupChromeos)),
       &embedded_setup_chromeos_response_));
@@ -211,9 +222,9 @@ void FakeGaia::Initialize() {
   REGISTER_RESPONSE_HANDLER(
       gaia_urls->merge_session_url(), HandleMergeSession);
 
-  // Handles /ServiceLogin GAIA call.
-  REGISTER_RESPONSE_HANDLER(
-      gaia_urls->service_login_url(), HandleServiceLogin);
+  // Handles /oauth/multilogin GAIA call.
+  REGISTER_RESPONSE_HANDLER(gaia_urls->oauth_multilogin_url(),
+                            HandleMultilogin);
 
   // Handles /embedded/setup/v2/chromeos GAIA call.
   REGISTER_RESPONSE_HANDLER(gaia_urls->embedded_setup_chromeos_url(2),
@@ -442,13 +453,6 @@ const FakeGaia::AccessTokenInfo* FakeGaia::GetAccessTokenInfo(
   }
 
   return nullptr;
-}
-
-void FakeGaia::HandleServiceLogin(const HttpRequest& request,
-                                  BasicHttpResponse* http_response) {
-  http_response->set_code(net::HTTP_OK);
-  http_response->set_content(service_login_response_);
-  http_response->set_content_type("text/html");
 }
 
 void FakeGaia::HandleEmbeddedSetupChromeos(const HttpRequest& request,
@@ -853,4 +857,34 @@ void FakeGaia::HandleGetReAuthProofToken(const HttpRequest& request,
                  << static_cast<int>(next_reauth_status_);
       break;
   }
+}
+
+void FakeGaia::HandleMultilogin(const HttpRequest& request,
+                                BasicHttpResponse* http_response) {
+  http_response->set_code(net::HTTP_UNAUTHORIZED);
+
+  if (merge_session_params_.session_sid_cookie.empty() ||
+      merge_session_params_.session_lsid_cookie.empty()) {
+    http_response->set_code(net::HTTP_BAD_REQUEST);
+    return;
+  }
+
+  GURL request_url = GURL("http://localhost").Resolve(request.relative_url);
+  std::string request_query = request_url.query();
+
+  std::string source;
+  if (!GetQueryParameter(request_query, "source", &source)) {
+    LOG(ERROR) << "Missing or invalid 'source' param in /Multilogin call";
+    return;
+  }
+
+  http_response->set_content(
+      ")]}'\n{\"status\":\"OK\",\"cookies\":[" +
+      FormatCookieForMultilogin("SID",
+                                merge_session_params_.session_sid_cookie) +
+      "," +
+      FormatCookieForMultilogin("LSID",
+                                merge_session_params_.session_lsid_cookie) +
+      "]}");
+  http_response->set_code(net::HTTP_OK);
 }

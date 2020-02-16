@@ -65,7 +65,8 @@ class AuthenticatorSheetModelBase
 // should be accessed.
 class AuthenticatorTransportSelectorSheetModel
     : public AuthenticatorSheetModelBase,
-      public TransportHoverListModel::Delegate {
+      public TransportHoverListModel::Delegate,
+      public TransportHoverListModel2::Delegate {
  public:
   using AuthenticatorSheetModelBase::AuthenticatorSheetModelBase;
 
@@ -353,6 +354,7 @@ class AuthenticatorPaaskSheetModel : public AuthenticatorSheetModelBase {
 
  private:
   // AuthenticatorSheetModelBase:
+  bool IsBackButtonVisible() const override;
   bool IsActivityIndicatorVisible() const override;
   const gfx::VectorIcon& GetStepIllustration(
       ImageColorScheme color_scheme) const override;

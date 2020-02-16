@@ -439,9 +439,6 @@ const char kAllowJavascriptAppleEvents[] =
 // a file (true) or just download it automatically.
 const char kPromptForDownload[] = "download.prompt_for_download";
 
-// A boolean pref set to true if we're using Link Doctor error pages.
-const char kAlternateErrorPagesEnabled[] = "alternate_error_pages.enabled";
-
 // Controls if the QUIC protocol is allowed.
 const char kQuicAllowed[] = "net.quic_allowed";
 
@@ -959,6 +956,11 @@ const char kParentAccessCodeConfig[] = "child_user.parent_access_code.config";
 // user. Controlled by PerAppTimeLimits policy.
 const char kPerAppTimeLimitsPolicy[] = "child_user.per_app_time_limits.policy";
 
+// Dictionary pref containing the whitelisted urls, schemes and applications
+// that would not be blocked by per app time limits.
+const char kPerAppTimeLimitsWhitelistPolicy[] =
+    "child_user.per_app_time_limits.whitelist";
+
 // List of preconfigured network file shares.
 const char kNetworkFileSharesPreconfiguredShares[] =
     "network_file_shares.preconfigured_shares";
@@ -1000,6 +1002,14 @@ const char kStartupBrowserWindowLaunchSuppressed[] =
 // chrome.login API.
 const char kLoginExtensionApiDataForNextLoginAttempt[] =
     "extensions_api.login.data_for_next_login_attempt";
+
+// A string user profile pref containing the ID of the extension which launched
+// the current Managed Guest Session using the chrome.login extension API. A
+// non-empty ID indicates that the current Managed Guest Session is lockable,
+// and can only be unlocked by the specified extension using the chrome.login
+// extension API.
+const char kLoginExtensionApiLaunchExtensionId[] =
+    "extensions_api.login.launch_extension_id";
 
 // String containing last RSU lookup key uploaded. Empty until first upload.
 const char kLastRsuDeviceIdUploaded[] = "rsu.last_rsu_device_id_uploaded";
@@ -1167,6 +1177,13 @@ const char kAccessibilityImageLabelsEnabled[] =
 // need not be shown every time if it has already been accepted once.
 const char kAccessibilityImageLabelsOptInAccepted[] =
     "settings.a11y.enable_accessibility_image_labels_opt_in_accepted";
+
+// Whether the Live Caption feature is enabled.
+const char kLiveCaptionEnabled[] =
+    "accessibility.captions.live_caption_enabled";
+
+// The file path of the SODA installation directory.
+const char kSODAPath[] = "accessibility.captions.soda_path";
 
 #if defined(OS_MACOSX)
 // Boolean that indicates whether the application should show the info bar
@@ -1371,6 +1388,11 @@ const char kPrintingSendUsernameAndFilenameEnabled[] =
 // Indicates how long print jobs metadata is stored on the device, in days.
 const char kPrintJobHistoryExpirationPeriod[] =
     "printing.print_job_history_expiration_period";
+
+// The list of extensions allowed to skip print job confirmation dialog when
+// they use the chrome.printing.submitJob() function.
+const char kPrintingAPIExtensionsWhitelist[] =
+    "printing.printing_api_extensions_whitelist";
 #endif  // OS_CHROMEOS
 
 // An integer pref specifying the fallback behavior for sites outside of content
@@ -1393,6 +1415,12 @@ const char kMessageCenterDisabledExtensionIds[] =
 // Disabling fullscreen mode also makes kiosk mode unavailable on desktop
 // platforms.
 const char kFullscreenAllowed[] = "fullscreen.allowed";
+
+// Enable controllable features in the local discovery UI (chrome://devices).
+// The UI shows discoverable devices near the user and registered cloud devices,
+// and allow users to add printers to cloud print when not on Chrome OS
+// devices .
+const char kLocalDiscoveryEnabled[] = "local_discovery.enabled";
 
 // Enable notifications for new devices on the local network that can be
 // registered to the user's account, e.g. Google Cloud Print printers.
@@ -1979,6 +2007,12 @@ const char kVideoCaptureAllowed[] = "hardware.video_capture_enabled";
 // capture devices without prompt.
 const char kVideoCaptureAllowedUrls[] = "hardware.video_capture_allowed_urls";
 
+// A pref holding the value of the policy used to explicitly allow or deny
+// access to screen capture.  This includes all APIs that allow capturing
+// the desktop, a window or a tab. When disabled, access to screen capture
+// is not allowed and API calls will fail with an error.
+const char kScreenCaptureAllowed[] = "hardware.screen_capture_enabled";
+
 #if defined(OS_CHROMEOS)
 // An integer pref that holds enum value of current demo mode configuration.
 // Values are defined by DemoSession::DemoModeConfig enum.
@@ -2417,6 +2451,9 @@ const char kPolicyPinnedLauncherApps[] = "policy_pinned_launcher_apps";
 // Keeps names of rolled default pin layouts for shelf in order not to apply
 // this twice. Names are separated by comma.
 const char kShelfDefaultPinLayoutRolls[] = "shelf_default_pin_layout_rolls";
+// Same as kShelfDefaultPinLayoutRolls, but for tablet form factor devices.
+const char kShelfDefaultPinLayoutRollsForTabletFormFactor[] =
+    "shelf_default_pin_layout_rolls_for_tablet_form_factor";
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_WIN)
@@ -2822,12 +2859,12 @@ const char kEnterpriseHardwarePlatformAPIEnabled[] =
 const char kSignedHTTPExchangeEnabled[] = "web_package.signed_exchange.enabled";
 
 // Boolean that allows a page to show popups during its unloading.
-// TODO(https://crbug.com/937569): Remove this in Chrome 82.
+// TODO(https://crbug.com/937569): Remove this in Chrome 88.
 const char kAllowPopupsDuringPageUnload[] = "allow_popups_during_page_unload";
 
 // Boolean that allows a page to perform synchronous XHR requests during page
 // dismissal.
-// TODO(https://crbug.com/1003101): Remove this in Chrome 82.
+// TODO(https://crbug.com/1003101): Remove this in Chrome 88.
 const char kAllowSyncXHRInPageDismissal[] = "allow_sync_xhr_in_page_dismissal";
 
 #if defined(OS_CHROMEOS)

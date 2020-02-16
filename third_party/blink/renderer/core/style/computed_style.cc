@@ -74,6 +74,7 @@
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/blink/renderer/platform/wtf/size_assertions.h"
 #include "third_party/blink/renderer/platform/wtf/text/case_map.h"
+#include "ui/base/ui_base_features.h"
 
 namespace blink {
 
@@ -220,12 +221,9 @@ bool ComputedStyle::NeedsReattachLayoutTree(const ComputedStyle* old_style,
   // line-clamping is currently only handled by LayoutDeprecatedFlexibleBox,
   // so that if line-clamping changes then the LayoutObject needs to be
   // recreated.
-  if (RuntimeEnabledFeatures::WebkitBoxLayoutUsesFlexLayoutEnabled() &&
-      (new_style->IsDeprecatedWebkitBox()) &&
-      (old_style->HasLineClamp() != new_style->HasLineClamp() &&
-       new_style->BoxOrient() == EBoxOrient::kVertical)) {
+  if (old_style->IsDeprecatedFlexboxUsingFlexLayout() !=
+      new_style->IsDeprecatedFlexboxUsingFlexLayout())
     return true;
-  }
   // We need to perform a reattach if a "display: layout(foo)" has changed to a
   // "display: layout(bar)". This is because one custom layout could be
   // registered and the other may not, affecting the box-tree construction.
@@ -300,6 +298,10 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
   }
   if (new_style.HasAnyPseudoElementStyles() ||
       old_style.HasAnyPseudoElementStyles())
+    return Difference::kPseudoElementStyle;
+  if (old_style.Display() != new_style.Display() &&
+      (new_style.Display() == EDisplay::kListItem ||
+       old_style.Display() == EDisplay::kListItem))
     return Difference::kPseudoElementStyle;
   return Difference::kNonInherited;
 }
@@ -906,8 +908,9 @@ void ComputedStyle::UpdatePropertySpecificDifferences(
     diff.SetFilterChanged();
 
   if (ComputedStyleBase::
-          UpdatePropertySpecificDifferencesNeedsRecomputeOverflow(*this, other))
-    diff.SetNeedsRecomputeOverflow();
+          UpdatePropertySpecificDifferencesNeedsRecomputeVisualOverflow(*this,
+                                                                        other))
+    diff.SetNeedsRecomputeVisualOverflow();
 
   if (ComputedStyleBase::UpdatePropertySpecificDifferencesBackdropFilter(*this,
                                                                          other))
@@ -1020,6 +1023,7 @@ static bool HasPropertyThatCreatesStackingContext(
       case CSSPropertyID::kPosition:
       case CSSPropertyID::kMixBlendMode:
       case CSSPropertyID::kIsolation:
+      case CSSPropertyID::kContain:
         return true;
       default:
         break;
@@ -1316,10 +1320,6 @@ Color ComputedStyle::GetColor() const {
   return ColorInternal();
 }
 void ComputedStyle::SetColor(const Color& v) {
-  SetIsColorInternalText(false);
-  SetColorInternal(v);
-}
-void ComputedStyle::ResolveInternalTextColor(const Color& v) {
   SetColorInternal(v);
 }
 
@@ -1967,17 +1967,6 @@ void ComputedStyle::SetLetterSpacing(float letter_spacing) {
   GetFont().Update(current_font_selector);
 }
 
-void ComputedStyle::SetFontVariantNumericSpacing(
-    FontVariantNumeric::NumericSpacing numeric_spacing) {
-  FontSelector* current_font_selector = GetFont().GetFontSelector();
-  FontDescription desc(GetFontDescription());
-  FontVariantNumeric variant_numeric = desc.VariantNumeric();
-  variant_numeric.SetNumericSpacing(numeric_spacing);
-  desc.SetVariantNumeric(variant_numeric);
-  SetFontDescription(desc);
-  GetFont().Update(current_font_selector);
-}
-
 void ComputedStyle::SetTextAutosizingMultiplier(float multiplier) {
   SetTextAutosizingMultiplierInternal(multiplier);
 
@@ -2185,13 +2174,18 @@ int ComputedStyle::OutlineOutsetExtent() const {
     return 0;
   if (OutlineStyleIsAuto()) {
     return GraphicsContext::FocusRingOutsetExtent(
-        OutlineOffset(), std::ceil(GetOutlineStrokeWidthForFocusRing()),
+        OutlineOffset(), GetDefaultOffsetForFocusRing(),
+        std::ceil(GetOutlineStrokeWidthForFocusRing()),
         LayoutTheme::GetTheme().IsFocusRingOutset());
   }
   return base::ClampAdd(OutlineWidth(), OutlineOffset()).Max(0);
 }
 
 float ComputedStyle::GetOutlineStrokeWidthForFocusRing() const {
+  if (::features::IsFormControlsRefreshEnabled() && OutlineStyleIsAuto()) {
+    return std::max(EffectiveZoom(), 3.f);
+  }
+
 #if defined(OS_MACOSX)
   return OutlineWidth();
 #else
@@ -2202,6 +2196,17 @@ float ComputedStyle::GetOutlineStrokeWidthForFocusRing() const {
   // so narrow that it becomes invisible.
   return std::max(EffectiveZoom(), 1.f);
 #endif
+}
+
+int ComputedStyle::GetDefaultOffsetForFocusRing() const {
+  if (!::features::IsFormControlsRefreshEnabled())
+    return 0;
+
+  // For FormControlsRefresh checkbox and radio have a 2px inner padding.
+  if (EffectiveAppearance() == kCheckboxPart ||
+      EffectiveAppearance() == kRadioPart)
+    return 2;
+  return 0;
 }
 
 bool ComputedStyle::ColumnRuleEquivalent(

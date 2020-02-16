@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/time/time.h"
 #include "components/sync/protocol/bookmark_model_metadata.pb.h"
@@ -28,8 +29,8 @@ struct EntityData;
 
 namespace sync_bookmarks {
 
-using NodeMetadataPair = std::pair<const bookmarks::BookmarkNode*,
-                                   std::unique_ptr<sync_pb::EntityMetadata>>;
+// Exposed for testing.
+extern const base::Feature kInvalidateBookmarkSyncMetadataIfMismatchingGuid;
 
 // This class is responsible for keeping the mapping between bookmark nodes in
 // the local model and the server-side corresponding sync entities. It manages
@@ -87,6 +88,23 @@ class SyncedBookmarkTracker {
       commit_may_have_started_ = value;
     }
 
+    // Returns whether the bookmark's GUID is known to match the server-side
+    // originator client item ID (or for pre-2015 bookmarks, the equivalent
+    // inferred GUID). This function may return false negatives since the
+    // required local metadata got populated with M81.
+    // TODO(crbug.com/1032052): Remove this code once all local sync metadata
+    // is required to populate the client tag (and be considered invalid
+    // otherwise).
+    bool has_final_guid() const;
+
+    // Returns true if the final GUID is known and it matches |guid|.
+    bool final_guid_matches(const std::string& guid) const;
+
+    // TODO(crbug.com/1032052): Remove this code once all local sync metadata
+    // is required to populate the client tag (and be considered invalid
+    // otherwise).
+    void set_final_guid(const std::string& guid);
+
     // Returns the estimate of dynamically allocated memory in bytes.
     size_t EstimateMemoryUsage() const;
 
@@ -108,19 +126,20 @@ class SyncedBookmarkTracker {
     DISALLOW_COPY_AND_ASSIGN(Entity);
   };
 
-  // |model_type_state| must not be null. null nodes in |nodes_metadata| can be
-  // used to represent local tombstones.
-  SyncedBookmarkTracker(
-      std::vector<NodeMetadataPair> nodes_metadata,
-      std::unique_ptr<sync_pb::ModelTypeState> model_type_state);
-  ~SyncedBookmarkTracker();
+  // Creates an empty instance with no entities. Never returns null.
+  static std::unique_ptr<SyncedBookmarkTracker> CreateEmpty(
+      sync_pb::ModelTypeState model_type_state);
 
-  // Checks the integrity of the |model_metadata|. It also verifies that the
-  // contents of the |model_metadata| match the contents of |model|. It should
-  // only be called if the initial sync has completed.
-  static bool BookmarkModelMatchesMetadata(
+  // Loads a tracker from a proto (usually from disk) after enforcing the
+  // consistency of the metadata against the BookmarkModel. Returns null if the
+  // data is inconsistent with sync metadata (i.e. corrupt). |model| must not be
+  // null.
+  static std::unique_ptr<SyncedBookmarkTracker>
+  CreateFromBookmarkModelAndMetadata(
       const bookmarks::BookmarkModel* model,
-      const sync_pb::BookmarkModelMetadata& model_metadata);
+      sync_pb::BookmarkModelMetadata model_metadata);
+
+  ~SyncedBookmarkTracker();
 
   // Returns null if no entity is found.
   const Entity* GetEntityForSyncId(const std::string& sync_id) const;
@@ -149,6 +168,9 @@ class SyncedBookmarkTracker {
   // Updates the server version of an existing entry for the |sync_id|.
   void UpdateServerVersion(const std::string& sync_id, int64_t server_version);
 
+  // Populates a bookmark's final GUID.
+  void PopulateFinalGuid(const std::string& sync_id, const std::string& guid);
+
   // Marks an existing entry for |sync_id| that a commit request might have been
   // sent to the server.
   void MarkCommitMayHaveStarted(const std::string& sync_id);
@@ -172,11 +194,10 @@ class SyncedBookmarkTracker {
   bool HasLocalChanges() const;
 
   const sync_pb::ModelTypeState& model_type_state() const {
-    return *model_type_state_;
+    return model_type_state_;
   }
 
-  void set_model_type_state(
-      std::unique_ptr<sync_pb::ModelTypeState> model_type_state) {
+  void set_model_type_state(sync_pb::ModelTypeState model_type_state) {
     model_type_state_ = std::move(model_type_state);
   }
 
@@ -232,6 +253,34 @@ class SyncedBookmarkTracker {
       const bookmarks::BookmarkModel* bookmark_model) const;
 
  private:
+  // Enumeration of possible reasons why persisted metadata are considered
+  // corrupted and don't match the bookmark model. Used in UMA metrics. Do not
+  // re-order or delete these entries; they are used in a UMA histogram. Please
+  // edit SyncBookmarkModelMetadataCorruptionReason in enums.xml if a value is
+  // added.
+  enum class CorruptionReason {
+    NO_CORRUPTION = 0,
+    MISSING_SERVER_ID = 1,
+    BOOKMARK_ID_IN_TOMBSTONE = 2,
+    MISSING_BOOKMARK_ID = 3,
+    // COUNT_MISMATCH = 4,  // Deprecated.
+    // IDS_MISMATCH = 5,  // Deprecated.
+    DUPLICATED_SERVER_ID = 6,
+    UNKNOWN_BOOKMARK_ID = 7,
+    UNTRACKED_BOOKMARK = 8,
+    BOOKMARK_GUID_MISMATCH = 9,
+    kMaxValue = BOOKMARK_GUID_MISMATCH
+  };
+
+  explicit SyncedBookmarkTracker(sync_pb::ModelTypeState model_type_state);
+
+  // Add entities to |this| tracker based on the content of |*model| and
+  // |model_metadata|. Validates the integrity of |*model| and |model_metadata|
+  // and returns an enum representing any inconsistency.
+  CorruptionReason InitEntitiesFromModelAndMetadata(
+      const bookmarks::BookmarkModel* model,
+      sync_pb::BookmarkModelMetadata model_metadata);
+
   // Returns null if no entity is found.
   Entity* GetMutableEntityForSyncId(const std::string& sync_id);
 
@@ -263,7 +312,7 @@ class SyncedBookmarkTracker {
   std::vector<Entity*> ordered_local_tombstones_;
 
   // The model metadata (progress marker, initial sync done, etc).
-  std::unique_ptr<sync_pb::ModelTypeState> model_type_state_;
+  sync_pb::ModelTypeState model_type_state_;
 
   DISALLOW_COPY_AND_ASSIGN(SyncedBookmarkTracker);
 };

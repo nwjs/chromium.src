@@ -27,7 +27,7 @@
 #include "content/public/test/hit_test_region_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_switches.h"
 #include "ui/latency/latency_info.h"
@@ -260,7 +260,7 @@ IN_PROC_BROWSER_TEST_F(CompositorEventAckBrowserTest,
   touch_event.SetTimeStamp(ui::EventTimeForNow());
   input_event_router->RouteTouchEvent(root_view, &touch_event,
                                       ui::LatencyInfo());
-  GetWidgetHost()->input_router()->OnSetTouchAction(cc::kTouchActionAuto);
+  GetWidgetHost()->input_router()->OnSetTouchAction(cc::TouchAction::kAuto);
 
   // Send GSB to start scrolling sequence.
   blink::WebGestureEvent gesture_scroll_begin(

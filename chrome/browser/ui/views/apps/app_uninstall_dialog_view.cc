@@ -4,12 +4,16 @@
 
 #include "chrome/browser/ui/views/apps/app_uninstall_dialog_view.h"
 
+#include "base/compiler_specific.h"
+#include "base/feature_list.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -56,30 +60,31 @@ AppUninstallDialogView::AppUninstallDialogView(
       BubbleDialogDelegateView(nullptr, views::BubbleBorder::NONE),
       app_type_(app_type),
       app_name_(app_name) {
+  DialogDelegate::set_close_callback(base::BindOnce(
+      &AppUninstallDialogView::OnDialogCancelled, base::Unretained(this)));
+  DialogDelegate::set_cancel_callback(base::BindOnce(
+      &AppUninstallDialogView::OnDialogCancelled, base::Unretained(this)));
+  DialogDelegate::set_accept_callback(base::BindOnce(
+      &AppUninstallDialogView::OnDialogAccepted, base::Unretained(this)));
+
   InitializeView(profile, app_id);
 
   chrome::RecordDialogCreation(chrome::DialogIdentifier::APP_UNINSTALL);
 }
 
-bool AppUninstallDialogView::Cancel() {
-  return Close();
+void AppUninstallDialogView::OnDialogCancelled() {
+  uninstall_dialog()->OnDialogClosed(false /* uninstall */,
+                                     false /* clear_site_data */,
+                                     false /* report_abuse */);
 }
 
-bool AppUninstallDialogView::Accept() {
+void AppUninstallDialogView::OnDialogAccepted() {
   const bool clear_site_data =
       clear_site_data_checkbox_ && clear_site_data_checkbox_->GetChecked();
   const bool report_abuse_checkbox =
       report_abuse_checkbox_ && report_abuse_checkbox_->GetChecked();
   uninstall_dialog()->OnDialogClosed(true /* uninstall */, clear_site_data,
                                      report_abuse_checkbox);
-  return true;
-}
-
-bool AppUninstallDialogView::Close() {
-  uninstall_dialog()->OnDialogClosed(false /* uninstall */,
-                                     false /* clear_site_data */,
-                                     false /* report_abuse */);
-  return true;
 }
 
 gfx::Size AppUninstallDialogView::CalculatePreferredSize() const {
@@ -142,9 +147,10 @@ void AppUninstallDialogView::AddMultiLineLabel(
   label->SetAllowCharacterBreak(true);
 }
 
-void AppUninstallDialogView::InitializeViewForExtension(
-    Profile* profile,
-    const std::string& app_id) {
+void AppUninstallDialogView::InitializeCommonView(
+    bool show_report_abuse_checkbox,
+    bool show_clear_site_data_checkbox,
+    const GURL& app_launch_url) {
   DialogDelegate::set_button_label(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT_UNINSTALL_BUTTON));
@@ -159,27 +165,52 @@ void AppUninstallDialogView::InitializeViewForExtension(
   set_margins(margins() +
               gfx::Insets(0, margins().left() + image().size().height(), 0, 0));
 
-  const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(profile)->GetInstalledExtension(
-          app_id);
-  DCHECK(extension);
-
-  if (extensions::ManifestURL::UpdatesFromGallery(extension)) {
+  if (show_report_abuse_checkbox) {
     auto report_abuse_checkbox = std::make_unique<views::Checkbox>(
         l10n_util::GetStringUTF16(IDS_EXTENSION_PROMPT_UNINSTALL_REPORT_ABUSE));
     report_abuse_checkbox->SetMultiLine(true);
     report_abuse_checkbox_ = AddChildView(std::move(report_abuse_checkbox));
-  } else if (extension->from_bookmark()) {
+  } else if (show_clear_site_data_checkbox) {
     auto clear_site_data_checkbox =
         std::make_unique<views::Checkbox>(l10n_util::GetStringFUTF16(
             IDS_EXTENSION_UNINSTALL_PROMPT_REMOVE_DATA_CHECKBOX,
             url_formatter::FormatUrlForSecurityDisplay(
-                extensions::AppLaunchInfo::GetFullLaunchURL(extension),
+                app_launch_url,
                 url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC)));
     clear_site_data_checkbox->SetMultiLine(true);
     clear_site_data_checkbox_ =
         AddChildView(std::move(clear_site_data_checkbox));
   }
+}
+
+void AppUninstallDialogView::InitializeViewForExtension(
+    Profile* profile,
+    const std::string& app_id) {
+  const extensions::Extension* extension =
+      extensions::ExtensionRegistry::Get(profile)->GetInstalledExtension(
+          app_id);
+  DCHECK(extension);
+
+  InitializeCommonView(
+      /*show_report_abuse_checkbox=*/
+      extensions::ManifestURL::UpdatesFromGallery(extension),
+      /*show_clear_site_data_checkbox=*/extension->from_bookmark(),
+      /*app_launch_url=*/
+      extensions::AppLaunchInfo::GetFullLaunchURL(extension));
+}
+
+void AppUninstallDialogView::InitializeViewForWebApp(
+    Profile* profile,
+    const std::string& app_id) {
+  auto* provider = web_app::WebAppProvider::Get(profile);
+  DCHECK(provider);
+
+  GURL app_launch_url = provider->registrar().GetAppLaunchURL(app_id);
+  DCHECK(app_launch_url.is_valid());
+
+  InitializeCommonView(
+      /*show_report_abuse_checkbox=*/false,
+      /*show_clear_site_data_checkbox=*/true, app_launch_url);
 }
 
 #if defined(OS_CHROMEOS)
@@ -285,8 +316,16 @@ void AppUninstallDialogView::InitializeView(Profile* profile,
       NOTREACHED();
 #endif
       break;
-    case apps::mojom::AppType::kExtension:
+
     case apps::mojom::AppType::kWeb:
+      if (base::FeatureList::IsEnabled(
+              features::kDesktopPWAsWithoutExtensions)) {
+        InitializeViewForWebApp(profile, app_id);
+        break;
+      }
+      // Otherwise fallback to Extension-based Bookmark Apps.
+      FALLTHROUGH;
+    case apps::mojom::AppType::kExtension:
       InitializeViewForExtension(profile, app_id);
       break;
   }

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ssl/captive_portal_blocking_page.h"
+#include "components/security_interstitials/content/captive_portal_blocking_page.h"
 
 #include <string>
 #include <utility>
@@ -31,7 +31,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/captive_portal/captive_portal_detector.h"
+#include "components/captive_portal/core/captive_portal_detector.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_interstitials/content/cert_report_helper.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
@@ -120,8 +120,9 @@ CaptivePortalTestingNavigationThrottle::WillFailRequest() {
   ssl_info.cert =
       net::ImportCertFromFile(net::GetTestCertsDirectory(), "ok_cert.pem");
   ssl_info.cert_status = net::CERT_STATUS_COMMON_NAME_INVALID;
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
   CaptivePortalBlockingPage* blocking_page =
-      ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
+      blocking_page_factory.CreateCaptivePortalBlockingPage(
           navigation_handle()->GetWebContents(), GURL(kBrokenSSL), login_url_,
           std::move(ssl_cert_reporter_), ssl_info,
           net::ERR_CERT_COMMON_NAME_INVALID);
@@ -423,8 +424,9 @@ class CaptivePortalBlockingPageIDNTest : public SecurityInterstitialIDNTest {
       const GURL& request_url) const override {
     net::SSLInfo empty_ssl_info;
     // Blocking page is owned by the interstitial.
+    ChromeSecurityBlockingPageFactory blocking_page_factory;
     CaptivePortalBlockingPage* blocking_page =
-        ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
+        blocking_page_factory.CreateCaptivePortalBlockingPage(
             contents, GURL(kBrokenSSL), request_url, nullptr, empty_ssl_info,
             net::ERR_CERT_COMMON_NAME_INVALID);
     blocking_page->OverrideWifiInfoForTesting(false, "");

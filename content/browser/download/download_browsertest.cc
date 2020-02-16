@@ -72,7 +72,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -114,7 +114,7 @@ const char k404Response[] = "HTTP/1.1 404 Not found\r\n\r\n";
 void ExpectRequestNetworkIsolationKey(
     const GURL& request_url,
     const net::NetworkIsolationKey& network_isolation_key,
-    base::Callback<void()> function) {
+    base::OnceCallback<void()> function) {
   base::RunLoop request_waiter;
   std::unique_ptr<content::URLLoaderInterceptor> url_loader_interceptor_ =
       std::make_unique<content::URLLoaderInterceptor>(
@@ -130,7 +130,7 @@ void ExpectRequestNetworkIsolationKey(
                 return false;  // Do not intercept
               }));
 
-  function.Run();
+  std::move(function).Run();
   request_waiter.Run();
 }
 
@@ -547,11 +547,10 @@ class TestShellDownloadManagerDelegate : public ShellDownloadManagerDelegate {
       : delay_download_open_(false) {}
   ~TestShellDownloadManagerDelegate() override {}
 
-  bool ShouldOpenDownload(
-      download::DownloadItem* item,
-      const DownloadOpenDelayedCallback& callback) override {
+  bool ShouldOpenDownload(download::DownloadItem* item,
+                          DownloadOpenDelayedCallback callback) override {
     if (delay_download_open_) {
-      delayed_callbacks_.push_back(callback);
+      delayed_callbacks_.push_back(std::move(callback));
       return false;
     }
     return true;
@@ -596,7 +595,7 @@ class DownloadCreateObserver : DownloadManager::Observer {
     if (!item_)
       item_ = download;
 
-    if (!completion_closure_.is_null())
+    if (completion_closure_)
       std::move(completion_closure_).Run();
   }
 
@@ -613,7 +612,7 @@ class DownloadCreateObserver : DownloadManager::Observer {
  private:
   DownloadManager* manager_;
   download::DownloadItem* item_;
-  base::Closure completion_closure_;
+  base::OnceClosure completion_closure_;
 };
 
 class DownloadInProgressObserver : public DownloadTestObserverInProgress {
@@ -658,7 +657,7 @@ class ErrorStreamCountingObserver : download::DownloadItem::Observer {
     std::unique_ptr<base::HistogramSamples> samples =
         histogram_tester_.GetHistogramSamplesSinceCreation(
             "Download.ParallelDownload.CreationFailureReason");
-    if (samples->TotalCount() == count_ && !completion_closure_.is_null())
+    if (samples->TotalCount() == count_ && completion_closure_)
       std::move(completion_closure_).Run();
   }
 
@@ -681,7 +680,7 @@ class ErrorStreamCountingObserver : download::DownloadItem::Observer {
   base::HistogramTester histogram_tester_;
   download::DownloadItem* item_;
   int count_;
-  base::Closure completion_closure_;
+  base::OnceClosure completion_closure_;
 };
 
 // Class to wait for a WebContents to kick off a specified number of
@@ -705,14 +704,14 @@ class NavigationStartObserver : public WebContentsObserver {
   // WebContentsObserver implementations.
   void DidStartNavigation(NavigationHandle* navigation_handle) override {
     start_count_++;
-    if (start_count_ >= navigation_count_ && !completion_closure_.is_null()) {
+    if (start_count_ >= navigation_count_ && completion_closure_) {
       std::move(completion_closure_).Run();
     }
   }
 
   int navigation_count_ = 0;
   int start_count_ = 0;
-  base::Closure completion_closure_;
+  base::OnceClosure completion_closure_;
   DISALLOW_COPY_AND_ASSIGN(NavigationStartObserver);
 };
 
@@ -741,8 +740,8 @@ HandleRequestAndSendRedirectResponse(
 net::EmbeddedTestServer::HandleRequestCallback CreateRedirectHandler(
     const std::string& relative_url,
     const GURL& target_url) {
-  return base::Bind(
-      &HandleRequestAndSendRedirectResponse, relative_url, target_url);
+  return base::BindRepeating(&HandleRequestAndSendRedirectResponse,
+                             relative_url, target_url);
 }
 
 // Request handler to be used with CreateBasicResponseHandler().
@@ -774,8 +773,8 @@ net::EmbeddedTestServer::HandleRequestCallback CreateBasicResponseHandler(
     const base::StringPairs& headers,
     const std::string& content_type,
     const std::string& body) {
-  return base::Bind(&HandleRequestAndSendBasicResponse, relative_url, code,
-                    headers, content_type, body);
+  return base::BindRepeating(&HandleRequestAndSendBasicResponse, relative_url,
+                             code, headers, content_type, body);
 }
 
 std::unique_ptr<net::test_server::HttpResponse> HandleRequestAndEchoCookies(
@@ -871,8 +870,8 @@ class DownloadContentTest : public ContentBrowserTest {
     base::FilePath test_data_dir;
     ASSERT_TRUE(base::PathService::Get(content::DIR_TEST_DATA, &test_data_dir));
     embedded_test_server()->ServeFilesFromDirectory(test_data_dir);
-    embedded_test_server()->RegisterRequestHandler(
-        base::Bind(&SlowDownloadHttpResponse::HandleSlowDownloadRequest));
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &SlowDownloadHttpResponse::HandleSlowDownloadRequest));
     test_response_handler_.RegisterToTestServer(embedded_test_server());
     ASSERT_TRUE(embedded_test_server()->Start());
     const std::string real_host =
@@ -910,29 +909,29 @@ class DownloadContentTest : public ContentBrowserTest {
 
   void WaitForInterrupt(download::DownloadItem* download) {
     DownloadUpdatedObserver(
-        download,
-        base::Bind(&IsDownloadInState, download::DownloadItem::INTERRUPTED))
+        download, base::BindRepeating(&IsDownloadInState,
+                                      download::DownloadItem::INTERRUPTED))
         .WaitForEvent();
   }
 
   void WaitForInProgress(download::DownloadItem* download) {
     DownloadUpdatedObserver(
-        download,
-        base::Bind(&IsDownloadInState, download::DownloadItem::IN_PROGRESS))
+        download, base::BindRepeating(&IsDownloadInState,
+                                      download::DownloadItem::IN_PROGRESS))
         .WaitForEvent();
   }
 
   void WaitForCompletion(download::DownloadItem* download) {
     DownloadUpdatedObserver(
-        download,
-        base::Bind(&IsDownloadInState, download::DownloadItem::COMPLETE))
+        download, base::BindRepeating(&IsDownloadInState,
+                                      download::DownloadItem::COMPLETE))
         .WaitForEvent();
   }
 
   void WaitForCancel(download::DownloadItem* download) {
     DownloadUpdatedObserver(
-        download,
-        base::Bind(&IsDownloadInState, download::DownloadItem::CANCELLED))
+        download, base::BindRepeating(&IsDownloadInState,
+                                      download::DownloadItem::CANCELLED))
         .WaitForEvent();
   }
 
@@ -949,7 +948,7 @@ class DownloadContentTest : public ContentBrowserTest {
 
   void SetupErrorInjectionDownloads() {
     auto factory = std::make_unique<ErrorInjectionDownloadFileFactory>();
-    inject_error_callback_ = base::Bind(
+    inject_error_callback_ = base::BindRepeating(
         &ErrorInjectionDownloadFileFactory::InjectError, factory->GetWeakPtr());
 
     DownloadManagerForShell(shell())->SetDownloadFileFactoryForTesting(
@@ -1608,7 +1607,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, CancelAtRelease) {
   GetDownloadManagerDelegate()->GetDelayedCallbacks(
       &delayed_callbacks);
   ASSERT_EQ(1u, delayed_callbacks.size());
-  delayed_callbacks[0].Run(true);
+  std::move(delayed_callbacks[0]).Run(true);
 
   // *Now* the download should be complete.
   EXPECT_EQ(download::DownloadItem::COMPLETE, items[0]->GetState());

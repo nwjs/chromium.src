@@ -73,6 +73,10 @@ a:focus {
   position: relative;
 }
 
+body.files-ng .dialog-container {
+  background-color: rgb(255, 255, 255);
+}
+
 /* List and grid are inside this container. */
 .dialog-main {
   align-items: stretch;
@@ -80,6 +84,10 @@ a:focus {
   display: flex;
   flex: auto;
   flex-direction: column;
+}
+
+body.files-ng .dialog-main {
+  background-color: inherit;
 }
 
 /* Directory tree at the left. */
@@ -94,6 +102,10 @@ a:focus {
   overflow: auto;
   position: relative;
   width: 240px;
+}
+
+body.files-ng .dialog-navigation-list {
+  background-color: inherit;
 }
 
 .dialog-navigation-list-contents {
@@ -153,7 +165,8 @@ html[class*='col-resize'] #directory-tree {
 
 #directory-tree .tree-row > .file-row {
   align-items: center;
-  border-inline-start-width: 0;
+  border: 1px solid transparent;
+  border-inline-start-width: 0 !important;
   border-radius: 0 20px 20px 0;
   box-sizing: border-box;
   color: var(--google-grey-700);
@@ -302,11 +315,10 @@ html:not([class*='col-resize']) #directory-tree
 
 #directory-tree:focus .tree-row[selected] > .file-row {
   border: 1px solid var(--google-blue-600);
-  border-inline-start-width: 0;
 }
 
 #directory-tree .tree-row[active] > .file-row {
-  background-color: var(--google-blue-100);
+  background-color: var(--google-blue-50);
   color: var(--google-blue-600);
 }
 
@@ -1217,6 +1229,10 @@ body.check-select #read-only-indicator {
   top: 40px;
 }
 
+body.files-ng .list-view .loading-indicator {
+  top: 56px;
+}
+
 .thumbnail-view .loading-indicator {
   top: 0;
 }
@@ -1890,6 +1906,12 @@ body.check-select #list-container list li[selected] .detail-thumbnail
   padding-inline-start: 32px;
 }
 
+html[dir='rtl'] #share-menu cr-menu-item,
+html[dir='rtl'] #share-sub-menu cr-menu-item,
+html[dir='rtl'] #tasks-menu cr-menu-item:not(.change-default) {
+  background-position: right 10px center;
+}
+
 #share-menu cr-menu-item[command='#share'] {
   background-image: -webkit-image-set(
       url(../images/files/ui/person_add.png) 1x,
@@ -2128,6 +2150,57 @@ body[drive='error'] #unmounted-panel > .error,
 #list-container .table-header-cell:first-child {
   -webkit-box-sizing: border-box;
   padding-inline-start: 8px;
+}
+
+body.files-ng .table-header {
+  border-bottom: none;
+  color: var(--google-grey-700);
+  font-family: 'Roboto Medium';
+  font-size: 13px;
+  height: 56px;
+  line-height: 20px;
+  padding-bottom: 16px;
+  padding-top: 20px;
+}
+
+body.files-ng .table-header-label {
+  line-height: 20px;
+  margin-inline-end: 5px;
+  margin-inline-start: 24px;
+}
+
+body.files-ng #list-container .table-header-cell:first-child
+.table-header-label {
+  margin-inline-start: 12px;
+}
+
+body.files-ng .table-header-splitter {
+  background-image: url(../images/common/dragger.svg);
+  background-repeat: no-repeat ;
+  height: inherit;
+  width: 16px;
+}
+
+body.files-ng .table-header-sort-image-desc::after {
+  -webkit-mask-image: url(../images/common/arrow_up_small.svg);
+  -webkit-mask-repeat: no-repeat;
+  background-color: var(--google-grey-700);
+  background-image: none;
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 0;
+  width: 16px;
+}
+
+body.files-ng .table-header-sort-image-asc::after {
+  -webkit-mask-image: url(../images/common/arrow_down_small.svg);
+  -webkit-mask-repeat: no-repeat;
+  background-color: var(--google-grey-700);
+  background-image: none;
+  display: inline-block;
+  margin-inline-start: 8px;
+  padding: 0;
+  width: 16px;
 }
 
 #new-folder-button {

@@ -21,6 +21,7 @@
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/password_manager/account_storage/account_password_store_factory.h"
+#include "chrome/browser/password_manager/chrome_biometric_authenticator.h"
 #include "chrome/browser/password_manager/field_info_manager_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/prerender/prerender_contents.h"
@@ -90,14 +91,15 @@
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "url/url_constants.h"
+#include "ui/base/clipboard/clipboard.h"
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
-#include "ui/base/clipboard/clipboard.h"
-
 #include "services/service_manager/public/cpp/connector.h"
 #include "third_party/blink/public/mojom/clipboard/clipboard.mojom.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 #endif
 
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -108,6 +110,7 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/password_manager/account_chooser_dialog_android.h"
 #include "chrome/browser/password_manager/auto_signin_first_run_dialog_android.h"
+#include "chrome/browser/password_manager/auto_signin_prompt_controller.h"
 #include "chrome/browser/password_manager/credential_leak_controller_android.h"
 #include "chrome/browser/password_manager/generated_password_saved_infobar_delegate_android.h"
 #include "chrome/browser/password_manager/password_accessory_controller.h"
@@ -115,10 +118,9 @@
 #include "chrome/browser/password_manager/password_generation_controller.h"
 #include "chrome/browser/password_manager/password_manager_launcher_android.h"
 #include "chrome/browser/password_manager/save_password_infobar_delegate_android.h"
-#include "chrome/browser/password_manager/touch_to_fill_controller.h"
 #include "chrome/browser/password_manager/update_password_infobar_delegate_android.h"
+#include "chrome/browser/touch_to_fill/touch_to_fill_controller.h"
 #include "chrome/browser/ui/android/passwords/onboarding_dialog_view.h"
-#include "chrome/browser/ui/android/snackbars/auto_signin_prompt_controller.h"
 #include "components/infobars/core/infobar.h"
 #include "components/password_manager/core/browser/credential_cache.h"
 #include "ui/base/ui_base_features.h"
@@ -435,6 +437,17 @@ void ChromePasswordManagerClient::ShowTouchToFill(
 #endif
 }
 
+password_manager::BiometricAuthenticator*
+ChromePasswordManagerClient::GetBiometricAuthenticator() {
+#if defined(OS_ANDROID)
+  if (!biometric_authenticator_) {
+    biometric_authenticator_ =
+        ChromeBiometricAuthenticator::Create(web_contents());
+  }
+#endif
+  return biometric_authenticator_.get();
+}
+
 void ChromePasswordManagerClient::GeneratePassword() {
 #if defined(OS_ANDROID)
   PasswordGenerationController* generation_controller =
@@ -497,17 +510,20 @@ void ChromePasswordManagerClient::AutomaticPasswordSave(
 #endif
 }
 
+void ChromePasswordManagerClient::UpdateCredentialCache(
+    const GURL& origin,
+    const std::vector<const autofill::PasswordForm*>& best_matches) {
+#if defined(OS_ANDROID)
+  credential_cache_.SaveCredentialsForOrigin(best_matches,
+                                             url::Origin::Create(origin));
+#endif
+}
+
 void ChromePasswordManagerClient::PasswordWasAutofilled(
     const std::vector<const PasswordForm*>& best_matches,
     const GURL& origin,
     const std::vector<const PasswordForm*>* federated_matches) {
-#if defined(OS_ANDROID)
-  if (!PasswordAccessoryController::AllowedForWebContents(web_contents())) {
-    return;  // No need to even create the bridge if it's not going to be used.
-  }
-  credential_cache_.SaveCredentialsForOrigin(best_matches,
-                                             url::Origin::Create(origin));
-#else  // !defined(OS_ANDROID)
+#if !defined(OS_ANDROID)
   PasswordsClientUIDelegate* manage_passwords_ui_controller =
       PasswordsClientUIDelegateFromWebContents(web_contents());
   manage_passwords_ui_controller->OnPasswordAutofilled(best_matches, origin,
@@ -871,9 +887,9 @@ void ChromePasswordManagerClient::HideFillingUI() {
 
 void ChromePasswordManagerClient::AutomaticGenerationAvailable(
     const autofill::password_generation::PasswordGenerationUIData& ui_data) {
-  if (!password_manager::bad_message::CheckChildProcessSecurityPolicy(
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
           password_generation_driver_receivers_.GetCurrentTargetFrame(),
-          ui_data.password_form,
+          ui_data.form_data.url,
           BadMessageReason::
               CPMD_BAD_ORIGIN_AUTOMATIC_GENERATION_STATUS_CHANGED))
     return;
@@ -904,10 +920,12 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
 
 void ChromePasswordManagerClient::ShowPasswordEditingPopup(
     const gfx::RectF& bounds,
-    const autofill::PasswordForm& form,
-    uint32_t field_renderer_id) {
-  if (!password_manager::bad_message::CheckChildProcessSecurityPolicy(
-          password_generation_driver_receivers_.GetCurrentTargetFrame(), form,
+    const autofill::FormData& form_data,
+    uint32_t field_renderer_id,
+    const base::string16& password_value) {
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
+          password_generation_driver_receivers_.GetCurrentTargetFrame(),
+          form_data.url,
           BadMessageReason::CPMD_BAD_ORIGIN_SHOW_PASSWORD_EDITING_POPUP))
     return;
   auto* driver = driver_factory_->GetDriverForFrame(
@@ -919,24 +937,15 @@ void ChromePasswordManagerClient::ShowPasswordEditingPopup(
   autofill::password_generation::PasswordGenerationUIData ui_data(
       bounds, /*max_length=*/0, /*generation_element=*/base::string16(),
       field_renderer_id, /*is_generation_element_password_type=*/true,
-      base::i18n::TextDirection(), form);
+      base::i18n::TextDirection(), form_data);
   popup_controller_ = PasswordGenerationPopupControllerImpl::GetOrCreate(
       popup_controller_, element_bounds_in_screen_space, ui_data,
       driver->AsWeakPtr(), observer_, web_contents(),
       password_generation_driver_receivers_.GetCurrentTargetFrame());
-  DCHECK(!form.password_value.empty());
-  popup_controller_->UpdatePassword(form.password_value);
+  DCHECK(!password_value.empty());
+  popup_controller_->UpdatePassword(password_value);
   popup_controller_->Show(
       PasswordGenerationPopupController::kEditGeneratedPassword);
-}
-
-void ChromePasswordManagerClient::GenerationAvailableForForm(
-    const autofill::PasswordForm& form) {
-  if (!password_manager::bad_message::CheckChildProcessSecurityPolicy(
-          password_generation_driver_receivers_.GetCurrentTargetFrame(), form,
-          BadMessageReason::CPMD_BAD_ORIGIN_GENERATION_AVAILABLE_FOR_FORM))
-    return;
-  // TODO(https://crbug.com/949519): remove this method.
 }
 
 void ChromePasswordManagerClient::PasswordGenerationRejectedByTyping() {
@@ -945,31 +954,34 @@ void ChromePasswordManagerClient::PasswordGenerationRejectedByTyping() {
 }
 
 void ChromePasswordManagerClient::PresaveGeneratedPassword(
-    const autofill::PasswordForm& password_form) {
-  if (!password_manager::bad_message::CheckChildProcessSecurityPolicy(
+    const autofill::FormData& form_data,
+    const base::string16& password_value) {
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
           password_generation_driver_receivers_.GetCurrentTargetFrame(),
-          password_form,
-          BadMessageReason::CPMD_BAD_ORIGIN_PRESAVE_GENERATED_PASSWORD))
+          form_data.url,
+          BadMessageReason::CPMD_BAD_ORIGIN_PRESAVE_GENERATED_PASSWORD)) {
     return;
+  }
   if (popup_controller_)
-    popup_controller_->UpdatePassword(password_form.password_value);
+    popup_controller_->UpdatePassword(password_value);
 
   PasswordManagerDriver* driver = driver_factory_->GetDriverForFrame(
       password_generation_driver_receivers_.GetCurrentTargetFrame());
-  password_manager_.OnPresaveGeneratedPassword(driver, password_form);
+  password_manager_.OnPresaveGeneratedPassword(driver, form_data,
+                                               password_value);
 }
 
 void ChromePasswordManagerClient::PasswordNoLongerGenerated(
-    const autofill::PasswordForm& password_form) {
-  if (!password_manager::bad_message::CheckChildProcessSecurityPolicy(
+    const autofill::FormData& form_data) {
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
           password_generation_driver_receivers_.GetCurrentTargetFrame(),
-          password_form,
-          BadMessageReason::CPMD_BAD_ORIGIN_PASSWORD_NO_LONGER_GENERATED))
+          form_data.url,
+          BadMessageReason::CPMD_BAD_ORIGIN_PASSWORD_NO_LONGER_GENERATED)) {
     return;
-
+  }
   PasswordManagerDriver* driver = driver_factory_->GetDriverForFrame(
       password_generation_driver_receivers_.GetCurrentTargetFrame());
-  password_manager_.OnPasswordNoLongerGenerated(driver, password_form);
+  password_manager_.OnPasswordNoLongerGenerated(driver, form_data);
 
   PasswordGenerationPopupController* controller = popup_controller_.get();
   if (controller &&
@@ -1106,7 +1118,7 @@ bool ChromePasswordManagerClient::IsUnderAdvancedProtection() const {
 #if BUILDFLAG(FULL_SAFE_BROWSING)
   return safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
              profile_)
-      ->is_under_advanced_protection();
+      ->IsUnderAdvancedProtection();
 #else
   return false;
 #endif
@@ -1193,8 +1205,8 @@ void ChromePasswordManagerClient::ShowManualPasswordGenerationPopup(
   if (!ui_data || !driver)
     return;
   // Check the data because it's a Mojo callback and the input isn't trusted.
-  if (!password_manager::bad_message::CheckChildProcessSecurityPolicy(
-          driver->render_frame_host(), ui_data->password_form,
+  if (!password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
+          driver->render_frame_host(), ui_data->form_data.url,
           BadMessageReason::
               CPMD_BAD_ORIGIN_SHOW_MANUAL_PASSWORD_GENERATION_POPUP))
     return;
@@ -1230,7 +1242,7 @@ void ChromePasswordManagerClient::ShowPasswordGenerationPopup(
   gfx::RectF element_bounds_in_screen_space =
       GetBoundsInScreenSpace(element_bounds_in_top_frame_space);
   password_manager_.SetGenerationElementAndReasonForForm(
-      driver, ui_data.password_form, ui_data.generation_element,
+      driver, ui_data.form_data, ui_data.generation_element,
       is_manually_triggered);
 
   popup_controller_ = PasswordGenerationPopupControllerImpl::GetOrCreate(

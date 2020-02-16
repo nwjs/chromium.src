@@ -25,6 +25,7 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "ui/accessibility/ax_mode.h"
+#include "ui/accessibility/ax_tree_update.h"
 
 namespace blink {
 class AssociatedInterfaceProvider;
@@ -66,6 +67,21 @@ class RenderView;
 struct ContextMenuParams;
 struct WebPluginInfo;
 struct WebPreferences;
+
+// A class that takes a snapshot of the accessibility tree. Accessibility
+// support in Blink is enabled for the lifetime of this object, which can
+// be useful if you need consistent IDs between multiple snapshots.
+class AXTreeSnapshotter {
+ public:
+  AXTreeSnapshotter() = default;
+  // Return in |accessibility_tree| a snapshot of the accessibility tree
+  // for the frame with the given accessibility mode. If |max_node_count|
+  // is nonzero, return no more than that many nodes.
+  virtual void Snapshot(ui::AXMode ax_mode,
+                        size_t max_node_count,
+                        ui::AXTreeUpdate* accessibility_tree) = 0;
+  virtual ~AXTreeSnapshotter() = default;
+};
 
 // This interface wraps functionality, which is specific to frames, such as
 // navigation. It provides communication with a corresponding RenderFrameHost
@@ -115,6 +131,9 @@ class CONTENT_EXPORT RenderFrame : public IPC::Listener,
 
   // Return the RenderAccessibility associated with this frame.
   virtual RenderAccessibility* GetRenderAccessibility() = 0;
+
+  // Return an object that can take a snapshot of the accessibility tree.
+  virtual std::unique_ptr<AXTreeSnapshotter> CreateAXTreeSnapshotter() = 0;
 
   // Get the routing ID of the frame.
   virtual int GetRoutingID() = 0;
@@ -168,6 +187,7 @@ class CONTENT_EXPORT RenderFrame : public IPC::Listener,
       const std::string& interface_name,
       mojo::ScopedMessagePipeHandle interface_pipe) = 0;
 
+  // DEPRECATED. Please use GetBrowserInterfaceBroker() instead.
   // Returns the InterfaceProvider that this process can use to bind
   // interfaces exposed to it by the application running in this frame.
   virtual service_manager::InterfaceProvider* GetRemoteInterfaces() = 0;
@@ -229,14 +249,6 @@ class CONTENT_EXPORT RenderFrame : public IPC::Listener,
 
   // Returns true if this frame is a FTP directory listing.
   virtual bool IsFTPDirectoryListing() = 0;
-
-  // Attaches the browser plugin identified by |element_instance_id| to guest
-  // content created by the embedder.
-  virtual void AttachGuest(int element_instance_id) = 0;
-
-  // Detaches the browser plugin identified by |element_instance_id| from guest
-  // content created by the embedder.
-  virtual void DetachGuest(int element_instance_id) = 0;
 
   // Notifies the browser of text selection changes made.
   virtual void SetSelectedText(const base::string16& selection_text,

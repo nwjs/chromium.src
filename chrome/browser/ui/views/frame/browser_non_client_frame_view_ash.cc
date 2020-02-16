@@ -14,10 +14,8 @@
 #include "ash/public/cpp/default_frame_header.h"
 #include "ash/public/cpp/frame_utils.h"
 #include "ash/public/cpp/tablet_mode.h"
-#include "ash/public/cpp/touch_uma.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/public/cpp/window_state_type.h"
-#include "ash/public/mojom/constants.mojom.h"
 #include "ash/wm/window_util.h"
 #include "base/command_line.h"
 #include "base/metrics/user_metrics.h"
@@ -166,8 +164,6 @@ void BrowserNonClientFrameViewAsh::Init() {
     SetUpForWebApp();
 
   browser_view()->immersive_mode_controller()->AddObserver(this);
-
-  UpdateFrameColor();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -227,33 +223,7 @@ int BrowserNonClientFrameViewAsh::GetThemeBackgroundXInset() const {
 }
 
 void BrowserNonClientFrameViewAsh::UpdateFrameColor() {
-  aura::Window* window = frame()->GetNativeWindow();
-  base::Optional<SkColor> active_color, inactive_color;
-  if (!UsePackagedAppHeaderStyle(browser_view()->browser())) {
-    active_color = GetFrameColor(BrowserFrameActiveState::kActive);
-    inactive_color = GetFrameColor(BrowserFrameActiveState::kInactive);
-  } else if (browser_view()->IsBrowserTypeWebApp()) {
-    active_color = browser_view()->browser()->app_controller()->GetThemeColor();
-  } else if (!browser_view()->browser()->deprecated_is_app()) {
-    // TODO(crbug.com/836128): Remove when System Web Apps flag is removed, as
-    // the above web-app branch will render the theme color.
-    active_color =
-        base::FeatureList::IsEnabled(chromeos::features::kSplitSettings)
-            ? SK_ColorWHITE
-            : SkColorSetARGB(0xff, 0x25, 0x4f, 0xae);
-  }
-
-  if (active_color) {
-    window->SetProperty(ash::kFrameActiveColorKey, *active_color);
-    window->SetProperty(ash::kFrameInactiveColorKey,
-                        inactive_color.value_or(*active_color));
-  } else {
-    window->ClearProperty(ash::kFrameActiveColorKey);
-    window->ClearProperty(ash::kFrameInactiveColorKey);
-  }
-
-  frame_header_->UpdateFrameColors();
-
+  OnUpdateFrameColor();
   BrowserNonClientFrameView::UpdateFrameColor();
 }
 
@@ -437,7 +407,7 @@ gfx::Size BrowserNonClientFrameViewAsh::GetMinimumSize() const {
 }
 
 void BrowserNonClientFrameViewAsh::OnThemeChanged() {
-  UpdateFrameColor();
+  OnUpdateFrameColor();
   BrowserNonClientFrameView::OnThemeChanged();
 }
 
@@ -630,19 +600,13 @@ void BrowserNonClientFrameViewAsh::OnProfileAvatarChanged(
 // BrowserNonClientFrameViewAsh, private:
 
 bool BrowserNonClientFrameViewAsh::ShouldShowCaptionButtons() const {
-  // In tablet mode, to prevent accidental taps of the window controls, and to
-  // give more horizontal space for tabs and the new tab button especially in
-  // splitscreen view, we hide the window controls. We only do this when the
-  // Home Launcher feature is enabled, since it gives the user the ability to
-  // minimize all windows when pressing the Launcher button on the shelf.
-  const bool hide_caption_buttons_in_tablet_mode =
-      !UsePackagedAppHeaderStyle(browser_view()->browser());
-  if (hide_caption_buttons_in_tablet_mode &&
-      ash::TabletMode::Get()->InTabletMode()) {
-    return false;
-  }
+  return ShouldShowCaptionButtonsWhenNotInOverview() && !IsInOverviewMode();
+}
 
-  return !IsInOverviewMode();
+bool BrowserNonClientFrameViewAsh::ShouldShowCaptionButtonsWhenNotInOverview()
+    const {
+  return UsePackagedAppHeaderStyle(browser_view()->browser()) ||
+         !ash::TabletMode::Get()->InTabletMode();
 }
 
 int BrowserNonClientFrameViewAsh::GetToolbarLeftInset() const {
@@ -662,7 +626,7 @@ int BrowserNonClientFrameViewAsh::GetTabStripLeftInset() const {
 
 int BrowserNonClientFrameViewAsh::GetTabStripRightInset() const {
   int inset = 0;
-  if (ShouldShowCaptionButtons())
+  if (ShouldShowCaptionButtonsWhenNotInOverview())
     inset += caption_button_container_->GetPreferredSize().width();
   if (web_app_frame_toolbar())
     inset += web_app_frame_toolbar()->GetPreferredSize().width();
@@ -719,11 +683,8 @@ void BrowserNonClientFrameViewAsh::SetUpForWebApp() {
     return;
 
   // Add the container for extra web app buttons (e.g app menu button).
-  set_web_app_frame_toolbar(new WebAppFrameToolbarView(
-      frame(), browser_view(),
-      GetCaptionColor(BrowserFrameActiveState::kActive),
-      GetCaptionColor(BrowserFrameActiveState::kInactive)));
-  AddChildView(web_app_frame_toolbar());
+  set_web_app_frame_toolbar(AddChildView(
+      std::make_unique<WebAppFrameToolbarView>(frame(), browser_view())));
 }
 
 void BrowserNonClientFrameViewAsh::UpdateTopViewInset() {
@@ -793,6 +754,32 @@ void BrowserNonClientFrameViewAsh::LayoutProfileIndicator() {
 
 bool BrowserNonClientFrameViewAsh::IsInOverviewMode() const {
   return GetFrameWindow()->GetProperty(ash::kIsShowingInOverviewKey);
+}
+
+void BrowserNonClientFrameViewAsh::OnUpdateFrameColor() {
+  aura::Window* window = frame()->GetNativeWindow();
+  base::Optional<SkColor> active_color, inactive_color;
+  if (!UsePackagedAppHeaderStyle(browser_view()->browser())) {
+    active_color = GetFrameColor(BrowserFrameActiveState::kActive);
+    inactive_color = GetFrameColor(BrowserFrameActiveState::kInactive);
+  } else if (browser_view()->IsBrowserTypeWebApp()) {
+    active_color = browser_view()->browser()->app_controller()->GetThemeColor();
+  } else if (!browser_view()->browser()->deprecated_is_app()) {
+    // TODO(crbug.com/836128): Remove when System Web Apps flag is removed, as
+    // the above web-app branch will render the theme color.
+    active_color = SK_ColorWHITE;
+  }
+
+  if (active_color) {
+    window->SetProperty(ash::kFrameActiveColorKey, *active_color);
+    window->SetProperty(ash::kFrameInactiveColorKey,
+                        inactive_color.value_or(*active_color));
+  } else {
+    window->ClearProperty(ash::kFrameActiveColorKey);
+    window->ClearProperty(ash::kFrameInactiveColorKey);
+  }
+
+  frame_header_->UpdateFrameColors();
 }
 
 const aura::Window* BrowserNonClientFrameViewAsh::GetFrameWindow() const {

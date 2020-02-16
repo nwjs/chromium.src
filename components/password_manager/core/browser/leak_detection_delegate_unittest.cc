@@ -9,6 +9,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
+#include "components/password_manager/core/browser/form_parsing/form_parser.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
 #include "components/password_manager/core/browser/leak_detection_delegate.h"
 #include "components/password_manager/core/browser/mock_password_store.h"
@@ -18,7 +19,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -200,28 +201,6 @@ TEST_F(LeakDetectionDelegateTest, LeakDetectionDoneWithTrueResult) {
       "PasswordManager.LeakDetection.NotifyIsLeakedTime", 1);
 }
 
-TEST_F(LeakDetectionDelegateTest, LeakHistoryRemoveCredentials) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kLeakHistory);
-  LeakDetectionDelegateInterface* delegate_interface = &delegate();
-  const autofill::PasswordForm form = CreateTestForm();
-
-  EXPECT_CALL(client(), GetProfilePasswordStore())
-      .WillRepeatedly(testing::Return(store()));
-  EXPECT_CALL(factory(), TryCreateLeakCheck)
-      .WillOnce(Return(ByMove(std::make_unique<MockLeakDetectionCheck>())));
-  delegate().StartLeakCheck(form);
-
-  EXPECT_CALL(client(), NotifyUserCredentialsWereLeaked).Times(0);
-  delegate_interface->OnLeakDetectionDone(
-      /*is_leaked=*/false, form.origin, form.username_value,
-      form.password_value);
-
-  EXPECT_CALL(*store(), RemoveCompromisedCredentialsImpl(form.origin,
-                                                         form.username_value));
-  WaitForPasswordStore();
-}
-
 TEST_F(LeakDetectionDelegateTest, LeakHistoryAddCredentials) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(features::kLeakHistory);
@@ -240,7 +219,7 @@ TEST_F(LeakDetectionDelegateTest, LeakHistoryAddCredentials) {
       form.password_value);
 
   const CompromisedCredentials compromised_credentials(
-      form.origin, form.username_value, base::Time::Now(),
+      GetSignonRealm(form.origin), form.username_value, base::Time::Now(),
       CompromiseType::kLeaked);
   EXPECT_CALL(*store(), AddCompromisedCredentialsImpl(compromised_credentials));
   WaitForPasswordStore();

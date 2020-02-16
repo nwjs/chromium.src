@@ -7,7 +7,6 @@
 #include "base/logging.h"
 #import "base/mac/foundation_util.h"
 #include "components/handoff/pref_names_ios.h"
-#include "components/payments/core/payment_prefs.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
@@ -18,7 +17,6 @@
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_switch_cell.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_switch_item.h"
-#import "ios/chrome/browser/ui/settings/clear_browsing_data/clear_browsing_data_collection_view_controller.h"
 #import "ios/chrome/browser/ui/settings/clear_browsing_data/clear_browsing_data_local_commands.h"
 #import "ios/chrome/browser/ui/settings/clear_browsing_data/clear_browsing_data_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/handoff_table_view_controller.h"
@@ -47,7 +45,6 @@ typedef NS_ENUM(NSInteger, SectionIdentifier) {
 
 typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeOtherDevicesHandoff = kItemTypeEnumZero,
-  ItemTypeWebServicesPaymentSwitch,
   ItemTypeClearBrowsingDataClear,
   // Footer to suggest the user to open Sync and Google services settings.
   ItemTypeClearBrowsingDataFooter,
@@ -55,13 +52,17 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 // Only used in this class to openn the Sync and Google services settings.
 // This link should not be dispatched.
-GURL kGoogleServicesSettingsURL("settings://open_google_services");
+// TODO(crbug.com/1042727): Fix test GURL scoping and remove this getter
+// function.
+GURL GoogleServicesSettingsURL() {
+  return GURL("settings://open_google_services");
+}
 
 }  // namespace
 
 @interface PrivacyTableViewController () <ClearBrowsingDataLocalCommands,
                                           PrefObserverDelegate> {
-  ios::ChromeBrowserState* _browserState;  // weak
+  ChromeBrowserState* _browserState;  // weak
 
   // Pref observer to track changes to prefs.
   std::unique_ptr<PrefObserverBridge> _prefObserverBridge;
@@ -78,13 +79,12 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
 
 #pragma mark - Initialization
 
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState {
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState {
   DCHECK(browserState);
   UITableViewStyle style = base::FeatureList::IsEnabled(kSettingsRefresh)
                                ? UITableViewStylePlain
                                : UITableViewStyleGrouped;
-  self = [super initWithTableViewStyle:style
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:style];
   if (self) {
     _browserState = browserState;
     self.title =
@@ -122,8 +122,6 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
   [model addSectionWithIdentifier:SectionIdentifierWebServices];
   [model addItem:[self handoffDetailItem]
       toSectionWithIdentifier:SectionIdentifierWebServices];
-  [model addItem:[self canMakePaymentItem]
-      toSectionWithIdentifier:SectionIdentifierWebServices];
 
   // Clear Browsing Section
   [model addSectionWithIdentifier:SectionIdentifierClearBrowsingData];
@@ -156,7 +154,7 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
           initWithType:ItemTypeClearBrowsingDataFooter];
   showClearBrowsingDataFooterItem.text =
       l10n_util::GetNSString(IDS_IOS_OPTIONS_PRIVACY_GOOGLE_SERVICES_FOOTER);
-  showClearBrowsingDataFooterItem.linkURL = kGoogleServicesSettingsURL;
+  showClearBrowsingDataFooterItem.linkURL = GoogleServicesSettingsURL();
 
   return showClearBrowsingDataFooterItem;
 }
@@ -165,25 +163,6 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
   return [self detailItemWithType:ItemTypeClearBrowsingDataClear
                           titleId:IDS_IOS_CLEAR_BROWSING_DATA_TITLE
                        detailText:nil];
-}
-
-- (TableViewItem*)canMakePaymentItem {
-  SettingsSwitchItem* canMakePaymentItem = [[SettingsSwitchItem alloc]
-      initWithType:ItemTypeWebServicesPaymentSwitch];
-  canMakePaymentItem.text =
-      l10n_util::GetNSString(IDS_SETTINGS_CAN_MAKE_PAYMENT_TOGGLE_LABEL);
-  canMakePaymentItem.on = [self isCanMakePaymentEnabled];
-  return canMakePaymentItem;
-}
-
-- (BOOL)isCanMakePaymentEnabled {
-  return _browserState->GetPrefs()->GetBoolean(
-      payments::kCanMakePaymentEnabled);
-}
-
-- (void)setCanMakePaymentEnabled:(BOOL)isEnabled {
-  _browserState->GetPrefs()->SetBoolean(payments::kCanMakePaymentEnabled,
-                                        isEnabled);
 }
 
 - (TableViewDetailIconItem*)detailItemWithType:(NSInteger)type
@@ -197,25 +176,6 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
   detailItem.accessibilityTraits |= UIAccessibilityTraitButton;
 
   return detailItem;
-}
-
-#pragma mark - UITableViewDataSource
-
-- (UITableViewCell*)tableView:(UITableView*)tableView
-        cellForRowAtIndexPath:(NSIndexPath*)indexPath {
-  UITableViewCell* cell =
-      [super tableView:tableView cellForRowAtIndexPath:indexPath];
-
-  NSInteger itemType = [self.tableViewModel itemTypeForIndexPath:indexPath];
-
-  if (itemType == ItemTypeWebServicesPaymentSwitch) {
-    SettingsSwitchCell* switchCell =
-        base::mac::ObjCCastStrict<SettingsSwitchCell>(cell);
-    [switchCell.switchView addTarget:self
-                              action:@selector(canMakePaymentSwitchChanged:)
-                    forControlEvents:UIControlEventValueChanged];
-  }
-  return cell;
 }
 
 #pragma mark - UITableViewDelegate
@@ -245,19 +205,14 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
       controller = [[HandoffTableViewController alloc]
           initWithBrowserState:_browserState];
       break;
-    case ItemTypeClearBrowsingDataClear:
-      if (IsNewClearBrowsingDataUIEnabled()) {
-        ClearBrowsingDataTableViewController* clearBrowsingDataViewController =
-            [[ClearBrowsingDataTableViewController alloc]
-                initWithBrowserState:_browserState];
-        clearBrowsingDataViewController.localDispatcher = self;
-        controller = clearBrowsingDataViewController;
-      } else {
-        controller = [[ClearBrowsingDataCollectionViewController alloc]
-            initWithBrowserState:_browserState];
-      }
+    case ItemTypeClearBrowsingDataClear: {
+      ClearBrowsingDataTableViewController* clearBrowsingDataViewController =
+          [[ClearBrowsingDataTableViewController alloc]
+              initWithBrowserState:_browserState];
+      clearBrowsingDataViewController.localDispatcher = self;
+      controller = clearBrowsingDataViewController;
       break;
-    case ItemTypeWebServicesPaymentSwitch:
+    }
     default:
       break;
   }
@@ -285,25 +240,6 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
   [navigationController closeSettings];
 }
 
-#pragma mark - Actions
-
-- (void)canMakePaymentSwitchChanged:(UISwitch*)sender {
-  NSIndexPath* switchPath =
-      [self.tableViewModel indexPathForItemType:ItemTypeWebServicesPaymentSwitch
-                              sectionIdentifier:SectionIdentifierWebServices];
-
-  SettingsSwitchItem* switchItem =
-      base::mac::ObjCCastStrict<SettingsSwitchItem>(
-          [self.tableViewModel itemAtIndexPath:switchPath]);
-  SettingsSwitchCell* switchCell =
-      base::mac::ObjCCastStrict<SettingsSwitchCell>(
-          [self.tableView cellForRowAtIndexPath:switchPath]);
-
-  DCHECK_EQ(switchCell.switchView, sender);
-  switchItem.on = sender.isOn;
-  [self setCanMakePaymentEnabled:sender.isOn];
-}
-
 #pragma mark - PrefObserverDelegate
 
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
@@ -321,8 +257,8 @@ GURL kGoogleServicesSettingsURL("settings://open_google_services");
 #pragma mark - TableViewLinkHeaderFooterItemDelegate
 
 - (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(GURL)URL {
-  if (URL == kGoogleServicesSettingsURL) {
-    // kGoogleServicesSettingsURL is not a realy link. It should be handled
+  if (URL == GoogleServicesSettingsURL()) {
+    // GoogleServicesSettingsURL() is not a realy link. It should be handled
     // with a special case.
     [self.dispatcher showGoogleServicesSettingsFromViewController:self];
   } else {

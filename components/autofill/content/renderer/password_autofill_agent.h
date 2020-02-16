@@ -221,6 +221,9 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   std::unique_ptr<PasswordForm> GetSimplifiedPasswordFormFromWebForm(
       const blink::WebFormElement& web_form);
 
+  std::unique_ptr<FormData> GetFormDataFromWebForm(
+      const blink::WebFormElement& web_form);
+
   // Creates a |PasswordForm| of fields that are not enclosed in any <form> tag.
   std::unique_ptr<PasswordForm> GetPasswordFormFromUnownedInputElements();
 
@@ -228,6 +231,8 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // flags, for fields that are not enclosed in any <form> tag.
   std::unique_ptr<PasswordForm>
   GetSimplifiedPasswordFormFromUnownedInputElements();
+
+  std::unique_ptr<FormData> GetFormDataFromUnownedInputElements();
 
   bool logging_state_active() const { return logging_state_active_; }
 
@@ -278,7 +283,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
 
   // Stores information about form field structure.
   struct FormFieldInfo {
-    uint32_t unique_renderer_id = FormFieldData::kNotSetFormControlRendererId;
+    uint32_t unique_renderer_id = FormData::kNotSetRendererId;
     std::string form_control_type;
     std::string autocomplete_attribute;
     bool is_focusable = false;
@@ -293,7 +298,7 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
 
     FormStructureInfo& operator=(FormStructureInfo&& other);
 
-    uint32_t unique_renderer_id = FormData::kNotSetFormRendererId;
+    uint32_t unique_renderer_id = FormData::kNotSetRendererId;
     std::vector<FormFieldInfo> fields;
   };
 
@@ -548,9 +553,9 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   bool recorded_first_filling_result_ = false;
 
   // Contains renderer id of last updated input element.
-  uint32_t last_updated_field_renderer_id_ = FormData::kNotSetFormRendererId;
+  uint32_t last_updated_field_renderer_id_ = FormData::kNotSetRendererId;
   // Contains renderer id of the form of the last updated input element.
-  uint32_t last_updated_form_renderer_id_ = FormData::kNotSetFormRendererId;
+  uint32_t last_updated_form_renderer_id_ = FormData::kNotSetRendererId;
 
   // Current state of Touch To Fill. This is reset during
   // CleanupOnDocumentShutdown.

@@ -9,6 +9,8 @@
 #include "ash/login_status.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
+#include "ash/session/session_observer.h"
+#include "ash/shelf/shelf_component.h"
 #include "base/macros.h"
 #include "ui/views/widget/widget.h"
 
@@ -34,8 +36,10 @@ class VirtualKeyboardTray;
 // the bottom-right of the screen. Exists separately from ShelfView/ShelfWidget
 // so that it can be shown in cases where the rest of the shelf is hidden (e.g.
 // on secondary monitors at the login screen).
-class ASH_EXPORT StatusAreaWidget : public views::Widget,
-                                    public ShelfConfig::Observer {
+class ASH_EXPORT StatusAreaWidget : public SessionObserver,
+                                    public ShelfComponent,
+                                    public ShelfConfig::Observer,
+                                    public views::Widget {
  public:
   // Whether the status area is collapsed or expanded. Currently, this is only
   // applicable in in-app tablet mode. Otherwise the state is NOT_COLLAPSIBLE.
@@ -60,6 +64,13 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget,
   // Updates the collapse state of the status area after the state of the shelf
   // changes.
   void UpdateCollapseState();
+
+  // SessionObserver:
+  void OnSessionStateChanged(session_manager::SessionState state) override;
+
+  // ShelfComponent:
+  void CalculateTargetBounds() override;
+  void UpdateLayout(bool animate) override;
 
   // Sets system tray visibility. Shows or hides widget if needed.
   void SetSystemTrayVisibility(bool visible);
@@ -134,6 +145,9 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget,
 
   // Adds a new tray button to the status area.
   void AddTrayButton(TrayBackgroundView* tray_button);
+
+  // Update the colors used for the tray buttons.
+  void UpdateAfterColorModeChange();
 
   // Called when in the collapsed state to calculate and update the visibility
   // of each tray button.

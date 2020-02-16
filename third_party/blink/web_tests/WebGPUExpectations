@@ -1,53 +1,118 @@
+# tags: [ Android Fuchsia IOS IOS12.2 IOS13.0 Linux Mac Mac10.10 Mac10.11 Mac10.12 Retina
+#         Mac10.13 Win Win7 Win10 ]
+# tags: [ Release Debug ]
+# results: [ Timeout Crash Pass Failure Slow Skip ]
+
 # WebGPU tests are only run on GPU bots, so they are skipped by default and run
 # separately from other Web Tests, with this expectations file.
 #
-# Expectations in this file must apply to wpt_internal/webgpu/cts.html, NOT
-# external/wpt/webgpu/cts.html, as the latter is not run.
+# *********************************** NOTE ***********************************
+# The contents of this file affect the way tests are broken down in
+# web_tests/wpt_internal/webgpu/cts.html.
+# You can add expectations which are at a finer granularity than the list of
+# "variants" already in that file: just edit this file, then run
+# third_party/blink/web_tests/webgpu/regenerate_internal_cts_html.sh.
 #
 # Expectations in this file must not (currently) use wildcards.
 #
+# Expectations in this file must apply to wpt_internal/webgpu/cts.html, NOT
+# external/wpt/webgpu/cts.html, as the latter is not run.
+# ****************************************************************************
+
+#
+# Test bugs
+#
+
+# https://github.com/gpuweb/cts/issues/112
+wpt_internal/webgpu/cts.html?worker=1&q=cts:copyImageBitmapToTexture: [ Failure ]
+
+# https://github.com/gpuweb/cts/issues/113
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":1,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":3,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":5,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":7,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":1,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":3,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":5,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":7,"type":"storage-buffer"} [ Failure ]
+# ...
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":1,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":3,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":5,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":7,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":1,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":3,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":5,"type":"storage-buffer"} [ Failure ]
+wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":7,"type":"storage-buffer"} [ Failure ]
 
 #
 # Platform-independent failures
 #
 
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"error"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"error"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"uniform-buffer"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"uniform-buffer"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"storage-buffer"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"storage-buffer"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"sampler"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"sampler"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"sampled-texture"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"sampled-texture"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroupLayout:dynamic_set_to_true_is_allowed_only_for_buffers={"type":"readonly-storage-buffer"} [ Failure ]
-crbug.com/1014734 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroupLayout:dynamic_set_to_true_is_allowed_only_for_buffers={"type":"readonly-storage-buffer"} [ Failure ]
-
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"uniform-buffer","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-buffer","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampler","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampled-texture","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error-buffer"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error-sampler"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error-textureview"} [ Failure ]
 crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"uniform-buffer"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"uniform-buffer"} [ Failure ]
 crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-buffer"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-buffer"} [ Failure ]
 crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"sampler"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"sampled-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-textureview"} [ Failure ]
+# ...
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"uniform-buffer","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-buffer","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"readonly-storage-buffer","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampler","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampled-texture","resourceType":"storage-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error-buffer"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error-sampler"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"error-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"uniform-buffer"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-buffer"} [ Failure ]
 crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"sampler"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"sampled-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"sampled-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"uniform-buffer","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"uniform-buffer","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-buffer","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-buffer","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampler","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampler","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampled-texture","resourceType":"storage-texture"} [ Failure ]
-crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"sampled-texture","resourceType":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"sampled-textureview"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:buffer_binding_must_contain_exactly_one_buffer_of_its_type={"bindingType":"storage-texture","resourceType":"storage-textureview"} [ Failure ]
+# ...
 crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createBindGroup:texture_binding_must_have_correct_usage={"type":"storage-texture"} [ Failure ]
 crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createBindGroup:texture_binding_must_have_correct_usage={"type":"storage-texture"} [ Failure ]
+# ...
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":1,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":2,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":3,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":4,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":5,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":6,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":7,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":0,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":1,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":2,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":3,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":4,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":5,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":6,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":7,"type":"storage-texture"} [ Failure ]
+# ...
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":1,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":2,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":3,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":4,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":5,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":6,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":7,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":0,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":1,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":2,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":3,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":4,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":5,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":6,"type":"storage-texture"} [ Failure ]
+crbug.com/1014735 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_bind_group_layouts_exceeds_the_maximum_value={"visibility":7,"type":"storage-texture"} [ Failure ]
 
 crbug.com/dawn/243 wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createTexture:validation_of_sampleCount={"sampleCount":4,"arrayLayerCount":2} [ Failure ]
 crbug.com/dawn/243 wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createTexture:validation_of_sampleCount={"sampleCount":4,"arrayLayerCount":2} [ Failure ]
@@ -79,3 +144,13 @@ crbug.com/1014738 [ Win ] wpt_internal/webgpu/cts.html?worker=0&q=cts:buffers/ma
 crbug.com/1014738 [ Win ] wpt_internal/webgpu/cts.html?worker=1&q=cts:buffers/map_oom:mapWriteAsync= [ Failure ]
 crbug.com/1014738 [ Win ] wpt_internal/webgpu/cts.html?worker=0&q=cts:buffers/map_oom:mapReadAsync= [ Failure ]
 crbug.com/1014738 [ Win ] wpt_internal/webgpu/cts.html?worker=1&q=cts:buffers/map_oom:mapReadAsync= [ Failure ]
+
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"readonly-storage-buffer"} [ Crash ]
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"storage-buffer"} [ Crash ]
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"uniform-buffer"} [ Crash ]
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=0&q=cts:validation/createPipelineLayout:number_of_dynamic_buffers_exceeds_the_maximum_value~ [ Crash ]
+# ...
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"readonly-storage-buffer"} [ Crash ]
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"storage-buffer"} [ Crash ]
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:dynamic_offsets_are_only_allowed_on_buffers={"visibility":0,"type":"uniform-buffer"} [ Crash ]
+crbug.com/dawn/323 [ Win ] wpt_internal/webgpu/cts.html?worker=1&q=cts:validation/createPipelineLayout:number_of_dynamic_buffers_exceeds_the_maximum_value~ [ Crash ]

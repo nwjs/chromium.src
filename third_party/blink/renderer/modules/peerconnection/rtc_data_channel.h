@@ -44,7 +44,7 @@ class Blob;
 class DOMArrayBuffer;
 class DOMArrayBufferView;
 class ExceptionState;
-class WebRTCPeerConnectionHandler;
+class RTCPeerConnectionHandlerPlatform;
 
 class MODULES_EXPORT RTCDataChannel final
     : public EventTargetWithInlineData,
@@ -57,7 +57,7 @@ class MODULES_EXPORT RTCDataChannel final
  public:
   RTCDataChannel(ExecutionContext*,
                  scoped_refptr<webrtc::DataChannelInterface> channel,
-                 WebRTCPeerConnectionHandler* peer_connection_handler);
+                 RTCPeerConnectionHandlerPlatform* peer_connection_handler);
   ~RTCDataChannel() override;
 
   String label() const;
@@ -91,6 +91,7 @@ class MODULES_EXPORT RTCDataChannel final
   DEFINE_ATTRIBUTE_EVENT_LISTENER(bufferedamountlow, kBufferedamountlow)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(close, kClose)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(closing, kClosing)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(message, kMessage)
 
   // EventTarget
@@ -174,6 +175,7 @@ class MODULES_EXPORT RTCDataChannel final
   unsigned buffered_amount_low_threshold_;
   unsigned buffered_amount_;
   bool stopped_;
+  bool closed_from_owner_;
   scoped_refptr<Observer> observer_;
   THREAD_CHECKER(thread_checker_);
 };

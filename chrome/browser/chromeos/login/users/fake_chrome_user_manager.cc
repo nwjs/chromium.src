@@ -9,6 +9,7 @@
 
 #include "base/callback.h"
 #include "base/command_line.h"
+#include "base/single_thread_task_runner.h"
 #include "base/system/sys_info.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -33,7 +34,7 @@
 
 namespace {
 
-class FakeTaskRunner : public base::TaskRunner {
+class FakeTaskRunner : public base::SingleThreadTaskRunner {
  public:
   FakeTaskRunner() = default;
 
@@ -41,12 +42,17 @@ class FakeTaskRunner : public base::TaskRunner {
   ~FakeTaskRunner() override {}
 
  private:
-  // base::TaskRunner overrides.
+  // base::SingleThreadTaskRunner:
   bool PostDelayedTask(const base::Location& from_here,
                        base::OnceClosure task,
                        base::TimeDelta delay) override {
     std::move(task).Run();
     return true;
+  }
+  bool PostNonNestableDelayedTask(const base::Location& from_here,
+                                  base::OnceClosure task,
+                                  base::TimeDelta delay) override {
+    return PostDelayedTask(from_here, std::move(task), delay);
   }
   bool RunsTasksInCurrentSequence() const override { return true; }
 
@@ -180,19 +186,18 @@ bool FakeChromeUserManager::AreEphemeralUsersEnabled() const {
   return fake_ephemeral_users_enabled_;
 }
 
-void FakeChromeUserManager::LoginUser(const AccountId& account_id) {
+void FakeChromeUserManager::LoginUser(const AccountId& account_id,
+                                      bool set_profile_created_flag) {
   UserLoggedIn(
       account_id,
       ProfileHelper::GetUserIdHashByUserIdForTesting(account_id.GetUserEmail()),
       false /* browser_restart */, false /* is_child */);
 
+  if (!set_profile_created_flag)
+    return;
+
   // NOTE: This does not match production. See function comment.
-  for (auto* user : users_) {
-    if (user->GetAccountId() == account_id) {
-      user->SetProfileIsCreated();
-      break;
-    }
-  }
+  SimulateUserProfileLoad(account_id);
 }
 
 MultiProfileUserController*
@@ -398,11 +403,11 @@ const user_manager::UserList& FakeChromeUserManager::GetLoggedInUsers() const {
 
 const user_manager::UserList& FakeChromeUserManager::GetLRULoggedInUsers()
     const {
-  return users_;
+  return logged_in_users_;
 }
 
 user_manager::UserList FakeChromeUserManager::GetUnlockUsers() const {
-  return users_;
+  return logged_in_users_;
 }
 
 void FakeChromeUserManager::UserLoggedIn(const AccountId& account_id,
@@ -524,7 +529,7 @@ bool FakeChromeUserManager::IsCurrentUserCryptohomeDataEphemeral() const {
 }
 
 bool FakeChromeUserManager::CanCurrentUserLock() const {
-  return false;
+  return current_user_can_lock_;
 }
 
 bool FakeChromeUserManager::IsUserLoggedIn() const {
@@ -627,6 +632,16 @@ bool FakeChromeUserManager::IsUserAllowed(
 void FakeChromeUserManager::CreateLocalState() {
   local_state_ = std::make_unique<TestingPrefServiceSimple>();
   user_manager::known_user::RegisterPrefs(local_state_->registry());
+}
+
+void FakeChromeUserManager::SimulateUserProfileLoad(
+    const AccountId& account_id) {
+  for (auto* user : users_) {
+    if (user->GetAccountId() == account_id) {
+      user->SetProfileIsCreated();
+      break;
+    }
+  }
 }
 
 PrefService* FakeChromeUserManager::GetLocalState() const {

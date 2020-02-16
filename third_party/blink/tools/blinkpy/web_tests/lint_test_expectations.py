@@ -34,10 +34,30 @@ import traceback
 from blinkpy.common import exit_codes
 from blinkpy.common.host import Host
 from blinkpy.common.system.log_utils import configure_logging
-from blinkpy.web_tests.models import test_expectations
+from blinkpy.web_tests.models.test_expectations import (
+    TestExpectations, ParseError)
+
 from blinkpy.web_tests.port.factory import platform_options
 
 _log = logging.getLogger(__name__)
+
+
+def PresubmitCheckTestExpectations(input_api, output_api):
+    os_path = input_api.os_path
+    lint_path = os_path.join(
+        os_path.dirname(os_path.abspath(__file__)),
+        '..', '..', 'lint_test_expectations.py')
+    _, errs = input_api.subprocess.Popen(
+        [input_api.python_executable, lint_path],
+        stdout=input_api.subprocess.PIPE,
+        stderr=input_api.subprocess.PIPE).communicate()
+    if not errs:
+        return [output_api.PresubmitError(
+            "lint_test_expectations.py failed "
+            "to produce output; check by hand. ")]
+    if errs.strip() != 'Lint succeeded.':
+        return [output_api.PresubmitError(errs)]
+    return []
 
 
 def lint(host, options):
@@ -51,30 +71,67 @@ def lint(host, options):
     # (the default Port for this host) and it would work the same.
 
     failures = []
-    for port_to_lint in ports_to_lint:
-        expectations_dict = port_to_lint.all_expectations_dict()
+    wpt_overrides_exps_path = host.filesystem.join(
+        ports_to_lint[0].web_tests_dir(), 'WPTOverrideExpectations')
+    web_gpu_exps_path = host.filesystem.join(
+        ports_to_lint[0].web_tests_dir(), 'WebGPUExpectations')
+    paths = [wpt_overrides_exps_path, web_gpu_exps_path]
+    expectations_dict = {}
+    all_system_specifiers = set()
+    all_build_specifiers = set(ports_to_lint[0].ALL_BUILD_TYPES)
 
-        for path in port_to_lint.extra_expectations_files():
+    # TODO(crbug.com/986447) Remove the checks below after migrating the expectations
+    # parsing to Typ. All the checks below can be handled by Typ.
+    for path in paths:
+        if host.filesystem.exists(path):
+            expectations_dict[path] = host.filesystem.read_text_file(path)
+
+    for port in ports_to_lint:
+        expectations_dict.update(port.all_expectations_dict())
+        config_macro_dict = port.configuration_specifier_macros()
+        if config_macro_dict:
+            all_system_specifiers.update({s.lower() for s in config_macro_dict.keys()})
+            all_system_specifiers.update(
+                {s.lower() for s in reduce(lambda x, y: x + y, config_macro_dict.values())})
+        for path in port.extra_expectations_files():
             if host.filesystem.exists(path):
                 expectations_dict[path] = host.filesystem.read_text_file(path)
+    for path, content in expectations_dict.items():
 
-        for expectations_file in expectations_dict:
-
-            if expectations_file in files_linted:
+        # check for expectations which start with the Bug(...) token
+        exp_lines = content.split('\n')
+        for lineno, line in enumerate(exp_lines, 1):
+            line = line.strip()
+            if not line or line.startswith('#'):
                 continue
+            if line.startswith('Bug('):
+                error = (("%s:%d Expectation '%s' has the Bug(...) token, "
+                          "The token has been removed in the new expectations format") %
+                          (host.filesystem.basename(path), lineno, line))
+                _log.error(error)
+                failures.append(error)
+                _log.error('')
 
-            try:
-                test_expectations.TestExpectations(
-                    port_to_lint,
-                    expectations_dict={expectations_file: expectations_dict[expectations_file]},
-                    is_lint_mode=True)
-            except test_expectations.ParseError as error:
+        # check for test expectations that start with leading spaces
+        for lineno, line in enumerate(exp_lines, 1):
+            if not line.strip() or line.strip().startswith('#'):
+                continue
+            if line.startswith(' '):
+                error = '%s:%d Line %d has a test expectation that has leading spaces.' % (
+                    host.filesystem.basename(path), lineno, lineno)
+                _log.error(error)
+                failures.append(error)
                 _log.error('')
-                for warning in error.warnings:
-                    _log.error(warning)
-                    failures.append('%s: %s' % (expectations_file, warning))
-                _log.error('')
-            files_linted.add(expectations_file)
+
+        # Create a TestExpectations instance and see if exception is raised
+        try:
+            TestExpectations(
+                ports_to_lint[0],
+                expectations_dict={path: content})
+        except ParseError as error:
+            _log.error(str(error))
+            failures.append(str(error))
+            _log.error('')
     return failures
 
 

@@ -21,6 +21,7 @@
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/texture_in_use_response.h"
 #include "gpu/ipc/common/surface_handle.h"
+#include "gpu/ipc/gpu_task_scheduler_helper.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/overlay_transform.h"
 #include "ui/latency/latency_info.h"
@@ -63,6 +64,8 @@ class VIZ_SERVICE_EXPORT OutputSurface {
     bool supports_stencil = false;
     // Whether this OutputSurface supports post sub buffer or not.
     bool supports_post_sub_buffer = false;
+    // Whether this OutputSurface supports commit overlay planes.
+    bool supports_commit_overlay_planes = false;
     // Whether this OutputSurface supports gpu vsync callbacks.
     bool supports_gpu_vsync = false;
     // Whether this OutputSurface supports pre transform. If it is supported,
@@ -213,10 +216,6 @@ class VIZ_SERVICE_EXPORT OutputSurface {
 
   virtual base::ScopedClosureRunner GetCacheBackBufferCb();
 
-  // Only used for pre-OOP-D code path of BrowserCompositorOutputSurface.
-  // TODO(weiliangc): Remove it when reflector code is removed.
-  virtual bool IsSoftwareMirrorMode() const;
-
   // If set to true, the OutputSurface must deliver
   // OutputSurfaceclient::DidSwapWithSize notifications to its client.
   // OutputSurfaces which support delivering swap size notifications should
@@ -228,6 +227,13 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   static void UpdateLatencyInfoOnSwap(
       const gfx::SwapResponse& response,
       std::vector<ui::LatencyInfo>* latency_info);
+
+  // This is used to share the same method to schedule task on the gpu thread
+  // between the output surface and the overlay processor.
+  // TODO(weiliangc): Consider making this outside of output surface and pass in
+  // instead of passing it out here.
+  virtual scoped_refptr<gpu::GpuTaskSchedulerHelper>
+  GetGpuTaskSchedulerHelper() = 0;
 
  protected:
   struct OutputSurface::Capabilities capabilities_;

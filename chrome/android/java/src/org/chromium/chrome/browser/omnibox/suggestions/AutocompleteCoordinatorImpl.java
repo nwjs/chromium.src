@@ -26,11 +26,13 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.On
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionListViewBinder.SuggestionListViewHolder;
 import org.chromium.chrome.browser.omnibox.suggestions.answer.AnswerSuggestionViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionView;
-import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionView;
+import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.editurl.EditUrlSuggestionProcessor;
 import org.chromium.chrome.browser.omnibox.suggestions.editurl.EditUrlSuggestionViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.entity.EntitySuggestionViewBinder;
+import org.chromium.chrome.browser.omnibox.suggestions.tail.TailSuggestionView;
+import org.chromium.chrome.browser.omnibox.suggestions.tail.TailSuggestionViewBinder;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.util.KeyNavigationUtil;
@@ -118,8 +120,9 @@ public class AutocompleteCoordinatorImpl implements AutocompleteCoordinator {
                 // clang-format off
                 adapter.registerType(
                         OmniboxSuggestionUiType.DEFAULT,
-                        () -> new SuggestionView(mListView.getContext()),
-                        SuggestionViewViewBinder::bind);
+                        () -> new BaseSuggestionView<View>(mListView.getContext(),
+                                                     R.layout.omnibox_basic_suggestion),
+                        new BaseSuggestionViewBinder<View>(SuggestionViewViewBinder::bind));
 
                 adapter.registerType(
                         OmniboxSuggestionUiType.EDIT_URL_SUGGESTION,
@@ -128,15 +131,22 @@ public class AutocompleteCoordinatorImpl implements AutocompleteCoordinator {
 
                 adapter.registerType(
                         OmniboxSuggestionUiType.ANSWER_SUGGESTION,
-                        () -> new BaseSuggestionView(mListView.getContext(),
+                        () -> new BaseSuggestionView<View>(mListView.getContext(),
                                                      R.layout.omnibox_answer_suggestion),
-                        new AnswerSuggestionViewBinder());
+                        new BaseSuggestionViewBinder<View>(AnswerSuggestionViewBinder::bind));
 
                 adapter.registerType(
                         OmniboxSuggestionUiType.ENTITY_SUGGESTION,
-                        () -> new BaseSuggestionView(mListView.getContext(),
+                        () -> new BaseSuggestionView<View>(mListView.getContext(),
                                                      R.layout.omnibox_entity_suggestion),
-                        new EntitySuggestionViewBinder());
+                        new BaseSuggestionViewBinder<View>(EntitySuggestionViewBinder::bind));
+
+                adapter.registerType(
+                        OmniboxSuggestionUiType.TAIL_SUGGESTION,
+                        () -> new BaseSuggestionView<TailSuggestionView>(
+                                new TailSuggestionView(mListView.getContext())),
+                        new BaseSuggestionViewBinder<TailSuggestionView>(
+                                TailSuggestionViewBinder::bind));
                 // clang-format on
 
                 mHolder = new SuggestionListViewHolder(container, list);

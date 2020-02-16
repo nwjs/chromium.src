@@ -1,0 +1,124 @@
+<style>
+  ::part(dialog) {
+    min-width: 800px;
+  }
+
+  div[slot=body] {
+    color: var(--cr-primary-text-color);
+    display: flex;
+    flex-direction: row;
+    min-height: 423px;
+    padding-inline-start: 0;
+  }
+
+  #menu {
+    display: flex;
+    flex-direction: column;
+    margin-inline-end: 40px;
+  }
+
+  .menu-item {
+    align-items: center;
+    border-radius: 0 16px 16px 0;
+    color: var(--ntp-primary-text-color);
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    font-size: 14px;
+    height: 32px;
+    margin-bottom: 16px;
+    outline: none;
+    width: 192px;
+  }
+
+  :host-context([dir=rtl]) .menu-item {
+    border-radius: 16px 0 0 16px;
+  }
+
+  .menu-item:hover,
+  .menu-item:focus {
+    background-color: var(--ntp-hover-background-color);
+  }
+
+  .menu-item:active {
+    background-color: var(--ntp-active-background-color);
+  }
+
+  .menu-item[selected] {
+    background-color: var(--ntp-selected-background-color);
+    color: var(--ntp-selected-primary-text-color);
+  }
+
+  .menu-item-icon {
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: 100%;
+    background-color: var(--ntp-primary-text-color);
+    height: 20px;
+    margin-inline-end: 16px;
+    margin-inline-start: 24px;
+    width: 20px;
+  }
+
+  .menu-item[selected] .menu-item-icon {
+    background-color: var(--ntp-selected-primary-text-color);
+  }
+
+  #backgroundsIcon {
+    -webkit-mask-image: url(icons/backgrounds.svg);
+  }
+
+  #shortcutsIcon {
+    -webkit-mask-image: url(icons/link.svg);
+  }
+
+  #themesIcon {
+    -webkit-mask-image: url(icons/colors.svg);
+  }
+
+  #pages {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+  }
+</style>
+<cr-dialog id="dialog" show-on-attach>
+  <!-- TODO(crbug.com/1040256): Currently, the sidebar scrolls in sync with the
+       page content area. Fix, so that the page content can scroll
+       separately. -->
+  <div slot="body">
+    <iron-selector id="menu" selected-attribute="selected"
+        attr-for-selected="page-name" selected="{{selectedPage_}}"
+        on-keydown="onMenuItemKeyDown_">
+      <div class="menu-item" page-name="backgrounds" tabindex="0">
+        <div id="backgroundsIcon" class="menu-item-icon"></div>
+        $i18n{backgroundsMenuItem}
+      </div>
+      <div class="menu-item" page-name="shortcuts" tabindex="0">
+        <div id="shortcutsIcon" class="menu-item-icon"></div>
+        $i18n{shortcutsMenuItem}
+      </div>
+      <div class="menu-item" page-name="themes" tabindex="0">
+        <div id="themesIcon" class="menu-item-icon"></div>
+        $i18n{themesMenuItem}
+      </div>
+    </iron-selector>
+    <iron-pages id="pages" selected="[[selectedPage_]]"
+        attr-for-selected="page-name">
+      <!-- TODO(crbug.com/1032328): Add support for selecting background
+           image. -->
+      <div page-name="backgrounds">backgrounds</div>
+      <ntp-customize-shortcuts page-name="shortcuts"></ntp-customize-shortcuts>
+      <ntp-customize-themes page-name="themes" theme="[[theme]]">
+      </ntp-customize-themes>
+    </iron-pages>
+  </div>
+  <div slot="button-container">
+    <cr-button class="cancel-button" on-click="onCancelClick_">
+      $i18n{cancelButton}
+    </cr-button>
+    <cr-button class="action-button" on-click="onDoneClick_">
+      $i18n{doneButton}
+    </cr-button>
+  </div>
+</cr-dialog>

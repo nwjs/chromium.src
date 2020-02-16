@@ -25,7 +25,7 @@ ResourceRequest::~ResourceRequest() {}
 
 bool ResourceRequest::EqualsForTesting(const ResourceRequest& request) const {
   return method == request.method && url == request.url &&
-         site_for_cookies == request.site_for_cookies &&
+         site_for_cookies.IsEquivalent(request.site_for_cookies) &&
          attach_same_site_cookies == request.attach_same_site_cookies &&
          update_first_party_url_on_redirect ==
              request.update_first_party_url_on_redirect &&
@@ -51,6 +51,7 @@ bool ResourceRequest::EqualsForTesting(const ResourceRequest& request) const {
          redirect_mode == request.redirect_mode &&
          fetch_integrity == request.fetch_integrity &&
          fetch_request_context_type == request.fetch_request_context_type &&
+         destination == request.destination &&
          request_body == request.request_body &&
          keepalive == request.keepalive &&
          has_user_gesture == request.has_user_gesture &&

@@ -17,6 +17,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "build/chromecast_buildflags.h"
 #include "content/browser/tracing/tracing_controller_impl.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -335,6 +336,28 @@ class TracingControllerTest : public ContentBrowserTest {
   std::unique_ptr<std::string> last_data_;
 };
 
+// Consistent failures on Android Asan https://crbug.com/1045519
+#if defined(OS_ANDROID) && defined(ADDRESS_SANITIZER)
+#define MAYBE_EnableAndStopTracing DISABLED_EnableAndStopTracing
+#define MAYBE_DisableRecordingStoresMetadata \
+  DISABLED_DisableRecordingStoresMetadata
+#define MAYBE_NotWhitelistedMetadataStripped \
+  DISABLED_NotWhitelistedMetadataStripped
+#define MAYBE_EnableAndStopTracingWithFilePath \
+  DISABLED_EnableAndStopTracingWithFilePath
+#define MAYBE_EnableAndStopTracingWithCompression \
+  DISABLED_EnableAndStopTracingWithCompression
+#define MAYBE_ProcessesPresentInTrace DISABLED_ProcessesPresentInTrace
+#else
+#define MAYBE_EnableAndStopTracing EnableAndStopTracing
+#define MAYBE_DisableRecordingStoresMetadata DisableRecordingStoresMetadata
+#define MAYBE_NotWhitelistedMetadataStripped NotWhitelistedMetadataStripped
+#define MAYBE_EnableAndStopTracingWithFilePath EnableAndStopTracingWithFilePath
+#define MAYBE_EnableAndStopTracingWithCompression \
+  EnableAndStopTracingWithCompression
+#define MAYBE_ProcessesPresentInTrace ProcessesPresentInTrace
+#endif
+
 IN_PROC_BROWSER_TEST_F(TracingControllerTest, GetCategories) {
   Navigate(shell());
 
@@ -349,12 +372,12 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest, GetCategories) {
   EXPECT_EQ(get_categories_done_callback_count(), 1);
 }
 
-IN_PROC_BROWSER_TEST_F(TracingControllerTest, EnableAndStopTracing) {
+IN_PROC_BROWSER_TEST_F(TracingControllerTest, MAYBE_EnableAndStopTracing) {
   TestStartAndStopTracingString();
 }
 
 IN_PROC_BROWSER_TEST_F(TracingControllerTest,
-                       DisableRecordingStoresMetadata) {
+                       MAYBE_DisableRecordingStoresMetadata) {
   TestStartAndStopTracingString();
   // Check that a number of important keys exist in the metadata dictionary. The
   // values are not checked to ensure the test is robust.
@@ -386,7 +409,8 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest,
 #endif
 }
 
-IN_PROC_BROWSER_TEST_F(TracingControllerTest, NotWhitelistedMetadataStripped) {
+IN_PROC_BROWSER_TEST_F(TracingControllerTest,
+                       MAYBE_NotWhitelistedMetadataStripped) {
   TestStartAndStopTracingStringWithFilter();
   // Check that a number of important keys exist in the metadata dictionary.
   base::Optional<base::Value> trace_json = base::JSONReader::Read(last_data());
@@ -408,7 +432,7 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest, NotWhitelistedMetadataStripped) {
 }
 
 IN_PROC_BROWSER_TEST_F(TracingControllerTest,
-                       EnableAndStopTracingWithFilePath) {
+                       MAYBE_EnableAndStopTracingWithFilePath) {
   base::FilePath file_path;
   {
     base::ScopedAllowBlockingForTesting allow_blocking;
@@ -419,7 +443,7 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest,
 }
 
 IN_PROC_BROWSER_TEST_F(TracingControllerTest,
-                       EnableAndStopTracingWithCompression) {
+                       MAYBE_EnableAndStopTracingWithCompression) {
   TestStartAndStopTracingCompressed();
 }
 
@@ -461,7 +485,7 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest, DoubleStopTracing) {
 }
 
 // Only CrOS and Cast support system tracing.
-#if defined(OS_CHROMEOS) || (defined(IS_CHROMECAST) && defined(OS_LINUX))
+#if defined(OS_CHROMEOS) || (BUILDFLAG(IS_CHROMECAST) && defined(OS_LINUX))
 #define MAYBE_SystemTraceEvents SystemTraceEvents
 #else
 #define MAYBE_SystemTraceEvents DISABLED_SystemTraceEvents
@@ -471,7 +495,7 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest, MAYBE_SystemTraceEvents) {
   EXPECT_TRUE(last_data().find("systemTraceEvents") != std::string::npos);
 }
 
-IN_PROC_BROWSER_TEST_F(TracingControllerTest, ProcessesPresentInTrace) {
+IN_PROC_BROWSER_TEST_F(TracingControllerTest, MAYBE_ProcessesPresentInTrace) {
   TestStartAndStopTracingString();
   EXPECT_TRUE(last_data().find("CrBrowserMain") != std::string::npos);
   EXPECT_TRUE(last_data().find("CrRendererMain") != std::string::npos);

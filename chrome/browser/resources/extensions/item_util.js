@@ -18,6 +18,14 @@ export const SourceType = {
   UNKNOWN: 'unknown',
 };
 
+/** @enum {string} */
+export const EnableControl = {
+  RELOAD: 'RELOAD',
+  REPAIR: 'REPAIR',
+  ENABLE_BUTTON: 'ENABLE_BUTTON',
+  ENABLE_TOGGLE: 'ENABLE_TOGGLE',
+};
+
 /**
  * Returns true if the extension is enabled, including terminated
  * extensions.
@@ -58,7 +66,9 @@ export function userCanChangeEnablement(item) {
   // Item is forcefully disabled.
   if (item.disableReasons.corruptInstall ||
       item.disableReasons.suspiciousInstall ||
-      item.disableReasons.updateRequired) {
+      item.disableReasons.updateRequired ||
+      item.disableReasons.blockedByPolicy ||
+      item.disableReasons.custodianApprovalRequired) {
     return false;
   }
   // An item with dependent extensions can't be disabled (it would bork the
@@ -67,7 +77,7 @@ export function userCanChangeEnablement(item) {
     return false;
   }
   // Blacklisted can't be enabled, either.
-  if (item.state == chrome.developerPrivate.ExtensionState.BLACKLISTED) {
+  if (item.state === chrome.developerPrivate.ExtensionState.BLACKLISTED) {
     return false;
   }
 
@@ -80,7 +90,7 @@ export function userCanChangeEnablement(item) {
  */
 export function getItemSource(item) {
   if (item.controlledInfo &&
-      item.controlledInfo.type ==
+      item.controlledInfo.type ===
           chrome.developerPrivate.ControllerType.POLICY) {
     return SourceType.POLICY;
   }
@@ -130,17 +140,17 @@ export function computeInspectableViewLabel(view) {
   // Trim the "chrome-extension://<id>/".
   const url = new URL(view.url);
   let label = view.url;
-  if (url.protocol == 'chrome-extension:') {
+  if (url.protocol === 'chrome-extension:') {
     label = url.pathname.substring(1);
   }
-  if (label == '_generated_background_page.html') {
+  if (label === '_generated_background_page.html') {
     label = loadTimeData.getString('viewBackgroundPage');
   }
   // Add any qualifiers.
   if (view.incognito) {
     label += ' ' + loadTimeData.getString('viewIncognito');
   }
-  if (view.renderProcessId == -1) {
+  if (view.renderProcessId === -1) {
     label += ' ' + loadTimeData.getString('viewInactive');
   }
   if (view.isIframe) {
@@ -148,4 +158,32 @@ export function computeInspectableViewLabel(view) {
   }
 
   return label;
+}
+
+/**
+ * Returns true if the extension is in the terminated state.
+ * @param {!chrome.developerPrivate.ExtensionState} state
+ * @return {boolean}
+ * @private
+ */
+function isTerminated_(state) {
+  return state === chrome.developerPrivate.ExtensionState.TERMINATED;
+}
+
+/**
+ * Determines which enable control to display for a given extension.
+ * @param {!chrome.developerPrivate.ExtensionInfo} data
+ * @return {EnableControl}
+ */
+export function getEnableControl(data) {
+  if (isTerminated_(data.state)) {
+    return EnableControl.RELOAD;
+  }
+  if (data.disableReasons.corruptInstall) {
+    return EnableControl.REPAIR;
+  }
+  if (data.disableReasons.custodianApprovalRequired) {
+    return EnableControl.ENABLE_BUTTON;
+  }
+  return EnableControl.ENABLE_TOGGLE;
 }

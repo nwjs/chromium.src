@@ -50,13 +50,6 @@ class TextResourceDecoder;
 
 class XHRReplayData final : public GarbageCollected<XHRReplayData> {
  public:
-  static XHRReplayData* Create(ExecutionContext*,
-                               const AtomicString& method,
-                               const KURL&,
-                               bool async,
-                               scoped_refptr<EncodedFormData>,
-                               bool include_credentials);
-
   XHRReplayData(ExecutionContext*,
                 const AtomicString& method,
                 const KURL&,
@@ -208,12 +201,6 @@ class NetworkResourcesData final
     Vector<AtomicString> certificate_;
     scoped_refptr<EncodedFormData> post_data_;
   };
-
-  static NetworkResourcesData* Create(size_t total_buffer_size,
-                                      size_t resource_buffer_size) {
-    return MakeGarbageCollected<NetworkResourcesData>(total_buffer_size,
-                                                      resource_buffer_size);
-  }
 
   NetworkResourcesData(size_t total_buffer_size, size_t resource_buffer_size);
   ~NetworkResourcesData();

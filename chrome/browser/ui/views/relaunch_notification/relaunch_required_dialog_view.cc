@@ -88,8 +88,7 @@ bool RelaunchRequiredDialogView::ShouldShowCloseButton() const {
 
 gfx::ImageSkia RelaunchRequiredDialogView::GetWindowIcon() {
   return gfx::CreateVectorIcon(gfx::IconDescription(
-      vector_icons::kBusinessIcon, kTitleIconSize, gfx::kChromeIconGrey,
-      base::TimeDelta(), gfx::kNoneIcon));
+      vector_icons::kBusinessIcon, kTitleIconSize, gfx::kChromeIconGrey));
 }
 
 bool RelaunchRequiredDialogView::ShouldShowWindowIcon() const {

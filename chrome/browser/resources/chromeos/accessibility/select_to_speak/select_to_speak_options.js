@@ -5,7 +5,7 @@
 /**
  * @constructor
  */
-let SelectToSpeakOptionsPage = function() {
+const SelectToSpeakOptionsPage = function() {
   this.init_();
 };
 
@@ -14,7 +14,7 @@ SelectToSpeakOptionsPage.prototype = {
    * Translate the page and sync all of the control values to the
    * values loaded from chrome.storage.
    */
-  init_: function() {
+  init_() {
     this.addTranslatedMessagesToDom_();
     this.populateVoiceList_('voice');
     window.speechSynthesis.onvoiceschanged = (function() {
@@ -23,8 +23,8 @@ SelectToSpeakOptionsPage.prototype = {
     this.syncSelectControlToPref_('voice', 'voice', 'voiceName');
     this.syncCheckboxControlToPref_(
         'wordHighlight', 'wordHighlight', function(checked) {
-          let elem = document.getElementById('highlightSubOption');
-          let select = document.getElementById('highlightColor');
+          const elem = document.getElementById('highlightSubOption');
+          const select = document.getElementById('highlightColor');
           if (checked) {
             elem.classList.remove('hidden');
             elem.setAttribute('aria-hidden', false);
@@ -49,7 +49,7 @@ SelectToSpeakOptionsPage.prototype = {
    * IDs and the resulting text is used as the text content of the elements.
    * @private
    */
-  addTranslatedMessagesToDom_: function() {
+  addTranslatedMessagesToDom_() {
     var elts = document.querySelectorAll('.i18n');
     for (var i = 0; i < elts.length; i++) {
       var msgid = elts[i].getAttribute('msgid');
@@ -71,13 +71,13 @@ SelectToSpeakOptionsPage.prototype = {
    * @param {string} selectId The id of the select element.
    * @private
    */
-  populateVoiceList_: function(selectId) {
+  populateVoiceList_(selectId) {
     chrome.tts.getVoices(function(voices) {
-      let select = document.getElementById(selectId);
+      const select = document.getElementById(selectId);
       select.innerHTML = '';
 
       // Add the system voice.
-      let option = document.createElement('option');
+      const option = document.createElement('option');
       option.voiceName = PrefsManager.SYSTEM_VOICE;
       option.innerText = chrome.i18n.getMessage('select_to_speak_system_voice');
       select.add(option);
@@ -99,7 +99,7 @@ SelectToSpeakOptionsPage.prototype = {
           // Required event types for Select-to-Speak.
           return;
         }
-        let option = document.createElement('option');
+        const option = document.createElement('option');
         option.voiceName = voice.voiceName;
         option.innerText = option.voiceName;
         select.add(option);
@@ -118,12 +118,12 @@ SelectToSpeakOptionsPage.prototype = {
    * to be called every time the checkbox state is changed.
    * @private
    */
-  syncCheckboxControlToPref_: function(checkboxId, pref, opt_onChange) {
-    let checkbox = document.getElementById(checkboxId);
+  syncCheckboxControlToPref_(checkboxId, pref, opt_onChange) {
+    const checkbox = document.getElementById(checkboxId);
 
     function updateFromPref() {
       chrome.storage.sync.get(pref, function(items) {
-        let value = items[pref];
+        const value = items[pref];
         if (value != null) {
           checkbox.checked = value;
           if (opt_onChange) {
@@ -141,7 +141,7 @@ SelectToSpeakOptionsPage.prototype = {
     });
 
     checkbox.addEventListener('change', function() {
-      let setParams = {};
+      const setParams = {};
       setParams[pref] = checkbox.checked;
       chrome.storage.sync.set(setParams);
     });
@@ -160,7 +160,7 @@ SelectToSpeakOptionsPage.prototype = {
    * @param {?function(string): undefined=} opt_onChange Optional change
    *     listener to call when the setting has been changed.
    */
-  syncSelectControlToPref_: function(selectId, pref, valueKey, opt_onChange) {
+  syncSelectControlToPref_(selectId, pref, valueKey, opt_onChange) {
     var element = document.getElementById(selectId);
 
     function updateFromPref() {
@@ -195,9 +195,9 @@ SelectToSpeakOptionsPage.prototype = {
    * Sets up the highlight listeners and preferences.
    * @private
    */
-  setUpHighlightListener_: function() {
-    let onChange = function(value) {
-      let examples = document.getElementsByClassName('highlight');
+  setUpHighlightListener_() {
+    const onChange = function(value) {
+      const examples = document.getElementsByClassName('highlight');
       for (let i = 0; i < examples.length; i++) {
         examples[i].style.background = value;
       }
@@ -209,7 +209,7 @@ SelectToSpeakOptionsPage.prototype = {
     document.getElementById('wordHighlightOption')
         .addEventListener('click', function(e) {
           e.stopPropagation();
-          let checkbox = document.getElementById('wordHighlight');
+          const checkbox = document.getElementById('wordHighlight');
           // Make sure it isn't the auto-generated click itself.
           if (e.srcElement !== checkbox) {
             checkbox.click();
@@ -221,8 +221,8 @@ SelectToSpeakOptionsPage.prototype = {
    * Sets up a listener on the TTS settings button.
    * @private
    */
-  setUpTtsButtonClickListener_: function() {
-    let button = document.getElementById('ttsSettingsBtn');
+  setUpTtsButtonClickListener_() {
+    const button = document.getElementById('ttsSettingsBtn');
     button.addEventListener('click', () => {
       chrome.accessibilityPrivate.openSettingsSubpage(
           'manageAccessibility/tts');

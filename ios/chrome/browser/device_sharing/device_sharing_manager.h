@@ -7,12 +7,9 @@
 
 #import <Foundation/Foundation.h>
 
+class ChromeBrowserState;
 class GURL;
 @class HandoffManager;
-
-namespace ios {
-class ChromeBrowserState;
-}
 
 // This manager maintains all state related to sharing the active URL to other
 // devices. It has the role of a dispatcher that shares the active URL to
@@ -29,7 +26,7 @@ class ChromeBrowserState;
 // |-updateBrowserState:nullptr| before |browserState| is destroyed.
 //
 // |browserState| must not be off the record.
-- (void)updateBrowserState:(ios::ChromeBrowserState*)browserState;
+- (void)updateBrowserState:(ChromeBrowserState*)browserState;
 
 // Updates the active URL to be shared with other devices. This method is
 // a no-op if the active browser state was never set previously.

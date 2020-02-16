@@ -384,7 +384,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{ബാക്ക്‌ടിക്ക്}other{# ബാക്ക്‌ടിക്കുകൾ}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{ഡോളർ}other{# ഡോളർ ചിഹ്നങ്ങൾ}}</translation>
-<translation id="3658742229777143148">പുനരവലോകനം</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, ലിസ്റ്റ് ബോക്സ്</translation>
 <translation id="3681531118904532409">പപ്പായ വിപ്പ്</translation>
@@ -419,6 +418,7 @@
 <translation id="3914732343065571127">ChromeVox കമാൻഡ് റഫറൻസ്</translation>
 <translation id="3930383913623796990">സ്പ്രിംഗ് ഗ്രീൻ</translation>
 <translation id="3930498801443296724">പുൾക്വോട്ട്</translation>
+<translation id="3935615366277838204">വലിയക്ഷരം <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">ലാവൻഡർ ബ്ലഷ്</translation>
 <translation id="3941269780691800708">മൗസിന്‍റെ ചുവടെയുള്ള വാചകം പറയുക.</translation>
 <translation id="394953087167197343">അക്ഷരത്തെറ്റ് സൂചിപ്പിക്കുക:</translation>
@@ -792,7 +792,6 @@
 <translation id="6459511626086141404">ഫ്ലാറ്റ് കീമാപ്പ്</translation>
 <translation id="6468049171101508116">അടുത്ത ബട്ടൺ</translation>
 <translation id="646954774886932461">സൂചിക</translation>
-<translation id="6479792383819319132">അടുത്ത ഖണ്ഡിക ഇല്ല.</translation>
 <translation id="6493991254603208962">തെളിച്ചം കുറയ്‌ക്കുക</translation>
 <translation id="6501595918865591267">ടർകോയിസ്</translation>
 <translation id="6508059270146105198">ബ്രെയ്‌ലി ഡിസ്‌പ്ലേ പേജിന് ചുവടേക്ക് നീക്കുക</translation>
@@ -815,7 +814,6 @@
 <translation id="6637586476836377253">ലോഗ്</translation>
 <translation id="6657128831881431364">വർദ്ധനവ് ബാർ</translation>
 <translation id="6659594942844771486">ടാബ്</translation>
-<translation id="6675661017770918201">മുമ്പത്തെ ഖണ്ഡിക ഇല്ല.</translation>
 <translation id="667999046851023355">പ്രമാണം</translation>
 <translation id="6688209025607531203">ഒരു നോൺ മോഡൽ അലേർട്ട്</translation>
 <translation id="6689672606256159458">കടും സാൽമൻ</translation>
@@ -844,6 +842,7 @@
 <translation id="6865519907510167493">അക്ഷരത്തെറ്റ്</translation>
 <translation id="6871161210040114857">കേസ് സെൻസിറ്റീവല്ല.</translation>
 <translation id="6877435256196695200">അടുത്ത ഗ്രാഫിക് ഒന്നുമില്ല.</translation>
+<translation id="688976158310523235">തിരയൽ മെനു</translation>
 <translation id="6897341342232909480">ഇടതുവശത്തേക്ക് നീക്കുക</translation>
 <translation id="6901540140423170855">date</translation>
 <translation id="6910211073230771657">ഇല്ലാതാക്കി</translation>
@@ -856,6 +855,7 @@
 <translation id="699159175332639490">തിരയൽ + O + W</translation>
 <translation id="6994042831499278539">പദസഞ്ചയ റെഫറൻസ്</translation>
 <translation id="6996566555547746822">അടുത്ത കോംബോ ബോക്സ്</translation>
+<translation id="6997224546856374593">വലിയക്ഷരങ്ങൾ വായിക്കുമ്പോൾ:</translation>
 <translation id="700202842116345659">ഗ്രന്ഥസൂചി എൻട്രി</translation>
 <translation id="7005146664810010831">URL ഒന്നും കണ്ടെത്തിയില്ല</translation>
 <translation id="7010712454773919705">ChromeVox മോഡിഫയർ കീ</translation>
@@ -936,6 +936,7 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">ടാബ്</translation>
 <translation id="7492049978501397201">ഡയലോഗ് നൽകി</translation>
+<translation id="7505149250476994901">അക്ഷരം പറയുന്നതിന് മുമ്പ് "വലിയക്ഷരം" എന്ന് പറയുക</translation>
 <translation id="7518543783849163354">സംസാരിക്കുന്നതിൽ നിന്ന് ChromeVox-നെ തൽക്കാലം നിർത്താൻ, കൺട്രോൾ കീ അമർത്തുക.</translation>
 <translation id="7521682724501952239">ടച്ച്‌സ്‌ക്രീനിനൊപ്പം നിങ്ങൾക്ക് ChromeVox ഉപയോഗിക്കാം.</translation>
 <translation id="7532613204005497612">ജൂൺ</translation>
@@ -1103,7 +1104,6 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="812886159861361726"><ph name="FILE_NAME" /> ഡൗൺലോഡ് നിർത്തി</translation>
 <translation id="8138880386467279117">സ്‌പർശിക്കുക</translation>
 <translation id="8153880621934657047">പട്ടികയ്‌ക്കുള്ളിലല്ല.</translation>
-<translation id="8161114871611868169">കമന്റ് വിഭാഗം</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{അടിവര}other{# അടിവരകൾ}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">വരി</translation>
@@ -1124,6 +1124,7 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">ഓൾഡ് ലേസ്</translation>
 <translation id="8326783648485765113">ലോൺ ഗ്രീൻ</translation>
+<translation id="8328063869313048659">ഡാർക്ക് സ്‌ക്രീൻ മാറ്റുക</translation>
 <translation id="8344569602005188545">മണിക്കൂറുകള്‍</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{പൗണ്ട്}other{# പൗണ്ട് അടയാളങ്ങൾ}}</translation>
 <translation id="8374154622594089836">മാസം</translation>
@@ -1208,6 +1209,7 @@ Chrome ബ്രൗസർ മെനു തുറക്കാൻ, ആൾട്ട
 <translation id="9065283790526219006">+പോപ്പ്അപ്പ്</translation>
 <translation id="9066023754636984703">വിശദാംശങ്ങളിലേക്ക് പോകാൻ Search+A, J അമർത്തുക.</translation>
 <translation id="9067522039955793016">പേജ് ബ്രേക്ക്</translation>
+<translation id="9074824103975499138">ChromeVox മെനുകൾ തിരയുക</translation>
 <translation id="9077213568694924680">തിരഞ്ഞെടുത്തതിൽ നിന്നും നീക്കംചെയ്‌തു</translation>
 <translation id="9077305471618729969">ഇളം കടൽ നീല</translation>
 <translation id="9082874451376019682">മുൻ സ്ലൈഡർ ഒന്നുമില്ല.</translation>

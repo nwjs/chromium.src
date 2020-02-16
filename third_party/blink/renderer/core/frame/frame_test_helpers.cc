@@ -304,7 +304,7 @@ WebRemoteFrameImpl* CreateRemoteChild(
     TestWebRemoteFrameClient* client) {
   std::unique_ptr<TestWebRemoteFrameClient> owned_client;
   client = CreateDefaultClientIfNeeded(client, owned_client);
-  auto* frame = ToWebRemoteFrameImpl(parent.CreateRemoteChild(
+  auto* frame = To<WebRemoteFrameImpl>(parent.CreateRemoteChild(
       WebTreeScopeType::kDocument, name, FramePolicy(),
       FrameOwnerElementType::kIframe, client,
       InterfaceRegistry::GetEmptyInterfaceRegistry(),
@@ -312,8 +312,7 @@ WebRemoteFrameImpl* CreateRemoteChild(
   client->Bind(frame, std::move(owned_client));
   if (!security_origin)
     security_origin = SecurityOrigin::CreateUniqueOpaque();
-  frame->GetFrame()->GetSecurityContext()->SetReplicatedOrigin(
-      std::move(security_origin));
+  frame->GetFrame()->SetReplicatedOrigin(std::move(security_origin), false);
   return frame;
 }
 
@@ -399,6 +398,16 @@ WebViewImpl* WebViewHelper::InitializeAndLoad(
 }
 
 WebViewImpl* WebViewHelper::InitializeRemote(
+    TestWebRemoteFrameClient* client,
+    scoped_refptr<SecurityOrigin> security_origin,
+    TestWebViewClient* web_view_client,
+    TestWebWidgetClient* web_widget_client) {
+  return InitializeRemoteWithOpener(nullptr, client, security_origin,
+                                    web_view_client, web_widget_client);
+}
+
+WebViewImpl* WebViewHelper::InitializeRemoteWithOpener(
+    WebFrame* opener,
     TestWebRemoteFrameClient* web_remote_frame_client,
     scoped_refptr<SecurityOrigin> security_origin,
     TestWebViewClient* web_view_client,
@@ -413,13 +422,12 @@ WebViewImpl* WebViewHelper::InitializeRemote(
   WebRemoteFrameImpl* frame = WebRemoteFrameImpl::CreateMainFrame(
       web_view_, web_remote_frame_client,
       InterfaceRegistry::GetEmptyInterfaceRegistry(),
-      web_remote_frame_client->GetAssociatedInterfaceProvider(), nullptr);
+      web_remote_frame_client->GetAssociatedInterfaceProvider(), opener);
   web_remote_frame_client->Bind(frame,
                                 std::move(owned_web_remote_frame_client));
   if (!security_origin)
     security_origin = SecurityOrigin::CreateUniqueOpaque();
-  frame->GetFrame()->GetSecurityContext()->SetReplicatedOrigin(
-      std::move(security_origin));
+  frame->GetFrame()->SetReplicatedOrigin(std::move(security_origin), false);
 
   test_web_widget_client_ = CreateDefaultClientIfNeeded(
       web_widget_client, owned_test_web_widget_client_);
@@ -455,7 +463,7 @@ WebLocalFrameImpl* WebViewHelper::LocalMainFrame() const {
 }
 
 WebRemoteFrameImpl* WebViewHelper::RemoteMainFrame() const {
-  return ToWebRemoteFrameImpl(web_view_->MainFrame());
+  return To<WebRemoteFrameImpl>(web_view_->MainFrame());
 }
 
 void WebViewHelper::Resize(WebSize size) {
@@ -497,8 +505,7 @@ void WebViewHelper::InitializeWebView(TestWebViewClient* web_view_client,
 int TestWebFrameClient::loads_in_progress_ = 0;
 
 TestWebFrameClient::TestWebFrameClient()
-    : interface_provider_(new service_manager::InterfaceProvider()),
-      associated_interface_provider_(new AssociatedInterfaceProvider(nullptr)),
+    : associated_interface_provider_(new AssociatedInterfaceProvider(nullptr)),
       effective_connection_type_(WebEffectiveConnectionType::kTypeUnknown) {}
 
 TestWebFrameClient::~TestWebFrameClient() = default;
@@ -669,7 +676,7 @@ void TestWebWidgetClient::SetPageScaleStateAndLimits(
 
 void TestWebWidgetClient::InjectGestureScrollEvent(
     WebGestureDevice device,
-    const WebFloatSize& delta,
+    const gfx::Vector2dF& delta,
     ScrollGranularity granularity,
     cc::ElementId scrollable_area_element_id,
     WebInputEvent::Type injected_type) {

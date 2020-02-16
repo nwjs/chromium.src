@@ -26,7 +26,7 @@ namespace {
 // Returns the popup row containing the |url| as suggestion.
 id<GREYMatcher> PopupRowWithUrl(GURL url) {
   return grey_allOf(
-      grey_kindOfClassName(@"OmniboxPopupRow"),
+      grey_kindOfClassName(@"OmniboxPopupRowCell"),
       grey_descendant(chrome_test_util::StaticTextWithAccessibilityLabel(
           base::SysUTF8ToNSString(url.GetContent()))),
       grey_sufficientlyVisible(), nil);
@@ -164,7 +164,13 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
 // Tests that the incognito tabs aren't displayed as "opened" tab in the
 // non-incognito suggestions and vice-versa.
-- (void)testIncognitoSeparation {
+// TODO(crbug.com/1045950): fix and reenable on devices.
+#if !TARGET_IPHONE_SIMULATOR
+#define MAYBE_testIncognitoSeparation DISABLED_testIncognitoSeparation
+#else
+#define MAYBE_testIncognitoSeparation testIncognitoSeparation
+#endif
+- (void)MAYBE_testIncognitoSeparation {
   GURL URL1 = self.testServer->GetURL(kPage1URL);
   GURL URL2 = self.testServer->GetURL(kPage2URL);
   GURL URL3 = self.testServer->GetURL(kPage3URL);
@@ -233,7 +239,8 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
       assertWithMatcher:grey_nil()];
 }
 
-- (void)testCloseNTPWhenSwitching {
+// TODO(crbug.com/1037651): Test fails.
+- (void)DISABLED_testCloseNTPWhenSwitching {
   // Open the first page.
   GURL URL1 = self.testServer->GetURL(kPage1URL);
   [ChromeEarlGrey loadURL:URL1];

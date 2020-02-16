@@ -20,7 +20,6 @@
 #include "content/renderer/accessibility/ax_image_annotator.h"
 #include "content/renderer/accessibility/blink_ax_enum_conversion.h"
 #include "content/renderer/accessibility/render_accessibility_impl.h"
-#include "content/renderer/browser_plugin/browser_plugin.h"
 #include "content/renderer/render_frame_impl.h"
 #include "content/renderer/render_frame_proxy.h"
 #include "content/renderer/render_view_impl.h"
@@ -165,10 +164,6 @@ class AXContentNodeDataSparseAttributeAdapter
         // more information than the sparse interface does.
         // ******** Why is this a TODO? ********
         break;
-      case WebAXObjectAttribute::kAriaDetails:
-        dst_->AddIntAttribute(ax::mojom::IntAttribute::kDetailsId,
-                              value.AxID());
-        break;
       case WebAXObjectAttribute::kAriaErrorMessage:
         // Use WebAXObject::ErrorMessage(), which provides both ARIA error
         // messages as well as built-in HTML form validation messages.
@@ -185,6 +180,10 @@ class AXContentNodeDataSparseAttributeAdapter
       case WebAXObjectVectorAttribute::kAriaControls:
         AddIntListAttributeFromWebObjects(
             ax::mojom::IntListAttribute::kControlsIds, value, dst_);
+        break;
+      case WebAXObjectVectorAttribute::kAriaDetails:
+        AddIntListAttributeFromWebObjects(
+            ax::mojom::IntListAttribute::kDetailsIds, value, dst_);
         break;
       case WebAXObjectVectorAttribute::kAriaFlowTo:
         AddIntListAttributeFromWebObjects(
@@ -411,6 +410,10 @@ void BlinkAXTreeSource::SetLoadInlineTextBoxesForId(int32_t id) {
   load_inline_text_boxes_ids_.insert(id);
 }
 
+void BlinkAXTreeSource::EnableDOMNodeIDs() {
+  enable_dom_node_ids_ = true;
+}
+
 bool BlinkAXTreeSource::GetTreeData(AXContentTreeData* tree_data) const {
   CHECK(frozen_);
   tree_data->doctype = "html";
@@ -570,8 +573,7 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
     container_transform_gfx->Scale(web_view->PageScaleFactor(),
                                    web_view->PageScaleFactor());
     container_transform_gfx->Translate(
-        gfx::Vector2dF(-web_view->VisualViewportOffset().x,
-                       -web_view->VisualViewportOffset().y));
+        -web_view->VisualViewportOffset().OffsetFromOrigin());
     if (!container_transform_gfx->IsIdentity())
       dst->relative_bounds.transform = std::move(container_transform_gfx);
   } else if (!container_transform.isIdentity())
@@ -590,6 +592,16 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
   if (src.IsLineBreakingObject()) {
     dst->AddBoolAttribute(ax::mojom::BoolAttribute::kIsLineBreakingObject,
                           true);
+  }
+
+  if (enable_dom_node_ids_) {
+    // The DOMNodeID from Blink. Currently only populated when using
+    // the accessibility tree for PDF exporting. Warning, this is totally
+    // unrelated to the accessibility node ID, or the ID attribute for an
+    // HTML element - it's an ID used to uniquely identify nodes in Blink.
+    int dom_node_id = src.GetDOMNodeId();
+    if (dom_node_id)
+      dst->AddIntAttribute(ax::mojom::IntAttribute::kDOMNodeId, dom_node_id);
   }
 
   AXContentNodeDataSparseAttributeAdapter sparse_attribute_adapter(dst);
@@ -860,6 +872,8 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
       dst->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
                            src.HeadingLevel());
     } else if ((dst->role == ax::mojom::Role::kTreeItem ||
+                dst->role == ax::mojom::Role::kComment ||
+                dst->role == ax::mojom::Role::kListItem ||
                 dst->role == ax::mojom::Role::kRow) &&
                src.HierarchicalLevel()) {
       dst->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
@@ -1118,17 +1132,15 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
                                       role);
     }
 
-    // Browser plugin (used in a <webview>).
-    BrowserPlugin* browser_plugin = BrowserPlugin::GetFromNode(element);
-    if (browser_plugin) {
-      dst->AddContentIntAttribute(
-          AX_CONTENT_ATTR_CHILD_BROWSER_PLUGIN_INSTANCE_ID,
-          browser_plugin->browser_plugin_instance_id());
-    }
+    // Presence of other ARIA attributes.
+    if (src.HasAriaAttribute())
+      dst->AddBoolAttribute(ax::mojom::BoolAttribute::kHasAriaAttribute, true);
 
-    // Frames and iframes.
+    // Frames and iframes. We don't add a child routing id for Portals (even
+    // though they are a frame owner and have a subframe) as they can't be
+    // interacted with and we want to omit their contents from the AxTree.
     WebFrame* frame = WebFrame::FromFrameOwnerElement(element);
-    if (frame) {
+    if (frame && dst->role != ax::mojom::Role::kPortal) {
       dst->AddContentIntAttribute(AX_CONTENT_ATTR_CHILD_ROUTING_ID,
                                   RenderFrame::GetRoutingIdForWebFrame(frame));
     }

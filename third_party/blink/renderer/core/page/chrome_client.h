@@ -33,9 +33,9 @@
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/blame_context.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
-#include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/web/web_widget_client.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -73,7 +73,6 @@ class DateTimeChooser;
 class DateTimeChooserClient;
 class Element;
 class FileChooser;
-class FloatPoint;
 class Frame;
 class FullscreenOptions;
 class HTMLFormControlElement;
@@ -113,6 +112,10 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual float WindowToViewportScalar(LocalFrame*,
                                        const float value) const = 0;
 
+  // Converts the scalar value from window coordinates to viewport rectangle.
+  virtual void WindowToViewportRect(LocalFrame& frame,
+                                    WebFloatRect* viewport_rect) const {}
+
   virtual bool IsPopup() { return false; }
 
   virtual void ChromeDestroyed() = 0;
@@ -138,12 +141,10 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
 
   virtual void Focus(LocalFrame*) = 0;
 
-  virtual bool CanTakeFocus(WebFocusType) = 0;
-  virtual void TakeFocus(WebFocusType) = 0;
+  virtual bool CanTakeFocus(mojom::blink::FocusType) = 0;
+  virtual void TakeFocus(mojom::blink::FocusType) = 0;
 
   virtual void FocusedElementChanged(Element*, Element*) = 0;
-
-  virtual bool HadFormInteraction() const = 0;
 
   // Allow document lifecycle updates to be run in order to produce composited
   // outputs. Updates are blocked from occurring during loading navigation in
@@ -199,10 +200,10 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   // scrolls by 10 px, but due to a 2X page scale we apply a 5px scroll to the
   // root frame, all of which is handled as overscroll, we should return 10px
   // as the |overscroll_delta|.
-  virtual void DidOverscroll(const FloatSize& overscroll_delta,
-                             const FloatSize& accumulated_overscroll,
-                             const FloatPoint& position_in_viewport,
-                             const FloatSize& velocity_in_viewport) = 0;
+  virtual void DidOverscroll(const gfx::Vector2dF& overscroll_delta,
+                             const gfx::Vector2dF& accumulated_overscroll,
+                             const gfx::PointF& position_in_viewport,
+                             const gfx::Vector2dF& velocity_in_viewport) = 0;
 
   // Causes a gesture event of |injected_type| to be dispatched at a later
   // point in time. |injected_type| is required to be one of
@@ -216,7 +217,7 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual void InjectGestureScrollEvent(
       LocalFrame& local_frame,
       WebGestureDevice device,
-      const WebFloatSize& delta,
+      const gfx::Vector2dF& delta,
       ScrollGranularity granularity,
       CompositorElementId scrollable_area_element_id,
       WebInputEvent::Type injected_type) {}
@@ -261,8 +262,8 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
 
   virtual void SetCursorOverridden(bool) = 0;
 
-  virtual void AutoscrollStart(WebFloatPoint position, LocalFrame*) {}
-  virtual void AutoscrollFling(WebFloatSize velocity, LocalFrame*) {}
+  virtual void AutoscrollStart(const gfx::PointF& position, LocalFrame*) {}
+  virtual void AutoscrollFling(const gfx::Vector2dF& velocity, LocalFrame*) {}
   virtual void AutoscrollEnd(LocalFrame*) {}
 
   virtual Cursor LastSetCursorForTesting() const = 0;
@@ -344,7 +345,9 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   virtual void DetachCompositorAnimationTimeline(CompositorAnimationTimeline*,
                                                  LocalFrame* local_root) {}
 
-  virtual void EnterFullscreen(LocalFrame&, const FullscreenOptions*) {}
+  virtual void EnterFullscreen(LocalFrame&,
+                               const FullscreenOptions*,
+                               bool for_cross_process_descendant) {}
   virtual void ExitFullscreen(LocalFrame&) {}
   virtual void FullscreenElementChanged(Element* old_element,
                                         Element* new_element) {}
@@ -483,6 +486,9 @@ class CORE_EXPORT ChromeClient : public GarbageCollected<ChromeClient> {
   }
 
   virtual void DocumentDetached(Document&) {}
+
+  virtual void SaveImageFromDataURL(LocalFrame& frame, const String& data_url) {
+  }
 
  protected:
   ChromeClient() = default;

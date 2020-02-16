@@ -8,10 +8,13 @@
 
 #include "base/no_destructor.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "build/build_config.h"
 #include "content/public/utility/content_utility_client.h"
 #include "content/public/utility/utility_thread.h"
+#include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/bindings/service_factory.h"
+#include "services/audio/service_factory.h"
 #include "services/data_decoder/data_decoder_service.h"
 #include "services/network/network_service.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
@@ -20,9 +23,68 @@
 #include "services/video_capture/public/mojom/video_capture_service.mojom.h"
 #include "services/video_capture/video_capture_service_impl.h"
 
+#if defined(OS_MACOSX)
+#include "base/mac/mach_logging.h"
+#include "sandbox/mac/system_services.h"
+#include "services/service_manager/sandbox/features.h"
+#include "services/service_manager/sandbox/sandbox_type.h"
+#endif
+
+#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+#include "media/cdm/cdm_adapter_factory.h"          // nogncheck
+#include "media/mojo/services/cdm_service.h"        // nogncheck
+#include "media/mojo/services/mojo_cdm_helper.h"    // nogncheck
+#include "media/mojo/services/mojo_media_client.h"  // nogncheck
+#if BUILDFLAG(ENABLE_CDM_HOST_VERIFICATION)
+#include "media/cdm/cdm_host_file.h"
+#endif  // BUILDFLAG(ENABLE_CDM_HOST_VERIFICATION)
+
+#if defined(OS_WIN)
+#include "sandbox/win/src/sandbox.h"
+
+extern sandbox::TargetServices* g_utility_target_services;
+#endif  // defined(OS_WIN)
+#endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
+
 namespace content {
 
 namespace {
+
+#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+
+std::unique_ptr<media::CdmAuxiliaryHelper> CreateCdmHelper(
+    service_manager::mojom::InterfaceProvider* interface_provider) {
+  return std::make_unique<media::MojoCdmHelper>(interface_provider);
+}
+
+class ContentCdmServiceClient final : public media::CdmService::Client {
+ public:
+  ContentCdmServiceClient() = default;
+  ~ContentCdmServiceClient() override = default;
+
+  void EnsureSandboxed() override {
+#if defined(OS_WIN)
+    // |g_utility_target_services| can be null if --no-sandbox is specified.
+    if (g_utility_target_services)
+      g_utility_target_services->LowerToken();
+#endif
+  }
+
+  std::unique_ptr<media::CdmFactory> CreateCdmFactory(
+      service_manager::mojom::InterfaceProvider* host_interfaces) override {
+    return std::make_unique<media::CdmAdapterFactory>(
+        base::BindRepeating(&CreateCdmHelper, host_interfaces));
+  }
+
+#if BUILDFLAG(ENABLE_CDM_HOST_VERIFICATION)
+  void AddCdmHostFilePaths(
+      std::vector<media::CdmHostFilePath>* cdm_host_file_paths) override {
+    GetContentClient()->AddContentDecryptionModules(nullptr,
+                                                    cdm_host_file_paths);
+  }
+#endif  // BUILDFLAG(ENABLE_CDM_HOST_VERIFICATION)
+};
+#endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
 auto RunNetworkService(
     mojo::PendingReceiver<network::mojom::NetworkService> receiver) {
@@ -32,6 +94,46 @@ auto RunNetworkService(
       std::move(binders), std::move(receiver),
       /*delay_initialization_until_set_client=*/true);
 }
+
+auto RunAudio(mojo::PendingReceiver<audio::mojom::AudioService> receiver) {
+#if defined(OS_MACOSX)
+  // Don't connect to launch services when running sandboxed
+  // (https://crbug.com/874785).
+  if (service_manager::IsAudioSandboxEnabled()) {
+    sandbox::DisableLaunchServices();
+  }
+
+  // Set the audio process to run with similar scheduling parameters as the
+  // browser process.
+  task_category_policy category;
+  category.role = TASK_FOREGROUND_APPLICATION;
+  kern_return_t result = task_policy_set(
+      mach_task_self(), TASK_CATEGORY_POLICY,
+      reinterpret_cast<task_policy_t>(&category), TASK_CATEGORY_POLICY_COUNT);
+
+  MACH_LOG_IF(ERROR, result != KERN_SUCCESS, result)
+      << "task_policy_set TASK_CATEGORY_POLICY";
+
+  task_qos_policy qos;
+  qos.task_latency_qos_tier = LATENCY_QOS_TIER_0;
+  qos.task_throughput_qos_tier = THROUGHPUT_QOS_TIER_0;
+  result = task_policy_set(mach_task_self(), TASK_BASE_QOS_POLICY,
+                           reinterpret_cast<task_policy_t>(&qos),
+                           TASK_QOS_POLICY_COUNT);
+
+  MACH_LOG_IF(ERROR, result != KERN_SUCCESS, result)
+      << "task_policy_set TASK_QOS_POLICY";
+#endif
+
+  return audio::CreateStandaloneService(std::move(receiver));
+}
+
+#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+auto RunCdmService(mojo::PendingReceiver<media::mojom::CdmService> receiver) {
+  return std::make_unique<media::CdmService>(
+      std::make_unique<ContentCdmServiceClient>(), std::move(receiver));
+}
+#endif
 
 auto RunDataDecoder(
     mojo::PendingReceiver<data_decoder::mojom::DataDecoderService> receiver) {
@@ -60,9 +162,11 @@ mojo::ServiceFactory& GetIOThreadServiceFactory() {
 
 mojo::ServiceFactory& GetMainThreadServiceFactory() {
   static base::NoDestructor<mojo::ServiceFactory> factory{
-      RunDataDecoder,
-      RunTracing,
-      RunVideoCapture,
+    RunAudio,
+#if BUILDFLAG(ENABLE_LIBRARY_CDMS)
+        RunCdmService,
+#endif
+        RunDataDecoder, RunTracing, RunVideoCapture,
   };
   return *factory;
 }

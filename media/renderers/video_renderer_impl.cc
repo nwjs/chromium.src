@@ -211,7 +211,7 @@ void VideoRendererImpl::Initialize(
     CdmContext* cdm_context,
     RendererClient* client,
     const TimeSource::WallClockTimeCB& wall_clock_time_cb,
-    const PipelineStatusCB& init_cb) {
+    PipelineStatusCallback init_cb) {
   DCHECK(task_runner_->BelongsToCurrentThread());
   TRACE_EVENT_ASYNC_BEGIN0("media", "VideoRendererImpl::Initialize", this);
 
@@ -246,7 +246,7 @@ void VideoRendererImpl::Initialize(
 
   // Always post |init_cb_| because |this| could be destroyed if initialization
   // failed.
-  init_cb_ = BindToCurrentLoop(init_cb);
+  init_cb_ = BindToCurrentLoop(std::move(init_cb));
 
   client_ = client;
   wall_clock_time_cb_ = wall_clock_time_cb;
@@ -400,8 +400,9 @@ void VideoRendererImpl::OnBufferingStateChange(BufferingState buffering_state) {
                                               : DECODER_UNDERFLOW;
   }
 
-  media_log_->AddEvent(media_log_->CreateBufferingStateChangedEvent(
-      "video_buffering_state", buffering_state, reason));
+  media_log_->AddEvent<MediaLogEvent::kBufferingStateChanged>(
+      SerializableBufferingState<SerializableBufferingStateType::kVideo>{
+          buffering_state, reason});
 
   client_->OnBufferingStateChange(buffering_state, reason);
 }
@@ -522,18 +523,25 @@ void VideoRendererImpl::FrameReady(VideoDecoderStream::Status status,
   if (is_eos) {
     DCHECK(!received_end_of_stream_);
     received_end_of_stream_ = true;
+    fps_estimator_.Reset();
+    ReportFrameRateIfNeeded_Locked();
   } else if ((low_delay_ || cant_read) && is_before_start_time) {
     // Don't accumulate frames that are earlier than the start time if we
     // won't have a chance for a better frame, otherwise we could declare
     // HAVE_ENOUGH_DATA and start playback prematurely.
+    fps_estimator_.Reset();
+    ReportFrameRateIfNeeded_Locked();
     AttemptRead_Locked();
     return;
   } else {
     // If the sink hasn't been started, we still have time to release less
     // than ideal frames prior to startup.  We don't use IsBeforeStartTime()
     // here since it's based on a duration estimate and we can be exact here.
-    if (!sink_started_ && frame->timestamp() <= start_timestamp_)
+    if (!sink_started_ && frame->timestamp() <= start_timestamp_) {
       algorithm_->Reset();
+      fps_estimator_.Reset();
+      ReportFrameRateIfNeeded_Locked();
+    }
 
     // Provide frame duration information so that even if we only have one frame
     // in the queue we can properly estimate duration. This allows the call to
@@ -547,6 +555,16 @@ void VideoRendererImpl::FrameReady(VideoDecoderStream::Status status,
 
     AddReadyFrame_Locked(std::move(frame));
   }
+
+  // Update average frame duration.
+  base::TimeDelta frame_duration = algorithm_->average_frame_duration();
+  if (frame_duration != kNoTimestamp &&
+      frame_duration != base::TimeDelta::FromSeconds(0)) {
+    fps_estimator_.AddSample(frame_duration);
+  } else {
+    fps_estimator_.Reset();
+  }
+  ReportFrameRateIfNeeded_Locked();
 
   // Attempt to purge bad frames in case of underflow or backgrounding.
   RemoveFramesForUnderflowOrBackgroundRendering();
@@ -724,6 +742,25 @@ void VideoRendererImpl::UpdateStats_Locked(bool force_update) {
   stats_.video_frames_dropped = 0;
   stats_.video_frames_decoded_power_efficient = 0;
   stats_.video_memory_usage = memory_usage;
+}
+
+void VideoRendererImpl::ReportFrameRateIfNeeded_Locked() {
+  DCHECK(task_runner_->BelongsToCurrentThread());
+  lock_.AssertAcquired();
+
+  base::Optional<int> current_fps = fps_estimator_.ComputeFPS();
+  if (last_reported_fps_ && current_fps &&
+      *last_reported_fps_ == *current_fps) {
+    // Reported an FPS before, and it hasn't changed.
+    return;
+  } else if (!last_reported_fps_ && !current_fps) {
+    // Did not report an FPS before, and we still don't have one
+    return;
+  }
+
+  // FPS changed, possibly to unknown.
+  last_reported_fps_ = current_fps;
+  client_->OnVideoFrameRateChange(current_fps);
 }
 
 bool VideoRendererImpl::HaveReachedBufferingCap() const {

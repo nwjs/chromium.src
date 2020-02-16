@@ -12,6 +12,7 @@
 #import "ios/chrome/app/main_controller.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_remove_mask.h"
+#import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
 #include "ios/web/public/security/certificate_policy_cache.h"
 #include "ios/web/public/thread/web_task_traits.h"
@@ -27,12 +28,12 @@ using base::test::ios::WaitUntilConditionOrTimeout;
 namespace {
 
 bool ClearBrowsingData(bool off_the_record, BrowsingDataRemoveMask mask) {
-  ios::ChromeBrowserState* browser_state =
+  ChromeBrowserState* browser_state =
       off_the_record ? chrome_test_util::GetCurrentIncognitoBrowserState()
                      : chrome_test_util::GetOriginalBrowserState();
 
   __block bool did_complete = false;
-  [chrome_test_util::GetMainController().sceneController
+  [chrome_test_util::GetMainController()
       removeBrowsingDataForBrowserState:browser_state
                              timePeriod:browsing_data::TimePeriod::ALL_TIME
                              removeMask:mask
@@ -80,9 +81,9 @@ bool ClearAllWebStateBrowsingData() {
 }
 
 bool ClearCertificatePolicyCache(bool off_the_record) {
-  ios::ChromeBrowserState* browser_state =
-      off_the_record ? GetCurrentIncognitoBrowserState()
-                     : GetOriginalBrowserState();
+  ChromeBrowserState* browser_state = off_the_record
+                                          ? GetCurrentIncognitoBrowserState()
+                                          : GetOriginalBrowserState();
   auto cache = web::BrowserState::GetCertificatePolicyCache(browser_state);
   __block BOOL policies_cleared = NO;
   base::PostTask(FROM_HERE, {web::WebThread::IO}, base::BindOnce(^{

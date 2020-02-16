@@ -1,5 +1,5 @@
 This is a testharness.js-based test.
-Found 3721 tests; 3680 PASS, 41 FAIL, 0 TIMEOUT, 0 NOTRUN.
+Found 3729 tests; 3691 PASS, 38 FAIL, 0 TIMEOUT, 0 NOTRUN.
 PASS idl_test setup
 PASS idl_test validation
 PASS Partial interface Document: original interface defined
@@ -274,7 +274,6 @@ PASS HTMLElement interface: attribute onmousemove
 PASS HTMLElement interface: attribute onmouseout
 PASS HTMLElement interface: attribute onmouseover
 PASS HTMLElement interface: attribute onmouseup
-PASS HTMLElement interface: attribute onwheel
 PASS HTMLElement interface: attribute onpause
 PASS HTMLElement interface: attribute onplay
 PASS HTMLElement interface: attribute onplaying
@@ -295,6 +294,11 @@ PASS HTMLElement interface: attribute ontimeupdate
 PASS HTMLElement interface: attribute ontoggle
 PASS HTMLElement interface: attribute onvolumechange
 PASS HTMLElement interface: attribute onwaiting
+PASS HTMLElement interface: attribute onwebkitanimationend
+PASS HTMLElement interface: attribute onwebkitanimationiteration
+PASS HTMLElement interface: attribute onwebkitanimationstart
+PASS HTMLElement interface: attribute onwebkittransitionend
+PASS HTMLElement interface: attribute onwheel
 PASS HTMLElement interface: attribute oncopy
 PASS HTMLElement interface: attribute oncut
 PASS HTMLElement interface: attribute onpaste
@@ -365,7 +369,6 @@ PASS HTMLElement interface: document.createElement("noscript") must inherit prop
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onmouseout" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onmouseover" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onmouseup" with the proper type
-PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwheel" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onpause" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onplay" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onplaying" with the proper type
@@ -386,6 +389,11 @@ PASS HTMLElement interface: document.createElement("noscript") must inherit prop
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "ontoggle" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onvolumechange" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwaiting" with the proper type
+PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwebkitanimationend" with the proper type
+PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwebkitanimationiteration" with the proper type
+PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwebkitanimationstart" with the proper type
+PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwebkittransitionend" with the proper type
+PASS HTMLElement interface: document.createElement("noscript") must inherit property "onwheel" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "oncopy" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "oncut" with the proper type
 PASS HTMLElement interface: document.createElement("noscript") must inherit property "onpaste" with the proper type
@@ -1062,7 +1070,7 @@ PASS HTMLVideoElement interface: document.createElement("video") must inherit pr
 PASS HTMLVideoElement interface: document.createElement("video") must inherit property "playsInline" with the proper type
 PASS HTMLMediaElement interface: document.createElement("video") must inherit property "error" with the proper type
 PASS HTMLMediaElement interface: document.createElement("video") must inherit property "src" with the proper type
-FAIL HTMLMediaElement interface: document.createElement("video") must inherit property "srcObject" with the proper type Unrecognized type MediaStream
+PASS HTMLMediaElement interface: document.createElement("video") must inherit property "srcObject" with the proper type
 PASS HTMLMediaElement interface: document.createElement("video") must inherit property "currentSrc" with the proper type
 PASS HTMLMediaElement interface: document.createElement("video") must inherit property "crossOrigin" with the proper type
 PASS HTMLMediaElement interface: document.createElement("video") must inherit property "NETWORK_EMPTY" with the proper type
@@ -1122,7 +1130,7 @@ PASS HTMLAudioElement must be primary interface of document.createElement("audio
 PASS Stringification of document.createElement("audio")
 PASS HTMLMediaElement interface: document.createElement("audio") must inherit property "error" with the proper type
 PASS HTMLMediaElement interface: document.createElement("audio") must inherit property "src" with the proper type
-FAIL HTMLMediaElement interface: document.createElement("audio") must inherit property "srcObject" with the proper type Unrecognized type MediaStream
+PASS HTMLMediaElement interface: document.createElement("audio") must inherit property "srcObject" with the proper type
 PASS HTMLMediaElement interface: document.createElement("audio") must inherit property "currentSrc" with the proper type
 PASS HTMLMediaElement interface: document.createElement("audio") must inherit property "crossOrigin" with the proper type
 PASS HTMLMediaElement interface: document.createElement("audio") must inherit property "NETWORK_EMPTY" with the proper type
@@ -1170,7 +1178,7 @@ PASS HTMLAudioElement must be primary interface of new Audio()
 PASS Stringification of new Audio()
 PASS HTMLMediaElement interface: new Audio() must inherit property "error" with the proper type
 PASS HTMLMediaElement interface: new Audio() must inherit property "src" with the proper type
-FAIL HTMLMediaElement interface: new Audio() must inherit property "srcObject" with the proper type Unrecognized type MediaStream
+PASS HTMLMediaElement interface: new Audio() must inherit property "srcObject" with the proper type
 PASS HTMLMediaElement interface: new Audio() must inherit property "currentSrc" with the proper type
 PASS HTMLMediaElement interface: new Audio() must inherit property "crossOrigin" with the proper type
 PASS HTMLMediaElement interface: new Audio() must inherit property "NETWORK_EMPTY" with the proper type

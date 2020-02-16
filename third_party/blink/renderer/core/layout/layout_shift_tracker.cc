@@ -6,7 +6,7 @@
 
 #include "cc/layers/heads_up_display_layer.h"
 #include "cc/layers/picture_layer.h"
-#include "third_party/blink/public/platform/web_pointer_event.h"
+#include "third_party/blink/public/common/input/web_pointer_event.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
@@ -25,6 +25,14 @@
 #include "ui/gfx/geometry/rect.h"
 
 namespace blink {
+
+using ReattachHook = LayoutShiftTracker::ReattachHook;
+
+static ReattachHook& GetReattachHook() {
+  DEFINE_STATIC_LOCAL(Persistent<ReattachHook>, hook,
+                      (MakeGarbageCollected<ReattachHook>()));
+  return *hook;
+}
 
 static constexpr base::TimeDelta kTimerDelay =
     base::TimeDelta::FromMilliseconds(500);
@@ -378,13 +386,15 @@ void LayoutShiftTracker::UpdateInputTimestamp(base::TimeTicks timestamp) {
   }
 }
 
-void LayoutShiftTracker::NotifyScroll(ScrollType scroll_type,
-                                      ScrollOffset delta) {
+void LayoutShiftTracker::NotifyScroll(
+    mojom::blink::ScrollIntoViewParams::Type scroll_type,
+    ScrollOffset delta) {
   frame_scroll_delta_ += delta;
 
   // Only set observed_input_or_scroll_ for user-initiated scrolls, and not
   // other scrolls such as hash fragment navigations.
-  if (scroll_type == kUserScroll || scroll_type == kCompositorScroll)
+  if (scroll_type == mojom::blink::ScrollIntoViewParams::Type::kUser ||
+      scroll_type == mojom::blink::ScrollIntoViewParams::Type::kCompositor)
     observed_input_or_scroll_ = true;
 }
 
@@ -418,15 +428,8 @@ std::unique_ptr<TracedValue> LayoutShiftTracker::PerFrameTraceData(
 
 void LayoutShiftTracker::SetLayoutShiftRects(const Vector<IntRect>& int_rects) {
   // Store the layout shift rects in the HUD layer.
-  GraphicsLayer* root_graphics_layer =
-      frame_view_->GetLayoutView()->Compositor()->RootGraphicsLayer();
-  if (!root_graphics_layer)
-    return;
-
-  cc::Layer* cc_layer = root_graphics_layer->CcLayer();
-  if (!cc_layer)
-    return;
-  if (cc_layer->layer_tree_host()) {
+  auto* cc_layer = frame_view_->RootCcLayer();
+  if (cc_layer && cc_layer->layer_tree_host()) {
     if (!cc_layer->layer_tree_host()->GetDebugState().show_layout_shift_regions)
       return;
     if (cc_layer->layer_tree_host()->hud_layer()) {
@@ -441,6 +444,63 @@ void LayoutShiftTracker::SetLayoutShiftRects(const Vector<IntRect>& int_rects) {
       cc_layer->layer_tree_host()->hud_layer()->SetNeedsPushProperties();
     }
   }
+}
+
+ReattachHook::Scope::Scope(const Node& node) : active_(node.GetLayoutObject()) {
+  if (active_) {
+    auto& hook = GetReattachHook();
+    outer_ = hook.scope_;
+    hook.scope_ = this;
+  }
+}
+
+ReattachHook::Scope::~Scope() {
+  if (active_) {
+    auto& hook = GetReattachHook();
+    hook.scope_ = outer_;
+    if (!outer_)
+      hook.visual_rects_.clear();
+  }
+}
+
+void ReattachHook::NotifyDetach(const Node& node) {
+  auto& hook = GetReattachHook();
+  if (!hook.scope_)
+    return;
+  auto* layout_object = node.GetLayoutObject();
+  if (!layout_object)
+    return;
+  auto& map = hook.visual_rects_;
+  auto& fragment = layout_object->GetMutableForPainting().FirstFragment();
+
+  // Save the visual rect for restoration on future reattachment.
+  IntRect visual_rect = fragment.VisualRect();
+  if (visual_rect.IsEmpty())
+    return;
+  map.Set(&node, visual_rect);
+}
+
+void ReattachHook::NotifyAttach(const Node& node) {
+  auto& hook = GetReattachHook();
+  if (!hook.scope_)
+    return;
+  auto* layout_object = node.GetLayoutObject();
+  if (!layout_object)
+    return;
+  auto& map = hook.visual_rects_;
+  auto& fragment = layout_object->GetMutableForPainting().FirstFragment();
+
+  // Restore the visual rect that was saved during detach. Note: this does not
+  // affect paint invalidation; we will fully invalidate the new layout object.
+  auto iter = map.find(&node);
+  if (iter == map.end())
+    return;
+  IntRect visual_rect = iter->value;
+  fragment.SetVisualRect(visual_rect);
+}
+
+void ReattachHook::Trace(Visitor* visitor) {
+  visitor->Trace(visual_rects_);
 }
 
 }  // namespace blink

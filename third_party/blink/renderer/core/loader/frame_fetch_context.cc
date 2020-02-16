@@ -201,7 +201,7 @@ struct FrameFetchContext::FrozenState final : GarbageCollected<FrozenState> {
   FrozenState(const KURL& url,
               scoped_refptr<const SecurityOrigin> parent_security_origin,
               const ContentSecurityPolicy* content_security_policy,
-              KURL site_for_cookies,
+              net::SiteForCookies site_for_cookies,
               scoped_refptr<const SecurityOrigin> top_frame_origin,
               const ClientHintsPreferences& client_hints_preferences,
               float device_pixel_ratio,
@@ -211,7 +211,7 @@ struct FrameFetchContext::FrozenState final : GarbageCollected<FrozenState> {
       : url(url),
         parent_security_origin(std::move(parent_security_origin)),
         content_security_policy(content_security_policy),
-        site_for_cookies(site_for_cookies),
+        site_for_cookies(std::move(site_for_cookies)),
         top_frame_origin(std::move(top_frame_origin)),
         client_hints_preferences(client_hints_preferences),
         device_pixel_ratio(device_pixel_ratio),
@@ -222,7 +222,7 @@ struct FrameFetchContext::FrozenState final : GarbageCollected<FrozenState> {
   const KURL url;
   const scoped_refptr<const SecurityOrigin> parent_security_origin;
   const Member<const ContentSecurityPolicy> content_security_policy;
-  const KURL site_for_cookies;
+  const net::SiteForCookies site_for_cookies;
   const scoped_refptr<const SecurityOrigin> top_frame_origin;
   const ClientHintsPreferences client_hints_preferences;
   const float device_pixel_ratio;
@@ -305,7 +305,7 @@ FrameFetchContext::FrameFetchContext(
           GetNetworkStateNotifier().SaveDataEnabled() &&
           !GetFrame()->GetSettings()->GetDataSaverHoldbackWebApi()) {}
 
-KURL FrameFetchContext::GetSiteForCookies() const {
+net::SiteForCookies FrameFetchContext::GetSiteForCookies() const {
   if (GetResourceFetcherProperties().IsDetached())
     return frozen_state_->site_for_cookies;
   return frame_or_imported_document_->GetDocument().SiteForCookies();
@@ -495,7 +495,7 @@ void FrameFetchContext::ModifyRequestForCSP(ResourceRequest& resource_request) {
       resource_request,
       &GetResourceFetcherProperties().GetFetchClientSettingsObject(),
       &frame_or_imported_document_->GetDocument(),
-      network::mojom::RequestContextFrameType::kNone);
+      mojom::RequestContextFrameType::kNone);
 }
 
 void FrameFetchContext::AddClientHintsIfNecessary(
@@ -518,8 +518,11 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   // policy is used to enable hints for all subresources, based on the policy of
   // the requesting document, and the origin of the resource.
   const FeaturePolicy* policy = nullptr;
-  if (frame_or_imported_document_)
-    policy = frame_or_imported_document_->GetDocument().GetFeaturePolicy();
+  if (frame_or_imported_document_) {
+    policy = frame_or_imported_document_->GetDocument()
+                 .GetSecurityContext()
+                 .GetFeaturePolicy();
+  }
   url::Origin resource_origin =
       SecurityOrigin::Create(request.Url())->ToUrlOrigin();
 
@@ -532,9 +535,9 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   blink::UserAgentMetadata ua = GetUserAgentMetadata();
   bool use_full_ua =
       (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() ||
-       (policy &&
-        policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintUA, resource_origin))) &&
+       (policy && policy->IsFeatureEnabledForOrigin(
+                      mojom::blink::FeaturePolicyFeature::kClientHintUA,
+                      resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kUA, hints_preferences,
                            enabled_hints);
   if (RuntimeEnabledFeatures::UserAgentClientHintEnabled()) {
@@ -570,16 +573,11 @@ void FrameFetchContext::AddClientHintsIfNecessary(
                                                                 &enabled_hints);
   }
 
-  // TODO(iclelland): If feature policy control over client hints ships, remove
-  // the runtime flag check for the next four hints. Currently, when the
-  // kAllowClientHintsToThirdParty feature is enabled, but the runtime flag is
-  // *not* set, the behaviour is that these four hints will be sent on all
-  // eligible requests. Feature policy control is intended to change that
-  // default.
-
-  if ((!RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() ||
+  // The next 4 hints should be enabled if we're allowing legacy hints to third
+  // parties, or if FeaturePolicy delegation says they are allowed.
+  if ((base::FeatureList::IsEnabled(kAllowClientHintsToThirdParty) ||
        policy->IsFeatureEnabledForOrigin(
-           mojom::FeaturePolicyFeature::kClientHintDeviceMemory,
+           mojom::blink::FeaturePolicyFeature::kClientHintDeviceMemory,
            resource_origin)) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kDeviceMemory,
                            hints_preferences, enabled_hints)) {
@@ -590,29 +588,18 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   }
 
   float dpr = GetDevicePixelRatio();
-  if ((!RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() ||
+  if ((base::FeatureList::IsEnabled(kAllowClientHintsToThirdParty) ||
        policy->IsFeatureEnabledForOrigin(
-           mojom::FeaturePolicyFeature::kClientHintDPR, resource_origin)) &&
+           mojom::blink::FeaturePolicyFeature::kClientHintDPR,
+           resource_origin)) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kDpr, hints_preferences,
                            enabled_hints)) {
     request.SetHttpHeaderField("DPR", AtomicString(String::Number(dpr)));
   }
 
-  if ((!RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() ||
+  if ((base::FeatureList::IsEnabled(kAllowClientHintsToThirdParty) ||
        policy->IsFeatureEnabledForOrigin(
-           mojom::FeaturePolicyFeature::kClientHintWidth, resource_origin)) &&
-      ShouldSendClientHint(mojom::WebClientHintsType::kResourceWidth,
-                           hints_preferences, enabled_hints)) {
-    if (resource_width.is_set) {
-      float physical_width = resource_width.width * dpr;
-      request.SetHttpHeaderField(
-          "Width", AtomicString(String::Number(ceil(physical_width))));
-    }
-  }
-
-  if ((!RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() ||
-       policy->IsFeatureEnabledForOrigin(
-           mojom::FeaturePolicyFeature::kClientHintViewportWidth,
+           mojom::blink::FeaturePolicyFeature::kClientHintViewportWidth,
            resource_origin)) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kViewportWidth,
                            hints_preferences, enabled_hints) &&
@@ -620,6 +607,19 @@ void FrameFetchContext::AddClientHintsIfNecessary(
     request.SetHttpHeaderField(
         "Viewport-Width",
         AtomicString(String::Number(GetFrame()->View()->ViewportWidth())));
+  }
+
+  if ((base::FeatureList::IsEnabled(kAllowClientHintsToThirdParty) ||
+       policy->IsFeatureEnabledForOrigin(
+           mojom::blink::FeaturePolicyFeature::kClientHintWidth,
+           resource_origin)) &&
+      ShouldSendClientHint(mojom::WebClientHintsType::kResourceWidth,
+                           hints_preferences, enabled_hints)) {
+    if (resource_width.is_set) {
+      float physical_width = resource_width.width * dpr;
+      request.SetHttpHeaderField(
+          "Width", AtomicString(String::Number(ceil(physical_width))));
+    }
   }
 
   // TODO(iclelland): If feature policy control over client hints ships, remove
@@ -641,7 +641,8 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintRTT, resource_origin))) &&
+            mojom::blink::FeaturePolicyFeature::kClientHintRTT,
+            resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kRtt, hints_preferences,
                            enabled_hints)) {
     base::Optional<base::TimeDelta> http_rtt =
@@ -661,7 +662,7 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintDownlink,
+            mojom::blink::FeaturePolicyFeature::kClientHintDownlink,
             resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kDownlink,
                            hints_preferences, enabled_hints)) {
@@ -682,7 +683,8 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintECT, resource_origin))) &&
+            mojom::blink::FeaturePolicyFeature::kClientHintECT,
+            resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kEct, hints_preferences,
                            enabled_hints)) {
     base::Optional<WebEffectiveConnectionType> holdback_ect =
@@ -700,7 +702,8 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintLang, resource_origin))) &&
+            mojom::blink::FeaturePolicyFeature::kClientHintLang,
+            resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kLang, hints_preferences,
                            enabled_hints)) {
     request.SetHttpHeaderField(
@@ -715,7 +718,7 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintUAArch,
+            mojom::blink::FeaturePolicyFeature::kClientHintUAArch,
             resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kUAArch,
                            hints_preferences, enabled_hints)) {
@@ -728,7 +731,7 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintUAPlatform,
+            mojom::blink::FeaturePolicyFeature::kClientHintUAPlatform,
             resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kUAPlatform,
                            hints_preferences, enabled_hints)) {
@@ -741,7 +744,7 @@ void FrameFetchContext::AddClientHintsIfNecessary(
   if ((can_always_send_hints ||
        (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
         policy->IsFeatureEnabledForOrigin(
-            mojom::FeaturePolicyFeature::kClientHintUAModel,
+            mojom::blink::FeaturePolicyFeature::kClientHintUAModel,
             resource_origin))) &&
       ShouldSendClientHint(mojom::WebClientHintsType::kUAModel,
                            hints_preferences, enabled_hints)) {
@@ -749,6 +752,19 @@ void FrameFetchContext::AddClientHintsIfNecessary(
         blink::kClientHintsHeaderMapping[static_cast<size_t>(
             mojom::WebClientHintsType::kUAModel)],
         AddQuotes(ua.model));
+  }
+
+  if ((can_always_send_hints ||
+       (RuntimeEnabledFeatures::FeaturePolicyForClientHintsEnabled() &&
+        policy->IsFeatureEnabledForOrigin(
+            mojom::blink::FeaturePolicyFeature::kClientHintUAMobile,
+            resource_origin))) &&
+      ShouldSendClientHint(mojom::WebClientHintsType::kUAMobile,
+                           hints_preferences, enabled_hints)) {
+    request.SetHttpHeaderField(
+        blink::kClientHintsHeaderMapping[static_cast<size_t>(
+            mojom::WebClientHintsType::kUAMobile)],
+        ua.mobile ? "?1" : "?0");
   }
 }
 
@@ -772,7 +788,7 @@ void FrameFetchContext::SetFirstPartyCookie(ResourceRequest& request) {
   // Set the first party for cookies url if it has not been set yet (new
   // requests). This value will be updated during redirects, consistent with
   // https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00#section-2.1.1?
-  if (request.SiteForCookies().IsNull())
+  if (!request.SiteForCookiesSet())
     request.SetSiteForCookies(GetSiteForCookies());
 }
 

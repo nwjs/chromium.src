@@ -13,19 +13,21 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "components/autofill_assistant/browser/client.h"
-#include "components/autofill_assistant/browser/client_memory.h"
 #include "components/autofill_assistant/browser/client_settings.h"
 #include "components/autofill_assistant/browser/element_area.h"
+#include "components/autofill_assistant/browser/event_handler.h"
 #include "components/autofill_assistant/browser/metrics.h"
 #include "components/autofill_assistant/browser/script.h"
 #include "components/autofill_assistant/browser/script_executor_delegate.h"
 #include "components/autofill_assistant/browser/script_tracker.h"
 #include "components/autofill_assistant/browser/service.h"
+#include "components/autofill_assistant/browser/service.pb.h"
 #include "components/autofill_assistant/browser/state.h"
 #include "components/autofill_assistant/browser/trigger_context.h"
 #include "components/autofill_assistant/browser/ui_delegate.h"
 #include "components/autofill_assistant/browser/user_action.h"
 #include "components/autofill_assistant/browser/user_data.h"
+#include "components/autofill_assistant/browser/user_model.h"
 #include "components/autofill_assistant/browser/web/web_controller.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -46,9 +48,10 @@ class ControllerTest;
 // display, execution and so on. The instance of this object self deletes when
 // the web contents is being destroyed.
 class Controller : public ScriptExecutorDelegate,
-                   public UiDelegate,
+                   public virtual UiDelegate,
                    public ScriptTracker::Listener,
-                   private content::WebContentsObserver {
+                   private content::WebContentsObserver,
+                   public UserModel::Observer {
  public:
   // |web_contents|, |client| and |tick_clock| must remain valid for the
   // lifetime of the instance. Controller will take ownership of |service| if
@@ -97,7 +100,6 @@ class Controller : public ScriptExecutorDelegate,
   const GURL& GetDeeplinkURL() override;
   Service* GetService() override;
   WebController* GetWebController() override;
-  ClientMemory* GetClientMemory() override;
   const TriggerContext* GetTriggerContext() override;
   autofill::PersonalDataManager* GetPersonalDataManager() override;
   WebsiteLoginFetcher* GetWebsiteLoginFetcher() override;
@@ -119,6 +121,8 @@ class Controller : public ScriptExecutorDelegate,
       std::unique_ptr<std::vector<UserAction>> user_actions) override;
   void SetViewportMode(ViewportMode mode) override;
   void SetPeekMode(ConfigureBottomSheetProto::PeekMode peek_mode) override;
+  void ExpandBottomSheet() override;
+  void CollapseBottomSheet() override;
   bool SetForm(
       std::unique_ptr<FormProto> form,
       base::RepeatingCallback<void(const FormProto::Result*)> changed_callback,
@@ -133,7 +137,9 @@ class Controller : public ScriptExecutorDelegate,
   void AddListener(ScriptExecutorDelegate::Listener* listener) override;
   void RemoveListener(ScriptExecutorDelegate::Listener* listener) override;
 
-  void EnterState(AutofillAssistantState state) override;
+  void SetExpandSheetForPromptAction(bool expand) override;
+
+  bool EnterState(AutofillAssistantState state) override;
   void SetCollectUserDataOptions(CollectUserDataOptions* options) override;
   void WriteUserData(
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
@@ -165,20 +171,15 @@ class Controller : public ScriptExecutorDelegate,
   void SetTermsAndConditions(
       TermsAndConditionsState terms_and_conditions) override;
   void SetLoginOption(std::string identifier) override;
-  void OnTermsAndConditionsLinkClicked(int link) override;
+  void OnTextLinkClicked(int link) override;
   void OnFormActionLinkClicked(int link) override;
-  void SetDateTimeRangeStart(int year,
-                             int month,
-                             int day,
-                             int hour,
-                             int minute,
-                             int second) override;
-  void SetDateTimeRangeEnd(int year,
-                           int month,
-                           int day,
-                           int hour,
-                           int minute,
-                           int second) override;
+  void SetDateTimeRangeStartDate(
+      const base::Optional<DateProto>& date) override;
+  void SetDateTimeRangeStartTimeSlot(
+      const base::Optional<int>& timeslot_index) override;
+  void SetDateTimeRangeEndDate(const base::Optional<DateProto>& date) override;
+  void SetDateTimeRangeEndTimeSlot(
+      const base::Optional<int>& timeslot_index) override;
   void SetAdditionalValue(const std::string& client_memory_key,
                           const std::string& value) override;
   void GetTouchableArea(std::vector<RectF>* area) const override;
@@ -199,6 +200,11 @@ class Controller : public ScriptExecutorDelegate,
                          bool selected) override;
   void AddObserver(ControllerObserver* observer) override;
   void RemoveObserver(const ControllerObserver* observer) override;
+  void DispatchEvent(const EventHandler::EventKey& key,
+                     const ValueProto& value) override;
+  UserModel* GetUserModel() override;
+  EventHandler* GetEventHandler() override;
+  bool ShouldPromptActionExpandSheet() const override;
 
  private:
   friend ControllerTest;
@@ -272,12 +278,22 @@ class Controller : public ScriptExecutorDelegate,
   void OnWebContentsFocused(
       content::RenderWidgetHost* render_widget_host) override;
 
+  // Overrides autofill_assistant::UserModel::Observer:
+  void OnValueChanged(const std::string& identifier,
+                      const ValueProto& new_value) override;
+
   void OnTouchableAreaChanged(const RectF& visual_viewport,
                               const std::vector<RectF>& touchable_areas,
                               const std::vector<RectF>& restricted_areas);
 
   void SetOverlayColors(std::unique_ptr<OverlayColors> colors);
   void ReportNavigationStateChanged();
+  void SetProfile(const std::string& key,
+                  UserData::FieldChange field_change,
+                  std::unique_ptr<autofill::AutofillProfile> profile);
+
+  // Enter step while ignoring the return value.
+  void EnterStateSilent(AutofillAssistantState state);
 
   // Clear out visible state and enter the stopped state.
   void EnterStoppedState();
@@ -296,9 +312,6 @@ class Controller : public ScriptExecutorDelegate,
   // Lazily instantiate in GetService().
   std::unique_ptr<Service> service_;
   std::unique_ptr<TriggerContext> trigger_context_;
-
-  // Lazily instantiate in GetClientMemory().
-  std::unique_ptr<ClientMemory> memory_;
 
   AutofillAssistantState state_ = AutofillAssistantState::INACTIVE;
 
@@ -360,6 +373,7 @@ class Controller : public ScriptExecutorDelegate,
   // Current peek mode.
   ConfigureBottomSheetProto::PeekMode peek_mode_ =
       ConfigureBottomSheetProto::HANDLE;
+  bool auto_change_peek_mode_ = false;
 
   std::unique_ptr<OverlayColors> overlay_colors_;
 
@@ -375,6 +389,10 @@ class Controller : public ScriptExecutorDelegate,
 
   // Value for ScriptExecutorDelegate::IsNavigatingToNewDocument()
   bool navigating_to_new_document_ = false;
+
+  // If this is set, the controller was still navigating during startup. Wait
+  // for DidFinishNavigation and execute the callback.
+  base::OnceClosure start_after_navigation_;
 
   // Value for ScriptExecutorDelegate::HasNavigationError()
   bool navigation_error_ = false;
@@ -415,6 +433,11 @@ class Controller : public ScriptExecutorDelegate,
   // until the browser has left the |script_domain_| for which the decision was
   // taken.
   base::Optional<Metrics::DropOutReason> delayed_shutdown_reason_;
+
+  EventHandler event_handler_;
+  UserModel user_model_;
+
+  bool expand_sheet_for_prompt_action_ = true;
 
   base::WeakPtrFactory<Controller> weak_ptr_factory_{this};
 

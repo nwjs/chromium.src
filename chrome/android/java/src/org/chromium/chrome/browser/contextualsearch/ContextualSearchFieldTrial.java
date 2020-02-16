@@ -11,8 +11,8 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CommandLine;
 import org.chromium.base.SysUtils;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.variations.VariationsAssociatedData;
 
 import java.lang.annotation.Retention;
@@ -24,10 +24,6 @@ import java.lang.annotation.RetentionPolicy;
 public class ContextualSearchFieldTrial {
     //==========================================================================================
     // Public settings synchronized with src/components/contextual_search/core/browser/public.cc
-    //==========================================================================================
-    public static final String LONGPRESS_RESOLVE_PARAM_NAME = "longpress_resolve_variation";
-    public static final String LONGPRESS_RESOLVE_PRESERVE_TAP = "3";
-
     //==========================================================================================
     private static final String FIELD_TRIAL_NAME = "ContextualSearch";
     private static final String DISABLED_PARAM = "disabled";
@@ -71,6 +67,7 @@ public class ContextualSearchFieldTrial {
      */
     @interface ContextualSearchSwitch {
         /**
+         * @deprecated
          * Whether all translate code is disabled (master switch, needed to disable all translate
          * code for Contextual Search in case of an emergency).
          */

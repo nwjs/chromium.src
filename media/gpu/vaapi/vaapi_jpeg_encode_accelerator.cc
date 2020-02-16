@@ -23,7 +23,7 @@
 #include "gpu/ipc/common/gpu_memory_buffer_support.h"
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/video_frame.h"
-#include "media/gpu/linux/platform_video_frame_utils.h"
+#include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/macros.h"
 #include "media/gpu/vaapi/vaapi_jpeg_encoder.h"
 #include "media/parsers/jpeg_parser.h"
@@ -181,7 +181,7 @@ void VaapiJpegEncodeAccelerator::Encoder::EncodeWithDmaBufTask(
   auto blit_surface =
       base::MakeRefCounted<VASurface>(va_surface_id_, input_size, va_format,
                                       base::DoNothing() /* release_cb */);
-  if (!vpp_vaapi_wrapper_->BlitSurface(input_surface, blit_surface)) {
+  if (!vpp_vaapi_wrapper_->BlitSurface(*input_surface, *blit_surface)) {
     VLOGF(1) << "Failed to blit surfaces";
     notify_error_cb_.Run(task_id, PLATFORM_FAILURE);
     return;

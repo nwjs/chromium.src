@@ -41,6 +41,7 @@ enum Event {
   kEndOfTest,        // Sentinel value indicating the end of a test
   kExpandedChanged,  // Web
   kFocus,
+  kFocusAfterMenuClose,
   kFocusContext,  // Contextual focus event that must delay the next focus event
   kHide,          // Remove: http://crbug.com/392502
   kHitTestResult,
@@ -67,9 +68,9 @@ enum Event {
   kMouseMoved,
   kMousePressed,
   kMouseReleased,
-  kRowCollapsed,             // Web / Mac
-  kRowCountChanged,          // Web / Mac
-  kRowExpanded,              // Web / Mac
+  kRowCollapsed,
+  kRowCountChanged,
+  kRowExpanded,
   kScrollPositionChanged,    // Web
   kScrolledToAnchor,         // Web
   kSelectedChildrenChanged,  // Web
@@ -129,7 +130,6 @@ enum Role {
   kComboBoxMenuButton,
   kComplementary,
   kComment,
-  kCommentSection,
   kContentDeletion,
   kContentInsertion,
   kContentInfo,
@@ -254,14 +254,16 @@ enum Role {
   kNote,
   kPane,
   kParagraph,
+  kPdfActionableHighlight, // PDF specific highlight role.
+  kPluginObject,
   kPopUpButton,
+  kPortal,
   kPre,
   kPresentational,
   kProgressIndicator,
   kRadioButton,
   kRadioGroup,
   kRegion,
-  kRevision,
   kRootWebArea,
   kRow,
   kRowGroup,
@@ -582,7 +584,6 @@ enum IntAttribute {
 
   // Relationships between this element and other elements.
   kActivedescendantId,
-  kDetailsId,
   kErrormessageId,
   kInPageLinkTargetId,
   kMemberOfId,
@@ -653,6 +654,12 @@ enum IntAttribute {
   // is released on the drop target.
   // Note: aria-dropeffect is deprecated in WAI-ARIA 1.1.
   kDropeffect,
+
+  // The DOMNodeID from Blink. Currently only populated when using
+  // the accessibility tree for PDF exporting. Warning, this is totally
+  // unrelated to the accessibility node ID, or the ID attribute for an
+  // HTML element - it's an ID used to uniquely identify nodes in Blink.
+  kDOMNodeId,
 };
 
 enum FloatAttribute {
@@ -732,6 +739,9 @@ enum BoolAttribute {
 
   // Indicates whether this node causes a page break
   kIsPageBreakingObject,
+
+  // True if the node has any ARIA attributes set.
+  kHasAriaAttribute,
 };
 
 enum IntListAttribute {
@@ -744,6 +754,7 @@ enum IntListAttribute {
 
   // Relationships between this element and other elements.
   kControlsIds,
+  kDetailsIds,
   kDescribedbyIds,
   kFlowtoIds,
   kLabelledbyIds,

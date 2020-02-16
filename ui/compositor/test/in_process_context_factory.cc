@@ -27,9 +27,9 @@
 #include "components/viz/service/display/display_scheduler.h"
 #include "components/viz/service/display/output_surface_client.h"
 #include "components/viz/service/display/output_surface_frame.h"
+#include "components/viz/service/display/overlay_processor_stub.h"
 #include "components/viz/service/display_embedder/skia_output_surface_dependency_impl.h"
 #include "components/viz/service/display_embedder/skia_output_surface_impl.h"
-#include "components/viz/service/frame_sinks/direct_layer_tree_frame_sink.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "components/viz/test/test_gpu_service_holder.h"
 #include "gpu/command_buffer/client/context_support.h"
@@ -37,12 +37,11 @@
 #include "gpu/command_buffer/common/context_creation_attribs.h"
 #include "ui/compositor/compositor_switches.h"
 #include "ui/compositor/layer.h"
-#include "ui/compositor/reflector.h"
+#include "ui/compositor/test/direct_layer_tree_frame_sink.h"
 #include "ui/compositor/test/in_process_context_provider.h"
 #include "ui/display/display_switches.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/gfx/switches.h"
-#include "ui/gl/color_space_utils.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/test/gl_surface_test_support.h"
 
@@ -59,15 +58,6 @@ namespace {
 
 // This should not conflict with ids from RenderWidgetHostImpl or WindowService.
 constexpr uint32_t kDefaultClientId = std::numeric_limits<uint32_t>::max() / 2;
-
-class FakeReflector : public Reflector {
- public:
-  FakeReflector() {}
-  ~FakeReflector() override {}
-  void OnMirroringCompositorResized() override {}
-  void AddMirroringLayer(Layer* layer) override {}
-  void RemoveMirroringLayer(Layer* layer) override {}
-};
 
 // An OutputSurface implementation that directly draws and swaps to an actual
 // GL surface.
@@ -98,7 +88,7 @@ class DirectOutputSurface : public viz::OutputSurface {
                bool use_stencil) override {
     context_provider()->ContextGL()->ResizeCHROMIUM(
         size.width(), size.height(), device_scale_factor,
-        gl::ColorSpaceUtils::GetGLColorSpace(color_space), has_alpha);
+        color_space.AsGLColorSpace(), has_alpha);
   }
   void SwapBuffers(viz::OutputSurfaceFrame frame) override {
     DCHECK(context_provider_.get());
@@ -136,6 +126,10 @@ class DirectOutputSurface : public viz::OutputSurface {
   gfx::OverlayTransform GetDisplayTransform() override {
     return gfx::OVERLAY_TRANSFORM_NONE;
   }
+  scoped_refptr<gpu::GpuTaskSchedulerHelper> GetGpuTaskSchedulerHelper()
+      override {
+    return nullptr;
+  }
 
  private:
   void OnSwapBuffersComplete() {
@@ -160,8 +154,7 @@ struct InProcessContextFactory::PerCompositorData {
   std::unique_ptr<viz::BeginFrameSource> begin_frame_source;
   std::unique_ptr<viz::Display> display;
   SkMatrix44 output_color_matrix;
-  gfx::ColorSpace color_space;
-  float sdr_white_level = 0.f;
+  gfx::DisplayColorSpaces display_color_spaces;
   base::TimeTicks vsync_timebase;
   base::TimeDelta vsync_interval;
 };
@@ -198,11 +191,6 @@ InProcessContextFactory::InProcessContextFactory(
 
 InProcessContextFactory::~InProcessContextFactory() {
   DCHECK(per_compositor_data_.empty());
-}
-
-void InProcessContextFactory::SendOnLostSharedContext() {
-  for (auto& observer : observer_list_)
-    observer.OnLostSharedContext();
 }
 
 void InProcessContextFactory::SetUseFastRefreshRateForTests() {
@@ -268,6 +256,8 @@ void InProcessContextFactory::CreateLayerTreeFrameSink(
         std::make_unique<DirectOutputSurface>(context_provider);
   }
 
+  auto overlay_processor = std::make_unique<viz::OverlayProcessorStub>();
+
   std::unique_ptr<viz::BeginFrameSource> begin_frame_source;
   if (disable_vsync_) {
     begin_frame_source = std::make_unique<viz::BackToBackBeginFrameSource>(
@@ -289,8 +279,8 @@ void InProcessContextFactory::CreateLayerTreeFrameSink(
 
   data->display = std::make_unique<viz::Display>(
       &shared_bitmap_manager_, renderer_settings_, compositor->frame_sink_id(),
-      std::move(display_output_surface), std::move(scheduler),
-      compositor->task_runner());
+      std::move(display_output_surface), std::move(overlay_processor),
+      std::move(scheduler), compositor->task_runner());
   frame_sink_manager_->RegisterBeginFrameSource(begin_frame_source.get(),
                                                 compositor->frame_sink_id());
   // Note that we are careful not to destroy a prior |data->begin_frame_source|
@@ -298,29 +288,13 @@ void InProcessContextFactory::CreateLayerTreeFrameSink(
   data->begin_frame_source = std::move(begin_frame_source);
 
   auto* display = per_compositor_data_[compositor.get()]->display.get();
-  auto layer_tree_frame_sink = std::make_unique<viz::DirectLayerTreeFrameSink>(
-      compositor->frame_sink_id(), GetHostFrameSinkManager(),
-      frame_sink_manager_, display, nullptr /* display_client */,
+  auto layer_tree_frame_sink = std::make_unique<DirectLayerTreeFrameSink>(
+      compositor->frame_sink_id(), frame_sink_manager_, display,
       context_provider, shared_worker_context_provider_,
       compositor->task_runner(), &gpu_memory_buffer_manager_);
   compositor->SetLayerTreeFrameSink(std::move(layer_tree_frame_sink));
 
   data->display->Resize(compositor->size());
-}
-
-std::unique_ptr<Reflector> InProcessContextFactory::CreateReflector(
-    Compositor* mirrored_compositor,
-    Layer* mirroring_layer) {
-  return base::WrapUnique(new FakeReflector);
-}
-
-void InProcessContextFactory::RemoveReflector(Reflector* reflector) {
-}
-
-bool InProcessContextFactory::SyncTokensRequiredForDisplayCompositor() {
-  // Display and DirectLayerTreeFrameSink share a GL context, so sync
-  // points aren't needed when passing resources between them.
-  return false;
 }
 
 scoped_refptr<viz::ContextProvider>
@@ -398,7 +372,8 @@ void InProcessContextFactory::DisableSwapUntilResize(
     ui::Compositor* compositor) {
   if (!per_compositor_data_.count(compositor))
     return;
-  per_compositor_data_[compositor]->display->Resize(gfx::Size());
+  per_compositor_data_[compositor]->display->DisableSwapUntilResize(
+      base::OnceClosure());
 }
 
 void InProcessContextFactory::SetDisplayColorMatrix(ui::Compositor* compositor,
@@ -411,16 +386,14 @@ void InProcessContextFactory::SetDisplayColorMatrix(ui::Compositor* compositor,
   iter->second->display->SetColorMatrix(matrix);
 }
 
-void InProcessContextFactory::SetDisplayColorSpace(
+void InProcessContextFactory::SetDisplayColorSpaces(
     ui::Compositor* compositor,
-    const gfx::ColorSpace& output_color_space,
-    float sdr_white_level) {
+    const gfx::DisplayColorSpaces& display_color_spaces) {
   auto iter = per_compositor_data_.find(compositor);
   if (iter == per_compositor_data_.end())
     return;
 
-  iter->second->color_space = output_color_space;
-  iter->second->sdr_white_level = sdr_white_level;
+  iter->second->display_color_spaces = display_color_spaces;
 }
 
 void InProcessContextFactory::SetDisplayVSyncParameters(
@@ -434,14 +407,6 @@ void InProcessContextFactory::SetDisplayVSyncParameters(
   iter->second->vsync_interval = interval;
 }
 
-void InProcessContextFactory::AddObserver(ContextFactoryObserver* observer) {
-  observer_list_.AddObserver(observer);
-}
-
-void InProcessContextFactory::RemoveObserver(ContextFactoryObserver* observer) {
-  observer_list_.RemoveObserver(observer);
-}
-
 SkMatrix44 InProcessContextFactory::GetOutputColorMatrix(
     Compositor* compositor) const {
   auto iter = per_compositor_data_.find(compositor);
@@ -451,19 +416,19 @@ SkMatrix44 InProcessContextFactory::GetOutputColorMatrix(
   return iter->second->output_color_matrix;
 }
 
-gfx::ColorSpace InProcessContextFactory::GetDisplayColorSpace(
+gfx::DisplayColorSpaces InProcessContextFactory::GetDisplayColorSpaces(
     Compositor* compositor) const {
   auto iter = per_compositor_data_.find(compositor);
   if (iter == per_compositor_data_.end())
-    return gfx::ColorSpace();
-  return iter->second->color_space;
+    return gfx::DisplayColorSpaces();
+  return iter->second->display_color_spaces;
 }
 
 float InProcessContextFactory::GetSDRWhiteLevel(Compositor* compositor) const {
   auto iter = per_compositor_data_.find(compositor);
   if (iter == per_compositor_data_.end())
     return 0;
-  return iter->second->sdr_white_level;
+  return iter->second->display_color_spaces.sdr_white_level;
 }
 
 base::TimeTicks InProcessContextFactory::GetDisplayVSyncTimeBase(
@@ -490,8 +455,7 @@ void InProcessContextFactory::ResetDisplayOutputParameters(
     return;
 
   iter->second->output_color_matrix.setIdentity();
-  iter->second->color_space = gfx::ColorSpace::CreateSRGB();
-  iter->second->sdr_white_level = 0;
+  iter->second->display_color_spaces = gfx::DisplayColorSpaces();
   iter->second->vsync_timebase = base::TimeTicks();
   iter->second->vsync_interval = base::TimeDelta();
 }

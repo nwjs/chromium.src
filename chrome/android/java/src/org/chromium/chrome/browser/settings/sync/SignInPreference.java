@@ -26,14 +26,15 @@ import org.chromium.chrome.browser.signin.ProfileDataCache;
 import org.chromium.chrome.browser.signin.SigninManager.SignInAllowedObserver;
 import org.chromium.chrome.browser.signin.SigninPromoController;
 import org.chromium.chrome.browser.signin.SigninPromoUtil;
+import org.chromium.chrome.browser.signin.SigninUtils;
 import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.chrome.browser.sync.ProfileSyncService.SyncStateChangedListener;
-import org.chromium.chrome.browser.util.ViewUtils;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.AndroidSyncSettings;
+import org.chromium.ui.base.ViewUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -76,7 +77,7 @@ public class SignInPreference
         mProfileDataCache = new ProfileDataCache(context, imageSize);
 
         setOnPreferenceClickListener(preference
-                -> SigninPromoUtil.startSigninActivityIfAllowed(
+                -> SigninUtils.startSigninActivityIfAllowed(
                         getContext(), SigninAccessPoint.SETTINGS));
 
         // State will be updated in registerForUpdates.
@@ -88,7 +89,7 @@ public class SignInPreference
      */
     public void registerForUpdates() {
         AccountManagerFacade.get().addObserver(this);
-        IdentityServicesProvider.getSigninManager().addSignInAllowedObserver(this);
+        IdentityServicesProvider.get().getSigninManager().addSignInAllowedObserver(this);
         mProfileDataCache.addObserver(this);
         FirstRunSignInProcessor.updateSigninManagerFirstRunCheckDone();
         AndroidSyncSettings.get().registerObserver(this);
@@ -107,7 +108,7 @@ public class SignInPreference
      */
     public void unregisterForUpdates() {
         AccountManagerFacade.get().removeObserver(this);
-        IdentityServicesProvider.getSigninManager().removeSignInAllowedObserver(this);
+        IdentityServicesProvider.get().getSigninManager().removeSignInAllowedObserver(this);
         mProfileDataCache.removeObserver(this);
         AndroidSyncSettings.get().unregisterObserver(this);
         ProfileSyncService syncService = ProfileSyncService.get();
@@ -118,8 +119,8 @@ public class SignInPreference
     }
 
     /**
-     * Should be called when the {@link PreferenceFragment} which used {@link SignInPreference} gets
-     * destroyed. Used to record "ImpressionsTilDismiss" histogram.
+     * Should be called when the {@link PreferenceFragmentCompat} which used {@link
+     * SignInPreference} gets destroyed. Used to record "ImpressionsTilDismiss" histogram.
      */
     public void onPreferenceFragmentDestroyed() {
         if (mSigninPromoController != null) {
@@ -156,7 +157,7 @@ public class SignInPreference
 
     /** Updates the title, summary, and image based on the current sign-in state. */
     private void update() {
-        if (IdentityServicesProvider.getSigninManager().isSigninDisabledByPolicy()) {
+        if (IdentityServicesProvider.get().getSigninManager().isSigninDisabledByPolicy()) {
             setupSigninDisabled();
             return;
         }
@@ -168,7 +169,7 @@ public class SignInPreference
         }
 
         boolean personalizedPromoDismissed = SharedPreferencesManager.getInstance().readBoolean(
-                ChromePreferenceKeys.SETTINGS_PERSONALIZED_SIGNIN_PROMO_DISMISSED, false);
+                ChromePreferenceKeys.SIGNIN_PROMO_SETTINGS_PERSONALIZED_DISMISSED, false);
         if (!mPersonalizedPromoEnabled || personalizedPromoDismissed) {
             setupGenericPromo();
             return;
@@ -280,7 +281,7 @@ public class SignInPreference
         SigninPromoUtil.setupPromoViewFromCache(
                 mSigninPromoController, mProfileDataCache, signinPromoView, () -> {
                     SharedPreferencesManager.getInstance().writeBoolean(
-                            ChromePreferenceKeys.SETTINGS_PERSONALIZED_SIGNIN_PROMO_DISMISSED,
+                            ChromePreferenceKeys.SIGNIN_PROMO_SETTINGS_PERSONALIZED_DISMISSED,
                             true);
                     update();
                 });

@@ -33,11 +33,12 @@ extern NSString* kSigninPromoViewDisplayCountKey;
 @interface SigninPromoViewController : ChromeSigninViewController
 
 // YES if this promo should be shown for |browserState|
-+ (BOOL)shouldBePresentedForBrowserState:(ios::ChromeBrowserState*)browserState;
++ (BOOL)shouldBePresentedForBrowserState:(ChromeBrowserState*)browserState;
 
 // Designated initializer.  |browser| must not be nil.
 - (instancetype)initWithBrowser:(Browser*)browser
-                     dispatcher:(id<ApplicationCommands>)dispatcher;
+                     dispatcher:(id<ApplicationCommands, BrowsingDataCommands>)
+                                    dispatcher;
 
 // Records in user defaults:
 //   + the Chromium current version.

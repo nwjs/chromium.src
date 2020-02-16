@@ -1,0 +1,12 @@
+region
+++document Name='PDF document containing 1 page'
+++++region Name='Page 1'
+++++++group IsControlElement=false
+++++++++button Name='Hello'
+++++++++++description Name='Hello' IsControlElement=false
+++++++++description Name=', nice '
+++++++++button Name='meeting'
+++++++++++description Name='meeting' IsControlElement=false
+++++++++button Name=' y'
+++++++++++description Name=' y' IsControlElement=false
+++++++++description Name='ou'

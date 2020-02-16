@@ -41,10 +41,13 @@ void BindInProcessInstance(
 }
 
 mojo::Remote<video_capture::mojom::VideoCaptureService>& GetUIThreadRemote() {
-  static base::NoDestructor<
-      mojo::Remote<video_capture::mojom::VideoCaptureService>>
-      remote;
-  return *remote;
+  // NOTE: This use of sequence-local storage is only to ensure that the Remote
+  // only lives as long as the UI-thread sequence, since the UI-thread sequence
+  // may be torn down and reinitialized e.g. between unit tests.
+  static base::NoDestructor<base::SequenceLocalStorageSlot<
+      mojo::Remote<video_capture::mojom::VideoCaptureService>>>
+      remote_slot;
+  return remote_slot->GetOrCreateValue();
 }
 
 // This is a custom traits type we use in conjunction with mojo::ReceiverSetBase
@@ -108,7 +111,7 @@ video_capture::mojom::VideoCaptureService& GetVideoCaptureService() {
           std::move(receiver),
           ServiceProcessHost::Options()
               .WithDisplayName("Video Capture")
-              .WithSandboxType(service_manager::SANDBOX_TYPE_NO_SANDBOX)
+              .WithSandboxType(service_manager::SandboxType::kNoSandbox)
 #if defined(OS_MACOSX)
               // On Mac, the service requires a CFRunLoop which is provided by a
               // UI message loop. See https://crbug.com/834581.

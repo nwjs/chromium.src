@@ -158,13 +158,13 @@ bool RenderWidgetHostDelegate::IsShowingContextMenuOnPage() const {
   return false;
 }
 
-InputEventShim* RenderWidgetHostDelegate::GetInputEventShim() const {
-  return nullptr;
-}
-
 RenderFrameHostImpl*
 RenderWidgetHostDelegate::GetFocusedFrameFromFocusedDelegate() {
   return nullptr;
+}
+
+bool RenderWidgetHostDelegate::IsPortal() const {
+  return false;
 }
 
 }  // namespace content

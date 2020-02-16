@@ -15,6 +15,7 @@
 #include "base/optional.h"
 #include "chrome/browser/installable/installable_metrics.h"
 #include "chrome/browser/web_applications/components/install_manager.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -34,6 +35,7 @@ class WebContents;
 namespace web_app {
 
 class AppShortcutManager;
+class FileHandlerManager;
 class InstallFinalizer;
 class WebAppDataRetriever;
 class WebAppUrlLoader;
@@ -44,7 +46,9 @@ class WebAppInstallTask : content::WebContentsObserver {
       base::OnceCallback<void(std::unique_ptr<WebApplicationInfo>)>;
 
   WebAppInstallTask(Profile* profile,
+                    AppRegistrar* registrar,
                     AppShortcutManager* shortcut_manager,
+                    FileHandlerManager* file_handler_manager,
                     InstallFinalizer* install_finalizer,
                     std::unique_ptr<WebAppDataRetriever> data_retriever);
   ~WebAppInstallTask() override;
@@ -184,7 +188,7 @@ class WebAppInstallTask : content::WebContentsObserver {
   // synchronously calls OnDidCheckForIntentToPlayStore() implicitly failing the
   // check if it cannot be made.
   void CheckForPlayStoreIntentOrGetIcons(
-      const blink::Manifest& manifest,
+      base::Optional<blink::Manifest> opt_manifest,
       std::unique_ptr<WebApplicationInfo> web_app_info,
       std::vector<GURL> icon_urls,
       ForInstallableSite for_installable_site,
@@ -243,7 +247,9 @@ class WebAppInstallTask : content::WebContentsObserver {
   std::unique_ptr<WebApplicationInfo> web_application_info_;
   std::unique_ptr<content::WebContents> web_contents_;
 
+  AppRegistrar* registrar_;
   AppShortcutManager* shortcut_manager_;
+  FileHandlerManager* file_handler_manager_;
   InstallFinalizer* install_finalizer_;
   Profile* const profile_;
 

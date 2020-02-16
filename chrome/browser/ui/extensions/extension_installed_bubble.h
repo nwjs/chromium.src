@@ -22,10 +22,6 @@ class Command;
 class Extension;
 }
 
-namespace gfx {
-class Point;
-}
-
 // Provides feedback to the user upon successful installation of an
 // extension. Depending on the type of extension, the Bubble will
 // point to:
@@ -89,17 +85,12 @@ class ExtensionInstalledBubble : public BubbleDelegate {
   // BubbleDelegate:
   std::unique_ptr<BubbleUi> BuildBubbleUi() override;
   bool ShouldClose(BubbleCloseReason reason) const override;
-  std::string GetName() const override;
   const content::RenderFrameHost* OwningFrame() const override;
 
   // Returns false if the bubble could not be shown immediately, because of an
   // animation (eg. adding a new browser action to the toolbar).
   // TODO(hcarmona): Detect animation in a platform-agnostic manner.
   bool ShouldShow();
-
-  // Returns the anchor point in screen coordinates. Used when there is no
-  // anchor view.
-  gfx::Point GetAnchorPoint(gfx::NativeWindow window) const;
 
   // Returns the string describing how to use the new extension.
   base::string16 GetHowToUseDescription() const;

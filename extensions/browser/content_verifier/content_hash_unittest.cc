@@ -59,8 +59,7 @@ class TestExtensionBuilder {
     for (const auto& resource : extension_resources_) {
       std::vector<std::string> hashes =
           ComputedHashes::GetHashesForContent(resource.contents, block_size);
-      computed_hashes_data[resource.relative_path] =
-          ComputedHashes::HashInfo(block_size, hashes);
+      computed_hashes_data.Add(resource.relative_path, block_size, hashes);
     }
 
     ASSERT_TRUE(ComputedHashes(std::move(computed_hashes_data))
@@ -148,7 +147,7 @@ class TestExtensionBuilder {
     ListBuilder files;
     for (const auto& resource : extension_resources_) {
       base::FilePath::StringType path =
-          VerifiedContents::NormalizeResourcePath(resource.relative_path);
+          base::FilePath(resource.relative_path).value();
       std::string tree_hash =
           ContentHash::ComputeTreeHashForContent(resource.contents, block_size);
 

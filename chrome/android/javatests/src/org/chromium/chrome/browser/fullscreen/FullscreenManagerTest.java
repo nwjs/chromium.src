@@ -33,9 +33,9 @@ import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.prerender.PrerenderTestHelper;
 import org.chromium.chrome.browser.tab.Tab;
@@ -198,6 +198,7 @@ public class FullscreenManagerTest {
     @Test
     @LargeTest
     @Feature({"Fullscreen"})
+    @DisabledTest(message = "crbug.com/1046749")
     public void testExitPersistentFullscreenAllowsManualFullscreen() {
         FullscreenManagerTestUtils.disableBrowserOverrides();
         mActivityTestRule.startMainActivityWithURL(LONG_FULLSCREEN_API_HTML_TEST_PAGE);
@@ -286,8 +287,9 @@ public class FullscreenManagerTest {
                     @Override
                     public void onContentOffsetChanged(int offset) {}
                     @Override
-                    public void onControlsOffsetChanged(
-                            int topOffset, int bottomOffset, boolean needsAnimate) {}
+                    public void onControlsOffsetChanged(int topOffset,
+                            int topControlsMinHeightOffset, int bottomOffset,
+                            int bottomControlsMinHeightOffset, boolean needsAnimate) {}
                     @Override
                     public void onToggleOverlayVideoMode(boolean enabled) {}
                     @Override

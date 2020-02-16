@@ -85,7 +85,8 @@ SharedImageFactory::SharedImageFactory(
   bool use_gl = gl::GetGLImplementation() != gl::kGLImplementationNone;
   if (use_gl) {
     gl_backing_factory_ = std::make_unique<SharedImageBackingFactoryGLTexture>(
-        gpu_preferences, workarounds, gpu_feature_info, image_factory);
+        gpu_preferences, workarounds, gpu_feature_info, image_factory,
+        shared_image_manager->batch_access_manager());
   }
 
   // For X11
@@ -97,7 +98,7 @@ SharedImageFactory::SharedImageFactory(
 #elif defined(OS_ANDROID) && BUILDFLAG(ENABLE_VULKAN)
   // For Android
   interop_backing_factory_ = std::make_unique<SharedImageBackingFactoryAHB>(
-      workarounds, gpu_feature_info);
+      workarounds, gpu_feature_info, context_state);
 #elif defined(OS_MACOSX)
   // OSX
   DCHECK(!using_vulkan_);
@@ -334,7 +335,7 @@ void SharedImageFactory::RegisterSharedImageBackingFactoryForTesting(
 bool SharedImageFactory::IsSharedBetweenThreads(uint32_t usage) {
   // If |shared_image_manager_| is thread safe, it means the display is running
   // on a separate thread (which uses a separate GL context or VkDeviceQueue).
-  return shared_image_manager_->is_thread_safe() &&
+  return shared_image_manager_->display_context_on_another_thread() &&
          (usage & SHARED_IMAGE_USAGE_DISPLAY);
 }
 
@@ -352,9 +353,9 @@ SharedImageBackingFactory* SharedImageFactory::GetFactoryByUsage(
       using_metal_ && (usage & SHARED_IMAGE_USAGE_OOP_RASTERIZATION);
   bool share_between_threads = IsSharedBetweenThreads(usage);
   bool share_between_gl_vulkan = gl_usage && vulkan_usage;
-  bool using_interop_factory = share_between_threads ||
-                               share_between_gl_vulkan || using_dawn ||
-                               share_between_gl_metal;
+  bool using_interop_factory = share_between_gl_vulkan || using_dawn ||
+                               share_between_gl_metal ||
+                               (share_between_threads && vulkan_usage);
 
   // TODO(vasilyt): Android required AHB for overlays
   // What about other platforms?
@@ -367,9 +368,9 @@ SharedImageBackingFactory* SharedImageFactory::GetFactoryByUsage(
   constexpr auto kWrappedSkImageUsage = SHARED_IMAGE_USAGE_RASTER |
                                         SHARED_IMAGE_USAGE_OOP_RASTERIZATION |
                                         SHARED_IMAGE_USAGE_DISPLAY;
-  bool using_wrapped_sk_image = wrapped_sk_image_factory_ &&
-                                (usage == kWrappedSkImageUsage) &&
-                                !using_interop_factory;
+  bool using_wrapped_sk_image =
+      wrapped_sk_image_factory_ && (usage == kWrappedSkImageUsage) &&
+      !using_interop_factory && !share_between_threads;
   using_interop_factory |= vulkan_usage && !using_wrapped_sk_image;
 
   if (gmb_type != gfx::EMPTY_BUFFER) {
@@ -389,8 +390,8 @@ SharedImageBackingFactory* SharedImageFactory::GetFactoryByUsage(
     using_interop_factory |= interop_factory_supports_gmb;
   }
 
-  *allow_legacy_mailbox =
-      !using_wrapped_sk_image && !using_interop_factory && !using_vulkan_;
+  *allow_legacy_mailbox = !using_wrapped_sk_image && !using_interop_factory &&
+                          !using_vulkan_ && !share_between_threads;
 
   if (using_wrapped_sk_image)
     return wrapped_sk_image_factory_.get();

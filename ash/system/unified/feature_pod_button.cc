@@ -35,17 +35,27 @@ using AshColorMode = AshColorProvider::AshColorMode;
 
 namespace {
 
-void ConfigureFeaturePodLabel(views::Label* label) {
+void ConfigureFeaturePodLabel(views::Label* label,
+                              int line_height,
+                              int font_size) {
   label->SetAutoColorReadabilityEnabled(false);
   label->SetSubpixelRenderingEnabled(false);
   label->set_can_process_events_within_subtree(false);
+  label->SetLineHeight(line_height);
+
+  gfx::Font default_font;
+  gfx::Font label_font =
+      default_font.Derive(font_size - default_font.GetFontSize(),
+                          gfx::Font::NORMAL, gfx::Font::Weight::NORMAL);
+  gfx::FontList font_list(label_font);
+  label->SetFontList(font_list);
 }
 
 }  // namespace
 
 FeaturePodIconButton::FeaturePodIconButton(views::ButtonListener* listener,
                                            bool is_togglable)
-    : views::ImageButton(listener), is_togglable_(is_togglable) {
+    : views::ToggleImageButton(listener), is_togglable_(is_togglable) {
   SetPreferredSize(kUnifiedFeaturePodIconSize);
   SetBorder(views::CreateEmptyBorder(kUnifiedFeaturePodIconPadding));
   SetImageHorizontalAlignment(ALIGN_CENTER);
@@ -53,16 +63,17 @@ FeaturePodIconButton::FeaturePodIconButton(views::ButtonListener* listener,
   TrayPopupUtils::ConfigureTrayPopupButton(this);
   views::InstallCircleHighlightPathGenerator(this);
   GetViewAccessibility().OverrideIsLeaf(true);
+  focus_ring()->SetColor(UnifiedSystemTrayView::GetFocusRingColor());
 }
 
 FeaturePodIconButton::~FeaturePodIconButton() = default;
 
 void FeaturePodIconButton::SetToggled(bool toggled) {
-  if (!is_togglable_)
+  if (!is_togglable_ || toggled_ == toggled)
     return;
 
   toggled_ = toggled;
-  SchedulePaint();
+  views::ToggleImageButton::SetToggled(toggled);
 }
 
 void FeaturePodIconButton::PaintButtonContents(gfx::Canvas* canvas) {
@@ -71,14 +82,14 @@ void FeaturePodIconButton::PaintButtonContents(gfx::Canvas* canvas) {
   flags.setAntiAlias(true);
 
   const AshColorProvider* color_provider = AshColorProvider::Get();
-  SkColor color = color_provider->DeprecatedGetControlsLayerColor(
+  SkColor color = color_provider->GetControlsLayerColor(
       AshColorProvider::ControlsLayerType::kInactiveControlBackground,
-      kUnifiedMenuButtonColor);
+      AshColorMode::kDark);
   if (GetEnabled()) {
     if (toggled_) {
-      color = color_provider->DeprecatedGetControlsLayerColor(
+      color = color_provider->GetControlsLayerColor(
           AshColorProvider::ControlsLayerType::kActiveControlBackground,
-          kUnifiedMenuButtonColorActive);
+          AshColorMode::kDark);
     }
   } else {
     color = AshColorProvider::GetDisabledColor(color);
@@ -141,8 +152,11 @@ FeaturePodLabelButton::FeaturePodLabelButton(views::ButtonListener* listener)
   SetBorder(views::CreateEmptyBorder(kUnifiedFeaturePodHoverPadding));
   GetViewAccessibility().OverrideIsLeaf(true);
 
-  ConfigureFeaturePodLabel(label_);
-  ConfigureFeaturePodLabel(sub_label_);
+  label_->SetLineHeight(kUnifiedFeaturePodLabelLineHeight);
+  ConfigureFeaturePodLabel(label_, kUnifiedFeaturePodLabelLineHeight,
+                           kUnifiedFeaturePodLabelFontSize);
+  ConfigureFeaturePodLabel(sub_label_, kUnifiedFeaturePodSubLabelLineHeight,
+                           kUnifiedFeaturePodSubLabelFontSize);
   sub_label_->SetVisible(false);
 
   detailed_view_arrow_->set_can_process_events_within_subtree(false);
@@ -158,6 +172,8 @@ FeaturePodLabelButton::FeaturePodLabelButton(views::ButtonListener* listener)
 
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
+
+  focus_ring()->SetColor(UnifiedSystemTrayView::GetFocusRingColor());
 }
 
 FeaturePodLabelButton::~FeaturePodLabelButton() = default;
@@ -166,7 +182,8 @@ void FeaturePodLabelButton::Layout() {
   DCHECK(focus_ring());
   focus_ring()->Layout();
   LayoutInCenter(label_, GetContentsBounds().y());
-  LayoutInCenter(sub_label_, GetContentsBounds().CenterPoint().y());
+  LayoutInCenter(sub_label_, GetContentsBounds().CenterPoint().y() +
+                                 kUnifiedFeaturePodInterLabelPadding);
 
   if (!detailed_view_arrow_->GetVisible())
     return;
@@ -196,8 +213,10 @@ gfx::Size FeaturePodLabelButton::CalculatePreferredSize() const {
   }
 
   int height = label_->GetPreferredSize().height() + GetInsets().height();
-  if (sub_label_->GetVisible())
-    height += sub_label_->GetPreferredSize().height();
+  if (sub_label_->GetVisible()) {
+    height += kUnifiedFeaturePodInterLabelPadding +
+              sub_label_->GetPreferredSize().height();
+  }
 
   return gfx::Size(width, height);
 }
@@ -251,9 +270,8 @@ void FeaturePodLabelButton::ShowDetailedViewArrow() {
 
 void FeaturePodLabelButton::OnEnabledChanged() {
   const AshColorProvider* color_provider = AshColorProvider::Get();
-  const SkColor primary_text_color =
-      color_provider->DeprecatedGetContentLayerColor(
-          ContentLayerType::kTextPrimary, kUnifiedMenuTextColor);
+  const SkColor primary_text_color = color_provider->GetContentLayerColor(
+      ContentLayerType::kTextPrimary, AshColorMode::kDark);
   const SkColor secondary_text_color = color_provider->GetContentLayerColor(
       ContentLayerType::kTextSecondary, AshColorMode::kDark);
   label_->SetEnabledColor(
@@ -308,12 +326,22 @@ double FeaturePodButton::GetOpacityForExpandedAmount(double expanded_amount) {
 
 void FeaturePodButton::SetVectorIcon(const gfx::VectorIcon& icon) {
   const SkColor icon_color = AshColorProvider::Get()->GetContentLayerColor(
-      ContentLayerType::kIconPrimary, AshColorMode::kDark);
-  icon_button_->SetImage(views::Button::STATE_NORMAL,
-                         gfx::CreateVectorIcon(icon, icon_color));
+      ContentLayerType::kIconSystemMenu, AshColorMode::kDark);
+  const SkColor toggled_color = AshColorProvider::Get()->GetContentLayerColor(
+      ContentLayerType::kIconSystemMenuToggled, AshColorMode::kDark);
+
+  icon_button_->SetImage(
+      views::Button::STATE_NORMAL,
+      gfx::CreateVectorIcon(icon, kUnifiedFeaturePodVectorIconSize,
+                            icon_color));
+  icon_button_->SetToggledImage(
+      views::Button::STATE_NORMAL,
+      new gfx::ImageSkia(gfx::CreateVectorIcon(
+          icon, kUnifiedFeaturePodVectorIconSize, toggled_color)));
+
   icon_button_->SetImage(
       views::Button::STATE_DISABLED,
-      gfx::CreateVectorIcon(icon,
+      gfx::CreateVectorIcon(icon, kUnifiedFeaturePodVectorIconSize,
                             AshColorProvider::GetDisabledColor(icon_color)));
 }
 

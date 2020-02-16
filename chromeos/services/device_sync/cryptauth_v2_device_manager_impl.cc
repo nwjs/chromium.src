@@ -8,11 +8,13 @@
 #include <utility>
 
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/services/device_sync/cryptauth_client.h"
 #include "chromeos/services/device_sync/cryptauth_device_syncer_impl.h"
 #include "chromeos/services/device_sync/cryptauth_key_registry.h"
+#include "chromeos/services/device_sync/cryptauth_task_metrics_logger.h"
 #include "chromeos/services/device_sync/public/cpp/client_app_metadata_provider.h"
 
 namespace chromeos {
@@ -22,9 +24,34 @@ namespace device_sync {
 namespace {
 
 // Timeout value for asynchronous operation.
-// TODO(https://crbug.com/933656): Tune these values.
+// TODO(https://crbug.com/933656): Use async execution time metrics to tune this
+// timeout value. For now, set this timeout to the max execution time recorded
+// by the metrics.
 constexpr base::TimeDelta kWaitingForClientAppMetadataTimeout =
-    base::TimeDelta::FromSeconds(10);
+    base::TimeDelta::FromSeconds(60);
+
+void RecordClientAppMetadataFetchMetrics(const base::TimeDelta& execution_time,
+                                         CryptAuthAsyncTaskResult result) {
+  base::UmaHistogramCustomTimes(
+      "CryptAuth.DeviceSyncV2.DeviceManager.ExecutionTime."
+      "ClientAppMetadataFetch",
+      execution_time, base::TimeDelta::FromSeconds(1) /* min */,
+      kWaitingForClientAppMetadataTimeout /* max */, 100 /* buckets */);
+  LogCryptAuthAsyncTaskSuccessMetric(
+      "CryptAuth.DeviceSyncV2.DeviceManager.AsyncTaskResult."
+      "ClientAppMetadataFetch",
+      result);
+}
+
+void RecordDeviceSyncResult(CryptAuthDeviceSyncResult result) {
+  base::UmaHistogramEnumeration("CryptAuth.DeviceSyncV2.Result.ResultType",
+                                result.GetResultType());
+  base::UmaHistogramEnumeration("CryptAuth.DeviceSyncV2.Result.ResultCode",
+                                result.result_code());
+  base::UmaHistogramBoolean(
+      "CryptAuth.DeviceSyncV2.Result.DidDeviceRegistryChange",
+      result.did_device_registry_change());
+}
 
 }  // namespace
 
@@ -126,7 +153,10 @@ void CryptAuthV2DeviceManagerImpl::OnDeviceSyncRequested(
 
   current_client_metadata_ = client_metadata;
 
-  // TODO(nohle): Log invocation reason metric.
+  base::UmaHistogramExactLinear(
+      "CryptAuth.DeviceSyncV2.InvocationReason",
+      current_client_metadata_->invocation_reason(),
+      cryptauthv2::ClientMetadata::InvocationReason_ARRAYSIZE);
 
   if (!client_app_metadata_) {
     // GCM registration is expected to be completed before the first enrollment.
@@ -159,6 +189,7 @@ void CryptAuthV2DeviceManagerImpl::SetState(State state) {
 
   PA_LOG(INFO) << "Transitioning from " << state_ << " to " << state << ".";
   state_ = state;
+  last_state_change_timestamp_ = base::TimeTicks::Now();
 
   // Note: CryptAuthDeviceSyncerImpl guarantees that the callback passed to its
   // public method is always invoked; in other words, the class handles is
@@ -166,8 +197,6 @@ void CryptAuthV2DeviceManagerImpl::SetState(State state) {
   if (state_ != State::kWaitingForClientAppMetadata)
     return;
 
-  // TODO(https://crbug.com/936273): Add metrics to track failure rates due
-  // to async timeouts.
   timer_->Start(FROM_HERE, kWaitingForClientAppMetadataTimeout,
                 base::BindOnce(&CryptAuthV2DeviceManagerImpl::OnTimeout,
                                callback_weak_ptr_factory_.GetWeakPtr()));
@@ -175,6 +204,10 @@ void CryptAuthV2DeviceManagerImpl::SetState(State state) {
 
 void CryptAuthV2DeviceManagerImpl::OnTimeout() {
   DCHECK_EQ(State::kWaitingForClientAppMetadata, state_);
+
+  RecordClientAppMetadataFetchMetrics(
+      base::TimeTicks::Now() - last_state_change_timestamp_,
+      CryptAuthAsyncTaskResult::kTimeout);
 
   OnDeviceSyncFinished(
       CryptAuthDeviceSyncResult(CryptAuthDeviceSyncResult::ResultCode::
@@ -188,7 +221,10 @@ void CryptAuthV2DeviceManagerImpl::OnClientAppMetadataFetched(
   DCHECK(state_ == State::kWaitingForClientAppMetadata);
 
   bool success = client_app_metadata.has_value();
-
+  RecordClientAppMetadataFetchMetrics(
+      base::TimeTicks::Now() - last_state_change_timestamp_,
+      success ? CryptAuthAsyncTaskResult::kSuccess
+              : CryptAuthAsyncTaskResult::kError);
   if (!success) {
     OnDeviceSyncFinished(
         CryptAuthDeviceSyncResult(CryptAuthDeviceSyncResult::ResultCode::
@@ -224,17 +260,14 @@ void CryptAuthV2DeviceManagerImpl::OnDeviceSyncFinished(
   // This is particularly relevant for timeout failures.
   callback_weak_ptr_factory_.InvalidateWeakPtrs();
 
-  // The DeviceSync result might be owned by the device syncer, so we copy the
-  // result here before destroying the device syncer.
-  CryptAuthDeviceSyncResult device_sync_result_copy = device_sync_result;
   device_syncer_.reset();
 
   std::stringstream prefix;
   prefix << "DeviceSync attempt with invocation reason "
          << current_client_metadata_->invocation_reason();
   std::stringstream suffix;
-  suffix << "with result code " << device_sync_result_copy.result_code() << ".";
-  switch (device_sync_result_copy.GetResultType()) {
+  suffix << "with result code " << device_sync_result.result_code() << ".";
+  switch (device_sync_result.GetResultType()) {
     case CryptAuthDeviceSyncResult::ResultType::kSuccess:
       PA_LOG(INFO) << prefix.str() << " succeeded  " << suffix.str();
       break;
@@ -248,16 +281,15 @@ void CryptAuthV2DeviceManagerImpl::OnDeviceSyncFinished(
   }
 
   PA_LOG(INFO) << "The device registry "
-               << (device_sync_result_copy.did_device_registry_change()
+               << (device_sync_result.did_device_registry_change()
                        ? "changed."
                        : "did not change.");
 
   current_client_metadata_.reset();
 
-  // TODO(nohle): Log DeviceSync result metrics: success, result code, and if
-  // devices changed.
+  RecordDeviceSyncResult(device_sync_result);
 
-  scheduler_->HandleDeviceSyncResult(device_sync_result_copy);
+  scheduler_->HandleDeviceSyncResult(device_sync_result);
 
   base::Optional<base::TimeDelta> time_to_next_attempt = GetTimeToNextAttempt();
   if (time_to_next_attempt) {
@@ -267,14 +299,14 @@ void CryptAuthV2DeviceManagerImpl::OnDeviceSyncFinished(
     PA_LOG(INFO) << "No future DeviceSync requests currently scheduled.";
   }
 
-  if (!device_sync_result_copy.IsSuccess()) {
+  if (!device_sync_result.IsSuccess()) {
     PA_LOG(INFO) << "Number of consecutive DeviceSync failures: "
                  << scheduler_->GetNumConsecutiveDeviceSyncFailures() << ".";
   }
 
   SetState(State::kIdle);
 
-  NotifyDeviceSyncFinished(device_sync_result_copy);
+  NotifyDeviceSyncFinished(device_sync_result);
 }
 
 std::ostream& operator<<(std::ostream& stream,

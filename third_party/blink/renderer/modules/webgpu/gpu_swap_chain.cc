@@ -4,19 +4,14 @@
 
 #include "third_party/blink/renderer/modules/webgpu/gpu_swap_chain.h"
 
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_swap_chain_descriptor.h"
 #include "third_party/blink/renderer/modules/webgpu/dawn_conversions.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_canvas_context.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_device.h"
-#include "third_party/blink/renderer/modules/webgpu/gpu_swap_chain_descriptor.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 
 namespace blink {
-
-// static
-GPUSwapChain* GPUSwapChain::Create(GPUCanvasContext* context,
-                                   const GPUSwapChainDescriptor* descriptor) {
-  return MakeGarbageCollected<GPUSwapChain>(context, descriptor);
-}
 
 GPUSwapChain::GPUSwapChain(GPUCanvasContext* context,
                            const GPUSwapChainDescriptor* descriptor)

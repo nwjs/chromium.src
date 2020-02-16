@@ -131,7 +131,6 @@ HTMLDocumentParser::HTMLDocumentParser(Document& document,
                                        ParserContentPolicy content_policy,
                                        ParserSynchronizationPolicy sync_policy)
     : ScriptableDocumentParser(document, content_policy),
-      ContextLifecycleStateObserver(&document),
       options_(&document),
       reentry_permit_(HTMLParserReentryPermit::Create()),
       token_(sync_policy == kForceSynchronousParsing
@@ -159,8 +158,6 @@ HTMLDocumentParser::HTMLDocumentParser(Document& document,
   DCHECK(ShouldUseThreading() || (token_ && tokenizer_));
   // Threading is not allowed in prefetch mode.
   DCHECK(!document.IsPrefetchOnly() || !ShouldUseThreading());
-
-  UpdateStateIfNeeded();
 
   // Don't create preloader for parsing clipboard content.
   if (content_policy == kDisallowScriptingAndPluginContent)
@@ -194,7 +191,6 @@ void HTMLDocumentParser::Trace(Visitor* visitor) {
   visitor->Trace(script_runner_);
   visitor->Trace(preloader_);
   ScriptableDocumentParser::Trace(visitor);
-  ContextLifecycleStateObserver::Trace(visitor);
   HTMLParserScriptRunnerHost::Trace(visitor);
 }
 
@@ -269,7 +265,7 @@ bool HTMLDocumentParser::IsParsingFragment() const {
 }
 
 void HTMLDocumentParser::PumpTokenizerIfPossible() {
-  CheckIfBodyStylesheetAdded();
+  CheckIfBlockingStylesheetAdded();
   if (IsStopped() || IsPaused())
     return;
 
@@ -285,7 +281,7 @@ void HTMLDocumentParser::ResumeParsingAfterYield() {
   DCHECK(ShouldUseThreading());
   DCHECK(have_background_parser_);
 
-  CheckIfBodyStylesheetAdded();
+  CheckIfBlockingStylesheetAdded();
   if (IsStopped() || IsPaused())
     return;
 
@@ -301,7 +297,7 @@ void HTMLDocumentParser::RunScriptsForPausedTreeBuilder() {
   // We will not have a scriptRunner when parsing a DocumentFragment.
   if (script_runner_)
     script_runner_->ProcessScriptElement(script_element, script_start_position);
-  CheckIfBodyStylesheetAdded();
+  CheckIfBlockingStylesheetAdded();
 }
 
 bool HTMLDocumentParser::CanTakeNextToken() {
@@ -390,12 +386,8 @@ void HTMLDocumentParser::EnqueueTokenizedChunk(
 
   speculations_.push_back(std::move(chunk));
 
-  if (!IsPaused() && !IsScheduledForUnpause()) {
-    if (GetDocument()->IsContextPaused())
-      parser_scheduler_->ForceUnpauseAfterYield();
-    else
-      parser_scheduler_->ScheduleForUnpause();
-  }
+  if (!IsPaused() && !IsScheduledForUnpause())
+    parser_scheduler_->ScheduleForUnpause();
 }
 
 void HTMLDocumentParser::DidReceiveEncodingDataFromBackgroundParser(
@@ -605,7 +597,7 @@ void HTMLDocumentParser::PumpPendingSpeculations() {
     // IsScheduledForUnpause() may be set here as a result of
     // ProcessTokenizedChunkFromBackgroundParser running arbitrary javascript
     // which invokes nested event loops. (e.g. inspector breakpoints)
-    CheckIfBodyStylesheetAdded();
+    CheckIfBlockingStylesheetAdded();
     if (!IsParsing() || IsPaused() || IsScheduledForUnpause())
       break;
 
@@ -697,7 +689,7 @@ void HTMLDocumentParser::ConstructTreeFromHTMLToken() {
     Token().Clear();
 
   tree_builder_->ConstructTree(&atomic_token);
-  CheckIfBodyStylesheetAdded();
+  CheckIfBlockingStylesheetAdded();
 
   // FIXME: ConstructTree may synchronously cause Document to be detached.
   if (!token_)
@@ -714,7 +706,7 @@ void HTMLDocumentParser::ConstructTreeFromCompactHTMLToken(
   DCHECK(!GetDocument()->IsPrefetchOnly());
   AtomicHTMLToken token(compact_token);
   tree_builder_->ConstructTree(&token);
-  CheckIfBodyStylesheetAdded();
+  CheckIfBlockingStylesheetAdded();
 }
 
 bool HTMLDocumentParser::HasInsertionPoint() {
@@ -1010,7 +1002,7 @@ void HTMLDocumentParser::ResumeParsingAfterPause() {
   DCHECK(!IsExecutingScript());
   DCHECK(!IsPaused());
 
-  CheckIfBodyStylesheetAdded();
+  CheckIfBlockingStylesheetAdded();
   if (IsStopped() || IsPaused())
     return;
 
@@ -1099,7 +1091,7 @@ void HTMLDocumentParser::DidLoadAllPendingParserBlockingStylesheets() {
   added_pending_parser_blocking_stylesheet_ = false;
 }
 
-void HTMLDocumentParser::CheckIfBodyStylesheetAdded() {
+void HTMLDocumentParser::CheckIfBlockingStylesheetAdded() {
   if (added_pending_parser_blocking_stylesheet_) {
     added_pending_parser_blocking_stylesheet_ = false;
     is_waiting_for_stylesheets_ = true;
@@ -1117,16 +1109,6 @@ void HTMLDocumentParser::ParseDocumentFragment(
   parser->Finish();
   // Allows ~DocumentParser to assert it was detached before destruction.
   parser->Detach();
-}
-
-void HTMLDocumentParser::ContextLifecycleStateChanged(
-    mojom::FrameLifecycleState state) {
-  if (!parser_scheduler_)
-    return;
-  if (state == mojom::FrameLifecycleState::kRunning)
-    parser_scheduler_->Unpause();
-  else
-    parser_scheduler_->Pause();
 }
 
 void HTMLDocumentParser::AppendBytes(const char* data, size_t length) {

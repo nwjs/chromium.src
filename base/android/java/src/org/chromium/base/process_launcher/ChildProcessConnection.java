@@ -416,6 +416,27 @@ public class ChildProcessConnection {
         }
     }
 
+    // This is the same as start, but returns a boolean whether bind succeeded. Also on failure,
+    // no method is called on |serviceCallback| so the allocation can be tried again. This is
+    // package private and is meant to be used by Android10WorkaroundAllocatorImpl. See comment
+    // there for details.
+    boolean tryStart(boolean useStrongBinding, ServiceCallback serviceCallback) {
+        try {
+            TraceEvent.begin("ChildProcessConnection.tryStart");
+            assert isRunningOnLauncherThread();
+            assert mConnectionParams
+                    == null : "setupConnection() called before start() in ChildProcessConnection.";
+
+            if (!bind(useStrongBinding)) {
+                return false;
+            }
+            mServiceCallback = serviceCallback;
+        } finally {
+            TraceEvent.end("ChildProcessConnection.tryStart");
+        }
+        return true;
+    }
+
     /**
      * Call bindService again on this connection. This must be called while connection is already
      * bound. This is useful for controlling the recency of this connection, and also for updating
@@ -557,7 +578,8 @@ public class ChildProcessConnection {
             return;
         }
         mServiceDisconnected = true;
-        Log.w(TAG, "onServiceDisconnected (crash or killed by oom): pid=%d", mPid);
+        Log.w(TAG, "onServiceDisconnected (crash or killed by oom): pid=%d %s", mPid,
+                buildDebugStateString());
         stop(); // We don't want to auto-restart on crash. Let the browser do that.
 
         // If we have a pending connection callback, we need to communicate the failure to
@@ -566,6 +588,23 @@ public class ChildProcessConnection {
             mConnectionCallback.onConnected(null);
             mConnectionCallback = null;
         }
+    }
+
+    private String buildDebugStateString() {
+        StringBuilder s = new StringBuilder();
+        s.append("bindings:");
+        s.append(mWaivedBinding.isBound() ? "W" : " ");
+        s.append(mModerateBinding.isBound() ? "M" : " ");
+        s.append(mStrongBinding.isBound() ? "S" : " ");
+
+        synchronized (sBindingStateLock) {
+            s.append(" state:").append(mBindingState);
+            s.append(" counts:");
+            for (int i = 0; i < NUM_BINDING_STATES; ++i) {
+                s.append(sAllBindingStateCounts[i]).append(",");
+            }
+        }
+        return s.toString();
     }
 
     private void onSetupConnectionResult(int pid) {

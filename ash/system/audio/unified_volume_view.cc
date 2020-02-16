@@ -89,6 +89,7 @@ class MoreButton : public views::Button {
     TrayPopupUtils::ConfigureTrayPopupButton(this);
 
     views::InstallPillHighlightPathGenerator(this);
+    focus_ring()->SetColor(UnifiedSystemTrayView::GetFocusRingColor());
   }
 
   ~MoreButton() override = default;
@@ -153,8 +154,11 @@ void UnifiedVolumeView::Update(bool by_user) {
   bool is_muted = CrasAudioHandler::Get()->IsOutputMuted();
   float level = CrasAudioHandler::Get()->GetOutputVolumePercent() / 100.f;
 
-  // Indicate that the slider is inactive when it's muted.
-  slider()->SetIsActive(!is_muted);
+  // To indicate that the volume is muted, set the volume slider to the minimal
+  // visual style.
+  slider()->SetRenderingStyle(
+      is_muted ? views::Slider::RenderingStyle::kMinimalStyle
+               : views::Slider::RenderingStyle::kDefaultStyle);
 
   // The button should be gray when muted and colored otherwise.
   button()->SetToggled(!is_muted);
@@ -171,11 +175,13 @@ void UnifiedVolumeView::Update(bool by_user) {
 
   // Slider's value is in finer granularity than audio volume level(0.01),
   // there will be a small discrepancy between slider's value and volume level
-  // on audio side. To avoid the jittering in slider UI, do not set change
-  // slider value if the change is less than the threshold.
+  // on audio side. To avoid the jittering in slider UI, use the slider's
+  // current value.
   if (std::abs(level - slider()->GetValue()) < kSliderIgnoreUpdateThreshold)
-    return;
+    level = slider()->GetValue();
 
+  // Note: even if the value does not change, we still need to call this
+  // function to enable accessibility events (crbug.com/1013251).
   SetSliderValue(level, by_user);
 }
 

@@ -21,13 +21,12 @@ import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.e
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.rotateDeviceToOrientation;
 
 import android.content.res.Configuration;
-import android.os.Build;
 import android.support.test.espresso.NoMatchingRootException;
 import android.support.test.filters.MediumTest;
-import android.util.DisplayMetrics;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -38,10 +37,10 @@ import org.junit.runner.RunWith;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.features.start_surface.StartSurfaceLayout;
 import org.chromium.chrome.tab_ui.R;
@@ -49,6 +48,8 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
+import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.test.util.UiRestriction;
 
 /** End-to-end tests for TabGridIphItem component. */
@@ -75,6 +76,11 @@ public class TabGridIphItemTest {
                                             .getTabModelSelector()
                                             .getTabModelFilterProvider()
                                             .getCurrentTabModelFilter()::isTabModelRestored);
+    }
+
+    @After
+    public void tearDown() {
+        FeatureUtilities.setTabGroupsAndroidEnabledForTesting(null);
     }
 
     @Test
@@ -110,7 +116,7 @@ public class TabGridIphItemTest {
 
     @Test
     @MediumTest
-    @DisableIf.Build(sdk_is_greater_than = Build.VERSION_CODES.N_MR1, message = "https://crbug.com/1023430")
+    @DisableIf.Build(message = "https://crbug.com/1023430, https://crbug.com/1045417")
     public void testIphItemScreenRotation() throws InterruptedException {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
 
@@ -127,6 +133,9 @@ public class TabGridIphItemTest {
         rotateDeviceToOrientation(cta, Configuration.ORIENTATION_LANDSCAPE);
 
         verifyDialogMargins(cta, Configuration.ORIENTATION_LANDSCAPE);
+
+        // Reset the orientation to portrait.
+        rotateDeviceToOrientation(cta, Configuration.ORIENTATION_PORTRAIT);
     }
 
     private void verifyIphEntranceShowing(ChromeTabbedActivity cta) {
@@ -201,9 +210,8 @@ public class TabGridIphItemTest {
 
     private void verifyDialogMargins(ChromeTabbedActivity cta, int orientation) {
         verifyIphDialogShowing(cta);
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        cta.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int screenHeight = displayMetrics.heightPixels;
+        int screenHeight = TestThreadUtils.runOnUiThreadBlockingNoException(
+                () -> DisplayAndroid.getNonMultiDisplay(cta).getDisplayHeight());
 
         int dialogHeight =
                 (int) cta.getResources().getDimension(R.dimen.tab_grid_iph_dialog_height);

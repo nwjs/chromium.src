@@ -13,7 +13,7 @@ import androidx.browser.customtabs.CustomTabsIntent;
 import org.chromium.base.ContextUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
-import org.chromium.chrome.browser.ui.widget.TintedDrawable;
+import org.chromium.components.browser_ui.widget.TintedDrawable;
 
 /**
  * Stores info about a web app.
@@ -60,6 +60,11 @@ public class WebappIntentDataProvider extends BrowserServicesIntentDataProvider 
     @Override
     public int getTitleVisibilityState() {
         return CustomTabsIntent.SHOW_PAGE_TITLE;
+    }
+
+    @Override
+    public boolean isWebappOrWebApkActivity() {
+        return true;
     }
 
     @Override

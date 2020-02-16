@@ -70,10 +70,9 @@ class SMILTimeContainer final : public GarbageCollected<SMILTimeContainer> {
   void ResetDocumentTime();
   void SetDocumentOrderIndexesDirty() { document_order_indexes_dirty_ = true; }
 
-  void QueueDiscard(SVGSMILElement* discard_element);
-
   // Advance the animation timeline a single frame.
   void AdvanceFrameForTesting();
+  bool EventsDisabled() const { return !should_dispatch_events_; }
 
   void Trace(blink::Visitor*);
 
@@ -108,13 +107,13 @@ class SMILTimeContainer final : public GarbageCollected<SMILTimeContainer> {
   void AnimationPolicyTimerFired(TimerBase*);
   ImageAnimationPolicy AnimationPolicy() const;
   bool HandleAnimationPolicy(AnimationPolicyOnceAction);
-  bool CanScheduleFrame(SMILTime earliest_fire_time) const;
-  void UpdateAnimationsAndScheduleFrameIfNeeded(SMILTime elapsed);
+  class TimingUpdate;
+  void UpdateAnimationsAndScheduleFrameIfNeeded(TimingUpdate&);
+  void PrepareSeek(TimingUpdate&);
   void ResetIntervals();
-  void UpdateIntervals(SMILTime presentation_time);
-  void UpdateAnimationTimings(SMILTime elapsed);
+  void UpdateIntervals(TimingUpdate&);
+  void UpdateTimedElements(TimingUpdate&);
   void ApplyTimedEffects(SMILTime elapsed);
-  bool PerformDiscards();
   SMILTime NextProgressTime(SMILTime presentation_time) const;
   void ServiceOnNextFrame();
   void ScheduleWakeUp(base::TimeDelta delay_time, FrameSchedulingState);
@@ -137,6 +136,7 @@ class SMILTimeContainer final : public GarbageCollected<SMILTimeContainer> {
   bool started_ : 1;  // The timeline has been started.
   bool paused_ : 1;   // The timeline is paused.
 
+  const bool should_dispatch_events_ : 1;
   bool document_order_indexes_dirty_ : 1;
   bool is_updating_intervals_;
 
@@ -145,7 +145,6 @@ class SMILTimeContainer final : public GarbageCollected<SMILTimeContainer> {
 
   using AnimatedTargets = HeapHashCountedSet<WeakMember<SVGElement>>;
   AnimatedTargets animated_targets_;
-  HeapHashSet<Member<SVGSMILElement>> pending_discards_;
 
   PriorityQueue<SMILTime, SVGSMILElement> priority_queue_;
 

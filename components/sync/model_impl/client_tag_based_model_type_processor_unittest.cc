@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -21,6 +22,8 @@
 #include "components/sync/base/sync_mode.h"
 #include "components/sync/base/time.h"
 #include "components/sync/engine/data_type_activation_response.h"
+#include "components/sync/engine/non_blocking_sync_common.h"
+#include "components/sync/model/conflict_resolution.h"
 #include "components/sync/model/data_type_activation_request.h"
 #include "components/sync/model/fake_model_type_sync_bridge.h"
 #include "components/sync/test/engine/mock_model_type_worker.h"
@@ -126,6 +129,7 @@ class TestModelTypeSyncBridge : public FakeModelTypeSyncBridge {
   int merge_call_count() const { return merge_call_count_; }
   int apply_call_count() const { return apply_call_count_; }
   int get_storage_key_call_count() const { return get_storage_key_call_count_; }
+  int commit_failures_count() const { return commit_failures_count_; }
 
   // FakeModelTypeSyncBridge overrides.
 
@@ -164,6 +168,22 @@ class TestModelTypeSyncBridge : public FakeModelTypeSyncBridge {
     }
   }
 
+  void OnCommitAttemptErrors(
+      const FailedCommitResponseDataList& error_response_list) override {
+    if (!on_commit_attempt_errors_callback_.is_null()) {
+      std::move(on_commit_attempt_errors_callback_).Run(error_response_list);
+    }
+  }
+
+  void OnCommitAttemptFailed(syncer::SyncCommitError commit_error) override {
+    commit_failures_count_++;
+  }
+
+  void SetOnCommitAttemptErrorsCallback(
+      base::OnceCallback<void(const FailedCommitResponseDataList&)> callback) {
+    on_commit_attempt_errors_callback_ = std::move(callback);
+  }
+
  private:
   void CaptureDataCallback(DataCallback callback,
                            std::unique_ptr<DataBatch> data) {
@@ -178,6 +198,7 @@ class TestModelTypeSyncBridge : public FakeModelTypeSyncBridge {
   int merge_call_count_ = 0;
   int apply_call_count_ = 0;
   int get_storage_key_call_count_ = 0;
+  int commit_failures_count_ = 0;
 
   // Stores the data callback between GetData() and OnCommitDataLoaded().
   base::OnceClosure data_callback_;
@@ -185,6 +206,9 @@ class TestModelTypeSyncBridge : public FakeModelTypeSyncBridge {
   // Whether to return GetData results synchronously. Overrides the default
   // callback capture behavior if set to true.
   bool synchronous_data_callback_ = false;
+
+  base::OnceCallback<void(const FailedCommitResponseDataList&)>
+      on_commit_attempt_errors_callback_;
 };
 
 }  // namespace
@@ -1988,29 +2012,6 @@ class WalletDataClientTagBasedModelTypeProcessorTest
   ModelType GetModelType() override { return AUTOFILL_WALLET_DATA; }
 };
 
-// Tests that updates for Wallet data without client tags get client tags
-// assigned, and not dropped.
-// TODO(crbug.com/874001): Remove this feature-specific logic when the right
-// solution for Wallet data has been decided.
-TEST_F(WalletDataClientTagBasedModelTypeProcessorTest,
-       ShouldCreateClientTagsForWallet) {
-  InitializeToReadyState();
-
-  // Commit an item.
-  UpdateResponseDataList updates;
-  updates.push_back(worker()->GenerateUpdateData(
-      ClientTagHash(), GenerateSpecifics(kKey1, kValue1), 1, "k1"));
-  sync_pb::GarbageCollectionDirective garbage_collection_directive;
-  garbage_collection_directive.set_version_watermark(1);
-  worker()->UpdateWithGarbageCollection(std::move(updates),
-                                        garbage_collection_directive);
-
-  // Verify that the data was stored.
-  EXPECT_EQ(1U, db()->metadata_count());
-  EXPECT_EQ(1U, db()->data_count());
-  EXPECT_FALSE(db()->GetMetadata(kKey1).client_tag_hash().empty());
-}
-
 // Tests that a real local change wins over a remote encryption-only change.
 TEST_F(ClientTagBasedModelTypeProcessorTest, ShouldIgnoreRemoteEncryption) {
   InitializeToReadyState();
@@ -2184,6 +2185,37 @@ TEST_F(ClientTagBasedModelTypeProcessorTest,
   worker()->VerifyPendingCommits({});
   // The processor tracks no entity.
   StatusCounters status_counters;
+  type_processor()->GetStatusCountersForDebugging(
+      base::BindOnce(&CaptureStatusCounters, &status_counters));
+  EXPECT_EQ(status_counters.num_entries, 0U);
+  EXPECT_EQ(nullptr, GetEntityForStorageKey(kKey1));
+}
+
+// Tests that UntrackEntityForClientTagHash won't propagate storage key to
+// ProcessorEntity, and no entity's metadata are added into MetadataChangeList.
+// This test is pretty same as ShouldUntrackEntityForStorageKey.
+TEST_F(ClientTagBasedModelTypeProcessorTest,
+       ShouldUntrackEntityForClientTagHash) {
+  InitializeToReadyState();
+
+  bridge()->WriteItem(kKey1, kValue1);
+  worker()->VerifyPendingCommits({{GetHash(kKey1)}});
+  worker()->AckOnePendingCommit();
+
+  // Check the processor tracks the entity.
+  StatusCounters status_counters;
+  type_processor()->GetStatusCountersForDebugging(
+      base::BindOnce(&CaptureStatusCounters, &status_counters));
+  ASSERT_EQ(1u, status_counters.num_entries);
+  ASSERT_NE(nullptr, GetEntityForStorageKey(kKey1));
+
+  // The bridge deletes the data locally and does not want to sync the deletion.
+  // It only untracks the entity.
+  type_processor()->UntrackEntityForClientTagHash(GetHash(kKey1));
+
+  // The deletion is not synced up.
+  worker()->VerifyPendingCommits({});
+  // The processor tracks no entity any more.
   type_processor()->GetStatusCountersForDebugging(
       base::BindOnce(&CaptureStatusCounters, &status_counters));
   EXPECT_EQ(status_counters.num_entries, 0U);
@@ -2449,6 +2481,73 @@ TEST_F(ClientTagBasedModelTypeProcessorTest,
   EXPECT_FALSE(type_processor()->IsTrackingEntityForTest(kStorageKey1));
   EXPECT_FALSE(db()->HasMetadata(kStorageKey1));
   EXPECT_TRUE(type_processor()->IsTrackingEntityForTest(kStorageKey2));
+}
+
+TEST_F(ClientTagBasedModelTypeProcessorTest,
+       ShouldPropagateFailedCommitItemsToBridgeWhenCommitCompleted) {
+  FailedCommitResponseData response_data;
+  response_data.client_tag_hash = GetHash("dummy tag");
+  response_data.response_type = sync_pb::CommitResponse::TRANSIENT_ERROR;
+  response_data.datatype_specific_error.mutable_sharing_message_error()
+      ->set_error_code(sync_pb::SharingMessageCommitError::INVALID_ARGUMENT);
+
+  FailedCommitResponseDataList failed_list;
+  failed_list.push_back(response_data);
+
+  FailedCommitResponseDataList actual_error_response_list;
+
+  auto on_commit_attempt_errors_callback = base::BindOnce(
+      [](FailedCommitResponseDataList* actual_error_response_list,
+         const FailedCommitResponseDataList& error_response_list) {
+        // We put expectations outside of the callback, so that they fail if
+        // callback is not ran.
+        *actual_error_response_list = error_response_list;
+      },
+      &actual_error_response_list);
+
+  bridge()->SetOnCommitAttemptErrorsCallback(
+      std::move(on_commit_attempt_errors_callback));
+
+  type_processor()->OnCommitCompleted(
+      model_type_state(),
+      /*committed_response_list=*/CommitResponseDataList(), failed_list);
+
+  ASSERT_EQ(1u, actual_error_response_list.size());
+  EXPECT_EQ(0, bridge()->commit_failures_count());
+  EXPECT_EQ(response_data.client_tag_hash,
+            actual_error_response_list[0].client_tag_hash);
+  EXPECT_EQ(response_data.response_type,
+            actual_error_response_list[0].response_type);
+  EXPECT_EQ(response_data.datatype_specific_error.sharing_message_error()
+                .error_code(),
+            actual_error_response_list[0]
+                .datatype_specific_error.sharing_message_error()
+                .error_code());
+}
+
+TEST_F(ClientTagBasedModelTypeProcessorTest,
+       ShouldNotPropagateFailedCommitAttemptToBridgeWhenNoFailedItems) {
+  auto on_commit_attempt_errors_callback = base::BindOnce(
+      [](const FailedCommitResponseDataList& error_response_list) {
+        ADD_FAILURE()
+            << "OnCommitAttemptErrors is called when no failed items.";
+      });
+
+  bridge()->SetOnCommitAttemptErrorsCallback(
+      std::move(on_commit_attempt_errors_callback));
+
+  type_processor()->OnCommitCompleted(
+      model_type_state(),
+      /*committed_response_list=*/CommitResponseDataList(),
+      /*rror_response_list=*/FailedCommitResponseDataList());
+  EXPECT_EQ(0, bridge()->commit_failures_count());
+}
+
+TEST_F(ClientTagBasedModelTypeProcessorTest, ShouldPropagateFullCommitFailure) {
+  ASSERT_EQ(0, bridge()->commit_failures_count());
+
+  type_processor()->OnCommitFailed(syncer::SyncCommitError::kNetworkError);
+  EXPECT_EQ(1, bridge()->commit_failures_count());
 }
 
 class CommitOnlyClientTagBasedModelTypeProcessorTest

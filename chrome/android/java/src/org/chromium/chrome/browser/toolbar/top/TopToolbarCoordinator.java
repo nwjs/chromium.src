@@ -21,7 +21,6 @@ import org.chromium.chrome.browser.compositor.Invalidator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.findinpage.FindToolbar;
-import org.chromium.chrome.browser.fullscreen.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
@@ -124,16 +123,16 @@ public class TopToolbarCoordinator implements Toolbar {
      * Calling this must occur after the native library have completely loaded.
      *
      * @param tabModelSelector The selector that handles tab management.
-     * @param controlsVisibilityDelegate The delegate to handle visibility of browser controls.
      * @param layoutManager A {@link LayoutManager} instance used to watch for scene changes.
      * @param tabSwitcherClickHandler The click handler for the tab switcher button.
      * @param tabSwitcherLongClickHandler The long click handler for the tab switcher button.
      * @param newTabClickHandler The click handler for the new tab button.
      * @param bookmarkClickHandler The click handler for the bookmarks button.
      * @param customTabsBackClickHandler The click handler for the custom tabs back button.
+     * @param overviewModeBehavior The {@link OverviewModeBehavior} to observe overview mode
+     *         changes.
      */
     public void initializeWithNative(TabModelSelector tabModelSelector,
-            BrowserStateBrowserControlsVisibilityDelegate controlsVisibilityDelegate,
             LayoutManager layoutManager, OnClickListener tabSwitcherClickHandler,
             OnLongClickListener tabSwitcherLongClickHandler, OnClickListener newTabClickHandler,
             OnClickListener bookmarkClickHandler, OnClickListener customTabsBackClickHandler,
@@ -152,7 +151,6 @@ public class TopToolbarCoordinator implements Toolbar {
         mToolbarLayout.setTabModelSelector(tabModelSelector);
         getLocationBar().updateVisualsForState();
         getLocationBar().setUrlToPageUrl();
-        mToolbarLayout.setBrowserControlsVisibilityDelegate(controlsVisibilityDelegate);
         mToolbarLayout.setOnTabSwitcherClickHandler(tabSwitcherClickHandler);
         mToolbarLayout.setOnTabSwitcherLongClickHandler(tabSwitcherLongClickHandler);
         mToolbarLayout.setBookmarkClickHandler(bookmarkClickHandler);
@@ -666,6 +664,61 @@ public class TopToolbarCoordinator implements Toolbar {
             @StringRes int accessibilityStringId, Runnable dismissedCallback) {
         mToolbarLayout.showIPHOnExperimentalButton(
                 stringId, accessibilityStringId, dismissedCallback);
+    }
+
+    /**
+     * Show the identity disc toolbar button.
+     * @param onClickListener The {@link OnClickListener} to be called when the button is clicked.
+     * @param image The drawable to display for the button.
+     * @param contentDescriptionResId The resource id of the content description for the button.
+     */
+    public void showIdentityDiscButton(OnClickListener onClickListener, Drawable image,
+            @StringRes int contentDescriptionResId) {
+        if (mStartSurfaceToolbarCoordinator != null
+                && FeatureUtilities.isStartSurfaceSinglePaneEnabled()) {
+            mStartSurfaceToolbarCoordinator.showIdentityDiscButton(
+                    onClickListener, image, contentDescriptionResId);
+        }
+        enableExperimentalButton(onClickListener, image, contentDescriptionResId);
+    }
+
+    /**
+     * Hide the identity disc toolbar button.
+     */
+    public void hideIdentityDiscButton() {
+        if (mStartSurfaceToolbarCoordinator != null
+                && FeatureUtilities.isStartSurfaceSinglePaneEnabled()) {
+            mStartSurfaceToolbarCoordinator.hideIdentityDiscButton();
+        }
+        disableExperimentalButton();
+    }
+
+    /**
+     * Updates image displayed on identity disc button.
+     */
+    public void updateIdentityDiscButtonImage(Drawable image) {
+        if (mStartSurfaceToolbarCoordinator != null
+                && FeatureUtilities.isStartSurfaceSinglePaneEnabled()) {
+            mStartSurfaceToolbarCoordinator.updateIdentityDiscButtonImage(image);
+        }
+        updateExperimentalButtonImage(image);
+    }
+
+    /**
+     * Displays in-product help for the identity disc button.
+     * @param stringId The id of the string resource for the text that should be shown.
+     * @param accessibilityStringId The id of the string resource of the accessibility text.
+     * @param dismissedCallback The callback that will be called when in-product help is dismissed.
+     */
+    public void showIPHOnIdentityDiscButton(@StringRes int stringId,
+            @StringRes int accessibilityStringId, Runnable dismissedCallback) {
+        if (mStartSurfaceToolbarCoordinator != null
+                && mToolbarLayout.getToolbarDataProvider().isInOverviewAndShowingOmnibox()) {
+            mStartSurfaceToolbarCoordinator.showIPHOnIdentityDiscButton(
+                    stringId, accessibilityStringId, dismissedCallback);
+            return;
+        }
+        showIPHOnExperimentalButton(stringId, accessibilityStringId, dismissedCallback);
     }
 
     @Override

@@ -32,17 +32,14 @@
 namespace autofill {
 class AutofillProfile;
 class CreditCard;
+struct FormData;
+struct FormFieldData;
 }  // namespace autofill
 
 namespace content {
 class WebContents;
 class RenderFrameHost;
 }  // namespace content
-
-namespace autofill {
-struct FormData;
-struct FormFieldData;
-}  // namespace autofill
 
 namespace autofill_assistant {
 struct ClientSettings;
@@ -95,6 +92,15 @@ class WebController {
       const base::string16& cvc,
       const Selector& selector,
       base::OnceCallback<void(const ClientStatus&)> callback);
+
+  // Return |FormData| and |FormFieldData| for the element identified with
+  // |selector|. The result is returned asynchronously through |callback|.
+  virtual void RetrieveElementFormAndFieldData(
+      const Selector& selector,
+      base::OnceCallback<void(const ClientStatus&,
+                              const autofill::FormData& form_data,
+                              const autofill::FormFieldData& field_data)>
+          callback);
 
   // Select the option given by |selector| and the value of the option to be
   // picked.
@@ -155,6 +161,12 @@ class WebController {
 
   // Return the outerHTML of |selector|.
   virtual void GetOuterHtml(
+      const Selector& selector,
+      base::OnceCallback<void(const ClientStatus&, const std::string&)>
+          callback);
+
+  // Return the tag of |selector|.
+  virtual void GetElementTag(
       const Selector& selector,
       base::OnceCallback<void(const ClientStatus&, const std::string&)>
           callback);
@@ -305,6 +317,21 @@ class WebController {
       content::RenderFrameHost* container_frame_host,
       const autofill::FormData& form_data,
       const autofill::FormFieldData& form_field);
+  void OnFindElementToRetrieveFormAndFieldData(
+      const Selector& selector,
+      base::OnceCallback<void(const ClientStatus&,
+                              const autofill::FormData& form_data,
+                              const autofill::FormFieldData& form_field)>
+          callback,
+      const ClientStatus& status,
+      std::unique_ptr<ElementFinder::Result> element_result);
+  void OnGetFormAndFieldDataForRetrieving(
+      base::OnceCallback<void(const ClientStatus&,
+                              const autofill::FormData& form_data,
+                              const autofill::FormFieldData& form_field)>
+          callback,
+      const autofill::FormData& form_data,
+      const autofill::FormFieldData& form_field);
   void OnFindElementForFocusElement(
       const TopPadding& top_padding,
       base::OnceCallback<void(const ClientStatus&)> callback,
@@ -407,6 +434,15 @@ class WebController {
                                               const std::string&)> callback,
                       const DevtoolsClient::ReplyStatus& reply_status,
                       std::unique_ptr<runtime::CallFunctionOnResult> result);
+  void OnFindElementForGetElementTag(
+      base::OnceCallback<void(const ClientStatus&, const std::string&)>
+          callback,
+      const ClientStatus& status,
+      std::unique_ptr<ElementFinder::Result> element_result);
+  void OnGetElementTag(base::OnceCallback<void(const ClientStatus&,
+                                               const std::string&)> callback,
+                       const DevtoolsClient::ReplyStatus& reply_status,
+                       std::unique_ptr<runtime::CallFunctionOnResult> result);
   void OnFindElementForPosition(
       base::OnceCallback<void(bool, const RectF&)> callback,
       const ClientStatus& status,

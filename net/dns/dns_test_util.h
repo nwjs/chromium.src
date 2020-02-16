@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -301,15 +302,10 @@ class MockDnsTransactionFactory : public DnsTransactionFactory {
       DnsConfig::SecureDnsMode secure_dns_mode,
       URLRequestContext* url_request_context) override;
 
+  std::unique_ptr<DnsProbeRunner> CreateDohProbeRunner(
+      URLRequestContext* url_request_context) override;
+
   void AddEDNSOption(const OptRecordRdata::Opt& opt) override;
-
-  base::TimeDelta GetDelayUntilNextProbeForTest(
-      unsigned doh_server_index) override;
-
-  void StartDohProbes(URLRequestContext* url_request_context,
-                      bool network_change) override;
-
-  void CancelDohProbes() override;
 
   DnsConfig::SecureDnsMode GetSecureDnsModeForTest() override;
 
@@ -319,15 +315,19 @@ class MockDnsTransactionFactory : public DnsTransactionFactory {
   bool CompleteOneDelayedTransactionOfType(DnsQueryType type)
       WARN_UNUSED_RESULT;
 
-  bool doh_probes_running() { return doh_probes_running_; }
+  bool doh_probes_running() { return !running_doh_probe_runners_.empty(); }
 
  private:
   class MockTransaction;
+  class MockDohProbeRunner;
   using DelayedTransactionList = std::vector<base::WeakPtr<MockTransaction>>;
 
   MockDnsClientRuleList rules_;
   DelayedTransactionList delayed_transactions_;
-  bool doh_probes_running_ = false;
+
+  std::set<MockDohProbeRunner*> running_doh_probe_runners_;
+
+  base::WeakPtrFactory<MockDnsTransactionFactory> weak_ptr_factory_{this};
 };
 
 // MockDnsClient provides MockDnsTransactionFactory.
@@ -346,8 +346,6 @@ class MockDnsClient : public DnsClient {
   bool SetConfigOverrides(DnsConfigOverrides config_overrides) override;
   const DnsConfig* GetEffectiveConfig() const override;
   const DnsHosts* GetHosts() const override;
-  void ActivateDohProbes(URLRequestContext* url_request_context) override;
-  void CancelDohProbes() override;
   DnsTransactionFactory* GetTransactionFactory() override;
   AddressSorter* GetAddressSorter() override;
   void IncrementInsecureFallbackFailures() override;
@@ -387,7 +385,6 @@ class MockDnsClient : public DnsClient {
   int max_fallback_failures_ = DnsClient::kMaxInsecureFallbackFailures;
   bool ignore_system_config_changes_ = false;
   bool doh_server_available_ = true;
-  URLRequestContext* probe_context_ = nullptr;
 
   base::Optional<DnsConfig> config_;
   DnsConfigOverrides overrides_;

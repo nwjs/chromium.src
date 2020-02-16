@@ -10,6 +10,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/signin/signin_promo.h"
+#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -32,11 +33,94 @@ const int kSigninErrorDialogHeight = 164;
 int GetSyncConfirmationDialogPreferredHeight(Profile* profile) {
   // If sync is disabled, then the sync confirmation dialog looks like an error
   // dialog and thus it has the same preferred size.
-  return profile->IsSyncAllowed() ? kSyncConfirmationDialogHeight
-                                  : kSigninErrorDialogHeight;
+  return ProfileSyncServiceFactory::IsSyncAllowed(profile)
+             ? kSyncConfirmationDialogHeight
+             : kSigninErrorDialogHeight;
 }
 
 }  // namespace
+
+std::unique_ptr<views::WebView>
+SigninViewControllerDelegateViews::CreateSyncConfirmationWebView(
+    Browser* browser) {
+  return CreateDialogWebView(
+      browser, chrome::kChromeUISyncConfirmationURL,
+      GetSyncConfirmationDialogPreferredHeight(browser->profile()),
+      kSyncConfirmationDialogWidth);
+}
+
+std::unique_ptr<views::WebView>
+SigninViewControllerDelegateViews::CreateSigninErrorWebView(Browser* browser) {
+  return CreateDialogWebView(browser, chrome::kChromeUISigninErrorURL,
+                             kSigninErrorDialogHeight, base::nullopt);
+}
+
+views::View* SigninViewControllerDelegateViews::GetContentsView() {
+  return content_view_;
+}
+
+void SigninViewControllerDelegateViews::DeleteDelegate() {
+  ResetSigninViewControllerDelegate();
+  delete this;
+}
+
+ui::ModalType SigninViewControllerDelegateViews::GetModalType() const {
+  return dialog_modal_type_;
+}
+
+bool SigninViewControllerDelegateViews::ShouldShowCloseButton() const {
+  return false;
+}
+
+void SigninViewControllerDelegateViews::CloseModalSignin() {
+  ResetSigninViewControllerDelegate();
+  if (modal_signin_widget_)
+    modal_signin_widget_->Close();
+}
+
+void SigninViewControllerDelegateViews::ResizeNativeView(int height) {
+  int max_height = browser()
+                       ->window()
+                       ->GetWebContentsModalDialogHost()
+                       ->GetMaximumDialogSize()
+                       .height();
+  content_view_->SetPreferredSize(gfx::Size(
+      content_view_->GetPreferredSize().width(), std::min(height, max_height)));
+
+  if (!modal_signin_widget_) {
+    // The modal wasn't displayed yet so just show it with the already resized
+    // view.
+    DisplayModal();
+  }
+}
+
+content::WebContents* SigninViewControllerDelegateViews::GetWebContents() {
+  return web_contents_;
+}
+
+bool SigninViewControllerDelegateViews::HandleContextMenu(
+    content::RenderFrameHost* render_frame_host,
+    const content::ContextMenuParams& params) {
+  // Discard the context menu
+  return true;
+}
+
+bool SigninViewControllerDelegateViews::HandleKeyboardEvent(
+    content::WebContents* source,
+    const content::NativeWebKeyboardEvent& event) {
+  // If this is a MODAL_TYPE_CHILD, then GetFocusManager() will return the focus
+  // manager of the parent window, which has registered accelerators, and the
+  // accelerators will fire. If this is a MODAL_TYPE_WINDOW, then this will have
+  // no effect, since no accelerators have been registered for this standalone
+  // window.
+  return unhandled_keyboard_event_handler_.HandleKeyboardEvent(
+      event, GetFocusManager());
+}
+
+web_modal::WebContentsModalDialogHost*
+SigninViewControllerDelegateViews::GetWebContentsModalDialogHost() {
+  return browser()->window()->GetWebContentsModalDialogHost();
+}
 
 SigninViewControllerDelegateViews::SigninViewControllerDelegateViews(
     SigninViewController* signin_view_controller,
@@ -66,58 +150,41 @@ SigninViewControllerDelegateViews::SigninViewControllerDelegateViews(
     DisplayModal();
 }
 
-SigninViewControllerDelegateViews::~SigninViewControllerDelegateViews() {}
+SigninViewControllerDelegateViews::~SigninViewControllerDelegateViews() =
+    default;
 
-// views::DialogDelegateView:
-views::View* SigninViewControllerDelegateViews::GetContentsView() {
-  return content_view_;
-}
+std::unique_ptr<views::WebView>
+SigninViewControllerDelegateViews::CreateDialogWebView(
+    Browser* browser,
+    const std::string& url,
+    int dialog_height,
+    base::Optional<int> opt_width) {
+  int dialog_width = opt_width.value_or(kModalDialogWidth);
+  views::WebView* web_view = new views::WebView(browser->profile());
+  web_view->LoadInitialURL(GURL(url));
+  // To record metrics using javascript, extensions are needed.
+  extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
+      web_view->GetWebContents());
 
-views::Widget* SigninViewControllerDelegateViews::GetWidget() {
-  return content_view_->GetWidget();
-}
+  SigninWebDialogUI* web_dialog_ui = static_cast<SigninWebDialogUI*>(
+      web_view->GetWebContents()->GetWebUI()->GetController());
+  web_dialog_ui->InitializeMessageHandlerWithBrowser(browser);
 
-const views::Widget* SigninViewControllerDelegateViews::GetWidget() const {
-  return content_view_->GetWidget();
-}
-
-void SigninViewControllerDelegateViews::DeleteDelegate() {
-  ResetSigninViewControllerDelegate();
-  delete this;
-}
-
-ui::ModalType SigninViewControllerDelegateViews::GetModalType() const {
-  return dialog_modal_type_;
-}
-
-bool SigninViewControllerDelegateViews::ShouldShowCloseButton() const {
-  return false;
-}
-
-void SigninViewControllerDelegateViews::ResizeNativeView(int height) {
-  int max_height = browser()
-                       ->window()
+  int max_height = browser->window()
                        ->GetWebContentsModalDialogHost()
                        ->GetMaximumDialogSize()
                        .height();
-  content_view_->SetPreferredSize(gfx::Size(
-      content_view_->GetPreferredSize().width(), std::min(height, max_height)));
+  web_view->SetPreferredSize(
+      gfx::Size(dialog_width, std::min(dialog_height, max_height)));
 
-  if (!modal_signin_widget_) {
-    // The modal wasn't displayed yet so just show it with the already resized
-    // view.
-    DisplayModal();
+  return std::unique_ptr<views::WebView>(web_view);
+}
+
+void SigninViewControllerDelegateViews::ResetSigninViewControllerDelegate() {
+  if (signin_view_controller_) {
+    signin_view_controller_->ResetModalSigninDelegate();
+    signin_view_controller_ = nullptr;
   }
-}
-
-content::WebContents* SigninViewControllerDelegateViews::GetWebContents() {
-  return web_contents_;
-}
-
-void SigninViewControllerDelegateViews::CloseModalSignin() {
-  ResetSigninViewControllerDelegate();
-  if (modal_signin_widget_)
-    modal_signin_widget_->Close();
 }
 
 void SigninViewControllerDelegateViews::DisplayModal() {
@@ -149,77 +216,8 @@ void SigninViewControllerDelegateViews::DisplayModal() {
   content_view_->RequestFocus();
 }
 
-bool SigninViewControllerDelegateViews::HandleKeyboardEvent(
-    content::WebContents* source,
-    const content::NativeWebKeyboardEvent& event) {
-  // If this is a MODAL_TYPE_CHILD, then GetFocusManager() will return the focus
-  // manager of the parent window, which has registered accelerators, and the
-  // accelerators will fire. If this is a MODAL_TYPE_WINDOW, then this will have
-  // no effect, since no accelerators have been registered for this standalone
-  // window.
-  return unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-      event, GetFocusManager());
-}
-
-bool SigninViewControllerDelegateViews::HandleContextMenu(
-    content::RenderFrameHost* render_frame_host,
-    const content::ContextMenuParams& params) {
-  // Discard the context menu
-  return true;
-}
-
-std::unique_ptr<views::WebView>
-SigninViewControllerDelegateViews::CreateSyncConfirmationWebView(
-    Browser* browser) {
-  return CreateDialogWebView(
-      browser, chrome::kChromeUISyncConfirmationURL,
-      GetSyncConfirmationDialogPreferredHeight(browser->profile()),
-      kSyncConfirmationDialogWidth);
-}
-
-std::unique_ptr<views::WebView>
-SigninViewControllerDelegateViews::CreateSigninErrorWebView(Browser* browser) {
-  return CreateDialogWebView(browser, chrome::kChromeUISigninErrorURL,
-                             kSigninErrorDialogHeight, base::nullopt);
-}
-
-std::unique_ptr<views::WebView>
-SigninViewControllerDelegateViews::CreateDialogWebView(
-    Browser* browser,
-    const std::string& url,
-    int dialog_height,
-    base::Optional<int> opt_width) {
-  int dialog_width = opt_width.value_or(kModalDialogWidth);
-  views::WebView* web_view = new views::WebView(browser->profile());
-  web_view->LoadInitialURL(GURL(url));
-  // To record metrics using javascript, extensions are needed.
-  extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
-      web_view->GetWebContents());
-
-  SigninWebDialogUI* web_dialog_ui = static_cast<SigninWebDialogUI*>(
-      web_view->GetWebContents()->GetWebUI()->GetController());
-  web_dialog_ui->InitializeMessageHandlerWithBrowser(browser);
-
-  int max_height = browser->window()
-                       ->GetWebContentsModalDialogHost()
-                       ->GetMaximumDialogSize()
-                       .height();
-  web_view->SetPreferredSize(
-      gfx::Size(dialog_width, std::min(dialog_height, max_height)));
-
-  return std::unique_ptr<views::WebView>(web_view);
-}
-
-web_modal::WebContentsModalDialogHost*
-SigninViewControllerDelegateViews::GetWebContentsModalDialogHost() {
-  return browser()->window()->GetWebContentsModalDialogHost();
-}
-
-void SigninViewControllerDelegateViews::ResetSigninViewControllerDelegate() {
-  if (signin_view_controller_) {
-    signin_view_controller_->ResetModalSigninDelegate();
-    signin_view_controller_ = nullptr;
-  }
+const views::Widget* SigninViewControllerDelegateViews::GetWidgetImpl() const {
+  return content_view_->GetWidget();
 }
 
 // --------------------------------------------------------------------

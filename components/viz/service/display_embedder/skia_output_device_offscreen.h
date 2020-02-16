@@ -21,6 +21,7 @@ class SkiaOutputDeviceOffscreen : public SkiaOutputDevice {
       scoped_refptr<gpu::SharedContextState> context_state,
       bool flipped,
       bool has_alpha,
+      gpu::MemoryTracker* memory_tracker,
       DidSwapBufferCompleteCallback did_swap_buffer_complete_callback);
   ~SkiaOutputDeviceOffscreen() override;
 
@@ -49,6 +50,7 @@ class SkiaOutputDeviceOffscreen : public SkiaOutputDevice {
 
  private:
   gfx::Size size_;
+  uint64_t backbuffer_estimated_size_ = 0;
   sk_sp<SkColorSpace> sk_color_space_;
 
   DISALLOW_COPY_AND_ASSIGN(SkiaOutputDeviceOffscreen);

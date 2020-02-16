@@ -43,7 +43,7 @@
                 android:layout_marginStart="3dp"
                 android:layout_marginEnd="3dp"
                 android:text="@string/bookmark_folder"
-                android:textAppearance="@style/TextAppearance.BlackCaption" />
+                android:textAppearance="@style/TextAppearance.TextSmall.Secondary" />
 
             <TextView
                 android:id="@+id/folder_text"
@@ -81,7 +81,7 @@
     <View
         android:id="@+id/shadow"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/selectable_list_toolbar_shadow_height"
+        android:layout_height="@dimen/bookmark_dialog_toolbar_shadow_height"
         android:layout_marginTop="@dimen/toolbar_height_no_shadow"
         android:background="@drawable/bookmark_title_bar_shadow"
         android:visibility="gone" />

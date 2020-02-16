@@ -33,6 +33,7 @@
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_midi_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -41,7 +42,7 @@
 #include "third_party/blink/renderer/core/frame/navigator.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/modules/webmidi/midi_access_initializer.h"
-#include "third_party/blink/renderer/modules/webmidi/midi_options.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 
@@ -75,20 +76,23 @@ NavigatorWebMIDI& NavigatorWebMIDI::From(Navigator& navigator) {
   return *supplement;
 }
 
-ScriptPromise NavigatorWebMIDI::requestMIDIAccess(ScriptState* script_state,
-                                                  Navigator& navigator,
-                                                  const MIDIOptions* options) {
-  return NavigatorWebMIDI::From(navigator).requestMIDIAccess(script_state,
-                                                             options);
+ScriptPromise NavigatorWebMIDI::requestMIDIAccess(
+    ScriptState* script_state,
+    Navigator& navigator,
+    const MIDIOptions* options,
+    ExceptionState& exception_state) {
+  return NavigatorWebMIDI::From(navigator).requestMIDIAccess(
+      script_state, options, exception_state);
 }
 
-ScriptPromise NavigatorWebMIDI::requestMIDIAccess(ScriptState* script_state,
-                                                  const MIDIOptions* options) {
+ScriptPromise NavigatorWebMIDI::requestMIDIAccess(
+    ScriptState* script_state,
+    const MIDIOptions* options,
+    ExceptionState& exception_state) {
   if (!script_state->ContextIsValid()) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        MakeGarbageCollected<DOMException>(DOMExceptionCode::kAbortError,
-                                           "The frame is not working."));
+    exception_state.ThrowDOMException(DOMExceptionCode::kAbortError,
+                                      "The frame is not working.");
+    return ScriptPromise();
   }
 
   Document& document = *To<Document>(ExecutionContext::From(script_state));
@@ -112,14 +116,12 @@ ScriptPromise NavigatorWebMIDI::requestMIDIAccess(ScriptState* script_state,
   document.CountUseOnlyInCrossOriginIframe(
       WebFeature::kRequestMIDIAccessIframe_ObscuredByFootprinting);
 
-  if (!document.IsFeatureEnabled(mojom::FeaturePolicyFeature::kMidiFeature,
-                                 ReportOptions::kReportOnFailure,
-                                 kFeaturePolicyConsoleWarning)) {
+  if (!document.IsFeatureEnabled(
+          mojom::blink::FeaturePolicyFeature::kMidiFeature,
+          ReportOptions::kReportOnFailure, kFeaturePolicyConsoleWarning)) {
     UseCounter::Count(document, WebFeature::kMidiDisabledByFeaturePolicy);
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        MakeGarbageCollected<DOMException>(DOMExceptionCode::kSecurityError,
-                                           kFeaturePolicyErrorMessage));
+    exception_state.ThrowSecurityError(kFeaturePolicyErrorMessage);
+    return ScriptPromise();
   }
 
   return MIDIAccessInitializer::Start(script_state, options);

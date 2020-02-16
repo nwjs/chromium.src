@@ -9,7 +9,10 @@
 #include "base/android/callback_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
+#include "base/android/unguessable_token_android.h"
 #include "base/bind.h"
+#include "base/unguessable_token.h"
+#include "components/paint_preview/browser/paint_preview_base_service.h"
 #include "components/paint_preview/player/android/jni_headers/PlayerCompositorDelegateImpl_jni.h"
 #include "components/services/paint_preview_compositor/public/mojom/paint_preview_compositor.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -23,64 +26,98 @@ using base::android::ScopedJavaLocalRef;
 
 namespace paint_preview {
 
+namespace {
+
+ScopedJavaLocalRef<jobjectArray> ToJavaUnguessableTokenArray(
+    JNIEnv* env,
+    const std::vector<base::UnguessableToken>& tokens) {
+  ScopedJavaLocalRef<jclass> j_unguessable_token_class =
+      base::android::GetClass(env, "org/chromium/base/UnguessableToken");
+  jobjectArray joa = env->NewObjectArray(
+      tokens.size(), j_unguessable_token_class.obj(), nullptr);
+  base::android::CheckException(env);
+
+  for (size_t i = 0; i < tokens.size(); ++i) {
+    ScopedJavaLocalRef<jobject> j_unguessable_token =
+        base::android::UnguessableTokenAndroid::Create(env, tokens[i]);
+    env->SetObjectArrayElement(joa, i, j_unguessable_token.obj());
+  }
+
+  return ScopedJavaLocalRef<jobjectArray>(env, joa);
+}
+
+}  // namespace
+
 jlong JNI_PlayerCompositorDelegateImpl_Initialize(
     JNIEnv* env,
     const JavaParamRef<jobject>& j_object,
+    jlong paint_preview_service,
     const JavaParamRef<jstring>& j_string_url) {
-  PlayerCompositorDelegateAndroid* mediator =
-      new PlayerCompositorDelegateAndroid(env, j_object, j_string_url);
-  return reinterpret_cast<intptr_t>(mediator);
+  PlayerCompositorDelegateAndroid* delegate =
+      new PlayerCompositorDelegateAndroid(
+          env, j_object,
+          reinterpret_cast<PaintPreviewBaseService*>(paint_preview_service),
+          j_string_url);
+  return reinterpret_cast<intptr_t>(delegate);
 }
 
 PlayerCompositorDelegateAndroid::PlayerCompositorDelegateAndroid(
     JNIEnv* env,
     const JavaParamRef<jobject>& j_object,
+    PaintPreviewBaseService* paint_preview_service,
     const JavaParamRef<jstring>& j_string_url)
     : PlayerCompositorDelegate(
+          paint_preview_service,
           GURL(base::android::ConvertJavaStringToUTF16(env, j_string_url))) {
   java_ref_.Reset(env, j_object);
 }
 
 void PlayerCompositorDelegateAndroid::OnCompositorReady(
-    const mojom::PaintPreviewBeginCompositeResponse& composite_response) {
+    mojom::PaintPreviewCompositor::Status status,
+    mojom::PaintPreviewBeginCompositeResponsePtr composite_response) {
+  if (status != mojom::PaintPreviewCompositor::Status::kSuccess) {
+    // TODO(crbug.com/1021590): Handle initialization errors.
+    return;
+  }
+
   JNIEnv* env = base::android::AttachCurrentThread();
 
-  // We use int64_t instead of uint64_t because (i) there is no equivalent
-  // type to uint64_t in Java and (ii) base::android::ToJavaLongArray accepts
-  // a std::vector<int64_t> as input.
-  std::vector<int64_t> all_guids;
+  std::vector<base::UnguessableToken> all_guids;
   std::vector<int> scroll_extents;
   std::vector<int> subframe_count;
-  std::vector<int64_t> subframe_ids;
+  std::vector<base::UnguessableToken> subframe_ids;
   std::vector<int> subframe_rects;
 
-  CompositeResponseFramesToVectors(composite_response.frames, &all_guids,
+  CompositeResponseFramesToVectors(composite_response->frames, &all_guids,
                                    &scroll_extents, &subframe_count,
                                    &subframe_ids, &subframe_rects);
 
-  ScopedJavaLocalRef<jlongArray> j_all_guids =
-      base::android::ToJavaLongArray(env, all_guids);
+  ScopedJavaLocalRef<jobjectArray> j_all_guids =
+      ToJavaUnguessableTokenArray(env, all_guids);
   ScopedJavaLocalRef<jintArray> j_scroll_extents =
       base::android::ToJavaIntArray(env, scroll_extents);
   ScopedJavaLocalRef<jintArray> j_subframe_count =
       base::android::ToJavaIntArray(env, subframe_count);
-  ScopedJavaLocalRef<jlongArray> j_subframe_ids =
-      base::android::ToJavaLongArray(env, subframe_ids);
+  ScopedJavaLocalRef<jobjectArray> j_subframe_ids =
+      ToJavaUnguessableTokenArray(env, subframe_ids);
   ScopedJavaLocalRef<jintArray> j_subframe_rects =
       base::android::ToJavaIntArray(env, subframe_rects);
 
   Java_PlayerCompositorDelegateImpl_onCompositorReady(
-      env, java_ref_, composite_response.root_frame_guid, j_all_guids,
-      j_scroll_extents, j_subframe_count, j_subframe_ids, j_subframe_rects);
+      env, java_ref_,
+      base::android::UnguessableTokenAndroid::Create(
+          env, composite_response->root_frame_guid),
+      j_all_guids, j_scroll_extents, j_subframe_count, j_subframe_ids,
+      j_subframe_rects);
 }
 
 // static
 void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
-    const base::flat_map<uint64_t, mojom::FrameDataPtr>& frames,
-    std::vector<int64_t>* all_guids,
+    const base::flat_map<base::UnguessableToken, mojom::FrameDataPtr>& frames,
+    std::vector<base::UnguessableToken>* all_guids,
     std::vector<int>* scroll_extents,
     std::vector<int>* subframe_count,
-    std::vector<int64_t>* subframe_ids,
+    std::vector<base::UnguessableToken>* subframe_ids,
     std::vector<int>* subframe_rects) {
   all_guids->reserve(frames.size());
   scroll_extents->reserve(2 * frames.size());
@@ -109,7 +146,7 @@ void PlayerCompositorDelegateAndroid::CompositeResponseFramesToVectors(
 
 void PlayerCompositorDelegateAndroid::RequestBitmap(
     JNIEnv* env,
-    jlong j_frame_guid,
+    const JavaParamRef<jobject>& j_frame_guid,
     const JavaParamRef<jobject>& j_bitmap_callback,
     const JavaParamRef<jobject>& j_error_callback,
     jfloat j_scale_factor,
@@ -120,7 +157,9 @@ void PlayerCompositorDelegateAndroid::RequestBitmap(
   gfx::Rect clip_rect =
       gfx::Rect(j_clip_x, j_clip_y, j_clip_width, j_clip_height);
   PlayerCompositorDelegate::RequestBitmap(
-      j_frame_guid, clip_rect, j_scale_factor,
+      base::android::UnguessableTokenAndroid::FromJavaUnguessableToken(
+          env, j_frame_guid),
+      clip_rect, j_scale_factor,
       base::BindOnce(&PlayerCompositorDelegateAndroid::OnBitmapCallback,
                      weak_factory_.GetWeakPtr(),
                      ScopedJavaGlobalRef<jobject>(j_bitmap_callback),
@@ -140,11 +179,15 @@ void PlayerCompositorDelegateAndroid::OnBitmapCallback(
   }
 }
 
-void PlayerCompositorDelegateAndroid::OnClick(JNIEnv* env,
-                                              jlong j_frame_guid,
-                                              jint j_x,
-                                              jint j_y) {
-  PlayerCompositorDelegate::OnClick(j_frame_guid, j_x, j_y);
+void PlayerCompositorDelegateAndroid::OnClick(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& j_frame_guid,
+    jint j_x,
+    jint j_y) {
+  PlayerCompositorDelegate::OnClick(
+      base::android::UnguessableTokenAndroid::FromJavaUnguessableToken(
+          env, j_frame_guid),
+      j_x, j_y);
 }
 
 void PlayerCompositorDelegateAndroid::Destroy(JNIEnv* env) {

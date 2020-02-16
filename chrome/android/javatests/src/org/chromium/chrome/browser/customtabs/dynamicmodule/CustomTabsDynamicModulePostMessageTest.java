@@ -14,6 +14,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.support.test.filters.SmallTest;
 
+import androidx.browser.customtabs.CustomTabsService;
+import androidx.browser.customtabs.PostMessageBackend;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -23,24 +26,20 @@ import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.library_loader.LibraryLoader;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.browser.AppHooksModule;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivityTestRule;
 import org.chromium.chrome.browser.customtabs.dynamicmodule.CustomTabsDynamicModuleTestUtils.AppHooksModuleForTest;
 import org.chromium.chrome.browser.customtabs.dynamicmodule.CustomTabsDynamicModuleTestUtils.IntentBuilder;
 import org.chromium.chrome.browser.dependency_injection.ModuleOverridesRule;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.net.test.util.TestWebServer;
-
-import androidx.browser.customtabs.CustomTabsService;
-import androidx.browser.customtabs.PostMessageBackend;
 
 /**
  * Instrumentation tests for the CCT Dynamic Module post message API.
@@ -91,7 +90,7 @@ public class CustomTabsDynamicModulePostMessageTest {
 
     @Before
     public void setUp() throws Exception {
-        LibraryLoader.getInstance().ensureInitialized(LibraryProcessType.PROCESS_BROWSER);
+        LibraryLoader.getInstance().ensureInitialized();
         mServer = TestWebServer.start();
     }
 

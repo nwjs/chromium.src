@@ -8,6 +8,8 @@
  * rework the "policy" naming scheme throughout this directory.
  */
 
+// #import {assertNotReached} from 'chrome://resources/js/assert.m.js';
+
 /**
  * Strings required for policy indicators. These must be set at runtime.
  * Chrome OS only strings may be undefined.
@@ -28,7 +30,7 @@
 var CrPolicyStrings;
 
 /** @enum {string} */
-const CrPolicyIndicatorType = {
+/* #export */ const CrPolicyIndicatorType = {
   DEVICE_POLICY: 'devicePolicy',
   EXTENSION: 'extension',
   NONE: 'none',
@@ -41,7 +43,7 @@ const CrPolicyIndicatorType = {
 };
 
 /** @polymerBehavior */
-const CrPolicyIndicatorBehavior = {
+/* #export */ const CrPolicyIndicatorBehavior = {
   // Properties exposed to all policy indicators.
   properties: {
     /**
@@ -81,8 +83,8 @@ const CrPolicyIndicatorBehavior = {
    * @return {boolean} True if the indicator should be shown.
    * @private
    */
-  getIndicatorVisible_: function(type) {
-    return type != CrPolicyIndicatorType.NONE;
+  getIndicatorVisible_(type) {
+    return type !== CrPolicyIndicatorType.NONE;
   },
 
   /**
@@ -90,7 +92,7 @@ const CrPolicyIndicatorBehavior = {
    * @return {string} The iron-icon icon name.
    * @private
    */
-  getIndicatorIcon_: function(type) {
+  getIndicatorIcon_(type) {
     switch (type) {
       case CrPolicyIndicatorType.EXTENSION:
         return 'cr:extension';
@@ -120,10 +122,12 @@ const CrPolicyIndicatorBehavior = {
    *     value matches the recommended value.
    * @return {string} The tooltip text for |type|.
    */
-  getIndicatorTooltip: function(type, name, opt_matches) {
-    if (!CrPolicyStrings) {
+  getIndicatorTooltip(type, name, opt_matches) {
+    if (!window['CrPolicyStrings']) {
       return '';
     }  // Tooltips may not be defined, e.g. in OOBE.
+
+    CrPolicyStrings = window['CrPolicyStrings'];
     switch (type) {
       case CrPolicyIndicatorType.EXTENSION:
         return name.length > 0 ?

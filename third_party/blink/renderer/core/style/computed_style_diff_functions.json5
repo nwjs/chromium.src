@@ -35,7 +35,7 @@
         fields_to_diff: ["width", "min-width", "max-width", "height", "min-height", "max-height", "margin-top", "margin-left", "margin-right", "margin-bottom", 
                   "left", "right", "top", "bottom", "padding-top", 
                   "padding-left", "padding-right", "padding-bottom",
-                  "intrinsic-width", "intrinsic-height"],
+                  "contain-intrinsic-width", "contain-intrinsic-height"],
         methods_to_diff: [
           {
             method: "GetPosition()",
@@ -81,9 +81,7 @@
     {
         name: "DiffNeedsFullLayoutAndPaintInvalidation",
         fields_to_diff: ["padding-top", "padding-left", "padding-right", 
-                "padding-bottom", "-webkit-appearance",
-                "-webkit-margin-before-collapse",
-                "-webkit-margin-after-collapse", "-webkit-line-clamp",
+                "padding-bottom", "-webkit-appearance", "-webkit-line-clamp",
                 "text-overflow", "shape-margin", "order", "-webkit-highlight",
                 "text-indent", "text-align-last", "TextIndentLine", "-internal-effective-zoom",
                 "word-break", "overflow-wrap", "-webkit-line-break", 
@@ -233,7 +231,8 @@
         fields_to_diff: ["width", "min-width", "max-width", "height", "min-height",
                 "max-height", "VerticalAlignLength", "box-sizing", "align-content",
                 "align-items", "align-self", "justify-content", "justify-items",
-                "justify-self", "contain", "intrinsic-width", "intrinsic-height"],
+                "justify-self", "contain", "contain-intrinsic-width",
+                "contain-intrinsic-height"],
         methods_to_diff: [
           {
             method: "VerticalAlign()",
@@ -390,7 +389,7 @@
         fields_to_diff: ["Mask", "MaskBoxImage"],
     },
     {
-        name: "UpdatePropertySpecificDifferencesNeedsRecomputeOverflow",
+        name: "UpdatePropertySpecificDifferencesNeedsRecomputeVisualOverflow",
         predicates_to_test: [
           {
             predicate: "a.BoxShadowDataEquivalent(b)",

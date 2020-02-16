@@ -6,6 +6,7 @@
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/preconnect_manager.h"
@@ -59,7 +60,10 @@ class NavigationPredictorPreconnectClientBrowserTest
     return https_server_->GetURL(file);
   }
 
-  void OnPreresolveFinished(const GURL& url, bool success) override {
+  void OnPreresolveFinished(
+      const GURL& url,
+      const net::NetworkIsolationKey& network_isolation_key,
+      bool success) override {
     EXPECT_TRUE(success);
     preresolve_done_count_++;
     if (run_loop_)
@@ -260,6 +264,58 @@ IN_PROC_BROWSER_TEST_F(
   // preconnect.
   WaitForPreresolveCount(3);
   EXPECT_EQ(3, preresolve_done_count_);
+}
+
+namespace {
+// Feature to control preconnect to search.
+const base::Feature kPreconnectToSearchTest{"PreconnectToSearch",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
+}  // namespace
+
+class NavigationPredictorPreconnectClientBrowserTestWithSearch
+    : public NavigationPredictorPreconnectClientBrowserTest {
+ public:
+  NavigationPredictorPreconnectClientBrowserTestWithSearch()
+      : NavigationPredictorPreconnectClientBrowserTest() {
+    feature_list_.InitAndEnableFeature(kPreconnectToSearchTest);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// TODO(https://crbug.com/1039813): Test fails consistently on MacOS 10.13
+// TODO(https://crbug.com/1040153): Test fails consistently on Win 7 as well.
+IN_PROC_BROWSER_TEST_F(NavigationPredictorPreconnectClientBrowserTestWithSearch,
+                       DISABLED_PreconnectSearchWithFeature) {
+  static const char kShortName[] = "test";
+  static const char kSearchURL[] =
+      "/anchors_different_area.html?q={searchTerms}";
+  TemplateURLService* model =
+      TemplateURLServiceFactory::GetForProfile(browser()->profile());
+  ASSERT_TRUE(model);
+  search_test_utils::WaitForTemplateURLServiceToLoad(model);
+  ASSERT_TRUE(model->loaded());
+
+  TemplateURLData data;
+  data.SetShortName(base::ASCIIToUTF16(kShortName));
+  data.SetKeyword(data.short_name());
+  data.SetURL(GetTestURL(kSearchURL).spec());
+
+  TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
+  ASSERT_TRUE(template_url);
+  model->SetUserSelectedDefaultSearchProvider(template_url);
+  const GURL& url = GetTestURL("/anchors_different_area.html?q=cats");
+
+  // There should be 2 DSE preconnects (2 NIKs).
+  WaitForPreresolveCount(2);
+  EXPECT_EQ(2, preresolve_done_count_);
+
+  ui_test_utils::NavigateToURL(browser(), url);
+  // Now there should be an onload preconnect as well as a navigation
+  // preconnect.
+  WaitForPreresolveCount(4);
+  EXPECT_EQ(4, preresolve_done_count_);
 }
 
 }  // namespace

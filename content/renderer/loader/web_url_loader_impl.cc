@@ -57,20 +57,21 @@
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/ssl/ssl_info.h"
 #include "services/network/loader_util.h"
+#include "services/network/public/cpp/http_raw_request_response_info.h"
 #include "services/network/public/cpp/resource_request.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
 #include "third_party/blink/public/common/security/security_style.h"
+#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
-#include "third_party/blink/public/platform/interface_provider.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_http_load_info.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_error.h"
-#include "third_party/blink/public/platform/web_url_load_timing.h"
 #include "third_party/blink/public/platform/web_url_loader_client.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_url_response.h"
@@ -87,7 +88,6 @@ using blink::WebSecurityPolicy;
 using blink::WebString;
 using blink::WebURL;
 using blink::WebURLError;
-using blink::WebURLLoadTiming;
 using blink::WebURLLoader;
 using blink::WebURLLoaderClient;
 using blink::WebURLRequest;
@@ -105,27 +105,20 @@ constexpr char kImageAcceptHeader[] = "image/webp,image/apng,image/*,*/*;q=0.8";
 
 using HeadersVector = network::HttpRawRequestResponseInfo::HeadersVector;
 
-// Converts timing data from |load_timing| to the format used by WebKit.
-void PopulateURLLoadTiming(const net::LoadTimingInfo& load_timing,
-                           WebURLLoadTiming* url_timing) {
+// Converts timing data from |load_timing| to the mojo type.
+network::mojom::LoadTimingInfo ToMojoLoadTiming(
+    const net::LoadTimingInfo& load_timing) {
   DCHECK(!load_timing.request_start.is_null());
 
-  url_timing->Initialize();
-  url_timing->SetRequestTime(load_timing.request_start);
-  url_timing->SetProxyStart(load_timing.proxy_resolve_start);
-  url_timing->SetProxyEnd(load_timing.proxy_resolve_end);
-  url_timing->SetDNSStart(load_timing.connect_timing.dns_start);
-  url_timing->SetDNSEnd(load_timing.connect_timing.dns_end);
-  url_timing->SetConnectStart(load_timing.connect_timing.connect_start);
-  url_timing->SetConnectEnd(load_timing.connect_timing.connect_end);
-  url_timing->SetSSLStart(load_timing.connect_timing.ssl_start);
-  url_timing->SetSSLEnd(load_timing.connect_timing.ssl_end);
-  url_timing->SetSendStart(load_timing.send_start);
-  url_timing->SetSendEnd(load_timing.send_end);
-  url_timing->SetReceiveHeadersStart(load_timing.receive_headers_start);
-  url_timing->SetReceiveHeadersEnd(load_timing.receive_headers_end);
-  url_timing->SetPushStart(load_timing.push_start);
-  url_timing->SetPushEnd(load_timing.push_end);
+  return network::mojom::LoadTimingInfo(
+      load_timing.socket_reused, load_timing.socket_log_id,
+      load_timing.request_start_time, load_timing.request_start,
+      load_timing.proxy_resolve_start, load_timing.proxy_resolve_end,
+      load_timing.connect_timing, load_timing.send_start, load_timing.send_end,
+      load_timing.receive_headers_start, load_timing.receive_headers_end,
+      load_timing.push_start, load_timing.push_end,
+      load_timing.service_worker_start_time,
+      load_timing.service_worker_ready_time);
 }
 
 // This is complementary to ConvertNetPriorityToWebKitPriority, defined in
@@ -310,13 +303,11 @@ bool IsBannedCrossSiteAuth(network::ResourceRequest* resource_request,
         extra_data->allow_cross_origin_auth_prompt();
   }
 
-  if (first_party.is_valid() &&  // empty site_for_cookies means cross-site.
-      net::registry_controlled_domains::SameDomainOrHost(
-          first_party, request_url,
-          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
+  if (first_party.IsFirstParty(request_url)) {
     // If the first party is secure but the subresource is not, this is
     // mixed-content. Do not allow the image.
-    if (!allow_cross_origin_auth_prompt && IsOriginSecure(first_party) &&
+    if (!allow_cross_origin_auth_prompt &&
+        IsOriginSecure(first_party.RepresentativeUrl()) &&
         !IsOriginSecure(request_url)) {
       return true;
     }
@@ -614,10 +605,7 @@ void WebURLLoaderImpl::Context::Start(const WebURLRequest& request,
     response_override = extra_data->TakeNavigationResponseOverrideOwnership();
   }
 
-  // TODO(domfarolino): Retrieve the referrer in the form of a referrer member
-  // instead of the header field. See https://crbug.com/850813.
-  GURL referrer_url(
-      request.HttpHeaderField(WebString::FromASCII("Referer")).Latin1());
+  GURL referrer_url = blink::WebStringToGURL(request.ReferrerString());
   const std::string& method = request.HttpMethod().Latin1();
 
   // TODO(brettw) this should take parameter encoding into account when
@@ -726,6 +714,7 @@ void WebURLLoaderImpl::Context::Start(const WebURLRequest& request,
   resource_request->cors_preflight_policy = request.GetCorsPreflightPolicy();
   resource_request->skip_service_worker = request.GetSkipServiceWorker();
   resource_request->mode = request.GetMode();
+  resource_request->destination = request.GetRequestDestination();
   resource_request->credentials_mode = request.GetCredentialsMode();
   resource_request->redirect_mode = request.GetRedirectMode();
   resource_request->fetch_integrity =
@@ -810,7 +799,7 @@ void WebURLLoaderImpl::Context::Start(const WebURLRequest& request,
 
     mojo::PendingRemote<blink::mojom::BlobRegistry> download_to_blob_registry;
     if (request.PassResponsePipeToClient()) {
-      blink::Platform::Current()->GetInterfaceProvider()->GetInterface(
+      blink::Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
           download_to_blob_registry.InitWithNewPipeAndPassReceiver());
     }
     resource_dispatcher_->StartSync(
@@ -869,6 +858,12 @@ void WebURLLoaderImpl::Context::OnReceivedResponse(
   TRACE_EVENT_WITH_FLOW0(
       "loading", "WebURLLoaderImpl::Context::OnReceivedResponse",
       this, TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
+
+  // These headers must be stripped off before entering into the renderer
+  // (see also https://crbug.com/1019732).
+  DCHECK(!head->headers || !head->headers->HasHeader("set-cookie"));
+  DCHECK(!head->headers || !head->headers->HasHeader("set-cookie2"));
+  DCHECK(!head->headers || !head->headers->HasHeader("clear-site-data"));
 
   WebURLResponse response;
   PopulateURLResponse(url_, *head, &response, report_raw_headers_, request_id_);
@@ -1017,6 +1012,7 @@ void WebURLLoaderImpl::PopulateURLResponse(
       net::IsCertStatusError(head.cert_status));
   response->SetCTPolicyCompliance(head.ct_policy_compliance);
   response->SetIsLegacyTLSVersion(head.is_legacy_tls_version);
+  response->SetTimingAllowPassed(head.timing_allow_passed);
   response->SetAppCacheID(head.appcache_id);
   response->SetAppCacheManifestURL(head.appcache_manifest_url);
   response->SetWasCached(!head.load_timing.request_start_time.is_null() &&
@@ -1068,11 +1064,7 @@ void WebURLLoaderImpl::PopulateURLResponse(
   // the case for non-HTTP requests, requests that don't go over the wire, and
   // certain error cases.
   if (!head.load_timing.receive_headers_end.is_null()) {
-    WebURLLoadTiming timing;
-    PopulateURLLoadTiming(head.load_timing, &timing);
-    timing.SetWorkerStart(head.service_worker_start_time);
-    timing.SetWorkerReady(head.service_worker_ready_time);
-    response->SetLoadTiming(timing);
+    response->SetLoadTiming(ToMojoLoadTiming(head.load_timing));
   }
 
   if (head.raw_request_response_info.get()) {
@@ -1125,13 +1117,6 @@ void WebURLLoaderImpl::PopulateURLResponse(
   }
 }
 
-void WebURLLoaderImpl::PopulateURLResponse(
-    const WebURL& url,
-    const network::ResourceResponseHead& head,
-    WebURLResponse* response,
-    bool report_security_info,
-    int request_id) {}
-
 // static
 WebURLError WebURLLoaderImpl::PopulateURLError(
     const network::URLLoaderCompletionStatus& status,
@@ -1143,7 +1128,7 @@ WebURLError WebURLLoaderImpl::PopulateURLError(
   if (status.cors_error_status)
     return WebURLError(*status.cors_error_status, has_copy_in_cache, url);
   return WebURLError(status.error_code, status.extended_error_code,
-                     has_copy_in_cache,
+                     status.resolve_error_info, has_copy_in_cache,
                      WebURLError::IsWebSecurityViolation::kFalse, url);
 }
 
@@ -1180,6 +1165,7 @@ void WebURLLoaderImpl::LoadSynchronously(
               ? WebURLError::IsWebSecurityViolation::kTrue
               : WebURLError::IsWebSecurityViolation::kFalse;
       error = WebURLError(error_code, sync_load_response.extended_error_code,
+                          sync_load_response.resolve_error_info,
                           WebURLError::HasCopyInCache::kFalse,
                           is_web_security_violation, final_url);
     }

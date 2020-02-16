@@ -5,13 +5,14 @@
 #include "ash/wm/desks/desk_preview_view.h"
 
 #include <memory>
+#include <utility>
 
 #include "ash/multi_user/multi_user_window_manager_impl.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/wallpaper/wallpaper_base_view.h"
 #include "ash/wm/desks/desk_mini_view.h"
-#include "ash/wm/desks/desks_bar_item_border.h"
 #include "ash/wm/window_state.h"
+#include "ash/wm/wm_highlight_item_border.h"
 #include "base/containers/flat_map.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_tree_owner.h"
@@ -227,12 +228,12 @@ DeskPreviewView::DeskPreviewView(DeskMiniView* mini_view)
   desk_mirrored_contents_view_->SetPaintToLayer(ui::LAYER_NOT_DRAWN);
   ui::Layer* contents_view_layer = desk_mirrored_contents_view_->layer();
   contents_view_layer->SetMasksToBounds(true);
-  contents_view_layer->set_name("Desk mirrored contents view");
+  contents_view_layer->SetName("Desk mirrored contents view");
   contents_view_layer->SetRoundedCornerRadius(kCornerRadii);
   contents_view_layer->SetIsFastRoundedCorner(true);
   AddChildView(desk_mirrored_contents_view_);
 
-  auto border = std::make_unique<DesksBarItemBorder>(kBorderCornerRadius);
+  auto border = std::make_unique<WmHighlightItemBorder>(kBorderCornerRadius);
   border_ptr_ = border.get();
   SetBorder(std::move(border));
 
@@ -259,7 +260,7 @@ void DeskPreviewView::RecreateDeskContentsMirrorLayers() {
   // Mirror the layer tree of the desk container.
   auto mirrored_content_root_layer =
       std::make_unique<ui::Layer>(ui::LAYER_NOT_DRAWN);
-  mirrored_content_root_layer->set_name("mirrored contents root layer");
+  mirrored_content_root_layer->SetName("mirrored contents root layer");
   base::flat_map<ui::Layer*, LayerData> layers_data;
   GetLayersData(desk_container, &layers_data);
   auto* desk_container_layer = desk_container->layer();

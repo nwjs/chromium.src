@@ -4,7 +4,7 @@
 
 #include "third_party/blink/renderer/core/page/scrolling/text_fragment_anchor.h"
 
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
+#include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
@@ -19,6 +19,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/scrolling/text_fragment_selector.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 
 namespace blink {
@@ -33,7 +34,10 @@ bool ParseTextDirective(const String& fragment,
   size_t end_pos = 0;
   while (end_pos != kNotFound) {
     if (fragment.Find(kTextFragmentIdentifierPrefix, start_pos) != start_pos) {
-      return false;
+      // If this is not a text directive, continue to the next directive
+      end_pos = fragment.find('&', start_pos + 1);
+      start_pos = end_pos + 1;
+      continue;
     }
 
     start_pos += kTextFragmentIdentifierPrefixStringLength;
@@ -46,10 +50,13 @@ bool ParseTextDirective(const String& fragment,
       target_text = fragment.Substring(start_pos, end_pos - start_pos);
       start_pos = end_pos + 1;
     }
-    out_selectors->push_back(TextFragmentSelector::Create(target_text));
+
+    TextFragmentSelector selector = TextFragmentSelector::Create(target_text);
+    if (selector.Type() != TextFragmentSelector::kInvalid)
+      out_selectors->push_back(selector);
   }
 
-  return true;
+  return out_selectors->size() > 0;
 }
 
 bool CheckSecurityRestrictions(LocalFrame& frame,
@@ -146,6 +153,10 @@ bool TextFragmentAnchor::Invoke() {
   frame_->GetDocument()->Markers().RemoveMarkersOfTypes(
       DocumentMarker::MarkerTypes::TextFragment());
 
+  // TODO(bokan): Once BlockHTMLParserOnStyleSheets is launched, there won't be
+  // a way for the user to scroll before we invoke and scroll the anchor. We
+  // should confirm if we can remove tracking this after that point or if we
+  // need a replacement metric.
   if (user_scrolled_ && !did_scroll_into_view_)
     metrics_->ScrollCancelled();
 
@@ -171,7 +182,8 @@ bool TextFragmentAnchor::Invoke() {
 
 void TextFragmentAnchor::Installed() {}
 
-void TextFragmentAnchor::DidScroll(ScrollType type) {
+void TextFragmentAnchor::DidScroll(
+    mojom::blink::ScrollIntoViewParams::Type type) {
   if (!IsExplicitScrollType(type))
     return;
 
@@ -185,15 +197,6 @@ void TextFragmentAnchor::PerformPreRafActions() {
     element_fragment_anchor_->PerformPreRafActions();
     element_fragment_anchor_ = nullptr;
   }
-}
-
-void TextFragmentAnchor::DidCompleteLoad() {
-  if (search_finished_)
-    return;
-
-  // If there is a pending layout we'll finish the search from Invoke.
-  if (!frame_->View()->NeedsLayout())
-    DidFinishSearch();
 }
 
 void TextFragmentAnchor::Trace(blink::Visitor* visitor) {
@@ -219,6 +222,29 @@ void TextFragmentAnchor::DidFindMatch(const EphemeralRangeInFlatTree& range) {
     return;
   }
 
+  bool needs_style_and_layout = false;
+
+  // Apply :target to the first match
+  if (!did_find_match_) {
+    ApplyTargetToCommonAncestor(range);
+    needs_style_and_layout = true;
+  }
+
+  // Activate any find-in-page activatable display-locks in the ancestor
+  // chain.
+  if (DisplayLockUtilities::ActivateFindInPageMatchRangeIfNeeded(range)) {
+    // Since activating a lock dirties layout, we need to make sure it's clean
+    // before computing the text rect below.
+    needs_style_and_layout = true;
+    // TODO(crbug.com/1041942): It is possible and likely that activation
+    // signal causes script to resize something on the page. This code here
+    // should really yield until the next frame to give script an opportunity
+    // to run.
+  }
+
+  if (needs_style_and_layout)
+    frame_->GetDocument()->UpdateStyleAndLayout();
+
   metrics_->DidFindMatch(PlainText(range));
   did_find_match_ = true;
 
@@ -240,10 +266,15 @@ void TextFragmentAnchor::DidFindMatch(const EphemeralRangeInFlatTree& range) {
     PhysicalRect scrolled_bounding_box =
         node.GetLayoutObject()->ScrollRectToVisible(
             bounding_box,
-            WebScrollIntoViewParams(ScrollAlignment::kAlignCenterAlways,
-                                    ScrollAlignment::kAlignCenterAlways,
-                                    kProgrammaticScroll));
+            CreateScrollIntoViewParams(
+                ScrollAlignment::kAlignCenterAlways,
+                ScrollAlignment::kAlignCenterAlways,
+                mojom::blink::ScrollIntoViewParams::Type::kProgrammatic));
     did_scroll_into_view_ = true;
+
+    if (AXObjectCache* cache = frame_->GetDocument()->ExistingAXObjectCache())
+      cache->HandleScrolledToAnchor(&node);
+
     metrics_->DidScroll();
 
     // We scrolled the text into view if the main document scrolled or the text
@@ -307,6 +338,20 @@ bool TextFragmentAnchor::Dismiss() {
   metrics_->Dismissed();
 
   return dismissed_;
+}
+
+void TextFragmentAnchor::ApplyTargetToCommonAncestor(
+    const EphemeralRangeInFlatTree& range) {
+  Node* common_node = range.CommonAncestorContainer();
+  while (common_node && common_node->getNodeType() != Node::kElementNode) {
+    common_node = common_node->parentNode();
+  }
+
+  DCHECK(common_node);
+  if (common_node) {
+    auto* target = DynamicTo<Element>(common_node);
+    frame_->GetDocument()->SetCSSTarget(target);
+  }
 }
 
 }  // namespace blink

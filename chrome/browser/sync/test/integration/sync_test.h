@@ -25,8 +25,8 @@
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/test/fake_server/fake_server.h"
+#include "net/base/net_errors.h"
 #include "net/http/http_status_code.h"
-#include "net/url_request/url_request_status.h"
 #include "services/network/test/test_url_loader_factory.h"
 
 #if defined(OS_CHROMEOS)
@@ -257,7 +257,7 @@ class SyncTest : public InProcessBrowserTest {
   // Each call to this method will overwrite responses that were previously set.
   void SetOAuth2TokenResponse(const std::string& response_data,
                               net::HttpStatusCode response_code,
-                              net::URLRequestStatus::Status status);
+                              net::Error net_error);
 
   // Triggers a migration for one or more datatypes, and waits
   // for the server to complete it.  This operation is available
@@ -359,13 +359,6 @@ class SyncTest : public InProcessBrowserTest {
   // Helper to Profile::CreateProfile that handles path creation. It creates
   // a profile then registers it as a testing profile.
   Profile* MakeTestProfile(base::FilePath profile_path, int index);
-
-  // Helper method used to create a Gaia account at runtime.
-  // This function should only be called when running against external servers
-  // which support this functionality.
-  // Returns true if account creation was successful, false otherwise.
-  bool CreateGaiaAccount(const std::string& username,
-                         const std::string& password);
 
   // Helper to block the current thread while the data models sync depends on
   // finish loading.
@@ -500,11 +493,6 @@ class SyncTest : public InProcessBrowserTest {
   // Indicates whether to use a new user data dir.
   // Only used for external server tests with two clients.
   bool use_new_user_data_dir_ = false;
-
-  // Indicates the need to create Gaia user account at runtime. This can only
-  // be set if tests are run against external servers with support for user
-  // creation via http requests.
-  bool create_gaia_account_at_runtime_;
 
   // Disable extension install verification.
   extensions::ScopedInstallVerifierBypassForTest ignore_install_verification_;

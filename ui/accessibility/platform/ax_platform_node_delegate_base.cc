@@ -93,6 +93,15 @@ gfx::NativeViewAccessible AXPlatformNodeDelegateBase::GetPreviousSibling() {
   return nullptr;
 }
 
+bool AXPlatformNodeDelegateBase::IsChildOfLeaf() const {
+  return false;
+}
+
+gfx::NativeViewAccessible AXPlatformNodeDelegateBase::GetClosestPlatformObject()
+    const {
+  return nullptr;
+}
+
 AXPlatformNodeDelegateBase::ChildIteratorBase::ChildIteratorBase(
     AXPlatformNodeDelegateBase* parent,
     int index)
@@ -294,6 +303,11 @@ base::Optional<int> AXPlatformNodeDelegateBase::GetTableAriaRowCount() const {
 }
 
 base::Optional<int> AXPlatformNodeDelegateBase::GetTableCellCount() const {
+  return base::nullopt;
+}
+
+base::Optional<bool>
+AXPlatformNodeDelegateBase::GetTableHasColumnOrRowHeaderNode() const {
   return base::nullopt;
 }
 

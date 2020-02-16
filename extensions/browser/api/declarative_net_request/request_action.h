@@ -26,34 +26,42 @@ struct RequestAction {
     // Block the network request and collapse the corresponding DOM element.
     COLLAPSE,
     // Allow the network request, preventing it from being intercepted by other
-    // matching rules. Only used for tracking a matched allow rule.
+    // matching rules.
     ALLOW,
     // Redirect the network request.
     REDIRECT,
+    // Upgrade the scheme of the network request.
+    UPGRADE,
     // Remove request/response headers.
     REMOVE_HEADERS,
+    // Allow the network request. This request is either for an allowlisted
+    // frame or originated from one.
+    ALLOW_ALL_REQUESTS,
   };
 
   RequestAction(Type type,
                 uint32_t rule_id,
-                uint32_t rule_priority,
+                uint64_t index_priority,
                 api::declarative_net_request::SourceType source_type,
                 const ExtensionId& extension_id);
   ~RequestAction();
   RequestAction(RequestAction&&);
   RequestAction& operator=(RequestAction&&);
 
+  // Helper to create a copy.
+  RequestAction Clone() const;
+
   Type type = Type::BLOCK;
 
-  // Valid iff |type| is |REDIRECT|.
+  // Valid iff |IsRedirectOrUpgrade()| is true.
   base::Optional<GURL> redirect_url;
 
   // The ID of the matching rule for this action.
   uint32_t rule_id;
 
-  // The priority of the matching rule for this action. Only really valid for
-  // redirect actions.
-  uint32_t rule_priority;
+  // The priority of this action in the index. This is a combination of the
+  // rule's priority and the rule's action's priority.
+  uint64_t index_priority;
 
   // The source type of the matching rule for this action.
   api::declarative_net_request::SourceType source_type;
@@ -71,8 +79,23 @@ struct RequestAction {
   // ActionTracker.
   mutable bool tracked = false;
 
-  DISALLOW_COPY_AND_ASSIGN(RequestAction);
+  bool IsBlockOrCollapse() const {
+    return type == Type::BLOCK || type == Type::COLLAPSE;
+  }
+  bool IsRedirectOrUpgrade() const {
+    return type == Type::REDIRECT || type == Type::UPGRADE;
+  }
+  bool IsAllowOrAllowAllRequests() const {
+    return type == Type::ALLOW || type == Type::ALLOW_ALL_REQUESTS;
+  }
+
+ private:
+  RequestAction(const RequestAction&);
 };
+
+base::Optional<RequestAction> GetMaxPriorityAction(
+    base::Optional<RequestAction> lhs,
+    base::Optional<RequestAction> rhs);
 
 }  // namespace declarative_net_request
 }  // namespace extensions

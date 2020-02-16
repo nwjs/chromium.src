@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/ui/list_model/list_model.h"
 #import "ios/chrome/browser/ui/settings/cells/sync_switch_item.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_command_handler.h"
+#import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_consumer.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_cells_constants.h"
@@ -32,9 +33,6 @@
 #endif
 
 using l10n_util::GetNSString;
-
-NSString* const kDataFromChromeSyncAccessibilityIdentifier =
-    @"DataFromChromeSyncAccessibilityIdentifier";
 
 namespace {
 
@@ -292,7 +290,9 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
     self.encryptionItem.image =
         [UIImage imageNamed:kGoogleServicesSyncErrorImage];
     self.encryptionItem.detailText =
-        GetNSString(IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_ENCRYPTION_FIX_NOW);
+        GetNSString(self.syncSetupService->IsEncryptEverythingEnabled()
+                        ? IDS_IOS_SYNC_ERROR_DESCRIPTION
+                        : IDS_IOS_SYNC_PASSWORDS_ERROR_DESCRIPTION);
   } else {
     needsUpdate = needsUpdate || self.encryptionItem.image != nil;
     self.encryptionItem.image = nil;

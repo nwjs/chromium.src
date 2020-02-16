@@ -412,6 +412,12 @@ std::vector<uint8_t> MakeCCCDValue(uint8_t value) {
   return {value, 0};
 }
 
+void SendRssiOnGetConnectionInfoDone(
+    arc::ArcBluetoothBridge::ReadRemoteRssiCallback callback,
+    const device::BluetoothDevice::ConnectionInfo& conn_info) {
+  std::move(callback).Run(conn_info.rssi);
+}
+
 }  // namespace
 
 namespace arc {
@@ -510,17 +516,27 @@ void ArcBluetoothBridge::DeviceChanged(BluetoothAdapter* adapter,
   if (!arc_bridge_service_->bluetooth()->IsConnected())
     return;
 
-  auto* bluetooth_instance = ARC_GET_INSTANCE_FOR_METHOD(
-      arc_bridge_service_->bluetooth(), OnDeviceFound);
-  if (bluetooth_instance) {
-    bluetooth_instance->OnDeviceFound(
-        GetDeviceProperties(mojom::BluetoothPropertyType::ALL, device));
+  std::string addr = device->GetAddress();
+  if (discovered_devices_.insert(addr).second) {
+    auto* bluetooth_instance = ARC_GET_INSTANCE_FOR_METHOD(
+        arc_bridge_service_->bluetooth(), OnDeviceFound);
+    if (bluetooth_instance) {
+      bluetooth_instance->OnDeviceFound(
+          GetDeviceProperties(mojom::BluetoothPropertyType::ALL, device));
+    }
+  } else {
+    auto* bluetooth_instance = ARC_GET_INSTANCE_FOR_METHOD(
+        arc_bridge_service_->bluetooth(), OnDevicePropertiesChanged);
+    if (bluetooth_instance) {
+      bluetooth_instance->OnDevicePropertiesChanged(
+          mojom::BluetoothAddress::From(addr),
+          GetDeviceProperties(mojom::BluetoothPropertyType::ALL, device));
+    }
   }
 
   if (!(device->GetType() & device::BLUETOOTH_TRANSPORT_LE))
     return;
 
-  std::string addr = device->GetAddress();
   auto it = gatt_connections_.find(addr);
   bool was_connected =
       (it != gatt_connections_.end() &&
@@ -1116,6 +1132,7 @@ void ArcBluetoothBridge::StartDiscoveryImpl(bool le_scan) {
     discovery_off_timer_.Start(FROM_HERE, kDiscoveryTimeout,
                                base::Bind(&ArcBluetoothBridge::CancelDiscovery,
                                           weak_factory_.GetWeakPtr()));
+    discovered_devices_.clear();
     discovery_queue_.Pop();
     return;
   }
@@ -1155,6 +1172,11 @@ void ArcBluetoothBridge::OnPoweredOn(
     SetPrimaryUserBluetoothPowerSetting(true);
 
   std::move(callback).Run(mojom::BluetoothAdapterState::ON);
+
+  // Sends cached devices to Android after its Bluetooth stack is ready. We
+  // should do this after the above callback since Android will clear its
+  // device cache after receiving the "ON" state of adapter.
+  SendCachedDevices();
 }
 
 void ArcBluetoothBridge::OnPoweredOff(
@@ -1187,6 +1209,7 @@ void ArcBluetoothBridge::OnDiscoveryStarted(
                              base::Bind(&ArcBluetoothBridge::CancelDiscovery,
                                         weak_factory_.GetWeakPtr()));
   discovery_session_ = std::move(session);
+  discovered_devices_.clear();
 
   auto* bluetooth_instance = ARC_GET_INSTANCE_FOR_METHOD(
       arc_bridge_service_->bluetooth(), OnDiscoveryStateChanged);
@@ -1744,8 +1767,14 @@ void ArcBluetoothBridge::ReadRemoteRssi(mojom::BluetoothAddressPtr remote_addr,
     std::move(callback).Run(mojom::kUnknownPower);
     return;
   }
-  std::move(callback).Run(
-      device->GetInquiryRSSI().value_or(mojom::kUnknownPower));
+
+  if (device->IsConnected()) {
+    device->GetConnectionInfo(base::AdaptCallbackForRepeating(
+        base::BindOnce(&SendRssiOnGetConnectionInfoDone, std::move(callback))));
+  } else {
+    std::move(callback).Run(
+        device->GetInquiryRSSI().value_or(mojom::kUnknownPower));
+  }
 }
 
 void ArcBluetoothBridge::OpenBluetoothSocket(
@@ -1906,11 +1935,16 @@ void ArcBluetoothBridge::StopService(int32_t service_handle,
 void ArcBluetoothBridge::DeleteService(int32_t service_handle,
                                        DeleteServiceCallback callback) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(gatt_identifier_.find(service_handle) != gatt_identifier_.end());
+  auto itr = gatt_identifier_.find(service_handle);
+  if (itr == gatt_identifier_.end()) {
+    LOG(WARNING) << "DeleteService called with invalid service handle.";
+    return;
+  }
+
   BluetoothLocalGattService* service =
-      bluetooth_adapter_->GetGattService(gatt_identifier_[service_handle]);
+      bluetooth_adapter_->GetGattService(itr->second);
   DCHECK(service);
-  gatt_identifier_.erase(service_handle);
+  gatt_identifier_.erase(itr);
   gatt_handle_.erase(service->GetIdentifier());
   service->Delete();
   OnGattOperationDone(std::move(callback));
@@ -2413,6 +2447,22 @@ void ArcBluetoothBridge::DequeueRemotePowerChange(
   remote_power_changes_.pop();
 }
 
+void ArcBluetoothBridge::SendCachedDevices() const {
+  auto* bluetooth_instance = ARC_GET_INSTANCE_FOR_METHOD(
+      arc_bridge_service_->bluetooth(), OnDevicePropertiesChanged);
+  if (!bluetooth_instance)
+    return;
+
+  for (const auto* device : bluetooth_adapter_->GetDevices()) {
+    // Since a cached device may not be a currently available device, we use
+    // OnDevicePropertiesChanged() instead of OnDeviceFound() to avoid trigger
+    // the logic of device found in Android.
+    bluetooth_instance->OnDevicePropertiesChanged(
+        mojom::BluetoothAddress::From(device->GetAddress()),
+        GetDeviceProperties(mojom::BluetoothPropertyType::ALL, device));
+  }
+}
+
 std::vector<mojom::BluetoothPropertyPtr>
 ArcBluetoothBridge::GetDeviceProperties(mojom::BluetoothPropertyType type,
                                         const BluetoothDevice* device) const {
@@ -2774,9 +2824,9 @@ void ArcBluetoothBridge::RfcommListen(int32_t channel,
     return;
   }
   std::move(callback).Run(mojom::BluetoothStatus::SUCCESS, listen_channel,
-                          mojo::MakeRequest(&sock_wrapper->remote));
+                          sock_wrapper->remote.BindNewPipeAndPassReceiver());
 
-  sock_wrapper->remote.set_connection_error_handler(
+  sock_wrapper->remote.set_disconnect_handler(
       base::BindOnce(&ArcBluetoothBridge::RfcommCloseListeningSocket,
                      weak_factory_.GetWeakPtr(), sock_wrapper.get()));
   listening_sockets_.insert(std::move(sock_wrapper));
@@ -2808,8 +2858,8 @@ void ArcBluetoothBridge::RfcommConnect(mojom::BluetoothAddressPtr remote_addr,
   }
 
   std::move(callback).Run(mojom::BluetoothStatus::SUCCESS,
-                          mojo::MakeRequest(&sock_wrapper->remote));
-  sock_wrapper->remote.set_connection_error_handler(
+                          sock_wrapper->remote.BindNewPipeAndPassReceiver());
+  sock_wrapper->remote.set_disconnect_handler(
       base::BindOnce(&ArcBluetoothBridge::RfcommCloseConnectingSocket,
                      weak_factory_.GetWeakPtr(), sock_wrapper.get()));
   connecting_sockets_.insert(std::move(sock_wrapper));

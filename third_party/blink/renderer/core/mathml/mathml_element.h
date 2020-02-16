@@ -25,23 +25,18 @@ class CORE_EXPORT MathMLElement : public Element {
     return HasLocalName(name.LocalName());
   }
 
- private:
-  bool IsPresentationAttribute(const QualifiedName&) const final;
-  void CollectStyleForPresentationAttribute(const QualifiedName&,
-                                            const AtomicString&,
-                                            MutableCSSPropertyValueSet*) final;
+ protected:
+  bool IsPresentationAttribute(const QualifiedName&) const override;
+  void CollectStyleForPresentationAttribute(
+      const QualifiedName&,
+      const AtomicString&,
+      MutableCSSPropertyValueSet*) override;
 
+ private:
   void ParseAttribute(const AttributeModificationParams&) final;
 
   bool IsMathMLElement() const =
       delete;  // This will catch anyone doing an unnecessary check.
-};
-
-DEFINE_ELEMENT_TYPE_CASTS(MathMLElement, IsMathMLElement());
-
-template <>
-struct DowncastTraits<MathMLElement> {
-  static bool AllowFrom(const Node& node) { return node.IsMathMLElement(); }
 };
 
 template <typename T>
@@ -50,35 +45,19 @@ template <>
 inline bool IsElementOfType<const MathMLElement>(const MathMLElement&) {
   return true;
 }
+template <>
+inline bool IsElementOfType<const MathMLElement>(const Node& node) {
+  return IsA<MathMLElement>(node);
+}
+template <>
+struct DowncastTraits<MathMLElement> {
+  static bool AllowFrom(const Node& node) { return node.IsMathMLElement(); }
+};
 
 inline bool Node::HasTagName(const MathMLQualifiedName& name) const {
   auto* mathml_element = DynamicTo<MathMLElement>(this);
   return mathml_element && mathml_element->HasTagName(name);
 }
-
-// This requires IsMathML*Element(const MathMLElement&).
-#define DEFINE_MATHMLELEMENT_TYPE_CASTS_WITH_FUNCTION(thisType)               \
-  inline bool Is##thisType(const thisType* element);                          \
-  inline bool Is##thisType(const thisType& element);                          \
-  inline bool Is##thisType(const MathMLElement* element) {                    \
-    return element && Is##thisType(*element);                                 \
-  }                                                                           \
-  inline bool Is##thisType(const Node& node) {                                \
-    auto* mathml_element = DynamicTo<MathMLElement>(node);                    \
-    return mathml_element && Is##thisType(mathml_element);                    \
-  }                                                                           \
-  inline bool Is##thisType(const Node* node) {                                \
-    return node && Is##thisType(*node);                                       \
-  }                                                                           \
-  template <typename T>                                                       \
-  inline bool Is##thisType(const Member<T>& node) {                           \
-    return Is##thisType(node.Get());                                          \
-  }                                                                           \
-  template <>                                                                 \
-  inline bool IsElementOfType<const thisType>(const MathMLElement& element) { \
-    return Is##thisType(element);                                             \
-  }                                                                           \
-  DEFINE_ELEMENT_TYPE_CASTS_WITH_FUNCTION(thisType)
 
 }  // namespace blink
 

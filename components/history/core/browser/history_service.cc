@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// The history system runs on a background thread so that potentially slow
+// The history system runs on a background sequence so that potentially slow
 // database operations don't delay the browser. This backend processing is
 // represented by HistoryBackend. The HistoryService's job is to dispatch to
 // that thread.
 //
-// Main thread                       History thread
+// Main thread                       backend_task_runner_
 // -----------                       --------------
 // HistoryService <----------------> HistoryBackend
 //                                   -> HistoryDatabase
@@ -71,7 +71,7 @@ const char* kHistoryThreadName = "Chrome_HistoryThread";
 
 // static
 const base::Feature HistoryService::kHistoryServiceUsesTaskScheduler{
-    "HistoryServiceUsesTaskScheduler", base::FEATURE_DISABLED_BY_DEFAULT};
+    "HistoryServiceUsesTaskScheduler", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Sends messages from the backend to us on the main thread. This must be a
 // separate class from the history service so that it can hold a reference to
@@ -301,18 +301,19 @@ base::CancelableTaskTracker::TaskId HistoryService::ScheduleDBTask(
   return task_id;
 }
 
-void HistoryService::FlushForTest(const base::Closure& flushed) {
-  backend_task_runner_->PostTaskAndReply(FROM_HERE, base::DoNothing(), flushed);
+void HistoryService::FlushForTest(base::OnceClosure flushed) {
+  backend_task_runner_->PostTaskAndReply(FROM_HERE, base::DoNothing(),
+                                         std::move(flushed));
 }
 
-void HistoryService::SetOnBackendDestroyTask(const base::Closure& task) {
+void HistoryService::SetOnBackendDestroyTask(base::OnceClosure task) {
   TRACE_EVENT0("browser", "HistoryService::SetOnBackendDestroyTask");
   DCHECK(backend_task_runner_) << "History service being called after cleanup";
   DCHECK(thread_checker_.CalledOnValidThread());
   ScheduleTask(
       PRIORITY_NORMAL,
       base::BindOnce(&HistoryBackend::SetOnBackendDestroyTask, history_backend_,
-                     base::ThreadTaskRunnerHandle::Get(), task));
+                     base::ThreadTaskRunnerHandle::Get(), std::move(task)));
 }
 
 void HistoryService::GetCountsAndLastVisitForOriginsForTesting(
@@ -474,7 +475,9 @@ base::CancelableTaskTracker::TaskId HistoryService::GetFavicon(
     favicon_base::FaviconResultsCallback callback,
     base::CancelableTaskTracker* tracker) {
   TRACE_EVENT0("browser", "HistoryService::GetFavicons");
-  DCHECK(backend_task_runner_) << "History service being called after cleanup";
+  CHECK(backend_task_runner_) << "History service being called after cleanup";
+  // TODO(https://crbug.com/1024959): convert to DCHECK once crash is resolved.
+  CHECK(tracker);
   DCHECK(thread_checker_.CalledOnValidThread());
   return tracker->PostTaskAndReplyWithResult(
       backend_task_runner_.get(), FROM_HERE,
@@ -723,6 +726,23 @@ void HistoryService::CountUniqueHostsVisitedLastMonth(
       backend_task_runner_.get(), FROM_HERE,
       base::BindOnce(&HistoryBackend::CountUniqueHostsVisitedLastMonth,
                      history_backend_),
+      std::move(callback));
+}
+
+void HistoryService::GetDomainDiversity(
+    base::Time report_time,
+    int number_of_days_to_report,
+    DomainMetricBitmaskType metric_type_bitmask,
+    DomainDiversityCallback callback,
+    base::CancelableTaskTracker* tracker) {
+  DCHECK(backend_task_runner_) << "History service being called after cleanup";
+  DCHECK(thread_checker_.CalledOnValidThread());
+
+  tracker->PostTaskAndReplyWithResult(
+      backend_task_runner_.get(), FROM_HERE,
+      base::BindOnce(&HistoryBackend::GetDomainDiversity, history_backend_,
+                     report_time, number_of_days_to_report,
+                     metric_type_bitmask),
       std::move(callback));
 }
 

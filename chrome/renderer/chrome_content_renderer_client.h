@@ -129,11 +129,6 @@ class ChromeContentRendererClient
                                           const std::string& http_method,
                                           int http_status,
                                           std::string* error_html) override;
-
-  void GetErrorDescription(const blink::WebURLError& error,
-                           const std::string& http_method,
-                           base::string16* error_description) override;
-
   bool DeferMediaLoad(content::RenderFrame* render_frame,
                       bool has_played_media_before,
                       base::OnceClosure closure) override;
@@ -151,7 +146,7 @@ class ChromeContentRendererClient
   void WillSendRequest(blink::WebLocalFrame* frame,
                        ui::PageTransition transition_type,
                        const blink::WebURL& url,
-                       const blink::WebURL& site_for_cookies,
+                       const net::SiteForCookies& site_for_cookies,
                        const url::Origin* initiator_origin,
                        GURL* new_url,
                        bool* attach_same_site_cookies) override;
@@ -267,10 +262,6 @@ class ChromeContentRendererClient
 
   void BindWebRTCLoggingAgent(
       mojo::PendingReceiver<chrome::mojom::WebRtcLoggingAgent> receiver);
-
-  // Time at which this object was created. This is very close to the time at
-  // which the RendererMain function was entered.
-  base::TimeTicks main_entry_time_;
 
 #if BUILDFLAG(ENABLE_NACL)
   // Determines if a page/app/extension is allowed to run native (non-PNaCl)

@@ -6,7 +6,7 @@ import("//testing/test.gni")
 
 assert(!is_ios, "Paint Previews are not supported on iOS.")
 
-static_library("browser") {
+source_set("browser") {
   sources = [
     "compositor_utils.cc",
     "compositor_utils.h",
@@ -18,13 +18,19 @@ static_library("browser") {
     "paint_preview_base_service.h",
     "paint_preview_client.cc",
     "paint_preview_client.h",
+    "paint_preview_compositor_client_impl.cc",
+    "paint_preview_compositor_client_impl.h",
+    "paint_preview_compositor_service_impl.cc",
+    "paint_preview_compositor_service_impl.h",
+    "paint_preview_policy.h",
   ]
 
   deps = [
     "//base",
     "//cc/base",
     "//components/discardable_memory/service",
-    "//components/strings:components_strings",
+    "//components/keyed_service/core",
+    "//components/strings:components_strings_grit",
     "//content/public/browser",
     "//mojo/public/cpp/base",
     "//mojo/public/cpp/bindings",
@@ -35,12 +41,38 @@ static_library("browser") {
     "//url",
   ]
 
+  if (is_android) {
+    deps += [ ":jni_headers" ]
+  }
+
   public_deps = [
     "//components/paint_preview/common",
     "//components/paint_preview/common/mojom",
     "//components/paint_preview/common/proto",
+    "//components/paint_preview/public",
     "//components/services/paint_preview_compositor/public/mojom",
   ]
+}
+
+if (is_android) {
+  generate_jni("jni_headers") {
+    sources = [ "android/java/src/org/chromium/components/paintpreview/browser/PaintPreviewBaseService.java" ]
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "paint_preview_base_service_test_factory.cc",
+    "paint_preview_base_service_test_factory.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/keyed_service/core",
+  ]
+
+  public_deps = [ ":browser" ]
 }
 
 source_set("unit_tests") {
@@ -55,6 +87,7 @@ source_set("unit_tests") {
 
   deps = [
     ":browser",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//components/paint_preview/common:test_utils",

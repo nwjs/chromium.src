@@ -226,7 +226,6 @@ const char kFTEnabled[] = "FTEnabled";
 const char kHexSSID[] = "HexSSID";
 const char kHiddenSSID[] = "HiddenSSID";
 const char kPassphrase[] = "Passphrase";
-const char kRoamThreshold[] = "RoamThreshold";
 const char kSSID[] = "SSID";
 const char kSecurity[] = "Security";
 const char kSecurityNone[] = "None";
@@ -324,10 +323,19 @@ const char kServerCAPEMs[] = "ServerCAPEMs";
 const char kServerCARef[] = "ServerCARef";
 const char kServerCARefs[] = "ServerCARefs";
 const char kSubjectMatch[] = "SubjectMatch";
+const char kSubjectAlternativeNameMatch[] = "SubjectAlternativeNameMatch";
 const char kTLSVersionMax[] = "TLSVersionMax";
 const char kUseSystemCAs[] = "UseSystemCAs";
 const char kUseProactiveKeyCaching[] = "UseProactiveKeyCaching";
 }  // namespace eap
+
+namespace eap_subject_alternative_name_match {
+const char kType[] = "Type";
+const char kValue[] = "Value";
+const char kEMAIL[] = "EMAIL";
+const char kDNS[] = "DNS";
+const char kURI[] = "URI";
+}  // namespace eap_subject_alternative_name_match
 
 namespace vpn {
 const char kAutoConnect[] = "AutoConnect";

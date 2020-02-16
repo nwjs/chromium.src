@@ -44,14 +44,14 @@ import tempfile
 from blinkpy.common import exit_codes
 from blinkpy.common import find_files
 from blinkpy.common import read_checksum_from_png
+from blinkpy.common import path_finder
 from blinkpy.common.memoized import memoized
-from blinkpy.common.path_finder import PathFinder
 from blinkpy.common.system.path import abspath_to_uri
 from blinkpy.w3c.wpt_manifest import WPTManifest, MANIFEST_NAME
 from blinkpy.web_tests.layout_package.bot_test_expectations import BotTestExpectationsFactory
 from blinkpy.web_tests.models.test_configuration import TestConfiguration
-from blinkpy.web_tests.models.test_expectations import TestExpectationParser
 from blinkpy.web_tests.models.test_run_results import TestRunException
+from blinkpy.web_tests.models.typ_types import TestExpectations, ResultType
 from blinkpy.web_tests.port import driver
 from blinkpy.web_tests.port import server_process
 from blinkpy.web_tests.port.factory import PortFactory
@@ -106,6 +106,10 @@ SXG_WPT_FINGERPRINT = '0Rt4mT6SJXojEMHTnKnlJ/hBKMBcI4kteBlhR1eTTdk='
 # A convervative rule for names that are valid for file or directory names.
 VALID_FILE_NAME_REGEX = re.compile(r'^[\w\-=]+$')
 
+# This sub directory will be inside the results directory and it will
+# contain all the disc artifacts created by web tests
+ARTIFACTS_SUB_DIR = 'layout-test-results'
+
 class Port(object):
     """Abstract class for Port-specific hooks for the web_test package."""
 
@@ -146,11 +150,12 @@ class Port(object):
     )
 
     CONFIGURATION_SPECIFIER_MACROS = {
-        # NOTE: We don't support specifiers for mac10.14 or mac10.15 because
-        # we don't have separate baselines for them (they share the mac10.13
+        # NOTE: We don't support specifiers for mac10.15 because
+        # we don't have separate baselines for it (it shares the mac10.14
         # results in the platform/mac directory). This list will need to be
         # updated if/when we actually have separate baselines.
-        'mac': ['retina', 'mac10.10', 'mac10.11', 'mac10.12', 'mac10.13'],
+        'mac': ['retina', 'mac10.10', 'mac10.11', 'mac10.12', 'mac10.13',
+                'mac10.14'],
         'win': ['win7', 'win10'],
         'linux': ['trusty'],
         'fuschia': ['fuchsia'],
@@ -232,7 +237,7 @@ class Port(object):
         self.host = host
         self._executive = host.executive
         self._filesystem = host.filesystem
-        self._path_finder = PathFinder(host.filesystem)
+        self._path_finder = path_finder.PathFinder(host.filesystem)
 
         self._http_server = None
         self._websocket_server = None
@@ -994,7 +999,7 @@ class Port(object):
     def web_tests_dir(self):
         custom_web_tests_dir = self.get_option('layout_tests_directory')
         if custom_web_tests_dir:
-            return custom_web_tests_dir
+            return  self._filesystem.abspath(custom_web_tests_dir)
         return self._path_finder.web_tests_dir()
 
     def skips_test(self, test):
@@ -1048,12 +1053,9 @@ class Port(object):
         # parser, etc.) is very similar to blinkpy/w3c/test_copier.py.
         path = self.path_to_never_fix_tests_file()
         contents = self._filesystem.read_text_file(path)
-        parser = TestExpectationParser(self, all_tests=(), is_lint_mode=False)
-        expectation_lines = parser.parse(path, contents)
-        for line in expectation_lines:
-            if line.name == test and self.test_configuration() in line.matching_configurations:
-                return True
-        return False
+        test_expectations = TestExpectations(tags=self.get_platform_tags())
+        test_expectations.parse_tagged_list(contents)
+        return ResultType.Skip in test_expectations.expectations_for(test).results
 
     def path_to_never_fix_tests_file(self):
         return self._filesystem.join(self.web_tests_dir(), 'NeverFixTests')
@@ -1067,8 +1069,7 @@ class Port(object):
         return self._name
 
     def operating_system(self):
-        # Subclasses should override this default implementation.
-        return 'mac'
+        raise NotImplementedError
 
     def version(self):
         """Returns a string indicating the version of a given platform
@@ -1120,18 +1121,39 @@ class Port(object):
             return test_base
         return test_name
 
+    def bot_test_times_path(self):
+        # TODO(crbug.com/1030434): For the not_site_per_process_webkit_layout_tests step on linux,
+        # an exception is raised when merging the bot times json files. This happens  whenever they
+        # are outputted into the results directory. Temporarily we will return the bot times json
+        # file relative to the target directory.
+        return self._build_path('webkit_test_times', 'bot_times_ms.json')
+
     def results_directory(self):
-        """Returns the absolute path to the place to store the test results."""
+        """Returns the absolute path directory which will store all web tests outputted
+        files. It may include a sub directory for artifacts and it may store performance test results."""
         if not self._results_directory:
             option_val = self.get_option('results_directory') or self.default_results_directory()
+            # TODO(crbug.com/1027708): There are several blink tests step
+            # configuration files in the infra repository which append the
+            # layout-test-results to the value passed in for the
+            # --results-directory command line argument value. We need to
+            # remove the layout-test-results suffix for each blink tests step
+            # configuration file in the infra repository. Then we can stop
+            # removing the layout-test-results sub directory from the
+            # --results-directory command line argument value.
+            if self._filesystem.basename(option_val) == 'layout-test-results':
+                option_val = self.host.filesystem.dirname(option_val)
             self._results_directory = self._filesystem.abspath(option_val)
         return self._results_directory
 
-    def bot_test_times_path(self):
-        return self._build_path('webkit_test_times', 'bot_times_ms.json')
+    def artifacts_directory(self):
+        """Returns path to artifacts sub directory of the results directory. This
+        directory will store test artifacts, which may include actual and expected
+        output from web tests."""
+        return self._filesystem.join(self.results_directory(), ARTIFACTS_SUB_DIR)
 
     def perf_results_directory(self):
-        return self._build_path()
+        return self.results_directory()
 
     def inspector_build_directory(self):
         return self._build_path('resources', 'inspector')
@@ -1143,8 +1165,8 @@ class Port(object):
         return self._path_finder.path_from_blink_tools('apache_config')
 
     def default_results_directory(self):
-        """Returns the absolute path to the default place to store the test results."""
-        return self._build_path('layout-test-results')
+        """Returns the absolute path to the build directory."""
+        return self._build_path()
 
     def setup_test_run(self):
         """Performs port-specific work at the beginning of a test run."""
@@ -1234,27 +1256,27 @@ class Port(object):
         # be the case when the tests aren't run on the host platform.
         return False
 
-    def start_http_server(self, additional_dirs, number_of_drivers):
+    def start_http_server(self, additional_dirs, number_of_drivers, output_dir=''):
         """Start a web server. Raise an error if it can't start or is already running.
 
         Ports can stub this out if they don't need a web server to be running.
         """
         assert not self._http_server, 'Already running an http server.'
-
-        server = apache_http.ApacheHTTP(self, self.results_directory(),
+        output_dir = output_dir or self.artifacts_directory()
+        server = apache_http.ApacheHTTP(self, output_dir,
                                         additional_dirs=additional_dirs,
                                         number_of_servers=(number_of_drivers * 4))
         server.start()
         self._http_server = server
 
-    def start_websocket_server(self):
+    def start_websocket_server(self, output_dir=''):
         """Start a web server. Raise an error if it can't start or is already running.
 
         Ports can stub this out if they don't need a websocket server to be running.
         """
         assert not self._websocket_server, 'Already running a websocket server.'
-
-        server = pywebsocket.PyWebSocket(self, self.results_directory())
+        output_dir = output_dir or self.artifacts_directory()
+        server = pywebsocket.PyWebSocket(self, output_dir)
         server.start()
         self._websocket_server = server
 
@@ -1267,15 +1289,15 @@ class Port(object):
     def should_use_wptserve(test):
         return Port.is_wpt_test(test)
 
-    def start_wptserve(self):
+    def start_wptserve(self, output_dir=''):
         """Starts a WPT web server.
 
         Raises an error if it can't start or is already running.
         """
         assert not self._wpt_server, 'Already running a WPT server.'
-
+        output_dir = output_dir or self.artifacts_directory()
         # We currently don't support any output mechanism for the WPT server.
-        server = wptserve.WPTServe(self, self.results_directory())
+        server = wptserve.WPTServe(self, output_dir)
         server.start()
         self._wpt_server = server
 
@@ -1912,8 +1934,29 @@ class Port(object):
             return test_name + Port.WEBDRIVER_SUBTEST_SEPARATOR + subtest_name
         return test_name
 
-    def add_webdriver_subtest_pytest_suffix(self, test_name, subtest_name):
-        return test_name + self.WEBDRIVER_SUBTEST_PYTEST_SEPARATOR + subtest_name
+    @staticmethod
+    def split_webdriver_subtest_pytest_name(test_name):
+        """Splits a WebDriver test name in pytest format into a filename and a subtest name and
+        returns both of them. E.g.
+
+        test.py::foo.html -> (test.py, foo.html)
+        test.py           -> (test.py, None)
+        """
+        names_after_split = test_name.split(
+            Port.WEBDRIVER_SUBTEST_PYTEST_SEPARATOR)
+
+        assert len(names_after_split) <= 2, "%s has a length greater than 2 after split by ::" % (
+            test_name)
+        if len(names_after_split) == 1:
+            return (names_after_split[0], None)
+
+        return (names_after_split[0], names_after_split[1])
+
+    @staticmethod
+    def add_webdriver_subtest_pytest_suffix(test_name, subtest_name):
+        if subtest_name is None:
+            return test_name
+        return test_name + Port.WEBDRIVER_SUBTEST_PYTEST_SEPARATOR + subtest_name
 
 
 class VirtualTestSuite(object):

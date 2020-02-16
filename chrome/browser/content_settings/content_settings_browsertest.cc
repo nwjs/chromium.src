@@ -311,7 +311,7 @@ class CookieSettingsTest
         "  await window.cookieStore.set("
         "      'name', 'Good', "
         "       { expires: Date.now() + 3600*1000,"
-        "         sameSite: 'unrestricted' });"
+        "         sameSite: 'none' });"
         "  window.domAutomationController.send(true);"
         "}"
         "doSet()");
@@ -553,7 +553,7 @@ IN_PROC_BROWSER_TEST_P(CookieSettingsTest, BlockCookiesAlsoBlocksIndexedDB) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     CookieSettingsTest,
     ::testing::Values(
         std::make_pair(CookieMode::kDocumentCookieJS,
@@ -848,7 +848,7 @@ IN_PROC_BROWSER_TEST_F(ContentSettingsWorkerModulesBrowserTest, CookieStore) {
           await cookieStore.set(
               e.data, 'value',
               { expires: Date.now() + 3600*1000,
-                sameSite: 'unrestricted' });
+                sameSite: 'none' });
         } finally {
           e.source.postMessage('set executed for ' + e.data);
         }

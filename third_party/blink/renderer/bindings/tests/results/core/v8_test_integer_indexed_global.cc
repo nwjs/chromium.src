@@ -156,6 +156,7 @@ void V8TestIntegerIndexedGlobal::LengthAttributeSetterCallback(
 }
 
 void V8TestIntegerIndexedGlobal::VoidMethodDocumentMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestIntegerIndexedGlobal.voidMethodDocument");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestIntegerIndexedGlobal_voidMethodDocument");
 
   test_integer_indexed_global_v8_internal::VoidMethodDocumentMethod(info);
@@ -377,16 +378,6 @@ v8::Local<v8::Object> V8TestIntegerIndexedGlobal::FindInstanceInPrototypeChain(
 TestIntegerIndexedGlobal* V8TestIntegerIndexedGlobal::ToImplWithTypeCheck(
     v8::Isolate* isolate, v8::Local<v8::Value> value) {
   return HasInstance(value, isolate) ? ToImpl(v8::Local<v8::Object>::Cast(value)) : nullptr;
-}
-
-TestIntegerIndexedGlobal* NativeValueTraits<TestIntegerIndexedGlobal>::NativeValue(
-    v8::Isolate* isolate, v8::Local<v8::Value> value, ExceptionState& exception_state) {
-  TestIntegerIndexedGlobal* native_value = V8TestIntegerIndexedGlobal::ToImplWithTypeCheck(isolate, value);
-  if (!native_value) {
-    exception_state.ThrowTypeError(ExceptionMessages::FailedToConvertJSValue(
-        "TestIntegerIndexedGlobal"));
-  }
-  return native_value;
 }
 
 }  // namespace blink

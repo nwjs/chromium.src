@@ -799,8 +799,13 @@ void FFmpegDemuxerStream::InitBitstreamConverter() {
       break;
 #endif
     case AV_CODEC_ID_AAC:
-      bitstream_converter_.reset(
-          new FFmpegAACBitstreamConverter(stream_->codecpar));
+      // FFmpeg doesn't understand xHE-AAC profiles yet, which can't be put in
+      // ADTS anyways, so skip bitstream conversion when the profile is
+      // unknown.
+      if (audio_config_->profile() != AudioCodecProfile::kXHE_AAC) {
+        bitstream_converter_.reset(
+            new FFmpegAACBitstreamConverter(stream_->codecpar));
+      }
       break;
     default:
       break;
@@ -1253,10 +1258,10 @@ void FFmpegDemuxer::OnOpenContextDone(bool result) {
   // Fully initialize AVFormatContext by parsing the stream a little.
   base::PostTaskAndReplyWithResult(
       blocking_task_runner_.get(), FROM_HERE,
-      base::Bind(&avformat_find_stream_info, glue_->format_context(),
-                 static_cast<AVDictionary**>(nullptr)),
-      base::Bind(&FFmpegDemuxer::OnFindStreamInfoDone,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(&avformat_find_stream_info, glue_->format_context(),
+                     static_cast<AVDictionary**>(nullptr)),
+      base::BindOnce(&FFmpegDemuxer::OnFindStreamInfoDone,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void FFmpegDemuxer::OnFindStreamInfoDone(int result) {

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/android/android_hardware_buffer_compat.h"
+#include "base/android/scoped_hardware_buffer_fence_sync.h"
 #include "base/android/scoped_hardware_buffer_handle.h"
 #include "base/containers/flat_set.h"
 #include "base/logging.h"
@@ -115,12 +116,72 @@ void DestroyVkPromiseTextureAHB(viz::VulkanContextProvider* context_provider,
       vk_image_info.fImage, vk_image_info.fAlloc.fMemory);
 }
 
+class OverlayImage final : public gl::GLImage {
+ public:
+  explicit OverlayImage(AHardwareBuffer* buffer)
+      : handle_(base::android::ScopedHardwareBufferHandle::Create(buffer)) {}
+
+  void SetBeginFence(base::ScopedFD fence_fd) {
+    DCHECK(!end_read_fence_.is_valid());
+    DCHECK(!begin_read_fence_.is_valid());
+    begin_read_fence_ = std::move(fence_fd);
+  }
+
+  base::ScopedFD TakeEndFence() {
+    DCHECK(!begin_read_fence_.is_valid());
+    return std::move(end_read_fence_);
+  }
+
+  // gl::GLImage:
+  std::unique_ptr<base::android::ScopedHardwareBufferFenceSync>
+  GetAHardwareBuffer() override {
+    return std::make_unique<ScopedHardwareBufferFenceSyncImpl>(
+        this, base::android::ScopedHardwareBufferHandle::Create(handle_.get()),
+        std::move(begin_read_fence_));
+  }
+
+ protected:
+  ~OverlayImage() override = default;
+
+ private:
+  class ScopedHardwareBufferFenceSyncImpl
+      : public base::android::ScopedHardwareBufferFenceSync {
+   public:
+    ScopedHardwareBufferFenceSyncImpl(
+        scoped_refptr<OverlayImage> image,
+        base::android::ScopedHardwareBufferHandle handle,
+        base::ScopedFD fence_fd)
+        : ScopedHardwareBufferFenceSync(std::move(handle), std::move(fence_fd)),
+          image_(std::move(image)) {}
+    ~ScopedHardwareBufferFenceSyncImpl() override = default;
+
+    void SetReadFence(base::ScopedFD fence_fd, bool has_context) override {
+      DCHECK(!image_->begin_read_fence_.is_valid());
+      DCHECK(!image_->end_read_fence_.is_valid());
+      image_->end_read_fence_ = std::move(fence_fd);
+    }
+
+   private:
+    scoped_refptr<OverlayImage> image_;
+  };
+
+  base::android::ScopedHardwareBufferHandle handle_;
+
+  // The fence for overlay controller to wait on before scanning out.
+  base::ScopedFD begin_read_fence_;
+
+  // The fence for overlay controller to set to indicate scanning out
+  // completion. The image content should not be modified before passing this
+  // fence.
+  base::ScopedFD end_read_fence_;
+};
+
 }  // namespace
 
 // Implementation of SharedImageBacking that holds an AHardwareBuffer. This
 // can be used to create a GL texture or a VK Image from the AHardwareBuffer
 // backing.
-class SharedImageBackingAHB : public SharedImageBacking {
+class SharedImageBackingAHB : public ClearTrackingSharedImageBacking {
  public:
   SharedImageBackingAHB(const Mailbox& mailbox,
                         viz::ResourceFormat format,
@@ -130,15 +191,19 @@ class SharedImageBackingAHB : public SharedImageBacking {
                         base::android::ScopedHardwareBufferHandle handle,
                         size_t estimated_size,
                         bool is_thread_safe,
-                        base::ScopedFD initial_upload_fd);
+                        base::ScopedFD initial_upload_fd,
+                        bool using_gl);
 
   ~SharedImageBackingAHB() override;
 
-  bool IsCleared() const override;
-  void SetCleared() override;
   void Update(std::unique_ptr<gfx::GpuFence> in_fence) override;
-  bool ProduceLegacyMailbox(MailboxManager* mailbox_manager) override;
-  void Destroy() override;
+  // We never generate LegacyMailboxes in threadsafe mode, so exclude this
+  // function from thread safety analysis.
+  bool ProduceLegacyMailbox(MailboxManager* mailbox_manager)
+      NO_THREAD_SAFETY_ANALYSIS override;
+  gfx::Rect ClearedRect() const override;
+  void SetClearedRect(const gfx::Rect& cleared_rect) override;
+
   base::android::ScopedHardwareBufferHandle GetAhbHandle() const;
 
   bool BeginWrite(base::ScopedFD* fd_to_wait_on);
@@ -147,6 +212,9 @@ class SharedImageBackingAHB : public SharedImageBacking {
                  base::ScopedFD* fd_to_wait_on);
   void EndRead(const SharedImageRepresentation* reader,
                base::ScopedFD end_read_fd);
+  gl::GLImage* BeginOverlayAccess();
+  void EndOverlayAccess();
+  std::unique_ptr<gl::GLFence> TakeReadGLFence();
 
  protected:
   std::unique_ptr<SharedImageRepresentationGLTexture> ProduceGLTexture(
@@ -158,21 +226,32 @@ class SharedImageBackingAHB : public SharedImageBacking {
       MemoryTypeTracker* tracker,
       scoped_refptr<SharedContextState> context_state) override;
 
+  std::unique_ptr<SharedImageRepresentationOverlay> ProduceOverlay(
+      SharedImageManager* manager,
+      MemoryTypeTracker* tracker) override;
+
  private:
   gles2::Texture* GenGLTexture();
-  base::android::ScopedHardwareBufferHandle hardware_buffer_handle_;
+  const base::android::ScopedHardwareBufferHandle hardware_buffer_handle_;
 
+  // Not guarded by |lock_| as we do not use legacy_texture_ in threadsafe
+  // mode.
   gles2::Texture* legacy_texture_ = nullptr;
 
-  bool is_cleared_ = false;
-
   // All reads and writes must wait for exiting writes to complete.
-  base::ScopedFD write_sync_fd_;
-  bool is_writing_ = false;
+  base::ScopedFD write_sync_fd_ GUARDED_BY(lock_);
+  bool is_writing_ GUARDED_BY(lock_) = false;
 
   // All writes must wait for existing reads to complete.
-  base::ScopedFD read_sync_fd_;
-  base::flat_set<const SharedImageRepresentation*> active_readers_;
+  base::ScopedFD read_sync_fd_ GUARDED_BY(lock_);
+  base::flat_set<const SharedImageRepresentation*> active_readers_
+      GUARDED_BY(lock_);
+
+  std::unique_ptr<gl::GLFence> read_gl_fence_ GUARDED_BY(lock_);
+
+  scoped_refptr<OverlayImage> overlay_image_ GUARDED_BY(lock_);
+  bool is_overlay_accessing_ GUARDED_BY(lock_) = false;
+  const bool using_gl_;
 
   DISALLOW_COPY_AND_ASSIGN(SharedImageBackingAHB);
 };
@@ -209,8 +288,15 @@ class SharedImageRepresentationGLTextureAHB
       if (!ahb_backing()->BeginWrite(&sync_fd))
         return false;
 
-      if (!InsertEglFenceAndWait(std::move(sync_fd)))
-        return false;
+      auto gl_fence = ahb_backing()->TakeReadGLFence();
+      if (gl_fence) {
+        gl_fence->ServerWait();
+      }
+
+      if (sync_fd.is_valid()) {
+        if (!InsertEglFenceAndWait(std::move(sync_fd)))
+          return false;
+      }
     }
 
     if (mode == GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM) {
@@ -231,11 +317,6 @@ class SharedImageRepresentationGLTextureAHB
       ahb_backing()->EndRead(this, std::move(sync_fd));
     } else if (mode_ == RepresentationAccessMode::kWrite) {
       ahb_backing()->EndWrite(std::move(sync_fd));
-
-      if (texture_) {
-        if (texture_->IsLevelCleared(texture_->target(), 0))
-          backing()->SetCleared();
-      }
     }
 
     mode_ = RepresentationAccessMode::kNone;
@@ -433,6 +514,43 @@ class SharedImageRepresentationSkiaVkAHB
   VkSemaphore end_access_semaphore_ = VK_NULL_HANDLE;
 };
 
+class SharedImageRepresentationOverlayAHB
+    : public SharedImageRepresentationOverlay {
+ public:
+  SharedImageRepresentationOverlayAHB(SharedImageManager* manager,
+                                      SharedImageBacking* backing,
+                                      MemoryTypeTracker* tracker)
+      : SharedImageRepresentationOverlay(manager, backing, tracker) {}
+
+  ~SharedImageRepresentationOverlayAHB() override { EndReadAccess(); }
+
+ private:
+  SharedImageBackingAHB* ahb_backing() {
+    return static_cast<SharedImageBackingAHB*>(backing());
+  }
+
+  void NotifyOverlayPromotion(bool promotion,
+                              const gfx::Rect& bounds) override {
+    NOTREACHED();
+  }
+
+  bool BeginReadAccess() override {
+    gl_image_ = ahb_backing()->BeginOverlayAccess();
+    return !!gl_image_;
+  }
+
+  void EndReadAccess() override {
+    if (gl_image_) {
+      ahb_backing()->EndOverlayAccess();
+      gl_image_ = nullptr;
+    }
+  }
+
+  gl::GLImage* GetGLImage() override { return gl_image_; }
+
+  gl::GLImage* gl_image_ = nullptr;
+};
+
 SharedImageBackingAHB::SharedImageBackingAHB(
     const Mailbox& mailbox,
     viz::ResourceFormat format,
@@ -442,39 +560,55 @@ SharedImageBackingAHB::SharedImageBackingAHB(
     base::android::ScopedHardwareBufferHandle handle,
     size_t estimated_size,
     bool is_thread_safe,
-    base::ScopedFD initial_upload_fd)
-    : SharedImageBacking(mailbox,
-                         format,
-                         size,
-                         color_space,
-                         usage,
-                         estimated_size,
-                         is_thread_safe),
+    base::ScopedFD initial_upload_fd,
+    bool using_gl)
+    : ClearTrackingSharedImageBacking(mailbox,
+                                      format,
+                                      size,
+                                      color_space,
+                                      usage,
+                                      estimated_size,
+                                      is_thread_safe),
       hardware_buffer_handle_(std::move(handle)),
-      write_sync_fd_(std::move(initial_upload_fd)) {
+      write_sync_fd_(std::move(initial_upload_fd)),
+      using_gl_(using_gl) {
   DCHECK(hardware_buffer_handle_.is_valid());
 }
 
 SharedImageBackingAHB::~SharedImageBackingAHB() {
-  // Check to make sure buffer is explicitly destroyed using Destroy() api
-  // before this destructor is called.
-  DCHECK(!hardware_buffer_handle_.is_valid());
+  // Locking here in destructor since we are accessing member variable
+  // |have_context_| via have_context().
+  AutoLock auto_lock(this);
+  DCHECK(hardware_buffer_handle_.is_valid());
+  if (legacy_texture_) {
+    legacy_texture_->RemoveLightweightRef(have_context());
+    legacy_texture_ = nullptr;
+  }
 }
 
-bool SharedImageBackingAHB::IsCleared() const {
+gfx::Rect SharedImageBackingAHB::ClearedRect() const {
   AutoLock auto_lock(this);
-
-  return is_cleared_;
+  // If a |legacy_texture_| exists, defer to that. Once created,
+  // |legacy_texture_| is never destroyed, so no need to synchronize with
+  // ClearedRectInternal.
+  if (legacy_texture_) {
+    return legacy_texture_->GetLevelClearedRect(legacy_texture_->target(), 0);
+  } else {
+    return ClearedRectInternal();
+  }
 }
 
-void SharedImageBackingAHB::SetCleared() {
-  // TODO(cblume): We could avoid this lock if we instead pass a flag to clear
-  // into EndWrite() or BeginRead()
+void SharedImageBackingAHB::SetClearedRect(const gfx::Rect& cleared_rect) {
   AutoLock auto_lock(this);
-
-  if (legacy_texture_)
-    legacy_texture_->SetLevelCleared(legacy_texture_->target(), 0, true);
-  is_cleared_ = true;
+  // If a |legacy_texture_| exists, defer to that. Once created,
+  // |legacy_texture_| is never destroyed, so no need to synchronize with
+  // SetClearedRectInternal.
+  if (legacy_texture_) {
+    legacy_texture_->SetLevelClearedRect(legacy_texture_->target(), 0,
+                                         cleared_rect);
+  } else {
+    SetClearedRectInternal(cleared_rect);
+  }
 }
 
 void SharedImageBackingAHB::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
@@ -483,6 +617,10 @@ void SharedImageBackingAHB::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
 
 bool SharedImageBackingAHB::ProduceLegacyMailbox(
     MailboxManager* mailbox_manager) {
+  // Legacy mailboxes cannot be used safely in threadsafe mode.
+  if (is_thread_safe())
+    return false;
+
   // This doesn't need to take a lock because it is only called at creation
   // time.
   DCHECK(!is_writing_);
@@ -491,23 +629,15 @@ bool SharedImageBackingAHB::ProduceLegacyMailbox(
   legacy_texture_ = GenGLTexture();
   if (!legacy_texture_)
     return false;
+  // Make sure our |legacy_texture_| has the right initial cleared rect.
+  legacy_texture_->SetLevelClearedRect(legacy_texture_->target(), 0,
+                                       ClearedRectInternal());
   mailbox_manager->ProduceTexture(mailbox(), legacy_texture_);
   return true;
 }
 
-void SharedImageBackingAHB::Destroy() {
-  DCHECK(hardware_buffer_handle_.is_valid());
-  if (legacy_texture_) {
-    legacy_texture_->RemoveLightweightRef(have_context());
-    legacy_texture_ = nullptr;
-  }
-  hardware_buffer_handle_.reset();
-}
-
 base::android::ScopedHardwareBufferHandle SharedImageBackingAHB::GetAhbHandle()
     const {
-  AutoLock auto_lock(this);
-
   return hardware_buffer_handle_.Clone();
 }
 
@@ -555,10 +685,17 @@ SharedImageBackingAHB::ProduceSkia(
                                                  manager, this, tracker);
 }
 
+std::unique_ptr<SharedImageRepresentationOverlay>
+SharedImageBackingAHB::ProduceOverlay(SharedImageManager* manager,
+                                      MemoryTypeTracker* tracker) {
+  return std::make_unique<SharedImageRepresentationOverlayAHB>(manager, this,
+                                                               tracker);
+}
+
 bool SharedImageBackingAHB::BeginWrite(base::ScopedFD* fd_to_wait_on) {
   AutoLock auto_lock(this);
 
-  if (is_writing_ || !active_readers_.empty()) {
+  if (is_writing_ || !active_readers_.empty() || is_overlay_accessing_) {
     LOG(ERROR) << "BeginWrite should only be called when there are no other "
                   "readers or writers";
     return false;
@@ -626,6 +763,50 @@ void SharedImageBackingAHB::EndRead(const SharedImageRepresentation* reader,
       gl::MergeFDs(std::move(read_sync_fd_), std::move(end_read_fd));
 }
 
+gl::GLImage* SharedImageBackingAHB::BeginOverlayAccess() {
+  AutoLock auto_lock(this);
+
+  DCHECK(!is_overlay_accessing_);
+
+  if (is_writing_) {
+    LOG(ERROR)
+        << "BeginOverlayAccess should only be called when there are no writers";
+    return nullptr;
+  }
+
+  if (!overlay_image_) {
+    overlay_image_ =
+        base::MakeRefCounted<OverlayImage>(hardware_buffer_handle_.get());
+  }
+
+  if (write_sync_fd_.is_valid()) {
+    base::ScopedFD fence_fd(HANDLE_EINTR(dup(write_sync_fd_.get())));
+    overlay_image_->SetBeginFence(std::move(fence_fd));
+  }
+
+  is_overlay_accessing_ = true;
+  return overlay_image_.get();
+}
+
+void SharedImageBackingAHB::EndOverlayAccess() {
+  AutoLock auto_lock(this);
+
+  DCHECK(is_overlay_accessing_);
+  is_overlay_accessing_ = false;
+
+  auto fence_fd = overlay_image_->TakeEndFence();
+  read_sync_fd_ = gl::MergeFDs(std::move(read_sync_fd_), std::move(fence_fd));
+
+  if (using_gl_ && read_sync_fd_.is_valid()) {
+    read_gl_fence_ = CreateEglFence(std::move(read_sync_fd_));
+  }
+}
+
+std::unique_ptr<gl::GLFence> SharedImageBackingAHB::TakeReadGLFence() {
+  AutoLock auto_lock(this);
+  return std::move(read_gl_fence_);
+}
+
 gles2::Texture* SharedImageBackingAHB::GenGLTexture() {
   DCHECK(hardware_buffer_handle_.is_valid());
 
@@ -673,19 +854,10 @@ gles2::Texture* SharedImageBackingAHB::GenGLTexture() {
   texture->sampler_state_.wrap_t = GL_CLAMP_TO_EDGE;
   texture->sampler_state_.wrap_s = GL_CLAMP_TO_EDGE;
 
-  // If the backing is already cleared, no need to clear it again.
-  gfx::Rect cleared_rect;
-  {
-    AutoLock auto_lock(this);
-
-    if (is_cleared_)
-      cleared_rect = gfx::Rect(size());
-  }
-
   texture->SetLevelInfo(target, 0, egl_image->GetInternalFormat(),
                         size().width(), size().height(), 1, 0,
                         egl_image->GetDataFormat(), egl_image->GetDataType(),
-                        cleared_rect);
+                        ClearedRect());
   texture->SetLevelImage(target, 0, egl_image.get(), gles2::Texture::BOUND);
   texture->SetImmutable(true, false);
   api->glBindTextureFn(target, old_texture_binding);
@@ -694,7 +866,9 @@ gles2::Texture* SharedImageBackingAHB::GenGLTexture() {
 
 SharedImageBackingFactoryAHB::SharedImageBackingFactoryAHB(
     const GpuDriverBugWorkarounds& workarounds,
-    const GpuFeatureInfo& gpu_feature_info) {
+    const GpuFeatureInfo& gpu_feature_info,
+    SharedContextState* context_state)
+    : context_state_(context_state) {
   scoped_refptr<gles2::FeatureInfo> feature_info =
       new gles2::FeatureInfo(workarounds, gpu_feature_info);
   feature_info->Initialize(ContextType::CONTEXT_TYPE_OPENGLES2, false,
@@ -883,7 +1057,6 @@ std::unique_ptr<SharedImageBacking> SharedImageBackingFactoryAHB::MakeBacking(
     AHardwareBuffer_Desc hwb_info;
     base::AndroidHardwareBufferCompat::GetInstance().Describe(buffer,
                                                               &hwb_info);
-
     void* address = nullptr;
     if (int error = base::AndroidHardwareBufferCompat::GetInstance().Lock(
             buffer, AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY, -1, 0, &address)) {
@@ -909,9 +1082,16 @@ std::unique_ptr<SharedImageBacking> SharedImageBackingFactoryAHB::MakeBacking(
     initial_upload_fd = base::ScopedFD(fence);
   }
 
+  bool using_gl = context_state_ && context_state_->GrContextIsGL();
+
   auto backing = std::make_unique<SharedImageBackingAHB>(
       mailbox, format, size, color_space, usage, std::move(handle),
-      estimated_size, is_thread_safe, std::move(initial_upload_fd));
+      estimated_size, is_thread_safe, std::move(initial_upload_fd), using_gl);
+
+  // If we uploaded initial data, set the backing as cleared.
+  if (!pixel_data.empty())
+    backing->SetCleared();
+
   return backing;
 }
 
@@ -979,10 +1159,12 @@ SharedImageBackingFactoryAHB::CreateSharedImage(
     return nullptr;
   }
 
+  bool using_gl = context_state_ && context_state_->GrContextIsGL();
+
   return std::make_unique<SharedImageBackingAHB>(
       mailbox, resource_format, size, color_space, usage,
       std::move(handle.android_hardware_buffer), estimated_size, false,
-      base::ScopedFD());
+      base::ScopedFD(), using_gl);
 }
 
 }  // namespace gpu

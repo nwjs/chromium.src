@@ -40,17 +40,18 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.CompositorView;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.page_info.PageInfoController;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
 import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager.TabCreator;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
@@ -66,6 +67,7 @@ import org.chromium.content_public.common.BrowserControlsState;
 import org.chromium.ui.base.PermissionCallback;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayAndroid;
+import org.chromium.ui.display.DisplayAndroidManager;
 import org.chromium.ui.display.VirtualDisplayAndroid;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -394,7 +396,7 @@ public class VrShell extends GvrLayout
         // Get physical and pixel size of the display, which is needed by native
         // to dynamically calculate the content's resolution and window size.
         DisplayMetrics dm = new DisplayMetrics();
-        mActivity.getWindowManager().getDefaultDisplay().getRealMetrics(dm);
+        DisplayAndroidManager.getDefaultDisplayForContext(mActivity).getRealMetrics(dm);
         // We're supposed to be in landscape at this point, but it's possible for us to get here
         // before the change has fully propagated. In this case, the width and height are swapped,
         // which causes an incorrect display size to be used, and the page to appear zoomed in.
@@ -500,7 +502,7 @@ public class VrShell extends GvrLayout
 
         // Use application context here to avoid leaking the activity context.
         imeAdapter.setInputMethodManagerWrapper(ImeAdapter.createDefaultInputMethodManagerWrapper(
-                mActivity.getApplicationContext()));
+                mActivity.getApplicationContext(), mContentVrWindowAndroid, null));
         mInputMethodManagerWrapper = null;
     }
 
@@ -561,7 +563,10 @@ public class VrShell extends GvrLayout
         Tab tab = mActivity.getActivityTab();
         if (tab == null) return;
 
-        PageInfoController.show(mActivity, tab, null, PageInfoController.OpenedFromSource.VR);
+        PageInfoController.show(mActivity, tab.getWebContents(), null,
+                PageInfoController.OpenedFromSource.VR,
+                /*offlinePageLoadUrlDelegate=*/
+                new OfflinePageUtils.TabOfflinePageLoadUrlDelegate(tab));
     }
 
     // Called because showing audio permission dialog isn't supported in VR. This happens when

@@ -19,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/subtitle"
-            android:textAppearance="@style/TextAppearance.BlackBody"
+            android:textAppearance="@style/TextAppearance.TextMedium.Secondary"
             android:visibility="gone"
             android:layout_marginBottom="16dp" />
 
@@ -35,11 +35,11 @@
                 app:tint="@color/default_icon_color"
                 style="@style/ListItemStartIcon" />
 
-            <org.chromium.chrome.browser.ui.widget.text.AlertDialogEditText
+            <org.chromium.components.browser_ui.widget.text.AlertDialogEditText
                 android:id="@+id/file_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.BlackTitle1"
+                android:textAppearance="@style/TextAppearance.TextLarge.Primary"
                 android:singleLine="true" />
 
         </LinearLayout>
@@ -65,7 +65,7 @@
         </LinearLayout>
 
         <CheckBox
-            style="@style/TextAppearance.BlackDisabledText3"
+            style="@style/TextAppearance.TextMedium.Tertiary"
             android:id="@+id/show_again_checkbox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

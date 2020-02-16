@@ -4,6 +4,7 @@
 
 package org.chromium.weblayer;
 
+import android.content.Intent;
 import android.net.Uri;
 import android.os.RemoteException;
 import android.webkit.ValueCallback;
@@ -15,6 +16,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import org.chromium.weblayer_private.interfaces.APICallException;
+import org.chromium.weblayer_private.interfaces.IClientDownload;
+import org.chromium.weblayer_private.interfaces.IDownload;
 import org.chromium.weblayer_private.interfaces.IDownloadCallbackClient;
 import org.chromium.weblayer_private.interfaces.IErrorPageCallbackClient;
 import org.chromium.weblayer_private.interfaces.IFullscreenCallbackClient;
@@ -41,12 +44,12 @@ public final class Tab {
     private static final Map<Integer, Tab> sTabMap = new HashMap<Integer, Tab>();
 
     private final ITab mImpl;
-    private FullscreenCallbackClientImpl mFullscreenCallbackClient;
     private final NavigationController mNavigationController;
+    private final FindInPageController mFindInPageController;
     private final ObserverList<TabCallback> mCallbacks;
     private Browser mBrowser;
     private DownloadCallbackClientImpl mDownloadCallbackClient;
-    private ErrorPageCallbackClientImpl mErrorPageCallbackClient;
+    private FullscreenCallbackClientImpl mFullscreenCallbackClient;
     private NewTabCallback mNewTabCallback;
     // Id from the remote side.
     private final int mId;
@@ -63,6 +66,7 @@ public final class Tab {
 
         mCallbacks = new ObserverList<TabCallback>();
         mNavigationController = NavigationController.create(mImpl);
+        mFindInPageController = new FindInPageController(mImpl);
         registerTab(this);
     }
 
@@ -120,13 +124,8 @@ public final class Tab {
     public void setErrorPageCallback(@Nullable ErrorPageCallback callback) {
         ThreadCheck.ensureOnUiThread();
         try {
-            if (callback != null) {
-                mErrorPageCallbackClient = new ErrorPageCallbackClientImpl(callback);
-                mImpl.setErrorPageCallbackClient(mErrorPageCallbackClient);
-            } else {
-                mErrorPageCallbackClient = null;
-                mImpl.setErrorPageCallbackClient(null);
-            }
+            mImpl.setErrorPageCallbackClient(
+                    callback == null ? null : new ErrorPageCallbackClientImpl(callback));
         } catch (RemoteException e) {
             throw new APICallException(e);
         }
@@ -208,6 +207,12 @@ public final class Tab {
         return mNavigationController;
     }
 
+    @NonNull
+    public FindInPageController getFindInPageController() {
+        ThreadCheck.ensureOnUiThread();
+        return mFindInPageController;
+    }
+
     public void registerTabCallback(@Nullable TabCallback callback) {
         ThreadCheck.ensureOnUiThread();
         mCallbacks.addObserver(callback);
@@ -280,6 +285,60 @@ public final class Tab {
             StrictModeWorkaround.apply();
             return mCallback.onInterceptDownload(
                     Uri.parse(uriString), userAgent, contentDisposition, mimetype, contentLength);
+        }
+
+        @Override
+        public void allowDownload(String uriString, String requestMethod,
+                String requestInitiatorString, IObjectWrapper valueCallback) {
+            StrictModeWorkaround.apply();
+            Uri requestInitiator;
+            if (requestInitiatorString != null) {
+                requestInitiator = Uri.parse(requestInitiatorString);
+            } else {
+                requestInitiator = Uri.EMPTY;
+            }
+            mCallback.allowDownload(Uri.parse(uriString), requestMethod, requestInitiator,
+                    (ValueCallback<Boolean>) ObjectWrapper.unwrap(
+                            valueCallback, ValueCallback.class));
+        }
+
+        @Override
+        public IClientDownload createClientDownload(IDownload downloadImpl) {
+            StrictModeWorkaround.apply();
+            return new Download(downloadImpl);
+        }
+
+        @Override
+        public void downloadStarted(IClientDownload download) {
+            StrictModeWorkaround.apply();
+            mCallback.onDownloadStarted((Download) download);
+        }
+
+        @Override
+        public void downloadProgressChanged(IClientDownload download) {
+            StrictModeWorkaround.apply();
+            mCallback.onDownloadProgressChanged((Download) download);
+        }
+
+        @Override
+        public void downloadCompleted(IClientDownload download) {
+            StrictModeWorkaround.apply();
+            mCallback.onDownloadCompleted((Download) download);
+        }
+
+        @Override
+        public void downloadFailed(IClientDownload download) {
+            StrictModeWorkaround.apply();
+            mCallback.onDownloadFailed((Download) download);
+        }
+
+        @Override
+        public Intent createIntent() {
+            StrictModeWorkaround.apply();
+            // Intent objects need to be created in the client library so they can refer to the
+            // broadcast receiver that will handle them. The broadcast receiver needs to be in the
+            // client library because it's referenced in the manifest.
+            return new Intent(WebLayer.getAppContext(), DownloadBroadcastReceiver.class);
         }
     }
 

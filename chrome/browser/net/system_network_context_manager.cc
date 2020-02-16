@@ -24,6 +24,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/component_updater/crl_set_component_installer.h"
+#include "chrome/browser/component_updater/tls_deprecation_config_component_installer.h"
 #include "chrome/browser/net/chrome_mojo_proxy_resolver_factory.h"
 #include "chrome/browser/net/dns_util.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
@@ -64,7 +65,6 @@
 #include "services/network/public/cpp/cross_thread_pending_shared_url_loader_factory.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
-#include "services/network/public/mojom/host_resolver.mojom.h"
 #include "services/proxy_resolver/public/mojom/proxy_resolver.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "url/gurl.h"
@@ -112,66 +112,15 @@ bool g_enable_certificate_transparency = kCertificateTransparencyEnabled;
 // The global instance of the SystemNetworkContextmanager.
 SystemNetworkContextManager* g_system_network_context_manager = nullptr;
 
-void GetStubResolverConfig(
-    PrefService* local_state,
-    bool* insecure_stub_resolver_enabled,
-    net::DnsConfig::SecureDnsMode* secure_dns_mode,
-    base::Optional<std::vector<network::mojom::DnsOverHttpsServerPtr>>*
-        dns_over_https_servers) {
-  DCHECK(!dns_over_https_servers->has_value());
-
-  *insecure_stub_resolver_enabled =
-      local_state->GetBoolean(prefs::kBuiltInDnsClientEnabled);
-
-  std::string doh_mode;
-  if (!local_state->FindPreference(prefs::kDnsOverHttpsMode)->IsManaged() &&
-      chrome_browser_net::ShouldDisableDohForManaged())
-    doh_mode = chrome_browser_net::kDnsOverHttpsModeOff;
-  else
-    doh_mode = local_state->GetString(prefs::kDnsOverHttpsMode);
-
-  if (doh_mode == chrome_browser_net::kDnsOverHttpsModeSecure)
-    *secure_dns_mode = net::DnsConfig::SecureDnsMode::SECURE;
-  else if (doh_mode == chrome_browser_net::kDnsOverHttpsModeAutomatic)
-    *secure_dns_mode = net::DnsConfig::SecureDnsMode::AUTOMATIC;
-  else
-    *secure_dns_mode = net::DnsConfig::SecureDnsMode::OFF;
-
-  std::string doh_templates =
-      local_state->GetString(prefs::kDnsOverHttpsTemplates);
-  std::string server_method;
-  if (!doh_templates.empty() &&
-      *secure_dns_mode != net::DnsConfig::SecureDnsMode::OFF) {
-    for (const std::string& server_template :
-         SplitString(doh_templates, " ", base::TRIM_WHITESPACE,
-                     base::SPLIT_WANT_NONEMPTY)) {
-      if (!chrome_browser_net::IsValidDohTemplate(server_template,
-                                                  &server_method)) {
-        continue;
-      }
-
-      if (!dns_over_https_servers->has_value()) {
-        *dns_over_https_servers = base::make_optional<
-            std::vector<network::mojom::DnsOverHttpsServerPtr>>();
-      }
-
-      network::mojom::DnsOverHttpsServerPtr dns_over_https_server =
-          network::mojom::DnsOverHttpsServer::New();
-      dns_over_https_server->server_template = server_template;
-      dns_over_https_server->use_post = (server_method == "POST");
-      (*dns_over_https_servers)->emplace_back(std::move(dns_over_https_server));
-    }
-  }
-}
-
 void OnStubResolverConfigChanged(PrefService* local_state,
                                  const std::string& pref_name) {
   bool insecure_stub_resolver_enabled;
   net::DnsConfig::SecureDnsMode secure_dns_mode;
   base::Optional<std::vector<network::mojom::DnsOverHttpsServerPtr>>
       dns_over_https_servers;
-  GetStubResolverConfig(local_state, &insecure_stub_resolver_enabled,
-                        &secure_dns_mode, &dns_over_https_servers);
+  SystemNetworkContextManager::GetStubResolverConfig(
+      local_state, &insecure_stub_resolver_enabled, &secure_dns_mode,
+      &dns_over_https_servers);
   content::GetNetworkService()->ConfigureStubHostResolver(
       insecure_stub_resolver_enabled, secure_dns_mode,
       std::move(dns_over_https_servers));
@@ -511,6 +460,7 @@ SystemNetworkContextManager::~SystemNetworkContextManager() {
   shared_url_loader_factory_->Shutdown();
 }
 
+// static
 void SystemNetworkContextManager::RegisterPrefs(PrefRegistrySimple* registry) {
   // Register the DnsClient and DoH preferences. The feature list has not been
   // initialized yet, so setting the preference defaults here to reflect the
@@ -567,6 +517,59 @@ void SystemNetworkContextManager::RegisterPrefs(PrefRegistrySimple* registry) {
 #endif
 }
 
+// static
+void SystemNetworkContextManager::GetStubResolverConfig(
+    PrefService* local_state,
+    bool* insecure_stub_resolver_enabled,
+    net::DnsConfig::SecureDnsMode* secure_dns_mode,
+    base::Optional<std::vector<network::mojom::DnsOverHttpsServerPtr>>*
+        dns_over_https_servers) {
+  DCHECK(!dns_over_https_servers->has_value());
+
+  *insecure_stub_resolver_enabled =
+      local_state->GetBoolean(prefs::kBuiltInDnsClientEnabled);
+
+  std::string doh_mode;
+  if (!local_state->FindPreference(prefs::kDnsOverHttpsMode)->IsManaged() &&
+      chrome_browser_net::ShouldDisableDohForManaged())
+    doh_mode = chrome_browser_net::kDnsOverHttpsModeOff;
+  else
+    doh_mode = local_state->GetString(prefs::kDnsOverHttpsMode);
+
+  if (doh_mode == chrome_browser_net::kDnsOverHttpsModeSecure)
+    *secure_dns_mode = net::DnsConfig::SecureDnsMode::SECURE;
+  else if (doh_mode == chrome_browser_net::kDnsOverHttpsModeAutomatic)
+    *secure_dns_mode = net::DnsConfig::SecureDnsMode::AUTOMATIC;
+  else
+    *secure_dns_mode = net::DnsConfig::SecureDnsMode::OFF;
+
+  std::string doh_templates =
+      local_state->GetString(prefs::kDnsOverHttpsTemplates);
+  std::string server_method;
+  if (!doh_templates.empty() &&
+      *secure_dns_mode != net::DnsConfig::SecureDnsMode::OFF) {
+    for (const std::string& server_template :
+         SplitString(doh_templates, " ", base::TRIM_WHITESPACE,
+                     base::SPLIT_WANT_NONEMPTY)) {
+      if (!chrome_browser_net::IsValidDohTemplate(server_template,
+                                                  &server_method)) {
+        continue;
+      }
+
+      if (!dns_over_https_servers->has_value()) {
+        *dns_over_https_servers = base::make_optional<
+            std::vector<network::mojom::DnsOverHttpsServerPtr>>();
+      }
+
+      network::mojom::DnsOverHttpsServerPtr dns_over_https_server =
+          network::mojom::DnsOverHttpsServer::New();
+      dns_over_https_server->server_template = server_template;
+      dns_over_https_server->use_post = (server_method == "POST");
+      (*dns_over_https_servers)->emplace_back(std::move(dns_over_https_server));
+    }
+  }
+}
+
 void SystemNetworkContextManager::OnNetworkServiceCreated(
     network::mojom::NetworkService* network_service) {
   // Disable QUIC globally, if needed.
@@ -576,42 +579,6 @@ void SystemNetworkContextManager::OnNetworkServiceCreated(
   network_service->SetUpHttpAuth(CreateHttpAuthStaticParams(local_state_));
   network_service->ConfigureHttpAuthPrefs(
       CreateHttpAuthDynamicParams(local_state_));
-
-  // TODO(lukasza): https://crbug.com/944162: Unconditionally include
-  // the MIME types below in GetNeverSniffedMimeTypes in
-  // services/network/cross_origin_read_blocking.cc.
-  network_service->AddExtraMimeTypesForCorb(
-      {"application/msexcel",
-       "application/mspowerpoint",
-       "application/msword",
-       "application/msword-template",
-       "application/pdf",
-       "application/vnd.ces-quickpoint",
-       "application/vnd.ces-quicksheet",
-       "application/vnd.ces-quickword",
-       "application/vnd.ms-excel",
-       "application/vnd.ms-excel.sheet.macroenabled.12",
-       "application/vnd.ms-powerpoint",
-       "application/vnd.ms-powerpoint.presentation.macroenabled.12",
-       "application/vnd.ms-word",
-       "application/vnd.ms-word.document.12",
-       "application/vnd.ms-word.document.macroenabled.12",
-       "application/vnd.msword",
-       "application/"
-       "vnd.openxmlformats-officedocument.presentationml.presentation",
-       "application/"
-       "vnd.openxmlformats-officedocument.presentationml.template",
-       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-       "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
-       "application/"
-       "vnd.openxmlformats-officedocument.wordprocessingml.document",
-       "application/"
-       "vnd.openxmlformats-officedocument.wordprocessingml.template",
-       "application/vnd.presentation-openxml",
-       "application/vnd.presentation-openxmlm",
-       "application/vnd.spreadsheet-openxml",
-       "application/vnd.wordprocessing-openxml",
-       "text/csv"});
 
   int max_connections_per_proxy =
       local_state_->GetInteger(prefs::kMaxConnectionsPerProxy);
@@ -668,6 +635,10 @@ void SystemNetworkContextManager::OnNetworkServiceCreated(
 
   // Asynchronously reapply the most recently received CRLSet (if any).
   component_updater::CRLSetPolicy::ReconfigureAfterNetworkRestart();
+
+  // Asynchronously reapply the most recently received TLS deprecation config.
+  component_updater::TLSDeprecationConfigComponentInstallerPolicy::
+      ReconfigureAfterNetworkRestart();
 }
 
 void SystemNetworkContextManager::DisableQuic() {
@@ -807,16 +778,6 @@ void SystemNetworkContextManager::FlushNetworkInterfaceForTesting() {
   network_service_network_context_.FlushForTesting();
   if (url_loader_factory_)
     url_loader_factory_.FlushForTesting();
-}
-
-void SystemNetworkContextManager::GetStubResolverConfigForTesting(
-    bool* insecure_stub_resolver_enabled,
-    net::DnsConfig::SecureDnsMode* secure_dns_mode,
-    base::Optional<std::vector<network::mojom::DnsOverHttpsServerPtr>>*
-        dns_over_https_servers) {
-  GetStubResolverConfig(g_browser_process->local_state(),
-                        insecure_stub_resolver_enabled, secure_dns_mode,
-                        dns_over_https_servers);
 }
 
 network::mojom::HttpAuthStaticParamsPtr

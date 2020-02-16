@@ -9,7 +9,9 @@ js_type_check("closure_compile") {
     ":people_page",
     ":profile_info_browser_proxy",
     ":signout_dialog",
+    ":sync_account_control",
     ":sync_browser_proxy",
+    ":sync_controls",
     ":sync_page",
   ]
 
@@ -19,149 +21,20 @@ js_type_check("closure_compile") {
       ":import_data_dialog",
       ":manage_profile",
       ":manage_profile_browser_proxy",
-      ":sync_account_control",
     ]
   }
 
   if (is_chromeos) {
-    deps += [
-      ":account_manager",
-      ":account_manager_browser_proxy",
-      ":change_picture",
-      ":change_picture_browser_proxy",
-      ":fingerprint_browser_proxy",
-      ":fingerprint_list",
-      ":kerberos_accounts",
-      ":kerberos_accounts_browser_proxy",
-      ":kerberos_add_account_dialog",
-      ":lock_screen",
-      ":lock_screen_password_prompt_dialog",
-      ":lock_state_behavior",
-      ":setup_fingerprint_dialog",
-      ":setup_pin_dialog",
-      ":user_list",
-      ":users_add_user_dialog",
-      ":users_page",
-    ]
+    deps += [ ":account_manager_browser_proxy" ]
   }
 }
 
-js_library("account_manager") {
-  deps = [
-    ":account_manager_browser_proxy",
-    "//ui/webui/resources/js:cr",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:icon",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-  ]
-}
-
 js_library("account_manager_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
-}
-
-js_library("change_picture") {
-  deps = [
-    ":change_picture_browser_proxy",
-    "..:route",
-    "//third_party/polymer/v1_0/components-chromium/iron-selector:iron-selector-extracted",
-    "//ui/webui/resources/cr_elements/chromeos/cr_picture:cr_picture_list",
-    "//ui/webui/resources/cr_elements/chromeos/cr_picture:cr_picture_pane",
-    "//ui/webui/resources/cr_elements/chromeos/cr_picture:cr_picture_types",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:load_time_data",
-    "//ui/webui/resources/js:util",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-  ]
-}
-
-js_library("change_picture_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
-}
-
-js_library("fingerprint_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
-}
-
-js_library("fingerprint_list") {
-  deps = [
-    ":fingerprint_browser_proxy",
-    "..:route",
-    "//third_party/polymer/v1_0/components-chromium/iron-resizable-behavior:iron-resizable-behavior-extracted",
-    "//third_party/polymer/v1_0/components-chromium/paper-ripple:paper-ripple-extracted",
-    "//ui/webui/resources/js:assert",
-    "//ui/webui/resources/js:cr",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-    "//ui/webui/resources/js/cr/ui:focus_without_ink",
-  ]
+  deps = [ "//ui/webui/resources/js:cr" ]
 }
 
 js_library("import_data_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
-}
-
-js_library("kerberos_accounts") {
-  deps = [
-    ":kerberos_accounts_browser_proxy",
-    "//ui/webui/resources/js:cr",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:icon",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-  ]
-}
-
-js_library("kerberos_accounts_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
-}
-
-js_library("kerberos_add_account_dialog") {
-  deps = [
-    ":kerberos_accounts_browser_proxy",
-    "//chrome/browser/resources/settings/controls:settings_textarea",
-    "//ui/webui/resources/cr_elements/cr_input:cr_input",
-    "//ui/webui/resources/js:cr",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-  ]
-}
-
-js_library("lock_screen") {
-  deps = [
-    ":fingerprint_browser_proxy",
-    ":lock_screen_password_prompt_dialog",
-    ":lock_state_behavior",
-    "..:route",
-    "../controls:settings_dropdown_menu",
-    "../controls:settings_toggle_button",
-    "//ui/webui/resources/cr_components/chromeos/quick_unlock:lock_screen_constants",
-    "//ui/webui/resources/js:assert",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:load_time_data",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-    "//ui/webui/resources/js/cr/ui:focus_without_ink",
-  ]
-}
-
-js_library("lock_state_behavior") {
-  deps = [
-    "..:route",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:load_time_data",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-  ]
-  externs_list = [ "$externs_path/quick_unlock_private.js" ]
-  extra_sources = [ "$interfaces_path/quick_unlock_private_interface.js" ]
+  deps = [ "//ui/webui/resources/js:cr" ]
 }
 
 js_library("manage_profile") {
@@ -169,6 +42,7 @@ js_library("manage_profile") {
     ":manage_profile_browser_proxy",
     ":sync_browser_proxy",
     "..:route",
+    "..:router",
     "//ui/webui/resources/js:cr",
     "//ui/webui/resources/js:web_ui_listener_behavior",
   ]
@@ -181,24 +55,15 @@ js_library("manage_profile_browser_proxy") {
   ]
 }
 
-js_library("lock_screen_password_prompt_dialog") {
-  deps = [
-    ":lock_state_behavior",
-    "../controls:password_prompt_dialog",
-    "//ui/webui/resources/cr_components/chromeos/quick_unlock:lock_screen_constants",
-  ]
-}
-
 js_library("people_page") {
   deps = [
-    ":lock_screen",
-    ":lock_state_behavior",
     ":profile_info_browser_proxy",
     ":signout_dialog",
     ":sync_browser_proxy",
     "..:open_window_proxy",
     "..:page_visibility",
     "..:route",
+    "..:router",
     "../settings_page:settings_animated_pages",
     "//ui/webui/resources/cr_components/chromeos/quick_unlock:lock_screen_constants",
     "//ui/webui/resources/cr_elements/chromeos/cr_picture:cr_png_behavior",
@@ -213,28 +78,7 @@ js_library("people_page") {
 }
 
 js_library("profile_info_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
-}
-
-js_library("setup_fingerprint_dialog") {
-  deps = [
-    ":fingerprint_browser_proxy",
-    "//ui/webui/resources/cr_elements/chromeos/cr_lottie:cr_lottie",
-    "//ui/webui/resources/cr_elements/cr_fingerprint:cr_fingerprint_progress_arc",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js:web_ui_listener_behavior",
-  ]
-}
-
-js_library("setup_pin_dialog") {
-  deps = [
-    ":lock_screen_password_prompt_dialog",
-    "..:route",
-    "//ui/webui/resources/cr_components/chromeos/quick_unlock:setup_pin_keyboard",
-    "//ui/webui/resources/js:i18n_behavior",
-  ]
+  deps = [ "//ui/webui/resources/js:cr" ]
 }
 
 js_library("signout_dialog") {
@@ -255,7 +99,7 @@ js_library("sync_page") {
     ":sync_account_control",
     ":sync_browser_proxy",
     "..:page_visibility",
-    "..:route",
+    "..:router",
     "../settings_page:settings_animated_pages",
     "//ui/webui/resources/cr_elements/cr_expand_button:cr_expand_button",
     "//ui/webui/resources/cr_elements/cr_input:cr_input",
@@ -275,37 +119,14 @@ js_library("sync_browser_proxy") {
   externs_list = [ "$externs_path/metrics_private.js" ]
 }
 
-js_library("user_list") {
-  deps = [
-    "..:route",
-    "//ui/webui/resources/cr_elements:cr_scrollable_behavior",
-    "//ui/webui/resources/js:i18n_behavior",
-  ]
-  externs_list = [
-    "$externs_path/settings_private.js",
-    "$externs_path/users_private.js",
-  ]
-}
-
-js_library("users_add_user_dialog") {
-  deps = [
-    "//ui/webui/resources/js:assert",
-  ]
-  externs_list = [ "$externs_path/users_private.js" ]
-}
-
-js_library("users_page") {
-  deps = [
-    ":user_list",
-    ":users_add_user_dialog",
-    "//ui/webui/resources/js:assert",
-    "//ui/webui/resources/js/cr/ui:focus_without_ink",
-  ]
+js_library("sync_controls") {
+  deps = [ "..:router" ]
 }
 
 js_library("import_data_dialog") {
   deps = [
     ":import_data_browser_proxy",
+    "../controls:settings_checkbox",
     "../prefs:prefs_behavior",
     "//ui/webui/resources/js:i18n_behavior",
     "//ui/webui/resources/js:web_ui_listener_behavior",
@@ -316,11 +137,195 @@ js_library("sync_account_control") {
   deps = [
     ":profile_info_browser_proxy",
     ":sync_browser_proxy",
-    "..:route",
+    "..:router",
     "../prefs:prefs_behavior",
     "//ui/webui/resources/cr_elements/cr_action_menu:cr_action_menu",
     "//ui/webui/resources/js:icon",
     "//ui/webui/resources/js:load_time_data",
     "//ui/webui/resources/js:web_ui_listener_behavior",
+  ]
+}
+
+# TODO(crbug.com/1026426): Fix and enable.
+#js_type_check("closure_compile_module") {
+#  is_polymer3 = true
+#  deps = [
+#    ":account_manager_browser_proxy.m",
+#    ":import_data_browser_proxy.m",
+#    ":import_data_dialog.m",
+#    ":manage_profile.m",
+#    ":manage_profile_browser_proxy.m",
+#    ":people_page.m",
+#    ":profile_info_browser_proxy.m",
+#    ":signout_dialog.m",
+#    ":sync_account_control.m",
+#    ":sync_browser_proxy.m",
+#    ":sync_controls.m",
+#    ":sync_page.m",
+#  ]
+#}
+
+js_library("account_manager_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/account_manager_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
+
+js_library("import_data_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/import_data_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
+
+js_library("import_data_dialog.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/import_data_dialog.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":import_data_dialog_module" ]
+}
+
+js_library("manage_profile.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/manage_profile.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":manage_profile_module" ]
+}
+
+js_library("manage_profile_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/manage_profile_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
+
+js_library("people_page.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/people_page.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":people_page_module" ]
+}
+
+js_library("profile_info_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/profile_info_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
+
+js_library("signout_dialog.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/signout_dialog.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":signout_dialog_module" ]
+}
+
+js_library("sync_account_control.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/sync_account_control.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":sync_account_control_module" ]
+}
+
+js_library("sync_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/sync_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
+
+js_library("sync_controls.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/sync_controls.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":sync_controls_module" ]
+}
+
+js_library("sync_page.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/people_page/sync_page.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":sync_page_module" ]
+}
+
+import("//tools/polymer/polymer.gni")
+
+group("polymer3_elements") {
+  deps = [
+    ":import_data_dialog_module",
+    ":manage_profile_module",
+    ":modulize",
+    ":people_page_module",
+    ":signout_dialog_module",
+    ":sync_account_control_module",
+    ":sync_controls_module",
+    ":sync_page_module",
+  ]
+}
+
+polymer_modulizer("import_data_dialog") {
+  js_file = "import_data_dialog.js"
+  html_file = "import_data_dialog.html"
+  html_type = "dom-module"
+}
+
+polymer_modulizer("manage_profile") {
+  js_file = "manage_profile.js"
+  html_file = "manage_profile.html"
+  html_type = "dom-module"
+}
+
+polymer_modulizer("people_page") {
+  js_file = "people_page.js"
+  html_file = "people_page.html"
+  html_type = "dom-module"
+}
+
+polymer_modulizer("signout_dialog") {
+  js_file = "signout_dialog.js"
+  html_file = "signout_dialog.html"
+  html_type = "dom-module"
+}
+
+polymer_modulizer("sync_account_control") {
+  js_file = "sync_account_control.js"
+  html_file = "sync_account_control.html"
+  html_type = "dom-module"
+}
+
+polymer_modulizer("sync_controls") {
+  js_file = "sync_controls.js"
+  html_file = "sync_controls.html"
+  html_type = "dom-module"
+}
+
+polymer_modulizer("sync_page") {
+  js_file = "sync_page.js"
+  html_file = "sync_page.html"
+  html_type = "dom-module"
+}
+
+import("//ui/webui/resources/tools/js_modulizer.gni")
+
+js_modulizer("modulize") {
+  input_files = [
+    "account_manager_browser_proxy.js",
+    "import_data_browser_proxy.js",
+    "manage_profile_browser_proxy.js",
+    "profile_info_browser_proxy.js",
+    "sync_browser_proxy.js",
   ]
 }

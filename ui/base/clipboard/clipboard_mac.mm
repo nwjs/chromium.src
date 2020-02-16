@@ -117,6 +117,22 @@ void ClipboardMac::ReadAvailableTypes(ClipboardBuffer buffer,
   }
 }
 
+std::vector<base::string16>
+ClipboardMac::ReadAvailablePlatformSpecificFormatNames(
+    ClipboardBuffer buffer) const {
+  DCHECK(CalledOnValidThread());
+  DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
+
+  NSPasteboard* pb = GetPasteboard();
+  NSArray* types = [pb types];
+
+  std::vector<base::string16> type_names;
+  type_names.reserve([types count]);
+  for (NSString* type in types)
+    type_names.push_back(base::SysNSStringToUTF16(type));
+  return type_names;
+}
+
 void ClipboardMac::ReadText(ClipboardBuffer buffer,
                             base::string16* result) const {
   DCHECK(CalledOnValidThread());
@@ -167,7 +183,7 @@ void ClipboardMac::ReadHTML(ClipboardBuffer buffer,
   }
 
   *fragment_start = 0;
-  DCHECK(markup->length() <= std::numeric_limits<uint32_t>::max());
+  DCHECK_LE(markup->length(), std::numeric_limits<uint32_t>::max());
   *fragment_end = static_cast<uint32_t>(markup->length());
 }
 

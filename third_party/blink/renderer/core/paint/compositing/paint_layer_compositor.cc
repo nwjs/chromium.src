@@ -66,10 +66,9 @@
 namespace blink {
 
 PaintLayerCompositor::PaintLayerCompositor(LayoutView& layout_view)
-    : layout_view_(layout_view),
-      has_accelerated_compositing_(layout_view.GetDocument()
-                                       .GetSettings()
-                                       ->GetAcceleratedCompositingEnabled()) {}
+    : layout_view_(layout_view) {
+  DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
+}
 
 PaintLayerCompositor::~PaintLayerCompositor() {
   DCHECK_EQ(root_layer_attachment_, kRootLayerUnattached);
@@ -135,7 +134,9 @@ void PaintLayerCompositor::EnableCompositingModeIfNeeded() {
 
 bool PaintLayerCompositor::RootShouldAlwaysComposite() const {
   // If compositing is disabled for the WebView, then nothing composites.
-  if (!has_accelerated_compositing_)
+  if (!layout_view_.GetDocument()
+           .GetSettings()
+           ->GetAcceleratedCompositingEnabled())
     return false;
   // Local roots composite always, when compositing is enabled globally.
   if (layout_view_.GetFrame()->IsLocalRoot())
@@ -150,21 +151,9 @@ bool PaintLayerCompositor::RootShouldAlwaysComposite() const {
 }
 
 void PaintLayerCompositor::UpdateAcceleratedCompositingSettings() {
-  // AcceleratedCompositing setting does not change after initialization.
-  DCHECK_EQ(has_accelerated_compositing_,
-            layout_view_.GetDocument()
-                .GetSettings()
-                ->GetAcceleratedCompositingEnabled());
-
   root_should_always_composite_dirty_ = true;
   if (root_layer_attachment_ != kRootLayerUnattached)
     RootLayer()->SetNeedsCompositingInputsUpdate();
-}
-
-bool PaintLayerCompositor::PreferCompositingToLCDTextEnabled() const {
-  return layout_view_.GetDocument()
-      .GetSettings()
-      ->GetPreferCompositingToLCDTextEnabled();
 }
 
 static LayoutVideo* FindFullscreenVideoLayoutObject(Document& document) {
@@ -321,7 +310,9 @@ GraphicsLayer* PaintLayerCompositor::OverlayFullscreenVideoGraphicsLayer()
 
 void PaintLayerCompositor::UpdateWithoutAcceleratedCompositing(
     CompositingUpdateType update_type) {
-  DCHECK(!HasAcceleratedCompositing());
+  DCHECK(!layout_view_.GetDocument()
+              .GetSettings()
+              ->GetAcceleratedCompositingEnabled());
 
   if (update_type >= kCompositingUpdateAfterCompositingInputChange) {
     CompositingInputsUpdater(RootLayer(), GetCompositingInputsRoot()).Update();
@@ -379,7 +370,9 @@ void PaintLayerCompositor::UpdateIfNeeded(
   CompositingUpdateType update_type = pending_update_type_;
   pending_update_type_ = kCompositingUpdateNone;
 
-  if (!HasAcceleratedCompositing()) {
+  if (!layout_view_.GetDocument()
+           .GetSettings()
+           ->GetAcceleratedCompositingEnabled()) {
     UpdateWithoutAcceleratedCompositing(update_type);
     Lifecycle().AdvanceTo(
         std::min(DocumentLifecycle::kCompositingClean, target_state));
@@ -563,14 +556,6 @@ bool PaintLayerCompositor::AllocateOrClearCompositedLayerMapping(
 
   layer->ClearClipRects(kPaintingClipRects);
 
-  // If a fixed position layer gained/lost a compositedLayerMapping or the
-  // reason not compositing it changed, the scrolling coordinator needs to
-  // recalculate whether it can do fast scrolling.
-  if (ScrollingCoordinator* scrolling_coordinator = GetScrollingCoordinator()) {
-    scrolling_coordinator->FrameViewFixedObjectsDidChange(
-        layout_view_.GetFrameView());
-  }
-
   // Compositing state affects whether to create paint offset translation of
   // this layer, and amount of paint offset translation of descendants.
   layer->GetLayoutObject().SetNeedsPaintPropertyUpdate();
@@ -720,7 +705,9 @@ bool PaintLayerCompositor::CanBeComposited(const PaintLayer* layer) const {
   const bool has_compositor_animation =
       CompositingReasonFinder::CompositingReasonsForAnimation(
           *layer->GetLayoutObject().Style()) != CompositingReason::kNone;
-  return has_accelerated_compositing_ &&
+  return layout_view_.GetDocument()
+             .GetSettings()
+             ->GetAcceleratedCompositingEnabled() &&
          (has_compositor_animation || !layer->SubtreeIsInvisible()) &&
          layer->IsSelfPaintingLayer() &&
          !layer->GetLayoutObject().IsLayoutFlowThread() &&

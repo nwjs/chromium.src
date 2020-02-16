@@ -69,12 +69,12 @@ public final class ForcedSigninProcessor {
      */
     private static void processForcedSignIn(@Nullable final Runnable onComplete) {
         if (FirstRunUtils.canAllowSync()
-                && IdentityServicesProvider.getIdentityManager().hasPrimaryAccount()) {
+                && IdentityServicesProvider.get().getIdentityManager().hasPrimaryAccount()) {
             // TODO(https://crbug.com/1044206): Remove this.
             ProfileSyncService.get().setFirstSetupComplete(SyncFirstSetupCompleteSource.BASIC_FLOW);
         }
 
-        final SigninManager signinManager = IdentityServicesProvider.getSigninManager();
+        final SigninManager signinManager = IdentityServicesProvider.get().getSigninManager();
         // By definition we have finished all the checks for first run.
         signinManager.onFirstRunCheckDone();
         if (!FirstRunUtils.canAllowSync() || !signinManager.isSignInAllowed()) {
@@ -116,7 +116,7 @@ public final class ForcedSigninProcessor {
     // TODO(bauerb): Once external dependencies reliably use policy to force sign-in,
     // consider removing the child account / EDU checks.
     public static void checkCanSignIn(final ChromeActivity activity) {
-        if (IdentityServicesProvider.getSigninManager().isForceSigninEnabled()) {
+        if (IdentityServicesProvider.get().getSigninManager().isForceSigninEnabled()) {
             ExternalAuthUtils.getInstance().canUseGooglePlayServices(
                     new UserRecoverableErrorHandler.ModalDialog(activity, false));
         }

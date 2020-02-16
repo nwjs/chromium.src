@@ -25,6 +25,7 @@
 #include "remoting/host/file_transfer/file_transfer_message_handler.h"
 #include "remoting/host/host_extension_session.h"
 #include "remoting/host/input_injector.h"
+#include "remoting/host/keyboard_layout_monitor.h"
 #include "remoting/host/mouse_shape_pump.h"
 #include "remoting/host/screen_controls.h"
 #include "remoting/host/screen_resolution.h"
@@ -53,18 +54,19 @@ ClientSession::ClientSession(
     scoped_refptr<protocol::PairingRegistry> pairing_registry,
     const std::vector<HostExtension*>& extensions)
     : event_handler_(event_handler),
-      connection_(std::move(connection)),
-      client_jid_(connection_->session()->jid()),
       desktop_environment_factory_(desktop_environment_factory),
       desktop_environment_options_(desktop_environment_options),
       input_tracker_(&host_input_filter_),
       remote_input_filter_(&input_tracker_),
       mouse_clamping_filter_(&remote_input_filter_),
-      disable_input_filter_(&mouse_clamping_filter_),
+      pointer_lock_detector_(&mouse_clamping_filter_, this),
+      disable_input_filter_(&pointer_lock_detector_),
       disable_clipboard_filter_(clipboard_echo_filter_.host_filter()),
       client_clipboard_factory_(clipboard_echo_filter_.client_filter()),
       max_duration_(max_duration),
-      pairing_registry_(pairing_registry) {
+      pairing_registry_(pairing_registry),
+      connection_(std::move(connection)),
+      client_jid_(connection_->session()->jid()) {
   connection_->session()->AddPlugin(&host_experiment_session_plugin_);
   connection_->SetEventHandler(this);
 
@@ -85,8 +87,6 @@ ClientSession::~ClientSession() {
   DCHECK(!input_injector_);
   DCHECK(!screen_controls_);
   DCHECK(!video_stream_);
-
-  connection_.reset();
 }
 
 void ClientSession::NotifyClientResolution(
@@ -334,8 +334,14 @@ void ClientSession::CreateMediaStreams() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // Create a VideoStream to pump frames from the capturer to the client.
-  video_stream_ = connection_->StartVideoStream(
-      desktop_environment_->CreateVideoCapturer());
+  auto composer = desktop_environment_->CreateComposingVideoCapturer();
+  if (composer) {
+    desktop_and_cursor_composer_ = composer->GetWeakPtr();
+    video_stream_ = connection_->StartVideoStream(std::move(composer));
+  } else {
+    video_stream_ = connection_->StartVideoStream(
+        desktop_environment_->CreateVideoCapturer());
+  }
 
   // Create a AudioStream to pump audio from the capturer to the client.
   std::unique_ptr<protocol::AudioSource> audio_capturer =
@@ -377,6 +383,16 @@ void ClientSession::OnConnectionChannelsConnected() {
   mouse_shape_pump_.reset(
       new MouseShapePump(desktop_environment_->CreateMouseCursorMonitor(),
                          connection_->client_stub()));
+  mouse_shape_pump_->SetMouseCursorMonitorCallback(this);
+
+  // Create KeyboardLayoutMonitor to send keyboard layout.
+  // Unretained is sound because callback will never be called after
+  // |keyboard_layout_monitor_| has been destroyed, and |connection_| (which
+  // owns the client stub) is guaranteed to outlive |keyboard_layout_monitor_|.
+  keyboard_layout_monitor_ = desktop_environment_->CreateKeyboardLayoutMonitor(
+      base::BindRepeating(&protocol::KeyboardLayoutStub::SetKeyboardLayout,
+                          base::Unretained(connection_->client_stub())));
+  keyboard_layout_monitor_->Start();
 
   if (pending_video_layout_message_) {
     connection_->client_stub()->SetVideoLayout(*pending_video_layout_message_);
@@ -404,9 +420,11 @@ void ClientSession::OnConnectionClosed(protocol::ErrorCode error) {
 
   // Stop components access the client, audio or video stubs, which are no
   // longer valid once ConnectionToClient calls OnConnectionClosed().
+  desktop_and_cursor_composer_.reset();
   audio_stream_.reset();
-  video_stream_.reset();
   mouse_shape_pump_.reset();
+  video_stream_.reset();
+  keyboard_layout_monitor_.reset();
   client_clipboard_factory_.InvalidateWeakPtrs();
   input_injector_.reset();
   screen_controls_.reset();
@@ -477,6 +495,25 @@ uint32_t ClientSession::desktop_session_id() const {
 ClientSessionControl* ClientSession::session_control() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return this;
+}
+
+void ClientSession::OnPointerLockChanged(bool active) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (desktop_and_cursor_composer_)
+    desktop_and_cursor_composer_->SetComposeEnabled(active);
+}
+
+void ClientSession::OnMouseCursor(webrtc::MouseCursor* mouse_cursor) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (desktop_and_cursor_composer_)
+    desktop_and_cursor_composer_->SetMouseCursor(mouse_cursor);
+}
+
+void ClientSession::OnMouseCursorPosition(
+    const webrtc::DesktopVector& position) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (desktop_and_cursor_composer_)
+    desktop_and_cursor_composer_->SetMouseCursorPosition(position);
 }
 
 void ClientSession::RegisterCreateHandlerCallbackForTesting(

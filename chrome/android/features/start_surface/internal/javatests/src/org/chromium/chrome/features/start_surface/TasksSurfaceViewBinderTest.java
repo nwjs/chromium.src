@@ -23,10 +23,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ui.DummyUiActivityTestCase;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.ui.test.util.DummyUiActivityTestCase;
 
 /** Tests for {@link TasksSurfaceViewBinder}. */
 @RunWith(ChromeJUnit4ClassRunner.class)

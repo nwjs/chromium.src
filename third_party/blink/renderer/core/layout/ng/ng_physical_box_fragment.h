@@ -7,7 +7,6 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_box_strut.h"
-#include "third_party/blink/renderer/core/layout/ng/inline/ng_baseline.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_fragment_items.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_physical_container_fragment.h"
 #include "third_party/blink/renderer/platform/graphics/scroll_types.h"
@@ -25,6 +24,13 @@ class CORE_EXPORT NGPhysicalBoxFragment final
       NGBoxFragmentBuilder* builder,
       WritingMode block_or_line_writing_mode);
 
+  using PassKey = util::PassKey<NGPhysicalBoxFragment>;
+  NGPhysicalBoxFragment(PassKey,
+                        NGBoxFragmentBuilder* builder,
+                        const NGPhysicalBoxStrut& borders,
+                        const NGPhysicalBoxStrut& padding,
+                        WritingMode block_or_line_writing_mode);
+
   scoped_refptr<const NGLayoutResult> CloneAsHiddenForPaint() const;
 
   ~NGPhysicalBoxFragment() {
@@ -40,8 +46,10 @@ class CORE_EXPORT NGPhysicalBoxFragment final
     return has_fragment_items_ ? ComputeItemsAddress() : nullptr;
   }
 
-  base::Optional<LayoutUnit> Baseline(const NGBaselineRequest& request) const {
-    return baselines_.Offset(request);
+  base::Optional<LayoutUnit> Baseline() const {
+    if (has_baseline_)
+      return baseline_;
+    return base::nullopt;
   }
 
   const NGPhysicalBoxStrut Borders() const {
@@ -66,6 +74,7 @@ class CORE_EXPORT NGPhysicalBoxFragment final
   bool ChildrenInline() const { return children_inline_; }
 
   PhysicalRect ScrollableOverflow() const;
+  PhysicalRect ScrollableOverflowFromChildren() const;
 
   // TODO(layout-dev): These three methods delegate to legacy layout for now,
   // update them to use LayoutNG based overflow information from the fragment
@@ -100,11 +109,6 @@ class CORE_EXPORT NGPhysicalBoxFragment final
 #endif
 
  private:
-  NGPhysicalBoxFragment(NGBoxFragmentBuilder* builder,
-                        const NGPhysicalBoxStrut& borders,
-                        const NGPhysicalBoxStrut& padding,
-                        WritingMode block_or_line_writing_mode);
-
   const NGFragmentItems* ComputeItemsAddress() const {
     DCHECK(has_fragment_items_ || has_borders_ || has_padding_);
     const NGLink* children_end = children_ + Children().size();
@@ -125,7 +129,7 @@ class CORE_EXPORT NGPhysicalBoxFragment final
     return has_borders_ ? address + 1 : address;
   }
 
-  NGBaselineList baselines_;
+  LayoutUnit baseline_;
   NGLink children_[];
   // borders and padding come from after |children_| if they are not zero.
 };

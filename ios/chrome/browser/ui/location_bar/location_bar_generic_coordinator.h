@@ -11,9 +11,7 @@
 #import "ios/chrome/browser/ui/omnibox/location_bar_delegate.h"
 #import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 
-namespace ios {
 class ChromeBrowserState;
-}
 class WebStateList;
 @class CommandDispatcher;
 @protocol ApplicationCommands;
@@ -32,7 +30,7 @@ class WebStateList;
 // View containing the omnibox.
 @property(nonatomic, strong, readonly) UIView* view;
 // Weak reference to ChromeBrowserState;
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 // The dispatcher for this view controller.
 @property(nonatomic, weak) CommandDispatcher* dispatcher;
 // Delegate for this coordinator.

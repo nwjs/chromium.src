@@ -71,7 +71,7 @@ class GURL;
 // Shows the Find In Page bar.
 - (void)showFindInPage;
 
-// Close and disable Find In Page bar.
+// Closes and disables the Find In Page bar.
 - (void)closeFindInPage;
 
 // Search the current tab for the query string in the Find In Page bar.
@@ -115,6 +115,12 @@ class GURL;
 // Shows/Hides the activity indicator overlay that appears over the view to
 // prevent interaction with the web page.
 - (void)showActivityOverlay:(BOOL)show;
+
+// Shows the Text Zoom UI.
+- (void)showTextZoom;
+
+// Dismisses the Text Zoom UI.
+- (void)hideTextZoom;
 
 @end
 

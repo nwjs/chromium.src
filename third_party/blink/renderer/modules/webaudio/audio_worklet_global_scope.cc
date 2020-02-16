@@ -24,7 +24,6 @@
 #include "third_party/blink/renderer/core/workers/global_scope_creation_params.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_buffer.h"
-#include "third_party/blink/renderer/modules/webaudio/audio_param_descriptor.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet_processor.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet_processor_definition.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet_processor_error_state.h"
@@ -40,7 +39,13 @@ AudioWorkletGlobalScope::AudioWorkletGlobalScope(
     WorkerThread* thread)
     : WorkletGlobalScope(std::move(creation_params),
                          thread->GetWorkerReportingProxy(),
-                         thread) {}
+                         thread) {
+  // Audio is prone to jank introduced by e.g. the garbage collector. Workers
+  // are generally put in a background mode (as they are non-visible). Audio is
+  // an exception here, requiring low-latency behavior similar to any visible
+  // state.
+  GetIsolate()->IsolateInForegroundNotification();
+}
 
 AudioWorkletGlobalScope::~AudioWorkletGlobalScope() = default;
 

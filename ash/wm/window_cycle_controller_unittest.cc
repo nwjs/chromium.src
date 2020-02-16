@@ -10,7 +10,6 @@
 #include "ash/app_list/test/app_list_test_helper.h"
 #include "ash/focus_cycler.h"
 #include "ash/home_screen/home_screen_controller.h"
-#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/scoped_root_window_for_new_windows.h"
@@ -30,7 +29,7 @@
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
-#include "base/test/scoped_feature_list.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
@@ -696,34 +695,21 @@ TEST_F(WindowCycleControllerTest, MultiDisplayPositioning) {
   }
 }
 
-class DesksWindowCyclingTest : public WindowCycleControllerTest {
- public:
-  DesksWindowCyclingTest() = default;
-  ~DesksWindowCyclingTest() override = default;
-
-  // WindowCycleControllerTest:
-  void SetUp() override {
-    scoped_feature_list_.InitAndEnableFeature(features::kVirtualDesks);
-    WindowCycleControllerTest::SetUp();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-
-  DISALLOW_COPY_AND_ASSIGN(DesksWindowCyclingTest);
-};
-
-TEST_F(DesksWindowCyclingTest, CycleShowsAllDesksWindows) {
+TEST_F(WindowCycleControllerTest, CycleShowsAllDesksWindows) {
   // Create two desks with two windows in each.
   auto win0 = CreateAppWindow(gfx::Rect(0, 0, 250, 100));
   auto win1 = CreateAppWindow(gfx::Rect(50, 50, 200, 200));
   auto* desks_controller = DesksController::Get();
   desks_controller->NewDesk(DesksCreationRemovalSource::kButton);
-  ASSERT_EQ(2u, desks_controller->desks().size());
+  desks_controller->NewDesk(DesksCreationRemovalSource::kButton);
+  ASSERT_EQ(3u, desks_controller->desks().size());
   const Desk* desk_2 = desks_controller->desks()[1].get();
   ActivateDesk(desk_2);
   EXPECT_EQ(desk_2, desks_controller->active_desk());
   auto win2 = CreateAppWindow(gfx::Rect(0, 0, 300, 200));
+  const Desk* desk_3 = desks_controller->desks()[2].get();
+  ActivateDesk(desk_3);
+  EXPECT_EQ(desk_3, desks_controller->active_desk());
   auto win3 = CreateAppWindow(gfx::Rect(10, 30, 400, 200));
 
   WindowCycleController* cycle_controller =
@@ -740,13 +726,36 @@ TEST_F(DesksWindowCyclingTest, CycleShowsAllDesksWindows) {
   // The MRU order is {win3, win2, win1, win0}. We're now at win2. Cycling one
   // more time and completing the cycle, will activate win1 which exists on a
   // desk_1. This should activate desk_1.
-  DeskSwitchAnimationWaiter waiter;
-  cycle_controller->HandleCycleWindow(WindowCycleController::FORWARD);
-  cycle_controller->CompleteCycling();
-  waiter.Wait();
-  Desk* desk_1 = desks_controller->desks()[0].get();
-  EXPECT_EQ(desk_1, desks_controller->active_desk());
-  EXPECT_EQ(win1.get(), window_util::GetActiveWindow());
+  {
+    base::HistogramTester histogram_tester;
+    DeskSwitchAnimationWaiter waiter;
+    cycle_controller->HandleCycleWindow(WindowCycleController::FORWARD);
+    cycle_controller->CompleteCycling();
+    waiter.Wait();
+    Desk* desk_1 = desks_controller->desks()[0].get();
+    EXPECT_EQ(desk_1, desks_controller->active_desk());
+    EXPECT_EQ(win1.get(), window_util::GetActiveWindow());
+    histogram_tester.ExpectUniqueSample(
+        "Ash.WindowCycleController.DesksSwitchDistance",
+        /*desk distance of 3 - 1 = */ 2, /*expected_count=*/1);
+  }
+
+  // Cycle again and activate win2, which exist on desk_2. Expect that desk to
+  // be activated, and a histogram sample of distance of 1 is recorded.
+  // MRU is {win1, win3, win2, win0}.
+  {
+    base::HistogramTester histogram_tester;
+    DeskSwitchAnimationWaiter waiter;
+    cycle_controller->HandleCycleWindow(WindowCycleController::FORWARD);
+    cycle_controller->HandleCycleWindow(WindowCycleController::FORWARD);
+    cycle_controller->CompleteCycling();
+    waiter.Wait();
+    EXPECT_EQ(desk_2, desks_controller->active_desk());
+    EXPECT_EQ(win2.get(), window_util::GetActiveWindow());
+    histogram_tester.ExpectUniqueSample(
+        "Ash.WindowCycleController.DesksSwitchDistance",
+        /*desk distance of 2 - 1 = */ 1, /*expected_count=*/1);
+  }
 }
 
 }  // namespace ash

@@ -23,12 +23,13 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.GlobalDiscardableReferencePool;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
 import org.chromium.chrome.browser.util.BitmapCache;
 import org.chromium.chrome.browser.util.ConversionUtils;
-import org.chromium.chrome.browser.widget.selection.SelectableListLayout;
-import org.chromium.chrome.browser.widget.selection.SelectableListToolbar;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
+import org.chromium.chrome.browser.vr.VrModeProviderImpl;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectableListLayout;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectableListToolbar;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.content.browser.contacts.ContactsPickerPropertiesRequested;
 import org.chromium.ui.ContactsPickerListener;
 import org.chromium.ui.UiUtils;
@@ -165,10 +166,16 @@ public class PickerCategoryView extends OptimizedFrameLayout
                                             : R.string.contacts_picker_select_contact;
         mToolbar = (ContactsPickerToolbar) mSelectableListLayout.initializeToolbar(
                 R.layout.contacts_picker_toolbar, mSelectionDelegate, titleId, 0, 0, null, false,
-                false);
+                false, new VrModeProviderImpl());
         mToolbar.setNavigationOnClickListener(this);
         mToolbar.initializeSearchView(this, R.string.contacts_picker_search, 0);
         mToolbar.setDelegate(delegate);
+        mPickerAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onChanged() {
+                updateSelectionState();
+            }
+        });
         mSelectableListLayout.configureWideDisplayStyle();
 
         mSearchButton = (ImageView) mToolbar.findViewById(R.id.search);
@@ -326,6 +333,11 @@ public class PickerCategoryView extends OptimizedFrameLayout
 
     boolean multiSelectionAllowed() {
         return mMultiSelectionAllowed;
+    }
+
+    private void updateSelectionState() {
+        boolean filterChipsSelected = mTopView == null || mTopView.filterChipsChecked() > 0;
+        mToolbar.setFilterChipsSelected(filterChipsSelected);
     }
 
     /**

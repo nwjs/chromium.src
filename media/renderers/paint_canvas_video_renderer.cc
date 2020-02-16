@@ -457,22 +457,26 @@ void ConvertVideoFrameToRGBPixelsTask(const VideoFrame* video_frame,
                                       size_t task_index,
                                       size_t n_tasks,
                                       base::RepeatingClosure* done) {
+  const VideoPixelFormat format = video_frame->format();
+  const int width = video_frame->visible_rect().width();
+  const int height = video_frame->visible_rect().height();
+
   size_t rows_per_chunk = 1;
   for (size_t plane = 0; plane < VideoFrame::kMaxPlanes; ++plane) {
-    if (VideoFrame::IsValidPlane(video_frame->format(), plane)) {
+    if (VideoFrame::IsValidPlane(format, plane)) {
       rows_per_chunk =
-          LCM(rows_per_chunk,
-              VideoFrame::SampleSize(video_frame->format(), plane).height());
+          LCM(rows_per_chunk, VideoFrame::SampleSize(format, plane).height());
     }
   }
 
-  int width = video_frame->visible_rect().width();
-  int height = video_frame->visible_rect().height();
-
   base::CheckedNumeric<size_t> chunks = height / rows_per_chunk;
-  DCHECK_EQ(height % rows_per_chunk, 0UL);
-  size_t chunk_start = (chunks * task_index / n_tasks).ValueOrDie();
-  size_t chunk_end = (chunks * (task_index + 1) / n_tasks).ValueOrDie();
+  const size_t chunk_start = (chunks * task_index / n_tasks).ValueOrDie();
+  const size_t chunk_end = (chunks * (task_index + 1) / n_tasks).ValueOrDie();
+
+  // Indivisible heights must process any remaining rows in the last task.
+  size_t rows = (chunk_end - chunk_start) * rows_per_chunk;
+  if (task_index + 1 == n_tasks)
+    rows += height % rows_per_chunk;
 
   struct {
     int stride;
@@ -480,20 +484,21 @@ void ConvertVideoFrameToRGBPixelsTask(const VideoFrame* video_frame,
   } plane_meta[VideoFrame::kMaxPlanes];
 
   for (size_t plane = 0; plane < VideoFrame::kMaxPlanes; ++plane) {
-    if (VideoFrame::IsValidPlane(video_frame->format(), plane)) {
-      auto& meta = plane_meta[plane];
-      meta.stride = video_frame->stride(plane);
+    if (VideoFrame::IsValidPlane(format, plane)) {
+      plane_meta[plane] = {
+          // Note: Unlike |data|, stride does not need to be adjusted by the
+          // visible rect and sample size. Adding the full frame stride to a
+          // pixel on row N and column M will wrap to column M on row N + 1.
+          .stride = video_frame->stride(plane),
 
-      const uint8_t* data = video_frame->visible_data(plane);
-      int rows = video_frame->rows(plane);
-      meta.data =
-          data + meta.stride * (chunk_start * rows_per_chunk * rows / height);
+          .data = video_frame->visible_data(plane) +
+                  video_frame->stride(plane) * (chunk_start * rows_per_chunk) /
+                      VideoFrame::SampleSize(format, plane).height()};
     }
   }
 
   uint8_t* pixels = static_cast<uint8_t*>(rgb_pixels) +
                     row_bytes * chunk_start * rows_per_chunk;
-  size_t rows = (chunk_end - chunk_start) * rows_per_chunk;
 
   // TODO(hubbe): This should really default to the rec709 colorspace.
   // https://crbug.com/828599
@@ -570,8 +575,7 @@ void ConvertVideoFrameToRGBPixelsTask(const VideoFrame* video_frame,
           plane_meta[VideoFrame::kVPlane].stride,
           plane_meta[VideoFrame::kAPlane].data,
           plane_meta[VideoFrame::kAPlane].stride, pixels, row_bytes, width,
-          rows,
-          1);  // 1 = enable RGB premultiplication by Alpha.
+          rows, 1);  // 1 = enable RGB premultiplication by Alpha.
       break;
 
     case PIXEL_FORMAT_I444:
@@ -1184,11 +1188,13 @@ void PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
       break;
   }
 
-  constexpr size_t task_bytes = 1024 * 1024;  // 1 MiB
-  size_t frame_bytes = row_bytes * video_frame->visible_rect().height();
-  size_t n_tasks =
-      std::min<size_t>(std::max<size_t>(1, frame_bytes / task_bytes),
-                       base::SysInfo::NumberOfProcessors());
+  constexpr size_t kTaskBytes = 1024 * 1024;  // 1 MiB
+  const size_t n_tasks = std::min<size_t>(
+      std::max<size_t>(
+          1, VideoFrame::AllocationSize(video_frame->format(),
+                                        video_frame->visible_rect().size()) /
+                 kTaskBytes),
+      base::SysInfo::NumberOfProcessors());
   base::WaitableEvent event;
   base::RepeatingClosure barrier = base::BarrierClosure(
       n_tasks,

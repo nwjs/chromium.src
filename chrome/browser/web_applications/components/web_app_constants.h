@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_WEB_APPLICATIONS_COMPONENTS_WEB_APP_CONSTANTS_H_
 #define CHROME_BROWSER_WEB_APPLICATIONS_COMPONENTS_WEB_APP_CONSTANTS_H_
 
+#include "components/services/app_service/public/mojom/types.mojom.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 
 namespace web_app {
@@ -54,8 +55,6 @@ enum class InstallResultCode {
   kWriteDataFailed = 6,
   // A user rejected installation prompt.
   kUserInstallDeclined = 7,
-  // A whole user profile was destroyed during installation.
-  kProfileDestroyed = 8,
   // |require_manifest| was specified but the app had no valid manifest.
   kNotValidManifestForWebApp = 10,
   // We have terminated the installation pipeline and intented to the Play
@@ -83,9 +82,9 @@ enum class InstallResultCode {
   kApkWebAppInstallFailed = 20,
   // App managers are shutting down. For example, when user logs out immediately
   // after login.
-  kFailedShuttingDown = 21,
+  kCancelledOnWebAppProviderShuttingDown = 21,
 
-  kMaxValue = kFailedShuttingDown
+  kMaxValue = kCancelledOnWebAppProviderShuttingDown
 };
 
 // Checks if InstallResultCode is not a failure.
@@ -159,6 +158,9 @@ using DisplayMode = blink::mojom::DisplayMode;
 // window (for app_display_mode 'browser' or 'minimal-ui').
 DisplayMode ResolveEffectiveDisplayMode(DisplayMode app_display_mode,
                                         DisplayMode user_display_mode);
+
+apps::mojom::LaunchContainer ConvertDisplayModeToAppLaunchContainer(
+    DisplayMode display_mode);
 
 }  // namespace web_app
 

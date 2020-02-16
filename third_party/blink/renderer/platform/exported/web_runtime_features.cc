@@ -40,6 +40,16 @@ void WebRuntimeFeatures::EnableBlockingFocusWithoutUserActivation(bool enable) {
   RuntimeEnabledFeatures::SetBlockingFocusWithoutUserActivationEnabled(enable);
 }
 
+void WebRuntimeFeatures::EnableBrowserVerifiedUserActivationKeyboard(
+    bool enable) {
+  RuntimeEnabledFeatures::SetBrowserVerifiedUserActivationKeyboardEnabled(
+      enable);
+}
+
+void WebRuntimeFeatures::EnableBrowserVerifiedUserActivationMouse(bool enable) {
+  RuntimeEnabledFeatures::SetBrowserVerifiedUserActivationMouseEnabled(enable);
+}
+
 void WebRuntimeFeatures::EnableExperimentalFeatures(bool enable) {
   RuntimeEnabledFeatures::SetExperimentalFeaturesEnabled(enable);
 }
@@ -207,10 +217,6 @@ void WebRuntimeFeatures::EnableForceSynchronousHTMLParsing(bool enable) {
 
 void WebRuntimeFeatures::EnableForceTallerSelectPopup(bool enable) {
   RuntimeEnabledFeatures::SetForceTallerSelectPopupEnabled(enable);
-}
-
-void WebRuntimeFeatures::EnableFormControlsRefresh(bool enable) {
-  RuntimeEnabledFeatures::SetFormControlsRefreshEnabled(enable);
 }
 
 void WebRuntimeFeatures::EnableGenericSensorExtraClasses(bool enable) {
@@ -466,24 +472,12 @@ void WebRuntimeFeatures::EnableWebXRARModule(bool enable) {
   RuntimeEnabledFeatures::SetWebXRARModuleEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableWebXRARDOMOverlay(bool enable) {
-  RuntimeEnabledFeatures::SetWebXRARDOMOverlayEnabled(enable);
-}
-
-void WebRuntimeFeatures::EnableWebXRAnchors(bool enable) {
-  RuntimeEnabledFeatures::SetWebXRAnchorsEnabled(enable);
-}
-
-void WebRuntimeFeatures::EnableWebXrGamepadModule(bool enable) {
-  RuntimeEnabledFeatures::SetWebXrGamepadModuleEnabled(enable);
-}
-
 void WebRuntimeFeatures::EnableWebXRHitTest(bool enable) {
   RuntimeEnabledFeatures::SetWebXRHitTestEnabled(enable);
 }
 
-void WebRuntimeFeatures::EnableWebXRPlaneDetection(bool enable) {
-  RuntimeEnabledFeatures::SetWebXRPlaneDetectionEnabled(enable);
+void WebRuntimeFeatures::EnableWebXRIncubations(bool enable) {
+  RuntimeEnabledFeatures::SetWebXRIncubationsEnabled(enable);
 }
 
 void WebRuntimeFeatures::EnablePresentationAPI(bool enable) {

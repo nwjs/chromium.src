@@ -32,6 +32,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "ui/aura/window.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
@@ -70,7 +71,8 @@ class AutotestPrivateApiTest : public ExtensionApiTest {
   DISALLOW_COPY_AND_ASSIGN(AutotestPrivateApiTest);
 };
 
-IN_PROC_BROWSER_TEST_F(AutotestPrivateApiTest, AutotestPrivate) {
+// Flaky on linux-chromeos-rel (see https://crbug.com/1032993)
+IN_PROC_BROWSER_TEST_F(AutotestPrivateApiTest, DISABLED_AutotestPrivate) {
   ASSERT_TRUE(RunComponentExtensionTestWithArg("autotest_private", "default"))
       << message_;
 }
@@ -289,6 +291,29 @@ IN_PROC_BROWSER_TEST_F(AutotestPrivateArcPerformanceTracing, Basic) {
 
   ASSERT_TRUE(RunComponentExtensionTestWithArg("autotest_private",
                                                "arcPerformanceTracing"))
+      << message_;
+}
+
+class AutotestPrivateStartStopTracing : public AutotestPrivateApiTest {
+ public:
+  AutotestPrivateStartStopTracing() = default;
+  ~AutotestPrivateStartStopTracing() override = default;
+  AutotestPrivateStartStopTracing(const AutotestPrivateStartStopTracing&) =
+      delete;
+  AutotestPrivateStartStopTracing& operator=(
+      const AutotestPrivateStartStopTracing&) = delete;
+
+ protected:
+  // AutotestPrivateApiTest:
+  void SetUpOnMainThread() override {
+    AutotestPrivateApiTest::SetUpOnMainThread();
+    tracing::PerfettoTracedProcess::Get()->ClearDataSourcesForTesting();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(AutotestPrivateStartStopTracing, StartStopTracing) {
+  ASSERT_TRUE(
+      RunComponentExtensionTestWithArg("autotest_private", "startStopTracing"))
       << message_;
 }
 

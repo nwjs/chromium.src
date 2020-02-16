@@ -28,9 +28,11 @@
 
 #include "base/callback_helpers.h"
 #include "cc/input/scroll_snap_data.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_color_scheme.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
+#include "third_party/blink/renderer/core/loader/history_item.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
 #include "third_party/blink/renderer/platform/geometry/float_quad.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
@@ -63,7 +65,6 @@ class ScrollAnchor;
 class ScrollAnimatorBase;
 struct SerializedAnchor;
 class SmoothScrollSequencer;
-struct WebScrollIntoViewParams;
 
 using MainThreadScrollingReasons = uint32_t;
 
@@ -100,27 +101,34 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                                   ScrollCallback on_finish);
 
   virtual void SetScrollOffset(const ScrollOffset&,
-                               ScrollType,
-                               ScrollBehavior,
+                               mojom::blink::ScrollIntoViewParams::Type,
+                               mojom::blink::ScrollIntoViewParams::Behavior,
                                ScrollCallback on_finish);
-  void SetScrollOffset(const ScrollOffset&,
-                       ScrollType,
-                       ScrollBehavior = kScrollBehaviorInstant);
+  virtual void SetScrollOffset(
+      const ScrollOffset&,
+      mojom::blink::ScrollIntoViewParams::Type,
+      mojom::blink::ScrollIntoViewParams::Behavior =
+          mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
   void ScrollBy(const ScrollOffset&,
-                ScrollType,
-                ScrollBehavior = kScrollBehaviorInstant);
-  void SetScrollOffsetSingleAxis(ScrollbarOrientation,
-                                 float,
-                                 ScrollType,
-                                 ScrollBehavior = kScrollBehaviorInstant);
+                mojom::blink::ScrollIntoViewParams::Type,
+                mojom::blink::ScrollIntoViewParams::Behavior =
+                    mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
+
+  virtual void SetPendingHistoryRestoreScrollOffset(
+      const HistoryItem::ViewState& view_state,
+      bool should_restore_scroll) {}
+  virtual void ApplyPendingHistoryRestoreScrollOffset() {}
 
   // Scrolls the area so that the given rect, given in absolute coordinates,
   // such that it's visible in the area. Returns the new location of the input
   // rect in absolute coordinates.
-  virtual PhysicalRect ScrollIntoView(const PhysicalRect&,
-                                      const WebScrollIntoViewParams&);
+  virtual PhysicalRect ScrollIntoView(
+      const PhysicalRect&,
+      const mojom::blink::ScrollIntoViewParamsPtr&);
 
-  static bool ScrollBehaviorFromString(const String&, ScrollBehavior&);
+  static bool ScrollBehaviorFromString(
+      const String&,
+      mojom::blink::ScrollIntoViewParams::Behavior&);
 
   // Register a callback that will be invoked when the next scroll completes -
   // this includes the scroll animation time.
@@ -145,6 +153,10 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   virtual bool SetTargetSnapAreaElementIds(cc::TargetSnapAreaElementIds) {
     return false;
   }
+  virtual bool SnapContainerDataNeedsUpdate() const { return false; }
+  virtual void SetSnapContainerDataNeedsUpdate(bool) {}
+  virtual bool NeedsResnap() const { return false; }
+  virtual void SetNeedsResnap(bool) {}
   void SnapAfterScrollbarScrolling(ScrollbarOrientation);
 
   // SnapAtCurrentPosition(), SnapForEndPosition(), SnapForDirection(), and
@@ -419,8 +431,9 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // Returns the default scroll style this area should scroll with when not
   // explicitly specified. E.g. The scrolling behavior of an element can be
   // specified in CSS.
-  virtual ScrollBehavior ScrollBehaviorStyle() const {
-    return kScrollBehaviorInstant;
+  virtual mojom::blink::ScrollIntoViewParams::Behavior ScrollBehaviorStyle()
+      const {
+    return mojom::blink::ScrollIntoViewParams::Behavior::kInstant;
   }
 
   virtual WebColorScheme UsedColorScheme() const = 0;
@@ -493,11 +506,12 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   static ScrollableArea* GetForScrolling(const LayoutBox* layout_box);
 
  protected:
-  // Deduces the ScrollBehavior based on the element style and the parameter set
-  // by programmatic scroll into either instant or smooth scroll.
-  static ScrollBehavior DetermineScrollBehavior(
-      ScrollBehavior behavior_from_style,
-      ScrollBehavior behavior_from_param);
+  // Deduces the mojom::blink::ScrollIntoViewParams::Behavior based on the
+  // element style and the parameter set by programmatic scroll into either
+  // instant or smooth scroll.
+  static mojom::blink::ScrollIntoViewParams::Behavior DetermineScrollBehavior(
+      mojom::blink::ScrollIntoViewParams::Behavior behavior_from_style,
+      mojom::blink::ScrollIntoViewParams::Behavior behavior_from_param);
 
   ScrollableArea();
 
@@ -506,7 +520,8 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   // Needed to let the animators call scrollOffsetChanged.
   friend class ScrollAnimatorCompositorCoordinator;
-  void ScrollOffsetChanged(const ScrollOffset&, ScrollType);
+  void ScrollOffsetChanged(const ScrollOffset&,
+                           mojom::blink::ScrollIntoViewParams::Type);
 
   void ClearNeedsPaintInvalidationForScrollControls() {
     horizontal_scrollbar_needs_paint_invalidation_ = false;
@@ -530,26 +545,35 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                            PopupOverlayScrollbarShouldNotFadeOut);
 
   void ProgrammaticScrollHelper(const ScrollOffset&,
-                                ScrollBehavior,
+                                mojom::blink::ScrollIntoViewParams::Behavior,
                                 bool,
                                 ScrollCallback on_finish);
-  void UserScrollHelper(const ScrollOffset&, ScrollBehavior);
+  void UserScrollHelper(const ScrollOffset&,
+                        mojom::blink::ScrollIntoViewParams::Behavior);
 
   void FadeOverlayScrollbarsTimerFired(TimerBase*);
 
-  // This function should be overriden by subclasses to perform the actual
+  // This function should be overridden by subclasses to perform the actual
   // scroll of the content.
-  virtual void UpdateScrollOffset(const ScrollOffset&, ScrollType) = 0;
+  virtual void UpdateScrollOffset(const ScrollOffset&,
+                                  mojom::blink::ScrollIntoViewParams::Type) = 0;
 
   virtual int LineStep(ScrollbarOrientation) const;
   virtual int PageStep(ScrollbarOrientation) const;
   virtual int DocumentStep(ScrollbarOrientation) const;
   virtual float PixelStep(ScrollbarOrientation) const;
 
+  // This returns the amount a percent-based delta should be resolved against;
+  // which is the visible height of the scroller. This value is eventually
+  // used to scroll the incoming scroll delta, where a scroll delta of 1
+  // represents one hundred percent.
+  float PercentageStep(ScrollbarOrientation) const;
+
   // Returns true if a snap point was found.
   bool PerformSnapping(
       const cc::SnapSelectionStrategy& strategy,
-      ScrollBehavior behavior = ScrollBehavior::kScrollBehaviorSmooth,
+      mojom::blink::ScrollIntoViewParams::Behavior behavior =
+          mojom::blink::ScrollIntoViewParams::Behavior::kSmooth,
       base::ScopedClosureRunner on_finish = base::ScopedClosureRunner());
 
   mutable Member<ScrollAnimatorBase> scroll_animator_;

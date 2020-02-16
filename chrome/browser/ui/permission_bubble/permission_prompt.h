@@ -10,9 +10,10 @@
 
 #include "base/callback.h"
 #include "base/strings/string16.h"
-#include "ui/gfx/native_widget_types.h"
 
+namespace permissions {
 class PermissionRequest;
+}
 
 namespace content {
 class WebContents;
@@ -41,7 +42,7 @@ class PermissionPrompt {
     // revisits the tab, the permission prompt is re-displayed.
     kDestroyPromptButKeepRequestPending,
     // Destroy the prompt and treat the permission request as being resolved
-    // with the PermissionAction::IGNORED result.
+    // with the permissions::PermissionAction::IGNORED result.
     kDestroyPromptAndIgnoreRequest,
   };
 
@@ -53,7 +54,7 @@ class PermissionPrompt {
 
     // These pointers should not be stored as the actual request objects may be
     // deleted upon navigation and so on.
-    virtual const std::vector<PermissionRequest*>& Requests() = 0;
+    virtual const std::vector<permissions::PermissionRequest*>& Requests() = 0;
 
     // Returns the origin to be displayed in the permission prompt. May return
     // a non-origin, e.g. extension URLs use the name of the extension.
@@ -76,10 +77,6 @@ class PermissionPrompt {
 
   // Updates where the prompt should be anchored. ex: fullscreen toggle.
   virtual void UpdateAnchorPosition() = 0;
-
-  // Returns a reference to this prompt's native window.
-  // TODO(hcarmona): Remove this as part of the bubble API work.
-  virtual gfx::NativeWindow GetNativeWindow() = 0;
 
   // Get the behavior of this prompt when the user switches away from the
   // associated tab.

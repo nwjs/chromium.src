@@ -101,7 +101,6 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
 
     @VisibleForTesting
     public void simulateRendererKilledForTesting(boolean wasOomProtected) {
-        android.util.Log.i("crdebug", "observer: " + mObserver);
         if (mObserver != null) mObserver.renderProcessGone(wasOomProtected);
     }
 
@@ -154,11 +153,6 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
             int activityState = ApplicationStatus.getStateForActivity(
                     mTab.getWindowAndroid().getActivity().get());
             int rendererCrashStatus = TAB_RENDERER_CRASH_STATUS_MAX;
-            android.util.Log.i("crdebug",
-                    "tab-hidden: " + mTab.isHidden() + " as: " + activityState + " cond: "
-                            + (mTab.isHidden() || activityState == ActivityState.PAUSED
-                                    || activityState == ActivityState.STOPPED
-                                    || activityState == ActivityState.DESTROYED));
             if (mTab.isHidden() || activityState == ActivityState.PAUSED
                     || activityState == ActivityState.STOPPED
                     || activityState == ActivityState.DESTROYED) {
@@ -193,17 +187,15 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
         }
 
         @Override
-        public void didFailLoad(
-                boolean isMainFrame, int errorCode, String description, String failingUrl) {
+        public void didFailLoad(boolean isMainFrame, int errorCode, String failingUrl) {
             RewindableIterator<TabObserver> observers = mTab.getTabObservers();
             while (observers.hasNext()) {
-                observers.next().onDidFailLoad(
-                        mTab, isMainFrame, errorCode, description, failingUrl);
+                observers.next().onDidFailLoad(mTab, isMainFrame, errorCode, failingUrl);
             }
 
             if (isMainFrame) mTab.didFailPageLoad(errorCode);
 
-            recordErrorInPolicyAuditor(failingUrl, description, errorCode);
+            recordErrorInPolicyAuditor(failingUrl, "net error: " + errorCode, errorCode);
         }
 
         private void recordErrorInPolicyAuditor(
@@ -294,7 +286,7 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
         }
 
         @Override
-        public void didChangeThemeColor(int color) {
+        public void didChangeThemeColor() {
             TabThemeColorHelper.get(mTab).updateIfNeeded(true);
         }
 
@@ -310,7 +302,6 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                 observers.next().onDidAttachInterstitialPage(mTab);
             }
             mTab.notifyLoadProgress(mTab.getProgress());
-            TabBrowserControlsConstraintsHelper.updateEnabledState(mTab);
             PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
             auditor.notifyCertificateFailure(
                     PolicyAuditorJni.get().getCertificateFailure(mTab.getWebContents()),
@@ -326,7 +317,6 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                 observers.next().onDidDetachInterstitialPage(mTab);
             }
             mTab.notifyLoadProgress(mTab.getProgress());
-            TabBrowserControlsConstraintsHelper.updateEnabledState(mTab);
             if (!mTab.maybeShowNativePage(mTab.getUrl(), false)) {
                 mTab.showRenderedPage();
             }

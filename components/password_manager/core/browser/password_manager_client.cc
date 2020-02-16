@@ -34,7 +34,15 @@ bool PasswordManagerClient::OnCredentialManagerUsed() {
 
 void PasswordManagerClient::ShowTouchToFill(PasswordManagerDriver* driver) {}
 
+BiometricAuthenticator* PasswordManagerClient::GetBiometricAuthenticator() {
+  return nullptr;
+}
+
 void PasswordManagerClient::GeneratePassword() {}
+
+void PasswordManagerClient::UpdateCredentialCache(
+    const GURL& origin,
+    const std::vector<const autofill::PasswordForm*>& best_matches) {}
 
 void PasswordManagerClient::PasswordWasAutofilled(
     const std::vector<const autofill::PasswordForm*>& best_matches,

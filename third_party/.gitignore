@@ -93,6 +93,7 @@
 /gnu_binutils/
 /google_android_play_core/core-*.aar
 /google_appengine_cloudstorage
+/google_benchmark/src
 /google_toolbox_for_mac/src
 /googlemac
 /grpc/src
@@ -207,7 +208,6 @@
 /robolectric/robolectric
 /scan-build/src
 /scons-2.0.1
-/sfntly/src
 /shaderc/src
 /skia
 /smhasher/src
@@ -217,6 +217,7 @@
 /spirv-headers/src
 /SPIRV-Tools/src
 /sqlite4java/lib/
+/subresource-filter-ruleset/data/UnindexedRules
 /swiftshader/
 /syzygy
 /syzygy/binaries
@@ -233,6 +234,7 @@
 /webdriver/python/selenium
 /webgl
 /webgl/src
+/webgpu-cts/src
 /webpagereplay/
 /webrtc
 /widevine/cdm/chromeos

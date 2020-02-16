@@ -1,3 +1,8 @@
+# tags: [ Android Fuchsia IOS IOS12.2 IOS13.0 Linux Mac Mac10.10 Mac10.11 Mac10.12 Retina
+#         Mac10.13 Win Win7 Win10 ]
+# tags: [ Release Debug ]
+# results: [ Timeout Crash Pass Failure Slow Skip ]
+
 # This file controls which subdirectories of the w3c test repos we import.
 #
 # This file acts as a blacklist; directories and files not listed here will
@@ -81,7 +86,6 @@ external/wpt/css/CSS2/visuren [ Skip ]
 external/wpt/css/CSS2/zindex [ Skip ]
 external/wpt/css/CSS2/zorder [ Skip ]
 external/wpt/css/WOFF2 [ Skip ]
-external/wpt/css/compositing [ Skip ]
 external/wpt/css/css-counter-styles [ Skip ]
 external/wpt/css/css-display/run-in [ Skip ]
 external/wpt/css/css-exclusions [ Skip ]

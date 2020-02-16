@@ -215,7 +215,8 @@ void Image::DrawPattern(GraphicsContext& context,
                         const FloatPoint& phase,
                         SkBlendMode composite_op,
                         const FloatRect& dest_rect,
-                        const FloatSize& repeat_spacing) {
+                        const FloatSize& repeat_spacing,
+                        RespectImageOrientationEnum) {
   TRACE_EVENT0("skia", "Image::drawPattern");
 
   if (dest_rect.IsEmpty())
@@ -325,13 +326,19 @@ bool Image::ApplyShader(PaintFlags& flags, const SkMatrix& local_matrix) {
   return true;
 }
 
+IntSize Image::Size(RespectImageOrientationEnum respect_image_orientation) {
+  if (respect_image_orientation == kRespectImageOrientation && IsBitmapImage())
+    return ToBitmapImage(this)->SizeRespectingOrientation();
+  return Size();
+}
+
 SkBitmap Image::AsSkBitmapForCurrentFrame(
-    RespectImageOrientationEnum should_respect_image_orientation) {
+    RespectImageOrientationEnum respect_image_orientation) {
   PaintImage paint_image = PaintImageForCurrentFrame();
   if (!paint_image)
     return {};
 
-  if (should_respect_image_orientation == kRespectImageOrientation &&
+  if (respect_image_orientation == kRespectImageOrientation &&
       IsBitmapImage()) {
     ImageOrientation orientation =
         ToBitmapImage(this)->CurrentFrameOrientation();

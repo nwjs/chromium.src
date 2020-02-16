@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/ui/main/browser_view_wrangler.h"
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/strings/sys_string_conversions.h"
 #include "ios/chrome/browser/application_context.h"
@@ -11,6 +12,8 @@
 #include "ios/chrome/browser/crash_report/crash_report_helper.h"
 #import "ios/chrome/browser/device_sharing/device_sharing_manager.h"
 #import "ios/chrome/browser/main/browser.h"
+#import "ios/chrome/browser/main/browser_list.h"
+#import "ios/chrome/browser/main/browser_list_factory.h"
 #import "ios/chrome/browser/sessions/session_ios.h"
 #import "ios/chrome/browser/sessions/session_service_ios.h"
 #import "ios/chrome/browser/sessions/session_window_ios.h"
@@ -22,7 +25,6 @@
 #import "ios/chrome/browser/web_state_list/active_web_state_observation_forwarder.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_observer_bridge.h"
-#include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_observer_bridge.h"
 
@@ -65,7 +67,7 @@
   return self.coordinator.browser;
 }
 
-- (ios::ChromeBrowserState*)browserState {
+- (ChromeBrowserState*)browserState {
   return self.coordinator.viewController.browserState;
 }
 
@@ -90,8 +92,9 @@
 @end
 
 @interface BrowserViewWrangler () <WebStateListObserving, CRWWebStateObserver> {
-  ios::ChromeBrowserState* _browserState;
+  ChromeBrowserState* _browserState;
   __weak id<ApplicationCommands> _applicationCommandEndpoint;
+  __weak id<BrowsingDataCommands> _browsingDataCommandEndpoint;
   __weak id<BrowserStateStorageSwitching> _storageSwitcher;
   AppUrlLoadingService* _appURLLoadingService;
   BOOL _isShutdown;
@@ -129,7 +132,7 @@
 // then any existing tabs that have been saved for |browserState| will be
 // loaded; otherwise, the tab model will be left empty.
 - (void)setUpTabModel:(TabModel*)tabModel
-         withBrowserState:(ios::ChromeBrowserState*)browserState
+         withBrowserState:(ChromeBrowserState*)browserState
     restorePersistedState:(BOOL)restorePersistedState;
 
 // Setters for the main and otr Browsers.
@@ -149,16 +152,19 @@
 
 @synthesize currentInterface = _currentInterface;
 
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
                 webStateListObserver:(id<WebStateListObserving>)observer
           applicationCommandEndpoint:
               (id<ApplicationCommands>)applicationCommandEndpoint
+         browsingDataCommandEndpoint:
+             (id<BrowsingDataCommands>)browsingDataCommandEndpoint
                 appURLLoadingService:(AppUrlLoadingService*)appURLLoadingService
                      storageSwitcher:
                          (id<BrowserStateStorageSwitching>)storageSwitcher {
   if ((self = [super init])) {
     _browserState = browserState;
     _applicationCommandEndpoint = applicationCommandEndpoint;
+    _browsingDataCommandEndpoint = browsingDataCommandEndpoint;
     _appURLLoadingService = appURLLoadingService;
     _storageSwitcher = storageSwitcher;
     _webStateListObserver = std::make_unique<WebStateListObserverBridge>(self);
@@ -176,6 +182,9 @@
 
 - (void)createMainBrowser {
   _mainBrowser = Browser::Create(_browserState);
+  BrowserList* browserList =
+      BrowserListFactory::GetForBrowserState(_mainBrowser->GetBrowserState());
+  browserList->AddBrowser(_mainBrowser.get());
   [self setUpTabModel:_mainBrowser->GetTabModel()
            withBrowserState:_browserState
       restorePersistedState:YES];
@@ -183,8 +192,6 @@
   // Follow loaded URLs in the main tab model to send those in case of
   // crashes.
   breakpad::MonitorURLsForWebStateList(self.mainBrowser->GetWebStateList());
-  ios::GetChromeBrowserProvider()->InitializeCastService(
-      self.mainBrowser->GetTabModel());
 
   // Create the main coordinator, and thus the main interface.
   _mainBrowserCoordinator = [self coordinatorForBrowser:self.mainBrowser];
@@ -228,7 +235,7 @@
   if (!_incognitoInterface) {
     // The backing coordinator should not have been created yet.
     DCHECK(!_incognitoBrowserCoordinator);
-    ios::ChromeBrowserState* otrBrowserState =
+    ChromeBrowserState* otrBrowserState =
         _browserState->GetOffTheRecordChromeBrowserState();
     DCHECK(otrBrowserState);
     _incognitoBrowserCoordinator = [self coordinatorForBrowser:self.otrBrowser];
@@ -336,6 +343,12 @@
   DCHECK(![self.otrBrowser->GetTabModel() count]);
   DCHECK(_browserState);
 
+  // Remove the OTR browser from the browser list. The browser itself is
+  // still alive during this call, so any observers can act on it.
+  BrowserList* browserList = BrowserListFactory::GetForBrowserState(
+      self.otrBrowser->GetBrowserState());
+  browserList->RemoveIncognitoBrowser(self.otrBrowser);
+
   // Stop watching the OTR webStateList's state for crashes.
   breakpad::StopMonitoringTabStateForWebStateList(
       self.otrBrowser->GetWebStateList());
@@ -387,6 +400,13 @@
   [_incognitoBrowserCoordinator stop];
   _incognitoBrowserCoordinator = nil;
 
+  BrowserList* browserList = BrowserListFactory::GetForBrowserState(
+      self.mainBrowser->GetBrowserState());
+  browserList->RemoveBrowser(self.mainBrowser);
+  BrowserList* otrBrowserList = BrowserListFactory::GetForBrowserState(
+      self.otrBrowser->GetBrowserState());
+  otrBrowserList->RemoveIncognitoBrowser(self.otrBrowser);
+
   // Handles removing observers, stopping breakpad monitoring, and closing all
   // tabs.
   [self setMainBrowser:nullptr];
@@ -400,11 +420,15 @@
 - (std::unique_ptr<Browser>)buildOtrBrowser:(BOOL)restorePersistedState {
   DCHECK(_browserState);
   // Ensure that the OTR ChromeBrowserState is created.
-  ios::ChromeBrowserState* otrBrowserState =
+  ChromeBrowserState* otrBrowserState =
       _browserState->GetOffTheRecordChromeBrowserState();
   DCHECK(otrBrowserState);
 
   std::unique_ptr<Browser> browser = Browser::Create(otrBrowserState);
+  BrowserList* browserList =
+      BrowserListFactory::GetForBrowserState(browser->GetBrowserState());
+  browserList->AddIncognitoBrowser(browser.get());
+
   [self setUpTabModel:browser->GetTabModel()
            withBrowserState:otrBrowserState
       restorePersistedState:restorePersistedState];
@@ -412,7 +436,7 @@
 }
 
 - (void)setUpTabModel:(TabModel*)tabModel
-         withBrowserState:(ios::ChromeBrowserState*)browserState
+         withBrowserState:(ChromeBrowserState*)browserState
     restorePersistedState:(BOOL)restorePersistedState {
   DCHECK_EQ(0U, tabModel.count);
   SessionWindowIOS* sessionWindow = nil;
@@ -445,6 +469,7 @@
       [[BrowserCoordinator alloc] initWithBaseViewController:nil
                                                      browser:browser];
   coordinator.applicationCommandHandler = _applicationCommandEndpoint;
+  coordinator.browsingDataCommandHandler = _browsingDataCommandEndpoint;
   coordinator.appURLLoadingService = _appURLLoadingService;
   return coordinator;
 }

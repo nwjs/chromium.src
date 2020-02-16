@@ -9,25 +9,23 @@
 <link rel="import" href="chrome://resources/html/cr/ui/focus_without_ink.html">
 <link rel="import" href="chrome://resources/html/i18n_behavior.html">
 <link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="security_page.html">
 <link rel="import" href="passwords_leak_detection_toggle.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
 <link rel="import" href="../clear_browsing_data_dialog/clear_browsing_data_dialog.html">
 <link rel="import" href="../controls/settings_toggle_button.html">
-<link rel="import" href="../lifetime_browser_proxy.html">
+<link rel="import" href="../metrics_browser_proxy.html">
 <link rel="import" href="../people_page/sync_browser_proxy.html">
-<link rel="import" href="../people_page/signout_dialog.html">
 <link rel="import" href="../prefs/prefs.html">
 <link rel="import" href="../prefs/prefs_behavior.html">
 <link rel="import" href="../route.html">
+<link rel="import" href="../router.html">
 <link rel="import" href="../settings_page/settings_animated_pages.html">
 <link rel="import" href="../settings_page/settings_subpage.html">
 <link rel="import" href="../settings_shared_css.html">
 <link rel="import" href="../site_settings/all_sites.html">
 <link rel="import" href="../site_settings/constants.html">
 
-<if expr="not chromeos">
-<link rel="import" href="chrome://resources/cr_elements/cr_toast/cr_toast.html">
-</if>
 <link rel="import" href="privacy_page_browser_proxy.html">
 
 <dom-module id="settings-privacy-page">
@@ -36,18 +34,6 @@
       .iron-collapse-indented {
         margin-inline-start: var(--cr-section-indent-width);
       }
-
-<if expr="not chromeos">
-      #toast {
-        left: 0;
-        z-index: 1;
-      }
-
-      :host-context([dir='rtl']) #toast {
-        left: auto;
-        right: 0;
-      }
-</if>
     </style>
     <template is="dom-if" if="[[showClearBrowsingDataDialog_]]" restamp>
       <settings-clear-browsing-data-dialog prefs="{{prefs}}"
@@ -76,13 +62,6 @@
     <settings-animated-pages id="pages" section="privacy"
         focus-config="[[focusConfig_]]">
       <div route-path="default">
-        <template is="dom-if" if="[[!privacySettingsRedesignEnabled_]]">
-          <cr-link-row id="syncLinkRow"
-              label="$i18n{syncAndNonPersonalizedServices}"
-              sub-label="$i18n{syncAndGoogleServicesPrivacyDescription}"
-              on-click="onSyncAndGoogleServicesClick_">
-          </cr-link-row>
-        </template>
         <cr-link-row id="clearBrowsingData"
             class="hr"
             label="$i18n{clearBrowsingData}"
@@ -96,47 +75,32 @@
         <cr-expand-button id="moreExpansion"
             alt="$i18n{privacyPageMore}"
             class="settings-box"
-            expanded="{{moreOpened_}}"
-            hidden="[[!privacySettingsRedesignEnabled_]]">
+            expanded="{{moreOpened_}}">
             <div>$i18n{privacyPageMore}</div>
         </cr-expand-button>
         <iron-collapse id="moreCollapse" opened="[[moreOpened_]]"
-            class$="[[getIronCollapseCssClass_(
-              privacySettingsRedesignEnabled_)]]">
-          <template is="dom-if" if="[[privacySettingsRedesignEnabled_]]">
-            <settings-toggle-button id="safeBrowsingToggle"
-                class$="[[getTopBarCssClass_(privacySettingsRedesignEnabled_)]]"
-                pref="{{prefs.safebrowsing.enabled}}"
-                label="$i18n{safeBrowsingEnableProtection}"
-                sub-label="$i18n{safeBrowsingEnableProtectionDesc}">
-            </settings-toggle-button>
-            <template is="dom-if" if="[[passwordsLeakDetectionEnabled_]]">
-              <settings-passwords-leak-detection-toggle
-                  id="passwordsLeakDetectionToggle"
-                  prefs="{{prefs}}"
-                  sync-status="[[syncStatus]]">
-              </settings-passwords-leak-detection-toggle>
-            </template>
-            <settings-toggle-button id="safeBrowsingReportingToggle"
-                pref="[[safeBrowsingReportingPref_]]" no-set-pref
-                label="$i18n{safeBrowsingEnableExtendedReporting}"
-                sub-label="$i18n{safeBrowsingEnableExtendedReportingDesc}"
-                disabled="[[getDisabledExtendedSafeBrowsing_(prefs.*)]]"
-                on-settings-boolean-control-change=
-                    "onSafeBrowsingReportingToggleChange_">
-            </settings-toggle-button>
-          </template>
-<if expr="not chromeos">
-        <template is="dom-if" if="[[!privacySettingsRedesignEnabled_]]">
-          <settings-toggle-button id="signinAllowedToggle"
-              pref="{{prefs.signin.allowed_on_next_startup}}"
-              label="$i18n{signinAllowedTitle}"
-              sub-label="$i18n{signinAllowedDescription}"
-              on-settings-boolean-control-change="onSigninAllowedChange_"
-              no-set-pref>
+            class="iron-collapse-indented">
+          <settings-toggle-button id="safeBrowsingToggle"
+              class="settings-box first"
+              pref="{{prefs.safebrowsing.enabled}}"
+              label="$i18n{safeBrowsingEnableProtection}"
+              sub-label="$i18n{safeBrowsingEnableProtectionDesc}"
+              on-settings-boolean-control-change=
+                  "onSafeBrowsingToggleChange_">
           </settings-toggle-button>
-        </template>
-</if><!-- not chromeos -->
+          <settings-passwords-leak-detection-toggle
+              id="passwordsLeakDetectionToggle"
+              prefs="{{prefs}}"
+              sync-status="[[syncStatus]]">
+          </settings-passwords-leak-detection-toggle>
+          <settings-toggle-button id="safeBrowsingReportingToggle"
+              pref="[[safeBrowsingReportingPref_]]" no-set-pref
+              label="$i18n{safeBrowsingEnableExtendedReporting}"
+              sub-label="$i18n{safeBrowsingEnableExtendedReportingDesc}"
+              disabled="[[getDisabledExtendedSafeBrowsing_(prefs.*)]]"
+              on-settings-boolean-control-change=
+                  "onSafeBrowsingReportingToggleChange_">
+          </settings-toggle-button>
           <settings-toggle-button id="doNotTrack"
               pref="{{prefs.enable_do_not_track}}" label="$i18n{doNotTrack}"
               on-settings-boolean-control-change="onDoNotTrackChange_"
@@ -155,19 +119,6 @@
               numeric-unchecked-value="[[networkPredictionUncheckedValue_]]"
               on-settings-boolean-control-change="onNetworkPredictionChange_">
           </settings-toggle-button>
-<if expr="chromeos">
-          <settings-toggle-button
-              hidden="[[!pageVisibility.contentProtectionAttestation]]"
-              pref=
-              "{{prefs.cros.device.attestation_for_content_protection_enabled}}"
-              label="$i18n{enableContentProtectionAttestation}">
-          </settings-toggle-button>
-          <settings-toggle-button
-              hidden="[[!pageVisibility.wakeOnWifi]]"
-              pref="{{prefs.settings.internet.wake_on_wifi_darkconnect}}"
-              label="$i18n{wakeOnWifi}">
-          </settings-toggle-button>
-</if>
 <if expr="use_nss_certs or is_win or is_macosx">
           <cr-link-row id="manageCertificates"
               class="hr"
@@ -216,6 +167,14 @@
             learn-more-url="$i18n{exceptionsLearnMoreURL}">
           <settings-site-settings-page focus-config="[[focusConfig_]]">
           </settings-site-settings-page>
+        </settings-subpage>
+      </template>
+
+      <template is="dom-if" route-path="/security" no-search>
+        <settings-subpage id="security" page-title="$i18n{securityPageTitle}">
+          <settings-security-page prefs="{{prefs}}"
+              sync-status="[[syncStatus]]">
+          </settings-security-page>
         </settings-subpage>
       </template>
 
@@ -628,6 +587,22 @@
           </settings-subpage>
         </template>
       </template>
+      <template is="dom-if" if="[[enableExperimentalWebPlatformFeatures_]]">
+        <template is="dom-if" route-path="/content/hidDevices" no-search>
+          <settings-subpage page-title="$i18n{siteSettingsHidDevices}">
+            <category-default-setting
+                toggle-off-label="$i18n{siteSettingsHidDevicesBlock}"
+                toggle-on-label=
+                    "$i18n{siteSettingsHidDevicesAskRecommended}"
+                category="[[ContentSettingsTypes.HID_DEVICES]]">
+            </category-default-setting>
+            <chooser-exception-list
+                category="[[ContentSettingsTypes.HID_DEVICES]]"
+                chooser-type="[[ChooserType.HID_DEVICES]]">
+            </chooser-exception-list>
+          </settings-subpage>
+        </template>
+      </template>
       <template is="dom-if" route-path="/content/siteDetails" no-search>
         <settings-subpage page-title="[[pageTitle]]">
           <site-details
@@ -738,24 +713,45 @@
           </settings-subpage>
         </template>
       </template>
-    </settings-animated-pages>
-
-    <template is="dom-if" if="[[!privacySettingsRedesignEnabled_]]">
-      <template is="dom-if" if="[[showSignoutDialog_]]" restamp>
-        <settings-signout-dialog sync-status="[[syncStatus]]"
-            on-close="onSignoutDialogClosed_">
-        </settings-signout-dialog>
+      <template is="dom-if" if="[[enableWebXrContentSetting_]]">
+        <template is="dom-if" route-path="/content/vr" no-search>
+          <settings-subpage page-title="$i18n{siteSettingsVr}"
+              search-label="$i18n{siteSettingsAllSitesSearch}"
+              search-term="{{searchFilter_}}">
+            <category-default-setting
+                toggle-off-label="$i18n{siteSettingsVrBlock}"
+                toggle-on-label=
+                    "$i18n{siteSettingsVrAskRecommended}"
+                category="{{ContentSettingsTypes.VR}}">
+            </category-default-setting>
+            <category-setting-exceptions
+                category="{{ContentSettingsTypes.VR}}"
+                read-only-list
+                block-header="$i18n{siteSettingsBlock}"
+                search-filter="[[searchFilter_]]">
+            </category-setting-exceptions>
+          </settings-subpage>
+        </template>
+        <template is="dom-if" route-path="/content/ar" no-search>
+          <settings-subpage page-title="$i18n{siteSettingsAr}"
+              search-label="$i18n{siteSettingsAllSitesSearch}"
+              search-term="{{searchFilter_}}">
+            <category-default-setting
+                toggle-off-label="$i18n{siteSettingsArBlock}"
+                toggle-on-label=
+                    "$i18n{siteSettingsArAskRecommended}"
+                category="{{ContentSettingsTypes.AR}}">
+            </category-default-setting>
+            <category-setting-exceptions
+                category="{{ContentSettingsTypes.AR}}"
+                read-only-list
+                block-header="$i18n{siteSettingsBlock}"
+                search-filter="[[searchFilter_]]">
+            </category-setting-exceptions>
+          </settings-subpage>
+        </template>
       </template>
-    </template>
-
-<if expr="not chromeos">
-    <cr-toast id="toast" open="[[showRestart_]]">
-      <div>$i18n{restartToApplyChanges}</div>
-      <cr-button on-click="onRestartTap_">
-        $i18n{restart}
-      </cr-button>
-    </cr-toast>
-</if>
+    </settings-animated-pages>
   </template>
   <script src="privacy_page.js"></script>
 </dom-module>

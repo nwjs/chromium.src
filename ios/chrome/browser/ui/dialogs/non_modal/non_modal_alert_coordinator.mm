@@ -10,7 +10,6 @@
 #import "ios/chrome/browser/ui/dialogs/non_modal/non_modal_alert_presentation_updater.h"
 #import "ios/chrome/browser/ui/fullscreen/chrome_coordinator+fullscreen_disabling.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
-#import "ios/chrome/browser/ui/fullscreen/fullscreen_controller_factory.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_ui_updater.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -30,8 +29,7 @@
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                      title:(NSString*)title
                                    message:(NSString*)message
-                              browserState:
-                                  (ios::ChromeBrowserState*)browserState {
+                              browserState:(ChromeBrowserState*)browserState {
   DCHECK(browserState);
   self = [super initWithBaseViewController:viewController
                                      title:title
@@ -47,8 +45,7 @@
   if (_nonModalPresentationUpdater == nonModalPresentationUpdater)
     return;
   FullscreenController* fullscreenController =
-      FullscreenControllerFactory::GetInstance()->GetForBrowserState(
-          self.browserState);
+      FullscreenController::FromBrowserState(self.browserState);
   _fullscreenUIUpdater = nullptr;
 
   _nonModalPresentationUpdater = nonModalPresentationUpdater;

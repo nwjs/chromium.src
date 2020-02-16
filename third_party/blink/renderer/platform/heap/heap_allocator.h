@@ -125,19 +125,27 @@ class PLATFORM_EXPORT HeapAllocator {
   static void FreeHashTableBacking(void* address);
   static bool ExpandHashTableBacking(void*, size_t);
 
-  static void TraceMarkedBackingStore(void* address) {
-    MarkingVisitor::TraceMarkedBackingStore(address);
+  static void TraceBackingStoreIfMarked(void* address) {
+    // Trace backing store elements only if backing store was marked. The
+    // sweeper may be active on the backing store which requires atomic mark bit
+    // access. A precise filter is performed in
+    // MarkingVisitor::TraceMarkedBackingStore.
+    if (HeapObjectHeader::FromPayload(address)
+            ->IsMarked<HeapObjectHeader::AccessMode::kAtomic>()) {
+      MarkingVisitor::TraceMarkedBackingStore(address);
+    }
   }
 
-  static void BackingWriteBarrier(void* address) {
-    MarkingVisitor::WriteBarrier(address);
+  template <typename T>
+  static void BackingWriteBarrier(T** slot) {
+    MarkingVisitor::WriteBarrier(slot);
   }
 
-  template <typename HashTable>
-  static void BackingWriteBarrierForHashTable(void* address) {
-    if (MarkingVisitor::WriteBarrier(address)) {
+  template <typename HashTable, typename T>
+  static void BackingWriteBarrierForHashTable(T** slot) {
+    if (MarkingVisitor::WriteBarrier(slot)) {
       AddMovingCallback<HashTable>(
-          static_cast<typename HashTable::ValueType*>(address));
+          static_cast<typename HashTable::ValueType*>(*slot));
     }
   }
 

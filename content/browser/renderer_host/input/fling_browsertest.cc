@@ -15,7 +15,7 @@
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
 #include "net/dns/mock_host_resolver.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/events/base_event_utils.h"
 
@@ -390,7 +390,7 @@ IN_PROC_BROWSER_TEST_F(BrowserSideFlingBrowserTest,
 }
 
 // Touchpad fling only happens on ChromeOS.
-#if defined(CHROMEOS)
+#if defined(OS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(BrowserSideFlingBrowserTest,
                        TouchpadInertialGSUsBubbleFromOOPIF) {
   LoadPageWithOOPIF();
@@ -408,7 +408,7 @@ IN_PROC_BROWSER_TEST_F(BrowserSideFlingBrowserTest,
   SimulateTouchpadFling(child_view_->host(), GetWidgetHost(), fling_velocity);
   WaitForFrameScroll(GetRootNode(), 15, true /* upward */);
 }
-#endif  // defined(CHROMEOS)
+#endif  // defined(OS_CHROMEOS)
 
 IN_PROC_BROWSER_TEST_F(BrowserSideFlingBrowserTest,
                        InertialGSEGetsBubbledFromOOPIF) {

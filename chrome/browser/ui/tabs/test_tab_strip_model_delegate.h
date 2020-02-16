@@ -20,7 +20,7 @@ class TestTabStripModelDelegate : public TabStripModelDelegate {
   void AddTabAt(const GURL& url,
                 int index,
                 bool foregroud,
-                base::Optional<TabGroupId> group) override;
+                base::Optional<tab_groups::TabGroupId> group) override;
   Browser* CreateNewStripWithContents(std::vector<NewStripContents> contentses,
                                       const gfx::Rect& window_bounds,
                                       bool maximize) override;
@@ -28,6 +28,8 @@ class TestTabStripModelDelegate : public TabStripModelDelegate {
   int GetDragActions() const override;
   bool CanDuplicateContentsAt(int index) override;
   void DuplicateContentsAt(int index) override;
+  bool CanMoveTabsToWindow(const std::vector<int>& indices) override;
+  void MoveTabsToNewWindow(const std::vector<int>& indices) override;
   void CreateHistoricalTab(content::WebContents* contents) override;
   bool ShouldRunUnloadListenerBeforeClosing(
       content::WebContents* contents) override;

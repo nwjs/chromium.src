@@ -258,48 +258,21 @@ void AppServiceProxy::Uninstall(const std::string& app_id,
   }
 }
 
-void AppServiceProxy::OnUninstallDialogClosed(
-    apps::mojom::AppType app_type,
-    const std::string& app_id,
-    bool uninstall,
-    bool clear_site_data,
-    bool report_abuse,
-    UninstallDialog* uninstall_dialog) {
-  if (uninstall)
-    app_service_->Uninstall(app_type, app_id, clear_site_data, report_abuse);
-
-  DCHECK(uninstall_dialog);
-  auto it = uninstall_dialogs_.find(uninstall_dialog);
-  DCHECK(it != uninstall_dialogs_.end());
-  uninstall_dialogs_.erase(it);
-}
-
 void AppServiceProxy::PauseApps(
     const std::map<std::string, PauseData>& pause_data) {
-  if (!app_service_.is_connected())
+  if (!app_service_.is_connected()) {
     return;
+  }
 
   for (auto& data : pause_data) {
     apps::mojom::AppType app_type = cache_.GetAppType(data.first);
     constexpr bool kPaused = true;
     UpdatePausedStatus(app_type, data.first, kPaused);
 
-#if defined(OS_CHROMEOS)
-    std::set<aura::Window*> windows = instance_registry_.GetWindows(data.first);
-    // If the app is not running, calls PauseApp directly.
-    // For Family Link v1, if the app is Web apps, and opened with Chrome in a
-    // tab, calls PauseApp directly, because we will show app pause information
-    // in browser. If the app is an ARC app, or a Web app opened in a window,
-    // start the pause dialog.
-    //
-    // TODO(crbug.com/853604): Removes the Chrome browser checking when Family
-    // Link supports browser tabs.
-    if (windows.empty() || (app_type == apps::mojom::AppType::kWeb &&
-                            !ExtensionApps::ShowPauseAppDialog(data.first))) {
+    if (!data.second.should_show_pause_dialog) {
       app_service_->PauseApp(app_type, data.first);
       continue;
     }
-#endif  // OS_CHROMEOS
 
     cache_.ForOneApp(data.first, [this, &data](const apps::AppUpdate& update) {
       this->LoadIconForPauseDialog(update, data.second);
@@ -308,8 +281,9 @@ void AppServiceProxy::PauseApps(
 }
 
 void AppServiceProxy::UnpauseApps(const std::set<std::string>& app_ids) {
-  if (!app_service_.is_connected())
+  if (!app_service_.is_connected()) {
     return;
+  }
 
   for (auto& app_id : app_ids) {
     apps::mojom::AppType app_type = cache_.GetAppType(app_id);
@@ -320,9 +294,18 @@ void AppServiceProxy::UnpauseApps(const std::set<std::string>& app_ids) {
   }
 }
 
-void AppServiceProxy::OnPauseDialogClosed(apps::mojom::AppType app_type,
-                                          const std::string& app_id) {
-  app_service_->PauseApp(app_type, app_id);
+void AppServiceProxy::GetMenuModel(
+    const std::string& app_id,
+    apps::mojom::MenuType menu_type,
+    int64_t display_id,
+    apps::mojom::Publisher::GetMenuModelCallback callback) {
+  if (!app_service_.is_connected()) {
+    return;
+  }
+
+  apps::mojom::AppType app_type = cache_.GetAppType(app_id);
+  app_service_->GetMenuModel(app_type, app_id, menu_type, display_id,
+                             std::move(callback));
 }
 
 void AppServiceProxy::OpenNativeSettings(const std::string& app_id) {
@@ -472,6 +455,23 @@ void AppServiceProxy::InitializePreferredApps(base::Value preferred_apps) {
       std::make_unique<base::Value>(std::move(preferred_apps)));
 }
 
+void AppServiceProxy::OnUninstallDialogClosed(
+    apps::mojom::AppType app_type,
+    const std::string& app_id,
+    bool uninstall,
+    bool clear_site_data,
+    bool report_abuse,
+    UninstallDialog* uninstall_dialog) {
+  if (uninstall) {
+    app_service_->Uninstall(app_type, app_id, clear_site_data, report_abuse);
+  }
+
+  DCHECK(uninstall_dialog);
+  auto it = uninstall_dialogs_.find(uninstall_dialog);
+  DCHECK(it != uninstall_dialogs_.end());
+  uninstall_dialogs_.erase(it);
+}
+
 void AppServiceProxy::LoadIconForPauseDialog(const apps::AppUpdate& update,
                                              const PauseData& pause_data) {
   apps::mojom::IconKeyPtr icon_key = update.IconKey();
@@ -515,6 +515,11 @@ void AppServiceProxy::UpdatePausedStatus(apps::mojom::AppType app_type,
                          : apps::mojom::OptionalBool::kFalse;
   apps.push_back(std::move(app));
   cache_.OnApps(std::move(apps));
+}
+
+void AppServiceProxy::OnPauseDialogClosed(apps::mojom::AppType app_type,
+                                          const std::string& app_id) {
+  app_service_->PauseApp(app_type, app_id);
 }
 
 void AppServiceProxy::OnAppUpdate(const apps::AppUpdate& update) {

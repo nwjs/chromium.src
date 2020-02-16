@@ -55,6 +55,8 @@ import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -387,6 +389,14 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
         if (rwhvi == null || rwhvi.isDestroyed()) return null;
 
         return rwhvi;
+    }
+
+    @Override
+    public List<WebContentsImpl> getInnerWebContents() {
+        checkNotDestroyed();
+        WebContentsImpl[] innerWebContents = WebContentsImplJni.get().getInnerWebContents(
+                mNativeWebContentsAndroid, WebContentsImpl.this);
+        return Collections.unmodifiableList(Arrays.asList(innerWebContents));
     }
 
     @Override
@@ -922,6 +932,12 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
         return key.cast(data);
     }
 
+    public <T extends UserData> void removeUserData(Class<T> key) {
+        UserDataHost userDataHost = getUserDataHost();
+        if (userDataHost == null) return;
+        userDataHost.removeUserData(key);
+    }
+
     /**
      * @return {@code UserDataHost} that contains internal user data. {@code null} if
      *         it is already gc'ed.
@@ -968,6 +984,7 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
                 mNativeWebContentsAndroid, WebContentsImpl.this);
     }
 
+    @Override
     public void setFocus(boolean hasFocus) {
         if (mNativeWebContentsAndroid == 0) return;
         WebContentsImplJni.get().setFocus(
@@ -985,6 +1002,13 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
     public void notifyRendererPreferenceUpdate() {
         if (mNativeWebContentsAndroid == 0) return;
         WebContentsImplJni.get().notifyRendererPreferenceUpdate(
+                mNativeWebContentsAndroid, WebContentsImpl.this);
+    }
+
+    @Override
+    public void notifyBrowserControlsHeightChanged() {
+        if (mNativeWebContentsAndroid == 0) return;
+        WebContentsImplJni.get().notifyBrowserControlsHeightChanged(
                 mNativeWebContentsAndroid, WebContentsImpl.this);
     }
 
@@ -1009,6 +1033,8 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
         RenderFrameHost getMainFrame(long nativeWebContentsAndroid, WebContentsImpl caller);
         RenderFrameHost getFocusedFrame(long nativeWebContentsAndroid, WebContentsImpl caller);
         RenderWidgetHostViewImpl getRenderWidgetHostView(
+                long nativeWebContentsAndroid, WebContentsImpl caller);
+        WebContentsImpl[] getInnerWebContents(
                 long nativeWebContentsAndroid, WebContentsImpl caller);
         String getTitle(long nativeWebContentsAndroid, WebContentsImpl caller);
         String getVisibleURL(long nativeWebContentsAndroid, WebContentsImpl caller);
@@ -1082,6 +1108,8 @@ public class WebContentsImpl implements WebContents, RenderFrameHostDelegate, Wi
         void setDisplayCutoutSafeArea(long nativeWebContentsAndroid, WebContentsImpl caller,
                 int top, int left, int bottom, int right);
         void notifyRendererPreferenceUpdate(long nativeWebContentsAndroid, WebContentsImpl caller);
+        void notifyBrowserControlsHeightChanged(
+                long nativeWebContentsAndroid, WebContentsImpl caller);
         boolean isBeingDestroyed(long nativeWebContentsAndroid, WebContentsImpl caller);
     }
 }

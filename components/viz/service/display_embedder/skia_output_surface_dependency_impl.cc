@@ -97,12 +97,13 @@ gpu::SurfaceHandle SkiaOutputSurfaceDependencyImpl::GetSurfaceHandle() {
 }
 
 scoped_refptr<gl::GLSurface> SkiaOutputSurfaceDependencyImpl::CreateGLSurface(
-    base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub) {
+    base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub,
+    gl::GLSurfaceFormat format) {
   if (IsOffscreen()) {
-    return gl::init::CreateOffscreenGLSurface(gfx::Size());
+    return gl::init::CreateOffscreenGLSurfaceWithFormat(gfx::Size(), format);
   } else {
     return gpu::ImageTransportSurface::CreateNativeSurface(
-        stub, surface_handle_, gl::GLSurfaceFormat());
+        stub, surface_handle_, format);
   }
 }
 
@@ -112,13 +113,12 @@ base::ScopedClosureRunner SkiaOutputSurfaceDependencyImpl::CacheGLSurface(
       FROM_HERE,
       base::BindOnce(&gl::GLSurface::AddRef, base::Unretained(surface)));
   auto release_callback = base::BindOnce(
-      [](const scoped_refptr<base::TaskRunner>& runner,
+      [](const scoped_refptr<base::SequencedTaskRunner>& runner,
          gl::GLSurface* surface) {
         runner->PostTask(FROM_HERE, base::BindOnce(&gl::GLSurface::Release,
                                                    base::Unretained(surface)));
       },
-      base::WrapRefCounted(gpu_service_impl_->main_runner()),
-      base::Unretained(surface));
+      gpu_service_impl_->main_runner(), base::Unretained(surface));
   return base::ScopedClosureRunner(std::move(release_callback));
 }
 
@@ -129,6 +129,16 @@ void SkiaOutputSurfaceDependencyImpl::PostTaskToClientThread(
 
 void SkiaOutputSurfaceDependencyImpl::ScheduleGrContextCleanup() {
   gpu_service_impl_->gpu_channel_manager()->ScheduleGrContextCleanup();
+}
+
+void SkiaOutputSurfaceDependencyImpl::ScheduleDelayedGPUTaskFromGPUThread(
+    base::OnceClosure task) {
+  DCHECK(gpu_service_impl_->main_runner()->BelongsToCurrentThread());
+
+  constexpr base::TimeDelta kDelayForDelayedWork =
+      base::TimeDelta::FromMilliseconds(2);
+  gpu_service_impl_->main_runner()->PostDelayedTask(FROM_HERE, std::move(task),
+                                                    kDelayForDelayedWork);
 }
 
 #if defined(OS_WIN)

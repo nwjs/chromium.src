@@ -8,10 +8,8 @@ import android.graphics.Bitmap;
 import android.view.ContextMenu;
 
 import org.chromium.chrome.browser.TabLoadStatus;
-import org.chromium.chrome.browser.findinpage.FindMatchRectsDetails;
-import org.chromium.chrome.browser.findinpage.FindNotificationDetails;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.components.find_in_page.FindMatchRectsDetails;
+import org.chromium.components.find_in_page.FindNotificationDetails;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
@@ -216,11 +214,9 @@ public interface TabObserver {
      * @param isProvisionalLoad Whether the failed load occurred during the provisional load.
      * @param isMainFrame       Whether failed load happened for the main frame.
      * @param errorCode         Code for the occurring error.
-     * @param description       The description for the error.
      * @param failingUrl        The url that was loading when the error occurred.
      */
-    void onDidFailLoad(
-            Tab tab, boolean isMainFrame, int errorCode, String description, String failingUrl);
+    void onDidFailLoad(Tab tab, boolean isMainFrame, int errorCode, String failingUrl);
 
     /**
      * Called when a navigation is started in the WebContents.
@@ -301,9 +297,10 @@ public interface TabObserver {
 
     /**
      * A notification when tab changes whether or not it is interactable and is accepting input.
+     * @param tab The notifying {@link Tab}.
      * @param isInteractable Whether or not the tab is interactable.
      */
-    void onInteractabilityChanged(boolean isInteractable);
+    void onInteractabilityChanged(Tab tab, boolean isInteractable);
 
     /**
      * Called when renderer changes its state about being responsive to requests.
@@ -342,7 +339,10 @@ public interface TabObserver {
      * @param topControlsOffsetY The Y offset of the top controls in physical pixels.
      * @param bottomControlsOffsetY The Y offset of the bottom controls in physical pixels.
      * @param contentOffsetY The Y offset of the content in physical pixels.
+     * @param topControlsMinHeightOffsetY The Y offset of the current top controls min-height.
+     * @param bottomControlsMinHeightOffsetY The Y offset of the current bottom controls min-height.
      */
-    void onBrowserControlsOffsetChanged(
-            Tab tab, int topControlsOffsetY, int bottomControlsOffsetY, int contentOffsetY);
+    void onBrowserControlsOffsetChanged(Tab tab, int topControlsOffsetY, int bottomControlsOffsetY,
+            int contentOffsetY, int topControlsMinHeightOffsetY,
+            int bottomControlsMinHeightOffsetY);
 }

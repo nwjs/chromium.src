@@ -34,7 +34,6 @@ import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.download.DownloadManagerBridge.DownloadEnqueueRequest;
 import org.chromium.chrome.browser.download.DownloadManagerBridge.DownloadEnqueueResponse;
 import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaBackgroundDownload;
@@ -42,10 +41,13 @@ import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaDow
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.media.MediaViewerUtils;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.util.ConversionUtils;
@@ -88,7 +90,6 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
                                                DownloadServiceDelegate, ProfileManager.Observer {
     private static final String TAG = "DownloadService";
     private static final String DOWNLOAD_DIRECTORY = "Download";
-    private static final String DOWNLOAD_UMA_ENTRY = "DownloadUmaEntry";
     private static final String DOWNLOAD_RETRY_COUNT_FILE_NAME = "DownloadRetryCount";
     private static final String DOWNLOAD_MANUAL_RETRY_SUFFIX = ".Manual";
     private static final String DOWNLOAD_TOTAL_RETRY_SUFFIX = ".Total";
@@ -97,8 +98,6 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
     private static final long RESUME_DELAY_MILLIS = 10000;
     private static final int UNKNOWN_DOWNLOAD_STATUS = -1;
     public static final long UNKNOWN_BYTES_RECEIVED = -1;
-    private static final String PREF_IS_DOWNLOAD_HOME_ENABLED =
-            "org.chromium.chrome.browser.download.IS_DOWNLOAD_HOME_ENABLED";
 
     private static final Set<String> sFirstSeenDownloadIds = new HashSet<String>();
     private static final Set<String> sBackgroundDownloadIds = new HashSet<String>();
@@ -107,7 +106,7 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
     private static boolean sIsNetworkListenerDisabled;
     private static boolean sIsNetworkMetered;
 
-    private final SharedPreferences mSharedPrefs;
+    private final SharedPreferencesManager mSharedPrefs;
     private final HashMap<String, DownloadProgress> mDownloadProgressMap =
             new HashMap<String, DownloadProgress>(4, 0.75f);
 
@@ -281,9 +280,9 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
     protected DownloadManagerService(
             DownloadNotifier downloadNotifier, Handler handler, long updateDelayInMillis) {
         Context applicationContext = ContextUtils.getApplicationContext();
-        mSharedPrefs = ContextUtils.getAppSharedPreferences();
+        mSharedPrefs = SharedPreferencesManager.getInstance();
         // Clean up unused shared prefs. TODO(qinmin): remove this after M61.
-        mSharedPrefs.edit().remove(PREF_IS_DOWNLOAD_HOME_ENABLED).apply();
+        mSharedPrefs.removeKey(ChromePreferenceKeys.DOWNLOAD_IS_DOWNLOAD_HOME_ENABLED);
         mDownloadNotifier = downloadNotifier;
         mUpdateDelayInMillis = updateDelayInMillis;
         mHandler = handler;
@@ -469,41 +468,49 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
 
     /**
      * Gets download information from SharedPreferences.
-     * @param sharedPrefs The SharedPreferences object to parse.
+     * @param sharedPrefs The SharedPreferencesManager to read from.
      * @param type Type of the information to retrieve.
      * @return download information saved to the SharedPrefs for the given type.
      */
     @VisibleForTesting
-    protected static Set<String> getStoredDownloadInfo(SharedPreferences sharedPrefs, String type) {
-        return new HashSet<String>(sharedPrefs.getStringSet(type, new HashSet<String>()));
+    protected static Set<String> getStoredDownloadInfo(
+            SharedPreferencesManager sharedPrefs, String type) {
+        return new HashSet<>(sharedPrefs.readStringSet(type));
     }
 
     /**
      * Stores download information to shared preferences. The information can be
      * either pending download IDs, or pending OMA downloads.
      *
-     * @param sharedPrefs   SharedPreferences to update.
+     * @param sharedPrefs   SharedPreferencesManager to write to.
      * @param type          Type of the information.
      * @param downloadInfo  Information to be saved.
      * @param forceCommit   Whether to synchronously update shared preferences.
      */
     @SuppressLint({"ApplySharedPref", "CommitPrefEdits"})
-    static void storeDownloadInfo(SharedPreferences sharedPrefs, String type,
+    static void storeDownloadInfo(SharedPreferencesManager sharedPrefs, String type,
             Set<String> downloadInfo, boolean forceCommit) {
-        SharedPreferences.Editor editor = sharedPrefs.edit();
+        boolean success;
         if (downloadInfo.isEmpty()) {
-            editor.remove(type);
-        } else {
-            editor.putStringSet(type, downloadInfo);
-        }
-
-        if (forceCommit) {
-            // Write synchronously because it might be used on restart and needs to stay up-to-date.
-            if (!editor.commit()) {
-                Log.e(TAG, "Failed to write DownloadInfo " + type);
+            if (forceCommit) {
+                success = sharedPrefs.removeKeySync(type);
+            } else {
+                sharedPrefs.removeKey(type);
+                success = true;
             }
         } else {
-            editor.apply();
+            if (forceCommit) {
+                success = sharedPrefs.writeStringSetSync(type, downloadInfo);
+            } else {
+                sharedPrefs.writeStringSet(type, downloadInfo);
+                success = true;
+            }
+        }
+
+        if (!success) {
+            // Write synchronously because it might be used on restart and needs to stay
+            // up-to-date.
+            Log.e(TAG, "Failed to write DownloadInfo " + type);
         }
     }
 
@@ -1205,11 +1212,14 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
     }
 
     @Override
-    public void onProfileCreated(Profile profile) {
+    public void onProfileAdded(Profile profile) {
         ProfileManager.removeObserver(this);
-        DownloadManagerServiceJni.get().onProfileCreated(
+        DownloadManagerServiceJni.get().onProfileAdded(
                 mNativeDownloadManagerService, DownloadManagerService.this);
     }
+
+    @Override
+    public void onProfileDestroyed(Profile profile) {}
 
     @CalledByNative
     void onResumptionFailed(String downloadGuid) {
@@ -1541,7 +1551,8 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
         for (int i = 0; i < mUmaEntries.size(); ++i) {
             entries.add(mUmaEntries.get(i).getSharedPreferenceString());
         }
-        storeDownloadInfo(mSharedPrefs, DOWNLOAD_UMA_ENTRY, entries, false /* forceCommit */);
+        storeDownloadInfo(mSharedPrefs, ChromePreferenceKeys.DOWNLOAD_UMA_ENTRY, entries,
+                false /* forceCommit */);
     }
 
     /**
@@ -1563,9 +1574,9 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
      * Parse the DownloadUmaStatsEntry from the shared preference.
      */
     private void parseUMAStatsEntriesFromSharedPrefs() {
-        if (mSharedPrefs.contains(DOWNLOAD_UMA_ENTRY)) {
-            Set<String> entries =
-                    DownloadManagerService.getStoredDownloadInfo(mSharedPrefs, DOWNLOAD_UMA_ENTRY);
+        if (mSharedPrefs.contains(ChromePreferenceKeys.DOWNLOAD_UMA_ENTRY)) {
+            Set<String> entries = DownloadManagerService.getStoredDownloadInfo(
+                    mSharedPrefs, ChromePreferenceKeys.DOWNLOAD_UMA_ENTRY);
             for (String entryString : entries) {
                 DownloadUmaStatsEntry entry = DownloadUmaStatsEntry.parseFromString(entryString);
                 if (entry != null) mUmaEntries.add(entry);
@@ -2054,7 +2065,7 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
     interface Natives {
         boolean isSupportedMimeType(String mimeType);
         int getAutoResumptionLimit();
-        long init(DownloadManagerService caller, boolean isProfileCreated);
+        long init(DownloadManagerService caller, boolean isProfileAdded);
         void openDownload(long nativeDownloadManagerService, DownloadManagerService caller,
                 String downloadGuid, boolean isOffTheRecord, int source);
         void resumeDownload(long nativeDownloadManagerService, DownloadManagerService caller,
@@ -2076,7 +2087,7 @@ public class DownloadManagerService implements DownloadController.DownloadNotifi
                 DownloadManagerService caller, boolean isOffTheRecord);
         void updateLastAccessTime(long nativeDownloadManagerService, DownloadManagerService caller,
                 String downloadGuid, boolean isOffTheRecord);
-        void onProfileCreated(long nativeDownloadManagerService, DownloadManagerService caller);
+        void onProfileAdded(long nativeDownloadManagerService, DownloadManagerService caller);
         void createInterruptedDownloadForTest(long nativeDownloadManagerService,
                 DownloadManagerService caller, String url, String guid, String targetPath);
         void recordFirstBackgroundInterruptReason(long nativeDownloadManagerService,

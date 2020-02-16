@@ -24,7 +24,6 @@ class Browser;
 class LoginHandler;
 class Profile;
 struct WebApplicationInfo;
-enum class PermissionAction;
 
 namespace base {
 class FilePath;
@@ -41,6 +40,10 @@ class Extension;
 
 namespace net {
 class AuthChallengeInfo;
+}
+
+namespace permissions {
+enum class PermissionAction;
 }
 
 namespace safe_browsing {
@@ -111,13 +114,6 @@ void ShowBookmarkAppDialog(content::WebContents* web_contents,
 void SetAutoAcceptBookmarkAppDialogForTesting(bool auto_accept,
                                               bool auto_open_in_window);
 
-// Shows the PWA installation confirmation modal dialog.
-//
-// |web_app_info| is the WebApplicationInfo to be installed.
-void ShowPWAInstallDialog(content::WebContents* web_contents,
-                          std::unique_ptr<WebApplicationInfo> web_app_info,
-                          AppInstallationAcceptanceCallback callback);
-
 // Shows the PWA installation confirmation bubble anchored off the PWA install
 // icon in the omnibox.
 //
@@ -126,9 +122,26 @@ void ShowPWAInstallBubble(content::WebContents* web_contents,
                           std::unique_ptr<WebApplicationInfo> web_app_info,
                           AppInstallationAcceptanceCallback callback);
 
-// Sets whether |ShowPWAInstallDialog| and |ShowPWAInstallBubble| should accept
-// immediately without any user interaction.
+// Sets whether |ShowPWAInstallBubble| should accept immediately without any
+// user interaction.
 void SetAutoAcceptPWAInstallConfirmationForTesting(bool auto_accept);
+
+#if defined(OS_CHROMEOS)
+
+// Shows the print job confirmation dialog bubble anchored to the toolbar icon
+// for the extension.
+// If there's no toolbar icon, shows a modal dialog using
+// CreateBrowserModalDialogViews(). Note that this dialog is shown up even if we
+// have no |parent| window.
+void ShowPrintJobConfirmationDialog(gfx::NativeWindow parent,
+                                    const std::string& extension_id,
+                                    const base::string16& extension_name,
+                                    const gfx::ImageSkia& extension_icon,
+                                    const base::string16& print_job_title,
+                                    const base::string16& printer_name,
+                                    base::OnceCallback<void(bool)> callback);
+
+#endif  // OS_CHROMEOS
 
 #if defined(OS_MACOSX)
 
@@ -255,6 +268,7 @@ enum class DialogIdentifier {
   QR_CODE_GENERATOR = 99,
   CROSTINI_FORCE_CLOSE = 100,
   APP_UNINSTALL = 101,
+  PRINT_JOB_CONFIRMATION = 102,
   // Add values above this line with a corresponding label in
   // tools/metrics/histograms/enums.xml
   MAX_VALUE
@@ -302,7 +316,7 @@ void ShowNativeFileSystemPermissionDialog(
     const url::Origin& origin,
     const base::FilePath& path,
     bool is_directory,
-    base::OnceCallback<void(PermissionAction result)> callback,
+    base::OnceCallback<void(permissions::PermissionAction result)> callback,
     content::WebContents* web_contents);
 
 // Displays a dialog to inform the user that the |path| they picked using the
@@ -324,7 +338,7 @@ void ShowNativeFileSystemRestrictedDirectoryDialog(
 void ShowNativeFileSystemDirectoryAccessConfirmationDialog(
     const url::Origin& origin,
     const base::FilePath& path,
-    base::OnceCallback<void(PermissionAction result)> callback,
+    base::OnceCallback<void(permissions::PermissionAction result)> callback,
     content::WebContents* web_contents);
 
 #endif  // CHROME_BROWSER_UI_BROWSER_DIALOGS_H_

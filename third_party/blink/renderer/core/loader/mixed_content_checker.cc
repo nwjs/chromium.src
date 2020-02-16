@@ -157,7 +157,7 @@ const char* RequestContextName(mojom::RequestContextType context) {
 // TODO(hiroshige): Consider merging them once FetchClientSettingsObject
 // becomes the source of CSP/InsecureRequestPolicy also in frames.
 bool IsWebSocketAllowedInFrame(const BaseFetchContext& fetch_context,
-                               SecurityContext* security_context,
+                               const SecurityContext* security_context,
                                Settings* settings,
                                const KURL& url) {
   fetch_context.CountUsage(WebFeature::kMixedContentPresent);
@@ -589,7 +589,7 @@ bool MixedContentChecker::IsWebSocketAllowed(
   // mixed content signals from different frames on the same page.
   WebContentSettingsClient* content_settings_client =
       frame->GetContentSettingsClient();
-  SecurityContext* security_context = mixed_frame->GetSecurityContext();
+  const SecurityContext* security_context = mixed_frame->GetSecurityContext();
   const SecurityOrigin* security_origin = security_context->GetSecurityOrigin();
 
   bool allowed = IsWebSocketAllowedInFrame(frame_fetch_context,
@@ -713,7 +713,7 @@ void MixedContentChecker::CheckMixedPrivatePublic(
 
   // Just count these for the moment, don't block them.
   if (network_utils::IsReservedIPAddress(resource_ip_address) &&
-      frame->GetDocument()->AddressSpace() ==
+      frame->GetDocument()->GetSecurityContext().AddressSpace() ==
           network::mojom::IPAddressSpace::kPublic) {
     UseCounter::Count(frame->GetDocument(),
                       WebFeature::kMixedContentPrivateHostnameInPublicHostname);
@@ -812,7 +812,7 @@ void MixedContentChecker::UpgradeInsecureRequest(
     ResourceRequest& resource_request,
     const FetchClientSettingsObject* fetch_client_settings_object,
     ExecutionContext* execution_context_for_logging,
-    network::mojom::RequestContextFrameType frame_type,
+    mojom::RequestContextFrameType frame_type,
     WebContentSettingsClient* settings_client) {
   // We always upgrade requests that meet any of the following criteria:
   //  1. Are for subresources.
@@ -854,7 +854,7 @@ void MixedContentChecker::UpgradeInsecureRequest(
   }
 
   // Nested frames are always upgraded on the browser process.
-  if (frame_type == network::mojom::RequestContextFrameType::kNested)
+  if (frame_type == mojom::RequestContextFrameType::kNested)
     return;
 
   // We set the UpgradeIfInsecure flag even if the current request wasn't
@@ -869,7 +869,7 @@ void MixedContentChecker::UpgradeInsecureRequest(
     return;
   }
 
-  if (frame_type == network::mojom::RequestContextFrameType::kNone ||
+  if (frame_type == mojom::RequestContextFrameType::kNone ||
       resource_request.GetRequestContext() == mojom::RequestContextType::FORM ||
       (!url.Host().IsNull() &&
        fetch_client_settings_object->GetUpgradeInsecureNavigationsSet()

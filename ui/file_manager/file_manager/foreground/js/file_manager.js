@@ -580,14 +580,14 @@ class FileManager extends cr.EventTarget {
         this.ui_.listContainer.table, this.directoryModel_);
 
     this.quickViewModel_ = new QuickViewModel();
-    const fileListSelectionModel = /** @type {!cr.ui.ListSelectionModel} */ (
+    const fileListSelectionModel = /** @type {!FileListSelectionModel} */ (
         this.directoryModel_.getFileListSelection());
     this.quickViewUma_ =
         new QuickViewUma(assert(this.volumeManager_), assert(this.dialogType));
     const metadataBoxController = new MetadataBoxController(
         this.metadataModel_, this.quickViewModel_, this.fileMetadataFormatter_);
     this.quickViewController_ = new QuickViewController(
-        assert(this.metadataModel_), assert(this.selectionHandler_),
+        this, assert(this.metadataModel_), assert(this.selectionHandler_),
         assert(this.ui_.listContainer), assert(this.ui_.selectionMenuButton),
         assert(this.quickViewModel_), assert(this.taskController_),
         fileListSelectionModel, assert(this.quickViewUma_),
@@ -882,6 +882,15 @@ class FileManager extends cr.EventTarget {
     this.thumbnailModel_ = new ThumbnailModel(this.metadataModel_);
     this.providersModel_ = new ProvidersModel(this.volumeManager_);
     this.fileFilter_ = new FileFilter(this.metadataModel_);
+
+    // Set the files-ng class for dialog header styling.
+    const dialogHeader = queryRequiredElement('.dialog-header');
+    if (util.isFilesNg()) {
+      dialogHeader.classList.add('files-ng');
+      // Move the dialog header to the side of the splitter above the list view.
+      const dialogMain = queryRequiredElement('.dialog-main');
+      dialogMain.insertBefore(dialogHeader, dialogMain.firstChild);
+    }
 
     // Create the root view of FileManager.
     assert(this.dialogDom_);

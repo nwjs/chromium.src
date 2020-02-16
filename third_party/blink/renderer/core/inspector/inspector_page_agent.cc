@@ -91,9 +91,10 @@ using protocol::Response;
 namespace {
 
 String ClientNavigationReasonToProtocol(ClientNavigationReason reason) {
-  using ReasonEnum =
-      protocol::Page::FrameScheduledNavigationNotification::ReasonEnum;
+  namespace ReasonEnum = protocol::Page::ClientNavigationReasonEnum;
   switch (reason) {
+    case ClientNavigationReason::kAnchorClick:
+      return ReasonEnum::AnchorClick;
     case ClientNavigationReason::kFormSubmissionGet:
       return ReasonEnum::FormSubmissionGet;
     case ClientNavigationReason::kFormSubmissionPost:
@@ -219,7 +220,7 @@ static std::unique_ptr<TextResourceDecoder> CreateResourceTextDecoder(
     options.SetUseLenientXMLDecoding();
     return std::make_unique<TextResourceDecoder>(options);
   }
-  if (DeprecatedEqualIgnoringCase(mime_type, "text/html")) {
+  if (EqualIgnoringASCIICase(mime_type, "text/html")) {
     return std::make_unique<TextResourceDecoder>(TextResourceDecoderOptions(
         TextResourceDecoderOptions::kHTMLContent, UTF8Encoding()));
   }

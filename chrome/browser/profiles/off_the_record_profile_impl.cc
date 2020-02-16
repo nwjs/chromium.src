@@ -71,7 +71,6 @@
 #include "media/mojo/services/video_decode_perf_history.h"
 #include "net/http/transport_security_state.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "services/network/public/mojom/network_context.mojom.h"
 #include "storage/browser/database/database_tracker.h"
 
 #if defined(OS_ANDROID)
@@ -123,6 +122,7 @@ constexpr char kVideoDecodePerfHistoryId[] = "video-decode-perf-history";
 
 OffTheRecordProfileImpl::OffTheRecordProfileImpl(Profile* real_profile)
     : profile_(real_profile),
+      io_data_(this),
       start_time_(base::Time::Now()),
       key_(std::make_unique<ProfileKey>(profile_->GetPath(),
                                         profile_->GetProfileKey())) {
@@ -141,13 +141,6 @@ OffTheRecordProfileImpl::OffTheRecordProfileImpl(Profile* real_profile)
 }
 
 void OffTheRecordProfileImpl::Init() {
-  // The construction of OffTheRecordProfileIOData::Handle needs the profile
-  // type returned by this->GetProfileType().  Since GetProfileType() is a
-  // virtual member function, we cannot call the function defined in the most
-  // derived class (e.g. GuestSessionProfile) until a ctor finishes.  Thus,
-  // we have to instantiate OffTheRecordProfileIOData::Handle here after a ctor.
-  InitIoData();
-
   FullBrowserTransitionManager::Get()->OnProfileCreated(this);
 
   BrowserContextDependencyManager::GetInstance()->CreateBrowserContextServices(
@@ -196,12 +189,6 @@ OffTheRecordProfileImpl::~OffTheRecordProfileImpl() {
   ChromePluginServiceFilter::GetInstance()->UnregisterProfile(this);
 #endif
 
-  // Clears any data the network stack contains that may be related to the
-  // OTR session. Must be done before DestroyBrowserContextServices, since
-  // the NetworkContext is managed by one such service.
-  GetDefaultStoragePartition(this)->GetNetworkContext()->ClearHostCache(
-      nullptr, network::mojom::NetworkContext::ClearHostCacheCallback());
-
   FullBrowserTransitionManager::Get()->OnProfileDestroyed(this);
 
   // The SimpleDependencyManager should always be passed after the
@@ -232,10 +219,6 @@ OffTheRecordProfileImpl::~OffTheRecordProfileImpl() {
   }
 }
 
-void OffTheRecordProfileImpl::InitIoData() {
-  io_data_.reset(new OffTheRecordProfileIOData::Handle(this));
-}
-
 #if !defined(OS_ANDROID)
 void OffTheRecordProfileImpl::TrackZoomLevelsFromParent() {
   DCHECK(!profile_->IsIncognitoProfile());
@@ -250,8 +233,8 @@ void OffTheRecordProfileImpl::TrackZoomLevelsFromParent() {
   // Observe parent profile's HostZoomMap changes so they can also be applied
   // to this profile's HostZoomMap.
   track_zoom_subscription_ = parent_host_zoom_map->AddZoomLevelChangedCallback(
-      base::Bind(&OffTheRecordProfileImpl::OnParentZoomLevelChanged,
-                 base::Unretained(this)));
+      base::BindRepeating(&OffTheRecordProfileImpl::OnParentZoomLevelChanged,
+                          base::Unretained(this)));
   if (!profile_->GetZoomLevelPrefs())
     return;
 
@@ -407,7 +390,7 @@ OffTheRecordProfileImpl::GetURLLoaderFactory() {
 }
 
 content::ResourceContext* OffTheRecordProfileImpl::GetResourceContext() {
-  return io_data_->GetResourceContext();
+  return io_data_.GetResourceContext();
 }
 
 content::BrowserPluginGuestManager* OffTheRecordProfileImpl::GetGuestManager() {

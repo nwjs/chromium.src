@@ -11,10 +11,8 @@
 #import "ios/chrome/browser/ui/util/relaxed_bounds_constraints_hittest.h"
 #import "ios/web/public/ui/crw_web_view_scroll_view_proxy.h"
 
-@protocol CRWWebViewProxy;
-namespace ios {
 class ChromeBrowserState;
-}
+@protocol CRWWebViewProxy;
 @class OverscrollActionsController;
 
 // Describe the current state of the overscroll action controller.
@@ -98,7 +96,7 @@ extern NSString* const kOverscrollActionsDidEnd;
 // properly.
 @property(nonatomic, weak) id<OverscrollActionsControllerDelegate> delegate;
 // The BrowserState.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 
 // Used to clear state maintained by the controller and de-register from
 // notifications. After this call the controller ceases to function and will

@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">Busca do modo de incógnito</translation>
 <translation id="277771892408211951">Seleccionar idioma</translation>
 <translation id="2780046210906776326">Non hai ningunha conta de correo electrónico</translation>
+<translation id="2781331604911854368">Si</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">Saír da función de cambio de pestana</translation>
 <translation id="2830972654601096923">Xestionar enderezos…</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">Pestanas abertas</translation>
 <translation id="3277021493514034324">Copiouse o enderezo do sitio</translation>
 <translation id="3290875554372353449">Escolle unha conta</translation>
+<translation id="3311748811247479259">Non</translation>
 <translation id="3324193307694657476">Enderezo 2</translation>
 <translation id="3329904751041170572">Non se puido conectar ao servidor.</translation>
 <translation id="3335947283844343239">Abrir de novo a pestana pechada</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">Completáronse os formularios.</translation>
 <translation id="3478058380795961209">Mes caducidade</translation>
 <translation id="3482959374254649722">Sincronizando as túas pestanas…</translation>
+<translation id="3484946776651937681">Abrir en Descargas</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Máis información<ph name="END_LINK" /> acerca do contido suxerido</translation>
 <translation id="3494788280727468875">Confirmar a eliminación dos datos de navegación</translation>
+<translation id="35083190962747987">Abrir ${url}</translation>
 <translation id="3519193562722059437">Abre unha pestana para examinar a web.</translation>
 <translation id="3527085408025491307">Cartafol</translation>
 <translation id="3529024052484145543">Contido non-seguro</translation>
@@ -301,6 +305,7 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="5062321486222145940">Instalar Google Drive</translation>
 <translation id="5083464117946352670">Imposible determinar tamaño.</translation>
 <translation id="5094827893301452931">Completouse o chío.</translation>
+<translation id="5118764316110575523">Non</translation>
 <translation id="5127805178023152808">A sincronización está desactivada</translation>
 <translation id="5132942445612118989">Sincroniza os teus contrasinais, o historial e moito máis en todos os dispositivos</translation>
 <translation id="5140288047769711648">Chrome lembrará este contrasinal por ti. Non é necesario que o recordes.</translation>
@@ -349,13 +354,11 @@ Handoff tamén debe estar activado na sección Xeral da configuración e os teus
 <translation id="5854790677617711513">Con máis de 30 días</translation>
 <translation id="5857090052475505287">Novo cartafol</translation>
 <translation id="5857770089550859117">Introduce a frase de acceso para iniciar a sincronización.</translation>
-<translation id="5860033963881614850">Non</translation>
 <translation id="5869029295770560994">De acordo</translation>
 <translation id="5871497086027727873">Moveuse un elemento</translation>
 <translation id="5897956970858271241">Ir á ligazón que copiaches</translation>
 <translation id="5911030830365207728">Tradutor de Google</translation>
 <translation id="5913600720976431809">Opcións para traducir a páxina</translation>
-<translation id="5916664084637901428">Si</translation>
 <translation id="5938160824633642847">O teu dispositivo case está cheo. Libera espazo e téntao de novo.</translation>
 <translation id="5948291296578561264">Permíteche gardar fotos na túa fototeca.</translation>
 <translation id="5955891643922670672">Visualizando a versión sen conexión</translation>
@@ -365,6 +368,7 @@ Handoff tamén debe estar activado na sección Xeral da configuración e os teus
 <translation id="5979837087407522202">Buscar contrasinais</translation>
 <translation id="5982717868370722439">Engade os datos existentes a <ph name="USER_EMAIL" />.</translation>
 <translation id="5984222099446776634">Visitados recentemente</translation>
+<translation id="5988851877894965432">Abrir URL en Chrome</translation>
 <translation id="6012140227487808125">Encriptando...</translation>
 <translation id="6021332621416007159">Abrir en...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />, <ph name="PUBLISHER_INFORMATION" /> (<ph name="PUBLICATION_DATE" />)</translation>
@@ -475,6 +479,7 @@ Os teus datos encriptáronse co teu contrasinal de sincronización o <ph name="T
 <translation id="734758817008927353">Opcións para gardar unha tarxeta</translation>
 <translation id="7348502496356775519">Marcador</translation>
 <translation id="7383797227493018512">Lista de lectura</translation>
+<translation id="7392048574806661116">Pechar sesión e borrar datos sincronizados</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> artigos non lidos.</translation>
 <translation id="7425346204213733349">Os cambios nos marcadores, no historial, nos contrasinais e noutras opcións de configuración deixarán de sincronizarse coa túa conta de Google. Non obstante, os teus datos actuais permanecerán almacenados na túa conta de Google.</translation>
@@ -514,6 +519,7 @@ Os teus datos encriptáronse co teu contrasinal de sincronización o <ph name="T
 <translation id="7961015016161918242">Nunca</translation>
 <translation id="7971521879845308059">Bloq. ventás em.</translation>
 <translation id="7982789257301363584">Rede</translation>
+<translation id="800361585186029508">Abre os URL introducidos en Google Chrome.</translation>
 <translation id="8007420562015504427">Busca do modo de incógnito</translation>
 <translation id="8019783059653722575">Permíteche gardar e cargar fotos.</translation>
 <translation id="802154636333426148">Produciuse un erro na descarga</translation>
@@ -533,6 +539,7 @@ Os teus datos encriptáronse co teu contrasinal de sincronización o <ph name="T
 <translation id="8319076807703933069">Nova busca</translation>
 <translation id="8323906514956095947">Mantén premido o botón para ver máis opcións da pestana</translation>
 <translation id="8328777765163860529">Pechar todo</translation>
+<translation id="8386068868580335421">Restablecer</translation>
 <translation id="8407669440184693619">Non se atopou ningún contrasinal para este sitio</translation>
 <translation id="842017693807136194">Sesión iniciada con</translation>
 <translation id="8428045167754449968">Cidade/localidade</translation>

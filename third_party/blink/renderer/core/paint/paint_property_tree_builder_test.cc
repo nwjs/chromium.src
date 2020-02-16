@@ -135,8 +135,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FixedPosition) {
   transformed_scroll->setScrollTop(5);
 
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   // target1 is a fixed-position element inside an absolute-position scrolling
   // element.  It should be attached under the viewport to skip scrolling and
@@ -198,8 +197,7 @@ TEST_P(PaintPropertyTreeBuilderTest, PositionAndScroll) {
   Element* scroller = GetDocument().getElementById("scroller");
   scroller->scrollTo(0, 100);
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   const ObjectPaintProperties* scroller_properties =
       scroller->GetLayoutObject()->FirstFragment().PaintProperties();
   EXPECT_EQ(FloatSize(0, -100),
@@ -370,7 +368,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRL) {
             &overflow_clip->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(10, 10, 85, 85), overflow_clip->ClipRect());
 
-  scroller->GetScrollableArea()->ScrollBy(ScrollOffset(-100, 0), kUserScroll);
+  scroller->GetScrollableArea()->ScrollBy(
+      ScrollOffset(-100, 0), mojom::blink::ScrollIntoViewParams::Type::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   // Only scroll_translation is affected by scrolling.
@@ -422,7 +421,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollRTL) {
             &overflow_clip->LocalTransformSpace());
   EXPECT_EQ(FloatRoundedRect(25, 10, 85, 85), overflow_clip->ClipRect());
 
-  scroller->GetScrollableArea()->ScrollBy(ScrollOffset(-100, 0), kUserScroll);
+  scroller->GetScrollableArea()->ScrollBy(
+      ScrollOffset(-100, 0), mojom::blink::ScrollIntoViewParams::Type::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   // Only scroll_translation is affected by scrolling.
@@ -481,7 +481,8 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRLMulticol) {
   // Fragment geometries are not affected by parent scrolling.
   ToLayoutBox(GetLayoutObjectByElementId("scroller"))
       ->GetScrollableArea()
-      ->ScrollBy(ScrollOffset(-100, 200), kUserScroll);
+      ->ScrollBy(ScrollOffset(-100, 200),
+                 mojom::blink::ScrollIntoViewParams::Type::kUser);
   UpdateAllLifecyclePhasesForTest();
   check_fragments();
 }
@@ -492,8 +493,7 @@ TEST_P(PaintPropertyTreeBuilderTest, DocScrollingTraditional) {
   GetDocument().domWindow()->scrollTo(0, 100);
 
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   EXPECT_TRUE(DocPreTranslation()->IsIdentity());
   EXPECT_EQ(
       GetDocument().GetPage()->GetVisualViewport().GetScrollTranslationNode(),
@@ -1734,8 +1734,7 @@ TEST_P(PaintPropertyTreeBuilderTest, TransformNodesAcrossSubframes) {
   )HTML");
 
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   LayoutObject* div_with_transform =
       GetLayoutObjectByElementId("divWithTransform");
@@ -1825,8 +1824,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FramesEstablishIsolation) {
   )HTML");
 
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   LayoutObject* frame = ChildFrame().View()->GetLayoutView();
   const auto& frame_contents_properties =
@@ -1884,8 +1882,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FramesEstablishIsolation) {
   // However, isolation stops this recursion.
   GetDocument().getElementById("parent")->setAttribute(html_names::kClassAttr,
                                                        "transformed");
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   // Verify that our clobbered state is still clobbered.
   EXPECT_EQ(FloatSize(123, 321),
@@ -1922,8 +1919,7 @@ TEST_P(PaintPropertyTreeBuilderTest, TransformNodesInTransformedSubframes) {
     <div id='transform'></div>
   )HTML");
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   // Assert that we have the following tree structure:
   // ...
@@ -3982,8 +3978,8 @@ TEST_P(PaintPropertyTreeBuilderTest, PaintOffsetsUnderMultiColumnScrolled) {
   )HTML");
 
   LayoutObject* scroller = GetLayoutObjectByElementId("scroller");
-  ToLayoutBox(scroller)->GetScrollableArea()->ScrollBy(ScrollOffset(0, 300),
-                                                       kUserScroll);
+  ToLayoutBox(scroller)->GetScrollableArea()->ScrollBy(
+      ScrollOffset(0, 300), mojom::blink::ScrollIntoViewParams::Type::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   EXPECT_EQ(FloatSize(8, 8), scroller->FirstFragment()
@@ -4072,8 +4068,8 @@ TEST_P(PaintPropertyTreeBuilderTest,
   EXPECT_EQ(PhysicalOffset(51, -20),
             multicol_container->FirstFragment().NextFragment()->PaintOffset());
 
-  GetDocument().View()->LayoutViewport()->ScrollBy(ScrollOffset(0, 25),
-                                                   kUserScroll);
+  GetDocument().View()->LayoutViewport()->ScrollBy(
+      ScrollOffset(0, 25), mojom::blink::ScrollIntoViewParams::Type::kUser);
   UpdateAllLifecyclePhasesForTest();
 
   ASSERT_TRUE(multicol_container->FirstFragment().NextFragment());
@@ -6024,26 +6020,6 @@ TEST_P(PaintPropertyTreeBuilderTest, StickyConstraintChain) {
                 ->nearest_element_shifting_containing_block);
 }
 
-TEST_P(PaintPropertyTreeBuilderTest, RoundedStickyConstraints) {
-  // This test verifies that sticky constraint rects are rounded to the nearest
-  // integer.
-  SetBodyInnerHTML(R"HTML(
-    <div id="scroller" style="overflow:scroll; width:300px; height:199.5px;">
-      <div id="outer" style="position:sticky; top:10px; height:300px">
-      </div>
-      <div style="height:1000px;"></div>
-    </div>
-  )HTML");
-  GetDocument().getElementById("scroller")->setScrollTop(50);
-  UpdateAllLifecyclePhasesForTest();
-
-  const auto* outer_properties = PaintPropertiesForElement("outer");
-  ASSERT_TRUE(outer_properties && outer_properties->StickyTranslation());
-  EXPECT_EQ(gfx::Rect(0, 0, 300, 200), outer_properties->StickyTranslation()
-                                           ->GetStickyConstraint()
-                                           ->constraint_box_rect);
-}
-
 TEST_P(PaintPropertyTreeBuilderTest, NonScrollableSticky) {
   // This test verifies the property tree builder applies sticky offset
   // correctly when the clipping container cannot be scrolled, and
@@ -6464,8 +6440,7 @@ TEST_P(PaintPropertyTreeBuilderTest, VideoClipRect) {
   video_element->SetInlineStyleProperty(CSSPropertyID::kTop, "0.1px");
   video_element->SetInlineStyleProperty(CSSPropertyID::kLeft, "0.1px");
   LocalFrameView* frame_view = GetDocument().View();
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   const ObjectPaintProperties* video_element_properties =
       video_element->GetLayoutObject()->FirstFragment().PaintProperties();
   // |video_element| is now sub-pixel positioned, at 0.1,0.1 320.2x240. With or
@@ -6478,8 +6453,7 @@ TEST_P(PaintPropertyTreeBuilderTest, VideoClipRect) {
   // 321x240. With proper pixel snapping, the clip will be at 10,10,320,240.
   video_element->SetInlineStyleProperty(CSSPropertyID::kTop, "10.4px");
   video_element->SetInlineStyleProperty(CSSPropertyID::kLeft, "10.4px");
-  frame_view->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   EXPECT_EQ(FloatRoundedRect(10, 10, 320, 240),
             video_element_properties->OverflowClip()->ClipRect());
 }
@@ -6527,65 +6501,6 @@ TEST_P(PaintPropertyTreeBuilderTest, NoPaintPropertyForSVGText) {
                    ->GetLayoutObject();
   ASSERT_TRUE(text->IsText());
   EXPECT_FALSE(text->FirstFragment().PaintProperties());
-}
-
-TEST_P(PaintPropertyTreeBuilderTest, SetViewportScrollingBits) {
-  SetBodyInnerHTML(R"HTML(
-    <style>
-      body, html {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-      }
-      #scroller {
-       width: 100%;
-       height: 200%;
-       overflow: auto;
-      }
-    </style>
-    <div id="scroller">
-      <div style="height: 3000px"></div>
-    </div>
-  )HTML");
-
-  const auto* scroller_node = PaintPropertiesForElement("scroller")->Scroll();
-  const auto* document_node = DocScroll();
-
-  // Ensure the LayoutView's ScrollNode is marked as scrolling the "outer" or
-  // "layout" viewport.
-  {
-    EXPECT_FALSE(scroller_node->ScrollsOuterViewport());
-    EXPECT_TRUE(document_node->ScrollsOuterViewport());
-  }
-
-  // Ensure the visual viewport is the only one that sets the inner scroll bit.
-  {
-    EXPECT_TRUE(GetDocument()
-                    .GetPage()
-                    ->GetVisualViewport()
-                    .GetScrollNode()
-                    ->ScrollsInnerViewport());
-    EXPECT_FALSE(scroller_node->ScrollsInnerViewport());
-    EXPECT_FALSE(document_node->ScrollsInnerViewport());
-  }
-
-  // Make the scroller fill the viewport. This will make it eligible for root
-  // scroller promotion. Ensure the outer viewport scrolling property is
-  // correctly recomputed, moving it from the LayoutView to the scroller.
-  {
-    Element* scroller = GetDocument().getElementById("scroller");
-    scroller->setAttribute(html_names::kStyleAttr, "height: 100%");
-    LocalFrameView* frame_view = GetDocument().View();
-    frame_view->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
-    ASSERT_TRUE(scroller->GetLayoutObject()->IsGlobalRootScroller());
-
-    EXPECT_TRUE(scroller_node->ScrollsOuterViewport());
-
-    // Since the document is no longer scrollable and isn't the root scroller
-    // it shouldn't have a node.
-    EXPECT_FALSE(DocScroll());
-  }
 }
 
 TEST_P(PaintPropertyTreeBuilderTest, IsAffectedByOuterViewportBoundsDelta) {

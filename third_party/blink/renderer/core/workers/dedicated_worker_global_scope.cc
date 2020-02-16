@@ -36,12 +36,12 @@
 #include "third_party/blink/public/mojom/appcache/appcache.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/post_message_helper.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_post_message_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/worker_or_worklet_script_controller.h"
 #include "third_party/blink/renderer/core/core_initializer.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/inspector/worker_thread_debugger.h"
-#include "third_party/blink/renderer/core/messaging/post_message_options.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/workers/dedicated_worker_object_proxy.h"
@@ -143,7 +143,7 @@ void DedicatedWorkerGlobalScope::Initialize(
   SetReferrerPolicy(response_referrer_policy);
 
   // https://wicg.github.io/cors-rfc1918/#integration-html
-  SetAddressSpace(response_address_space);
+  GetSecurityContext().SetAddressSpace(response_address_space);
 
   // Step 12.6. "Execute the Initialize a global object's CSP list algorithm
   // on worker global scope and response. [CSP]"
@@ -175,7 +175,9 @@ void DedicatedWorkerGlobalScope::FetchAndRunClassicScript(
 
   // Step 12. "Fetch a classic worker script given url, outside settings,
   // destination, and inside settings."
-  auto destination = mojom::RequestContextType::WORKER;
+  mojom::RequestContextType context_type = mojom::RequestContextType::WORKER;
+  network::mojom::RequestDestination destination =
+      network::mojom::RequestDestination::kWorker;
 
   // Step 12.1. "Set request's reserved client to inside settings."
   // The browesr process takes care of this.
@@ -188,7 +190,8 @@ void DedicatedWorkerGlobalScope::FetchAndRunClassicScript(
       *this,
       CreateOutsideSettingsFetcher(outside_settings_object,
                                    outside_resource_timing_notifier),
-      script_url, destination, network::mojom::RequestMode::kSameOrigin,
+      script_url, context_type, destination,
+      network::mojom::RequestMode::kSameOrigin,
       network::mojom::CredentialsMode::kSameOrigin,
       WTF::Bind(&DedicatedWorkerGlobalScope::DidReceiveResponseForClassicScript,
                 WrapWeakPersistent(this),
@@ -206,13 +209,15 @@ void DedicatedWorkerGlobalScope::FetchAndRunModuleScript(
     network::mojom::CredentialsMode credentials_mode) {
   // Step 12: "Let destination be "sharedworker" if is shared is true, and
   // "worker" otherwise."
-  mojom::RequestContextType destination = mojom::RequestContextType::WORKER;
+  mojom::RequestContextType context_type = mojom::RequestContextType::WORKER;
+  network::mojom::RequestDestination destination =
+      network::mojom::RequestDestination::kWorker;
 
   // Step 13: "... Fetch a module worker script graph given url, outside
   // settings, destination, the value of the credentials member of options, and
   // inside settings."
   FetchModuleScript(module_url_record, outside_settings_object,
-                    outside_resource_timing_notifier, destination,
+                    outside_resource_timing_notifier, context_type, destination,
                     credentials_mode,
                     ModuleScriptCustomFetchType::kWorkerConstructor,
                     MakeGarbageCollected<WorkerModuleTreeClient>(

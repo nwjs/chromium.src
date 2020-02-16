@@ -98,6 +98,8 @@ const char kUnsafelyAllowProtectedMediaIdentifierForDomain[] =
     "unsafely-allow-protected-media-identifier-for-domain";
 
 // Use fake device for Media Stream to replace actual camera and microphone.
+// For the list of allowed parameters, see
+// FakeVideoCaptureDeviceFactory::ParseFakeDevicesConfigFromOptionsString().
 const char kUseFakeDeviceForMediaStream[] = "use-fake-device-for-media-stream";
 
 // Use an .y4m file to play as the webcam. See the comments in
@@ -181,10 +183,6 @@ const char kOverrideEnabledCdmInterfaceVersion[] =
 //  --override-hardware-secure-codecs-for-testing
 const char kOverrideHardwareSecureCodecsForTesting[] =
     "override-hardware-secure-codecs-for-testing";
-
-// Enables GpuMemoryBuffer-based buffer pool.
-const char kVideoCaptureUseGpuMemoryBuffer[] =
-    "video-capture-use-gpu-memory-buffer";
 
 namespace autoplay {
 
@@ -284,10 +282,6 @@ const base::Feature kRevokeMediaSourceObjectURLOnAttach{
 const base::Feature kChromeosVideoDecoder{"ChromeosVideoDecoder",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Don't allow use of 11.1 devices, even if supported. They might be more crashy
-const base::Feature kD3D11LimitTo11_0{"D3D11VideoDecoderLimitTo11_0",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enable saving playback information in a crash trace, to see if some codecs
 // are crashier than others.
 const base::Feature kD3D11PrintCodecOnCrash{"D3D11PrintCodecOnCrash",
@@ -334,8 +328,19 @@ const base::Feature kFallbackAfterDecodeError{"FallbackAfterDecodeError",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Show toolbar button that opens dialog for controlling media sessions.
-const base::Feature kGlobalMediaControls{"GlobalMediaControls",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kGlobalMediaControls {
+  "GlobalMediaControls",
+#if defined(OS_WIN) || defined(OS_MACOSX) || \
+    (defined(OS_LINUX) && !defined(OS_CHROMEOS))
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
+
+// Auto-dismiss global media controls.
+const base::Feature kGlobalMediaControlsAutoDismiss{
+    "GlobalMediaControlsAutoDismiss", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Show Cast sessions in Global Media Controls. It is no-op if
 // kGlobalMediaControls is not enabled.
@@ -346,6 +351,10 @@ const base::Feature kGlobalMediaControlsForCast{
 // notifications. It is no-op if kGlobalMediaControls is not enabled.
 const base::Feature kGlobalMediaControlsOverlayControls{
     "GlobalMediaControlsOverlayControls", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Show picture-in-picture button in Global Media Controls.
+const base::Feature kGlobalMediaControlsPictureInPicture{
+    "GlobalMediaControlsPictureInPicture", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable new cpu load estimator. Intended for evaluation in local
 // testing and origin-trial.
@@ -406,6 +415,10 @@ const base::Feature kVideoBlitColorAccuracy{"video-blit-color-accuracy",
 // no effect.
 const base::Feature kExternalClearKeyForTesting{
     "ExternalClearKeyForTesting", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the LiveCaption feature.
+const base::Feature kLiveCaption{"LiveCaption",
+                                 base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Prevents UrlProvisionFetcher from making a provisioning request. If
 // specified, any provisioning request made will not be sent to the provisioning
@@ -612,6 +625,11 @@ const base::Feature kMediaLearningExperiment{"MediaLearningExperiment",
 const base::Feature kMediaLearningFramework{"MediaLearningFramework",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables the smoothness prediction experiment.  Requires
+// kMediaLearningFramework to be enabled also, else it does nothing.
+const base::Feature kMediaLearningSmoothnessExperiment{
+    "MediaLearningSmoothnessExperiment", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable aggregate power measurement for media playback.
 const base::Feature kMediaPowerExperiment{"MediaPowerExperiment",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
@@ -647,6 +665,11 @@ const base::Feature kInternalMediaSession {
 
 const base::Feature kUseFakeDeviceForMediaStream{
     "use-fake-device-for-media-stream", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Makes VideoCadenceEstimator use Bresenham-like algorithm for frame cadence
+// estimations.
+const base::Feature kBresenhamCadence{"BresenhamCadence",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(

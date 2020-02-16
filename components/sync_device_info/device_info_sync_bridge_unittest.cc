@@ -26,6 +26,7 @@
 #include "components/sync/protocol/model_type_state.pb.h"
 #include "components/sync/test/test_matchers.h"
 #include "components/sync_device_info/device_info_prefs.h"
+#include "components/sync_device_info/device_info_util.h"
 #include "components/sync_device_info/local_device_info_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -253,10 +254,9 @@ ModelTypeState StateWithEncryption(const std::string& encryption_key_name) {
 }
 
 // Creates an EntityData around a copy of the given specifics.
-std::unique_ptr<EntityData> SpecificsToEntity(
-    const DeviceInfoSpecifics& specifics) {
-  auto data = std::make_unique<EntityData>();
-  *data->specifics.mutable_device_info() = specifics;
+EntityData SpecificsToEntity(const DeviceInfoSpecifics& specifics) {
+  EntityData data;
+  *data.specifics.mutable_device_info() = specifics;
   return data;
 }
 
@@ -303,7 +303,7 @@ class TestLocalDeviceInfoProvider : public MutableLocalDeviceInfoProvider {
         SyncUserAgentForSuffix(kLocalSuffix),
         sync_pb::SyncEnums_DeviceType_TYPE_LINUX,
         SigninScopedDeviceIdForSuffix(kLocalSuffix), hardware_info,
-        base::Time(),
+        base::Time(), DeviceInfoUtil::GetPulseInterval(),
         /*send_tab_to_self_receiving_enabled=*/true,
         DeviceInfo::SharingInfo(
             {SharingVapidFcmTokenForSuffix(kLocalSuffix),

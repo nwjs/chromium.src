@@ -188,14 +188,13 @@ class TestWebURLLoaderClient : public blink::WebURLLoaderClient {
   ~TestWebURLLoaderClient() override {}
 
   // blink::WebURLLoaderClient implementation:
-  bool WillFollowRedirect(
-      const blink::WebURL& new_url,
-      const blink::WebURL& new_site_for_cookies,
-      const blink::WebString& new_referrer,
-      network::mojom::ReferrerPolicy new_referrer_policy,
-      const blink::WebString& new_method,
-      const blink::WebURLResponse& passed_redirect_response,
-      bool& report_raw_headers) override {
+  bool WillFollowRedirect(const blink::WebURL& new_url,
+                          const net::SiteForCookies& new_site_for_cookies,
+                          const blink::WebString& new_referrer,
+                          network::mojom::ReferrerPolicy new_referrer_policy,
+                          const blink::WebString& new_method,
+                          const blink::WebURLResponse& passed_redirect_response,
+                          bool& report_raw_headers) override {
     EXPECT_TRUE(loader_);
 
     // No test currently simulates mutiple redirects.
@@ -324,7 +323,8 @@ class WebURLLoaderImplTest : public testing::Test {
     redirect_info.status_code = 302;
     redirect_info.new_method = "GET";
     redirect_info.new_url = GURL(kTestURL);
-    redirect_info.new_site_for_cookies = GURL(kTestURL);
+    redirect_info.new_site_for_cookies =
+        net::SiteForCookies::FromUrl(GURL(kTestURL));
     peer()->OnReceivedRedirect(redirect_info,
                                network::mojom::URLResponseHead::New());
     EXPECT_TRUE(client()->did_receive_redirect());
@@ -336,7 +336,8 @@ class WebURLLoaderImplTest : public testing::Test {
     redirect_info.status_code = 302;
     redirect_info.new_method = "GET";
     redirect_info.new_url = GURL(kTestHTTPSURL);
-    redirect_info.new_site_for_cookies = GURL(kTestHTTPSURL);
+    redirect_info.new_site_for_cookies =
+        net::SiteForCookies::FromUrl(GURL(kTestHTTPSURL));
     peer()->OnReceivedRedirect(redirect_info,
                                network::mojom::URLResponseHead::New());
     EXPECT_TRUE(client()->did_receive_redirect());

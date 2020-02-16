@@ -18,7 +18,10 @@ class AccessibilityNodeInfoDataWrapper : public AccessibilityInfoDataWrapper {
  public:
   AccessibilityNodeInfoDataWrapper(AXTreeSourceArc* tree_source,
                                    mojom::AccessibilityNodeInfoData* node,
-                                   bool is_clickable_leaf);
+                                   bool is_clickable_leaf,
+                                   bool is_important);
+
+  ~AccessibilityNodeInfoDataWrapper() override;
 
   // AccessibilityInfoDataWrapper overrides.
   bool IsNode() const override;
@@ -35,6 +38,9 @@ class AccessibilityNodeInfoDataWrapper : public AccessibilityInfoDataWrapper {
       std::vector<AccessibilityInfoDataWrapper*>* children) const override;
 
   mojom::AccessibilityNodeInfoData* node() { return node_ptr_; }
+
+  void set_role(ax::mojom::Role role) { role_ = role; }
+  void set_cached_name(const std::string& name) { cached_name_ = name; }
 
  private:
   bool GetProperty(mojom::AccessibilityBooleanProperty prop) const;
@@ -54,13 +60,15 @@ class AccessibilityNodeInfoDataWrapper : public AccessibilityInfoDataWrapper {
   void ComputeNameFromContents(const AccessibilityNodeInfoDataWrapper* data,
                                std::vector<std::string>* names) const;
 
-  bool IsFocusableNativeWeb(ax::mojom::Role role) const;
-
   bool IsInterestingLeaf() const;
 
   mojom::AccessibilityNodeInfoData* node_ptr_ = nullptr;
 
   bool is_clickable_leaf_;
+  bool is_important_;
+
+  base::Optional<ax::mojom::Role> role_;
+  base::Optional<std::string> cached_name_;
 
   DISALLOW_COPY_AND_ASSIGN(AccessibilityNodeInfoDataWrapper);
 };

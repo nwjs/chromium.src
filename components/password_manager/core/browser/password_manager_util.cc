@@ -35,42 +35,146 @@
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/signin/public/identity_manager/account_info.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/sync_user_settings.h"
 #include "crypto/sha2.h"
-#include "google_apis/gaia/core_account_id.h"
 
 using autofill::PasswordForm;
 
 namespace password_manager_util {
 namespace {
 
-// Return true if
-// 1.|lhs| is non-PSL match, |rhs| is PSL match or
-// 2.|lhs| and |rhs| have the same value of |is_public_suffix_match|, and |lhs|
-// is preferred while |rhs| is not preferred.
-bool IsBetterMatch(const PasswordForm* lhs, const PasswordForm* rhs) {
-  return std::make_pair(!lhs->is_public_suffix_match, lhs->preferred) >
-         std::make_pair(!rhs->is_public_suffix_match, rhs->preferred);
-}
-
 // Return true if 1.|lhs| is non-PSL match, |rhs| is PSL match or 2.|lhs| and
 // |rhs| have the same value of |is_public_suffix_match|, and |lhs| is more
 // recently used than |rhs|.
-// TODO(crbug.com/1002000): Rename to IsBetterMatch when migration to
-// date_last_used is done.
-bool IsBetterMatchUsingLastUsed(const PasswordForm* lhs,
-                                const PasswordForm* rhs) {
+bool IsBetterMatch(const PasswordForm* lhs, const PasswordForm* rhs) {
   return std::make_pair(!lhs->is_public_suffix_match, lhs->date_last_used) >
          std::make_pair(!rhs->is_public_suffix_match, rhs->date_last_used);
 }
 
-std::string GetAccountHash(const CoreAccountId& account_id) {
+// Returns whether the account-scoped password storage can be enabled in
+// principle for the current profile. This is constant for a given profile
+// (until browser restart).
+bool CanAccountStorageBeEnabled(const syncer::SyncService* sync_service) {
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kEnablePasswordsAccountStorage)) {
+    return false;
+  }
+
+  // |sync_service| is null in incognito mode, or if --disable-sync was
+  // specified on the command-line.
+  if (!sync_service)
+    return false;
+
+  return true;
+}
+
+// Whether the currently signed-in user (if any) is eligible for using the
+// account-scoped password storage. This is the case if:
+// - The account storage can be enabled in principle.
+// - Sync-the-transport is running (i.e. there's a signed-in user, Sync is not
+//   disabled by policy, etc).
+// - There is no custom passphrase (because Sync transport offers no way to
+//   enter the passphrase yet). Note that checking this requires the SyncEngine
+//   to be initialized.
+// - Sync-the-feature is NOT enabled (if it is, there's only a single combined
+//   storage).
+bool IsUserEligibleForAccountStorage(const syncer::SyncService* sync_service) {
+  return CanAccountStorageBeEnabled(sync_service) &&
+         sync_service->GetTransportState() !=
+             syncer::SyncService::TransportState::DISABLED &&
+         sync_service->IsEngineInitialized() &&
+         !sync_service->GetUserSettings()->IsUsingSecondaryPassphrase() &&
+         !sync_service->IsSyncFeatureEnabled();
+}
+
+std::string GetAccountHash(const std::string& gaia_id) {
   std::string account_hash;
-  base::Base64Encode(crypto::SHA256HashString(account_id.ToString()),
-                     &account_hash);
+  base::Base64Encode(crypto::SHA256HashString(gaia_id), &account_hash);
   return account_hash;
 }
+
+PasswordForm::Store PasswordStoreFromInt(int value) {
+  switch (value) {
+    case static_cast<int>(PasswordForm::Store::kProfileStore):
+      return PasswordForm::Store::kProfileStore;
+    case static_cast<int>(PasswordForm::Store::kAccountStore):
+      return PasswordForm::Store::kAccountStore;
+  }
+  return PasswordForm::Store::kNotSet;
+}
+
+const char kAccountStorageOptedInKey[] = "opted_in";
+const char kAccountStorageDefaultStoreKey[] = "default_store";
+
+// Helper class for reading account storage settings for a given account.
+class AccountStorageSettingsReader {
+ public:
+  AccountStorageSettingsReader(const PrefService* prefs,
+                               const std::string& gaia_id) {
+    DCHECK(!gaia_id.empty());
+
+    const base::DictionaryValue* global_pref = prefs->GetDictionary(
+        password_manager::prefs::kAccountStoragePerAccountSettings);
+    if (global_pref)
+      account_settings_ = global_pref->FindDictKey(GetAccountHash(gaia_id));
+  }
+
+  bool IsOptedIn() {
+    if (!account_settings_)
+      return false;
+    return account_settings_->FindBoolKey(kAccountStorageOptedInKey)
+        .value_or(false);
+  }
+
+  PasswordForm::Store GetDefaultStore() const {
+    if (!account_settings_)
+      return PasswordForm::Store::kNotSet;
+    base::Optional<int> value =
+        account_settings_->FindIntKey(kAccountStorageDefaultStoreKey);
+    if (!value)
+      return PasswordForm::Store::kNotSet;
+    return PasswordStoreFromInt(*value);
+  }
+
+ private:
+  // May be null, if no settings for this account were saved yet.
+  const base::Value* account_settings_ = nullptr;
+};
+
+// Helper class for updating account storage settings for a given account. Like
+// with DictionaryPrefUpdate, updates are only published once the instance gets
+// destroyed.
+class ScopedAccountStorageSettingsUpdate {
+ public:
+  ScopedAccountStorageSettingsUpdate(PrefService* prefs,
+                                     const std::string& gaia_id)
+      : update_(prefs,
+                password_manager::prefs::kAccountStoragePerAccountSettings) {
+    DCHECK(!gaia_id.empty());
+    const std::string account_hash = GetAccountHash(gaia_id);
+    account_settings_ = update_->FindDictKey(account_hash);
+    if (!account_settings_) {
+      account_settings_ =
+          update_->SetKey(account_hash, base::DictionaryValue());
+    }
+    DCHECK(account_settings_);
+  }
+
+  void SetOptedIn(bool opt_in) {
+    account_settings_->SetBoolKey(kAccountStorageOptedInKey, opt_in);
+  }
+
+  void SetDefaultStore(PasswordForm::Store default_store) {
+    account_settings_->SetIntKey(kAccountStorageDefaultStoreKey,
+                                 static_cast<int>(default_store));
+  }
+
+ private:
+  DictionaryPrefUpdate update_;
+  base::Value* account_settings_ = nullptr;
+};
 
 }  // namespace
 
@@ -133,11 +237,6 @@ bool IsLoggingActive(const password_manager::PasswordManagerClient* client) {
 
 bool ManualPasswordGenerationEnabled(
     password_manager::PasswordManagerDriver* driver) {
-#if defined(OS_ANDROID)
-  if (!base::FeatureList::IsEnabled(
-          password_manager::features::kManualPasswordGenerationAndroid))
-    return false;
-#endif  // defined(OS_ANDROID)
   password_manager::PasswordGenerationFrameHelper* password_generation_manager =
       driver ? driver->GetPasswordGenerationHelper() : nullptr;
   if (!password_generation_manager ||
@@ -163,8 +262,8 @@ bool ShowAllSavedPasswordsContextMenuEnabled(
     return false;
 
   LogContextOfShowAllSavedPasswordsShown(
-      password_manager::metrics_util::
-          SHOW_ALL_SAVED_PASSWORDS_CONTEXT_CONTEXT_MENU);
+      password_manager::metrics_util::ShowAllSavedPasswordsContext::
+          kContextMenu);
 
   return true;
 }
@@ -225,7 +324,6 @@ base::StringPiece GetSignonRealmWithProtocolExcluded(const PasswordForm& form) {
 void FindBestMatches(
     const std::vector<const PasswordForm*>& non_federated_matches,
     PasswordForm::Scheme scheme,
-    bool sort_matches_by_date_last_used,
     std::vector<const PasswordForm*>* non_federated_same_scheme,
     std::vector<const PasswordForm*>* best_matches,
     const PasswordForm** preferred_match) {
@@ -248,11 +346,8 @@ void FindBestMatches(
   if (non_federated_same_scheme->empty())
     return;
 
-  // Sort matches using IsBetterMatchUsingLastUsed or IsBetterMatch predicate.
   std::sort(non_federated_same_scheme->begin(),
-            non_federated_same_scheme->end(),
-            sort_matches_by_date_last_used ? IsBetterMatchUsingLastUsed
-                                           : IsBetterMatch);
+            non_federated_same_scheme->end(), IsBetterMatch);
 
   std::set<base::string16> usernames;
   for (const auto* match : *non_federated_same_scheme) {
@@ -352,51 +447,22 @@ bool IsOptedInForAccountStorage(const PrefService* pref_service,
                                 const syncer::SyncService* sync_service) {
   DCHECK(pref_service);
 
-  if (!base::FeatureList::IsEnabled(
-          password_manager::features::kEnablePasswordsAccountStorage)) {
-    return false;
-  }
-
-  // |sync_service| is null in incognito mode, or if --disable-sync was
-  // specified on the command-line.
-  if (!sync_service)
+  if (!CanAccountStorageBeEnabled(sync_service))
     return false;
 
-  CoreAccountId account_id = sync_service->GetAuthenticatedAccountId();
-  if (account_id.empty())
+  std::string gaia_id = sync_service->GetAuthenticatedAccountInfo().gaia;
+  if (gaia_id.empty())
     return false;
 
-  const base::DictionaryValue* dict = pref_service->GetDictionary(
-      password_manager::prefs::kAccountStorageOptedInAccounts);
-  if (!dict)
-    return false;
-
-  base::Optional<bool> opted_in = dict->FindBoolKey(GetAccountHash(account_id));
-  return opted_in.value_or(false);
+  return AccountStorageSettingsReader(pref_service, gaia_id).IsOptedIn();
 }
 
 bool ShouldShowAccountStorageOptIn(const PrefService* pref_service,
                                    const syncer::SyncService* sync_service) {
   DCHECK(pref_service);
 
-  if (!base::FeatureList::IsEnabled(
-          password_manager::features::kEnablePasswordsAccountStorage)) {
-    return false;
-  }
-
-  // |sync_service| is null in incognito mode, or if --disable-sync was
-  // specified on the command-line.
-  if (!sync_service)
-    return false;
-
-  // Only show the opt-in if:
-  // - Sync transport is enabled (i.e. user is signed in, Sync is not disabled
-  //   by policy etc) - otherwise there's no point in asking.
-  // - Sync feature is NOT enabled - Sync feature doesn't depend on this opt-in.
-  // - Not already opted in.
-  return sync_service->GetTransportState() !=
-             syncer::SyncService::TransportState::DISABLED &&
-         !sync_service->IsSyncFeatureEnabled() &&
+  // Show the opt-in if the user is eligible, but not yet opted in.
+  return IsUserEligibleForAccountStorage(sync_service) &&
          !IsOptedInForAccountStorage(pref_service, sync_service);
 }
 
@@ -408,15 +474,60 @@ void SetAccountStorageOptIn(PrefService* pref_service,
   DCHECK(base::FeatureList::IsEnabled(
       password_manager::features::kEnablePasswordsAccountStorage));
 
-  CoreAccountId account_id = sync_service->GetAuthenticatedAccountId();
-  if (account_id.empty()) {
+  std::string gaia_id = sync_service->GetAuthenticatedAccountInfo().gaia;
+  if (gaia_id.empty()) {
     // Maybe the account went away since the opt-in UI was shown. This should be
     // rare, but is ultimately harmless - just do nothing here.
     return;
   }
-  DictionaryPrefUpdate update(
-      pref_service, password_manager::prefs::kAccountStorageOptedInAccounts);
-  update->SetBoolean(GetAccountHash(account_id), opt_in);
+  ScopedAccountStorageSettingsUpdate(pref_service, gaia_id).SetOptedIn(opt_in);
+}
+
+PasswordForm::Store GetDefaultPasswordStore(
+    const PrefService* pref_service,
+    const syncer::SyncService* sync_service) {
+  DCHECK(pref_service);
+
+  if (!IsUserEligibleForAccountStorage(sync_service))
+    return PasswordForm::Store::kProfileStore;
+
+  std::string gaia_id = sync_service->GetAuthenticatedAccountInfo().gaia;
+  if (gaia_id.empty())
+    return PasswordForm::Store::kProfileStore;
+
+  PasswordForm::Store default_store =
+      AccountStorageSettingsReader(pref_service, gaia_id).GetDefaultStore();
+  // If none of the early-outs above triggered, then we *can* save to the
+  // account store in principle (though the user might not have opted in to that
+  // yet). In this case, default to the account store.
+  if (default_store == PasswordForm::Store::kNotSet)
+    return PasswordForm::Store::kAccountStore;
+  return default_store;
+}
+
+void SetDefaultPasswordStore(PrefService* pref_service,
+                             const syncer::SyncService* sync_service,
+                             PasswordForm::Store default_store) {
+  DCHECK(pref_service);
+  DCHECK(sync_service);
+  DCHECK(base::FeatureList::IsEnabled(
+      password_manager::features::kEnablePasswordsAccountStorage));
+
+  std::string gaia_id = sync_service->GetAuthenticatedAccountInfo().gaia;
+  if (gaia_id.empty()) {
+    // Maybe the account went away since the UI was shown. This should be rare,
+    // but is ultimately harmless - just do nothing here.
+    return;
+  }
+  ScopedAccountStorageSettingsUpdate(pref_service, gaia_id)
+      .SetDefaultStore(default_store);
+  if (gaia_id.empty()) {
+    // Maybe the account went away since the UI was shown. This should be rare,
+    // but is ultimately harmless - just do nothing here.
+    return;
+  }
+  ScopedAccountStorageSettingsUpdate(pref_service, gaia_id)
+      .SetDefaultStore(default_store);
 }
 
 }  // namespace password_manager_util

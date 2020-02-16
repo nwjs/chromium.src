@@ -4,8 +4,6 @@
 
 """Test runner for running tests using xcodebuild."""
 
-import sys
-
 import collections
 import distutils.version
 import logging
@@ -13,7 +11,6 @@ import multiprocessing
 import os
 import plistlib
 import subprocess
-import threading
 import time
 
 import iossim_util
@@ -297,48 +294,22 @@ class LaunchCommand(object):
                 and index == len(self.test_results['attempts']) - 1)):
           self.logs[test_status] += len(test_attempt_results[test_status])
 
-  def launch_attempt(self, cmd, out_dir):
+  def launch_attempt(self, cmd):
     """Launch a process and do logging simultaneously.
 
     Args:
       cmd: (list[str]) A command to run.
-      out_dir: (str) Output directory given to the command. Used in tests only.
 
     Returns:
-      returncode - return code of command run.
       output - command output as list of strings.
     """
-    LOGGER.info('Launching %s with env %s' % (cmd, self.env))
-    output = []
     proc = subprocess.Popen(
         cmd,
         env=self.env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
-
-    while True:
-      # It seems that subprocess.stdout.readline() is stuck from time to time
-      # and tests fail because of TIMEOUT.
-      # Try to fix the issue by adding timer-thread for 3 mins
-      # that will kill `frozen` running process if no new line is read
-      # and will finish test attempt.
-      # If new line appears in 3 mins, just cancel timer.
-      timer = threading.Timer(test_runner.READLINE_TIMEOUT,
-                              terminate_process, [proc])
-      timer.start()
-      line = proc.stdout.readline()
-      timer.cancel()
-      if not line:
-        break
-      line = line.rstrip()
-      LOGGER.info(line)
-      output.append(line)
-      sys.stdout.flush()
-
-    proc.wait()
-    LOGGER.info('Command %s finished with %d' % (cmd, proc.returncode))
-    return proc.returncode, output
+    return test_runner.print_process_output(proc)
 
   def launch(self):
     """Launches tests using xcodebuild."""
@@ -351,8 +322,7 @@ class LaunchCommand(object):
     # total number of attempts is self.retries+1
     for attempt in range(self.retries + 1):
       # Erase all simulators per each attempt
-      if 'simulator' in iossim_util.get_simulator_runtime_by_device_udid(
-          self.udid).lower():
+      if iossim_util.is_device_with_udid_simulator(self.udid):
         # kill all running simulators to prevent possible memory leaks
         test_runner.SimulatorTestRunner.kill_simulators()
         shutdown_all_simulators()
@@ -365,7 +335,7 @@ class LaunchCommand(object):
       # TODO(crbug.com/914878): add heartbeat logging to xcodebuild_runner.
       LOGGER.info('Start test attempt #%d for command [%s]' % (
           attempt, ' '.join(cmd_list)))
-      _, output = self.launch_attempt(cmd_list, outdir_attempt)
+      output = self.launch_attempt(cmd_list)
       self.test_results['attempts'].append(
           self._log_parser.collect_test_results(outdir_attempt, output))
       if self.retries == attempt or not self.test_results[
@@ -395,7 +365,6 @@ class LaunchCommand(object):
           or (len(running_tests) - len(self.egtests_app.excluded_tests)
               <= MAXIMUM_TESTS_PER_SHARD_FOR_RERUN)):
         shards = 1
-    self.test_results['end_run'] = int(time.time())
     self.summary_log()
 
     return {
@@ -526,9 +495,7 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
       self.host_app_path = os.path.abspath(host_app_path)
     self._init_sharding_data()
     self.logs = collections.OrderedDict()
-    self.test_results = collections.OrderedDict()
-    self.test_results['start_run'] = int(time.time())
-    self.test_results['end_run'] = None
+    self.test_results['path_delimiter'] = '/'
 
   def _init_sharding_data(self):
     """Initialize sharding data.
@@ -545,7 +512,7 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
     self.sharding_data = [{
         'app': self.app_path,
         'host': self.host_app_path,
-        'udid': iossim_util.get_simulator(self.platform, self.version),
+        'udid': self.udid,
         'shards': self.shards,
         'test_cases': self.test_cases
     }]
@@ -582,7 +549,6 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
     attempts_results = []
     for result in pool.imap_unordered(LaunchCommand.launch, launch_commands):
       attempts_results.append(result['test_results']['attempts'])
-    self.test_results['end_run'] = int(time.time())
 
     # Gets passed tests
     self.logs['passed tests'] = []
@@ -617,6 +583,38 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
                          set(self.logs['passed tests']))
     aborted_tests.sort()
     self.logs['aborted tests'] = aborted_tests
+
+    self.test_results['interrupted'] = bool(aborted_tests)
+    self.test_results['num_failures_by_type'] = {
+        'FAIL': len(self.logs['failed tests'] + self.logs['aborted tests']),
+        'PASS': len(self.logs['passed tests']),
+    }
+    self.test_results['tests'] = collections.OrderedDict()
+
+    for shard_attempts in attempts_results:
+      for attempt, attempt_results in enumerate(shard_attempts):
+
+        for test in attempt_results['failed'].keys() + self.logs[
+            'aborted tests']:
+          if attempt == len(shard_attempts) - 1:
+            test_result = 'FAIL'
+          else:
+            test_result = self.test_results['tests'].get(test, {}).get(
+                'actual', '') + ' FAIL'
+          self.test_results['tests'][test] = {
+              'expected': 'PASS',
+              'actual': test_result.strip()
+          }
+
+        for test in attempt_results['passed']:
+          test_result = self.test_results['tests'].get(test, {}).get(
+              'actual', '') + ' PASS'
+          self.test_results['tests'][test] = {
+              'expected': 'PASS',
+              'actual': test_result.strip()
+          }
+          if 'FAIL' in test_result:
+            self.test_results['tests'][test]['is_flaky'] = True
 
     # Test is failed if there are failures for the last run.
     return not self.logs['failed tests']
@@ -683,15 +681,8 @@ class DeviceXcodeTestRunner(SimulatorParallelTestRunner,
     self.homedir = ''
     self.set_up()
     self._init_sharding_data()
-    # Destination is required to run tests via xcodebuild on real devices
-    # and it looks like id=%ID%
-    self.sharding_data[0]['destination'] = 'id=%s' % self.udid
-
-    self.logs = collections.OrderedDict()
-    self.test_results = collections.OrderedDict()
-    self.test_results['start_run'] = int(time.time())
-    self.test_results['end_run'] = None
     self.start_time = time.strftime('%Y-%m-%d-%H%M%S', time.localtime())
+    self.test_results['path_delimiter'] = '/'
 
   def set_up(self):
     """Performs setup actions which must occur prior to every test launch."""

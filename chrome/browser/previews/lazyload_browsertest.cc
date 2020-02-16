@@ -47,10 +47,9 @@ class LazyLoadBrowserTest : public InProcessBrowserTest {
   }
 
   void EnableDataSaver(bool enabled) {
-    Profile* profile = Profile::FromBrowserContext(browser()->profile());
-
     data_reduction_proxy::DataReductionProxySettings::
-        SetDataSaverEnabledForTesting(profile->GetPrefs(), enabled);
+        SetDataSaverEnabledForTesting(browser()->profile()->GetPrefs(),
+                                      enabled);
     base::RunLoop().RunUntilIdle();
   }
 
@@ -146,7 +145,7 @@ IN_PROC_BROWSER_TEST_F(LazyLoadBrowserTest, CSSBackgroundImageDeferred) {
       browser(),
       embedded_test_server()->GetURL("/lazyload/css-background-image.html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   base::RunLoop().RunUntilIdle();
   // Navigate away to finish the histogram recording.
@@ -219,8 +218,9 @@ IN_PROC_BROWSER_TEST_F(LazyLoadBrowserTest,
                                           "loading=lazy img ON_LOAD FOR TEST"));
 }
 
+// Disabled due to flakiness (crbug.com/1035057)
 IN_PROC_BROWSER_TEST_F(LazyLoadBrowserTest,
-                       LazyLoadFrame_DeferredAndLoadedOnScroll) {
+                       DISABLED_LazyLoadFrame_DeferredAndLoadedOnScroll) {
   EnableDataSaver(true);
   SetUpLazyLoadFrameTestPage();
   GURL test_url(embedded_test_server()->GetURL("/mainpage.html"));
@@ -409,7 +409,7 @@ class LazyLoadPrerenderBrowserTest : public LazyLoadBrowserTest {
   }
 };
 
-IN_PROC_BROWSER_TEST_F(LazyLoadPrerenderBrowserTest, ImagesIgnored) {
+IN_PROC_BROWSER_TEST_F(LazyLoadPrerenderBrowserTest, DISABLED_ImagesIgnored) {
   EnableDataSaver(true);
   SetUpURLMonitor();
   ASSERT_TRUE(embedded_test_server()->Start());

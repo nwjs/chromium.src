@@ -130,9 +130,9 @@ class MODULES_EXPORT AXObjectCacheImpl
   void HandleScaleAndLocationChanged(Document*) override;
   void HandleTextMarkerDataAdded(Node* start, Node* end) override;
   void HandleValueChanged(Node*) override;
-  void HandleUpdateActiveMenuOption(LayoutMenuList*, int option_index) override;
-  void DidShowMenuListPopup(LayoutMenuList*) override;
-  void DidHideMenuListPopup(LayoutMenuList*) override;
+  void HandleUpdateActiveMenuOption(LayoutObject*, int option_index) override;
+  void DidShowMenuListPopup(LayoutObject*) override;
+  void DidHideMenuListPopup(LayoutObject*) override;
   void HandleLoadComplete(Document*) override;
   void HandleLayoutComplete(Document*) override;
   void HandleClicked(Node*) override;
@@ -238,6 +238,16 @@ class MODULES_EXPORT AXObjectCacheImpl
   void UpdateAriaOwns(const AXObject* owner,
                       const Vector<String>& id_vector,
                       HeapVector<Member<AXObject>>& owned_children);
+
+  // Given an object that has explicitly set elements for aria-owns, update the
+  // internal state to reflect the new set of children owned by this object.
+  // Note that |owned_children| will be the AXObjects corresponding to the
+  // elements in |attr_associated_elements|. These elements are validated -
+  // exist in the DOM, and are a descendant of a shadow including ancestor.
+  void UpdateAriaOwnsFromAttrAssociatedElements(
+      const AXObject* owner,
+      const HeapVector<Member<Element>>& attr_associated_elements,
+      HeapVector<Member<AXObject>>& owned_children);
 
   bool MayHaveHTMLLabel(const HTMLElement& elem);
 
@@ -409,7 +419,10 @@ class MODULES_EXPORT AXObjectCacheImpl
 };
 
 // This is the only subclass of AXObjectCache.
-DEFINE_TYPE_CASTS(AXObjectCacheImpl, AXObjectCache, cache, true, true);
+template <>
+struct DowncastTraits<AXObjectCacheImpl> {
+  static bool AllowFrom(const AXObjectCache& cache) { return true; }
+};
 
 // This will let you know if aria-hidden was explicitly set to false.
 bool IsNodeAriaVisible(Node*);

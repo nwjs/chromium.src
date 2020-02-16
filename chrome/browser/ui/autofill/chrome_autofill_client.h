@@ -15,6 +15,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
+#include "chrome/browser/autofill/autofill_gstatic_reader.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -39,6 +40,7 @@ class WebContents;
 namespace autofill {
 
 class AutofillPopupControllerImpl;
+class SmsClient;
 
 // Chrome implementation of AutofillClient.
 class ChromeAutofillClient
@@ -46,7 +48,7 @@ class ChromeAutofillClient
       public content::WebContentsUserData<ChromeAutofillClient>,
       public content::WebContentsObserver
 #if !defined(OS_ANDROID)
-      ,
+    ,
       public zoom::ZoomObserver
 #endif  // !defined(OS_ANDROID)
 {
@@ -62,12 +64,17 @@ class ChromeAutofillClient
   signin::IdentityManager* GetIdentityManager() override;
   FormDataImporter* GetFormDataImporter() override;
   payments::PaymentsClient* GetPaymentsClient() override;
+  SmsClient* GetSmsClient() override;
   StrikeDatabase* GetStrikeDatabase() override;
   ukm::UkmRecorder* GetUkmRecorder() override;
   ukm::SourceId GetUkmSourceId() override;
   AddressNormalizer* GetAddressNormalizer() override;
   security_state::SecurityLevel GetSecurityLevelForUmaHistograms() override;
   std::string GetPageLanguage() const override;
+#if !defined(OS_ANDROID)
+  std::vector<std::string> GetMerchantWhitelistForVirtualCards() override;
+  std::vector<std::string> GetBinRangeWhitelistForVirtualCards() override;
+#endif
 
   void ShowAutofillSettings(bool show_credit_card_settings) override;
   void ShowUnmaskPrompt(const CreditCard& card,
@@ -93,6 +100,12 @@ class ChromeAutofillClient
       WebauthnDialogCallback verify_pending_dialog_callback) override;
   void UpdateWebauthnOfferDialogWithError() override;
   bool CloseWebauthnDialog() override;
+  void ConfirmSaveUpiIdLocally(
+      const std::string& upi_id,
+      base::OnceCallback<void(bool accept)> callback) override;
+  void OfferVirtualCardOptions(
+      const std::vector<CreditCard*>& candidates,
+      base::OnceCallback<void(const std::string&)> callback) override;
 #endif  // !defined(OS_ANDROID)
   void ConfirmSaveAutofillProfile(const AutofillProfile& profile,
                                   base::OnceClosure callback) override;
@@ -117,7 +130,7 @@ class ChromeAutofillClient
   void ConfirmCreditCardFillAssist(const CreditCard& card,
                                    base::OnceClosure callback) override;
   bool HasCreditCardScanFeature() override;
-  void ScanCreditCard(const CreditCardScanCallback& callback) override;
+  void ScanCreditCard(CreditCardScanCallback callback) override;
   void ShowAutofillPopup(
       const gfx::RectF& element_bounds,
       base::i18n::TextDirection text_direction,
@@ -128,7 +141,11 @@ class ChromeAutofillClient
   void UpdateAutofillPopupDataListValues(
       const std::vector<base::string16>& values,
       const std::vector<base::string16>& labels) override;
-  void HideAutofillPopup() override;
+  base::span<const Suggestion> GetPopupSuggestions() const override;
+  void PinPopupViewUntilUpdate() override;
+  void UpdatePopup(const std::vector<autofill::Suggestion>& suggestions,
+                   PopupType popup_type) override;
+  void HideAutofillPopup(PopupHidingReason reason) override;
   bool IsAutocompleteEnabled() override;
   void PropagateAutofillPredictions(
       content::RenderFrameHost* rfh,
@@ -170,6 +187,7 @@ class ChromeAutofillClient
   base::string16 GetAccountHolderName();
 
   std::unique_ptr<payments::PaymentsClient> payments_client_;
+  std::unique_ptr<SmsClient> sms_client_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
   base::WeakPtr<AutofillPopupControllerImpl> popup_controller_;
   CardUnmaskPromptControllerImpl unmask_controller_;

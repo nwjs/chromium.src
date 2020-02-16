@@ -14,6 +14,7 @@
 #include "ui/views/controls/combobox/combobox.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/textfield/textfield.h"
+#include "ui/views/examples/examples_window.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/grid_layout.h"
 #include "ui/views/layout/layout_provider.h"
@@ -35,7 +36,13 @@ constexpr int kFakeModeless = ui::MODAL_TYPE_SYSTEM + 1;
 template <class DialogType>
 class DialogExample::Delegate : public virtual DialogType {
  public:
-  explicit Delegate(DialogExample* parent) : parent_(parent) {}
+  explicit Delegate(DialogExample* parent) : parent_(parent) {
+    DialogDelegate::set_buttons(parent_->GetDialogButtons());
+    DialogDelegate::set_button_label(ui::DIALOG_BUTTON_OK,
+                                     parent_->ok_button_label_->GetText());
+    DialogDelegate::set_button_label(ui::DIALOG_BUTTON_CANCEL,
+                                     parent_->cancel_button_label_->GetText());
+  }
 
   void InitDelegate() {
     this->SetLayoutManager(std::make_unique<FillLayout>());
@@ -66,14 +73,6 @@ class DialogExample::Delegate : public virtual DialogType {
 
   bool Cancel() override { return parent_->AllowDialogClose(false); }
   bool Accept() override { return parent_->AllowDialogClose(true); }
-  int GetDialogButtons() const override { return parent_->GetDialogButtons(); }
-  base::string16 GetDialogButtonLabel(ui::DialogButton button) const override {
-    if (button == ui::DIALOG_BUTTON_OK)
-      return parent_->ok_button_label_->GetText();
-    if (button == ui::DIALOG_BUTTON_CANCEL)
-      return parent_->cancel_button_label_->GetText();
-    return base::string16();
-  }
 
  private:
   DialogExample* parent_;
@@ -268,7 +267,7 @@ void DialogExample::ButtonPressed(Button* sender, const ui::Event& event) {
   if (sender == bubble_) {
     if (bubble_->GetChecked() && GetModalType() != ui::MODAL_TYPE_CHILD) {
       mode_->SetSelectedIndex(ui::MODAL_TYPE_CHILD);
-      PrintStatus("You nearly always want Child Modal for bubbles.");
+      LogStatus("You nearly always want Child Modal for bubbles.");
     }
     persistent_bubble_->SetEnabled(bubble_->GetChecked());
     OnPerformAction(mode_);  // Validate the modal type.
@@ -294,7 +293,7 @@ void DialogExample::ContentsChanged(Textfield* sender,
     return;
 
   if (sender == extra_button_label_)
-    PrintStatus("DialogDelegate can never refresh the extra view.");
+    LogStatus("DialogDelegate can never refresh the extra view.");
 
   if (sender == title_) {
     last_dialog_->GetWidget()->UpdateWindowTitle();
@@ -314,9 +313,9 @@ void DialogExample::OnPerformAction(Combobox* combobox) {
 #endif
   show_->SetEnabled(enable);
   if (!enable && GetModalType() == ui::MODAL_TYPE_CHILD)
-    PrintStatus("MODAL_TYPE_CHILD can't be used with non-bubbles.");
+    LogStatus("MODAL_TYPE_CHILD can't be used with non-bubbles.");
   if (!enable && GetModalType() == ui::MODAL_TYPE_SYSTEM)
-    PrintStatus("MODAL_TYPE_SYSTEM isn't supported on Mac.");
+    LogStatus("MODAL_TYPE_SYSTEM isn't supported on Mac.");
 }
 
 }  // namespace examples

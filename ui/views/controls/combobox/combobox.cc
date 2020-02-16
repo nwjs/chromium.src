@@ -13,8 +13,6 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/ime/input_method.h"
-#include "ui/base/models/combobox_model.h"
-#include "ui/base/models/combobox_model_observer.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/events/event.h"
 #include "ui/gfx/canvas.h"
@@ -224,7 +222,7 @@ Combobox::Combobox(ui::ComboboxModel* model, int text_context, int text_style)
       menu_model_(new ComboboxMenuModel(this, model)),
       arrow_button_(new TransparentButton(this)),
       size_to_largest_label_(true) {
-  model_->AddObserver(this);
+  observer_.Add(model_);
   OnComboboxModelChanged(model_);
 #if defined(OS_MACOSX)
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
@@ -250,7 +248,6 @@ Combobox::~Combobox() {
     // Combobox should have been blurred before destroy.
     DCHECK(selector_.get() != GetInputMethod()->GetTextInputClient());
   }
-  model_->RemoveObserver(this);
 }
 
 const gfx::FontList& Combobox::GetFontList() const {
@@ -360,8 +357,8 @@ void Combobox::OnBoundsChanged(const gfx::Rect& previous_bounds) {
 
 bool Combobox::SkipDefaultKeyEventProcessing(const ui::KeyEvent& e) {
   // Escape should close the drop down list when it is active, not host UI.
-  if (e.key_code() != ui::VKEY_ESCAPE ||
-      e.IsShiftDown() || e.IsControlDown() || e.IsAltDown()) {
+  if (e.key_code() != ui::VKEY_ESCAPE || e.IsShiftDown() || e.IsControlDown() ||
+      e.IsAltDown() || e.IsAltGrDown()) {
     return false;
   }
   return !!menu_runner_;

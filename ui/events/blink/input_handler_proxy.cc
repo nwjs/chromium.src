@@ -22,9 +22,9 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "cc/input/main_thread_scrolling_reason.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_mouse_wheel_event.h"
-#include "third_party/blink/public/platform/web_touch_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
+#include "third_party/blink/public/common/input/web_touch_event.h"
 #include "ui/events/blink/blink_event_util.h"
 #include "ui/events/blink/compositor_thread_event_queue.h"
 #include "ui/events/blink/did_overscroll_params.h"
@@ -52,8 +52,8 @@ cc::ScrollState CreateScrollStateForGesture(const WebGestureEvent& event) {
   cc::ScrollStateData scroll_state_data;
   switch (event.GetType()) {
     case WebInputEvent::kGestureScrollBegin:
-      scroll_state_data.position_x = event.PositionInWidget().x;
-      scroll_state_data.position_y = event.PositionInWidget().y;
+      scroll_state_data.position_x = event.PositionInWidget().x();
+      scroll_state_data.position_y = event.PositionInWidget().y();
       scroll_state_data.delta_x_hint = -event.data.scroll_begin.delta_x_hint;
       scroll_state_data.delta_y_hint = -event.data.scroll_begin.delta_y_hint;
       scroll_state_data.is_beginning = true;
@@ -63,7 +63,7 @@ cc::ScrollState CreateScrollStateForGesture(const WebGestureEvent& event) {
           (event.data.scroll_begin.inertial_phase ==
            WebGestureEvent::InertialPhaseState::kMomentum);
       scroll_state_data.delta_granularity =
-          static_cast<double>(event.data.scroll_begin.delta_hint_units);
+          event.data.scroll_begin.delta_hint_units;
       break;
     case WebInputEvent::kGestureScrollUpdate:
       scroll_state_data.delta_x = -event.data.scroll_update.delta_x;
@@ -74,7 +74,7 @@ cc::ScrollState CreateScrollStateForGesture(const WebGestureEvent& event) {
           event.data.scroll_update.inertial_phase ==
           WebGestureEvent::InertialPhaseState::kMomentum;
       scroll_state_data.delta_granularity =
-          static_cast<double>(event.data.scroll_update.delta_units);
+          event.data.scroll_update.delta_units;
       break;
     case WebInputEvent::kGestureScrollEnd:
       scroll_state_data.is_ending = true;
@@ -83,6 +83,8 @@ cc::ScrollState CreateScrollStateForGesture(const WebGestureEvent& event) {
       NOTREACHED();
       break;
   }
+  scroll_state_data.is_direct_manipulation =
+      event.SourceDevice() == blink::WebGestureDevice::kTouchscreen;
   return cc::ScrollState(scroll_state_data);
 }
 
@@ -184,7 +186,6 @@ InputHandlerProxy::InputHandlerProxy(cc::InputHandler* input_handler,
 #endif
       gesture_scroll_on_impl_thread_(false),
       scroll_sequence_ignored_(false),
-      smooth_scroll_enabled_(false),
       touch_result_(kEventDispositionUndefined),
       mouse_wheel_result_(kEventDispositionUndefined),
       current_overscroll_params_(nullptr),
@@ -244,7 +245,7 @@ void InputHandlerProxy::HandleInputEventWithLatencyInfo(
   DCHECK(input_handler_);
 
   TRACE_EVENT_WITH_FLOW1("input,benchmark", "LatencyInfo.Flow",
-                         TRACE_ID_DONT_MANGLE(latency_info.trace_id()),
+                         TRACE_ID_GLOBAL(latency_info.trace_id()),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
                          "step", "HandleInputEventImpl");
 
@@ -337,7 +338,8 @@ void InputHandlerProxy::DispatchSingleInputEvent(
   current_overscroll_params_.reset();
 
   InputHandlerProxy::EventDisposition disposition = RouteToTypeSpecificHandler(
-      event_with_callback->event(), original_latency_info);
+      event_with_callback->event(), event_with_callback.get(),
+      original_latency_info);
 
   blink::WebGestureEvent::Type type = event_with_callback->event().GetType();
   switch (type) {
@@ -395,7 +397,7 @@ void InputHandlerProxy::DispatchQueuedInputEvents() {
 // scrollbar. (See InputHandlerProxy::HandleInputEvent)
 void InputHandlerProxy::InjectScrollbarGestureScroll(
     const WebInputEvent::Type type,
-    const blink::WebFloatPoint& position_in_widget,
+    const gfx::PointF& position_in_widget,
     const cc::InputHandlerPointerResult& pointer_result,
     const LatencyInfo& latency_info,
     const base::TimeTicks original_timestamp) {
@@ -405,8 +407,7 @@ void InputHandlerProxy::InjectScrollbarGestureScroll(
   std::unique_ptr<WebGestureEvent> synthetic_gesture_event =
       GenerateInjectedScrollGesture(
           type, original_timestamp, blink::WebGestureDevice::kScrollbar,
-          position_in_widget, scroll_delta,
-          pointer_result.scroll_units);
+          position_in_widget, scroll_delta, pointer_result.scroll_units);
 
   // This will avoid hit testing and directly scroll the scroller with the
   // provided element_id.
@@ -472,7 +473,8 @@ bool HasModifier(const WebInputEvent& event) {
 
 InputHandlerProxy::EventDisposition
 InputHandlerProxy::RouteToTypeSpecificHandler(
-    const WebInputEvent& event,
+    const blink::WebInputEvent& event,
+    EventWithCallback* event_with_callback,
     const LatencyInfo& original_latency_info) {
   DCHECK(input_handler_);
 
@@ -574,10 +576,10 @@ InputHandlerProxy::RouteToTypeSpecificHandler(
                 original_latency_info, mouse_event.TimeStamp());
           }
 
-          // Drop the mousedown for now as the gesture event equivalent for this
-          // has already been added to the CompositorThreadEventQueue and will
-          // be dispatched at the vsync boundary.
-          return DROP_EVENT;
+          if (event_with_callback) {
+            event_with_callback
+                ->SetScrollbarManipulationHandledOnCompositorThread();
+          }
         }
       }
 
@@ -599,10 +601,10 @@ InputHandlerProxy::RouteToTypeSpecificHandler(
                                        pointer_result, original_latency_info,
                                        mouse_event.TimeStamp());
 
-          // Drop the mouseup for now as the gesture event equivalent for this
-          // has already been added to the CompositorThreadEventQueue and will
-          // be dispatched at the vsync boundary.
-          return DROP_EVENT;
+          if (event_with_callback) {
+            event_with_callback
+                ->SetScrollbarManipulationHandledOnCompositorThread();
+          }
         }
       }
       return DID_NOT_HANDLE;
@@ -615,19 +617,22 @@ InputHandlerProxy::RouteToTypeSpecificHandler(
       CHECK(input_handler_);
       cc::InputHandlerPointerResult pointer_result =
           input_handler_->MouseMoveAt(
-              gfx::Point(mouse_event.PositionInWidget().x,
-                         mouse_event.PositionInWidget().y));
+              gfx::Point(mouse_event.PositionInWidget().x(),
+                         mouse_event.PositionInWidget().y()));
       if (pointer_result.type == cc::PointerResultType::kScrollbarScroll) {
-        // Generate a GSU event and add it to the CompositorThreadEventQueue.
-        InjectScrollbarGestureScroll(WebInputEvent::Type::kGestureScrollUpdate,
-                                     mouse_event.PositionInWidget(),
-                                     pointer_result, original_latency_info,
-                                     mouse_event.TimeStamp());
+        // Generate a GSU event and add it to the CompositorThreadEventQueue if
+        // delta is non zero.
+        if (!pointer_result.scroll_offset.IsZero()) {
+          InjectScrollbarGestureScroll(
+              WebInputEvent::Type::kGestureScrollUpdate,
+              mouse_event.PositionInWidget(), pointer_result,
+              original_latency_info, mouse_event.TimeStamp());
+        }
 
-        // Drop the mousemove for now as the gesture event equivalent for this
-        // has already been added to the CompositorThreadEventQueue and will
-        // be dispatched at the vsync boundary.
-        return DROP_EVENT;
+        if (event_with_callback) {
+          event_with_callback
+              ->SetScrollbarManipulationHandledOnCompositorThread();
+        }
       }
       return DID_NOT_HANDLE;
     }
@@ -745,21 +750,6 @@ void InputHandlerProxy::RecordMainThreadScrollingReasons(
   }
 }
 
-bool InputHandlerProxy::ShouldAnimate(blink::WebGestureDevice device,
-                                      bool has_precise_scroll_deltas) const {
-  if (!smooth_scroll_enabled_)
-    return false;
-
-#if defined(OS_MACOSX)
-  // Mac does not smooth scroll wheel events (crbug.com/574283).
-  return device == blink::WebGestureDevice::kScrollbar
-             ? !has_precise_scroll_deltas
-             : false;
-#else
-  return !has_precise_scroll_deltas;
-#endif
-}
-
 InputHandlerProxy::EventDisposition InputHandlerProxy::HandleMouseWheel(
     const WebMouseWheelEvent& wheel_event) {
   InputHandlerProxy::EventDisposition result = DROP_EVENT;
@@ -783,9 +773,9 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleMouseWheel(
       return result;
   }
 
-  blink::WebFloatPoint position_in_widget = wheel_event.PositionInWidget();
+  gfx::PointF position_in_widget = wheel_event.PositionInWidget();
   if (input_handler_->HasBlockingWheelEventHandlerAt(
-          gfx::Point(position_in_widget.x, position_in_widget.y))) {
+          gfx::Point(position_in_widget.x(), position_in_widget.y()))) {
     result = DID_NOT_HANDLE;
   } else {
     cc::EventListenerProperties properties =
@@ -836,12 +826,6 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollBegin(
   } else if (gesture_event.data.scroll_begin.target_viewport) {
     scroll_status = input_handler_->RootScrollBegin(
         &scroll_state, GestureScrollInputType(gesture_event.SourceDevice()));
-  } else if (ShouldAnimate(
-                 gesture_event.SourceDevice(),
-                 gesture_event.data.scroll_begin.delta_hint_units !=
-                     ui::input_types::ScrollGranularity::kScrollByPixel)) {
-    DCHECK(!scroll_state.is_in_inertial_phase());
-    scroll_status = input_handler_->ScrollAnimatedBegin(&scroll_state);
   } else {
     scroll_status = input_handler_->ScrollBegin(
         &scroll_state, GestureScrollInputType(gesture_event.SourceDevice()));
@@ -885,14 +869,13 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollBegin(
 InputHandlerProxy::EventDisposition
 InputHandlerProxy::HandleGestureScrollUpdate(
     const WebGestureEvent& gesture_event) {
+  TRACE_EVENT2("input", "InputHandlerProxy::HandleGestureScrollUpdate", "dx",
+               -gesture_event.data.scroll_update.delta_x, "dy",
+               -gesture_event.data.scroll_update.delta_y);
+
 #if DCHECK_IS_ON()
   DCHECK(expect_scroll_update_end_);
 #endif
-
-  gfx::Vector2dF scroll_delta(-gesture_event.data.scroll_update.delta_x,
-                              -gesture_event.data.scroll_update.delta_y);
-  TRACE_EVENT2("input", "InputHandlerProxy::HandleGestureScrollUpdate", "dx",
-               scroll_delta.x(), "dy", scroll_delta.y());
 
   if (scroll_sequence_ignored_) {
     TRACE_EVENT_INSTANT0("input", "Scroll Sequence Ignored",
@@ -905,38 +888,10 @@ InputHandlerProxy::HandleGestureScrollUpdate(
 
   cc::ScrollState scroll_state = CreateScrollStateForGesture(gesture_event);
   in_inertial_scrolling_ = scroll_state.is_in_inertial_phase();
-  gfx::PointF scroll_point(gesture_event.PositionInWidget());
 
   TRACE_EVENT_INSTANT1(
       "input", "DeltaUnits", TRACE_EVENT_SCOPE_THREAD, "unit",
       static_cast<int>(gesture_event.data.scroll_update.delta_units));
-  if (ShouldAnimate(gesture_event.SourceDevice(),
-                    gesture_event.data.scroll_update.delta_units !=
-                        ui::input_types::ScrollGranularity::kScrollByPixel)) {
-    DCHECK(!scroll_state.is_in_inertial_phase());
-    base::TimeTicks event_time = gesture_event.TimeStamp();
-    base::TimeDelta delay = base::TimeTicks::Now() - event_time;
-    switch (input_handler_
-                ->ScrollAnimated(gfx::ToFlooredPoint(scroll_point),
-                                 scroll_delta, delay)
-                .thread) {
-      case cc::InputHandler::SCROLL_ON_IMPL_THREAD:
-        return DID_HANDLE;
-      case cc::InputHandler::SCROLL_IGNORED:
-        TRACE_EVENT_INSTANT0("input", "Scroll Ignored",
-                             TRACE_EVENT_SCOPE_THREAD);
-        return DROP_EVENT;
-      case cc::InputHandler::SCROLL_ON_MAIN_THREAD:
-      case cc::InputHandler::SCROLL_UNKNOWN:
-        if (input_handler_->ScrollingShouldSwitchtoMainThread()) {
-          TRACE_EVENT_INSTANT0("input", "Move Scroll To Main Thread",
-                               TRACE_EVENT_SCOPE_THREAD);
-          gesture_scroll_on_impl_thread_ = false;
-          client_->GenerateScrollBeginAndSendToMainThread(gesture_event);
-        }
-        return DID_NOT_HANDLE;
-    }
-  }
 
   if (snap_fling_controller_->HandleGestureScrollUpdate(
           GetGestureScrollUpdateInfo(gesture_event))) {
@@ -947,19 +902,29 @@ InputHandlerProxy::HandleGestureScrollUpdate(
     return DROP_EVENT;
   }
 
-  cc::InputHandlerScrollResult scroll_result =
-      input_handler_->ScrollBy(&scroll_state);
-
-  if (!scroll_result.did_scroll &&
-      input_handler_->ScrollingShouldSwitchtoMainThread()) {
+  if (input_handler_->ScrollingShouldSwitchtoMainThread()) {
+    TRACE_EVENT_INSTANT0("input", "Move Scroll To Main Thread",
+                         TRACE_EVENT_SCOPE_THREAD);
     gesture_scroll_on_impl_thread_ = false;
     client_->GenerateScrollBeginAndSendToMainThread(gesture_event);
 
+    // TODO(bokan): |!gesture_pinch_in_progress_| was put here by
+    // https://crrev.com/2720903005 but it's not clear to me how this is
+    // supposed to work - we already generated and sent a GSB to the main
+    // thread above so it's odd to continue handling on the compositor thread
+    // if a pinch was in progress. It probably makes more sense to bake this
+    // condition into ScrollingShouldSwitchToMainThread().
     if (!gesture_pinch_in_progress_)
       return DID_NOT_HANDLE;
   }
 
-  HandleOverscroll(scroll_point, scroll_result);
+  base::TimeTicks event_time = gesture_event.TimeStamp();
+  base::TimeDelta delay = base::TimeTicks::Now() - event_time;
+
+  cc::InputHandlerScrollResult scroll_result =
+      input_handler_->ScrollUpdate(&scroll_state, delay);
+
+  HandleOverscroll(gesture_event.PositionInWidget(), scroll_result);
 
   if (scroll_elasticity_controller_)
     HandleScrollElasticityOverscroll(gesture_event, scroll_result);
@@ -968,7 +933,7 @@ InputHandlerProxy::HandleGestureScrollUpdate(
 }
 
 InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollEnd(
-  const WebGestureEvent& gesture_event) {
+    const WebGestureEvent& gesture_event) {
   TRACE_EVENT0("input", "InputHandlerProxy::HandleGestureScrollEnd");
 #if DCHECK_IS_ON()
   DCHECK(expect_scroll_update_end_);
@@ -1008,11 +973,11 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HitTestTouchEvent(
       continue;
     }
 
-    cc::TouchAction touch_action = cc::kTouchActionAuto;
+    cc::TouchAction touch_action = cc::TouchAction::kAuto;
     cc::InputHandler::TouchStartOrMoveEventListenerType event_listener_type =
         input_handler_->EventListenerTypeForTouchStartOrMoveAt(
-            gfx::Point(touch_event.touches[i].PositionInWidget().x,
-                       touch_event.touches[i].PositionInWidget().y),
+            gfx::Point(touch_event.touches[i].PositionInWidget().x(),
+                       touch_event.touches[i].PositionInWidget().y()),
             &touch_action);
     if (white_listed_touch_action)
       *white_listed_touch_action &= touch_action;
@@ -1024,10 +989,10 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HitTestTouchEvent(
           cc::InputHandler::TouchStartOrMoveEventListenerType::
               HANDLER_ON_SCROLLING_LAYER;
       // A non-passive touch start / move will always set the whitelisted touch
-      // action to kTouchActionNone, and in that case we do not ack the event
+      // action to TouchAction::kNone, and in that case we do not ack the event
       // from the compositor.
       if (compositor_touch_action_enabled_ && white_listed_touch_action &&
-          *white_listed_touch_action != cc::kTouchActionNone)
+          *white_listed_touch_action != cc::TouchAction::kNone)
         result = DID_HANDLE_NON_BLOCKING;
       else
         result = DID_NOT_HANDLE;
@@ -1082,7 +1047,7 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HitTestTouchEvent(
 InputHandlerProxy::EventDisposition InputHandlerProxy::HandleTouchStart(
     const blink::WebTouchEvent& touch_event) {
   bool is_touching_scrolling_layer;
-  cc::TouchAction white_listed_touch_action = cc::kTouchActionAuto;
+  cc::TouchAction white_listed_touch_action = cc::TouchAction::kAuto;
   EventDisposition result = HitTestTouchEvent(
       touch_event, &is_touching_scrolling_layer, &white_listed_touch_action);
 
@@ -1090,10 +1055,9 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleTouchStart(
   // we may not want to discard the entire touch sequence. Note this
   // code is explicitly after the assignment of the |touch_result_|
   // so the touch moves are not sent to the main thread un-necessarily.
-  if (result == DROP_EVENT &&
-      input_handler_->GetEventListenerProperties(
-          cc::EventListenerClass::kTouchEndOrCancel) !=
-          cc::EventListenerProperties::kNone) {
+  if (result == DROP_EVENT && input_handler_->GetEventListenerProperties(
+                                  cc::EventListenerClass::kTouchEndOrCancel) !=
+                                  cc::EventListenerProperties::kNone) {
     result = DID_HANDLE_NON_BLOCKING;
   }
 
@@ -1115,7 +1079,7 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleTouchMove(
   if (touch_result_ == kEventDispositionUndefined ||
       touch_event.touch_start_or_first_touch_move) {
     bool is_touching_scrolling_layer;
-    cc::TouchAction white_listed_touch_action = cc::kTouchActionAuto;
+    cc::TouchAction white_listed_touch_action = cc::TouchAction::kAuto;
     EventDisposition result = HitTestTouchEvent(
         touch_event, &is_touching_scrolling_layer, &white_listed_touch_action);
     client_->SetWhiteListedTouchAction(
@@ -1200,24 +1164,25 @@ void InputHandlerProxy::SynchronouslyZoomBy(float magnify_delta,
   input_handler_->PinchGestureEnd(anchor, false);
 }
 
-bool InputHandlerProxy::GetSnapFlingInfoAndSetSnapTarget(
+bool InputHandlerProxy::GetSnapFlingInfoAndSetAnimatingSnapTarget(
     const gfx::Vector2dF& natural_displacement,
     gfx::Vector2dF* initial_offset,
     gfx::Vector2dF* target_offset) const {
-  return input_handler_->GetSnapFlingInfoAndSetSnapTarget(
+  return input_handler_->GetSnapFlingInfoAndSetAnimatingSnapTarget(
       natural_displacement, initial_offset, target_offset);
 }
 
 gfx::Vector2dF InputHandlerProxy::ScrollByForSnapFling(
     const gfx::Vector2dF& delta) {
   cc::ScrollState scroll_state = CreateScrollStateForInertialUpdate(delta);
+
   cc::InputHandlerScrollResult scroll_result =
-      input_handler_->ScrollBy(&scroll_state);
+      input_handler_->ScrollUpdate(&scroll_state, base::TimeDelta());
   return scroll_result.current_visual_offset;
 }
 
-void InputHandlerProxy::ScrollEndForSnapFling() {
-  input_handler_->ScrollEnd(/*should_snap=*/false);
+void InputHandlerProxy::ScrollEndForSnapFling(bool did_finish) {
+  input_handler_->ScrollEndForSnapFling(did_finish);
 }
 
 void InputHandlerProxy::RequestAnimationForSnapFling() {
@@ -1231,11 +1196,8 @@ void InputHandlerProxy::HandleOverscroll(
   if (!scroll_result.did_overscroll_root)
     return;
 
-  TRACE_EVENT2("input",
-               "InputHandlerProxy::DidOverscroll",
-               "dx",
-               scroll_result.unused_scroll_delta.x(),
-               "dy",
+  TRACE_EVENT2("input", "InputHandlerProxy::DidOverscroll", "dx",
+               scroll_result.unused_scroll_delta.x(), "dy",
                scroll_result.unused_scroll_delta.y());
 
   // Bundle overscroll message with triggering event response, saving an IPC.

@@ -241,10 +241,15 @@ device::BluetoothTransport BluetoothDeviceBlueZ::GetType() const {
   return device::BLUETOOTH_TRANSPORT_INVALID;
 }
 
-void BluetoothDeviceBlueZ::CreateGattConnectionImpl() {
-  // BlueZ implementation does not use the default CreateGattConnection
-  // implementation.
-  NOTIMPLEMENTED();
+void BluetoothDeviceBlueZ::CreateGattConnectionImpl(
+    base::Optional<BluetoothUUID> service_uuid) {
+  // TODO(crbug.com/630586): Until there is a way to create a reference counted
+  // GATT connection in bluetoothd, simply do a regular connect.
+  Connect(nullptr,
+          base::BindOnce(&BluetoothDeviceBlueZ::DidConnectGatt,
+                         weak_ptr_factory_.GetWeakPtr()),
+          base::BindOnce(&BluetoothDeviceBlueZ::DidFailToConnectGatt,
+                         weak_ptr_factory_.GetWeakPtr()));
 }
 
 void BluetoothDeviceBlueZ::SetGattServicesDiscoveryComplete(bool complete) {
@@ -678,25 +683,10 @@ void BluetoothDeviceBlueZ::ConnectToServiceInsecurely(
                   base::Bind(callback, socket), error_callback);
 }
 
-void BluetoothDeviceBlueZ::CreateGattConnection(
-    GattConnectionCallback callback,
-    ConnectErrorCallback error_callback) {
-  // TODO(sacomoto): Workaround to retrieve the connection for already connected
-  // devices. Currently, BluetoothGattConnection::Disconnect doesn't do
-  // anything, the unique underlying physical GATT connection is kept. This
-  // should be removed once the correct behavour is implemented and the GATT
-  // connections are reference counted (see todo below).
-  if (IsConnected()) {
-    OnCreateGattConnection(std::move(callback));
-    return;
-  }
-
-  // TODO(crbug.com/630586): Until there is a way to create a reference counted
-  // GATT connection in bluetoothd, simply do a regular connect.
-  Connect(nullptr,
-          base::BindOnce(&BluetoothDeviceBlueZ::OnCreateGattConnection,
-                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)),
-          std::move(error_callback));
+std::unique_ptr<device::BluetoothGattConnection>
+BluetoothDeviceBlueZ::CreateBluetoothGattConnectionObject() {
+  return std::unique_ptr<device::BluetoothGattConnection>(
+      new BluetoothGattConnectionBlueZ(adapter_, GetAddress(), object_path_));
 }
 
 void BluetoothDeviceBlueZ::GetServiceRecords(
@@ -822,7 +812,7 @@ void BluetoothDeviceBlueZ::GattServiceRemoved(
     const dbus::ObjectPath& object_path) {
   auto iter = gatt_services_.find(object_path.value());
   if (iter == gatt_services_.end()) {
-    VLOG(3) << "Unknown GATT service removed: " << object_path.value();
+    DVLOG(3) << "Unknown GATT service removed: " << object_path.value();
     return;
   }
 
@@ -852,8 +842,8 @@ void BluetoothDeviceBlueZ::UpdateGattServices(
 
   DCHECK(IsGattServicesDiscoveryComplete());
 
-  VLOG(3) << "Updating the list of GATT services associated with device "
-          << object_path_.value();
+  DVLOG(3) << "Updating the list of GATT services associated with device "
+           << object_path_.value();
 
   const std::vector<dbus::ObjectPath> service_paths =
       bluez::BluezDBusManager::Get()
@@ -984,13 +974,6 @@ void BluetoothDeviceBlueZ::OnConnect(bool after_pairing,
                               UMA_PAIRING_RESULT_COUNT);
 
   std::move(callback).Run();
-}
-
-void BluetoothDeviceBlueZ::OnCreateGattConnection(
-    GattConnectionCallback callback) {
-  std::unique_ptr<device::BluetoothGattConnection> conn(
-      new BluetoothGattConnectionBlueZ(adapter_, GetAddress(), object_path_));
-  std::move(callback).Run(std::move(conn));
 }
 
 void BluetoothDeviceBlueZ::OnConnectError(bool after_pairing,

@@ -14,6 +14,7 @@
 #include "base/message_loop/message_loop_current.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/sequence_manager/sequence_manager.h"
@@ -39,7 +40,6 @@
 #include "content/public/common/process_type.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/test_launcher.h"
-#include "content/public/test/test_service_manager_context.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/fetch/fetch_api_request_headers_map.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
@@ -80,6 +80,12 @@ class TaskObserver : public base::TaskObserver {
   void WillProcessTask(const base::PendingTask& pending_task,
                        bool was_blocked_or_low_priority) override {}
   void DidProcessTask(const base::PendingTask& pending_task) override {
+    if (base::EndsWith(pending_task.posted_from.file_name(), "base/run_loop.cc",
+                       base::CompareCase::SENSITIVE)) {
+      // Don't consider RunLoop internal tasks (i.e. QuitClosure() reposted by
+      // ProxyToTaskRunner() or RunLoop timeouts) as actual work.
+      return;
+    }
     processed_ = true;
   }
 
@@ -149,9 +155,15 @@ void RunAllTasksUntilIdle() {
     TaskObserver task_observer;
     base::MessageLoopCurrent::Get()->AddTaskObserver(&task_observer);
 
-    base::RunLoop run_loop;
+    // This must use RunLoop::Type::kNestableTasksAllowed in case this
+    // RunAllTasksUntilIdle() call is nested inside an existing Run(). Without
+    // it, the QuitWhenIdleClosure() below would never run if it's posted from
+    // another thread (i.e.. by run_loop.cc's ProxyToTaskRunner).
+    base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
+
     base::ThreadPoolInstance::Get()->FlushAsyncForTesting(
         run_loop.QuitWhenIdleClosure());
+
     run_loop.Run();
 
     base::MessageLoopCurrent::Get()->RemoveTaskObserver(&task_observer);
@@ -201,7 +213,7 @@ void IsolateAllSitesForTesting(base::CommandLine* command_line) {
 
 void ResetSchemesAndOriginsWhitelist() {
   url::ResetForTests();
-  RegisterContentSchemes(false);
+  ReRegisterContentSchemesForTests();
 }
 
 GURL GetWebUIURL(const std::string& host) {
@@ -323,8 +335,7 @@ void WindowedNotificationObserver::Observe(int type,
   run_loop_.Quit();
 }
 
-InProcessUtilityThreadHelper::InProcessUtilityThreadHelper()
-    : shell_context_(new TestServiceManagerContext) {
+InProcessUtilityThreadHelper::InProcessUtilityThreadHelper() {
   RenderProcessHost::SetRunRendererInProcess(true);
 }
 

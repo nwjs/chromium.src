@@ -23,8 +23,8 @@
 
 #if defined(OS_ANDROID)
 #include "base/android/jni_string.h"
-#include "components/signin/internal/identity_manager/android/jni_headers/IdentityManager_jni.h"
 #include "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
+#include "components/signin/public/android/jni_headers/IdentityManager_jni.h"
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -400,21 +400,10 @@ void IdentityManager::ForceRefreshOfExtendedAccountInfo(
   account_fetcher_service_->ForceRefreshOfAccountInfo(account_id);
 }
 
-bool IdentityManager::HasPrimaryAccount(JNIEnv* env) const {
-  return HasPrimaryAccount();
-}
-
 base::android::ScopedJavaLocalRef<jobject>
 IdentityManager::GetPrimaryAccountInfo(JNIEnv* env) const {
   if (HasPrimaryAccount())
     return ConvertToJavaCoreAccountInfo(env, GetPrimaryAccountInfo());
-  return nullptr;
-}
-
-base::android::ScopedJavaLocalRef<jobject> IdentityManager::GetPrimaryAccountId(
-    JNIEnv* env) const {
-  if (HasPrimaryAccount())
-    return ConvertToJavaCoreAccountId(env, GetPrimaryAccountId());
   return nullptr;
 }
 
@@ -436,8 +425,7 @@ IdentityManager::GetAccountsWithRefreshTokens(JNIEnv* env) const {
 
   base::android::ScopedJavaLocalRef<jclass> coreaccountinfo_clazz =
       base::android::GetClass(
-          env,
-          "org/chromium/components/signin/identitymanager/CoreAccountInfo");
+          env, "org/chromium/components/signin/base/CoreAccountInfo");
   base::android::ScopedJavaLocalRef<jobjectArray> array(
       env, env->NewObjectArray(accounts.size(), coreaccountinfo_clazz.obj(),
                                nullptr));
@@ -501,8 +489,13 @@ IdentityManager::ComputeUnconsentedPrimaryAccountInfo() const {
   if (HasPrimaryAccount())
     return GetPrimaryAccountInfo();
 
-#if defined(OS_CHROMEOS) || defined(OS_IOS) || defined(OS_ANDROID)
-  // On ChromeOS and on mobile platforms, we support only the primary account as
+#if defined(OS_CHROMEOS)
+  // Chrome OS directly sets either the primary account or the unconsented
+  // primary account during login. The user is not allowed to sign out, so
+  // keep the value set at login (don't reset).
+  return base::nullopt;
+#elif defined(OS_IOS) || defined(OS_ANDROID)
+  // On iOS and Android platforms, we support only the primary account as
   // the unconsented primary account. By this early return, we avoid an extra
   // request to GAIA that lists cookie accounts.
   return CoreAccountInfo();
@@ -525,6 +518,10 @@ IdentityManager::ComputeUnconsentedPrimaryAccountInfo() const {
     if (!current_account.empty()) {
       if (AreRefreshTokensLoaded() &&
           !HasAccountWithRefreshToken(current_account)) {
+        return CoreAccountInfo();
+      }
+      if (!AreRefreshTokensLoaded() &&
+          unconsented_primary_account_revoked_during_load_) {
         return CoreAccountInfo();
       }
       if (cookie_info.accounts_are_fresh &&
@@ -596,6 +593,11 @@ void IdentityManager::OnRefreshTokenAvailable(const CoreAccountId& account_id) {
 }
 
 void IdentityManager::OnRefreshTokenRevoked(const CoreAccountId& account_id) {
+  if (!AreRefreshTokensLoaded() && HasUnconsentedPrimaryAccount() &&
+      account_id == GetUnconsentedPrimaryAccountId()) {
+    unconsented_primary_account_revoked_during_load_ = true;
+  }
+
   UpdateUnconsentedPrimaryAccount();
   for (auto& observer : observer_list_) {
     observer.OnRefreshTokenRemovedForAccount(account_id);

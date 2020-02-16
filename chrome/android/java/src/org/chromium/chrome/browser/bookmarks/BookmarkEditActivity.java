@@ -17,8 +17,8 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.SynchronousInitializationActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkModelObserver;
-import org.chromium.chrome.browser.ui.widget.TintedDrawable;
 import org.chromium.components.bookmarks.BookmarkId;
+import org.chromium.components.browser_ui.widget.TintedDrawable;
 import org.chromium.components.url_formatter.UrlFormatter;
 
 /**
@@ -174,8 +174,7 @@ public class BookmarkEditActivity extends SynchronousInitializationActivity {
             intent.putExtra(BookmarkActivity.INTENT_VISIT_BOOKMARK_ID, mBookmarkId.toString());
             setResult(RESULT_OK, intent);
         } else {
-            BookmarkUtils.openBookmark(
-                    mModel, this, mBookmarkId, BookmarkLaunchLocation.BOOKMARK_EDITOR);
+            BookmarkUtils.openBookmark(mModel, this, mBookmarkId);
         }
         finish();
     }

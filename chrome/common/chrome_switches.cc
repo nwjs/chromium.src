@@ -214,9 +214,6 @@ const char kDisableExtensionsExcept[] = "disable-extensions-except";
 const char kDisableExtensionsFileAccessCheck[] =
     "disable-extensions-file-access-check";
 
-// Disable pop-up blocking.
-const char kDisablePopupBlocking[]          = "disable-popup-blocking";
-
 // Disables print preview (For testing, and for users who don't like us. :[ )
 const char kDisablePrintPreview[]           = "disable-print-preview";
 
@@ -324,15 +321,6 @@ const char kExtensionsInstallVerification[] = "extensions-install-verification";
 // be treated as not from the webstore when doing install verification.
 const char kExtensionsNotWebstore[] = "extensions-not-webstore";
 
-// If this flag is present then this command line is being delegated to an
-// already running chrome process via the fast path, ie: before chrome.dll is
-// loaded. It is useful to tell the difference for tracking purposes.
-const char kFastStart[]            = "fast-start";
-
-// Forces Android application mode. This hides certain system UI elements and
-// forces the app to be installed if it hasn't been already.
-const char kForceAndroidAppMode[] = "force-android-app-mode";
-
 // Forces application mode. This hides certain system UI elements and forces
 // the app to be installed if it hasn't been already.
 const char kForceAppMode[]                  = "force-app-mode";
@@ -344,9 +332,6 @@ const char kForceFirstRun[]                 = "force-first-run";
 // Forces Chrome to use a stacked tab strip layout.
 const char kForceStackedTabStripLayout[]    = "force-stacked-tab-strip-layout";
 
-// Forces web-application mode. This hides certain system UI elements and forces
-// the app to be installed if it hasn't been already.
-const char kForceWebAppMode[]               = "force-web-app-mode";
 
 // Specifies which page will be displayed in newly-opened tabs. We need this
 // for testing purposes so that the UI tests don't depend on what comes up for
@@ -456,10 +441,6 @@ const char kOnTheFlyMhtmlHashComputation[] =
 // Launches URL in new browser window.
 const char kOpenInNewWindow[]               = "new-window";
 
-// The time that a new chrome process which is delegating to an already running
-// chrome process started. (See ProcessSingleton for more details.)
-const char kOriginalProcessStartTime[]      = "original-process-start-time";
-
 // Contains a list of feature names for which origin trial experiments should
 // be disabled. Names should be separated by "|" characters.
 const char kOriginTrialDisabledFeatures[] = "origin-trial-disabled-features";
@@ -468,7 +449,8 @@ const char kOriginTrialDisabledFeatures[] = "origin-trial-disabled-features";
 // be disabled. Tokens should be separated by "|" characters.
 const char kOriginTrialDisabledTokens[] = "origin-trial-disabled-tokens";
 
-// Overrides the default public key for checking origin trial tokens.
+// Comma-separated list of keys which will override the default public keys for
+// checking origin trial tokens.
 const char kOriginTrialPublicKey[] = "origin-trial-public-key";
 
 // Packages an extension to a .crx installable file from a given directory.
@@ -651,14 +633,6 @@ const char kWebRtcRemoteEventLogUploadDelayMs[] =
 const char kWebRtcRemoteEventLogUploadNoSuppression[] =
     "webrtc-event-log-upload-no-suppression";
 
-// Enables a web-based tab strip. See https://crbug.com/989131. Note this
-// feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
-//
-// This is a command-line switch instead of a base::Feature so that it
-// can be enabled on specific ChromeOS boards. This feature is always
-// disabled by default.
-const char kWebUITabStrip[] = "webui-tab-strip";
-
 // Specify the initial window position: --window-position=x,y
 const char kWindowPosition[]                = "window-position";
 
@@ -732,6 +706,10 @@ const char kShortMergeSessionTimeoutForTest[] =
 const char kSchedulerConfiguration[] = "scheduler-configuration";
 const char kSchedulerConfigurationConservative[] = "conservative";
 const char kSchedulerConfigurationPerformance[] = "performance";
+
+// Specifies what the default scheduler configuration value is if the user does
+// not set one.
+const char kSchedulerConfigurationDefault[] = "scheduler-configuration-default";
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_CHROMEOS)

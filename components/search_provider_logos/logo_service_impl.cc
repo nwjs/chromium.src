@@ -288,8 +288,10 @@ void LogoServiceImpl::GetLogo(LogoCallbacks callbacks) {
         want_gray_logo_getter_.Run(), doodle_url);
     SetServerAPI(
         prefilled_url,
-        base::Bind(&search_provider_logos::ParseDoodleLogoResponse, base_url),
-        base::Bind(&search_provider_logos::AppendFingerprintParamToDoodleURL));
+        base::BindRepeating(&search_provider_logos::ParseDoodleLogoResponse,
+                            base_url),
+        base::BindRepeating(
+            &search_provider_logos::AppendFingerprintParamToDoodleURL));
   }
 
   DCHECK(!logo_url_.is_empty());
@@ -320,11 +322,11 @@ void LogoServiceImpl::GetLogo(LogoCallbacks callbacks) {
 
     base::PostTaskAndReplyWithResult(
         cache_task_runner_.get(), FROM_HERE,
-        base::BindRepeating(&GetLogoFromCacheOnFileThread,
-                            base::Unretained(logo_cache_.get()), logo_url_,
-                            clock_->Now()),
-        base::BindRepeating(&LogoServiceImpl::OnCachedLogoRead,
-                            weak_ptr_factory_.GetWeakPtr()));
+        base::BindOnce(&GetLogoFromCacheOnFileThread,
+                       base::Unretained(logo_cache_.get()), logo_url_,
+                       clock_->Now()),
+        base::BindOnce(&LogoServiceImpl::OnCachedLogoRead,
+                       weak_ptr_factory_.GetWeakPtr()));
   } else if (is_cached_logo_valid_) {
     NotifyAndClear(&on_cached_encoded_logo_, &on_cached_decoded_logo_,
                    LogoCallbackReason::DETERMINED, cached_encoded_logo_.get(),

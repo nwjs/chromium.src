@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">control deslizante</translation>
 <translation id="1211441953136645838">nota final</translation>
 <translation id="1281252709823657822">cuadro de diálogo</translation>
+<translation id="1306460908038601864">Desactivado</translation>
 <translation id="1335095011850992622">créditos</translation>
 <translation id="1342835525016946179">artículo</translation>
 <translation id="1359897965706325498">banner</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Aumenta la longitud del texto a <ph name="MIN_CHARACTERS" /> caracteres como mínimo (actualmente, el texto tiene <ph name="CURRENT_LENGTH" /> caracteres).</translation>
 <translation id="383465348367842624">El texto seguido del signo "<ph name="ATSIGN" />" no debe incluir el símbolo "<ph name="INVALIDCHARACTER" />".</translation>
 <translation id="3846214748874656680">Salir de pantalla completa</translation>
-<translation id="3889183436948184105">revisión</translation>
 <translation id="3920932319529768807">conclusión</translation>
 <translation id="3924558731517983934">aplicación</translation>
 <translation id="3944740393230681990">prólogo</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Debes introducir un número</translation>
 <translation id="4912536737030637138">entrada bibliográfica</translation>
 <translation id="492244087561876220">comentario</translation>
+<translation id="4971739861736909480">Seleccionado: <ph name="ACCNAME" /></translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> seleccionados</translation>
 <translation id="4992066212339426712">Activar sonido</translation>
 <translation id="49969490063480558">Introduce texto detrás del signo "<ph name="ATSIGN" />". La dirección "<ph name="INVALIDADDRESS" />" está incompleta.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">Introduce texto seguido del signo "<ph name="ATSIGN" />". La dirección "<ph name="INVALIDADDRESS" />" está incompleta.</translation>
 <translation id="5334352251556557839">No se ha podido reproducir el contenido multimedia.</translation>
+<translation id="537648784377940524">La fecha mínima (<ph name="MIN_DATE_OR_TIME" />) debe ser anterior a la fecha máxima (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">cifra</translation>
 <translation id="5453733299334684579">elemento del árbol</translation>
 <translation id="5466621249238537318">Selecciona uno o varios archivos</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">más opciones</translation>
 <translation id="576709008726043716">introducción</translation>
 <translation id="57838592816432529">Silenciar</translation>
-<translation id="5860033963881614850">Desactivado</translation>
 <translation id="588258955323874662">Pantalla completa</translation>
 <translation id="5888666972993069672">Enviando a <ph name="DEVICE_FRIENDLY_NAME" /> en este momento</translation>
 <translation id="591047860372322273">cuadro de búsqueda</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Incluye un signo "<ph name="ATSIGN" />" en la dirección de correo electrónico. La dirección "<ph name="INVALIDADDRESS" />" no incluye el signo "<ph name="ATSIGN" />".</translation>
 <translation id="7891486169920085145">divisor</translation>
 <translation id="795667975304826397">Ningún archivo seleccionado</translation>
+<translation id="7962328325860248200">No seleccionado: <ph name="ACCNAME" /></translation>
 <translation id="8034303206267677282">importante</translation>
 <translation id="8053789581856978548">campo para buscar texto</translation>
 <translation id="8057695513531652401">aviso</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Mes</translation>
 <translation id="901493112792887934">tiempo actual en segundos</translation>
 <translation id="901834265349196618">correo electrónico</translation>
-<translation id="9023835124071926463">sección de comentarios</translation>
 <translation id="9048119486235211610">navegación</translation>
 <translation id="9062295712474918030">documento</translation>
 <translation id="9093215626363556771">salir del modo imagen en imagen</translation>

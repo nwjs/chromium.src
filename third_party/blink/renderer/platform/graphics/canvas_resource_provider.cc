@@ -14,16 +14,28 @@
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/common/capabilities.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
 namespace blink {
+namespace {
+
+bool IsGMBAllowed(IntSize size,
+                  const CanvasColorParams& color_params,
+                  const gpu::Capabilities& caps) {
+  return gpu::IsImageSizeValidForGpuMemoryBufferFormat(
+             gfx::Size(size), color_params.GetBufferFormat()) &&
+         gpu::IsImageFromGpuMemoryBufferFormatSupported(
+             color_params.GetBufferFormat(), caps);
+}
+
+}  // namespace
 
 // * Renders to a Skia RAM-backed bitmap.
 // * Mailboxing is not supported : cannot be directly composited.
@@ -97,7 +109,8 @@ class CanvasResourceProviderSharedBitmap : public CanvasResourceProviderBitmap {
     if (!IsBitmapFormatSupported(color_params.TransferableResourceFormat())) {
       // If the rendering format is not supported, downgrate to 8-bits.
       // TODO(junov): Should we try 12-12-12-12 and 10-10-10-2?
-      color_params.SetCanvasPixelFormat(CanvasPixelFormat::kRGBA8);
+      color_params.SetCanvasPixelFormat(
+          CanvasColorParams::GetNativeCanvasPixelFormat());
     }
 
     return CanvasResourceSharedBitmap::Create(Size(), color_params,
@@ -134,9 +147,8 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
           context_provider_wrapper,
       base::WeakPtr<CanvasResourceDispatcher> resource_dispatcher,
       bool is_origin_top_left,
-      bool is_overlay_candidate,
-      bool maybe_single_buffered,
-      bool is_accelerated)
+      bool is_accelerated,
+      uint32_t shared_image_usage_flags)
       : CanvasResourceProvider(
             kSharedImage,
             size,
@@ -145,16 +157,16 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
             // TODO(khushalsagar): The software path seems to be assuming N32
             // somewhere in the later pipeline but for offscreen canvas only.
             CanvasColorParams(color_params.ColorSpace(),
-                              color_params.PixelFormat(),
-                              color_params.GetOpacityMode(),
-                              is_accelerated ? CanvasForceRGBA::kForced
-                                             : CanvasForceRGBA::kNotForced),
+                              is_accelerated && color_params.PixelFormat() !=
+                                                    CanvasPixelFormat::kF16
+                                  ? CanvasPixelFormat::kRGBA8
+                                  : color_params.PixelFormat(),
+                              color_params.GetOpacityMode()),
             is_origin_top_left,
             std::move(context_provider_wrapper),
             std::move(resource_dispatcher)),
-        is_overlay_candidate_(is_overlay_candidate),
-        maybe_single_buffered_(maybe_single_buffered),
-        is_accelerated_(is_accelerated) {
+        is_accelerated_(is_accelerated),
+        shared_image_usage_flags_(shared_image_usage_flags) {
     resource_ = NewOrRecycledResource();
     if (resource_)
       EnsureWriteAccess();
@@ -166,20 +178,22 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
   bool IsAccelerated() const final { return is_accelerated_; }
   bool SupportsDirectCompositing() const override { return true; }
   bool SupportsSingleBuffering() const override {
-    return maybe_single_buffered_;
+    return shared_image_usage_flags_ &
+           gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
   }
-  GLuint GetBackingTextureHandleForOverwrite() override {
+  gpu::Mailbox GetBackingMailboxForOverwrite(
+      MailboxSyncMode sync_mode) override {
     DCHECK(is_accelerated_);
 
     if (IsGpuContextLost())
-      return 0u;
+      return gpu::Mailbox();
 
-    FlushGrContext();
-    WillDraw();
-    return resource()->GetTextureIdForWriteAccess();
+    WillDrawInternal(false);
+    return resource_->GetOrCreateGpuMailbox(sync_mode);
   }
+
   GLenum GetBackingTextureTarget() const override {
-    return resource_->TextureTarget();
+    return resource()->TextureTarget();
   }
 
   scoped_refptr<CanvasResource> CreateResource() final {
@@ -187,11 +201,10 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     if (IsGpuContextLost())
       return nullptr;
 
-    bool allow_concurrent_read_write_access = maybe_single_buffered_;
     return CanvasResourceSharedImage::Create(
         Size(), ContextProviderWrapper(), CreateWeakPtr(), FilterQuality(),
-        ColorParams(), is_overlay_candidate_, IsOriginTopLeft(),
-        allow_concurrent_read_write_access, is_accelerated_);
+        ColorParams(), IsOriginTopLeft(), is_accelerated_,
+        shared_image_usage_flags_);
   }
 
   void NotifyTexParamsModified(const CanvasResource* resource) override {
@@ -258,7 +271,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     return cached_snapshot_;
   }
 
-  void WillDraw() override {
+  void WillDrawInternal(bool write_to_local_texture) {
     DCHECK(resource_);
 
     if (IsGpuContextLost())
@@ -303,9 +316,15 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
       }
     }
 
-    EnsureWriteAccess();
+    if (write_to_local_texture)
+      EnsureWriteAccess();
+    else
+      EndWriteAccess();
+
     resource()->WillDraw();
   }
+
+  void WillDraw() override { WillDrawInternal(true); }
 
   bool DoCopyOnWrite() {
     // If the canvas is single buffered, concurrent read/writes to the resource
@@ -358,7 +377,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
 
     GrGLTextureInfo texture_info = {};
     texture_info.fID = resource()->GetTextureIdForWriteAccess();
-    texture_info.fTarget = resource_->TextureTarget();
+    texture_info.fTarget = resource()->TextureTarget();
     texture_info.fFormat = ColorParams().GLSizedInternalFormat();
     return GrBackendTexture(Size().Width(), Size().Height(), GrMipMapped::kNo,
                             texture_info);
@@ -432,9 +451,8 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
     return static_cast<const CanvasResourceSharedImage*>(resource_.get());
   }
 
-  const bool is_overlay_candidate_;
-  const bool maybe_single_buffered_;
   const bool is_accelerated_;
+  const uint32_t shared_image_usage_flags_;
   bool current_resource_has_write_access_ = false;
   scoped_refptr<CanvasResource> resource_;
   scoped_refptr<StaticBitmapImage> cached_snapshot_;
@@ -663,7 +681,9 @@ const Vector<CanvasResourceType>& GetResourceTypeFallbackList(
       return kAcceleratedDirect3DFallbackList;
     case CanvasResourceProvider::ResourceUsage::
         kSoftwareCompositedDirect2DResourceUsage:
-      return kCompositedFallbackList;
+      NOTREACHED();
+      static const Vector<CanvasResourceType> kEmptyList;
+      return kEmptyList;
   }
   NOTREACHED();
 }
@@ -696,6 +716,33 @@ std::unique_ptr<CanvasResourceProvider> CanvasResourceProvider::CreateForCanvas(
   return provider;
 }
 
+std::unique_ptr<CanvasResourceProvider>
+CanvasResourceProvider::CreateAccelerated(
+    const IntSize& size,
+    base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper,
+    const CanvasColorParams& color_params,
+    bool is_origin_top_left,
+    uint32_t shared_image_usage_flags) {
+  const auto& caps =
+      context_provider_wrapper->ContextProvider()->GetCapabilities();
+  if (size.Width() > caps.max_texture_size ||
+      size.Height() > caps.max_texture_size) {
+    return nullptr;
+  }
+
+  if (!IsGMBAllowed(size, color_params, caps))
+    shared_image_usage_flags &= ~gpu::SHARED_IMAGE_USAGE_SCANOUT;
+
+  auto provider = std::make_unique<CanvasResourceProviderSharedImage>(
+      size, 0 /* msaa_sample_count */, kLow_SkFilterQuality, color_params,
+      context_provider_wrapper, nullptr /* resource_dispatcher*/,
+      is_origin_top_left, true /* is_accelerated */, shared_image_usage_flags);
+  if (provider->IsValid())
+    return provider;
+
+  return nullptr;
+}
+
 std::unique_ptr<CanvasResourceProvider> CanvasResourceProvider::Create(
     const IntSize& size,
     ResourceUsage usage,
@@ -723,10 +770,7 @@ std::unique_ptr<CanvasResourceProvider> CanvasResourceProvider::Create(
     is_gpu_memory_buffer_image_allowed =
         (presentation_mode & kAllowImageChromiumPresentationMode) &&
         Platform::Current()->GetGpuMemoryBufferManager() &&
-        gpu::IsImageSizeValidForGpuMemoryBufferFormat(
-            gfx::Size(size), color_params.GetBufferFormat()) &&
-        gpu::IsImageFromGpuMemoryBufferFormatSupported(
-            color_params.GetBufferFormat(), context_capabilities);
+        IsGMBAllowed(size, color_params, context_capabilities);
 
     is_swap_chain_allowed =
         (presentation_mode & kAllowSwapChainPresentationMode) &&
@@ -768,50 +812,54 @@ std::unique_ptr<CanvasResourceProvider> CanvasResourceProvider::Create(
             resource_dispatcher);
         break;
       case CanvasResourceType::kSharedImage: {
-        DCHECK_NE(usage, ResourceUsage::kSoftwareResourceUsage);
-
         if (!context_provider_wrapper)
           continue;
 
-        const bool is_accelerated =
-            usage == ResourceUsage::kAcceleratedResourceUsage ||
-            usage == ResourceUsage::kAcceleratedCompositedResourceUsage ||
-            usage == ResourceUsage::kAcceleratedDirect2DResourceUsage ||
-            usage == ResourceUsage::kAcceleratedDirect3DResourceUsage;
-
-        // If the rendering will be in software and we don't have GMB support,
-        // fallback to bitmap provider type.
-        if (!is_accelerated && !is_gpu_memory_buffer_image_allowed)
-          continue;
-
-        // texture_storage_image is required to create shared images supporting
-        // scanout usage.
         const bool can_use_overlays =
             is_gpu_memory_buffer_image_allowed &&
             context_provider_wrapper->ContextProvider()
                 ->GetCapabilities()
                 .texture_storage_image;
 
-        const bool is_overlay_candidate =
-            (usage == ResourceUsage::kAcceleratedDirect2DResourceUsage ||
-             usage == ResourceUsage::kAcceleratedDirect3DResourceUsage ||
-             usage == ResourceUsage::kAcceleratedCompositedResourceUsage ||
-             usage == ResourceUsage::kSoftwareCompositedResourceUsage) &&
-            can_use_overlays;
-
-        // Single buffering requires concurrent read/write access to the
-        // resource which is sub-optimal for software raster since that would
-        // require concurrent access to the resource on the CPU and GPU, so
-        // enable it for accelerated low latency canvas only.
-        const bool maybe_single_buffered =
-            (usage == ResourceUsage::kAcceleratedDirect2DResourceUsage ||
-             usage == ResourceUsage::kAcceleratedDirect3DResourceUsage) &&
-            is_gpu_memory_buffer_image_allowed;
+        bool is_accelerated = false;
+        uint32_t shared_image_usage_flags = 0u;
+        switch (usage) {
+          case ResourceUsage::kSoftwareResourceUsage:
+            NOTREACHED();
+            continue;
+          case ResourceUsage::kSoftwareCompositedResourceUsage:
+            // Rendering in software with accelerated compositing.
+            if (!is_gpu_memory_buffer_image_allowed)
+              continue;
+            shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_DISPLAY;
+            if (can_use_overlays)
+              shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
+            is_accelerated = false;
+            break;
+          case ResourceUsage::kAcceleratedDirect2DResourceUsage:
+          case ResourceUsage::kAcceleratedDirect3DResourceUsage:
+            if (can_use_overlays) {
+              shared_image_usage_flags |=
+                  gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
+            }
+            FALLTHROUGH;
+          case ResourceUsage::kAcceleratedCompositedResourceUsage:
+            shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_DISPLAY;
+            if (can_use_overlays)
+              shared_image_usage_flags |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
+            FALLTHROUGH;
+          case ResourceUsage::kAcceleratedResourceUsage:
+            is_accelerated = true;
+            break;
+          case ResourceUsage::kSoftwareCompositedDirect2DResourceUsage:
+            NOTREACHED();
+            continue;
+        }
 
         provider = std::make_unique<CanvasResourceProviderSharedImage>(
             size, msaa_sample_count, filter_quality, color_params,
             context_provider_wrapper, resource_dispatcher, is_origin_top_left,
-            is_overlay_candidate, maybe_single_buffered, is_accelerated);
+            is_accelerated, shared_image_usage_flags);
       } break;
     }
     if (!provider->IsValid())
@@ -993,10 +1041,8 @@ void CanvasResourceProvider::InitializePaintCanvas() {
            ->ContextProvider()
            ->GetGpuFeatureInfo()
            .IsWorkaroundEnabled(gpu::DISABLE_2D_CANVAS_AUTO_FLUSH)) {
-    context_flushes.enable =
-        canvas_heuristic_parameters::kEnableGrContextFlushes;
-    context_flushes.max_draws_before_flush =
-        canvas_heuristic_parameters::kMaxDrawsBeforeContextFlush;
+    context_flushes.enable = true;
+    context_flushes.max_draws_before_flush = kMaxDrawsBeforeContextFlush;
   }
   canvas_ = std::make_unique<cc::SkiaPaintCanvas>(GetSkSurface()->getCanvas(),
                                                   canvas_image_provider_.get(),
@@ -1142,7 +1188,7 @@ void CanvasResourceProvider::RecycleResource(
     scoped_refptr<CanvasResource> resource) {
   // We don't want to keep an arbitrary large number of canvases.
   if (canvas_resources_.size() >
-      canvas_heuristic_parameters::kMaxRecycledCanvasResources)
+      static_cast<unsigned int>(kMaxRecycledCanvasResources))
     return;
 
   // Need to check HasOneRef() because if there are outstanding references to
@@ -1201,6 +1247,14 @@ scoped_refptr<CanvasResource> CanvasResourceProvider::GetImportedResource()
   if (canvas_resources_.IsEmpty())
     return nullptr;
   return canvas_resources_.back();
+}
+
+void CanvasResourceProvider::RestoreBackBuffer(const cc::PaintImage& image) {
+  DCHECK_EQ(image.height(), Size().Height());
+  DCHECK_EQ(image.width(), Size().Width());
+  cc::PaintFlags copy_paint;
+  copy_paint.setBlendMode(SkBlendMode::kSrc);
+  Canvas()->drawImage(image, 0, 0, &copy_paint);
 }
 
 }  // namespace blink

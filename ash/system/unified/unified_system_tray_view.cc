@@ -8,6 +8,8 @@
 
 #include "ash/public/cpp/ash_features.h"
 #include "ash/session/session_controller_impl.h"
+#include "ash/shelf/shelf.h"
+#include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/default_color_constants.h"
@@ -24,6 +26,9 @@
 #include "ash/system/unified/unified_system_info_view.h"
 #include "ash/system/unified/unified_system_tray_controller.h"
 #include "ash/system/unified/unified_system_tray_model.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/message_center/message_center.h"
@@ -91,8 +96,6 @@ class SystemTrayContainer : public views::View {
   SystemTrayContainer() {
     SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kVertical));
-    SetBackground(UnifiedSystemTrayView::CreateBackground());
-
     if (!features::IsUnifiedMessageCenterRefactorEnabled())
       SetBorder(std::make_unique<TopCornerBorder>());
   }
@@ -113,8 +116,6 @@ class SystemTrayContainer : public views::View {
 class DetailedViewContainer : public views::View {
  public:
   DetailedViewContainer() {
-    SetBackground(UnifiedSystemTrayView::CreateBackground());
-
     if (!features::IsUnifiedMessageCenterRefactorEnabled())
       SetBorder(std::make_unique<TopCornerBorder>());
   }
@@ -132,6 +133,25 @@ class DetailedViewContainer : public views::View {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DetailedViewContainer);
+};
+
+class AccessibilityFocusHelperView : public views::View {
+ public:
+  AccessibilityFocusHelperView(UnifiedSystemTrayController* controller)
+      : controller_(controller) {}
+
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override {
+    controller_->FocusOut(false);
+    return true;
+  }
+
+  // views::View:
+  void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
+    node_data->role = ax::mojom::Role::kListItem;
+  }
+
+ private:
+  UnifiedSystemTrayController* controller_;
 };
 
 }  // namespace
@@ -232,14 +252,29 @@ class UnifiedSystemTrayView::FocusSearch : public views::FocusSearch {
 
 // static
 SkColor UnifiedSystemTrayView::GetBackgroundColor() {
-  if (features::IsBackgroundBlurEnabled()) {
+  if (!features::IsBackgroundBlurEnabled()) {
     return AshColorProvider::Get()->DeprecatedGetBaseLayerColor(
-        AshColorProvider::BaseLayerType::kTransparent74,
-        kUnifiedMenuBackgroundColorWithBlur);
+        AshColorProvider::BaseLayerType::kTransparent90,
+        kUnifiedMenuBackgroundColor);
   }
-  return AshColorProvider::Get()->DeprecatedGetBaseLayerColor(
-      AshColorProvider::BaseLayerType::kTransparent90,
-      kUnifiedMenuBackgroundColor);
+  auto background_type = Shelf::ForWindow(Shell::GetPrimaryRootWindow())
+                             ->shelf_widget()
+                             ->GetBackgroundType();
+  AshColorProvider::BaseLayerType layer_type =
+      (background_type == ShelfBackgroundType::kMaximized ||
+       background_type == ShelfBackgroundType::kInApp)
+          ? AshColorProvider::BaseLayerType::kTransparent90
+          : AshColorProvider::BaseLayerType::kTransparent80;
+
+  SkColor background_color = AshColorProvider::Get()->GetBaseLayerColor(
+      layer_type, AshColorProvider::AshColorMode::kDark);
+
+  return ShelfConfig::Get()->GetThemedColorFromWallpaper(background_color);
+}
+
+// static
+SkColor UnifiedSystemTrayView::GetFocusRingColor() {
+  return ShelfConfig::Get()->shelf_focus_border_color();
 }
 
 // static
@@ -272,9 +307,11 @@ UnifiedSystemTrayView::UnifiedSystemTrayView(
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
 
-  SetBackground(CreateBackground());
-  SetPaintToLayer();
-  layer()->SetFillsBoundsOpaquely(false);
+  auto add_layered_child = [](views::View* parent, views::View* child) {
+    parent->AddChildView(child);
+    child->SetPaintToLayer();
+    child->layer()->SetFillsBoundsOpaquely(false);
+  };
 
   SessionControllerImpl* session_controller =
       Shell::Get()->session_controller();
@@ -282,7 +319,7 @@ UnifiedSystemTrayView::UnifiedSystemTrayView(
   if (!features::IsUnifiedMessageCenterRefactorEnabled()) {
     message_center_view_ = new UnifiedMessageCenterView(
         this, controller->model(), nullptr /* message_center_bubble */);
-    AddChildView(message_center_view_);
+    add_layered_child(this, message_center_view_);
     layout->SetFlexForView(message_center_view_, 1);
   }
 
@@ -290,15 +327,15 @@ UnifiedSystemTrayView::UnifiedSystemTrayView(
       session_controller->GetUserSession(0) &&
       session_controller->IsScreenLocked() &&
       !AshMessageCenterLockScreenController::IsEnabled());
-  AddChildView(notification_hidden_view_);
+  add_layered_child(this, notification_hidden_view_);
 
   AddChildView(system_tray_container_);
 
-  system_tray_container_->AddChildView(top_shortcuts_view_);
+  add_layered_child(system_tray_container_, top_shortcuts_view_);
   system_tray_container_->AddChildView(feature_pods_container_);
   system_tray_container_->AddChildView(page_indicator_view_);
   system_tray_container_->AddChildView(sliders_container_);
-  system_tray_container_->AddChildView(system_info_view_);
+  add_layered_child(system_tray_container_, system_info_view_);
 
   if (features::IsManagedDeviceUIRedesignEnabled()) {
     managed_device_view_ = new UnifiedManagedDeviceView();
@@ -306,7 +343,7 @@ UnifiedSystemTrayView::UnifiedSystemTrayView(
   }
 
   detailed_view_container_->SetVisible(false);
-  AddChildView(detailed_view_container_);
+  add_layered_child(this, detailed_view_container_);
 
   // UnifiedSystemTrayView::FocusSearch makes focus traversal start from
   // |system_tray_container_|, but we have to complete the cycle by setting
@@ -319,6 +356,9 @@ UnifiedSystemTrayView::UnifiedSystemTrayView(
     detailed_view_container_->SetNextFocusableView(message_center_view_);
 
   top_shortcuts_view_->SetExpandedAmount(expanded_amount_);
+
+  system_tray_container_->AddChildView(
+      new AccessibilityFocusHelperView(controller_));
 }
 
 UnifiedSystemTrayView::~UnifiedSystemTrayView() = default;
@@ -493,6 +533,7 @@ views::View* UnifiedSystemTrayView::GetLastFocusableChild() {
 void UnifiedSystemTrayView::FocusEntered(bool reverse) {
   views::View* focus_view =
       reverse ? GetLastFocusableChild() : GetFirstFocusableChild();
+  GetFocusManager()->ClearFocus();
   GetFocusManager()->SetFocusedView(focus_view);
 }
 

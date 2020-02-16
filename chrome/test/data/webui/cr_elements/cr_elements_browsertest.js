@@ -59,30 +59,6 @@ TEST_F('CrElementsLazyRenderTest', 'All', function() {
  * @constructor
  * @extends {CrElementsBrowserTest}
  */
-function CrElementsProfileAvatarSelectorTest() {}
-
-CrElementsProfileAvatarSelectorTest.prototype = {
-  __proto__: CrElementsBrowserTest.prototype,
-
-  /** @override */
-  browsePreload: 'chrome://resources/cr_elements/cr_profile_avatar_selector/' +
-      'cr_profile_avatar_selector.html',
-
-  /** @override */
-  extraLibraries: CrElementsBrowserTest.prototype.extraLibraries.concat([
-    'cr_profile_avatar_selector_tests.js',
-  ]),
-};
-
-TEST_F('CrElementsProfileAvatarSelectorTest', 'All', function() {
-  cr_profile_avatar_selector.registerTests();
-  mocha.grep(cr_profile_avatar_selector.TestNames.Basic).run();
-});
-
-/**
- * @constructor
- * @extends {CrElementsBrowserTest}
- */
 function CrElementsSearchFieldTest() {}
 
 CrElementsSearchFieldTest.prototype = {
@@ -286,7 +262,8 @@ CrPolicyNetworkBehaviorMojoTest.prototype = {
   __proto__: CrElementsBrowserTest.prototype,
 
   /** @override */
-  browsePreload: 'chrome://settings/internet_page/internet_page.html',
+  browsePreload:
+      'chrome://os-settings/chromeos/internet_page/internet_page.html',
 
   /** @override */
   extraLibraries: CrElementsBrowserTest.prototype.extraLibraries.concat([
@@ -309,7 +286,8 @@ CrElementsPolicyNetworkIndicatorMojoTest.prototype = {
   __proto__: CrElementsBrowserTest.prototype,
 
   /** @override */
-  browsePreload: 'chrome://settings/internet_page/internet_page.html',
+  browsePreload:
+      'chrome://os-settings/chromeos/internet_page/internet_page.html',
 
   /** @override */
   extraLibraries: CrElementsBrowserTest.prototype.extraLibraries.concat([
@@ -348,7 +326,14 @@ CrElementsFingerprintProgressArcTest.prototype = {
   ]),
 };
 
-TEST_F('CrElementsFingerprintProgressArcTest', 'DISABLED_All', function() {
+// https://crbug.com/1044390 - maybe flaky on Mac?
+GEN('#if defined(OS_MACOSX)');
+GEN('#define MAYBE_Fingerprint DISABLED_Fingerprint');
+GEN('#else');
+GEN('#define MAYBE_Fingerprint Fingerprint');
+GEN('#endif');
+
+TEST_F('CrElementsFingerprintProgressArcTest', 'MAYBE_Fingerprint', function() {
   mocha.run();
 });
 
@@ -395,28 +380,6 @@ CrElementsSliderTest.prototype = {
 };
 
 TEST_F('CrElementsSliderTest', 'All', function() {
-  mocha.run();
-});
-
-/**
- * @constructor
- * @extends {CrElementsBrowserTest}
- */
-function CrElementsSplitterTest() {}
-
-CrElementsSplitterTest.prototype = {
-  __proto__: CrElementsBrowserTest.prototype,
-
-  /** @override */
-  browsePreload: 'chrome://resources/cr_elements/cr_splitter/cr_splitter.html',
-
-  /** @override */
-  extraLibraries: CrElementsBrowserTest.prototype.extraLibraries.concat([
-    'cr_splitter_test.js',
-  ]),
-};
-
-TEST_F('CrElementsSplitterTest', 'All', function() {
   mocha.run();
 });
 

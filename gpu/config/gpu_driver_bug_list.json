@@ -2950,30 +2950,6 @@
       ]
     },
     {
-      "id":281,
-      "cr_bugs": [838725],
-      "description": "Disable AImageReader on Imagination Technologies GPU as its buggy.",
-      "os": {
-        "type": "android"
-      },
-      "gl_vendor": "Imagination Technologies.*",
-      "features": [
-        "disable_aimagereader"
-      ]
-    },
-    {
-      "id":282,
-      "cr_bugs": [838725],
-      "description": "Disable AImageReader on NVIDIA GPU for as its buggy.",
-      "os": {
-        "type": "android"
-      },
-      "gl_vendor": "NVIDIA.*",
-      "features": [
-        "disable_aimagereader"
-      ]
-    },
-    {
       "id": 283,
       "cr_bugs": [893177],
       "description": "Some drivers can't recover after OUT_OF_MEM and context lost",
@@ -3486,6 +3462,19 @@
       ]
     },
     {
+      "id": 326,
+      "description": "Migrating OpenGL contexts between low- and high-power GPUs is unreliable on Mac NVIDIA laptops",
+      "cr_bugs": [681341],
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x10de",
+      "multi_gpu_category": "any",
+      "features": [
+        "force_low_power_gpu"
+      ]
+    },
+    {
       "id": 327,
       "cr_bugs": [1027981],
       "description": "Disable dual source blending support",
@@ -3499,6 +3488,59 @@
       "gl_vendor": "Intel.*",
       "features": [
         "disable_dual_source_blending_support"
+      ]
+    },
+    {
+      "id": 328,
+      "cr_bugs": [1041166],
+      "description": "Disable D3D11VideoDecoder due to crashes on NVIDIA",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x10de",
+      "features": [
+        "disable_d3d11_video_decoder"
+      ]
+    },
+    {
+      "id": 329,
+      "cr_bugs": [1012464],
+      "description": "Limit D3D11VideoDecoder to 11.0 due to crashes on AMD",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x1002",
+      "features": [
+        "limit_d3d11_video_decoder_to_11_0"
+      ]
+    },
+    {
+      "id": 330,
+      "cr_bugs": [1038671],
+      "description": "WebGL MSAA for PowerVR.*GX6250 context lost with GL_UNKNOWN_CONTEXT_RESET_KHR",
+      "os": {
+        "type": "chromeos"
+      },
+      "gl_vendor": "Imagination.*",
+      "gl_renderer": "PowerVR.*GX6250",
+      "features": [
+        "webgl_msaa_is_broken"
+      ],
+      "disabled_extensions": [
+        "GL_EXT_multisampled_render_to_texture"
+      ]
+    },
+    {
+      "id": 331,
+      "cr_bugs": [1046462],
+      "description": "GL and Vulkan interop doesn't work with AMD GPU properly",
+      "os": {
+        "type": "linux"
+      },
+      "vendor_id": "0x1002",
+      "disabled_extensions": [
+        "GL_EXT_memory_object_fd",
+        "GL_EXT_semaphore_fd"
       ]
     }
   ]

@@ -385,7 +385,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="3646890046000188562">{COUNT,plural, =1{accent grave}one{# accent graver}other{# accent graver}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollar}one{# dollartegn}other{# dollartegn}}</translation>
-<translation id="3658742229777143148">Revision</translation>
 <translation id="3659787053479271466">advar</translation>
 <translation id="3665563998540286755">Listefeltet <ph name="VALUE" /></translation>
 <translation id="3681531118904532409">Lys varm orange</translation>
@@ -420,6 +419,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="3914732343065571127">Kommandoreference i ChromeVox</translation>
 <translation id="3930383913623796990">Forårsgrøn</translation>
 <translation id="3930498801443296724">Opmærksomhedsskabende citat</translation>
+<translation id="3935615366277838204">Stort <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Babylyserød</translation>
 <translation id="3941269780691800708">Oplæs teksten under markøren.</translation>
 <translation id="394953087167197343">Angiv stavefejl:</translation>
@@ -793,7 +793,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="6459511626086141404">Flad tasteoversigt</translation>
 <translation id="6468049171101508116">Knappen Næste</translation>
 <translation id="646954774886932461">Indeks</translation>
-<translation id="6479792383819319132">Der er intet næste afsnit.</translation>
 <translation id="6493991254603208962">Lysstyrke ned</translation>
 <translation id="6501595918865591267">Turkis</translation>
 <translation id="6508059270146105198">Flyt braille-visningen til bunden af siden</translation>
@@ -816,7 +815,6 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">Statuslinje</translation>
 <translation id="6659594942844771486">Fane</translation>
-<translation id="6675661017770918201">Der er ingen tidligere afsnit.</translation>
 <translation id="667999046851023355">Dokument</translation>
 <translation id="6688209025607531203">En ikke-modal advarsel</translation>
 <translation id="6689672606256159458">Mørk laksefarvet</translation>
@@ -845,6 +843,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="6865519907510167493">Stavefejl</translation>
 <translation id="6871161210040114857">Der tages ikke højde for store og små bogstaver.</translation>
 <translation id="6877435256196695200">Ikke flere grafikker.</translation>
+<translation id="688976158310523235">Søgemenu</translation>
 <translation id="6897341342232909480">Flyt til venstre</translation>
 <translation id="6901540140423170855">dato</translation>
 <translation id="6910211073230771657">Slettet</translation>
@@ -857,6 +856,7 @@ Hvis du er færdig med selvstudiet, kan du gå til knappen Luk via ChromeVox og 
 <translation id="699159175332639490">Søgetast+O+W</translation>
 <translation id="6994042831499278539">Reference på ordliste</translation>
 <translation id="6996566555547746822">Næste kombifelt</translation>
+<translation id="6997224546856374593">Ved oplæsning af store bogstaver:</translation>
 <translation id="700202842116345659">Bibliografipunkt</translation>
 <translation id="7005146664810010831">Der blev ikke fundet nogen webadresse</translation>
 <translation id="7010712454773919705">Ændringstast til ChromeVox</translation>
@@ -937,6 +937,7 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">fane</translation>
 <translation id="7492049978501397201">Indtastet dialog</translation>
+<translation id="7505149250476994901">Sig "stort" før bogstav</translation>
 <translation id="7518543783849163354">Tryk på Ctrl for midlertidigt at afbryde oplæsning i ChromeVox.</translation>
 <translation id="7521682724501952239">Du kan bruge ChromeVox med touchskærmen</translation>
 <translation id="7532613204005497612">Juni</translation>
@@ -1104,7 +1105,6 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="812886159861361726">Download af <ph name="FILE_NAME" /> er stoppet</translation>
 <translation id="8138880386467279117">Berøring</translation>
 <translation id="8153880621934657047">Ikke i tabel.</translation>
-<translation id="8161114871611868169">Kommentarsektion</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{understregning}one{# understregninger}other{# understregninger}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">rk</translation>
@@ -1125,6 +1125,7 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="8313653172105209786">map</translation>
 <translation id="8316881042119029234">Gullighvid</translation>
 <translation id="8326783648485765113">Plænegrøn</translation>
+<translation id="8328063869313048659">Slå mørk skærm til/fra</translation>
 <translation id="8344569602005188545">timer</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{pund}one{# pund-tegn}other{# pund-tegn}}</translation>
 <translation id="8374154622594089836">måned</translation>
@@ -1209,6 +1210,7 @@ Tryk på Alt+F for at åbne browsermenuen i Chrome.</translation>
 <translation id="9065283790526219006">+pop op-vindue</translation>
 <translation id="9066023754636984703">Tryk på søgetasten+A, J for at gå til oplysningerne.</translation>
 <translation id="9067522039955793016">Sideskift</translation>
+<translation id="9074824103975499138">Søg i ChromeVox-menuer</translation>
 <translation id="9077213568694924680">fjernet fra det valgte</translation>
 <translation id="9077305471618729969">Lys havgrøn</translation>
 <translation id="9082874451376019682">Ingen tidligere skydere.</translation>

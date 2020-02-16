@@ -74,7 +74,7 @@ class CastSessionTracker : public MediaSinkServiceBase::Observer,
   void HandleMediaStatusMessage(const MediaSinkInternal& sink,
                                 const base::Value& message);
   void CopySavedMediaFieldsToMediaList(CastSession* session,
-                                       std::vector<base::Value>* media_list);
+                                       base::Value::ListView media_list);
   const MediaSinkInternal* GetSinkByChannelId(int channel_id) const;
 
   // MediaSinkServiceBase::Observer implementation
@@ -110,6 +110,8 @@ class CastSessionTracker : public MediaSinkServiceBase::Observer,
                            HandleMediaStatusMessageFancy);
   FRIEND_TEST_ALL_PREFIXES(CastSessionTrackerTest,
                            CopySavedMediaFieldsToMediaList);
+  FRIEND_TEST_ALL_PREFIXES(CastSessionTrackerTest,
+                           DoNotCopySavedMediaFieldsWhenFieldPresent);
 };
 
 }  // namespace media_router

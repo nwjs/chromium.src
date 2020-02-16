@@ -16,6 +16,7 @@
 #include "content/public/test/test_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/spawned_test_server/spawned_test_server.h"
+#include "storage/browser/quota/quota_settings.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace base {
@@ -57,6 +58,11 @@ class BrowserTestBase : public testing::Test {
 
   // Override this to disallow accesses to be production-compatible.
   virtual bool AllowFileAccessFromFiles();
+
+  // By default browser tests use hardcoded quota settings for consistency,
+  // instead of dynamically based on available disk space. Tests can override
+  // this if they want to use the production path.
+  virtual bool UseProductionQuotaSettings();
 
   // Crash the Network Service process. Should only be called when
   // out-of-process Network Service is enabled. Re-applies any added host
@@ -200,6 +206,8 @@ class BrowserTestBase : public testing::Test {
   // class to ensure that SetUp was called. If it's not called, the test will
   // not run and report a false positive result.
   bool set_up_called_;
+
+  std::unique_ptr<storage::QuotaSettings> quota_settings_;
 
   std::unique_ptr<NoRendererCrashesAssertion> no_renderer_crashes_assertion_;
 

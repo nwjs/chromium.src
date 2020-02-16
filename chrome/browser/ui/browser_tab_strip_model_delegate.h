@@ -11,7 +11,10 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 
 class GURL;
+
+namespace tab_groups {
 class TabGroupId;
+}
 
 namespace chrome {
 
@@ -25,7 +28,7 @@ class BrowserTabStripModelDelegate : public TabStripModelDelegate {
   void AddTabAt(const GURL& url,
                 int index,
                 bool foreground,
-                base::Optional<TabGroupId> group) override;
+                base::Optional<tab_groups::TabGroupId> group) override;
   Browser* CreateNewStripWithContents(std::vector<NewStripContents> contentses,
                                       const gfx::Rect& window_bounds,
                                       bool maximize) override;
@@ -33,6 +36,8 @@ class BrowserTabStripModelDelegate : public TabStripModelDelegate {
   int GetDragActions() const override;
   bool CanDuplicateContentsAt(int index) override;
   void DuplicateContentsAt(int index) override;
+  bool CanMoveTabsToWindow(const std::vector<int>& indices) override;
+  void MoveTabsToNewWindow(const std::vector<int>& indices) override;
   void CreateHistoricalTab(content::WebContents* contents) override;
   bool RunUnloadListenerBeforeClosing(content::WebContents* contents) override;
   bool ShouldRunUnloadListenerBeforeClosing(

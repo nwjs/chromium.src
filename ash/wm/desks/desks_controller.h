@@ -71,6 +71,10 @@ class ASH_EXPORT DesksController : public DesksHelper,
 
   const Desk* active_desk() const { return active_desk_; }
 
+  // Returns the current |active_desk()| or the soon-to-be active desk if a desk
+  // switch animation is in progress.
+  const Desk* GetTargetActiveDesk() const;
+
   // Destroys any pending animations in preparation for shutdown.
   void Shutdown();
 
@@ -180,6 +184,11 @@ class ASH_EXPORT DesksController : public DesksHelper,
   void ReportNumberOfWindowsPerDeskHistogram() const;
 
   void ReportDesksCountHistogram() const;
+
+  // Updates the default names (e.g. "Desk 1", "Desk 2", ... etc.) given to the
+  // desks. This is called when desks are added or removed to update the names
+  // based on the desks order.
+  void UpdateDesksDefaultNames();
 
   std::vector<std::unique_ptr<Desk>> desks_;
 

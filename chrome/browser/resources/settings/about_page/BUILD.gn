@@ -9,22 +9,13 @@ js_type_check("closure_compile") {
     ":about_page",
     ":about_page_browser_proxy",
   ]
-
-  if (is_chromeos) {
-    deps += [
-      ":channel_switcher_dialog",
-      ":detailed_build_info",
-    ]
-  }
 }
 
 js_library("about_page") {
   deps = [
     ":about_page_browser_proxy",
     "..:lifetime_browser_proxy",
-    "..:route",
-    "../settings_page:main_page_behavior",
-    "../settings_page:settings_animated_pages",
+    "..:router",
     "//ui/webui/resources/js:assert",
     "//ui/webui/resources/js:i18n_behavior",
     "//ui/webui/resources/js:parse_html_subset",
@@ -33,25 +24,52 @@ js_library("about_page") {
 }
 
 js_library("about_page_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr",
-  ]
+  deps = [ "//ui/webui/resources/js:cr" ]
   externs_list = [ "$externs_path/chrome_send.js" ]
 }
 
-js_library("detailed_build_info") {
+# TODO(crbug.com/1026426): Fix and enable.
+#js_type_check("closure_compile_module") {
+#  is_polymer3 = true
+#  deps = [
+#    ":about_page.m",
+#    ":about_page_browser_proxy.m",
+#  ]
+#}
+
+js_library("about_page.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/about_page/about_page.m.js" ]
   deps = [
-    ":about_page_browser_proxy",
-    "//ui/webui/resources/cr_elements/policy:cr_policy_indicator_behavior",
-    "//ui/webui/resources/js:assert",
-    "//ui/webui/resources/js:i18n_behavior",
-    "//ui/webui/resources/js/cr/ui:focus_without_ink",
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":about_page_module" ]
+}
+
+js_library("about_page_browser_proxy.m") {
+  sources = [ "$root_gen_dir/chrome/browser/resources/settings/about_page/about_page_browser_proxy.m.js" ]
+  deps = [
+    # TODO: Fill those in.
+  ]
+  extra_deps = [ ":modulize" ]
+}
+
+import("//tools/polymer/polymer.gni")
+
+group("polymer3_elements") {
+  deps = [
+    ":about_page_module",
+    ":modulize",
   ]
 }
 
-js_library("channel_switcher_dialog") {
-  deps = [
-    ":about_page_browser_proxy",
-    "//ui/webui/resources/js:load_time_data",
-  ]
+polymer_modulizer("about_page") {
+  js_file = "about_page.js"
+  html_file = "about_page.html"
+  html_type = "dom-module"
+}
+
+import("//ui/webui/resources/tools/js_modulizer.gni")
+
+js_modulizer("modulize") {
+  input_files = [ "about_page_browser_proxy.js" ]
 }

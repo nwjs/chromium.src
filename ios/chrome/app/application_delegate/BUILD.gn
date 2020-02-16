@@ -107,12 +107,12 @@ source_set("application_delegate_internal") {
     "//components/feature_engagement",
     "//components/handoff",
     "//components/metrics",
-    "//components/payments/core",
     "//components/prefs",
     "//components/search_engines",
     "//components/ukm/ios:features",
     "//ios/chrome/app",
     "//ios/chrome/app:mode",
+    "//ios/chrome/app/intents",
     "//ios/chrome/app/spotlight",
     "//ios/chrome/app/startup",
     "//ios/chrome/browser",
@@ -124,7 +124,6 @@ source_set("application_delegate_internal") {
     "//ios/chrome/browser/metrics",
     "//ios/chrome/browser/metrics:metrics_internal",
     "//ios/chrome/browser/net",
-    "//ios/chrome/browser/payments",
     "//ios/chrome/browser/search_engines",
     "//ios/chrome/browser/signin",
     "//ios/chrome/browser/tabs",
@@ -152,6 +151,7 @@ source_set("application_delegate_internal") {
     "CoreSpotlight.framework",
     "UIKit.framework",
   ]
+  allow_circular_includes_from = [ "//ios/chrome/browser/url_loading" ]
 }
 
 source_set("test_support") {

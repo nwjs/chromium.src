@@ -79,7 +79,8 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   Element* MouseButtonListener() const;
   bool IsNativeCheckboxOrRadio() const;
   void SetNode(Node*);
-  AXObject* CorrespondingControlForLabelElement() const;
+  AXObject* CorrespondingControlAXObjectForLabelElement() const;
+  AXObject* CorrespondingLabelAXObject() const;
   HTMLLabelElement* LabelElementContainer() const;
 
   //
@@ -97,7 +98,6 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   bool IsMultiline() const override;
   bool IsEditable() const override { return IsNativeTextControl(); }
   bool ComputeIsEditableRoot() const override;
-  bool IsEmbeddedObject() const final;
   bool IsFieldset() const final;
   bool IsHeading() const final;
   bool IsHovered() const final;
@@ -161,6 +161,7 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
 
   // ARIA attributes.
   ax::mojom::Role AriaRoleAttribute() const final;
+  bool HasAriaAttribute() const override;
 
   // AX name calculation.
   String GetName(ax::mojom::NameFrom&,

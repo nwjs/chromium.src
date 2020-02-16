@@ -248,7 +248,6 @@ void LocalFrameUkmAggregator::DidReachFirstContentfulPaint(
       CASE_FOR_ID(IntersectionObservation);
       CASE_FOR_ID(Paint);
       CASE_FOR_ID(PrePaint);
-      CASE_FOR_ID(StyleAndLayout);
       CASE_FOR_ID(Style);
       CASE_FOR_ID(Layout);
       CASE_FOR_ID(ForcedStyleAndLayout);
@@ -389,7 +388,6 @@ void LocalFrameUkmAggregator::RecordEvent() {
       CASE_FOR_ID(IntersectionObservation);
       CASE_FOR_ID(Paint);
       CASE_FOR_ID(PrePaint);
-      CASE_FOR_ID(StyleAndLayout);
       CASE_FOR_ID(Style);
       CASE_FOR_ID(Layout);
       CASE_FOR_ID(ForcedStyleAndLayout);
@@ -433,11 +431,11 @@ unsigned LocalFrameUkmAggregator::SampleFramesToNextEvent() {
   double float_sample = 0;
   do {
     float_sample = -(sample_rate_multiplier_ *
-                     std::exp(samples_so_far_ / sample_decay_rate_) *
+                     std::exp(samples_so_far_ * sample_decay_rate_) *
                      std::log(1.0 - base::RandDouble()));
   } while (float_sample == 0);
   // float_sample is positive, so we don't need to worry about underflow.
-  // After around 100 samples we will end up with a super high
+  // After around 30 samples we will end up with a super high
   // sample. That's OK because it just means we'll stop reporting metrics
   // for that session, but we do need to be careful about overflow and NaN.
   samples_so_far_++;

@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">ተንሸራታች</translation>
 <translation id="1211441953136645838">የግርጌ ማስታወሻ</translation>
 <translation id="1281252709823657822">መገናኛ</translation>
+<translation id="1306460908038601864">ጠፍቷል</translation>
 <translation id="1335095011850992622">ክሬዲቶች</translation>
 <translation id="1342835525016946179">ጽሑፍ</translation>
 <translation id="1359897965706325498">ሰንደቅ</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">እባክዎ ይህን ጽሑፍ ወደ <ph name="MIN_CHARACTERS" /> ቁምፊዎች ወይም ከዚያ በላይ ያራዝሙት (አሁን እየተጠቀሙ ያሉት <ph name="CURRENT_LENGTH" />ቁምፊዎችን ነው)።</translation>
 <translation id="383465348367842624">ከ«<ph name="ATSIGN" />» በፊት የሚመጣ ክፍል የ«<ph name="INVALIDCHARACTER" />» ምልክት መያዝ የለበትም።</translation>
 <translation id="3846214748874656680">ከሙሉ ማያገጽ ውጣ</translation>
-<translation id="3889183436948184105">ክለሳ</translation>
 <translation id="3920932319529768807">ድምዳሜ</translation>
 <translation id="3924558731517983934">መተግበሪያ</translation>
 <translation id="3944740393230681990">ቅድመ-ታሪክ</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">እባክዎ ቁጥር ያስገቡ።</translation>
 <translation id="4912536737030637138">የዋቢ መጽሐፍት ግቤት</translation>
 <translation id="492244087561876220">አስተያየት</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> ተመርጧል</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> ተመርጠዋል</translation>
 <translation id="4992066212339426712">ድምጸ-ከል አንሳ</translation>
 <translation id="49969490063480558">እባክዎ ከ«<ph name="ATSIGN" />» በኋላ አንድ ክፍል ያስገቡ። «<ph name="INVALIDADDRESS" />» ያልተሟላ ነው።</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> ፔታ</translation>
 <translation id="5307600278924710095">እባክዎ አንድ ክፍል ያስገቡና «<ph name="ATSIGN" />»ን ያስከትሉ። «<ph name="INVALIDADDRESS" />» ያልተሟላ ነው።</translation>
 <translation id="5334352251556557839">ሚዲያን ማጫወት አልተቻለም።</translation>
+<translation id="537648784377940524">አነስተኛው ቀን (<ph name="MIN_DATE_OR_TIME" />) ከከፍተኛው ቀን (<ph name="MAX_DATE_OR_TIME" />) በፊት መምጣት አለበት።</translation>
 <translation id="5406322316791861025">ምስል</translation>
 <translation id="5453733299334684579">የዛፍ ንጥል</translation>
 <translation id="5466621249238537318">እባክዎ አንድ ወይም ተጨማሪ ፋይሎችን ይምረጡ።</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">ተጨማሪ አማራጮች</translation>
 <translation id="576709008726043716">መግቢያ</translation>
 <translation id="57838592816432529">ድምጽ ይዝጉ</translation>
-<translation id="5860033963881614850">አጥፋ</translation>
 <translation id="588258955323874662">ሙሉ ገጽ ዕይታ</translation>
 <translation id="5888666972993069672">አሁን ወደ <ph name="DEVICE_FRIENDLY_NAME" /> cast በማድረግ ላይ</translation>
 <translation id="591047860372322273">የፍለጋ ሳጥን</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">እባክዎ በኢሜይል አድራሻው ውስጥ «<ph name="ATSIGN" />» ያካትቱ። «<ph name="INVALIDADDRESS" />» ውስጥ «<ph name="ATSIGN" />» ይጎድላል።</translation>
 <translation id="7891486169920085145">መክፈያ</translation>
 <translation id="795667975304826397">ምንም ፋይል አልተመረጠም</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> አልተመረጠም</translation>
 <translation id="8034303206267677282">ጠንካራ</translation>
 <translation id="8053789581856978548">የጽሑፍ መስክ ፈልግ</translation>
 <translation id="8057695513531652401">ማስታወቂያ</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">ወር</translation>
 <translation id="901493112792887934">የአሁኑ ጊዜ በሰከንዶች</translation>
 <translation id="901834265349196618">ኢሜይል</translation>
-<translation id="9023835124071926463">የአስተያየት ክፍል</translation>
 <translation id="9048119486235211610">አሰሳ</translation>
 <translation id="9062295712474918030">ሰነድ</translation>
 <translation id="9093215626363556771">ከስዕል-ውስጥ-ስዕል ውጣ</translation>

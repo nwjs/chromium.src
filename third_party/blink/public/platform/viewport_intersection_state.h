@@ -6,8 +6,8 @@
 #define THIRD_PARTY_BLINK_PUBLIC_PLATFORM_VIEWPORT_INTERSECTION_STATE_H_
 
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
+#include "ui/gfx/geometry/point.h"
 
 namespace blink {
 
@@ -44,10 +44,13 @@ struct BLINK_PLATFORM_EXPORT ViewportIntersectionState {
   }
 
   // Child frame's offset from the root frame.
-  WebPoint viewport_offset;
+  gfx::Point viewport_offset;
   // Portion of the child frame which is within the root frame's scrolling
   // viewport, in the coordinate system of the child frame.
   WebRect viewport_intersection;
+  // Same as viewport_intersection, but without applying the main frame's
+  // document-level overflow clip.
+  WebRect main_frame_document_intersection;
   // Area of the child frame that needs to be rastered, in physical pixels.
   WebRect compositor_visible_rect;
   // Occlusion state, as described above.

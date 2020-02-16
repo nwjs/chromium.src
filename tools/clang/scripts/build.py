@@ -434,24 +434,26 @@ def main():
     # (this is needed for bootstrap builds and for building the fuchsia runtime)
     projects += ';libcxx'
 
-  base_cmake_args = ['-GNinja',
-                     '-DCMAKE_BUILD_TYPE=Release',
-                     '-DLLVM_ENABLE_ASSERTIONS=%s' %
-                         ('OFF' if args.disable_asserts else 'ON'),
-                     '-DLLVM_ENABLE_PROJECTS=' + projects,
-                     '-DLLVM_TARGETS_TO_BUILD=' + targets,
-                     '-DLLVM_ENABLE_PIC=OFF',
-                     '-DLLVM_ENABLE_UNWIND_TABLES=OFF',
-                     '-DLLVM_ENABLE_TERMINFO=OFF',
-                     '-DCLANG_PLUGIN_SUPPORT=OFF',
-                     '-DCLANG_ENABLE_STATIC_ANALYZER=OFF',
-                     '-DCLANG_ENABLE_ARCMT=OFF',
-                     '-DBUG_REPORT_URL=' + BUG_REPORT_URL,
-                     # See PR41956: Don't link libcxx into libfuzzer.
-                     '-DCOMPILER_RT_USE_LIBCXX=NO',
-                     # Don't run Go bindings tests; PGO makes them confused.
-                     '-DLLVM_INCLUDE_GO_TESTS=OFF',
-                     ]
+  base_cmake_args = [
+      '-GNinja',
+      '-DCMAKE_BUILD_TYPE=Release',
+      '-DLLVM_ENABLE_ASSERTIONS=%s' % ('OFF' if args.disable_asserts else 'ON'),
+      '-DLLVM_ENABLE_PROJECTS=' + projects,
+      '-DLLVM_TARGETS_TO_BUILD=' + targets,
+      '-DLLVM_ENABLE_PIC=OFF',
+      '-DLLVM_ENABLE_UNWIND_TABLES=OFF',
+      '-DLLVM_ENABLE_TERMINFO=OFF',
+      '-DCLANG_PLUGIN_SUPPORT=OFF',
+      '-DCLANG_ENABLE_STATIC_ANALYZER=OFF',
+      '-DCLANG_ENABLE_ARCMT=OFF',
+      '-DBUG_REPORT_URL=' + BUG_REPORT_URL,
+      # See PR41956: Don't link libcxx into libfuzzer.
+      '-DCOMPILER_RT_USE_LIBCXX=NO',
+      # Don't run Go bindings tests; PGO makes them confused.
+      '-DLLVM_INCLUDE_GO_TESTS=OFF',
+      # TODO(b/148147812) Goma client doesn't handle in-process cc1.
+      '-DCLANG_SPAWN_CC1=ON',
+  ]
 
   if args.gcc_toolchain:
     # Don't use the custom gcc toolchain when building compiler-rt tests; those

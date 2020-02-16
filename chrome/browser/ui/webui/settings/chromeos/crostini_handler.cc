@@ -9,9 +9,11 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/callback_forward.h"
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
+#include "chrome/browser/chromeos/crostini/crostini_installer.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
 #include "chrome/browser/chromeos/guest_os/guest_os_share_path.h"
@@ -20,6 +22,7 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/chromeos/crostini_upgrader/crostini_upgrader_dialog.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/user_manager.h"
@@ -105,6 +108,10 @@ void CrostiniHandler::RegisterMessages() {
       "disableArcAdbSideload",
       base::BindRepeating(&CrostiniHandler::HandleDisableArcAdbRequest,
                           weak_ptr_factory_.GetWeakPtr()));
+  web_ui()->RegisterMessageCallback(
+      "requestCrostiniContainerUpgradeView",
+      base::BindRepeating(&CrostiniHandler::HandleRequestContainerUpgradeView,
+                          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void CrostiniHandler::OnJavascriptAllowed() {
@@ -131,8 +138,8 @@ void CrostiniHandler::OnJavascriptDisallowed() {
 void CrostiniHandler::HandleRequestCrostiniInstallerView(
     const base::ListValue* args) {
   AllowJavascript();
-  ShowCrostiniInstallerView(Profile::FromWebUI(web_ui()),
-                            crostini::CrostiniUISurface::kSettings);
+  crostini::CrostiniInstaller::GetForProfile(Profile::FromWebUI(web_ui()))
+      ->ShowDialog(crostini::CrostiniUISurface::kSettings);
 }
 
 void CrostiniHandler::HandleRequestRemoveCrostini(const base::ListValue* args) {
@@ -368,6 +375,12 @@ bool CrostiniHandler::CheckEligibilityToChangeArcAdbSideloading() const {
     return false;
   }
   return true;
+}
+
+void CrostiniHandler::HandleRequestContainerUpgradeView(
+    const base::ListValue* args) {
+  CHECK_EQ(0U, args->GetSize());
+  chromeos::CrostiniUpgraderDialog::Show(base::DoNothing());
 }
 
 }  // namespace settings

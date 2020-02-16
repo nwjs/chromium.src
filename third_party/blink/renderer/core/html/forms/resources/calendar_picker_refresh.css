@@ -41,7 +41,7 @@ body {
 }
 
 .calendar-navigation-button:hover {
-  background-color: #E5E5E5;
+  background-color: rgba(0, 117, 255, 0.3);
 }
 
 .calendar-navigation-button:disabled {
@@ -92,7 +92,7 @@ body {
   border: 1px solid transparent !important;
   border-radius: 2px;
   color: #767676;
-  padding: 1px;
+  padding: 1px !important;
   text-align: center;
 }
 
@@ -100,31 +100,36 @@ body {
   color: #101010;
 }
 
+.week-number-cell,
+.day-cell {
+    transition: color 0s;
+}
+
 .day-cell.highlighted,
 .month-button.highlighted,
 .week-number-cell.highlighted {
-  background-color: #E5E5E5;
+  background-color: rgba(0, 117, 255, 0.3);
 }
 
 .day-cell.selected,
 .month-button.selected,
 .week-number-cell.selected {
-  background-color: #CECECE;
+  background-color: #0075FF;
+  color: #FFFFFF;
   font-weight: bold;
+}
+
+.calendar-table-view:focus .day-cell.selected,
+.year-list-view:focus .month-button.selected,
+.calendar-table-view:focus .week-number-cell.selected {
+  outline: solid 2px -webkit-focus-ring-color;
+  outline-offset: -2px;
 }
 
 .day-cell.highlighted.today,
 .day-cell.today,
 .month-button.today {
-  background-color: #6E6E6E;
-  border: 0;
-  color: #FFFFFF;
-  font-weight: bold;
-}
-
-.day-cell.selected.today,
-.month-button.selected.today {
-  border: 2px solid #CECECE !important;
+  border-color: #767676 !important;
 }
 
 .day-cell.disabled,
@@ -148,7 +153,7 @@ body {
 }
 
 .today-button-refresh:hover {
-  background-color: #E5E5E5;
+  background-color: rgba(0, 117, 255, 0.3);
 }
 
 .today-button-refresh:disabled {
@@ -269,17 +274,16 @@ body {
     color: Window;
   }
 
+  .calendar-table-view:focus .day-cell.selected,
+  .year-list-view:focus .month-button.selected,
+  .calendar-table-view:focus .week-number-cell.selected {
+    outline: none;
+  }
+
   .day-cell.highlighted.today,
   .day-cell.today,
   .month-button.today {
-    background-color: Highlight;
-    border: 2px solid Window !important;
-    color: Window;
-  }
-
-  .day-cell.selected.today,
-  .month-button.selected.today {
-    border: 1px solid Window !important;
+    border-color: WindowText !important;
   }
 
   .day-cell.disabled,

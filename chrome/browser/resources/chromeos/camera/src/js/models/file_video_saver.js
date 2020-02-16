@@ -2,27 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
-
-/**
- * Namespace for the Camera app.
- */
-var cca = cca || {};
-
-/**
- * Namespace for models.
- */
-cca.models = cca.models || {};
+import {getFileWriter} from './filesystem.js';
+// eslint-disable-next-line no-unused-vars
+import {VideoSaver} from './video_saver_interface.js';
 
 /**
  * Used to save captured video.
- * @implements {cca.models.VideoSaver}
+ * @implements {VideoSaver}
  */
-cca.models.FileVideoSaver = class {
+export class FileVideoSaver {
   /**
    * @param {!FileEntry} file
    * @param {!FileWriter} writer
-   * @private
    */
   constructor(file, writer) {
     /**
@@ -43,15 +34,23 @@ cca.models.FileVideoSaver = class {
   }
 
   /**
+   * @param {!Blob} blob
+   * @protected
+   */
+  async doWrite_(blob) {
+    return new Promise((resolve) => {
+      this.writer_.onwriteend = resolve;
+      this.writer_.write(blob);
+    });
+  }
+
+  /**
    * @override
    */
   async write(blob) {
     this.curWrite_ = (async () => {
       await this.curWrite_;
-      await new Promise((resolve) => {
-        this.writer_.onwriteend = resolve;
-        this.writer_.write(blob);
-      });
+      await this.doWrite_(blob);
     })();
     await this.curWrite_;
   }
@@ -68,11 +67,10 @@ cca.models.FileVideoSaver = class {
    * Creates FileVideoSaver.
    * @param {!FileEntry} file The file which FileVideoSaver saves the result
    *     video into.
-   * @return {!Promise<!cca.models.FileVideoSaver>}
+   * @return {!Promise<!FileVideoSaver>}
    */
-  static async create(file) {
-    const writer = await new Promise(
-        (resolve, reject) => file.createWriter(resolve, reject));
-    return new cca.models.FileVideoSaver(file, writer);
+  static async createFileVideoSaver(file) {
+    const writer = await getFileWriter(file);
+    return new FileVideoSaver(file, writer);
   }
-};
+}

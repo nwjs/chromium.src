@@ -17,6 +17,8 @@ import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
 
+import java.util.List;
+
 /**
  * The WebContents Java wrapper to allow communicating with the native WebContents object.
  *
@@ -153,6 +155,11 @@ public interface WebContents extends Parcelable {
     RenderWidgetHostView getRenderWidgetHostView();
 
     /**
+     * @return The WebContents that are nested within this one.
+     */
+    List<? extends WebContents> getInnerWebContents();
+
+    /**
      * @return The title for the current visible page.
      */
     String getTitle();
@@ -224,8 +231,13 @@ public interface WebContents extends Parcelable {
      */
     boolean focusLocationBarByDefault();
 
+    /**
+     * Sets or removes page level focus.
+     * @param hasFocus Indicates if focus should be set or removed.
+     */
+    void setFocus(boolean hasFocus);
 
-     /**
+    /**
      * Inform WebKit that Fullscreen mode has been exited by the user.
      */
     void exitFullscreen();
@@ -483,4 +495,11 @@ public interface WebContents extends Parcelable {
      * Notify that web preferences needs update for various properties.
      */
     void notifyRendererPreferenceUpdate();
+
+    /**
+     * Notify that the browser controls heights have changed. Any change to the top controls height,
+     * bottom controls height, top controls min-height, and bottom controls min-height will call
+     * this. Min-height is the minimum visible height the controls can have.
+     */
+    void notifyBrowserControlsHeightChanged();
 }

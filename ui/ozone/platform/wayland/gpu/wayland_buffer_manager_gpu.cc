@@ -10,7 +10,7 @@
 #include "base/message_loop/message_loop_current.h"
 #include "base/process/process.h"
 #include "mojo/public/cpp/system/platform_handle.h"
-#include "ui/ozone/common/linux/drm_util_linux.h"
+#include "ui/gfx/linux/drm_util_linux.h"
 #include "ui/ozone/platform/wayland/gpu/wayland_surface_gpu.h"
 
 namespace ui {
@@ -156,6 +156,10 @@ WaylandBufferManagerGpu::GetModifiersForBufferFormat(
   }
   static std::vector<uint64_t> dummy;
   return dummy;
+}
+
+uint32_t WaylandBufferManagerGpu::AllocateBufferID() {
+  return ++next_buffer_id_;
 }
 
 void WaylandBufferManagerGpu::CreateDmabufBasedBufferInternal(

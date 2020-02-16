@@ -90,13 +90,10 @@ class WKBasedNavigationManagerImpl : public NavigationManagerImpl {
   ~WKBasedNavigationManagerImpl() override;
 
   // NavigationManagerImpl:
-  void SetSessionController(CRWSessionController* session_controller) override;
   void InitializeSession() override;
-  void OnNavigationItemsPruned(size_t pruned_item_count) override;
   void OnNavigationItemCommitted() override;
   void OnNavigationStarted(const GURL& url) override;
   void DetachFromWebView() override;
-  CRWSessionController* GetSessionController() const override;
   void AddTransientItem(const GURL& url) override;
   void AddPendingItem(
       const GURL& url,
@@ -109,9 +106,6 @@ class WKBasedNavigationManagerImpl : public NavigationManagerImpl {
   std::unique_ptr<web::NavigationItemImpl> ReleasePendingItem() override;
   void SetPendingItem(std::unique_ptr<web::NavigationItemImpl> item) override;
   int GetIndexForOffset(int offset) const override;
-  // Returns the previous navigation item in the main frame.
-  int GetPreviousItemIndex() const override;
-  void SetPreviousItemIndex(int previous_item_index) override;
   void AddPushStateItemIfNecessary(const GURL& url,
                                    NSString* state_object,
                                    ui::PageTransition transition) override;
@@ -263,10 +257,6 @@ class WKBasedNavigationManagerImpl : public NavigationManagerImpl {
   // navigation. Otherwise, this is the index of the pending_item in the
   // back-forward list.
   int pending_item_index_;
-
-  // Index of the previous navigation item in the main frame. If there is none,
-  // this field will have value -1.
-  int previous_item_index_;
 
   // Index of the last committed item in the main frame. If there is none, this
   // field will equal to -1.

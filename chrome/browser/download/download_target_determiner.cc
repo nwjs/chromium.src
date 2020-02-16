@@ -94,7 +94,7 @@ DownloadTargetDeterminer::DownloadTargetDeterminer(
     DownloadPathReservationTracker::FilenameConflictAction conflict_action,
     DownloadPrefs* download_prefs,
     DownloadTargetDeterminerDelegate* delegate,
-    const CompletionCallback& callback)
+    CompletionCallback callback)
     : next_state_(STATE_GENERATE_TARGET_PATH),
       confirmation_reason_(DownloadConfirmationReason::NONE),
       should_notify_extensions_(false),
@@ -113,7 +113,7 @@ DownloadTargetDeterminer::DownloadTargetDeterminer(
                      !initial_virtual_path.empty()),
       download_prefs_(download_prefs),
       delegate_(delegate),
-      completion_callback_(callback) {
+      completion_callback_(std::move(callback)) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(download_);
   DCHECK(delegate);
@@ -125,7 +125,7 @@ DownloadTargetDeterminer::DownloadTargetDeterminer(
 DownloadTargetDeterminer::~DownloadTargetDeterminer() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(download_);
-  DCHECK(completion_callback_.is_null());
+  DCHECK(!completion_callback_);
   download_->RemoveObserver(this);
 }
 
@@ -139,8 +139,8 @@ void DownloadTargetDeterminer::DoLoop() {
       case STATE_GENERATE_TARGET_PATH:
         result = DoGenerateTargetPath();
         break;
-      case STATE_CHECK_IF_DOWNLOAD_BLOCKED:
-        result = DoCheckIfDownloadBlocked();
+      case STATE_SET_MIXED_CONTENT_STATUS:
+        result = DoSetMixedContentStatus();
         break;
       case STATE_NOTIFY_EXTENSIONS:
         result = DoNotifyExtensions();
@@ -193,7 +193,7 @@ DownloadTargetDeterminer::Result
   DCHECK(!should_notify_extensions_);
   bool is_forced_path = !download_->GetForcedFilePath().empty();
 
-  next_state_ = STATE_CHECK_IF_DOWNLOAD_BLOCKED;
+  next_state_ = STATE_SET_MIXED_CONTENT_STATUS;
 
   // Transient download should use the existing path.
   if (download_->IsTransient()) {
@@ -311,26 +311,29 @@ DownloadTargetDeterminer::Result
 }
 
 DownloadTargetDeterminer::Result
-DownloadTargetDeterminer::DoCheckIfDownloadBlocked() {
+DownloadTargetDeterminer::DoSetMixedContentStatus() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!virtual_path_.empty());
 
   next_state_ = STATE_NOTIFY_EXTENSIONS;
 
-  delegate_->ShouldBlockDownload(
+  delegate_->GetMixedContentStatus(
       download_, virtual_path_,
-      base::Bind(&DownloadTargetDeterminer::CheckIfDownloadBlockedDone,
+      base::Bind(&DownloadTargetDeterminer::GetMixedContentStatusDone,
                  weak_ptr_factory_.GetWeakPtr()));
   return QUIT_DOLOOP;
 }
 
-void DownloadTargetDeterminer::CheckIfDownloadBlockedDone(bool should_block) {
+void DownloadTargetDeterminer::GetMixedContentStatusDone(
+    download::DownloadItem::MixedContentStatus status) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // Delegate should not call back here more than once.
   DCHECK_EQ(STATE_NOTIFY_EXTENSIONS, next_state_);
 
-  if (should_block) {
+  mixed_content_status_ = status;
+
+  if (status == download::DownloadItem::MixedContentStatus::SILENT_BLOCK) {
     ScheduleCallbackAndDeleteSelf(
         download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED);
     return;
@@ -731,9 +734,10 @@ DownloadTargetDeterminer::Result
   base::PostTaskAndReplyWithResult(
       base::CreateCOMSTATaskRunner({base::ThreadPool(), base::MayBlock()})
           .get(),
-      FROM_HERE, base::Bind(&::IsAdobeReaderUpToDate),
-      base::Bind(&DownloadTargetDeterminer::DetermineIfAdobeReaderUpToDateDone,
-                 weak_ptr_factory_.GetWeakPtr()));
+      FROM_HERE, base::BindOnce(&::IsAdobeReaderUpToDate),
+      base::BindOnce(
+          &DownloadTargetDeterminer::DetermineIfAdobeReaderUpToDateDone,
+          weak_ptr_factory_.GetWeakPtr()));
   return QUIT_DOLOOP;
 #else
   return CONTINUE;
@@ -959,10 +963,11 @@ void DownloadTargetDeterminer::ScheduleCallbackAndDeleteSelf(
   target_info->intermediate_path = intermediate_path_;
   target_info->mime_type = mime_type_;
   target_info->is_filetype_handled_safely = is_filetype_handled_safely_;
+  target_info->mixed_content_status = mixed_content_status_;
 
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(completion_callback_, std::move(target_info)));
-  completion_callback_.Reset();
+      FROM_HERE,
+      base::BindOnce(std::move(completion_callback_), std::move(target_info)));
   delete this;
 }
 
@@ -1106,12 +1111,12 @@ void DownloadTargetDeterminer::Start(
     DownloadPathReservationTracker::FilenameConflictAction conflict_action,
     DownloadPrefs* download_prefs,
     DownloadTargetDeterminerDelegate* delegate,
-    const CompletionCallback& callback) {
+    CompletionCallback callback) {
   // DownloadTargetDeterminer owns itself and will self destruct when the job is
   // complete or the download item is destroyed. The callback is always invoked
   // asynchronously.
   new DownloadTargetDeterminer(download, initial_virtual_path, conflict_action,
-                               download_prefs, delegate, callback);
+                               download_prefs, delegate, std::move(callback));
 }
 
 // static

@@ -54,20 +54,12 @@ class InProcessContextFactory : public ContextFactory,
     use_test_surface_ = use_test_surface;
   }
 
-  // This is used to call SendOnLostSharedContext() on all clients, to ensure
-  // they stop using the SharedMainThreadContextProvider.
-  void SendOnLostSharedContext();
-
   // Set refresh rate will be set to 200 to spend less time waiting for
   // BeginFrame when used for tests.
   void SetUseFastRefreshRateForTests();
 
   // ContextFactory implementation.
   void CreateLayerTreeFrameSink(base::WeakPtr<Compositor> compositor) override;
-
-  std::unique_ptr<Reflector> CreateReflector(Compositor* mirrored_compositor,
-                                             Layer* mirroring_layer) override;
-  void RemoveReflector(Reflector* reflector) override;
 
   scoped_refptr<viz::ContextProvider> SharedMainThreadContextProvider()
       override;
@@ -85,9 +77,9 @@ class InProcessContextFactory : public ContextFactory,
   void DisableSwapUntilResize(ui::Compositor* compositor) override;
   void SetDisplayColorMatrix(ui::Compositor* compositor,
                              const SkMatrix44& matrix) override;
-  void SetDisplayColorSpace(ui::Compositor* compositor,
-                            const gfx::ColorSpace& output_color_space,
-                            float sdr_white_level) override;
+  void SetDisplayColorSpaces(
+      ui::Compositor* compositor,
+      const gfx::DisplayColorSpaces& display_color_spaces) override;
   void SetDisplayVSyncParameters(ui::Compositor* compositor,
                                  base::TimeTicks timebase,
                                  base::TimeDelta interval) override;
@@ -101,12 +93,10 @@ class InProcessContextFactory : public ContextFactory,
       ui::Compositor* compositor,
       mojo::PendingRemote<viz::mojom::VSyncParameterObserver> observer)
       override {}
-  void AddObserver(ContextFactoryObserver* observer) override;
-  void RemoveObserver(ContextFactoryObserver* observer) override;
-  bool SyncTokensRequiredForDisplayCompositor() override;
 
   SkMatrix44 GetOutputColorMatrix(Compositor* compositor) const;
-  gfx::ColorSpace GetDisplayColorSpace(ui::Compositor* compositor) const;
+  gfx::DisplayColorSpaces GetDisplayColorSpaces(
+      ui::Compositor* compositor) const;
   float GetSDRWhiteLevel(ui::Compositor* compositor) const;
   base::TimeTicks GetDisplayVSyncTimeBase(ui::Compositor* compositor) const;
   base::TimeDelta GetDisplayVSyncTimeInterval(ui::Compositor* compositor) const;
@@ -129,7 +119,6 @@ class InProcessContextFactory : public ContextFactory,
   double refresh_rate_ = 60.0;
   viz::HostFrameSinkManager* const host_frame_sink_manager_;
   viz::FrameSinkManagerImpl* const frame_sink_manager_;
-  base::ObserverList<ContextFactoryObserver>::Unchecked observer_list_;
 
   viz::RendererSettings renderer_settings_;
   using PerCompositorDataMap =

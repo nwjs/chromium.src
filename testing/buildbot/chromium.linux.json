@@ -20,7 +20,8 @@
             }
           ]
         },
-        "test": "angle_unittests"
+        "test": "angle_unittests",
+        "test_target": "//third_party/angle/src/tests:angle_unittests"
       },
       {
         "merge": {
@@ -35,7 +36,8 @@
             }
           ]
         },
-        "test": "base_unittests"
+        "test": "base_unittests",
+        "test_target": "//base:base_unittests"
       },
       {
         "merge": {
@@ -50,7 +52,8 @@
             }
           ]
         },
-        "test": "base_util_unittests"
+        "test": "base_util_unittests",
+        "test_target": "//base/util:base_util_unittests"
       },
       {
         "merge": {
@@ -65,7 +68,8 @@
             }
           ]
         },
-        "test": "blink_common_unittests"
+        "test": "blink_common_unittests",
+        "test_target": "//third_party/blink/common:blink_common_unittests"
       },
       {
         "merge": {
@@ -80,7 +84,8 @@
             }
           ]
         },
-        "test": "blink_heap_unittests"
+        "test": "blink_heap_unittests",
+        "test_target": "//third_party/blink/renderer/platform/heap:blink_heap_unittests"
       },
       {
         "merge": {
@@ -95,7 +100,8 @@
             }
           ]
         },
-        "test": "blink_platform_unittests"
+        "test": "blink_platform_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_platform_unittests"
       },
       {
         "merge": {
@@ -111,7 +117,8 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       },
       {
         "merge": {
@@ -126,7 +133,8 @@
             }
           ]
         },
-        "test": "boringssl_crypto_tests"
+        "test": "boringssl_crypto_tests",
+        "test_target": "//third_party/boringssl:boringssl_crypto_tests"
       },
       {
         "merge": {
@@ -141,7 +149,8 @@
             }
           ]
         },
-        "test": "boringssl_ssl_tests"
+        "test": "boringssl_ssl_tests",
+        "test_target": "//third_party/boringssl:boringssl_ssl_tests"
       },
       {
         "merge": {
@@ -156,7 +165,8 @@
             }
           ]
         },
-        "test": "cacheinvalidation_unittests"
+        "test": "cacheinvalidation_unittests",
+        "test_target": "//third_party/cacheinvalidation:cacheinvalidation_unittests"
       },
       {
         "args": [
@@ -174,7 +184,8 @@
             }
           ]
         },
-        "test": "capture_unittests"
+        "test": "capture_unittests",
+        "test_target": "//media/capture:capture_unittests"
       },
       {
         "merge": {
@@ -189,7 +200,8 @@
             }
           ]
         },
-        "test": "cast_audio_backend_unittests"
+        "test": "cast_audio_backend_unittests",
+        "test_target": "//chromecast/media/cma/backend:cast_audio_backend_unittests"
       },
       {
         "merge": {
@@ -204,7 +216,8 @@
             }
           ]
         },
-        "test": "cast_base_unittests"
+        "test": "cast_base_unittests",
+        "test_target": "//chromecast/base:cast_base_unittests"
       },
       {
         "merge": {
@@ -219,7 +232,8 @@
             }
           ]
         },
-        "test": "cast_crash_unittests"
+        "test": "cast_crash_unittests",
+        "test_target": "//chromecast/crash:cast_crash_unittests"
       },
       {
         "merge": {
@@ -234,7 +248,8 @@
             }
           ]
         },
-        "test": "cast_media_unittests"
+        "test": "cast_media_unittests",
+        "test_target": "//chromecast/media:cast_media_unittests"
       },
       {
         "args": [
@@ -250,7 +265,8 @@
         "swarming": {
           "can_use_on_swarming_builders": false
         },
-        "test": "cast_shell_browsertests"
+        "test": "cast_shell_browsertests",
+        "test_target": "//chromecast:cast_shell_browsertests"
       },
       {
         "merge": {
@@ -265,7 +281,8 @@
             }
           ]
         },
-        "test": "cast_shell_unittests"
+        "test": "cast_shell_unittests",
+        "test_target": "//chromecast:cast_shell_unittests"
       },
       {
         "merge": {
@@ -280,7 +297,8 @@
             }
           ]
         },
-        "test": "cast_unittests"
+        "test": "cast_unittests",
+        "test_target": "//media/cast:cast_unittests"
       },
       {
         "merge": {
@@ -295,7 +313,8 @@
             }
           ]
         },
-        "test": "components_browsertests"
+        "test": "components_browsertests",
+        "test_target": "//components:components_browsertests"
       },
       {
         "merge": {
@@ -310,7 +329,8 @@
             }
           ]
         },
-        "test": "components_unittests"
+        "test": "components_unittests",
+        "test_target": "//components:components_unittests"
       },
       {
         "args": [
@@ -329,7 +349,8 @@
           ],
           "shards": 6
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "merge": {
@@ -344,7 +365,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "merge": {
@@ -359,7 +381,8 @@
             }
           ]
         },
-        "test": "crypto_unittests"
+        "test": "crypto_unittests",
+        "test_target": "//crypto:crypto_unittests"
       },
       {
         "merge": {
@@ -374,7 +397,8 @@
             }
           ]
         },
-        "test": "events_unittests"
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
       },
       {
         "merge": {
@@ -389,7 +413,8 @@
             }
           ]
         },
-        "test": "gcm_unit_tests"
+        "test": "gcm_unit_tests",
+        "test_target": "//google_apis/gcm:gcm_unit_tests"
       },
       {
         "merge": {
@@ -404,7 +429,8 @@
             }
           ]
         },
-        "test": "gin_unittests"
+        "test": "gin_unittests",
+        "test_target": "//gin:gin_unittests"
       },
       {
         "merge": {
@@ -419,7 +445,8 @@
             }
           ]
         },
-        "test": "google_apis_unittests"
+        "test": "google_apis_unittests",
+        "test_target": "//google_apis:google_apis_unittests"
       },
       {
         "merge": {
@@ -434,7 +461,8 @@
             }
           ]
         },
-        "test": "gpu_unittests"
+        "test": "gpu_unittests",
+        "test_target": "//gpu:gpu_unittests"
       },
       {
         "merge": {
@@ -449,7 +477,8 @@
             }
           ]
         },
-        "test": "gwp_asan_unittests"
+        "test": "gwp_asan_unittests",
+        "test_target": "//components/gwp_asan:gwp_asan_unittests"
       },
       {
         "merge": {
@@ -464,7 +493,8 @@
             }
           ]
         },
-        "test": "ipc_tests"
+        "test": "ipc_tests",
+        "test_target": "//ipc:ipc_tests"
       },
       {
         "merge": {
@@ -479,7 +509,8 @@
             }
           ]
         },
-        "test": "jingle_unittests"
+        "test": "jingle_unittests",
+        "test_target": "//jingle:jingle_unittests"
       },
       {
         "merge": {
@@ -494,7 +525,8 @@
             }
           ]
         },
-        "test": "latency_unittests"
+        "test": "latency_unittests",
+        "test_target": "//ui/latency:latency_unittests"
       },
       {
         "merge": {
@@ -509,7 +541,8 @@
             }
           ]
         },
-        "test": "libjingle_xmpp_unittests"
+        "test": "libjingle_xmpp_unittests",
+        "test_target": "//third_party/libjingle_xmpp:libjingle_xmpp_unittests"
       },
       {
         "merge": {
@@ -524,7 +557,8 @@
             }
           ]
         },
-        "test": "media_blink_unittests"
+        "test": "media_blink_unittests",
+        "test_target": "//media/blink:media_blink_unittests"
       },
       {
         "merge": {
@@ -539,7 +573,8 @@
             }
           ]
         },
-        "test": "media_service_unittests"
+        "test": "media_service_unittests",
+        "test_target": "//media/mojo/services:media_service_unittests"
       },
       {
         "merge": {
@@ -554,7 +589,8 @@
             }
           ]
         },
-        "test": "media_unittests"
+        "test": "media_unittests",
+        "test_target": "//media:media_unittests"
       },
       {
         "merge": {
@@ -569,7 +605,8 @@
             }
           ]
         },
-        "test": "midi_unittests"
+        "test": "midi_unittests",
+        "test_target": "//media/midi:midi_unittests"
       },
       {
         "merge": {
@@ -584,7 +621,8 @@
             }
           ]
         },
-        "test": "mojo_unittests"
+        "test": "mojo_unittests",
+        "test_target": "//mojo:mojo_unittests"
       },
       {
         "merge": {
@@ -599,7 +637,8 @@
             }
           ]
         },
-        "test": "net_unittests"
+        "test": "net_unittests",
+        "test_target": "//net:net_unittests"
       },
       {
         "merge": {
@@ -614,7 +653,8 @@
             }
           ]
         },
-        "test": "perfetto_unittests"
+        "test": "perfetto_unittests",
+        "test_target": "//third_party/perfetto:perfetto_unittests"
       },
       {
         "merge": {
@@ -629,7 +669,8 @@
             }
           ]
         },
-        "test": "sandbox_linux_unittests"
+        "test": "sandbox_linux_unittests",
+        "test_target": "//sandbox/linux:sandbox_linux_unittests"
       },
       {
         "merge": {
@@ -644,7 +685,8 @@
             }
           ]
         },
-        "test": "services_unittests"
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
       },
       {
         "merge": {
@@ -659,7 +701,8 @@
             }
           ]
         },
-        "test": "shell_dialogs_unittests"
+        "test": "shell_dialogs_unittests",
+        "test_target": "//ui/shell_dialogs:shell_dialogs_unittests"
       },
       {
         "merge": {
@@ -674,7 +717,8 @@
             }
           ]
         },
-        "test": "skia_unittests"
+        "test": "skia_unittests",
+        "test_target": "//skia:skia_unittests"
       },
       {
         "merge": {
@@ -689,7 +733,8 @@
             }
           ]
         },
-        "test": "sql_unittests"
+        "test": "sql_unittests",
+        "test_target": "//sql:sql_unittests"
       },
       {
         "merge": {
@@ -704,7 +749,8 @@
             }
           ]
         },
-        "test": "storage_unittests"
+        "test": "storage_unittests",
+        "test_target": "//storage:storage_unittests"
       },
       {
         "merge": {
@@ -719,7 +765,8 @@
             }
           ]
         },
-        "test": "ui_base_unittests"
+        "test": "ui_base_unittests",
+        "test_target": "//ui/base:ui_base_unittests"
       },
       {
         "merge": {
@@ -734,7 +781,8 @@
             }
           ]
         },
-        "test": "ui_touch_selection_unittests"
+        "test": "ui_touch_selection_unittests",
+        "test_target": "//ui/touch_selection:ui_touch_selection_unittests"
       },
       {
         "merge": {
@@ -749,7 +797,8 @@
             }
           ]
         },
-        "test": "url_unittests"
+        "test": "url_unittests",
+        "test_target": "//url:url_unittests"
       },
       {
         "merge": {
@@ -764,7 +813,8 @@
             }
           ]
         },
-        "test": "wtf_unittests"
+        "test": "wtf_unittests",
+        "test_target": "//third_party/blink/renderer/platform/wtf:wtf_unittests"
       }
     ]
   },
@@ -787,7 +837,8 @@
             }
           ]
         },
-        "test": "angle_unittests"
+        "test": "angle_unittests",
+        "test_target": "//third_party/angle/src/tests:angle_unittests"
       },
       {
         "merge": {
@@ -802,7 +853,8 @@
             }
           ]
         },
-        "test": "base_unittests"
+        "test": "base_unittests",
+        "test_target": "//base:base_unittests"
       },
       {
         "merge": {
@@ -817,7 +869,8 @@
             }
           ]
         },
-        "test": "base_util_unittests"
+        "test": "base_util_unittests",
+        "test_target": "//base/util:base_util_unittests"
       },
       {
         "merge": {
@@ -832,7 +885,8 @@
             }
           ]
         },
-        "test": "blink_common_unittests"
+        "test": "blink_common_unittests",
+        "test_target": "//third_party/blink/common:blink_common_unittests"
       },
       {
         "merge": {
@@ -847,7 +901,8 @@
             }
           ]
         },
-        "test": "blink_heap_unittests"
+        "test": "blink_heap_unittests",
+        "test_target": "//third_party/blink/renderer/platform/heap:blink_heap_unittests"
       },
       {
         "merge": {
@@ -862,7 +917,8 @@
             }
           ]
         },
-        "test": "blink_platform_unittests"
+        "test": "blink_platform_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_platform_unittests"
       },
       {
         "merge": {
@@ -878,7 +934,8 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       },
       {
         "merge": {
@@ -893,7 +950,8 @@
             }
           ]
         },
-        "test": "boringssl_crypto_tests"
+        "test": "boringssl_crypto_tests",
+        "test_target": "//third_party/boringssl:boringssl_crypto_tests"
       },
       {
         "merge": {
@@ -908,7 +966,8 @@
             }
           ]
         },
-        "test": "boringssl_ssl_tests"
+        "test": "boringssl_ssl_tests",
+        "test_target": "//third_party/boringssl:boringssl_ssl_tests"
       },
       {
         "merge": {
@@ -923,7 +982,8 @@
             }
           ]
         },
-        "test": "cacheinvalidation_unittests"
+        "test": "cacheinvalidation_unittests",
+        "test_target": "//third_party/cacheinvalidation:cacheinvalidation_unittests"
       },
       {
         "args": [
@@ -941,7 +1001,8 @@
             }
           ]
         },
-        "test": "capture_unittests"
+        "test": "capture_unittests",
+        "test_target": "//media/capture:capture_unittests"
       },
       {
         "merge": {
@@ -956,7 +1017,8 @@
             }
           ]
         },
-        "test": "cast_audio_backend_unittests"
+        "test": "cast_audio_backend_unittests",
+        "test_target": "//chromecast/media/cma/backend:cast_audio_backend_unittests"
       },
       {
         "merge": {
@@ -971,7 +1033,8 @@
             }
           ]
         },
-        "test": "cast_base_unittests"
+        "test": "cast_base_unittests",
+        "test_target": "//chromecast/base:cast_base_unittests"
       },
       {
         "merge": {
@@ -986,7 +1049,8 @@
             }
           ]
         },
-        "test": "cast_crash_unittests"
+        "test": "cast_crash_unittests",
+        "test_target": "//chromecast/crash:cast_crash_unittests"
       },
       {
         "merge": {
@@ -1001,7 +1065,8 @@
             }
           ]
         },
-        "test": "cast_graphics_unittests"
+        "test": "cast_graphics_unittests",
+        "test_target": "//chromecast/graphics:cast_graphics_unittests"
       },
       {
         "merge": {
@@ -1016,7 +1081,8 @@
             }
           ]
         },
-        "test": "cast_media_unittests"
+        "test": "cast_media_unittests",
+        "test_target": "//chromecast/media:cast_media_unittests"
       },
       {
         "args": [
@@ -1032,7 +1098,8 @@
         "swarming": {
           "can_use_on_swarming_builders": false
         },
-        "test": "cast_shell_browsertests"
+        "test": "cast_shell_browsertests",
+        "test_target": "//chromecast:cast_shell_browsertests"
       },
       {
         "merge": {
@@ -1047,7 +1114,8 @@
             }
           ]
         },
-        "test": "cast_shell_unittests"
+        "test": "cast_shell_unittests",
+        "test_target": "//chromecast:cast_shell_unittests"
       },
       {
         "merge": {
@@ -1062,7 +1130,8 @@
             }
           ]
         },
-        "test": "cast_unittests"
+        "test": "cast_unittests",
+        "test_target": "//media/cast:cast_unittests"
       },
       {
         "merge": {
@@ -1077,7 +1146,8 @@
             }
           ]
         },
-        "test": "components_browsertests"
+        "test": "components_browsertests",
+        "test_target": "//components:components_browsertests"
       },
       {
         "merge": {
@@ -1092,7 +1162,8 @@
             }
           ]
         },
-        "test": "components_unittests"
+        "test": "components_unittests",
+        "test_target": "//components:components_unittests"
       },
       {
         "args": [
@@ -1111,7 +1182,8 @@
           ],
           "shards": 6
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "merge": {
@@ -1126,7 +1198,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "merge": {
@@ -1141,7 +1214,8 @@
             }
           ]
         },
-        "test": "crypto_unittests"
+        "test": "crypto_unittests",
+        "test_target": "//crypto:crypto_unittests"
       },
       {
         "merge": {
@@ -1156,7 +1230,8 @@
             }
           ]
         },
-        "test": "events_unittests"
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
       },
       {
         "merge": {
@@ -1171,7 +1246,8 @@
             }
           ]
         },
-        "test": "exo_unittests"
+        "test": "exo_unittests",
+        "test_target": "//components/exo:exo_unittests"
       },
       {
         "merge": {
@@ -1186,7 +1262,8 @@
             }
           ]
         },
-        "test": "gcm_unit_tests"
+        "test": "gcm_unit_tests",
+        "test_target": "//google_apis/gcm:gcm_unit_tests"
       },
       {
         "merge": {
@@ -1201,7 +1278,8 @@
             }
           ]
         },
-        "test": "gin_unittests"
+        "test": "gin_unittests",
+        "test_target": "//gin:gin_unittests"
       },
       {
         "merge": {
@@ -1216,7 +1294,8 @@
             }
           ]
         },
-        "test": "google_apis_unittests"
+        "test": "google_apis_unittests",
+        "test_target": "//google_apis:google_apis_unittests"
       },
       {
         "merge": {
@@ -1231,7 +1310,8 @@
             }
           ]
         },
-        "test": "gpu_unittests"
+        "test": "gpu_unittests",
+        "test_target": "//gpu:gpu_unittests"
       },
       {
         "merge": {
@@ -1246,7 +1326,8 @@
             }
           ]
         },
-        "test": "gwp_asan_unittests"
+        "test": "gwp_asan_unittests",
+        "test_target": "//components/gwp_asan:gwp_asan_unittests"
       },
       {
         "merge": {
@@ -1261,7 +1342,8 @@
             }
           ]
         },
-        "test": "ipc_tests"
+        "test": "ipc_tests",
+        "test_target": "//ipc:ipc_tests"
       },
       {
         "merge": {
@@ -1276,7 +1358,8 @@
             }
           ]
         },
-        "test": "jingle_unittests"
+        "test": "jingle_unittests",
+        "test_target": "//jingle:jingle_unittests"
       },
       {
         "merge": {
@@ -1291,7 +1374,8 @@
             }
           ]
         },
-        "test": "latency_unittests"
+        "test": "latency_unittests",
+        "test_target": "//ui/latency:latency_unittests"
       },
       {
         "merge": {
@@ -1306,7 +1390,8 @@
             }
           ]
         },
-        "test": "libjingle_xmpp_unittests"
+        "test": "libjingle_xmpp_unittests",
+        "test_target": "//third_party/libjingle_xmpp:libjingle_xmpp_unittests"
       },
       {
         "merge": {
@@ -1321,7 +1406,8 @@
             }
           ]
         },
-        "test": "media_blink_unittests"
+        "test": "media_blink_unittests",
+        "test_target": "//media/blink:media_blink_unittests"
       },
       {
         "merge": {
@@ -1336,7 +1422,8 @@
             }
           ]
         },
-        "test": "media_service_unittests"
+        "test": "media_service_unittests",
+        "test_target": "//media/mojo/services:media_service_unittests"
       },
       {
         "merge": {
@@ -1351,7 +1438,8 @@
             }
           ]
         },
-        "test": "media_unittests"
+        "test": "media_unittests",
+        "test_target": "//media:media_unittests"
       },
       {
         "merge": {
@@ -1366,7 +1454,8 @@
             }
           ]
         },
-        "test": "midi_unittests"
+        "test": "midi_unittests",
+        "test_target": "//media/midi:midi_unittests"
       },
       {
         "merge": {
@@ -1381,7 +1470,8 @@
             }
           ]
         },
-        "test": "mojo_unittests"
+        "test": "mojo_unittests",
+        "test_target": "//mojo:mojo_unittests"
       },
       {
         "merge": {
@@ -1396,7 +1486,8 @@
             }
           ]
         },
-        "test": "net_unittests"
+        "test": "net_unittests",
+        "test_target": "//net:net_unittests"
       },
       {
         "merge": {
@@ -1411,7 +1502,8 @@
             }
           ]
         },
-        "test": "perfetto_unittests"
+        "test": "perfetto_unittests",
+        "test_target": "//third_party/perfetto:perfetto_unittests"
       },
       {
         "merge": {
@@ -1426,7 +1518,8 @@
             }
           ]
         },
-        "test": "sandbox_linux_unittests"
+        "test": "sandbox_linux_unittests",
+        "test_target": "//sandbox/linux:sandbox_linux_unittests"
       },
       {
         "merge": {
@@ -1441,7 +1534,8 @@
             }
           ]
         },
-        "test": "services_unittests"
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
       },
       {
         "merge": {
@@ -1456,7 +1550,8 @@
             }
           ]
         },
-        "test": "shell_dialogs_unittests"
+        "test": "shell_dialogs_unittests",
+        "test_target": "//ui/shell_dialogs:shell_dialogs_unittests"
       },
       {
         "merge": {
@@ -1471,7 +1566,8 @@
             }
           ]
         },
-        "test": "skia_unittests"
+        "test": "skia_unittests",
+        "test_target": "//skia:skia_unittests"
       },
       {
         "merge": {
@@ -1486,7 +1582,8 @@
             }
           ]
         },
-        "test": "sql_unittests"
+        "test": "sql_unittests",
+        "test_target": "//sql:sql_unittests"
       },
       {
         "merge": {
@@ -1501,7 +1598,8 @@
             }
           ]
         },
-        "test": "storage_unittests"
+        "test": "storage_unittests",
+        "test_target": "//storage:storage_unittests"
       },
       {
         "merge": {
@@ -1516,7 +1614,8 @@
             }
           ]
         },
-        "test": "ui_base_unittests"
+        "test": "ui_base_unittests",
+        "test_target": "//ui/base:ui_base_unittests"
       },
       {
         "merge": {
@@ -1531,7 +1630,8 @@
             }
           ]
         },
-        "test": "ui_touch_selection_unittests"
+        "test": "ui_touch_selection_unittests",
+        "test_target": "//ui/touch_selection:ui_touch_selection_unittests"
       },
       {
         "merge": {
@@ -1546,7 +1646,8 @@
             }
           ]
         },
-        "test": "url_unittests"
+        "test": "url_unittests",
+        "test_target": "//url:url_unittests"
       },
       {
         "experiment_percentage": 100,
@@ -1562,7 +1663,8 @@
             }
           ]
         },
-        "test": "views_unittests"
+        "test": "views_unittests",
+        "test_target": "//ui/views:views_unittests"
       },
       {
         "merge": {
@@ -1577,7 +1679,8 @@
             }
           ]
         },
-        "test": "wtf_unittests"
+        "test": "wtf_unittests",
+        "test_target": "//third_party/blink/renderer/platform/wtf:wtf_unittests"
       }
     ]
   },
@@ -1592,136 +1695,8 @@
     ],
     "gtest_tests": [
       {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "angle_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "base_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "blink_common_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "blink_heap_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "blink_platform_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "cast_runner_browsertests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "cast_runner_integration_tests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "cast_runner_unittests"
-      },
-      {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.content_unittests.filter"
+          "--device=aemu"
         ],
         "merge": {
           "args": [],
@@ -1736,171 +1711,12 @@
             }
           ]
         },
-        "test": "content_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "cr_fuchsia_base_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "cronet_tests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "cronet_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "crypto_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "fidlgen_js_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "gfx_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "gpu_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "http_service_tests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "ipc_tests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "media_unittests"
+        "test": "angle_unittests",
+        "test_target": "//third_party/angle/src/tests:angle_unittests"
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.mojo_unittests.filter"
+          "--device=aemu"
         ],
         "merge": {
           "args": [],
@@ -1915,11 +1731,12 @@
             }
           ]
         },
-        "test": "mojo_unittests"
+        "test": "base_unittests",
+        "test_target": "//base:base_unittests"
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.net_unittests.filter"
+          "--device=aemu"
         ],
         "merge": {
           "args": [],
@@ -1934,43 +1751,12 @@
             }
           ]
         },
-        "test": "net_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "perfetto_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "service_manager_unittests"
+        "test": "blink_common_unittests",
+        "test_target": "//third_party/blink/common:blink_common_unittests"
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.services_unittests.filter"
+          "--device=aemu"
         ],
         "merge": {
           "args": [],
@@ -1985,43 +1771,12 @@
             }
           ]
         },
-        "test": "services_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "skia_unittests"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "kvm": "1",
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        },
-        "test": "sql_unittests"
+        "test": "blink_heap_unittests",
+        "test_target": "//third_party/blink/renderer/platform/heap:blink_heap_unittests"
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.ui_base_unittests.filter"
+          "--device=aemu"
         ],
         "merge": {
           "args": [],
@@ -2036,11 +1791,12 @@
             }
           ]
         },
-        "test": "ui_base_unittests"
+        "test": "blink_platform_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_platform_unittests"
       },
       {
         "args": [
-          "--child-arg=--ozone-platform=headless"
+          "--device=aemu"
         ],
         "merge": {
           "args": [],
@@ -2055,9 +1811,13 @@
             }
           ]
         },
-        "test": "viz_unittests"
+        "test": "cast_runner_browsertests",
+        "test_target": "//fuchsia/runners:cast_runner_browsertests"
       },
       {
+        "args": [
+          "--device=aemu"
+        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -2071,9 +1831,13 @@
             }
           ]
         },
-        "test": "web_engine_browsertests"
+        "test": "cast_runner_integration_tests",
+        "test_target": "//fuchsia/runners:cast_runner_integration_tests"
       },
       {
+        "args": [
+          "--device=aemu"
+        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -2087,9 +1851,14 @@
             }
           ]
         },
-        "test": "web_engine_integration_tests"
+        "test": "cast_runner_unittests",
+        "test_target": "//fuchsia/runners:cast_runner_unittests"
       },
       {
+        "args": [
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.content_unittests.filter",
+          "--device=aemu"
+        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -2103,9 +1872,13 @@
             }
           ]
         },
-        "test": "web_engine_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
+        "args": [
+          "--device=aemu"
+        ],
         "merge": {
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -2119,13 +1892,460 @@
             }
           ]
         },
-        "test": "web_runner_integration_tests"
+        "test": "cr_fuchsia_base_unittests",
+        "test_target": "//fuchsia/base:cr_fuchsia_base_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "cronet_tests",
+        "test_target": "//components/cronet:cronet_tests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "cronet_unittests",
+        "test_target": "//components/cronet:cronet_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "crypto_unittests",
+        "test_target": "//crypto:crypto_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "gfx_unittests",
+        "test_target": "//ui/gfx:gfx_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "gpu_unittests",
+        "test_target": "//gpu:gpu_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "http_service_tests",
+        "test_target": "//fuchsia/http:http_service_tests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "ipc_tests",
+        "test_target": "//ipc:ipc_tests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "media_unittests",
+        "test_target": "//media:media_unittests"
+      },
+      {
+        "args": [
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.mojo_unittests.filter",
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "mojo_unittests",
+        "test_target": "//mojo:mojo_unittests"
+      },
+      {
+        "args": [
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.net_unittests.filter",
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "net_unittests",
+        "test_target": "//net:net_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "perfetto_unittests",
+        "test_target": "//third_party/perfetto:perfetto_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "service_manager_unittests",
+        "test_target": "//services/service_manager/tests:service_manager_unittests"
+      },
+      {
+        "args": [
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.services_unittests.filter",
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "skia_unittests",
+        "test_target": "//skia:skia_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "sql_unittests",
+        "test_target": "//sql:sql_unittests"
+      },
+      {
+        "args": [
+          "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.ui_base_unittests.filter",
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "ui_base_unittests",
+        "test_target": "//ui/base:ui_base_unittests"
+      },
+      {
+        "args": [
+          "--child-arg=--ozone-platform=headless",
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "viz_unittests",
+        "test_target": "//components/viz:viz_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "web_engine_browsertests",
+        "test_target": "//fuchsia/engine:web_engine_browsertests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "web_engine_integration_tests",
+        "test_target": "//fuchsia/engine:web_engine_integration_tests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "web_engine_unittests",
+        "test_target": "//fuchsia/engine:web_engine_unittests"
+      },
+      {
+        "args": [
+          "--device=aemu"
+        ],
+        "merge": {
+          "args": [],
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "kvm": "1",
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test": "web_runner_integration_tests",
+        "test_target": "//fuchsia/runners:web_runner_integration_tests"
       }
     ],
     "isolated_scripts": [
       {
         "args": [
           "--num-retries=3",
+          "--device=aemu",
           "--platform=fuchsia"
         ],
         "isolate_name": "blink_web_tests",
@@ -2145,7 +2365,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
@@ -2183,7 +2404,8 @@
           "ignore_task_failure": false,
           "io_timeout": 3600,
           "shards": 10
-        }
+        },
+        "test_target": "//chrome/test:performance_test_suite"
       }
     ]
   },
@@ -2226,7 +2448,8 @@
             }
           ]
         },
-        "test": "accessibility_unittests"
+        "test": "accessibility_unittests",
+        "test_target": "//ui/accessibility:accessibility_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2242,7 +2465,8 @@
             }
           ]
         },
-        "test": "angle_unittests"
+        "test": "angle_unittests",
+        "test_target": "//third_party/angle/src/tests:angle_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2258,7 +2482,8 @@
             }
           ]
         },
-        "test": "app_shell_unittests"
+        "test": "app_shell_unittests",
+        "test_target": "//extensions/shell:app_shell_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2274,7 +2499,8 @@
             }
           ]
         },
-        "test": "aura_unittests"
+        "test": "aura_unittests",
+        "test_target": "//ui/aura:aura_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2290,7 +2516,8 @@
             }
           ]
         },
-        "test": "base_unittests"
+        "test": "base_unittests",
+        "test_target": "//base:base_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2306,7 +2533,8 @@
             }
           ]
         },
-        "test": "base_util_unittests"
+        "test": "base_util_unittests",
+        "test_target": "//base/util:base_util_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2322,7 +2550,8 @@
             }
           ]
         },
-        "test": "blink_common_unittests"
+        "test": "blink_common_unittests",
+        "test_target": "//third_party/blink/common:blink_common_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2338,7 +2567,8 @@
             }
           ]
         },
-        "test": "blink_fuzzer_unittests"
+        "test": "blink_fuzzer_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_fuzzer_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2354,7 +2584,8 @@
             }
           ]
         },
-        "test": "blink_heap_unittests"
+        "test": "blink_heap_unittests",
+        "test_target": "//third_party/blink/renderer/platform/heap:blink_heap_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2370,7 +2601,8 @@
             }
           ]
         },
-        "test": "blink_platform_unittests"
+        "test": "blink_platform_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_platform_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2387,7 +2619,8 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2403,7 +2636,8 @@
             }
           ]
         },
-        "test": "boringssl_crypto_tests"
+        "test": "boringssl_crypto_tests",
+        "test_target": "//third_party/boringssl:boringssl_crypto_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2419,7 +2653,8 @@
             }
           ]
         },
-        "test": "boringssl_ssl_tests"
+        "test": "boringssl_ssl_tests",
+        "test_target": "//third_party/boringssl:boringssl_ssl_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2436,7 +2671,8 @@
           ],
           "shards": 10
         },
-        "test": "browser_tests"
+        "test": "browser_tests",
+        "test_target": "//chrome/test:browser_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2452,7 +2688,8 @@
             }
           ]
         },
-        "test": "cacheinvalidation_unittests"
+        "test": "cacheinvalidation_unittests",
+        "test_target": "//third_party/cacheinvalidation:cacheinvalidation_unittests"
       },
       {
         "args": [
@@ -2471,7 +2708,8 @@
             }
           ]
         },
-        "test": "capture_unittests"
+        "test": "capture_unittests",
+        "test_target": "//media/capture:capture_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2487,7 +2725,8 @@
             }
           ]
         },
-        "test": "cast_unittests"
+        "test": "cast_unittests",
+        "test_target": "//media/cast:cast_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2503,7 +2742,8 @@
             }
           ]
         },
-        "test": "cc_unittests"
+        "test": "cc_unittests",
+        "test_target": "//cc:cc_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2519,7 +2759,8 @@
             }
           ]
         },
-        "test": "chrome_app_unittests"
+        "test": "chrome_app_unittests",
+        "test_target": "//chrome/test:chrome_app_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2535,7 +2776,8 @@
             }
           ]
         },
-        "test": "chromedriver_unittests"
+        "test": "chromedriver_unittests",
+        "test_target": "//chrome/test/chromedriver:chromedriver_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2551,7 +2793,8 @@
             }
           ]
         },
-        "test": "components_browsertests"
+        "test": "components_browsertests",
+        "test_target": "//components:components_browsertests"
       },
       {
         "isolate_coverage_data": true,
@@ -2567,7 +2810,8 @@
             }
           ]
         },
-        "test": "components_unittests"
+        "test": "components_unittests",
+        "test_target": "//components:components_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2583,7 +2827,8 @@
             }
           ]
         },
-        "test": "compositor_unittests"
+        "test": "compositor_unittests",
+        "test_target": "//ui/compositor:compositor_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2600,7 +2845,8 @@
           ],
           "shards": 6
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "args": [
@@ -2621,7 +2867,8 @@
             }
           ]
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "isolate_coverage_data": true,
@@ -2637,7 +2884,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2653,7 +2901,8 @@
             }
           ]
         },
-        "test": "crashpad_tests"
+        "test": "crashpad_tests",
+        "test_target": "//third_party/crashpad/crashpad:crashpad_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2669,7 +2918,8 @@
             }
           ]
         },
-        "test": "cronet_tests"
+        "test": "cronet_tests",
+        "test_target": "//components/cronet:cronet_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2685,7 +2935,8 @@
             }
           ]
         },
-        "test": "cronet_unittests"
+        "test": "cronet_unittests",
+        "test_target": "//components/cronet:cronet_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2701,7 +2952,8 @@
             }
           ]
         },
-        "test": "crypto_unittests"
+        "test": "crypto_unittests",
+        "test_target": "//crypto:crypto_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2717,7 +2969,8 @@
             }
           ]
         },
-        "test": "dbus_unittests"
+        "test": "dbus_unittests",
+        "test_target": "//dbus:dbus_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2733,7 +2986,8 @@
             }
           ]
         },
-        "test": "device_unittests"
+        "test": "device_unittests",
+        "test_target": "//device:device_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2749,7 +3003,8 @@
             }
           ]
         },
-        "test": "display_unittests"
+        "test": "display_unittests",
+        "test_target": "//ui/display:display_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2765,7 +3020,8 @@
             }
           ]
         },
-        "test": "events_unittests"
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2781,7 +3037,8 @@
             }
           ]
         },
-        "test": "extensions_browsertests"
+        "test": "extensions_browsertests",
+        "test_target": "//extensions:extensions_browsertests"
       },
       {
         "isolate_coverage_data": true,
@@ -2797,7 +3054,8 @@
             }
           ]
         },
-        "test": "extensions_unittests"
+        "test": "extensions_unittests",
+        "test_target": "//extensions:extensions_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2813,7 +3071,8 @@
             }
           ]
         },
-        "test": "filesystem_service_unittests"
+        "test": "filesystem_service_unittests",
+        "test_target": "//components/services/filesystem:filesystem_service_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2829,7 +3088,8 @@
             }
           ]
         },
-        "test": "gcm_unit_tests"
+        "test": "gcm_unit_tests",
+        "test_target": "//google_apis/gcm:gcm_unit_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2845,7 +3105,8 @@
             }
           ]
         },
-        "test": "gfx_unittests"
+        "test": "gfx_unittests",
+        "test_target": "//ui/gfx:gfx_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2861,7 +3122,8 @@
             }
           ]
         },
-        "test": "gin_unittests"
+        "test": "gin_unittests",
+        "test_target": "//gin:gin_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2877,7 +3139,8 @@
             }
           ]
         },
-        "test": "google_apis_unittests"
+        "test": "google_apis_unittests",
+        "test_target": "//google_apis:google_apis_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2893,7 +3156,8 @@
             }
           ]
         },
-        "test": "gpu_unittests"
+        "test": "gpu_unittests",
+        "test_target": "//gpu:gpu_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2909,7 +3173,8 @@
             }
           ]
         },
-        "test": "gwp_asan_unittests"
+        "test": "gwp_asan_unittests",
+        "test_target": "//components/gwp_asan:gwp_asan_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2925,7 +3190,8 @@
             }
           ]
         },
-        "test": "headless_browsertests"
+        "test": "headless_browsertests",
+        "test_target": "//headless:headless_browsertests"
       },
       {
         "isolate_coverage_data": true,
@@ -2941,7 +3207,8 @@
             }
           ]
         },
-        "test": "headless_unittests"
+        "test": "headless_unittests",
+        "test_target": "//headless:headless_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -2958,7 +3225,8 @@
           ],
           "shards": 3
         },
-        "test": "interactive_ui_tests"
+        "test": "interactive_ui_tests",
+        "test_target": "//chrome/test:interactive_ui_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2974,7 +3242,8 @@
             }
           ]
         },
-        "test": "ipc_tests"
+        "test": "ipc_tests",
+        "test_target": "//ipc:ipc_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -2990,7 +3259,8 @@
             }
           ]
         },
-        "test": "jingle_unittests"
+        "test": "jingle_unittests",
+        "test_target": "//jingle:jingle_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3006,7 +3276,8 @@
             }
           ]
         },
-        "test": "latency_unittests"
+        "test": "latency_unittests",
+        "test_target": "//ui/latency:latency_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3022,7 +3293,8 @@
             }
           ]
         },
-        "test": "libjingle_xmpp_unittests"
+        "test": "libjingle_xmpp_unittests",
+        "test_target": "//third_party/libjingle_xmpp:libjingle_xmpp_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3038,7 +3310,8 @@
             }
           ]
         },
-        "test": "media_blink_unittests"
+        "test": "media_blink_unittests",
+        "test_target": "//media/blink:media_blink_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3054,7 +3327,8 @@
             }
           ]
         },
-        "test": "media_service_unittests"
+        "test": "media_service_unittests",
+        "test_target": "//media/mojo/services:media_service_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3070,7 +3344,8 @@
             }
           ]
         },
-        "test": "media_unittests"
+        "test": "media_unittests",
+        "test_target": "//media:media_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3086,7 +3361,8 @@
             }
           ]
         },
-        "test": "message_center_unittests"
+        "test": "message_center_unittests",
+        "test_target": "//ui/message_center:message_center_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3102,7 +3378,8 @@
             }
           ]
         },
-        "test": "midi_unittests"
+        "test": "midi_unittests",
+        "test_target": "//media/midi:midi_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3118,7 +3395,8 @@
             }
           ]
         },
-        "test": "mojo_core_unittests"
+        "test": "mojo_core_unittests",
+        "test_target": "//mojo/core:mojo_core_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3134,7 +3412,8 @@
             }
           ]
         },
-        "test": "mojo_unittests"
+        "test": "mojo_unittests",
+        "test_target": "//mojo:mojo_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3150,7 +3429,8 @@
             }
           ]
         },
-        "test": "nacl_helper_nonsfi_unittests"
+        "test": "nacl_helper_nonsfi_unittests",
+        "test_target": "//components/nacl/loader:nacl_helper_nonsfi_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3166,7 +3446,8 @@
             }
           ]
         },
-        "test": "nacl_loader_unittests"
+        "test": "nacl_loader_unittests",
+        "test_target": "//components/nacl/loader:nacl_loader_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3182,7 +3463,8 @@
             }
           ]
         },
-        "test": "native_theme_unittests"
+        "test": "native_theme_unittests",
+        "test_target": "//ui/native_theme:native_theme_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3198,7 +3480,8 @@
             }
           ]
         },
-        "test": "net_unittests"
+        "test": "net_unittests",
+        "test_target": "//net:net_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3214,7 +3497,8 @@
             }
           ]
         },
-        "test": "pdf_unittests"
+        "test": "pdf_unittests",
+        "test_target": "//pdf:pdf_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3230,7 +3514,8 @@
             }
           ]
         },
-        "test": "perfetto_unittests"
+        "test": "perfetto_unittests",
+        "test_target": "//third_party/perfetto:perfetto_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3246,7 +3531,8 @@
             }
           ]
         },
-        "test": "ppapi_unittests"
+        "test": "ppapi_unittests",
+        "test_target": "//ppapi:ppapi_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3262,7 +3548,8 @@
             }
           ]
         },
-        "test": "printing_unittests"
+        "test": "printing_unittests",
+        "test_target": "//printing:printing_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3278,7 +3565,8 @@
             }
           ]
         },
-        "test": "remoting_unittests"
+        "test": "remoting_unittests",
+        "test_target": "//remoting:remoting_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3294,7 +3582,8 @@
             }
           ]
         },
-        "test": "sandbox_linux_unittests"
+        "test": "sandbox_linux_unittests",
+        "test_target": "//sandbox/linux:sandbox_linux_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3310,7 +3599,8 @@
             }
           ]
         },
-        "test": "service_manager_unittests"
+        "test": "service_manager_unittests",
+        "test_target": "//services/service_manager/tests:service_manager_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3326,7 +3616,8 @@
             }
           ]
         },
-        "test": "services_unittests"
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3342,7 +3633,8 @@
             }
           ]
         },
-        "test": "shell_dialogs_unittests"
+        "test": "shell_dialogs_unittests",
+        "test_target": "//ui/shell_dialogs:shell_dialogs_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3358,7 +3650,8 @@
             }
           ]
         },
-        "test": "skia_unittests"
+        "test": "skia_unittests",
+        "test_target": "//skia:skia_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3374,7 +3667,8 @@
             }
           ]
         },
-        "test": "snapshot_unittests"
+        "test": "snapshot_unittests",
+        "test_target": "//ui/snapshot:snapshot_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3390,7 +3684,8 @@
             }
           ]
         },
-        "test": "sql_unittests"
+        "test": "sql_unittests",
+        "test_target": "//sql:sql_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3406,7 +3701,8 @@
             }
           ]
         },
-        "test": "storage_unittests"
+        "test": "storage_unittests",
+        "test_target": "//storage:storage_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3422,7 +3718,8 @@
             }
           ]
         },
-        "test": "sync_integration_tests"
+        "test": "sync_integration_tests",
+        "test_target": "//chrome/test:sync_integration_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -3438,7 +3735,8 @@
             }
           ]
         },
-        "test": "traffic_annotation_auditor_unittests"
+        "test": "traffic_annotation_auditor_unittests",
+        "test_target": "//tools/traffic_annotation/auditor:traffic_annotation_auditor_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3454,7 +3752,8 @@
             }
           ]
         },
-        "test": "ui_base_unittests"
+        "test": "ui_base_unittests",
+        "test_target": "//ui/base:ui_base_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3470,7 +3769,8 @@
             }
           ]
         },
-        "test": "ui_touch_selection_unittests"
+        "test": "ui_touch_selection_unittests",
+        "test_target": "//ui/touch_selection:ui_touch_selection_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3486,7 +3786,8 @@
             }
           ]
         },
-        "test": "unit_tests"
+        "test": "unit_tests",
+        "test_target": "//chrome/test:unit_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -3502,7 +3803,8 @@
             }
           ]
         },
-        "test": "url_unittests"
+        "test": "url_unittests",
+        "test_target": "//url:url_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3518,7 +3820,8 @@
             }
           ]
         },
-        "test": "views_unittests"
+        "test": "views_unittests",
+        "test_target": "//ui/views:views_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3534,7 +3837,8 @@
             }
           ]
         },
-        "test": "viz_unittests"
+        "test": "viz_unittests",
+        "test_target": "//components/viz:viz_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3550,7 +3854,8 @@
             }
           ]
         },
-        "test": "vr_common_unittests"
+        "test": "vr_common_unittests",
+        "test_target": "//chrome/browser/vr:vr_common_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3566,7 +3871,8 @@
             }
           ]
         },
-        "test": "vr_pixeltests"
+        "test": "vr_pixeltests",
+        "test_target": "//chrome/browser/vr:vr_pixeltests"
       },
       {
         "isolate_coverage_data": true,
@@ -3582,7 +3888,8 @@
             }
           ]
         },
-        "test": "weblayer_browsertests"
+        "test": "weblayer_browsertests",
+        "test_target": "//weblayer/test:weblayer_browsertests"
       },
       {
         "isolate_coverage_data": true,
@@ -3598,7 +3905,8 @@
             }
           ]
         },
-        "test": "wm_unittests"
+        "test": "wm_unittests",
+        "test_target": "//ui/wm:wm_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3614,7 +3922,8 @@
             }
           ]
         },
-        "test": "wtf_unittests"
+        "test": "wtf_unittests",
+        "test_target": "//third_party/blink/renderer/platform/wtf:wtf_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3631,7 +3940,8 @@
             }
           ]
         },
-        "test": "xr_browser_tests"
+        "test": "xr_browser_tests",
+        "test_target": "//chrome/test:xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -3650,7 +3960,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//:blink_python_tests"
       },
       {
         "args": [
@@ -3670,7 +3981,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//chrome/test/chromedriver:chromedriver_py_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -3687,7 +3999,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//chrome/test/chromedriver:chromedriver_replay_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3704,41 +4017,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
-      },
-      {
-        "isolate_coverage_data": true,
-        "isolate_name": "devtools_lint_check",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "devtools_lint_check",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        }
-      },
-      {
-        "isolate_coverage_data": true,
-        "isolate_name": "devtools_type_check",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "devtools_type_check",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        }
+        "test_target": "//content/shell:content_shell_crash_test"
       },
       {
         "isolate_coverage_data": true,
@@ -3755,7 +4035,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//third_party/flatbuffers:flatbuffers_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3772,7 +4053,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//tools/grit:grit_python_unittests"
       },
       {
         "isolate_coverage_data": true,
@@ -3789,33 +4071,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
-      },
-      {
-        "args": [
-          "--num-retries=3",
-          "--additional-driver-flag=--disable-features=UseSkiaRenderer",
-          "--skipped=always",
-          "--test-list=../../testing/buildbot/filters/gpu.skiarenderer_vulkan_blink_web_tests.filter"
-        ],
-        "isolate_coverage_data": true,
-        "isolate_name": "blink_web_tests",
-        "merge": {
-          "args": [
-            "--verbose"
-          ],
-          "script": "//third_party/blink/tools/merge_web_test_results.py"
         },
-        "name": "non_skia_renderer_swiftshader_blink_web_tests",
-        "results_handler": "layout tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        }
+        "test_target": "//tools/metrics:metrics_python_tests"
       },
       {
         "args": [
@@ -3824,9 +4081,7 @@
           "--additional-expectations",
           "src/third_party/blink/web_tests/FlagExpectations/disable-site-isolation-trials",
           "--num-retries=3",
-          "--fuzzy-diff",
-          "--additional-env-var=LLVM_PROFILE_FILE=${ISOLATED_OUTDIR}/profraw/default-%2m.profraw",
-          "--fuzzy-diff"
+          "--additional-env-var=LLVM_PROFILE_FILE=${ISOLATED_OUTDIR}/profraw/default-%2m.profraw"
         ],
         "isolate_coverage_data": true,
         "isolate_name": "blink_web_tests",
@@ -3846,7 +4101,36 @@
             }
           ],
           "shards": 10
-        }
+        },
+        "test_target": "//:blink_web_tests"
+      },
+      {
+        "args": [
+          "--num-retries=3",
+          "--additional-driver-flag=--enable-features=UseSkiaRenderer",
+          "--fuzzy-diff",
+          "--skipped=always",
+          "--test-list=../../testing/buildbot/filters/gpu.skiarenderer_vulkan_blink_web_tests.filter"
+        ],
+        "isolate_coverage_data": true,
+        "isolate_name": "blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "skia_renderer_swiftshader_blink_web_tests",
+        "results_handler": "layout tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "os": "Ubuntu-16.04"
+            }
+          ]
+        },
+        "test_target": "//:blink_web_tests"
       },
       {
         "isolate_coverage_data": true,
@@ -3864,7 +4148,8 @@
             }
           ],
           "idempotent": false
-        }
+        },
+        "test_target": "//chrome/test:telemetry_gpu_unittests"
       },
       {
         "args": [
@@ -3887,7 +4172,8 @@
           ],
           "idempotent": false,
           "shards": 12
-        }
+        },
+        "test_target": "//chrome/test:telemetry_perf_unittests"
       },
       {
         "args": [
@@ -3910,7 +4196,8 @@
           ],
           "idempotent": false,
           "shards": 4
-        }
+        },
+        "test_target": "//chrome/test:telemetry_unittests"
       },
       {
         "args": [
@@ -3932,16 +4219,16 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//ui/views:views_perftests"
       },
       {
         "args": [
           "--num-retries=3",
           "--additional-driver-flag=--enable-gpu-rasterization",
-          "--additional-driver-flag=--enable-features=UseSkiaRenderer",
+          "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan",
           "--additional-driver-flag=--force-gpu-rasterization",
           "--additional-driver-flag=--enable-oop-rasterization",
-          "--additional-driver-flag=--gr-context-type=vulkan",
           "--additional-driver-flag=--use-vulkan=swiftshader",
           "--additional-driver-flag=--disable-vulkan-fallback-to-gl-for-testing",
           "--fuzzy-diff",
@@ -3968,13 +4255,13 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//:blink_web_tests"
       },
       {
         "args": [
           "--num-retries=3",
-          "--additional-env-var=LLVM_PROFILE_FILE=${ISOLATED_OUTDIR}/profraw/default-%2m.profraw",
-          "--fuzzy-diff"
+          "--additional-env-var=LLVM_PROFILE_FILE=${ISOLATED_OUTDIR}/profraw/default-%2m.profraw"
         ],
         "isolate_coverage_data": true,
         "isolate_name": "blink_web_tests",
@@ -3994,7 +4281,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ],
     "scripts": [
@@ -4045,7 +4333,8 @@
             }
           ]
         },
-        "test": "accessibility_unittests"
+        "test": "accessibility_unittests",
+        "test_target": "//ui/accessibility:accessibility_unittests"
       },
       {
         "merge": {
@@ -4060,7 +4349,8 @@
             }
           ]
         },
-        "test": "angle_unittests"
+        "test": "angle_unittests",
+        "test_target": "//third_party/angle/src/tests:angle_unittests"
       },
       {
         "merge": {
@@ -4075,7 +4365,8 @@
             }
           ]
         },
-        "test": "app_shell_unittests"
+        "test": "app_shell_unittests",
+        "test_target": "//extensions/shell:app_shell_unittests"
       },
       {
         "merge": {
@@ -4090,7 +4381,8 @@
             }
           ]
         },
-        "test": "aura_unittests"
+        "test": "aura_unittests",
+        "test_target": "//ui/aura:aura_unittests"
       },
       {
         "merge": {
@@ -4105,7 +4397,8 @@
             }
           ]
         },
-        "test": "base_unittests"
+        "test": "base_unittests",
+        "test_target": "//base:base_unittests"
       },
       {
         "merge": {
@@ -4120,7 +4413,8 @@
             }
           ]
         },
-        "test": "base_util_unittests"
+        "test": "base_util_unittests",
+        "test_target": "//base/util:base_util_unittests"
       },
       {
         "merge": {
@@ -4135,7 +4429,8 @@
             }
           ]
         },
-        "test": "blink_common_unittests"
+        "test": "blink_common_unittests",
+        "test_target": "//third_party/blink/common:blink_common_unittests"
       },
       {
         "merge": {
@@ -4150,7 +4445,8 @@
             }
           ]
         },
-        "test": "blink_fuzzer_unittests"
+        "test": "blink_fuzzer_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_fuzzer_unittests"
       },
       {
         "merge": {
@@ -4165,7 +4461,8 @@
             }
           ]
         },
-        "test": "blink_heap_unittests"
+        "test": "blink_heap_unittests",
+        "test_target": "//third_party/blink/renderer/platform/heap:blink_heap_unittests"
       },
       {
         "merge": {
@@ -4180,7 +4477,8 @@
             }
           ]
         },
-        "test": "blink_platform_unittests"
+        "test": "blink_platform_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_platform_unittests"
       },
       {
         "merge": {
@@ -4196,7 +4494,8 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       },
       {
         "merge": {
@@ -4211,7 +4510,8 @@
             }
           ]
         },
-        "test": "boringssl_crypto_tests"
+        "test": "boringssl_crypto_tests",
+        "test_target": "//third_party/boringssl:boringssl_crypto_tests"
       },
       {
         "merge": {
@@ -4226,7 +4526,8 @@
             }
           ]
         },
-        "test": "boringssl_ssl_tests"
+        "test": "boringssl_ssl_tests",
+        "test_target": "//third_party/boringssl:boringssl_ssl_tests"
       },
       {
         "merge": {
@@ -4242,7 +4543,8 @@
           ],
           "shards": 10
         },
-        "test": "browser_tests"
+        "test": "browser_tests",
+        "test_target": "//chrome/test:browser_tests"
       },
       {
         "merge": {
@@ -4257,7 +4559,8 @@
             }
           ]
         },
-        "test": "cacheinvalidation_unittests"
+        "test": "cacheinvalidation_unittests",
+        "test_target": "//third_party/cacheinvalidation:cacheinvalidation_unittests"
       },
       {
         "args": [
@@ -4275,7 +4578,8 @@
             }
           ]
         },
-        "test": "capture_unittests"
+        "test": "capture_unittests",
+        "test_target": "//media/capture:capture_unittests"
       },
       {
         "merge": {
@@ -4290,7 +4594,8 @@
             }
           ]
         },
-        "test": "cast_unittests"
+        "test": "cast_unittests",
+        "test_target": "//media/cast:cast_unittests"
       },
       {
         "merge": {
@@ -4305,7 +4610,8 @@
             }
           ]
         },
-        "test": "cc_unittests"
+        "test": "cc_unittests",
+        "test_target": "//cc:cc_unittests"
       },
       {
         "merge": {
@@ -4320,7 +4626,8 @@
             }
           ]
         },
-        "test": "chrome_app_unittests"
+        "test": "chrome_app_unittests",
+        "test_target": "//chrome/test:chrome_app_unittests"
       },
       {
         "merge": {
@@ -4335,7 +4642,8 @@
             }
           ]
         },
-        "test": "chromedriver_unittests"
+        "test": "chromedriver_unittests",
+        "test_target": "//chrome/test/chromedriver:chromedriver_unittests"
       },
       {
         "merge": {
@@ -4350,7 +4658,8 @@
             }
           ]
         },
-        "test": "components_browsertests"
+        "test": "components_browsertests",
+        "test_target": "//components:components_browsertests"
       },
       {
         "merge": {
@@ -4365,7 +4674,8 @@
             }
           ]
         },
-        "test": "components_unittests"
+        "test": "components_unittests",
+        "test_target": "//components:components_unittests"
       },
       {
         "merge": {
@@ -4380,7 +4690,8 @@
             }
           ]
         },
-        "test": "compositor_unittests"
+        "test": "compositor_unittests",
+        "test_target": "//ui/compositor:compositor_unittests"
       },
       {
         "merge": {
@@ -4396,7 +4707,8 @@
           ],
           "shards": 6
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "args": [
@@ -4416,7 +4728,8 @@
             }
           ]
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "merge": {
@@ -4431,7 +4744,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "merge": {
@@ -4446,7 +4760,8 @@
             }
           ]
         },
-        "test": "crashpad_tests"
+        "test": "crashpad_tests",
+        "test_target": "//third_party/crashpad/crashpad:crashpad_tests"
       },
       {
         "merge": {
@@ -4461,7 +4776,8 @@
             }
           ]
         },
-        "test": "cronet_tests"
+        "test": "cronet_tests",
+        "test_target": "//components/cronet:cronet_tests"
       },
       {
         "merge": {
@@ -4476,7 +4792,8 @@
             }
           ]
         },
-        "test": "cronet_unittests"
+        "test": "cronet_unittests",
+        "test_target": "//components/cronet:cronet_unittests"
       },
       {
         "merge": {
@@ -4491,7 +4808,8 @@
             }
           ]
         },
-        "test": "crypto_unittests"
+        "test": "crypto_unittests",
+        "test_target": "//crypto:crypto_unittests"
       },
       {
         "merge": {
@@ -4506,7 +4824,8 @@
             }
           ]
         },
-        "test": "dbus_unittests"
+        "test": "dbus_unittests",
+        "test_target": "//dbus:dbus_unittests"
       },
       {
         "merge": {
@@ -4521,7 +4840,8 @@
             }
           ]
         },
-        "test": "device_unittests"
+        "test": "device_unittests",
+        "test_target": "//device:device_unittests"
       },
       {
         "merge": {
@@ -4536,7 +4856,8 @@
             }
           ]
         },
-        "test": "display_unittests"
+        "test": "display_unittests",
+        "test_target": "//ui/display:display_unittests"
       },
       {
         "merge": {
@@ -4551,7 +4872,8 @@
             }
           ]
         },
-        "test": "events_unittests"
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
       },
       {
         "merge": {
@@ -4566,7 +4888,8 @@
             }
           ]
         },
-        "test": "extensions_browsertests"
+        "test": "extensions_browsertests",
+        "test_target": "//extensions:extensions_browsertests"
       },
       {
         "merge": {
@@ -4581,7 +4904,8 @@
             }
           ]
         },
-        "test": "extensions_unittests"
+        "test": "extensions_unittests",
+        "test_target": "//extensions:extensions_unittests"
       },
       {
         "merge": {
@@ -4596,7 +4920,8 @@
             }
           ]
         },
-        "test": "filesystem_service_unittests"
+        "test": "filesystem_service_unittests",
+        "test_target": "//components/services/filesystem:filesystem_service_unittests"
       },
       {
         "merge": {
@@ -4611,7 +4936,8 @@
             }
           ]
         },
-        "test": "gcm_unit_tests"
+        "test": "gcm_unit_tests",
+        "test_target": "//google_apis/gcm:gcm_unit_tests"
       },
       {
         "merge": {
@@ -4626,7 +4952,8 @@
             }
           ]
         },
-        "test": "gfx_unittests"
+        "test": "gfx_unittests",
+        "test_target": "//ui/gfx:gfx_unittests"
       },
       {
         "merge": {
@@ -4641,7 +4968,8 @@
             }
           ]
         },
-        "test": "gin_unittests"
+        "test": "gin_unittests",
+        "test_target": "//gin:gin_unittests"
       },
       {
         "merge": {
@@ -4656,7 +4984,8 @@
             }
           ]
         },
-        "test": "google_apis_unittests"
+        "test": "google_apis_unittests",
+        "test_target": "//google_apis:google_apis_unittests"
       },
       {
         "merge": {
@@ -4671,7 +5000,8 @@
             }
           ]
         },
-        "test": "gpu_unittests"
+        "test": "gpu_unittests",
+        "test_target": "//gpu:gpu_unittests"
       },
       {
         "merge": {
@@ -4686,7 +5016,8 @@
             }
           ]
         },
-        "test": "gwp_asan_unittests"
+        "test": "gwp_asan_unittests",
+        "test_target": "//components/gwp_asan:gwp_asan_unittests"
       },
       {
         "merge": {
@@ -4701,7 +5032,8 @@
             }
           ]
         },
-        "test": "headless_browsertests"
+        "test": "headless_browsertests",
+        "test_target": "//headless:headless_browsertests"
       },
       {
         "merge": {
@@ -4716,7 +5048,8 @@
             }
           ]
         },
-        "test": "headless_unittests"
+        "test": "headless_unittests",
+        "test_target": "//headless:headless_unittests"
       },
       {
         "merge": {
@@ -4732,7 +5065,8 @@
           ],
           "shards": 3
         },
-        "test": "interactive_ui_tests"
+        "test": "interactive_ui_tests",
+        "test_target": "//chrome/test:interactive_ui_tests"
       },
       {
         "merge": {
@@ -4747,7 +5081,8 @@
             }
           ]
         },
-        "test": "ipc_tests"
+        "test": "ipc_tests",
+        "test_target": "//ipc:ipc_tests"
       },
       {
         "merge": {
@@ -4762,7 +5097,8 @@
             }
           ]
         },
-        "test": "jingle_unittests"
+        "test": "jingle_unittests",
+        "test_target": "//jingle:jingle_unittests"
       },
       {
         "merge": {
@@ -4777,7 +5113,8 @@
             }
           ]
         },
-        "test": "latency_unittests"
+        "test": "latency_unittests",
+        "test_target": "//ui/latency:latency_unittests"
       },
       {
         "merge": {
@@ -4792,7 +5129,8 @@
             }
           ]
         },
-        "test": "libjingle_xmpp_unittests"
+        "test": "libjingle_xmpp_unittests",
+        "test_target": "//third_party/libjingle_xmpp:libjingle_xmpp_unittests"
       },
       {
         "merge": {
@@ -4807,7 +5145,8 @@
             }
           ]
         },
-        "test": "media_blink_unittests"
+        "test": "media_blink_unittests",
+        "test_target": "//media/blink:media_blink_unittests"
       },
       {
         "merge": {
@@ -4822,7 +5161,8 @@
             }
           ]
         },
-        "test": "media_service_unittests"
+        "test": "media_service_unittests",
+        "test_target": "//media/mojo/services:media_service_unittests"
       },
       {
         "merge": {
@@ -4837,7 +5177,8 @@
             }
           ]
         },
-        "test": "media_unittests"
+        "test": "media_unittests",
+        "test_target": "//media:media_unittests"
       },
       {
         "merge": {
@@ -4852,7 +5193,8 @@
             }
           ]
         },
-        "test": "message_center_unittests"
+        "test": "message_center_unittests",
+        "test_target": "//ui/message_center:message_center_unittests"
       },
       {
         "merge": {
@@ -4867,7 +5209,8 @@
             }
           ]
         },
-        "test": "midi_unittests"
+        "test": "midi_unittests",
+        "test_target": "//media/midi:midi_unittests"
       },
       {
         "merge": {
@@ -4882,7 +5225,8 @@
             }
           ]
         },
-        "test": "mojo_core_unittests"
+        "test": "mojo_core_unittests",
+        "test_target": "//mojo/core:mojo_core_unittests"
       },
       {
         "merge": {
@@ -4897,7 +5241,8 @@
             }
           ]
         },
-        "test": "mojo_unittests"
+        "test": "mojo_unittests",
+        "test_target": "//mojo:mojo_unittests"
       },
       {
         "merge": {
@@ -4912,7 +5257,8 @@
             }
           ]
         },
-        "test": "nacl_helper_nonsfi_unittests"
+        "test": "nacl_helper_nonsfi_unittests",
+        "test_target": "//components/nacl/loader:nacl_helper_nonsfi_unittests"
       },
       {
         "merge": {
@@ -4927,7 +5273,8 @@
             }
           ]
         },
-        "test": "nacl_loader_unittests"
+        "test": "nacl_loader_unittests",
+        "test_target": "//components/nacl/loader:nacl_loader_unittests"
       },
       {
         "merge": {
@@ -4942,7 +5289,8 @@
             }
           ]
         },
-        "test": "native_theme_unittests"
+        "test": "native_theme_unittests",
+        "test_target": "//ui/native_theme:native_theme_unittests"
       },
       {
         "merge": {
@@ -4958,7 +5306,8 @@
           ],
           "shards": 2
         },
-        "test": "net_unittests"
+        "test": "net_unittests",
+        "test_target": "//net:net_unittests"
       },
       {
         "merge": {
@@ -4973,7 +5322,8 @@
             }
           ]
         },
-        "test": "pdf_unittests"
+        "test": "pdf_unittests",
+        "test_target": "//pdf:pdf_unittests"
       },
       {
         "merge": {
@@ -4988,7 +5338,8 @@
             }
           ]
         },
-        "test": "perfetto_unittests"
+        "test": "perfetto_unittests",
+        "test_target": "//third_party/perfetto:perfetto_unittests"
       },
       {
         "merge": {
@@ -5003,7 +5354,8 @@
             }
           ]
         },
-        "test": "ppapi_unittests"
+        "test": "ppapi_unittests",
+        "test_target": "//ppapi:ppapi_unittests"
       },
       {
         "merge": {
@@ -5018,7 +5370,8 @@
             }
           ]
         },
-        "test": "printing_unittests"
+        "test": "printing_unittests",
+        "test_target": "//printing:printing_unittests"
       },
       {
         "merge": {
@@ -5033,7 +5386,8 @@
             }
           ]
         },
-        "test": "remoting_unittests"
+        "test": "remoting_unittests",
+        "test_target": "//remoting:remoting_unittests"
       },
       {
         "merge": {
@@ -5048,7 +5402,8 @@
             }
           ]
         },
-        "test": "sandbox_linux_unittests"
+        "test": "sandbox_linux_unittests",
+        "test_target": "//sandbox/linux:sandbox_linux_unittests"
       },
       {
         "merge": {
@@ -5063,7 +5418,8 @@
             }
           ]
         },
-        "test": "service_manager_unittests"
+        "test": "service_manager_unittests",
+        "test_target": "//services/service_manager/tests:service_manager_unittests"
       },
       {
         "merge": {
@@ -5078,7 +5434,8 @@
             }
           ]
         },
-        "test": "services_unittests"
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
       },
       {
         "merge": {
@@ -5093,7 +5450,8 @@
             }
           ]
         },
-        "test": "shell_dialogs_unittests"
+        "test": "shell_dialogs_unittests",
+        "test_target": "//ui/shell_dialogs:shell_dialogs_unittests"
       },
       {
         "merge": {
@@ -5108,7 +5466,8 @@
             }
           ]
         },
-        "test": "skia_unittests"
+        "test": "skia_unittests",
+        "test_target": "//skia:skia_unittests"
       },
       {
         "merge": {
@@ -5123,7 +5482,8 @@
             }
           ]
         },
-        "test": "snapshot_unittests"
+        "test": "snapshot_unittests",
+        "test_target": "//ui/snapshot:snapshot_unittests"
       },
       {
         "merge": {
@@ -5138,7 +5498,8 @@
             }
           ]
         },
-        "test": "sql_unittests"
+        "test": "sql_unittests",
+        "test_target": "//sql:sql_unittests"
       },
       {
         "merge": {
@@ -5153,7 +5514,8 @@
             }
           ]
         },
-        "test": "storage_unittests"
+        "test": "storage_unittests",
+        "test_target": "//storage:storage_unittests"
       },
       {
         "merge": {
@@ -5168,7 +5530,8 @@
             }
           ]
         },
-        "test": "sync_integration_tests"
+        "test": "sync_integration_tests",
+        "test_target": "//chrome/test:sync_integration_tests"
       },
       {
         "merge": {
@@ -5183,7 +5546,8 @@
             }
           ]
         },
-        "test": "traffic_annotation_auditor_unittests"
+        "test": "traffic_annotation_auditor_unittests",
+        "test_target": "//tools/traffic_annotation/auditor:traffic_annotation_auditor_unittests"
       },
       {
         "merge": {
@@ -5198,7 +5562,8 @@
             }
           ]
         },
-        "test": "ui_base_unittests"
+        "test": "ui_base_unittests",
+        "test_target": "//ui/base:ui_base_unittests"
       },
       {
         "merge": {
@@ -5213,7 +5578,8 @@
             }
           ]
         },
-        "test": "ui_touch_selection_unittests"
+        "test": "ui_touch_selection_unittests",
+        "test_target": "//ui/touch_selection:ui_touch_selection_unittests"
       },
       {
         "merge": {
@@ -5228,7 +5594,8 @@
             }
           ]
         },
-        "test": "unit_tests"
+        "test": "unit_tests",
+        "test_target": "//chrome/test:unit_tests"
       },
       {
         "merge": {
@@ -5243,7 +5610,8 @@
             }
           ]
         },
-        "test": "url_unittests"
+        "test": "url_unittests",
+        "test_target": "//url:url_unittests"
       },
       {
         "merge": {
@@ -5258,7 +5626,8 @@
             }
           ]
         },
-        "test": "views_unittests"
+        "test": "views_unittests",
+        "test_target": "//ui/views:views_unittests"
       },
       {
         "merge": {
@@ -5273,7 +5642,8 @@
             }
           ]
         },
-        "test": "viz_unittests"
+        "test": "viz_unittests",
+        "test_target": "//components/viz:viz_unittests"
       },
       {
         "merge": {
@@ -5288,7 +5658,8 @@
             }
           ]
         },
-        "test": "vr_common_unittests"
+        "test": "vr_common_unittests",
+        "test_target": "//chrome/browser/vr:vr_common_unittests"
       },
       {
         "merge": {
@@ -5303,7 +5674,8 @@
             }
           ]
         },
-        "test": "vr_pixeltests"
+        "test": "vr_pixeltests",
+        "test_target": "//chrome/browser/vr:vr_pixeltests"
       },
       {
         "merge": {
@@ -5318,7 +5690,8 @@
             }
           ]
         },
-        "test": "weblayer_browsertests"
+        "test": "weblayer_browsertests",
+        "test_target": "//weblayer/test:weblayer_browsertests"
       },
       {
         "merge": {
@@ -5333,7 +5706,8 @@
             }
           ]
         },
-        "test": "wm_unittests"
+        "test": "wm_unittests",
+        "test_target": "//ui/wm:wm_unittests"
       },
       {
         "merge": {
@@ -5348,7 +5722,8 @@
             }
           ]
         },
-        "test": "wtf_unittests"
+        "test": "wtf_unittests",
+        "test_target": "//third_party/blink/renderer/platform/wtf:wtf_unittests"
       },
       {
         "merge": {
@@ -5364,7 +5739,8 @@
             }
           ]
         },
-        "test": "xr_browser_tests"
+        "test": "xr_browser_tests",
+        "test_target": "//chrome/test:xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -5382,7 +5758,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//:blink_python_tests"
       },
       {
         "isolate_name": "content_shell_crash_test",
@@ -5398,39 +5775,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
-      },
-      {
-        "isolate_name": "devtools_lint_check",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "devtools_lint_check",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        }
-      },
-      {
-        "isolate_name": "devtools_type_check",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "devtools_type_check",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04"
-            }
-          ]
-        }
+        "test_target": "//content/shell:content_shell_crash_test"
       },
       {
         "isolate_name": "flatbuffers_unittests",
@@ -5446,7 +5792,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//third_party/flatbuffers:flatbuffers_unittests"
       },
       {
         "isolate_name": "grit_python_unittests",
@@ -5462,7 +5809,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//tools/grit:grit_python_unittests"
       },
       {
         "isolate_name": "metrics_python_tests",
@@ -5478,7 +5826,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//tools/metrics:metrics_python_tests"
       },
       {
         "isolate_name": "telemetry_gpu_unittests",
@@ -5495,7 +5844,8 @@
             }
           ],
           "idempotent": false
-        }
+        },
+        "test_target": "//chrome/test:telemetry_gpu_unittests"
       },
       {
         "args": [
@@ -5517,7 +5867,8 @@
           ],
           "idempotent": false,
           "shards": 12
-        }
+        },
+        "test_target": "//chrome/test:telemetry_perf_unittests"
       },
       {
         "args": [
@@ -5539,7 +5890,8 @@
           ],
           "idempotent": false,
           "shards": 4
-        }
+        },
+        "test_target": "//chrome/test:telemetry_unittests"
       },
       {
         "args": [
@@ -5560,7 +5912,8 @@
               "os": "Ubuntu-16.04"
             }
           ]
-        }
+        },
+        "test_target": "//ui/views:views_perftests"
       },
       {
         "isolate_name": "webdriver_wpt_tests",
@@ -5579,13 +5932,13 @@
             }
           ],
           "shards": 4
-        }
+        },
+        "test_target": "//:webdriver_wpt_tests"
       },
       {
         "args": [
           "--num-retries=3",
-          "--debug",
-          "--fuzzy-diff"
+          "--debug"
         ],
         "isolate_name": "blink_web_tests",
         "merge": {
@@ -5604,19 +5957,18 @@
             }
           ],
           "shards": 20
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ]
   },
   "fuchsia-arm64-cast": {
     "additional_compile_targets": [
-      "cast_shell",
       "cast_test_lists"
     ]
   },
   "fuchsia-x64-cast": {
     "additional_compile_targets": [
-      "cast_shell",
       "cast_test_lists"
     ]
   },
@@ -5652,7 +6004,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "args": [
@@ -5671,7 +6024,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "experiment_percentage": 100,
@@ -5687,7 +6041,8 @@
             }
           ]
         },
-        "test": "events_unittests"
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
       },
       {
         "merge": {
@@ -5702,7 +6057,8 @@
             }
           ]
         },
-        "test": "ozone_unittests"
+        "test": "ozone_unittests",
+        "test_target": "//ui/ozone:ozone_unittests"
       },
       {
         "merge": {
@@ -5717,7 +6073,8 @@
             }
           ]
         },
-        "test": "ozone_x11_unittests"
+        "test": "ozone_x11_unittests",
+        "test_target": "//ui/ozone:ozone_x11_unittests"
       },
       {
         "merge": {
@@ -5732,7 +6089,8 @@
             }
           ]
         },
-        "test": "services_unittests"
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
       },
       {
         "args": [
@@ -5752,7 +6110,8 @@
             }
           ]
         },
-        "test": "views_unittests"
+        "test": "views_unittests",
+        "test_target": "//ui/views:views_unittests"
       }
     ]
   },
@@ -5771,7 +6130,8 @@
             }
           ]
         },
-        "test": "accessibility_unittests"
+        "test": "accessibility_unittests",
+        "test_target": "//ui/accessibility:accessibility_unittests"
       },
       {
         "merge": {
@@ -5786,7 +6146,8 @@
             }
           ]
         },
-        "test": "angle_unittests"
+        "test": "angle_unittests",
+        "test_target": "//third_party/angle/src/tests:angle_unittests"
       },
       {
         "merge": {
@@ -5801,7 +6162,8 @@
             }
           ]
         },
-        "test": "app_shell_unittests"
+        "test": "app_shell_unittests",
+        "test_target": "//extensions/shell:app_shell_unittests"
       },
       {
         "merge": {
@@ -5816,7 +6178,8 @@
             }
           ]
         },
-        "test": "aura_unittests"
+        "test": "aura_unittests",
+        "test_target": "//ui/aura:aura_unittests"
       },
       {
         "merge": {
@@ -5831,7 +6194,8 @@
             }
           ]
         },
-        "test": "base_unittests"
+        "test": "base_unittests",
+        "test_target": "//base:base_unittests"
       },
       {
         "merge": {
@@ -5846,7 +6210,8 @@
             }
           ]
         },
-        "test": "base_util_unittests"
+        "test": "base_util_unittests",
+        "test_target": "//base/util:base_util_unittests"
       },
       {
         "merge": {
@@ -5861,7 +6226,8 @@
             }
           ]
         },
-        "test": "blink_common_unittests"
+        "test": "blink_common_unittests",
+        "test_target": "//third_party/blink/common:blink_common_unittests"
       },
       {
         "merge": {
@@ -5876,7 +6242,8 @@
             }
           ]
         },
-        "test": "blink_fuzzer_unittests"
+        "test": "blink_fuzzer_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_fuzzer_unittests"
       },
       {
         "merge": {
@@ -5891,7 +6258,8 @@
             }
           ]
         },
-        "test": "blink_heap_unittests"
+        "test": "blink_heap_unittests",
+        "test_target": "//third_party/blink/renderer/platform/heap:blink_heap_unittests"
       },
       {
         "merge": {
@@ -5906,7 +6274,8 @@
             }
           ]
         },
-        "test": "blink_platform_unittests"
+        "test": "blink_platform_unittests",
+        "test_target": "//third_party/blink/renderer/platform:blink_platform_unittests"
       },
       {
         "merge": {
@@ -5922,7 +6291,8 @@
             }
           ]
         },
-        "test": "blink_unittests"
+        "test": "blink_unittests",
+        "test_target": "//third_party/blink/renderer/controller:blink_unittests"
       },
       {
         "merge": {
@@ -5937,7 +6307,8 @@
             }
           ]
         },
-        "test": "boringssl_crypto_tests"
+        "test": "boringssl_crypto_tests",
+        "test_target": "//third_party/boringssl:boringssl_crypto_tests"
       },
       {
         "merge": {
@@ -5952,7 +6323,8 @@
             }
           ]
         },
-        "test": "boringssl_ssl_tests"
+        "test": "boringssl_ssl_tests",
+        "test_target": "//third_party/boringssl:boringssl_ssl_tests"
       },
       {
         "args": [
@@ -5971,7 +6343,8 @@
           ],
           "shards": 10
         },
-        "test": "browser_tests"
+        "test": "browser_tests",
+        "test_target": "//chrome/test:browser_tests"
       },
       {
         "merge": {
@@ -5986,7 +6359,8 @@
             }
           ]
         },
-        "test": "cacheinvalidation_unittests"
+        "test": "cacheinvalidation_unittests",
+        "test_target": "//third_party/cacheinvalidation:cacheinvalidation_unittests"
       },
       {
         "args": [
@@ -6004,7 +6378,8 @@
             }
           ]
         },
-        "test": "capture_unittests"
+        "test": "capture_unittests",
+        "test_target": "//media/capture:capture_unittests"
       },
       {
         "merge": {
@@ -6019,7 +6394,8 @@
             }
           ]
         },
-        "test": "cast_unittests"
+        "test": "cast_unittests",
+        "test_target": "//media/cast:cast_unittests"
       },
       {
         "merge": {
@@ -6034,7 +6410,8 @@
             }
           ]
         },
-        "test": "cc_unittests"
+        "test": "cc_unittests",
+        "test_target": "//cc:cc_unittests"
       },
       {
         "merge": {
@@ -6049,7 +6426,8 @@
             }
           ]
         },
-        "test": "chrome_app_unittests"
+        "test": "chrome_app_unittests",
+        "test_target": "//chrome/test:chrome_app_unittests"
       },
       {
         "merge": {
@@ -6064,7 +6442,8 @@
             }
           ]
         },
-        "test": "chromedriver_unittests"
+        "test": "chromedriver_unittests",
+        "test_target": "//chrome/test/chromedriver:chromedriver_unittests"
       },
       {
         "merge": {
@@ -6079,7 +6458,8 @@
             }
           ]
         },
-        "test": "components_browsertests"
+        "test": "components_browsertests",
+        "test_target": "//components:components_browsertests"
       },
       {
         "merge": {
@@ -6094,7 +6474,8 @@
             }
           ]
         },
-        "test": "components_unittests"
+        "test": "components_unittests",
+        "test_target": "//components:components_unittests"
       },
       {
         "merge": {
@@ -6109,7 +6490,8 @@
             }
           ]
         },
-        "test": "compositor_unittests"
+        "test": "compositor_unittests",
+        "test_target": "//ui/compositor:compositor_unittests"
       },
       {
         "merge": {
@@ -6125,7 +6507,8 @@
           ],
           "shards": 6
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "args": [
@@ -6145,7 +6528,8 @@
             }
           ]
         },
-        "test": "content_browsertests"
+        "test": "content_browsertests",
+        "test_target": "//content/test:content_browsertests"
       },
       {
         "merge": {
@@ -6160,7 +6544,8 @@
             }
           ]
         },
-        "test": "content_unittests"
+        "test": "content_unittests",
+        "test_target": "//content/test:content_unittests"
       },
       {
         "merge": {
@@ -6175,7 +6560,8 @@
             }
           ]
         },
-        "test": "crashpad_tests"
+        "test": "crashpad_tests",
+        "test_target": "//third_party/crashpad/crashpad:crashpad_tests"
       },
       {
         "merge": {
@@ -6190,7 +6576,8 @@
             }
           ]
         },
-        "test": "cronet_tests"
+        "test": "cronet_tests",
+        "test_target": "//components/cronet:cronet_tests"
       },
       {
         "merge": {
@@ -6205,7 +6592,8 @@
             }
           ]
         },
-        "test": "cronet_unittests"
+        "test": "cronet_unittests",
+        "test_target": "//components/cronet:cronet_unittests"
       },
       {
         "merge": {
@@ -6220,7 +6608,8 @@
             }
           ]
         },
-        "test": "crypto_unittests"
+        "test": "crypto_unittests",
+        "test_target": "//crypto:crypto_unittests"
       },
       {
         "merge": {
@@ -6235,7 +6624,8 @@
             }
           ]
         },
-        "test": "dbus_unittests"
+        "test": "dbus_unittests",
+        "test_target": "//dbus:dbus_unittests"
       },
       {
         "merge": {
@@ -6250,7 +6640,8 @@
             }
           ]
         },
-        "test": "device_unittests"
+        "test": "device_unittests",
+        "test_target": "//device:device_unittests"
       },
       {
         "merge": {
@@ -6265,7 +6656,8 @@
             }
           ]
         },
-        "test": "display_unittests"
+        "test": "display_unittests",
+        "test_target": "//ui/display:display_unittests"
       },
       {
         "merge": {
@@ -6280,7 +6672,8 @@
             }
           ]
         },
-        "test": "events_unittests"
+        "test": "events_unittests",
+        "test_target": "//ui/events:events_unittests"
       },
       {
         "merge": {
@@ -6295,7 +6688,8 @@
             }
           ]
         },
-        "test": "extensions_browsertests"
+        "test": "extensions_browsertests",
+        "test_target": "//extensions:extensions_browsertests"
       },
       {
         "merge": {
@@ -6310,7 +6704,8 @@
             }
           ]
         },
-        "test": "extensions_unittests"
+        "test": "extensions_unittests",
+        "test_target": "//extensions:extensions_unittests"
       },
       {
         "merge": {
@@ -6325,7 +6720,8 @@
             }
           ]
         },
-        "test": "filesystem_service_unittests"
+        "test": "filesystem_service_unittests",
+        "test_target": "//components/services/filesystem:filesystem_service_unittests"
       },
       {
         "merge": {
@@ -6340,7 +6736,8 @@
             }
           ]
         },
-        "test": "gcm_unit_tests"
+        "test": "gcm_unit_tests",
+        "test_target": "//google_apis/gcm:gcm_unit_tests"
       },
       {
         "merge": {
@@ -6355,7 +6752,8 @@
             }
           ]
         },
-        "test": "gfx_unittests"
+        "test": "gfx_unittests",
+        "test_target": "//ui/gfx:gfx_unittests"
       },
       {
         "merge": {
@@ -6370,7 +6768,8 @@
             }
           ]
         },
-        "test": "gin_unittests"
+        "test": "gin_unittests",
+        "test_target": "//gin:gin_unittests"
       },
       {
         "merge": {
@@ -6385,7 +6784,8 @@
             }
           ]
         },
-        "test": "google_apis_unittests"
+        "test": "google_apis_unittests",
+        "test_target": "//google_apis:google_apis_unittests"
       },
       {
         "merge": {
@@ -6400,7 +6800,8 @@
             }
           ]
         },
-        "test": "gpu_unittests"
+        "test": "gpu_unittests",
+        "test_target": "//gpu:gpu_unittests"
       },
       {
         "merge": {
@@ -6415,7 +6816,8 @@
             }
           ]
         },
-        "test": "gwp_asan_unittests"
+        "test": "gwp_asan_unittests",
+        "test_target": "//components/gwp_asan:gwp_asan_unittests"
       },
       {
         "merge": {
@@ -6430,7 +6832,8 @@
             }
           ]
         },
-        "test": "headless_browsertests"
+        "test": "headless_browsertests",
+        "test_target": "//headless:headless_browsertests"
       },
       {
         "merge": {
@@ -6445,7 +6848,8 @@
             }
           ]
         },
-        "test": "headless_unittests"
+        "test": "headless_unittests",
+        "test_target": "//headless:headless_unittests"
       },
       {
         "merge": {
@@ -6461,7 +6865,8 @@
           ],
           "shards": 3
         },
-        "test": "interactive_ui_tests"
+        "test": "interactive_ui_tests",
+        "test_target": "//chrome/test:interactive_ui_tests"
       },
       {
         "merge": {
@@ -6476,7 +6881,8 @@
             }
           ]
         },
-        "test": "ipc_tests"
+        "test": "ipc_tests",
+        "test_target": "//ipc:ipc_tests"
       },
       {
         "merge": {
@@ -6491,7 +6897,8 @@
             }
           ]
         },
-        "test": "jingle_unittests"
+        "test": "jingle_unittests",
+        "test_target": "//jingle:jingle_unittests"
       },
       {
         "merge": {
@@ -6506,7 +6913,8 @@
             }
           ]
         },
-        "test": "latency_unittests"
+        "test": "latency_unittests",
+        "test_target": "//ui/latency:latency_unittests"
       },
       {
         "merge": {
@@ -6521,7 +6929,8 @@
             }
           ]
         },
-        "test": "libjingle_xmpp_unittests"
+        "test": "libjingle_xmpp_unittests",
+        "test_target": "//third_party/libjingle_xmpp:libjingle_xmpp_unittests"
       },
       {
         "merge": {
@@ -6536,7 +6945,8 @@
             }
           ]
         },
-        "test": "media_blink_unittests"
+        "test": "media_blink_unittests",
+        "test_target": "//media/blink:media_blink_unittests"
       },
       {
         "merge": {
@@ -6551,7 +6961,8 @@
             }
           ]
         },
-        "test": "media_service_unittests"
+        "test": "media_service_unittests",
+        "test_target": "//media/mojo/services:media_service_unittests"
       },
       {
         "merge": {
@@ -6566,7 +6977,8 @@
             }
           ]
         },
-        "test": "media_unittests"
+        "test": "media_unittests",
+        "test_target": "//media:media_unittests"
       },
       {
         "merge": {
@@ -6581,7 +6993,8 @@
             }
           ]
         },
-        "test": "message_center_unittests"
+        "test": "message_center_unittests",
+        "test_target": "//ui/message_center:message_center_unittests"
       },
       {
         "merge": {
@@ -6596,7 +7009,8 @@
             }
           ]
         },
-        "test": "midi_unittests"
+        "test": "midi_unittests",
+        "test_target": "//media/midi:midi_unittests"
       },
       {
         "merge": {
@@ -6611,7 +7025,8 @@
             }
           ]
         },
-        "test": "mojo_core_unittests"
+        "test": "mojo_core_unittests",
+        "test_target": "//mojo/core:mojo_core_unittests"
       },
       {
         "merge": {
@@ -6626,7 +7041,8 @@
             }
           ]
         },
-        "test": "mojo_unittests"
+        "test": "mojo_unittests",
+        "test_target": "//mojo:mojo_unittests"
       },
       {
         "merge": {
@@ -6641,7 +7057,8 @@
             }
           ]
         },
-        "test": "nacl_helper_nonsfi_unittests"
+        "test": "nacl_helper_nonsfi_unittests",
+        "test_target": "//components/nacl/loader:nacl_helper_nonsfi_unittests"
       },
       {
         "merge": {
@@ -6656,7 +7073,8 @@
             }
           ]
         },
-        "test": "nacl_loader_unittests"
+        "test": "nacl_loader_unittests",
+        "test_target": "//components/nacl/loader:nacl_loader_unittests"
       },
       {
         "merge": {
@@ -6671,7 +7089,8 @@
             }
           ]
         },
-        "test": "native_theme_unittests"
+        "test": "native_theme_unittests",
+        "test_target": "//ui/native_theme:native_theme_unittests"
       },
       {
         "merge": {
@@ -6686,7 +7105,8 @@
             }
           ]
         },
-        "test": "net_unittests"
+        "test": "net_unittests",
+        "test_target": "//net:net_unittests"
       },
       {
         "merge": {
@@ -6701,7 +7121,8 @@
             }
           ]
         },
-        "test": "pdf_unittests"
+        "test": "pdf_unittests",
+        "test_target": "//pdf:pdf_unittests"
       },
       {
         "merge": {
@@ -6716,7 +7137,8 @@
             }
           ]
         },
-        "test": "perfetto_unittests"
+        "test": "perfetto_unittests",
+        "test_target": "//third_party/perfetto:perfetto_unittests"
       },
       {
         "merge": {
@@ -6731,7 +7153,8 @@
             }
           ]
         },
-        "test": "ppapi_unittests"
+        "test": "ppapi_unittests",
+        "test_target": "//ppapi:ppapi_unittests"
       },
       {
         "merge": {
@@ -6746,7 +7169,8 @@
             }
           ]
         },
-        "test": "printing_unittests"
+        "test": "printing_unittests",
+        "test_target": "//printing:printing_unittests"
       },
       {
         "merge": {
@@ -6761,7 +7185,8 @@
             }
           ]
         },
-        "test": "remoting_unittests"
+        "test": "remoting_unittests",
+        "test_target": "//remoting:remoting_unittests"
       },
       {
         "merge": {
@@ -6776,7 +7201,8 @@
             }
           ]
         },
-        "test": "sandbox_linux_unittests"
+        "test": "sandbox_linux_unittests",
+        "test_target": "//sandbox/linux:sandbox_linux_unittests"
       },
       {
         "merge": {
@@ -6791,7 +7217,8 @@
             }
           ]
         },
-        "test": "service_manager_unittests"
+        "test": "service_manager_unittests",
+        "test_target": "//services/service_manager/tests:service_manager_unittests"
       },
       {
         "merge": {
@@ -6806,7 +7233,8 @@
             }
           ]
         },
-        "test": "services_unittests"
+        "test": "services_unittests",
+        "test_target": "//services:services_unittests"
       },
       {
         "merge": {
@@ -6821,7 +7249,8 @@
             }
           ]
         },
-        "test": "shell_dialogs_unittests"
+        "test": "shell_dialogs_unittests",
+        "test_target": "//ui/shell_dialogs:shell_dialogs_unittests"
       },
       {
         "merge": {
@@ -6836,7 +7265,8 @@
             }
           ]
         },
-        "test": "skia_unittests"
+        "test": "skia_unittests",
+        "test_target": "//skia:skia_unittests"
       },
       {
         "merge": {
@@ -6851,7 +7281,8 @@
             }
           ]
         },
-        "test": "snapshot_unittests"
+        "test": "snapshot_unittests",
+        "test_target": "//ui/snapshot:snapshot_unittests"
       },
       {
         "merge": {
@@ -6866,7 +7297,8 @@
             }
           ]
         },
-        "test": "sql_unittests"
+        "test": "sql_unittests",
+        "test_target": "//sql:sql_unittests"
       },
       {
         "merge": {
@@ -6881,7 +7313,8 @@
             }
           ]
         },
-        "test": "storage_unittests"
+        "test": "storage_unittests",
+        "test_target": "//storage:storage_unittests"
       },
       {
         "merge": {
@@ -6896,7 +7329,8 @@
             }
           ]
         },
-        "test": "sync_integration_tests"
+        "test": "sync_integration_tests",
+        "test_target": "//chrome/test:sync_integration_tests"
       },
       {
         "merge": {
@@ -6911,7 +7345,8 @@
             }
           ]
         },
-        "test": "traffic_annotation_auditor_unittests"
+        "test": "traffic_annotation_auditor_unittests",
+        "test_target": "//tools/traffic_annotation/auditor:traffic_annotation_auditor_unittests"
       },
       {
         "merge": {
@@ -6926,7 +7361,8 @@
             }
           ]
         },
-        "test": "ui_base_unittests"
+        "test": "ui_base_unittests",
+        "test_target": "//ui/base:ui_base_unittests"
       },
       {
         "merge": {
@@ -6941,7 +7377,8 @@
             }
           ]
         },
-        "test": "ui_touch_selection_unittests"
+        "test": "ui_touch_selection_unittests",
+        "test_target": "//ui/touch_selection:ui_touch_selection_unittests"
       },
       {
         "merge": {
@@ -6956,7 +7393,8 @@
             }
           ]
         },
-        "test": "unit_tests"
+        "test": "unit_tests",
+        "test_target": "//chrome/test:unit_tests"
       },
       {
         "merge": {
@@ -6971,7 +7409,8 @@
             }
           ]
         },
-        "test": "url_unittests"
+        "test": "url_unittests",
+        "test_target": "//url:url_unittests"
       },
       {
         "merge": {
@@ -6986,7 +7425,8 @@
             }
           ]
         },
-        "test": "views_unittests"
+        "test": "views_unittests",
+        "test_target": "//ui/views:views_unittests"
       },
       {
         "merge": {
@@ -7001,7 +7441,8 @@
             }
           ]
         },
-        "test": "viz_unittests"
+        "test": "viz_unittests",
+        "test_target": "//components/viz:viz_unittests"
       },
       {
         "merge": {
@@ -7016,7 +7457,8 @@
             }
           ]
         },
-        "test": "vr_common_unittests"
+        "test": "vr_common_unittests",
+        "test_target": "//chrome/browser/vr:vr_common_unittests"
       },
       {
         "merge": {
@@ -7031,7 +7473,8 @@
             }
           ]
         },
-        "test": "vr_pixeltests"
+        "test": "vr_pixeltests",
+        "test_target": "//chrome/browser/vr:vr_pixeltests"
       },
       {
         "merge": {
@@ -7046,7 +7489,8 @@
             }
           ]
         },
-        "test": "weblayer_browsertests"
+        "test": "weblayer_browsertests",
+        "test_target": "//weblayer/test:weblayer_browsertests"
       },
       {
         "merge": {
@@ -7061,7 +7505,8 @@
             }
           ]
         },
-        "test": "wm_unittests"
+        "test": "wm_unittests",
+        "test_target": "//ui/wm:wm_unittests"
       },
       {
         "merge": {
@@ -7076,7 +7521,8 @@
             }
           ]
         },
-        "test": "wtf_unittests"
+        "test": "wtf_unittests",
+        "test_target": "//third_party/blink/renderer/platform/wtf:wtf_unittests"
       },
       {
         "merge": {
@@ -7092,7 +7538,8 @@
             }
           ]
         },
-        "test": "xr_browser_tests"
+        "test": "xr_browser_tests",
+        "test_target": "//chrome/test:xr_browser_tests"
       }
     ],
     "isolated_scripts": [
@@ -7110,7 +7557,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//:blink_python_tests"
       },
       {
         "args": [
@@ -7129,7 +7577,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//chrome/test/chromedriver:chromedriver_py_tests"
       },
       {
         "isolate_name": "chromedriver_replay_unittests",
@@ -7145,7 +7594,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//chrome/test/chromedriver:chromedriver_replay_unittests"
       },
       {
         "isolate_name": "content_shell_crash_test",
@@ -7161,39 +7611,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
-      },
-      {
-        "isolate_name": "devtools_lint_check",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
-        "name": "devtools_lint_check",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-14.04"
-            }
-          ]
-        }
-      },
-      {
-        "isolate_name": "devtools_type_check",
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
-        },
-        "name": "devtools_type_check",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-14.04"
-            }
-          ]
-        }
+        "test_target": "//content/shell:content_shell_crash_test"
       },
       {
         "isolate_name": "flatbuffers_unittests",
@@ -7209,7 +7628,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//third_party/flatbuffers:flatbuffers_unittests"
       },
       {
         "isolate_name": "grit_python_unittests",
@@ -7225,7 +7645,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//tools/grit:grit_python_unittests"
       },
       {
         "isolate_name": "metrics_python_tests",
@@ -7241,32 +7662,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
-      },
-      {
-        "args": [
-          "--num-retries=3",
-          "--additional-driver-flag=--disable-features=UseSkiaRenderer",
-          "--skipped=always",
-          "--test-list=../../testing/buildbot/filters/gpu.skiarenderer_vulkan_blink_web_tests.filter"
-        ],
-        "isolate_name": "blink_web_tests",
-        "merge": {
-          "args": [
-            "--verbose"
-          ],
-          "script": "//third_party/blink/tools/merge_web_test_results.py"
         },
-        "name": "non_skia_renderer_swiftshader_blink_web_tests",
-        "results_handler": "layout tests",
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-14.04"
-            }
-          ]
-        }
+        "test_target": "//tools/metrics:metrics_python_tests"
       },
       {
         "args": [
@@ -7274,8 +7671,7 @@
           "--disable-site-isolation-trials",
           "--additional-expectations",
           "src/third_party/blink/web_tests/FlagExpectations/disable-site-isolation-trials",
-          "--num-retries=3",
-          "--fuzzy-diff"
+          "--num-retries=3"
         ],
         "isolate_name": "blink_web_tests",
         "merge": {
@@ -7294,7 +7690,35 @@
             }
           ],
           "shards": 10
-        }
+        },
+        "test_target": "//:blink_web_tests"
+      },
+      {
+        "args": [
+          "--num-retries=3",
+          "--additional-driver-flag=--enable-features=UseSkiaRenderer",
+          "--fuzzy-diff",
+          "--skipped=always",
+          "--test-list=../../testing/buildbot/filters/gpu.skiarenderer_vulkan_blink_web_tests.filter"
+        ],
+        "isolate_name": "blink_web_tests",
+        "merge": {
+          "args": [
+            "--verbose"
+          ],
+          "script": "//third_party/blink/tools/merge_web_test_results.py"
+        },
+        "name": "skia_renderer_swiftshader_blink_web_tests",
+        "results_handler": "layout tests",
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "os": "Ubuntu-14.04"
+            }
+          ]
+        },
+        "test_target": "//:blink_web_tests"
       },
       {
         "isolate_name": "telemetry_gpu_unittests",
@@ -7311,7 +7735,8 @@
             }
           ],
           "idempotent": false
-        }
+        },
+        "test_target": "//chrome/test:telemetry_gpu_unittests"
       },
       {
         "args": [
@@ -7333,7 +7758,8 @@
           ],
           "idempotent": false,
           "shards": 12
-        }
+        },
+        "test_target": "//chrome/test:telemetry_perf_unittests"
       },
       {
         "args": [
@@ -7355,7 +7781,8 @@
           ],
           "idempotent": false,
           "shards": 4
-        }
+        },
+        "test_target": "//chrome/test:telemetry_unittests"
       },
       {
         "args": [
@@ -7376,16 +7803,16 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//ui/views:views_perftests"
       },
       {
         "args": [
           "--num-retries=3",
           "--additional-driver-flag=--enable-gpu-rasterization",
-          "--additional-driver-flag=--enable-features=UseSkiaRenderer",
+          "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan",
           "--additional-driver-flag=--force-gpu-rasterization",
           "--additional-driver-flag=--enable-oop-rasterization",
-          "--additional-driver-flag=--gr-context-type=vulkan",
           "--additional-driver-flag=--use-vulkan=swiftshader",
           "--additional-driver-flag=--disable-vulkan-fallback-to-gl-for-testing",
           "--fuzzy-diff",
@@ -7411,7 +7838,8 @@
               "os": "Ubuntu-14.04"
             }
           ]
-        }
+        },
+        "test_target": "//:blink_web_tests"
       },
       {
         "isolate_name": "webdriver_wpt_tests",
@@ -7430,12 +7858,12 @@
             }
           ],
           "shards": 4
-        }
+        },
+        "test_target": "//:webdriver_wpt_tests"
       },
       {
         "args": [
-          "--num-retries=3",
-          "--fuzzy-diff"
+          "--num-retries=3"
         ],
         "isolate_name": "blink_web_tests",
         "merge": {
@@ -7454,7 +7882,8 @@
             }
           ],
           "shards": 12
-        }
+        },
+        "test_target": "//:blink_web_tests"
       }
     ],
     "scripts": [

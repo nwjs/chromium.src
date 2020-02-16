@@ -306,9 +306,9 @@ void NTPResourceCache::CreateNewTabIncognitoHTML() {
       CookieControlsHandler::ShouldHideCookieControlsUI(profile_) ? "hidden"
                                                                   : "";
   replacements["cookieControlsTitle"] =
-      l10n_util::GetStringUTF8(IDS_SETTINGS_SITE_SETTINGS_THIRD_PARTY_COOKIE);
-  replacements["cookieControlsDescription"] = l10n_util::GetStringUTF8(
-      IDS_SETTINGS_SITE_SETTINGS_THIRD_PARTY_COOKIE_SUBLABEL);
+      l10n_util::GetStringUTF8(IDS_NEW_TAB_OTR_THIRD_PARTY_COOKIE);
+  replacements["cookieControlsDescription"] =
+      l10n_util::GetStringUTF8(IDS_NEW_TAB_OTR_THIRD_PARTY_COOKIE_SUBLABEL);
   // Ensure passing off-the-record profile; |profile_| might not be incognito.
   DCHECK(profile_->HasOffTheRecordProfile());
   replacements["cookieControlsToggleChecked"] =
@@ -323,7 +323,7 @@ void NTPResourceCache::CreateNewTabIncognitoHTML() {
       CookieControlsHandler::GetEnforcementIcon(profile_);
   replacements["cookieControlsTooltipText"] = l10n_util::GetStringFUTF8(
       IDS_NEW_TAB_OTR_COOKIE_CONTROLS_CONTROLLED_TOOLTIP_TEXT,
-      l10n_util::GetStringUTF16(IDS_SETTINGS_SITE_SETTINGS_THIRD_PARTY_COOKIE),
+      l10n_util::GetStringUTF16(IDS_NEW_TAB_OTR_THIRD_PARTY_COOKIE),
       l10n_util::GetStringUTF16(IDS_SETTINGS_SITE_SETTINGS_COOKIES));
 
   const ui::ThemeProvider& tp =
@@ -338,6 +338,7 @@ void NTPResourceCache::CreateNewTabIncognitoHTML() {
       incognito_tab_html(
           ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
               IDR_INCOGNITO_TAB_HTML));
+  CHECK(*incognito_tab_html);
 
   std::string full_html =
       ReplaceTemplateExpressions(*incognito_tab_html, replacements);
@@ -404,6 +405,7 @@ void NTPResourceCache::CreateNewTabGuestHTML() {
       guest_tab_html(
           ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
               guest_tab_idr));
+  CHECK(*guest_tab_html);
   ui::TemplateReplacements replacements;
   ui::TemplateReplacementsFromDictionaryValue(localized_strings, &replacements);
   std::string full_html =
@@ -520,6 +522,7 @@ void NTPResourceCache::CreateNewTabHTML() {
       new_tab_html(
           ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
               IDR_NEW_TAB_4_HTML));
+  CHECK(*new_tab_html);
   std::string full_html = webui::GetI18nTemplateHtml(
       base::StringPiece(reinterpret_cast<const char*>((*new_tab_html)->front()),
                         (*new_tab_html)->size()),
@@ -549,7 +552,8 @@ void NTPResourceCache::CreateNewTabIncognitoCSS() {
   static const base::NoDestructor<scoped_refptr<base::RefCountedMemory>>
       new_tab_theme_css(
           ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
-              IDR_NEW_INCOGNITO_TAB_THEME_CSS));
+              IDR_INCOGNITO_TAB_THEME_CSS));
+  CHECK(*new_tab_theme_css);
 
   // Create the string from our template and the replacements.
   std::string full_css =
@@ -629,6 +633,7 @@ void NTPResourceCache::CreateNewTabCSS() {
       new_tab_theme_css(
           ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
               IDR_NEW_TAB_4_THEME_CSS));
+  CHECK(*new_tab_theme_css);
 
   // Create the string from our template and the replacements.
   std::string css_string =

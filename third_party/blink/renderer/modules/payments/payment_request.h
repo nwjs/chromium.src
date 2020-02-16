@@ -14,11 +14,11 @@
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_payment_method_data.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_payment_options.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
-#include "third_party/blink/renderer/modules/payments/payment_method_data.h"
-#include "third_party/blink/renderer/modules/payments/payment_options.h"
 #include "third_party/blink/renderer/modules/payments/payment_request_delegate.h"
 #include "third_party/blink/renderer/modules/payments/payment_state_resolver.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -67,9 +67,11 @@ class MODULES_EXPORT PaymentRequest final
                  ExceptionState&);
   ~PaymentRequest() override;
 
-  ScriptPromise show(ScriptState*);
-  ScriptPromise show(ScriptState*, ScriptPromise details_promise);
-  ScriptPromise abort(ScriptState*);
+  ScriptPromise show(ScriptState*, ExceptionState&);
+  ScriptPromise show(ScriptState*,
+                     ScriptPromise details_promise,
+                     ExceptionState&);
+  ScriptPromise abort(ScriptState*, ExceptionState&);
 
   const String& id() const { return id_; }
   PaymentAddress* getShippingAddress() const { return shipping_address_.Get(); }
@@ -80,8 +82,8 @@ class MODULES_EXPORT PaymentRequest final
   DEFINE_ATTRIBUTE_EVENT_LISTENER(shippingoptionchange, kShippingoptionchange)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(paymentmethodchange, kPaymentmethodchange)
 
-  ScriptPromise canMakePayment(ScriptState*);
-  ScriptPromise hasEnrolledInstrument(ScriptState*);
+  ScriptPromise canMakePayment(ScriptState*, ExceptionState&);
+  ScriptPromise hasEnrolledInstrument(ScriptState*, ExceptionState&);
 
   // ScriptWrappable:
   bool HasPendingActivity() const override;
@@ -91,8 +93,12 @@ class MODULES_EXPORT PaymentRequest final
   ExecutionContext* GetExecutionContext() const override;
 
   // PaymentStateResolver:
-  ScriptPromise Complete(ScriptState*, PaymentComplete result) override;
-  ScriptPromise Retry(ScriptState*, const PaymentValidationErrors*) override;
+  ScriptPromise Complete(ScriptState*,
+                         PaymentComplete result,
+                         ExceptionState&) override;
+  ScriptPromise Retry(ScriptState*,
+                      const PaymentValidationErrors*,
+                      ExceptionState&) override;
 
   // PaymentRequestDelegate:
   void OnUpdatePaymentDetails(const ScriptValue& details_script_value) override;
@@ -172,7 +178,6 @@ class MODULES_EXPORT PaymentRequest final
   TaskRunnerTimer<PaymentRequest> complete_timer_;
   TaskRunnerTimer<PaymentRequest> update_payment_details_timer_;
   bool is_waiting_for_show_promise_to_resolve_;
-  bool basic_card_has_supported_card_types_;
 
   DISALLOW_COPY_AND_ASSIGN(PaymentRequest);
 };

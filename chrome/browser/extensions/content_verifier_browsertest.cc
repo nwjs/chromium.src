@@ -82,7 +82,7 @@ class ContentVerifierTest : public ExtensionBrowserTest {
     // Override content verification mode before ExtensionSystemImpl initializes
     // ChromeContentVerifierDelegate.
     ChromeContentVerifierDelegate::SetDefaultModeForTesting(
-        ChromeContentVerifierDelegate::ENFORCE);
+        ChromeContentVerifierDelegate::VerifyInfo::Mode::ENFORCE);
 
     ON_CALL(update_service_, StartUpdateCheck)
         .WillByDefault(Invoke(this, &ContentVerifierTest::OnUpdateCheck));
@@ -426,7 +426,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   GURL page_url = extension->GetResourceURL("page.html/");
   ui_test_utils::NavigateToURLWithDispositionBlockUntilNavigationsComplete(
       browser(), page_url, 1, WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ExtensionPrefs* prefs = ExtensionPrefs::Get(profile());
   int reasons = prefs->GetDisableReasons(kExtensionId);
   EXPECT_FALSE(reasons);
@@ -446,9 +446,39 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   GURL page_url = extension->GetResourceURL("page.html.");
   ui_test_utils::NavigateToURLWithDispositionBlockUntilNavigationsComplete(
       browser(), page_url, 1, WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ExtensionPrefs* prefs = ExtensionPrefs::Get(profile());
   int reasons = prefs->GetDisableReasons(kExtensionId);
+  EXPECT_EQ(disable_reason::DISABLE_NONE, reasons);
+}
+
+// Tests that navigating to an extension resource with incorrect case does not
+// disable the extension, both in case-sensitive and case-insensitive systems.
+//
+// Regression test for https://crbug.com/1033294.
+IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
+                       RemainsEnabledOnNavigateToPathWithIncorrectCase) {
+  const Extension* extension = InstallExtensionFromWebstore(
+      test_data_dir_.AppendASCII("content_verifier/dot_slash_paths.crx"), 1);
+  ASSERT_TRUE(extension);
+  const ExtensionId extension_id = extension->id();
+
+  // Note: the resource in |extension| is "page.html".
+  constexpr char kIncorrectCasePath[] = "PAGE.html";
+
+  TestContentVerifySingleJobObserver job_observer(
+      extension_id, base::FilePath().AppendASCII(kIncorrectCasePath));
+
+  GURL page_url = extension->GetResourceURL(kIncorrectCasePath);
+  ui_test_utils::NavigateToURLWithDispositionBlockUntilNavigationsComplete(
+      browser(), page_url, 1, WindowOpenDisposition::CURRENT_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+
+  // Ensure that ContentVerifyJob has finished checking the resource.
+  EXPECT_EQ(ContentVerifyJob::NONE, job_observer.WaitForJobFinished());
+
+  ExtensionPrefs* prefs = ExtensionPrefs::Get(profile());
+  int reasons = prefs->GetDisableReasons(extension_id);
   EXPECT_EQ(disable_reason::DISABLE_NONE, reasons);
 }
 

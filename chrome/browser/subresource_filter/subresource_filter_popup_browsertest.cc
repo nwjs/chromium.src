@@ -22,7 +22,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_types.h"
-#include "components/safe_browsing/db/util.h"
+#include "components/safe_browsing/core/db/util.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/url_pattern_index/proto/rules.pb.h"
@@ -414,7 +414,7 @@ IN_PROC_BROWSER_TEST_P(SubresourceFilterPopupBrowserTestWithParam,
   // a user gesture.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -424,7 +424,7 @@ IN_PROC_BROWSER_TEST_P(SubresourceFilterPopupBrowserTestWithParam,
   EXPECT_EQ(enable_adblock_on_abusive_sites, AreDisallowedRequestsBlocked());
 }
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          SubresourceFilterPopupBrowserTestWithParam,
                          ::testing::Values(false, true));
 

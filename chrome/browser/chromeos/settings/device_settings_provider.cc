@@ -112,12 +112,15 @@ const char* const kKnownSettings[] = {
     kReportDeviceActivityTimes,
     kReportDeviceBoardStatus,
     kReportDeviceBootMode,
+    kReportDeviceCrashReportInfo,
+    kReportDeviceCpuInfo,
     kReportDeviceHardwareStatus,
     kReportDeviceLocation,
     kReportDevicePowerStatus,
     kReportDeviceStorageStatus,
     kReportDeviceNetworkInterfaces,
     kReportDeviceSessionStatus,
+    kReportDeviceGraphicsStatus,
     kReportDeviceUsers,
     kReportDeviceVersionInfo,
     kReportOsUpdateStatus,
@@ -509,6 +512,10 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
       new_values_cache->SetBoolean(kReportDeviceBootMode,
                                    reporting_policy.report_boot_mode());
     }
+    if (reporting_policy.has_report_crash_report_info()) {
+      new_values_cache->SetBoolean(kReportDeviceCrashReportInfo,
+                                   reporting_policy.report_crash_report_info());
+    }
     if (reporting_policy.has_report_network_interfaces()) {
       new_values_cache->SetBoolean(
           kReportDeviceNetworkInterfaces,
@@ -525,6 +532,10 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
     if (reporting_policy.has_report_session_status()) {
       new_values_cache->SetBoolean(kReportDeviceSessionStatus,
                                    reporting_policy.report_session_status());
+    }
+    if (reporting_policy.has_report_graphics_status()) {
+      new_values_cache->SetBoolean(kReportDeviceGraphicsStatus,
+                                   reporting_policy.report_graphics_status());
     }
     if (reporting_policy.has_report_os_update_status()) {
       new_values_cache->SetBoolean(kReportOsUpdateStatus,
@@ -549,6 +560,10 @@ void DecodeReportingPolicies(const em::ChromeDeviceSettingsProto& policy,
     if (reporting_policy.has_device_status_frequency()) {
       new_values_cache->SetInteger(kReportUploadFrequency,
                                    reporting_policy.device_status_frequency());
+    }
+    if (reporting_policy.has_report_cpu_info()) {
+      new_values_cache->SetBoolean(kReportDeviceCpuInfo,
+                                   reporting_policy.report_cpu_info());
     }
   }
 }
@@ -1147,10 +1162,10 @@ const base::Value* DeviceSettingsProvider::Get(const std::string& path) const {
 }
 
 DeviceSettingsProvider::TrustedStatus
-DeviceSettingsProvider::PrepareTrustedValues(base::OnceClosure callback) {
+DeviceSettingsProvider::PrepareTrustedValues(base::OnceClosure* callback) {
   TrustedStatus status = RequestTrustedEntity();
-  if (status == TEMPORARILY_UNTRUSTED && !callback.is_null())
-    callbacks_.push_back(std::move(callback));
+  if (status == TEMPORARILY_UNTRUSTED && *callback)
+    callbacks_.push_back(std::move(*callback));
   return status;
 }
 

@@ -68,8 +68,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   UITableViewStyle style = base::FeatureList::IsEnabled(kSettingsRefresh)
                                ? UITableViewStylePlain
                                : UITableViewStyleGrouped;
-  self = [super initWithTableViewStyle:style
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:style];
   if (self) {
     DCHECK(dataManager);
 
@@ -172,8 +171,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   cardNumberItem.textFieldValue =
       autofill::IsCreditCardLocal(_creditCard)
           ? base::SysUTF16ToNSString(_creditCard.number())
-          : base::SysUTF16ToNSString(
-                _creditCard.NetworkOrBankNameAndLastFourDigits());
+          : base::SysUTF16ToNSString(_creditCard.NetworkAndLastFourDigits());
   cardNumberItem.textFieldEnabled = isEditing;
   cardNumberItem.autofillUIType = AutofillUITypeCreditCardNumber;
   cardNumberItem.keyboardType = UIKeyboardTypeNumberPad;

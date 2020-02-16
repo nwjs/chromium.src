@@ -10,6 +10,7 @@
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/examples/examples_window.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/widget/widget.h"
 
@@ -53,11 +54,11 @@ base::string16 GetArrowName(BubbleBorder::Arrow arrow) {
 class ExampleBubble : public BubbleDialogDelegateView {
  public:
   ExampleBubble(View* anchor, BubbleBorder::Arrow arrow)
-      : BubbleDialogDelegateView(anchor, arrow) {}
+      : BubbleDialogDelegateView(anchor, arrow) {
+    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+  }
 
  protected:
-  int GetDialogButtons() const override { return ui::DIALOG_BUTTON_NONE; }
-
   void Init() override {
     SetLayoutManager(std::make_unique<BoxLayout>(
         BoxLayout::Orientation::kVertical, gfx::Insets(50)));
@@ -121,8 +122,9 @@ void BubbleExample::ButtonPressed(Button* sender, const ui::Event& event) {
   BubbleDialogDelegateView::CreateBubble(bubble);
 
   bubble->GetWidget()->Show();
-  PrintStatus("Click with optional modifiers: [Ctrl] for set_arrow(NONE), "
-     "[Alt] for set_arrow(FLOAT), or [Shift] to reverse the arrow iteration.");
+  LogStatus(
+      "Click with optional modifiers: [Ctrl] for set_arrow(NONE), "
+      "[Alt] for set_arrow(FLOAT), or [Shift] to reverse the arrow iteration.");
 }
 
 }  // namespace examples

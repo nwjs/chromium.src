@@ -120,7 +120,8 @@ class SyncEngineBackend : public base::RefCountedThreadSafe<SyncEngineBackend>,
   void DoSetDecryptionPassphrase(const std::string& passphrase);
 
   // Called to decrypt the pending keys using trusted vault keys.
-  void DoAddTrustedVaultDecryptionKeys(const std::vector<std::string>& keys);
+  void DoAddTrustedVaultDecryptionKeys(
+      const std::vector<std::vector<uint8_t>>& keys);
 
   // Called to turn on encryption of all sync data as well as
   // reencrypt everything.
@@ -149,7 +150,7 @@ class SyncEngineBackend : public base::RefCountedThreadSafe<SyncEngineBackend>,
   void DoConfigureSyncer(ModelTypeConfigurer::ConfigureParams params);
   void DoFinishConfigureDataTypes(
       ModelTypeSet types_to_config,
-      const base::Callback<void(ModelTypeSet, ModelTypeSet)>& ready_task);
+      base::OnceCallback<void(ModelTypeSet, ModelTypeSet)> ready_task);
 
   // Set the base request context to use when making HTTP calls.
   // This method will add a reference to the context to persist it
@@ -176,7 +177,7 @@ class SyncEngineBackend : public base::RefCountedThreadSafe<SyncEngineBackend>,
   // Notify the syncer that the cookie jar has changed.
   void DoOnCookieJarChanged(bool account_mismatch,
                             bool empty_jar,
-                            const base::Closure& callback);
+                            base::OnceClosure callback);
 
   // Notify about change in client id.
   void DoOnInvalidatorClientIdChange(const std::string& client_id);

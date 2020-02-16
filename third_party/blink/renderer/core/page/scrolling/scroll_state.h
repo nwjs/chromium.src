@@ -9,7 +9,6 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/node.h"
-#include "third_party/blink/renderer/core/page/scrolling/scroll_state_init.h"
 #include "third_party/blink/renderer/core/scroll/scroll_state_data.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -17,6 +16,8 @@
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 
 namespace blink {
+
+class ScrollStateInit;
 
 class CORE_EXPORT ScrollState final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
@@ -45,8 +46,14 @@ class CORE_EXPORT ScrollState final : public ScriptWrappable {
   // Positive when scrolling down.
   double deltaYHint() const { return data_->delta_y_hint; }
   // Indicates the smallest delta the input device can produce. 0 for
-  // unquantized inputs.
-  double deltaGranularity() const { return data_->delta_granularity; }
+  // unquantized inputs. Deprecated, only exists for script binding
+  // compatibility. Use delta_granularity instead for usage within Blink.
+  double deltaGranularity() const {
+    return static_cast<double>(data_->delta_granularity);
+  }
+  ui::input_types::ScrollGranularity delta_granularity() const {
+    return data_->delta_granularity;
+  }
   // Positive if moving right.
   double velocityX() const { return data_->velocity_x; }
   // Positive if moving down.

@@ -5,6 +5,7 @@
 // This inclusion is types-only. No actual code to execute.
 // <include src="oobe_types.js">
 
+// <include src="oobe_i18n_behavior.js">
 // <include src="oobe_dialog_host_behavior.js">
 // <include src="login_screen_behavior.js">
 // <include src="gaia_buttons.js">
@@ -43,6 +44,5 @@
 // <include src="marketing_opt_in.js">
 // <include src="../assistant_optin/assistant_optin_flow.js">
 // <include src="multidevice_setup_first_run.js">
-// <include src="enrollment_license_card.js">
 // <include src="enterprise_enrollment.js">
 // <include src="security_token_pin.js">

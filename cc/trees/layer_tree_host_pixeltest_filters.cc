@@ -22,12 +22,14 @@ class LayerTreeHostFiltersPixelTest
     : public LayerTreePixelTest,
       public ::testing::WithParamInterface<LayerTreeTest::RendererType> {
  protected:
-  RendererType renderer_type() { return GetParam(); }
+  LayerTreeHostFiltersPixelTest() : LayerTreePixelTest(renderer_type()) {}
+
+  RendererType renderer_type() const { return GetParam(); }
 
   // Text string for graphics backend of the RendererType. Suitable for
   // generating separate base line file paths.
   const char* GetRendererSuffix() {
-    switch (renderer_type()) {
+    switch (renderer_type_) {
       case RENDERER_GL:
         return "gl";
       case RENDERER_SKIA_GL:
@@ -132,8 +134,8 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurRect) {
 #endif
 
   RunPixelTest(
-      renderer_type(), background,
-      (renderer_type() == RENDERER_SOFTWARE)
+      background,
+      use_software_renderer()
           ? base::FilePath(FILE_PATH_LITERAL("backdrop_filter_blur_sw.png"))
           : base::FilePath(FILE_PATH_LITERAL("backdrop_filter_blur.png")));
 }
@@ -154,12 +156,12 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterInvalid) {
   blur->SetBackdropFilters(filters);
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("backdrop_filter_invalid.png")));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurRadius) {
-  if (renderer_type() == RENDERER_SOFTWARE) {
+  if (use_software_renderer()) {
     // TODO(989238): Software renderer does not support/implement
     // kClamp_TileMode.
     return;
@@ -195,7 +197,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurRadius) {
       small_error_allowed));
 #endif
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("backdrop_filter_blur_radius_.png"))
           .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -240,12 +242,11 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurRounded) {
       average_error_allowed_in_bad_pixels, large_error_limit,
       small_error_threshold));
 
-  RunPixelTest(renderer_type(), background,
-               (renderer_type() == RENDERER_SOFTWARE)
-                   ? base::FilePath(FILE_PATH_LITERAL(
-                         "backdrop_filter_blur_rounded_sw.png"))
-                   : base::FilePath(FILE_PATH_LITERAL(
-                         "backdrop_filter_blur_rounded.png")));
+  RunPixelTest(background, use_software_renderer()
+                               ? base::FilePath(FILE_PATH_LITERAL(
+                                     "backdrop_filter_blur_rounded_sw.png"))
+                               : base::FilePath(FILE_PATH_LITERAL(
+                                     "backdrop_filter_blur_rounded.png")));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurOutsets) {
@@ -289,19 +290,68 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBlurOutsets) {
       large_error_allowed,
       small_error_allowed));
 #else
-  if (renderer_type() == RENDERER_SKIA_VK)
+  if (use_vulkan())
     pixel_comparator_ = std::make_unique<FuzzyPixelOffByOneComparator>(true);
 #endif
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("backdrop_filter_blur_outsets.png")));
 }
 
-class LayerTreeHostFiltersPixelTestGPULayerList
+class LayerTreeHostImageFiltersPixelTestLayerList
     : public LayerTreeHostFiltersPixelTest {
  public:
-  LayerTreeHostFiltersPixelTestGPULayerList() { SetUseLayerLists(); }
+  LayerTreeHostImageFiltersPixelTestLayerList() { SetUseLayerLists(); }
+
+  void SetupTree() override {
+    SetInitialRootBounds(gfx::Size(200, 200));
+    LayerTreePixelTest::SetupTree();
+
+    Layer* root = layer_tree_host()->root_layer();
+    scoped_refptr<SolidColorLayer> background =
+        CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorYELLOW);
+    CopyProperties(root, background.get());
+    root->AddChild(background);
+
+    scoped_refptr<SolidColorLayer> foreground =
+        CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorRED);
+    CopyProperties(root, foreground.get());
+    root->AddChild(foreground);
+
+    EffectNode& effect_node = CreateEffectNode(foreground.get());
+    float matrix[20] = {0};
+    // This filter does a red-blue swap, so the foreground becomes blue.
+    matrix[2] = matrix[6] = matrix[10] = matrix[18] = 1.0f;
+    // Set up a crop rect to filter the bottom 200x100 pixels of the foreground.
+    SkImageFilter::CropRect crop_rect(SkRect::MakeXYWH(0, 100, 200, 100));
+    FilterOperations filters;
+    filters.Append(FilterOperation::CreateReferenceFilter(
+        sk_make_sp<ColorFilterPaintFilter>(SkColorFilters::Matrix(matrix),
+                                           nullptr, &crop_rect)));
+
+    effect_node.filters = filters;
+    effect_node.render_surface_reason = RenderSurfaceReason::kFilter;
+
+    // Move the filters origin up by 100 pixels so the crop rect is applied
+    // only to the top 100 pixels, not the bottom.
+    effect_node.filters_origin = gfx::PointF(0.0f, -100.0f);
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         LayerTreeHostImageFiltersPixelTestLayerList,
+                         ::testing::ValuesIn(kRendererTypes));
+
+TEST_P(LayerTreeHostImageFiltersPixelTestLayerList, NonZeroOrigin) {
+  RunPixelTestWithLayerList(
+      base::FilePath(FILE_PATH_LITERAL("blue_yellow.png")));
+}
+
+class LayerTreeHostBlurFiltersPixelTestGPULayerList
+    : public LayerTreeHostFiltersPixelTest {
+ public:
+  LayerTreeHostBlurFiltersPixelTestGPULayerList() { SetUseLayerLists(); }
 
   void SetupTree() override {
     SetInitialRootBounds(gfx::Size(200, 200));
@@ -370,10 +420,11 @@ class LayerTreeHostFiltersPixelTestGPULayerList
 };
 
 INSTANTIATE_TEST_SUITE_P(PixelResourceTest,
-                         LayerTreeHostFiltersPixelTestGPULayerList,
+                         LayerTreeHostBlurFiltersPixelTestGPULayerList,
                          ::testing::ValuesIn(kRendererTypesGpu));
 
-TEST_P(LayerTreeHostFiltersPixelTestGPULayerList, BackdropFilterBlurOffAxis) {
+TEST_P(LayerTreeHostBlurFiltersPixelTestGPULayerList,
+       BackdropFilterBlurOffAxis) {
 #if defined(OS_WIN) || defined(ARCH_CPU_ARM64)
 #if defined(OS_WIN)
   // Windows has 116 pixels off by at most 2: crbug.com/225027
@@ -396,7 +447,6 @@ TEST_P(LayerTreeHostFiltersPixelTestGPULayerList, BackdropFilterBlurOffAxis) {
 #endif
 
   RunPixelTestWithLayerList(
-      renderer_type(),
       base::FilePath(FILE_PATH_LITERAL("backdrop_filter_blur_off_axis_.png"))
           .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -424,9 +474,8 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterBoundsWithChildren) {
                                      0);
   invert->SetBackdropFilterBounds(backdrop_filter_bounds);
 
-  RunPixelTest(renderer_type(), background,
-               base::FilePath(FILE_PATH_LITERAL(
-                   "backdrop_filter_bounds_with_children.png")));
+  RunPixelTest(background, base::FilePath(FILE_PATH_LITERAL(
+                               "backdrop_filter_bounds_with_children.png")));
 }
 
 class LayerTreeHostFiltersScaledPixelTest
@@ -460,7 +509,7 @@ class LayerTreeHostFiltersScaledPixelTest
 
     device_scale_factor_ = device_scale_factor;
     RunPixelTest(
-        renderer_type(), background,
+        background,
         base::FilePath(FILE_PATH_LITERAL("green_small_with_blue_corner.png")));
   }
 
@@ -487,8 +536,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, NullFilter) {
   filters.Append(FilterOperation::CreateReferenceFilter(nullptr));
   foreground->SetFilters(filters);
 
-  RunPixelTest(renderer_type(), foreground,
-               base::FilePath(FILE_PATH_LITERAL("green.png")));
+  RunPixelTest(foreground, base::FilePath(FILE_PATH_LITERAL("green.png")));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, CroppedFilter) {
@@ -504,8 +552,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, CroppedFilter) {
   filters.Append(FilterOperation::CreateReferenceFilter(offset));
   foreground->SetFilters(filters);
 
-  RunPixelTest(renderer_type(), foreground,
-               base::FilePath(FILE_PATH_LITERAL("white.png")));
+  RunPixelTest(foreground, base::FilePath(FILE_PATH_LITERAL("white.png")));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, ImageFilterClipped) {
@@ -516,8 +563,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ImageFilterClipped) {
       CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorRED);
   background->AddChild(foreground);
 
-  float matrix[20];
-  memset(matrix, 0, 20 * sizeof(matrix[0]));
+  float matrix[20] = {0};
   // This filter does a red-blue swap, so the foreground becomes blue.
   matrix[2] = matrix[6] = matrix[10] = matrix[18] = 1.0f;
   // We filter only the bottom 200x100 pixels of the foreground.
@@ -540,39 +586,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ImageFilterClipped) {
   transform.Translate(0.0, -100.0);
   foreground->SetTransform(transform);
 
-  RunPixelTest(renderer_type(), background,
-               base::FilePath(FILE_PATH_LITERAL("blue_yellow.png")));
-}
-
-TEST_P(LayerTreeHostFiltersPixelTest, ImageFilterNonZeroOrigin) {
-  scoped_refptr<SolidColorLayer> background =
-      CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorYELLOW);
-
-  scoped_refptr<SolidColorLayer> foreground =
-      CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorRED);
-  background->AddChild(foreground);
-
-  float matrix[20];
-  memset(matrix, 0, 20 * sizeof(matrix[0]));
-  // This filter does a red-blue swap, so the foreground becomes blue.
-  matrix[2] = matrix[6] = matrix[10] = matrix[18] = 1.0f;
-  // Set up a crop rec to filter the bottom 200x100 pixels of the foreground.
-  SkImageFilter::CropRect crop_rect(SkRect::MakeXYWH(0, 100, 200, 100));
-  FilterOperations filters;
-  filters.Append(
-      FilterOperation::CreateReferenceFilter(sk_make_sp<ColorFilterPaintFilter>(
-          SkColorFilters::Matrix(matrix), nullptr, &crop_rect)));
-
-  // Make the foreground layer's render surface be clipped by the background
-  // layer.
-  background->SetMasksToBounds(true);
-  foreground->SetFilters(filters);
-
-  // Now move the filters origin up by 100 pixels, so the crop rect is
-  // applied only to the top 100 pixels, not the bottom.
-  foreground->SetFiltersOrigin(gfx::PointF(0.0f, -100.0f));
-
-  RunPixelTest(renderer_type(), background,
+  RunPixelTest(background,
                base::FilePath(FILE_PATH_LITERAL("blue_yellow.png")));
 }
 
@@ -639,7 +653,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ImageFilterScaled) {
 #endif
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("backdrop_filter_on_scaled_layer_.png"))
           .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -695,7 +709,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, BackdropFilterRotated) {
       average_error_allowed_in_bad_pixels, large_error_allowed,
       small_error_allowed));
 
-  RunPixelTest(renderer_type(), background,
+  RunPixelTest(background,
                base::FilePath(FILE_PATH_LITERAL("backdrop_filter_rotated_.png"))
                    .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -732,7 +746,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ImageRenderSurfaceScaled) {
 
   // Software has some huge differences in the AA'd pixels on the different
   // trybots. See crbug.com/452198.
-  if (renderer_type() == LayerTreeTest::RENDERER_SOFTWARE) {
+  if (use_software_renderer()) {
     float percentage_pixels_large_error = 0.686f;
     float percentage_pixels_small_error = 0.0f;
     float average_error_allowed_in_bad_pixels = 16.f;
@@ -746,7 +760,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ImageRenderSurfaceScaled) {
   }
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("scaled_render_surface_layer_.png"))
           .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -815,7 +829,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ZoomFilter) {
       small_error_allowed));
 #endif
 
-  RunPixelTest(renderer_type(), std::move(root),
+  RunPixelTest(std::move(root),
                base::FilePath(FILE_PATH_LITERAL("zoom_filter_.png"))
                    .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -843,11 +857,18 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedFilter) {
   background->AddChild(child);
 
 #if defined(OS_WIN)
+#if defined (ARCH_CPU_ARM64)
+  // Windows ARM64 has some pixels difference: crbug.com/1029728
+  float percentage_pixels_large_error = 0.391112f;
+  float average_error_allowed_in_bad_pixels = 1.1f;
+  int large_error_allowed = 3;
+#else
   // Windows has 1 pixel off by 1: crbug.com/259915
   float percentage_pixels_large_error = 0.00111112f;  // 1px / (300*300)
-  float percentage_pixels_small_error = 0.0f;
   float average_error_allowed_in_bad_pixels = 1.f;
   int large_error_allowed = 1;
+#endif
+  float percentage_pixels_small_error = 0.0f;
   int small_error_allowed = 0;
   pixel_comparator_.reset(new FuzzyPixelComparator(
       true,  // discard_alpha
@@ -856,7 +877,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedFilter) {
       small_error_allowed));
 #endif
 
-  RunPixelTest(renderer_type(), background,
+  RunPixelTest(background,
                base::FilePath(FILE_PATH_LITERAL("rotated_filter_.png"))
                    .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -889,11 +910,18 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedDropShadowFilter) {
   background->AddChild(child);
 
 #if defined(OS_WIN) || defined(ARCH_CPU_ARM64)
+#if defined(OS_WIN) && defined(ARCH_CPU_ARM64)
+  // Windows ARM64 has some pixels difference: crbug.com/1029729
+  float percentage_pixels_large_error = 0.89f;
+  float average_error_allowed_in_bad_pixels = 5.f;
+  int large_error_allowed = 17;
+#else
   // Windows and ARM64 have 3 pixels off by 1: crbug.com/259915
   float percentage_pixels_large_error = 0.00333334f;  // 3px / (300*300)
-  float percentage_pixels_small_error = 0.0f;
   float average_error_allowed_in_bad_pixels = 1.f;
   int large_error_allowed = 1;
+#endif
+  float percentage_pixels_small_error = 0.0f;
   int small_error_allowed = 0;
   pixel_comparator_.reset(new FuzzyPixelComparator(
       true,  // discard_alpha
@@ -903,7 +931,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, RotatedDropShadowFilter) {
 #endif
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("rotated_drop_shadow_filter_.png"))
           .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
@@ -942,12 +970,11 @@ TEST_P(LayerTreeHostFiltersPixelTest, TranslatedFilter) {
   parent->AddChild(child);
   clip->AddChild(parent);
 
-  if (renderer_type() == RENDERER_SOFTWARE)
+  if (use_software_renderer())
     pixel_comparator_ = std::make_unique<FuzzyPixelOffByOneComparator>(true);
 
-  RunPixelTest(
-      renderer_type(), clip,
-      base::FilePath(FILE_PATH_LITERAL("translated_blue_green_alpha.png")));
+  RunPixelTest(clip, base::FilePath(
+                         FILE_PATH_LITERAL("translated_blue_green_alpha.png")));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, EnlargedTextureWithAlphaThresholdFilter) {
@@ -986,7 +1013,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, EnlargedTextureWithAlphaThresholdFilter) {
   set_enlarge_texture_amount(gfx::Size(50, 50));
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("enlarged_texture_on_threshold.png")));
 }
 
@@ -1024,7 +1051,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, EnlargedTextureWithCropOffsetFilter) {
   set_enlarge_texture_amount(gfx::Size(50, 50));
 
   RunPixelTest(
-      renderer_type(), background,
+      background,
       base::FilePath(FILE_PATH_LITERAL("enlarged_texture_on_crop_offset.png")));
 }
 
@@ -1073,23 +1100,21 @@ TEST_P(LayerTreeHostFiltersPixelTest, BlurFilterWithClip) {
       small_error_allowed));
 #endif
 
-  RunPixelTest(renderer_type(), filter_layer,
+  RunPixelTest(filter_layer,
                base::FilePath(FILE_PATH_LITERAL("blur_filter_with_clip_.png"))
                    .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTestGPU, FilterWithGiantCropRect) {
   scoped_refptr<SolidColorLayer> tree = BuildFilterWithGiantCropRect(true);
-  RunPixelTest(
-      renderer_type(), tree,
-      base::FilePath(FILE_PATH_LITERAL("filter_with_giant_crop_rect.png")));
+  RunPixelTest(tree, base::FilePath(
+                         FILE_PATH_LITERAL("filter_with_giant_crop_rect.png")));
 }
 
 TEST_P(LayerTreeHostFiltersPixelTestGPU, FilterWithGiantCropRectNoClip) {
   scoped_refptr<SolidColorLayer> tree = BuildFilterWithGiantCropRect(false);
-  RunPixelTest(
-      renderer_type(), tree,
-      base::FilePath(FILE_PATH_LITERAL("filter_with_giant_crop_rect.png")));
+  RunPixelTest(tree, base::FilePath(
+                         FILE_PATH_LITERAL("filter_with_giant_crop_rect.png")));
 }
 
 class BackdropFilterOffsetTest : public LayerTreeHostFiltersPixelTest {
@@ -1132,10 +1157,10 @@ class BackdropFilterOffsetTest : public LayerTreeHostFiltersPixelTest {
         base::FilePath(FILE_PATH_LITERAL("offset_backdrop_filter_.png"));
     expected_result = expected_result.InsertBeforeExtensionASCII(
         base::NumberToString(device_scale_factor) + "x");
-    if (renderer_type() == RENDERER_SOFTWARE) {
+    if (use_software_renderer()) {
       expected_result = expected_result.InsertBeforeExtensionASCII("_sw");
     }
-    RunPixelTest(renderer_type(), std::move(root), expected_result);
+    RunPixelTest(std::move(root), expected_result);
   }
 
  private:
@@ -1179,10 +1204,10 @@ class BackdropFilterInvertTest : public LayerTreeHostFiltersPixelTest {
         base::FilePath(FILE_PATH_LITERAL("invert_backdrop_filter_.png"));
     expected_result = expected_result.InsertBeforeExtensionASCII(
         base::NumberToString(device_scale_factor) + "x");
-    if (renderer_type() == RENDERER_SOFTWARE) {
+    if (use_software_renderer()) {
       expected_result = expected_result.InsertBeforeExtensionASCII("_sw");
     }
-    RunPixelTest(renderer_type(), std::move(root), expected_result);
+    RunPixelTest(std::move(root), expected_result);
   }
 
  private:

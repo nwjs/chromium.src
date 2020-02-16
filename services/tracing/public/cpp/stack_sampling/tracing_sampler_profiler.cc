@@ -210,12 +210,13 @@ TracingSamplerProfiler::TracingProfileBuilder::GetModuleCache() {
 }
 
 void TracingSamplerProfiler::TracingProfileBuilder::OnSampleCompleted(
-    std::vector<base::Frame> frames) {
+    std::vector<base::Frame> frames,
+    base::TimeTicks sample_timestamp) {
   base::AutoLock l(trace_writer_lock_);
   if (!trace_writer_) {
     if (buffered_samples_.size() < kMaxBufferedSamples) {
       buffered_samples_.emplace_back(
-          BufferedSample(TRACE_TIME_TICKS_NOW(), std::move(frames)));
+          BufferedSample(sample_timestamp, std::move(frames)));
     }
     return;
   }
@@ -225,7 +226,7 @@ void TracingSamplerProfiler::TracingProfileBuilder::OnSampleCompleted(
     }
     buffered_samples_.clear();
   }
-  WriteSampleToTrace(BufferedSample(TRACE_TIME_TICKS_NOW(), std::move(frames)));
+  WriteSampleToTrace(BufferedSample(sample_timestamp, std::move(frames)));
 }
 
 void TracingSamplerProfiler::TracingProfileBuilder::WriteSampleToTrace(
@@ -248,7 +249,8 @@ void TracingSamplerProfiler::TracingProfileBuilder::WriteSampleToTrace(
     interned_modules_.ResetEmittedState();
 
     auto trace_packet = trace_writer_->NewTracePacket();
-    trace_packet->set_incremental_state_cleared(true);
+    trace_packet->set_sequence_flags(
+        perfetto::protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
 
     // Note: Make sure ThreadDescriptors we emit here won't cause
     // metadata events to be emitted from the JSON exporter which conflict
@@ -272,6 +274,9 @@ void TracingSamplerProfiler::TracingProfileBuilder::WriteSampleToTrace(
   }
 
   auto trace_packet = trace_writer_->NewTracePacket();
+  // Delta encoded timestamps and interned data require incremental state.
+  trace_packet->set_sequence_flags(
+      perfetto::protos::pbzero::TracePacket::SEQ_NEEDS_INCREMENTAL_STATE);
   auto callstack_id = GetCallstackIDAndMaybeEmit(frames, &trace_packet);
   auto* streaming_profile_packet = trace_packet->set_streaming_profile_packet();
   streaming_profile_packet->add_callstack_iid(callstack_id);

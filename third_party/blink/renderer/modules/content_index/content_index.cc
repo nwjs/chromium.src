@@ -8,12 +8,13 @@
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_content_icon_definition.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/content_index/content_description_type_converter.h"
-#include "third_party/blink/renderer/modules/content_index/content_icon_definition.h"
 #include "third_party/blink/renderer/modules/content_index/content_index_icon_loader.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_registration.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -73,21 +74,19 @@ ContentIndex::ContentIndex(ServiceWorkerRegistration* registration,
 ContentIndex::~ContentIndex() = default;
 
 ScriptPromise ContentIndex::add(ScriptState* script_state,
-                                const ContentDescription* description) {
+                                const ContentDescription* description,
+                                ExceptionState& exception_state) {
   if (!registration_->active()) {
-    return ScriptPromise::Reject(
-        script_state,
-        V8ThrowException::CreateTypeError(script_state->GetIsolate(),
-                                          "No active registration available on "
-                                          "the ServiceWorkerRegistration."));
+    exception_state.ThrowTypeError(
+        "No active registration available on the ServiceWorkerRegistration.");
+    return ScriptPromise();
   }
 
   WTF::String description_error =
       ValidateDescription(*description, registration_.Get());
   if (!description_error.IsNull()) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), description_error));
+    exception_state.ThrowTypeError(description_error);
+    return ScriptPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
@@ -176,13 +175,12 @@ void ContentIndex::DidAdd(ScriptPromiseResolver* resolver,
 }
 
 ScriptPromise ContentIndex::deleteDescription(ScriptState* script_state,
-                                              const String& id) {
+                                              const String& id,
+                                              ExceptionState& exception_state) {
   if (!registration_->active()) {
-    return ScriptPromise::Reject(
-        script_state,
-        V8ThrowException::CreateTypeError(script_state->GetIsolate(),
-                                          "No active registration available on "
-                                          "the ServiceWorkerRegistration."));
+    exception_state.ThrowTypeError(
+        "No active registration available on the ServiceWorkerRegistration.");
+    return ScriptPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
@@ -221,13 +219,12 @@ void ContentIndex::DidDeleteDescription(ScriptPromiseResolver* resolver,
   }
 }
 
-ScriptPromise ContentIndex::getDescriptions(ScriptState* script_state) {
+ScriptPromise ContentIndex::getDescriptions(ScriptState* script_state,
+                                            ExceptionState& exception_state) {
   if (!registration_->active()) {
-    return ScriptPromise::Reject(
-        script_state,
-        V8ThrowException::CreateTypeError(script_state->GetIsolate(),
-                                          "No active registration available on "
-                                          "the ServiceWorkerRegistration."));
+    exception_state.ThrowTypeError(
+        "No active registration available on the ServiceWorkerRegistration.");
+    return ScriptPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);

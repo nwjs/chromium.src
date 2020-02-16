@@ -53,7 +53,7 @@ class SharedImageBackingFactoryIOSurfaceTest : public testing::Test {
     context_state_ = base::MakeRefCounted<SharedContextState>(
         std::move(share_group), surface_, context_,
         false /* use_virtualized_gl_contexts */, base::DoNothing());
-    context_state_->InitializeGrContext(workarounds, nullptr);
+    context_state_->InitializeGrContext(GpuPreferences(), workarounds, nullptr);
     auto feature_info =
         base::MakeRefCounted<gles2::FeatureInfo>(workarounds, GpuFeatureInfo());
     context_state_->InitializeGL(GpuPreferences(), std::move(feature_info));
@@ -139,11 +139,12 @@ TEST_F(SharedImageBackingFactoryIOSurfaceTest, Basic) {
   EXPECT_TRUE(skia_representation);
   std::vector<GrBackendSemaphore> begin_semaphores;
   std::vector<GrBackendSemaphore> end_semaphores;
-  base::Optional<SharedImageRepresentationSkia::ScopedWriteAccess>
+  std::unique_ptr<SharedImageRepresentationSkia::ScopedWriteAccess>
       scoped_write_access;
 
-  scoped_write_access.emplace(skia_representation.get(), &begin_semaphores,
-                              &end_semaphores);
+  scoped_write_access = skia_representation->BeginScopedWriteAccess(
+      &begin_semaphores, &end_semaphores,
+      SharedImageRepresentation::AllowUnclearedAccess::kYes);
   auto* surface = scoped_write_access->surface();
   EXPECT_TRUE(surface);
   EXPECT_EQ(size.width(), surface->width());
@@ -152,9 +153,10 @@ TEST_F(SharedImageBackingFactoryIOSurfaceTest, Basic) {
   EXPECT_TRUE(end_semaphores.empty());
   scoped_write_access.reset();
 
-  base::Optional<SharedImageRepresentationSkia::ScopedReadAccess>
+  std::unique_ptr<SharedImageRepresentationSkia::ScopedReadAccess>
       scoped_read_access;
-  scoped_read_access.emplace(skia_representation.get(), nullptr, nullptr);
+  scoped_read_access =
+      skia_representation->BeginScopedReadAccess(nullptr, nullptr);
   auto* promise_texture = scoped_read_access->promise_image_texture();
   EXPECT_TRUE(promise_texture);
     GrBackendTexture backend_texture = promise_texture->backendTexture();
@@ -188,35 +190,45 @@ TEST_F(SharedImageBackingFactoryIOSurfaceTest, GL_SkiaGL) {
                                      memory_type_tracker_.get());
 
   // Create a SharedImageRepresentationGLTexture.
-  auto gl_representation =
-      shared_image_representation_factory_->ProduceGLTexture(mailbox);
-  EXPECT_TRUE(gl_representation);
-  EXPECT_EQ(expected_target, gl_representation->GetTexture()->target());
+  {
+    auto gl_representation =
+        shared_image_representation_factory_->ProduceGLTexture(mailbox);
+    EXPECT_TRUE(gl_representation);
+    EXPECT_EQ(expected_target, gl_representation->GetTexture()->target());
 
-  // Create an FBO.
-  GLuint fbo = 0;
-  gl::GLApi* api = gl::g_current_gl_context;
-  api->glGenFramebuffersEXTFn(1, &fbo);
-  api->glBindFramebufferEXTFn(GL_FRAMEBUFFER, fbo);
+    // Access the SharedImageRepresentationGLTexutre
+    auto scoped_write_access = gl_representation->BeginScopedAccess(
+        GL_SHARED_IMAGE_ACCESS_MODE_READWRITE_CHROMIUM,
+        SharedImageRepresentation::AllowUnclearedAccess::kYes);
 
-  // Attach the texture to FBO.
-  api->glFramebufferTexture2DEXTFn(
-      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-      gl_representation->GetTexture()->target(),
-      gl_representation->GetTexture()->service_id(), 0);
+    // Create an FBO.
+    GLuint fbo = 0;
+    gl::GLApi* api = gl::g_current_gl_context;
+    api->glGenFramebuffersEXTFn(1, &fbo);
+    api->glBindFramebufferEXTFn(GL_FRAMEBUFFER, fbo);
 
-  // Set the clear color to green.
-  api->glClearColorFn(0.0f, 1.0f, 0.0f, 1.0f);
-  api->glClearFn(GL_COLOR_BUFFER_BIT);
-  gl_representation.reset();
+    // Attach the texture to FBO.
+    api->glFramebufferTexture2DEXTFn(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+        gl_representation->GetTexture()->target(),
+        gl_representation->GetTexture()->service_id(), 0);
+
+    // Set the clear color to green.
+    api->glClearColorFn(0.0f, 1.0f, 0.0f, 1.0f);
+    api->glClearFn(GL_COLOR_BUFFER_BIT);
+
+    gl_representation->GetTexture()->SetLevelCleared(
+        gl_representation->GetTexture()->target(), 0, true);
+  }
 
   // Next create a SharedImageRepresentationSkia to read back the texture data.
   auto skia_representation = shared_image_representation_factory_->ProduceSkia(
       mailbox, context_state_);
   EXPECT_TRUE(skia_representation);
-  base::Optional<SharedImageRepresentationSkia::ScopedReadAccess>
+  std::unique_ptr<SharedImageRepresentationSkia::ScopedReadAccess>
       scoped_read_access;
-  scoped_read_access.emplace(skia_representation.get(), nullptr, nullptr);
+  scoped_read_access =
+      skia_representation->BeginScopedReadAccess(nullptr, nullptr);
   auto* promise_texture = scoped_read_access->promise_image_texture();
   EXPECT_TRUE(promise_texture);
     GrBackendTexture backend_texture = promise_texture->backendTexture();
@@ -250,6 +262,65 @@ TEST_F(SharedImageBackingFactoryIOSurfaceTest, GL_SkiaGL) {
   skia_representation.reset();
   factory_ref.reset();
   EXPECT_FALSE(mailbox_manager_.ConsumeTexture(mailbox));
+}
+
+// Test which ensures that legacy texture clear status is kept in sync with the
+// SharedImageBacking.
+TEST_F(SharedImageBackingFactoryIOSurfaceTest, LegacyClearing) {
+  Mailbox mailbox = Mailbox::GenerateForSharedImage();
+  viz::ResourceFormat format = viz::ResourceFormat::RGBA_8888;
+  gfx::Size size(256, 256);
+  gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGB();
+  uint32_t usage = SHARED_IMAGE_USAGE_GLES2 | SHARED_IMAGE_USAGE_DISPLAY;
+
+  // Create a backing.
+  auto backing = backing_factory_->CreateSharedImage(
+      mailbox, format, size, color_space, usage, false /* is_thread_safe */);
+  EXPECT_TRUE(backing);
+  backing->SetCleared();
+  EXPECT_TRUE(backing->IsCleared());
+
+  // Also create a legacy mailbox.
+  EXPECT_TRUE(backing->ProduceLegacyMailbox(&mailbox_manager_));
+  TextureBase* texture_base = mailbox_manager_.ConsumeTexture(mailbox);
+  auto* texture = gles2::Texture::CheckedCast(texture_base);
+  EXPECT_TRUE(texture);
+  GLenum target = texture->target();
+
+  // Check initial state.
+  EXPECT_TRUE(texture->IsLevelCleared(target, 0));
+  EXPECT_TRUE(backing->IsCleared());
+
+  // Un-clear the representation.
+  backing->SetClearedRect(gfx::Rect());
+  EXPECT_FALSE(texture->IsLevelCleared(target, 0));
+  EXPECT_FALSE(backing->IsCleared());
+
+  // Partially clear the representation.
+  gfx::Rect partial_clear_rect(0, 0, 128, 128);
+  backing->SetClearedRect(partial_clear_rect);
+  EXPECT_EQ(partial_clear_rect, texture->GetLevelClearedRect(target, 0));
+  EXPECT_EQ(partial_clear_rect, backing->ClearedRect());
+
+  // Fully clear the representation.
+  backing->SetCleared();
+  EXPECT_TRUE(texture->IsLevelCleared(target, 0));
+  EXPECT_TRUE(backing->IsCleared());
+
+  // Un-clear the texture.
+  texture->SetLevelClearedRect(target, 0, gfx::Rect());
+  EXPECT_FALSE(texture->IsLevelCleared(target, 0));
+  EXPECT_FALSE(backing->IsCleared());
+
+  // Partially clear the texture.
+  texture->SetLevelClearedRect(target, 0, partial_clear_rect);
+  EXPECT_EQ(partial_clear_rect, texture->GetLevelClearedRect(target, 0));
+  EXPECT_EQ(partial_clear_rect, backing->ClearedRect());
+
+  // Fully clear the representation.
+  texture->SetLevelCleared(target, 0, true);
+  EXPECT_TRUE(texture->IsLevelCleared(target, 0));
+  EXPECT_TRUE(backing->IsCleared());
 }
 
 #if BUILDFLAG(USE_DAWN)
@@ -291,8 +362,11 @@ TEST_F(SharedImageBackingFactoryIOSurfaceTest, Dawn_SkiaGL) {
 
   // Clear the shared image to green using Dawn.
   {
-    wgpu::Texture texture = wgpu::Texture::Acquire(
-        dawn_representation->BeginAccess(WGPUTextureUsage_OutputAttachment));
+    auto scoped_access = dawn_representation->BeginScopedAccess(
+        WGPUTextureUsage_OutputAttachment,
+        SharedImageRepresentation::AllowUnclearedAccess::kYes);
+    ASSERT_TRUE(scoped_access);
+    wgpu::Texture texture = wgpu::Texture::Acquire(scoped_access->texture());
 
     wgpu::RenderPassColorAttachmentDescriptor color_desc;
     color_desc.attachment = texture.CreateView();
@@ -315,15 +389,14 @@ TEST_F(SharedImageBackingFactoryIOSurfaceTest, Dawn_SkiaGL) {
     queue.Submit(1, &commands);
   }
 
-  dawn_representation->EndAccess();
-
   // Next create a SharedImageRepresentationSkia to read back the texture data.
   auto skia_representation = shared_image_representation_factory_->ProduceSkia(
       mailbox, context_state_);
   EXPECT_TRUE(skia_representation);
-  base::Optional<SharedImageRepresentationSkia::ScopedReadAccess>
+  std::unique_ptr<SharedImageRepresentationSkia::ScopedReadAccess>
       scoped_read_access;
-  scoped_read_access.emplace(skia_representation.get(), nullptr, nullptr);
+  scoped_read_access =
+      skia_representation->BeginScopedReadAccess(nullptr, nullptr);
   auto* promise_texture = scoped_read_access->promise_image_texture();
   EXPECT_TRUE(promise_texture);
     GrBackendTexture backend_texture = promise_texture->backendTexture();

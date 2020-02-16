@@ -14,7 +14,11 @@ namespace features {
 
 extern const base::Feature kLoadingOnlyLearnHighPriorityResources;
 
+extern const base::Feature kLoadingPredictorTableConfig;
+
 extern const base::Feature kLoadingPreconnectToRedirectTarget;
+
+extern const base::Feature kLoadingPredictorDisregardAlwaysAccessesNetwork;
 
 }  // namespace features
 

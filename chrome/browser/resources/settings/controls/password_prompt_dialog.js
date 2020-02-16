@@ -19,9 +19,6 @@
  * </settings-password-prompt-dialog>
  */
 
-(function() {
-'use strict';
-
 Polymer({
   is: 'settings-password-prompt-dialog',
 
@@ -68,7 +65,7 @@ Polymer({
     /**
      * Interface for chrome.quickUnlockPrivate calls. May be overridden by
      * tests.
-     * @type {QuickUnlockPrivate}
+     * @type {Object}
      */
     quickUnlockPrivate: {type: Object, value: chrome.quickUnlockPrivate},
 
@@ -81,11 +78,11 @@ Polymer({
 
   /** @return {!CrInputElement} */
   get passwordInput() {
-    return this.$.passwordInput;
+    return /** @type {!CrInputElement} */ (this.$.passwordInput);
   },
 
   /** @override */
-  attached: function() {
+  attached() {
     this.$.dialog.showModal();
     // This needs to occur at the next paint otherwise the password input will
     // not receive focus.
@@ -97,7 +94,7 @@ Polymer({
   },
 
   /** @private */
-  onCancelTap_: function() {
+  onCancelTap_() {
     if (this.$.dialog.open) {
       this.$.dialog.close();
     }
@@ -114,7 +111,7 @@ Polymer({
    * Run the account password check.
    * @private
    */
-  submitPassword_: function() {
+  submitPassword_() {
     this.waitingForPasswordCheck_ = true;
     clearTimeout(this.clearAccountPasswordTimeoutId_);
 
@@ -157,14 +154,13 @@ Polymer({
   },
 
   /** @private */
-  onInputValueChange_: function() {
+  onInputValueChange_() {
     this.passwordInvalid_ = false;
   },
 
   /** @private */
-  isConfirmEnabled_: function() {
+  isConfirmEnabled_() {
     return !this.waitingForPasswordCheck_ && !this.passwordInvalid_ &&
         this.inputValue_;
   },
 });
-})();

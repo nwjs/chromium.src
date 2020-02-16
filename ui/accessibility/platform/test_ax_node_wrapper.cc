@@ -43,6 +43,9 @@ AXNode* g_node_from_last_show_context_menu;
 // default action was called from.
 AXNode* g_node_from_last_default_action;
 
+// A global indicating that AXPlatformNodeDelegate objects are web content.
+bool g_is_web_content = false;
+
 // A simple implementation of AXTreeObserver to catch when AXNodes are
 // deleted so we can delete their wrappers.
 class TestAXTreeObserver : public AXTreeObserver {
@@ -95,6 +98,10 @@ const AXNode* TestAXNodeWrapper::GetNodeFromLastDefaultAction() {
 std::unique_ptr<base::AutoReset<float>> TestAXNodeWrapper::SetScaleFactor(
     float value) {
   return std::make_unique<base::AutoReset<float>>(&g_scale_factor, value);
+}
+
+void TestAXNodeWrapper::SetGlobalIsWebContent(bool is_web_content) {
+  g_is_web_content = is_web_content;
 }
 
 TestAXNodeWrapper::~TestAXNodeWrapper() {
@@ -274,6 +281,10 @@ bool TestAXNodeWrapper::IsMinimized() const {
   return minimized_;
 }
 
+bool TestAXNodeWrapper::IsWebContent() const {
+  return g_is_web_content;
+}
+
 // Walk the AXTree and ensure that all wrappers are created
 void TestAXNodeWrapper::BuildAllWrappers(AXTree* tree, AXNode* node) {
   for (auto* child : node->children()) {
@@ -413,6 +424,11 @@ base::Optional<int> TestAXNodeWrapper::GetTableCellCount() const {
   return node_->GetTableCellCount();
 }
 
+base::Optional<bool> TestAXNodeWrapper::GetTableHasColumnOrRowHeaderNode()
+    const {
+  return node_->GetTableHasColumnOrRowHeaderNode();
+}
+
 std::vector<int32_t> TestAXNodeWrapper::GetColHeaderNodeIds() const {
   std::vector<int32_t> header_ids;
   node_->GetTableCellColHeaderNodeIds(&header_ids);
@@ -539,16 +555,35 @@ bool TestAXNodeWrapper::AccessibilityPerformAction(
       return true;
     }
 
-    case ax::mojom::Action::kDoDefault:
-      if (GetData().role == ax::mojom::Role::kListBoxOption ||
-          GetData().role == ax::mojom::Role::kCell) {
-        bool current_value =
-            GetData().GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
-        ReplaceBoolAttribute(ax::mojom::BoolAttribute::kSelected,
-                             !current_value);
+    case ax::mojom::Action::kDoDefault: {
+      switch (GetData().role) {
+        case ax::mojom::Role::kListBoxOption:
+        case ax::mojom::Role::kCell: {
+          bool current_value =
+              GetData().GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+          ReplaceBoolAttribute(ax::mojom::BoolAttribute::kSelected,
+                               !current_value);
+          break;
+        }
+        case ax::mojom::Role::kRadioButton:
+        case ax::mojom::Role::kMenuItemRadio: {
+          if (GetData().GetCheckedState() == ax::mojom::CheckedState::kTrue)
+            ReplaceIntAttribute(
+                node_->id(), ax::mojom::IntAttribute::kCheckedState,
+                static_cast<int32_t>(ax::mojom::CheckedState::kFalse));
+          else if (GetData().GetCheckedState() ==
+                   ax::mojom::CheckedState::kFalse)
+            ReplaceIntAttribute(
+                node_->id(), ax::mojom::IntAttribute::kCheckedState,
+                static_cast<int32_t>(ax::mojom::CheckedState::kTrue));
+          break;
+        }
+        default:
+          break;
       }
       g_node_from_last_default_action = node_;
       return true;
+    }
 
     case ax::mojom::Action::kSetValue:
       if (GetData().IsRangeValueSupported()) {

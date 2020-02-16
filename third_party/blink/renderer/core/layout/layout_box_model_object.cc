@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
 #include "third_party/blink/renderer/core/layout/layout_block.h"
@@ -85,10 +86,6 @@ void LayoutBoxModelObject::ContentChanged(ContentChangeType change_type) {
   Layer()->ContentChanged(change_type);
 }
 
-bool LayoutBoxModelObject::HasAcceleratedCompositing() const {
-  return View()->Compositor()->HasAcceleratedCompositing();
-}
-
 LayoutBoxModelObject::LayoutBoxModelObject(ContainerNode* node)
     : LayoutObject(node) {}
 
@@ -109,8 +106,7 @@ BackgroundPaintLocation LayoutBoxModelObject::GetBackgroundPaintLocation(
   // layer even if style suggests otherwise. (For non-root scrollers, we just
   // avoid compositing - see PLSA::ComputeNeedsCompositedScrolling.)
   if (IsLayoutView()) {
-    DCHECK(Layer()->Compositor());
-    if (!Layer()->Compositor()->PreferCompositingToLCDTextEnabled())
+    if (!GetDocument().GetSettings()->GetPreferCompositingToLCDTextEnabled())
       return kBackgroundPaintInScrollingContents;
   }
 
@@ -283,13 +279,9 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
   // block/inline position.
   // Position changes and other types of display changes are handled elsewhere.
   if (old_style && IsOutOfFlowPositioned() && Parent() &&
-      (Parent() != ContainingBlock()) &&
       (StyleRef().GetPosition() == old_style->GetPosition()) &&
-      (StyleRef().OriginalDisplay() != old_style->OriginalDisplay()) &&
-      ((StyleRef().OriginalDisplay() == EDisplay::kBlock) ||
-       (StyleRef().OriginalDisplay() == EDisplay::kInlineBlock)) &&
-      ((old_style->OriginalDisplay() == EDisplay::kBlock) ||
-       (old_style->OriginalDisplay() == EDisplay::kInlineBlock)))
+      (StyleRef().IsOriginalDisplayInlineType() !=
+       old_style->IsOriginalDisplayInlineType()))
     Parent()->SetNeedsLayout(layout_invalidation_reason::kChildChanged,
                              kMarkContainerChain);
 
@@ -722,8 +714,14 @@ bool LayoutBoxModelObject::HasAutoHeightOrContainingBlockWithAutoHeight(
     // resolve the block-size of the descendant, except when in quirks mode.
     // Flexboxes follow strict behavior even in quirks mode, though.
     if (!GetDocument().InQuirksMode() ||
-        cb->IsFlexibleBoxIncludingDeprecatedAndNG())
+        cb->IsFlexibleBoxIncludingDeprecatedAndNG()) {
+      if (this_box &&
+          this_box->HasOverrideContainingBlockContentLogicalHeight()) {
+        return this_box->OverrideContainingBlockContentLogicalHeight() ==
+               LayoutUnit(-1);
+      }
       return !cb->HasDefiniteLogicalHeight();
+    }
   }
 
   return false;

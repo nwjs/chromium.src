@@ -206,6 +206,12 @@ class COMPONENT_EXPORT(TRACING_CPP) TraceEventDataSource
     }
   }
 
+  // Registered with base::StatisticsRecorder to receive a callback on every
+  // histogram sample which gets added.
+  static void OnMetricsSampleCallback(const char* histogram_name,
+                                      uint64_t name_hash,
+                                      base::HistogramBase::Sample sample);
+
  private:
   friend class base::NoDestructor<TraceEventDataSource>;
 
@@ -248,7 +254,7 @@ class COMPONENT_EXPORT(TRACING_CPP) TraceEventDataSource
   void LogHistograms();
   // Logs a given histogram in traces.
   void LogHistogram(base::HistogramBase* histogram);
-  void EmitProcessDescriptor();
+  void EmitTrackDescriptor();
 
   void IncrementSessionIdOrClearStartupFlagWhileLocked();
   void SetStartupTracingFlagsWhileLocked();
@@ -265,7 +271,8 @@ class COMPONENT_EXPORT(TRACING_CPP) TraceEventDataSource
   // To avoid lock-order inversion, this lock should not be held while making
   // calls to mojo interfaces or posting tasks, or calling any other code path
   // that may acquire another lock that may also be held while emitting a trace
-  // event (crbug.com/986248).
+  // event (crbug.com/986248). Use AutoLockWithDeferredTaskPosting rather than
+  // base::AutoLock to protect code paths which may post tasks.
   base::Lock lock_;  // Protects subsequent members.
   uint32_t target_buffer_ = 0;
   // We own the registry during startup, but transfer its ownership to the
@@ -280,8 +287,6 @@ class COMPONENT_EXPORT(TRACING_CPP) TraceEventDataSource
   base::OnceClosure flush_complete_task_;
   std::vector<std::string> histograms_;
   bool privacy_filtering_enabled_ = false;
-  std::string process_name_;
-  int process_id_ = base::kNullProcessId;
   SEQUENCE_CHECKER(perfetto_sequence_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(TraceEventDataSource);

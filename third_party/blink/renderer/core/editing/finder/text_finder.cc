@@ -30,8 +30,9 @@
 
 #include "third_party/blink/renderer/core/editing/finder/text_finder.h"
 
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
@@ -60,6 +61,7 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/timer.h"
 
@@ -85,13 +87,16 @@ static void ScrollToVisible(Range* match) {
   Settings* settings = first_node.GetDocument().GetSettings();
   bool smooth_find_enabled =
       settings ? settings->GetSmoothScrollForFindEnabled() : false;
-  ScrollBehavior scroll_behavior =
-      smooth_find_enabled ? kScrollBehaviorSmooth : kScrollBehaviorAuto;
+  mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior =
+      smooth_find_enabled
+          ? mojom::blink::ScrollIntoViewParams::Behavior::kSmooth
+          : mojom::blink::ScrollIntoViewParams::Behavior::kAuto;
   first_node.GetLayoutObject()->ScrollRectToVisible(
       PhysicalRect(match->BoundingBox()),
-      WebScrollIntoViewParams(
+      CreateScrollIntoViewParams(
           ScrollAlignment::kAlignCenterIfNeeded,
-          ScrollAlignment::kAlignCenterIfNeeded, kUserScroll,
+          ScrollAlignment::kAlignCenterIfNeeded,
+          mojom::blink::ScrollIntoViewParams::Type::kUser,
           true /* make_visible_in_visual_viewport */, scroll_behavior,
           true /* is_for_scroll_sequence */));
   first_node.GetDocument().SetSequentialFocusNavigationStartingPoint(
@@ -268,7 +273,7 @@ void TextFinder::SetFindEndstateFocusAndSelection() {
                 .Build());
         GetFrame()->GetDocument()->SetFocusedElement(
             element, FocusParams(SelectionBehaviorOnFocus::kNone,
-                                 kWebFocusTypeNone, nullptr));
+                                 mojom::blink::FocusType::kNone, nullptr));
         return;
       }
     }
@@ -284,7 +289,7 @@ void TextFinder::SetFindEndstateFocusAndSelection() {
     if (element->IsFocusable()) {
       GetFrame()->GetDocument()->SetFocusedElement(
           element, FocusParams(SelectionBehaviorOnFocus::kNone,
-                               kWebFocusTypeNone, nullptr));
+                               mojom::blink::FocusType::kNone, nullptr));
       return;
     }
   }
@@ -327,9 +332,9 @@ void TextFinder::StopFindingAndClearSelection() {
 }
 
 void TextFinder::ReportFindInPageTerminationToAccessibility() {
-  if (OwnerFrame().Client()) {
-    OwnerFrame().Client()->HandleAccessibilityFindInPageTermination();
-  }
+  GetFrame()
+      ->GetLocalFrameHostRemote()
+      .HandleAccessibilityFindInPageTermination();
 }
 
 void TextFinder::ReportFindInPageResultToAccessibility(int identifier) {
@@ -345,12 +350,14 @@ void TextFinder::ReportFindInPageResultToAccessibility(int identifier) {
   Node* end_node = active_match_->endContainer();
   ax_object_cache->HandleTextMarkerDataAdded(start_node, end_node);
 
-  if (OwnerFrame().Client()) {
-    OwnerFrame().Client()->HandleAccessibilityFindInPageResult(
-        identifier, active_match_index_ + 1, blink::WebNode(start_node),
-        active_match_->startOffset(), blink::WebNode(end_node),
-        active_match_->endOffset());
-  }
+  int32_t start_id = ax_object_cache->GetAXID(start_node);
+  int32_t end_id = ax_object_cache->GetAXID(end_node);
+
+  auto params = mojom::blink::FindInPageResultAXParams::New(
+      identifier, active_match_index_ + 1, start_id,
+      active_match_->startOffset(), end_id, active_match_->endOffset());
+  GetFrame()->GetLocalFrameHostRemote().HandleAccessibilityFindInPageResult(
+      std::move(params));
 }
 
 void TextFinder::StartScopingStringMatches(
@@ -559,9 +566,9 @@ Vector<WebFloatRect> TextFinder::FindMatchRects() {
   return match_rects;
 }
 
-int TextFinder::SelectNearestFindMatch(const WebFloatPoint& point,
+int TextFinder::SelectNearestFindMatch(const gfx::PointF& point,
                                        WebRect* selection_rect) {
-  int index = NearestFindMatch(point, nullptr);
+  int index = NearestFindMatch(FloatPoint(point), nullptr);
   if (index != -1)
     return SelectFindMatch(static_cast<unsigned>(index), selection_rect);
 
@@ -630,9 +637,10 @@ int TextFinder::SelectFindMatch(unsigned index, WebRect* selection_rect) {
         active_match_->FirstNode()->GetLayoutObject()) {
       active_match_->FirstNode()->GetLayoutObject()->ScrollRectToVisible(
           PhysicalRect(active_match_bounding_box),
-          WebScrollIntoViewParams(ScrollAlignment::kAlignCenterIfNeeded,
-                                  ScrollAlignment::kAlignCenterIfNeeded,
-                                  kUserScroll));
+          CreateScrollIntoViewParams(
+              ScrollAlignment::kAlignCenterIfNeeded,
+              ScrollAlignment::kAlignCenterIfNeeded,
+              mojom::blink::ScrollIntoViewParams::Type::kUser));
 
       // Absolute coordinates are scroll-variant so the bounding box will change
       // if the page is scrolled by ScrollRectToVisible above. Recompute the
@@ -673,8 +681,6 @@ TextFinder::TextFinder(WebLocalFrameImpl& owner_frame)
       should_locate_active_rect_(false),
       scoping_in_progress_(false),
       find_match_rects_are_valid_(false) {}
-
-TextFinder::~TextFinder() = default;
 
 bool TextFinder::SetMarkerActive(Range* range, bool active) {
   if (!range || range->collapsed())

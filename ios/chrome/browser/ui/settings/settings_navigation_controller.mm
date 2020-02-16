@@ -12,7 +12,6 @@
 #include "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #import "ios/chrome/browser/ui/icons/chrome_icon.h"
 #import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
-#import "ios/chrome/browser/ui/material_components/utils.h"
 #import "ios/chrome/browser/ui/settings/autofill/autofill_credit_card_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/autofill/autofill_profile_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/google_services/accounts_table_view_controller.h"
@@ -20,7 +19,6 @@
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_view_controller.h"
 #import "ios/chrome/browser/ui/settings/import_data_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/settings_root_collection_view_controller.h"
 #import "ios/chrome/browser/ui/settings/settings_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/sync/sync_encryption_passphrase_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/utils/settings_utils.h"
@@ -243,8 +241,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
                                           delegate {
   DCHECK(browser);
   AutofillCreditCardTableViewController* controller =
-      [[AutofillCreditCardTableViewController alloc]
-          initWithBrowserState:browser->GetBrowserState()];
+      [[AutofillCreditCardTableViewController alloc] initWithBrowser:browser];
   controller.dispatcher = [delegate dispatcherForSettings];
 
   SettingsNavigationController* nc = [[SettingsNavigationController alloc]
@@ -544,7 +541,7 @@ NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
     (UIViewController*)baseViewController {
   AutofillCreditCardTableViewController* controller =
       [[AutofillCreditCardTableViewController alloc]
-          initWithBrowserState:self.browser->GetBrowserState()];
+          initWithBrowser:self.browser];
   controller.dispatcher =
       [self.settingsNavigationDelegate dispatcherForSettings];
   [self pushViewController:controller animated:YES];

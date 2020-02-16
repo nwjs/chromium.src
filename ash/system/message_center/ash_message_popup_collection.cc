@@ -12,8 +12,11 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/system/tray/tray_constants.h"
+#include "ash/system/tray/tray_utils.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/i18n/rtl.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/rect.h"
@@ -89,7 +92,9 @@ int AshMessagePopupCollection::GetToastOriginX(
 }
 
 int AshMessagePopupCollection::GetBaseline() const {
-  return work_area_.bottom() - kUnifiedMenuPadding - tray_bubble_height_;
+  gfx::Insets tray_bubble_insets = GetTrayBubbleInsets();
+  return work_area_.bottom() - tray_bubble_insets.bottom() -
+         tray_bubble_height_;
 }
 
 gfx::Rect AshMessagePopupCollection::GetWorkArea() const {

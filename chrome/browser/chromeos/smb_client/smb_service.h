@@ -22,6 +22,7 @@
 #include "chrome/browser/chromeos/smb_client/smb_errors.h"
 #include "chrome/browser/chromeos/smb_client/smb_share_finder.h"
 #include "chrome/browser/chromeos/smb_client/smb_task_queue.h"
+#include "chrome/browser/chromeos/smb_client/smbfs_share.h"
 #include "chrome/browser/chromeos/smb_client/temp_file_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/dbus/smb_provider_client.h"
@@ -45,6 +46,8 @@ using file_system_provider::ProvidedFileSystemInterface;
 using file_system_provider::ProviderId;
 using file_system_provider::ProviderInterface;
 using file_system_provider::Service;
+
+class SmbKerberosCredentialsUpdater;
 
 // Creates and manages an smb file system.
 class SmbService : public KeyedService,
@@ -71,10 +74,13 @@ class SmbService : public KeyedService,
              const base::FilePath& share_path,
              const std::string& username,
              const std::string& password,
-             bool use_chromad_kerberos,
+             bool use_kerberos,
              bool should_open_file_manager_after_mount,
              bool save_credentials,
              MountResponse callback);
+
+  // Unmounts the SmbFs share mounted at |mount_path|.
+  void UnmountSmbFs(const base::FilePath& mount_path);
 
   // Completes the mounting of an SMB file system, passing |options| on to
   // file_system_provider::Service::MountFileSystem(). Passes error status to
@@ -121,6 +127,16 @@ class SmbService : public KeyedService,
   // |callback| will be run inline.
   void OnSetupCompleteForTesting(base::OnceClosure callback);
 
+  // Sets up Kerberos / AD services.
+  void SetupKerberos(const std::string& account_identifier);
+
+  // Updates credentials for Kerberos service.
+  void UpdateKerberosCredentials(const std::string& account_identifier);
+
+  // Returns true if Kerberos was enabled via policy at service creation time
+  // and is still enabled now.
+  bool IsKerberosEnabledViaPolicy() const;
+
  private:
   friend class SmbServiceTest;
 
@@ -130,10 +146,17 @@ class SmbService : public KeyedService,
                  const base::FilePath& share_path,
                  const std::string& username,
                  const std::string& password,
-                 bool use_chromad_kerberos,
+                 bool use_kerberos,
                  bool should_open_file_manager_after_mount,
                  bool save_credentials,
                  MountResponse callback);
+
+  // Handles the response from mounting an smbfs share. Passes |result| onto
+  // |callback|.
+  void OnSmbfsMountDone(const std::string& smbfs_mount_id,
+                        bool should_open_file_manager_after_mount,
+                        MountResponse callback,
+                        SmbMountResult result);
 
   // Retrieves the mount_id for |file_system_info|.
   int32_t GetMountId(const ProvidedFileSystemInfo& info) const;
@@ -191,6 +214,9 @@ class SmbService : public KeyedService,
 
   // Handles the response from attempting to setup Kerberos.
   void OnSetupKerberosResponse(bool success);
+
+  // Handles the response from attempting to update Kerberos credentials.
+  void OnUpdateKerberosCredentialsResponse(bool success);
 
   // Fires |callback| with |result|.
   void FireMountCallback(MountResponse callback, SmbMountResult result);
@@ -288,6 +314,12 @@ class SmbService : public KeyedService,
   std::map<int32_t, base::OnceClosure> update_credential_replies_;
   // |file_system_id| -> |mount_id|
   std::unordered_map<std::string, int32_t> mount_id_map_;
+  // |smbfs_mount_id| -> SmbFsShare
+  // Note, mount ID for smbfs is a randomly generated string. For smbprovider
+  // shares, it is an integer.
+  std::unordered_map<std::string, std::unique_ptr<SmbFsShare>> smbfs_shares_;
+
+  std::unique_ptr<SmbKerberosCredentialsUpdater> smb_credentials_updater_;
 
   base::OnceClosure setup_complete_callback_;
 

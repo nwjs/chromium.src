@@ -10,6 +10,7 @@
 #include "third_party/blink/public/platform/web_blob_info.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/unpacked_serialized_script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_for_core.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_dom_point_init.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
@@ -18,7 +19,6 @@
 #include "third_party/blink/renderer/core/geometry/dom_matrix.h"
 #include "third_party/blink/renderer/core/geometry/dom_matrix_read_only.h"
 #include "third_party/blink/renderer/core/geometry/dom_point.h"
-#include "third_party/blink/renderer/core/geometry/dom_point_init.h"
 #include "third_party/blink/renderer/core/geometry/dom_point_read_only.h"
 #include "third_party/blink/renderer/core/geometry/dom_quad.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
@@ -133,7 +133,6 @@ V8ScriptValueDeserializer::V8ScriptValueDeserializer(
       transferred_message_ports_(options.message_ports),
       blob_info_array_(options.blob_info) {
   deserializer_.SetSupportsLegacyWireFormat(true);
-  deserializer_.SetExpectInlineWasm(options.read_wasm_from_stream);
 }
 
 v8::Local<v8::Value> V8ScriptValueDeserializer::Deserialize() {
@@ -293,7 +292,8 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
     }
     case kImageBitmapTag: {
       SerializedColorSpace canvas_color_space = SerializedColorSpace::kSRGB;
-      SerializedPixelFormat canvas_pixel_format = SerializedPixelFormat::kRGBA8;
+      SerializedPixelFormat canvas_pixel_format =
+          SerializedPixelFormat::kNative8_LegacyObsolete;
       SerializedOpacityMode canvas_opacity_mode =
           SerializedOpacityMode::kOpaque;
       uint32_t origin_clean = 0, is_premultiplied = 0, width = 0, height = 0,
@@ -358,8 +358,8 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
         // been deprecated.
         return nullptr;
       }
-      return ImageBitmap::Create(pixels, width, height, is_premultiplied,
-                                 origin_clean, color_params);
+      return MakeGarbageCollected<ImageBitmap>(
+          pixels, width, height, is_premultiplied, origin_clean, color_params);
     }
     case kImageBitmapTransferTag: {
       uint32_t index = 0;
@@ -415,7 +415,7 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
       }
 
       SerializedColorParams color_params(
-          canvas_color_space, SerializedPixelFormat::kRGBA8,
+          canvas_color_space, SerializedPixelFormat::kNative8_LegacyObsolete,
           SerializedOpacityMode::kNonOpaque, image_data_storage_format);
       ImageDataStorageFormat storage_format = color_params.GetStorageFormat();
       base::CheckedNumeric<size_t> computed_byte_length = width;
@@ -652,9 +652,8 @@ File* V8ScriptValueDeserializer::ReadFileIndex() {
   }
   if (!blob_handle)
     return nullptr;
-  return File::CreateFromIndexedSerialization(info.FilePath(), info.FileName(),
-                                              info.size(), info.LastModified(),
-                                              blob_handle);
+  return File::CreateFromIndexedSerialization(info.FileName(), info.size(),
+                                              info.LastModified(), blob_handle);
 }
 
 DOMRectReadOnly* V8ScriptValueDeserializer::ReadDOMRectReadOnly() {

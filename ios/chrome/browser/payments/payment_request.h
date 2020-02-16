@@ -26,6 +26,8 @@
 #import "ios/chrome/browser/payments/payment_response_helper.h"
 #include "url/gurl.h"
 
+class ChromeBrowserState;
+
 namespace autofill {
 class AddressNormalizer;
 class AutofillProfile;
@@ -41,10 +43,6 @@ class PaymentDetailsModifier;
 class PaymentItem;
 class PaymentShippingOption;
 }  // namespace payments
-
-namespace ios {
-class ChromeBrowserState;
-}  // namepsace ios
 
 namespace web {
 class WebState;
@@ -97,7 +95,7 @@ class PaymentRequest : public PaymentOptionsProvider,
 
   // |personal_data_manager| should not be null and should outlive this object.
   PaymentRequest(const payments::WebPaymentRequest& web_payment_request,
-                 ios::ChromeBrowserState* browser_state,
+                 ChromeBrowserState* browser_state,
                  web::WebState* web_state,
                  autofill::PersonalDataManager* personal_data_manager,
                  id<PaymentRequestUIDelegate> payment_request_ui_delegate);
@@ -244,11 +242,6 @@ class PaymentRequest : public PaymentOptionsProvider,
     return stringified_method_data_;
   }
 
-  const std::set<autofill::CreditCard::CardType>& supported_card_types_set()
-      const {
-    return supported_card_types_set_;
-  }
-
   // Creates and adds an AutofillPaymentApp to the list of payment
   // instruments by making a copy of |credit_card|.
   virtual AutofillPaymentApp* CreateAndAddAutofillPaymentInstrument(
@@ -384,7 +377,7 @@ class PaymentRequest : public PaymentOptionsProvider,
   payments::WebPaymentRequest web_payment_request_;
 
   // Never null and outlives this object.
-  ios::ChromeBrowserState* browser_state_;
+  ChromeBrowserState* browser_state_;
 
   // Never null and outlives this object.
   web::WebState* web_state_;
@@ -441,9 +434,6 @@ class PaymentRequest : public PaymentOptionsProvider,
   // A mapping of the payment method names to the corresponding JSON-stringified
   // payment method specific data.
   std::map<std::string, std::set<std::string>> stringified_method_data_;
-
-  // The set of supported card types (e.g., credit, debit, prepaid).
-  std::set<autofill::CreditCard::CardType> supported_card_types_set_;
 
   // A vector of pointers to the shipping options in |web_payment_request_|.
   std::vector<PaymentShippingOption*> shipping_options_;

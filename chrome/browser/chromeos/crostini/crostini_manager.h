@@ -16,7 +16,7 @@
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "base/unguessable_token.h"
-#include "chrome/browser/chromeos/crostini/crostini_installer_types.mojom.h"
+#include "chrome/browser/chromeos/crostini/crostini_installer_types.mojom-forward.h"
 #include "chrome/browser/chromeos/crostini/crostini_simple_types.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/vm_starting_observer.h"
@@ -41,11 +41,13 @@ class LinuxPackageOperationProgressObserver {
   // A successfully started package install will continually fire progress
   // events until it returns a status of SUCCEEDED or FAILED. The
   // |progress_percent| field is given as a percentage of the given step,
-  // DOWNLOADING or INSTALLING.
+  // DOWNLOADING or INSTALLING. If |status| is FAILED, the |error_message|
+  // will contain output of the failing installation command.
   virtual void OnInstallLinuxPackageProgress(
       const ContainerId& container_id,
       InstallLinuxPackageProgressStatus status,
-      int progress_percent) = 0;
+      int progress_percent,
+      const std::string& error_message) = 0;
 
   // A successfully started package uninstall will continually fire progress
   // events until it returns a status of SUCCEEDED or FAILED.
@@ -145,7 +147,7 @@ class CrostiniManager : public KeyedService,
     virtual void OnConciergeStarted(bool success) {}
     virtual void OnDiskImageCreated(bool success,
                                     vm_tools::concierge::DiskImageStatus status,
-                                    int64_t disk_size_available) {}
+                                    int64_t disk_size_bytes) {}
     virtual void OnVmStarted(bool success) {}
     virtual void OnContainerDownloading(int32_t download_percent) {}
     virtual void OnContainerCreated(CrostiniResult result) {}
@@ -156,8 +158,9 @@ class CrostiniManager : public KeyedService,
   };
 
   struct RestartOptions {
-    // This normally will not have effect on existing container.
+    // These two options only affect new containers.
     base::Optional<std::string> container_username;
+    base::Optional<int64_t> disk_size_bytes;
 
     RestartOptions();
     ~RestartOptions();
@@ -235,6 +238,8 @@ class CrostiniManager : public KeyedService,
       std::string name,
       // Path to the disk image on the host.
       const base::FilePath& disk_path,
+      // The number of logical CPU cores that are currently disabled.
+      size_t num_cores_disabled,
       BoolCallback callback);
 
   // Checks the arguments for stopping a Termina VM. Stops the Termina VM via
@@ -545,8 +550,7 @@ class CrostiniManager : public KeyedService,
                              std::string container_name,
                              const vm_tools::cicerone::OsRelease& os_release);
   const vm_tools::cicerone::OsRelease* GetContainerOsRelease(
-      std::string vm_name,
-      std::string container_name);
+      const ContainerId& container_id);
   // Returns null if VM or container is not running.
   base::Optional<ContainerInfo> GetContainerInfo(std::string vm_name,
                                                  std::string container_name);
@@ -572,6 +576,9 @@ class CrostiniManager : public KeyedService,
   bool HasInstallerViewStatusObserver(InstallerViewStatusObserver* observer);
 
   void OnDBusShuttingDownForTesting();
+
+  bool IsContainerUpgradeable(const ContainerId& container_id);
+  bool ShouldPromptContainerUpgrade(const ContainerId& container_id);
 
  private:
   class CrostiniRestarter;
@@ -776,9 +783,8 @@ class CrostiniManager : public KeyedService,
 
   void OnVmStoppedCleanup(const std::string& vm_name);
 
-  // Emits a UMA recording the OS version.
-  void EmitContainerVersionMetric(
-      const vm_tools::cicerone::OsRelease& os_release);
+  // Configure the container so that it can sideload apps into Arc++.
+  void ConfigureForArcSideload();
 
   Profile* profile_;
   std::string owner_id_;
@@ -815,6 +821,7 @@ class CrostiniManager : public KeyedService,
   // OsRelease protos keyed by ContainerId. We populate this map even if a
   // container fails to start normally.
   std::map<ContainerId, vm_tools::cicerone::OsRelease> container_os_releases_;
+  std::set<ContainerId> container_upgrade_prompt_shown_;
 
   std::vector<RemoveCrostiniCallback> remove_crostini_callbacks_;
 
@@ -841,7 +848,7 @@ class CrostiniManager : public KeyedService,
   std::multimap<ContainerId, CrostiniManager::RestartId>
       restarters_by_container_;
 
-  std::map<CrostiniManager::RestartId, scoped_refptr<CrostiniRestarter>>
+  std::map<CrostiniManager::RestartId, std::unique_ptr<CrostiniRestarter>>
       restarters_by_id_;
 
   // True when the installer dialog is showing. At that point, it is invalid

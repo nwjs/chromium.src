@@ -7,7 +7,7 @@
 /**
  * @constructor
  */
-let NodeUtils = function() {};
+const NodeUtils = function() {};
 
 /**
  * Node state. Nodes can be on-screen like normal, or they may
@@ -179,8 +179,9 @@ NodeUtils.findAllMatching = function(node, rect, nodes) {
   // Closure needs node.location check here to allow the next few
   // lines to compile.
   if (NodeUtils.shouldIgnoreNode(node, /* don't include offscreen */ false) ||
-      node.location === undefined)
+      node.location === undefined) {
     return false;
+  }
 
   if (RectUtils.overlaps(node.location, rect)) {
     if (!node.children || node.children.length == 0 ||
@@ -218,14 +219,14 @@ NodeUtils.Position;
  */
 NodeUtils.getDeepEquivalentForSelection = function(parent, offset, isStart) {
   if (parent.children.length == 0) {
-    return {node: parent, offset: offset};
+    return {node: parent, offset};
   }
 
   // Non-text nodes with children.
   if (parent.role != RoleType.STATIC_TEXT &&
       parent.role != RoleType.INLINE_TEXT_BOX && parent.children.length > 0 &&
       !NodeUtils.isTextField(parent)) {
-    let index = isStart ? offset : offset - 1;
+    const index = isStart ? offset : offset - 1;
     if (parent.children.length > index && index >= 0) {
       let child = parent.children[index];
       if (child.children.length > 0) {
@@ -241,9 +242,9 @@ NodeUtils.getDeepEquivalentForSelection = function(parent, offset, isStart) {
     } else if (isStart && !NodeUtils.isTextField(parent)) {
       // We are off the edge of this parent. Go to the next leaf node that is
       // not an ancestor of the parent.
-      let lastChild = NodeUtils.getLastLeafChild(parent);
+      const lastChild = NodeUtils.getLastLeafChild(parent);
       if (lastChild) {
-        let nextNode = AutomationUtil.findNextNode(
+        const nextNode = AutomationUtil.findNextNode(
             lastChild, constants.Dir.FORWARD, AutomationPredicate.leaf);
         if (nextNode) {
           return {node: nextNode, offset: 0};
@@ -252,7 +253,7 @@ NodeUtils.getDeepEquivalentForSelection = function(parent, offset, isStart) {
     } else if (index < 0) {
       // Otherwise we are before the beginning of this parent. Find the previous
       // leaf node and use that.
-      let previousNode = AutomationUtil.findNextNode(
+      const previousNode = AutomationUtil.findNextNode(
           parent, constants.Dir.BACKWARD, AutomationPredicate.leaf);
       if (previousNode) {
         return {node: previousNode, offset: NodeUtils.nameLength(previousNode)};
@@ -309,8 +310,8 @@ NodeUtils.getDeepEquivalentForSelection = function(parent, offset, isStart) {
       // because textFields cannot be partially selected if other elements
       // outside of themselves are selected.
       if (NodeUtils.isTextField(node)) {
-        let leafNode = isStart ? NodeUtils.getFirstLeafChild(node) :
-                                 NodeUtils.getLastLeafChild(node);
+        const leafNode = isStart ? NodeUtils.getFirstLeafChild(node) :
+                                   NodeUtils.getLastLeafChild(node);
         if (leafNode) {
           return {
             node: leafNode,
@@ -318,16 +319,16 @@ NodeUtils.getDeepEquivalentForSelection = function(parent, offset, isStart) {
           };
         }
       }
-      let result = offset - index + NodeUtils.nameLength(node);
-      return {node: node, offset: result > 0 ? result : 0};
+      const result = offset - index + NodeUtils.nameLength(node);
+      return {node, offset: result > 0 ? result : 0};
     }
   }
   // We are at the end of the last node.
   // If it's a textField we skipped, go ahead and find the first (or last, if
   // !|isStart|) child, otherwise just return this node itself.
   if (NodeUtils.isTextField(node)) {
-    let leafNode = isStart ? NodeUtils.getFirstLeafChild(node) :
-                             NodeUtils.getLastLeafChild(node);
+    const leafNode = isStart ? NodeUtils.getFirstLeafChild(node) :
+                               NodeUtils.getLastLeafChild(node);
     if (leafNode) {
       return {
         node: leafNode,
@@ -335,5 +336,5 @@ NodeUtils.getDeepEquivalentForSelection = function(parent, offset, isStart) {
       };
     }
   }
-  return {node: node, offset: NodeUtils.nameLength(node)};
+  return {node, offset: NodeUtils.nameLength(node)};
 };

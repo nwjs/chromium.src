@@ -39,7 +39,7 @@ using content::WebContents;
 namespace android_webview {
 
 AwAutofillClient::~AwAutofillClient() {
-  HideAutofillPopup();
+  HideAutofillPopup(autofill::PopupHidingReason::kTabGone);
 }
 
 void AwAutofillClient::SetSaveFormData(bool enabled) {
@@ -74,6 +74,10 @@ signin::IdentityManager* AwAutofillClient::GetIdentityManager() {
 }
 
 autofill::FormDataImporter* AwAutofillClient::GetFormDataImporter() {
+  return nullptr;
+}
+
+autofill::SmsClient* AwAutofillClient::GetSmsClient() {
   return nullptr;
 }
 
@@ -190,7 +194,7 @@ bool AwAutofillClient::HasCreditCardScanFeature() {
   return false;
 }
 
-void AwAutofillClient::ScanCreditCard(const CreditCardScanCallback& callback) {
+void AwAutofillClient::ScanCreditCard(CreditCardScanCallback callback) {
   NOTIMPLEMENTED();
 }
 
@@ -222,7 +226,23 @@ void AwAutofillClient::UpdateAutofillPopupDataListValues(
   // See crrev.com/18102002 if need to implement.
 }
 
-void AwAutofillClient::HideAutofillPopup() {
+base::span<const autofill::Suggestion> AwAutofillClient::GetPopupSuggestions()
+    const {
+  NOTIMPLEMENTED();
+  return base::span<const autofill::Suggestion>();
+}
+
+void AwAutofillClient::PinPopupViewUntilUpdate() {
+  NOTIMPLEMENTED();
+}
+
+void AwAutofillClient::UpdatePopup(
+    const std::vector<autofill::Suggestion>& suggestions,
+    autofill::PopupType popup_type) {
+  NOTIMPLEMENTED();
+}
+
+void AwAutofillClient::HideAutofillPopup(autofill::PopupHidingReason reason) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
   if (obj.is_null())

@@ -40,7 +40,6 @@
 
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/renderer/bindings/modules/v8/rendering_context.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
@@ -58,6 +57,7 @@
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer/array_buffer_contents.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_style.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/hit_region.h"
@@ -66,8 +66,6 @@
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/text_run_paint_info.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
-#include "third_party/blink/renderer/platform/graphics/draw_looper_builder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_flags.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
@@ -113,7 +111,7 @@ class CanvasRenderingContext2DAutoRestoreSkCanvas {
   }
 
  private:
-  Member<CanvasRenderingContext2D> context_;
+  CanvasRenderingContext2D* context_;
   int save_count_;
 };
 
@@ -153,15 +151,16 @@ void CanvasRenderingContext2D::SetCanvasGetContextResult(
 
 CanvasRenderingContext2D::~CanvasRenderingContext2D() = default;
 
-void CanvasRenderingContext2D::ValidateStateStack() const {
+void CanvasRenderingContext2D::ValidateStateStackWithCanvas(
+    const cc::PaintCanvas* canvas) const {
 #if DCHECK_IS_ON()
-  if (cc::PaintCanvas* sk_canvas = ExistingDrawingCanvas()) {
+  if (canvas) {
     // The canvas should always have an initial save frame, to support
     // resetting the top level matrix and clip.
-    DCHECK_GT(sk_canvas->getSaveCount(), 1);
+    DCHECK_GT(canvas->getSaveCount(), 1);
 
     if (context_lost_mode_ == kNotLostContext) {
-      DCHECK_EQ(static_cast<size_t>(sk_canvas->getSaveCount()),
+      DCHECK_EQ(static_cast<size_t>(canvas->getSaveCount()),
                 state_stack_.size() + 1);
     }
   }
@@ -397,8 +396,10 @@ void CanvasRenderingContext2D::ScrollPathIntoViewInternal(const Path& path) {
   }
   renderer->ScrollRectToVisible(
       path_rect,
-      WebScrollIntoViewParams(horizontal_scroll_mode, vertical_scroll_mode,
-                              kProgrammaticScroll, false, kScrollBehaviorAuto));
+      CreateScrollIntoViewParams(
+          horizontal_scroll_mode, vertical_scroll_mode,
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
+          mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
 }
 
 void CanvasRenderingContext2D::clearRect(double x,
@@ -1023,9 +1024,8 @@ void CanvasRenderingContext2D::DrawFocusRing(const Path& path) {
 
   SkColor color = LayoutTheme::GetTheme().FocusRingColor().Rgb();
   const int kFocusRingWidth = 5;
-
   DrawPlatformFocusRing(path.GetSkPath(), DrawingCanvas(), color,
-                        kFocusRingWidth);
+                        /*width=*/kFocusRingWidth, /*radius=*/kFocusRingWidth);
 
   // We need to add focusRingWidth to dirtyRect.
   StrokeData stroke_data;

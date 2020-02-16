@@ -7,12 +7,15 @@
 
 #import <UIKit/UIKit.h>
 
-#import "ios/chrome/browser/ui/settings/settings_navigation_controller.h"
-#import "ios/public/provider/chrome/browser/user_feedback/user_feedback_provider.h"
+#import "base/ios/block_types.h"
+#include "components/browsing_data/core/browsing_data_utils.h"
+#include "ios/chrome/app/startup/chrome_app_startup_parameters.h"
+#include "ios/chrome/browser/browsing_data/browsing_data_remove_mask.h"
+#import "ios/chrome/browser/crash_report/crash_restore_helper.h"
 
 @class BrowserViewController;
-@class HistoryCoordinator;
-@class SigninInteractionCoordinator;
+@class BrowserViewWrangler;
+class ChromeBrowserState;
 @class TabGridCoordinator;
 @protocol BrowserInterfaceProvider;
 @protocol TabSwitcher;
@@ -21,63 +24,41 @@ class AppUrlLoadingService;
 // TODO(crbug.com/1012697): Remove this protocol when SceneController is
 // operational. Move the private internals back into MainController, and pass
 // ownership of Scene-related objects to SceneController.
-@protocol MainControllerGuts <NSObject>
-
-// Coordinator for displaying history.
-@property(nonatomic, strong) HistoryCoordinator* historyCoordinator;
-@property(nonatomic, strong)
-    SettingsNavigationController* settingsNavigationController;
+@protocol MainControllerGuts
 
 // The application level component for url loading. Is passed down to
 // browser state level UrlLoadingService instances.
 @property(nonatomic, assign) AppUrlLoadingService* appURLLoadingService;
 
-// The tab switcher command and the voice search commands can be sent by views
-// that reside in a different UIWindow leading to the fact that the exclusive
-// touch property will be ineffective and a command for processing both
-// commands may be sent in the same run of the runloop leading to
-// inconsistencies. Those two boolean indicate if one of those commands have
-// been processed in the last 200ms in order to only allow processing one at
-// a time.
-// TODO(crbug.com/560296):  Provide a general solution for handling mutually
-// exclusive chrome commands sent at nearly the same time.
-@property(nonatomic, assign) BOOL isProcessingTabSwitcherCommand;
-@property(nonatomic, assign) BOOL isProcessingVoiceSearchCommand;
-// The SigninInteractionCoordinator to present Sign In UI. It is created the
-// first time Sign In UI is needed to be presented and should not be destroyed
-// while the UI is presented.
-@property(nonatomic, strong)
-    SigninInteractionCoordinator* signinInteractionCoordinator;
-
 // If YES, the tab switcher is currently active.
-
 @property(nonatomic, assign, getter=isTabSwitcherActive)
     BOOL tabSwitcherIsActive;
 
+// YES while animating the dismissal of tab switcher.
+@property(nonatomic, assign) BOOL dismissingTabSwitcher;
+
+// Parameters received at startup time when the app is launched from another
+// app.
+@property(nonatomic, strong) AppStartupParameters* startupParameters;
+
+// Keeps track of the restore state during startup.
+@property(nonatomic, strong) CrashRestoreHelper* restoreHelper;
+
+- (BrowserViewWrangler*)browserViewWrangler;
 - (id<TabSwitcher>)tabSwitcher;
 - (TabModel*)currentTabModel;
-- (id<TabSwitcher>)tabSwitcher;
-- (ios::ChromeBrowserState*)mainBrowserState;
-- (ios::ChromeBrowserState*)currentBrowserState;
+- (ChromeBrowserState*)mainBrowserState;
+- (ChromeBrowserState*)currentBrowserState;
 - (BrowserViewController*)currentBVC;
 - (BrowserViewController*)mainBVC;
 - (BrowserViewController*)otrBVC;
 - (TabGridCoordinator*)mainCoordinator;
 - (id<BrowserInterfaceProvider>)interfaceProvider;
-- (void)startVoiceSearchInCurrentBVC;
 
-- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
-                           dismissOmnibox:(BOOL)dismissOmnibox;
-- (void)closeSettingsAnimated:(BOOL)animated
-                   completion:(ProceduralBlock)completion;
-
-- (void)dismissModalsAndOpenSelectedTabInMode:
-            (ApplicationModeForTabOpening)targetMode
-                            withUrlLoadParams:
-                                (const UrlLoadParams&)urlLoadParams
-                               dismissOmnibox:(BOOL)dismissOmnibox
-                                   completion:(ProceduralBlock)completion;
-- (void)showTabSwitcher;
+- (void)removeBrowsingDataForBrowserState:(ChromeBrowserState*)browserState
+                               timePeriod:(browsing_data::TimePeriod)timePeriod
+                               removeMask:(BrowsingDataRemoveMask)removeMask
+                          completionBlock:(ProceduralBlock)completionBlock;
 
 @end
 

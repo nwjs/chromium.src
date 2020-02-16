@@ -25,8 +25,10 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_initializer.h"
 
+#include <algorithm>
 #include "third_party/node-nw/src/node_webkit.h"
 #include <memory>
+#include <utility>
 
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -66,6 +68,7 @@
 #include "third_party/blink/renderer/core/script/modulator.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
+#include "third_party/blink/renderer/core/workers/worklet_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_context_data.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
@@ -96,7 +99,7 @@ static void ReportFatalErrorInMainThread(const char* location,
 static void ReportOOMErrorInMainThread(const char* location, bool is_js_heap) {
   DVLOG(1) << "V8 " << (is_js_heap ? "javascript" : "process") << " OOM: ("
            << location << ").";
-  OOM_CRASH();
+  OOM_CRASH(0);
 }
 
 static String ExtractMessageForConsole(v8::Isolate* isolate,
@@ -346,7 +349,9 @@ static void PromiseRejectHandlerInWorker(v8::PromiseRejectMessage data) {
     return;
 
   auto* script_controller =
-      To<WorkerGlobalScope>(execution_context)->ScriptController();
+      execution_context->IsWorkerGlobalScope()
+          ? To<WorkerGlobalScope>(execution_context)->ScriptController()
+          : To<WorkletGlobalScope>(execution_context)->ScriptController();
   DCHECK(script_controller);
 
   PromiseRejectHandler(data, *script_controller->GetRejectedPromises(),
@@ -530,7 +535,7 @@ static bool WasmInstanceOverride(
   if (!WTF::IsMainThread() || args.Length() < 1)
     return false;
   v8::Local<v8::Value> source = args[0];
-  if (!source->IsWebAssemblyCompiledModule())
+  if (!source->IsWasmModuleObject())
     return false;
 
   v8::CompiledWasmModule compiled_module =

@@ -15,7 +15,7 @@
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/app_registrar_observer.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/services/app_service/public/mojom/app_service.mojom.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -83,6 +83,10 @@ class WebApps : public apps::mojom::Publisher,
                  bool report_abuse) override;
   void PauseApp(const std::string& app_id) override;
   void UnpauseApps(const std::string& app_id) override;
+  void GetMenuModel(const std::string& app_id,
+                    apps::mojom::MenuType menu_type,
+                    int64_t display_id,
+                    GetMenuModelCallback callback) override;
   void OpenNativeSettings(const std::string& app_id) override;
   void OnPreferredAppSet(const std::string& app_id,
                          apps::mojom::IntentFilterPtr intent_filter,
@@ -96,7 +100,7 @@ class WebApps : public apps::mojom::Publisher,
 
   // web_app::AppRegistrarObserver:
   void OnWebAppInstalled(const web_app::AppId& app_id) override;
-  void OnWebAppUninstalled(const web_app::AppId& app_id) override;
+  void OnWebAppWillBeUninstalled(const web_app::AppId& app_id) override;
   void OnAppRegistrarDestroyed() override;
   // TODO(loyso): Implement app->last_launch_time field for the new system.
 
@@ -148,7 +152,7 @@ class WebApps : public apps::mojom::Publisher,
 
   std::set<std::string> paused_apps_;
 
-  web_app::WebAppProvider* const provider_;
+  web_app::WebAppProvider* provider_ = nullptr;
 
   ArcAppListPrefs* arc_prefs_ = nullptr;
 

@@ -110,9 +110,20 @@ RootCompositorFrameSinkImpl::Create(
 
   auto* output_surface_ptr = output_surface.get();
 
+  gpu::SharedImageInterface* sii = nullptr;
+  if (output_surface->context_provider())
+    sii = output_surface->context_provider()->SharedImageInterface();
+
+  auto overlay_processor = OverlayProcessorInterface::CreateOverlayProcessor(
+      output_surface->GetSurfaceHandle(), output_surface->capabilities(),
+      params->renderer_settings,
+      output_surface_provider->GetSharedImageManager(),
+      output_surface->GetGpuTaskSchedulerHelper(), sii);
+
   auto display = std::make_unique<Display>(
       frame_sink_manager->shared_bitmap_manager(), params->renderer_settings,
-      params->frame_sink_id, std::move(output_surface), std::move(scheduler),
+      params->frame_sink_id, std::move(output_surface),
+      std::move(overlay_processor), std::move(scheduler),
       std::move(task_runner));
 
   if (external_begin_frame_source_mojo)
@@ -125,7 +136,8 @@ RootCompositorFrameSinkImpl::Create(
       std::move(params->compositor_frame_sink_client),
       std::move(params->display_private), std::move(display_client),
       std::move(synthetic_begin_frame_source),
-      std::move(external_begin_frame_source), std::move(display)));
+      std::move(external_begin_frame_source), std::move(display),
+      params->use_preferred_interval_for_video));
 
 #if defined(OS_MACOSX)
   // On Mac vsync parameter updates come from the browser process. We don't need
@@ -168,10 +180,9 @@ void RootCompositorFrameSinkImpl::SetDisplayColorMatrix(
   display_->SetColorMatrix(color_matrix.matrix());
 }
 
-void RootCompositorFrameSinkImpl::SetDisplayColorSpace(
-    const gfx::ColorSpace& device_color_space,
-    float sdr_white_level) {
-  display_->SetColorSpace(device_color_space, sdr_white_level);
+void RootCompositorFrameSinkImpl::SetDisplayColorSpaces(
+    const gfx::DisplayColorSpaces& display_color_spaces) {
+  display_->SetDisplayColorSpaces(display_color_spaces);
 }
 
 void RootCompositorFrameSinkImpl::SetOutputIsSecure(bool secure) {
@@ -181,6 +192,55 @@ void RootCompositorFrameSinkImpl::SetOutputIsSecure(bool secure) {
 void RootCompositorFrameSinkImpl::SetDisplayVSyncParameters(
     base::TimeTicks timebase,
     base::TimeDelta interval) {
+  // If |use_preferred_interval_| is true, we should decide wheter
+  // to update the |supported_intervals_| and timebase here.
+  // Otherwise, just update the display parameters (timebase & interval)
+  if (use_preferred_interval_) {
+    // If the incoming display interval changes, we should update the
+    // |supported_intervals_| in FrameRateDecider
+    if (display_frame_interval_ != interval) {
+      display_->SetSupportedFrameIntervals({interval, interval * 2});
+      display_frame_interval_ = interval;
+    }
+
+    // If there is a meaningful |preferred_frame_interval_|, firstly
+    // determine the delta of next tick time using the current timebase
+    // and incoming timebase.
+    if (preferred_frame_interval_ !=
+        FrameRateDecider::UnspecifiedFrameInterval()) {
+      auto time = base::TimeTicks();
+      base::TimeDelta timebase_delta =
+          (time.SnappedToNextTick(timebase, display_frame_interval_) -
+           time.SnappedToNextTick(display_frame_timebase_,
+                                  display_frame_interval_))
+              .magnitude();
+      timebase_delta %= display_frame_interval_;
+      timebase_delta =
+          std::min(timebase_delta, display_frame_interval_ - timebase_delta);
+
+      // If delta is more than |kMaxTimebaseDelta| of the display interval,
+      // we update the timebase.
+      constexpr float kMaxTimebaseDelta = 0.05;
+      if (timebase_delta > display_frame_interval_ * kMaxTimebaseDelta)
+        display_frame_timebase_ = timebase;
+    }
+  } else {
+    display_frame_timebase_ = timebase;
+    display_frame_interval_ = interval;
+  }
+
+  UpdateVSyncParameters();
+}
+
+void RootCompositorFrameSinkImpl::UpdateVSyncParameters() {
+  base::TimeTicks timebase = display_frame_timebase_;
+  // Overwrite the interval here if |use_preferred_interval_|
+  base::TimeDelta interval =
+      use_preferred_interval_ &&
+              preferred_frame_interval_ !=
+                  FrameRateDecider::UnspecifiedFrameInterval()
+          ? preferred_frame_interval_
+          : display_frame_interval_;
   if (synthetic_begin_frame_source_) {
     synthetic_begin_frame_source_->OnUpdateVSyncParameters(timebase, interval);
     if (vsync_listener_)
@@ -292,7 +352,8 @@ RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
     mojo::Remote<mojom::DisplayClient> display_client,
     std::unique_ptr<SyntheticBeginFrameSource> synthetic_begin_frame_source,
     std::unique_ptr<ExternalBeginFrameSource> external_begin_frame_source,
-    std::unique_ptr<Display> display)
+    std::unique_ptr<Display> display,
+    bool use_preferred_interval_for_video)
     : compositor_frame_sink_client_(std::move(frame_sink_client)),
       compositor_frame_sink_receiver_(this, std::move(frame_sink_receiver)),
       display_client_(std::move(display_client)),
@@ -301,8 +362,7 @@ RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
           compositor_frame_sink_client_.get(),
           frame_sink_manager,
           frame_sink_id,
-          /*is_root=*/true,
-          /*needs_sync_points=*/true)),
+          /*is_root=*/true)),
       synthetic_begin_frame_source_(std::move(synthetic_begin_frame_source)),
       external_begin_frame_source_(std::move(external_begin_frame_source)),
       display_(std::move(display)) {
@@ -312,6 +372,11 @@ RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
                                                support_->frame_sink_id());
   display_->Initialize(this, support_->frame_sink_manager()->surface_manager());
   support_->SetUpHitTest(display_.get());
+  if (use_preferred_interval_for_video && synthetic_begin_frame_source_) {
+    display_->SetSupportedFrameIntervals(
+        {display_frame_interval_, display_frame_interval_ * 2});
+    use_preferred_interval_ = true;
+  }
 }
 
 void RootCompositorFrameSinkImpl::DisplayOutputSurfaceLost() {
@@ -372,7 +437,8 @@ void RootCompositorFrameSinkImpl::SetPreferredFrameInterval(
   if (display_client_)
     display_client_->SetPreferredRefreshRate(refresh_rate);
 #else
-  NOTREACHED();
+  preferred_frame_interval_ = interval;
+  UpdateVSyncParameters();
 #endif
 }
 

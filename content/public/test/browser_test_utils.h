@@ -41,10 +41,10 @@
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "storage/common/file_system/file_system_types.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/frame/user_activation_update_type.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
-#include "third_party/blink/public/platform/web_mouse_wheel_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
+#include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_tree_update.h"
 #include "ui/events/keycodes/dom/dom_code.h"
@@ -540,9 +540,9 @@ void ConvertToBaseValueList(base::Value::ListStorage* list,
 // string literals. |args| can be a mix of different types.
 template <typename... Args>
 base::ListValue ListValueOf(Args&&... args) {
-  base::ListValue result;
-  ConvertToBaseValueList(&result.GetList(), std::forward<Args>(args)...);
-  return result;
+  base::Value::ListStorage values;
+  ConvertToBaseValueList(&values, std::forward<Args>(args)...);
+  return base::ListValue(std::move(values));
 }
 
 // Replaces $1, $2, $3, etc in |script_template| with JS literal values
@@ -780,6 +780,18 @@ EvalJsResult EvalJsWithManualReply(const ToRenderFrameHost& execution_target,
                                    int options = EXECUTE_SCRIPT_DEFAULT_OPTIONS,
                                    int32_t world_id = ISOLATED_WORLD_ID_GLOBAL)
     WARN_UNUSED_RESULT;
+
+// Like EvalJs(), but runs |raf_script| inside a requestAnimationFrame handler,
+// and runs |script| after the rendering update has completed. By the time
+// this method returns, any IPCs sent from the renderer process to the browser
+// process during the lifecycle update should already have been received and
+// processed by the browser.
+EvalJsResult EvalJsAfterLifecycleUpdate(
+    const ToRenderFrameHost& execution_target,
+    const std::string& raf_script,
+    const std::string& script,
+    int options = EXECUTE_SCRIPT_DEFAULT_OPTIONS,
+    int32_t world_id = ISOLATED_WORLD_ID_GLOBAL) WARN_UNUSED_RESULT;
 
 // Run a script exactly the same as EvalJs(), but ignore the resulting value.
 //
@@ -1053,7 +1065,7 @@ class RenderProcessHostWatcher : public RenderProcessHostObserver {
 
   RenderProcessHostWatcher(RenderProcessHost* render_process_host,
                            WatchType type);
-  // Waits for the render process that contains the specified web contents.
+  // Waits for the renderer process that contains the specified web contents.
   RenderProcessHostWatcher(WebContents* web_contents, WatchType type);
   ~RenderProcessHostWatcher() override;
 
@@ -1533,7 +1545,58 @@ class NavigationHandleCommitObserver : public content::WebContentsObserver {
   bool was_renderer_initiated_;
 };
 
+// A test utility that monitors console messages sent to a WebContents. This
+// can be used to wait for a message that matches a specific filter, an
+// arbitrary message, or monitor all messages sent to the WebContents' console.
+// TODO(devlin): Convert existing tests to Use this in lieu of
+// ConsoleObserverDelegate, since it doesn't require overriding the WebContents'
+// delegate (which isn't always appropriate in a test).
+class WebContentsConsoleObserver : public WebContentsObserver {
+ public:
+  struct Message {
+    blink::mojom::ConsoleMessageLevel log_level;
+    base::string16 message;
+    int32_t line_no;
+    base::string16 source_id;
+  };
+
+  // A filter to apply to incoming console messages to determine whether to
+  // record them. The filter should return `true` if the observer should record
+  // the message, and stop waiting (if it was waiting).
+  using Filter = base::RepeatingCallback<bool(const Message& message)>;
+
+  explicit WebContentsConsoleObserver(content::WebContents* web_contents);
+  ~WebContentsConsoleObserver() override;
+
+  // Waits for a message to come in that matches the set filter, if any. If no
+  // filter is set, waits for the first message that comes in.
+  void Wait();
+
+  // Sets a custom filter to be used while waiting for a message, allowing
+  // more custom filtering (e.g. based on source).
+  void SetFilter(Filter filter);
+
+  // A convenience method to just match the message against a string pattern.
+  void SetPattern(std::string pattern);
+
+  const std::vector<Message>& messages() const { return messages_; }
+
+ private:
+  // WebContentsObserver:
+  void OnDidAddMessageToConsole(blink::mojom::ConsoleMessageLevel log_level,
+                                const base::string16& message,
+                                int32_t line_no,
+                                const base::string16& source_id) override;
+
+  Filter filter_;
+  std::string pattern_;
+  base::RunLoop run_loop_;
+  std::vector<Message> messages_;
+};
+
 // A WebContentsDelegate that catches messages sent to the console.
+// DEPRECATED. Prefer WebContentsConsoleObserver.
+// TODO(devlin): Update usages and remove this.
 class ConsoleObserverDelegate : public WebContentsDelegate {
  public:
   ConsoleObserverDelegate(WebContents* web_contents, const std::string& filter);
@@ -1592,6 +1655,11 @@ class PwnMessageHelper {
                         bool privileged,
                         bool request_unadjusted_movement);
 
+  // Sends FrameHostMsg_OpenURL
+  static void OpenURL(RenderProcessHost* process,
+                      int routing_id,
+                      const GURL& url);
+
  private:
   PwnMessageHelper();  // Not instantiable.
 
@@ -1643,7 +1711,7 @@ class UpdateUserActivationStateMsgWaiter : public BrowserMessageFilter {
  private:
   ~UpdateUserActivationStateMsgWaiter() override = default;
 
-  void OnUpdateUserActivationState(blink::UserActivationUpdateType);
+  void OnUpdateUserActivationState(blink::mojom::UserActivationUpdateType);
 
   bool received_ = false;
   base::RunLoop run_loop_;

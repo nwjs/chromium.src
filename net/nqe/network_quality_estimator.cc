@@ -22,7 +22,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
-#include "base/task/lazy_task_runner.h"
+#include "base/task/lazy_thread_pool_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
@@ -58,10 +58,9 @@ namespace {
 // SequencedTaskRunner to get the network id. A SequencedTaskRunner is used
 // rather than parallel tasks to avoid having many threads getting the network
 // id concurrently.
-base::LazySequencedTaskRunner g_get_network_id_task_runner =
-    LAZY_SEQUENCED_TASK_RUNNER_INITIALIZER(
-        base::TaskTraits(base::ThreadPool(),
-                         base::MayBlock(),
+base::LazyThreadPoolSequencedTaskRunner g_get_network_id_task_runner =
+    LAZY_THREAD_POOL_SEQUENCED_TASK_RUNNER_INITIALIZER(
+        base::TaskTraits(base::MayBlock(),
                          base::TaskPriority::BEST_EFFORT,
                          base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN));
 #endif
@@ -387,8 +386,8 @@ void NetworkQualityEstimator::NotifyBytesRead(
   throughput_analyzer_->NotifyBytesRead(request);
 }
 
-void NetworkQualityEstimator::NotifyRequestCompleted(const URLRequest& request,
-                                                     int net_error) {
+void NetworkQualityEstimator::NotifyRequestCompleted(
+    const URLRequest& request) {
   TRACE_EVENT0(NetTracingCategory(),
                "NetworkQualityEstimator::NotifyRequestCompleted");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -544,16 +543,6 @@ void NetworkQualityEstimator::OnConnectionTypeChanged(
                            : "NQE.WifiSignalStrength.LevelAvailable";
 
     base::UmaHistogramBoolean(histogram_name, signal_strength_available);
-
-    if (signal_strength_available) {
-      std::string histogram_name =
-          is_cell_connection ? "NQE.CellularSignalStrength.LevelDifference"
-                             : "NQE.WifiSignalStrength.LevelDifference";
-      base::UmaHistogramCounts100(
-          histogram_name,
-          max_signal_strength_since_connection_change_.value() -
-              min_signal_strength_since_connection_change_.value());
-    }
   }
 #endif  // OS_ANDROID
   current_network_id_.signal_strength = INT32_MIN;
@@ -695,9 +684,6 @@ void NetworkQualityEstimator::RecordMetricsOnMainFrameRequest() const {
     UMA_HISTOGRAM_TIMES("NQE.MainFrame.RTT.Percentile50",
                         estimated_quality_at_last_main_frame_.http_rtt());
   }
-  UMA_HISTOGRAM_BOOLEAN("NQE.EstimateAvailable.MainFrame.RTT",
-                        estimated_quality_at_last_main_frame_.http_rtt() !=
-                            nqe::internal::InvalidRTT());
 
   if (estimated_quality_at_last_main_frame_.transport_rtt() !=
       nqe::internal::InvalidRTT()) {
@@ -705,9 +691,6 @@ void NetworkQualityEstimator::RecordMetricsOnMainFrameRequest() const {
     UMA_HISTOGRAM_TIMES("NQE.MainFrame.TransportRTT.Percentile50",
                         estimated_quality_at_last_main_frame_.transport_rtt());
   }
-  UMA_HISTOGRAM_BOOLEAN("NQE.EstimateAvailable.MainFrame.TransportRTT",
-                        estimated_quality_at_last_main_frame_.transport_rtt() !=
-                            nqe::internal::InvalidRTT());
 
   if (estimated_quality_at_last_main_frame_.downstream_throughput_kbps() !=
       nqe::internal::INVALID_RTT_THROUGHPUT) {
@@ -716,10 +699,6 @@ void NetworkQualityEstimator::RecordMetricsOnMainFrameRequest() const {
         "NQE.MainFrame.Kbps.Percentile50",
         estimated_quality_at_last_main_frame_.downstream_throughput_kbps());
   }
-  UMA_HISTOGRAM_BOOLEAN(
-      "NQE.EstimateAvailable.MainFrame.Kbps",
-      estimated_quality_at_last_main_frame_.downstream_throughput_kbps() !=
-          nqe::internal::INVALID_RTT_THROUGHPUT);
 
   UMA_HISTOGRAM_ENUMERATION("NQE.MainFrame.EffectiveConnectionType",
                             effective_connection_type_at_last_main_frame_,
@@ -1427,13 +1406,6 @@ void NetworkQualityEstimator::AddAndNotifyObserversOfRTT(
   UMA_HISTOGRAM_ENUMERATION("NQE.RTT.ObservationSource", observation.source(),
                             NETWORK_QUALITY_OBSERVATION_SOURCE_MAX);
 
-  base::HistogramBase* raw_observation_histogram = base::Histogram::FactoryGet(
-      std::string("NQE.RTT.RawObservation.") +
-          nqe::internal::GetNameForObservationSource(observation.source()),
-      1, 10 * 1000, 50, base::HistogramBase::kUmaTargetedHistogramFlag);
-  if (raw_observation_histogram)
-    raw_observation_histogram->Add(observation.value());
-
   // Maybe recompute the effective connection type since a new RTT observation
   // is available.
   if (observation.source() !=
@@ -1467,13 +1439,6 @@ void NetworkQualityEstimator::AddAndNotifyObserversOfThroughput(
 
   UMA_HISTOGRAM_ENUMERATION("NQE.Kbps.ObservationSource", observation.source(),
                             NETWORK_QUALITY_OBSERVATION_SOURCE_MAX);
-
-  base::HistogramBase* raw_observation_histogram = base::Histogram::FactoryGet(
-      std::string("NQE.Kbps.RawObservation.") +
-          nqe::internal::GetNameForObservationSource(observation.source()),
-      1, 10 * 1000, 50, base::HistogramBase::kUmaTargetedHistogramFlag);
-  if (raw_observation_histogram)
-    raw_observation_histogram->Add(observation.value());
 
   // Maybe recompute the effective connection type since a new throughput
   // observation is available.

@@ -23,7 +23,6 @@ import android.test.mock.MockPackageManager;
 
 import androidx.browser.customtabs.CustomTabsIntent;
 
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -34,16 +33,17 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.DisableIf;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ShortcutHelper;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationHandler.OverrideUrlLoadingResult;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.instantapps.InstantAppsHandler;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.webapps.WebappInfo;
 import org.chromium.chrome.browser.webapps.WebappScopePolicy;
+import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.webapps.WebappTestHelper;
 import org.chromium.content_public.browser.test.NativeLibraryTestRule;
 import org.chromium.ui.base.PageTransition;
@@ -51,7 +51,6 @@ import org.chromium.webapk.lib.common.WebApkConstants;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -59,18 +58,26 @@ import java.util.regex.Pattern;
  * Instrumentation tests for {@link ExternalNavigationHandler}.
  */
 @RunWith(BaseJUnit4ClassRunner.class)
+// clang-format off
 @DisableIf.Build(message = "Flaky on K - see https://crbug.com/851444",
         sdk_is_less_than = Build.VERSION_CODES.LOLLIPOP)
+@Features.EnableFeatures({ChromeFeatureList.CCT_EXTERNAL_LINK_HANDLING,
+        ChromeFeatureList.INTENT_BLOCK_EXTERNAL_FORM_REDIRECT_NO_GESTURE})
+@Features.DisableFeatures({ChromeFeatureList.AUTOFILL_ASSISTANT,
+        ChromeFeatureList.AUTOFILL_ASSISTANT_CHROME_ENTRY})
 public class ExternalNavigationHandlerTest {
+    // clang-format on
     @Rule
     public final NativeLibraryTestRule mNativeLibraryTestRule = new NativeLibraryTestRule();
+
+    @Rule
+    public Features.JUnitProcessor processor = new Features.JUnitProcessor();
 
     // Expectations
     private static final int IGNORE = 0x0;
     private static final int START_INCOGNITO = 0x1;
     private static final int START_WEBAPK = 0x2;
     private static final int START_FILE = 0x4;
-    private static final int START_WEBAPP_CCT = 0x8;
     private static final int START_OTHER_ACTIVITY = 0x10;
     private static final int INTENT_SANITIZATION_EXCEPTION = 0x20;
     private static final int PROXY_FOR_INSTANT_APPS = 0x40;
@@ -123,6 +130,12 @@ public class ExternalNavigationHandlerTest {
             "com.google.android.instantapps.START", "com.google.android.instantapps.nmr1.INSTALL",
             "com.google.android.instantapps.nmr1.VIEW"};
 
+    private static final String AUTOFILL_ASSISTANT_INTENT_URL =
+            "intent://www.example.com#Intent;scheme=https;"
+            + "B.org.chromium.chrome.browser.autofill_assistant.ENABLED=true;"
+            + "S." + ExternalNavigationHandler.EXTRA_BROWSER_FALLBACK_URL + "="
+            + Uri.encode("https://www.example.com") + ";end";
+
     private Context mContext;
     private final TestExternalNavigationDelegate mDelegate;
     private ExternalNavigationHandler mUrlHandler;
@@ -134,21 +147,10 @@ public class ExternalNavigationHandlerTest {
 
     @Before
     public void setUp() {
-        RecordHistogram.setDisabledForTests(true);
         mContext = new TestContext(InstrumentationRegistry.getTargetContext(), mDelegate);
         ContextUtils.initApplicationContextForTests(mContext);
 
-        HashMap<String, Boolean> features = new HashMap<String, Boolean>();
-        features.put(ChromeFeatureList.CCT_EXTERNAL_LINK_HANDLING, true);
-        features.put(ChromeFeatureList.INTENT_BLOCK_EXTERNAL_FORM_REDIRECT_NO_GESTURE, true);
-        ChromeFeatureList.setTestFeatures(features);
-
         mNativeLibraryTestRule.loadNativeLibraryNoBrowserProcess();
-    }
-
-    @After
-    public void tearDown() {
-        RecordHistogram.setDisabledForTests(false);
     }
 
     @Test
@@ -1591,6 +1593,123 @@ public class ExternalNavigationHandlerTest {
         Assert.assertTrue(mDelegate.startIncognitoIntentCalled);
     }
 
+    @Test
+    @SmallTest
+    @Features.EnableFeatures({ChromeFeatureList.AUTOFILL_ASSISTANT,
+            ChromeFeatureList.AUTOFILL_ASSISTANT_CHROME_ENTRY})
+    public void
+    testAssistantAutofillIntent_catchNavigationFromGoogleSearch() {
+        mDelegate.setIsSerpReferrer(true);
+
+        checkUrl(AUTOFILL_ASSISTANT_INTENT_URL)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_CLOBBERING_TAB, IGNORE);
+
+        Assert.assertNull(mDelegate.startActivityIntent);
+    }
+
+    @Test
+    @SmallTest
+    @Features.EnableFeatures({ChromeFeatureList.AUTOFILL_ASSISTANT,
+            ChromeFeatureList.AUTOFILL_ASSISTANT_CHROME_ENTRY})
+    public void
+    testAssistantAutofillIntent_doNotCatchNavigationInIncognito() {
+        mDelegate.setIsSerpReferrer(true);
+
+        checkUrl(AUTOFILL_ASSISTANT_INTENT_URL)
+                .withIsIncognito(true)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY);
+
+        Assert.assertNotNull(mDelegate.startActivityIntent);
+        Assert.assertTrue(mDelegate.startActivityIntent.getScheme().startsWith("https"));
+    }
+
+    @Test
+    @SmallTest
+    @Features.EnableFeatures({ChromeFeatureList.AUTOFILL_ASSISTANT,
+            ChromeFeatureList.AUTOFILL_ASSISTANT_CHROME_ENTRY})
+    public void
+    testAssistantAutofillIntent_doNotCatchNavigationFromDifferentOrigin() {
+        mDelegate.setIsSerpReferrer(false);
+
+        checkUrl(AUTOFILL_ASSISTANT_INTENT_URL)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY);
+
+        Assert.assertNotNull(mDelegate.startActivityIntent);
+        Assert.assertTrue(mDelegate.startActivityIntent.getScheme().startsWith("https"));
+    }
+
+    @Test
+    @SmallTest
+    @Features.DisableFeatures({ChromeFeatureList.AUTOFILL_ASSISTANT,
+            ChromeFeatureList.AUTOFILL_ASSISTANT_CHROME_ENTRY})
+    public void
+    testAssistantAutofillIntent_doNotCatchNavigationForNonEnabledFeature() {
+        mDelegate.setIsSerpReferrer(true);
+
+        checkUrl(AUTOFILL_ASSISTANT_INTENT_URL)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY);
+
+        Assert.assertNotNull(mDelegate.startActivityIntent);
+        Assert.assertTrue(mDelegate.startActivityIntent.getScheme().startsWith("https"));
+    }
+
+    @Test
+    @SmallTest
+    public void testIntentActionMetrics() {
+        final String intentWithAction =
+                "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;"
+                + "action=android.intent.action.PICK;end";
+        final String intentWithoutAction =
+                "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end";
+
+        final int pickCount = RecordHistogram.getHistogramValueCountForTesting(
+                ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                ExternalNavigationHandler.StandardActions.PICK);
+        final int viewCount = RecordHistogram.getHistogramValueCountForTesting(
+                ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                ExternalNavigationHandler.StandardActions.VIEW);
+
+        checkUrl(intentWithAction)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY);
+        Assert.assertEquals(pickCount + 1,
+                RecordHistogram.getHistogramValueCountForTesting(
+                        ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                        ExternalNavigationHandler.StandardActions.PICK));
+        Assert.assertEquals(viewCount,
+                RecordHistogram.getHistogramValueCountForTesting(
+                        ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                        ExternalNavigationHandler.StandardActions.VIEW));
+
+        checkUrl(intentWithoutAction)
+                .expecting(OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT,
+                        START_OTHER_ACTIVITY);
+        Assert.assertEquals(viewCount + 1,
+                RecordHistogram.getHistogramValueCountForTesting(
+                        ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                        ExternalNavigationHandler.StandardActions.VIEW));
+    }
+
+    @Test
+    @SmallTest
+    public void testAppIntentActionMetrics() {
+        final String appIntent = "android-app://com.google.zxing.client.android/zxing/scan/#Intent;"
+                + "action=android.intent.action.ANSWER;end";
+        final int count = RecordHistogram.getHistogramValueCountForTesting(
+                ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                ExternalNavigationHandler.StandardActions.ANSWER);
+
+        checkUrl(appIntent).expecting(
+                OverrideUrlLoadingResult.OVERRIDE_WITH_EXTERNAL_INTENT, START_OTHER_ACTIVITY);
+        Assert.assertEquals(count + 1,
+                RecordHistogram.getHistogramValueCountForTesting(
+                        ExternalNavigationHandler.INTENT_ACTION_HISTOGRAM,
+                        ExternalNavigationHandler.StandardActions.ANSWER));
+    }
+
     private static ResolveInfo newResolveInfo(String packageName) {
         ActivityInfo ai = new ActivityInfo();
         ai.packageName = packageName;
@@ -1836,7 +1955,6 @@ public class ExternalNavigationHandlerTest {
             startActivityIntent = null;
             startIncognitoIntentCalled = false;
             startFileIntentCalled = false;
-            startWebappCctIntentCalled = false;
             mCalledWithProxy = false;
         }
 
@@ -1891,7 +2009,6 @@ public class ExternalNavigationHandlerTest {
         public Intent startActivityIntent;
         public boolean startIncognitoIntentCalled;
         public boolean startFileIntentCalled;
-        public boolean startWebappCctIntentCalled;
         public String defaultSmsPackageName;
 
         private String mReferrerWebappPackageName;
@@ -1986,7 +2103,6 @@ public class ExternalNavigationHandlerTest {
             boolean expectStartActivity =
                     (otherExpectation & (START_WEBAPK | START_OTHER_ACTIVITY)) != 0;
             boolean expectStartWebApk = (otherExpectation & START_WEBAPK) != 0;
-            boolean expectStartWebappCct = (otherExpectation & START_WEBAPP_CCT) != 0;
             boolean expectStartOtherActivity = (otherExpectation & START_OTHER_ACTIVITY) != 0;
             boolean expectStartFile = (otherExpectation & START_FILE) != 0;
             boolean expectSaneIntent = expectStartOtherActivity
@@ -2020,7 +2136,6 @@ public class ExternalNavigationHandlerTest {
 
             Assert.assertEquals(expectedOverrideResult, result);
             Assert.assertEquals(expectStartIncognito, mDelegate.startIncognitoIntentCalled);
-            Assert.assertEquals(expectStartWebappCct, mDelegate.startWebappCctIntentCalled);
             Assert.assertEquals(expectStartActivity, startActivityCalled);
             Assert.assertEquals(expectStartWebApk, startWebApkCalled);
             Assert.assertEquals(expectStartFile, mDelegate.startFileIntentCalled);

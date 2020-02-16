@@ -25,6 +25,25 @@ namespace {
 // We support only one view.
 const TsViewCookie kViewCookie = 1;
 
+// Fetches the client rectangle, top left and bottom right points using the
+// window handle in screen coordinates.
+bool GetWindowClientRect(HWND window_handle,
+                         POINT* left_top,
+                         POINT* right_bottom) {
+  RECT client_rect = {};
+  if (!IsWindow(window_handle))
+    return false;
+  if (!GetClientRect(window_handle, &client_rect))
+    return false;
+  *left_top = {client_rect.left, client_rect.top};
+  *right_bottom = {client_rect.right, client_rect.bottom};
+  if (!ClientToScreen(window_handle, left_top))
+    return false;
+  if (!ClientToScreen(window_handle, right_bottom))
+    return false;
+  return true;
+}
+
 }  // namespace
 
 TSFTextStore::TSFTextStore() {
@@ -166,28 +185,30 @@ STDMETHODIMP TSFTextStore::GetScreenExt(TsViewCookie view_cookie, RECT* rect) {
 
   // {0, 0, 0, 0} means that the document rect is not currently displayed.
   SetRect(rect, 0, 0, 0, 0);
-
-  if (!IsWindow(window_handle_))
+  POINT left_top;
+  POINT right_bottom;
+  if (!GetWindowClientRect(window_handle_, &left_top, &right_bottom))
     return E_FAIL;
-
-  // Currently ui::TextInputClient does not expose the document rect. So use
-  // the Win32 client rectangle instead.
-  // TODO(yukawa): Upgrade TextInputClient so that the client can retrieve the
-  // document rectangle.
-  RECT client_rect = {};
-  if (!GetClientRect(window_handle_, &client_rect))
-    return E_FAIL;
-  POINT left_top = {client_rect.left, client_rect.top};
-  POINT right_bottom = {client_rect.right, client_rect.bottom};
-  if (!ClientToScreen(window_handle_, &left_top))
-    return E_FAIL;
-  if (!ClientToScreen(window_handle_, &right_bottom))
-    return E_FAIL;
-
-  rect->left = left_top.x;
-  rect->top = left_top.y;
-  rect->right = right_bottom.x;
-  rect->bottom = right_bottom.y;
+  base::Optional<gfx::Rect> result_rect;
+  base::Optional<gfx::Rect> tmp_rect;
+  // If the EditContext is active, then fetch the layout bounds from
+  // the active EditContext, else get it from the focused element's
+  // bounding client rect.
+  text_input_client_->GetActiveTextInputControlLayoutBounds(&result_rect,
+                                                            &tmp_rect);
+  if (result_rect) {
+    *rect = display::win::ScreenWin::DIPToScreenRect(window_handle_,
+                                                     result_rect.value())
+                .ToRECT();
+    rect->left += left_top.x;
+    rect->top += left_top.y;
+  } else {
+    // Default if the layout bounds are not present in text input client.
+    rect->left = left_top.x;
+    rect->top = left_top.y;
+    rect->right = right_bottom.x;
+    rect->bottom = right_bottom.y;
+  }
   return S_OK;
 }
 
@@ -301,11 +322,28 @@ STDMETHODIMP TSFTextStore::GetTextExt(TsViewCookie view_cookie,
   // indicates a last character's one.
   // TODO(IME): add tests for scenario that left position is bigger than right
   // position.
-  gfx::Rect result_rect;
-  gfx::Rect tmp_rect;
+  base::Optional<gfx::Rect> result_rect;
+  base::Optional<gfx::Rect> tmp_opt_rect;
   const uint32_t start_pos = acp_start - composition_start_;
   const uint32_t end_pos = acp_end - composition_start_;
+  // If there is an active EditContext, then fetch the layout bounds from it.
+  text_input_client_->GetActiveTextInputControlLayoutBounds(&tmp_opt_rect,
+                                                            &result_rect);
+  if (result_rect) {
+    POINT left_top;
+    POINT right_bottom;
+    if (!GetWindowClientRect(window_handle_, &left_top, &right_bottom))
+      return E_FAIL;
+    *rect = display::win::ScreenWin::DIPToScreenRect(window_handle_,
+                                                     result_rect.value())
+                .ToRECT();
+    rect->left += left_top.x;
+    rect->top += left_top.y;
+    *clipped = FALSE;
+    return S_OK;
+  }
 
+  gfx::Rect tmp_rect;
   if (start_pos == end_pos) {
     if (text_input_client_->HasCompositionText()) {
       // According to MSDN document, if |acp_start| and |acp_end| are equal it
@@ -342,10 +380,10 @@ STDMETHODIMP TSFTextStore::GetTextExt(TsViewCookie view_cookie,
         result_rect = gfx::Rect(tmp_rect);
         if (text_input_client_->GetCompositionCharacterBounds(end_pos - 1,
                                                               &tmp_rect)) {
-          result_rect.set_width(tmp_rect.x() - result_rect.x() +
-                                tmp_rect.width());
-          result_rect.set_height(tmp_rect.y() - result_rect.y() +
-                                 tmp_rect.height());
+          result_rect->set_width(tmp_rect.x() - result_rect->x() +
+                                 tmp_rect.width());
+          result_rect->set_height(tmp_rect.y() - result_rect->y() +
+                                  tmp_rect.height());
         } else {
           // We may not be able to get the last character bounds, so we use the
           // first character bounds instead of returning TS_E_NOLAYOUT.
@@ -367,7 +405,8 @@ STDMETHODIMP TSFTextStore::GetTextExt(TsViewCookie view_cookie,
       result_rect = gfx::Rect(text_input_client_->GetCaretBounds());
     }
   }
-  *rect = display::win::ScreenWin::DIPToScreenRect(window_handle_, result_rect)
+  *rect = display::win::ScreenWin::DIPToScreenRect(window_handle_,
+                                                   result_rect.value())
               .ToRECT();
   *clipped = FALSE;
   return S_OK;
@@ -570,6 +609,12 @@ STDMETHODIMP TSFTextStore::RequestLock(DWORD lock_flags, HRESULT* result) {
   if (string_pending_insertion_.empty()) {
     if (!text_input_client_->HasCompositionText()) {
       if (has_composition_range_) {
+        // Remove replacing text first before starting composition.
+        if (new_text_inserted_ && !replace_text_range_.is_empty() &&
+            !replace_text_size_) {
+          text_input_client_->SetEditableSelectionRange(replace_text_range_);
+          text_input_client_->ExtendSelectionAndDelete(0, 0);
+        }
         string_pending_insertion_ = string_buffer_document_.substr(
             composition_range_.GetMin(), composition_range_.length());
         StartCompositionOnExistingText();
@@ -656,6 +701,9 @@ STDMETHODIMP TSFTextStore::RequestLock(DWORD lock_flags, HRESULT* result) {
 
     StartCompositionOnNewText(new_composition_start, composition_string);
   }
+
+  // reset the flag since we've already inserted/replaced the text.
+  new_text_inserted_ = false;
 
   // reset string_buffer_ if composition is no longer active.
   if (!text_input_client_->HasCompositionText()) {
@@ -749,7 +797,7 @@ STDMETHODIMP TSFTextStore::SetText(DWORD flags,
     return ret;
 
   TS_TEXTCHANGE change;
-  if (text_buffer_size > 0) {
+  if (text_buffer_size >= 0) {
     new_text_inserted_ = true;
     replace_text_range_.set_start(acp_start);
     replace_text_range_.set_end(acp_end);
@@ -1013,16 +1061,14 @@ bool TSFTextStore::GetCompositionStatus(
       if (*committed_size < static_cast<size_t>(start_pos + length))
         *committed_size = start_pos + length;
     } else {
+      // Check for the formats of the actively composed text.
       ImeTextSpan span;
       span.start_offset = start_pos;
       span.end_offset = start_pos + length;
       span.underline_color = SK_ColorBLACK;
       span.background_color = SK_ColorTRANSPARENT;
-      if (has_display_attribute) {
-        span.thickness = display_attribute.fBoldLine
-                             ? ImeTextSpan::Thickness::kThick
-                             : ImeTextSpan::Thickness::kThin;
-      }
+      if (has_display_attribute)
+        GetStyle(display_attribute, &span);
       spans->push_back(span);
     }
   }
@@ -1043,7 +1089,10 @@ bool TSFTextStore::TerminateComposition() {
 }
 
 void TSFTextStore::CalculateTextandSelectionDiffAndNotifyIfNeeded() {
-  if (!text_input_client_)
+  // If this is a re-entrant call, then bail out early so we don't end up
+  // in an infinite loop of sending notifications as TSF calls back into us
+  // when we send a text/selection change notification.
+  if (!text_input_client_ || is_notification_in_progress_)
     return;
 
   gfx::Range latest_buffer_range_from_client;
@@ -1055,7 +1104,8 @@ void TSFTextStore::CalculateTextandSelectionDiffAndNotifyIfNeeded() {
                                            &latest_buffer_from_client) &&
       text_input_client_->GetEditableSelectionRange(
           &latest_selection_from_client) &&
-      latest_buffer_range_from_client.Contains(latest_selection_from_client)) {
+      latest_selection_from_client.IsBoundedBy(
+          latest_buffer_range_from_client)) {
     // if the text and selection from text input client is the same as the text
     // and buffer we got last time, either the state hasn't changed since last
     // time we synced or the change hasn't completed yet. Either case we don't
@@ -1140,6 +1190,7 @@ void TSFTextStore::CalculateTextandSelectionDiffAndNotifyIfNeeded() {
     // We should notify input service about text/selection change only after
     // the cache has already been updated because input service may call back
     // into us during notification.
+    is_notification_in_progress_ = true;
     if (notify_text_change && text_changed) {
       text_store_acp_sink_->OnTextChange(0, &text_change);
     }
@@ -1147,6 +1198,7 @@ void TSFTextStore::CalculateTextandSelectionDiffAndNotifyIfNeeded() {
     if (notify_selection_change && selection_changed) {
       text_store_acp_sink_->OnSelectionChange();
     }
+    is_notification_in_progress_ = false;
   }
 }
 
@@ -1222,6 +1274,10 @@ void TSFTextStore::SetInputPanelPolicy(bool input_panel_policy_manual) {
 }
 
 void TSFTextStore::SendOnLayoutChange() {
+  // A re-entrant call leads to infinite loop in TSF.
+  // We bail out if are in the process of notifying TSF about changes.
+  if (is_notification_in_progress_)
+    return;
   CalculateTextandSelectionDiffAndNotifyIfNeeded();
   if (text_store_acp_sink_ && (text_store_acp_sink_mask_ & TS_AS_LAYOUT_CHANGE))
     text_store_acp_sink_->OnLayoutChange(TS_LC_CHANGE, 0);
@@ -1348,7 +1404,6 @@ void TSFTextStore::StartCompositionOnNewText(
   }
 
   if (text_input_client_) {
-    new_text_inserted_ = false;
     text_input_client_->SetCompositionText(composition_text);
     // Notify accessibility about this ongoing composition if the string is not
     // empty
@@ -1364,6 +1419,46 @@ void TSFTextStore::StartCompositionOnNewText(
           composition_range_, committed_string,
           /*is_composition_committed*/ true);
     }
+  }
+}
+
+void TSFTextStore::GetStyle(const TF_DISPLAYATTRIBUTE& attribute,
+                            ImeTextSpan* span) {
+  // Use the display attribute to pick the right formats for the underline and
+  // text.
+  // Set the default values first and then check if display attribute has
+  // any style or not.
+  span->thickness = attribute.fBoldLine ? ImeTextSpan::Thickness::kThick
+                                        : ImeTextSpan::Thickness::kThin;
+  span->underline_style = ImeTextSpan::UnderlineStyle::kSolid;
+  if (attribute.lsStyle != TF_LS_NONE) {
+    switch (attribute.lsStyle) {
+      case TF_LS_SOLID: {
+        span->underline_style = ImeTextSpan::UnderlineStyle::kSolid;
+        break;
+      }
+      case TF_LS_DOT: {
+        span->underline_style = ImeTextSpan::UnderlineStyle::kDot;
+        break;
+      }
+      case TF_LS_DASH: {
+        span->underline_style = ImeTextSpan::UnderlineStyle::kDash;
+        break;
+      }
+      default: {
+        span->underline_style = ImeTextSpan::UnderlineStyle::kSolid;
+      }
+    }
+  }
+  if (attribute.crText.type != TF_CT_NONE) {
+    span->text_color = SkColorSetRGB(GetRValue(attribute.crText.cr),
+                                     GetGValue(attribute.crText.cr),
+                                     GetBValue(attribute.crText.cr));
+  }
+  if (attribute.crLine.type != TF_CT_NONE) {
+    span->underline_color = SkColorSetRGB(GetRValue(attribute.crLine.cr),
+                                          GetGValue(attribute.crLine.cr),
+                                          GetBValue(attribute.crLine.cr));
   }
 }
 

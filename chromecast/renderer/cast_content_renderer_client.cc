@@ -32,9 +32,11 @@
 #include "mojo/public/cpp/bindings/interface_request.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
+#include "services/network/public/cpp/is_potentially_trustworthy.h"
+#include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
+#include "third_party/blink/public/web/web_security_policy.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/public/web/web_view.h"
 
@@ -63,6 +65,14 @@
 
 namespace chromecast {
 namespace shell {
+namespace {
+bool IsSupportedBitstreamAudioCodecHelper(::media::AudioCodec codec, int mask) {
+  return (codec == ::media::kCodecAC3 && (kBitstreamAudioCodecAc3 & mask)) ||
+         (codec == ::media::kCodecEAC3 && (kBitstreamAudioCodecEac3 & mask)) ||
+         (codec == ::media::kCodecMpegHAudio &&
+          (kBitstreamAudioCodecMpegHAudio & mask));
+}
+}  // namespace
 
 #if defined(OS_ANDROID)
 // Audio renderer algorithm maximum capacity.
@@ -148,6 +158,12 @@ void CastContentRendererClient::RenderThreadStarted() {
       std::make_unique<extensions::ExtensionsGuestViewContainerDispatcher>();
   thread->AddObserver(guest_view_container_dispatcher_.get());
 #endif
+
+  for (auto& origin_or_hostname_pattern :
+       network::SecureOriginAllowlist::GetInstance().GetCurrentAllowlist()) {
+    blink::WebSecurityPolicy::AddOriginToTrustworthySafelist(
+        blink::WebString::FromUTF8(origin_or_hostname_pattern));
+  }
 }
 
 void CastContentRendererClient::RenderViewCreated(
@@ -177,7 +193,7 @@ void CastContentRendererClient::RenderFrameCreated(
 
   if (!app_media_capabilities_observer_receiver_.is_bound()) {
     mojo::Remote<mojom::ApplicationMediaCapabilities> app_media_capabilities;
-    render_frame->GetRemoteInterfaces()->GetInterface(
+    render_frame->GetBrowserInterfaceBroker()->GetInterface(
         app_media_capabilities.BindNewPipeAndPassReceiver());
     app_media_capabilities->AddObserver(
         app_media_capabilities_observer_receiver_.BindNewPipeAndPassRemote());
@@ -192,7 +208,7 @@ void CastContentRendererClient::RenderFrameCreated(
   dispatcher->OnRenderFrameCreated(render_frame);
 #endif
 
-#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#if defined(OS_LINUX) && defined(USE_OZONE)
   // JsChannelBindings destroys itself when the RenderFrame is destroyed.
   JsChannelBindings::Create(render_frame);
 #endif
@@ -238,30 +254,34 @@ void CastContentRendererClient::AddSupportedKeySystems(
 
 bool CastContentRendererClient::IsSupportedAudioType(
     const ::media::AudioType& type) {
-  if (type.spatialRendering)
+#if defined(OS_ANDROID)
+  if (type.spatial_rendering)
     return false;
 
-#if defined(OS_ANDROID)
   // No ATV device we know of has (E)AC3 decoder, so it relies on the audio sink
   // device.
-  if (type.codec == ::media::kCodecEAC3)
+  if (type.codec == ::media::kCodecEAC3) {
     return kBitstreamAudioCodecEac3 &
            supported_bitstream_audio_codecs_info_.codecs;
-  if (type.codec == ::media::kCodecAC3)
+  }
+  if (type.codec == ::media::kCodecAC3) {
     return kBitstreamAudioCodecAc3 &
            supported_bitstream_audio_codecs_info_.codecs;
-  if (type.codec == ::media::kCodecMpegHAudio)
+  }
+  if (type.codec == ::media::kCodecMpegHAudio) {
     return kBitstreamAudioCodecMpegHAudio &
            supported_bitstream_audio_codecs_info_.codecs;
+  }
 
-  // TODO(sanfin): Implement this for Android.
-  return true;
+  return ::media::IsDefaultSupportedAudioType(type);
 #else
+  if (type.profile == ::media::AudioCodecProfile::kXHE_AAC)
+    return false;
+
   // If the HDMI sink supports bitstreaming the codec, then the vendor backend
   // does not need to support it.
-  if (IsSupportedBitstreamAudioCodec(type.codec)) {
+  if (CheckSupportedBitstreamAudioCodec(type.codec, type.spatial_rendering))
     return true;
-  }
 
   media::AudioCodec codec = media::ToCastAudioCodec(type.codec);
   // Cast platform implements software decoding of Opus and FLAC, so only PCM
@@ -292,15 +312,21 @@ bool CastContentRendererClient::IsSupportedVideoType(
 
 bool CastContentRendererClient::IsSupportedBitstreamAudioCodec(
     ::media::AudioCodec codec) {
-  return (codec == ::media::kCodecAC3 &&
-          (kBitstreamAudioCodecAc3 &
-           supported_bitstream_audio_codecs_info_.codecs)) ||
-         (codec == ::media::kCodecEAC3 &&
-          (kBitstreamAudioCodecEac3 &
-           supported_bitstream_audio_codecs_info_.codecs)) ||
-         (codec == ::media::kCodecMpegHAudio &&
-          (kBitstreamAudioCodecMpegHAudio &
-           supported_bitstream_audio_codecs_info_.codecs));
+  return IsSupportedBitstreamAudioCodecHelper(
+      codec, supported_bitstream_audio_codecs_info_.codecs);
+}
+
+bool CastContentRendererClient::CheckSupportedBitstreamAudioCodec(
+    ::media::AudioCodec codec,
+    bool check_spatial_rendering) {
+  if (!IsSupportedBitstreamAudioCodec(codec))
+    return false;
+
+  if (!check_spatial_rendering)
+    return true;
+
+  return IsSupportedBitstreamAudioCodecHelper(
+      codec, supported_bitstream_audio_codecs_info_.spatial_rendering);
 }
 
 std::unique_ptr<blink::WebPrescientNetworking>

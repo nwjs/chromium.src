@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">ຕົວເລື່ອນ</translation>
 <translation id="1211441953136645838">ໝາຍເຫດທ້າຍເລື່ອງ</translation>
 <translation id="1281252709823657822">ກ່ອງໂຕ້ຕອບ</translation>
+<translation id="1306460908038601864">ປິດ</translation>
 <translation id="1335095011850992622">ເຄຣດິດ</translation>
 <translation id="1342835525016946179">ບົດ​ຄວາມ</translation>
 <translation id="1359897965706325498">ປ້າຍ​ໂຄ​ສະ​ນາ</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">ກະລຸນາຂະຫຍາຍຂໍ້ຄວາມນີ້ໃຫ້ຍາວເປັນ <ph name="MIN_CHARACTERS" /> ອັກຂະລະຂຶ້ນໄປ (ປະຈຸບັນ ທ່ານກຳລັງໃຊ້ <ph name="CURRENT_LENGTH" /> ອັກຂະລະ).</translation>
 <translation id="383465348367842624">ສ່ວນ​ຫນຶ່ງ​ຕິດຕາມດ້ວຍ  '<ph name="ATSIGN" />' ບໍ່​ຄວນ​ໃຫ້​ມີ​ສັນ​ຍາ​ລັກ '<ph name="INVALIDCHARACTER" />'.</translation>
 <translation id="3846214748874656680">ອອກຈາກເຕັມໜ້າຈໍ</translation>
-<translation id="3889183436948184105">ການດັດແກ້</translation>
 <translation id="3920932319529768807">ຂໍ້ສະຫຼຸບ</translation>
 <translation id="3924558731517983934">ແອັບພລິເຄຊັນ</translation>
 <translation id="3944740393230681990">ບົດນຳ</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">ກະ​ລຸ​ນາ​ປ້ອນຕົວເລກ​.</translation>
 <translation id="4912536737030637138">ລາຍການບັນນານຸກົມ</translation>
 <translation id="492244087561876220">ຄຳເຫັນ</translation>
+<translation id="4971739861736909480">ເລືອກ <ph name="ACCNAME" /> ແລ້ວ</translation>
 <translation id="4975562563186953947">ເລືອກ <ph name="SELECTED_COUNT" /> ແລ້ວ</translation>
 <translation id="4992066212339426712">ເປີດສຽງ</translation>
 <translation id="49969490063480558">ກະ​ລຸ​ນາ​ໃສ່​ພາກ​ສ່ວນໜຶ່ງ​ຫຼັງຈາກ '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' ບໍ່ສໍາເລັດ.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">ກະ​ລຸ​ນາ​ໃສ່​ພາກ​ສ່ວນໜຶ່ງ​ຕາມມາ​ດ້ວຍ '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' ບໍ່ສົມບູນ.</translation>
 <translation id="5334352251556557839">ບໍ່ສາມາດຫຼິ້ນສື່ໄດ້.</translation>
+<translation id="537648784377940524">ວັນທີໜ້ອຍສຸດ (<ph name="MIN_DATE_OR_TIME" />) ຕ້ອງມາກ່ອນວັນທີຫຼາຍສຸດ (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">ຮູບ</translation>
 <translation id="5453733299334684579">ລາຍການຕົ້ນໄມ້</translation>
 <translation id="5466621249238537318">ກະລຸນາເລືອກໜຶ່ງ ຫຼືຫຼາຍໄຟລ໌.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">ຕົວເລືອກເພີ່ມເຕີມ</translation>
 <translation id="576709008726043716">ການນຳສະເໜີ</translation>
 <translation id="57838592816432529">ປິດສຽງ</translation>
-<translation id="5860033963881614850">ປິດ</translation>
 <translation id="588258955323874662">ເຕັມໜ້າຈໍ</translation>
 <translation id="5888666972993069672">ຕອນນີ້ກຳລັງສົ່ງສັນຍານໃສ່ <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">ກ່ອງຊອກຫາ</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">ກະລຸນາເອົາ '<ph name="ATSIGN" />' ເຂົ້າຢູ່ໃນທີ່ຢູ່ອີເມວ. '<ph name="INVALIDADDRESS" />' ຂາດ '<ph name="ATSIGN" />' ໄປ.</translation>
 <translation id="7891486169920085145">ຕົວແຍກ</translation>
 <translation id="795667975304826397">ບໍ່ມີໄຟລ໌ເລືອກໄວ້</translation>
+<translation id="7962328325860248200">ບໍ່ໄດ້ເລືອກ <ph name="ACCNAME" /></translation>
 <translation id="8034303206267677282">ສຳຄັນ</translation>
 <translation id="8053789581856978548">ຫ້ອງປ້ອນຂໍ້ຄວາມການຄົ້ນຫາ</translation>
 <translation id="8057695513531652401">ແຈ້ງການ</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">ເດືອນ</translation>
 <translation id="901493112792887934">ເວ​ລາ​ປະຈຸ​ບັນ​ເປັນ​ວິ​ນາ​ທີ</translation>
 <translation id="901834265349196618">ອີເມວ</translation>
-<translation id="9023835124071926463">ພາກສ່ວນຄຳເຫັນ</translation>
 <translation id="9048119486235211610">ການນໍາ​ທາງ</translation>
 <translation id="9062295712474918030">ເອກະສານ</translation>
 <translation id="9093215626363556771">ອອກຈາກໂໝດສະແດງຜົນຊ້ອນກັນ</translation>

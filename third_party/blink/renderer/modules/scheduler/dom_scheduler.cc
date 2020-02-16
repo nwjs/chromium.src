@@ -5,11 +5,11 @@
 #include "third_party/blink/renderer/modules/scheduler/dom_scheduler.h"
 
 #include "base/memory/weak_ptr.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_scheduler_post_task_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/scheduler/dom_task.h"
 #include "third_party/blink/renderer/modules/scheduler/dom_task_signal.h"
-#include "third_party/blink/renderer/modules/scheduler/scheduler_post_task_options.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_priority.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_task_queue.h"
@@ -18,11 +18,12 @@ namespace blink {
 
 namespace {
 
-static ScriptPromise RejectPromiseImmediately(ScriptState* script_state) {
-  return ScriptPromise::RejectWithDOMException(
-      script_state,
-      MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotSupportedError,
-                                         "Current document is detached"));
+static ScriptPromise RejectPromiseImmediately(ExceptionState& exception_state) {
+  // The bindings layer implicitly converts thrown exceptions in
+  // promise-returning functions to promise rejections.
+  exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                    "Current document is detached");
+  return ScriptPromise();
 }
 
 }  // namespace
@@ -65,9 +66,10 @@ void DOMScheduler::OnTaskCompleted(DOMTask*) {}
 ScriptPromise DOMScheduler::postTask(ScriptState* script_state,
                                      V8Function* callback_function,
                                      SchedulerPostTaskOptions* options,
-                                     const HeapVector<ScriptValue>& args) {
+                                     const HeapVector<ScriptValue>& args,
+                                     ExceptionState& exception_state) {
   if (!GetExecutionContext() || GetExecutionContext()->IsContextDestroyed())
-    return RejectPromiseImmediately(script_state);
+    return RejectPromiseImmediately(exception_state);
 
   // Always honor the priority and the task signal if given. Therefore:
   // * If both priority and signal are set, use the signal but choose the
@@ -89,9 +91,9 @@ ScriptPromise DOMScheduler::postTask(ScriptState* script_state,
   } else if (auto* task_signal = DynamicTo<DOMTaskSignal>(options->signal())) {
     task_runner = task_signal->GetTaskRunner();
     if (!task_runner)
-      return RejectPromiseImmediately(script_state);
+      return RejectPromiseImmediately(exception_state);
   } else {
-    task_runner = GetTaskRunnerFor(WebSchedulingPriority::kDefaultPriority);
+    task_runner = GetTaskRunnerFor(WebSchedulingPriority::kUserVisiblePriority);
   }
 
   // TODO(shaseley): We need to figure out the behavior we want for delay. For

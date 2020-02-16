@@ -8,10 +8,9 @@
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/task/post_task.h"
-#include "base/task/task_traits.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/threading/sequenced_task_runner_handle.h"
 #include "chrome/browser/banners/app_banner_manager_desktop.h"
 #include "chrome/browser/installable/installable_logging.h"
 #include "chrome/browser/installable/installable_manager.h"
@@ -132,7 +131,7 @@ class CallbackTester {
       badge_icon_.reset(new SkBitmap(*data.badge_icon));
     valid_manifest_ = data.valid_manifest;
     has_worker_ = data.has_worker;
-    base::PostTask(FROM_HERE, {base::CurrentThread()}, quit_closure_);
+    base::SequencedTaskRunnerHandle::Get()->PostTask(FROM_HERE, quit_closure_);
   }
 
   const std::vector<InstallableStatusCode>& errors() const { return errors_; }
@@ -253,9 +252,30 @@ class InstallableManagerBrowserTest : public InProcessBrowserTest {
     base::RunLoop run_loop;
     std::vector<std::string> result;
 
-    manager->GetAllErrors(
-        base::BindLambdaForTesting([&](std::vector<std::string> errors) {
+    manager->GetAllErrors(base::BindLambdaForTesting(
+        [&](std::vector<std::string> errors,
+            std::vector<content::InstallabilityError> installability_errors) {
           result = std::move(errors);
+          run_loop.Quit();
+        }));
+    run_loop.Run();
+    return result;
+  }
+
+  std::vector<content::InstallabilityError>
+  NavigateAndGetAllInstallabilityErrors(Browser* browser,
+                                        const std::string& url) {
+    GURL test_url = embedded_test_server()->GetURL(url);
+    ui_test_utils::NavigateToURL(browser, test_url);
+    InstallableManager* manager = GetManager(browser);
+
+    base::RunLoop run_loop;
+    std::vector<content::InstallabilityError> result;
+
+    manager->GetAllErrors(base::BindLambdaForTesting(
+        [&](std::vector<std::string> errors,
+            std::vector<content::InstallabilityError> installability_errors) {
+          result = std::move(installability_errors);
           run_loop.Quit();
         }));
     run_loop.Run();
@@ -1515,6 +1535,34 @@ IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
             NavigateAndGetAllErrors(browser(),
                                     GetURLOfPageWithServiceWorkerAndManifest(
                                         "/banners/play_app_manifest.json")));
+}
+
+IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
+                       GetAllInatallabilityErrorsNoErrors) {
+  EXPECT_EQ(std::vector<content::InstallabilityError>{},
+            NavigateAndGetAllInstallabilityErrors(
+                browser(), "/banners/manifest_test_page.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
+                       GetAllInatallabilityErrorsWithNoManifest) {
+  EXPECT_EQ(std::vector<content::InstallabilityError>{GetInstallabilityError(
+                NO_MANIFEST)},
+            NavigateAndGetAllInstallabilityErrors(
+                browser(), "/banners/no_manifest_test_page.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(InstallableManagerBrowserTest,
+                       GetAllInatallabilityErrorsWithPlayAppManifest) {
+  EXPECT_EQ(std::vector<content::InstallabilityError>(
+                {GetInstallabilityError(START_URL_NOT_VALID),
+                 GetInstallabilityError(MANIFEST_MISSING_NAME_OR_SHORT_NAME),
+                 GetInstallabilityError(MANIFEST_DISPLAY_NOT_SUPPORTED),
+                 GetInstallabilityError(MANIFEST_MISSING_SUITABLE_ICON),
+                 GetInstallabilityError(NO_ACCEPTABLE_ICON)}),
+            NavigateAndGetAllInstallabilityErrors(
+                browser(), GetURLOfPageWithServiceWorkerAndManifest(
+                               "/banners/play_app_manifest.json")));
 }
 
 IN_PROC_BROWSER_TEST_F(InstallableManagerAllowlistOriginBrowserTest,

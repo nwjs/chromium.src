@@ -22,6 +22,7 @@ class BrowserContext;
 }
 
 namespace weblayer {
+class BrowserContextImpl;
 
 class ProfileImpl : public Profile {
  public:
@@ -37,11 +38,15 @@ class ProfileImpl : public Profile {
 
   content::BrowserContext* GetBrowserContext();
 
+  // Path data is stored at, empty if off-the-record.
+  const base::FilePath& data_path() const { return data_path_; }
+
   // Profile implementation:
   void ClearBrowsingData(const std::vector<BrowsingDataType>& data_types,
                          base::Time from_time,
                          base::Time to_time,
                          base::OnceClosure callback) override;
+  void SetDownloadDirectory(const base::FilePath& directory) override;
 
 #if defined(OS_ANDROID)
   ProfileImpl(JNIEnv* env, const base::android::JavaParamRef<jstring>& path);
@@ -52,10 +57,14 @@ class ProfileImpl : public Profile {
       const jlong j_from_time_millis,
       const jlong j_to_time_millis,
       const base::android::JavaRef<jobject>& j_callback);
+  void SetDownloadDirectory(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jstring>& directory);
 #endif
 
+  const base::FilePath& download_directory() { return download_directory_; }
+
  private:
-  class BrowserContextImpl;
   class DataClearer;
 
   void ClearRendererCache();
@@ -64,9 +73,12 @@ class ProfileImpl : public Profile {
   void OnLocaleChanged();
 
   const std::string name_;
+
   base::FilePath data_path_;
 
   std::unique_ptr<BrowserContextImpl> browser_context_;
+
+  base::FilePath download_directory_;
 
   std::unique_ptr<i18n::LocaleChangeSubscription> locale_change_subscription_;
 

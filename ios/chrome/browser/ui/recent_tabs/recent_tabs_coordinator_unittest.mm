@@ -25,6 +25,7 @@
 #include "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #include "ios/chrome/browser/sync/sync_setup_service_mock.h"
 #include "ios/chrome/browser/ui/commands/application_commands.h"
+#import "ios/chrome/browser/ui/commands/browsing_data_commands.h"
 #include "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/recent_tabs/sessions_sync_user_state.h"
 #import "ios/chrome/browser/web_state_list/fake_web_state_list_delegate.h"
@@ -48,8 +49,8 @@ namespace {
 
 std::unique_ptr<KeyedService> CreateSyncSetupService(
     web::BrowserState* context) {
-  ios::ChromeBrowserState* chrome_browser_state =
-      ios::ChromeBrowserState::FromBrowserState(context);
+  ChromeBrowserState* chrome_browser_state =
+      ChromeBrowserState::FromBrowserState(context);
   syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForBrowserState(chrome_browser_state);
   return std::make_unique<testing::NiceMock<SyncSetupServiceMock>>(

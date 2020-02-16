@@ -26,6 +26,7 @@
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "storage/browser/quota/quota_manager.h"
+#include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -190,19 +191,6 @@ void SiteDataCountingHelper::GetLocalStorageUsageInfoCallback(
     if (info.last_modified >= begin_ &&
         (!policy || !policy->IsStorageProtected(info.origin.GetURL()))) {
       origins.push_back(info.origin.GetURL());
-    }
-  }
-  Done(origins);
-}
-
-void SiteDataCountingHelper::GetSessionStorageUsageInfoCallback(
-    const scoped_refptr<storage::SpecialStoragePolicy>& policy,
-    const std::vector<content::SessionStorageUsageInfo>& infos) {
-  std::vector<GURL> origins;
-  for (const auto& info : infos) {
-    // Session storage doesn't know about creation time.
-    if (!policy || !policy->IsStorageProtected(info.origin)) {
-      origins.push_back(info.origin);
     }
   }
   Done(origins);

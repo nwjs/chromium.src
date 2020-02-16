@@ -12,16 +12,22 @@
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/common/web_application_info.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 class GURL;
 class Profile;
 
+// Forward declared to support safe downcast;
+namespace extensions {
+class BookmarkAppRegistrar;
+}
+
 namespace web_app {
 
 class AppRegistrarObserver;
+class WebAppRegistrar;
 
 enum class ExternalInstallSource;
 
@@ -52,6 +58,10 @@ class AppRegistrar {
       const GURL& install_url) const;
 
   // Returns whether the AppRegistrar has an externally installed app with
+  // |app_id| from any |install_source|.
+  virtual bool HasExternalApp(const AppId& app_id) const;
+
+  // Returns whether the AppRegistrar has an externally installed app with
   // |app_id| from |install_source|.
   virtual bool HasExternalAppWithInstallSource(
       const AppId& app_id,
@@ -77,6 +87,10 @@ class AppRegistrar {
       const AppId& app_id) const = 0;
 
   virtual std::vector<AppId> GetAppIds() const = 0;
+
+  // Safe downcast.
+  virtual WebAppRegistrar* AsWebAppRegistrar() = 0;
+  virtual extensions::BookmarkAppRegistrar* AsBookmarkAppRegistrar();
 
   // Searches for the first app id in the registry for which the |url| is in
   // scope.
@@ -104,6 +118,7 @@ class AppRegistrar {
   void RemoveObserver(AppRegistrarObserver* observer);
 
   void NotifyWebAppInstalled(const AppId& app_id);
+  void NotifyWebAppWillBeUninstalled(const AppId& app_id);
   void NotifyWebAppUninstalled(const AppId& app_id);
 
  protected:

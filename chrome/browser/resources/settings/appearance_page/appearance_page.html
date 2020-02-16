@@ -11,15 +11,12 @@
 <link rel="import" href="../controls/settings_radio_group.html">
 <link rel="import" href="../controls/settings_toggle_button.html">
 <link rel="import" href="../route.html">
+<link rel="import" href="../router.html">
 <link rel="import" href="../settings_page/settings_animated_pages.html">
 <link rel="import" href="../settings_page/settings_subpage.html">
 <link rel="import" href="../settings_shared_css.html">
 <link rel="import" href="../settings_vars_css.html">
 <link rel="import" href="home_url_input.html">
-
-<if expr="chromeos">
-<link rel="import" href="../appearance_page/wallpaper_browser_proxy.html">
-</if>
 
 <dom-module id="settings-appearance-page">
   <template>
@@ -47,20 +44,6 @@
     <settings-animated-pages id="pages" section="appearance"
         focus-config="[[focusConfig_]]">
       <div route-path="default">
-<if expr="chromeos">
-        <cr-link-row  id="wallpaperButton"
-            hidden="[[!pageVisibility.setWallpaper]]"
-            on-click="openWallpaperManager_" label="$i18n{setWallpaper}"
-            sub-label="$i18n{openWallpaperApp}"
-            disabled="[[isWallpaperPolicyControlled_]]" external>
-          <template is="dom-if" if="[[isWallpaperPolicyControlled_]]">
-            <cr-policy-indicator id="wallpaperPolicyIndicator"
-                indicator-type="devicePolicy">
-            </cr-policy-indicator>
-          </template>
-        </cr-link-row>
-        <div class="hr"></div>
-</if>
         <div class="settings-row continuation" id="themeRow"
             hidden="[[!pageVisibility.setTheme]]">
           <cr-link-row class="first" hidden="[[!pageVisibility.setTheme]]"
@@ -146,7 +129,9 @@
         </settings-toggle-button>
 </if>
         <div class="settings-box">
-          <div class="start settings-box-text">$i18n{fontSize}</div>
+          <div class="start settings-box-text" aria-hidden="true">
+            $i18n{fontSize}
+          </div>
           <settings-dropdown-menu id="defaultFontSize" label="$i18n{fontSize}"
               pref="{{prefs.webkit.webprefs.default_font_size}}"
               menu-options="[[fontSizeOptions_]]">
@@ -157,7 +142,7 @@
             role-description="$i18n{subpageArrowRoleDescription}">
         </cr-link-row>
         <div class="settings-box" hidden="[[!pageVisibility.pageZoom]]">
-          <div id="pageZoom" class="start settings-box-text">
+          <div id="pageZoom" class="start settings-box-text" aria-hidden="true">
             $i18n{pageZoom}
           </div>
           <select id="zoomLevel" class="md-select" aria-labelledby="pageZoom"

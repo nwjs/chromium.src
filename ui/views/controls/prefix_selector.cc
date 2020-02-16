@@ -177,6 +177,10 @@ void PrefixSelector::SetActiveCompositionForAccessibility(
     const gfx::Range& range,
     const base::string16& active_composition_text,
     bool is_composition_committed) {}
+
+void PrefixSelector::GetActiveTextInputControlLayoutBounds(
+    base::Optional<gfx::Rect>* control_bounds,
+    base::Optional<gfx::Rect>* selection_bounds) {}
 #endif
 
 void PrefixSelector::OnTextInput(const base::string16& text) {

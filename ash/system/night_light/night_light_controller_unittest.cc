@@ -1487,8 +1487,8 @@ TEST(AmbientTemperature, AmbientTemperatureToRGBScaleFactors) {
             allowed_difference);
   // Warm
   vec =
-      NightLightControllerImpl::ColorScalesFromRemappedTemperatureInKevin(5800);
-  EXPECT_LT((vec - gfx::Vector3dF(1.0f, 0.968f, 0.924f)).Length(),
+      NightLightControllerImpl::ColorScalesFromRemappedTemperatureInKevin(4500);
+  EXPECT_LT((vec - gfx::Vector3dF(1.0f, 0.8816f, 0.7313f)).Length(),
             allowed_difference);
   // Daylight
   vec =
@@ -1550,9 +1550,12 @@ TEST_F(AutoNightLightTest, Notification) {
   ASSERT_TRUE(notification);
   ASSERT_TRUE(notification->delegate());
 
-  // Simulate the user clicking the notification button, Night Light should now
-  // be disabled, and the notification should be dismissed.
-  notification->delegate()->Click(base::make_optional<int>(0), base::nullopt);
+  // Simulate the user clicking the notification body to go to settings, and
+  // turning off Night Light manually for tonight. The notification should be
+  // dismissed.
+  notification->delegate()->Click(base::nullopt, base::nullopt);
+  controller->SetEnabled(false,
+                         NightLightControllerImpl::AnimationDuration::kShort);
   EXPECT_FALSE(controller->GetEnabled());
   EXPECT_FALSE(controller->GetAutoNightLightNotificationForTesting());
 

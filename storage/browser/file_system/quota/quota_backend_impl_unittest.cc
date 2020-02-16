@@ -30,8 +30,6 @@ namespace content {
 
 namespace {
 
-const url::Origin kOrigin(url::Origin::Create(GURL("http://example.com")));
-
 bool DidReserveQuota(bool accepted,
                      base::File::Error* error_out,
                      int64_t* delta_out,
@@ -123,15 +121,14 @@ class QuotaBackendImplTest : public testing::Test,
  protected:
   void InitializeForOriginAndType(const url::Origin& origin,
                                   storage::FileSystemType type) {
-    ASSERT_TRUE(
-        file_util_->InitOriginDatabase(origin.GetURL(), true /* create */));
+    ASSERT_TRUE(file_util_->InitOriginDatabase(origin, true /* create */));
     ASSERT_TRUE(file_util_->origin_database_ != nullptr);
 
     std::string type_string =
         SandboxFileSystemBackendDelegate::GetTypeString(type);
     base::File::Error error = base::File::FILE_ERROR_FAILED;
     base::FilePath path = file_util_->GetDirectoryForOriginAndType(
-        origin.GetURL(), type_string, true /* create */, &error);
+        origin, type_string, true /* create */, &error);
     ASSERT_EQ(base::File::FILE_OK, error);
 
     ASSERT_TRUE(file_system_usage_cache_.UpdateUsage(
@@ -166,6 +163,8 @@ class QuotaBackendImplTest : public testing::Test,
 INSTANTIATE_TEST_SUITE_P(All, QuotaBackendImplTest, testing::Bool());
 
 TEST_P(QuotaBackendImplTest, ReserveQuota_Basic) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("http://example.com"));
+
   storage::FileSystemType type = storage::kFileSystemTypeTemporary;
   InitializeForOriginAndType(kOrigin, type);
   quota_manager_proxy_->set_quota(10000);
@@ -194,6 +193,8 @@ TEST_P(QuotaBackendImplTest, ReserveQuota_Basic) {
 }
 
 TEST_P(QuotaBackendImplTest, ReserveQuota_NoSpace) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("http://example.com"));
+
   storage::FileSystemType type = storage::kFileSystemTypeTemporary;
   InitializeForOriginAndType(kOrigin, type);
   quota_manager_proxy_->set_quota(100);
@@ -213,6 +214,8 @@ TEST_P(QuotaBackendImplTest, ReserveQuota_NoSpace) {
 }
 
 TEST_P(QuotaBackendImplTest, ReserveQuota_Revert) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("http://example.com"));
+
   storage::FileSystemType type = storage::kFileSystemTypeTemporary;
   InitializeForOriginAndType(kOrigin, type);
   quota_manager_proxy_->set_quota(10000);
@@ -232,6 +235,8 @@ TEST_P(QuotaBackendImplTest, ReserveQuota_Revert) {
 }
 
 TEST_P(QuotaBackendImplTest, ReleaseReservedQuota) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("http://example.com"));
+
   storage::FileSystemType type = storage::kFileSystemTypeTemporary;
   InitializeForOriginAndType(kOrigin, type);
   const int64_t kInitialUsage = 2000;
@@ -246,6 +251,8 @@ TEST_P(QuotaBackendImplTest, ReleaseReservedQuota) {
 }
 
 TEST_P(QuotaBackendImplTest, CommitQuotaUsage) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("http://example.com"));
+
   storage::FileSystemType type = storage::kFileSystemTypeTemporary;
   InitializeForOriginAndType(kOrigin, type);
   quota_manager_proxy_->set_quota(10000);
@@ -269,6 +276,8 @@ TEST_P(QuotaBackendImplTest, CommitQuotaUsage) {
 }
 
 TEST_P(QuotaBackendImplTest, DirtyCount) {
+  const url::Origin kOrigin = url::Origin::Create(GURL("http://example.com"));
+
   storage::FileSystemType type = storage::kFileSystemTypeTemporary;
   InitializeForOriginAndType(kOrigin, type);
   base::FilePath path = GetUsageCachePath(kOrigin, type);

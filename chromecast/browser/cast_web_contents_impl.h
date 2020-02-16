@@ -29,6 +29,8 @@
 
 namespace chromecast {
 
+class QueryableDataHost;
+
 namespace shell {
 class RemoteDebuggingServer;
 }  // namespace shell
@@ -42,6 +44,9 @@ class CastWebContentsImpl : public CastWebContents,
 
   content::WebContents* web_contents() const override;
   PageState page_state() const override;
+  base::Optional<pid_t> GetMainFrameRenderProcessPid() const override;
+
+  QueryableDataHost* queryable_data_host() const override;
 
   // CastWebContents implementation:
   int tab_id() const override;
@@ -62,12 +67,19 @@ class CastWebContentsImpl : public CastWebContents,
                                const std::vector<std::string>& origins,
                                base::StringPiece script) override;
   void RemoveBeforeLoadJavaScript(base::StringPiece id) override;
+  // TODO(crbug.com/803242): Deprecated and will be shortly removed.
   void PostMessageToMainFrame(
       const std::string& target_origin,
       const std::string& data,
       std::vector<mojo::ScopedMessagePipeHandle> channels) override;
+  void PostMessageToMainFrame(
+      const std::string& target_origin,
+      const std::string& data,
+      std::vector<blink::WebMessagePort> ports) override;
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
+  bool is_websql_enabled() override;
+  bool is_mixer_audio_enabled() override;
 
   // content::WebContentsObserver implementation:
   void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override;
@@ -89,8 +101,7 @@ class CastWebContentsImpl : public CastWebContents,
                      const GURL& validated_url) override;
   void DidFailLoad(content::RenderFrameHost* render_frame_host,
                    const GURL& validated_url,
-                   int error_code,
-                   const base::string16& error_description) override;
+                   int error_code) override;
   void MainFrameWasResized(bool width_changed) override;
   void ResourceLoadComplete(
       content::RenderFrameHost* render_frame_host,
@@ -152,6 +163,8 @@ class CastWebContentsImpl : public CastWebContents,
   std::vector<RendererFeature> renderer_features_;
 
   const int tab_id_;
+  bool is_websql_enabled_;
+  bool is_mixer_audio_enabled_;
   base::TimeTicks start_loading_ticks_;
   bool main_frame_loaded_;
   bool closing_;
@@ -172,6 +185,8 @@ class CastWebContentsImpl : public CastWebContents,
   // Map of InterfaceSet -> InterfaceProvider pointer.
   base::flat_map<InterfaceSet, service_manager::InterfaceProvider*>
       interface_providers_map_;
+
+  std::unique_ptr<QueryableDataHost> queryable_data_host_;
 
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<CastWebContentsImpl> weak_factory_;

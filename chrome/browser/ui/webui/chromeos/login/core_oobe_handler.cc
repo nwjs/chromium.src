@@ -6,16 +6,17 @@
 
 #include <type_traits>
 
+#include "ash/public/ash_interfaces.h"
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/tablet_mode.h"
-#include "ash/public/mojom/constants.mojom.h"
 #include "ash/shell.h"
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
@@ -53,9 +54,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/version_info/version_info.h"
-#include "content/public/browser/system_connector.h"
 #include "google_apis/google_api_keys.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "ui/accessibility/accessibility_switches.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/display/screen.h"
@@ -101,12 +100,8 @@ CoreOobeHandler::CoreOobeHandler(JSCallsContainer* js_calls_container)
 
   ash::TabletMode::Get()->AddObserver(this);
 
-  // |connector| may be null in tests.
-  auto* connector = content::GetSystemConnector();
-  if (connector) {
-    connector->Connect(ash::mojom::kServiceName,
-                       cros_display_config_.BindNewPipeAndPassReceiver());
-  }
+  ash::BindCrosDisplayConfigController(
+      cros_display_config_.BindNewPipeAndPassReceiver());
   OobeConfiguration::Get()->AddAndFireObserver(this);
 }
 
@@ -169,7 +164,7 @@ void CoreOobeHandler::DeclareLocalizedValues(
 void CoreOobeHandler::Initialize() {
   UpdateA11yState();
   UpdateOobeUIVisibility();
-#if defined(OFFICIAL_BUILD)
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   version_info_updater_.StartUpdate(true);
 #else
   version_info_updater_.StartUpdate(false);

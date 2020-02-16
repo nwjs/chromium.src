@@ -109,7 +109,7 @@ class ScriptExecutor {
                      WorldType world_type,
                      ProcessType process_type,
                      const GURL& webview_src,
-                     const GURL& file_url,
+                     const GURL& script_url,
                      bool user_gesture,
                      base::Optional<CSSOrigin> css_origin,
                      ResultType result_type,

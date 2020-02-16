@@ -75,8 +75,6 @@ AwMainDelegate::AwMainDelegate() = default;
 AwMainDelegate::~AwMainDelegate() = default;
 
 bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
-  content::SetContentClient(&content_client_);
-
   base::CommandLine* cl = base::CommandLine::ForCurrentProcess();
 
   // WebView uses the Android system's scrollbars and overscroll glow.
@@ -185,12 +183,10 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
     // enabled feature through command line. Finch experiments will need to set
     // all flags in trial config.
     if (features.IsEnabled(::features::kVizForWebView)) {
-      cl->AppendSwitch(switches::kWebViewEnableSharedImage);
+      features.EnableIfNotSet(::features::kEnableSharedImageForWebview);
+      features.EnableIfNotSet(::features::kUseSkiaForGLReadback);
       features.EnableIfNotSet(::features::kUseSkiaRenderer);
     } else {
-      // Disable OOP-D if viz for WebView not enabled.
-      features.DisableIfNotSet(::features::kVizDisplayCompositor);
-
       // Viz for WebView is required to support embedding CompositorFrameSinks
       // which is needed for UseSurfaceLayerForVideo feature.
       // https://crbug.com/853832
@@ -212,13 +208,18 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
     features.DisableIfNotSet(::features::kBackgroundFetch);
 
-    features.DisableIfNotSet(::features::kAndroidSurfaceControl);
+    features.EnableIfNotSet(::features::kDisableSurfaceControlForWebview);
 
     // TODO(https://crbug.com/963653): SmsReceiver is not yet supported on
     // WebView.
     features.DisableIfNotSet(::features::kSmsReceiver);
 
+    // TODO(https://crbug.com/1012899): WebXR is not yet supported on WebView.
     features.DisableIfNotSet(::features::kWebXr);
+
+    features.DisableIfNotSet(::features::kWebXrArModule);
+
+    features.DisableIfNotSet(::features::kWebXrHitTest);
 
     // De-jelly is never supported on WebView.
     features.EnableIfNotSet(::features::kDisableDeJelly);
@@ -349,6 +350,10 @@ void AwMainDelegate::PostFieldTrialInitialization() {
 #endif
 }
 
+content::ContentClient* AwMainDelegate::CreateContentClient() {
+  return &content_client_;
+}
+
 content::ContentBrowserClient* AwMainDelegate::CreateContentBrowserClient() {
   DCHECK(!aw_feature_list_creator_);
   aw_feature_list_creator_ = std::make_unique<AwFeatureListCreator>();
@@ -366,8 +371,7 @@ gpu::SyncPointManager* GetSyncPointManager() {
 gpu::SharedImageManager* GetSharedImageManager() {
   DCHECK(GpuServiceWebView::GetInstance());
   const bool enable_shared_image =
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kWebViewEnableSharedImage);
+      base::FeatureList::IsEnabled(::features::kEnableSharedImageForWebview);
   return enable_shared_image
              ? GpuServiceWebView::GetInstance()->shared_image_manager()
              : nullptr;

@@ -5,9 +5,9 @@
 #include "ui/compositor/compositor.h"
 
 #include <stddef.h>
-
 #include <algorithm>
 #include <utility>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -37,7 +37,6 @@
 #include "components/viz/common/switches.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "components/viz/host/renderer_settings_creation.h"
-#include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "services/viz/privileged/mojom/compositing/vsync_parameter_observer.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/ui_base_features.h"
@@ -102,8 +101,6 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   // Use occlusion to allow more overlapping windows to take less memory.
   settings.use_occlusion_for_tile_prioritization = true;
   settings.main_frame_before_activation_enabled = false;
-  settings.delegated_sync_points_required =
-      context_factory_->SyncTokensRequiredForDisplayCompositor();
 
   // Disable edge anti-aliasing in order to increase support for HW overlays.
   settings.enable_edge_anti_aliasing = false;
@@ -205,6 +202,12 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
           features::kCompositorThreadedScrollbarScrolling)) {
     settings.compositor_threaded_scrollbar_scrolling = true;
   }
+
+#if DCHECK_IS_ON()
+  if (command_line->HasSwitch(cc::switches::kLogOnUIDoubleBackgroundBlur))
+    settings.log_on_ui_double_background_blur = true;
+#endif
+
   animation_host_ = cc::AnimationHost::CreateMainInstance();
 
   cc::LayerTreeHost::InitParams params;
@@ -297,8 +300,8 @@ void Compositor::SetLayerTreeFrameSink(
   // to match the Compositor's.
   if (context_factory_private_) {
     context_factory_private_->SetDisplayVisible(this, host_->IsVisible());
-    context_factory_private_->SetDisplayColorSpace(this, output_color_space_,
-                                                   sdr_white_level_);
+    context_factory_private_->SetDisplayColorSpaces(this,
+                                                    display_color_spaces_);
     context_factory_private_->SetDisplayColorMatrix(this,
                                                     display_color_matrix_);
     if (has_vsync_params_)
@@ -403,36 +406,23 @@ void Compositor::SetScaleAndSize(
   }
 }
 
-void Compositor::SetDisplayColorSpace(const gfx::ColorSpace& color_space,
-                                      float sdr_white_level) {
-  gfx::ColorSpace output_color_space = color_space;
-
-#if defined(OS_WIN)
-  if (color_space.IsHDR()) {
-    bool transparent = SkColorGetA(host_->background_color()) != SK_AlphaOPAQUE;
-    // Ensure output color space for HDR is linear if we need alpha blending.
-    if (transparent)
-      output_color_space = gfx::ColorSpace::CreateSCRGBLinear();
-  }
-#endif  // OS_WIN
-
-  if (output_color_space_ == output_color_space &&
-      sdr_white_level_ == sdr_white_level) {
+void Compositor::SetDisplayColorSpaces(
+    const gfx::DisplayColorSpaces& display_color_spaces) {
+  if (display_color_spaces_ == display_color_spaces)
     return;
-  }
-
-  output_color_space_ = output_color_space;
+  display_color_spaces_ = display_color_spaces;
   // TODO(crbug.com/1012846): Remove this flag and provision when HDR is fully
   // supported on ChromeOS.
 #if defined(OS_CHROMEOS)
-  if (output_color_space_.IsHDR() &&
+  if (display_color_spaces_.SupportsHDR() &&
       !base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableUseHDRTransferFunction)) {
-    output_color_space_ = gfx::ColorSpace::CreateSRGB();
+    display_color_spaces_ =
+        gfx::DisplayColorSpaces(gfx::ColorSpace::CreateSRGB());
   }
 #endif
-  sdr_white_level_ = sdr_white_level;
-  host_->SetRasterColorSpace(output_color_space_.GetRasterColorSpace());
+
+  host_->SetRasterColorSpace(display_color_spaces_.GetRasterColorSpace());
   // Always force the ui::Compositor to re-draw all layers, because damage
   // tracking bugs result in black flashes.
   // https://crbug.com/804430
@@ -443,8 +433,8 @@ void Compositor::SetDisplayColorSpace(const gfx::ColorSpace& color_space,
   // updated then.
   // TODO(fsamuel): Get rid of this.
   if (context_factory_private_) {
-    context_factory_private_->SetDisplayColorSpace(this, output_color_space_,
-                                                   sdr_white_level_);
+    context_factory_private_->SetDisplayColorSpaces(this,
+                                                    display_color_spaces_);
   }
 }
 
@@ -454,11 +444,6 @@ void Compositor::SetDisplayTransformHint(gfx::OverlayTransform hint) {
 
 void Compositor::SetBackgroundColor(SkColor color) {
   host_->set_background_color(color);
-
-  // Update color space based on whether background color is transparent.
-  if (output_color_space_.IsHDR())
-    SetDisplayColorSpace(output_color_space_, sdr_white_level_);
-
   ScheduleDraw();
 }
 

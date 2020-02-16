@@ -2,39 +2,33 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/**
- * @fileoverview A helper object used from the the Import Data dialog to allow
- * users to import data (like bookmarks) from other web browsers.
- */
-cr.exportPath('settings');
-
-/**
- * An object describing a source browser profile that may be imported.
- * The structure of this data must be kept in sync with C++ ImportDataHandler.
- * @typedef {{
- *   name: string,
- *   index: number,
- *   history: boolean,
- *   favorites: boolean,
- *   passwords: boolean,
- *   search: boolean,
- *   autofillFormData: boolean,
- * }}
- */
-settings.BrowserProfile;
-
-/**
- * @enum {string}
- * These string values must be kept in sync with the C++ ImportDataHandler.
- */
-settings.ImportDataStatus = {
-  INITIAL: 'initial',
-  IN_PROGRESS: 'inProgress',
-  SUCCEEDED: 'succeeded',
-  FAILED: 'failed',
-};
-
 cr.define('settings', function() {
+  /**
+   * An object describing a source browser profile that may be imported.
+   * The structure of this data must be kept in sync with C++ ImportDataHandler.
+   * @typedef {{
+   *   name: string,
+   *   index: number,
+   *   history: boolean,
+   *   favorites: boolean,
+   *   passwords: boolean,
+   *   search: boolean,
+   *   autofillFormData: boolean,
+   * }}
+   */
+  let BrowserProfile;
+
+  /**
+   * @enum {string}
+   * These string values must be kept in sync with the C++ ImportDataHandler.
+   */
+  const ImportDataStatus = {
+    INITIAL: 'initial',
+    IN_PROGRESS: 'inProgress',
+    SUCCEEDED: 'succeeded',
+    FAILED: 'failed',
+  };
+
   /** @interface */
   class ImportDataBrowserProxy {
     /**
@@ -47,8 +41,9 @@ cr.define('settings', function() {
      * Starts importing data for the specified source browser profile. The C++
      * responds with the 'import-data-status-changed' WebUIListener event.
      * @param {number} sourceBrowserProfileIndex
+     * @param {!Object<boolean>} types Which types of data to import.
      */
-    importData(sourceBrowserProfileIndex) {}
+    importData(sourceBrowserProfileIndex, types) {}
 
     /**
      * Prompts the user to choose a bookmarks file to import bookmarks from.
@@ -66,8 +61,8 @@ cr.define('settings', function() {
     }
 
     /** @override */
-    importData(sourceBrowserProfileIndex) {
-      chrome.send('importData', [sourceBrowserProfileIndex]);
+    importData(sourceBrowserProfileIndex, types) {
+      chrome.send('importData', [sourceBrowserProfileIndex, types]);
     }
 
     /** @override */
@@ -80,8 +75,11 @@ cr.define('settings', function() {
   // during testing.
   cr.addSingletonGetter(ImportDataBrowserProxyImpl);
 
+  // #cr_define_end
   return {
-    ImportDataBrowserProxy: ImportDataBrowserProxy,
-    ImportDataBrowserProxyImpl: ImportDataBrowserProxyImpl,
+    BrowserProfile,
+    ImportDataStatus,
+    ImportDataBrowserProxy,
+    ImportDataBrowserProxyImpl,
   };
 });

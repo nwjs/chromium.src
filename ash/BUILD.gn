@@ -5,7 +5,6 @@
 import("//build/config/features.gni")
 import("//build/config/ui.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
-import("//services/service_manager/public/cpp/service_executable.gni")
 import("//testing/test.gni")
 import("//tools/grit/repack.gni")
 import("//ui/base/ui_features.gni")
@@ -24,8 +23,7 @@ component("ash") {
   friend = [ ":*" ]
 
   public = [
-    # This is the only header that should be used externally.
-    "ash_service.h",
+    "public/ash_interfaces.h",
 
     # TODO: move the following to source. Do NOT add new files here.
     "accessibility/accessibility_controller_impl.h",
@@ -73,6 +71,7 @@ component("ash") {
     "system/tray/system_tray_notifier.h",
     "system/unified/unified_system_tray.h",
     "touch/touch_hud_debug.h",
+    "wm/desks/desks_controller.h",
     "wm/desks/desks_util.h",
     "wm/drag_window_resizer.h",
     "wm/mru_window_tracker.h",
@@ -80,8 +79,8 @@ component("ash") {
     "wm/splitview/split_view_controller.h",
     "wm/tablet_mode/tablet_mode_browser_window_drag_delegate.h",
     "wm/tablet_mode/tablet_mode_controller.h",
-    "wm/tablet_mode/tablet_mode_window_drag_controller.h",
     "wm/tablet_mode/tablet_mode_window_drag_delegate.h",
+    "wm/tablet_mode/tablet_mode_window_resizer.h",
     "wm/window_positioner.h",
     "wm/window_positioning_utils.h",
     "wm/window_properties.h",
@@ -182,8 +181,8 @@ component("ash") {
     "app_list/app_list_presenter_delegate_impl.cc",
     "app_list/app_list_presenter_delegate_impl.h",
     "ash_export.h",
+    "ash_interfaces.cc",
     "ash_prefs.cc",
-    "ash_service.cc",
     "assistant/assistant_alarm_timer_controller.cc",
     "assistant/assistant_alarm_timer_controller.h",
     "assistant/assistant_controller.cc",
@@ -255,6 +254,8 @@ component("ash") {
     "display/cursor_window_controller.h",
     "display/display_animator.cc",
     "display/display_animator.h",
+    "display/display_change_dialog.cc",
+    "display/display_change_dialog.h",
     "display/display_color_manager.cc",
     "display/display_color_manager.h",
     "display/display_configuration_controller.cc",
@@ -374,8 +375,8 @@ component("ash") {
     "host/root_window_transformer.h",
     "host/transformer_helper.cc",
     "host/transformer_helper.h",
-    "ime/ime_controller.cc",
-    "ime/ime_controller.h",
+    "ime/ime_controller_impl.cc",
+    "ime/ime_controller_impl.h",
     "ime/ime_mode_indicator_view.cc",
     "ime/ime_mode_indicator_view.h",
     "ime/ime_switch_type.h",
@@ -478,6 +479,8 @@ component("ash") {
     "login/ui/public_account_warning_dialog.h",
     "login/ui/scrollable_users_list_view.cc",
     "login/ui/scrollable_users_list_view.h",
+    "login/ui/system_label_button.cc",
+    "login/ui/system_label_button.h",
     "login/ui/user_switch_flip_animation.cc",
     "login/ui/user_switch_flip_animation.h",
     "login/ui/views_utils.cc",
@@ -518,8 +521,6 @@ component("ash") {
     "metrics/user_metrics_action.h",
     "metrics/user_metrics_recorder.cc",
     "metrics/user_metrics_recorder.h",
-    "mojo_interface_factory.cc",
-    "mojo_interface_factory.h",
     "multi_device_setup/multi_device_notification_presenter.cc",
     "multi_device_setup/multi_device_notification_presenter.h",
     "multi_profile_uma.cc",
@@ -578,6 +579,8 @@ component("ash") {
     "shelf/assistant_overlay.h",
     "shelf/back_button.cc",
     "shelf/back_button.h",
+    "shelf/drag_handle.cc",
+    "shelf/drag_handle.h",
     "shelf/home_button.cc",
     "shelf/home_button.h",
     "shelf/home_button_controller.cc",
@@ -613,6 +616,8 @@ component("ash") {
     "shelf/shelf_button_delegate.h",
     "shelf/shelf_button_pressed_metric_tracker.cc",
     "shelf/shelf_button_pressed_metric_tracker.h",
+    "shelf/shelf_component.cc",
+    "shelf/shelf_component.h",
     "shelf/shelf_config.cc",
     "shelf/shelf_container_view.cc",
     "shelf/shelf_container_view.h",
@@ -654,6 +659,7 @@ component("ash") {
     "shelf/window_preview.cc",
     "shelf/window_preview.h",
     "shell.cc",
+    "shell_delegate.cc",
     "shell_init_params.cc",
     "shell_state.cc",
     "shell_state.h",
@@ -756,6 +762,8 @@ component("ash") {
     "system/locale/locale_update_controller_impl.h",
     "system/locale/unified_locale_detailed_view_controller.cc",
     "system/locale/unified_locale_detailed_view_controller.h",
+    "system/machine_learning/user_settings_event_logger.cc",
+    "system/machine_learning/user_settings_event_logger.h",
     "system/message_center/arc_notification_manager_delegate_impl.cc",
     "system/message_center/arc_notification_manager_delegate_impl.h",
     "system/message_center/ash_message_center_lock_screen_controller.cc",
@@ -774,6 +782,8 @@ component("ash") {
     "system/message_center/message_center_ui_controller.cc",
     "system/message_center/message_center_ui_controller.h",
     "system/message_center/message_center_ui_delegate.h",
+    "system/message_center/metrics_utils.cc",
+    "system/message_center/metrics_utils.h",
     "system/message_center/notification_swipe_control_view.cc",
     "system/message_center/notification_swipe_control_view.h",
     "system/message_center/notifier_settings_view.cc",
@@ -936,6 +946,8 @@ component("ash") {
     "system/session/logout_confirmation_dialog.h",
     "system/session/session_limit_notification_controller.cc",
     "system/session/session_limit_notification_controller.h",
+    "system/session/shutdown_confirmation_dialog.cc",
+    "system/session/shutdown_confirmation_dialog.h",
     "system/status_area_layout_manager.cc",
     "system/status_area_layout_manager.h",
     "system/status_area_widget.cc",
@@ -1093,6 +1105,7 @@ component("ash") {
     "wallpaper/wallpaper_base_view.h",
     "wallpaper/wallpaper_controller_impl.cc",
     "wallpaper/wallpaper_controller_impl.h",
+    "wallpaper/wallpaper_property.h",
     "wallpaper/wallpaper_utils/wallpaper_color_calculator.cc",
     "wallpaper/wallpaper_utils/wallpaper_color_calculator.h",
     "wallpaper/wallpaper_utils/wallpaper_color_calculator_observer.h",
@@ -1116,8 +1129,6 @@ component("ash") {
     "wm/always_on_top_controller.h",
     "wm/ash_focus_rules.cc",
     "wm/ash_focus_rules.h",
-    "wm/back_gesture_affordance.cc",
-    "wm/back_gesture_affordance.h",
     "wm/base_state.cc",
     "wm/base_state.h",
     "wm/client_controlled_state.cc",
@@ -1145,15 +1156,11 @@ component("ash") {
     "wm/desks/desk_preview_view.h",
     "wm/desks/desks_animations.cc",
     "wm/desks/desks_animations.h",
-    "wm/desks/desks_bar_item_border.cc",
-    "wm/desks/desks_bar_item_border.h",
     "wm/desks/desks_bar_view.cc",
     "wm/desks/desks_bar_view.h",
     "wm/desks/desks_controller.cc",
-    "wm/desks/desks_controller.h",
     "wm/desks/desks_histogram_enums.h",
     "wm/desks/desks_util.cc",
-    "wm/desks/desks_util.h",
     "wm/desks/new_desk_button.cc",
     "wm/desks/new_desk_button.h",
     "wm/desks/root_window_desk_switch_animator.cc",
@@ -1167,6 +1174,12 @@ component("ash") {
     "wm/event_client_impl.h",
     "wm/fullscreen_window_finder.cc",
     "wm/fullscreen_window_finder.h",
+    "wm/gestures/back_gesture/back_gesture_affordance.cc",
+    "wm/gestures/back_gesture/back_gesture_affordance.h",
+    "wm/gestures/back_gesture/back_gesture_event_handler.cc",
+    "wm/gestures/back_gesture/back_gesture_event_handler.h",
+    "wm/gestures/back_gesture/back_gesture_metrics.cc",
+    "wm/gestures/back_gesture/back_gesture_metrics.h",
     "wm/gestures/wm_gesture_handler.cc",
     "wm/gestures/wm_gesture_handler.h",
     "wm/immersive_context_ash.cc",
@@ -1285,12 +1298,12 @@ component("ash") {
     "wm/tablet_mode/tablet_mode_controller.cc",
     "wm/tablet_mode/tablet_mode_event_handler.cc",
     "wm/tablet_mode/tablet_mode_event_handler.h",
-    "wm/tablet_mode/tablet_mode_window_drag_controller.cc",
     "wm/tablet_mode/tablet_mode_window_drag_delegate.cc",
     "wm/tablet_mode/tablet_mode_window_drag_metrics.cc",
     "wm/tablet_mode/tablet_mode_window_drag_metrics.h",
     "wm/tablet_mode/tablet_mode_window_manager.cc",
     "wm/tablet_mode/tablet_mode_window_manager.h",
+    "wm/tablet_mode/tablet_mode_window_resizer.cc",
     "wm/tablet_mode/tablet_mode_window_state.cc",
     "wm/tablet_mode/tablet_mode_window_state.h",
     "wm/toplevel_window_event_handler.cc",
@@ -1330,6 +1343,8 @@ component("ash") {
     "wm/wm_default_layout_manager.cc",
     "wm/wm_default_layout_manager.h",
     "wm/wm_event.cc",
+    "wm/wm_highlight_item_border.cc",
+    "wm/wm_highlight_item_border.h",
     "wm/wm_shadow_controller_delegate.cc",
     "wm/wm_shadow_controller_delegate.h",
     "wm/wm_window_animations.cc",
@@ -1344,8 +1359,6 @@ component("ash") {
     "wm/workspace/multi_window_resize_controller.h",
     "wm/workspace/phantom_window_controller.cc",
     "wm/workspace/phantom_window_controller.h",
-    "wm/workspace/two_step_edge_cycler.cc",
-    "wm/workspace/two_step_edge_cycler.h",
     "wm/workspace/workspace_event_handler.cc",
     "wm/workspace/workspace_event_handler.h",
     "wm/workspace/workspace_layout_manager.cc",
@@ -1375,7 +1388,6 @@ component("ash") {
     "//services/device/public/mojom",
     "//services/media_session/public/cpp",
     "//services/media_session/public/mojom",
-    "//services/service_manager/public/cpp",
     "//skia",
     "//ui/aura",
     "//ui/events",
@@ -1400,6 +1412,7 @@ component("ash") {
     "//ash/keyboard/arc",
     "//ash/keyboard/ui",
     "//ash/login/resources:resources_grit",
+    "//ash/system/machine_learning:user_settings_event_proto",
     "//ash/system/message_center/arc",
     "//base",
     "//base:i18n",
@@ -1456,7 +1469,6 @@ component("ash") {
     "//components/user_manager",
     "//components/vector_icons",
     "//components/viz/host",
-    "//components/viz/service",
     "//dbus",
     "//device/bluetooth",
     "//extensions/common:common_constants",
@@ -1466,8 +1478,8 @@ component("ash") {
     "//net",
     "//services/content/public/cpp",
     "//services/data_decoder/public/cpp",
+    "//services/metrics/public/cpp:ukm_builders",
     "//services/preferences/public/cpp",
-    "//services/service_manager/public/cpp",
 
     # TODO(msw): Remove this; ash should not depend on blink/webkit.
     "//third_party/blink/public:blink_headers",
@@ -1506,19 +1518,17 @@ component("ash") {
     "//url",
   ]
 
-  data_deps = [
-    ":dbus_service_files",
-  ]
+  data_deps = [ ":dbus_service_files" ]
 
   assert_no_deps = [
     # Ash should not depend upon cryptohome_client or components that depend
     # on it. TODO(stevenjb): Assert on //chromeos/dbus/cryptohome_client once it
     # is extracted from //chromeos/dbus. https://crbug.com/647367.
-    "//components/arc",
     "//chromeos/attestation",
     "//chromeos/cryptohome",
     "//chromeos/login/auth",
     "//chromeos/tpm",
+    "//components/arc",
 
     # Ash should not depend upon content at all.
     "//content/public/browser",
@@ -1607,7 +1617,6 @@ static_library("ash_shell_lib_with_content") {
     ":test_support",
     "//ash/components/shortcut_viewer",
     "//ash/public/cpp",
-    "//ash/public/cpp:manifest",
     "//base:i18n",
     "//chrome:packed_resources",
 
@@ -1644,13 +1653,11 @@ static_library("ash_shell_lib_with_content") {
     "//ui/views/examples:views_examples_with_content_lib",
     "//ui/wm",
   ]
-  public_deps = [
-    ":ash_shell_lib",
-  ]
+  public_deps = [ ":ash_shell_lib" ]
   data_deps = [
-    "//ash/strings:ash_test_strings",
-    "//ash/resources:ash_test_resources_with_content_100_percent",
     "//ash/resources:ash_test_resources_200_percent",
+    "//ash/resources:ash_test_resources_with_content_100_percent",
+    "//ash/strings:ash_test_strings",
   ]
 }
 
@@ -1662,9 +1669,7 @@ action("dbus_service_files") {
     "dbus/org.chromium.UrlHandlerService.conf",
   ]
   output_conf_file = "$root_out_dir/dbus/ash_dbus_services.conf"
-  outputs = [
-    output_conf_file,
-  ]
+  outputs = [ output_conf_file ]
 
   script = "//chromeos/tools/concat_dbus_conf_files.py"
   args = [ rebase_path(output_conf_file, root_build_dir) ]
@@ -1703,6 +1708,7 @@ test("ash_unittests") {
     "app_menu/notification_menu_view_unittest.cc",
     "app_menu/notification_overflow_view_unittest.cc",
     "assistant/assistant_alarm_timer_controller_unittest.cc",
+    "assistant/assistant_interaction_controller_unittest.cc",
     "assistant/assistant_notification_controller_unittest.cc",
     "assistant/assistant_screen_context_controller_unittest.cc",
     "assistant/assistant_state_controller_unittest.cc",
@@ -1763,7 +1769,7 @@ test("ash_unittests") {
     "home_screen/home_launcher_gesture_handler_unittest.cc",
     "home_screen/home_screen_controller_unittest.cc",
     "home_screen/swipe_home_to_overview_controller_unittest.cc",
-    "ime/ime_controller_unittest.cc",
+    "ime/ime_controller_impl_unittest.cc",
     "keyboard/arc/arc_input_method_surface_manager_unittest.cc",
     "keyboard/keyboard_controller_impl_unittest.cc",
     "keyboard/virtual_keyboard_controller_unittest.cc",
@@ -1831,6 +1837,7 @@ test("ash_unittests") {
     "session/session_controller_impl_unittest.cc",
     "shelf/back_button_unittest.cc",
     "shelf/home_button_unittest.cc",
+    "shelf/hotseat_widget_unittest.cc",
     "shelf/login_shelf_view_unittest.cc",
     "shelf/scrollable_shelf_view_unittest.cc",
     "shelf/shelf_application_menu_model_unittest.cc",
@@ -1848,6 +1855,12 @@ test("ash_unittests") {
     "shelf/shelf_view_unittest.cc",
     "shelf/shelf_widget_unittest.cc",
     "shelf/shelf_window_watcher_unittest.cc",
+    "shelf/test/hotseat_state_watcher.cc",
+    "shelf/test/hotseat_state_watcher.h",
+    "shelf/test/overview_animation_waiter.cc",
+    "shelf/test/overview_animation_waiter.h",
+    "shelf/test/shelf_layout_manager_test_base.cc",
+    "shelf/test/shelf_layout_manager_test_base.h",
     "shell_state_unittest.cc",
     "shell_unittest.cc",
     "sticky_keys/sticky_keys_overlay_unittest.cc",
@@ -1944,7 +1957,6 @@ test("ash_unittests") {
     "window_user_data_unittest.cc",
     "wm/always_on_top_controller_unittest.cc",
     "wm/ash_focus_rules_unittest.cc",
-    "wm/back_gesture_affordance_unittest.cc",
     "wm/client_controlled_state_unittest.cc",
     "wm/collision_detection/collision_detection_utils_unittest.cc",
     "wm/container_finder_unittest.cc",
@@ -1953,6 +1965,8 @@ test("ash_unittests") {
     "wm/desks/desks_unittests.cc",
     "wm/drag_window_resizer_unittest.cc",
     "wm/fullscreen_window_finder_unittest.cc",
+    "wm/gestures/back_gesture/back_gesture_affordance_unittest.cc",
+    "wm/gestures/back_gesture/back_gesture_event_handler_unittest.cc",
     "wm/gestures/wm_gesture_handler_unittest.cc",
     "wm/immersive_fullscreen_controller_unittest.cc",
     "wm/lock_action_handler_layout_manager_unittest.cc",
@@ -2036,7 +2050,6 @@ test("ash_unittests") {
     "//ash/keyboard/ui",
     "//ash/keyboard/ui:test_support",
     "//ash/public/cpp",
-    "//ash/public/cpp:manifest",
     "//ash/public/cpp:test_support",
     "//ash/public/cpp:unit_tests",
     "//ash/public/cpp/vector_icons",
@@ -2137,9 +2150,7 @@ test("ash_unittests") {
     "//url",
   ]
 
-  data_deps = [
-    "//ash/resources:ash_test_resources_100_percent",
-  ]
+  data_deps = [ "//ash/resources:ash_test_resources_100_percent" ]
 
   data = [
     # See DisplayColorManagerTest.
@@ -2209,9 +2220,7 @@ test("ash_ui_perftests") {
 
 executable("ash_shell_with_content") {
   testonly = true
-  sources = [
-    "shell/content/shell_with_content_main.cc",
-  ]
+  sources = [ "shell/content/shell_with_content_main.cc" ]
 
   deps = [
     ":ash_shell_lib_with_content",
@@ -2254,6 +2263,10 @@ static_library("test_support") {
     "assistant/test/assistant_ash_test_base.h",
     "assistant/test/test_assistant_service.cc",
     "assistant/test/test_assistant_service.h",
+    "assistant/test/test_assistant_web_view.cc",
+    "assistant/test/test_assistant_web_view.h",
+    "assistant/test/test_assistant_web_view_factory.cc",
+    "assistant/test/test_assistant_web_view_factory.h",
     "display/display_configuration_controller_test_api.cc",
     "display/display_configuration_controller_test_api.h",
     "display/mirror_window_test_api.cc",
@@ -2323,6 +2336,8 @@ static_library("test_support") {
     "test/ash_test_suite.h",
     "test/ash_test_views_delegate.cc",
     "test/ash_test_views_delegate.h",
+    "test/fake_android_intent_helper.cc",
+    "test/fake_android_intent_helper.h",
     "test/ui_controls_factory_ash.cc",
     "test/ui_controls_factory_ash.h",
     "test_media_client.cc",
@@ -2367,7 +2382,6 @@ static_library("test_support") {
     "//chromeos/services/assistant/public/mojom",
     "//chromeos/services/network_config/public/cpp:test_support",
     "//dbus",
-    "//services/service_manager/public/cpp/test:test_support",
     "//testing/gtest",
     "//third_party/blink/public:blink_headers",
     "//ui/display:display_manager_test_api",
@@ -2433,8 +2447,8 @@ static_library("test_support") {
   ]
 
   data_deps = [
-    "//ash/strings:ash_test_strings",
     "//ash/resources:ash_test_resources_100_percent",
     "//ash/resources:ash_test_resources_200_percent",
+    "//ash/strings:ash_test_strings",
   ]
 }

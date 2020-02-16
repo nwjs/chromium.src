@@ -10,6 +10,7 @@ import org.chromium.base.annotations.UsedByReflection;
 import org.chromium.components.version_info.VersionConstants;
 import org.chromium.weblayer_private.interfaces.IWebLayer;
 import org.chromium.weblayer_private.interfaces.IWebLayerFactory;
+import org.chromium.weblayer_private.interfaces.StrictModeWorkaround;
 
 /**
  * Factory used to create WebLayer as well as verify compatibility.
@@ -17,8 +18,8 @@ import org.chromium.weblayer_private.interfaces.IWebLayerFactory;
  */
 @UsedByReflection("WebLayer")
 public final class WebLayerFactoryImpl extends IWebLayerFactory.Stub {
-    private final int mClientMajorVersion;
-    private final String mClientVersion;
+    private static int sClientMajorVersion;
+    private static String sClientVersion;
 
     /**
      * This function is called by the client using reflection.
@@ -36,8 +37,8 @@ public final class WebLayerFactoryImpl extends IWebLayerFactory.Stub {
     }
 
     private WebLayerFactoryImpl(String clientVersion, int clientMajorVersion) {
-        mClientMajorVersion = clientMajorVersion;
-        mClientVersion = clientVersion;
+        sClientMajorVersion = clientMajorVersion;
+        sClientVersion = clientVersion;
     }
 
     /**
@@ -46,7 +47,8 @@ public final class WebLayerFactoryImpl extends IWebLayerFactory.Stub {
      */
     @Override
     public boolean isClientSupported() {
-        return Math.abs(mClientMajorVersion - getImplementationMajorVersion()) <= 3;
+        StrictModeWorkaround.apply();
+        return Math.abs(sClientMajorVersion - getImplementationMajorVersion()) <= 3;
     }
 
     /**
@@ -54,7 +56,16 @@ public final class WebLayerFactoryImpl extends IWebLayerFactory.Stub {
      */
     @Override
     public int getImplementationMajorVersion() {
+        StrictModeWorkaround.apply();
         return VersionConstants.PRODUCT_MAJOR_VERSION;
+    }
+
+    static int getClientMajorVersion() {
+        if (sClientMajorVersion == 0) {
+            throw new IllegalStateException(
+                    "This should only be called once WebLayer is initialized");
+        }
+        return sClientMajorVersion;
     }
 
     /**
@@ -62,11 +73,13 @@ public final class WebLayerFactoryImpl extends IWebLayerFactory.Stub {
      */
     @Override
     public String getImplementationVersion() {
+        StrictModeWorkaround.apply();
         return VersionConstants.PRODUCT_VERSION;
     }
 
     @Override
     public IWebLayer createWebLayer() {
+        StrictModeWorkaround.apply();
         assert isClientSupported();
         return new WebLayerImpl();
     }

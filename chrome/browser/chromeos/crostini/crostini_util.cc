@@ -16,6 +16,7 @@
 #include "base/task/post_task.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/chromeos/crostini/crostini_features.h"
+#include "chrome/browser/chromeos/crostini/crostini_installer.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_mime_types_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_mime_types_service_factory.h"
@@ -29,8 +30,8 @@
 #include "chrome/browser/chromeos/virtual_machines/virtual_machines_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/crostini/crostini_app_icon.h"
-#include "chrome/browser/ui/ash/launcher/app_service_app_window_crostini_tracker.h"
-#include "chrome/browser/ui/ash/launcher/app_service_app_window_launcher_controller.h"
+#include "chrome/browser/ui/ash/launcher/app_service/app_service_app_window_crostini_tracker.h"
+#include "chrome/browser/ui/ash/launcher/app_service/app_service_app_window_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/crostini_app_window_shelf_controller.h"
 #include "chrome/browser/ui/ash/launcher/shelf_spinner_controller.h"
@@ -84,19 +85,15 @@ void OnLaunchFailed(const std::string& app_id) {
   chrome_controller->GetShelfSpinnerController()->CloseSpinner(app_id);
 }
 
-// TODO(nverne): Real conditions (e.g. once per session max, container id is
-// default and still on old version).
-bool ShouldPromptContainerUpgrade() {
-  return false;
-}
-
 void OnCrostiniRestarted(Profile* profile,
+                         crostini::ContainerId container_id,
                          const std::string& app_id,
                          Browser* browser,
                          base::OnceClosure callback,
                          crostini::CrostiniResult result) {
-  if (ShouldPromptContainerUpgrade()) {
-    chromeos::CrostiniUpgraderDialog::Show(profile, std::move(callback));
+  if (crostini::CrostiniManager::GetForProfile(profile)
+          ->ShouldPromptContainerUpgrade(container_id)) {
+    chromeos::CrostiniUpgraderDialog::Show(std::move(callback));
     return;
   }
   if (result != crostini::CrostiniResult::SUCCESS) {
@@ -337,9 +334,16 @@ bool IsCrostiniRunning(Profile* profile) {
 bool ShouldConfigureDefaultContainer(Profile* profile) {
   const base::FilePath ansible_playbook_file_path =
       profile->GetPrefs()->GetFilePath(prefs::kCrostiniAnsiblePlaybookFilePath);
+  bool default_container_configured = profile->GetPrefs()->GetBoolean(
+      prefs::kCrostiniDefaultContainerConfigured);
   return base::FeatureList::IsEnabled(
              features::kCrostiniAnsibleInfrastructure) &&
-         !ansible_playbook_file_path.empty();
+         !default_container_configured && !ansible_playbook_file_path.empty();
+}
+
+// TODO(davidmunro): Answer based on flag and current container version.
+bool ShouldAllowContainerUpgrade() {
+  return false;
 }
 
 void LaunchCrostiniApp(Profile* profile,
@@ -396,7 +400,8 @@ void LaunchCrostiniApp(Profile* profile,
     // At this point, we know that Crostini UI is allowed.
     if (!crostini_manager->IsCrosTerminaInstalled() ||
         !CrostiniFeatures::Get()->IsEnabled(profile)) {
-      ShowCrostiniInstallerView(profile, CrostiniUISurface::kAppList);
+      crostini::CrostiniInstaller::GetForProfile(profile)->ShowDialog(
+          CrostiniUISurface::kAppList);
       return std::move(callback).Run(false, "Crostini not installed");
     }
 
@@ -432,8 +437,9 @@ void LaunchCrostiniApp(Profile* profile,
 
   auto restart_id = crostini_manager->RestartCrostini(
       vm_name, container_name,
-      base::BindOnce(OnCrostiniRestarted, profile, app_id, browser,
-                     std::move(launch_closure)));
+      base::BindOnce(OnCrostiniRestarted, profile,
+                     crostini::ContainerId(vm_name, container_name), app_id,
+                     browser, std::move(launch_closure)));
 
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE,
@@ -494,27 +500,72 @@ void AddNewLxdContainerToPrefs(Profile* profile,
   base::Value new_container(base::Value::Type::DICTIONARY);
   new_container.SetKey(prefs::kVmKey, base::Value(vm_name));
   new_container.SetKey(prefs::kContainerKey, base::Value(container_name));
+  new_container.SetIntKey(prefs::kContainerOsVersionKey,
+                          static_cast<int>(ContainerOsVersion::kUnknown));
 
   ListPrefUpdate updater(pref_service, crostini::prefs::kCrostiniContainers);
   updater->Append(std::move(new_container));
 }
+
+namespace {
+
+bool MatchContainerDict(const base::Value& dict,
+                        const ContainerId& container_id) {
+  const std::string* vm_name = dict.FindStringKey(prefs::kVmKey);
+  const std::string* container_name = dict.FindStringKey(prefs::kContainerKey);
+  return (vm_name && *vm_name == container_id.vm_name) &&
+         (container_name && *container_name == container_id.container_name);
+}
+
+}  // namespace
 
 void RemoveLxdContainerFromPrefs(Profile* profile,
                                  std::string vm_name,
                                  std::string container_name) {
   auto* pref_service = profile->GetPrefs();
   ListPrefUpdate updater(pref_service, crostini::prefs::kCrostiniContainers);
-  updater->EraseListIter(std::find_if(
-      updater->GetList().begin(), updater->GetList().end(),
-      [&](const auto& dict) {
-        return *dict.FindStringKey(prefs::kVmKey) == vm_name &&
-               *dict.FindStringKey(prefs::kContainerKey) == container_name;
-      }));
+  ContainerId container_id(vm_name, container_name);
+  updater->EraseListIter(
+      std::find_if(updater->GetList().begin(), updater->GetList().end(),
+                   [&](const auto& dict) {
+                     return MatchContainerDict(dict, container_id);
+                   }));
 
   CrostiniRegistryServiceFactory::GetForProfile(profile)->ClearApplicationList(
       vm_name, container_name);
   CrostiniMimeTypesServiceFactory::GetForProfile(profile)->ClearMimeTypes(
       vm_name, container_name);
+}
+
+const base::Value* GetContainerPrefValue(Profile* profile,
+                                         const ContainerId& container_id,
+                                         const std::string& key) {
+  const base::ListValue* containers =
+      profile->GetPrefs()->GetList(crostini::prefs::kCrostiniContainers);
+  if (!containers) {
+    return nullptr;
+  }
+  auto it = std::find_if(
+      containers->begin(), containers->end(),
+      [&](const auto& dict) { return MatchContainerDict(dict, container_id); });
+  if (it == containers->end()) {
+    return nullptr;
+  }
+  return it->FindKey(key);
+}
+
+void UpdateContainerPref(Profile* profile,
+                         const ContainerId& container_id,
+                         const std::string& key,
+                         base::Value value) {
+  ListPrefUpdate updater(profile->GetPrefs(),
+                         crostini::prefs::kCrostiniContainers);
+  auto it = std::find_if(
+      updater->GetList().begin(), updater->GetList().end(),
+      [&](const auto& dict) { return MatchContainerDict(dict, container_id); });
+  if (it != updater->GetList().end()) {
+    it->SetKey(key, std::move(value));
+  }
 }
 
 base::string16 GetTimeRemainingMessage(base::TimeTicks start, int percent) {
@@ -553,6 +604,21 @@ const std::string& GetDeletedTerminalId() {
                : kCrostiniTerminalSystemAppId;
   }());
   return *app_id;
+}
+
+std::vector<int64_t> GetTicksForDiskSize(int64_t min_size,
+                                         int64_t available_space) {
+  if (min_size < 0 || available_space < 0 || min_size > available_space) {
+    return {};
+  }
+  std::vector<int64_t> ticks;
+  int64_t range = available_space - min_size;
+  for (int n = 0; n <= 100; n++) {
+    // These are disk sizes so we're not worried about overflow, 2^60 == 1024
+    // PiB.
+    ticks.emplace_back(min_size + n * range / 100);
+  }
+  return ticks;
 }
 
 }  // namespace crostini

@@ -7,11 +7,11 @@
 
 #include <memory>
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_media_recorder_options.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/mediarecorder/media_recorder_handler.h"
-#include "third_party/blink/renderer/modules/mediarecorder/media_recorder_options.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 
@@ -83,6 +83,10 @@ class MODULES_EXPORT MediaRecorder
                          double timecode);
   virtual void OnError(const String& message);
 
+  // Causes recording to be stopped, remaining data to be written, and onstop to
+  // be sent, unless recording isn't active in which case nothing happens.
+  void OnAllTracksEnded();
+
   void Trace(blink::Visitor* visitor) override;
 
  private:
@@ -99,11 +103,9 @@ class MODULES_EXPORT MediaRecorder
   int video_bits_per_second_;
 
   State state_;
-
+  bool first_write_received_ = false;
   std::unique_ptr<BlobData> blob_data_;
-
   Member<MediaRecorderHandler> recorder_handler_;
-
   HeapVector<Member<Event>> scheduled_events_;
 };
 

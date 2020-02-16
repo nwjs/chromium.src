@@ -17,17 +17,6 @@
 
 namespace chromeos {
 
-namespace {
-
-// Converts |user_account_id| to a string that can be used as a user id when
-// creating a remote device loader.
-std::string ToRemoteDeviceUserId(const CoreAccountId& user_account_id) {
-  // TODO(msarda): For now simply return the underlying id of |user_account_id|.
-  return user_account_id.ToString();
-}
-
-}  // namespace
-
 namespace device_sync {
 
 // static
@@ -39,14 +28,14 @@ std::unique_ptr<RemoteDeviceProvider>
 RemoteDeviceProviderImpl::Factory::NewInstance(
     CryptAuthDeviceManager* v1_device_manager,
     CryptAuthV2DeviceManager* v2_device_manager,
-    const CoreAccountId& user_account_id,
+    const std::string& user_email,
     const std::string& user_private_key) {
   if (!factory_instance_) {
     factory_instance_ = new Factory();
   }
 
   return factory_instance_->BuildInstance(v1_device_manager, v2_device_manager,
-                                          user_account_id, user_private_key);
+                                          user_email, user_private_key);
 }
 
 // static
@@ -61,22 +50,22 @@ std::unique_ptr<RemoteDeviceProvider>
 RemoteDeviceProviderImpl::Factory::BuildInstance(
     CryptAuthDeviceManager* v1_device_manager,
     CryptAuthV2DeviceManager* v2_device_manager,
-    const CoreAccountId& user_account_id,
+    const std::string& user_email,
     const std::string& user_private_key) {
   return base::WrapUnique(new RemoteDeviceProviderImpl(
-      v1_device_manager, v2_device_manager, user_account_id, user_private_key));
+      v1_device_manager, v2_device_manager, user_email, user_private_key));
 }
 
 RemoteDeviceProviderImpl::RemoteDeviceProviderImpl(
     CryptAuthDeviceManager* v1_device_manager,
     CryptAuthV2DeviceManager* v2_device_manager,
-    const CoreAccountId& user_account_id,
+    const std::string& user_email,
     const std::string& user_private_key)
     : v1_device_manager_(v1_device_manager),
       v2_device_manager_(v2_device_manager),
-      user_account_id_(user_account_id),
+      user_email_(user_email),
       user_private_key_(user_private_key) {
-  if (!features::ShouldDeprecateV1DeviceSync()) {
+  if (features::ShouldUseV1DeviceSync()) {
     DCHECK(v1_device_manager_);
     v1_device_manager_->AddObserver(this);
     LoadV1RemoteDevices();
@@ -100,7 +89,7 @@ RemoteDeviceProviderImpl::~RemoteDeviceProviderImpl() {
 void RemoteDeviceProviderImpl::OnSyncFinished(
     CryptAuthDeviceManager::SyncResult sync_result,
     CryptAuthDeviceManager::DeviceChangeResult device_change_result) {
-  DCHECK(!features::ShouldDeprecateV1DeviceSync());
+  DCHECK(features::ShouldUseV1DeviceSync());
 
   if (sync_result == CryptAuthDeviceManager::SyncResult::SUCCESS &&
       device_change_result ==
@@ -121,8 +110,7 @@ void RemoteDeviceProviderImpl::OnDeviceSyncFinished(
 
 void RemoteDeviceProviderImpl::LoadV1RemoteDevices() {
   remote_device_v1_loader_ = RemoteDeviceLoader::Factory::NewInstance(
-      v1_device_manager_->GetSyncedDevices(),
-      ToRemoteDeviceUserId(user_account_id_), user_private_key_,
+      v1_device_manager_->GetSyncedDevices(), user_email_, user_private_key_,
       multidevice::SecureMessageDelegateImpl::Factory::NewInstance());
   remote_device_v1_loader_->Load(
       base::Bind(&RemoteDeviceProviderImpl::OnV1RemoteDevicesLoaded,
@@ -133,8 +121,7 @@ void RemoteDeviceProviderImpl::LoadV2RemoteDevices() {
   remote_device_v2_loader_ =
       RemoteDeviceV2LoaderImpl::Factory::Get()->BuildInstance();
   remote_device_v2_loader_->Load(
-      v2_device_manager_->GetSyncedDevices(),
-      ToRemoteDeviceUserId(user_account_id_), user_private_key_,
+      v2_device_manager_->GetSyncedDevices(), user_email_, user_private_key_,
       base::Bind(&RemoteDeviceProviderImpl::OnV2RemoteDevicesLoaded,
                  weak_ptr_factory_.GetWeakPtr()));
 }
@@ -163,7 +150,7 @@ void RemoteDeviceProviderImpl::OnV2RemoteDevicesLoaded(
     const multidevice::RemoteDeviceList& synced_v2_remote_devices) {
   // If we are only using v2 DeviceSync, the complete list of RemoteDevices
   // is |synced_v2_remote_devices|.
-  if (features::ShouldDeprecateV1DeviceSync()) {
+  if (!features::ShouldUseV1DeviceSync()) {
     synced_remote_devices_ = synced_v2_remote_devices;
     remote_device_v2_loader_.reset();
 
@@ -181,8 +168,8 @@ void RemoteDeviceProviderImpl::OnV2RemoteDevicesLoaded(
 }
 
 void RemoteDeviceProviderImpl::MergeV1andV2SyncedDevices() {
+  DCHECK(features::ShouldUseV1DeviceSync());
   DCHECK(features::ShouldUseV2DeviceSync());
-  DCHECK(!features::ShouldDeprecateV1DeviceSync());
 
   multidevice::RemoteDeviceList previous_synced_remote_devices =
       synced_remote_devices_;

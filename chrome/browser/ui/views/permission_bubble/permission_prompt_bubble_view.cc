@@ -7,14 +7,14 @@
 #include <memory>
 
 #include "base/strings/string16.h"
-#include "chrome/browser/permissions/permission_request.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/browser/ui/views/front_eliding_title_label.h"
+#include "chrome/browser/ui/views/title_origin_label.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/permissions/permission_request.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -51,7 +51,7 @@ PermissionPromptBubbleView::PermissionPromptBubbleView(
       ChromeLayoutProvider::Get()->GetDistanceMetric(
           views::DISTANCE_RELATED_CONTROL_VERTICAL)));
 
-  for (PermissionRequest* request : delegate_->Requests())
+  for (permissions::PermissionRequest* request : delegate_->Requests())
     AddPermissionRequestLine(request);
 
   Show();
@@ -60,7 +60,7 @@ PermissionPromptBubbleView::PermissionPromptBubbleView(
 }
 
 void PermissionPromptBubbleView::AddPermissionRequestLine(
-    PermissionRequest* request) {
+    permissions::PermissionRequest* request) {
   ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
 
   auto* line_container = AddChildView(std::make_unique<views::View>());
@@ -104,17 +104,12 @@ void PermissionPromptBubbleView::CloseWithoutNotifyingDelegate() {
   GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
 }
 
-gfx::NativeWindow PermissionPromptBubbleView::GetNativeWindow() {
-  views::Widget* widget = GetWidget();
-  return widget ? widget->GetNativeWindow() : nullptr;
-}
-
 void PermissionPromptBubbleView::AddedToWidget() {
   if (name_or_origin_.is_origin) {
     // There is a risk of URL spoofing from origins that are too wide to fit in
     // the bubble; elide origins from the front to prevent this.
     GetBubbleFrameView()->SetTitleView(
-        CreateFrontElidingTitleLabel(GetWindowTitle()));
+        CreateTitleOriginLabel(GetWindowTitle()));
   }
 }
 

@@ -57,16 +57,18 @@ sk_sp<SkPromiseImageTexture> CreatePromiseTextureVideo(
     return nullptr;
   }
 
-  GrVkYcbcrConversionInfo fYcbcrConversionInfo(
-      static_cast<VkSamplerYcbcrModelConversion>(
-          ycbcr_info.suggested_ycbcr_model),
-      static_cast<VkSamplerYcbcrRange>(ycbcr_info.suggested_ycbcr_range),
-      static_cast<VkChromaLocation>(ycbcr_info.suggested_xchroma_offset),
-      static_cast<VkChromaLocation>(ycbcr_info.suggested_ychroma_offset),
-      VK_FILTER_LINEAR,  // VkFilter
-      0,                 // VkBool32 forceExplicitReconstruction
-      ycbcr_info.external_format,
-      static_cast<VkFormatFeatureFlags>(ycbcr_info.format_features));
+  // We always use VK_IMAGE_TILING_OPTIMAL while creating the vk image in
+  // VulkanImplementationAndroid::CreateVkImageAndImportAHB. Hence pass the
+  // tiling parameter as VK_IMAGE_TILING_OPTIMAL to below call rather than
+  // passing |vk_image_info.tiling|. This is also to ensure that the promise
+  // image created here at [1] as well the fullfil image created via the current
+  // function call are consistent and both are using VK_IMAGE_TILING_OPTIMAL.
+  // [1] -
+  // https://cs.chromium.org/chromium/src/components/viz/service/display_embedder/skia_output_surface_impl.cc?rcl=db5ffd448ba5d66d9d3c5c099754e5067c752465&l=789.
+  DCHECK_EQ(static_cast<int32_t>(vk_image_info.tiling),
+            static_cast<int32_t>(VK_IMAGE_TILING_OPTIMAL));
+  GrVkYcbcrConversionInfo gr_ycbcr_info = CreateGrVkYcbcrConversionInfo(
+      vk_physical_device, VK_IMAGE_TILING_OPTIMAL, ycbcr_info);
 
   // Create backend texture from the VkImage.
   GrVkAlloc alloc = {vk_device_memory, 0, mem_allocation_size, 0};
@@ -78,7 +80,7 @@ sk_sp<SkPromiseImageTexture> CreatePromiseTextureVideo(
                            vk_image_info.mipLevels,
                            VK_QUEUE_FAMILY_EXTERNAL,
                            GrProtected::kNo,
-                           fYcbcrConversionInfo};
+                           gr_ycbcr_info};
 
   // TODO(bsalomon): Determine whether it makes sense to attempt to reuse this
   // if the vk_info stays the same on subsequent calls.
@@ -146,11 +148,14 @@ SharedImageVideo::~SharedImageVideo() {
     context_state_->RemoveContextLostObserver(this);
 }
 
-bool SharedImageVideo::IsCleared() const {
-  return true;
+gfx::Rect SharedImageVideo::ClearedRect() const {
+  // SharedImageVideo objects are always created from pre-initialized textures
+  // provided by the media decoder. Always treat these as cleared (return the
+  // full rectangle).
+  return gfx::Rect(size());
 }
 
-void SharedImageVideo::SetCleared() {}
+void SharedImageVideo::SetClearedRect(const gfx::Rect& cleared_rect) {}
 
 void SharedImageVideo::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
   DCHECK(!in_fence);
@@ -162,8 +167,6 @@ bool SharedImageVideo::ProduceLegacyMailbox(MailboxManager* mailbox_manager) {
                                   abstract_texture_->GetTextureBase());
   return true;
 }
-
-void SharedImageVideo::Destroy() {}
 
 size_t SharedImageVideo::EstimatedSizeForMemTracking() const {
   // This backing contributes to gpu memory only if its bound to the texture and
@@ -523,7 +526,7 @@ class SharedImageRepresentationOverlayVideo
         stream_image_(backing->stream_texture_sii_) {}
 
  protected:
-  void BeginReadAccess() override {
+  bool BeginReadAccess() override {
     // A |CodecImage| is already in a SurfaceView, render content to the
     // overlay.
     if (!stream_image_->HasTextureOwner()) {
@@ -531,6 +534,7 @@ class SharedImageRepresentationOverlayVideo
                    "SharedImageRepresentationOverlayVideo::BeginReadAccess");
       stream_image_->RenderToOverlay();
     }
+    return true;
   }
 
   void EndReadAccess() override {}

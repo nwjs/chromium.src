@@ -30,7 +30,6 @@
 
 #include "third_party/blink/renderer/core/layout/layout_list_box.h"
 
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/html/forms/html_opt_group_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
@@ -39,6 +38,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 
 namespace blink {
@@ -125,13 +125,6 @@ void LayoutListBox::ComputeLogicalHeight(
   LayoutBox::ComputeLogicalHeight(height, logical_top, computed_values);
 }
 
-void LayoutListBox::StopAutoscroll() {
-  HTMLSelectElement* select = SelectElement();
-  if (select->IsDisabledFormControl())
-    return;
-  select->HandleMouseRelease();
-}
-
 void LayoutListBox::ComputeIntrinsicLogicalWidths(
     LayoutUnit& min_logical_width,
     LayoutUnit& max_logical_width) const {
@@ -139,18 +132,6 @@ void LayoutListBox::ComputeIntrinsicLogicalWidths(
                                                  max_logical_width);
   if (StyleRef().Width().IsPercentOrCalc())
     min_logical_width = LayoutUnit();
-}
-
-void LayoutListBox::ScrollToRect(const PhysicalRect& absolute_rect) {
-  if (HasOverflowClip()) {
-    DCHECK(Layer());
-    DCHECK(Layer()->GetScrollableArea());
-    Layer()->GetScrollableArea()->ScrollIntoView(
-        absolute_rect, WebScrollIntoViewParams(
-                           ScrollAlignment::kAlignToEdgeIfNeeded,
-                           ScrollAlignment::kAlignToEdgeIfNeeded,
-                           kProgrammaticScroll, false, kScrollBehaviorInstant));
-  }
 }
 
 }  // namespace blink

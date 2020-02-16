@@ -7,31 +7,59 @@ package org.chromium.chrome.browser.share.qrcode.scan_tab;
 import android.content.Context;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
-import android.view.Surface;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.view.WindowManager;
+
+import org.chromium.ui.display.DisplayAndroid;
 
 /** CameraPreview class controls camera and camera previews. */
 public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
-    private SurfaceHolder mHolder;
-    private Camera mCamera;
+    private static final String THREAD_NAME = "CameraHandlerThread";
+
+    private final Context mContext;
+    private final Camera.PreviewCallback mCameraCallback;
+
     private int mCameraId;
-    private Context mContext;
+    private Camera mCamera;
+    private HandlerThread mCameraThread;
 
     /**
      * The CameraPreview constructor.
      * @param context The context to use for user permissions.
+     * @param cameraCallback The callback to processing camera preview.
      */
-    public CameraPreview(Context context) {
+    public CameraPreview(Context context, Camera.PreviewCallback cameraCallback) {
         super(context);
         mContext = context;
-        mHolder = getHolder();
+        mCameraCallback = cameraCallback;
     }
 
     /** Obtains a camera and starts the preview. */
     public void startCamera() {
-        setCameraInstance();
+        startCameraAsync();
+    }
+
+    /** Starts the default camera on a separate thread. */
+    private void startCameraAsync() {
+        if (mCameraThread == null) {
+            mCameraThread = new HandlerThread(THREAD_NAME);
+            mCameraThread.start();
+        }
+        mCameraId = getDefaultCameraId();
+        Handler handler = new Handler(mCameraThread.getLooper());
+        handler.post(() -> {
+            Camera camera = getCameraInstance(mCameraId);
+            Handler mainHandler = new Handler(Looper.getMainLooper());
+            mainHandler.post(() -> { setupCamera(camera); });
+        });
+    }
+
+    /** Sets camera information. Set camera to null if camera is used or doesn't exist. */
+    private void setupCamera(Camera camera) {
+        mCamera = camera;
         startCameraPreview();
     }
 
@@ -43,19 +71,25 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
         stopCameraPreview();
         mCamera.release();
+
+        if (mCameraThread != null) {
+            mCameraThread.quit();
+            mCameraThread = null;
+        }
     }
 
     /** Sets up and starts camera preview. */
     private void startCameraPreview() {
+        getHolder().addCallback(this);
+
         if (mCamera == null) {
             return;
         }
 
-        getHolder().addCallback(this);
-
         try {
             mCamera.setPreviewDisplay(getHolder());
             mCamera.setDisplayOrientation(getCameraOrientation());
+            mCamera.setOneShotPreviewCallback(mCameraCallback);
 
             Camera.Parameters parameters = mCamera.getParameters();
             parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
@@ -69,32 +103,17 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     /** Stops camera preview. */
     private void stopCameraPreview() {
+        getHolder().removeCallback(this);
+
         if (mCamera == null) {
             return;
         }
 
-        getHolder().removeCallback(this);
-
+        mCamera.setOneShotPreviewCallback(null);
         try {
             mCamera.stopPreview();
         } catch (RuntimeException e) {
             // Ignore, error is not important after stopPreview is called.
-        }
-    }
-
-    /** Sets camera information. Set camera to null if camera is used or doesn't exist. */
-    private void setCameraInstance() {
-        mCamera = null;
-        mCameraId = getDefaultCameraId();
-
-        if (mCameraId == -1) {
-            return;
-        }
-
-        try {
-            mCamera = Camera.open(mCameraId);
-        } catch (RuntimeException e) {
-            // TODO(gayane): Should show error message to users, when error strings are approved.
         }
     }
 
@@ -121,24 +140,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
     /** Gets the display orientation degree as integer. */
     private int getDisplayOrientation() {
-        final int orientation;
-        WindowManager wm = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
-        switch (wm.getDefaultDisplay().getRotation()) {
-            case Surface.ROTATION_90:
-                orientation = 90;
-                break;
-            case Surface.ROTATION_180:
-                orientation = 180;
-                break;
-            case Surface.ROTATION_270:
-                orientation = 270;
-                break;
-            case Surface.ROTATION_0:
-            default:
-                orientation = 0;
-                break;
-        }
-        return orientation;
+        DisplayAndroid display = DisplayAndroid.getNonMultiDisplay(mContext);
+        return display.getRotationDegrees();
     }
 
     /** Returns whether given camera info corresponds to back camera. */
@@ -159,6 +162,20 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
             }
         }
         return defaultCameraId;
+    }
+
+    /**
+     * Returns an instance of the Camera for the give id. Returns null if camera is used or doesn't
+     * exist.
+     */
+    private static Camera getCameraInstance(int cameraId) {
+        Camera camera = null;
+        try {
+            camera = Camera.open(cameraId);
+        } catch (RuntimeException e) {
+            // TODO(gayane): Should show error message to users, when error strings are approved.
+        }
+        return camera;
     }
 
     /** SurfaceHolder.Callback implementation. */

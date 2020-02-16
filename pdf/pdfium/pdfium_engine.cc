@@ -500,10 +500,10 @@ void PDFiumEngine::Paint(const pp::Rect& rect,
     // Compute the leftover dirty region. The first page may have blank space
     // above it, in which case we also need to subtract that space from the
     // dirty region.
-    // If |two_up_view_|, we don't need to recompute |leftover| since
+    // If two-up view is enabled, we don't need to recompute |leftover| since
     // subtracting |leftover| with a two-up view page won't result in a
     // rectangle.
-    if (!two_up_view_) {
+    if (!layout_.options().two_up_view_enabled()) {
       if (i == 0) {
         pp::Rect blank_space_in_screen = dirty_in_screen;
         blank_space_in_screen.set_y(0);
@@ -1925,6 +1925,11 @@ void PDFiumEngine::RotateCounterclockwise() {
   ProposeNextDocumentLayout();
 }
 
+void PDFiumEngine::SetTwoUpView(bool enable) {
+  desired_layout_options_.set_two_up_view_enabled(enable);
+  ProposeNextDocumentLayout();
+}
+
 void PDFiumEngine::InvalidateAllPages() {
   CancelPaints();
   StopFind();
@@ -2012,12 +2017,27 @@ void PDFiumEngine::HandleAccessibilityAction(
     }
     case PP_PdfAccessibilityAction::PP_PDF_DO_DEFAULT_ACTION: {
       if (PageIndexInBounds(action_data.page_index)) {
-        PDFiumPage::LinkTarget target;
-        PDFiumPage::Area area =
-            pages_[action_data.page_index]->GetLinkTargetAtIndex(
-                action_data.link_index, &target);
-        NavigateToLinkDestination(area, target,
-                                  WindowOpenDisposition::CURRENT_TAB);
+        if (action_data.annotation_type ==
+            PP_PdfAccessibilityAnnotationType::PP_PDF_LINK) {
+          PDFiumPage::LinkTarget target;
+          PDFiumPage::Area area =
+              pages_[action_data.page_index]->GetLinkTargetAtIndex(
+                  action_data.annotation_index, &target);
+          NavigateToLinkDestination(area, target,
+                                    WindowOpenDisposition::CURRENT_TAB);
+        }
+      }
+      break;
+    }
+    case PP_PdfAccessibilityAction::PP_PDF_SCROLL_TO_GLOBAL_POINT: {
+      ScrollToGlobalPoint(action_data.target_rect, action_data.target_point);
+      break;
+    }
+    case PP_PdfAccessibilityAction::PP_PDF_SET_SELECTION: {
+      if (IsPageCharacterIndexInBounds(action_data.selection_start_index) &&
+          IsPageCharacterIndexInBounds(action_data.selection_end_index)) {
+        SetSelection(action_data.selection_start_index,
+                     action_data.selection_end_index);
       }
       break;
     }
@@ -2192,6 +2212,12 @@ void PDFiumEngine::ScrollBasedOnScrollAlignment(
   }
 
   client_->ScrollBy(scroll_offset);
+}
+
+void PDFiumEngine::ScrollToGlobalPoint(const pp::Rect& target_rect,
+                                       const pp::Point& global_point) {
+  pp::Point scroll_offset = GetScreenRect(target_rect).point();
+  client_->ScrollBy(scroll_offset - global_point);
 }
 
 base::Optional<PDFEngine::NamedDestination> PDFiumEngine::GetNamedDestination(
@@ -2514,7 +2540,7 @@ void PDFiumEngine::UpdateDocumentLayout(DocumentLayout* layout) {
   if (page_sizes.empty())
     return;
 
-  if (two_up_view_) {
+  if (layout->options().two_up_view_enabled()) {
     layout->ComputeTwoUpViewLayout(page_sizes);
   } else {
     layout->ComputeSingleViewLayout(page_sizes);
@@ -2556,7 +2582,7 @@ std::vector<pp::Size> PDFiumEngine::LoadPageSizes(
     // layout options, and handled in the layout code.
     pp::Size size = page_available ? GetPageSizeForLayout(i, layout_options)
                                    : default_page_size_;
-    EnlargePage(i, new_page_count, &size);
+    EnlargePage(layout_options, i, new_page_count, &size);
     page_sizes.push_back(size);
   }
 
@@ -2767,11 +2793,12 @@ pp::Size PDFiumEngine::GetPageSizeForLayout(
 }
 
 draw_utils::PageInsetSizes PDFiumEngine::GetInsetSizes(
+    const DocumentLayout::Options& layout_options,
     size_t page_index,
     size_t num_of_pages) const {
   DCHECK_LT(page_index, num_of_pages);
 
-  if (two_up_view_) {
+  if (layout_options.two_up_view_enabled()) {
     return draw_utils::GetPageInsetsForTwoUpView(
         page_index, num_of_pages, DocumentLayout::kSingleViewInsets,
         DocumentLayout::kHorizontalSeparator);
@@ -2780,21 +2807,23 @@ draw_utils::PageInsetSizes PDFiumEngine::GetInsetSizes(
   return DocumentLayout::kSingleViewInsets;
 }
 
-void PDFiumEngine::EnlargePage(size_t page_index,
+void PDFiumEngine::EnlargePage(const DocumentLayout::Options& layout_options,
+                               size_t page_index,
                                size_t num_of_pages,
                                pp::Size* page_size) const {
   draw_utils::PageInsetSizes inset_sizes =
-      GetInsetSizes(page_index, num_of_pages);
+      GetInsetSizes(layout_options, page_index, num_of_pages);
   page_size->Enlarge(inset_sizes.left + inset_sizes.right,
                      inset_sizes.top + inset_sizes.bottom);
 }
 
-void PDFiumEngine::InsetPage(size_t page_index,
+void PDFiumEngine::InsetPage(const DocumentLayout::Options& layout_options,
+                             size_t page_index,
                              size_t num_of_pages,
                              double multiplier,
                              pp::Rect* rect) const {
   draw_utils::PageInsetSizes inset_sizes =
-      GetInsetSizes(page_index, num_of_pages);
+      GetInsetSizes(layout_options, page_index, num_of_pages);
   rect->Inset(static_cast<int>(ceil(inset_sizes.left * multiplier)),
               static_cast<int>(ceil(inset_sizes.top * multiplier)),
               static_cast<int>(ceil(inset_sizes.right * multiplier)),
@@ -2806,7 +2835,7 @@ base::Optional<size_t> PDFiumEngine::GetAdjacentPageIndexForTwoUpView(
     size_t num_of_pages) const {
   DCHECK_LT(page_index, num_of_pages);
 
-  if (!two_up_view_)
+  if (!layout_.options().two_up_view_enabled())
     return base::nullopt;
 
   int adjacent_page_offset = page_index % 2 ? -1 : 1;
@@ -2916,10 +2945,11 @@ void PDFiumEngine::FillPageSides(int progressive_index) {
       progressive_paints_[progressive_index].rect();
   FPDF_BITMAP bitmap = progressive_paints_[progressive_index].bitmap();
   draw_utils::PageInsetSizes inset_sizes =
-      GetInsetSizes(page_index, pages_.size());
+      GetInsetSizes(layout_.options(), page_index, pages_.size());
 
   pp::Rect page_rect = pages_[page_index]->rect();
-  if (page_rect.x() > 0 && (!two_up_view_ || page_index % 2 == 0)) {
+  const bool is_two_up_view = layout_.options().two_up_view_enabled();
+  if (page_rect.x() > 0 && (!is_two_up_view || page_index % 2 == 0)) {
     // If in two-up view, only need to draw the left empty space for left pages
     // since the gap between the left and right page will be drawn by the left
     // page.
@@ -2946,7 +2976,7 @@ void PDFiumEngine::FillPageSides(int progressive_index) {
   }
 
   pp::Rect bottom_in_screen;
-  if (two_up_view_) {
+  if (is_two_up_view) {
     pp::Rect page_in_screen = GetScreenRect(page_rect);
     bottom_in_screen = draw_utils::GetBottomGapBetweenRects(
         page_in_screen.bottom(), dirty_in_screen);
@@ -2980,7 +3010,8 @@ void PDFiumEngine::PaintPageShadow(int progressive_index,
       progressive_paints_[progressive_index].rect();
   pp::Rect page_rect = pages_[page_index]->rect();
   pp::Rect shadow_rect(page_rect);
-  InsetPage(page_index, pages_.size(), /*multiplier=*/-1, &shadow_rect);
+  InsetPage(layout_.options(), page_index, pages_.size(), /*multiplier=*/-1,
+            &shadow_rect);
 
   // Due to the rounding errors of the GetScreenRect it is possible to get
   // different size shadows on the left and right sides even they are defined
@@ -2988,8 +3019,8 @@ void PDFiumEngine::PaintPageShadow(int progressive_index,
   // it by the size of the shadows.
   shadow_rect = GetScreenRect(shadow_rect);
   page_rect = shadow_rect;
-  InsetPage(page_index, pages_.size(), /*multiplier=*/current_zoom_,
-            &page_rect);
+  InsetPage(layout_.options(), page_index, pages_.size(),
+            /*multiplier=*/current_zoom_, &page_rect);
 
   DrawPageShadow(page_rect, shadow_rect, dirty_in_screen, image_data);
 }
@@ -3116,7 +3147,7 @@ pp::Rect PDFiumEngine::GetVisibleRect() const {
 pp::Rect PDFiumEngine::GetPageScreenRect(int page_index) const {
   const pp::Rect& page_rect = pages_[page_index]->rect();
   draw_utils::PageInsetSizes inset_sizes =
-      GetInsetSizes(page_index, pages_.size());
+      GetInsetSizes(layout_.options(), page_index, pages_.size());
 
   int max_page_height = page_rect.height();
   base::Optional<size_t> adjacent_page_index =
@@ -3507,8 +3538,9 @@ bool PDFiumEngine::IsPointInEditableFormTextArea(FPDF_PAGE page,
            form_type == FPDF_FORMFIELD_XFA_COMBOBOX;
 #endif  // defined(PDF_ENABLE_XFA)
 
+  const FS_POINTF point = {page_x, page_y};
   ScopedFPDFAnnotation annot(
-      FPDFAnnot_GetFormFieldAtPoint(form(), page, page_x, page_y));
+      FPDFAnnot_GetFormFieldAtPoint(form(), page, &point));
   if (!annot)
     return false;
 
@@ -3530,6 +3562,12 @@ bool PDFiumEngine::PageIndexInBounds(int index) const {
   return index >= 0 && index < static_cast<int>(pages_.size());
 }
 
+bool PDFiumEngine::IsPageCharacterIndexInBounds(
+    const PP_PdfPageCharacterIndex& index) const {
+  return PageIndexInBounds(index.page_index) &&
+         pages_[index.page_index]->IsCharIndexInBounds(index.char_index);
+}
+
 float PDFiumEngine::GetToolbarHeightInScreenCoords() {
   return client_->GetToolbarHeightInScreenCoords();
 }
@@ -3538,6 +3576,40 @@ FPDF_BOOL PDFiumEngine::Pause_NeedToPauseNow(IFSDK_PAUSE* param) {
   PDFiumEngine* engine = static_cast<PDFiumEngine*>(param);
   return base::Time::Now() - engine->last_progressive_start_time_ >
          engine->progressive_paint_timeout_;
+}
+
+void PDFiumEngine::SetSelection(
+    const PP_PdfPageCharacterIndex& selection_start_index,
+    const PP_PdfPageCharacterIndex& selection_end_index) {
+  SelectionChangeInvalidator selection_invalidator(this);
+  selection_.clear();
+
+  PP_PdfPageCharacterIndex sel_start_index = selection_start_index;
+  PP_PdfPageCharacterIndex sel_end_index = selection_end_index;
+  if (sel_end_index.page_index < sel_start_index.page_index) {
+    std::swap(sel_end_index.page_index, sel_start_index.page_index);
+    std::swap(sel_end_index.char_index, sel_start_index.char_index);
+  }
+
+  if (sel_end_index.page_index == sel_start_index.page_index &&
+      sel_end_index.char_index < sel_start_index.char_index) {
+    std::swap(sel_end_index.char_index, sel_start_index.char_index);
+  }
+
+  for (uint32_t i = sel_start_index.page_index; i <= sel_end_index.page_index;
+       ++i) {
+    int32_t char_count = pages_[i]->GetCharCount();
+    if (char_count <= 0)
+      continue;
+    int32_t start_char_index = 0;
+    int32_t end_char_index = char_count;
+    if (i == sel_start_index.page_index)
+      start_char_index = sel_start_index.char_index;
+    if (i == sel_end_index.page_index)
+      end_char_index = sel_end_index.char_index;
+    selection_.push_back(PDFiumRange(pages_[i].get(), start_char_index,
+                                     end_char_index - start_char_index));
+  }
 }
 
 void PDFiumEngine::SetCaretPosition(const pp::Point& position) {

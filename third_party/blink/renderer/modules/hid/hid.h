@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
 
 namespace blink {
 
@@ -66,12 +67,14 @@ class HID : public EventTargetWithInlineData, public ContextLifecycleObserver {
   void FinishGetDevices(ScriptPromiseResolver*,
                         Vector<device::mojom::blink::HidDeviceInfoPtr>);
   void FinishRequestDevice(ScriptPromiseResolver*,
-                           device::mojom::blink::HidDeviceInfoPtr);
+                           Vector<device::mojom::blink::HidDeviceInfoPtr>);
 
   mojo::Remote<mojom::blink::HidService> service_;
   HeapHashSet<Member<ScriptPromiseResolver>> get_devices_promises_;
   HeapHashSet<Member<ScriptPromiseResolver>> request_device_promises_;
   HeapHashMap<String, WeakMember<HIDDevice>> device_cache_;
+  FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle
+      feature_handle_for_scheduler_;
 };
 
 }  // namespace blink

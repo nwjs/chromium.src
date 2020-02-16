@@ -778,6 +778,34 @@ std::string GetDictStringUTF8(const base::Value& dict, const char* name) {
   return value && value->is_string() ? value->GetString() : std::string();
 }
 
+HRESULT SearchForListInStringDictUTF8(
+    const std::string& list_key,
+    const std::string& json_string,
+    const std::initializer_list<base::StringPiece>& path,
+    std::vector<std::string>* output) {
+  DCHECK(path.size() > 0);
+
+  base::Optional<base::Value> json_obj =
+      base::JSONReader::Read(json_string, base::JSON_ALLOW_TRAILING_COMMAS);
+  if (!json_obj || !json_obj->is_dict()) {
+    LOGFN(ERROR) << "base::JSONReader::Read failed to translate to JSON";
+    return E_FAIL;
+  }
+
+  auto* value = json_obj->FindListPath(base::JoinString(path, "."));
+  if (value && value->is_list()) {
+    for (const base::Value& entry : value->GetList()) {
+      if (entry.FindKey(list_key) && entry.FindKey(list_key)->is_string()) {
+        std::string value = entry.FindKey(list_key)->GetString();
+        output->push_back(value);
+      } else {
+        return E_FAIL;
+      }
+    }
+  }
+  return S_OK;
+}
+
 std::string GetDictStringUTF8(const std::unique_ptr<base::Value>& dict,
                               const char* name) {
   return GetDictStringUTF8(*dict, name);
@@ -805,6 +833,25 @@ base::string16 GetWindowsVersion() {
 
 base::Version GetMinimumSupportedChromeVersion() {
   return base::Version(kMinimumSupportedChromeVersionStr);
+}
+
+bool ExtractKeysFromDict(
+    const base::Value& dict,
+    const std::vector<std::pair<std::string, std::string*>>& needed_outputs) {
+  if (!dict.is_dict())
+    return false;
+
+  for (const std::pair<std::string, std::string*>& output : needed_outputs) {
+    const std::string* output_value = dict.FindStringKey(output.first);
+    if (!output_value) {
+      LOGFN(ERROR) << "Could not extract value '" << output.first
+                   << "' from server response";
+      return false;
+    }
+    DCHECK(output.second);
+    *output.second = *output_value;
+  }
+  return true;
 }
 
 FakesForTesting::FakesForTesting() {}

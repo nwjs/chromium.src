@@ -19,7 +19,6 @@
 #include "cc/animation/animation_id_provider.h"
 #include "cc/animation/animation_timeline.h"
 #include "cc/animation/element_animations.h"
-#include "cc/animation/keyframe_effect.h"
 #include "cc/animation/scroll_offset_animation_curve.h"
 #include "cc/animation/scroll_offset_animations.h"
 #include "cc/animation/scroll_offset_animations_impl.h"
@@ -172,11 +171,10 @@ void AnimationHost::UnregisterElementId(ElementId element_id,
     element_animations->ElementIdUnregistered(element_id, list_type);
 }
 
-void AnimationHost::RegisterKeyframeEffectForElement(
-    ElementId element_id,
-    KeyframeEffect* keyframe_effect) {
+void AnimationHost::RegisterAnimationForElement(ElementId element_id,
+                                                Animation* animation) {
   DCHECK(element_id);
-  DCHECK(keyframe_effect);
+  DCHECK(animation);
 
   scoped_refptr<ElementAnimations> element_animations =
       GetElementAnimationsForElementId(element_id);
@@ -188,14 +186,13 @@ void AnimationHost::RegisterKeyframeEffectForElement(
 
   DCHECK(element_animations->AnimationHostIs(this));
 
-  element_animations->AddKeyframeEffect(keyframe_effect);
+  element_animations->AddKeyframeEffect(animation->keyframe_effect());
 }
 
-void AnimationHost::UnregisterKeyframeEffectForElement(
-    ElementId element_id,
-    KeyframeEffect* keyframe_effect) {
+void AnimationHost::UnregisterAnimationForElement(ElementId element_id,
+                                                  Animation* animation) {
   DCHECK(element_id);
-  DCHECK(keyframe_effect);
+  DCHECK(animation);
 
   scoped_refptr<ElementAnimations> element_animations =
       GetElementAnimationsForElementId(element_id);
@@ -207,13 +204,15 @@ void AnimationHost::UnregisterKeyframeEffectForElement(
   PropertyToElementIdMap element_id_map =
       element_animations->GetPropertyToElementIdMap();
 
-  element_animations->RemoveKeyframeEffect(keyframe_effect);
+  element_animations->RemoveKeyframeEffect(animation->keyframe_effect());
 
   if (element_animations->IsEmpty()) {
     element_animations->ClearAffectedElementTypes(element_id_map);
     element_to_animations_map_.erase(element_animations->element_id());
     element_animations->ClearAnimationHost();
   }
+
+  RemoveFromTicking(animation);
 }
 
 void AnimationHost::SetMutatorHostClient(MutatorHostClient* client) {
@@ -379,7 +378,7 @@ bool AnimationHost::ActivateAnimations(MutatorEvents* mutator_events) {
   TRACE_EVENT0("cc", "AnimationHost::ActivateAnimations");
   AnimationsList ticking_animations_copy = ticking_animations_;
   for (auto& it : ticking_animations_copy) {
-    it->ActivateKeyframeEffects();
+    it->ActivateKeyframeModels();
     // Finish animations which no longer affect active or pending elements.
     it->UpdateState(false, animation_events);
   }
@@ -473,6 +472,17 @@ bool AnimationHost::UpdateAnimationState(bool start_ready_animations,
   return true;
 }
 
+void AnimationHost::TakeTimeUpdatedEvents(MutatorEvents* events) {
+  auto* animation_events = static_cast<AnimationEvents*>(events);
+  if (!animation_events->needs_time_updated_events())
+    return;
+
+  for (auto& it : ticking_animations_)
+    it->TakeTimeUpdatedEvent(animation_events);
+
+  animation_events->set_needs_time_updated_events(false);
+}
+
 void AnimationHost::PromoteScrollTimelinesPendingToActive() {
   for (auto& animation : ticking_animations_) {
     animation->PromoteScrollTimelinePendingToActive();
@@ -485,6 +495,7 @@ std::unique_ptr<MutatorEvents> AnimationHost::CreateEvents() {
 
 void AnimationHost::SetAnimationEvents(
     std::unique_ptr<MutatorEvents> mutator_events) {
+  DCHECK_EQ(thread_instance_, ThreadInstance::MAIN);
   auto events =
       base::WrapUnique(static_cast<AnimationEvents*>(mutator_events.release()));
 
@@ -654,15 +665,13 @@ void AnimationHost::ImplOnlyScrollAnimationCreate(
 }
 
 bool AnimationHost::ImplOnlyScrollAnimationUpdateTarget(
-    ElementId element_id,
     const gfx::Vector2dF& scroll_delta,
     const gfx::ScrollOffset& max_scroll_offset,
     base::TimeTicks frame_monotonic_time,
     base::TimeDelta delayed_by) {
   DCHECK(scroll_offset_animations_impl_);
   return scroll_offset_animations_impl_->ScrollAnimationUpdateTarget(
-      element_id, scroll_delta, max_scroll_offset, frame_monotonic_time,
-      delayed_by);
+      scroll_delta, max_scroll_offset, frame_monotonic_time, delayed_by);
 }
 
 ScrollOffsetAnimations& AnimationHost::scroll_offset_animations() const {

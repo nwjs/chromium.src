@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.device;
 import org.chromium.base.CommandLine;
 import org.chromium.base.SysUtils;
 import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
@@ -20,7 +22,6 @@ public class DeviceClassManager {
     private static DeviceClassManager sInstance;
 
     // Set of features that can be enabled/disabled
-    private boolean mEnableSnapshots;
     private boolean mEnableLayerDecorationCache;
     private boolean mEnableAccessibilityLayout;
     private boolean mEnableAnimations;
@@ -43,14 +44,14 @@ public class DeviceClassManager {
     private DeviceClassManager() {
         // Device based configurations.
         if (SysUtils.isLowEndDevice()) {
-            mEnableSnapshots = false;
             mEnableLayerDecorationCache = true;
-            mEnableAccessibilityLayout = true;
+            mEnableAccessibilityLayout =
+                    !FeatureUtilities.isTabGroupsAndroidContinuationChromeFlagEnabled()
+                    || !ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_GROUPS_ANDROID);
             mEnableAnimations = false;
             mEnablePrerendering = false;
             mEnableToolbarSwipe = false;
         } else {
-            mEnableSnapshots = true;
             mEnableLayerDecorationCache = true;
             mEnableAccessibilityLayout = false;
             mEnableAnimations = true;
@@ -74,13 +75,6 @@ public class DeviceClassManager {
         if (mEnableAccessibilityLayout) {
             mEnableAnimations = false;
         }
-    }
-
-    /**
-     * @return Whether or not we can take screenshots.
-     */
-    public static boolean enableSnapshots() {
-        return getInstance().mEnableSnapshots;
     }
 
     /**

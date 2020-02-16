@@ -100,13 +100,19 @@ class RequiredFieldsFallbackHandler {
       size_t required_fields_index,
       std::unique_ptr<FallbackData> fallback_data);
 
+  // Called after retrieving tag name from a field.
+  void OnGetFallbackFieldTag(size_t required_fields_index,
+                             std::unique_ptr<FallbackData> fallback_data,
+                             const ClientStatus& element_tag_status,
+                             const std::string& element_tag);
+
   // Called after trying to set form values without Autofill in case of fallback
   // after failed validation.
   void OnSetFallbackFieldValue(size_t required_fields_index,
                                std::unique_ptr<FallbackData> fallback_data,
                                const ClientStatus& status);
 
-  ClientStatus initial_autofill_status_;
+  ClientStatus client_status_;
 
   std::vector<RequiredField> required_fields_;
   base::OnceCallback<void(const ClientStatus&,

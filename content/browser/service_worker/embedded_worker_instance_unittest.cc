@@ -118,12 +118,9 @@ class EmbeddedWorkerInstanceTest : public testing::Test,
     RegistrationAndVersionPair pair;
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = scope;
-    pair.first = base::MakeRefCounted<ServiceWorkerRegistration>(
-        options, context()->storage()->NewRegistrationId(),
-        context()->AsWeakPtr());
-    pair.second = base::MakeRefCounted<ServiceWorkerVersion>(
-        pair.first.get(), script_url, blink::mojom::ScriptType::kClassic,
-        context()->storage()->NewVersionId(), context()->AsWeakPtr());
+    pair.first = context()->registry()->CreateNewRegistration(options);
+    pair.second = context()->registry()->CreateNewVersion(
+        pair.first.get(), script_url, blink::mojom::ScriptType::kClassic);
     return pair;
   }
 
@@ -173,8 +170,9 @@ class EmbeddedWorkerInstanceTest : public testing::Test,
       scoped_refptr<ServiceWorkerVersion> version) {
     auto provider_info =
         blink::mojom::ServiceWorkerProviderInfoForStartWorker::New();
-    version->provider_host_ = ServiceWorkerProviderHost::CreateForServiceWorker(
-        context()->AsWeakPtr(), version, &provider_info);
+    version->provider_host_ = std::make_unique<ServiceWorkerProviderHost>(
+        provider_info->host_remote.InitWithNewEndpointAndPassReceiver(),
+        version, context()->AsWeakPtr());
     return provider_info;
   }
 

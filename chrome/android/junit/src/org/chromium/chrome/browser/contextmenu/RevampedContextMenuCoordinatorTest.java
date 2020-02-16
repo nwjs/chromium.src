@@ -11,7 +11,9 @@ import android.app.Activity;
 import android.util.Pair;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 
@@ -20,7 +22,10 @@ import org.chromium.blink_public.common.ContextMenuDataMediaType;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuItem.Item;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuPopulator.ContextMenuGroup;
+import org.chromium.chrome.browser.contextmenu.ContextMenuParams.PerformanceClass;
 import org.chromium.chrome.browser.contextmenu.RevampedContextMenuCoordinator.ListItemType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -32,7 +37,11 @@ import java.util.List;
  * Unit tests for the Revamped context menu.
  */
 @RunWith(BaseRobolectricTestRunner.class)
+@Features.DisableFeatures(ChromeFeatureList.CONTEXT_MENU_PERFORMANCE_INFO)
 public class RevampedContextMenuCoordinatorTest {
+    @Rule
+    public TestRule mProcessor = new Features.JUnitProcessor();
+
     private RevampedContextMenuCoordinator mCoordinator;
     private Activity mActivity;
     private WindowAndroid mWindow;
@@ -46,8 +55,8 @@ public class RevampedContextMenuCoordinatorTest {
 
     @Test
     public void testGetItemListWithImageLink() {
-        final ContextMenuParams params = new ContextMenuParams(
-                ContextMenuDataMediaType.IMAGE, "", "", "", "", "", "", null, false, 0, 0, 0);
+        final ContextMenuParams params = new ContextMenuParams(ContextMenuDataMediaType.IMAGE, "",
+                "", "", "", "", "", null, false, 0, 0, 0, PerformanceClass.PERFORMANCE_UNKNOWN);
         List<Pair<Integer, List<ContextMenuItem>>> rawItems = new ArrayList<>();
         // Link items
         List<ContextMenuItem> groupOne = new ArrayList<>();
@@ -86,8 +95,8 @@ public class RevampedContextMenuCoordinatorTest {
         // isn't image or video, the header mediator tries to get a favicon for us and calls
         // Profile.getLastUsedProfile(), which throws an exception because native isn't initialized.
         // mediaType here doesn't have any effect on what we're testing.
-        final ContextMenuParams params = new ContextMenuParams(
-                ContextMenuDataMediaType.IMAGE, "", "", "", "", "", "", null, false, 0, 0, 0);
+        final ContextMenuParams params = new ContextMenuParams(ContextMenuDataMediaType.IMAGE, "",
+                "", "", "", "", "", null, false, 0, 0, 0, PerformanceClass.PERFORMANCE_UNKNOWN);
         List<Pair<Integer, List<ContextMenuItem>>> rawItems = new ArrayList<>();
         // Link items
         List<ContextMenuItem> groupOne = new ArrayList<>();
@@ -111,8 +120,8 @@ public class RevampedContextMenuCoordinatorTest {
 
     @Test
     public void testGetItemListWithVideo() {
-        final ContextMenuParams params = new ContextMenuParams(
-                ContextMenuDataMediaType.VIDEO, "", "", "", "", "", "", null, false, 0, 0, 0);
+        final ContextMenuParams params = new ContextMenuParams(ContextMenuDataMediaType.VIDEO, "",
+                "", "", "", "", "", null, false, 0, 0, 0, PerformanceClass.PERFORMANCE_UNKNOWN);
         List<Pair<Integer, List<ContextMenuItem>>> rawItems = new ArrayList<>();
         // Video items
         List<ContextMenuItem> groupOne = new ArrayList<>();

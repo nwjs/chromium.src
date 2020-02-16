@@ -5,39 +5,47 @@
 #include "chrome/browser/web_applications/components/file_handler_manager.h"
 
 #include "base/feature_list.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/components/web_app_file_handler_registration.h"
+#include "chrome/browser/web_applications/components/web_app_prefs_utils.h"
 #include "third_party/blink/public/common/features.h"
 
 namespace web_app {
 
 FileHandlerManager::FileHandlerManager(Profile* profile)
-    : profile_(profile), registrar_observer_(this), shortcut_observer_(this) {}
+    : profile_(profile), registrar_observer_(this) {}
 
 FileHandlerManager::~FileHandlerManager() = default;
 
-void FileHandlerManager::SetSubsystems(AppRegistrar* registrar,
-                                       AppShortcutManager* shortcut_manager) {
+void FileHandlerManager::SetSubsystems(AppRegistrar* registrar) {
   registrar_ = registrar;
-  shortcut_manager_ = shortcut_manager;
 }
 
 void FileHandlerManager::Start() {
   DCHECK(registrar_);
-  DCHECK(shortcut_manager_);
 
   registrar_observer_.Add(registrar_);
-  shortcut_observer_.Add(shortcut_manager_);
+}
+
+void FileHandlerManager::DisableOsIntegrationForTesting() {
+  disable_os_integration_for_testing_ = true;
 }
 
 void FileHandlerManager::EnableAndRegisterOsFileHandlers(const AppId& app_id) {
-  if (!base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) ||
-      !ShouldRegisterFileHandlersWithOs()) {
+  if (!IsFileHandlingAPIAvailable(app_id))
+    return;
+
+  UpdateBoolWebAppPref(profile()->GetPrefs(), app_id, kFileHandlersEnabled,
+                       /*value=*/true);
+
+  if (!ShouldRegisterFileHandlersWithOs() ||
+      disable_os_integration_for_testing_) {
     return;
   }
 
   std::string app_name = registrar_->GetAppShortName(app_id);
   const std::vector<apps::FileHandlerInfo>* file_handlers =
-      GetFileHandlers(app_id);
+      GetAllFileHandlers(app_id);
   if (!file_handlers)
     return;
   std::set<std::string> file_extensions =
@@ -50,12 +58,31 @@ void FileHandlerManager::EnableAndRegisterOsFileHandlers(const AppId& app_id) {
 
 void FileHandlerManager::DisableAndUnregisterOsFileHandlers(
     const AppId& app_id) {
-  if (!base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI) ||
-      !ShouldRegisterFileHandlersWithOs()) {
+  UpdateBoolWebAppPref(profile()->GetPrefs(), app_id, kFileHandlersEnabled,
+                       /*value=*/false);
+
+  if (!ShouldRegisterFileHandlersWithOs() ||
+      disable_os_integration_for_testing_) {
     return;
   }
 
   UnregisterFileHandlersWithOs(app_id, profile());
+}
+
+const std::vector<apps::FileHandlerInfo>*
+FileHandlerManager::GetEnabledFileHandlers(const AppId& app_id) {
+  if (AreFileHandlersEnabled(app_id) && IsFileHandlingAPIAvailable(app_id))
+    return GetAllFileHandlers(app_id);
+
+  return nullptr;
+}
+
+bool FileHandlerManager::IsFileHandlingAPIAvailable(const AppId& app_id) {
+  return base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI);
+}
+
+bool FileHandlerManager::AreFileHandlersEnabled(const AppId& app_id) const {
+  return GetBoolWebAppPref(profile()->GetPrefs(), app_id, kFileHandlersEnabled);
 }
 
 void FileHandlerManager::OnWebAppUninstalled(const AppId& app_id) {
@@ -70,12 +97,41 @@ void FileHandlerManager::OnAppRegistrarDestroyed() {
   registrar_observer_.RemoveAll();
 }
 
-void FileHandlerManager::OnShortcutsCreated(const AppId& app_id) {
-  EnableAndRegisterOsFileHandlers(app_id);
-}
+const base::Optional<GURL> FileHandlerManager::GetMatchingFileHandlerURL(
+    const AppId& app_id,
+    const std::vector<base::FilePath>& launch_files) {
+  if (!IsFileHandlingAPIAvailable(app_id))
+    return base::nullopt;
 
-void FileHandlerManager::OnShortcutManagerDestroyed() {
-  shortcut_observer_.RemoveAll();
+  const std::vector<apps::FileHandlerInfo>* file_handlers =
+      GetAllFileHandlers(app_id);
+  if (!file_handlers || launch_files.empty())
+    return base::nullopt;
+
+  // Leading `.` for each file extension must be removed to match those given by
+  // FileHandlerInfo.extensions below.
+  std::set<std::string> file_extensions;
+  for (const auto& file_path : launch_files) {
+    std::string extension =
+        base::FilePath(file_path.Extension()).AsUTF8Unsafe();
+    if (extension.length() <= 1)
+      return base::nullopt;
+    file_extensions.insert(extension.substr(1));
+  }
+
+  for (const auto& file_handler : *file_handlers) {
+    bool all_extensions_supported = true;
+    for (const auto& extension : file_extensions) {
+      if (!file_handler.extensions.count(extension)) {
+        all_extensions_supported = false;
+        break;
+      }
+    }
+    if (all_extensions_supported)
+      return GURL(file_handler.id);
+  }
+
+  return base::nullopt;
 }
 
 std::set<std::string> GetFileExtensionsFromFileHandlers(

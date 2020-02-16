@@ -4,6 +4,7 @@
 
 #include "cc/paint/paint_op_buffer.h"
 
+#include "build/build_config.h"
 #include "cc/paint/decoded_draw_image.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/image_provider.h"
@@ -16,7 +17,9 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "third_party/skia/include/core/SkSerialProcs.h"
+#include "third_party/skia/include/docs/SkPDFDocument.h"
 #include "third_party/skia/include/gpu/GrContext.h"
+#include "ui/gfx/skia_util.h"
 
 namespace cc {
 namespace {
@@ -44,6 +47,12 @@ SkRect AdjustSrcRectForScale(SkRect original, SkSize scale_adjustment) {
   return SkRect::MakeXYWH(original.x() * x_scale, original.y() * y_scale,
                           original.width() * x_scale,
                           original.height() * y_scale);
+}
+
+SkRect MapRect(const SkMatrix& matrix, const SkRect& src) {
+  SkRect dst;
+  matrix.mapRect(&dst, src);
+  return dst;
 }
 }  // namespace
 
@@ -333,7 +342,6 @@ PaintOp::SerializeOptions::SerializeOptions(
     bool can_use_lcd_text,
     bool context_supports_distance_field_text,
     int max_texture_size,
-    size_t max_texture_bytes,
     const SkMatrix& original_ctm)
     : image_provider(image_provider),
       transfer_cache(transfer_cache),
@@ -345,7 +353,6 @@ PaintOp::SerializeOptions::SerializeOptions(
       context_supports_distance_field_text(
           context_supports_distance_field_text),
       max_texture_size(max_texture_size),
-      max_texture_bytes(max_texture_bytes),
       original_ctm(original_ctm) {}
 
 PaintOp::SerializeOptions::SerializeOptions(const SerializeOptions&) = default;
@@ -357,11 +364,13 @@ PaintOp::DeserializeOptions::DeserializeOptions(
     TransferCacheDeserializeHelper* transfer_cache,
     ServicePaintCache* paint_cache,
     SkStrikeClient* strike_client,
-    std::vector<uint8_t>* scratch_buffer)
+    std::vector<uint8_t>* scratch_buffer,
+    bool is_privileged)
     : transfer_cache(transfer_cache),
       paint_cache(paint_cache),
       strike_client(strike_client),
-      scratch_buffer(scratch_buffer) {
+      scratch_buffer(scratch_buffer),
+      is_privileged(is_privileged) {
   DCHECK(scratch_buffer);
 }
 
@@ -591,14 +600,23 @@ size_t DrawRRectOp::Serialize(const PaintOp* base_op,
   return helper.size();
 }
 
-size_t DrawSkottieOp::Serialize(const PaintOp* op,
+size_t DrawSkottieOp::Serialize(const PaintOp* base_op,
                                 void* memory,
                                 size_t size,
                                 const SerializeOptions& options) {
-  // TODO(malaykeshav): these must be flattened.  Serializing this will not do
-  // anything. See https://crbug.com/894635
+#if defined(OS_ANDROID)
+  // Skottie is not used in android, so to keep apk size small it is excluded
+  // from the build.
   NOTREACHED();
   return 0u;
+#else
+  auto* op = static_cast<const DrawSkottieOp*>(base_op);
+  PaintOpWriter helper(memory, size, options);
+  helper.Write(op->dst);
+  helper.Write(SkFloatToScalar(op->t));
+  helper.Write(op->skottie);
+  return helper.size();
+#endif  // OS_ANDROID
 }
 
 size_t DrawTextBlobOp::Serialize(const PaintOp* base_op,
@@ -1015,9 +1033,30 @@ PaintOp* DrawSkottieOp::Deserialize(const volatile void* input,
                                     void* output,
                                     size_t output_size,
                                     const DeserializeOptions& options) {
-  // TODO(malaykeshav): these must be flattened and not sent directly.
-  // See https://crbug.com/894635
+#if defined(OS_ANDROID)
+  // Skottie is not used on Android. To keep apk size small the skottie library
+  // is excluded from the binary.
   return nullptr;
+#else
+  DCHECK_GE(output_size, sizeof(DrawSkottieOp));
+  DrawSkottieOp* op = new (output) DrawSkottieOp;
+
+  PaintOpReader helper(input, input_size, options);
+  helper.Read(&op->dst);
+
+  SkScalar t;
+  helper.Read(&t);
+  op->t = SkScalarToFloat(t);
+
+  helper.Read(&op->skottie);
+
+  if (!helper.valid() || !op->IsValid()) {
+    op->~DrawSkottieOp();
+    return nullptr;
+  }
+  UpdateTypeAndSkip(op);
+  return op;
+#endif  // OS_ANDROID
 }
 
 PaintOp* DrawTextBlobOp::Deserialize(const volatile void* input,
@@ -1395,9 +1434,11 @@ void DrawTextBlobOp::RasterWithFlags(const DrawTextBlobOp* op,
                                      const PaintFlags* flags,
                                      SkCanvas* canvas,
                                      const PlaybackParams& params) {
+  SkPDF::SetNodeId(canvas, op->node_id);
   flags->DrawToSk(canvas, [op](SkCanvas* c, const SkPaint& p) {
     c->drawTextBlob(op->blob.get(), op->x, op->y, p);
   });
+  SkPDF::SetNodeId(canvas, 0);
 }
 
 void RestoreOp::Raster(const RestoreOp* op,
@@ -2041,6 +2082,50 @@ bool PaintOp::GetBounds(const PaintOp* op, SkRect* rect) {
       NOTREACHED();
   }
   return false;
+}
+
+// static
+gfx::Rect PaintOp::ComputePaintRect(const PaintOp* op,
+                                    const SkRect& clip_rect,
+                                    const SkMatrix& ctm) {
+  gfx::Rect transformed_rect;
+  SkRect op_rect;
+  if (!op->IsDrawOp() || !PaintOp::GetBounds(op, &op_rect)) {
+    // If we can't provide a conservative bounding rect for the op, assume it
+    // covers the complete current clip.
+    // TODO(khushalsagar): See if we can do something better for non-draw ops.
+    transformed_rect = gfx::ToEnclosingRect(gfx::SkRectToRectF(clip_rect));
+  } else {
+    const PaintFlags* flags =
+        op->IsPaintOpWithFlags()
+            ? &static_cast<const PaintOpWithFlags*>(op)->flags
+            : nullptr;
+    SkRect paint_rect = MapRect(ctm, op_rect);
+    if (flags) {
+      SkPaint paint = flags->ToSkPaint();
+      paint_rect = paint.canComputeFastBounds()
+                       ? paint.computeFastBounds(paint_rect, &paint_rect)
+                       : clip_rect;
+    }
+    // Clamp the image rect by the current clip rect.
+    if (!paint_rect.intersect(clip_rect))
+      return gfx::Rect();
+
+    transformed_rect = gfx::ToEnclosingRect(gfx::SkRectToRectF(paint_rect));
+  }
+
+  // During raster, we use the device clip bounds on the canvas, which outsets
+  // the actual clip by 1 due to the possibility of antialiasing. Account for
+  // this here by outsetting the image rect by 1. Note that this only affects
+  // queries into the rtree, which will now return images that only touch the
+  // bounds of the query rect.
+  //
+  // Note that it's not sufficient for us to inset the device clip bounds at
+  // raster time, since we might be sending a larger-than-one-item display
+  // item to skia, which means that skia will internally determine whether to
+  // raster the picture (using device clip bounds that are outset).
+  transformed_rect.Inset(-1, -1);
+  return transformed_rect;
 }
 
 // static

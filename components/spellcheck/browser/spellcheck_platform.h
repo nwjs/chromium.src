@@ -124,24 +124,20 @@ void RequestTextCheck(int document_tag,
                       TextCheckCompleteCallback callback);
 
 #if BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
-// Requests an asynchronous spell and grammar checking for the languages that
-// couldn't be handled by the renderer spellchecker.
-void RequestTextCheck(int document_tag,
-                      const base::string16& text,
-                      const std::vector<SpellCheckResult>& partial_results,
-                      bool fill_suggestions,
-                      TextCheckCompleteCallback callback);
-
 // Finds the replacement suggestions for each language for the given word.
 void GetPerLanguageSuggestions(const base::string16& word,
                                GetSuggestionsCallback callback);
 #endif  // BUILDFLAG(USE_WIN_HYBRID_SPELLCHECKER)
 
 #if defined(OS_WIN)
-// Records how many user spellcheck languages are currently not supported by the
-// Windows OS spellchecker due to missing language packs.
-void RecordMissingLanguagePacksCount(
-    std::vector<std::string> spellcheck_locales,
+// Records statistics about spell check support for the user's Chrome locales.
+void RecordChromeLocalesStats(const std::vector<std::string> chrome_locales,
+                              SpellCheckHostMetrics* metrics);
+
+// Records statistics about which spell checker supports which of the user's
+// enabled spell check locales.
+void RecordSpellcheckLocalesStats(
+    const std::vector<std::string> spellcheck_locales,
     SpellCheckHostMetrics* metrics);
 #endif  // defined(OS_WIN)
 

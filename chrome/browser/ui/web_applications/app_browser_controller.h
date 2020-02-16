@@ -12,7 +12,7 @@
 #include "base/optional.h"
 #include "base/strings/string16.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/image/image_skia.h"
@@ -22,6 +22,7 @@ class Browser;
 namespace web_app {
 
 class WebAppBrowserController;
+enum class SystemAppType;
 
 // Returns true if |app_url| and |page_url| are the same origin. To avoid
 // breaking Hosted Apps and Bookmark Apps that might redirect to sites in the
@@ -118,7 +119,7 @@ class AppBrowserController : public TabStripModelObserver,
   void UpdateCustomTabBarVisibility(bool animate) const;
 
   // Returns true if this controller is for a System Web App.
-  bool IsForSystemWebApp() const;
+  bool is_for_system_web_app() const { return system_app_type_.has_value(); }
 
   // Returns true if AppId is non-null
   bool HasAppId() const { return app_id_.has_value(); }
@@ -135,7 +136,7 @@ class AppBrowserController : public TabStripModelObserver,
 
   // content::WebContentsObserver:
   void DidStartNavigation(content::NavigationHandle* handle) override;
-  void DidChangeThemeColor(base::Optional<SkColor> theme_color) override;
+  void DidChangeThemeColor() override;
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(
@@ -164,6 +165,8 @@ class AppBrowserController : public TabStripModelObserver,
   const base::Optional<AppId> app_id_;
   Browser* const browser_;
   GURL initial_url_;
+
+  base::Optional<SystemAppType> system_app_type_;
 
   const bool has_tab_strip_;
 

@@ -13,17 +13,16 @@
 #include "base/strings/stringprintf.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
-#include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_track.h"
 #include "third_party/blink/public/web/modules/mediastream/web_media_stream_device_observer.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
-#include "third_party/blink/public/web/web_user_gesture_indicator.h"
 #include "third_party/blink/public/web/web_user_media_request.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/modules/mediastream/apply_constraints_processor.h"
 #include "third_party/blink/renderer/modules/peerconnection/peer_connection_tracker.h"
+#include "third_party/blink/renderer/platform/mediastream/media_constraints.h"
 #include "third_party/blink/renderer/platform/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -157,16 +156,21 @@ void UserMediaClient::RequestUserMedia(
       request_id, web_request.AudioConstraints().ToString().Utf8().c_str(),
       web_request.VideoConstraints().ToString().Utf8().c_str()));
 
-  // The value returned by isProcessingUserGesture() is used by the browser to
-  // make decisions about the permissions UI. Its value can be lost while
+  // The value returned by HasTransientUserActivation() is used by the browser
+  // to make decisions about the permissions UI. Its value can be lost while
   // switching threads, so saving its value here.
-  bool user_gesture = blink::WebUserGestureIndicator::IsProcessingUserGesture(
-      web_request.OwnerDocument().IsNull()
-          ? nullptr
-          : web_request.OwnerDocument().GetFrame());
+  //
+  // TODO(mustaq): The description above seems specific to pre-UAv2 stack-based
+  // tokens.  Perhaps we don't need to preserve this bit?
+  bool has_transient_user_activation = false;
+  if (!web_request.OwnerDocument().IsNull() &&
+      web_request.OwnerDocument().GetFrame()) {
+    has_transient_user_activation =
+        web_request.OwnerDocument().GetFrame()->HasTransientUserActivation();
+  }
   std::unique_ptr<UserMediaRequestInfo> request_info =
       std::make_unique<UserMediaRequestInfo>(request_id, web_request,
-                                             user_gesture);
+                                             has_transient_user_activation);
   pending_request_infos_.push_back(
       MakeGarbageCollected<Request>(std::move(request_info)));
   if (!is_processing_request_)

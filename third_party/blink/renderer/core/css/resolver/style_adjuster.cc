@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/html/html_table_cell_element.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/layout/layout_list_marker.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
@@ -74,7 +75,7 @@ TouchAction AdjustTouchActionForElement(TouchAction touch_action,
       element && element == element->GetDocument().documentElement() &&
       element->GetDocument().LocalOwner();
   if (style.ScrollsOverflow() || is_child_document)
-    return touch_action | TouchAction::kTouchActionPan;
+    return touch_action | TouchAction::kPan;
   return touch_action;
 }
 
@@ -130,24 +131,28 @@ static bool IsOutermostSVGElement(const Element* element) {
   return svg_element && svg_element->IsOutermostSVGSVGElement();
 }
 
-static bool IsAtUAShadowBoundary(const Element* element) {
+static bool IsAtMediaUAShadowBoundary(const Element* element) {
   if (!element)
     return false;
-  if (ContainerNode* parent = element->parentNode())
-    return parent->IsShadowRoot() && To<ShadowRoot>(parent)->IsUserAgent();
+  if (ContainerNode* parent = element->parentNode()) {
+    if (auto* shadow_root = DynamicTo<ShadowRoot>(parent))
+      return shadow_root->host().IsMediaElement();
+  }
   return false;
 }
 
-// CSS requires text-decoration to be reset at each DOM element for
-// inline blocks, inline tables, UA shadow DOM crossings, floating elements,
-// and absolute or relatively positioned elements. Outermost <svg> roots are
-// considered to be atomic inline-level.
+// CSS requires text-decoration to be reset at each DOM element for inline
+// blocks, inline tables, floating elements, and absolute or relatively
+// positioned elements. Outermost <svg> roots are considered to be atomic
+// inline-level. Media elements have a special rendering where the media
+// controls do not use a proper containing block model which means we need
+// to manually stop text-decorations to apply to text inside media controls.
 static bool StopPropagateTextDecorations(const ComputedStyle& style,
                                          const Element* element) {
   return style.Display() == EDisplay::kInlineTable ||
          style.Display() == EDisplay::kInlineBlock ||
          style.Display() == EDisplay::kWebkitInlineBox ||
-         IsAtUAShadowBoundary(element) || style.IsFloating() ||
+         IsAtMediaUAShadowBoundary(element) || style.IsFloating() ||
          style.HasOutOfFlowPosition() || IsOutermostSVGElement(element) ||
          IsA<HTMLRTElement>(element);
 }
@@ -197,6 +202,38 @@ static void AdjustStyleForFirstLetter(ComputedStyle& style) {
   style.SetPosition(EPosition::kStatic);
 }
 
+static void AdjustStyleForMarker(ComputedStyle& style,
+                                 const ComputedStyle& parent_style,
+                                 const Element& parent_element) {
+  if (style.StyleType() != kPseudoIdMarker)
+    return;
+
+  bool is_inside =
+      parent_style.ListStylePosition() == EListStylePosition::kInside ||
+      (IsA<HTMLLIElement>(parent_element) &&
+       !parent_style.IsInsideListElement());
+
+  if (is_inside) {
+    auto margins = LayoutListMarker::InlineMarginsForInside(
+        style, parent_style.GeneratesMarkerImage());
+    style.SetMarginStart(Length::Fixed(margins.first));
+    style.SetMarginEnd(Length::Fixed(margins.second));
+  } else {
+    // Outside list markers should generate a block container.
+    DCHECK_EQ(style.Display(), EDisplay::kInline);
+    style.SetDisplay(EDisplay::kInlineBlock);
+
+    // Do not break inside the marker, and honor the trailing spaces.
+    style.SetWhiteSpace(EWhiteSpace::kPre);
+
+    // Compute margins for 'outside' during layout, because it requires the
+    // layout size of the marker.
+    // TODO(kojii): absolute position looks more reasonable, and maybe required
+    // in some cases, but this is currently blocked by crbug.com/734554
+    // style.SetPosition(EPosition::kAbsolute);
+  }
+}
+
 static void AdjustStyleForHTMLElement(ComputedStyle& style,
                                       HTMLElement& element) {
   // <div> and <span> are the most common elements on the web, we skip all the
@@ -204,7 +241,7 @@ static void AdjustStyleForHTMLElement(ComputedStyle& style,
   if (IsA<HTMLDivElement>(element) || IsA<HTMLSpanElement>(element))
     return;
 
-  if (IsHTMLTableCellElement(element)) {
+  if (IsA<HTMLTableCellElement>(element)) {
     if (style.WhiteSpace() == EWhiteSpace::kWebkitNowrap) {
       // Figure out if we are really nowrapping or if we should just
       // use normal instead. If the width of the cell is fixed, then
@@ -243,7 +280,7 @@ static void AdjustStyleForHTMLElement(ComputedStyle& style,
     return;
   }
 
-  if (IsHTMLFrameElementBase(element)) {
+  if (IsA<HTMLFrameElementBase>(element)) {
     if (style.Display() == EDisplay::kContents) {
       style.SetDisplay(EDisplay::kNone);
       return;
@@ -296,11 +333,27 @@ static void AdjustStyleForHTMLElement(ComputedStyle& style,
     return;
   }
 
-  if (IsHTMLPlugInElement(element)) {
+  if (auto* html_plugin_element = DynamicTo<HTMLPlugInElement>(element)) {
     style.SetRequiresAcceleratedCompositingForExternalReasons(
-        ToHTMLPlugInElement(element).ShouldAccelerate());
+        html_plugin_element->ShouldAccelerate());
     if (style.Display() == EDisplay::kContents)
       style.SetDisplay(EDisplay::kNone);
+    return;
+  }
+
+  if (IsA<HTMLUListElement>(element) || IsA<HTMLOListElement>(element)) {
+    style.SetIsInsideListElement();
+    return;
+  }
+
+  if (IsA<HTMLSummaryElement>(element)) {
+    // <summary> should be a list item by default, but currently it's a block
+    // and the disclosure symbol is not a ::marker (bug 590014). If an author
+    // specifies 'display: list-item', the <summary> would seem to have two
+    // markers (the real one and the disclosure symbol). To avoid this, compute
+    // to 'display: block'. This adjustment should go away with bug 590014.
+    if (style.Display() == EDisplay::kListItem)
+      style.SetDisplay(EDisplay::kBlock);
     return;
   }
 
@@ -309,7 +362,7 @@ static void AdjustStyleForHTMLElement(ComputedStyle& style,
     // Some of these elements are handled with other adjustments above.
     if (IsA<HTMLBRElement>(element) || IsA<HTMLWBRElement>(element) ||
         IsA<HTMLMeterElement>(element) || IsA<HTMLProgressElement>(element) ||
-        IsA<HTMLCanvasElement>(element) || IsHTMLMediaElement(element) ||
+        IsA<HTMLCanvasElement>(element) || IsA<HTMLMediaElement>(element) ||
         IsA<HTMLInputElement>(element) || IsA<HTMLTextAreaElement>(element) ||
         IsA<HTMLSelectElement>(element)) {
       style.SetDisplay(EDisplay::kNone);
@@ -467,7 +520,7 @@ static void AdjustEffectiveTouchAction(ComputedStyle& style,
   bool is_layout_object_needed =
       element && element->LayoutObjectIsNeeded(style);
 
-  TouchAction element_touch_action = TouchAction::kTouchActionAuto;
+  TouchAction element_touch_action = TouchAction::kAuto;
   // Touch actions are only supported by elements that support both the CSS
   // width and height properties.
   // See https://www.w3.org/TR/pointerevents/#the-touch-action-css-property.
@@ -486,7 +539,7 @@ static void AdjustEffectiveTouchAction(ComputedStyle& style,
   // Apply touch action inherited from parent frame.
   if (is_child_document && element->GetDocument().GetFrame()) {
     inherited_action &=
-        TouchAction::kTouchActionPan |
+        TouchAction::kPan |
         element->GetDocument().GetFrame()->InheritedEffectiveTouchAction();
   }
 
@@ -500,9 +553,9 @@ static void AdjustEffectiveTouchAction(ComputedStyle& style,
   inherited_action =
       AdjustTouchActionForElement(inherited_action, style, element);
 
-  TouchAction enforced_by_policy = TouchAction::kTouchActionNone;
+  TouchAction enforced_by_policy = TouchAction::kNone;
   if (element->GetDocument().IsVerticalScrollEnforced())
-    enforced_by_policy = TouchAction::kTouchActionPanY;
+    enforced_by_policy = TouchAction::kPanY;
 
   // Apply the adjusted parent effective touch actions.
   style.SetEffectiveTouchAction((element_touch_action & inherited_action) |
@@ -555,8 +608,12 @@ static void AdjustStateForRenderSubtree(ComputedStyle& style,
 
   if (should_be_invisible) {
     // Add containment to style if we're invisible.
-    auto contain =
-        style.Contain() | kContainsStyle | kContainsLayout | kContainsSize;
+    auto contain = style.Contain() | kContainsStyle | kContainsLayout;
+    // If we haven't activated, then we should also contain size. This means
+    // that if we are rendering the element's subtree (i.e. it is either
+    // unlocked or activated), then we do not have size containment.
+    if (!context->IsActivated())
+      contain |= kContainsSize;
     style.SetContain(contain);
 
     // If we're unlocked and unactivated, then we should lock the context. Note
@@ -608,6 +665,7 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     // We don't adjust the first letter style earlier because we may change the
     // display setting in adjustStyeForTagName() above.
     AdjustStyleForFirstLetter(style);
+    AdjustStyleForMarker(style, parent_style, state.GetElement());
 
     AdjustStyleForDisplay(style, layout_parent_style,
                           element ? &element->GetDocument() : nullptr);
@@ -642,11 +700,6 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
 
   if (RuntimeEnabledFeatures::CSSRenderSubtreeEnabled())
     AdjustStateForRenderSubtree(style, element);
-
-  if (style.IsColorInternalText()) {
-    style.ResolveInternalTextColor(
-        LayoutTheme::GetTheme().RootElementColor(style.UsedColorScheme()));
-  }
 
   // Make sure our z-index value is only applied if the object is positioned.
   if (style.GetPosition() == EPosition::kStatic &&

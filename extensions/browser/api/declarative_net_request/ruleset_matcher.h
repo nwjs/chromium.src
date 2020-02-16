@@ -12,7 +12,10 @@
 #include "extensions/browser/api/declarative_net_request/extension_url_pattern_index_matcher.h"
 #include "extensions/browser/api/declarative_net_request/flat/extension_ruleset_generated.h"
 #include "extensions/browser/api/declarative_net_request/regex_rules_matcher.h"
-#include "extensions/browser/api/declarative_net_request/ruleset_matcher_base.h"
+
+namespace content {
+class RenderFrameHost;
+}  // namespace content
 
 namespace extensions {
 
@@ -27,7 +30,9 @@ struct UrlRuleMetadata;
 // RulesetMatcher encapsulates the Declarative Net Request API ruleset
 // corresponding to a single RulesetSource. Since this class is immutable, it is
 // thread-safe.
-class RulesetMatcher final : public RulesetMatcherBase {
+// TODO(karandeepb): Rename to RulesetSourceMatcher since this no longer
+// inherits from RulesetMatcherBase.
+class RulesetMatcher {
  public:
   // Describes the result of creating a RulesetMatcher instance.
   // This is logged as part of UMA. Hence existing values should not be re-
@@ -64,27 +69,18 @@ class RulesetMatcher final : public RulesetMatcherBase {
       int expected_ruleset_checksum,
       std::unique_ptr<RulesetMatcher>* matcher);
 
-  // RulesetMatcherBase overrides:
-  ~RulesetMatcher() override;
-  base::Optional<RequestAction> GetBlockOrCollapseAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetAllowAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetRedirectAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetUpgradeAction(
-      const RequestParams& params) const override;
+  ~RulesetMatcher();
+
+  base::Optional<RequestAction> GetBeforeRequestAction(
+      const RequestParams& params) const;
   uint8_t GetRemoveHeadersMask(
       const RequestParams& params,
       uint8_t excluded_remove_headers_mask,
-      std::vector<RequestAction>* remove_headers_actions) const override;
-  bool IsExtraHeadersMatcher() const override;
+      std::vector<RequestAction>* remove_headers_actions) const;
+  bool IsExtraHeadersMatcher() const;
 
-  // Returns a RequestAction constructed from the matching redirect or upgrade
-  // rule with the highest priority, or base::nullopt if no matching redirect or
-  // upgrade rules are found for this request.
-  base::Optional<RequestAction> GetRedirectOrUpgradeActionByPriority(
-      const RequestParams& params) const;
+  void OnRenderFrameDeleted(content::RenderFrameHost* host);
+  void OnDidFinishNavigation(content::RenderFrameHost* host);
 
   // ID of the ruleset. Each extension can have multiple rulesets with
   // their own unique ids.
@@ -93,6 +89,11 @@ class RulesetMatcher final : public RulesetMatcherBase {
   // Priority of the ruleset. Each extension can have multiple rulesets with
   // their own different priorities.
   size_t priority() const { return priority_; }
+
+  // Returns the tracked highest priority matching allowsAllRequests action, if
+  // any, for |host|.
+  base::Optional<RequestAction> GetAllowlistedFrameActionForTesting(
+      content::RenderFrameHost* host) const;
 
  private:
   explicit RulesetMatcher(std::string ruleset_data,
@@ -110,10 +111,10 @@ class RulesetMatcher final : public RulesetMatcherBase {
 
   // Underlying matcher for filter-list style rules supported using the
   // |url_pattern_index| component.
-  const ExtensionUrlPatternIndexMatcher url_pattern_index_matcher_;
+  ExtensionUrlPatternIndexMatcher url_pattern_index_matcher_;
 
   // Underlying matcher for regex rules.
-  const RegexRulesMatcher regex_matcher_;
+  RegexRulesMatcher regex_matcher_;
 
   DISALLOW_COPY_AND_ASSIGN(RulesetMatcher);
 };

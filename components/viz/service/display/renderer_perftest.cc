@@ -32,6 +32,7 @@
 #include "components/viz/service/display/display.h"
 #include "components/viz/service/display/gl_renderer.h"
 #include "components/viz/service/display/output_surface_client.h"
+#include "components/viz/service/display/overlay_processor_stub.h"
 #include "components/viz/service/display/skia_renderer.h"
 #include "components/viz/service/display_embedder/gl_output_surface_offscreen.h"
 #include "components/viz/service/display_embedder/in_process_gpu_memory_buffer_manager.h"
@@ -246,12 +247,11 @@ class RendererPerfTest : public testing::Test {
  public:
   RendererPerfTest()
       : manager_(&shared_bitmap_manager_),
-        support_(std::make_unique<CompositorFrameSinkSupport>(
-            nullptr,
-            &manager_,
-            kArbitraryFrameSinkId,
-            true /* is_root */,
-            true /* needs_sync_points */)),
+        support_(
+            std::make_unique<CompositorFrameSinkSupport>(nullptr,
+                                                         &manager_,
+                                                         kArbitraryFrameSinkId,
+                                                         true /* is_root */)),
         timer_(/*warmup_laps=*/100,
                /*time_limit=*/TestTimeLimit(),
                /*check_interval=*/10) {}
@@ -282,17 +282,15 @@ class RendererPerfTest : public testing::Test {
         gpu::kNullSurfaceHandle, gpu_memory_buffer_manager_.get(),
         image_factory, gpu_channel_manager_delegate, renderer_settings_);
     child_context_provider_->BindToCurrentThread();
-    constexpr bool sync_token_verification = false;
-    child_resource_provider_ =
-        std::make_unique<ClientResourceProvider>(sync_token_verification);
+    child_resource_provider_ = std::make_unique<ClientResourceProvider>();
 
     auto output_surface = CreateOutputSurface(gpu_service);
     // WaitForSwapDisplayClient depends on this.
     output_surface->SetNeedsSwapSizeNotifications(true);
-
+    auto overlay_processor = std::make_unique<OverlayProcessorStub>();
     display_ = std::make_unique<Display>(
         &shared_bitmap_manager_, renderer_settings_, kArbitraryFrameSinkId,
-        std::move(output_surface),
+        std::move(output_surface), std::move(overlay_processor),
         /*display_scheduler=*/nullptr, base::ThreadTaskRunnerHandle::Get());
     display_->SetVisible(true);
     display_->Initialize(&client_, manager_.surface_manager());
@@ -357,7 +355,7 @@ class RendererPerfTest : public testing::Test {
     support_->SubmitCompositorFrame(
         id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id(),
         std::move(frame));
-    ASSERT_TRUE(display_->DrawAndSwap());
+    ASSERT_TRUE(display_->DrawAndSwap(base::TimeTicks::Now()));
   }
 
   void RunSingleTextureQuad() {

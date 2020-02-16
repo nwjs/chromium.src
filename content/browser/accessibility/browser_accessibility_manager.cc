@@ -342,12 +342,20 @@ void BrowserAccessibilityManager::OnWindowBlurred() {
     SetLastFocusedNode(nullptr);
 }
 
+void BrowserAccessibilityManager::UserIsNavigatingAway() {
+  user_is_navigating_away_ = true;
+}
+
 void BrowserAccessibilityManager::UserIsReloading() {
   user_is_navigating_away_ = true;
 }
 
-void BrowserAccessibilityManager::DidStartLoading() {
-  user_is_navigating_away_ = true;
+void BrowserAccessibilityManager::NavigationSucceeded() {
+  user_is_navigating_away_ = false;
+}
+
+void BrowserAccessibilityManager::NavigationFailed() {
+  user_is_navigating_away_ = false;
 }
 
 void BrowserAccessibilityManager::DidStopLoading() {
@@ -462,10 +470,16 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
     // Some screen readers need a focus event in order to work properly.
     FireFocusEventsIfNeeded();
 
-    // Also, perform the initial run of language detection.
-    // TODO(chrishall): we will want to run this more often for dynamic pages.
-    tree_->language_detection_manager->DetectLanguageForSubtree(tree_->root());
-    tree_->language_detection_manager->LabelLanguageForSubtree(tree_->root());
+    // Perform the initial run of language detection.
+    tree_->language_detection_manager->DetectLanguages();
+    tree_->language_detection_manager->LabelLanguages();
+
+    // After initial language detection, enable language detection for future
+    // content updates in order to support dynamic content changes.
+    //
+    // If the LanguageDetectionDynamic feature flag is not enabled then this
+    // is a no-op.
+    tree_->language_detection_manager->RegisterLanguageDetectionObserver();
   }
 
   // Allow derived classes to do event post-processing.
@@ -527,7 +541,7 @@ void BrowserAccessibilityManager::ActivateFindInPageResult(int request_id) {
     return;
 
   // If an ancestor of this node is a leaf node, fire the notification on that.
-  node = node->GetClosestPlatformObject();
+  node = node->PlatformGetClosestPlatformObject();
 
   // The "scrolled to anchor" notification is a great way to get a
   // screen reader to jump directly to a specific location in a document.
@@ -1422,14 +1436,14 @@ void BrowserAccessibilityManager::UseCustomDeviceScaleFactorForTesting(
 
 BrowserAccessibility* BrowserAccessibilityManager::CachingAsyncHitTest(
     const gfx::Point& screen_point) {
+  BrowserAccessibilityManager* root_manager = GetRootManager();
+  if (root_manager && root_manager != this)
+    return root_manager->CachingAsyncHitTest(screen_point);
+
   gfx::Point scaled_point =
       IsUseZoomForDSFEnabled()
           ? ScaleToRoundedPoint(screen_point, device_scale_factor())
           : screen_point;
-
-  BrowserAccessibilityManager* root_manager = GetRootManager();
-  if (root_manager && root_manager != this)
-    return root_manager->CachingAsyncHitTest(scaled_point);
 
   if (delegate_) {
     // This triggers an asynchronous request to compute the true object that's
@@ -1474,6 +1488,47 @@ void BrowserAccessibilityManager::CacheHitTestResult(
   last_hover_ax_tree_id_ = hit_test_result->manager()->ax_tree_id();
   last_hover_node_id_ = hit_test_result->GetId();
   last_hover_bounds_ = hit_test_result->GetClippedScreenBoundsRect();
+}
+
+void BrowserAccessibilityManager::CollectChangedNodesAndParentsForAtomicUpdate(
+    ui::AXTree* tree,
+    const std::vector<ui::AXTreeObserver::Change>& changes,
+    std::set<ui::AXPlatformNode*>* nodes_needing_update) {
+  // The nodes that need to be updated are all of the nodes that were changed,
+  // plus some parents.
+  for (const auto& change : changes) {
+    const ui::AXNode* changed_node = change.node;
+    DCHECK(changed_node);
+
+    BrowserAccessibility* obj = GetFromAXNode(changed_node);
+    if (obj && obj->IsNative())
+      nodes_needing_update->insert(obj->GetAXPlatformNode());
+
+    // When a node is a text node or line break, update its parent, because
+    // its text is part of its hypertext.
+    const ui::AXNode* parent = changed_node->parent();
+    if (!parent)
+      continue;
+
+    if (ui::IsTextOrLineBreak(changed_node->data().role)) {
+      BrowserAccessibility* parent_obj = GetFromAXNode(parent);
+      if (parent_obj && parent_obj->IsNative())
+        nodes_needing_update->insert(parent_obj->GetAXPlatformNode());
+    }
+
+    // When a node is editable, update the editable root too.
+    if (!changed_node->data().HasState(ax::mojom::State::kEditable))
+      continue;
+    const ui::AXNode* editable_root = changed_node;
+    while (editable_root->parent() && editable_root->parent()->data().HasState(
+                                          ax::mojom::State::kEditable)) {
+      editable_root = editable_root->parent();
+    }
+
+    BrowserAccessibility* editable_root_obj = GetFromAXNode(editable_root);
+    if (editable_root_obj && editable_root_obj->IsNative())
+      nodes_needing_update->insert(editable_root_obj->GetAXPlatformNode());
+  }
 }
 
 }  // namespace content

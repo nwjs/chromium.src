@@ -41,10 +41,12 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceDependencyImpl
   bool IsOffscreen() override;
   gpu::SurfaceHandle GetSurfaceHandle() override;
   scoped_refptr<gl::GLSurface> CreateGLSurface(
-      base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub) override;
+      base::WeakPtr<gpu::ImageTransportSurfaceDelegate> stub,
+      gl::GLSurfaceFormat format) override;
   base::ScopedClosureRunner CacheGLSurface(gl::GLSurface* surface) override;
   void PostTaskToClientThread(base::OnceClosure closure) override;
   void ScheduleGrContextCleanup() override;
+  void ScheduleDelayedGPUTaskFromGPUThread(base::OnceClosure task) override;
 
 #if defined(OS_WIN)
   void DidCreateAcceleratedSurfaceChildWindow(

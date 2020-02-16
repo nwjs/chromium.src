@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import os.path
-import platform
 import sys
 
 
@@ -30,31 +29,25 @@ def _setup_sys_path():
 _setup_sys_path()
 
 
-from . import clang_format
+from . import style_format
 from .dictionary import generate_dictionaries
+from .enumeration import generate_enumerations
 from .interface import generate_interfaces
 from .path_manager import PathManager
+from .union import generate_unions
 
 
-def _setup_clang_format():
-    expected_path = 'third_party/blink/renderer/bindings/scripts/bind_gen/'
-
-    this_dir = os.path.dirname(__file__)
-    root_dir = os.path.join(this_dir, *(['..'] * expected_path.count('/')))
-
-    # //third_party/depot_tools/clang-format
-    command_name = ('clang-format.bat'
-                    if platform.system() == 'Windows' else 'clang-format')
-    command_path = os.path.abspath(
-        os.path.join(root_dir, 'third_party', 'depot_tools', command_name))
-
-    clang_format.init(command_path=command_path)
-
-
-def init(output_dirs):
+def init(root_src_dir, root_gen_dir, component_reldirs):
     """
     Args:
-        output_dirs: Pairs of component and output directory.
+        root_src_dir: Project's root directory, which corresponds to "//" in GN.
+        root_gen_dir: Root directory of generated files, which corresponds to
+            "//out/Default/gen" in GN.
+        component_reldirs: Pairs of component and output directory.
     """
-    _setup_clang_format()
-    PathManager.init(output_dirs)
+    style_format.init(root_src_dir)
+
+    PathManager.init(
+        root_src_dir=root_src_dir,
+        root_gen_dir=root_gen_dir,
+        component_reldirs=component_reldirs)

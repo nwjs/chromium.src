@@ -2,24 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
-
-/**
- * Namespace for the Camera app.
- */
-var cca = cca || {};
-
-/**
- * Namespace for device.
- */
-cca.device = cca.device || {};
-
-/**
- * import {Mode, Resolution} from '../type.js';
- */
-var {Mode, Resolution} = {Mode, Resolution};
-
-/* eslint-disable no-unused-vars */
+import {browserProxy} from '../browser_proxy/browser_proxy.js';
+import * as state from '../state.js';
+import {Mode, Resolution,
+        ResolutionList,  // eslint-disable-line no-unused-vars
+} from '../type.js';
+// eslint-disable-next-line no-unused-vars
+import {Camera3DeviceInfo} from './camera3_device_info.js';
 
 /**
  * Candidate of capturing with specified photo or video resolution and
@@ -31,16 +20,14 @@ var {Mode, Resolution} = {Mode, Resolution};
  *   previewCandidates: !Array<!MediaStreamConstraints>
  * }}
  */
-var CaptureCandidate;
-
-/* eslint-enable no-unused-vars */
+export let CaptureCandidate;
 
 /**
  * Controller for managing preference of capture settings and generating a list
  * of stream constraints-candidates sorted by user preference.
  * @abstract
  */
-cca.device.ConstraintsPreferrer = class {
+export class ConstraintsPreferrer {
   /**
    * @param {!function()} doReconfigureStream Trigger stream reconfiguration to
    *     reflect changes in user preferred settings.
@@ -93,7 +80,7 @@ cca.device.ConstraintsPreferrer = class {
   restoreResolutionPreference_(key) {
     // TODO(inker): Return promise and await it to assure preferences are loaded
     // before any access.
-    cca.proxy.browserProxy.localStorageGet({[key]: {}}, (values) => {
+    browserProxy.localStorageGet({[key]: {}}, (values) => {
       this.prefResolution_ = {};
       for (const [deviceId, {width, height}] of Object.entries(values[key])) {
         this.prefResolution_[deviceId] = new Resolution(width, height);
@@ -107,7 +94,7 @@ cca.device.ConstraintsPreferrer = class {
    * @protected
    */
   saveResolutionPreference_(key) {
-    cca.proxy.browserProxy.localStorageSet({[key]: this.prefResolution_});
+    browserProxy.localStorageSet({[key]: this.prefResolution_});
   }
 
   /**
@@ -122,7 +109,7 @@ cca.device.ConstraintsPreferrer = class {
 
   /**
    * Updates with new video device information.
-   * @param {!Array<!cca.device.Camera3DeviceInfo>} devices
+   * @param {!Array<!Camera3DeviceInfo>} devices
    * @abstract
    */
   updateDevicesInfo(devices) {}
@@ -167,20 +154,18 @@ cca.device.ConstraintsPreferrer = class {
   setPreferredResolutionChangeListener(listener) {
     this.preferredResolutionChangeListener_ = listener;
   }
-};
+}
 
 /**
  * All supported constant fps options of video recording.
  * @type {!Array<number>}
- * @const
  */
-cca.device.SUPPORTED_CONSTANT_FPS = [30, 60];
+const SUPPORTED_CONSTANT_FPS = [30, 60];
 
 /**
  * Controller for handling video resolution preference.
  */
-cca.device.VideoConstraintsPreferrer =
-    class extends cca.device.ConstraintsPreferrer {
+export class VideoConstraintsPreferrer extends ConstraintsPreferrer {
   /**
    * @param {!function()} doReconfigureStream
    * @public
@@ -224,7 +209,7 @@ cca.device.VideoConstraintsPreferrer =
     this.restoreFpsPreference_();
 
     this.toggleFps_.addEventListener('click', (event) => {
-      if (!cca.state.get('streaming') || cca.state.get('taking')) {
+      if (!state.get(state.State.STREAMING) || state.get(state.State.TAKING)) {
         event.preventDefault();
       }
     });
@@ -232,9 +217,15 @@ cca.device.VideoConstraintsPreferrer =
       this.setPreferredConstFps_(
           /** @type {string} */ (this.deviceId_), this.resolution_,
           this.toggleFps_.checked ? 60 : 30);
-      cca.state.set('mode-switching', true);
-      this.doReconfigureStream_().finally(
-          () => cca.state.set('mode-switching', false));
+      state.set(state.State.MODE_SWITCHING, true);
+      let hasError = false;
+      this.doReconfigureStream_()
+          .catch((error) => {
+            hasError = true;
+            throw error;
+          })
+          .finally(
+              () => state.set(state.State.MODE_SWITCHING, false, {hasError}));
     });
   }
 
@@ -243,7 +234,7 @@ cca.device.VideoConstraintsPreferrer =
    * @private
    */
   restoreFpsPreference_() {
-    cca.proxy.browserProxy.localStorageGet(
+    browserProxy.localStorageGet(
         {deviceVideoFps: {}},
         (values) => this.prefFpses_ = values.deviceVideoFps);
   }
@@ -253,7 +244,7 @@ cca.device.VideoConstraintsPreferrer =
    * @private
    */
   saveFpsPreference_() {
-    cca.proxy.browserProxy.localStorageSet({deviceVideoFps: this.prefFpses_});
+    browserProxy.localStorageSet({deviceVideoFps: this.prefFpses_});
   }
 
   /**
@@ -262,7 +253,7 @@ cca.device.VideoConstraintsPreferrer =
   changePreferredResolution(deviceId, resolution) {
     this.prefResolution_[deviceId] = resolution;
     this.saveResolutionPreference_('deviceVideoResolution');
-    if (cca.state.get(Mode.VIDEO) && deviceId === this.deviceId_) {
+    if (state.get(Mode.VIDEO) && deviceId === this.deviceId_) {
       this.doReconfigureStream_();
     } else {
       this.preferredResolutionChangeListener_(deviceId, resolution);
@@ -278,12 +269,12 @@ cca.device.VideoConstraintsPreferrer =
    * @private
    */
   setPreferredConstFps_(deviceId, resolution, prefFps) {
-    if (!cca.device.SUPPORTED_CONSTANT_FPS.includes(prefFps)) {
+    if (!SUPPORTED_CONSTANT_FPS.includes(prefFps)) {
       return;
     }
     this.toggleFps_.checked = prefFps === 60;
-    cca.device.SUPPORTED_CONSTANT_FPS.forEach(
-        (fps) => cca.state.set(`_${fps}fps`, fps === prefFps));
+    SUPPORTED_CONSTANT_FPS.forEach(
+        (fps) => state.set(state.assertState(`_${fps}fps`), fps === prefFps));
     this.prefFpses_[deviceId] = this.prefFpses_[deviceId] || {};
     this.prefFpses_[deviceId][resolution] = prefFps;
     this.saveFpsPreference_();
@@ -342,8 +333,8 @@ cca.device.VideoConstraintsPreferrer =
     this.setPreferredConstFps_(deviceId, this.resolution_, fps);
     const supportedConstFpses =
         this.constFpsInfo_[deviceId][this.resolution_].filter(
-            (fps) => cca.device.SUPPORTED_CONSTANT_FPS.includes(fps));
-    cca.state.set('multi-fps', supportedConstFpses.length > 1);
+            (fps) => SUPPORTED_CONSTANT_FPS.includes(fps));
+    state.set(state.State.MULTI_FPS, supportedConstFpses.length > 1);
   }
 
   /**
@@ -432,14 +423,12 @@ cca.device.VideoConstraintsPreferrer =
                previewCandidates: [toConstraints(r, fps)],
              }));
   }
-};
-
+}
 
 /**
  * Controller for handling photo resolution preference.
  */
-cca.device.PhotoConstraintsPreferrer =
-    class extends cca.device.ConstraintsPreferrer {
+export class PhotoConstraintsPreferrer extends ConstraintsPreferrer {
   /**
    * @param {!function()} doReconfigureStream
    * @public
@@ -456,7 +445,7 @@ cca.device.PhotoConstraintsPreferrer =
   changePreferredResolution(deviceId, resolution) {
     this.prefResolution_[deviceId] = resolution;
     this.saveResolutionPreference_('devicePhotoResolution');
-    if (!cca.state.get(Mode.VIDEO) && deviceId === this.deviceId_) {
+    if (!state.get(Mode.VIDEO) && deviceId === this.deviceId_) {
       this.doReconfigureStream_();
     } else {
       this.preferredResolutionChangeListener_(deviceId, resolution);
@@ -611,4 +600,4 @@ cca.device.PhotoConstraintsPreferrer =
         .map(toCaptureCandidate)
         .sort(sortPrefResol);
   }
-};
+}

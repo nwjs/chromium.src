@@ -9,14 +9,14 @@
 #include "base/optional.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_list_item.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_store_delete_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_store_get_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_store_set_extra_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_store_set_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/modules/cookie_store/cookie_change_event.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_list_item.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_store_delete_options.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_store_get_options.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_store_set_extra_options.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_store_set_options.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_global_scope.h"
@@ -40,8 +40,6 @@ network::mojom::blink::CookieManagerGetOptionsPtr ToBackendOptions(
     const CookieStoreGetOptions* options,
     ExceptionState& exception_state) {
   auto backend_options = network::mojom::blink::CookieManagerGetOptions::New();
-
-  // TODO(crbug.com/729800): Handle the url option.
 
   if (options->matchType() == "starts-with") {
     backend_options->match_type =
@@ -140,7 +138,7 @@ base::Optional<CanonicalCookie> ToCanonicalCookie(
   } else if (options->sameSite() == "lax") {
     same_site = network::mojom::CookieSameSite::LAX_MODE;
   } else {
-    DCHECK_EQ(options->sameSite(), "unrestricted");
+    DCHECK_EQ(options->sameSite(), "none");
     same_site = network::mojom::CookieSameSite::NO_RESTRICTION;
   }
 
@@ -150,24 +148,59 @@ base::Optional<CanonicalCookie> ToCanonicalCookie(
       CanonicalCookie::kDefaultPriority, source_scheme_enum);
 }
 
-const KURL& DefaultCookieURL(ExecutionContext* execution_context) {
+const KURL DefaultCookieURL(ExecutionContext* execution_context) {
   DCHECK(execution_context);
 
   if (auto* document = DynamicTo<Document>(execution_context))
     return document->CookieURL();
 
-  auto* scope = To<ServiceWorkerGlobalScope>(execution_context);
-  return scope->Url();
+  return KURL(To<ServiceWorkerGlobalScope>(execution_context)
+                  ->serviceWorker()
+                  ->scriptURL());
 }
 
-KURL DefaultSiteForCookies(ExecutionContext* execution_context) {
+// Return empty KURL if and only if an exception is thrown.
+KURL CookieUrlForRead(const CookieStoreGetOptions* options,
+                      const KURL& default_cookie_url,
+                      ScriptState* script_state,
+                      ExceptionState& exception_state) {
+  ExecutionContext* context = ExecutionContext::From(script_state);
+
+  if (!options->hasURL())
+    return default_cookie_url;
+
+  KURL cookie_url = KURL(default_cookie_url, options->url());
+
+  if (context->IsDocument()) {
+    DCHECK_EQ(default_cookie_url, To<Document>(context)->CookieURL());
+
+    if (cookie_url.GetString() != default_cookie_url.GetString()) {
+      exception_state.ThrowTypeError("URL must match the document URL");
+      return KURL();
+    }
+  } else {
+    DCHECK(context->IsServiceWorkerGlobalScope());
+    DCHECK_EQ(
+        default_cookie_url.GetString(),
+        To<ServiceWorkerGlobalScope>(context)->serviceWorker()->scriptURL());
+
+    if (!cookie_url.GetString().StartsWith(default_cookie_url.GetString())) {
+      exception_state.ThrowTypeError("URL must be within Service Worker scope");
+      return KURL();
+    }
+  }
+
+  return cookie_url;
+}
+
+net::SiteForCookies DefaultSiteForCookies(ExecutionContext* execution_context) {
   DCHECK(execution_context);
 
   if (auto* document = DynamicTo<Document>(execution_context))
     return document->SiteForCookies();
 
   auto* scope = To<ServiceWorkerGlobalScope>(execution_context);
-  return scope->Url();
+  return net::SiteForCookies::FromUrl(scope->Url());
 }
 
 scoped_refptr<SecurityOrigin> DefaultTopFrameOrigin(
@@ -352,7 +385,9 @@ ScriptPromise CookieStore::DoRead(
     ExceptionState& exception_state) {
   network::mojom::blink::CookieManagerGetOptionsPtr backend_options =
       ToBackendOptions(options, exception_state);
-  if (backend_options.is_null()) {
+  KURL cookie_url = CookieUrlForRead(options, default_cookie_url_, script_state,
+                                     exception_state);
+  if (backend_options.is_null() || cookie_url.IsNull()) {
     DCHECK(exception_state.HadException());
     return ScriptPromise();
   }
@@ -365,7 +400,7 @@ ScriptPromise CookieStore::DoRead(
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   backend_->GetAllForUrl(
-      default_cookie_url_, default_site_for_cookies_, default_top_frame_origin_,
+      cookie_url, default_site_for_cookies_, default_top_frame_origin_,
       std::move(backend_options),
       WTF::Bind(backend_result_converter, WrapPersistent(resolver)));
   return resolver->Promise();

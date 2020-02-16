@@ -6,28 +6,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Please see src/ui/android/java/res/values/colors.xml for the shared common colors. -->
 
-    <!-- Text colors -->
-    <color name="default_primary_color">#F2F2F2</color>
-    <color name="input_underline_error_color">#D32F2F</color>
-    <color name="explanation_text_color">#909090</color>
-    <color name="text_highlight_color">@color/highlight_color_on_dark_text</color>
-
+    <!--  TODO(crbug.com/775198): move all hex color values to color_palette.xml  -->
     <!-- Other colors -->
-    <color name="dark_action_bar_color">#263238</color>
+    <color name="dark_action_bar_color">@color/google_blue_grey_900</color>
     <color name="dark_status_bar_color">#161E21</color>
-
-    <!-- Modern color palette -->
-    <color name="black_alpha_12">#1F000000</color>
-    <color name="black_alpha_20">#33000000</color>
-    <color name="black_alpha_30">#4D000000</color>
-    <color name="white_alpha_65">#A6FFFFFF</color>
-
-    <!-- Old color palette -->
-    <color name="google_blue_grey_500">#607D8B</color>
-    <color name="google_blue_50">#E3F2FD</color>
-
-    <!-- TODO(https://crbug.com/919835): Clarify whether these colors can be reused. -->
-    <color name="google_yellow_600">#F9AB00</color>
 
     <!-- Infobar colors -->
     <color name="infobar_icon_drawable_color">@color/default_icon_color_blue</color>
@@ -39,13 +21,13 @@
     <color name="tab_back_incognito">#4F4F4F</color>
 
     <!-- App banner colors -->
-    <color name="app_banner_install_button_bg">#0F9D58</color>
+    <color name="app_banner_install_button_bg">@color/default_green</color>
 
     <!-- App menu colors -->
     <color name="update_menu_item_text_color">@color/default_red</color>
 
     <!-- URL Emphasizer colors -->
-    <color name="url_emphasis_non_emphasized_text">@color/default_text_color_dark_secondary</color>
+    <color name="url_emphasis_non_emphasized_text">@color/default_text_color_secondary_dark</color>
     <color name="url_emphasis_light_non_emphasized_text">@color/white_alpha_50</color>
     <color name="url_emphasis_domain_and_registry">@color/default_text_color_dark</color>
     <color name="url_emphasis_light_domain_and_registry">@android:color/white</color>
@@ -105,7 +87,6 @@
     <color name="contextual_search_divider_line_color">@color/modern_secondary_color</color>
 
     <!-- Toolbar colors -->
-    <color name="toolbar_text_box_background">@color/modern_grey_100</color>
     <color name="toolbar_text_box_background_incognito">@color/black_alpha_38</color>
 
     <!-- LocationBar colors -->
@@ -119,12 +100,6 @@
     <color name="omnibox_focused_fading_background_color_light">@color/white_alpha_65</color>
 
     <!-- Find in Page colors -->
-    <color name="find_result_bar_background_color">#BFFFFFFF</color>
-    <color name="find_result_bar_background_border_color">#BF666666</color>
-    <color name="find_result_bar_result_color">#FFDE43</color>
-    <color name="find_result_bar_result_border_color">#C9AF35</color>
-    <color name="find_result_bar_active_color">#FF9632</color>
-    <color name="find_result_bar_active_border_color">#C37E3B</color>
     <color name="find_in_page_query_white_color">@android:color/white</color>
     <color name="find_in_page_query_incognito_hint_color">@color/white_alpha_70</color>
     <color name="find_in_page_failed_results_status_color">@color/default_red</color>
@@ -169,7 +144,6 @@
     <color name="image_viewer_bg">#0E0E0E</color>
     <color name="bottom_system_nav_color">@android:color/white</color>
     <color name="bottom_system_nav_divider_color">@color/black_alpha_12</color>
-    <color name="search_box_hint">@color/default_text_color_secondary</color>
     <color name="thumbnail_placeholder_on_primary_bg" tools:ignore="UnusedResources">@color/modern_secondary_color</color>
     <color name="tab_layout_selected_tab_color">@color/default_text_color_blue</color>
     <color name="web_notification_text">#CCCCCC</color>

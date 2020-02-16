@@ -11,7 +11,6 @@
 #include "components/media_message_center/media_notification_controller.h"
 #include "components/media_message_center/media_notification_view.h"
 #include "services/media_session/public/cpp/util.h"
-#include "services/media_session/public/mojom/constants.mojom.h"
 #include "services/media_session/public/mojom/media_controller.mojom.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 #include "ui/gfx/favicon_size.h"
@@ -197,8 +196,9 @@ void MediaSessionNotificationItem::SetController(
   MaybeHideOrShowNotification();
 }
 
-void MediaSessionNotificationItem::Freeze() {
+void MediaSessionNotificationItem::Freeze(base::OnceClosure unfrozen_callback) {
   is_bound_ = false;
+  unfrozen_callback_ = std::move(unfrozen_callback);
 
   if (frozen_)
     return;
@@ -269,6 +269,8 @@ void MediaSessionNotificationItem::Unfreeze() {
     if (session_favicon_.has_value())
       view_->UpdateWithFavicon(*session_favicon_);
   }
+
+  std::move(unfrozen_callback_).Run();
 }
 
 bool MediaSessionNotificationItem::HasArtwork() const {

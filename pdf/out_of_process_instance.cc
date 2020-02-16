@@ -155,6 +155,9 @@ constexpr char kJSEmailBody[] = "body";
 // Rotation (Page -> Plugin)
 constexpr char kJSRotateClockwiseType[] = "rotateClockwise";
 constexpr char kJSRotateCounterclockwiseType[] = "rotateCounterclockwise";
+// Toggle two-up view (Page -> Plugin)
+constexpr char kJSSetTwoUpViewType[] = "setTwoUpView";
+constexpr char kJSEnableTwoUpView[] = "enableTwoUpView";
 // Select all text in the document (Page -> Plugin)
 constexpr char kJSSelectAllType[] = "selectAll";
 // Get the selected text in the document (Page -> Plugin)
@@ -476,18 +479,21 @@ OutOfProcessInstance::~OutOfProcessInstance() {
 bool OutOfProcessInstance::Init(uint32_t argc,
                                 const char* argn[],
                                 const char* argv[]) {
-  // Check if the PDF is being loaded in the PDF chrome extension. We only allow
-  // the plugin to be loaded in the extension and print preview to avoid
-  // exposing sensitive APIs directly to external websites.
   pp::Var document_url_var = pp::URLUtil_Dev::Get()->GetDocumentURL(this);
   if (!document_url_var.is_string())
     return false;
 
+  // Check if the PDF is being loaded in the PDF chrome extension. We only allow
+  // the plugin to be loaded in the extension and print preview to avoid
+  // exposing sensitive APIs directly to external websites.
+  //
+  // This is enforced before launching the plugin process (see
+  // ChromeContentBrowserClient::ShouldAllowPluginCreation), so below we just do
+  // a CHECK as a defense-in-depth.
   std::string document_url = document_url_var.AsString();
   base::StringPiece document_url_piece(document_url);
   is_print_preview_ = IsPrintPreviewUrl(document_url_piece);
-  if (!document_url_piece.starts_with(kChromeExtension) && !is_print_preview_)
-    return false;
+  CHECK(document_url_piece.starts_with(kChromeExtension) || is_print_preview_);
 
   // Check if the plugin is full frame. This is passed in from JS.
   for (uint32_t i = 0; i < argc; ++i) {
@@ -716,6 +722,8 @@ void OutOfProcessInstance::HandleMessage(const pp::Var& message) {
     RotateClockwise();
   } else if (type == kJSRotateCounterclockwiseType) {
     RotateCounterclockwise();
+  } else if (type == kJSSetTwoUpViewType) {
+    SetTwoUpView(dict.Get(pp::Var(kJSEnableTwoUpView)).AsBool());
   } else if (type == kJSSelectAllType) {
     engine_->SelectAll();
   } else if (type == kJSBackgroundColorChangedType) {
@@ -1760,6 +1768,10 @@ void OutOfProcessInstance::RotateClockwise() {
 
 void OutOfProcessInstance::RotateCounterclockwise() {
   engine_->RotateCounterclockwise();
+}
+
+void OutOfProcessInstance::SetTwoUpView(bool enable_two_up_view) {
+  engine_->SetTwoUpView(enable_two_up_view);
 }
 
 std::string OutOfProcessInstance::GetFileNameFromUrl(const std::string& url) {

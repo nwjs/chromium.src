@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">сырғытпа</translation>
 <translation id="1211441953136645838">түсіндірме</translation>
 <translation id="1281252709823657822">диалогтық терезе</translation>
+<translation id="1306460908038601864">Өшірулі</translation>
 <translation id="1335095011850992622">рұқсаттар</translation>
 <translation id="1342835525016946179">мақала</translation>
 <translation id="1359897965706325498">баннер</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Бұл мәтінді <ph name="MIN_CHARACTERS" /> немесе одан көп таңбаға дейін ұзартыңыз (қазір <ph name="CURRENT_LENGTH" /> таңба).</translation>
 <translation id="383465348367842624">"<ph name="ATSIGN" />" кейінгі бөлім "<ph name="INVALIDCHARACTER" />" белгісін қамтымауы тиіс.</translation>
 <translation id="3846214748874656680">Толық экраннан шығу</translation>
-<translation id="3889183436948184105">нұсқа</translation>
 <translation id="3920932319529768807">қорытынды</translation>
 <translation id="3924558731517983934">қолданба</translation>
 <translation id="3944740393230681990">пролог</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Нөмірді енгізіңіз.</translation>
 <translation id="4912536737030637138">әдебиет жазбасы</translation>
 <translation id="492244087561876220">пікір</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> таңдалды.</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> таңдалды</translation>
 <translation id="4992066212339426712">Дыбысын қосу</translation>
 <translation id="49969490063480558">"<ph name="ATSIGN" />" кейінгі бөлімді енгізіңіз. "<ph name="INVALIDADDRESS" />" толық емес.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> ПБ</translation>
 <translation id="5307600278924710095">"<ph name="ATSIGN" />" болып жалғасатын бөлікті енгізіңіз. "<ph name="INVALIDADDRESS" />" толық емес.</translation>
 <translation id="5334352251556557839">Медиафайл ойнатылмады.</translation>
+<translation id="537648784377940524">Минималды күн (<ph name="MIN_DATE_OR_TIME" />) максималды күннен (<ph name="MAX_DATE_OR_TIME" />) бұрын болуы тиіс.</translation>
 <translation id="5406322316791861025">пішін</translation>
 <translation id="5453733299334684579">ағаш тәрізді элемент</translation>
 <translation id="5466621249238537318">Бір немесе бірнеше файлды таңдаңыз.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">басқа да опциялар</translation>
 <translation id="576709008726043716">кіріспе</translation>
 <translation id="57838592816432529">Дыбысын өшіру</translation>
-<translation id="5860033963881614850">Өшірулі</translation>
 <translation id="588258955323874662">Толық экран</translation>
 <translation id="5888666972993069672"><ph name="DEVICE_FRIENDLY_NAME" /> құрылғысына трансляциялануда</translation>
 <translation id="591047860372322273">іздеу өрісі</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Электрондық пошта мекенжайына "<ph name="ATSIGN" />" белгісін енгізіңіз. "<ph name="INVALIDADDRESS" />" мекенжайында "<ph name="ATSIGN" />" жоқ.</translation>
 <translation id="7891486169920085145">бөлгіш</translation>
 <translation id="795667975304826397">Файл таңдалмады</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> таңдалмаған</translation>
 <translation id="8034303206267677282">маңызды</translation>
 <translation id="8053789581856978548">мәтіндік іздеу өрісі</translation>
 <translation id="8057695513531652401">ескерту</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Ай</translation>
 <translation id="901493112792887934">ағымдағы уақыт секундар өлшемінде</translation>
 <translation id="901834265349196618">электрондық пошта</translation>
-<translation id="9023835124071926463">пікір бөлімі</translation>
 <translation id="9048119486235211610">навигация</translation>
 <translation id="9062295712474918030">құжат</translation>
 <translation id="9093215626363556771">"суреттегі сурет" режимінен шығу</translation>

@@ -5,7 +5,10 @@
 #include "third_party/blink/renderer/core/input/mouse_event_manager.h"
 
 #include "build/build_config.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_drag_event_init.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_pointer_event_init.h"
 #include "third_party/blink/renderer/core/clipboard/data_object.h"
 #include "third_party/blink/renderer/core/clipboard/data_transfer.h"
 #include "third_party/blink/renderer/core/clipboard/data_transfer_access_policy.h"
@@ -86,11 +89,11 @@ void UpdateMouseMovementXY(const WebMouseEvent& mouse_event,
     // movementX/Y is type int for now, so we need to truncated the coordinates
     // before calculate movement.
     initializer->setMovementX(
-        base::saturated_cast<int>(mouse_event.PositionInScreen().x *
+        base::saturated_cast<int>(mouse_event.PositionInScreen().x() *
                                   device_scale_factor) -
         base::saturated_cast<int>(last_position->X() * device_scale_factor));
     initializer->setMovementY(
-        base::saturated_cast<int>(mouse_event.PositionInScreen().y *
+        base::saturated_cast<int>(mouse_event.PositionInScreen().y() *
                                   device_scale_factor) -
         base::saturated_cast<int>(last_position->Y() * device_scale_factor));
   }
@@ -638,8 +641,8 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
   // fields before the button click is processed.
   if (!page->GetFocusController().SetFocusedElement(
           element, frame_,
-          FocusParams(SelectionBehaviorOnFocus::kNone, kWebFocusTypeMouse,
-                      source_capabilities)))
+          FocusParams(SelectionBehaviorOnFocus::kNone,
+                      mojom::blink::FocusType::kMouse, source_capabilities)))
     return WebInputEventResult::kHandledSystem;
   return WebInputEventResult::kNotHandled;
 }
@@ -647,10 +650,11 @@ WebInputEventResult MouseEventManager::HandleMouseFocus(
 bool MouseEventManager::SlideFocusOnShadowHostIfNecessary(
     const Element& element) {
   if (Element* delegated_target = element.GetFocusableArea()) {
-    // Use WebFocusTypeForward instead of WebFocusTypeMouse here to mean the
+    // Use FocusTypeForward instead of FocusTypeMouse here to mean the
     // focus has slided.
     delegated_target->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
-                                        kWebFocusTypeForward, nullptr));
+                                        mojom::blink::FocusType::kForward,
+                                        nullptr));
     return true;
   }
   return false;
@@ -698,8 +702,8 @@ FloatPoint MouseEventManager::LastKnownMouseScreenPosition() {
 
 void MouseEventManager::SetLastKnownMousePosition(const WebMouseEvent& event) {
   is_mouse_position_unknown_ = event.GetType() == WebInputEvent::kMouseLeave;
-  last_known_mouse_position_ = event.PositionInWidget();
-  last_known_mouse_screen_position_ = event.PositionInScreen();
+  last_known_mouse_position_ = FloatPoint(event.PositionInWidget());
+  last_known_mouse_screen_position_ = FloatPoint(event.PositionInScreen());
 }
 
 void MouseEventManager::SetLastMousePositionAsUnknown() {

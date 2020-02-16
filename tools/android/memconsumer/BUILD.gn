@@ -14,7 +14,7 @@ android_apk("memconsumer_apk") {
   android_manifest = "java/AndroidManifest.xml"
   min_sdk_version = 16
   target_sdk_version = 16
-  java_files = [
+  sources = [
     "java/src/org/chromium/memconsumer/MemConsumer.java",
     "java/src/org/chromium/memconsumer/ResidentService.java",
   ]
@@ -28,9 +28,7 @@ android_apk("memconsumer_apk") {
 
 shared_library("libmemconsumer") {
   output_name = "memconsumer"
-  sources = [
-    "memconsumer_hook.cc",
-  ]
+  sources = [ "memconsumer_hook.cc" ]
   libs = [ "log" ]
   configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
 

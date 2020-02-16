@@ -97,6 +97,12 @@ GpuVideoAcceleratorFactoriesImpl::GpuVideoAcceleratorFactoriesImpl(
       video_accelerator_enabled_(enable_video_accelerator),
       gpu_memory_buffer_manager_(
           RenderThreadImpl::current()->GetGpuMemoryBufferManager()),
+      supported_vea_profiles_(
+          enable_video_accelerator
+              ? media::GpuVideoAcceleratorUtil::ConvertGpuToMediaEncodeProfiles(
+                    gpu_channel_host_->gpu_info()
+                        .video_encode_accelerator_supported_profiles)
+              : media::VideoEncodeAccelerator::SupportedProfiles()),
       thread_safe_sender_(ChildThreadImpl::current()->thread_safe_sender()) {
   DCHECK(main_thread_task_runner_);
   DCHECK(gpu_channel_host_);
@@ -272,11 +278,8 @@ GpuVideoAcceleratorFactoriesImpl::CreateVideoEncodeAccelerator() {
     return nullptr;
 
   return std::unique_ptr<media::VideoEncodeAccelerator>(
-      new media::MojoVideoEncodeAccelerator(
-          std::move(vea), context_provider_->GetCommandBufferProxy()
-                              ->channel()
-                              ->gpu_info()
-                              .video_encode_accelerator_supported_profiles));
+      new media::MojoVideoEncodeAccelerator(std::move(vea),
+                                            supported_vea_profiles_));
 }
 
 std::unique_ptr<gfx::GpuMemoryBuffer>
@@ -335,7 +338,7 @@ GpuVideoAcceleratorFactoriesImpl::VideoFrameOutputFormat(
     if (bit_depth == 10) {
       if (capabilities.image_xr30)
         return media::GpuVideoAcceleratorFactories::OutputFormat::XR30;
-      else if (capabilities.image_xb30)
+      else if (capabilities.image_ab30)
         return media::GpuVideoAcceleratorFactories::OutputFormat::XB30;
     }
 #endif
@@ -386,9 +389,7 @@ GpuVideoAcceleratorFactoriesImpl::GetTaskRunner() {
 
 media::VideoEncodeAccelerator::SupportedProfiles
 GpuVideoAcceleratorFactoriesImpl::GetVideoEncodeAcceleratorSupportedProfiles() {
-  return media::GpuVideoAcceleratorUtil::ConvertGpuToMediaEncodeProfiles(
-      gpu_channel_host_->gpu_info()
-          .video_encode_accelerator_supported_profiles);
+  return supported_vea_profiles_;
 }
 
 scoped_refptr<viz::ContextProvider>

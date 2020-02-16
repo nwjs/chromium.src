@@ -176,8 +176,13 @@ ui::TextEditCommand GetCommandForKeyEvent(const ui::KeyEvent& event) {
                  ? ui::TextEditCommand::MOVE_TO_END_OF_LINE_AND_MODIFY_SELECTION
                  : ui::TextEditCommand::INVALID_COMMAND;
     case ui::VKEY_BACK:
-      if (!control)
+      if (!control) {
+#if defined(OS_WIN)
+        if (alt)
+          return shift ? ui::TextEditCommand::REDO : ui::TextEditCommand::UNDO;
+#endif
         return ui::TextEditCommand::DELETE_BACKWARD;
+      }
 #if defined(OS_LINUX)
       // Only erase by line break on Linux and ChromeOS.
       if (shift)
@@ -656,8 +661,8 @@ void Textfield::SetAccessibleName(const base::string16& name) {
   OnPropertyChanged(&accessible_name_, kPropertyEffectsNone);
 }
 
-void Textfield::SetGlyphSpacing(int spacing) {
-  GetRenderText()->set_glyph_spacing(spacing);
+void Textfield::SetObscuredGlyphSpacing(int spacing) {
+  GetRenderText()->SetObscuredGlyphSpacing(spacing);
 }
 
 void Textfield::SetExtraInsets(const gfx::Insets& insets) {
@@ -1646,7 +1651,7 @@ bool Textfield::GetTextFromRange(const gfx::Range& range,
     return false;
 
   gfx::Range text_range;
-  if (!GetTextRange(&text_range) || !text_range.Contains(range))
+  if (!GetTextRange(&text_range) || !range.IsBoundedBy(text_range))
     return false;
 
   *range_text = model_->GetTextFromRange(range);
@@ -1815,6 +1820,10 @@ bool Textfield::SetCompositionFromExistingText(
 #endif
 
 #if defined(OS_WIN)
+void Textfield::GetActiveTextInputControlLayoutBounds(
+    base::Optional<gfx::Rect>* control_bounds,
+    base::Optional<gfx::Rect>* selection_bounds) {}
+
 // TODO(https://crbug.com/952355): Implement this method once TSF supports reconversion
 // features on native text fields.
 void Textfield::SetActiveCompositionForAccessibility(

@@ -204,8 +204,20 @@ class SearchBox : public content::RenderFrameObserver,
   // |clear_result| is true.
   void StopAutocomplete(bool clear_result);
 
+  // Logs the time it took in milliseconds since the first character (in a
+  // series of characters) was typed until Autocomplete results were painted.
+  void LogCharTypedToRepaintLatency(uint32_t latency_ms);
+
   // Called when a user dismisses a promo.
   void BlocklistPromo(const std::string& promo_id);
+
+  // Handles navigation to the chrome://extensions page by calling the browser
+  // to do the navigation.
+  void OpenExtensionsPage(double button,
+                          bool alt_key,
+                          bool ctrl_key,
+                          bool meta_key,
+                          bool shift_key);
 
   // Handles navigation to privileged (i.e. chrome://) URLs by calling the
   // browser to do the navigation.
@@ -232,6 +244,9 @@ class SearchBox : public content::RenderFrameObserver,
   // Overridden from chrome::mojom::EmbeddedSearchClient:
   void AutocompleteResultChanged(
       chrome::mojom::AutocompleteResultPtr result) override;
+  void AutocompleteMatchImageAvailable(uint32_t match_index,
+                                       const std::string& image_url,
+                                       const std::string& data_url) override;
   void SetPageSequenceNumber(int page_seq_no) override;
   void FocusChanged(OmniboxFocusState new_focus_state,
                     OmniboxFocusChangeReason reason) override;

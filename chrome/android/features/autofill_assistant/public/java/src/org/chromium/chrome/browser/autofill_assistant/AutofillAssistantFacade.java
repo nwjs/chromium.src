@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.autofill_assistant;
 
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -15,10 +14,10 @@ import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.autofill_assistant.metrics.DropOutReason;
 import org.chromium.chrome.browser.directactions.DirectActionHandler;
 import org.chromium.chrome.browser.flags.ActivityType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -53,23 +52,9 @@ public class AutofillAssistantFacade {
      */
     private static final String EXPERIMENT_IDS_IDENTIFIER = "EXPERIMENT_IDS";
 
-    /**
-     * Boolean parameter that trusted apps can use to declare that the user has agreed to Terms and
-     * Conditions that cover the use of Autofill Assistant in Chrome for that specific invocation.
-     */
-    private static final String AGREED_TO_TC = "AGREED_TO_TC";
-
-    /** Pending intent sent by first-party apps. */
-    private static final String PENDING_INTENT_NAME = INTENT_SPECIAL_PREFIX + "PENDING_INTENT";
-
     /** Intent extra name for csv list of experiment ids. */
     private static final String EXPERIMENT_IDS_NAME =
             INTENT_SPECIAL_PREFIX + EXPERIMENT_IDS_IDENTIFIER;
-
-    /** Package names of trusted first-party apps, from the pending intent. */
-    private static final String[] TRUSTED_CALLER_PACKAGES = {
-            "com.google.android.googlequicksearchbox", // GSA
-    };
 
     /**
      * Synthetic field trial names and group names should match those specified in
@@ -83,27 +68,38 @@ public class AutofillAssistantFacade {
     private static final String EXPERIMENTS_SYNTHETIC_TRIAL = "AutofillAssistantExperimentsTrial";
 
     /** Returns true if conditions are satisfied to attempt to start Autofill Assistant. */
-    public static boolean isConfigured(@Nullable Bundle intentExtras) {
+    private static boolean isConfigured(@Nullable Bundle intentExtras) {
         return getBooleanParameter(intentExtras, PARAMETER_ENABLED);
     }
 
-    /** Starts Autofill Assistant on the given {@code activity}. */
+    /**
+     * Starts Autofill Assistant.
+     * @param activity {@link ChromeActivity} the activity on which the Autofill Assistant is being
+     *         started. This must be a launch activity holding the correct intent for starting.
+     */
     public static void start(ChromeActivity activity) {
+        start(activity, activity.getInitialIntent().getExtras(),
+                activity.getInitialIntent().getDataString());
+    }
+
+    /**
+     * Starts Autofill Assistant.
+     * @param activity {@link ChromeActivity} the activity on which the Autofill Assistant is being
+     *         started.
+     * @param bundleExtras {@link Bundle} the extras which were used to start the Autofill
+     *         Assistant.
+     * @param initialUrl the initial URL the Autofill Assistant should be started on.
+     */
+    public static void start(ChromeActivity activity, Bundle bundleExtras, String initialUrl) {
         // Register synthetic trial as soon as possible.
         UmaSessionStats.registerSyntheticFieldTrial(TRIGGERED_SYNTHETIC_TRIAL, ENABLED_GROUP);
         // Synthetic trial for experiments.
-        String experimentIds = getExperimentIds(activity.getInitialIntent().getExtras());
+        String experimentIds = getExperimentIds(bundleExtras);
         if (!experimentIds.isEmpty()) {
             for (String experimentId : experimentIds.split(",")) {
                 UmaSessionStats.registerSyntheticFieldTrial(
                         EXPERIMENTS_SYNTHETIC_TRIAL, experimentId);
             }
-        }
-
-        // Early exit if autofill assistant should not be triggered.
-        boolean canStartWithoutOnboarding = canStart(activity.getInitialIntent());
-        if (!canStartWithoutOnboarding && !AutofillAssistantPreferencesUtil.getShowOnboarding()) {
-            return;
         }
 
         // Have an "attempted starts" baseline for the drop out histogram.
@@ -117,13 +113,11 @@ public class AutofillAssistantFacade {
                             return;
                         }
 
-                        Bundle bundleExtras = activity.getInitialIntent().getExtras();
                         Map<String, String> parameters = extractParameters(bundleExtras);
                         parameters.remove(PARAMETER_ENABLED);
-                        String initialUrl = activity.getInitialIntent().getDataString();
-                        moduleEntry.start(tab, tab.getWebContents(), canStartWithoutOnboarding,
-                                initialUrl, parameters, experimentIds,
-                                activity.getInitialIntent().getExtras());
+                        moduleEntry.start(tab, tab.getWebContents(),
+                                !AutofillAssistantPreferencesUtil.getShowOnboarding(), initialUrl,
+                                parameters, experimentIds, bundleExtras);
                     });
         });
     }
@@ -205,39 +199,6 @@ public class AutofillAssistantFacade {
         return result;
     }
 
-    /** Returns {@code true} if we can start right away. */
-    private static boolean canStart(Intent intent) {
-        return (AutofillAssistantPreferencesUtil.isAutofillAssistantSwitchOn()
-                       && !AutofillAssistantPreferencesUtil.getShowOnboarding())
-                || hasAgreedToTc(intent);
-    }
-
-    /**
-     * Returns {@code true} if the user has already agreed to specific terms and conditions for the
-     * current task, that cover the use of autofill assistant. There's no need to show the generic
-     * first-time screen for that call.
-     */
-    private static boolean hasAgreedToTc(Intent intent) {
-        return getBooleanParameter(intent.getExtras(), AGREED_TO_TC)
-                && callerIsOnWhitelist(intent, TRUSTED_CALLER_PACKAGES);
-    }
-
-    /** Returns {@code true} if the caller is on the given whitelist. */
-    private static boolean callerIsOnWhitelist(Intent intent, String[] whitelist) {
-        PendingIntent pendingIntent =
-                IntentUtils.safeGetParcelableExtra(intent, PENDING_INTENT_NAME);
-        if (pendingIntent == null) {
-            return false;
-        }
-        String packageName = pendingIntent.getCreatorPackage();
-        for (String whitelistedPackage : whitelist) {
-            if (whitelistedPackage.equals(packageName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** Provides the callback with a tab that has a web contents, waits if necessary. */
     private static void waitForTabWithWebContents(ChromeActivity activity, Callback<Tab> callback) {
         if (activity.getActivityTab() != null
@@ -257,5 +218,15 @@ public class AutofillAssistantFacade {
                         callback.onResult(tab);
                     }
                 });
+    }
+
+    public static boolean isAutofillAssistantEnabled(Intent intent) {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_ASSISTANT)
+                && AutofillAssistantFacade.isConfigured(intent.getExtras());
+    }
+
+    public static boolean isAutofillAssistantByIntentTriggeringEnabled(Intent intent) {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_ASSISTANT_CHROME_ENTRY)
+                && AutofillAssistantFacade.isAutofillAssistantEnabled(intent);
     }
 }

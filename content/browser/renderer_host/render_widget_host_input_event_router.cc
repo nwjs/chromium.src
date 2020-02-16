@@ -20,7 +20,6 @@
 #include "components/viz/common/hit_test/hit_test_region_list.h"
 #include "components/viz/common/quads/surface_draw_quad.h"
 #include "components/viz/host/host_frame_sink_manager.h"
-#include "components/viz/service/surfaces/surface_manager.h"
 #include "content/browser/compositor/surface_utils.h"
 #include "content/browser/renderer_host/cursor_manager.h"
 #include "content/browser/renderer_host/input/touch_emulator.h"
@@ -29,7 +28,7 @@
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/common/frame_messages.h"
 #include "content/public/browser/render_widget_host_iterator.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/layout.h"
 #include "ui/gfx/geometry/dip_util.h"
 
@@ -479,9 +478,7 @@ RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindMouseEventTarget(
     // https://crbug.com/934434.
     if (event.GetType() == blink::WebInputEvent::kMouseUp &&
         target == last_mouse_down_target_ &&
-        mouse_down_pre_transformed_coordinate_ ==
-            gfx::PointF(event.PositionInWidget().x,
-                        event.PositionInWidget().y)) {
+        mouse_down_pre_transformed_coordinate_ == event.PositionInWidget()) {
       transformed_point = mouse_down_post_transformed_coordinate_;
       needs_transform_point = false;
     }
@@ -493,8 +490,7 @@ RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindMouseEventTarget(
         FindViewAtLocation(root_view, event.PositionInWidget(),
                            viz::EventSource::MOUSE, &transformed_point);
     if (event.GetType() == blink::WebInputEvent::kMouseDown) {
-      mouse_down_pre_transformed_coordinate_.SetPoint(
-          event.PositionInWidget().x, event.PositionInWidget().y);
+      mouse_down_pre_transformed_coordinate_ = event.PositionInWidget();
     }
     if (result.should_query_view)
       return {result.view, true, transformed_point, latched_target};
@@ -1427,7 +1423,7 @@ namespace {
 
 bool IsPinchCurrentlyAllowedInTarget(RenderWidgetHostViewBase* target) {
   base::Optional<cc::TouchAction> target_active_touch_action(
-      cc::kTouchActionNone);
+      cc::TouchAction::kNone);
   if (target) {
     target_active_touch_action =
         (static_cast<RenderWidgetHostImpl*>(target->GetRenderWidgetHost()))
@@ -1440,9 +1436,9 @@ bool IsPinchCurrentlyAllowedInTarget(RenderWidgetHostViewBase* target) {
   // TODO(wjmaclean): Find out why we can be in the middle of a gesture
   // sequence and not have a valid touch action assigned.
   if (!target_active_touch_action)
-    target_active_touch_action = cc::kTouchActionNone;
-  return (target_active_touch_action.value() &
-          cc::TouchAction::kTouchActionPinchZoom);
+    target_active_touch_action = cc::TouchAction::kNone;
+  return (target_active_touch_action.value() & cc::TouchAction::kPinchZoom) !=
+         cc::TouchAction::kNone;
 }
 
 }  // namespace
@@ -1787,7 +1783,8 @@ RenderWidgetHostInputEventRouter::FindTargetSynchronously(
         root_view, static_cast<const blink::WebTouchEvent&>(event));
   }
   if (blink::WebInputEvent::IsGestureEventType(event.GetType())) {
-    auto gesture_event = static_cast<const blink::WebGestureEvent&>(event);
+    const auto& gesture_event =
+        static_cast<const blink::WebGestureEvent&>(event);
     if (gesture_event.SourceDevice() == blink::WebGestureDevice::kTouchscreen) {
       return FindTouchscreenGestureEventTarget(root_view, gesture_event);
     }
@@ -1905,9 +1902,8 @@ void RenderWidgetHostInputEventRouter::ForwardEmulatedTouchEvent(
 
   if (event.GetType() == blink::WebInputEvent::kTouchStart)
     active_touches_ += CountChangedTouchPoints(event);
-  blink::WebFloatPoint position_in_widget = event.touches[0].PositionInWidget();
   gfx::PointF transformed_point = target->TransformRootPointToViewCoordSpace(
-      gfx::PointF(position_in_widget.x, position_in_widget.y));
+      event.touches[0].PositionInWidget());
   DispatchTouchEvent(last_emulated_event_root_view_, target, event,
                      ui::LatencyInfo(), transformed_point, true /* emulated */);
 }

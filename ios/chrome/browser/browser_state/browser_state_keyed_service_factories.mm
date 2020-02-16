@@ -13,6 +13,8 @@
 #include "ios/chrome/browser/bookmarks/startup_task_runner_service_factory.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_remover_factory.h"
 #include "ios/chrome/browser/content_settings/cookie_settings_factory.h"
+#include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager_keyed_service_factory.h"
+#include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_persistent_storage_keyed_service_factory.h"
 #include "ios/chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "ios/chrome/browser/download/browser_download_service_factory.h"
 #include "ios/chrome/browser/favicon/favicon_service_factory.h"
@@ -52,7 +54,6 @@
 #include "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #include "ios/chrome/browser/translate/translate_accept_languages_factory.h"
 #include "ios/chrome/browser/translate/translate_ranker_factory.h"
-#include "ios/chrome/browser/ui/fullscreen/fullscreen_controller_factory.h"
 #import "ios/chrome/browser/ui/voice/text_to_speech_playback_controller_factory.h"
 #include "ios/chrome/browser/undo/bookmark_undo_service_factory.h"
 #include "ios/chrome/browser/unified_consent/unified_consent_service_factory.h"
@@ -96,10 +97,11 @@ void EnsureBrowserStateKeyedServiceFactoriesBuilt() {
   translate::TranslateRankerFactory::GetInstance();
   suggestions::SuggestionsServiceFactory::GetInstance();
   AuthenticationServiceFactory::GetInstance();
+  BreadcrumbManagerKeyedServiceFactory::GetInstance();
+  BreadcrumbPersistentStorageKeyedServiceFactory::GetInstance();
   BrowserDownloadServiceFactory::GetInstance();
   BrowsingDataRemoverFactory::GetInstance();
   ConsentAuditorFactory::GetInstance();
-  FullscreenControllerFactory::GetInstance();
   GoogleLogoServiceFactory::GetInstance();
   IdentityManagerFactory::GetInstance();
   IOSChromeContentSuggestionsServiceFactory::GetInstance();

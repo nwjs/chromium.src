@@ -9,19 +9,22 @@
 #include <set>
 
 #include "base/callback.h"
+#include "base/optional.h"
+#include "base/unguessable_token.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
+#include "third_party/blink/public/common/frame/user_activation_update_source.h"
 #include "third_party/blink/public/common/messaging/transferable_message.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-shared.h"
 #include "third_party/blink/public/mojom/commit_result/commit_result.mojom-shared.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
+#include "third_party/blink/public/mojom/frame/media_player_action.mojom-shared.h"
 #include "third_party/blink/public/mojom/portal/portal.mojom-shared.h"
 #include "third_party/blink/public/mojom/selection_menu/selection_menu_behavior.mojom-shared.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-shared.h"
 #include "third_party/blink/public/platform/task_type.h"
-#include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_url_error.h"
 #include "third_party/blink/public/platform/web_url_request.h"
@@ -32,6 +35,10 @@
 #include "third_party/blink/public/web/web_navigation_params.h"
 #include "third_party/blink/public/web/web_text_direction.h"
 #include "v8/include/v8.h"
+
+namespace gfx {
+class Point;
+}  // namespace gfx
 
 namespace blink {
 
@@ -62,8 +69,6 @@ struct WebAssociatedURLLoaderOptions;
 struct WebConsoleMessage;
 struct WebContentSecurityPolicyViolation;
 struct WebIsolatedWorldInfo;
-struct MediaPlayerAction;
-struct WebPoint;
 struct WebPrintParams;
 struct WebPrintPresetOptions;
 struct WebScriptSource;
@@ -131,10 +136,6 @@ class WebLocalFrame : public WebFrame {
   // correspond to a frame (e.g., workers).
   BLINK_EXPORT static WebLocalFrame* FrameForContext(v8::Local<v8::Context>);
 
-  // Returns the frame inside a given frame or iframe element. Returns 0 if
-  // the given element is not a frame, iframe or if the frame is empty.
-  BLINK_EXPORT static WebLocalFrame* FromFrameOwnerElement(const WebElement&);
-
   virtual WebLocalFrameClient* Client() const = 0;
 
   // Initialization ---------------------------------------------------------
@@ -168,9 +169,6 @@ class WebLocalFrame : public WebFrame {
 
   // Hierarchy ----------------------------------------------------------
 
-  // Returns true if the current frame is a local root.
-  virtual bool IsLocalRoot() const = 0;
-
   // Returns true if the current frame is a provisional frame.
   // TODO(https://crbug.com/578349): provisional frames are a hack that should
   // be removed.
@@ -191,10 +189,16 @@ class WebLocalFrame : public WebFrame {
   // kind of lookup what |window.open(..., name)| would in Javascript.
   virtual WebFrame* FindFrameByName(const WebString& name) = 0;
 
-  // Starts scrolling to a specific offset in a frame. Returns false on failure.
-  virtual bool ScrollTo(const gfx::Point& scrollPosition,
-                        bool animate,
-                        base::OnceClosure on_finish) = 0;
+  // Sets an embedding token for the frame. This token is propagated to the
+  // remote parent of this frame (via the browser) such that it can uniquely
+  // refer to this frame.
+  virtual void SetEmbeddingToken(
+      const base::UnguessableToken& embedding_token) = 0;
+
+  // Returns the embedding token for this frame or nullopt if it isn't embedded.
+  // This is the token that the remote parent of this frame uses to uniquely
+  // identify it.
+  virtual const base::Optional<base::UnguessableToken>& GetEmbeddingToken() = 0;
 
   // Navigation Ping --------------------------------------------------------
 
@@ -242,10 +246,6 @@ class WebLocalFrame : public WebFrame {
   // * form submission
   virtual bool IsNavigationScheduledWithin(base::TimeDelta interval) const = 0;
 
-  // Reports a list of Blink features used, performed or encountered by the
-  // browser during the current page load happening on the frame.
-  virtual void BlinkFeatureUsageReport(
-      const std::set<blink::mojom::WebFeature>& features) = 0;
   virtual void BlinkFeatureUsageReport(blink::mojom::WebFeature feature) = 0;
 
   // Informs the renderer that mixed content was found externally regarding this
@@ -266,9 +266,6 @@ class WebLocalFrame : public WebFrame {
 
   // CSS3 Paged Media ----------------------------------------------------
 
-  // Returns true if page box (margin boxes and page borders) is visible.
-  virtual bool IsPageBoxVisible(int page_index) = 0;
-
   // Returns true if the page style has custom size information.
   virtual bool HasCustomPageSizeStyle(int page_index) = 0;
 
@@ -282,11 +279,6 @@ class WebLocalFrame : public WebFrame {
                                           int& margin_right,
                                           int& margin_bottom,
                                           int& margin_left) = 0;
-
-  // Returns the value for a page property that is only defined when printing.
-  // printBegin must have been called before this method.
-  virtual WebString PageProperty(const WebString& property_name,
-                                 int page_index) = 0;
 
   // Scripting --------------------------------------------------------------
 
@@ -399,10 +391,6 @@ class WebLocalFrame : public WebFrame {
       mojo::ScopedInterfaceEndpointHandle devtools_agent_request) = 0;
 
   // Editing -------------------------------------------------------------
-
-  virtual void SetMarkedText(const WebString& text,
-                             unsigned location,
-                             unsigned length) = 0;
   virtual void UnmarkText() = 0;
   virtual bool HasMarkedText() const = 0;
 
@@ -416,7 +404,7 @@ class WebLocalFrame : public WebFrame {
   // Returns the index of a character in the Frame's text stream at the given
   // point. The point is in the viewport coordinate space. Will return
   // WTF::notFound if the point is invalid.
-  virtual size_t CharacterIndexForPoint(const WebPoint&) const = 0;
+  virtual size_t CharacterIndexForPoint(const gfx::Point&) const = 0;
 
   // Supports commands like Undo, Redo, Cut, Copy, Paste, SelectAll,
   // Unselect, etc. See EditorCommand.cpp for the full list of supported
@@ -450,7 +438,8 @@ class WebLocalFrame : public WebFrame {
   virtual bool SelectWordAroundCaret() = 0;
 
   // DEPRECATED: Use moveRangeSelection.
-  virtual void SelectRange(const WebPoint& base, const WebPoint& extent) = 0;
+  virtual void SelectRange(const gfx::Point& base,
+                           const gfx::Point& extent) = 0;
 
   enum HandleVisibilityBehavior {
     // Hide handle(s) in the new selection.
@@ -473,10 +462,10 @@ class WebLocalFrame : public WebFrame {
   // |TextGranularity| represents character wrapping granularity. If
   // WordGranularity is set, WebFrame extends selection to wrap word.
   virtual void MoveRangeSelection(
-      const WebPoint& base,
-      const WebPoint& extent,
+      const gfx::Point& base,
+      const gfx::Point& extent,
       WebFrame::TextGranularity = kCharacterGranularity) = 0;
-  virtual void MoveCaretSelection(const WebPoint&) = 0;
+  virtual void MoveCaretSelection(const gfx::Point&) = 0;
 
   virtual bool SetEditableSelectionOffsets(int start, int end) = 0;
   virtual bool SetCompositionFromExistingText(
@@ -485,12 +474,10 @@ class WebLocalFrame : public WebFrame {
       const WebVector<WebImeTextSpan>& ime_text_spans) = 0;
   virtual void ExtendSelectionAndDelete(int before, int after) = 0;
 
-  virtual void SetCaretVisible(bool) = 0;
-
   // Moves the selection extent point. This function does not allow the
   // selection to collapse. If the new extent is set to the same position as
   // the current base, this function will do nothing.
-  virtual void MoveRangeSelectionExtent(const WebPoint&) = 0;
+  virtual void MoveRangeSelectionExtent(const gfx::Point&) = 0;
   // Replaces the selection with the input string.
   virtual void ReplaceSelection(const WebString&) = 0;
   // Deletes text before and after the current cursor position, excluding the
@@ -526,11 +513,6 @@ class WebLocalFrame : public WebFrame {
 
   // If the provided node is an image that failed to load, reload it.
   virtual void ReloadImage(const WebNode&) = 0;
-
-  // Feature usage logging --------------------------------------------------
-
-  virtual void DidCallAddSearchProvider() = 0;
-  virtual void DidCallIsSearchProviderInstalled() = 0;
 
   // Iframe sandbox ---------------------------------------------------------
 
@@ -578,11 +560,7 @@ class WebLocalFrame : public WebFrame {
 
   // Copy to the clipboard the image located at a particular point in visual
   // viewport coordinates.
-  virtual void CopyImageAt(const WebPoint&) = 0;
-
-  // Save as the image located at a particular point in visual viewport
-  // coordinates.
-  virtual void SaveImageAt(const WebPoint&) = 0;
+  virtual void CopyImageAtForTesting(const gfx::Point&) = 0;
 
   // Events --------------------------------------------------------------
 
@@ -709,13 +687,6 @@ class WebLocalFrame : public WebFrame {
 
   // Focus --------------------------------------------------------------
 
-  // Advance the focus of the WebView to next text input element from current
-  // input field wrt sequential navigation with TAB or Shift + TAB
-  // WebFocusTypeForward simulates TAB and WebFocusTypeBackward simulates
-  // Shift + TAB. (Will be extended to other form controls like select element,
-  // checkbox, radio etc.)
-  virtual void AdvanceFocusInForm(WebFocusType) = 0;
-
   // Returns whether the keyboard should be suppressed for the currently focused
   // element.
   virtual bool ShouldSuppressKeyboardForFocusedElement() = 0;
@@ -734,6 +705,22 @@ class WebLocalFrame : public WebFrame {
   // whether or not the frame is an ad.
   virtual void SetIsAdSubframe(blink::mojom::AdFrameType ad_frame_type) = 0;
 
+  // User activation -----------------------------------------------------------
+
+  // See blink::LocalFrame::NotifyUserActivation().
+  virtual void NotifyUserActivation() = 0;
+
+  // See blink::LocalFrame::HasStickyUserActivation().
+  virtual bool HasStickyUserActivation() = 0;
+
+  // See blink::LocalFrame::HasTransientUserActivation().
+  virtual bool HasTransientUserActivation() = 0;
+
+  // See blink::LocalFrame::ConsumeTransientUserActivation().
+  virtual bool ConsumeTransientUserActivation(
+      UserActivationUpdateSource update_source =
+          UserActivationUpdateSource::kRenderer) = 0;
+
   // Testing ------------------------------------------------------------------
 
   // Prints the frame into the canvas, with page boundaries drawn as one pixel
@@ -745,11 +732,6 @@ class WebLocalFrame : public WebFrame {
   // not be transformed itself. If no selection is present, the rect will be
   // empty ((0,0), (0,0)).
   virtual WebRect GetSelectionBoundsRectForTesting() const = 0;
-
-  // Performs the specified media player action on the media element at the
-  // given location.
-  virtual void PerformMediaPlayerAction(const WebPoint&,
-                                        const MediaPlayerAction&) = 0;
 
   virtual void SetLifecycleState(mojom::FrameLifecycleState state) = 0;
 

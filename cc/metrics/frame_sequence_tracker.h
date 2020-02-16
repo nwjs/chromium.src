@@ -27,6 +27,7 @@ struct PresentationFeedback;
 namespace viz {
 struct BeginFrameAck;
 struct BeginFrameArgs;
+struct BeginFrameId;
 }  // namespace viz
 
 namespace cc {
@@ -36,6 +37,8 @@ class ThroughputUkmReporter;
 class UkmManager;
 
 enum FrameSequenceTrackerType {
+  // Used as an enum for metrics. DO NOT reorder or delete values. Rather,
+  // add them at the end and increment kMaxType.
   kCompositorAnimation = 0,
   kMainThreadAnimation = 1,
   kPinchZoom = 2,
@@ -57,6 +60,12 @@ class CC_EXPORT FrameSequenceMetrics {
   FrameSequenceMetrics(const FrameSequenceMetrics&) = delete;
   FrameSequenceMetrics& operator=(const FrameSequenceMetrics&) = delete;
 
+  enum class ThreadType {
+    kMain,
+    kCompositor,
+    kSlower,
+  };
+
   struct ThroughputData {
     static std::unique_ptr<base::trace_event::TracedValue> ToTracedValue(
         const ThroughputData& impl,
@@ -66,13 +75,17 @@ class CC_EXPORT FrameSequenceMetrics {
     // indicates that no throughput metric is reported.
     static base::Optional<int> ReportHistogram(
         FrameSequenceTrackerType sequence_type,
-        const char* thread_name,
+        ThreadType thread_type,
         int metric_index,
         const ThroughputData& data);
 
     void Merge(const ThroughputData& data) {
       frames_expected += data.frames_expected;
       frames_produced += data.frames_produced;
+#if DCHECK_IS_ON()
+      frames_processed += data.frames_processed;
+      frames_received += data.frames_received;
+#endif
     }
 
     // Tracks the number of frames that were expected to be shown during this
@@ -82,11 +95,21 @@ class CC_EXPORT FrameSequenceMetrics {
     // Tracks the number of frames that were actually presented to the user
     // during this frame-sequence.
     uint32_t frames_produced = 0;
+
+#if DCHECK_IS_ON()
+    // Tracks the number of frames that is either submitted or reported as no
+    // damage.
+    uint32_t frames_processed = 0;
+
+    // Tracks the number of begin-frames that are received.
+    uint32_t frames_received = 0;
+#endif
   };
 
   void Merge(std::unique_ptr<FrameSequenceMetrics> metrics);
   bool HasEnoughDataForReporting() const;
   bool HasDataLeftForReporting() const;
+  // Report related metrics: throughput, checkboarding...
   void ReportMetrics();
 
   ThroughputData& impl_throughput() { return impl_throughput_; }
@@ -147,6 +170,7 @@ class CC_EXPORT FrameSequenceTrackerCollection {
   // Notifies all trackers of various events.
   void NotifyBeginImplFrame(const viz::BeginFrameArgs& args);
   void NotifyBeginMainFrame(const viz::BeginFrameArgs& args);
+  void NotifyMainFrameProcessed(const viz::BeginFrameArgs& args);
   void NotifyImplFrameCausedNoDamage(const viz::BeginFrameAck& ack);
   void NotifyMainFrameCausedNoDamage(const viz::BeginFrameArgs& args);
   void NotifyPauseFrameProduction();
@@ -154,6 +178,7 @@ class CC_EXPORT FrameSequenceTrackerCollection {
                          bool has_missing_content,
                          const viz::BeginFrameAck& ack,
                          const viz::BeginFrameArgs& origin_args);
+  void NotifyFrameEnd(const viz::BeginFrameArgs& args);
 
   // Note that this notifies the trackers of the presentation-feedbacks, and
   // destroys any tracker that had been scheduled for destruction (using
@@ -209,13 +234,8 @@ class CC_EXPORT FrameSequenceTracker {
     kReadyForTermination,
   };
 
-  enum class ThreadType {
-    kMain,
-    kCompositor,
-    kSlower,
-  };
-
-  static const char* GetFrameSequenceTrackerTypeName(int type_index);
+  static const char* GetFrameSequenceTrackerTypeName(
+      FrameSequenceTrackerType type);
 
   ~FrameSequenceTracker();
 
@@ -230,6 +250,8 @@ class CC_EXPORT FrameSequenceTracker {
   // thread.
   void ReportBeginMainFrame(const viz::BeginFrameArgs& args);
 
+  void ReportMainFrameProcessed(const viz::BeginFrameArgs& args);
+
   // Notifies the tracker when the compositor submits a CompositorFrame.
   // |origin_args| represents the BeginFrameArgs that triggered the update from
   // the main-thread.
@@ -237,6 +259,8 @@ class CC_EXPORT FrameSequenceTracker {
                          bool has_missing_content,
                          const viz::BeginFrameAck& ack,
                          const viz::BeginFrameArgs& origin_args);
+
+  void ReportFrameEnd(const viz::BeginFrameArgs& args);
 
   // Notifies the tracker of the presentation-feedback of a previously submitted
   // CompositorFrame with |frame_token|.
@@ -284,9 +308,7 @@ class CC_EXPORT FrameSequenceTracker {
     return metrics_->main_throughput();
   }
 
-  void ScheduleTerminate() {
-    termination_status_ = TerminationStatus::kScheduledForTermination;
-  }
+  void ScheduleTerminate();
 
   struct TrackedFrameData {
     // Represents the |BeginFrameArgs::source_id| and
@@ -322,8 +344,7 @@ class CC_EXPORT FrameSequenceTracker {
 
   bool ShouldIgnoreSequence(uint64_t sequence_number) const;
 
-  // Report related metrics: throughput, checkboarding...
-  void ReportMetrics();
+  void ReportMetricsForTesting();
 
   const FrameSequenceTrackerType type_;
 
@@ -357,13 +378,31 @@ class CC_EXPORT FrameSequenceTracker {
   // This is used to decide when to terminate this FrameSequenceTracker object.
   uint32_t last_submitted_frame_ = 0;
 
+  // Keeps track of the begin-main-frame that needs to be processed next.
+  uint64_t awaiting_main_response_sequence_ = 0;
+
   // Keeps track of the last sequence-number that produced a frame from the
   // main-thread.
   uint64_t last_submitted_main_sequence_ = 0;
 
+  // Keeps track of the last sequence-number that produced a frame that did not
+  // have any damage from the main-thread.
+  uint64_t last_no_main_damage_sequence_ = 0;
+
   // The time when this tracker is created, or the time when it was previously
   // scheduled to report histogram.
   base::TimeTicks first_frame_timestamp_;
+
+  // Keeps track of whether the impl-frame being processed did not have any
+  // damage from the compositor (i.e. 'impl damage').
+  bool frame_had_no_compositor_damage_ = false;
+
+  // Keeps track of whether a CompositorFrame is submitted during the frame.
+  bool compositor_frame_submitted_ = false;
+  bool submitted_frame_had_new_main_content_ = false;
+
+  // Keeps track of whether the frame-states should be reset.
+  bool reset_all_state_ = false;
 
   // A frame that is ignored at ReportSubmitFrame should never be presented.
   // TODO(xidachen): this should not be necessary. Some webview tests seem to
@@ -373,7 +412,24 @@ class CC_EXPORT FrameSequenceTracker {
   // Report the throughput metrics every 5 seconds.
   const base::TimeDelta time_delta_to_report_ = base::TimeDelta::FromSeconds(5);
 
+  uint64_t last_started_impl_sequence_ = 0;
+  uint64_t last_processed_impl_sequence_ = 0;
+
+  uint64_t last_processed_main_sequence_ = 0;
+  uint64_t last_processed_main_sequence_latency_ = 0;
+
+  // Handle off-screen main damage case. In this case, the sequence is typically
+  // like: b(1)B(0,1)E(1)n(1)e(1)b(2)n(2)e(2)...b(10)E(2)B(10,10)n(10)e(10).
+  // Note that between two 'E's, all the impl frames caused no damage, and
+  // no main frames were submitted or caused no damage.
+  bool had_impl_frame_submitted_between_commits_ = false;
+  uint64_t previous_begin_main_sequence_ = 0;
+  // TODO(xidachen): remove this one.
+  uint64_t current_begin_main_sequence_ = 0;
+
 #if DCHECK_IS_ON()
+  bool is_inside_frame_ = false;
+
   // This stringstream represents a sequence of frame reporting activities on
   // the current tracker. Each letter can be one of the following:
   // {'B', 'N', 'b', 'n', 'S', 'P'}, where
@@ -384,9 +440,14 @@ class CC_EXPORT FrameSequenceTracker {
   // when DCHECK is on.
   std::stringstream frame_sequence_trace_;
 
+  // |frame_sequence_trace_| can be very long, in some cases we just need a
+  // substring of it. This var tells us how many chars can be ignored from the
+  // beginning of that debug string.
+  unsigned ignored_trace_char_count_ = 0;
+
   // If ReportBeginImplFrame is never called on a arg, then ReportBeginMainFrame
   // should ignore that arg.
-  base::flat_set<std::pair<uint64_t, uint64_t>> impl_frames_;
+  base::flat_set<viz::BeginFrameId> impl_frames_;
 #endif
 };
 

@@ -18,7 +18,7 @@
 #include "gpu/ipc/service/shared_image_stub.h"
 #include "media/base/format_utils.h"
 #include "media/base/video_frame.h"
-#include "media/gpu/linux/platform_video_frame_utils.h"
+#include "media/gpu/chromeos/platform_video_frame_utils.h"
 #include "media/gpu/macros.h"
 #include "ui/gfx/gpu_memory_buffer.h"
 #include "ui/gl/gl_bindings.h"
@@ -38,13 +38,12 @@ class MailboxVideoFrameConverter::ScopedSharedImage {
   using DestroySharedImageCB =
       gpu::SharedImageStub::SharedImageDestructionCallback;
 
-  ScopedSharedImage(
-      const gpu::Mailbox& mailbox,
-      const scoped_refptr<base::SingleThreadTaskRunner>& gpu_task_runner,
-      DestroySharedImageCB destroy_shared_image_cb)
+  ScopedSharedImage(const gpu::Mailbox& mailbox,
+                    scoped_refptr<base::SingleThreadTaskRunner> gpu_task_runner,
+                    DestroySharedImageCB destroy_shared_image_cb)
       : mailbox_(mailbox),
         destroy_shared_image_cb_(std::move(destroy_shared_image_cb)),
-        destruction_task_runner_(gpu_task_runner) {}
+        destruction_task_runner_(std::move(gpu_task_runner)) {}
   ~ScopedSharedImage() {
     if (destruction_task_runner_->RunsTasksInCurrentSequence()) {
       std::move(destroy_shared_image_cb_).Run(gpu::SyncToken());

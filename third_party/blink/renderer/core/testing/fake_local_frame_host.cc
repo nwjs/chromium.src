@@ -6,6 +6,7 @@
 
 #include "skia/public/mojom/skcolor.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom-blink.h"
+#include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink.h"
 
 namespace blink {
 
@@ -36,6 +37,9 @@ void FakeLocalFrameHost::DidDisplayInsecureContent() {}
 
 void FakeLocalFrameHost::DidContainInsecureFormAction() {}
 
+void FakeLocalFrameHost::DocumentAvailableInMainFrame(
+    bool uses_temporary_zoom_level) {}
+
 void FakeLocalFrameHost::SetNeedsOcclusionTracking(bool needs_tracking) {}
 
 void FakeLocalFrameHost::LifecycleStateChanged(
@@ -63,10 +67,73 @@ void FakeLocalFrameHost::SuddenTerminationDisablerChanged(
     bool present,
     blink::mojom::SuddenTerminationDisablerType disabler_type) {}
 
+void FakeLocalFrameHost::HadStickyUserActivationBeforeNavigationChanged(
+    bool value) {}
+
+void FakeLocalFrameHost::ScrollRectToVisibleInParentFrame(
+    const WebRect& rect_to_scroll,
+    blink::mojom::blink::ScrollIntoViewParamsPtr params) {}
+
+void FakeLocalFrameHost::BubbleLogicalScrollInParentFrame(
+    blink::mojom::blink::ScrollDirection direction,
+    ui::input_types::ScrollGranularity granularity) {}
+
+void FakeLocalFrameHost::DidAccessInitialDocument() {}
+
+void FakeLocalFrameHost::DidBlockNavigation(
+    const KURL& blocked_url,
+    const KURL& initiator_url,
+    mojom::NavigationBlockedReason reason) {}
+
+void FakeLocalFrameHost::DidChangeLoadProgress(double load_progress) {}
+
+void FakeLocalFrameHost::DispatchLoad() {}
+
+void FakeLocalFrameHost::RenderFallbackContentInParentProcess() {}
+
+void FakeLocalFrameHost::ForwardResourceTimingToParent(
+    mojom::blink::ResourceTimingInfoPtr timing) {}
+
+void FakeLocalFrameHost::DidFinishDocumentLoad() {}
+
+void FakeLocalFrameHost::RunModalAlertDialog(
+    const WTF::String& alert_message,
+    RunModalAlertDialogCallback callback) {
+  std::move(callback).Run();
+}
+
+void FakeLocalFrameHost::RunModalConfirmDialog(
+    const WTF::String& alert_message,
+    RunModalConfirmDialogCallback callback) {
+  std::move(callback).Run(true);
+}
+
+void FakeLocalFrameHost::RunModalPromptDialog(
+    const WTF::String& alert_message,
+    const WTF::String& default_value,
+    RunModalPromptDialogCallback callback) {
+  std::move(callback).Run(true, g_empty_string);
+}
+
+void FakeLocalFrameHost::RunBeforeUnloadConfirm(
+    bool is_reload,
+    RunBeforeUnloadConfirmCallback callback) {
+  std::move(callback).Run(true);
+}
+
 void FakeLocalFrameHost::BindFrameHostReceiver(
     mojo::ScopedInterfaceEndpointHandle handle) {
   receiver_.Bind(mojo::PendingAssociatedReceiver<mojom::blink::LocalFrameHost>(
       std::move(handle)));
 }
+
+void FakeLocalFrameHost::GoToEntryAtOffset(int32_t offset,
+                                           bool has_user_gesture) {}
+void FakeLocalFrameHost::HandleAccessibilityFindInPageResult(
+    mojom::blink::FindInPageResultAXParamsPtr params) {}
+
+void FakeLocalFrameHost::HandleAccessibilityFindInPageTermination() {}
+
+void FakeLocalFrameHost::DocumentOnLoadCompleted() {}
 
 }  // namespace blink

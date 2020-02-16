@@ -43,7 +43,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_service_factory.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/user_prefs/user_prefs.h"
 #include "components/variations/net/variations_http_headers.h"
@@ -426,7 +426,8 @@ AwBrowserContext::RetriveInProgressDownloadManager() {
   return new download::InProgressDownloadManager(
       nullptr, base::FilePath(), nullptr,
       base::BindRepeating(&IgnoreOriginSecurityCheck),
-      base::BindRepeating(&content::DownloadRequestUtils::IsURLSafe), nullptr);
+      base::BindRepeating(&content::DownloadRequestUtils::IsURLSafe),
+      /*wake_lock_provider_binder*/ base::NullCallback());
 }
 
 void AwBrowserContext::RebuildTable(

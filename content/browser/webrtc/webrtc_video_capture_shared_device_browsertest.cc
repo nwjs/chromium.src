@@ -113,7 +113,6 @@ class WebRtcVideoCaptureSharedDeviceBrowserTest
 
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
     command_line->AppendSwitch(switches::kUseFakeUIForMediaStream);
   }
 
@@ -131,7 +130,7 @@ class WebRtcVideoCaptureSharedDeviceBrowserTest
             subscriber_.InitWithNewPipeAndPassReceiver());
   }
 
-  scoped_refptr<base::TaskRunner> main_task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> main_task_runner_;
   std::unique_ptr<video_capture::MockVideoFrameHandler>
       mock_video_frame_handler_;
 

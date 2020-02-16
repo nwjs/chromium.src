@@ -7,7 +7,6 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/task_environment.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
@@ -79,7 +78,6 @@ PasswordForm CreateGenerated() {
   form.action = GURL("https://signup.example.org");
   form.username_value = ASCIIToUTF16("MyName");
   form.password_value = ASCIIToUTF16("Strong password");
-  form.preferred = true;
   form.type = autofill::PasswordForm::Type::kGenerated;
   return form;
 }
@@ -178,8 +176,6 @@ PasswordGenerationManagerTest::SetUpOverwritingUI(
 // driver.
 TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_EmptyStore) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   PasswordForm generated = CreateGenerated();
   MockPasswordManagerDriver driver;
   FakeFormFetcher fetcher;
@@ -198,8 +194,6 @@ TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_EmptyStore) {
 // the driver should be notified directly.
 TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_Conflict) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   PasswordForm generated = CreateGenerated();
   const PasswordForm saved = CreateSaved();
   generated.username_value = saved.username_value;
@@ -218,8 +212,6 @@ TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_Conflict) {
 
 TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUI) {
   base::HistogramTester histogram_tester;
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   MockPasswordManagerDriver driver;
   EXPECT_CALL(driver, GeneratedPasswordAccepted(_)).Times(0);
   std::unique_ptr<PasswordFormManagerForUI> ui_form =
@@ -243,8 +235,6 @@ TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUI) {
 
 TEST_F(PasswordGenerationManagerTest,
        GeneratedPasswordAccepted_UpdateUIDismissed) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   MockPasswordManagerDriver driver;
   EXPECT_CALL(driver, GeneratedPasswordAccepted(_)).Times(0);
   std::unique_ptr<PasswordFormManagerForUI> ui_form =
@@ -254,8 +244,6 @@ TEST_F(PasswordGenerationManagerTest,
 }
 
 TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUINope) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   MockPasswordManagerDriver driver;
   EXPECT_CALL(driver, GeneratedPasswordAccepted(_)).Times(0);
   std::unique_ptr<PasswordFormManagerForUI> ui_form =
@@ -265,8 +253,6 @@ TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUINope) {
 }
 
 TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUINever) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   MockPasswordManagerDriver driver;
   EXPECT_CALL(driver, GeneratedPasswordAccepted(_)).Times(0);
   std::unique_ptr<PasswordFormManagerForUI> ui_form =
@@ -276,8 +262,6 @@ TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUINever) {
 }
 
 TEST_F(PasswordGenerationManagerTest, GeneratedPasswordAccepted_UpdateUISave) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kGenerationNoOverwrites);
   MockPasswordManagerDriver driver;
   std::unique_ptr<PasswordFormManagerForUI> ui_form =
       SetUpOverwritingUI(driver.AsWeakPtr());
@@ -415,12 +399,10 @@ TEST_F(PasswordGenerationManagerTest, PresaveGeneratedPassword_ThenUpdate) {
   related_psl_password.password_value = ASCIIToUTF16("old password");
 
   PasswordForm unrelated_password = CreateSaved();
-  unrelated_password.preferred = true;
   unrelated_password.username_value = ASCIIToUTF16("another username");
   unrelated_password.password_value = ASCIIToUTF16("some password");
 
   PasswordForm unrelated_psl_password = CreateSavedPSL();
-  unrelated_psl_password.preferred = true;
   unrelated_psl_password.username_value = ASCIIToUTF16("another username");
   unrelated_psl_password.password_value = ASCIIToUTF16("some password");
 
@@ -446,10 +428,6 @@ TEST_F(PasswordGenerationManagerTest, PresaveGeneratedPassword_ThenUpdate) {
   PasswordForm related_psl_password_expected = related_psl_password;
   related_psl_password_expected.password_value = generated.password_value;
   EXPECT_CALL(store(), UpdateLogin(related_psl_password_expected));
-
-  PasswordForm unrelated_password_expected = unrelated_password;
-  unrelated_password_expected.preferred = false;
-  EXPECT_CALL(store(), UpdateLogin(unrelated_password_expected));
 
   manager().CommitGeneratedPassword(
       generated, matches, ASCIIToUTF16("old password"), &form_saver());

@@ -6,6 +6,7 @@
 
 #include <utility>
 #include "base/memory/ptr_util.h"
+#include "cc/animation/keyframe_effect.h"
 #include "cc/animation/scroll_timeline.h"
 #include "cc/test/animation_test_common.h"
 #include "cc/test/animation_timelines_test_common.h"
@@ -25,7 +26,8 @@ namespace {
 
 class MockKeyframeEffect : public KeyframeEffect {
  public:
-  MockKeyframeEffect() : KeyframeEffect(0) {}
+  explicit MockKeyframeEffect(Animation* animation)
+      : KeyframeEffect(animation) {}
   MOCK_METHOD1(Tick, void(base::TimeTicks monotonic_time));
 };
 
@@ -61,11 +63,14 @@ class MockScrollTimeline : public ScrollTimeline {
   MOCK_CONST_METHOD2(CurrentTime,
                      base::Optional<base::TimeTicks>(const ScrollTree&, bool));
   MOCK_CONST_METHOD2(IsActive, bool(const ScrollTree&, bool));
+
+ protected:
+  ~MockScrollTimeline() override = default;
 };
 
 TEST_F(WorkletAnimationTest, NonImplInstanceDoesNotTickKeyframe) {
   std::unique_ptr<MockKeyframeEffect> effect =
-      std::make_unique<MockKeyframeEffect>();
+      std::make_unique<MockKeyframeEffect>(worklet_animation_.get());
   MockKeyframeEffect* mock_effect = effect.get();
 
   scoped_refptr<WorkletAnimation> worklet_animation =
@@ -126,6 +131,8 @@ TEST_F(WorkletAnimationTest, AnimationEventLocalTimeUpdate) {
   worklet_animation_->UpdateState(true, animation_events);
 
   // One event is generated as a result of update state.
+  EXPECT_TRUE(animation_events->needs_time_updated_events());
+  worklet_animation_->TakeTimeUpdatedEvent(animation_events);
   EXPECT_EQ(1u, animation_events->events_.size());
   AnimationEvent event = animation_events->events_[0];
   EXPECT_EQ(AnimationEvent::TIME_UPDATED, event.type);
@@ -136,14 +143,14 @@ TEST_F(WorkletAnimationTest, AnimationEventLocalTimeUpdate) {
   mutator_events = host_->CreateEvents();
   animation_events = static_cast<AnimationEvents*>(mutator_events.get());
   worklet_animation_->UpdateState(true, animation_events);
-  EXPECT_EQ(0u, animation_events->events_.size());
+  EXPECT_FALSE(animation_events->needs_time_updated_events());
 
   // If local time is set to the same value no event is generated.
   worklet_animation_->SetOutputState(state);
   mutator_events = host_->CreateEvents();
   animation_events = static_cast<AnimationEvents*>(mutator_events.get());
   worklet_animation_->UpdateState(true, animation_events);
-  EXPECT_EQ(0u, animation_events->events_.size());
+  EXPECT_FALSE(animation_events->needs_time_updated_events());
 
   // If local time is set to null value, an animation event with null local
   // time is generated.
@@ -154,12 +161,14 @@ TEST_F(WorkletAnimationTest, AnimationEventLocalTimeUpdate) {
   mutator_events = host_->CreateEvents();
   animation_events = static_cast<AnimationEvents*>(mutator_events.get());
   worklet_animation_->UpdateState(true, animation_events);
+  EXPECT_TRUE(animation_events->needs_time_updated_events());
+  worklet_animation_->TakeTimeUpdatedEvent(animation_events);
   EXPECT_EQ(1u, animation_events->events_.size());
   EXPECT_EQ(local_time, animation_events->events_[0].local_time);
 }
 
 TEST_F(WorkletAnimationTest, CurrentTimeCorrectlyUsesScrollTimeline) {
-  auto scroll_timeline = std::make_unique<MockScrollTimeline>();
+  auto scroll_timeline = base::WrapRefCounted(new MockScrollTimeline());
   EXPECT_CALL(*scroll_timeline, IsActive(_, _)).WillRepeatedly(Return(true));
   EXPECT_CALL(*scroll_timeline, CurrentTime(_, _))
       .WillRepeatedly(Return(
@@ -267,7 +276,7 @@ TEST_F(WorkletAnimationTest, DocumentTimelineSetPlaybackRate) {
 TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRate) {
   const double playback_rate_double = 2;
   const double playback_rate_half = 0.5;
-  auto scroll_timeline = std::make_unique<MockScrollTimeline>();
+  auto scroll_timeline = base::WrapRefCounted(new MockScrollTimeline());
 
   scoped_refptr<WorkletAnimation> worklet_animation = WorkletAnimation::Create(
       worklet_animation_id_, "test_name", playback_rate_double,
@@ -317,7 +326,7 @@ TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRate) {
 // Verifies correcteness of worklet animation current time when inactive
 // timeline becomes active and then inactive again.
 TEST_F(WorkletAnimationTest, InactiveScrollTimeline) {
-  auto scroll_timeline = std::make_unique<MockScrollTimeline>();
+  auto scroll_timeline = base::WrapRefCounted(new MockScrollTimeline());
 
   scoped_refptr<WorkletAnimation> worklet_animation = WorkletAnimation::Create(
       worklet_animation_id_, "test_name", /*playback_rate*/ 1,
@@ -484,7 +493,7 @@ base::Optional<base::TimeTicks> FakeIncreasingScrollTimelineTime(Unused,
 // This test verifies that worklet animation gets skipped properly if a pending
 // mutation cycle is holding a lock on the worklet.
 TEST_F(WorkletAnimationTest, SkipLockedAnimations) {
-  auto scroll_timeline = std::make_unique<MockScrollTimeline>();
+  auto scroll_timeline = base::WrapRefCounted(new MockScrollTimeline());
   EXPECT_CALL(*scroll_timeline, IsActive(_, _)).WillRepeatedly(Return(true));
   EXPECT_CALL(*scroll_timeline, CurrentTime(_, _))
       .WillRepeatedly(Invoke(FakeIncreasingScrollTimelineTime));
@@ -529,6 +538,18 @@ TEST_F(WorkletAnimationTest, SkipLockedAnimations) {
   worklet_animation->UpdateInputState(state.get(), time, scroll_tree, true);
   input = state->TakeWorkletState(worklet_animation_id_.worklet_id);
   EXPECT_EQ(input->updated_animations.size(), 1u);
+}
+
+TEST_F(WorkletAnimationTest, UpdateScrollTimelineScrollerId) {
+  auto scroll_timeline = base::WrapRefCounted(new MockScrollTimeline());
+  EXPECT_EQ(scroll_timeline->GetPendingIdForTest(), ElementId());
+
+  scoped_refptr<WorkletAnimation> worklet_animation = WorkletAnimation::Create(
+      worklet_animation_id_, "test_name", 1, scroll_timeline, nullptr, nullptr);
+  ElementId scroller_id = ElementId(1);
+  worklet_animation->UpdateScrollTimeline(scroller_id, base::nullopt,
+                                          base::nullopt);
+  EXPECT_EQ(scroll_timeline->GetPendingIdForTest(), scroller_id);
 }
 
 }  // namespace

@@ -42,8 +42,7 @@ jumbo_source_set("utility") {
     "//mojo/public/cpp/bindings",
     "//net",
     "//sandbox",
-    "//services/audio:lib",
-    "//services/audio/public/mojom:constants",
+    "//services/audio",
     "//services/data_decoder:lib",
     "//services/data_decoder/public/cpp",
     "//services/network:network_service",
@@ -66,7 +65,6 @@ jumbo_source_set("utility") {
     deps += [
       "//media",
       "//media/mojo:buildflags",
-      "//media/mojo/mojom:constants",
       "//media/mojo/services",
     ]
   }
@@ -79,14 +77,16 @@ jumbo_source_set("utility") {
   if (!is_android) {
     deps += [ "//services/proxy_resolver:lib" ]
   }
+
+  if (is_linux) {
+    deps += [ "//content/utility/soda:soda_sandbox_hook" ]
+  }
 }
 
 # See comment at the top of //content/BUILD.gn for how this works.
 group("for_content_tests") {
   visibility = [ "//content/test/*" ]
   if (!is_component_build) {
-    public_deps = [
-      ":utility",
-    ]
+    public_deps = [ ":utility" ]
   }
 }

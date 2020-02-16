@@ -384,7 +384,6 @@ Als je klaar bent met de training, gebruik je ChromeVox om naar de knop Sluiten 
 <translation id="3646890046000188562">{COUNT,plural, =1{accent grave}other{# accents grave}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollarteken}other{# dollartekens}}</translation>
-<translation id="3658742229777143148">Revisie</translation>
 <translation id="3659787053479271466">waarschuwing</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, keuzelijst</translation>
 <translation id="3681531118904532409">Papayacréme</translation>
@@ -419,6 +418,7 @@ Als je klaar bent met de training, gebruik je ChromeVox om naar de knop Sluiten 
 <translation id="3914732343065571127">Opdrachtreferentie voor ChromeVox</translation>
 <translation id="3930383913623796990">Lentegroen</translation>
 <translation id="3930498801443296724">Pullquote</translation>
+<translation id="3935615366277838204">Hoofdletter <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Lavendelblos</translation>
 <translation id="3941269780691800708">Spreek tekst onder de muisaanwijzer uit.</translation>
 <translation id="394953087167197343">Onjuiste spelling aangeven:</translation>
@@ -792,7 +792,6 @@ Als je klaar bent met de training, gebruik je ChromeVox om naar de knop Sluiten 
 <translation id="6459511626086141404">Platte toetsenbordindeling</translation>
 <translation id="6468049171101508116">Volgende knop</translation>
 <translation id="646954774886932461">Index</translation>
-<translation id="6479792383819319132">Er is geen volgende paragraaf.</translation>
 <translation id="6493991254603208962">helderheid omlaag</translation>
 <translation id="6501595918865591267">Turkoois</translation>
 <translation id="6508059270146105198">Brailleweergave naar onderkant pagina verplaatsen</translation>
@@ -815,7 +814,6 @@ Als je klaar bent met de training, gebruik je ChromeVox om naar de knop Sluiten 
 <translation id="6637586476836377253">logboek</translation>
 <translation id="6657128831881431364">Voortgangsbalk</translation>
 <translation id="6659594942844771486">Tabblad</translation>
-<translation id="6675661017770918201">Er is geen vorige paragraaf.</translation>
 <translation id="667999046851023355">Document</translation>
 <translation id="6688209025607531203">Een melding die niet in een modaal dialoogvenster wordt weergegeven</translation>
 <translation id="6689672606256159458">Donker zalmroze</translation>
@@ -844,6 +842,7 @@ Als je klaar bent met de training, gebruik je ChromeVox om naar de knop Sluiten 
 <translation id="6865519907510167493">Spelfout</translation>
 <translation id="6871161210040114857">Hoofdlettergebruik wordt genegeerd.</translation>
 <translation id="6877435256196695200">Geen volgende afbeelding.</translation>
+<translation id="688976158310523235">Zoekmenu</translation>
 <translation id="6897341342232909480">Naar links verplaatsen</translation>
 <translation id="6901540140423170855">datum</translation>
 <translation id="6910211073230771657">Verwijderd</translation>
@@ -856,6 +855,7 @@ Als je klaar bent met de training, gebruik je ChromeVox om naar de knop Sluiten 
 <translation id="699159175332639490">Zoeken + O + W</translation>
 <translation id="6994042831499278539">Woordenlijstreferentie</translation>
 <translation id="6996566555547746822">Volgende keuzelijst met invoervak</translation>
+<translation id="6997224546856374593">Bij het voorlezen van hoofdletters:</translation>
 <translation id="700202842116345659">Bibliografievermelding</translation>
 <translation id="7005146664810010831">Geen URL gevonden</translation>
 <translation id="7010712454773919705">ChromeVox-functietoets</translation>
@@ -935,6 +935,7 @@ Als je het menu van de Chrome-browser wilt openen, druk je op Alt + F.</translat
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">Geopend dialoogvenster</translation>
+<translation id="7505149250476994901">Eerst 'hoofdletter' zeggen vóór de letter</translation>
 <translation id="7518543783849163354">Druk op de Ctrl-toets om de spraakfunctie van ChromeVox tijdelijk uit te schakelen.</translation>
 <translation id="7521682724501952239">Je kunt ChromeVox gebruiken met het touchscreen.</translation>
 <translation id="7532613204005497612">juni</translation>
@@ -1102,7 +1103,6 @@ Als je het menu van de Chrome-browser wilt openen, druk je op Alt + F.</translat
 <translation id="812886159861361726">Download van <ph name="FILE_NAME" /> is gestopt</translation>
 <translation id="8138880386467279117">Touch</translation>
 <translation id="8153880621934657047">Niet in tabel.</translation>
-<translation id="8161114871611868169">Reactiegedeelte</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{underscore}other{# underscores}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">rij</translation>
@@ -1123,6 +1123,7 @@ Als je het menu van de Chrome-browser wilt openen, druk je op Alt + F.</translat
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Vergeeld kant</translation>
 <translation id="8326783648485765113">Grasgroen</translation>
+<translation id="8328063869313048659">Donker scherm schakelen</translation>
 <translation id="8344569602005188545">uren</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{hekje}other{# hekjes}}</translation>
 <translation id="8374154622594089836">maand</translation>
@@ -1207,6 +1208,7 @@ Als je het menu van de Chrome-browser wilt openen, druk je op Alt + F.</translat
 <translation id="9065283790526219006">+pop-up</translation>
 <translation id="9066023754636984703">Druk op Zoeken+A, J om naar de details te gaan.</translation>
 <translation id="9067522039955793016">Pagina-einde</translation>
+<translation id="9074824103975499138">Zoeken in ChromeVox-menu's</translation>
 <translation id="9077213568694924680">uit selectie verwijderd</translation>
 <translation id="9077305471618729969">Licht zeegroen</translation>
 <translation id="9082874451376019682">Geen vorige schuifregelaar.</translation>

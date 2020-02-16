@@ -23,7 +23,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.PostMessageHandler;
 import org.chromium.chrome.browser.customtabs.CloseButtonNavigator;
@@ -35,6 +34,7 @@ import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigatio
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
 import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
@@ -70,7 +70,7 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     private final CustomTabActivityTabProvider mTabProvider;
     private final CustomTabActivityNavigationController mNavigationController;
 
-    private final ChromeActivity mActivity;
+    private final ChromeActivity<?> mActivity;
 
     private final Lazy<CustomTabTopBarDelegate> mTopBarDelegate;
     private final Lazy<CustomTabBottomBarDelegate> mBottomBarDelegate;
@@ -163,18 +163,15 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
 
     @Inject
     public DynamicModuleCoordinator(BrowserServicesIntentDataProvider intentDataProvider,
-                                    CloseButtonNavigator closeButtonNavigator,
-                                    TabObserverRegistrar tabObserverRegistrar,
-                                    ActivityLifecycleDispatcher activityLifecycleDispatcher,
-                                    CustomTabActivityNavigationController navigationController,
-                                    ActivityDelegate activityDelegate,
-                                    Lazy<CustomTabTopBarDelegate> topBarDelegate,
-                                    Lazy<CustomTabBottomBarDelegate> bottomBarDelegate,
-                                    Lazy<ChromeFullscreenManager> fullscreenManager,
-                                    Lazy<DynamicModuleToolbarController> toolbarController,
-                                    CustomTabsConnection connection, ChromeActivity activity,
-                                    CustomTabActivityTabProvider tabProvider,
-                                    DynamicModulePageLoadObserver pageLoadObserver) {
+            CloseButtonNavigator closeButtonNavigator, TabObserverRegistrar tabObserverRegistrar,
+            ActivityLifecycleDispatcher activityLifecycleDispatcher,
+            CustomTabActivityNavigationController navigationController,
+            ActivityDelegate activityDelegate, Lazy<CustomTabTopBarDelegate> topBarDelegate,
+            Lazy<CustomTabBottomBarDelegate> bottomBarDelegate,
+            Lazy<ChromeFullscreenManager> fullscreenManager,
+            Lazy<DynamicModuleToolbarController> toolbarController, CustomTabsConnection connection,
+            ChromeActivity<?> activity, CustomTabActivityTabProvider tabProvider,
+            DynamicModulePageLoadObserver pageLoadObserver) {
         mIntentDataProvider = intentDataProvider;
         mTabObserverRegistrar = tabObserverRegistrar;
         mNavigationController = navigationController;

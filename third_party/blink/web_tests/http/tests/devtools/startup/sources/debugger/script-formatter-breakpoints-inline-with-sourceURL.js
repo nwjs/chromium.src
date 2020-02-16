@@ -25,9 +25,9 @@
     async function testBreakpointsInOriginalAndFormattedSource(next) {
       SourcesTestRunner.showScriptSource('named-inline-script.js', didShowScriptSource);
 
-      function didShowScriptSource(frame) {
+      async function didShowScriptSource(frame) {
         sourceFrame = frame;
-        SourcesTestRunner.setBreakpoint(sourceFrame, 4, '', true);  // Lines here are zero based.
+        await SourcesTestRunner.setBreakpoint(sourceFrame, 4, '', true);  // Lines here are zero based.
         Promise.all([SourcesTestRunner.waitBreakpointSidebarPane(true), SourcesTestRunner.waitUntilPausedPromise()])
               .then(pausedInFunctionInInlineScriptWithSourceURL);
         TestRunner.evaluateInPageWithTimeout('functionInInlineScriptWithSourceURL()');
@@ -59,13 +59,13 @@
       function didShowFormattedScriptSource(frame) {
         formattedSourceFrame = frame;
         SourcesTestRunner.removeBreakpoint(formattedSourceFrame, 2);  // Lines here are zero based.
-        Sources.sourceFormatter.discardFormattedUISourceCode(formattedSourceFrame.uiSourceCode());
+        Formatter.sourceFormatter.discardFormattedUISourceCode(formattedSourceFrame.uiSourceCode());
         SourcesTestRunner.waitBreakpointSidebarPane().then(onBreakpointsUpdated);
       }
 
-      function onBreakpointsUpdated() {
+      async function onBreakpointsUpdated() {
         SourcesTestRunner.dumpBreakpointSidebarPane('while paused after removing breakpoint in pretty printed and closing pretty printed');
-        SourcesTestRunner.setBreakpoint(sourceFrame, 4, '', true);  // Lines here are zero based.
+        await SourcesTestRunner.setBreakpoint(sourceFrame, 4, '', true);  // Lines here are zero based.
         Promise.all([SourcesTestRunner.waitBreakpointSidebarPane(true), SourcesTestRunner.waitUntilPausedPromise()])
           .then(pausedInFunctionInInlineScriptWithSourceURLThirdTime);
         TestRunner.evaluateInPageWithTimeout('functionInInlineScriptWithSourceURL()');

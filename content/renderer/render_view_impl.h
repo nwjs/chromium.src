@@ -42,9 +42,9 @@
 #include "mojo/public/cpp/bindings/remote_set.h"
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
-#include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/web/web_ax_object.h"
 #include "third_party/blink/public/web/web_console_message.h"
@@ -140,10 +140,15 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   blink::WebView* webview();
   const blink::WebView* webview() const;
 
-  // Returns the RenderWidget owned by this RenderView. Can be nullptr if the
-  // RenderView does not own a RenderWidget [e.g. for remote main frame in
-  // future].
-  RenderWidget* GetWidget();
+  // When true, a hint to all RenderWidgets that they will never be
+  // user-visible and thus never need to produce pixels for display. This is
+  // separate from page visibility, as background pages can be marked visible in
+  // blink even though they are not user-visible. Page visibility controls blink
+  // behaviour for javascript, timers, and such to inform blink it is in the
+  // foreground or background. Whereas this bit refers to user-visibility and
+  // whether the tab needs to produce pixels to put on the screen at some point
+  // or not.
+  bool widgets_never_composited() const { return widgets_never_composited_; }
 
   const WebPreferences& webkit_preferences() const {
     return webkit_preferences_;
@@ -178,10 +183,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // LocalFrame.
   void PropagatePageZoomToNewlyAttachedFrame(bool use_zoom_for_dsf,
                                              float device_scale_factor);
-
-  // Sets page-level focus in this view and notifies plugins and Blink's
-  // FocusController.
-  void SetFocus(bool enable);
 
   // Starts a timer to send an UpdateState message on behalf of |frame|, if the
   // timer isn't already running. This allows multiple state changing events to
@@ -254,7 +255,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void PageScaleFactorChanged(float page_scale_factor) override;
   void DidUpdateTextAutosizerPageInfo(
       const blink::WebTextAutosizerPageInfo& page_info) override;
-  void PageImportanceSignalsChanged() override;
   void DidAutoResize(const blink::WebSize& newSize) override;
   void DidFocus(blink::WebLocalFrame* calling_frame) override;
   bool CanHandleGestureEvent() override;
@@ -278,9 +278,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void ClearEditCommands() override;
 
   const std::string& GetAcceptLanguages() override;
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
-  virtual void didScrollWithKeyboard(const blink::WebSize& delta);
-#endif
 
   // Please do not add your stuff randomly to the end here. If there is an
   // appropriate section, add it there. If not, there are some random functions
@@ -305,11 +302,9 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void ApplyPageVisibilityState(PageVisibilityState visibility_state,
                                 bool initial_setting);
 
-  // Instead of creating a new RenderWidget, a RenderFrame for a main frame
-  // revives the undead RenderWidget;
-  RenderWidget* ReviveUndeadMainFrameRenderWidget();
-  // Closes the main frame RenderWidget. If not shutting down, this will close
-  // my marking it undead, to be revived later.
+  // Closes the main frame RenderWidget.
+  // TODO(crbug.com/419087): Move ownership of the RenderWidget to
+  // RenderFrameImpl.
   void CloseMainFrameRenderWidget();
 
  private:
@@ -393,7 +388,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void SetActiveForWidget(bool active) override;
   bool SupportsMultipleWindowsForWidget() override;
   bool ShouldAckSyntheticInputImmediately() override;
-  void CancelPagePopupForWidget() override;
   void ApplyNewDisplayModeForWidget(
       blink::mojom::DisplayMode new_display_mode) override;
   void ApplyAutoResizeLimitsForWidget(const gfx::Size& min_size,
@@ -419,10 +413,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // RenderFrameImpl. These implementations are to be moved to RenderFrameImpl
   // <http://crbug.com/361761>.
 
-  static Referrer GetReferrerFromRequest(
-      blink::WebFrame* frame,
-      const blink::WebURLRequest& request);
-
   static WindowOpenDisposition NavigationPolicyToDisposition(
       blink::WebNavigationPolicy policy);
 
@@ -441,7 +431,7 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void OnEnablePreferredSizeChangedMode();
   void OnPluginActionAt(const gfx::Point& location,
                         const blink::PluginAction& action);
-  void OnAnimateDoubleTapZoomInMainFrame(const blink::WebPoint& point,
+  void OnAnimateDoubleTapZoomInMainFrame(const gfx::Point& point,
                                          const blink::WebRect& rect_to_zoom);
   void OnZoomToFindInPageRect(const blink::WebRect& rect_to_zoom);
   void OnMoveOrResizeStarted();
@@ -464,6 +454,7 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void RestorePageFromBackForwardCache(base::TimeTicks navigation_start);
   void OnTextAutosizerPageInfoChanged(
       const blink::WebTextAutosizerPageInfo& page_info);
+  void OnSetInsidePortal(bool inside_portal);
 
   // Adding a new message handler? Please add it in alphabetical order above
   // and put it in the same position in the .cc file.
@@ -522,28 +513,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // Becomes true when Destroy() is called.
   bool destroying_ = false;
 
-  // This is the |render_widget_| for the main frame.
-  //
-  // Instances of RenderWidget for child frame local roots, popups, and
-  // fullscreen widgets are never contained by this pointer. Child frame
-  // local roots are owned by a RenderFrame. The others are owned by the IPC
-  // system.
-  //
-  // Note that when the main frame moves out of process, |render_widget_|
-  // is moved in to |undead_render_widget_|. In the future, the
-  // |render_widget_| should just be deleted and recreated. However, this
-  // requires reattached various objects browser process so it cannot be
-  // done yet.
-  std::unique_ptr<RenderWidget> render_widget_;
-
-  // Instances of RenderViewImpl with a proxy main frame do not need a
-  // RenderWidget. Unfortunately, we can't delete the object because the browser
-  // side RenderWidgetHost/RenderViewHost lifetimes are still entangled. We
-  // store the RenderWidget in this member, but it should not be used.
-  // TODO(crbug.com/419087): Remove this once RenderWidgets are owned by the
-  // main frame.
-  std::unique_ptr<RenderWidget> undead_render_widget_;
-
   // Routing ID that allows us to communicate with the corresponding
   // RenderViewHost in the parent browser process.
   const int32_t routing_id_;
@@ -552,6 +521,16 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // window.open or via <a target=...>) should be renderer-wide (i.e. going
   // beyond the usual opener-relationship-based BrowsingInstance boundaries).
   const bool renderer_wide_named_frame_lookup_;
+
+  // A value provided by the browser to state that all RenderWidgets in this
+  // RenderView's frame tree will never be user-visible and thus never need to
+  // produce pixels for display. This is separate from Page visibility, as
+  // non-user-visible pages can still be marked visible for blink. Page
+  // visibility controls blink behaviour for javascript, timers, and such to
+  // inform blink it is in the foreground or background. Whereas this bit refers
+  // to user-visibility and whether the tab needs to produce pixels to put on
+  // the screen at some point or not.
+  const bool widgets_never_composited_;
 
   // Dependency injection for RenderWidget and compositing to inject behaviour
   // and not depend on RenderThreadImpl in tests.
@@ -630,10 +609,6 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
 
   // The next target URL we want to send to the browser.
   GURL pending_target_url_;
-
-  // Cache the old browser controls state constraints. Used when updating
-  // current value only without altering the constraints.
-  BrowserControlsState top_controls_constraints_ = BROWSER_CONTROLS_STATE_BOTH;
 
   // View ----------------------------------------------------------------------
 

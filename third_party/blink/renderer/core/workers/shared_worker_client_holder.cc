@@ -39,13 +39,14 @@
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom-blink.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom-blink.h"
-#include "third_party/blink/public/platform/web_content_security_policy.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/web_shared_worker.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/fetch/request.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
+#include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/workers/shared_worker.h"
 #include "third_party/blink/renderer/core/workers/shared_worker_client.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
@@ -81,9 +82,9 @@ void SharedWorkerClientHolder::Connect(
     MessagePortChannel port,
     const KURL& url,
     mojo::PendingRemote<mojom::blink::BlobURLToken> blob_url_token,
-    const String& name, bool isNodeJS) {
+    mojom::blink::WorkerOptionsPtr options, bool isNodeJS) {
   DCHECK(IsMainThread());
-  DCHECK(!name.IsNull());
+  DCHECK(options);
 
   // TODO(estark): this is broken, as it only uses the first header
   // when multiple might have been sent. Fix by making the
@@ -100,8 +101,8 @@ void SharedWorkerClientHolder::Connect(
   }
 
   mojom::blink::SharedWorkerInfoPtr info(mojom::blink::SharedWorkerInfo::New(
-                                                                             isNodeJS, base::FilePath(),
-      url, name, header, header_type,
+      isNodeJS, base::FilePath(),
+      url, std::move(options), header, header_type,
       worker->GetExecutionContext()->GetSecurityContext().AddressSpace()));
 
   mojo::PendingRemote<mojom::blink::SharedWorkerClient> client;

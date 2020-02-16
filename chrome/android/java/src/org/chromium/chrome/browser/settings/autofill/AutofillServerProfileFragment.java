@@ -14,7 +14,6 @@ import org.chromium.chrome.browser.ChromeStringConstants;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
-import org.chromium.chrome.browser.settings.MainPreferences;
 import org.chromium.chrome.browser.settings.SettingsUtils;
 
 /**
@@ -33,10 +32,10 @@ public class AutofillServerProfileFragment
         getActivity().setTitle(R.string.autofill_edit_profile);
 
         // We know which card to display based on the GUID stuffed in
-        // our extras by MainPreferences.
+        // our extras by MainSettings.
         Bundle extras = getArguments();
         if (extras != null) {
-            mGUID = extras.getString(MainPreferences.AUTOFILL_GUID);
+            mGUID = extras.getString(AutofillEditorBase.AUTOFILL_GUID);
         }
         assert mGUID != null;
         AutofillProfile profile = PersonalDataManager.getInstance().getProfile(mGUID);

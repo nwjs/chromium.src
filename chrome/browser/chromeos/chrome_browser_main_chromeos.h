@@ -13,7 +13,7 @@
 #include "chrome/browser/chromeos/external_metrics.h"
 #include "chrome/browser/memory/memory_kills_monitor.h"
 
-class AssistantClient;
+class AssistantClientImpl;
 class AssistantStateClient;
 class ChromeKeyboardControllerClient;
 class SpokenFeedbackEventRewriterDelegate;
@@ -55,7 +55,6 @@ class NetworkPrefStateObserver;
 class NetworkThrottlingObserver;
 class PowerMetricsReporter;
 class RendererFreezer;
-class SchedulerConfigurationManager;
 class SessionTerminationManager;
 class ShutdownPolicyForwarder;
 class SystemTokenCertDBInitializer;
@@ -72,6 +71,7 @@ class DBusServices;
 }  // namespace internal
 
 namespace power {
+class SmartChargingManager;
 namespace ml {
 class AdaptiveScreenBrightnessManager;
 }  // namespace ml
@@ -140,7 +140,7 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
 
   std::unique_ptr<AssistantStateClient> assistant_state_client_;
 
-  std::unique_ptr<AssistantClient> assistant_client_;
+  std::unique_ptr<AssistantClientImpl> assistant_client_;
 
   std::unique_ptr<LowDiskNotification> low_disk_notification_;
   std::unique_ptr<ArcKioskAppManager> arc_kiosk_app_manager_;
@@ -154,6 +154,8 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   std::unique_ptr<lock_screen_apps::StateController>
       lock_screen_apps_state_controller_;
 
+  std::unique_ptr<power::SmartChargingManager> smart_charging_manager_;
+
   std::unique_ptr<power::ml::AdaptiveScreenBrightnessManager>
       adaptive_screen_brightness_manager_;
 
@@ -163,8 +165,6 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   std::unique_ptr<DemoModeResourcesRemover> demo_mode_resources_remover_;
   std::unique_ptr<crostini::CrosvmMetrics> crosvm_metrics_;
   std::unique_ptr<DiscoverManager> discover_manager_;
-  std::unique_ptr<SchedulerConfigurationManager>
-      scheduler_configuration_manager_;
 
   std::unique_ptr<CrosUsbDetector> cros_usb_detector_;
 

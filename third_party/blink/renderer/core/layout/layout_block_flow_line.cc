@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/layout/line/word_measurement.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_fragment_item.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_cursor.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/svg/line/svg_root_inline_box.h"
 #include "third_party/blink/renderer/core/layout/vertical_position_cache.h"
 #include "third_party/blink/renderer/core/paint/ng/ng_paint_fragment.h"
@@ -956,7 +957,7 @@ RootInlineBox* LayoutBlockFlow::CreateLineBoxesFromBidiRuns(
   // text selection in RTL boxes would not work as expected.
   if (is_svg_root_inline_box) {
     DCHECK(IsSVGText());
-    ToSVGRootInlineBox(line_box)->ComputePerCharacterLayoutInformation();
+    To<SVGRootInlineBox>(line_box)->ComputePerCharacterLayoutInformation();
   }
 
   // Compute our overflow now.
@@ -2384,6 +2385,7 @@ void LayoutBlockFlow::AddVisualOverflowFromInlineChildren() {
       IsRootEditableElement(*GetNode()) && StyleRef().IsLeftToRightDirection())
     end_padding = LayoutUnit(1);
 
+  bool added_inline_children = false;
   if (const NGPaintFragment* paint_fragment = PaintFragment()) {
     for (const NGPaintFragment* child : paint_fragment->Children()) {
       if (child->HasSelfPaintingLayer())
@@ -2394,19 +2396,26 @@ void LayoutBlockFlow::AddVisualOverflowFromInlineChildren() {
         AddContentsVisualOverflow(child_rect);
       }
     }
-  } else if (const NGFragmentItems* items = FragmentItems()) {
-    for (NGInlineCursor cursor(*items); cursor; cursor.MoveToNextSibling()) {
-      const NGFragmentItem* child = cursor.CurrentItem();
-      DCHECK(child);
-      if (child->HasSelfPaintingLayer())
-        continue;
-      PhysicalRect child_rect = child->InkOverflow();
-      if (!child_rect.IsEmpty()) {
-        child_rect.offset += child->Offset();
-        AddContentsVisualOverflow(child_rect);
+    added_inline_children = true;
+  } else if (const NGPhysicalBoxFragment* fragment = CurrentFragment()) {
+    if (const NGFragmentItems* items = fragment->Items()) {
+      for (NGInlineCursor cursor(*items); cursor; cursor.MoveToNextSibling()) {
+        const NGFragmentItem* child = cursor.CurrentItem();
+        DCHECK(child);
+        if (child->HasSelfPaintingLayer())
+          continue;
+        PhysicalRect child_rect = child->InkOverflow();
+        if (!child_rect.IsEmpty()) {
+          child_rect.offset += child->OffsetInContainerBlock();
+          AddContentsVisualOverflow(child_rect);
+        }
       }
+      if (fragment->HasFloatingDescendantsForPaint())
+        AddVisualOverflowFromFloats(*fragment);
+      added_inline_children = true;
     }
-  } else {
+  }
+  if (!added_inline_children) {
     for (RootInlineBox* curr = FirstRootBox(); curr;
          curr = curr->NextRootBox()) {
       LayoutRect visual_overflow =
@@ -2744,10 +2753,36 @@ LayoutUnit LayoutBlockFlow::StartAlignedOffsetForLine(
 
 void LayoutBlockFlow::SetShouldDoFullPaintInvalidationForFirstLine() {
   DCHECK(ChildrenInline());
+
+  if (const NGPaintFragment* paint_fragment = PaintFragment()) {
+    paint_fragment->SetShouldDoFullPaintInvalidationForFirstLine();
+    return;
+  }
+
+  if (const NGFragmentItems* fragment_items = FragmentItems()) {
+    NGInlineCursor first_line(*fragment_items);
+    if (first_line) {
+      DCHECK(!FirstRootBox());
+      first_line.MoveToFirstLine();
+      if (first_line && first_line.Current().UsesFirstLineStyle()) {
+        // Mark all descendants of the first line if first-line style.
+        for (NGInlineCursor descendants = first_line.CursorForDescendants();
+             descendants; descendants.MoveToNext()) {
+          LayoutObject* layout_object =
+              descendants.Current()->GetMutableLayoutObject();
+          DCHECK(layout_object);
+          layout_object->StyleRef().ClearCachedPseudoElementStyles();
+          layout_object->SetShouldDoFullPaintInvalidation();
+        }
+        StyleRef().ClearCachedPseudoElementStyles();
+        SetShouldDoFullPaintInvalidation();
+      }
+    }
+    return;
+  }
+
   if (RootInlineBox* first_root_box = FirstRootBox())
     first_root_box->SetShouldDoFullPaintInvalidationForFirstLine();
-  else if (const NGPaintFragment* paint_fragment = PaintFragment())
-    paint_fragment->SetShouldDoFullPaintInvalidationForFirstLine();
 }
 
 bool LayoutBlockFlow::PaintedOutputOfObjectHasNoEffectRegardlessOfSize() const {

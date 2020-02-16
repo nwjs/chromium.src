@@ -5,7 +5,7 @@
     "Note: This file exists only to support the trybot.",
     "It should be kept in sync with the CI configuration in ../chromium.fyi/."
   ],
-  "xcode build version": "11a1027",
+  "xcode build version": "11c29",
   "gn_args": [
     "goma_dir=\"$(goma_dir)\"",
     "is_component_build=false",
@@ -23,8 +23,8 @@
       "xcode parallelization": true,
       "include": "eg2_tests.json",
       "device type": "iPhone X",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "pool":"chromium.tests",
       "host os": "Mac-10.14.6"
     },
@@ -32,8 +32,8 @@
       "xcode parallelization": true,
       "include": "eg2_tests.json",
       "device type": "iPhone 7",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "pool":"chromium.tests",
       "host os": "Mac-10.14.6"
     },
@@ -41,8 +41,8 @@
       "xcode parallelization": true,
       "include": "eg2_tests.json",
       "device type": "iPad (6th generation)",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "pool":"chromium.tests",
       "host os": "Mac-10.14.6"
     },
@@ -51,7 +51,7 @@
       "include": "eg2_tests.json",
       "device type": "iPhone X",
       "os": "12.4",
-      "xcode build version": "11b53",
+      "xcode build version": "11c29",
       "pool":"chromium.tests",
       "host os": "Mac-10.14.6"
     },
@@ -60,71 +60,75 @@
       "include": "eg2_tests.json",
       "device type": "iPad (6th generation)",
       "os": "12.4",
-      "xcode build version": "11b53",
+      "xcode build version": "11c29",
       "pool":"chromium.tests",
       "host os": "Mac-10.14.6"
     },
     {
       "include": "common_tests.json",
       "device type": "iPhone X",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
       "pool":"chromium.tests"
     },
     {
       "include": "eg_cq_tests.json",
       "device type": "iPhone X",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests",
+      "xcode parallelization": true
     },
     {
       "include": "eg_cq_tests.json",
       "device type": "iPad Pro (12.9-inch)",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests",
+      "xcode parallelization": true
     },
     {
       "include": "eg_tests.json",
       "device type": "iPhone X",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests",
+      "xcode parallelization": true
     },
     {
       "include": "eg_tests.json",
       "device type": "iPad Air (3rd generation)",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests",
+      "xcode parallelization": true
     },
     {
       "include": "screen_size_dependent_tests.json",
       "device type": "iPhone 6s Plus",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
       "pool":"chromium.tests"
     },
     {
       "include": "screen_size_dependent_tests.json",
       "device type": "iPhone X",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
       "pool":"chromium.tests"
     },
     {
       "include": "screen_size_dependent_tests.json",
       "device type": "iPad Air 2",
-      "os": "13.2.2",
-      "xcode build version": "11b53",
+      "os": "13.3",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
       "pool":"chromium.tests"
     },
@@ -132,7 +136,7 @@
       "app": "crashpad_tests",
       "device type": "iPhone X",
       "os": "12.4",
-      "xcode build version": "11b53",
+      "xcode build version": "11c29",
       "host os": "Mac-10.14.6",
       "pool":"chromium.tests"
     }

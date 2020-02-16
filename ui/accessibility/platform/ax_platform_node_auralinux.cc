@@ -247,11 +247,13 @@ AtkObject* ComputeActiveTopLevelFrame() {
   return g_active_top_level_frame;
 }
 
-const char* GetUniqueAccessibilityGTypeName(int interface_mask) {
+const char* GetUniqueAccessibilityGTypeName(
+    ImplementedAtkInterfaces interface_mask) {
   // 37 characters is enough for "AXPlatformNodeAuraLinux%x" with any integer
   // value.
   static char name[37];
-  snprintf(name, sizeof(name), "AXPlatformNodeAuraLinux%x", interface_mask);
+  snprintf(name, sizeof(name), "AXPlatformNodeAuraLinux%x",
+           interface_mask.value());
   return name;
 }
 
@@ -2143,61 +2145,53 @@ void AXPlatformNodeAuraLinux::EnsureGTypeInit() {
 #endif
 }
 
-int AXPlatformNodeAuraLinux::GetGTypeInterfaceMask() {
-  int interface_mask = 0;
+// static
+ImplementedAtkInterfaces AXPlatformNodeAuraLinux::GetGTypeInterfaceMask(
+    const AXNodeData& data) {
+  // The default implementation set includes the AtkComponent and AtkAction
+  // interfaces, which are provided by all the AtkObjects that we produce.
+  ImplementedAtkInterfaces interface_mask;
 
-  // Component interface is always supported.
-  interface_mask |= 1 << ATK_COMPONENT_INTERFACE;
-
-  // Action interface is basic one. It just relays on executing default action
-  // for each object.
-  interface_mask |= 1 << ATK_ACTION_INTERFACE;
-
-  if (!ui::IsImageOrVideo(GetData().role)) {
-    interface_mask |= 1 << ATK_TEXT_INTERFACE;
-    if (!IsPlainTextField())
-      interface_mask |= 1 << ATK_HYPERTEXT_INTERFACE;
+  if (!IsImageOrVideo(data.role)) {
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kText);
+    if (!data.IsPlainTextField())
+      interface_mask.Add(ImplementedAtkInterfaces::Value::kHypertext);
   }
 
-  // Value Interface
-  AtkRole role = GetAtkRole();
-  if (GetData().IsRangeValueSupported()) {
-    interface_mask |= 1 << ATK_VALUE_INTERFACE;
-  }
+  if (data.IsRangeValueSupported())
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kValue);
 
-  // Document Interface
-  if (role == ATK_ROLE_DOCUMENT_WEB)
-    interface_mask |= 1 << ATK_DOCUMENT_INTERFACE;
+  if (ui::IsDocument(data.role))
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kDocument);
 
-  // Image Interface
-  if (role == ATK_ROLE_IMAGE || role == ATK_ROLE_IMAGE_MAP)
-    interface_mask |= 1 << ATK_IMAGE_INTERFACE;
+  if (IsImage(data.role))
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kImage);
 
   // The AtkHyperlinkImpl interface allows getting a AtkHyperlink from an
   // AtkObject. It is indeed implemented by actual web hyperlinks, but also by
   // objects that will become embedded objects in ATK hypertext, so the name is
   // a bit of a misnomer from the ATK API.
-  if (role == ATK_ROLE_LINK || (!IsTextOnlyObject() && GetParent())) {
-    interface_mask |= 1 << ATK_HYPERLINK_INTERFACE;
+  if (IsLink(data.role) || data.role == ax::mojom::Role::kAnchor ||
+      !ui::IsText(data.role)) {
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kHyperlink);
   }
 
-  if (role == ATK_ROLE_FRAME)
-    interface_mask |= 1 << ATK_WINDOW_INTERFACE;
+  if (data.role == ax::mojom::Role::kWindow)
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kWindow);
 
-  if (IsContainerWithSelectableChildren(GetData().role))
-    interface_mask |= 1 << ATK_SELECTION_INTERFACE;
+  if (IsContainerWithSelectableChildren(data.role))
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kSelection);
 
-  if (role == ATK_ROLE_TABLE || role == ATK_ROLE_TREE_TABLE)
-    interface_mask |= 1 << ATK_TABLE_INTERFACE;
+  if (IsTableLike(data.role))
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kTable);
 
   // Because the TableCell Interface is only supported in ATK version 2.12 and
   // later, GetAccessibilityGType has a runtime check to verify we have a recent
   // enough version. If we don't, GetAccessibilityGType will exclude
   // AtkTableCell from the supported interfaces and none of its methods or
   // properties will be exposed to assistive technologies.
-  if (role == ATK_ROLE_TABLE_CELL || role == ATK_ROLE_COLUMN_HEADER ||
-      role == ATK_ROLE_ROW_HEADER)
-    interface_mask |= 1 << ATK_TABLE_CELL_INTERFACE;
+  if (IsCellOrTableHeader(data.role))
+    interface_mask.Add(ImplementedAtkInterfaces::Value::kTableCell);
 
   return interface_mask;
 }
@@ -2223,31 +2217,33 @@ GType AXPlatformNodeAuraLinux::GetAccessibilityGType() {
 
   type = g_type_register_static(AX_PLATFORM_NODE_AURALINUX_TYPE, atk_type_name,
                                 &type_info, GTypeFlags(0));
-  if (interface_mask_ & (1 << ATK_COMPONENT_INTERFACE))
-    g_type_add_interface_static(type, ATK_TYPE_COMPONENT, &atk_component::Info);
-  if (interface_mask_ & (1 << ATK_ACTION_INTERFACE))
-    g_type_add_interface_static(type, ATK_TYPE_ACTION, &atk_action::Info);
-  if (interface_mask_ & (1 << ATK_DOCUMENT_INTERFACE))
+
+  // The AtkComponent and AtkAction interfaces are always supported.
+  g_type_add_interface_static(type, ATK_TYPE_COMPONENT, &atk_component::Info);
+  g_type_add_interface_static(type, ATK_TYPE_ACTION, &atk_action::Info);
+
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kDocument))
     g_type_add_interface_static(type, ATK_TYPE_DOCUMENT, &atk_document::Info);
-  if (interface_mask_ & (1 << ATK_IMAGE_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kImage))
     g_type_add_interface_static(type, ATK_TYPE_IMAGE, &atk_image::Info);
-  if (interface_mask_ & (1 << ATK_VALUE_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kValue))
     g_type_add_interface_static(type, ATK_TYPE_VALUE, &atk_value::Info);
-  if (interface_mask_ & (1 << ATK_HYPERLINK_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kHyperlink)) {
     g_type_add_interface_static(type, ATK_TYPE_HYPERLINK_IMPL,
                                 &atk_hyperlink::Info);
-  if (interface_mask_ & (1 << ATK_HYPERTEXT_INTERFACE))
+  }
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kHypertext))
     g_type_add_interface_static(type, ATK_TYPE_HYPERTEXT, &atk_hypertext::Info);
-  if (interface_mask_ & (1 << ATK_TEXT_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kText))
     g_type_add_interface_static(type, ATK_TYPE_TEXT, &atk_text::Info);
-  if (interface_mask_ & (1 << ATK_WINDOW_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kWindow))
     g_type_add_interface_static(type, ATK_TYPE_WINDOW, &atk_window::Info);
-  if (interface_mask_ & (1 << ATK_SELECTION_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kSelection))
     g_type_add_interface_static(type, ATK_TYPE_SELECTION, &atk_selection::Info);
-  if (interface_mask_ & (1 << ATK_TABLE_INTERFACE))
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kTable))
     g_type_add_interface_static(type, ATK_TYPE_TABLE, &atk_table::Info);
 
-  if (interface_mask_ & (1 << ATK_TABLE_CELL_INTERFACE)) {
+  if (interface_mask_.Implements(ImplementedAtkInterfaces::Value::kTableCell)) {
     // Run-time check to ensure AtkTableCell is supported (requires ATK 2.12).
     if (AtkTableCellInterface::Exists()) {
       g_type_add_interface_static(type, AtkTableCellInterface::GetType(),
@@ -2302,7 +2298,7 @@ AtkObject* AXPlatformNodeAuraLinux::FindFirstWebContentDocument() {
 
 AtkObject* AXPlatformNodeAuraLinux::CreateAtkObject() {
   EnsureGTypeInit();
-  interface_mask_ = GetGTypeInterfaceMask();
+  interface_mask_ = GetGTypeInterfaceMask(GetData());
   GType type = GetAccessibilityGType();
   AtkObject* atk_object = static_cast<AtkObject*>(g_object_new(type, nullptr));
 
@@ -2376,8 +2372,6 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
     case ax::mojom::Role::kAnchor:
       return ATK_ROLE_LINK;
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
-    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kSuggestion:
       return ATK_ROLE_SECTION;
     case ax::mojom::Role::kApplication:
@@ -2615,6 +2609,10 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
       return ATK_ROLE_PANEL;
     case ax::mojom::Role::kParagraph:
       return ATK_ROLE_PARAGRAPH;
+    case ax::mojom::Role::kPdfActionableHighlight:
+      return ATK_ROLE_PUSH_BUTTON;
+    case ax::mojom::Role::kPluginObject:
+      return ATK_ROLE_EMBEDDED;
     case ax::mojom::Role::kPopUpButton: {
       std::string html_tag =
           GetData().GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag);
@@ -2622,6 +2620,8 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
         return ATK_ROLE_COMBO_BOX;
       return ATK_ROLE_PUSH_BUTTON;
     }
+    case ax::mojom::Role::kPortal:
+      return ATK_ROLE_PUSH_BUTTON;
     case ax::mojom::Role::kPre:
       return ATK_ROLE_SECTION;
     case ax::mojom::Role::kProgressIndicator:
@@ -2777,7 +2777,8 @@ void AXPlatformNodeAuraLinux::GetAtkState(AtkStateSet* atk_state_set) {
     atk_state_set_add_state(atk_state_set, ATK_STATE_EXPANDABLE);
   if (data.HasState(ax::mojom::State::kDefault))
     atk_state_set_add_state(atk_state_set, ATK_STATE_DEFAULT);
-  if (data.HasState(ax::mojom::State::kEditable) &&
+  if ((data.HasState(ax::mojom::State::kEditable) ||
+       data.HasState(ax::mojom::State::kRichlyEditable)) &&
       data.GetRestriction() != ax::mojom::Restriction::kReadOnly) {
     atk_state_set_add_state(atk_state_set, ATK_STATE_EDITABLE);
   }
@@ -2843,18 +2844,15 @@ void AXPlatformNodeAuraLinux::GetAtkState(AtkStateSet* atk_state_set) {
     atk_state_set_add_state(atk_state_set, GetAtkStateTypeForCheckableNode());
   }
 
-  switch (GetData().GetRestriction()) {
-    case ax::mojom::Restriction::kNone:
-      atk_state_set_add_state(atk_state_set, ATK_STATE_ENABLED);
-      atk_state_set_add_state(atk_state_set, ATK_STATE_SENSITIVE);
-      break;
-    case ax::mojom::Restriction::kReadOnly:
+  if (data.GetRestriction() != ax::mojom::Restriction::kDisabled) {
+    if (IsReadOnlySupported(data.role) && data.IsReadOnlyOrDisabled()) {
 #if defined(ATK_216)
       atk_state_set_add_state(atk_state_set, ATK_STATE_READ_ONLY);
 #endif
-      break;
-    default:
-      break;
+    } else {
+      atk_state_set_add_state(atk_state_set, ATK_STATE_ENABLED);
+      atk_state_set_add_state(atk_state_set, ATK_STATE_SENSITIVE);
+    }
   }
 
   if (delegate_->GetFocus() == GetOrCreateAtkObject())
@@ -2881,8 +2879,6 @@ static AtkIntRelation kIntRelations[] = {
     {ax::mojom::IntAttribute::kPopupForId, ATK_RELATION_POPUP_FOR,
      base::nullopt},
 #if defined(ATK_226)
-    {ax::mojom::IntAttribute::kDetailsId, ATK_RELATION_DETAILS,
-     ATK_RELATION_DETAILS_FOR},
     {ax::mojom::IntAttribute::kErrormessageId, ATK_RELATION_ERROR_MESSAGE,
      ATK_RELATION_ERROR_FOR},
 #endif
@@ -2897,6 +2893,8 @@ struct AtkIntListRelation {
 static AtkIntListRelation kIntListRelations[] = {
     {ax::mojom::IntListAttribute::kControlsIds, ATK_RELATION_CONTROLLER_FOR,
      ATK_RELATION_CONTROLLED_BY},
+    {ax::mojom::IntListAttribute::kDetailsIds, ATK_RELATION_DETAILS,
+     ATK_RELATION_DETAILS_FOR},
     {ax::mojom::IntListAttribute::kDescribedbyIds, ATK_RELATION_DESCRIBED_BY,
      ATK_RELATION_DESCRIPTION_FOR},
     {ax::mojom::IntListAttribute::kFlowtoIds, ATK_RELATION_FLOWS_TO,
@@ -3025,7 +3023,7 @@ void AXPlatformNodeAuraLinux::EnsureAtkObjectIsValid() {
     // If the object's role changes and that causes its
     // interface mask to change, we need to create a new
     // AtkObject for it.
-    int interface_mask = GetGTypeInterfaceMask();
+    ImplementedAtkInterfaces interface_mask = GetGTypeInterfaceMask(GetData());
     if (interface_mask != interface_mask_)
       DestroyAtkObjects();
   }
@@ -3603,6 +3601,7 @@ void AXPlatformNodeAuraLinux::OnInvalidStatusChanged() {
 
 void AXPlatformNodeAuraLinux::NotifyAccessibilityEvent(
     ax::mojom::Event event_type) {
+  AXPlatformNodeBase::NotifyAccessibilityEvent(event_type);
   switch (event_type) {
     // There are three types of messages that we receive for popup menus. Each
     // time a popup menu is shown, we get a kMenuPopupStart message. This
@@ -3707,17 +3706,6 @@ AXPlatformNodeAuraLinux::GetEmbeddedObjectIndices() {
 }
 
 void AXPlatformNodeAuraLinux::UpdateHypertext() {
-  // For text only objects, ensure that the parent's hypertext is updated as
-  // well. Text only objects insert their text directly into their parents
-  // hypertext, instead of being represented as embedded object characters.
-  if (IsTextOnlyObject()) {
-    if (AtkObject* parent = GetParent()) {
-      if (auto* parent_node = AtkObjectToAXPlatformNodeAuraLinux(parent)) {
-        parent_node->UpdateHypertext();
-      }
-    }
-  }
-
   EnsureAtkObjectIsValid();
   AXHypertext old_hypertext = hypertext_;
   base::OffsetAdjuster::Adjustments old_adjustments = GetHypertextAdjustments();

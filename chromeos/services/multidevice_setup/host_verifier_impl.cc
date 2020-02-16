@@ -13,6 +13,7 @@
 #include "base/no_destructor.h"
 #include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/components/multidevice/software_feature.h"
+#include "chromeos/services/device_sync/proto/cryptauth_common.pb.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 
@@ -129,6 +130,15 @@ bool HostVerifierImpl::IsHostVerified() {
   // that host, the device pending removal is no longer considered verified.
   if (host_backend_delegate_->HasPendingHostRequest() &&
       !host_backend_delegate_->GetPendingHostRequest()) {
+    return false;
+  }
+
+  // The host is not considered verified if it does not have the data needed for
+  // secure communication via Bluetooth. These values could be missing if v2
+  // DeviceSync data was not decrypted, for instance.
+  if (current_host->public_key().empty() ||
+      current_host->persistent_symmetric_key().empty() ||
+      current_host->beacon_seeds().empty()) {
     return false;
   }
 
@@ -254,10 +264,19 @@ void HostVerifierImpl::AttemptHostVerification() {
 
   PA_LOG(VERBOSE) << "HostVerifierImpl::AttemptHostVerification(): Attempting "
                   << "host verification now.";
-  device_sync_client_->FindEligibleDevices(
-      multidevice::SoftwareFeature::kBetterTogetherHost,
-      base::BindOnce(&HostVerifierImpl::OnFindEligibleDevicesResult,
-                     weak_ptr_factory_.GetWeakPtr()));
+
+  if (current_host->instance_id().empty()) {
+    device_sync_client_->FindEligibleDevices(
+        multidevice::SoftwareFeature::kBetterTogetherHost,
+        base::BindOnce(&HostVerifierImpl::OnFindEligibleDevicesResult,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    device_sync_client_->NotifyDevices(
+        {current_host->instance_id()}, cryptauthv2::TargetService::DEVICE_SYNC,
+        multidevice::SoftwareFeature::kBetterTogetherHost,
+        base::BindOnce(&HostVerifierImpl::OnNotifyDevicesFinished,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void HostVerifierImpl::OnFindEligibleDevicesResult(
@@ -272,6 +291,26 @@ void HostVerifierImpl::OnFindEligibleDevicesResult(
 
   // Now that the FindEligibleDevices call was sent successfully, the host phone
   // is expected to enable its supported features. This should trigger a push
+  // message asking this Chromebook to sync these updated features, but in
+  // practice it has been observed that the Chromebook sometimes does not
+  // receive this message (see https://crbug.com/913816). Thus, schedule a sync
+  // after the phone has had enough time to enable its features. Note that this
+  // sync is canceled if the Chromebook does receive the push message.
+  sync_timer_->Start(
+      FROM_HERE, kSyncDelay,
+      base::Bind(&HostVerifierImpl::OnSyncTimerFired, base::Unretained(this)));
+}
+
+void HostVerifierImpl::OnNotifyDevicesFinished(
+    device_sync::mojom::NetworkRequestResult result) {
+  if (result != device_sync::mojom::NetworkRequestResult::kSuccess) {
+    PA_LOG(WARNING) << "HostVerifierImpl::OnNotifyDevicesFinished(): "
+                    << "NotifyDevices call failed. Retry is scheduled.";
+    return;
+  }
+
+  // Now that the NotifyDevices call was sent successfully, the host phone is
+  // expected to enable its supported features. This should trigger a push
   // message asking this Chromebook to sync these updated features, but in
   // practice it has been observed that the Chromebook sometimes does not
   // receive this message (see https://crbug.com/913816). Thus, schedule a sync

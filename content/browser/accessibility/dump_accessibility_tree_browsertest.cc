@@ -26,7 +26,6 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "ui/accessibility/accessibility_switches.h"
-#include "ui/base/ui_base_features.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/mac_util.h"
@@ -373,6 +372,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAOnclick) {
   RunHtmlTest(FILE_PATH_LITERAL("a-onclick.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityANestedStructure) {
+  RunHtmlTest(FILE_PATH_LITERAL("a-nested-structure.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAIsInteresting) {
   RunHtmlTest(FILE_PATH_LITERAL("isInteresting.html"));
 }
@@ -511,6 +515,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunAriaTest(FILE_PATH_LITERAL("aria1.1-combobox.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaComment) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-comment.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaComplementary) {
   RunAriaTest(FILE_PATH_LITERAL("aria-complementary.html"));
@@ -639,6 +647,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaHiddenIframe) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-hidden-iframe.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        MAYBE(AccessibilityAriaFlowto)) {
   RunAriaTest(FILE_PATH_LITERAL("aria-flowto.html"));
 }
@@ -673,8 +686,14 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaGridExtraWrapElems) {
   RunAriaTest(FILE_PATH_LITERAL("aria-grid-extra-wrap-elems.html"));
 }
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaGridCell) {
   RunAriaTest(FILE_PATH_LITERAL("aria-gridcell.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaGridCellFocusedOnly) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-gridcell-focused-only.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaGroup) {
@@ -1427,6 +1446,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityHeading) {
   RunHtmlTest(FILE_PATH_LITERAL("heading.html"));
 }
 
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityHeadingWithTabIndex) {
+  RunHtmlTest(FILE_PATH_LITERAL("heading-with-tabIndex.html"));
+}
+
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityHidden) {
   RunAriaTest(FILE_PATH_LITERAL("hidden.html"));
 }
@@ -1560,8 +1584,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInputDate) {
   RunHtmlTest(FILE_PATH_LITERAL("input-date.html"));
 }
 
-#if defined(OS_WIN)
 // TODO(crbug.com/423675): AX tree is different for Win7 and Win10.
+#if defined(OS_WIN)
 #define MAYBE_AccessibilityInputDateWithPopupOpen \
   DISABLED_AccessibilityInputDateWithPopupOpen
 #else
@@ -1573,9 +1597,18 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("input-date-with-popup-open.html"));
 }
 
+// The /blink test pass is different when run on Windows vs other OSs.
+// So separate into two different tests.
+#if defined(OS_WIN)
+#define AccessibilityInputDateWithPopupOpenMultiple_TestFile \
+  FILE_PATH_LITERAL("input-date-with-popup-open-multiple-for-win.html")
+#else
+#define AccessibilityInputDateWithPopupOpenMultiple_TestFile \
+  FILE_PATH_LITERAL("input-date-with-popup-open-multiple.html")
+#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityInputDateWithPopupOpenMultiple) {
-  RunHtmlTest(FILE_PATH_LITERAL("input-date-with-popup-open-multiple.html"));
+  RunHtmlTest(AccessibilityInputDateWithPopupOpenMultiple_TestFile);
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInputDateTime) {
@@ -1637,6 +1670,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInputPassword) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInputRadio) {
   RunHtmlTest(FILE_PATH_LITERAL("input-radio.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityInputRadioCheckboxLabel) {
+  RunHtmlTest(FILE_PATH_LITERAL("input-radio-checkbox-label.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
@@ -1728,7 +1766,15 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("input-text-with-selection.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInputTime) {
+#if defined(OS_MACOSX)
+// TODO(1038813): The /blink test pass is different on Windows and Mac, versus
+// Linux.
+#define MAYBE_AccessibilityInputTime DISABLED_AccessibilityInputTime
+#else
+#define MAYBE_AccessibilityInputTime AccessibilityInputTime
+#endif
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       MAYBE_AccessibilityInputTime) {
   RunHtmlTest(FILE_PATH_LITERAL("input-time.html"));
 }
 
@@ -1788,6 +1834,21 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityList) {
   RunHtmlTest(FILE_PATH_LITERAL("list.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityListItemLevel) {
+  RunHtmlTest(FILE_PATH_LITERAL("list-item-level.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityListItemAriaSetsizeUnknown) {
+  RunHtmlTest(FILE_PATH_LITERAL("list-item-aria-setsize-unknown.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityListItemAriaSetsizeUnknownFlattened) {
+  RunHtmlTest(
+      FILE_PATH_LITERAL("list-item-aria-setsize-unknown-flattened.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityListMarkers) {
@@ -1923,6 +1984,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityPre) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityProgress) {
   RunHtmlTest(FILE_PATH_LITERAL("progress.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityPortal) {
+  RunHtmlTest(FILE_PATH_LITERAL("portal.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityQ) {
@@ -2206,7 +2271,13 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunDisplayLockingTest(FILE_PATH_LITERAL("non-activatable.html"));
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, DisplayLockingAll) {
+#if defined(OS_WIN) || defined(OS_LINUX)
+// The test is flaky on Win and Linux. crbug.com/1043480.
+#define MAYBE_DisplayLockingAll DISABLED_DisplayLockingAll
+#else
+#define MAYBE_DisplayLockingAll DisplayLockingAll
+#endif
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, MAYBE_DisplayLockingAll) {
   RunDisplayLockingTest(FILE_PATH_LITERAL("all.html"));
 }
 

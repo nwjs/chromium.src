@@ -15,6 +15,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/task_environment.h"
 #include "base/timer/mock_timer.h"
@@ -217,8 +218,8 @@ class FakeIdentityService
   }
 
   // identity::mojom::IdentityAccessorInterceptorForTesting overrides:
-  void GetPrimaryAccountWhenAvailable(
-      GetPrimaryAccountWhenAvailableCallback callback) override {
+  void GetUnconsentedPrimaryAccountWhenAvailable(
+      GetUnconsentedPrimaryAccountWhenAvailableCallback callback) override {
     auto account_id = AccountId::FromUserEmailGaiaId("test@example.com", "ID");
     std::move(callback).Run(CoreAccountId(account_id.GetUserEmail()),
                             account_id.GetGaiaId(), account_id.GetUserEmail(),
@@ -495,11 +496,16 @@ TEST_F(DriveFsHostTest, OnMountFailedFromDbus) {
 TEST_F(DriveFsHostTest, DestroyBeforeMojoConnection) {
   auto token = StartMount();
   DispatchMountSuccessEvent(token);
-  EXPECT_CALL(*disk_manager_, UnmountPath("/media/drivefsroot/salt-g-ID", _));
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(*disk_manager_, UnmountPath("/media/drivefsroot/salt-g-ID", _))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
 
   host_.reset();
   EXPECT_FALSE(mojo_bootstrap::PendingConnectionManager::Get().OpenIpcChannel(
       token, {}));
+
+  run_loop.Run();
 }
 
 TEST_F(DriveFsHostTest, MountWhileAlreadyMounted) {

@@ -14,13 +14,9 @@ if (is_android) {
 # See //content/BUILD.gn for how this works.
 group("browser") {
   if (is_component_build) {
-    public_deps = [
-      "//content",
-    ]
+    public_deps = [ "//content" ]
   } else {
-    public_deps = [
-      ":browser_sources",
-    ]
+    public_deps = [ ":browser_sources" ]
   }
 }
 
@@ -46,6 +42,7 @@ jumbo_source_set("browser_sources") {
     "appcache_service.h",
     "audio_loopback_stream_creator.cc",
     "audio_loopback_stream_creator.h",
+    "audio_service.h",
     "audio_service_info.cc",
     "audio_service_info.h",
     "authenticator_environment.h",
@@ -128,14 +125,17 @@ jumbo_source_set("browser_sources") {
     "cors_exempt_headers.h",
     "cors_origin_pattern_setter.cc",
     "cors_origin_pattern_setter.h",
+    "dedicated_worker_service.h",
     "desktop_capture.cc",
     "desktop_capture.h",
     "desktop_media_id.cc",
     "desktop_media_id.h",
     "desktop_streams_registry.h",
+    "device_service.h",
     "devtools_agent_host.h",
     "devtools_agent_host_client.cc",
     "devtools_agent_host_client.h",
+    "devtools_agent_host_client_channel.h",
     "devtools_agent_host_observer.cc",
     "devtools_agent_host_observer.h",
     "devtools_background_services_context.h",
@@ -176,12 +176,12 @@ jumbo_source_set("browser_sources") {
     "gpu_utils.cc",
     "gpu_utils.h",
     "guest_host.h",
-    "guest_mode.cc",
-    "guest_mode.h",
     "hid_chooser.h",
     "hid_delegate.h",
     "histogram_fetcher.h",
     "indexed_db_context.h",
+    "installability_error.cc",
+    "installability_error.h",
     "interstitial_page.h",
     "interstitial_page_delegate.cc",
     "interstitial_page_delegate.h",
@@ -203,7 +203,9 @@ jumbo_source_set("browser_sources") {
     "media_player_watch_time.cc",
     "media_player_watch_time.h",
     "media_request_state.h",
+    "media_service.h",
     "media_session.h",
+    "media_session_service.h",
     "media_stream_request.cc",
     "media_stream_request.h",
     "message_port_provider.h",
@@ -410,14 +412,18 @@ jumbo_source_set("browser_sources") {
   }
 
   public_deps = [
+    "//build:chromecast_buildflags",
     "//components/download/public/common:public",
+    "//components/services/storage/public/mojom",
     "//content/public/common:common_sources",
     "//ipc",
     "//media/mojo/mojom:remoting",
     "//mojo/public/cpp/bindings",
     "//mojo/public/cpp/system",
+    "//services/audio/public/mojom",
     "//services/content/public/mojom",
     "//services/data_decoder/public/mojom",
+    "//services/device/public/mojom:device_service",
     "//services/device/public/mojom:usb",
     "//services/media_session/public/cpp",
     "//services/media_session/public/mojom",
@@ -452,6 +458,7 @@ jumbo_source_set("browser_sources") {
     "//services/service_manager/embedder:embedder_result_codes",
     "//ui/accessibility",
     "//ui/base",
+    "//ui/base/clipboard",
     "//ui/events",
     "//ui/gl",
     "//ui/shell_dialogs",
@@ -463,6 +470,10 @@ jumbo_source_set("browser_sources") {
     # include headers from each other.
     "//content/browser",
   ]
+
+  if (is_chromeos || is_android || is_chromecast || is_fuchsia) {
+    defines = [ "ENABLE_PROTECTED_MEDIA_IDENTIFIER_PERMISSION" ]
+  }
 
   if (is_posix || is_fuchsia) {
     sources += [ "posix_file_descriptor_info.h" ]
@@ -495,8 +506,6 @@ jumbo_source_set("browser_sources") {
 
 if (is_android) {
   java_cpp_enum("contacts_picker_properties_requested_javagen") {
-    sources = [
-      "contacts_picker_properties_requested.h",
-    ]
+    sources = [ "contacts_picker_properties_requested.h" ]
   }
 }

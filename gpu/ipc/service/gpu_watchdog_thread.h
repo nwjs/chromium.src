@@ -31,6 +31,32 @@ enum class GpuWatchdogThreadEvent {
   kMaxValue = kGpuWatchdogEnd,
 };
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class GpuWatchdogTimeoutEvent {
+  // Recorded each time OnWatchdogTimeout() is called.
+  kTimeout,
+  // Recorded when a GPU main thread is killed for a detected hang.
+  kKill,
+  // Window only: Recorded when a hang is detected but we allow the GPU main
+  // thread to continue until it spent the full
+  // thread time doing the work.
+  kMoreThreadTime,
+  // Windows only: The GPU makes progress after givenmore thread time. The GPU
+  // main thread is not killed.
+  kProgressAfterMoreThreadTime,
+  // A gpu hang is detected but watchdog waits for 60 seconds before taking
+  // action.
+  kTimeoutWait,
+  // The GPU makes progress within 60 sec in OnWatchdogTimeout(). The GPU main
+  // thread is not killed.
+  kProgressAfterWait,
+  // Just continue if it's not on the TTY of our host X11 server.
+  kContinueOnNonHostServerTty,
+
+  kMaxValue = kContinueOnNonHostServerTty,
+};
+
 // A thread that intermitently sends tasks to a group of watched message loops
 // and deliberately crashes if one of them does not respond after a timeout.
 class GPU_IPC_SERVICE_EXPORT GpuWatchdogThread : public base::Thread,
@@ -182,7 +208,7 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV1
 #endif
 
 #if defined(USE_X11)
-  int GetActiveTTY() const;
+  void UpdateActiveTTY();
 #endif
 
   scoped_refptr<base::SingleThreadTaskRunner> watched_task_runner_;
@@ -229,12 +255,21 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV1
   base::Time check_time_;
   base::TimeTicks check_timeticks_;
 
+  // The time in the last OnCheckTimeout()
+  base::TimeTicks last_timeout_timeticks_;
+
+  // After GPU hang detected, whether the GPU thread is allowed to continue due
+  // to not spending enough thread time.
+  bool more_gpu_thread_time_allowed_ = false;
+
   // whether GpuWatchdogThreadEvent::kGpuWatchdogStart has been recorded.
   bool is_watchdog_start_histogram_recorded = false;
 
 #if defined(USE_X11)
   FILE* tty_file_;
   int host_tty_;
+  int active_tty_ = -1;
+  int last_active_tty_ = -1;
 #endif
 
   base::WeakPtrFactory<GpuWatchdogThreadImplV1> weak_factory_{this};

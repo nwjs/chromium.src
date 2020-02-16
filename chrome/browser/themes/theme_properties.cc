@@ -54,9 +54,11 @@ SkColor GetLightModeColor(int id) {
     // increment the version number in browser_theme_pack.cc.
     case ThemeProperties::COLOR_FRAME:
     case ThemeProperties::COLOR_BACKGROUND_TAB:
+    case ThemeProperties::COLOR_WINDOW_CONTROL_BUTTON_BACKGROUND_ACTIVE:
       return SkColorSetRGB(0xDE, 0xE1, 0xE6);
     case ThemeProperties::COLOR_FRAME_INACTIVE:
     case ThemeProperties::COLOR_BACKGROUND_TAB_INACTIVE:
+    case ThemeProperties::COLOR_WINDOW_CONTROL_BUTTON_BACKGROUND_INACTIVE:
       return color_utils::HSLShift(
           GetLightModeColor(ThemeProperties::COLOR_FRAME),
           ThemeProperties::GetDefaultTint(ThemeProperties::TINT_FRAME_INACTIVE,
@@ -85,11 +87,6 @@ SkColor GetLightModeColor(int id) {
       return SkColorSetRGB(0x96, 0x96, 0x96);
     case ThemeProperties::COLOR_CONTROL_BUTTON_BACKGROUND:
       return SK_ColorTRANSPARENT;
-    case ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON:
-      // If color is not explicitly specified, it should be calculated from
-      // TINT_BUTTONS.
-      NOTREACHED();
-      return gfx::kPlaceholderColor;
     case ThemeProperties::COLOR_NTP_LOGO:
       return SkColorSetRGB(0xEE, 0xEE, 0xEE);
     case ThemeProperties::COLOR_NTP_SHORTCUT:
@@ -108,19 +105,10 @@ SkColor GetLightModeColor(int id) {
     case ThemeProperties::COLOR_TOOLBAR_TOP_SEPARATOR:
     case ThemeProperties::COLOR_TOOLBAR_TOP_SEPARATOR_INACTIVE:
       return SkColorSetA(SK_ColorBLACK, 0x40);
-#if defined(OS_WIN)
-    case ThemeProperties::COLOR_ACCENT_BORDER:
-      NOTREACHED();
-      return gfx::kPlaceholderColor;
-#endif
     case ThemeProperties::COLOR_FEATURE_PROMO_BUBBLE_TEXT:
       return SK_ColorWHITE;
     case ThemeProperties::COLOR_FEATURE_PROMO_BUBBLE_BACKGROUND:
       return gfx::kGoogleBlue700;
-    case ThemeProperties::COLOR_OMNIBOX_TEXT:
-      return gfx::kGoogleGrey900;
-    case ThemeProperties::COLOR_OMNIBOX_BACKGROUND:
-      return gfx::kGoogleGrey100;
 
     case ThemeProperties::COLOR_FRAME_INCOGNITO:
     case ThemeProperties::COLOR_FRAME_INCOGNITO_INACTIVE:
@@ -128,11 +116,15 @@ SkColor GetLightModeColor(int id) {
     case ThemeProperties::COLOR_BACKGROUND_TAB_INCOGNITO_INACTIVE:
     case ThemeProperties::COLOR_BACKGROUND_TAB_TEXT_INCOGNITO:
     case ThemeProperties::COLOR_BACKGROUND_TAB_TEXT_INCOGNITO_INACTIVE:
-      NOTREACHED() << "These values should be queried via their respective "
-                      "non-incognito equivalents and an appropriate "
-                      "|incognito| value.";
-      FALLTHROUGH;
+    case ThemeProperties::
+        COLOR_WINDOW_CONTROL_BUTTON_BACKGROUND_INCOGNITO_ACTIVE:
+    case ThemeProperties::
+        COLOR_WINDOW_CONTROL_BUTTON_BACKGROUND_INCOGNITO_INACTIVE:
+      NOTREACHED() << "This color should be queried via its non-incognito "
+                      "equivalent and an appropriate |incognito| value.";
+      return gfx::kPlaceholderColor;
     default:
+      NOTREACHED() << "This color should only be queried through ThemeService.";
       return gfx::kPlaceholderColor;
   }
 }
@@ -176,10 +168,6 @@ base::Optional<SkColor> GetIncognitoColor(int id) {
       return SkColorSetRGB(0x28, 0x28, 0x28);
     case ThemeProperties::COLOR_NTP_LINK:
       return gfx::kGoogleBlue300;
-    case ThemeProperties::COLOR_OMNIBOX_TEXT:
-      return SK_ColorWHITE;
-    case ThemeProperties::COLOR_OMNIBOX_BACKGROUND:
-      return gfx::kGoogleGrey900;
     default:
       return base::nullopt;
   }
@@ -260,16 +248,15 @@ std::string ThemeProperties::TilingToString(int tiling) {
 }
 
 // static
-color_utils::HSL ThemeProperties::GetDefaultTint(int id, bool incognito) {
+color_utils::HSL ThemeProperties::GetDefaultTint(int id,
+                                                 bool incognito,
+                                                 bool dark_mode) {
   DCHECK(id != TINT_FRAME_INCOGNITO && id != TINT_FRAME_INCOGNITO_INACTIVE)
       << "These values should be queried via their respective non-incognito "
          "equivalents and an appropriate |incognito| value.";
 
   // If you change these defaults, you must increment the version number in
   // browser_theme_pack.cc.
-
-  const bool dark_mode =
-      ui::NativeTheme::GetInstanceForNativeUi()->ShouldUseDarkColors();
 
   // TINT_BUTTONS is used by ThemeService::GetDefaultColor() for both incognito
   // and dark mode, and so must be applied to both.
@@ -279,6 +266,13 @@ color_utils::HSL ThemeProperties::GetDefaultTint(int id, bool incognito) {
   if ((id == TINT_FRAME) && incognito)
     return {-1, 0.7, 0.075};  // #DEE1E6 -> kGoogleGrey900
   if (id == TINT_FRAME_INACTIVE) {
+    // |dark_mode| is only true here when attempting to tint the Windows native
+    // frame color while in dark mode.  The goal in this case is to match the
+    // difference between Chrome default dark mode active and inactive frames,
+    // so return a shift that matches that.
+    if (dark_mode)
+      return {0.59, 0.53, 0.567};  // kGoogleGrey900 -> kGoogleGrey800
+
     if (incognito)
       return {0.57, 0.65, 0.1405};  // #DEE1E6 -> kGoogleGrey800
     return {-1, -1, 0.642};         // #DEE1E6 -> #E7EAED
@@ -288,13 +282,15 @@ color_utils::HSL ThemeProperties::GetDefaultTint(int id, bool incognito) {
 }
 
 // static
-SkColor ThemeProperties::GetDefaultColor(int id, bool incognito) {
+SkColor ThemeProperties::GetDefaultColor(int id,
+                                         bool incognito,
+                                         bool dark_mode) {
   if (incognito) {
     base::Optional<SkColor> incognito_color = GetIncognitoColor(id);
     if (incognito_color.has_value())
       return incognito_color.value();
   }
-  if (ui::NativeTheme::GetInstanceForNativeUi()->ShouldUseDarkColors()) {
+  if (dark_mode) {
     base::Optional<SkColor> dark_mode_color = GetDarkModeColor(id);
     if (dark_mode_color.has_value())
       return dark_mode_color.value();

@@ -3,7 +3,6 @@
 <translationbundle lang="uz">
 <translation id="1065672644894730302">Sozlamalarni ko‘rib bo‘lmadi. Ba’zi funksiyalar mavjud emas va o‘zgartirilgan sozlamalar saqlanmaydi.</translation>
 <translation id="1104942323762546749">Chromium parollaringizni eksport qilmoqchi. Ruxsat berish uchun Windows platformasidagi parolingizni kiriting.</translation>
-<translation id="1115445892567829615">Chromium ma’lumotlarni sinxronlay olmadi. Sync kodli iborasini yangilashingiz kerak.</translation>
 <translation id="113122355610423240">Qurilmangizdagi asosiy brauzer – Chromium.</translation>
 <translation id="1185134272377778587">Chromium haqida</translation>
 <translation id="1396446129537741364">Kirtilgan parollar Chromium brauzerida ko‘rsatiladi.</translation>
@@ -20,7 +19,7 @@
 <translation id="1929939181775079593">Chromium javob bermayapti. Qaytadan ishga tushirilsinmi?</translation>
 <translation id="1966382378801805537">Chromium asosiy brauzerni aniqlay olmadi yoki tayinlay olmadi.</translation>
 <translation id="2008474315282236005">Bu qurilmadagi 1 elementni tozalaydi. Ma’lumotlaringizni keyinroq olish uchun Chromium brauzeriga <ph name="USER_EMAIL" /> sifatida kiring.</translation>
-<translation id="2119636228670142020">&amp;Chromium OS haqida</translation>
+<translation id="2147976119693222405">Chromium OS tizimidagi maʼlumotlaringiz sinxronlanmadi. Tuzatish.</translation>
 <translation id="2241627712206172106">Agar kompyuterdan yaqinlaringiz va do‘stlaringiz ham foydalansa, ular Chromium brauzerini o‘zlari xohlagancha sozlab olishlari mumkin.</translation>
 <translation id="2347108572062610441">Bu kengaytma Chromium ishga tushganda ko‘rinadigan sahifani o‘zgartirdi.</translation>
 <translation id="2396765026452590966">“<ph name="EXTENSION_NAME" />” kengaytmasi Chromium ishga tushganda ko‘rinadigan sahifani o‘zgartirdi.</translation>
@@ -36,7 +35,7 @@
 <translation id="2718390899429598676">Xavfsizlik himoyasini oshirish maqsadida Chromium ma’lumotlaringizni shifrlaydi.</translation>
 <translation id="2770231113462710648">Standart brauzer etib tayinlash:</translation>
 <translation id="2799223571221894425">Qaytadan ishga tushirish</translation>
-<translation id="2838154144102149890">Yangilanishi uchun Chromium bu kompyuterda yopilishi zarur. Bunda kompyuterdagi boshqa sessiya foydalanuvchilari saqlamagan maʼlumotlar tozalanishi mumkin.</translation>
+<translation id="2805036593126168338">Chromium OS tizimidagi parollaringiz sinxronlanmadi. Tuzatish.</translation>
 <translation id="2847479871509788944">Chromium‘dan o‘chirish...</translation>
 <translation id="2886012850691518054">Ixtiyoriy: Google’ga foydalanish statistikasi va ishdan chiqish hisobotlarini jo‘natish orqali Chromium’ni takomillashtirishga yordam bering</translation>
 <translation id="2910007522516064972">&amp;Chromium haqida</translation>
@@ -53,7 +52,6 @@
 <translation id="328888136576916638">Google API kalitlari yetishmayapti. Chromium’ning ba’zi funksiyalari ishlamasligi mumkin.</translation>
 <translation id="3296368748942286671">Chromium yopilishida orqa fon rejimida ishlayotgan ilovalar to‘xtatilmasin</translation>
 <translation id="331951419404882060">Hisobga kirishdagi xatolik sababli Chromium OS ma’lumotlarni sinxronlay olmadi.</translation>
-<translation id="3340978935015468852">sozlamalar</translation>
 <translation id="3474745554856756813">Ushbu qurilmadagi <ph name="ITEMS_COUNT" /> ta element butunlay o‘chiriladi. Ma’lumotlaringizni keyinroq olish uchun Chromium brauzeriga <ph name="USER_EMAIL" /> sifatida kiring.</translation>
 <translation id="3509308970982693815">Barcha Chromium oynalarini yoping va qaytadan urinib ko‘ring.</translation>
 <translation id="3575459661164320785">Kompyuteringizda zararli dasturlar topildi. Chromium uni tozalab, sozlamalarni qayta tiklashi, kengaytmalarni oʻchirib qoʻyishi mumkin.</translation>
@@ -144,7 +142,6 @@ Ba’zi imkoniyatlar ishlamasligi mumkin. Profilni saqlash uchun boshqa jild tay
 <translation id="6847869444787758381">Parollaringiz oshkor etilsa, Chromium bu haqida xabar qiladi</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (Chromium brauzeriga nusxalandi)</translation>
-<translation id="6868056391275687737">Boshqa Chromium nusxalari ishlayapti. Yangilash uchun ularni yopish kerak.</translation>
 <translation id="6893813176749746474">Chromium yangilandi, lekin siz undan 30 kun davomida foydalanmadingiz.</translation>
 <translation id="6964305034639999644">Havolani Chromium &amp;inkognito oynasida ochish</translation>
 <translation id="6990124437352146030">Bu sayt mikrofoningizdan foydalanishi uchun Chromium brauzeriga ruxsat berishingiz lozim</translation>
@@ -203,8 +200,6 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
       Chromium brauzeri sozlamalarini<ph name="LINK_END" /> tekshiring.</translation>
 <translation id="8697124171261953979">Bundan tashqari kengaytma Chromium boshlash sahifasini va omniboksdagi so‘rovlar uchun foydalaniladigan birlamchi qidiruv tizimini o‘zgartirdi.</translation>
 <translation id="8704119203788522458">Bu sizning shaxsiy Chromium brauzeringiz</translation>
-<translation id="8739167630197873875">Chromium yopilganda barcha cookie fayllari tozalanadi. <ph name="COOKIE_SETTINGS_LINK" /> sozlamasini oʻzgartirib, sinxronizatsiyani davom ettiring.</translation>
-<translation id="8748383401829947534">Barcha Chromium nusxalaridan chiqish.</translation>
 <translation id="8796602469536043152">Bu sayt kamera va mikrofoningizdan foydalanishi uchun Chromium brauzeriga ruxsat berishingiz lozim</translation>
 <translation id="8803635938069941624">Chromium OS shartlari</translation>
 <translation id="8821041990367117597">Chromium ma’lumotlaringizni sinxronlay olmadi, chunki hisobingiz haqidagi ma’lumotlar eskirgan.</translation>
@@ -214,7 +209,6 @@ Chromium sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="8941642502866065432">Chromiumni yangilab bo‘lmadi</translation>
 <translation id="8974095189086268230">Chromium OS paydo bo‘lishida qo‘shimcha <ph name="BEGIN_LINK_CROS_OSS" />ochiq kodli dasturiy ta'minotlarning<ph name="END_LINK_CROS_OSS" /> katta o‘rni bor.</translation>
 <translation id="9019929317751753759">Ma’lumotlaringiz xavfsizligini ta’minlash maqsadida ayrim kengaytmalarni o‘chirib qo‘ydik, chunki <ph name="IDS_EXTENSION_WEB_STORE_TITLE" />da ular haqida hech qanday ma’lumot yo‘q (ya’ni, ular sizning ruxsatingizsiz o‘rnatilgan bo‘lishi mumkin).</translation>
-<translation id="9022552996538154597">Chromium‘ga kirish</translation>
 <translation id="9089354809943900324">Chromium versiyasi eskirdi</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium bir soatda qayta ishga tushadi}other{Chromium # soatda qayta ishga tushadi}}</translation>
 <translation id="91086099826398415">Havolani yangi Chromium varaqda ochish</translation>

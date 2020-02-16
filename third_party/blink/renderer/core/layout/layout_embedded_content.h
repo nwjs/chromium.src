@@ -80,10 +80,11 @@ class CORE_EXPORT LayoutEmbeddedContent : public LayoutReplaced {
   bool CanBeSelectionLeafInternal() const final { return true; }
 
  private:
+  bool CanHaveAdditionalCompositingReasons() const override { return true; }
   CompositingReasons AdditionalCompositingReasons() const override;
 
   void WillBeDestroyed() final;
-  void Destroy() final;
+  void DeleteThis() final;
 
   bool NodeAtPointOverEmbeddedContentView(
       HitTestResult&,

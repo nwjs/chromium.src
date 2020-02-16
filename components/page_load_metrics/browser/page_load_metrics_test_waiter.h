@@ -21,14 +21,13 @@ class PageLoadMetricsTestWaiter
  public:
   // A bitvector to express which timing fields to match on.
   enum class TimingField : int {
-    kFirstLayout = 1 << 0,
-    kFirstPaint = 1 << 1,
-    kFirstContentfulPaint = 1 << 2,
-    kFirstMeaningfulPaint = 1 << 3,
-    kDocumentWriteBlockReload = 1 << 4,
-    kLoadEvent = 1 << 5,
+    kFirstPaint = 1 << 0,
+    kFirstContentfulPaint = 1 << 1,
+    kFirstMeaningfulPaint = 1 << 2,
+    kDocumentWriteBlockReload = 1 << 3,
+    kLoadEvent = 1 << 4,
     // kLoadTimingInfo waits for main frame timing info only.
-    kLoadTimingInfo = 1 << 6,
+    kLoadTimingInfo = 1 << 5,
   };
   using FrameTreeNodeId =
       page_load_metrics::PageLoadMetricsObserver::FrameTreeNodeId;
@@ -52,6 +51,9 @@ class PageLoadMetricsTestWaiter
 
   // Wait for the subframe to navigate at least once.
   void AddSubframeNavigationExpectation();
+
+  // Wait for the subframe to load at least one byte.
+  void AddSubframeDataExpectation();
 
   // Add a minimum completed resource expectation.
   void AddMinimumCompleteResourcesExpectation(
@@ -217,6 +219,8 @@ class PageLoadMetricsTestWaiter
 
   bool SubframeNavigationExpectationsSatisfied() const;
 
+  bool SubframeDataExpectationsSatisfied() const;
+
   std::unique_ptr<base::RunLoop> run_loop_;
 
   TimingFieldBitSet page_expected_fields_;
@@ -224,6 +228,7 @@ class PageLoadMetricsTestWaiter
   std::bitset<static_cast<size_t>(blink::mojom::WebFeature::kNumberOfFeatures)>
       expected_web_features_;
   size_t expected_subframe_navigation_ = false;
+  bool expected_subframe_data_ = false;
 
   TimingFieldBitSet observed_page_fields_;
   std::bitset<static_cast<size_t>(blink::mojom::WebFeature::kNumberOfFeatures)>

@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">ማንነት የማያሳውቅ ፍለጋ</translation>
 <translation id="277771892408211951">ቋንቋ ይምረጡ</translation>
 <translation id="2780046210906776326">ምንም የኢሜይል መለያዎች የሉም</translation>
+<translation id="2781331604911854368">አብራ</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">ከየትር መቀያየሪያ ውጣ</translation>
 <translation id="2830972654601096923">አድራሻዎችን ያቀናብሩ...</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">ክፍት ትሮች</translation>
 <translation id="3277021493514034324">የድር ጣቢያ አድራሻ ተቀድቷል</translation>
 <translation id="3290875554372353449">አንድ መለያ ይምረጡ</translation>
+<translation id="3311748811247479259">ጠፍቷል</translation>
 <translation id="3324193307694657476">አድራሻ 2</translation>
 <translation id="3329904751041170572">ከአገልጋዩ ጋር መገናኘት አልቻለም።</translation>
 <translation id="3335947283844343239">የተዘጋውን ትር ዳግም ክፈት</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">ቅጾች ተሞልተዋል።</translation>
 <translation id="3478058380795961209">ጊዜው የሚያልፍበት ወር</translation>
 <translation id="3482959374254649722">የእርስዎን ትሮች በማሰመር ላይ...</translation>
+<translation id="3484946776651937681">በውርዶች ውስጥ ክፈት</translation>
 <translation id="3493531032208478708">ስለሚጠቆም ይዘት <ph name="BEGIN_LINK" />የበለጠ ለመረዳት<ph name="END_LINK" /></translation>
 <translation id="3494788280727468875">የአሰሳ ውሂብን ማጽዳትን ያረጋግጡ</translation>
+<translation id="35083190962747987">${url} ክፈት</translation>
 <translation id="3519193562722059437">ድሩን ለማሰስ ትር ይክፈቱ።</translation>
 <translation id="3527085408025491307">አቃፊ</translation>
 <translation id="3529024052484145543">ደህንነቱ አልተጠበቀም</translation>
@@ -301,6 +305,7 @@
 <translation id="5062321486222145940">Google Driveን ጫን</translation>
 <translation id="5083464117946352670">የፋይል መጠን ማወቅ አልተቻለም።</translation>
 <translation id="5094827893301452931">Tweet ተጠናቅቋል።</translation>
+<translation id="5118764316110575523">ጠፍቷል</translation>
 <translation id="5127805178023152808">አመሳስል ጠፍቷል</translation>
 <translation id="5132942445612118989">የእርስዎን የይለፍ ቃላት፣ ታሪክ እና ተጨማሪ ነገሮች በሁሉም መሣሪያዎች ላይ ያስምሩ</translation>
 <translation id="5140288047769711648">Chrome ይህን የይለፍ ቃል ለእርስዎ ያስታውሳል። እርስዎ ማስታወስ አያስፈልግዎትም።</translation>
@@ -349,13 +354,11 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="5854790677617711513">ከ30 ቀናት በላይ የቆየ</translation>
 <translation id="5857090052475505287">አዲስ አቃፊ</translation>
 <translation id="5857770089550859117">ስምረትን ለመጀመር የይለፍ ሐረግ ያስፈልጋል።</translation>
-<translation id="5860033963881614850">አጥፋ</translation>
 <translation id="5869029295770560994">እሺ፣ ገባኝ</translation>
 <translation id="5871497086027727873">1 ንጥል ተንቀሳቅሷል</translation>
 <translation id="5897956970858271241">የተቀዳ አገናኝ ይጎብኙ</translation>
 <translation id="5911030830365207728">Google ትርጉም</translation>
 <translation id="5913600720976431809">ገጹን ለመተርጎም አማራጮች</translation>
-<translation id="5916664084637901428">በርቷል</translation>
 <translation id="5938160824633642847">ይህ መሣሪያ ሊሞላ ትንሽ ነው የቀረው። ቦታ ያስለቅቁና እንደገና ይሞክሩ።</translation>
 <translation id="5948291296578561264">ይህ ፎቶዎችን ወደ የፎቶ ቤተ-መጽሔፍትዎ እንዲያስቀምጡ ያስችልዎታል።</translation>
 <translation id="5955891643922670672">የመስመር ውጭ ስሪቱን በመመልከት ላይ</translation>
@@ -365,6 +368,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="5979837087407522202">የይለፍ ቃላትን ይፈልጉ</translation>
 <translation id="5982717868370722439">ነባሩን ውሂብ ወደ <ph name="USER_EMAIL" /> ያክሉ።</translation>
 <translation id="5984222099446776634">በቅርብ ጊዜ የተጎበኙ</translation>
+<translation id="5988851877894965432">በChrome ውስጥ ዩአርኤሎችን ክፈት</translation>
 <translation id="6012140227487808125">በመመስጠር ላይ…</translation>
 <translation id="6021332621416007159">ክፈት በ...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />፣ <ph name="PUBLISHER_INFORMATION" />፣ <ph name="PUBLICATION_DATE" /></translation>
@@ -475,6 +479,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="734758817008927353">ካርድን ለማስቀመጥ አማራጮች</translation>
 <translation id="7348502496356775519">ዕልባት አድርግ</translation>
 <translation id="7383797227493018512">የንባብ ዝርዝር</translation>
+<translation id="7392048574806661116">ዘግተው ይውጡና የሰመረ ውሂብን ያጥፉ</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> ያልተነበቡ ጽሑፎች።</translation>
 <translation id="7425346204213733349">በእርስዎ ዕልባቶች፣ ታሪክ፣ የይለፍ ቃላት እና ሌሎች ቅንብሮች ላይ የተደረጉ ለውጦች ከአሁን በኋላ ከእርስዎ የGoogle መለያ ጋር አይሠምሩም። ሆኖም ግን ነባር ውሂብዎ በእርስዎ የGoogle መለያ ላይ እንደተከማቸ ይቆያል።</translation>
@@ -514,6 +519,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="7961015016161918242">በፍጹም</translation>
 <translation id="7971521879845308059">ብቅ-ባዮችን አግድ</translation>
 <translation id="7982789257301363584">አውታረ መረብ</translation>
+<translation id="800361585186029508">እንዲገቡ የተደረጉትን ዩአርኤሎች በGoogle Chrome ውስጥ ይከፍታል።</translation>
 <translation id="8007420562015504427">ማንነት የማያሳውቅ ፍለጋ</translation>
 <translation id="8019783059653722575">ይህ ፎቶዎችን እንዲያስቀምጡ እና እንዲሰቅሉ ያስችልዎታል።</translation>
 <translation id="802154636333426148">ማውረድ አልተሳካም</translation>
@@ -533,6 +539,7 @@ Handoff እንዲሁም በSettings ውስጥ ባለው የGeneral ክፍል ላ
 <translation id="8319076807703933069">አዲስ ፍለጋ</translation>
 <translation id="8323906514956095947">ተጨማሪ የትር አማራጮችን ለማግኘት ነክተው ይያዙ</translation>
 <translation id="8328777765163860529">ሁሉንም ዝጋ</translation>
+<translation id="8386068868580335421">ዳግም አስጀምር</translation>
 <translation id="8407669440184693619">ለዚህ ጣቢያ ምንም የይለፍ ቃላት አልተገኙም</translation>
 <translation id="842017693807136194">በሚከተለው በመለያ ተገብቷል፦</translation>
 <translation id="8428045167754449968">ከተማ / መለስተኛ ከተማ</translation>

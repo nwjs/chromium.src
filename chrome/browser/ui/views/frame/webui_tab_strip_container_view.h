@@ -12,6 +12,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
+#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_embedder.h"
 #include "chrome/common/buildflags.h"
 #include "ui/events/event_handler.h"
 #include "ui/gfx/animation/slide_animation.h"
@@ -29,6 +30,7 @@ class Tracker;
 
 namespace ui {
 class MenuModel;
+class ThemeProvider;
 }  // namespace ui
 
 namespace views {
@@ -40,7 +42,7 @@ class WebView;
 class Browser;
 class FeaturePromoBubbleView;
 
-class WebUITabStripContainerView : public TabStripUI::Embedder,
+class WebUITabStripContainerView : public TabStripUIEmbedder,
                                    public gfx::AnimationDelegate,
                                    public views::AccessiblePaneView,
                                    public views::ButtonListener,
@@ -71,6 +73,8 @@ class WebUITabStripContainerView : public TabStripUI::Embedder,
   // the container's preferred size will change.
   void SetVisibleForTesting(bool visible);
   views::WebView* web_view_for_testing() const { return web_view_; }
+  ToolbarButton* new_tab_button_for_testing() const { return new_tab_button_; }
+  views::View* tab_counter_for_testing() const { return tab_counter_; }
 
  private:
   class AutoCloser;
@@ -92,6 +96,7 @@ class WebUITabStripContainerView : public TabStripUI::Embedder,
       gfx::Point point,
       std::unique_ptr<ui::MenuModel> menu_model) override;
   TabStripUILayout GetLayout() override;
+  const ui::ThemeProvider* GetThemeProvider() override;
 
   // views::View:
   void AddedToWidget() override;
@@ -118,6 +123,7 @@ class WebUITabStripContainerView : public TabStripUI::Embedder,
   Browser* const browser_;
   views::WebView* const web_view_;
   views::View* tab_contents_container_;
+  // TODO(1045669): Remove this, or run an experiment on bringing it back.
   ToolbarButton* new_tab_button_ = nullptr;
   views::View* tab_counter_ = nullptr;
 

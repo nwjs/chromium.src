@@ -306,6 +306,10 @@ SkColor GetColorWithMaxContrast(SkColor color) {
   return IsDark(color) ? SK_ColorWHITE : g_darkest_color;
 }
 
+SkColor GetEndpointColorWithMinContrast(SkColor color) {
+  return IsDark(color) ? g_darkest_color : SK_ColorWHITE;
+}
+
 SkColor BlendTowardMaxContrast(SkColor color, SkAlpha alpha) {
   SkAlpha original_alpha = SkColorGetA(color);
   SkColor blended_color = AlphaBlend(GetColorWithMaxContrast(color),

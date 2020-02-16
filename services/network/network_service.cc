@@ -23,6 +23,7 @@
 #include "base/task/post_task.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
+#include "build/chromecast_buildflags.h"
 #include "components/network_session_configurator/common/network_features.h"
 #include "components/os_crypt/os_crypt.h"
 #include "mojo/core/embedder/embedder.h"
@@ -49,6 +50,7 @@
 #include "services/network/cross_origin_read_blocking.h"
 #include "services/network/dns_config_change_manager.h"
 #include "services/network/http_auth_cache_copier.h"
+#include "services/network/legacy_tls_config_distributor.h"
 #include "services/network/net_log_exporter.h"
 #include "services/network/network_context.h"
 #include "services/network/network_usage_accumulator.h"
@@ -63,7 +65,7 @@
 #include "third_party/boringssl/src/include/openssl/cpu.h"
 #endif
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS) && !defined(IS_CHROMECAST)
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS) && !BUILDFLAG(IS_CHROMECAST)
 #include "components/os_crypt/key_storage_config_linux.h"
 #endif
 
@@ -332,6 +334,9 @@ void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params,
 
   crl_set_distributor_ = std::make_unique<CRLSetDistributor>();
 
+  legacy_tls_config_distributor_ =
+      std::make_unique<LegacyTLSConfigDistributor>();
+
   doh_probe_activator_ = std::make_unique<DelayedDohProbeActivator>(this);
 }
 
@@ -542,7 +547,7 @@ void NetworkService::ConfigureHttpAuthPrefs(
 }
 
 void NetworkService::SetRawHeadersAccess(
-    uint32_t process_id,
+    int32_t process_id,
     const std::vector<url::Origin>& origins) {
   DCHECK(process_id);
   if (!origins.size()) {
@@ -569,7 +574,7 @@ void NetworkService::SetMaxConnectionsPerProxy(int32_t max_connections) {
       net::HttpNetworkSession::NORMAL_SOCKET_POOL, new_limit);
 }
 
-bool NetworkService::HasRawHeadersAccess(uint32_t process_id,
+bool NetworkService::HasRawHeadersAccess(int32_t process_id,
                                          const GURL& resource_url) const {
   // Allow raw headers for browser-initiated requests.
   if (!process_id)
@@ -617,8 +622,17 @@ void NetworkService::GetNetworkList(
                      std::move(callback)));
 }
 
-void NetworkService::UpdateCRLSet(base::span<const uint8_t> crl_set) {
-  crl_set_distributor_->OnNewCRLSet(crl_set);
+void NetworkService::UpdateCRLSet(
+    base::span<const uint8_t> crl_set,
+    mojom::NetworkService::UpdateCRLSetCallback callback) {
+  crl_set_distributor_->OnNewCRLSet(crl_set, std::move(callback));
+}
+
+void NetworkService::UpdateLegacyTLSConfig(
+    base::span<const uint8_t> config,
+    mojom::NetworkService::UpdateLegacyTLSConfigCallback callback) {
+  legacy_tls_config_distributor_->OnNewLegacyTLSConfig(config,
+                                                       std::move(callback));
 }
 
 void NetworkService::OnCertDBChanged() {
@@ -627,7 +641,7 @@ void NetworkService::OnCertDBChanged() {
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
 void NetworkService::SetCryptConfig(mojom::CryptConfigPtr crypt_config) {
-#if !defined(IS_CHROMECAST)
+#if !BUILDFLAG(IS_CHROMECAST)
   DCHECK(!os_crypt_config_set_);
   auto config = std::make_unique<os_crypt::Config>();
   config->store = crypt_config->store;
@@ -647,19 +661,14 @@ void NetworkService::SetEncryptionKey(const std::string& encryption_key) {
 }
 #endif
 
-void NetworkService::AddCorbExceptionForPlugin(uint32_t process_id) {
+void NetworkService::AddCorbExceptionForPlugin(int32_t process_id) {
   DCHECK_NE(mojom::kBrowserProcessId, process_id);
   CrossOriginReadBlocking::AddExceptionForPlugin(process_id);
 }
 
-void NetworkService::RemoveCorbExceptionForPlugin(uint32_t process_id) {
+void NetworkService::RemoveCorbExceptionForPlugin(int32_t process_id) {
   DCHECK_NE(mojom::kBrowserProcessId, process_id);
   CrossOriginReadBlocking::RemoveExceptionForPlugin(process_id);
-}
-
-void NetworkService::AddExtraMimeTypesForCorb(
-    const std::vector<std::string>& mime_types) {
-  CrossOriginReadBlocking::AddExtraMimeTypesForCorb(mime_types);
 }
 
 void NetworkService::OnMemoryPressure(
@@ -787,7 +796,7 @@ void NetworkService::UpdateLoadInfo() {
   // For requests from the same {process_id, routing_id} pair, pick the most
   // important. For ones from the browser, return all of them.
   std::vector<mojom::LoadInfoPtr> infos;
-  std::map<std::pair<uint32_t, uint32_t>, mojom::LoadInfoPtr> frame_infos;
+  std::map<std::pair<int32_t, int32_t>, mojom::LoadInfoPtr> frame_infos;
 
   for (auto* network_context : network_contexts_) {
     for (auto* loader :
@@ -798,7 +807,7 @@ void NetworkService::UpdateLoadInfo() {
 
       auto process_id = url_loader->GetProcessId();
       auto routing_id = url_loader->GetRenderFrameId();
-      if (routing_id == static_cast<uint32_t>(MSG_ROUTING_NONE)) {
+      if (routing_id == MSG_ROUTING_NONE) {
         // If there is no routing_id, then the browser can't associate this with
         // a page so no need to send.
         continue;

@@ -1,7 +1,7 @@
 document
-++form
+++form IsControlElement=false
 ++++group Name='Browser Engines:'
-++++++description
+++++++description IsControlElement=false
 ++++++++description Name='Browser Engines:' IsControlElement=false
 ++++++description Name='Browser: ' IsControlElement=false
 ++++++textbox

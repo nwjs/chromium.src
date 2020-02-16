@@ -29,6 +29,8 @@ void MergeRemovedHeaders(std::vector<std::string>* removed_headers_A,
 
 }  // namespace
 
+const char ThrottlingURLLoader::kFollowRedirectReason[] = "FollowRedirect";
+
 class ThrottlingURLLoader::ForwardingThrottleDelegate
     : public URLLoaderThrottle::Delegate {
  public:
@@ -199,8 +201,6 @@ ThrottlingURLLoader::PriorityInfo::PriorityInfo(
     int32_t in_intra_priority_value)
     : priority(in_priority), intra_priority_value(in_intra_priority_value) {}
 
-ThrottlingURLLoader::PriorityInfo::~PriorityInfo() = default;
-
 // static
 std::unique_ptr<ThrottlingURLLoader> ThrottlingURLLoader::CreateLoaderAndStart(
     scoped_refptr<network::SharedURLLoaderFactory> factory,
@@ -235,7 +235,7 @@ ThrottlingURLLoader::~ThrottlingURLLoader() {
 }
 
 void ThrottlingURLLoader::FollowRedirectForcingRestart() {
-  url_loader_.reset();
+  ResetForFollowRedirect();
   client_receiver_.reset();
   CHECK(throttle_will_redirect_redirect_url_.is_empty());
 
@@ -247,6 +247,12 @@ void ThrottlingURLLoader::FollowRedirectForcingRestart() {
   modified_headers_.Clear();
 
   StartNow();
+}
+
+void ThrottlingURLLoader::ResetForFollowRedirect() {
+  url_loader_.ResetWithReason(
+      network::mojom::URLLoader::kClientDisconnectReason,
+      kFollowRedirectReason);
 }
 
 void ThrottlingURLLoader::RestartWithFactory(
@@ -440,7 +446,11 @@ void ThrottlingURLLoader::StartNow() {
     response_head->headers = base::MakeRefCounted<net::HttpResponseHeaders>(
         net::HttpUtil::AssembleRawHeaders(header_string));
     response_head->encoded_data_length = header_string.size();
-    OnReceiveRedirect(redirect_info, std::move(response_head));
+    start_info_->task_runner->PostTask(
+        FROM_HERE,
+        base::BindOnce(&ThrottlingURLLoader::OnReceiveRedirect,
+                       base::Unretained(this), std::move(redirect_info),
+                       std::move(response_head)));
     return;
   }
 

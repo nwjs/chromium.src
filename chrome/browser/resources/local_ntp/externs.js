@@ -111,7 +111,8 @@ let og;
  *     ConvertPromoDataToDict()
  * @typedef {{promoHtml: (string|undefined),
  *            promoLogUrl: (string|undefined),
- *            promoId: (string|undefined)}}
+ *            promoId: (string|undefined),
+ *            canOpenExtensionsPage: boolean}}
  */
 let promo;
 
@@ -392,6 +393,15 @@ window.chrome.embeddedSearch.newTabPage.updateCustomLink;
 window.chrome.embeddedSearch.newTabPage.blocklistPromo;
 
 /**
+ * @param {number} button
+ * @param {boolean} altKey
+ * @param {boolean} ctrlKey
+ * @param {boolean} metaKey
+ * @param {boolean} shiftKey
+ */
+window.chrome.embeddedSearch.newTabPage.openExtensionsPage;
+
+/**
  * Embedded Search API methods defined in
  * chrome/renderer/searchbox/searchbox_extension.cc:
  *  SearchBoxBindings::GetObjectTemplateBuilder()
@@ -400,6 +410,8 @@ window.chrome.embeddedSearch.searchBox;
 /** @param {number} line */
 window.chrome.embeddedSearch.searchBox.deleteAutocompleteMatch;
 window.chrome.embeddedSearch.searchBox.isKeyCaptureEnabled;
+/** @param {number} latencyMs */
+window.chrome.embeddedSearch.searchBox.logCharTypedToRepaintLatency;
 window.chrome.embeddedSearch.searchBox.paste;
 window.chrome.embeddedSearch.searchBox.rtl;
 window.chrome.embeddedSearch.searchBox.startCapturingKeyStrokes;
@@ -426,6 +438,8 @@ let ACMatchClassification;
  *   inlineAutocompletion: string,
  *   isSearchType: boolean,
  *   fillIntoEdit: string,
+ *   imageDominantColor: string,
+ *   imageUrl: string,
  *   supportsDeletion: boolean,
  *   swapContentsAndDescription: boolean,
  *   type: string,
@@ -443,6 +457,9 @@ let AutocompleteResult;
 
 /** @type {function(!AutocompleteResult):void} */
 window.chrome.embeddedSearch.searchBox.autocompleteresultchanged;
+
+/** @type {function(number, string, string):void} */
+window.chrome.embeddedSearch.searchBox.autocompletematchimageavailable;
 
 /**
  * @param {number} line
@@ -527,4 +544,5 @@ configData.translatedStrings.undoThumbnailRemove;
 configData.translatedStrings.uploadImage;
 configData.translatedStrings.urlField;
 configData.translatedStrings.voiceCloseTooltip;
+configData.translatedStrings.voiceSearchClosed;
 configData.translatedStrings.waiting;

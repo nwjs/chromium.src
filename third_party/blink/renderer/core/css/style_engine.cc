@@ -1645,7 +1645,7 @@ void StyleEngine::NodeWillBeRemoved(Node& node) {
   if (!layout_object)
     return;
   // Floating or out-of-flow elements do not affect whitespace siblings.
-  if (layout_object->IsFloatingOrOutOfFlowPositioned())
+  if (!layout_object->AffectsWhitespaceSiblings())
     return;
   layout_object = layout_object->Parent();
   while (layout_object->IsAnonymous())
@@ -1998,7 +1998,7 @@ void StyleEngine::UpdateColorSchemeBackground() {
     if (auto* root_element = GetDocument().documentElement())
       style = root_element->GetComputedStyle();
     if (style) {
-      if (style->UsedColorScheme() == WebColorScheme::kDark)
+      if (style->UsedColorSchemeForInitialColors() == WebColorScheme::kDark)
         use_dark_background = true;
     } else if (SupportsDarkColorScheme()) {
       use_dark_background = true;

@@ -10,7 +10,6 @@
 #include <memory>
 #include <utility>
 
-#include "base/command_line.h"
 #include "base/guid.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -22,6 +21,7 @@
 #include "build/build_config.h"
 #include "components/metrics/cloned_install_detector.h"
 #include "components/metrics/enabled_state_provider.h"
+#include "components/metrics/entropy_state.h"
 #include "components/metrics/machine_id_provider.h"
 #include "components/metrics/metrics_log.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -42,12 +42,6 @@ namespace {
 // more than 13 bits of entropy, so use this max to return a number in the range
 // [0, 7999] as the entropy source (12.97 bits of entropy).
 const int kMaxLowEntropySize = 8000;
-
-// Generates a new non-identifying entropy source used to seed persistent
-// activities.
-int GenerateLowEntropySource() {
-  return base::RandInt(0, kMaxLowEntropySize - 1);
-}
 
 int64_t ReadEnabledDate(PrefService* local_state) {
   return local_state->GetInt64(prefs::kMetricsReportingEnabledTimestamp);
@@ -72,12 +66,15 @@ void LogClonedInstall() {
 
 class MetricsStateMetricsProvider : public MetricsProvider {
  public:
-  MetricsStateMetricsProvider(PrefService* local_state,
-                              bool metrics_ids_were_reset,
-                              std::string previous_client_id)
+  MetricsStateMetricsProvider(
+      PrefService* local_state,
+      bool metrics_ids_were_reset,
+      std::string previous_client_id,
+      ClonedInstallDetector const& cloned_install_detector)
       : local_state_(local_state),
         metrics_ids_were_reset_(metrics_ids_were_reset),
-        previous_client_id_(std::move(previous_client_id)) {}
+        previous_client_id_(std::move(previous_client_id)),
+        cloned_install_detector_(cloned_install_detector) {}
 
   // MetricsProvider:
   void ProvideSystemProfileMetrics(
@@ -105,7 +102,7 @@ class MetricsStateMetricsProvider : public MetricsProvider {
 
   void ProvideCurrentSessionData(
       ChromeUserMetricsExtension* uma_proto) override {
-    if (local_state_->GetBoolean(prefs::kMetricsResetIds))
+    if (cloned_install_detector_.ClonedInstallDetectedInCurrentSession())
       LogClonedInstall();
   }
 
@@ -114,6 +111,7 @@ class MetricsStateMetricsProvider : public MetricsProvider {
   const bool metrics_ids_were_reset_;
   // |previous_client_id_| is set only (if known) when |metrics_ids_were_reset_|
   const std::string previous_client_id_;
+  const ClonedInstallDetector& cloned_install_detector_;
 
   DISALLOW_COPY_AND_ASSIGN(MetricsStateMetricsProvider);
 };
@@ -134,20 +132,25 @@ MetricsStateManager::MetricsStateManager(
       store_client_info_(store_client_info),
       load_client_info_(retrieve_client_info),
       clean_exit_beacon_(backup_registry_key, local_state),
-      low_entropy_source_(kLowEntropySourceNotSet),
-      old_low_entropy_source_(kLowEntropySourceNotSet),
+      entropy_state_(local_state),
       entropy_source_returned_(ENTROPY_SOURCE_NONE),
       metrics_ids_were_reset_(false) {
   ResetMetricsIDsIfNecessary();
+
+  bool is_first_run = false;
+  int64_t install_date = local_state_->GetInt64(prefs::kInstallDate);
+
+  // Set the install date if this is our first run.
+  if (install_date == 0) {
+    local_state_->SetInt64(prefs::kInstallDate, base::Time::Now().ToTimeT());
+    is_first_run = true;
+  }
+
   if (enabled_state_provider_->IsConsentGiven())
     ForceClientIdCreation();
 
-  // Set the install date if this is our first run.
-  int64_t install_date = local_state_->GetInt64(prefs::kInstallDate);
-  if (install_date == 0) {
-    local_state_->SetInt64(prefs::kInstallDate, base::Time::Now().ToTimeT());
-
 #if !defined(OS_WIN)
+  if (is_first_run) {
     // If this is a first run (no install date) and there's no client id, then
     // generate a provisional client id now. This id will be used for field
     // trial randomization on first run and will be promoted to become the
@@ -166,8 +169,8 @@ MetricsStateManager::MetricsStateManager(
     // for this logic changes, the tests should be updated as well.
     if (client_id_.empty())
       provisional_client_id_ = base::GenerateGUID();
-#endif  // !defined(OS_WIN)
   }
+#endif  // !defined(OS_WIN)
 
   DCHECK(!instance_exists_);
   instance_exists_ = true;
@@ -180,7 +183,8 @@ MetricsStateManager::~MetricsStateManager() {
 
 std::unique_ptr<MetricsProvider> MetricsStateManager::GetProvider() {
   return std::make_unique<MetricsStateMetricsProvider>(
-      local_state_, metrics_ids_were_reset_, previous_client_id_);
+      local_state_, metrics_ids_were_reset_, previous_client_id_,
+      cloned_install_detector_);
 }
 
 bool MetricsStateManager::IsMetricsReportingEnabled() {
@@ -269,13 +273,14 @@ void MetricsStateManager::ForceClientIdCreation() {
 }
 
 void MetricsStateManager::CheckForClonedInstall() {
-  DCHECK(!cloned_install_detector_);
-
   if (!MachineIdProvider::HasId())
     return;
 
-  cloned_install_detector_ = std::make_unique<ClonedInstallDetector>();
-  cloned_install_detector_->CheckForClonedInstall(local_state_);
+  cloned_install_detector_.CheckForClonedInstall(local_state_);
+}
+
+bool MetricsStateManager::ShouldResetClientIdsOnClonedInstall() {
+  return cloned_install_detector_.ShouldResetClientIds(local_state_);
 }
 
 std::unique_ptr<const base::FieldTrial::EntropyProvider>
@@ -317,20 +322,13 @@ std::unique_ptr<MetricsStateManager> MetricsStateManager::Create(
 
 // static
 void MetricsStateManager::RegisterPrefs(PrefRegistrySimple* registry) {
-  registry->RegisterBooleanPref(prefs::kMetricsResetIds, false);
   registry->RegisterStringPref(prefs::kMetricsClientID, std::string());
   registry->RegisterInt64Pref(prefs::kMetricsReportingEnabledTimestamp, 0);
-  registry->RegisterIntegerPref(prefs::kMetricsLowEntropySource,
-                                kLowEntropySourceNotSet);
-  registry->RegisterIntegerPref(prefs::kMetricsOldLowEntropySource,
-                                kLowEntropySourceNotSet);
   registry->RegisterInt64Pref(prefs::kInstallDate, 0);
 
+  EntropyState::RegisterPrefs(registry);
   ClonedInstallDetector::RegisterPrefs(registry);
 }
-
-// static
-constexpr int MetricsStateManager::kLowEntropySourceNotSet;
 
 void MetricsStateManager::BackUpCurrentClientInfo() {
   ClientInfo client_info;
@@ -359,82 +357,16 @@ std::string MetricsStateManager::GetHighEntropySource() {
   // constructor and calling this, because field trial setup happens at Chrome
   // initialization. Only one of these is expected to hold a value.
   DCHECK(client_id_.empty() != provisional_client_id_.empty());
-
-  // For metrics reporting-enabled users, we combine the client ID and low
-  // entropy source to get the final entropy source.
-  // This has two useful properties:
-  //  1) It makes the entropy source less identifiable for parties that do not
-  //     know the low entropy source.
-  //  2) It makes the final entropy source resettable.
-
-  // If this install has an old low entropy source, continue using it, to avoid
-  // changing the group assignments of studies using high entropy. New installs
-  // only have the new low entropy source. If the number of installs with old
-  // sources ever becomes small enough (see UMA.LowEntropySourceValue), we could
-  // remove it, and just use the new source here.
-  int low_entropy_source = GetOldLowEntropySource();
-  if (low_entropy_source == kLowEntropySourceNotSet)
-    low_entropy_source = GetLowEntropySource();
-
-  const std::string& client_id_to_use =
-      (client_id_.empty() ? provisional_client_id_ : client_id_);
-  return client_id_to_use + base::NumberToString(low_entropy_source);
+  return entropy_state_.GetHighEntropySource(client_id_,
+                                             provisional_client_id_);
 }
 
 int MetricsStateManager::GetLowEntropySource() {
-  UpdateLowEntropySources();
-  return low_entropy_source_;
+  return entropy_state_.GetLowEntropySource();
 }
 
 int MetricsStateManager::GetOldLowEntropySource() {
-  UpdateLowEntropySources();
-  return old_low_entropy_source_;
-}
-
-void MetricsStateManager::UpdateLowEntropySources() {
-  // The default value for |low_entropy_source_| and the default pref value are
-  // both |kLowEntropySourceNotSet|, which indicates the value has not been set.
-  if (low_entropy_source_ != kLowEntropySourceNotSet)
-    return;
-
-  const base::CommandLine* command_line(base::CommandLine::ForCurrentProcess());
-  // Only try to load the value from prefs if the user did not request a reset.
-  // Otherwise, skip to generating a new value. We would have already returned
-  // if |low_entropy_source_| were set, ensuring we only do this reset on the
-  // first call to UpdateLowEntropySources().
-  if (!command_line->HasSwitch(switches::kResetVariationState)) {
-    int new_pref = local_state_->GetInteger(prefs::kMetricsLowEntropySource);
-    if (IsValidLowEntropySource(new_pref))
-      low_entropy_source_ = new_pref;
-    int old_pref = local_state_->GetInteger(prefs::kMetricsOldLowEntropySource);
-    if (IsValidLowEntropySource(old_pref))
-      old_low_entropy_source_ = old_pref;
-  }
-
-  // If the new source is missing or corrupt (or requested to be reset), then
-  // (re)create it. Don't bother recreating the old source if it's corrupt,
-  // because we only keep the old source around for consistency, and we can't
-  // maintain a consistent value if we recreate it.
-  if (low_entropy_source_ == kLowEntropySourceNotSet) {
-    low_entropy_source_ = GenerateLowEntropySource();
-    DCHECK(IsValidLowEntropySource(low_entropy_source_));
-    local_state_->SetInteger(prefs::kMetricsLowEntropySource,
-                             low_entropy_source_);
-  }
-
-  // If the old source was present but corrupt (or requested to be reset), then
-  // we'll never use it again, so delete it.
-  if (old_low_entropy_source_ == kLowEntropySourceNotSet &&
-      local_state_->HasPrefPath(prefs::kMetricsOldLowEntropySource)) {
-    local_state_->ClearPref(prefs::kMetricsOldLowEntropySource);
-  }
-
-  DCHECK_NE(low_entropy_source_, kLowEntropySourceNotSet);
-  base::UmaHistogramSparse("UMA.LowEntropySource3Value", low_entropy_source_);
-  if (old_low_entropy_source_ != kLowEntropySourceNotSet) {
-    base::UmaHistogramSparse("UMA.LowEntropySourceValue",
-                             old_low_entropy_source_);
-  }
+  return entropy_state_.GetOldLowEntropySource();
 }
 
 void MetricsStateManager::UpdateEntropySourceReturnedValue(
@@ -448,7 +380,7 @@ void MetricsStateManager::UpdateEntropySourceReturnedValue(
 }
 
 void MetricsStateManager::ResetMetricsIDsIfNecessary() {
-  if (!local_state_->GetBoolean(prefs::kMetricsResetIds))
+  if (!ShouldResetClientIdsOnClonedInstall())
     return;
   metrics_ids_were_reset_ = true;
   previous_client_id_ = local_state_->GetString(prefs::kMetricsClientID);
@@ -456,20 +388,12 @@ void MetricsStateManager::ResetMetricsIDsIfNecessary() {
   UMA_HISTOGRAM_BOOLEAN("UMA.MetricsIDsReset", true);
 
   DCHECK(client_id_.empty());
-  DCHECK_EQ(kLowEntropySourceNotSet, low_entropy_source_);
 
   local_state_->ClearPref(prefs::kMetricsClientID);
-  local_state_->ClearPref(prefs::kMetricsLowEntropySource);
-  local_state_->ClearPref(prefs::kMetricsOldLowEntropySource);
-  local_state_->ClearPref(prefs::kMetricsResetIds);
+  entropy_state_.ClearPrefs();
 
   // Also clear the backed up client info.
   store_client_info_.Run(ClientInfo());
-}
-
-// static
-bool MetricsStateManager::IsValidLowEntropySource(int value) {
-  return value >= 0 && value < kMaxLowEntropySize;
 }
 
 }  // namespace metrics

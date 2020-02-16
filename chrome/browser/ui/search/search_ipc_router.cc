@@ -120,6 +120,19 @@ void SearchIPCRouter::AutocompleteResultChanged(
   embedded_search_client()->AutocompleteResultChanged(std::move(result));
 }
 
+void SearchIPCRouter::AutocompleteMatchImageAvailable(
+    uint32_t match_index,
+    const std::string& image_url,
+    const std::string& data_url) {
+  if (!policy_->ShouldProcessAutocompleteMatchImageAvailable(is_active_tab_) ||
+      !embedded_search_client()) {
+    return;
+  }
+
+  embedded_search_client()->AutocompleteMatchImageAvailable(
+      match_index, image_url, data_url);
+}
+
 void SearchIPCRouter::OnNavigationEntryCommitted() {
   ++commit_counter_;
   if (!embedded_search_client())
@@ -479,12 +492,32 @@ void SearchIPCRouter::StopAutocomplete(bool clear_result) {
   delegate_->StopAutocomplete(clear_result);
 }
 
+void SearchIPCRouter::LogCharTypedToRepaintLatency(uint32_t latency_ms) {
+  if (!policy_->ShouldProcessLogCharTypedToRepaintLatency()) {
+    return;
+  }
+
+  delegate_->LogCharTypedToRepaintLatency(latency_ms);
+}
+
 void SearchIPCRouter::BlocklistPromo(const std::string& promo_id) {
   if (!policy_->ShouldProcessBlocklistPromo()) {
     return;
   }
 
   delegate_->BlocklistPromo(promo_id);
+}
+
+void SearchIPCRouter::OpenExtensionsPage(double button,
+                                         bool alt_key,
+                                         bool ctrl_key,
+                                         bool meta_key,
+                                         bool shift_key) {
+  if (!policy_->ShouldProcessOpenExtensionsPage()) {
+    return;
+  }
+
+  delegate_->OpenExtensionsPage(button, alt_key, ctrl_key, meta_key, shift_key);
 }
 
 void SearchIPCRouter::OpenAutocompleteMatch(

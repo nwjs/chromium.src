@@ -14,6 +14,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
+#include "base/feature_list.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
@@ -22,9 +23,10 @@
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -36,6 +38,7 @@
 #include "ui/base/webui/web_ui_util.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/crostini/crostini_features.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/policy/device_cloud_policy_manager_chromeos.h"
@@ -131,8 +134,13 @@ const char kManagementReportHardwareStatus[] = "managementReportHardwareStatus";
 const char kManagementReportNetworkInterfaces[] =
     "managementReportNetworkInterfaces";
 const char kManagementReportUsers[] = "managementReportUsers";
+const char kManagementReportExtensions[] = "managementReportExtensions";
+const char kManagementReportAndroidApplications[] =
+    "managementReportAndroidApplications";
 const char kManagementPrinting[] = "managementPrinting";
 const char kManagementCrostini[] = "managementCrostini";
+const char kManagementCrostiniContainerConfiguration[] =
+    "managementCrostiniContainerConfiguration";
 const char kAccountManagedInfo[] = "accountManagedInfo";
 const char kDeviceManagedInfo[] = "deviceManagedInfo";
 const char kOverview[] = "overview";
@@ -170,7 +178,10 @@ enum class DeviceReportingType {
   kDevice,
   kLogs,
   kPrint,
-  kCrostini
+  kCrostini,
+  kUsername,
+  kExtensions,
+  kAndroidApplication
 };
 
 // Corresponds to DeviceReportingType in management_browser_proxy.js
@@ -190,6 +201,12 @@ std::string ToJSDeviceReportingType(const DeviceReportingType& type) {
       return "print";
     case DeviceReportingType::kCrostini:
       return "crostini";
+    case DeviceReportingType::kUsername:
+      return "username";
+    case DeviceReportingType::kExtensions:
+      return "extension";
+    case DeviceReportingType::kAndroidApplication:
+      return "android application";
     default:
       NOTREACHED() << "Unknown device reporting type";
       return "device";
@@ -252,10 +269,31 @@ void AddDeviceReportingInfo(base::Value* report_sources, Profile* profile) {
                               DeviceReportingType::kPrint);
   }
 
-  if (profile->GetPrefs()->GetBoolean(
-          crostini::prefs::kReportCrostiniUsageEnabled)) {
-    AddDeviceReportingElement(report_sources, kManagementCrostini,
-                              DeviceReportingType::kCrostini);
+  if (crostini::CrostiniFeatures::Get()->IsAllowed(profile)) {
+    if (!profile->GetPrefs()
+             ->GetFilePath(crostini::prefs::kCrostiniAnsiblePlaybookFilePath)
+             .empty()) {
+      AddDeviceReportingElement(report_sources,
+                                kManagementCrostiniContainerConfiguration,
+                                DeviceReportingType::kCrostini);
+    } else if (profile->GetPrefs()->GetBoolean(
+                   crostini::prefs::kReportCrostiniUsageEnabled)) {
+      AddDeviceReportingElement(report_sources, kManagementCrostini,
+                                DeviceReportingType::kCrostini);
+    }
+  }
+
+  if (g_browser_process->local_state()->GetBoolean(
+          prefs::kCloudReportingEnabled) &&
+      base::FeatureList::IsEnabled(features::kEnterpriseReportingInChromeOS)) {
+    AddDeviceReportingElement(report_sources,
+                              kManagementExtensionReportUsername,
+                              DeviceReportingType::kUsername);
+    AddDeviceReportingElement(report_sources, kManagementReportExtensions,
+                              DeviceReportingType::kExtensions);
+    AddDeviceReportingElement(report_sources,
+                              kManagementReportAndroidApplications,
+                              DeviceReportingType::kAndroidApplication);
   }
 }
 #endif  // defined(OS_CHROMEOS)

@@ -233,7 +233,7 @@ class PDFExtensionTest : public extensions::ExtensionApiTest {
   bool LoadPdfInNewTab(const GURL& url) {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-        ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
     WebContents* web_contents = GetActiveWebContents();
     return pdf_extension_test_util::EnsurePDFHasLoaded(web_contents);
   }
@@ -465,8 +465,9 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTestWithTestGuestViewManager,
 // has the correct URL for the PDF extension.
 // TODO(wjmaclean): Are there any attributes we can/should test with respect to
 // the extension's loaded html?
+// TODO(https://crbug.com/1034972): Re-enable. Flaky on all platforms.
 IN_PROC_BROWSER_TEST_F(PDFExtensionTestWithTestGuestViewManager,
-                       PdfExtensionLoadedInGuest) {
+                       DISABLED_PdfExtensionLoadedInGuest) {
   // Load test HTML, and verify the text area has focus.
   GURL main_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
   ui_test_utils::NavigateToURL(browser(), main_url);
@@ -1296,7 +1297,7 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, NavigationOnCorrectTab) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
-          ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+          ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   WebContents* active_web_contents = GetActiveWebContents();
   ASSERT_NE(web_contents, active_web_contents);
 
@@ -2300,6 +2301,37 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, DidStopLoading) {
   content::WaitForLoadStop(web_contents);
 }
 
+// This test verifies that it is possible to add an <embed src=pdf> element into
+// a new popup window when using document.write.  See also
+// https://crbug.com/1041880.
+IN_PROC_BROWSER_TEST_F(PDFExtensionTest, DocumentWriteIntoNewPopup) {
+  // Navigate to an empty/boring test page.
+  GURL main_url(embedded_test_server()->GetURL("/title1.html"));
+  ui_test_utils::NavigateToURL(browser(), main_url);
+
+  // Open a new popup and call document.write to add an embedded PDF.
+  content::WebContents* popup = nullptr;
+  {
+    GURL pdf_url = embedded_test_server()->GetURL("/pdf/test.pdf");
+    const char kScriptTemplate[] = R"(
+        const url = $1;
+        const html = '<embed type="application/pdf" src="' + url + '">';
+
+        const popup = window.open('', '_blank');
+        popup.document.write(html);
+    )";
+    content::WebContentsAddedObserver popup_observer;
+    content::WebContents* web_contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+    ASSERT_TRUE(content::ExecJs(web_contents,
+                                content::JsReplace(kScriptTemplate, pdf_url)));
+    popup = popup_observer.GetWebContents();
+  }
+
+  // Verify the PDF loaded successfully.
+  ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(popup));
+}
+
 // This test suite does a simple text-extraction based on the accessibility
 // internals, breaking lines & paragraphs where appropriate.  Unlike
 // TreeDumpTests, this allows us to verify the kNextOnLine and kPreviousOnLine
@@ -2462,6 +2494,12 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionAccessibilityTextExtractionTest, WebLinks) {
   RunTextExtractionTest(FILE_PATH_LITERAL("weblinks.pdf"));
 }
 
+// Test data of inline text boxes for PDF with highlights.
+IN_PROC_BROWSER_TEST_F(PDFExtensionAccessibilityTextExtractionTest,
+                       Highlights) {
+  RunTextExtractionTest(FILE_PATH_LITERAL("highlights.pdf"));
+}
+
 // Test data of inline text boxes for PDF with multi-line and various font-sized
 // text.
 IN_PROC_BROWSER_TEST_F(PDFExtensionAccessibilityTextExtractionTest,
@@ -2488,7 +2526,8 @@ class PDFExtensionAccessibilityTreeDumpTest
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     PDFExtensionTest::SetUpCommandLine(command_line);
-
+    feature_list_.InitAndEnableFeature(
+        chrome_pdf::features::kAccessiblePDFHighlight);
     // Each test pass might require custom command-line setup
     if (test_pass_.set_up_command_line)
       test_pass_.set_up_command_line(command_line);
@@ -2507,6 +2546,8 @@ class PDFExtensionAccessibilityTreeDumpTest
 
     RunTest(pdf_path, "pdf/accessibility");
   }
+
+  base::test::ScopedFeatureList feature_list_;
 
  private:
   using PropertyFilter = content::AccessibilityTreeFormatter::PropertyFilter;
@@ -2680,6 +2721,10 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityTreeDumpTest, WebLinks) {
 IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityTreeDumpTest,
                        OverlappingLinks) {
   RunPDFTest(FILE_PATH_LITERAL("overlapping-links.pdf"));
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityTreeDumpTest, Highlights) {
+  RunPDFTest(FILE_PATH_LITERAL("highlights.pdf"));
 }
 
 IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityTreeDumpTest, Images) {

@@ -46,6 +46,8 @@ class IdentityTokenCacheValue {
  public:
   IdentityTokenCacheValue();
   explicit IdentityTokenCacheValue(const IssueAdviceInfo& issue_advice);
+  explicit IdentityTokenCacheValue(
+      const RemoteConsentResolutionData& resolution_data);
   IdentityTokenCacheValue(const std::string& token,
                           base::TimeDelta time_to_live);
   IdentityTokenCacheValue(const IdentityTokenCacheValue& other);
@@ -56,11 +58,13 @@ class IdentityTokenCacheValue {
   enum CacheValueStatus {
     CACHE_STATUS_NOTFOUND,
     CACHE_STATUS_ADVICE,
+    CACHE_STATUS_REMOTE_CONSENT,
     CACHE_STATUS_TOKEN
   };
 
   CacheValueStatus status() const;
   const IssueAdviceInfo& issue_advice() const;
+  const RemoteConsentResolutionData& resolution_data() const;
   const std::string& token() const;
   const base::Time& expiration_time() const;
 
@@ -69,6 +73,7 @@ class IdentityTokenCacheValue {
 
   CacheValueStatus status_;
   IssueAdviceInfo issue_advice_;
+  RemoteConsentResolutionData resolution_data_;
   std::string token_;
   base::Time expiration_time_;
 };
@@ -76,7 +81,9 @@ class IdentityTokenCacheValue {
 class IdentityAPI : public BrowserContextKeyedAPI,
                     public signin::IdentityManager::Observer {
  public:
-  typedef std::map<ExtensionTokenKey, IdentityTokenCacheValue> CachedTokens;
+  using CachedTokens = std::map<ExtensionTokenKey, IdentityTokenCacheValue>;
+  using OnSetConsentResultSignature = void(const std::string&,
+                                           const std::string&);
 
   explicit IdentityAPI(content::BrowserContext* context);
   ~IdentityAPI() override;
@@ -94,14 +101,19 @@ class IdentityAPI : public BrowserContextKeyedAPI,
 
   const CachedTokens& GetAllCachedTokens();
 
+  // Consent result.
+  void SetConsentResult(const std::string& result,
+                        const std::string& window_id);
+  std::unique_ptr<base::CallbackList<OnSetConsentResultSignature>::Subscription>
+  RegisterOnSetConsentResultCallback(
+      const base::RepeatingCallback<OnSetConsentResultSignature>& callback);
+
   // BrowserContextKeyedAPI:
   void Shutdown() override;
   static BrowserContextKeyedAPIFactory<IdentityAPI>* GetFactoryInstance();
 
   std::unique_ptr<base::CallbackList<void()>::Subscription>
-  RegisterOnShutdownCallback(const base::Closure& cb) {
-    return on_shutdown_callback_list_.Add(cb);
-  }
+  RegisterOnShutdownCallback(const base::Closure& cb);
 
   // Callback that is used in testing contexts to test the implementation of
   // the chrome.identity.onSignInChanged event. Note that the passed-in Event is
@@ -141,6 +153,8 @@ class IdentityAPI : public BrowserContextKeyedAPI,
 
   OnSignInChangedCallback on_signin_changed_callback_for_testing_;
 
+  base::CallbackList<OnSetConsentResultSignature>
+      on_set_consent_result_callback_list_;
   base::CallbackList<void()> on_shutdown_callback_list_;
 };
 

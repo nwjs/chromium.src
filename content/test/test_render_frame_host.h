@@ -14,8 +14,8 @@
 #include "base/macros.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/common/frame_messages.h"
-#include "content/common/navigation_client.mojom.h"
-#include "content/common/navigation_params.mojom.h"
+#include "content/common/navigation_client.mojom-forward.h"
+#include "content/common/navigation_params.mojom-forward.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_renderer_host.h"
@@ -23,7 +23,7 @@
 #include "content/test/test_render_widget_host.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
-#include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom.h"
+#include "third_party/blink/public/mojom/bluetooth/web_bluetooth.mojom-forward.h"
 #include "ui/base/page_transition_types.h"
 
 namespace net {
@@ -69,9 +69,7 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
   bool IsTestRenderFrameHost() const override;
 
   // Public overrides to expose RenderFrameHostImpl's mojo methods to tests.
-  void DidFailLoadWithError(const GURL& url,
-                            int error_code,
-                            const base::string16& error_description) override;
+  void DidFailLoadWithError(const GURL& url, int error_code) override;
 
   // RenderFrameHostTester implementation.
   void InitializeRenderFrameIfNeeded() override;
@@ -82,10 +80,11 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
                                   const GURL& url,
                                   ui::PageTransition transition);
   void SendBeforeUnloadACK(bool proceed) override;
-  void SimulateSwapOutACK() override;
+  void SimulateUnloadACK() override;
   void SimulateFeaturePolicyHeader(
       blink::mojom::FeaturePolicyFeature feature,
       const std::vector<url::Origin>& allowlist) override;
+  void SimulateUserActivation() override;
   const std::vector<std::string>& GetConsoleMessages() override;
 
   void SendNavigate(int nav_entry_id,
@@ -161,7 +160,8 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
 
   // Send a message with the sandbox flags and feature policy
   void SendFramePolicy(blink::WebSandboxFlags sandbox_flags,
-                       const blink::ParsedFeaturePolicy& declared_policy);
+                       const blink::ParsedFeaturePolicy& fp_header,
+                       const blink::DocumentPolicy::FeatureState& dp_header);
 
   // Creates a WebBluetooth Service with a dummy InterfaceRequest.
   WebBluetoothServiceImpl* CreateWebBluetoothServiceForTesting();

@@ -10,7 +10,7 @@
 function initializeMonthPicker(config) {
   global.picker = new MonthPicker(config);
   main.append(global.picker);
-  main.style.border = '1px solid transparent';
+  main.style.border = '1px solid #bfbfbf';
   main.style.height = (MonthPicker.Height - 2) + 'px';
   main.style.width = (MonthPicker.Width - 2) + 'px';
   resizeWindow(MonthPicker.Width, MonthPicker.Height);
@@ -90,14 +90,13 @@ class MonthPicker extends HTMLElement {
   };
 
   onYearListViewDidHide_ = (sender) => {
-    const selectedValue = this.selectedMonth_.toString();
-    window.setTimeout(function() {
-      window.pagePopupController.setValueAndClosePopup(0, selectedValue);
-    }, 100);
+    window.pagePopupController.closePopup();
   };
 
   onYearListViewDidSelectMonth_ = (sender, month) => {
     this.selectedMonth_ = month;
+    const selectedValue = this.selectedMonth_.toString();
+    window.pagePopupController.setValueAndClosePopup(0, selectedValue);
   };
 
   initializeTodayButton_ = () => {
@@ -116,9 +115,7 @@ class MonthPicker extends HTMLElement {
 
   onTodayButtonClick_ = (sender) => {
     const selectedValue = Month.createFromToday().toString();
-    window.setTimeout(function() {
-      window.pagePopupController.setValueAndClosePopup(0, selectedValue);
-    }, 100);
+    window.pagePopupController.setValueAndClosePopup(0, selectedValue);
   };
 
   onWindowResize_ = (event) => {

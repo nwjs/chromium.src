@@ -30,8 +30,7 @@ TEST_F(ElementTest, SupportsFocus) {
   Document& document = GetDocument();
   DCHECK(IsA<HTMLHtmlElement>(document.documentElement()));
   document.setDesignMode("on");
-  document.View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  document.View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   EXPECT_TRUE(document.documentElement()->SupportsFocus())
       << "<html> with designMode=on should be focusable.";
 }
@@ -224,8 +223,7 @@ TEST_F(ElementTest, StickySubtreesAreTrackedCorrectly) {
   // ensure that the sticky subtree update behavior survives forking.
   document.getElementById("child")->SetInlineStyleProperty(
       CSSPropertyID::kWebkitRubyPosition, CSSValueID::kAfter);
-  document.View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  document.View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   EXPECT_EQ(DocumentLifecycle::kPaintClean, document.Lifecycle().GetState());
 
   EXPECT_EQ(RubyPosition::kBefore, outer_sticky->StyleRef().GetRubyPosition());
@@ -247,8 +245,7 @@ TEST_F(ElementTest, StickySubtreesAreTrackedCorrectly) {
   // fork it's StyleRareInheritedData to maintain the sticky subtree bit.
   document.getElementById("outerSticky")
       ->SetInlineStyleProperty(CSSPropertyID::kPosition, CSSValueID::kStatic);
-  document.View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  document.View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   EXPECT_EQ(DocumentLifecycle::kPaintClean, document.Lifecycle().GetState());
 
   EXPECT_FALSE(outer_sticky->StyleRef().SubtreeIsSticky());
@@ -469,11 +466,6 @@ TEST_F(ElementTest, OptionElementDisplayNoneComputedStyle) {
   EXPECT_FALSE(document.getElementById("inner-option")->GetComputedStyle());
 }
 
-template <>
-struct DowncastTraits<HTMLPlugInElement> {
-  static bool AllowFrom(const Node& n) { return IsHTMLPlugInElement(n); }
-};
-
 // A fake plugin which will assert that script is allowed in Destroy.
 class ScriptOnDestroyPlugin : public GarbageCollected<ScriptOnDestroyPlugin>,
                               public WebPlugin {
@@ -488,13 +480,13 @@ class ScriptOnDestroyPlugin : public GarbageCollected<ScriptOnDestroyPlugin>,
   }
   WebPluginContainer* Container() const override { return container_; }
 
-  void UpdateAllLifecyclePhases(WebWidget::LifecycleUpdateReason) override {}
+  void UpdateAllLifecyclePhases(DocumentUpdateReason) override {}
   void Paint(cc::PaintCanvas*, const WebRect&) override {}
   void UpdateGeometry(const WebRect&,
                       const WebRect&,
                       const WebRect&,
                       bool) override {}
-  void UpdateFocus(bool, WebFocusType) override {}
+  void UpdateFocus(bool, mojom::blink::FocusType) override {}
   void UpdateVisibility(bool) override {}
   WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&,
                                        WebCursorInfo&) override {

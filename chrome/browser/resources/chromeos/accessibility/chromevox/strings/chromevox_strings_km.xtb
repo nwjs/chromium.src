@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{សញ្ញាបន្តក់ថយក្រោយ}other{# សញ្ញាបន្តក់ថយក្រោយ}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{ដុល្លារ}other{# សញ្ញាដុល្លារ}}</translation>
-<translation id="3658742229777143148">កំណែប្រែ</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" /> ប្រអប់បញ្ជី</translation>
 <translation id="3681531118904532409">លឿងខ្ចី</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">ឯកសារយោងពាក្យបញ្ជា ChromeVox</translation>
 <translation id="3930383913623796990">បៃតងខ្ចី</translation>
 <translation id="3930498801443296724">សម្រង់​អត្ថបទ​សំខាន់</translation>
+<translation id="3935615366277838204"><ph name="LETTER" /> អក្សរធំ</translation>
 <translation id="3936394396199829062">ពណ៌ស្វាយខ្ចី</translation>
 <translation id="3941269780691800708">អានអត្ថបទនៅផ្នែកខាងក្រោម​កណ្ដុរ។</translation>
 <translation id="394953087167197343">បង្ហាញថា​ខុសអក្ខរាវិរុទ្ធ៖</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">keymap រាបស្មើ</translation>
 <translation id="6468049171101508116">ប៊ូតុងបន្ទាប់</translation>
 <translation id="646954774886932461">សន្ទស្សន៍</translation>
-<translation id="6479792383819319132">មិនមាន​កថាខណ្ឌ​បន្ទាប់ទេ​។</translation>
 <translation id="6493991254603208962">បន្ថយពន្លឺ</translation>
 <translation id="6501595918865591267">ស៊ីលៀប</translation>
 <translation id="6508059270146105198">ផ្លាស់ទីអេក្រង់ប្រែលទៅខាងក្រោមទំព័រ</translation>
@@ -816,7 +815,6 @@
 <translation id="6637586476836377253">កំណត់ត្រា</translation>
 <translation id="6657128831881431364">របាប្រតិបត្តិការ</translation>
 <translation id="6659594942844771486">ផ្ទាំង</translation>
-<translation id="6675661017770918201">មិនមាន​កថាខណ្ឌ​ពីមុន​ទេ។</translation>
 <translation id="667999046851023355">ឯកសារ</translation>
 <translation id="6688209025607531203">ការរំលឹកដែលមិនមែនជាប្រអប់បញ្ជាក់</translation>
 <translation id="6689672606256159458">ក្រហមចាស់</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">ខុស​អក្ខរាវិរុទ្ធ</translation>
 <translation id="6871161210040114857">មិនសម្គាល់ពុម្ពអក្សរតូច ឬធំ</translation>
 <translation id="6877435256196695200">គ្មានក្រាភិកបន្ទាប់ទេ។</translation>
+<translation id="688976158310523235">ម៉ឺនុយ​ស្វែងរក</translation>
 <translation id="6897341342232909480">ផ្លាស់ទីទៅឆ្វេង</translation>
 <translation id="6901540140423170855">កាលបរិច្ឆេទ</translation>
 <translation id="6910211073230771657">បានលុប</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">ស្វែងរក + O + W</translation>
 <translation id="6994042831499278539">ឯកសារ​យោងនៃ​សទ្ទានុក្រម</translation>
 <translation id="6996566555547746822">ប្រអប់បន្សំបន្ទាប់</translation>
+<translation id="6997224546856374593">នៅពេល​អាន​អក្សរធំ៖</translation>
 <translation id="700202842116345659">ធាតុ​គន្ថនិទ្ទេស</translation>
 <translation id="7005146664810010831">គ្មាន URL  ត្រូវបានរកឃើញទេ</translation>
 <translation id="7010712454773919705">ប៊ូតុងឧបករណ៍កែសម្រួល ChromeVox</translation>
@@ -937,6 +937,7 @@
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">ផ្ទាំង</translation>
 <translation id="7492049978501397201">ប្រអប់ដែលបានបញ្ចូល</translation>
+<translation id="7505149250476994901">និយាយថា "អក្សរធំ" បន្ទាប់ពី​អក្សរ</translation>
 <translation id="7518543783849163354">ដើម្បីបញ្ឈប់ ChromeVox ពីការនិយាយជាបណ្តោះអាសន្ន សូមចុចគ្រាប់ចុច Control ។</translation>
 <translation id="7521682724501952239">អ្នកអាច​ប្រើ ChromeVox ជាមួយ​អេក្រង់​ចុច។</translation>
 <translation id="7532613204005497612">មិថុនា</translation>
@@ -1105,7 +1106,6 @@
 <translation id="812886159861361726">បាន​បញ្ឈប់​ការទាញយក <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">ប៉ះ</translation>
 <translation id="8153880621934657047">មិនមែននៅក្នុងតារាងទេ។</translation>
-<translation id="8161114871611868169">ផ្នែកមតិ</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{សញ្ញាគូសបន្ទាត់ពីក្រោម}other{# សញ្ញាគូសបន្ទាត់ពីក្រោម}}</translation>
 <translation id="8179976553408161302">បញ្ចូល</translation>
 <translation id="8184828902145951186">ជួរដេក</translation>
@@ -1126,6 +1126,7 @@
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">លឿងស្រាល</translation>
 <translation id="8326783648485765113">បៃតងខ្ចី</translation>
+<translation id="8328063869313048659">បិទ/បើកអេក្រង់ងងឹត</translation>
 <translation id="8344569602005188545">ម៉ោង</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{ផោន}other{# សញ្ញាផោន}}</translation>
 <translation id="8374154622594089836">ខែ</translation>
@@ -1210,6 +1211,7 @@
 <translation id="9065283790526219006">+ការលេចឡើង</translation>
 <translation id="9066023754636984703">ចុច Search+A, J ដើម្បីលោតទៅព័ត៌មាន​លម្អិត។</translation>
 <translation id="9067522039955793016">បំបែក​ទំព័រ</translation>
+<translation id="9074824103975499138">ការស្វែងរក​នៅក្នុង​ម៉ឺនុយ ChromeVox</translation>
 <translation id="9077213568694924680">បានដកចេញពីការជ្រើសរើស</translation>
 <translation id="9077305471618729969">ទឹកសមុទ្រខ្ចី</translation>
 <translation id="9082874451376019682">គ្មានរបារំកិលពីមុនទេ។</translation>

@@ -29,7 +29,7 @@ class FakeChromeIdentityService : public ChromeIdentityService {
       UIViewController* viewController,
       BOOL animated) override;
   ChromeIdentityInteractionManager* CreateChromeIdentityInteractionManager(
-      ios::ChromeBrowserState* browser_state,
+      ChromeBrowserState* browser_state,
       id<ChromeIdentityInteractionManagerDelegate> delegate) const override;
 
   bool IsValidIdentity(ChromeIdentity* identity) const override;
@@ -69,6 +69,9 @@ class FakeChromeIdentityService : public ChromeIdentityService {
 
   // Sets up the mock methods for integration tests.
   void SetUpForIntegrationTests();
+
+  // Adds the managed identities given their name.
+  void AddManagedIdentities(NSArray* identitiesName);
 
   // Adds the identities given their name.
   void AddIdentities(NSArray* identitiesNames);

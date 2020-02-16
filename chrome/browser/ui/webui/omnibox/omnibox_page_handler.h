@@ -11,6 +11,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox.mojom.h"
 #include "components/omnibox/browser/autocomplete_controller_delegate.h"
@@ -61,6 +62,8 @@ class OmniboxPageHandler : public AutocompleteControllerDelegate,
                          int32_t page_classification) override;
 
  private:
+  void OnBitmapFetched(const std::string& image_url, const SkBitmap& bitmap);
+
   // Looks up whether the hostname is a typed host (i.e., has received
   // typed visits).  Return true if the lookup succeeded; if so, the
   // value of |is_typed_host| is set appropriately.
@@ -92,6 +95,8 @@ class OmniboxPageHandler : public AutocompleteControllerDelegate,
 
   ScopedObserver<OmniboxControllerEmitter, OmniboxControllerEmitter::Observer>
       observer_;
+
+  base::WeakPtrFactory<OmniboxPageHandler> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxPageHandler);
 };

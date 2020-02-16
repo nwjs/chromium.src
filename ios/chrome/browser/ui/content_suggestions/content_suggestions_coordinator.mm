@@ -90,7 +90,7 @@
   contentSuggestionsService->user_classifier()->OnEvent(
       ntp_snippets::UserClassifier::Metric::SUGGESTIONS_SHOWN);
   PrefService* prefs =
-      ios::ChromeBrowserState::FromBrowserState(self.browserState)->GetPrefs();
+      ChromeBrowserState::FromBrowserState(self.browserState)->GetPrefs();
   bool contentSuggestionsEnabled =
       prefs->GetBoolean(prefs::kArticlesForYouEnabled);
   bool contentSuggestionsVisible =
@@ -118,7 +118,7 @@
          identityManager:IdentityManagerFactory::GetForBrowserState(
                              self.browserState)
               logoVendor:ios::GetChromeBrowserProvider()->CreateLogoVendor(
-                             self.browserState)];
+                             self.browserState, self.webState)];
 
   BOOL voiceSearchEnabled = ios::GetChromeBrowserProvider()
                                 ->GetVoiceSearchProvider()
@@ -173,7 +173,8 @@
   self.NTPMediator.consumer = self.headerController;
   self.NTPMediator.dispatcher = self.dispatcher;
   self.NTPMediator.NTPMetrics =
-      [[NTPHomeMetrics alloc] initWithBrowserState:self.browserState];
+      [[NTPHomeMetrics alloc] initWithBrowserState:self.browserState
+                                          webState:self.webState];
   self.NTPMediator.metricsRecorder = self.metricsRecorder;
   self.NTPMediator.suggestionsViewController = self.suggestionsViewController;
   self.NTPMediator.suggestionsMediator = self.contentSuggestionsMediator;

@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_SIGNIN_PUBLIC_BASE_SIGNIN_SWITCHES_H_
 #define COMPONENTS_SIGNIN_PUBLIC_BASE_SIGNIN_SWITCHES_H_
 
+#include "base/feature_list.h"
 #include "components/signin/public/base/signin_buildflags.h"
 
 namespace switches {
@@ -25,6 +26,13 @@ extern const char kAccountConsistency[];
 extern const char kAccountConsistencyMirror[];
 extern const char kAccountConsistencyDice[];
 #endif
+
+#if defined(OS_CHROMEOS)
+extern const base::Feature kAccountIdMigration;
+#endif
+
+// Enables the remote consent flow for chrome.identity extension API.
+extern const base::Feature kOAuthRemoteConsent;
 
 }  // namespace switches
 

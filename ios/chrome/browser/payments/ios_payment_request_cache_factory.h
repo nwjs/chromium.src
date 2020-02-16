@@ -11,9 +11,7 @@
 #include "base/no_destructor.h"
 #include "components/keyed_service/ios/browser_state_keyed_service_factory.h"
 
-namespace ios {
 class ChromeBrowserState;
-}  // namespace ios
 
 namespace payments {
 class PaymentRequestCache;
@@ -24,7 +22,7 @@ class PaymentRequestCache;
 class IOSPaymentRequestCacheFactory : public BrowserStateKeyedServiceFactory {
  public:
   static PaymentRequestCache* GetForBrowserState(
-      ios::ChromeBrowserState* browser_state);
+      ChromeBrowserState* browser_state);
   static IOSPaymentRequestCacheFactory* GetInstance();
 
  private:

@@ -11,6 +11,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/navigation_predictor/search_engine_preconnector.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -22,7 +23,7 @@
 #include "content/public/browser/web_contents.h"
 #include "net/base/features.h"
 
-namespace {
+namespace features {
 
 // A holdback that prevents the preconnect to measure benefit of the feature.
 const base::Feature kNavigationPredictorPreconnectHoldback {
@@ -33,6 +34,9 @@ const base::Feature kNavigationPredictorPreconnectHoldback {
       base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 };
+}  // namespace features
+
+namespace {
 
 // Experiment with which event triggers the preconnect after commit.
 const base::Feature kPreconnectOnDidFinishNavigation{
@@ -109,7 +113,8 @@ void NavigationPredictorPreconnectClient::DidFinishLoad(
 }
 
 void NavigationPredictorPreconnectClient::MaybePreconnectNow() {
-  if (base::FeatureList::IsEnabled(kNavigationPredictorPreconnectHoldback))
+  if (base::FeatureList::IsEnabled(
+          features::kNavigationPredictorPreconnectHoldback))
     return;
 
   if (browser_context_->IsOffTheRecord())
@@ -122,7 +127,9 @@ void NavigationPredictorPreconnectClient::MaybePreconnectNow() {
   // On search engine results page, next navigation is likely to be a different
   // origin. Currently, the preconnect is only allowed for same origins. Hence,
   // preconnect is currently disabled on search engine results page.
-  if (IsSearchEnginePage())
+  // If preconnect to DSE is enabled, skip this check.
+  if (!base::FeatureList::IsEnabled(features::kPreconnectToSearch) &&
+      IsSearchEnginePage())
     return;
 
   url::Origin preconnect_origin =

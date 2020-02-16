@@ -13,6 +13,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/skia_util.h"
+#include "ui/native_theme/overlay_scrollbar_constants_aura.h"
 
 namespace ui {
 
@@ -119,6 +120,10 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
         return gfx::kGoogleGrey500;
       case NativeTheme::kColorId_TabBottomBorder:
         return gfx::kGoogleGrey800;
+      case NativeTheme::kColorId_TabHighlightBackground:
+        return gfx::kGoogleGrey800;
+      case NativeTheme::kColorId_TabHighlightFocusedBackground:
+        return SkColorSetRGB(0x32, 0x36, 0x39);
 
       // Table
       case NativeTheme::kColorId_TableBackground:
@@ -282,6 +287,24 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
     case NativeTheme::kColorId_LinkPressed:
       return gfx::kGoogleBlue600;
 
+    // Scrollbar
+    case NativeTheme::kColorId_OverlayScrollbarThumbBackground:
+      return SK_ColorBLACK;
+    case NativeTheme::kColorId_OverlayScrollbarThumbForeground:
+      return SkColorSetA(SK_ColorWHITE, (kOverlayScrollbarStrokeNormalAlpha /
+                                         kOverlayScrollbarThumbNormalAlpha) *
+                                            SK_AlphaOPAQUE);
+
+    // Slider
+    case NativeTheme::kColorId_SliderThumbDefault:
+      return SkColorSetARGB(0xFF, 0x25, 0x81, 0xDF);
+    case NativeTheme::kColorId_SliderTroughDefault:
+      return SkColorSetARGB(0x40, 0x25, 0x81, 0xDF);
+    case NativeTheme::kColorId_SliderThumbMinimal:
+      return SkColorSetARGB(0x6E, 0xF1, 0xF3, 0xF4);
+    case NativeTheme::kColorId_SliderTroughMinimal:
+      return SkColorSetARGB(0x19, 0xF1, 0xF3, 0xF4);
+
     // Separator
     case NativeTheme::kColorId_SeparatorColor:
       return gfx::kGoogleGrey300;
@@ -293,6 +316,10 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
       return gfx::kGoogleGrey700;
     case NativeTheme::kColorId_TabBottomBorder:
       return gfx::kGoogleGrey300;
+    case NativeTheme::kColorId_TabHighlightBackground:
+      return gfx::kGoogleBlue050;
+    case NativeTheme::kColorId_TabHighlightFocusedBackground:
+      return gfx::kGoogleBlue100;
 
     // Textfield
     case NativeTheme::kColorId_TextfieldDefaultColor:
@@ -319,6 +346,10 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
           NativeTheme::kColorId_WindowBackground, color_scheme);
       return SkColorSetA(bg, 0xCC);
     }
+    case NativeTheme::kColorId_TooltipIcon:
+      return SkColorSetARGB(0xBD, 0x44, 0x44, 0x44);
+    case NativeTheme::kColorId_TooltipIconHovered:
+      return SkColorSetARGB(0xBD, 0, 0, 0);
     case NativeTheme::kColorId_TooltipText:
       return SkColorSetA(kPrimaryTextColor, 0xDE);
 

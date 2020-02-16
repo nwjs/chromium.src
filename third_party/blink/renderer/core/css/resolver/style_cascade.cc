@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/css/resolver/css_property_priority.h"
 #include "third_party/blink/renderer/core/css/resolver/style_builder.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_state.h"
+#include "third_party/blink/renderer/core/css/style_cascade_slots.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
@@ -119,7 +120,26 @@ void StyleCascade::Apply() {
 }
 
 void StyleCascade::Apply(Animator& animator) {
-  Resolver resolver(animator);
+  StyleCascadeSlots slots;
+  Resolver resolver(animator, excluder_, slots);
+
+  // The computed value of -webkit-appearance decides whether we need to
+  // apply -internal-ua properties or not.
+  ApplyAppearance(resolver);
+
+  // Affects the computed value of 'color', hence needs to happen before
+  // high-priority properties.
+  Apply(GetCSSPropertyColorScheme(), resolver);
+
+  // -webkit-border-image is a longhand that maps to the same slots used by
+  // border-image (shorthand). By applying -webkit-border-image first, we
+  // avoid having to "partially" apply -webkit-border-image depending on the
+  // border-image-* longhands that have already been applied.
+  Apply(GetCSSPropertyWebkitBorderImage(), resolver);
+
+  // -webkit-mask-image needs to be applied before -webkit-mask-composite,
+  // otherwise -webkit-mask-composite has no effect.
+  Apply(GetCSSPropertyWebkitMaskImage(), resolver);
 
   // TODO(crbug.com/985031): Set bits ::Add-time to know if we need to do this.
   ApplyHighPriority(resolver);
@@ -130,16 +150,29 @@ void StyleCascade::Apply(Animator& animator) {
     const CSSPropertyName& name = iter->key;
     Apply(name, resolver);
   }
+
+  excluder_.Clear();
 }
 
-void StyleCascade::RemoveAnimationPriority() {
-  using AnimPrio = CSSPropertyPriorityData<kAnimationPropertyPriority>;
-  int first = static_cast<int>(AnimPrio::First());
-  int last = static_cast<int>(AnimPrio::Last());
-  for (int i = first; i <= last; ++i) {
-    CSSPropertyName name(convertToCSSPropertyID(i));
-    cascade_.erase(name);
-  }
+void StyleCascade::Exclude(CSSProperty::Flag flag, bool set) {
+  excluder_.Exclude(flag, set);
+}
+
+void StyleCascade::Excluder::Exclude(CSSProperty::Flag flag, bool set) {
+  if (set)
+    flags_ |= flag;
+  else
+    flags_ &= ~flag;
+  mask_ |= flag;
+}
+
+bool StyleCascade::Excluder::IsExcluded(const CSSProperty& property) const {
+  return ~(property.GetFlags() ^ flags_) & mask_;
+}
+
+void StyleCascade::Excluder::Clear() {
+  flags_ = 0;
+  mask_ = 0;
 }
 
 const CSSValue* StyleCascade::Resolve(const CSSPropertyName& name,
@@ -172,9 +205,16 @@ void StyleCascade::ApplyHighPriority(Resolver& resolver) {
   state_.SetConversionZoom(state_.Style()->EffectiveZoom());
 }
 
+void StyleCascade::ApplyAppearance(Resolver& resolver) {
+  Apply(GetCSSPropertyWebkitAppearance(), resolver);
+  if (!state_.Style()->HasAppearance())
+    Exclude(CSSProperty::kUA, true);
+}
+
 void StyleCascade::Apply(const CSSPropertyName& name) {
   NullAnimator animator;
-  Resolver resolver(animator);
+  StyleCascadeSlots slots;
+  Resolver resolver(animator, excluder_, slots);
   Apply(name, resolver);
 }
 
@@ -192,6 +232,8 @@ void StyleCascade::Apply(const CSSProperty& property, Resolver& resolver) {
   Value cascaded = cascade_.Take(property.GetCSSPropertyName());
   if (cascaded.IsEmpty())
     return;
+  if (resolver.excluder_.IsExcluded(property))
+    return;
 
   const CSSValue* value = cascaded.GetValue();
 
@@ -207,7 +249,7 @@ void StyleCascade::Apply(const CSSProperty& property, Resolver& resolver) {
   DCHECK(!value->IsPendingSubstitutionValue());
   DCHECK(!value->IsPendingInterpolationValue());
 
-  if (!resolver.filter_.Add(property, cascaded))
+  if (!resolver.SetSlot(property, cascaded, state_))
     return;
 
   StyleBuilder::ApplyProperty(property, state_, *value);
@@ -570,32 +612,6 @@ void StyleCascade::MarkReferenced(const CustomProperty& property) {
   state_.GetDocument().GetPropertyRegistry()->MarkReferenced(name);
 }
 
-bool StyleCascade::Filter::Add(const CSSProperty& property,
-                               const Value& value) {
-  Priority& slot = GetSlot(property);
-  if (value.GetPriority() >= slot) {
-    slot = value.GetPriority();
-    return true;
-  }
-  return false;
-}
-
-StyleCascade::Priority& StyleCascade::Filter::GetSlot(
-    const CSSProperty& property) {
-  // TODO(crbug.com/985043): Ribbonize?
-  switch (property.PropertyID()) {
-    case CSSPropertyID::kWritingMode:
-    case CSSPropertyID::kWebkitWritingMode:
-      return writing_mode_;
-    case CSSPropertyID::kZoom:
-    case CSSPropertyID::kInternalEffectiveZoom:
-      return zoom_;
-    default:
-      none_ = Priority();
-      return none_;
-  }
-}
-
 bool StyleCascade::Resolver::IsLocked(const CSSProperty& property) const {
   return IsLocked(property.GetCSSPropertyName());
 }
@@ -613,6 +629,12 @@ bool StyleCascade::Resolver::AllowSubstitution(CSSVariableData* data) const {
     return !CSSAnimations::IsAnimationAffectingProperty(property);
   }
   return true;
+}
+
+bool StyleCascade::Resolver::SetSlot(const CSSProperty& property,
+                                     const Value& value,
+                                     StyleResolverState& state) {
+  return slots_.Set(property, value.GetPriority(), state);
 }
 
 bool StyleCascade::Resolver::DetectCycle(const CSSProperty& property) {

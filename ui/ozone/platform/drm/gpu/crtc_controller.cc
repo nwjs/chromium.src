@@ -45,9 +45,9 @@ CrtcController::~CrtcController() {
 }
 
 bool CrtcController::Modeset(const DrmOverlayPlane& plane,
-                             drmModeModeInfo mode) {
+                             const drmModeModeInfo& mode) {
   if (!drm_->SetCrtc(crtc_, plane.buffer->opaque_framebuffer_id(),
-                     std::vector<uint32_t>(1, connector_), &mode)) {
+                     std::vector<uint32_t>(1, connector_), mode)) {
     PLOG(ERROR) << "Failed to modeset: crtc=" << crtc_
                 << " connector=" << connector_
                 << " framebuffer_id=" << plane.buffer->opaque_framebuffer_id()
@@ -90,8 +90,8 @@ bool CrtcController::AssignOverlayPlanes(HardwareDisplayPlaneList* plane_list,
     return true;
   }
 
-  if (!drm_->plane_manager()->AssignOverlayPlanes(plane_list, overlays, crtc_,
-                                                  this)) {
+  if (!drm_->plane_manager()->AssignOverlayPlanes(plane_list, overlays,
+                                                  crtc_)) {
     PLOG(ERROR) << "Failed to assign overlay planes for crtc " << crtc_;
     return false;
   }

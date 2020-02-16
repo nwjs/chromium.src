@@ -94,9 +94,7 @@ FetchEvent::FetchEvent(ScriptState* script_state,
       ContextClient(ExecutionContext::From(script_state)),
       observer_(respond_with_observer),
       preload_response_property_(MakeGarbageCollected<PreloadResponseProperty>(
-          ExecutionContext::From(script_state),
-          this,
-          PreloadResponseProperty::kPreloadResponse)),
+          ExecutionContext::From(script_state))),
       worker_timing_remote_(std::move(worker_timing_remote)) {
   if (!navigation_preload_sent)
     preload_response_property_->ResolveWithUndefined();
@@ -130,12 +128,12 @@ void FetchEvent::OnNavigationPreloadResponse(
   }
   // TODO(ricea): Verify that this response can't be aborted from JS.
   FetchResponseData* response_data =
-      bytes_consumer ? FetchResponseData::CreateWithBuffer(
-                           MakeGarbageCollected<BodyStreamBuffer>(
-                               script_state, bytes_consumer,
-                               MakeGarbageCollected<AbortSignal>(
-                                   ExecutionContext::From(script_state))))
-                     : FetchResponseData::Create();
+      bytes_consumer
+          ? FetchResponseData::CreateWithBuffer(BodyStreamBuffer::Create(
+                script_state, bytes_consumer,
+                MakeGarbageCollected<AbortSignal>(
+                    ExecutionContext::From(script_state))))
+          : FetchResponseData::Create();
   Vector<KURL> url_list(1);
   url_list[0] = preload_response_->CurrentRequestUrl();
   response_data->SetURLList(url_list);

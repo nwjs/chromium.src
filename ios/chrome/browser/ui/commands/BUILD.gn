@@ -26,7 +26,6 @@ source_set("commands") {
     "reading_list_add_command.mm",
     "send_tab_to_self_command.h",
     "send_tab_to_self_command.mm",
-    "settings_main_page_commands.h",
     "show_signin_command.h",
     "show_signin_command.mm",
     "snackbar_commands.h",
@@ -51,9 +50,7 @@ source_set("commands") {
 source_set("unit_tests") {
   testonly = true
   configs += [ "//build/config/compiler:enable_arc" ]
-  sources = [
-    "command_dispatcher_unittest.mm",
-  ]
+  sources = [ "command_dispatcher_unittest.mm" ]
   deps = [
     ":commands",
     "//base",

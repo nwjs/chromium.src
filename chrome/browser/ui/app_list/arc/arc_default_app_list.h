@@ -29,26 +29,24 @@ class ArcDefaultAppList {
  public:
   struct AppInfo {
     AppInfo(const std::string& name,
-            const std::string& package_name,
-            const std::string& activity,
-            bool oem,
-            bool system,
-            const base::FilePath app_path);
+                   const std::string& package_name,
+                   const std::string& activity,
+                   bool oem,
+                   const base::FilePath app_path);
     ~AppInfo();
 
     std::string name;
     std::string package_name;
     std::string activity;
     bool oem;
-    bool system;
     base::FilePath app_path;  // App folder that contains pre-installed icons.
   };
 
   enum class FilterLevel {
     // Filter nothing.
     NOTHING,
-    // Filter out only optional apps, leaving system apps available, Play Store
-    // is also system app.
+    // Filter out only optional apps, excluding Play Store for example. Used in
+    // case when Play Store is managed and enabled.
     OPTIONAL_APPS,
     // Filter out everything. Used in case when Play Store is managed and
     // disabled.
@@ -63,6 +61,8 @@ class ArcDefaultAppList {
 
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
   static void UseTestAppsDirectory();
+  static std::string GetBoardNameForTesting(
+      const base::FilePath& build_prop_path);
 
   // Returns default app info if it is found in defaults and its package is not
   // marked as uninstalled.

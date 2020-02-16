@@ -55,10 +55,6 @@ namespace keyboard {
 class KeyboardUIFactory;
 }
 
-namespace service_manager {
-class Connector;
-}
-
 namespace ui {
 class ContextFactory;
 class ContextFactoryPrivate;
@@ -98,6 +94,7 @@ class NativeCursorManagerAsh;
 class AshTouchTransformController;
 class AssistantController;
 class AutoclickController;
+class BackGestureEventHandler;
 class BacklightsForcedOffSetter;
 class BluetoothNotificationController;
 class BluetoothPowerController;
@@ -123,7 +120,7 @@ class FocusCycler;
 class HighContrastController;
 class HighlighterController;
 class HomeScreenController;
-class ImeController;
+class ImeControllerImpl;
 class ImmersiveContext;
 class KeyAccessibilityEnabler;
 class KeyboardBrightnessControlDelegate;
@@ -321,7 +318,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   BrightnessControlDelegate* brightness_control_delegate() {
     return brightness_control_delegate_.get();
   }
-  service_manager::Connector* connector() { return connector_; }
   CrosDisplayConfig* cros_display_config() {
     return cros_display_config_.get();
   }
@@ -367,7 +363,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   HighContrastController* high_contrast_controller() {
     return high_contrast_controller_.get();
   }
-  ImeController* ime_controller() { return ime_controller_.get(); }
+  ImeControllerImpl* ime_controller() { return ime_controller_.get(); }
   KeyAccessibilityEnabler* key_accessibility_enabler() {
     return key_accessibility_enabler_.get();
   }
@@ -498,6 +494,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   WindowTreeHostManager* window_tree_host_manager() {
     return window_tree_host_manager_.get();
   }
+  BackGestureEventHandler* back_gesture_event_handler() {
+    return back_gesture_event_handler_.get();
+  }
   ToplevelWindowEventHandler* toplevel_window_event_handler() {
     return toplevel_window_event_handler_.get();
   }
@@ -549,7 +548,8 @@ class ASH_EXPORT Shell : public SessionObserver,
 
   // Notifies observers that |root_window|'s shelf changed alignment.
   // TODO(jamescook): Move to Shelf.
-  void NotifyShelfAlignmentChanged(aura::Window* root_window);
+  void NotifyShelfAlignmentChanged(aura::Window* root_window,
+                                   ShelfAlignment old_alignment);
 
   // Notifies observers that |root_window|'s shelf changed auto-hide behavior.
   // TODO(jamescook): Move to Shelf.
@@ -566,8 +566,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   friend class ShellTestApi;
   friend class SmsObserverTest;
 
-  Shell(std::unique_ptr<ShellDelegate> shell_delegate,
-        service_manager::Connector* connector);
+  explicit Shell(std::unique_ptr<ShellDelegate> shell_delegate);
   ~Shell() override;
 
   void Init(ui::ContextFactory* context_factory,
@@ -629,7 +628,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<BacklightsForcedOffSetter> backlights_forced_off_setter_;
   std::unique_ptr<BrightnessControlDelegate> brightness_control_delegate_;
   std::unique_ptr<CrosDisplayConfig> cros_display_config_;
-  service_manager::Connector* const connector_;
   std::unique_ptr<DesksController> desks_controller_;
   std::unique_ptr<DetachableBaseHandler> detachable_base_handler_;
   std::unique_ptr<DetachableBaseNotificationController>
@@ -638,7 +636,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<DragDropController> drag_drop_controller_;
   std::unique_ptr<FocusCycler> focus_cycler_;
   std::unique_ptr<HomeScreenController> home_screen_controller_;
-  std::unique_ptr<ImeController> ime_controller_;
+  std::unique_ptr<ImeControllerImpl> ime_controller_;
   std::unique_ptr<ImmersiveContext> immersive_context_;
   std::unique_ptr<KeyboardBrightnessControlDelegate>
       keyboard_brightness_control_delegate_;
@@ -703,6 +701,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   // An event filter that pre-handles key events while the partial
   // screenshot UI or the keyboard overlay is active.
   std::unique_ptr<OverlayEventFilter> overlay_filter_;
+
+  // An event filter which handles swiping back from left side of the window.
+  std::unique_ptr<BackGestureEventHandler> back_gesture_event_handler_;
 
   // An event filter which handles moving and resizing windows.
   std::unique_ptr<ToplevelWindowEventHandler> toplevel_window_event_handler_;

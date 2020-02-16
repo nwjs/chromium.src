@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "base/optional.h"
+#include "services/network/public/cpp/isolation_opt_in_hints.h"
 #include "url/gurl.h"
 
 namespace network {
@@ -51,9 +53,10 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) OriginPolicyContents {
   OriginPolicyContents();
   ~OriginPolicyContents();
   OriginPolicyContents(
-      const std::vector<std::string>& features,
+      const base::Optional<std::string>& feature_policy,
       const std::vector<std::string>& content_security_policies,
-      const std::vector<std::string>& content_security_policies_report_only);
+      const std::vector<std::string>& content_security_policies_report_only,
+      const base::Optional<IsolationOptInHints>& isolation_optin_hints);
 
   OriginPolicyContents(const OriginPolicyContents& other);
   OriginPolicyContents& operator=(const OriginPolicyContents& other);
@@ -61,13 +64,16 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) OriginPolicyContents {
 
   OriginPolicyContentsPtr ClonePtr();
 
-  // The feature policy that is dictated by the origin policy. Each feature
-  // is one member of the array.
+  // The feature policy that is dictated by the origin policy, if any.
   // https://w3c.github.io/webappsec-feature-policy/
-  std::vector<std::string> features;
+  // This is stored as a raw string, so it is not guaranteed to be an actual
+  // feature policy; Blink will attempt to parse and apply it.
+  base::Optional<std::string> feature_policy;
 
   // These two fields together represent the CSP that should be applied to the
-  // origin, based on the origin policy.
+  // origin, based on the origin policy. They are stored as raw strings, so are
+  // not guaranteed to be actual CSPs; Blink will attempt to parse and apply
+  // them.
   // https://w3c.github.io/webappsec-csp/
 
   // The "enforced" portion of the CSP. This CSP is to be treated as having
@@ -79,6 +85,11 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) OriginPolicyContents {
   // a "report" disposition.
   // https://w3c.github.io/webappsec-csp/#policy-disposition
   std::vector<std::string> content_security_policies_report_only;
+
+  // This field, if present, indicates that the origin is opting in to
+  // origin-based isolation. The int contains zero or more flag bits indicating
+  // what the origin is hoping to achieve through isolation.
+  base::Optional<IsolationOptInHints> isolation_optin_hints;
 };
 
 // Native implementation of mojom::OriginPolicy. This is done so we can pass

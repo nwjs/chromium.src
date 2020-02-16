@@ -162,6 +162,10 @@ class TestGpuService : public mojom::GpuService {
 
   void GpuSwitched(gl::GpuPreference active_gpu_heuristic) override {}
 
+  void DisplayAdded() override {}
+
+  void DisplayRemoved() override {}
+
   void DestroyAllChannels() override {}
 
   void OnBackgroundCleanup() override {}
@@ -169,6 +173,11 @@ class TestGpuService : public mojom::GpuService {
   void OnBackgrounded() override {}
 
   void OnForegrounded() override {}
+
+#if !defined(OS_ANDROID)
+  void OnMemoryPressure(
+      base::MemoryPressureListener::MemoryPressureLevel level) override {}
+#endif
 
 #if defined(OS_MACOSX)
   void BeginCATransaction() override {}
@@ -220,6 +229,10 @@ class HostGpuMemoryBufferManagerTest : public ::testing::Test {
         std::move(gpu_service_provider), 1,
         std::move(gpu_memory_buffer_support),
         base::ThreadTaskRunnerHandle::Get());
+#if defined(USE_X11)
+    // X11 requires GPU process initialization to determine GMB support.
+    gpu_memory_buffer_manager_->native_configurations_initialized_.Signal();
+#endif
   }
 
   // Not all platforms support native configurations (currently only Windows,

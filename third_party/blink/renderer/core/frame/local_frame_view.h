@@ -28,8 +28,10 @@
 
 #include <memory>
 
+#include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/shape_properties.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/frame_view.h"
@@ -45,6 +47,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/paint_invalidation_reason.h"
 #include "third_party/blink/renderer/platform/graphics/subtree_paint_property_update_reason.h"
+#include "third_party/blink/renderer/platform/instrumentation/memory_pressure_listener.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -96,7 +99,6 @@ struct AnnotatedRegionValue;
 struct IntrinsicSizingInfo;
 struct PhysicalOffset;
 struct PhysicalRect;
-struct WebScrollIntoViewParams;
 
 typedef uint64_t DOMTimeStamp;
 using LayerTreeFlags = unsigned;
@@ -114,7 +116,8 @@ struct LifecycleData {
 
 class CORE_EXPORT LocalFrameView final
     : public GarbageCollected<LocalFrameView>,
-      public FrameView {
+      public FrameView,
+      public MemoryPressureListener {
   USING_GARBAGE_COLLECTED_MIXIN(LocalFrameView);
 
   friend class PaintControllerPaintTestBase;
@@ -240,8 +243,6 @@ class CORE_EXPORT LocalFrameView final
   bool GetIntrinsicSizingInfo(IntrinsicSizingInfo&) const override;
   bool HasIntrinsicSizingInfo() const override;
 
-  void UpdateAcceleratedCompositingSettings();
-
   void UpdateCountersAfterStyleChange();
 
   void Dispose() override;
@@ -327,8 +328,8 @@ class CORE_EXPORT LocalFrameView final
   // lifecycle update (e.g., based on visibility) and will not end up being
   // PaintClean. Set |reason| to indicate the reason for this update,
   // for metrics purposes.
-  void UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason reason);
+  // Returns whether the lifecycle was successfully updated to PaintClean.
+  bool UpdateAllLifecyclePhases(DocumentUpdateReason reason);
 
   // Computes the style, layout, compositing and pre-paint lifecycle stages
   // if needed.
@@ -613,7 +614,8 @@ class CORE_EXPORT LocalFrameView final
 
   bool HasVisibleSlowRepaintViewportConstrainedObjects() const;
 
-  bool MapToVisualRectInRemoteRootFrame(PhysicalRect&);
+  bool MapToVisualRectInRemoteRootFrame(PhysicalRect& rect,
+                                        bool apply_overflow_clip = true);
 
   void MapLocalToRemoteRootFrame(TransformState&);
 
@@ -641,17 +643,11 @@ class CORE_EXPORT LocalFrameView final
   // When the frame is a local root and not a main frame, any recursive
   // scrolling should continue in the parent process.
   void ScrollRectToVisibleInRemoteParent(const PhysicalRect&,
-                                         const WebScrollIntoViewParams&);
+                                         mojom::blink::ScrollIntoViewParamsPtr);
 
   PaintArtifactCompositor* GetPaintArtifactCompositor() const;
 
   const cc::Layer* RootCcLayer() const;
-
-  // Keeps track of whether the scrollable state for the LocalRoot has changed
-  // since ScrollingCoordinator last checked. Only ScrollingCoordinator should
-  // ever call the clearing function.
-  bool FrameIsScrollableDidChange();
-  void ClearFrameIsScrollableDidChange();
 
   // Should be called whenever this LocalFrameView adds or removes a
   // scrollable area, or gains/loses a composited layer.
@@ -696,7 +692,7 @@ class CORE_EXPORT LocalFrameView final
   void ParentVisibleChanged() override;
   void NotifyFrameRectsChangedIfNeeded();
   void SetViewportIntersection(
-      const ViewportIntersectionState& intersection_state) override {}
+      const ViewportIntersectionState& intersection_state) override;
   void VisibilityForThrottlingChanged() override;
   bool LifecycleUpdatesThrottled() const override {
     return lifecycle_updates_throttled_;
@@ -738,10 +734,10 @@ class CORE_EXPORT LocalFrameView final
   void SetupPrintContext();
   void ClearPrintContext();
 
-  // Returns whether the lifecycle was succesfully updated to the
+  // Returns whether the lifecycle was successfully updated to the
   // target state.
   bool UpdateLifecyclePhases(DocumentLifecycle::LifecycleState target_state,
-                             DocumentLifecycle::LifecycleUpdateReason reason);
+                             DocumentUpdateReason reason);
   // The internal version that does the work after the proper context and checks
   // have passed in the above function call.
   void UpdateLifecyclePhasesInternal(
@@ -835,6 +831,9 @@ class CORE_EXPORT LocalFrameView final
   void LayoutFromRootObject(LayoutObject& root);
 
   void UpdateLayerDebugInfoEnabled();
+
+  // MemoryPressureListener
+  void OnPurgeMemory() override;
 
   LayoutSize size_;
 
@@ -957,6 +956,10 @@ class CORE_EXPORT LocalFrameView final
 
   // For testing.
   bool is_tracking_raster_invalidations_ = false;
+
+  // True if a memory pressure signal has been received on a foregrounded page
+  // that has accelerated compositing enabled.
+  bool received_foreground_compositor_memory_pressure_purge_signal_ = false;
 
   // Currently used in PushPaintArtifactToCompositor() to collect composited
   // layers as foreign layers. It's transient, but may live across frame updates

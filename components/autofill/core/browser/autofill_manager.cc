@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -40,6 +41,7 @@
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_data_util.h"
+#include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_external_delegate.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_manager_test_delegate.h"
@@ -61,6 +63,7 @@
 #include "components/autofill/core/browser/payments/payments_client.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/randomized_encoder.h"
+#include "components/autofill/core/browser/sms_client.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
@@ -268,7 +271,8 @@ AutofillField* FindFirstFieldWithValue(const FormStructure& form_structure,
 }
 
 // Heuristically identifies all possible credit card verification fields.
-AutofillField* HeuristicallyFindCVCField(const FormStructure& form_structure) {
+AutofillField* HeuristicallyFindCVCFieldForUpload(
+    const FormStructure& form_structure) {
   // Stores a pointer to the explicitly found expiration year.
   bool found_explicit_expiration_year_field = false;
 
@@ -333,7 +337,7 @@ AutofillField* HeuristicallyFindCVCField(const FormStructure& form_structure) {
 // Iff the CVC of the credit card is known, find the first field with this
 // value (also set |properties_mask| to |KNOWN_VALUE|). Otherwise, heuristically
 // search for the CVC field if any.
-AutofillField* GetBestPossibleCVCField(
+AutofillField* GetBestPossibleCVCFieldForUpload(
     const FormStructure& form_structure,
     base::string16 last_unlocked_credit_card_cvc) {
   if (!last_unlocked_credit_card_cvc.empty()) {
@@ -344,7 +348,7 @@ AutofillField* GetBestPossibleCVCField(
     return result;
   }
 
-  return HeuristicallyFindCVCField(form_structure);
+  return HeuristicallyFindCVCFieldForUpload(form_structure);
 }
 
 // Some autofill types are detected based on values and not based on form
@@ -357,6 +361,39 @@ bool ContainsAutofillableValue(const autofill::FormStructure& form) {
                               IsUPIVirtualPaymentAddress(field->value);
                      });
 }
+
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+// Retrieves all valid credit card candidates for virtual card selection. A
+// valid candidate must have exactly one cloud token.
+std::vector<CreditCard*> GetVirtualCardCandidates(
+    PersonalDataManager* personal_data_manager) {
+  DCHECK(personal_data_manager);
+  std::vector<CreditCard*> candidates =
+      personal_data_manager->GetServerCreditCards();
+  const std::vector<CreditCardCloudTokenData*> cloud_token_data =
+      personal_data_manager->GetCreditCardCloudTokenData();
+
+  // Constructs map.
+  std::unordered_map<std::string, int> id_count;
+  for (CreditCardCloudTokenData* data : cloud_token_data) {
+    const auto& iterator = id_count.find(data->masked_card_id);
+    if (iterator == id_count.end())
+      id_count.emplace(data->masked_card_id, 1);
+    else
+      iterator->second += 1;
+  }
+
+  // Remove the card from the vector that either has multiple cloud token data
+  // or has no cloud token data.
+  base::EraseIf(candidates, [&](const auto& card) {
+    const auto& iterator = id_count.find(card->server_id());
+    return iterator == id_count.end() || iterator->second > 1;
+  });
+
+  // Returns the remaining valid cards.
+  return candidates;
+}
+#endif
 
 }  // namespace
 
@@ -523,6 +560,29 @@ void AutofillManager::RefetchCardsAndUpdatePopup(
       query_id, cards,
       /*autoselect_first_suggestion=*/false, should_display_gpay_logo);
 }
+
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+void AutofillManager::FetchVirtualCardCandidates() {
+  const std::vector<CreditCard*>& candidates =
+      GetVirtualCardCandidates(personal_data_);
+  // Make sure the |candidates| is not empty, otherwise the check in
+  // ShouldShowVirtualCardOption() should fail.
+  DCHECK(!candidates.empty());
+
+  client_->OfferVirtualCardOptions(
+      candidates,
+      base::BindOnce(&AutofillManager::OnVirtualCardCandidateSelected,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void AutofillManager::OnVirtualCardCandidateSelected(
+    const std::string& selected_card_id) {
+  // TODO(crbug.com/1020740): Implement this and the following flow in a
+  // separate CL. The following flow will be sending a request to Payments
+  // to fetched the up-to-date cloud token data for the selected card and fill
+  // the information in the form.
+}
+#endif
 
 bool AutofillManager::ShouldParseForms(const std::vector<FormData>& forms,
                                        const base::TimeTicks timestamp) {
@@ -1142,7 +1202,7 @@ void AutofillManager::OnHidePopup() {
     return;
 
   autocomplete_history_manager_->CancelPendingQueries(this);
-  client_->HideAutofillPopup();
+  client_->HideAutofillPopup(PopupHidingReason::kRendererEvent);
 }
 
 bool AutofillManager::GetDeletionConfirmationText(const base::string16& value,
@@ -1853,6 +1913,10 @@ void AutofillManager::OnFormsParsed(
         card_form = true;
       } else if (IsAddressForm(field->Type().group())) {
         address_form = true;
+      } else if (field->Type().html_type() == HTML_TYPE_ONE_TIME_CODE &&
+                 !field->IsPasswordInputElement() &&
+                 IsAutofillSmsReceiverEnabled()) {
+        client_->GetSmsClient()->Subscribe();
       }
     }
     if (card_form) {
@@ -2046,8 +2110,8 @@ void AutofillManager::DeterminePossibleFieldTypesForUpload(
   }
 
   // As CVCs are not stored, run special heuristics to detect CVC-like values.
-  AutofillField* cvc_field =
-      GetBestPossibleCVCField(*submitted_form, last_unlocked_credit_card_cvc);
+  AutofillField* cvc_field = GetBestPossibleCVCFieldForUpload(
+      *submitted_form, last_unlocked_credit_card_cvc);
   if (cvc_field) {
     ServerFieldTypeSet possible_types = cvc_field->possible_types();
     possible_types.erase(UNKNOWN_TYPE);
@@ -2338,6 +2402,23 @@ void AutofillManager::GetAvailableSuggestions(
   // We skip populating autofill data, but might generate warnings and or
   // signin promo to show over the unavailable renderer. That seems a mistake.
 
+  if (context->focused_field &&
+      context->focused_field->Type().html_type() == HTML_TYPE_ONE_TIME_CODE &&
+      !context->focused_field->IsPasswordInputElement() &&
+      IsAutofillSmsReceiverEnabled()) {
+    const std::string& one_time_code = client_->GetSmsClient()->GetOTP();
+    if (!one_time_code.empty()) {
+      std::vector<Suggestion> otps{1};
+      Suggestion* otp = &otps.back();
+      otp->value = base::UTF8ToUTF16(one_time_code);
+      otp->match = Suggestion::SUBSTRING_MATCH;
+      otp->frontend_id = POPUP_ITEM_ID_ONE_TIME_CODE;
+      *suggestions = std::move(otps);
+      context->is_autofill_available = true;
+      return;
+    }
+  }
+
   if (!is_autofill_possible || !driver()->RendererIsAvailable() ||
       !got_autofillable_form)
     return;
@@ -2371,11 +2452,25 @@ void AutofillManager::GetAvailableSuggestions(
                                          *context->focused_field);
   }
 
+  // Returns early if no suggestion is available or suggestions are not for
+  // cards.
+  if (suggestions->empty() || !context->is_filling_credit_card)
+    return;
+
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+  // This section adds the "Use a virtual card number" option in the autofill
+  // dropdown menu, if applicable.
+  if (ShouldShowVirtualCardOption(context->form_structure)) {
+    suggestions->emplace_back(l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_CLOUD_TOKEN_DROPDOWN_OPTION_LABEL));
+    suggestions->back().frontend_id = POPUP_ITEM_ID_USE_VIRTUAL_CARD;
+  }
+#endif
+
   // Don't provide credit card suggestions for non-secure pages, but do provide
   // them for secure pages with passive mixed content (see implementation of
   // IsContextSecure).
-  if (!suggestions->empty() && context->is_filling_credit_card &&
-      !context->is_context_secure) {
+  if (!context->is_context_secure) {
     // Replace the suggestion content with a warning message explaining why
     // Autofill is disabled for a website. The string is different if the
     // credit card autofill HTTP warning experiment is enabled.
@@ -2386,6 +2481,46 @@ void AutofillManager::GetAvailableSuggestions(
     suggestions->assign(1, warning_suggestion);
   }
 }
+
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+// TODO(crbug.com/1020740): Add metrics logging.
+bool AutofillManager::ShouldShowVirtualCardOption(
+    FormStructure* form_structure) {
+  // If experiment is disabled, return false.
+  if (!base::FeatureList::IsEnabled(features::kAutofillEnableVirtualCard))
+    return false;
+
+  // If credit card upload is disabled, return false.
+  if (!IsAutofillCreditCardEnabled())
+    return false;
+
+  // If merchant is not whitelisted, return false.
+  std::vector<std::string> whitelist =
+      client_->GetMerchantWhitelistForVirtualCards();
+  if (std::find(whitelist.begin(), whitelist.end(),
+                form_structure->source_url().spec()) == whitelist.end()) {
+    return false;
+  }
+
+  // If no credit card candidate has related cloud token data available, return
+  // false.
+  if (GetVirtualCardCandidates(personal_data_).empty())
+    return false;
+
+  // If card number field or expiration date field is not detected, return
+  // false.
+  if (!form_structure->IsCompleteCreditCardForm())
+    return false;
+
+  // If CVC field is detected, then all requirements are met, otherwise return
+  // false.
+  for (auto& field : *form_structure) {
+    if (field->Type().GetStorableType() == CREDIT_CARD_VERIFICATION_CODE)
+      return true;
+  }
+  return false;
+}
+#endif
 
 FormEventLoggerBase* AutofillManager::GetEventFormLogger(
     FieldTypeGroup field_type_group) const {

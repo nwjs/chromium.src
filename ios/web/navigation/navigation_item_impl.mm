@@ -53,7 +53,7 @@ NavigationItemImpl::NavigationItemImpl()
       should_skip_serialization_(false),
       navigation_initiation_type_(web::NavigationInitiationType::NONE),
       is_untrusted_(false) {
-  if (base::FeatureList::IsEnabled(features::kDefaultToDesktopOnIPad)) {
+  if (base::FeatureList::IsEnabled(features::kUseDefaultUserAgentInWebClient)) {
     // TODO(crbug.com/1025227): Once it is enabled by default, move it to the
     // default constructor.
     user_agent_type_ = UserAgentType::AUTOMATIC;
@@ -113,7 +113,7 @@ void NavigationItemImpl::SetURL(const GURL& url) {
                      /*update_inherited_user_agent =*/true);
   } else if (GetUserAgentType() == web::UserAgentType::NONE) {
     UserAgentType type =
-        base::FeatureList::IsEnabled(features::kDefaultToDesktopOnIPad)
+        base::FeatureList::IsEnabled(features::kUseDefaultUserAgentInWebClient)
             ? UserAgentType::AUTOMATIC
             : UserAgentType::MOBILE;
     SetUserAgentType(type, /*update_inherited_user_agent =*/true);
@@ -339,6 +339,7 @@ void NavigationItemImpl::ResetForCommit() {
 }
 
 ErrorRetryStateMachine& NavigationItemImpl::error_retry_state_machine() {
+  DCHECK(!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage));
   return error_retry_state_machine_;
 }
 

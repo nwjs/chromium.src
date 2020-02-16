@@ -39,19 +39,6 @@
 
 namespace blink {
 
-TextControlInnerContainer::TextControlInnerContainer(Document& document)
-    : HTMLDivElement(document) {
-  setAttribute(html_names::kIdAttr, shadow_element_names::TextFieldContainer());
-}
-
-LayoutObject* TextControlInnerContainer::CreateLayoutObject(
-    const ComputedStyle&,
-    LegacyLayout) {
-  return new LayoutTextControlInnerContainer(this);
-}
-
-// ---------------------------
-
 EditingViewPortElement::EditingViewPortElement(Document& document)
     : HTMLDivElement(document) {
   SetHasCustomStyleCallbacks();
@@ -148,6 +135,7 @@ TextControlInnerEditorElement::CreateInnerEditorStyle() const {
           ? EUserModify::kReadOnly
           : EUserModify::kReadWritePlaintextOnly);
   text_block_style->SetDisplay(EDisplay::kBlock);
+  text_block_style->SetHasLineIfEmpty(true);
 
   if (!IsA<HTMLTextAreaElement>(host)) {
     text_block_style->SetWhiteSpace(EWhiteSpace::kPre);

@@ -9,15 +9,15 @@
 #include "services/shape_detection/public/mojom/facedetection_provider.mojom-blink.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_face_detector_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_landmark.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_point_2d.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_image_source.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
-#include "third_party/blink/renderer/modules/imagecapture/point_2d.h"
 #include "third_party/blink/renderer/modules/shapedetection/detected_face.h"
-#include "third_party/blink/renderer/modules/shapedetection/face_detector_options.h"
-#include "third_party/blink/renderer/modules/shapedetection/landmark.h"
 #include "third_party/blink/renderer/modules/shapedetection/shape_detection_type_converter.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -82,8 +82,8 @@ void FaceDetector::OnDetectFaces(
       HeapVector<Member<Point2D>> locations;
       for (const auto& location : landmark->locations) {
         Point2D* web_location = Point2D::Create();
-        web_location->setX(location.x);
-        web_location->setY(location.y);
+        web_location->setX(location.x());
+        web_location->setY(location.y());
         locations.push_back(web_location);
       }
 

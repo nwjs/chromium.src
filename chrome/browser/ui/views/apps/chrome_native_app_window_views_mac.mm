@@ -7,7 +7,6 @@
 #import <Cocoa/Cocoa.h>
 
 #import "base/mac/scoped_nsobject.h"
-#import "base/mac/sdk_forward_declarations.h"
 #include "chrome/browser/apps/app_shim/extension_app_shim_handler_mac.h"
 #import "chrome/browser/ui/views/apps/app_window_native_widget_mac.h"
 #import "chrome/browser/ui/views/apps/native_app_window_frame_view_mac.h"
@@ -18,7 +17,7 @@
 @interface ResizeNotificationObserver : NSObject {
  @private
   // Weak. Owns us.
-  ChromeNativeAppWindowViewsMac* nativeAppWindow_;
+  ChromeNativeAppWindowViewsMac* _nativeAppWindow;
 }
 - (id)initForNativeAppWindow:(ChromeNativeAppWindowViewsMac*)nativeAppWindow;
 - (void)onWindowWillStartLiveResize:(NSNotification*)notification;
@@ -31,7 +30,7 @@
 
 - (id)initForNativeAppWindow:(ChromeNativeAppWindowViewsMac*)nativeAppWindow {
   if ((self = [super init])) {
-    nativeAppWindow_ = nativeAppWindow;
+    _nativeAppWindow = nativeAppWindow;
     [[NSNotificationCenter defaultCenter]
         addObserver:self
            selector:@selector(onWindowWillStartLiveResize:)
@@ -58,20 +57,20 @@
 }
 
 - (void)onWindowWillStartLiveResize:(NSNotification*)notification {
-  nativeAppWindow_->OnWindowWillStartLiveResize();
+  _nativeAppWindow->OnWindowWillStartLiveResize();
 }
 
 - (void)onWindowWillExitFullScreen:(NSNotification*)notification {
-  nativeAppWindow_->OnWindowWillExitFullScreen();
+  _nativeAppWindow->OnWindowWillExitFullScreen();
 }
 
 - (void)onWindowDidExitFullScreen:(NSNotification*)notification {
-  nativeAppWindow_->OnWindowDidExitFullScreen();
+  _nativeAppWindow->OnWindowDidExitFullScreen();
 }
 
 - (void)stopObserving {
   [[NSNotificationCenter defaultCenter] removeObserver:self];
-  nativeAppWindow_ = nullptr;
+  _nativeAppWindow = nullptr;
 }
 
 @end

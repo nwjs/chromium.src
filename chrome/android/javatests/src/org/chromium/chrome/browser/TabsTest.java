@@ -56,16 +56,15 @@ import org.chromium.chrome.browser.compositor.layouts.phone.stack.StackTab;
 import org.chromium.chrome.browser.jsdialog.JavascriptTabModalDialog;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabbedModeTabPersistencePolicy;
 import org.chromium.chrome.browser.toolbar.top.ToggleTabStackButton;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -174,6 +173,8 @@ public class TabsTest {
 
     @After
     public void tearDown() {
+        mActivityTestRule.getActivity().setRequestedOrientation(
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         if (mTestServer != null) {
             mTestServer.stopAndDestroyServer();
         }
@@ -1791,7 +1792,7 @@ public class TabsTest {
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             Assert.assertTrue("Tab close is not undoable", model.isClosurePending(tab.getId()));
-            Assert.assertTrue("Tab was not hidden", ((TabImpl) tab).isHidden());
+            Assert.assertTrue("Tab was not hidden", tab.isHidden());
         });
     }
 
@@ -1849,12 +1850,12 @@ public class TabsTest {
 
                 Assert.assertNotNull("No initial tab at startup", tab);
                 Assert.assertNotNull("Tab does not have a web contents", tab.getWebContents());
-                Assert.assertTrue("Tab is destroyed", ((TabImpl) tab).isInitialized());
+                Assert.assertTrue("Tab is destroyed", tab.isInitialized());
 
                 selector.destroy();
 
                 Assert.assertNull("Tab still has a web contents", tab.getWebContents());
-                Assert.assertFalse("Tab was not destroyed", ((TabImpl) tab).isInitialized());
+                Assert.assertFalse("Tab was not destroyed", tab.isInitialized());
             }
         });
 

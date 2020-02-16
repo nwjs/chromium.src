@@ -122,7 +122,6 @@
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/download_manager.h"
-#include "content/public/browser/guest_mode.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
@@ -146,8 +145,8 @@
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/common/context_menu_data/input_field_type.h"
 #include "third_party/blink/public/common/context_menu_data/media_type.h"
-#include "third_party/blink/public/common/media/media_player_action.h"
 #include "third_party/blink/public/common/plugin/plugin_action.h"
+#include "third_party/blink/public/mojom/frame/media_player_action.mojom.h"
 #include "third_party/blink/public/public_buildflags.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
 #include "ui/base/clipboard/clipboard.h"
@@ -184,7 +183,7 @@
 
 #if BUILDFLAG(ENABLE_PRINTING)
 #include "chrome/browser/printing/print_view_manager_common.h"
-#include "components/printing/common/print_messages.h"
+#include "components/printing/common/print.mojom.h"
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 #include "chrome/browser/printing/print_preview_context_menu_observer.h"
@@ -201,12 +200,12 @@
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/intent_helper/open_with_menu.h"
 #include "chrome/browser/chromeos/arc/intent_helper/start_smart_selection_action_menu.h"
+#include "chrome/browser/renderer_context_menu/quick_answers_menu_observer.h"
 #endif
 
 using base::UserMetricsAction;
 using blink::ContextMenuDataEditFlags;
 using blink::ContextMenuDataMediaType;
-using blink::MediaPlayerAction;
 using blink::PluginAction;
 using blink::WebContextMenuData;
 using blink::WebString;
@@ -474,18 +473,6 @@ bool IsCommandForOpenLink(int id) {
          id == IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD ||
          (id >= IDC_OPEN_LINK_IN_PROFILE_FIRST &&
           id <= IDC_OPEN_LINK_IN_PROFILE_LAST);
-}
-
-// Usually a new tab is expected where this function is used,
-// however users should be able to open a tab in background
-// or in a new window.
-WindowOpenDisposition ForceNewTabDispositionFromEventFlags(
-    int event_flags) {
-  WindowOpenDisposition disposition =
-      ui::DispositionFromEventFlags(event_flags);
-  return disposition == WindowOpenDisposition::CURRENT_TAB
-             ? WindowOpenDisposition::NEW_FOREGROUND_TAB
-             : disposition;
 }
 
 // Returns the preference of the profile represented by the |context|.
@@ -820,6 +807,8 @@ void RenderViewContextMenu::InitMenu() {
   RenderViewContextMenuBase::InitMenu();
 
 #if 0
+  AppendQuickAnswersItems();
+
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PASSWORD)) {
     AppendPasswordItems();
@@ -1362,6 +1351,18 @@ void RenderViewContextMenu::AppendOpenWithLinkItems() {
       std::make_unique<arc::OpenWithMenu>(browser_context_, this);
   observers_.AddObserver(open_with_menu_observer_.get());
   open_with_menu_observer_->InitMenu(params_);
+#endif
+}
+
+void RenderViewContextMenu::AppendQuickAnswersItems() {
+#if defined(OS_CHROMEOS)
+  if (!quick_answers_menu_observer_) {
+    quick_answers_menu_observer_ =
+        std::make_unique<QuickAnswersMenuObserver>(this);
+  }
+
+  observers_.AddObserver(quick_answers_menu_observer_.get());
+  quick_answers_menu_observer_->InitMenu(params_);
 #endif
 }
 
@@ -2346,8 +2347,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     }
 
     case IDC_RELOAD:
-      embedder_web_contents_->GetController().Reload(
-          content::ReloadType::NORMAL, true);
+      chrome::Reload(GetBrowser(), WindowOpenDisposition::CURRENT_TAB);
       break;
 
     case IDC_CONTENT_CONTEXT_RELOAD_PACKAGED_APP:
@@ -2430,7 +2430,8 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_SEARCHWEBFOR:
     case IDC_CONTENT_CONTEXT_GOTOURL:
       OpenURL(selection_navigation_url_, GURL(),
-              ForceNewTabDispositionFromEventFlags(event_flags),
+              ui::DispositionFromEventFlags(
+                  event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB),
               ui::PAGE_TRANSITION_LINK);
       break;
 
@@ -2452,8 +2453,8 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           GetBrowser(),
           password_manager::ManagePasswordsReferrer::kPasswordContextMenu);
       password_manager::metrics_util::LogContextOfShowAllSavedPasswordsAccepted(
-          password_manager::metrics_util::
-              SHOW_ALL_SAVED_PASSWORDS_CONTEXT_CONTEXT_MENU);
+          password_manager::metrics_util::ShowAllSavedPasswordsContext::
+              kContextMenu);
       break;
 
     case IDC_CONTENT_CONTEXT_PICTUREINPICTURE:
@@ -2758,8 +2759,8 @@ void RenderViewContextMenu::ExecProtocolHandler(int event_flags,
 
   base::RecordAction(
       UserMetricsAction("RegisterProtocolHandler.ContextMenu_Open"));
-  WindowOpenDisposition disposition =
-      ForceNewTabDispositionFromEventFlags(event_flags);
+  WindowOpenDisposition disposition = ui::DispositionFromEventFlags(
+      event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB);
   OpenURL(handlers[handler_index].TranslateUrl(params_.link_url),
           GetDocumentURL(params_),
           disposition,
@@ -2935,7 +2936,8 @@ void RenderViewContextMenu::ExecPlayPause() {
     base::RecordAction(UserMetricsAction("MediaContextMenu_Pause"));
 
   MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
-                      MediaPlayerAction(MediaPlayerAction::Type::kPlay, play));
+                      blink::mojom::MediaPlayerAction(
+                          blink::mojom::MediaPlayerActionType::kPlay, play));
 }
 
 void RenderViewContextMenu::ExecMute() {
@@ -2946,23 +2948,24 @@ void RenderViewContextMenu::ExecMute() {
     base::RecordAction(UserMetricsAction("MediaContextMenu_Unmute"));
 
   MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
-                      MediaPlayerAction(MediaPlayerAction::Type::kMute, mute));
+                      blink::mojom::MediaPlayerAction(
+                          blink::mojom::MediaPlayerActionType::kMute, mute));
 }
 
 void RenderViewContextMenu::ExecLoop() {
   base::RecordAction(UserMetricsAction("MediaContextMenu_Loop"));
-  MediaPlayerActionAt(
-      gfx::Point(params_.x, params_.y),
-      MediaPlayerAction(MediaPlayerAction::Type::kLoop,
-                        !IsCommandIdChecked(IDC_CONTENT_CONTEXT_LOOP)));
+  MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
+                      blink::mojom::MediaPlayerAction(
+                          blink::mojom::MediaPlayerActionType::kLoop,
+                          !IsCommandIdChecked(IDC_CONTENT_CONTEXT_LOOP)));
 }
 
 void RenderViewContextMenu::ExecControls() {
   base::RecordAction(UserMetricsAction("MediaContextMenu_Controls"));
-  MediaPlayerActionAt(
-      gfx::Point(params_.x, params_.y),
-      MediaPlayerAction(MediaPlayerAction::Type::kControls,
-                        !IsCommandIdChecked(IDC_CONTENT_CONTEXT_CONTROLS)));
+  MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
+                      blink::mojom::MediaPlayerAction(
+                          blink::mojom::MediaPlayerActionType::kControls,
+                          !IsCommandIdChecked(IDC_CONTENT_CONTEXT_CONTROLS)));
 }
 
 void RenderViewContextMenu::ExecRotateCW() {
@@ -3000,10 +3003,11 @@ void RenderViewContextMenu::ExecRestartPackagedApp() {
 void RenderViewContextMenu::ExecPrint() {
 #if BUILDFLAG(ENABLE_PRINTING)
   if (params_.media_type != ContextMenuDataMediaType::kNone) {
-    RenderFrameHost* render_frame_host = GetRenderFrameHost();
-    if (render_frame_host) {
-      render_frame_host->Send(new PrintMsg_PrintNodeUnderContextMenu(
-          render_frame_host->GetRoutingID()));
+    RenderFrameHost* rfh = GetRenderFrameHost();
+    if (rfh) {
+      mojo::AssociatedRemote<printing::mojom::PrintRenderFrame> remote;
+      rfh->GetRemoteAssociatedInterfaces()->GetInterface(&remote);
+      remote->PrintNodeUnderContextMenu();
     }
     return;
   }
@@ -3025,7 +3029,8 @@ void RenderViewContextMenu::ExecRouteMedia() {
   if (!dialog_controller)
     return;
 
-  dialog_controller->ShowMediaRouterDialog();
+  dialog_controller->ShowMediaRouterDialog(
+      media_router::MediaRouterDialogOpenOrigin::CONTEXTUAL_MENU);
   media_router::MediaRouterMetrics::RecordMediaRouterDialogOrigin(
       media_router::MediaRouterDialogOpenOrigin::CONTEXTUAL_MENU);
 }
@@ -3062,8 +3067,8 @@ void RenderViewContextMenu::ExecTranslate() {
 }
 
 void RenderViewContextMenu::ExecLanguageSettings(int event_flags) {
-  WindowOpenDisposition disposition =
-      ForceNewTabDispositionFromEventFlags(event_flags);
+  WindowOpenDisposition disposition = ui::DispositionFromEventFlags(
+      event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB);
   GURL url = chrome::GetSettingsUrl(chrome::kLanguageOptionsSubPage);
   OpenURL(url, GURL(), disposition, ui::PAGE_TRANSITION_LINK);
 }
@@ -3071,8 +3076,8 @@ void RenderViewContextMenu::ExecLanguageSettings(int event_flags) {
 void RenderViewContextMenu::ExecProtocolHandlerSettings(int event_flags) {
   base::RecordAction(
       UserMetricsAction("RegisterProtocolHandler.ContextMenu_Settings"));
-  WindowOpenDisposition disposition =
-      ForceNewTabDispositionFromEventFlags(event_flags);
+  WindowOpenDisposition disposition = ui::DispositionFromEventFlags(
+      event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB);
   GURL url = chrome::GetSettingsUrl(chrome::kHandlerSettingsSubPage);
   OpenURL(url, GURL(), disposition, ui::PAGE_TRANSITION_LINK);
 }
@@ -3094,13 +3099,14 @@ void RenderViewContextMenu::ExecPictureInPicture() {
 
   MediaPlayerActionAt(
       gfx::Point(params_.x, params_.y),
-      MediaPlayerAction(MediaPlayerAction::Type::kPictureInPicture,
-                        !picture_in_picture_active));
+      blink::mojom::MediaPlayerAction(
+          blink::mojom::MediaPlayerActionType::kPictureInPicture,
+          !picture_in_picture_active));
 }
 
 void RenderViewContextMenu::MediaPlayerActionAt(
     const gfx::Point& location,
-    const MediaPlayerAction& action) {
+    const blink::mojom::MediaPlayerAction& action) {
   RenderFrameHost* frame_host = GetRenderFrameHost();
   if (frame_host)
     frame_host->ExecuteMediaPlayerActionAtLocation(location, action);

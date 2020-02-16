@@ -53,8 +53,7 @@ void FilterSquareIconsFromBitmaps(
 }  // namespace
 
 void UpdateWebAppInfoFromManifest(const blink::Manifest& manifest,
-                                  WebApplicationInfo* web_app_info,
-                                  ForInstallableSite for_installable_site) {
+                                  WebApplicationInfo* web_app_info) {
   if (!manifest.short_name.is_null())
     web_app_info->title = manifest.short_name.string();
 
@@ -66,18 +65,14 @@ void UpdateWebAppInfoFromManifest(const blink::Manifest& manifest,
   if (manifest.start_url.is_valid())
     web_app_info->app_url = manifest.start_url;
 
-  if (for_installable_site == ForInstallableSite::kYes)
+  if (manifest.scope.is_valid())
     web_app_info->scope = manifest.scope;
 
   if (manifest.theme_color)
     web_app_info->theme_color = *manifest.theme_color;
 
-  // When the display member is missing, or if there is no valid display member,
-  // the user agent uses the browser display mode as the default display mode.
-  // https://w3c.github.io/manifest/#display-modes
-  web_app_info->display_mode = (manifest.display == DisplayMode::kUndefined)
-                                   ? DisplayMode::kBrowser
-                                   : manifest.display;
+  if (manifest.display != DisplayMode::kUndefined)
+    web_app_info->display_mode = manifest.display;
 
   // Create the WebApplicationInfo icons list *outside* of |web_app_info|, so
   // that we can decide later whether or not to replace the existing icons array
@@ -158,11 +153,15 @@ void FilterAndResizeIconsGenerateMissing(WebApplicationInfo* web_app_info,
       sizes_to_generate.insert(icon.square_size_px);
   }
 
+  base::char16 icon_letter =
+      web_app_info->title.empty()
+          ? GenerateIconLetterFromUrl(web_app_info->app_url)
+          : GenerateIconLetterFromAppName(web_app_info->title);
   web_app_info->generated_icon_color = SK_ColorTRANSPARENT;
   // TODO(https://crbug.com/1029223): Don't resize before writing to disk, it's
   // not necessary and would simplify this code path to remove.
   std::map<SquareSizePx, SkBitmap> size_to_icon = ResizeIconsAndGenerateMissing(
-      square_icons, sizes_to_generate, web_app_info->app_url,
+      square_icons, sizes_to_generate, icon_letter,
       &web_app_info->generated_icon_color);
 
   for (std::pair<const SquareSizePx, SkBitmap>& item : size_to_icon) {

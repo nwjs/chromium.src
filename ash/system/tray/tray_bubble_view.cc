@@ -8,6 +8,8 @@
 #include <numeric>
 
 #include "ash/public/cpp/ash_features.h"
+#include "ash/system/tray/tray_constants.h"
+#include "ash/system/unified/unified_system_tray_view.h"
 #include "base/macros.h"
 #include "base/numerics/ranges.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -223,6 +225,7 @@ TrayBubbleView::TrayBubbleView(const InitParams& init_params)
       owned_bubble_border_(bubble_border_),
       is_gesture_dragging_(false),
       mouse_actively_entered_(false) {
+  DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
   DCHECK(delegate_);
   DCHECK(params_.parent_window);
   // anchor_widget() is computed by BubbleDialogDelegateView().
@@ -237,7 +240,25 @@ TrayBubbleView::TrayBubbleView(const InitParams& init_params)
   set_notify_enter_exit_on_child(true);
   set_close_on_deactivate(init_params.close_on_deactivate);
   set_margins(gfx::Insets());
-  SetPaintToLayer();
+
+  if (init_params.translucent) {
+    // The following code will not work with bubble's shadow.
+    DCHECK(!init_params.has_shadow);
+    SetPaintToLayer(ui::LAYER_SOLID_COLOR);
+
+    layer()->SetRoundedCornerRadius(
+        gfx::RoundedCornersF{kUnifiedTrayCornerRadius});
+    layer()->SetColor(UnifiedSystemTrayView::GetBackgroundColor());
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetIsFastRoundedCorner(true);
+    if (features::IsBackgroundBlurEnabled())
+      layer()->SetBackgroundBlur(kUnifiedMenuBackgroundBlur);
+  } else {
+    // Create a layer so that the layer for FocusRing stays in this view's
+    // layer. Without it, the layer for FocusRing goes above the
+    // NativeViewHost and may steal events.
+    SetPaintToLayer();
+  }
 
   auto layout = std::make_unique<BottomAlignedBoxLayout>(this);
   layout->SetDefaultFlex(1);
@@ -266,10 +287,6 @@ bool TrayBubbleView::IsATrayBubbleOpen() {
 }
 
 void TrayBubbleView::InitializeAndShowBubble() {
-  int radius = bubble_border_->corner_radius();
-  layer()->parent()->SetRoundedCornerRadius({radius, radius, radius, radius});
-  layer()->parent()->SetIsFastRoundedCorner(true);
-
   GetWidget()->Show();
   UpdateBubble();
 
@@ -287,11 +304,6 @@ void TrayBubbleView::UpdateBubble() {
   if (GetWidget()) {
     SizeToContents();
     GetWidget()->GetRootView()->SchedulePaint();
-
-    // When extra keyboard accessibility is enabled, focus the default item if
-    // no item is focused.
-    if (delegate_ && delegate_->ShouldEnableExtraKeyboardAccessibility())
-      FocusDefaultIfNeeded();
   }
 }
 
@@ -342,10 +354,6 @@ bool TrayBubbleView::IsAnchoredToStatusArea() const {
   return true;
 }
 
-int TrayBubbleView::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_NONE;
-}
-
 void TrayBubbleView::StopReroutingEvents() {
   reroute_event_handler_.reset();
 }
@@ -386,6 +394,12 @@ void TrayBubbleView::OnWidgetActivationChanged(Widget* widget, bool active) {
   reroute_event_handler_.reset();
 
   BubbleDialogDelegateView::OnWidgetActivationChanged(widget, active);
+}
+
+ui::LayerType TrayBubbleView::GetLayerType() const {
+  if (params_.translucent)
+    return ui::LAYER_NOT_DRAWN;
+  return ui::LAYER_TEXTURED;
 }
 
 NonClientFrameView* TrayBubbleView::CreateNonClientFrameView(Widget* widget) {
@@ -474,14 +488,6 @@ void TrayBubbleView::ChildPreferredSizeChanged(View* child) {
   SizeToContents();
 }
 
-void TrayBubbleView::ViewHierarchyChanged(
-    const views::ViewHierarchyChangedDetails& details) {
-  if (details.is_add && details.child == this) {
-    details.parent->SetPaintToLayer();
-    details.parent->layer()->SetMasksToBounds(true);
-  }
-}
-
 void TrayBubbleView::SetBubbleBorderInsets(gfx::Insets insets) {
   bubble_border_->set_insets(insets);
 }
@@ -491,23 +497,6 @@ void TrayBubbleView::CloseBubbleView() {
     return;
 
   delegate_->HideBubble(this);
-}
-
-void TrayBubbleView::FocusDefaultIfNeeded() {
-  views::FocusManager* manager = GetFocusManager();
-  if (!manager || manager->GetFocusedView())
-    return;
-
-  views::View* view =
-      manager->GetNextFocusableView(nullptr, nullptr, false, false);
-  if (!view)
-    return;
-
-  // No need to explicitly activate the widget. View::RequestFocus will activate
-  // it if necessary.
-  SetCanActivate(true);
-
-  view->RequestFocus();
 }
 
 }  // namespace ash

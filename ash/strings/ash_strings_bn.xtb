@@ -15,10 +15,10 @@
 <translation id="1153356358378277386">যুক্ত করা ডিভাইসগুলি</translation>
 <translation id="1175572348579024023">স্ক্রল করুন</translation>
 <translation id="1178581264944972037">বিরতি</translation>
+<translation id="1190609913194133056">বিজ্ঞপ্তি কেন্দ্র</translation>
 <translation id="1195412055398077112">ওভারস্ক্যান</translation>
 <translation id="119944043368869598">সব পরিষ্কার করুন</translation>
 <translation id="1247372569136754018">মাইক্রোফোন (অভ্যন্তরীণ)</translation>
-<translation id="1249456112629248620"><ph name="FEATURE_NAME" /> সেটিং আপনার অ্যাডমিনিস্ট্রেটর প্রয়োগ করেছেন।</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> থেকে চার্জ হচ্ছে</translation>
 <translation id="1255033239764210633">আবহাওয়া কি রকম?</translation>
 <translation id="1267032506238418139">শর্টকাটে পরিবর্তন</translation>
@@ -45,6 +45,7 @@
 <translation id="1460620680449458626">ভলিউম মিউট করা আছে।</translation>
 <translation id="1467432559032391204">বামে</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
+<translation id="1508507608940204251">চালু করা আছে</translation>
 <translation id="1516740043221086139">'বিরক্ত করবে না' মোড চালু আছে।</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{বিজ্ঞপ্তির সেটিংস দেখান। একটি অ্যাপের জন্য বিজ্ঞপ্তির নোটিফিকেশন বন্ধ আছে}one{বিজ্ঞপ্তির সেটিংস দেখান। #টি অ্যাপের জন্য নোটিফিকেশন বন্ধ আছে}other{বিজ্ঞপ্তির সেটিংস দেখান। #টি অ্যাপের জন্য নোটিফিকেশন বন্ধ আছে}}</translation>
 <translation id="1525508553941733066">খারিজ করুন</translation>
@@ -69,6 +70,7 @@
 <translation id="1836215606488044471">সহায়ক (লোড হচ্ছে...)</translation>
 <translation id="1838895407229022812">নাইট লাইট ফিচার বন্ধ করা আছে।</translation>
 <translation id="1850504506766569011">ওয়াই-ফাই বন্ধ আছে৷</translation>
+<translation id="1859889070386344428">বন্ধ করা আছে</translation>
 <translation id="1864454756846565995">USB-C ডিভাইস (পিছনের পোর্ট)</translation>
 <translation id="1882897271359938046"><ph name="DISPLAY_NAME" /> তে প্রতিবিম্বিত হচ্ছে</translation>
 <translation id="1885785240814121742">আঙ্গুলের ছাপ দিয়ে আনলক করুন</translation>
@@ -110,17 +112,19 @@
 <translation id="2352467521400612932">স্টাইলাস সেটিংস</translation>
 <translation id="2354174487190027830"><ph name="NAME" /> সক্রিয় করা হচ্ছে</translation>
 <translation id="2359808026110333948">চালিয়ে যান</translation>
+<translation id="2364154243880592194">স্ট্যাটাস ট্রে, সময় <ph name="TIME" />, <ph name="BATTERY" /> বিজ্ঞপ্তি কেন্দ্র অ্যাক্সেস করতে 'সার্চ করুন' এবং 'বাঁদিকে যান' বোতামে একসাথে প্রেস করুন।</translation>
 <translation id="2365393535144473978">মোবাইল ডেটা সক্ষম করলে ব্লুটুথও সক্ষম হয়ে যাবে।</translation>
 <translation id="2391579633712104609">১৮০°</translation>
 <translation id="2412593942846481727">আপডেট উপলভ্য</translation>
 <translation id="2413728805700750528"><ph name="DOMAIN" /> দ্বারা পরিচালিত <ph name="DISPLAY_NAME" /> একটি পরিচালিত সেশন</translation>
 <translation id="2427507373259914951">বাঁদিকের বোতামে ক্লিক করুন</translation>
 <translation id="2429753432712299108">ব্লুটুথ ডিভাইস "<ph name="DEVICE_NAME" />" যুক্ত করার অনুমতি চাইছে। স্বীকার করার আগে, এই পাস কীটি ডিভাইসে প্রদর্শিত হয়েছে কিনা নিশ্চিত করুন: <ph name="PASSKEY" /></translation>
+<translation id="2473177541599297363">রেজোলিউশন কনফার্ম করুন</translation>
 <translation id="2482878487686419369">বিজ্ঞপ্তিগুলি</translation>
 <translation id="2484513351006226581">কীবোর্ড লে-আউট পরিবর্তন করতে <ph name="KEYBOARD_SHORTCUT" /> টিপুন।</translation>
 <translation id="2501920221385095727">স্টিকি কীজ</translation>
 <translation id="2509468283778169019">CAPS LOCK চালু</translation>
-<translation id="2517825809102302935">আজ রাতের জন্য বন্ধ করুন</translation>
+<translation id="2519465031217098801">চালু করা আছে</translation>
 <translation id="2542089167727451762">আপনার প্রোফাইল ছবিতে ট্যাপ করুন</translation>
 <translation id="255671100581129685">সর্বজনীন সেশনে Google অ্যাসিস্ট্যান্ট উপলভ্য নয়।</translation>
 <translation id="256712445991462162">ডক করা ম্যাগনিফায়ার</translation>
@@ -134,10 +138,10 @@
 <translation id="2704781753052663061">অন্য ওয়াই-ফাই নেটওয়ার্কে যোগ দিন</translation>
 <translation id="2718395828230677721">নাইট লাইট</translation>
 <translation id="2727977024730340865">একটি নিম্ন শক্তির চার্জার প্লাগইন করা হয়েছে৷ বিশ্বস্ত ব্যাটারি চার্জ নাও হতে পারে৷</translation>
-<translation id="2761704814324807722">স্থিতি ট্রে, সময় <ph name="TIME" />, <ph name="BATTERY" /></translation>
 <translation id="2792498699870441125">Alt+Search</translation>
 <translation id="2803734122639935495">আনলক করতে আপনার পাসওয়ার্ড লিখুন</translation>
 <translation id="2819276065543622893">আপনি এখনই প্রস্থান করুন হবেন৷</translation>
+<translation id="2825224105325558319"><ph name="DISPLAY_NAME" /> <ph name="SPECIFIED_RESOLUTION" /> রেজোলিউশনে চলতে পারে না। তাই রেজোলিউশন পরিবর্তন করে <ph name="FALLBACK_RESOLUTION" /> করা হয়েছে।</translation>
 <translation id="2825619548187458965">তাক</translation>
 <translation id="2844169650293029770">USB-C ডিভাইস (বাঁ দিকের সামনের পোর্ট)</translation>
 <translation id="2865888419503095837">নেটওয়ার্ক তথ্য</translation>
@@ -167,6 +171,7 @@
 <translation id="3151786313568798007">সজ্জা</translation>
 <translation id="3153444934357957346">একধিক সাইন-ইনে আপনার সর্বাধিক <ph name="MULTI_PROFILE_USER_LIMIT" />টি অ্যাকাউন্ট থাকতে পারে।</translation>
 <translation id="3154351730702813399">ডিভাইস প্রশাসক আপনার ব্রাউজিং অ্যাক্টিভিটি পর্যবেক্ষণ করতে পারেন।</translation>
+<translation id="3181441307743005334">রিস্টার্ট করতে কিছুক্ষণ সময় লাগতে পারে</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{একটি ডিভাইসে কানেক্ট রয়েছে}one{#টি ডিভাইসে কানেক্ট রয়েছে}other{#টি ডিভাইসে কানেক্ট রয়েছে}}</translation>
 <translation id="3217205077783620295">ভলিউম চালু আছে, টগল করলে অডিও মিউট হয়ে যাবে।</translation>
 <translation id="3226991577105957773">+ আরও <ph name="COUNT" />টি</translation>
@@ -224,6 +229,7 @@
 <translation id="3901991538546252627"><ph name="NAME" />-এ সংযোগ করা হচ্ছে</translation>
 <translation id="394485226368336402">অডিও সেটিংস</translation>
 <translation id="3962859241508114581">আগের ট্র্যাক চালান</translation>
+<translation id="3965097803111112935">বন্ধ করা আছে</translation>
 <translation id="397105322502079400">গণনা করা হচ্ছে...</translation>
 <translation id="3977512764614765090">ব্যাটারি <ph name="PERCENTAGE" /> শতাংশ চার্জ করা হয়েছে এবং এখনও চার্জ করা চলছে।</translation>
 <translation id="3995138139523574647">USB-C ডিভাইস (ডান দিকের পিছনের পোর্ট)</translation>
@@ -235,6 +241,7 @@
 <translation id="4112140312785995938">পিছিয়ে যান</translation>
 <translation id="4129129681837227511">আপনার লক স্ক্রিনে বিজ্ঞপ্তি দেখার জন্য সেটিংস পরিবর্তন করতে আনলক করুন</translation>
 <translation id="4146833061457621061">মিউজিক চালান</translation>
+<translation id="4149156641122542261"><ph name="DEVICE_TYPE" /> <ph name="DOMAIN" /> ম্যানেজ করে</translation>
 <translation id="4181841719683918333">ভাষাসমূহ</translation>
 <translation id="4195877955194704651">অটোমেটিক ক্লিক বোতাম</translation>
 <translation id="4217571870635786043">ডিক্টেশন</translation>
@@ -297,7 +304,6 @@
 <translation id="4924411785043111640">রিস্টার্ট করুন এবং রিসেট করুন</translation>
 <translation id="495046168593986294">উপরের দিকে স্ক্রল করুন</translation>
 <translation id="4961318399572185831">স্ক্রিন কাস্ট করুন</translation>
-<translation id="5018302031617932556">নাইট লাইটের জন্য স্ক্রিনের দিকে স্বচ্ছন্দে তাকানো যায় বা কম আলোতে পড়া যায়। এটি পরিবর্তন করতে ট্যাপ করুন।</translation>
 <translation id="5030687792513154421">সময় শেষ</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" />টি নতুন ফোনে কানেক্ট করা হয়েছে</translation>
 <translation id="5083553833479578423">অ্যাসিস্ট্যান্ট-এর আরও বৈশিষ্ট্য আনলক করুন।</translation>
@@ -306,6 +312,7 @@
 <translation id="5207949376430453814">পাঠ্যের কার্সার হাইলাইট করুন</translation>
 <translation id="5222676887888702881">সাইন-আউট করুন</translation>
 <translation id="523505283826916779">অ্যাক্সেসিবিলিটি সেটিংস</translation>
+<translation id="5250225880026334010">বন্ধ করা আছে</translation>
 <translation id="5260676007519551770">ডেস্ক ৪</translation>
 <translation id="5283198616748585639">১ মিনিট যোগ করুন</translation>
 <translation id="5286194356314741248">স্ক্যান হচ্ছে</translation>
@@ -333,6 +340,7 @@
 <translation id="5669267381087807207">সক্রিয় করা হচ্ছে</translation>
 <translation id="5673434351075758678">সেটিংস সিঙ্ক করার পরে "<ph name="FROM_LOCALE" />" থেকে "<ph name="TO_LOCALE" />" সেট করা হয়েছে।</translation>
 <translation id="5682642926269496722">বর্তমান ব্যবহারকারীর অ্যাকাউন্টের জন্য Google অ্যাসিস্ট্যান্ট উপলভ্য নয়।</translation>
+<translation id="5689633613396158040">নাইট লাইট ফিচারের জন্য স্ক্রিনের দিকে স্বচ্ছন্দে তাকানো যায় বা কম আলোতে পড়তে পারা যায়। কোন সময় নাইট লাইট ফিচারটি সম্পূর্ণভাবে চালু করা হবে বা বন্ধ করা হবে তা পরিবর্তন করতে ট্যাপ করুন।</translation>
 <translation id="5691772641933328258">আঙ্গুলের ছাপ শনাক্ত করা যায়নি</translation>
 <translation id="5710450975648804523">'বিরক্ত করবে না' মোড চালু আছে</translation>
 <translation id="573413375004481890">এই ডিভাইসে সব ডিসপ্লে করা যাবে না তাই একটি ডিসকানেক্ট করা হয়েছে</translation>
@@ -344,7 +352,6 @@
 <translation id="5777841717266010279">স্ক্রিন শেয়ার করা থামাবেন?</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5837036133683224804"><ph name="RECEIVER_NAME" />-এ <ph name="ROUTE_TITLE" /> বন্ধ করুন</translation>
-<translation id="5860033963881614850">বন্ধ করুন</translation>
 <translation id="5895138241574237353">পুনর্সূচনা</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
@@ -396,6 +403,7 @@
 <translation id="6490471652906364588">USB-C ডিভাইস (ডান পোর্ট)</translation>
 <translation id="649452524636452238">স্মার্ট কার্ড পিন</translation>
 <translation id="6501401484702599040"><ph name="RECEIVER_NAME" /> এ স্ক্রিন কাস্ট করা হচ্ছে</translation>
+<translation id="652139407789908527">এই আপডেট চলাকালীন, আপনার স্ক্রিনে, সাধারণত যে সময় লাগে, তার চেয়ে বেশি সময় (প্রায় এক মিনিট পর্যন্ত) কিছুই দেখতে পাবেন না। আপডেট চলাকালীন পাওয়ার বোতাম প্রেস করবেন না।</translation>
 <translation id="6521655319214113338">হাতে লেখা ইনপুট</translation>
 <translation id="6528179044667508675">বিরক্ত করবে না</translation>
 <translation id="6537270692134705506">স্ক্রিন ক্যাপচার করুন</translation>
@@ -409,6 +417,7 @@
 <translation id="6650933572246256093">ব্লুটুথ ডিভাইস "<ph name="DEVICE_NAME" />" যুক্ত করার অনুমতি চাইছে। ডিভাইসটিতে এই পাস কীটি দিন: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">পাসওয়ার্ড</translation>
 <translation id="6665545700722362599">ওয়েবসাইট, অ্যাপ এবং এক্সটেনশনকে লোকেশন ভিত্তিক পরিষেবা, ডিভাইসের মাইক্রোফোন, ক্যামেরা ও অন্যান্য ফিচার ব্যবহারের অনুমতি দেয়</translation>
+<translation id="6669268301501499730">চালু করা আছে</translation>
 <translation id="6670153871843998651">ডেস্ক ৩</translation>
 <translation id="6691659475504239918">Search+Shift+H</translation>
 <translation id="6696025732084565524">আলাদা করা যায় এমন কীবোর্ডের একটি জরুরি আপডেট প্রয়োজন</translation>
@@ -447,6 +456,7 @@
 <translation id="7143207342074048698">সংযুক্ত হচ্ছে</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358"><ph name="TIMEOUT_SECONDS" /> -এ পুরনো রেজোলিউশানে ফেরানো হচ্ছে</translation>
+<translation id="7246071203293827765"><ph name="UPDATE_TEXT" />। একটি আপডেট প্রয়োগ করতে Chromebook রিস্টার্ট করতে হবে। এতে ১ মিনিট পর্যন্ত সময় লাগতে পারে।</translation>
 <translation id="7256634071279256947">পেছনের মাইক্রোফোন</translation>
 <translation id="726276584504105859">বিভক্ত স্ক্রিন ব্যবহার করতে এখানে টেনে আনুন</translation>
 <translation id="7262906531272962081">রিমাইন্ডার তৈরি করুন</translation>
@@ -465,7 +475,6 @@
 <translation id="7526573455193969409">নেটওয়ার্কের উপরে নজর রাখা হতে পারে</translation>
 <translation id="7536035074519304529">আইপি অ্যাড্রেস: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">শুতে যাওয়ার সময় হয়েছে</translation>
-<translation id="7561014039265304140"><ph name="DISPLAY_NAME" />, <ph name="SPECIFIED_RESOLUTION" /> সমর্থন করে না৷ রেজোলিউশন <ph name="FALLBACK_RESOLUTION" />-এ পরিবর্তিত হয়েছে</translation>
 <translation id="7562368315689366235">ইমোজি প্যালেট</translation>
 <translation id="7564874036684306347">কোনও উইন্ডো অন্য ডেস্কটপে সরানো হলে সেটির আচরণে অপ্রত্যাশিত পরিবর্তন হতে পারে। পরবর্তী বিজ্ঞপ্তি, উইন্ডো এবং ডায়ালগ দুটি ডেস্কটপ মিলিয়ে দেখানো হতে পারে।</translation>
 <translation id="7568294522609223312">অটোমেটিক ক্লিক বিকল্প বন্ধ করুন</translation>
@@ -508,11 +517,13 @@
 <translation id="8061464966246066292">উচ্চ বৈসাদৃশ্য</translation>
 <translation id="8098591350844501178"><ph name="RECEIVER_NAME" /> এ স্ক্রিন কাস্ট করা বন্ধ করুন</translation>
 <translation id="8113423164597455979">সমস্ত অ্যাপের জন্য চালু আছে</translation>
+<translation id="8131740175452115882">নিশ্চিত হন</translation>
 <translation id="8132793192354020517"><ph name="NAME" /> তে সংযুক্ত</translation>
 <translation id="813913629614996137">আরম্ভ হচ্ছে…</translation>
 <translation id="8142441511840089262">ডবল ক্লিক করুন</translation>
 <translation id="8142699993796781067">ব্যক্তিগত নেটওয়ার্ক</translation>
 <translation id="8152092012181020186">বন্ধ করতে Ctrl + W প্রেস করুন।</translation>
+<translation id="8155007568264258537"><ph name="FEATURE_NAME" /> এই সেটিং আপনার অ্যাডমিনিস্ট্রেটর ম্যানেজ করে থাকে।</translation>
 <translation id="8167567890448493835"><ph name="LOCALE_NAME" /> ব্যবহার করা হচ্ছে</translation>
 <translation id="8190698733819146287">ভাষা এবং ইনপুট কাস্টমাইজ করুন...</translation>
 <translation id="8192202700944119416">বিজ্ঞপ্তি লুকানো আছে।</translation>
@@ -540,6 +551,7 @@
 <translation id="847056008324733326">স্কেলের সেটিংস দেখান</translation>
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" />-এর <ph name="FEATURE_NAME" /> <ph name="FEATURE_STATE" />।</translation>
 <translation id="8477270416194247200">Alt+Search টিপুন বা বাতিল করতে Shift টিপুন</translation>
+<translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> <ph name="SPECIFIED_RESOLUTION" /> রেজোলিউশনে চলতে পারে না। এই রেজোলিউশন পরিবর্তন করে <ph name="FALLBACK_RESOLUTION" /> করা হয়েছে। পরিবর্তিত সেটিংস বজায় রাখতে, 'কনফার্ম করুন' বোতামে ক্লিক করুন। <ph name="TIMEOUT_SECONDS" />-এর মধ্যে পুরনো সেটিংসে ফিরিয়ে নিয়ে যাওয়া হবে।</translation>
 <translation id="8513108775083588393">নিজে থেকে ঘুরবে</translation>
 <translation id="8517041960877371778">আপনার <ph name="DEVICE_TYPE" /> চালু থাকা অবস্থায় চার্জ নাও হতে পারে।</translation>
 <translation id="8627191004499078455"><ph name="DEVICE_NAME" />-এর সাথে কানেক্ট হয়েছে</translation>
@@ -589,12 +601,13 @@
 <translation id="9089416786594320554">ইনপুট পদ্ধতিসমূহ</translation>
 <translation id="9091626656156419976"><ph name="DISPLAY_NAME" /> প্রদর্শন সরানো হয়েছে</translation>
 <translation id="9151726767154816831">আপডেট করার জন্য আবার শুরু করুন এবং পাওয়ারওয়াশ করুন</translation>
+<translation id="9168436347345867845">এটি পরে করুন</translation>
 <translation id="9179259655489829027">এই বৈশিষ্ট্যের মাধ্যমে আপনি কোনও পাসওয়ার্ড ছাড়াই সাইন-ইন করা যেকোনও ব্যবহারকারীকে দ্রুত অ্যাক্সেস করতে পারেন। এটি শুধুমাত্র বিশ্বস্ত অ্যাকাউন্টেই ব্যবহার করুন।</translation>
 <translation id="9183456764293710005">ফুল-স্ক্রিন ম্যাগনিফায়ার</translation>
 <translation id="9193626018745640770">অজানা ডিভাইসে কাস্ট করা হচ্ছে</translation>
 <translation id="9194617393863864469">অন্য ব্যবহারকারীকে সাইন-ইন করান...</translation>
+<translation id="9198992156681343238"><ph name="DISPLAY_NAME" />-এর রেজোলিউশন পরিবর্তন করে <ph name="RESOLUTION" /> করা হয়েছে। পরিবর্তিত সেটিংস বজায় রাখতে, 'কনফার্ম করুন' বোতামে ক্লিক করুন। <ph name="TIMEOUT_SECONDS" />-এর মধ্যে পুরনো সেটিংসে ফিরিয়ে নিয়ে যাওয়া হবে।</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, আপনার অ্যাডমিনিস্ট্রেটর ম্যানেজ করে</translation>
-<translation id="9205817095063786319"><ph name="DOMAIN" /> ডিভাইস ম্যানেজ করছে</translation>
 <translation id="9210037371811586452">সমন্বিত ডেস্কটপ মোড থেকে প্রস্থান করছে</translation>
 <translation id="9211681782751733685">ব্যাটারি পুরো চার্জ হতে <ph name="TIME_REMAINING" /> বাকি আছে।</translation>
 <translation id="9215934040295798075">ওয়ালপেপার সেট করুন</translation>

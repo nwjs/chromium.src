@@ -172,7 +172,8 @@ class AppSearchProviderTest : public AppListTestBase {
     std::vector<ChromeSearchResult*> priority_results;
     for (const auto& result : app_search_->results()) {
       if (result->display_index() == ash::kFirstIndex &&
-          result->display_location() == ash::kSuggestionChipContainer) {
+          (result->display_type() == ash::kChip ||
+           result->display_type() == ash::kTile)) {
         priority_results.emplace_back(result.get());
       } else {
         non_relevance_results.emplace_back(result.get());
@@ -389,16 +390,14 @@ TEST_F(AppSearchProviderTest, FetchRecommendations) {
   prefs->SetLastLaunchTime(kPackagedApp2Id, base::Time::FromInternalValue(5));
   // Allow async callbacks to run.
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
-            RunQuery(""));
+  EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings", RunQuery(""));
 
   prefs->SetLastLaunchTime(kHostedAppId, base::Time::FromInternalValue(5));
   prefs->SetLastLaunchTime(kPackagedApp1Id, base::Time::FromInternalValue(10));
   prefs->SetLastLaunchTime(kPackagedApp2Id, base::Time::FromInternalValue(20));
   // Allow async callbacks to run.
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ("Packaged App 2,Packaged App 1,Hosted App,Settings,Camera",
-            RunQuery(""));
+  EXPECT_EQ("Packaged App 2,Packaged App 1,Hosted App,Settings", RunQuery(""));
 
   // Times in the future should just be handled as highest priority.
   prefs->SetLastLaunchTime(kHostedAppId,
@@ -407,8 +406,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendations) {
   prefs->SetLastLaunchTime(kPackagedApp2Id, base::Time::FromInternalValue(5));
   // Allow async callbacks to run.
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
-            RunQuery(""));
+  EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings", RunQuery(""));
 }
 
 TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
@@ -475,7 +473,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
     session_tracker()->GetSession(kForeignSessionTag3)->device_type =
         sync_pb::SyncEnums::TYPE_PHONE;
 
-    EXPECT_EQ("title2,Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
+    EXPECT_EQ("title2,Hosted App,Packaged App 1,Packaged App 2,Settings",
               RunQueryNotSortingByRelevance(""));
   }
 
@@ -499,7 +497,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
     session_tracker()->GetSession(kLocalSessionTag)->device_type =
         sync_pb::SyncEnums::TYPE_PHONE;
 
-    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
+    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings",
               RunQueryNotSortingByRelevance(""));
   }
 
@@ -524,7 +522,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
     session_tracker()->GetSession(kForeignSessionTag1)->device_type =
         sync_pb::SyncEnums::TYPE_PHONE;
 
-    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
+    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings",
               RunQueryNotSortingByRelevance(""));
   }
 
@@ -549,7 +547,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
     session_tracker()->GetSession(kForeignSessionTag1)->device_type =
         sync_pb::SyncEnums::TYPE_TABLET;
 
-    EXPECT_EQ("title1,Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
+    EXPECT_EQ("title1,Hosted App,Packaged App 1,Packaged App 2,Settings",
               RunQueryNotSortingByRelevance(""));
   }
 
@@ -574,7 +572,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
     session_tracker()->GetSession(kForeignSessionTag1)->device_type =
         sync_pb::SyncEnums::TYPE_CROS;
 
-    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
+    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings",
               RunQueryNotSortingByRelevance(""));
   }
 
@@ -599,7 +597,7 @@ TEST_F(AppSearchProviderTest, FetchRecommendationsWithContinueReading) {
     session_tracker()->GetSession(kForeignSessionTag1)->device_type =
         sync_pb::SyncEnums::TYPE_CROS;
 
-    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
+    EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings",
               RunQueryNotSortingByRelevance(""));
   }
 
@@ -637,8 +635,7 @@ TEST_F(AppSearchProviderTest, FetchUnlaunchedRecommendations) {
   prefs->SetLastLaunchTime(kHostedAppId, base::Time::Now());
   prefs->SetLastLaunchTime(kPackagedApp1Id, base::Time::FromInternalValue(0));
   prefs->SetLastLaunchTime(kPackagedApp2Id, base::Time::FromInternalValue(0));
-  EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings,Camera",
-            RunQuery(""));
+  EXPECT_EQ("Hosted App,Packaged App 1,Packaged App 2,Settings", RunQuery(""));
 }
 
 TEST_F(AppSearchProviderTest, FilterDuplicate) {

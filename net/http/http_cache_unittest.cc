@@ -863,7 +863,7 @@ TEST_P(HttpCacheTest_SplitCacheFeature, SimpleGETVerifyGoogleFontMetrics) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HttpCacheTest_SplitCacheFeature,
     testing::Bool());
 
@@ -3019,7 +3019,8 @@ TEST_F(HttpCacheTest, RangeGET_Enormous) {
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
   auto backend_factory = std::make_unique<HttpCache::DefaultBackend>(
-      DISK_CACHE, CACHE_BACKEND_BLOCKFILE, temp_dir.GetPath(), 1024 * 1024);
+      DISK_CACHE, CACHE_BACKEND_BLOCKFILE, temp_dir.GetPath(), 1024 * 1024,
+      false);
   MockHttpCache cache(std::move(backend_factory));
 
   RangeTransactionServer handler;
@@ -6940,6 +6941,107 @@ TEST_F(HttpCacheTest, SimpleDELETE_DontInvalidate_416) {
   EXPECT_EQ(1, cache.disk_cache()->create_count());
 
   transaction.method = "DELETE";
+  transaction.status = "HTTP/1.1 416 Requested Range Not Satisfiable";
+
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(2, cache.network_layer()->transaction_count());
+  EXPECT_EQ(1, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  transaction.method = "GET";
+  transaction.status = "HTTP/1.1 200 OK";
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(2, cache.network_layer()->transaction_count());
+  EXPECT_EQ(2, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+  RemoveMockTransaction(&transaction);
+}
+
+// Tests that we invalidate entries as a result of a PATCH.
+TEST_F(HttpCacheTest, SimplePATCH_Invalidate) {
+  MockHttpCache cache;
+
+  MockTransaction transaction(kSimpleGET_Transaction);
+  MockHttpRequest req1(transaction);
+
+  // Attempt to populate the cache.
+  RunTransactionTestWithRequest(cache.http_cache(), transaction, req1, nullptr);
+
+  EXPECT_EQ(1, cache.network_layer()->transaction_count());
+  EXPECT_EQ(0, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  std::vector<std::unique_ptr<UploadElementReader>> element_readers;
+  element_readers.push_back(
+      std::make_unique<UploadBytesElementReader>("hello", 5));
+  ElementsUploadDataStream upload_data_stream(std::move(element_readers), 0);
+
+  transaction.method = "PATCH";
+  MockHttpRequest req2(transaction);
+  req2.upload_data_stream = &upload_data_stream;
+
+  RunTransactionTestWithRequest(cache.http_cache(), transaction, req2, nullptr);
+
+  EXPECT_EQ(2, cache.network_layer()->transaction_count());
+  EXPECT_EQ(1, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  RunTransactionTestWithRequest(cache.http_cache(), transaction, req1, nullptr);
+
+  EXPECT_EQ(3, cache.network_layer()->transaction_count());
+  EXPECT_EQ(1, cache.disk_cache()->open_count());
+  EXPECT_EQ(2, cache.disk_cache()->create_count());
+}
+
+// Tests that we invalidate entries as a result of a PATCH.
+TEST_F(HttpCacheTest, SimplePATCH_Invalidate_301) {
+  MockHttpCache cache;
+
+  MockTransaction transaction(kSimpleGET_Transaction);
+  AddMockTransaction(&transaction);
+
+  // Attempt to populate the cache.
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(1, cache.network_layer()->transaction_count());
+  EXPECT_EQ(0, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  transaction.method = "PATCH";
+  transaction.status = "HTTP/1.1 301 Moved Permanently ";
+
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(2, cache.network_layer()->transaction_count());
+  EXPECT_EQ(1, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  transaction.method = "GET";
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(3, cache.network_layer()->transaction_count());
+  EXPECT_EQ(1, cache.disk_cache()->open_count());
+  EXPECT_EQ(2, cache.disk_cache()->create_count());
+  RemoveMockTransaction(&transaction);
+}
+
+// Tests that we don't invalidate entries as a result of a failed PATCH.
+TEST_F(HttpCacheTest, SimplePATCH_DontInvalidate_416) {
+  MockHttpCache cache;
+
+  MockTransaction transaction(kSimpleGET_Transaction);
+  AddMockTransaction(&transaction);
+
+  // Attempt to populate the cache.
+  RunTransactionTest(cache.http_cache(), transaction);
+
+  EXPECT_EQ(1, cache.network_layer()->transaction_count());
+  EXPECT_EQ(0, cache.disk_cache()->open_count());
+  EXPECT_EQ(1, cache.disk_cache()->create_count());
+
+  transaction.method = "PATCH";
   transaction.status = "HTTP/1.1 416 Requested Range Not Satisfiable";
 
   RunTransactionTest(cache.http_cache(), transaction);
@@ -12498,7 +12600,7 @@ class HttpCacheMemoryDumpTest
       public WithTaskEnvironment {};
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HttpCacheMemoryDumpTest,
     ::testing::Values(base::trace_event::MemoryDumpLevelOfDetail::DETAILED,
                       base::trace_event::MemoryDumpLevelOfDetail::BACKGROUND));

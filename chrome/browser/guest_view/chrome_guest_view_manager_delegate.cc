@@ -12,7 +12,8 @@
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #endif
 
-#include "chrome/browser/sessions/session_tab_helper.h"
+#include "components/sessions/content/session_tab_helper.h"
+#include "chrome/browser/sessions/session_tab_helper_factory.h"
 
 namespace extensions {
 
@@ -32,7 +33,7 @@ void ChromeGuestViewManagerDelegate::OnGuestAdded(
   // |guest_web_contents| so that their corresponding tasks show up in the task
   // manager.
   task_manager::WebContentsTags::CreateForGuestContents(guest_web_contents);
-  SessionTabHelper::CreateForWebContents(guest_web_contents);
+  CreateSessionServiceTabHelper(guest_web_contents);
 
 #if defined(OS_CHROMEOS)
   // Notifies kiosk session about the added guest.

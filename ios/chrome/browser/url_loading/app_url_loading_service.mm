@@ -34,9 +34,10 @@ void AppUrlLoadingService::LoadUrlInNewTab(const UrlLoadParams& params) {
     if (params.from_chrome) {
       [delegate_
           dismissModalDialogsWithCompletion:^{
-            [delegate_ openSelectedTabInMode:ApplicationMode::NORMAL
-                           withUrlLoadParams:saved_params
-                                  completion:nil];
+            [delegate_
+                openSelectedTabInMode:ApplicationModeForTabOpening::NORMAL
+                    withUrlLoadParams:saved_params
+                           completion:nil];
           }
                              dismissOmnibox:YES];
     } else {
@@ -80,6 +81,6 @@ void AppUrlLoadingService::LoadUrlInNewTab(const UrlLoadParams& params) {
   }
 }
 
-ios::ChromeBrowserState* AppUrlLoadingService::GetCurrentBrowserState() {
+ChromeBrowserState* AppUrlLoadingService::GetCurrentBrowserState() {
   return [delegate_ currentBrowserState];
 }

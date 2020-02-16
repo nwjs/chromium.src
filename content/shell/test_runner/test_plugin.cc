@@ -23,19 +23,19 @@
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common//shared_image_usage.h"
+#include "third_party/blink/public/common/input/web_gesture_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_touch_event.h"
+#include "third_party/blink/public/common/input/web_touch_point.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_coalesced_input_event.h"
-#include "third_party/blink/public/platform/web_gesture_event.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
-#include "third_party/blink/public/platform/web_touch_event.h"
-#include "third_party/blink/public/platform/web_touch_point.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/web/blink.h"
+#include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_plugin_params.h"
-#include "third_party/blink/public/web/web_user_gesture_indicator.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -75,8 +75,8 @@ void PrintTouchList(WebTestDelegate* delegate,
                     int length) {
   for (int i = 0; i < length; ++i) {
     delegate->PrintMessage(base::StringPrintf(
-        "* %.2f, %.2f: %s\n", points[i].PositionInWidget().x,
-        points[i].PositionInWidget().y, PointState(points[i].state)));
+        "* %.2f, %.2f: %s\n", points[i].PositionInWidget().x(),
+        points[i].PositionInWidget().y(), PointState(points[i].state)));
   }
 }
 
@@ -91,14 +91,14 @@ void PrintEventDetails(WebTestDelegate* delegate,
     const blink::WebMouseEvent& mouse =
         static_cast<const blink::WebMouseEvent&>(event);
     delegate->PrintMessage(base::StringPrintf("* %.2f, %.2f\n",
-                                              mouse.PositionInWidget().x,
-                                              mouse.PositionInWidget().y));
+                                              mouse.PositionInWidget().x(),
+                                              mouse.PositionInWidget().y()));
   } else if (blink::WebInputEvent::IsGestureEventType(event.GetType())) {
     const blink::WebGestureEvent& gesture =
         static_cast<const blink::WebGestureEvent&>(event);
     delegate->PrintMessage(base::StringPrintf("* %.2f, %.2f\n",
-                                              gesture.PositionInWidget().x,
-                                              gesture.PositionInWidget().y));
+                                              gesture.PositionInWidget().x(),
+                                              gesture.PositionInWidget().y()));
   }
 }
 
@@ -583,11 +583,10 @@ blink::WebInputEventResult TestPlugin::HandleInputEvent(
     PrintEventDetails(delegate_, event);
 
   if (print_user_gesture_status_) {
-    bool has_user_gesture =
-        blink::WebUserGestureIndicator::IsProcessingUserGesture(
-            web_local_frame_);
+    bool has_transient_user_activation =
+        web_local_frame_->HasTransientUserActivation();
     delegate_->PrintMessage(std::string("* ") +
-                            (has_user_gesture ? "" : "not ") +
+                            (has_transient_user_activation ? "" : "not ") +
                             "handling user gesture\n");
   }
 
@@ -596,12 +595,11 @@ blink::WebInputEventResult TestPlugin::HandleInputEvent(
   return blink::WebInputEventResult::kNotHandled;
 }
 
-bool TestPlugin::HandleDragStatusUpdate(
-    blink::WebDragStatus drag_status,
-    const blink::WebDragData& data,
-    blink::WebDragOperationsMask mask,
-    const blink::WebFloatPoint& position,
-    const blink::WebFloatPoint& screen_position) {
+bool TestPlugin::HandleDragStatusUpdate(blink::WebDragStatus drag_status,
+                                        const blink::WebDragData& data,
+                                        blink::WebDragOperationsMask mask,
+                                        const gfx::PointF& position,
+                                        const gfx::PointF& screen_position) {
   const char* drag_status_name = nullptr;
   switch (drag_status) {
     case blink::kWebDragStatusEnter:

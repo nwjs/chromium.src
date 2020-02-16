@@ -209,7 +209,8 @@ IdentityTestEnvironment::BuildIdentityManagerForTests(
       token_service.get(), gaia_cookie_manager_service.get());
 
   auto accounts_cookie_mutator = std::make_unique<AccountsCookieMutatorImpl>(
-      gaia_cookie_manager_service.get(), account_tracker_service.get());
+      signin_client, token_service.get(), gaia_cookie_manager_service.get(),
+      account_tracker_service.get());
 
   std::unique_ptr<DeviceAccountsSynchronizer> device_accounts_synchronizer;
 #if defined(OS_IOS)
@@ -266,6 +267,30 @@ void IdentityTestEnvironment::RemoveRefreshTokenForPrimaryAccount() {
 AccountInfo IdentityTestEnvironment::MakePrimaryAccountAvailable(
     const std::string& email) {
   return signin::MakePrimaryAccountAvailable(identity_manager(), email);
+}
+
+AccountInfo IdentityTestEnvironment::MakeUnconsentedPrimaryAccountAvailable(
+    const std::string& email) {
+  DCHECK(!identity_manager()->HasUnconsentedPrimaryAccount());
+#if defined(OS_CHROMEOS)
+  // Chrome OS sets the unconsented primary account during login and does not
+  // allow signout.
+  AccountInfo account_info = MakeAccountAvailable(email);
+  identity_manager()->GetPrimaryAccountMutator()->SetUnconsentedPrimaryAccount(
+      account_info.account_id);
+#elif defined(OS_IOS) || defined(OS_ANDROID)
+  // iOS and Android only support the primary account.
+  AccountInfo account_info = MakePrimaryAccountAvailable(email);
+#else
+  // Desktop platforms.
+  AccountInfo account_info =
+      MakeAccountAvailableWithCookies(email, GetTestGaiaIdForEmail(email));
+  base::RunLoop().RunUntilIdle();
+#endif
+  DCHECK(identity_manager()->HasUnconsentedPrimaryAccount());
+  DCHECK_EQ(email,
+            identity_manager()->GetUnconsentedPrimaryAccountInfo().email);
+  return account_info;
 }
 
 void IdentityTestEnvironment::ClearPrimaryAccount(

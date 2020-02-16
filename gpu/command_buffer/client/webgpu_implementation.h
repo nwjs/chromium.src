@@ -26,12 +26,38 @@ namespace webgpu {
 
 class DawnClientMemoryTransferService;
 
-class WEBGPU_EXPORT WebGPUImplementation final
-    : public dawn_wire::CommandSerializer,
-      public WebGPUInterface,
-      public ImplementationBase {
-  friend class WireClientCommandSerializer;
+#if BUILDFLAG(USE_DAWN)
+class WebGPUCommandSerializer final : public dawn_wire::CommandSerializer {
+ public:
+  WebGPUCommandSerializer(
+      WebGPUCmdHelper* helper,
+      DawnClientMemoryTransferService* memory_transfer_service);
+  ~WebGPUCommandSerializer() override;
 
+  // dawn_wire::CommandSerializer implementation
+  void* GetCmdSpace(size_t size) final;
+  bool Flush() final;
+
+  // For the WebGPUInterface implementation of WebGPUImplementation
+  WGPUDevice GetDevice() const;
+  ReservedTexture ReserveTexture(WGPUDevice device);
+  bool HandleCommands(const char* commands, size_t command_size);
+
+ private:
+  WebGPUCmdHelper* helper_;
+  DawnClientMemoryTransferService* memory_transfer_service_;
+
+  std::unique_ptr<dawn_wire::WireClient> wire_client_;
+
+  uint32_t c2s_buffer_default_size_ = 0;
+  uint32_t c2s_put_offset_ = 0;
+  std::unique_ptr<TransferBuffer> c2s_transfer_buffer_;
+  std::unique_ptr<ScopedTransferBufferPtr> c2s_buffer_;
+};
+#endif
+
+class WEBGPU_EXPORT WebGPUImplementation final : public WebGPUInterface,
+                                                 public ImplementationBase {
  public:
   explicit WebGPUImplementation(WebGPUCmdHelper* helper,
                                 TransferBufferInterface* transfer_buffer,
@@ -110,10 +136,6 @@ class WEBGPU_EXPORT WebGPUImplementation final
                              const gfx::PresentationFeedback& feedback) final;
   void OnGpuControlReturnData(base::span<const uint8_t> data) final;
 
-  // dawn_wire::CommandSerializer implementation
-  void* GetCmdSpace(size_t size) final;
-  bool Flush() final;
-
   // WebGPUInterface implementation
   const DawnProcTable& GetProcs() const override;
   void FlushCommands() override;
@@ -123,25 +145,26 @@ class WEBGPU_EXPORT WebGPUImplementation final
       PowerPreference power_preference,
       base::OnceCallback<void(uint32_t, const WGPUDeviceProperties&)>
           request_adapter_callback) override;
-  bool RequestDevice(
+  bool RequestDeviceAsync(
       uint32_t requested_adapter_id,
-      const WGPUDeviceProperties* requested_device_properties) override;
+      const WGPUDeviceProperties* requested_device_properties,
+      base::OnceCallback<void(bool)> request_device_callback) override;
 
  private:
   const char* GetLogPrefix() const { return "webgpu"; }
   void CheckGLError() {}
   uint32_t NextRequestAdapterSerial();
+  uint32_t NextRequestDeviceSerial();
 
   WebGPUCmdHelper* helper_;
 #if BUILDFLAG(USE_DAWN)
   std::unique_ptr<DawnClientMemoryTransferService> memory_transfer_service_;
-  std::unique_ptr<dawn_wire::WireClient> wire_client_;
+
+  // TODO(jiawei.shao@intel.com): support multiple WebGPU devices. Each WebGPU
+  // device will corresponds to a unique WebGPUCommandSerializer.
+  std::unique_ptr<WebGPUCommandSerializer> command_serializer_;
 #endif
   DawnProcTable procs_ = {};
-
-  uint32_t c2s_buffer_default_size_ = 0;
-  uint32_t c2s_put_offset_ = 0;
-  ScopedTransferBufferPtr c2s_buffer_;
 
   LogSettings log_settings_;
 
@@ -150,6 +173,10 @@ class WEBGPU_EXPORT WebGPUImplementation final
       base::OnceCallback<void(uint32_t, const WGPUDeviceProperties&)>>
       request_adapter_callback_map_;
   uint32_t request_adapter_serial_ = 0;
+
+  base::flat_map<uint32_t, base::OnceCallback<void(bool)>>
+      request_device_callback_map_;
+  uint32_t request_device_serial_ = 0;
 
   DISALLOW_COPY_AND_ASSIGN(WebGPUImplementation);
 };

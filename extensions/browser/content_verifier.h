@@ -39,6 +39,25 @@ class Extension;
 // Used for managing overall content verification - both fetching content
 // hashes as needed, and supplying job objects to verify file contents as they
 // are read.
+//
+// Some notes about extension resource paths:
+// An extension resource path is a path relative to it's extension root
+// directory. For the purposes of content verification system, there can be
+// several transformations of the relative path:
+//   1. Relative path: Relative path as is. This is base::FilePath that simply
+//      is the relative path of the resource.
+//   2. Relative unix path: Some underlying parts of content-verification
+//      require uniform separator, we use '/' as separator so it is effectively
+//      unix style. Note that this is a reversible transformation.
+//   3. Canonicalized relative_path: Canonicalized paths are used as keys of
+//      maps within VerifiedContents and ComputedHashes. This takes care of OS
+//      specific file access issues:
+//      - windows/mac is case insensitive while accessing files.
+//      - windows ignores (.| )+ suffixes in filename while accessing a file.
+//      Canonicalization consists of normalizing the separators, lower casing
+//      the filepath in case-insensitive systems and trimming ignored suffixes
+//      if appropriate.
+//      See content_verifier_utils::CanonicalizeRelativePath() for details.
 class ContentVerifier : public base::RefCountedThreadSafe<ContentVerifier>,
                         public ExtensionRegistryObserver {
  public:
@@ -88,6 +107,13 @@ class ContentVerifier : public base::RefCountedThreadSafe<ContentVerifier>,
                       const base::Version& extension_version,
                       bool force_missing_computed_hashes_creation,
                       ContentHashCallback callback);
+
+  // Returns whether or not we should compute hashes during installation.
+  // Typically we don't need this when extension has verified (signed) resources
+  // hashes, as we can postpone hashes computing to the time we'll need them and
+  // check there. But without signed hashes we may not compute hashes at
+  // arbitrary time, we are only allowed to do it during installation.
+  bool ShouldComputeHashesOnInstall(const Extension& extension);
 
   GURL GetSignatureFetchUrlForTest(const ExtensionId& extension_id,
                                    const base::Version& extension_version);

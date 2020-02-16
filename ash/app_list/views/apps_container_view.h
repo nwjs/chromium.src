@@ -11,7 +11,9 @@
 
 #include "ash/app_list/model/app_list_folder_item.h"
 #include "ash/app_list/views/horizontal_page.h"
+#include "base/callback_helpers.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 
 namespace ash {
 
@@ -64,7 +66,7 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
 
   // Updates the visibility of the items in this view according to
   // |app_list_state| and |is_in_drag|.
-  void UpdateControlVisibility(ash::AppListViewState app_list_state,
+  void UpdateControlVisibility(AppListViewState app_list_state,
                                bool is_in_drag);
 
   // Animates the container opacity from the opacity for the current app list
@@ -74,7 +76,7 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
   using OpacityAnimator =
       base::RepeatingCallback<void(views::View*, bool target_visibility)>;
   void AnimateOpacity(float current_progress,
-                      ash::AppListViewState target_view_state,
+                      AppListViewState target_view_state,
                       const OpacityAnimator& animator);
 
   // Sets the expected y position for apps container children, and runs
@@ -82,7 +84,7 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
   // (This assumes that animator knows the offset between current apps container
   // bounds and target apps container bounds).
   using TransformAnimator = base::RepeatingCallback<void(views::View*)>;
-  void AnimateYPosition(ash::AppListViewState target_view_state,
+  void AnimateYPosition(AppListViewState target_view_state,
                         const TransformAnimator& animator);
 
   // Updates y position and opacity of the items in this view during dragging.
@@ -122,7 +124,7 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
   // HorizontalPage overrides:
   void OnWillBeHidden() override;
   views::View* GetFirstFocusableView() override;
-  gfx::Rect GetPageBoundsForState(ash::AppListState state) const override;
+  gfx::Rect GetPageBoundsForState(AppListState state) const override;
 
   SuggestionChipContainerView* suggestion_chip_container_view_for_test() {
     return suggestion_chip_container_view_;
@@ -136,6 +138,10 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
 
   // Updates suggestion chips from app list model.
   void UpdateSuggestionChips();
+
+  // Temporarily disables blur on suggestion chips view background. The blur
+  // will remained disabled until the returned closure runner goes out of scope.
+  base::ScopedClosureRunner DisableSuggestionChipsBlur();
 
  private:
   enum ShowState {
@@ -171,6 +177,12 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
   // depending on the current display work area size.
   GridLayout CalculateGridLayout() const;
 
+  // Callback returned by DisableBlur().
+  void OnSuggestionChipsBlurDisablerReleased();
+
+  // The number of active requests to disable blur.
+  size_t suggestion_chips_blur_disabler_count_ = 0;
+
   ContentsView* contents_view_;  // Not owned.
 
   // The views below are owned by views hierarchy.
@@ -197,6 +209,8 @@ class APP_LIST_EXPORT AppsContainerView : public HorizontalPage {
   // |cached_container_margins_|, provided the method arguments match the cached
   // arguments (otherwise the margins will be recalculated).
   CachedContainerMargins cached_container_margins_;
+
+  base::WeakPtrFactory<AppsContainerView> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(AppsContainerView);
 };

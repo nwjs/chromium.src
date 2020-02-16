@@ -21,6 +21,8 @@
 #include "base/optional.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
+#include "base/util/type_safety/strong_alias.h"
+#include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/certificate_request_result_type.h"
 #include "content/public/browser/generated_code_cache_settings.h"
@@ -29,17 +31,20 @@
 #include "content/public/common/window_container_type.mojom-forward.h"
 #include "media/base/video_codecs.h"
 #include "media/cdm/cdm_proxy.h"
+#include "media/mojo/mojom/media_service.mojom.h"
 #include "media/mojo/mojom/remoting.mojom.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/network/public/mojom/network_context.mojom.h"
+#include "ppapi/buildflags/buildflags.h"
+#include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom-forward.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
 #include "services/network/public/mojom/websocket.mojom-forward.h"
 #include "storage/browser/file_system/file_system_context.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
+#include "third_party/blink/public/mojom/badging/badging.mojom-forward.h"
 #include "third_party/blink/public/mojom/credentialmanager/credential_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom-forward.h"
 #include "ui/accessibility/ax_mode.h"
@@ -57,8 +62,13 @@
 #include "content/public/browser/posix_file_descriptor_info.h"
 #endif
 
+#if BUILDFLAG(ENABLE_PLUGINS)
+#include "content/public/common/pepper_plugin_info.h"
+#endif
+
 namespace net {
 class AuthCredentials;
+class SiteForCookies;
 }  // namespace net
 
 class GURL;
@@ -68,6 +78,7 @@ using LoginAuthRequiredCallback =
 namespace base {
 class CommandLine;
 class FilePath;
+class SequencedTaskRunner;
 }  // namespace base
 
 namespace blink {
@@ -102,6 +113,7 @@ class TrustedHeaderClient;
 namespace service_manager {
 class Identity;
 struct Manifest;
+enum class SandboxType;
 class Service;
 
 template <typename...>
@@ -146,6 +158,7 @@ class TargetPolicy;
 
 namespace ui {
 class SelectFilePolicy;
+class ClipboardFormatType;
 }  // namespace ui
 
 namespace url {
@@ -154,7 +167,6 @@ class Origin;
 
 namespace storage {
 class FileSystemBackend;
-struct QuotaSettings;
 }  // namespace storage
 
 namespace content {
@@ -214,6 +226,12 @@ struct WebPreferences;
 // the observer interfaces.)
 class CONTENT_EXPORT ContentBrowserClient {
  public:
+  // Callback used with IsClipboardPasteAllowed() method.
+  using ClipboardPasteAllowed =
+      util::StrongAlias<class ClipboardPasteAllowedTag, bool>;
+  using IsClipboardPasteAllowedCallback =
+      base::OnceCallback<void(ClipboardPasteAllowed)>;
+
   virtual ~ContentBrowserClient() {}
 
   // Allows the embedder to set any number of custom BrowserMainParts
@@ -229,7 +247,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Note: see related BrowserThread::PostAfterStartupTask.
   virtual void PostAfterStartupTask(
       const base::Location& from_here,
-      const scoped_refptr<base::TaskRunner>& task_runner,
+      const scoped_refptr<base::SequencedTaskRunner>& task_runner,
       base::OnceClosure task);
 
   // Allows the embedder to indicate whether it considers startup to be
@@ -329,10 +347,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldLockToOrigin(BrowserContext* browser_context,
                                   const GURL& effective_url);
 
-  // Returns the scheme of request initiator that should be ignored by
-  // cross-origin read blocking.  nullptr can be returned to indicate that no
-  // exceptions should be granted based on initiator's scheme.
-  virtual const char* GetInitiatorSchemeBypassingDocumentBlocking();
   virtual bool IsNWOrigin(const url::Origin& origin, BrowserContext* context);
 
   // Returns true if everything embedded inside a document with given scheme
@@ -380,8 +394,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   //   In this case |origin| is the origin of the isolated world and the
   //   |request_initiator_site_lock| is the origin committed in the frame.
   virtual void OverrideURLLoaderFactoryParams(
-      RenderProcessHost* process,
+      BrowserContext* browser_context,
       const url::Origin& origin,
+      bool is_for_isolated_world,
       network::mojom::URLLoaderFactoryParams* factory_params);
 
   // Returns a list additional WebUI schemes, if any.  These additional schemes
@@ -534,13 +549,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // switches::kProcessType will already be set at this point.
   virtual void AppendExtraCommandLineSwitches(base::CommandLine* command_line,
                                               int child_process_id) {}
-
-  // Allows the content embedder to adjust the command line arguments for
-  // a utility process started to run a service. This is called on a background
-  // thread.
-  virtual void AdjustUtilityServiceProcessCommandLine(
-      const service_manager::Identity& identity,
-      base::CommandLine* command_line) {}
 
   // Returns a client GUID used for virus scanning.
   virtual std::string GetApplicationClientGUIDForQuarantineCheck();
@@ -761,15 +769,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Create and return a new quota permission context.
   virtual scoped_refptr<QuotaPermissionContext> CreateQuotaPermissionContext();
 
-  // Allows the embedder to provide settings that determine the amount
-  // of disk space that may be used by content facing storage apis like
-  // IndexedDatabase and ServiceWorker::CacheStorage and others.
-  virtual void GetQuotaSettings(
-      content::BrowserContext* context,
-      content::StoragePartition* partition,
-      base::OnceCallback<void(base::Optional<storage::QuotaSettings>)>
-          callback);
-
   // Allows the embedder to provide settings that determine if generated code
   // can be cached and the amount of disk space used for caching generated code.
   virtual GeneratedCodeCacheSettings GetGeneratedCodeCacheSettings(
@@ -987,6 +986,14 @@ class CONTENT_EXPORT ContentBrowserClient {
       service_manager::BinderRegistry* registry,
       RenderFrameHost* render_frame_host) {}
 
+  // The Media Service can run in many different types of configurations
+  // (typically in the GPU process or its own isolated process), but some
+  // clients want an additional dedicated instance to use for specific
+  // operations (e.g. for rendering protected content). Clients should override
+  // this to create such an instance, and return a bound Remote to control it.
+  // See MediaInterfaceProxy and MediaInterfaceFactoryHolder for usage.
+  virtual mojo::Remote<media::mojom::MediaService> RunSecondaryMediaService();
+
   // Allows to register browser interfaces exposed through the RenderFrameHost.
   // This mechanism will replace interface registries and binders used for
   // handling InterfaceProvider's GetInterface() calls (see crbug.com/718652).
@@ -1015,6 +1022,17 @@ class CONTENT_EXPORT ContentBrowserClient {
       const std::string& interface_name,
       mojo::ScopedInterfaceEndpointHandle* handle);
 
+  // TODO(https://crbug.com/1045214): Generalize ContentBrowserClient support
+  // for service worker-scoped binders.
+  //
+  // Binds a remote ServiceWorkerGlobalScope to a badge service.  After
+  // receiving a badge update from a ServiceWorkerGlobalScope, the badge
+  // service must update the badge for each app under |service_worker_scope|.
+  virtual void BindBadgeServiceReceiverFromServiceWorker(
+      RenderProcessHost* service_worker_process_host,
+      const GURL& service_worker_scope,
+      mojo::PendingReceiver<blink::mojom::BadgeService> receiver) {}
+
   // Handles an unhandled incoming interface binding request from the GPU
   // process. Called on the IO thread.
   virtual void BindGpuHostReceiver(mojo::GenericPendingReceiver receiver) {}
@@ -1024,12 +1042,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void BindHostReceiverForRenderer(
       RenderProcessHost* render_process_host,
       mojo::GenericPendingReceiver receiver) {}
-
-  // Called on the IO thread to handle an unhandled interface receiver binding
-  // request from a render process. See |RenderThread::BindHostReceiver()|.
-  virtual void BindHostReceiverForRendererOnIOThread(
-      int render_process_id,
-      mojo::GenericPendingReceiver* receiver) {}
 
   // Called just before the Service Manager is initialized.
   virtual void WillStartServiceManager() {}
@@ -1165,7 +1177,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns the AppContainer SID for the specified sandboxed process type, or
   // empty string if this sandboxed process type does not support living inside
   // an AppContainer. Called on PROCESS_LAUNCHER thread.
-  virtual base::string16 GetAppContainerSidForSandboxType(int sandbox_type);
+  virtual base::string16 GetAppContainerSidForSandboxType(
+      service_manager::SandboxType sandbox_type);
 
   // Returns whether renderer code integrity is enabled.
   // This is called on the UI thread.
@@ -1325,6 +1338,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // |bypass_redirect_checks| will be set to true when the embedder will be
   // handling redirect security checks.
   //
+  // |disable_secure_dns| will be set to true when the URLLoaderFactory will be
+  // used exclusively within a window that requires secure DNS to be turned off,
+  // such as a window created for captive portal resolution.
+  //
   // |factory_override| gives the embedder a chance to replace the network
   // service's "internal" URLLoaderFactory. See more details in the
   // documentation for URLLoaderFactoryOverride in network_context.mojom.
@@ -1354,6 +1371,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
           header_client,
       bool* bypass_redirect_checks,
+      bool* disable_secure_dns,
       network::mojom::URLLoaderFactoryOverridePtr* factory_override);
 
   // Returns true when the embedder wants to intercept a websocket connection.
@@ -1382,7 +1400,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       RenderFrameHost* frame,
       WebSocketFactory factory,
       const GURL& url,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const base::Optional<std::string>& user_agent,
       mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
           handshake_client);
@@ -1419,7 +1437,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       network::mojom::RestrictedCookieManagerRole role,
       BrowserContext* browser_context,
       const url::Origin& origin,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const url::Origin& top_frame_origin,
       bool is_service_worker,
       int process_id,
@@ -1544,11 +1562,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // being serviced in a given RenderFrame. The instance is guaranteed to be
   // destroyed before the RenderFrame goes out of scope. The embedder may choose
   // to return nullptr to indicate that the request cannot be serviced right
-  // now. |relying_party_id| is the RP ID from Webauthn, essentially a domain
-  // name.
+  // now.
   virtual std::unique_ptr<AuthenticatorRequestClientDelegate>
-  GetWebAuthenticationRequestDelegate(RenderFrameHost* render_frame_host,
-                                      const std::string& relying_party_id);
+  GetWebAuthenticationRequestDelegate(RenderFrameHost* render_frame_host);
 
   // Get platform ClientCertStore. May return nullptr. Called on the UI thread.
   virtual std::unique_ptr<net::ClientCertStore> CreateClientCertStore(
@@ -1754,6 +1770,40 @@ class CONTENT_EXPORT ContentBrowserClient {
       content::BrowserContext* browser_context,
       const url::Origin& origin,
       base::OnceCallback<void(base::Optional<std::string>)> callback);
+
+  // Determines if a clipboard paste using |data| of type |data_type| is allowed
+  // in this renderer frame.  Possible data types supported for paste can be
+  // seen in the ClipboardHostImpl class.  Text based formats will use the
+  // data_type ui::ClipboardFormatType::GetPlainTextType() unless it is known
+  // to be of a more specific type, like RTF or HTML, in which case a type
+  // such as ui::ClipboardFormatType::GetRtfType() or
+  // ui::ClipboardFormatType::GetHtmlType() is used.
+  //
+  // It is also possible for the data type to be
+  // ui::ClipboardFormatType::GetWebCustomDataType() indicating that the paste
+  // uses a custom data format.  It is up to the implementation to attempt to
+  // understand the type if possible.  It is acceptable to deny pastes of
+  // unknown data types.
+  //
+  // The implementation is expected to show UX to the user if needed.  If
+  // shown, the UX should be associated with the specific WebContents.
+  //
+  // The callback is called, possibly asynchronously, with a status indicating
+  // whether the operation is allowed or not.
+  virtual void IsClipboardPasteAllowed(
+      content::WebContents* web_contents,
+      const GURL& url,
+      const ui::ClipboardFormatType& data_type,
+      const std::string& data,
+      IsClipboardPasteAllowedCallback callback);
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+  // Returns true if |embedder_origin| is allowed to embed a plugin described by
+  // |plugin_info|.  This method allows restricting some internal plugins (like
+  // Chrome's PDF plugin) to specific origins.
+  virtual bool ShouldAllowPluginCreation(const url::Origin& embedder_origin,
+                                         const PepperPluginInfo& plugin_info);
+#endif
 };
 
 }  // namespace content

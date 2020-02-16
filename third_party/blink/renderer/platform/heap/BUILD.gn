@@ -5,18 +5,17 @@
 import("//build/buildflag_header.gni")
 import("//build/config/jumbo.gni")
 import("//testing/test.gni")
+import("//third_party/blink/public/public_features.gni")
 import("//third_party/blink/renderer/platform/platform.gni")
-
-declare_args() {
-  # Enables heap verification.
-  enable_blink_heap_verification = false
-}
 
 buildflag_header("blink_heap_buildflags") {
   header = "heap_buildflags.h"
   header_dir = "third_party/blink/renderer/platform/heap"
 
-  flags = [ "BLINK_HEAP_VERIFICATION=$enable_blink_heap_verification" ]
+  flags = [
+    "BLINK_HEAP_VERIFICATION=$enable_blink_heap_verification",
+    "BLINK_HEAP_YOUNG_GENERATION=$enable_blink_heap_young_generation",
+  ]
 }
 
 blink_platform_sources("heap") {
@@ -98,6 +97,7 @@ jumbo_source_set("test_support") {
   ]
 
   deps = [
+    ":blink_heap_buildflags",
     "//testing/gtest",
     "//third_party/blink/public/mojom:mojom_platform_blink_headers",
     "//third_party/blink/renderer/platform:bindings_buildflags",
@@ -105,9 +105,7 @@ jumbo_source_set("test_support") {
 }
 
 test("blink_heap_unittests") {
-  deps = [
-    ":blink_heap_unittests_sources",
-  ]
+  deps = [ ":blink_heap_unittests_sources" ]
   if (is_android) {
     deps += [
       "//base:base_java",
@@ -124,6 +122,7 @@ jumbo_source_set("blink_heap_unittests_sources") {
     "../testing/run_all_tests.cc",
     "blink_gc_memory_dump_provider_test.cc",
     "cancelable_task_scheduler_test.cc",
+    "card_table_test.cc",
     "concurrent_marking_test.cc",
     "gc_info_test.cc",
     "heap_compact_test.cc",
@@ -141,6 +140,10 @@ jumbo_source_set("blink_heap_unittests_sources") {
     "worklist_test.cc",
     "write_barrier_perftest.cc",
   ]
+
+  if (enable_blink_heap_young_generation) {
+    sources += [ "minor_gc_test.cc" ]
+  }
 
   configs += [
     "//third_party/blink/renderer/platform/wtf:wtf_config",

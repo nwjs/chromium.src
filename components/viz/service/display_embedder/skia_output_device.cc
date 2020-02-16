@@ -8,6 +8,7 @@
 
 #include "base/logging.h"
 #include "components/viz/service/display/dc_layer_overlay.h"
+#include "gpu/command_buffer/service/memory_tracking.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "ui/gfx/gpu_fence.h"
 #include "ui/gfx/presentation_feedback.h"
@@ -16,12 +17,21 @@ namespace viz {
 
 SkiaOutputDevice::SkiaOutputDevice(
     bool need_swap_semaphore,
+    gpu::MemoryTracker* memory_tracker,
     DidSwapBufferCompleteCallback did_swap_buffer_complete_callback)
     : need_swap_semaphore_(need_swap_semaphore),
       did_swap_buffer_complete_callback_(
-          std::move(did_swap_buffer_complete_callback)) {}
+          std::move(did_swap_buffer_complete_callback)),
+      memory_type_tracker_(
+          std::make_unique<gpu::MemoryTypeTracker>(memory_tracker)) {}
 
 SkiaOutputDevice::~SkiaOutputDevice() = default;
+
+void SkiaOutputDevice::CommitOverlayPlanes(
+    BufferPresentedCallback feedback,
+    std::vector<ui::LatencyInfo> latency_info) {
+  NOTREACHED();
+}
 
 void SkiaOutputDevice::PostSubBuffer(
     const gfx::Rect& rect,
@@ -33,6 +43,11 @@ void SkiaOutputDevice::PostSubBuffer(
 void SkiaOutputDevice::SetDrawRectangle(const gfx::Rect& draw_rectangle) {}
 
 void SkiaOutputDevice::SetGpuVSyncEnabled(bool enabled) {
+  NOTIMPLEMENTED();
+}
+
+void SkiaOutputDevice::SchedulePrimaryPlane(
+    const OverlayProcessorInterface::OutputSurfaceOverlayPlane& plane) {
   NOTIMPLEMENTED();
 }
 
@@ -83,14 +98,6 @@ void SkiaOutputDevice::FinishSwapBuffers(
 void SkiaOutputDevice::EnsureBackbuffer() {}
 void SkiaOutputDevice::DiscardBackbuffer() {}
 
-gl::GLImage* SkiaOutputDevice::GetOverlayImage() {
-  return nullptr;
-}
-
-std::unique_ptr<gfx::GpuFence> SkiaOutputDevice::SubmitOverlayGpuFence() {
-  return nullptr;
-}
-
 SkiaOutputDevice::SwapInfo::SwapInfo(
     uint64_t swap_id,
     SkiaOutputDevice::BufferPresentedCallback feedback)
@@ -121,6 +128,10 @@ void SkiaOutputDevice::SwapInfo::CallFeedback() {
         gfx::PresentationFeedback(params_.swap_response.timings.swap_start,
                                   /*interval=*/base::TimeDelta(), flags));
   }
+}
+
+std::vector<GrBackendSemaphore> SkiaOutputDevice::TakeEndPaintSemaphores() {
+  return std::vector<GrBackendSemaphore>();
 }
 
 }  // namespace viz

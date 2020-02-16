@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/ui/settings/google_services/accounts_table_view_controller.h"
 
 #import "base/mac/foundation_util.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -27,7 +28,7 @@
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/icons/chrome_icon.h"
-#import "ios/chrome/browser/ui/settings/cells/settings_text_item.h"
+#import "ios/chrome/browser/ui/settings/google_services/accounts_table_view_controller_constants.h"
 #import "ios/chrome/browser/ui/settings/sync/utils/sync_util.h"
 #import "ios/chrome/browser/ui/signin_interaction/signin_interaction_coordinator.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_detail_text_item.h"
@@ -47,14 +48,6 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
-
-NSString* const kSettingsAccountsTableViewId = @"kSettingsAccountsTableViewId";
-NSString* const kSettingsAccountsTableViewAddAccountCellId =
-    @"kSettingsAccountsTableViewAddAccountCellId";
-NSString* const kSettingsAccountsTableViewSignoutCellId =
-    @"kSettingsAccountsTableViewSignoutCellId";
-NSString* const kSettingsAccountsTableViewSyncCellId =
-    @"kSettingsAccountsTableViewSyncCellId";
 
 namespace {
 
@@ -120,8 +113,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   UITableViewStyle style = base::FeatureList::IsEnabled(kSettingsRefresh)
                                ? UITableViewStylePlain
                                : UITableViewStyleGrouped;
-  self = [super initWithTableViewStyle:style
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:style];
   if (self) {
     _browser = browser;
     _closeSettingsOnAddAccount = closeSettingsOnAddAccount;
@@ -356,11 +348,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
     return;
   }
 
-  NSString* title = l10n_util::GetNSString(IDS_IOS_DISCONNECT_DIALOG_TITLE);
-  NSString* message =
-      l10n_util::GetNSString(IDS_IOS_DISCONNECT_DIALOG_INFO_MOBILE);
-  NSString* continueButtonTitle =
-      l10n_util::GetNSString(IDS_IOS_DISCONNECT_DIALOG_CONTINUE_BUTTON_MOBILE);
+  NSString* title = nil;
+  NSString* message = nil;
+  NSString* continueButtonTitle = nil;
+  NSString* clearDataButtonTitle = nil;
+
   if ([self authService] -> IsAuthenticatedIdentityManaged()) {
     signin::IdentityManager* identityManager =
         IdentityManagerFactory::GetForBrowserState(_browser->GetBrowserState());
@@ -370,6 +362,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
     std::string hosted_domain = accountInfo.has_value()
                                     ? accountInfo.value().hosted_domain
                                     : std::string();
+
     title =
         l10n_util::GetNSString(IDS_IOS_MANAGED_DISCONNECT_DIALOG_TITLE_UNITY);
     message =
@@ -383,7 +376,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
         l10n_util::GetNSString(IDS_IOS_DISCONNECT_DIALOG_INFO_MOBILE_UNITY);
     continueButtonTitle = l10n_util::GetNSString(
         IDS_IOS_DISCONNECT_DIALOG_CONTINUE_BUTTON_MOBILE);
+    clearDataButtonTitle = l10n_util::GetNSString(
+        IDS_IOS_DISCONNECT_DIALOG_CONTINUE_AND_CLEAR_MOBILE);
   }
+
   _alertCoordinator =
       [[AlertCoordinator alloc] initWithBaseViewController:self
                                                      title:title
@@ -393,26 +389,41 @@ typedef NS_ENUM(NSInteger, ItemType) {
                                action:nil
                                 style:UIAlertActionStyleCancel];
   __weak AccountsTableViewController* weakSelf = self;
-  [_alertCoordinator addItemWithTitle:continueButtonTitle
-                               action:^{
-                                 [weakSelf handleDisconnect];
-                               }
-                                style:UIAlertActionStyleDefault];
+  [_alertCoordinator
+      addItemWithTitle:continueButtonTitle
+                action:^{
+                  [weakSelf handleDisconnectWithForceClearSyncData:NO];
+                }
+                 style:UIAlertActionStyleDefault];
+
+  if (base::FeatureList::IsEnabled(kClearSyncedData)) {
+    [_alertCoordinator
+        addItemWithTitle:clearDataButtonTitle
+                  action:^{
+                    [weakSelf handleDisconnectWithForceClearSyncData:YES];
+                  }
+                   style:UIAlertActionStyleDestructive];
+  }
   [_alertCoordinator start];
 }
 
-- (void)handleDisconnect {
+- (void)handleDisconnectWithForceClearSyncData:(BOOL)forceClearSyncData {
   AuthenticationService* authService = [self authService];
   if (authService->IsAuthenticated()) {
     _authenticationOperationInProgress = YES;
     [self preventUserInteraction];
-    authService->SignOut(signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS, ^{
-      [self allowUserInteraction];
-      _authenticationOperationInProgress = NO;
-      [base::mac::ObjCCastStrict<SettingsNavigationController>(
-          self.navigationController)
-          popViewControllerOrCloseSettingsAnimated:YES];
-    });
+    authService->SignOut(
+        signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS, forceClearSyncData, ^{
+          [self allowUserInteraction];
+          _authenticationOperationInProgress = NO;
+          [base::mac::ObjCCastStrict<SettingsNavigationController>(
+              self.navigationController)
+              popViewControllerOrCloseSettingsAnimated:YES];
+        });
+    if (base::FeatureList::IsEnabled(kClearSyncedData)) {
+      UMA_HISTOGRAM_BOOLEAN("Signin.UserRequestedWipeDataOnSignout",
+                            forceClearSyncData);
+    }
   }
 }
 

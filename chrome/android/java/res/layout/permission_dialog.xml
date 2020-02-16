@@ -9,7 +9,7 @@
     android:gravity="start"
     style="@style/AlertDialogContent">
 
-    <org.chromium.chrome.browser.ui.widget.text.TextViewWithCompoundDrawables
+    <org.chromium.components.browser_ui.widget.text.TextViewWithCompoundDrawables
         android:id="@+id/text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -17,6 +17,6 @@
         android:textDirection="locale"
         android:paddingBottom="24dp"
         android:drawablePadding="8dp"
-        android:textAppearance="@style/TextAppearance.BlackBody"
+        android:textAppearance="@style/TextAppearance.TextMedium.Secondary"
         app:chromeDrawableTint="@color/default_icon_color_blue" />
 </LinearLayout>

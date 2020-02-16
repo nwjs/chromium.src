@@ -41,7 +41,6 @@
 #include "chrome/browser/ui/webui/chromeos/login/active_directory_password_change_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/app_downloading_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/app_launch_splash_screen_handler.h"
-#include "chrome/browser/ui/webui/chromeos/login/arc_kiosk_splash_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/arc_terms_of_service_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/assistant_optin_flow_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/auto_enrollment_check_screen_handler.h"
@@ -114,7 +113,6 @@ namespace chromeos {
 namespace {
 
 const char* kKnownDisplayTypes[] = {OobeUI::kAppLaunchSplashDisplay,
-                                    OobeUI::kArcKioskSplashDisplay,
                                     OobeUI::kDiscoverDisplay,
                                     OobeUI::kGaiaSigninDisplay,
                                     OobeUI::kLoginDisplay,
@@ -197,6 +195,9 @@ void AddFingerprintResources(content::WebUIDataSource* source) {
     case quick_unlock::FingerprintLocation::TABLET_POWER_BUTTON:
       is_lottie_animation = true;
       animation_id = IDR_LOGIN_FINGER_PRINT_TABLET_ANIMATION;
+      break;
+    case quick_unlock::FingerprintLocation::KEYBOARD_BOTTOM_LEFT:
+      animation_id = IDR_LOGIN_FINGERPRINT_SCANNER_LAPTOP_BOTTOM_LEFT_ANIMATION;
       break;
     case quick_unlock::FingerprintLocation::KEYBOARD_BOTTOM_RIGHT:
       animation_id =
@@ -323,7 +324,6 @@ void DisablePolymer2(content::URLDataSource* shared_source) {
 
 // static
 const char OobeUI::kAppLaunchSplashDisplay[] = "app-launch-splash";
-const char OobeUI::kArcKioskSplashDisplay[] = "arc-kiosk-splash";
 const char OobeUI::kDiscoverDisplay[] = "discover";
 const char OobeUI::kGaiaSigninDisplay[] = "gaia-signin";
 const char OobeUI::kLockDisplay[] = "lock";
@@ -444,9 +444,6 @@ void OobeUI::ConfigureOobeDisplay() {
       js_calls_container_.get(), network_state_informer_, error_screen));
 
   AddScreenHandler(
-      std::make_unique<ArcKioskSplashScreenHandler>(js_calls_container_.get()));
-
-  AddScreenHandler(
       std::make_unique<DeviceDisabledScreenHandler>(js_calls_container_.get()));
 
   AddScreenHandler(std::make_unique<EncryptionMigrationScreenHandler>(
@@ -491,7 +488,7 @@ void OobeUI::ConfigureOobeDisplay() {
     oobe_display_chooser_ = std::make_unique<OobeDisplayChooser>();
 }
 
-void OobeUI::BindMultiDeviceSetup(
+void OobeUI::BindInterface(
     mojo::PendingReceiver<multidevice_setup::mojom::MultiDeviceSetup>
         receiver) {
   multidevice_setup::MultiDeviceSetupService* service =
@@ -501,7 +498,7 @@ void OobeUI::BindMultiDeviceSetup(
     service->BindMultiDeviceSetup(std::move(receiver));
 }
 
-void OobeUI::BindPrivilegedHostDeviceSetter(
+void OobeUI::BindInterface(
     mojo::PendingReceiver<multidevice_setup::mojom::PrivilegedHostDeviceSetter>
         receiver) {
   multidevice_setup::MultiDeviceSetupService* service =
@@ -511,7 +508,7 @@ void OobeUI::BindPrivilegedHostDeviceSetter(
     service->BindPrivilegedHostDeviceSetter(std::move(receiver));
 }
 
-void OobeUI::BindCrosNetworkConfig(
+void OobeUI::BindInterface(
     mojo::PendingReceiver<chromeos::network_config::mojom::CrosNetworkConfig>
         receiver) {
   ash::GetNetworkConfigService(std::move(receiver));
@@ -553,13 +550,6 @@ OobeUI::OobeUI(content::WebUI* web_ui, const GURL& url)
         GURL("chrome://resources/polymer/v1_0/polymer/polymer.html"),
         base::BindOnce(DisablePolymer2));
   }
-
-  AddHandlerToRegistry(base::BindRepeating(&OobeUI::BindMultiDeviceSetup,
-                                           base::Unretained(this)));
-  AddHandlerToRegistry(base::BindRepeating(
-      &OobeUI::BindPrivilegedHostDeviceSetter, base::Unretained(this)));
-  AddHandlerToRegistry(base::BindRepeating(&OobeUI::BindCrosNetworkConfig,
-                                           base::Unretained(this)));
 }
 
 OobeUI::~OobeUI() {
@@ -704,5 +694,7 @@ void OobeUI::OnDisplayConfigurationChanged() {
 void OobeUI::SetLoginUserCount(int user_count) {
   core_handler_->SetLoginUserCount(user_count);
 }
+
+WEB_UI_CONTROLLER_TYPE_IMPL(OobeUI)
 
 }  // namespace chromeos

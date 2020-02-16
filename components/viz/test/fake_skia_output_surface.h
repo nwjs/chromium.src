@@ -51,7 +51,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
                bool use_stencil) override;
   void SwapBuffers(OutputSurfaceFrame frame) override;
   void ScheduleOutputSurfaceAsOverlay(
-      OverlayProcessor::OutputSurfaceOverlayPlane output_surface_plane)
+      OverlayProcessorInterface::OutputSurfaceOverlayPlane output_surface_plane)
       override;
   uint32_t GetFramebufferCopyTextureFormat() override;
   bool IsDisplayedAsOverlayPlane() const override;
@@ -74,7 +74,7 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
       SkYUVColorSpace yuv_color_space,
       sk_sp<SkColorSpace> dst_color_space,
       bool has_alpha) override;
-  void SkiaSwapBuffers(OutputSurfaceFrame frame) override;
+  void SwapBuffersSkipped() override {}
   SkCanvas* BeginPaintRenderPass(const RenderPassId& id,
                                  const gfx::Size& surface_size,
                                  ResourceFormat format,
@@ -119,10 +119,8 @@ class FakeSkiaOutputSurface : public SkiaOutputSurface {
       base::OnceClosure callback,
       std::vector<gpu::SyncToken> sync_tokens) override;
 
-  void SendOverlayPromotionNotification(
-      std::vector<gpu::SyncToken> sync_tokens,
-      base::flat_set<gpu::Mailbox> promotion_denied,
-      base::flat_map<gpu::Mailbox, gfx::Rect> possible_promotions) override;
+  scoped_refptr<gpu::GpuTaskSchedulerHelper> GetGpuTaskSchedulerHelper()
+      override;
 
  private:
   explicit FakeSkiaOutputSurface(

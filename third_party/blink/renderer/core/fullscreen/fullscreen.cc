@@ -33,6 +33,7 @@
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_fullscreen_options.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -44,7 +45,6 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
-#include "third_party/blink/renderer/core/fullscreen/fullscreen_options.h"
 #include "third_party/blink/renderer/core/fullscreen/scoped_allow_fullscreen.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
@@ -217,8 +217,8 @@ bool AllowedToUseFullscreen(const Document& document,
 
   // 2. If Feature Policy is enabled, return the policy for "fullscreen"
   // feature.
-  return document.IsFeatureEnabled(mojom::FeaturePolicyFeature::kFullscreen,
-                                   report_on_failure);
+  return document.IsFeatureEnabled(
+      mojom::blink::FeaturePolicyFeature::kFullscreen, report_on_failure);
 }
 
 bool AllowedToRequestFullscreen(Document& document) {
@@ -434,8 +434,8 @@ HeapVector<Member<Document>> CollectDocumentsToUnfullscreen(Document& doc) {
 
 // https://fullscreen.spec.whatwg.org/#run-the-fullscreen-rendering-steps
 void FireEvent(const AtomicString& type, Element* element, Document* document) {
-  DCHECK(document);
-  DCHECK(element);
+  if (!document || !element)
+    return;
 
   // |Document::EnqueueAnimationFrameTask()| is used instead of a "list of
   // pending fullscreen events", so only the body of the "run the fullscreen
@@ -473,8 +473,8 @@ void EnqueueEvent(const AtomicString& type,
                   Fullscreen::RequestType request_type) {
   const AtomicString& adjusted_type = AdjustEventType(type, request_type);
   document.EnqueueAnimationFrameTask(WTF::Bind(FireEvent, adjusted_type,
-                                               WrapPersistent(&element),
-                                               WrapPersistent(&document)));
+                                               WrapWeakPersistent(&element),
+                                               WrapWeakPersistent(&document)));
 }
 
 void DidEnterFullscreenTask(Document* document) {
@@ -570,7 +570,8 @@ void Fullscreen::RequestFullscreen(Element& pending) {
 ScriptPromise Fullscreen::RequestFullscreen(Element& pending,
                                             const FullscreenOptions* options,
                                             RequestType request_type,
-                                            ScriptState* script_state) {
+                                            ScriptState* script_state,
+                                            ExceptionState* exception_state) {
   RequestFullscreenScope scope;
 
   // 1. Let |pending| be the context object.
@@ -585,11 +586,10 @@ ScriptPromise Fullscreen::RequestFullscreen(Element& pending,
   // 4. If |pendingDoc| is not fully active, then reject |promise| with a
   // TypeError exception and return |promise|.
   if (!document.IsActive() || !document.GetFrame()) {
-    if (!script_state)
+    if (!exception_state)
       return ScriptPromise();
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), "Document not active"));
+    exception_state->ThrowTypeError("Document not active");
+    return ScriptPromise();
   }
 
   if (script_state) {
@@ -604,13 +604,10 @@ ScriptPromise Fullscreen::RequestFullscreen(Element& pending,
   // Use counters only need to be incremented in the process of the actual
   // fullscreen element.
   if (!for_cross_process_descendant) {
-    if (document.IsSecureContext()) {
+    if (document.IsSecureContext())
       UseCounter::Count(document, WebFeature::kFullscreenSecureOrigin);
-    } else {
+    else
       UseCounter::Count(document, WebFeature::kFullscreenInsecureOrigin);
-      HostsUsingFeatures::CountAnyWorld(
-          document, HostsUsingFeatures::Feature::kFullscreenInsecureHost);
-    }
   }
 
   // 5. Let |error| be false.
@@ -640,7 +637,8 @@ ScriptPromise Fullscreen::RequestFullscreen(Element& pending,
     From(document).pending_requests_.push_back(
         MakeGarbageCollected<PendingRequest>(&pending, request_type, resolver));
     LocalFrame& frame = *document.GetFrame();
-    frame.GetChromeClient().EnterFullscreen(frame, options);
+    frame.GetChromeClient().EnterFullscreen(frame, options,
+                                            for_cross_process_descendant);
   } else {
     // Note: Although we are past the "in parallel" point, it's OK to continue
     // synchronously because when |error| is true, |ContinueRequestFullscreen()|
@@ -784,12 +782,13 @@ void Fullscreen::FullyExitFullscreen(Document& document, bool ua_originated) {
   DCHECK(IsSimpleFullscreenDocument(doc));
 
   // 3. Exit fullscreen |document|.
-  ExitFullscreen(doc, nullptr, ua_originated);
+  ExitFullscreen(doc, nullptr, nullptr, ua_originated);
 }
 
 // https://fullscreen.spec.whatwg.org/#exit-fullscreen
 ScriptPromise Fullscreen::ExitFullscreen(Document& doc,
                                          ScriptState* script_state,
+                                         ExceptionState* exception_state,
                                          bool ua_originated) {
   // 1. Let |promise| be a new promise.
   // ScriptPromiseResolver is allocated after step 2.
@@ -798,11 +797,10 @@ ScriptPromise Fullscreen::ExitFullscreen(Document& doc,
   // 2. If |doc| is not fully active or |doc|'s fullscreen element is null, then
   // reject |promise| with a TypeError exception and return |promise|.
   if (!doc.IsActive() || !doc.GetFrame() || !FullscreenElementFrom(doc)) {
-    if (!script_state)
+    if (!exception_state)
       return ScriptPromise();
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(), "Document not active"));
+    exception_state->ThrowTypeError("Document not active");
+    return ScriptPromise();
   }
 
   if (script_state)
@@ -1005,7 +1003,7 @@ void Fullscreen::ElementRemoved(Element& node) {
   // 3.1. If |node| is its node document's fullscreen element, exit fullscreen
   // that document.
   if (IsFullscreenElement(node)) {
-    ExitFullscreen(document, nullptr, false);
+    ExitFullscreen(document);
   } else {
     // 3.2. Otherwise, unfullscreen |node| within its node document.
     Unfullscreen(node);

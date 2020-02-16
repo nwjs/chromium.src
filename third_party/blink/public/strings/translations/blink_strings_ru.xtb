@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">ползунок</translation>
 <translation id="1211441953136645838">концевая сноска</translation>
 <translation id="1281252709823657822">диалоговое окно</translation>
+<translation id="1306460908038601864">ВЫКЛ</translation>
 <translation id="1335095011850992622">выходные сведения</translation>
 <translation id="1342835525016946179">article</translation>
 <translation id="1359897965706325498">баннер</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Минимально допустимое количество символов: <ph name="MIN_CHARACTERS" />. Длина текста сейчас: <ph name="CURRENT_LENGTH" />.</translation>
 <translation id="383465348367842624">Часть адреса до символа "<ph name="ATSIGN" />" не должна содержать символ "<ph name="INVALIDCHARACTER" />".</translation>
 <translation id="3846214748874656680">Обычный режим</translation>
-<translation id="3889183436948184105">версия</translation>
 <translation id="3920932319529768807">заключение</translation>
 <translation id="3924558731517983934">приложение</translation>
 <translation id="3944740393230681990">пролог</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Введите число.</translation>
 <translation id="4912536737030637138">запись в библиографии</translation>
 <translation id="492244087561876220">комментарий</translation>
+<translation id="4971739861736909480">Выбрано: <ph name="ACCNAME" /></translation>
 <translation id="4975562563186953947">Выбрано: <ph name="SELECTED_COUNT" /></translation>
 <translation id="4992066212339426712">Включить звук</translation>
 <translation id="49969490063480558">Введите часть адреса после символа "<ph name="ATSIGN" />". Адрес "<ph name="INVALIDADDRESS" />" неполный.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> ПБ</translation>
 <translation id="5307600278924710095">Введите часть адреса до символа "<ph name="ATSIGN" />". Адрес "<ph name="INVALIDADDRESS" />" неполный.</translation>
 <translation id="5334352251556557839">Не удалось воспроизвести медиафайл.</translation>
+<translation id="537648784377940524">Минимальная дата (<ph name="MIN_DATE_OR_TIME" />) должна быть раньше максимальной даты (<ph name="MAX_DATE_OR_TIME" />)</translation>
 <translation id="5406322316791861025">фигура</translation>
 <translation id="5453733299334684579">элемент дерева</translation>
 <translation id="5466621249238537318">Выберите один или несколько файлов.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">дополнительные параметры</translation>
 <translation id="576709008726043716">введение</translation>
 <translation id="57838592816432529">Отключить звук</translation>
-<translation id="5860033963881614850">ВЫКЛ</translation>
 <translation id="588258955323874662">Полноэкранный режим</translation>
 <translation id="5888666972993069672">Транслируется на устройство "<ph name="DEVICE_FRIENDLY_NAME" />"</translation>
 <translation id="591047860372322273">Окно поиска</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Адрес электронной почты должен содержать символ "<ph name="ATSIGN" />". В адресе "<ph name="INVALIDADDRESS" />" отсутствует символ "<ph name="ATSIGN" />".</translation>
 <translation id="7891486169920085145">разделитель</translation>
 <translation id="795667975304826397">Файл не выбран</translation>
+<translation id="7962328325860248200">Не выбрано: <ph name="ACCNAME" /></translation>
 <translation id="8034303206267677282">важный</translation>
 <translation id="8053789581856978548">поле поиска</translation>
 <translation id="8057695513531652401">примечание</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Месяц</translation>
 <translation id="901493112792887934">текущее время в секундах</translation>
 <translation id="901834265349196618">электронная почта</translation>
-<translation id="9023835124071926463">Раздел комментариев</translation>
 <translation id="9048119486235211610">навигация</translation>
 <translation id="9062295712474918030">документ</translation>
 <translation id="9093215626363556771">выйти из режима "Картинка в картинке"</translation>

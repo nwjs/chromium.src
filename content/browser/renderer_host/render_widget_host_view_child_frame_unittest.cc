@@ -17,10 +17,6 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
-#include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
-#include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
-#include "components/viz/service/surfaces/surface.h"
-#include "components/viz/service/surfaces/surface_manager.h"
 #include "components/viz/test/begin_frame_args_test.h"
 #include "components/viz/test/fake_external_begin_frame_source.h"
 #include "content/browser/compositor/test/test_image_transport_factory.h"
@@ -36,7 +32,6 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_browser_context.h"
-#include "content/test/fake_renderer_compositor_frame_sink.h"
 #include "content/test/mock_render_widget_host_delegate.h"
 #include "content/test/mock_widget_impl.h"
 #include "content/test/test_render_view_host.h"
@@ -67,10 +62,14 @@ class MockFrameConnectorDelegate : public FrameConnectorDelegate {
     last_surface_info_ = surface_info;
   }
 
-  void SetViewportIntersection(const blink::WebRect& intersection,
-                               const blink::WebRect& compositor_visible_rect,
-                               blink::FrameOcclusionState occlusion_state) {
-    intersection_state_.viewport_intersection = intersection;
+  void SetViewportIntersection(
+      const blink::WebRect& viewport_intersection,
+      const blink::WebRect& main_frame_document_intersection,
+      const blink::WebRect& compositor_visible_rect,
+      blink::FrameOcclusionState occlusion_state) {
+    intersection_state_.viewport_intersection = viewport_intersection;
+    intersection_state_.main_frame_document_intersection =
+        main_frame_document_intersection;
     intersection_state_.compositor_visible_rect = compositor_visible_rect;
     intersection_state_.occlusion_state = occlusion_state;
   }
@@ -135,16 +134,6 @@ class RenderWidgetHostViewChildFrameTest : public testing::Test {
         new MockFrameConnectorDelegate(use_zoom_for_device_scale_factor);
     test_frame_connector_->SetView(view_);
     view_->SetFrameConnectorDelegate(test_frame_connector_);
-
-    mojo::PendingRemote<viz::mojom::CompositorFrameSink> sink;
-    mojo::PendingReceiver<viz::mojom::CompositorFrameSink> sink_receiver =
-        sink.InitWithNewPipeAndPassReceiver();
-    renderer_compositor_frame_sink_ =
-        std::make_unique<FakeRendererCompositorFrameSink>(
-            std::move(sink), renderer_compositor_frame_sink_remote_
-                                 .BindNewPipeAndPassReceiver());
-    view_->DidCreateNewRendererCompositorFrameSink(
-        renderer_compositor_frame_sink_remote_.get());
   }
 
   void TearDown() override {
@@ -185,28 +174,7 @@ class RenderWidgetHostViewChildFrameTest : public testing::Test {
   RenderWidgetHostImpl* widget_host_;
   RenderWidgetHostViewChildFrame* view_;
   MockFrameConnectorDelegate* test_frame_connector_;
-  std::unique_ptr<FakeRendererCompositorFrameSink>
-      renderer_compositor_frame_sink_;
-
- private:
-  mojo::Remote<viz::mojom::CompositorFrameSinkClient>
-      renderer_compositor_frame_sink_remote_;
-
-  DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewChildFrameTest);
 };
-
-viz::CompositorFrame CreateDelegatedFrame(float scale_factor,
-                                          gfx::Size size,
-                                          const gfx::Rect& damage) {
-  viz::CompositorFrame frame;
-  frame.metadata.device_scale_factor = scale_factor;
-  frame.metadata.begin_frame_ack = viz::BeginFrameAck(0, 1, true);
-
-  std::unique_ptr<viz::RenderPass> pass = viz::RenderPass::Create();
-  pass->SetNew(1, gfx::Rect(size), damage, gfx::Transform());
-  frame.render_pass_list.push_back(std::move(pass));
-  return frame;
-}
 
 TEST_F(RenderWidgetHostViewChildFrameTest, VisibilityTest) {
   // Calling show and hide also needs to be propagated to child frame by the
@@ -226,10 +194,12 @@ TEST_F(RenderWidgetHostViewChildFrameTest, VisibilityTest) {
 // whenever screen rects are updated.
 TEST_F(RenderWidgetHostViewChildFrameTest, ViewportIntersectionUpdated) {
   blink::WebRect intersection_rect(5, 5, 100, 80);
+  blink::WebRect main_frame_document_intersection(5, 10, 200, 200);
   blink::FrameOcclusionState occlusion_state =
       blink::FrameOcclusionState::kPossiblyOccluded;
   test_frame_connector_->SetViewportIntersection(
-      intersection_rect, intersection_rect, occlusion_state);
+      intersection_rect, main_frame_document_intersection, intersection_rect,
+      occlusion_state);
 
   MockRenderProcessHost* process =
       static_cast<MockRenderProcessHost*>(widget_host_->GetProcess());
@@ -247,6 +217,8 @@ TEST_F(RenderWidgetHostViewChildFrameTest, ViewportIntersectionUpdated) {
                                           &intersection_state);
   EXPECT_EQ(intersection_rect,
             std::get<0>(intersection_state).viewport_intersection);
+  EXPECT_EQ(main_frame_document_intersection,
+            std::get<0>(intersection_state).main_frame_document_intersection);
   EXPECT_EQ(intersection_rect,
             std::get<0>(intersection_state).compositor_visible_rect);
   EXPECT_EQ(occlusion_state, std::get<0>(intersection_state).occlusion_state);

@@ -24,7 +24,6 @@
 #include "content/public/common/navigation_policy.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
-#include "content/public/test/browser_side_navigation_test_utils.h"
 #include "content/test/test_navigation_url_loader.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_render_widget_host.h"
@@ -116,11 +115,9 @@ bool TestRenderFrameHost::IsTestRenderFrameHost() const {
   return true;
 }
 
-void TestRenderFrameHost::DidFailLoadWithError(
-    const GURL& url,
-    int error_code,
-    const base::string16& error_description) {
-  RenderFrameHostImpl::DidFailLoadWithError(url, error_code, error_description);
+void TestRenderFrameHost::DidFailLoadWithError(const GURL& url,
+                                               int error_code) {
+  RenderFrameHostImpl::DidFailLoadWithError(url, error_code);
 }
 
 void TestRenderFrameHost::InitializeRenderFrameIfNeeded() {
@@ -212,11 +209,11 @@ void TestRenderFrameHost::SimulateNavigationCommit(const GURL& url) {
 
 void TestRenderFrameHost::SendBeforeUnloadACK(bool proceed) {
   base::TimeTicks now = base::TimeTicks::Now();
-  OnBeforeUnloadACK(proceed, now, now);
+  ProcessBeforeUnloadACK(proceed, false /* treat_as_final_ack */, now, now);
 }
 
-void TestRenderFrameHost::SimulateSwapOutACK() {
-  OnSwapOutACK();
+void TestRenderFrameHost::SimulateUnloadACK() {
+  OnUnloadACK();
 }
 
 // TODO(loonybear): Add a test for non-bool type PolicyValue.
@@ -231,7 +228,13 @@ void TestRenderFrameHost::SimulateFeaturePolicyHeader(
     header[0].values.insert(std::pair<url::Origin, blink::PolicyValue>(
         origin, blink::PolicyValue(true)));
   }
-  DidSetFramePolicyHeaders(blink::WebSandboxFlags::kNone, header);
+  DidSetFramePolicyHeaders(blink::WebSandboxFlags::kNone, header,
+                           {} /* dp_header */);
+}
+
+void TestRenderFrameHost::SimulateUserActivation() {
+  frame_tree_node()->UpdateUserActivationState(
+      blink::mojom::UserActivationUpdateType::kNotifyActivation);
 }
 
 const std::vector<std::string>& TestRenderFrameHost::GetConsoleMessages() {
@@ -331,9 +334,7 @@ void TestRenderFrameHost::SendRendererInitiatedNavigationRequest(
           GURL() /* client_side_redirect_url */,
           base::nullopt /* devtools_initiator_info */,
           false /* attach_same_site_cookies */);
-  mojom::CommonNavigationParamsPtr common_params =
-      mojom::CommonNavigationParams::New();
-  common_params->navigation_start = base::TimeTicks::Now();
+  auto common_params = CreateCommonNavigationParams();
   common_params->url = url;
   common_params->initiator_origin = GetLastCommittedOrigin();
   common_params->referrer = blink::mojom::Referrer::New(
@@ -487,8 +488,9 @@ TestRenderFrameHost::CreateWebBluetoothServiceForTesting() {
 
 void TestRenderFrameHost::SendFramePolicy(
     blink::WebSandboxFlags sandbox_flags,
-    const blink::ParsedFeaturePolicy& declared_policy) {
-  DidSetFramePolicyHeaders(sandbox_flags, declared_policy);
+    const blink::ParsedFeaturePolicy& fp_header,
+    const blink::DocumentPolicy::FeatureState& dp_header) {
+  DidSetFramePolicyHeaders(sandbox_flags, fp_header, dp_header);
 }
 
 void TestRenderFrameHost::SendCommitNavigation(
@@ -640,12 +642,10 @@ void TestRenderFrameHost::SimulateLoadingCompleted(
     return;
 
   if (loading_scenario == LoadingScenario::NewDocumentNavigation) {
-    static_cast<IPC::Listener*>(GetRenderViewHost())
-        ->OnMessageReceived(ViewHostMsg_DocumentAvailableInMainFrame(
-            GetRenderViewHost()->GetRoutingID(),
-            /* uses_temporary_zoom_level */ false));
+    if (frame_tree_node_->IsMainFrame())
+      DocumentAvailableInMainFrame(/* uses_temporary_zoom_level */ false);
 
-    OnMessageReceived(FrameHostMsg_DidFinishDocumentLoad(GetRoutingID()));
+    DidFinishDocumentLoad();
 
     DocumentOnLoadCompleted();
 

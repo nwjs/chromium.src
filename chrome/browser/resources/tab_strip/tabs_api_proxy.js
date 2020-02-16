@@ -5,6 +5,16 @@
 import {addSingletonGetter, sendWithPromise} from 'chrome://resources/js/cr.m.js';
 
 /**
+ * These values are persisted to logs and should not be renumbered or re-used.
+ * See tools/metrics/histograms/enums.xml.
+ * @enum {number}
+ */
+export const CloseTabAction = {
+  CLOSE_BUTTON: 0,
+  SWIPED_TO_CLOSE: 1,
+};
+
+/**
  * Must be kept in sync with TabNetworkState from
  * //chrome/browser/ui/tabs/tab_network_state.h.
  * @enum {number}
@@ -41,6 +51,7 @@ export const TabAlertState = {
  *    blocked: boolean,
  *    crashed: boolean,
  *    favIconUrl: (string|undefined),
+ *    groupId: (string|undefined),
  *    id: number,
  *    index: number,
  *    isDefaultFavicon: boolean,
@@ -57,6 +68,15 @@ export let TabData;
 /** @typedef {!Tab} */
 let ExtensionsApiTab;
 
+/**
+ * @typedef {{
+ *   color: string,
+ *   textColor: string,
+ *   title: string,
+ * }}
+ */
+export let TabGroupVisualData;
+
 export class TabsApiProxy {
   /**
    * @param {number} tabId
@@ -68,6 +88,18 @@ export class TabsApiProxy {
     });
   }
 
+  createNewTab() {
+    chrome.send('createNewTab');
+  }
+
+  /**
+   * @return {!Promise<!Object<!TabGroupVisualData>>} Object of group IDs as
+   *     strings mapped to their visual data.
+   */
+  getGroupVisualData() {
+    return sendWithPromise('getGroupVisualData');
+  }
+
   /**
    * @return {!Promise<!Array<!TabData>>}
    */
@@ -77,12 +109,32 @@ export class TabsApiProxy {
 
   /**
    * @param {number} tabId
+   * @param {!CloseTabAction} closeTabAction
    * @return {!Promise}
    */
-  closeTab(tabId) {
+  closeTab(tabId, closeTabAction) {
     return new Promise(resolve => {
       chrome.tabs.remove(tabId, resolve);
+      chrome.metricsPrivate.recordEnumerationValue(
+          'WebUITabStrip.CloseTabAction', closeTabAction,
+          Object.keys(CloseTabAction).length);
     });
+  }
+
+  /**
+   * @param {number} tabId
+   * @param {string} groupId
+   */
+  groupTab(tabId, groupId) {
+    chrome.send('groupTab', [tabId, groupId]);
+  }
+
+  /**
+   * @param {string} groupId
+   * @param {number} newIndex
+   */
+  moveGroup(groupId, newIndex) {
+    chrome.send('moveGroup', [groupId, newIndex]);
   }
 
   /**
@@ -90,9 +142,9 @@ export class TabsApiProxy {
    * @param {number} newIndex
    * @return {!Promise<!ExtensionsApiTab>}
    */
-  moveTab(tabId, newIndex) {
+  moveTab(tabId, windowId, newIndex) {
     return new Promise(resolve => {
-      chrome.tabs.move(tabId, {index: newIndex}, tab => {
+      chrome.tabs.move(tabId, {index: newIndex, windowId}, tab => {
         resolve(tab);
       });
     });
@@ -104,6 +156,11 @@ export class TabsApiProxy {
    */
   setThumbnailTracked(tabId, thumbnailTracked) {
     chrome.send('setThumbnailTracked', [tabId, thumbnailTracked]);
+  }
+
+  /** @param {number} tabId */
+  ungroupTab(tabId) {
+    chrome.send('ungroupTab', [tabId]);
   }
 }
 

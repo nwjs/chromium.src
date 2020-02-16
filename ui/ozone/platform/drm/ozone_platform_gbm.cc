@@ -25,6 +25,7 @@
 #include "ui/events/ozone/evdev/event_factory_evdev.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
 #include "ui/gfx/linux/client_native_pixmap_dmabuf.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/ozone/platform/drm/common/drm_util.h"
 #include "ui/ozone/platform/drm/gpu/drm_device_generator.h"
 #include "ui/ozone/platform/drm/gpu/drm_device_manager.h"
@@ -40,7 +41,6 @@
 #include "ui/ozone/platform/drm/host/drm_display_host_manager.h"
 #include "ui/ozone/platform/drm/host/drm_gpu_platform_support_host.h"
 #include "ui/ozone/platform/drm/host/drm_native_display_delegate.h"
-#include "ui/ozone/platform/drm/host/drm_overlay_manager_host.h"
 #include "ui/ozone/platform/drm/host/drm_window_host.h"
 #include "ui/ozone/platform/drm/host/drm_window_host_manager.h"
 #include "ui/ozone/platform/drm/host/host_drm_device.h"
@@ -160,8 +160,7 @@ class OzonePlatformGbm : public OzonePlatform {
 
     auto platform_window = std::make_unique<DrmWindowHost>(
         delegate, properties.bounds, adapter, event_factory_ozone_.get(),
-        cursor_.get(), window_manager_.get(), display_manager_.get(),
-        overlay_manager_.get());
+        cursor_.get(), window_manager_.get(), display_manager_.get());
     platform_window->Initialize();
     return std::move(platform_window);
   }
@@ -170,7 +169,8 @@ class OzonePlatformGbm : public OzonePlatform {
     return std::make_unique<DrmNativeDisplayDelegate>(display_manager_.get());
   }
   std::unique_ptr<InputMethod> CreateInputMethod(
-      internal::InputMethodDelegate* delegate) override {
+      internal::InputMethodDelegate* delegate,
+      gfx::AcceleratedWidget) override {
 #if defined(OS_CHROMEOS)
     return std::make_unique<InputMethodChromeOS>(delegate);
 #else
@@ -227,23 +227,13 @@ class OzonePlatformGbm : public OzonePlatform {
       adapter = gpu_platform_support_host_.get();
     }
 
-    std::unique_ptr<DrmOverlayManagerHost> overlay_manager_host;
-    if (!args.viz_display_compositor) {
-      overlay_manager_host = std::make_unique<DrmOverlayManagerHost>(
-          adapter, window_manager_.get());
-    }
-
     display_manager_ = std::make_unique<DrmDisplayHostManager>(
         adapter, device_manager_.get(), &host_properties_,
-        overlay_manager_host.get(), event_factory_ozone_->input_controller());
+        event_factory_ozone_->input_controller());
     cursor_factory_ozone_ = std::make_unique<BitmapCursorFactoryOzone>();
 
-    if (using_mojo_) {
-      host_drm_device_->ProvideManagers(display_manager_.get(),
-                                        overlay_manager_host.get());
-    }
-
-    overlay_manager_ = std::move(overlay_manager_host);
+    if (using_mojo_)
+      host_drm_device_->SetDisplayManager(display_manager_.get());
   }
 
   void InitializeGPU(const InitParams& args) override {
@@ -268,10 +258,8 @@ class OzonePlatformGbm : public OzonePlatform {
       drm_thread_proxy_->BindThreadIntoMessagingProxy(itmp);
     }
 
-    if (args.viz_display_compositor) {
-      overlay_manager_ =
-          std::make_unique<DrmOverlayManagerGpu>(drm_thread_proxy_.get());
-    }
+    overlay_manager_ =
+        std::make_unique<DrmOverlayManagerGpu>(drm_thread_proxy_.get());
 
     // If gpu is in a separate process, rest of the initialization happens after
     // entering the sandbox.
@@ -338,6 +326,7 @@ class OzonePlatformGbm : public OzonePlatform {
   std::unique_ptr<GbmSurfaceFactory> surface_factory_;
   scoped_refptr<IPC::MessageFilter> gpu_message_filter_;
   scoped_refptr<base::SingleThreadTaskRunner> gpu_task_runner_;
+  std::unique_ptr<DrmOverlayManager> overlay_manager_;
 
   // TODO(rjkroege,sadrul): Provide a more elegant solution for this issue when
   // running in single process mode.
@@ -351,9 +340,9 @@ class OzonePlatformGbm : public OzonePlatform {
   // TODO(rjkroege): Remove gpu_platform_support_host_ once ozone/drm with mojo
   // has reached the stable channel.
   // A raw pointer to either |gpu_platform_support_host_| or |host_drm_device_|
-  // is passed to |display_manager_| and |overlay_manager_| in IntializeUI.
-  // To avoid a use after free, the following two members should be declared
-  // before the two managers, so that they're deleted after them.
+  // is passed to |display_manager_| in InitializeUI(). To avoid a use after
+  // free, the following two members should be declared before the two managers,
+  // so that they're deleted after them.
   std::unique_ptr<DrmGpuPlatformSupportHost> gpu_platform_support_host_;
 
   // Objects in the host process.
@@ -370,7 +359,6 @@ class OzonePlatformGbm : public OzonePlatform {
   std::unique_ptr<DrmCursor> cursor_;
   std::unique_ptr<EventFactoryEvdev> event_factory_ozone_;
   std::unique_ptr<DrmDisplayHostManager> display_manager_;
-  std::unique_ptr<DrmOverlayManager> overlay_manager_;
   InitializedHostProperties host_properties_;
 
   base::WeakPtrFactory<OzonePlatformGbm> weak_factory_{this};

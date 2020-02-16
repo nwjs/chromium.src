@@ -92,7 +92,7 @@ Polymer({
   },
 
   /** @private */
-  hideRipple_: function() {
+  hideRipple_() {
     if (this.hasRipple()) {
       this.getRipple().clear();
       this.rippleShowing_ = false;
@@ -100,7 +100,7 @@ Polymer({
   },
 
   /** @private */
-  showRipple_: function() {
+  showRipple_() {
     if (!this.noink && !this.disabled) {
       this.getRipple().showAndHoldDown();
       this.rippleShowing_ = true;
@@ -112,8 +112,8 @@ Polymer({
    * @param {boolean} oldValue
    * @private
    */
-  disabledChanged_: function(newValue, oldValue) {
-    if (!newValue && oldValue == undefined) {
+  disabledChanged_(newValue, oldValue) {
+    if (!newValue && oldValue === undefined) {
       return;
     }
     if (this.disabled) {
@@ -127,14 +127,14 @@ Polymer({
    * @param {!Event} e
    * @private
    */
-  onClick_: function(e) {
+  onClick_(e) {
     if (this.disabled) {
       e.stopImmediatePropagation();
     }
   },
 
   /** @private */
-  onIronIconChanged_: function() {
+  onIronIconChanged_() {
     this.shadowRoot.querySelectorAll('iron-icon').forEach(el => el.remove());
     if (!this.ironIcon) {
       return;
@@ -159,8 +159,8 @@ Polymer({
    * @param {!KeyboardEvent} e
    * @private
    */
-  onKeyDown_: function(e) {
-    if (e.key != ' ' && e.key != 'Enter') {
+  onKeyDown_(e) {
+    if (e.key !== ' ' && e.key !== 'Enter') {
       return;
     }
 
@@ -170,7 +170,7 @@ Polymer({
       return;
     }
 
-    if (e.key == 'Enter') {
+    if (e.key === 'Enter') {
       this.click();
     }
   },
@@ -179,19 +179,19 @@ Polymer({
    * @param {!KeyboardEvent} e
    * @private
    */
-  onKeyUp_: function(e) {
-    if (e.key == ' ' || e.key == 'Enter') {
+  onKeyUp_(e) {
+    if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
     }
 
-    if (e.key == ' ') {
+    if (e.key === ' ') {
       this.click();
     }
   },
 
   // customize the element's ripple
-  _createRipple: function() {
+  _createRipple() {
     this._rippleContainer = this.$.icon;
     const ripple = Polymer.PaperRippleBehavior._createRipple();
     ripple.id = 'ink';

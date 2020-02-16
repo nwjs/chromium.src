@@ -8,12 +8,16 @@ import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.PositionAssertions.isLeftAlignedWith;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
+import static android.support.test.espresso.matcher.ViewMatchers.assertThat;
 import static android.support.test.espresso.matcher.ViewMatchers.isCompletelyDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static android.support.test.espresso.matcher.ViewMatchers.isEnabled;
 import static android.support.test.espresso.matcher.ViewMatchers.withTagValue;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.iterableWithSize;
 
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.startAutofillAssistant;
 import static org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiTestUtil.waitUntilViewMatchesCondition;
@@ -28,22 +32,38 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.autofill_assistant.proto.ActionProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.BooleanList;
+import org.chromium.chrome.browser.autofill_assistant.proto.CallbackProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ChipProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.ChipType;
 import org.chromium.chrome.browser.autofill_assistant.proto.ClientDimensionProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.CollectUserDataProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.CollectUserDataResultProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ColorProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.DividerViewProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.DrawableProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.EventProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.GenericUserInterfaceProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ImageViewProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.InteractionProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.InteractionsProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.LinearLayoutProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.ModelProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.OnModelValueChangedEventProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.OnViewClickedEventProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.ProcessedActionProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.ProcessedActionStatusProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.PromptProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.SetModelValueCallbackProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ShapeDrawableProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.StringList;
 import org.chromium.chrome.browser.autofill_assistant.proto.SupportedScriptProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.SupportedScriptProto.PresentationProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.TextViewProto;
+import org.chromium.chrome.browser.autofill_assistant.proto.ValueProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ViewAttributesProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ViewContainerProto;
 import org.chromium.chrome.browser.autofill_assistant.proto.ViewLayoutParamsProto;
@@ -94,7 +114,7 @@ public class AutofillAssistantGenericUiTest {
     private ViewProto createTextView(String text, String identifier) {
         return (ViewProto) ViewProto.newBuilder()
                 .setTextView(TextViewProto.newBuilder().setText(text).setTextAppearance(
-                        "TextAppearance.BlackBody"))
+                        "TextAppearance.TextMedium.Secondary"))
                 .setAttributes(ViewAttributesProto.newBuilder().setPaddingStart(24))
                 .setLayoutParams(
                         ViewLayoutParamsProto.newBuilder()
@@ -140,6 +160,7 @@ public class AutofillAssistantGenericUiTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/1033877")
     @DisableIf.Build(sdk_is_less_than = 21)
     public void testStaticUserInterface() {
         DrawableProto roundedRect =
@@ -155,14 +176,14 @@ public class AutofillAssistantGenericUiTest {
                                         .setStrokeWidth(ClientDimensionProto.newBuilder().setDp(1)))
                         .build();
 
-        ViewProto locationImage = createTestImage("ic_place_googblue_36dp", "locationImage");
+        ViewProto locationImage = createTestImage("btn_close", "locationImage");
         ViewProto locationTextView =
                 createTextView("345 Spear Street, San Francisco", "locationText");
         ViewProto locationChevron = createTestImage("ic_expand_more_black_24dp", "locationChevron");
         ViewProto locationSection = createSectionView(
                 Arrays.asList(locationImage, locationTextView, locationChevron), "locationSection");
 
-        ViewProto cardImage = createTestImage("ic_folder_blue_24dp", "cardImage");
+        ViewProto cardImage = createTestImage("btn_close", "cardImage");
         ViewProto cardTextView = createTextView("Visa •••• 1111", "cardText");
         ViewProto cardChevron = createTestImage("ic_expand_more_black_24dp", "cardChevron");
         ViewProto cardSection = createSectionView(
@@ -228,5 +249,282 @@ public class AutofillAssistantGenericUiTest {
 
         onView(withText("Continue")).perform(click());
         waitUntilViewMatchesCondition(withText("End"), isCompletelyDisplayed());
+    }
+
+    @Test
+    @MediumTest
+    @DisableIf.Build(sdk_is_less_than = 21)
+    public void testOnViewClickedWriteToModel() {
+        ViewProto clickableView1 = (ViewProto) ViewProto.newBuilder()
+                                           .setTextView(TextViewProto.newBuilder().setText(
+                                                   "Writes 'true' to output_1 when clicked"))
+                                           .setIdentifier("clickableView1")
+                                           .build();
+        ViewProto clickableView2 = (ViewProto) ViewProto.newBuilder()
+                                           .setTextView(TextViewProto.newBuilder().setText(
+                                                   "Writes 'Hello World' to output_2 when clicked"))
+                                           .setIdentifier("clickableView2")
+                                           .build();
+
+        ViewProto rootView =
+                (ViewProto) ViewProto.newBuilder()
+                        .setViewContainer(
+                                ViewContainerProto.newBuilder()
+                                        .setLinearLayout(
+                                                LinearLayoutProto.newBuilder().setOrientation(
+                                                        LinearLayoutProto.Orientation.VERTICAL))
+                                        .addViews(clickableView1)
+                                        .addViews(clickableView2))
+                        .build();
+
+        List<InteractionProto> interactions = new ArrayList<>();
+        interactions.add(
+                (InteractionProto) InteractionProto.newBuilder()
+                        .setTriggerEvent(EventProto.newBuilder().setOnViewClicked(
+                                OnViewClickedEventProto.newBuilder()
+                                        .setViewIdentifier("clickableView1")
+                                        .setValue(ValueProto.newBuilder().setBooleans(
+                                                BooleanList.newBuilder().addValues(true)))))
+                        .addCallbacks(CallbackProto.newBuilder().setSetValue(
+                                SetModelValueCallbackProto.newBuilder().setModelIdentifier(
+                                        "output_1")))
+                        .build());
+        interactions.add(
+                (InteractionProto) InteractionProto.newBuilder()
+                        .setTriggerEvent(EventProto.newBuilder().setOnViewClicked(
+                                OnViewClickedEventProto.newBuilder()
+                                        .setViewIdentifier("clickableView2")
+                                        .setValue(ValueProto.newBuilder().setStrings(
+                                                StringList.newBuilder().addValues("Hello World")))))
+                        .addCallbacks(CallbackProto.newBuilder().setSetValue(
+                                SetModelValueCallbackProto.newBuilder().setModelIdentifier(
+                                        "output_2")))
+                        .build());
+
+        List<ModelProto.ModelValue> modelValues = new ArrayList<>();
+        modelValues.add((ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_1")
+                                .build());
+        modelValues.add((ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_2")
+                                .build());
+
+        ArrayList<ActionProto> list = new ArrayList<>();
+        list.add((ActionProto) ActionProto.newBuilder()
+                         .setCollectUserData(
+                                 CollectUserDataProto.newBuilder()
+                                         .setGenericUserInterface(
+                                                 GenericUserInterfaceProto.newBuilder()
+                                                         .setRootView(rootView)
+                                                         .setInteractions(
+                                                                 InteractionsProto.newBuilder()
+                                                                         .addAllInteractions(
+                                                                                 interactions))
+                                                         .setModel(ModelProto.newBuilder()
+                                                                           .addAllValues(
+                                                                                   modelValues)))
+                                         .setPrivacyNoticeText(
+                                                 "Chrome will send selected data to example.com")
+                                         .setRequestTermsAndConditions(false))
+                         .build());
+        AutofillAssistantTestScript script = new AutofillAssistantTestScript(
+                (SupportedScriptProto) SupportedScriptProto.newBuilder()
+                        .setPath("form_target_website.html")
+                        .setPresentation(PresentationProto.newBuilder().setAutostart(true).setChip(
+                                ChipProto.newBuilder().setText("Autostart")))
+                        .build(),
+                list);
+
+        AutofillAssistantTestService testService =
+                new AutofillAssistantTestService(Collections.singletonList(script));
+        startAutofillAssistant(mTestRule.getActivity(), testService);
+
+        waitUntilViewMatchesCondition(withText("Continue"), isCompletelyDisplayed());
+
+        onView(withText("Writes 'true' to output_1 when clicked")).perform(click());
+        onView(withText("Writes 'Hello World' to output_2 when clicked")).perform(click());
+
+        // Finish action, wait for response and prepare next set of actions.
+        List<ActionProto> nextActions = new ArrayList<>();
+        nextActions.add(
+                (ActionProto) ActionProto.newBuilder()
+                        .setPrompt(PromptProto.newBuilder()
+                                           .setMessage("Finished")
+                                           .addChoices(PromptProto.Choice.newBuilder().setChip(
+                                                   ChipProto.newBuilder()
+                                                           .setType(ChipType.DONE_ACTION)
+                                                           .setText("End"))))
+                        .build());
+        testService.setNextActions(nextActions);
+        waitUntilViewMatchesCondition(withText("Continue"), isEnabled());
+        int numNextActionsCalled = testService.getNextActionsCounter();
+        onView(withText("Continue")).perform(click());
+        testService.waitUntilGetNextActions(numNextActionsCalled + 1);
+
+        List<ProcessedActionProto> processedActions = testService.getProcessedActions();
+        assertThat(processedActions, iterableWithSize(1));
+        assertThat(
+                processedActions.get(0).getStatus(), is(ProcessedActionStatusProto.ACTION_APPLIED));
+        CollectUserDataResultProto result = processedActions.get(0).getCollectUserDataResult();
+        List<ModelProto.ModelValue> resultModelValues = result.getModel().getValuesList();
+        assertThat(resultModelValues, iterableWithSize(2));
+        assertThat(resultModelValues,
+                containsInAnyOrder((ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                           .setIdentifier("output_1")
+                                           .setValue(ValueProto.newBuilder().setBooleans(
+                                                   BooleanList.newBuilder().addValues(true)))
+                                           .build(),
+                        (ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_2")
+                                .setValue(ValueProto.newBuilder().setStrings(
+                                        StringList.newBuilder().addValues("Hello World")))
+                                .build()));
+    }
+
+    @Test
+    @MediumTest
+    @DisableIf.Build(sdk_is_less_than = 21)
+    public void testCallbackChain() {
+        ViewProto clickableView =
+                (ViewProto) ViewProto.newBuilder()
+                        .setTextView(TextViewProto.newBuilder().setText(
+                                "Writes 'Hello World' to output_1 and output_3 when clicked"))
+                        .setIdentifier("clickableView")
+                        .build();
+
+        ViewProto rootView =
+                (ViewProto) ViewProto.newBuilder()
+                        .setViewContainer(
+                                ViewContainerProto.newBuilder()
+                                        .setLinearLayout(
+                                                LinearLayoutProto.newBuilder().setOrientation(
+                                                        LinearLayoutProto.Orientation.VERTICAL))
+                                        .addViews(clickableView))
+                        .build();
+
+        List<InteractionProto> interactions = new ArrayList<>();
+        interactions.add(
+                (InteractionProto) InteractionProto.newBuilder()
+                        .setTriggerEvent(EventProto.newBuilder().setOnViewClicked(
+                                OnViewClickedEventProto.newBuilder()
+                                        .setViewIdentifier("clickableView")
+                                        .setValue(ValueProto.newBuilder().setStrings(
+                                                StringList.newBuilder().addValues("Hello World")))))
+                        .addCallbacks(CallbackProto.newBuilder().setSetValue(
+                                SetModelValueCallbackProto.newBuilder().setModelIdentifier(
+                                        "output_1")))
+                        .addCallbacks(CallbackProto.newBuilder().setSetValue(
+                                SetModelValueCallbackProto.newBuilder().setModelIdentifier(
+                                        "output_3")))
+                        .build());
+        // Whenever output_1 changes, copy the value to output_2.
+        interactions.add(
+                (InteractionProto) InteractionProto.newBuilder()
+                        .setTriggerEvent(EventProto.newBuilder().setOnValueChanged(
+                                OnModelValueChangedEventProto.newBuilder().setModelIdentifier(
+                                        "output_1")))
+                        .addCallbacks(CallbackProto.newBuilder().setSetValue(
+                                SetModelValueCallbackProto.newBuilder().setModelIdentifier(
+                                        "output_2")))
+                        .build());
+        // Whenever output_2 changes, copy the value to output_1. This tests that no infinite loop
+        // is created, because events should only be fired for actual value changes.
+        interactions.add(
+                (InteractionProto) InteractionProto.newBuilder()
+                        .setTriggerEvent(EventProto.newBuilder().setOnValueChanged(
+                                OnModelValueChangedEventProto.newBuilder().setModelIdentifier(
+                                        "output_2")))
+                        .addCallbacks(CallbackProto.newBuilder().setSetValue(
+                                SetModelValueCallbackProto.newBuilder().setModelIdentifier(
+                                        "output_1")))
+                        .build());
+
+        List<ModelProto.ModelValue> modelValues = new ArrayList<>();
+        modelValues.add((ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_1")
+                                .build());
+        modelValues.add((ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_2")
+                                .build());
+        modelValues.add((ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_3")
+                                .build());
+
+        ArrayList<ActionProto> list = new ArrayList<>();
+        list.add((ActionProto) ActionProto.newBuilder()
+                         .setCollectUserData(
+                                 CollectUserDataProto.newBuilder()
+                                         .setGenericUserInterface(
+                                                 GenericUserInterfaceProto.newBuilder()
+                                                         .setRootView(rootView)
+                                                         .setInteractions(
+                                                                 InteractionsProto.newBuilder()
+                                                                         .addAllInteractions(
+                                                                                 interactions))
+                                                         .setModel(ModelProto.newBuilder()
+                                                                           .addAllValues(
+                                                                                   modelValues)))
+                                         .setPrivacyNoticeText(
+                                                 "Chrome will send selected data to example.com")
+                                         .setRequestTermsAndConditions(false))
+                         .build());
+        AutofillAssistantTestScript script = new AutofillAssistantTestScript(
+                (SupportedScriptProto) SupportedScriptProto.newBuilder()
+                        .setPath("form_target_website.html")
+                        .setPresentation(PresentationProto.newBuilder().setAutostart(true).setChip(
+                                ChipProto.newBuilder().setText("Autostart")))
+                        .build(),
+                list);
+
+        AutofillAssistantTestService testService =
+                new AutofillAssistantTestService(Collections.singletonList(script));
+        startAutofillAssistant(mTestRule.getActivity(), testService);
+
+        waitUntilViewMatchesCondition(withText("Continue"), isCompletelyDisplayed());
+
+        onView(withText("Writes 'Hello World' to output_1 and output_3 when clicked"))
+                .perform(click());
+
+        // Finish action, wait for response and prepare next set of actions.
+        List<ActionProto> nextActions = new ArrayList<>();
+        nextActions.add(
+                (ActionProto) ActionProto.newBuilder()
+                        .setPrompt(PromptProto.newBuilder()
+                                           .setMessage("Finished")
+                                           .addChoices(PromptProto.Choice.newBuilder().setChip(
+                                                   ChipProto.newBuilder()
+                                                           .setType(ChipType.DONE_ACTION)
+                                                           .setText("End"))))
+                        .build());
+        testService.setNextActions(nextActions);
+        waitUntilViewMatchesCondition(withText("Continue"), isEnabled());
+        int numNextActionsCalled = testService.getNextActionsCounter();
+        onView(withText("Continue")).perform(click());
+        testService.waitUntilGetNextActions(numNextActionsCalled + 1);
+
+        List<ProcessedActionProto> processedActions = testService.getProcessedActions();
+        assertThat(processedActions, iterableWithSize(1));
+        assertThat(
+                processedActions.get(0).getStatus(), is(ProcessedActionStatusProto.ACTION_APPLIED));
+        CollectUserDataResultProto result = processedActions.get(0).getCollectUserDataResult();
+        List<ModelProto.ModelValue> resultModelValues = result.getModel().getValuesList();
+        assertThat(resultModelValues, iterableWithSize(3));
+        assertThat(resultModelValues,
+                containsInAnyOrder(
+                        (ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_1")
+                                .setValue(ValueProto.newBuilder().setStrings(
+                                        StringList.newBuilder().addValues("Hello World")))
+                                .build(),
+                        (ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_2")
+                                .setValue(ValueProto.newBuilder().setStrings(
+                                        StringList.newBuilder().addValues("Hello World")))
+                                .build(),
+                        (ModelProto.ModelValue) ModelProto.ModelValue.newBuilder()
+                                .setIdentifier("output_3")
+                                .setValue(ValueProto.newBuilder().setStrings(
+                                        StringList.newBuilder().addValues("Hello World")))
+                                .build()));
     }
 }

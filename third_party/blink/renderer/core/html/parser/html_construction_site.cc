@@ -300,7 +300,7 @@ void HTMLConstructionSite::AttachLater(ContainerNode* parent,
   DCHECK(ScriptingContentIsAllowed(parser_content_policy_) || !element ||
          !element->IsScriptElement());
   DCHECK(PluginContentIsAllowed(parser_content_policy_) ||
-         !IsHTMLPlugInElement(child));
+         !IsA<HTMLPlugInElement>(child));
 
   HTMLConstructionSiteTask task(HTMLConstructionSiteTask::kInsert);
   task.parent = parent;
@@ -580,7 +580,7 @@ void HTMLConstructionSite::SetCompatibilityModeFromDoctype(
           "-//WebTechs//DTD Mozilla HTML//") ||
       DeprecatedEqualIgnoringCase(public_id,
                                   "-/W3C/DTD HTML 4.0 Transitional/EN") ||
-      DeprecatedEqualIgnoringCase(public_id, "HTML") ||
+      EqualIgnoringASCIICase(public_id, "HTML") ||
       DeprecatedEqualIgnoringCase(
           system_id,
           "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd") ||

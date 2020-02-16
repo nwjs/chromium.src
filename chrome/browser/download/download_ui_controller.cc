@@ -23,6 +23,7 @@
 #include "extensions/browser/app_window/native_app_window.h"
 
 #if defined(OS_ANDROID)
+#include "chrome/browser/download/android/download_controller.h"
 #include "chrome/browser/download/android/download_controller_base.h"
 #else
 #include "chrome/browser/profiles/profile.h"
@@ -185,10 +186,12 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
       item->GetState() != download::DownloadItem::CANCELLED)
     return;
 
-#if !defined(OS_ANDROID)
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(item);
   if (web_contents) {
+#if defined(OS_ANDROID)
+    DownloadController::CloseTabIfEmpty(web_contents);
+#else
     Profile* profile = Profile::FromBrowserContext(web_contents->GetBrowserContext());
     extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
     if (!registry)
@@ -217,8 +220,8 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
       web_contents->Close();
     }
 #endif
+#endif  // defined(OS_ANDROID)
   }
-#endif
 
   if (item->GetState() == download::DownloadItem::CANCELLED)
     return;

@@ -36,10 +36,7 @@
 #include "cc/trees/browser_controls_params.h"
 #include "cc/trees/render_frame_metadata.h"
 #include "components/viz/common/features.h"
-#include "components/viz/common/quads/compositor_frame.h"
-#include "components/viz/common/resources/bitmap_allocation.h"
 #include "components/viz/host/host_frame_sink_manager.h"
-#include "components/viz/service/display_embedder/server_shared_bitmap_manager.h"
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/browser_main_loop.h"
@@ -79,6 +76,7 @@
 #include "content/common/widget_messages.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/device_service.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/notification_service.h"
@@ -127,10 +125,7 @@
 
 #if defined(OS_MACOSX)
 #include "content/browser/renderer_host/input/fling_scheduler_mac.h"
-#include "content/public/browser/system_connector.h"
-#include "services/device/public/mojom/constants.mojom.h"
 #include "services/device/public/mojom/wake_lock_provider.mojom.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #endif
 
@@ -326,7 +321,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
       hung_renderer_delay_(TimeDelta::FromMilliseconds(kHungRendererDelayMs)),
       new_content_rendering_delay_(
           TimeDelta::FromMilliseconds(kNewContentRenderingDelayMs)),
-      compositor_frame_sink_receiver_(this),
       frame_token_message_queue_(std::move(frame_token_message_queue)),
       render_frame_metadata_provider_(
 #if defined(OS_MACOSX)
@@ -380,19 +374,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
                             weak_factory_.GetWeakPtr()));
   }
 
-  enable_viz_ = features::IsVizDisplayCompositorEnabled();
-
-  if (!enable_viz_) {
-#if !defined(OS_ANDROID)
-    // Software compositing is not supported or used on Android.
-    //
-    // The BrowserMainLoop is null in unit tests, but they do not use
-    // compositing and report SharedBitmapIds.
-    if (BrowserMainLoop* main_loop = BrowserMainLoop::GetInstance())
-      shared_bitmap_manager_ = main_loop->GetServerSharedBitmapManager();
-#endif
-  }
-
   delegate_->RenderWidgetCreated(this);
   render_frame_metadata_provider_.AddObserver(this);
 }
@@ -433,7 +414,9 @@ RenderWidgetHost::GetRenderWidgetHosts() {
       continue;
     }
 
-    // If the widget is for a main frame, only add if it's not swapped out.
+    // If the widget is for a main frame, only add if there is a RenderWidget in
+    // the renderer process. When this is false, there is no main RenderFrame
+    // and so no RenderWidget for this RenderWidgetHost.
     if (owner_delegate->IsMainFrameActive())
       hosts->Add(widget);
   }
@@ -459,19 +442,8 @@ RenderWidgetHostImpl* RenderWidgetHostImpl::From(RenderWidgetHost* rwh) {
 void RenderWidgetHostImpl::SetView(RenderWidgetHostViewBase* view) {
   if (view) {
     view_ = view->GetWeakPtr();
-    if (enable_viz_) {
-      if (!create_frame_sink_callback_.is_null())
-        std::move(create_frame_sink_callback_).Run(view_->GetFrameSinkId());
-    } else {
-      if (renderer_compositor_frame_sink_.is_bound()) {
-        view->DidCreateNewRendererCompositorFrameSink(
-            renderer_compositor_frame_sink_.get());
-      }
-      // Views start out not needing begin frames, so only update its state
-      // if the value has changed.
-      if (needs_begin_frames_)
-        view_->SetNeedsBeginFrames(needs_begin_frames_);
-    }
+    if (!create_frame_sink_callback_.is_null())
+      std::move(create_frame_sink_callback_).Run(view_->GetFrameSinkId());
   } else {
     view_.reset();
   }
@@ -497,11 +469,6 @@ RenderWidgetHostViewBase* RenderWidgetHostImpl::GetView() {
 
 const viz::FrameSinkId& RenderWidgetHostImpl::GetFrameSinkId() {
   return frame_sink_id_;
-}
-
-void RenderWidgetHostImpl::ResetSentVisualProperties() {
-  visual_properties_ack_pending_ = false;
-  old_visual_properties_.reset();
 }
 
 void RenderWidgetHostImpl::SendScreenRects() {
@@ -633,7 +600,6 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
 }
 
 bool RenderWidgetHostImpl::Send(IPC::Message* msg) {
-  DCHECK(IPC_MESSAGE_ID_CLASS(msg->type()) != InputMsgStart);
   return process_->Send(msg);
 }
 
@@ -675,7 +641,7 @@ void RenderWidgetHostImpl::WasHidden() {
 }
 
 void RenderWidgetHostImpl::WasShown(
-    const base::Optional<RecordTabSwitchTimeRequest>&
+    const base::Optional<RecordContentToVisibleTimeRequest>&
         record_tab_switch_time_request) {
   if (!is_hidden_)
     return;
@@ -747,6 +713,17 @@ void RenderWidgetHostImpl::RemoveImeInputEventObserver(
   ime_input_event_observers_.RemoveObserver(observer);
 }
 #endif
+
+VisualProperties RenderWidgetHostImpl::GetInitialVisualProperties() {
+  VisualProperties initial_props = GetVisualProperties();
+
+  // A RenderWidget being created in the renderer means the browser should
+  // reset any state that may be set for the previous RenderWidget but which
+  // will be incorrect with a fresh RenderWidget.
+  ResetStateForCreatedRenderWidget(initial_props);
+
+  return initial_props;
+}
 
 VisualProperties RenderWidgetHostImpl::GetVisualProperties() {
   // This is only called while the RenderWidgetHost is attached to a delegate
@@ -862,14 +839,6 @@ VisualProperties RenderWidgetHostImpl::GetVisualProperties() {
   return visual_properties;
 }
 
-void RenderWidgetHostImpl::SetInitialVisualProperties(
-    const VisualProperties& visual_properties) {
-  visual_properties_ack_pending_ =
-      DoesVisualPropertiesNeedAck(old_visual_properties_, visual_properties);
-  old_visual_properties_ =
-      std::make_unique<VisualProperties>(visual_properties);
-}
-
 bool RenderWidgetHostImpl::SynchronizeVisualProperties() {
   return SynchronizeVisualProperties(false);
 }
@@ -883,8 +852,8 @@ bool RenderWidgetHostImpl::SynchronizeVisualProperties(
     bool scroll_focused_node_into_view) {
   // If the RenderViewHost is inactive, then there is no RenderWidget that can
   // receive visual properties yet, even though we are setting them on the
-  // browser side. Wait until the RenderWidget is not undead before sending the
-  // visual properties.
+  // browser side. Wait until there is a local main frame with a RenderWidget
+  // to receive these before sending the visual properties.
   //
   // When the RenderViewHost becomes active, a SynchronizeVisualProperties()
   // call does not explicitly get made. That is because RenderWidgets for frames
@@ -899,13 +868,17 @@ bool RenderWidgetHostImpl::SynchronizeVisualProperties(
   // inactive, so there is no focused node, or anything to scroll and display.
   if (owner_delegate_ && !owner_delegate_->IsMainFrameActive())
     return false;
+  // This is similar to the above but when the renderer process has crashed, so
+  // more objects are gone than the RenderWidget.
+  if (!renderer_initialized_)
+    return false;
 
-  // Skip if the |delegate_| has already been detached because
-  // it's web contents is being deleted, or if LocalSurfaceIdAllocation is
-  // suppressed, as we are first updating our internal state from a child's
-  // request, before subsequently merging ids to send.
+  // Skip if the |delegate_| has already been detached because it's web contents
+  // is being deleted, or if LocalSurfaceIdAllocation is suppressed, as we are
+  // first updating our internal state from a child's request, before
+  // subsequently merging ids to send.
   if (visual_properties_ack_pending_ || !process_->IsInitializedAndNotDead() ||
-      !view_ || !view_->HasSize() || !renderer_initialized_ || !delegate_ ||
+      !view_ || !view_->HasSize() || !delegate_ ||
       surface_id_allocation_suppressed_ ||
       !view_->CanSynchronizeVisualProperties()) {
     return false;
@@ -994,6 +967,9 @@ void RenderWidgetHostImpl::FlushForTesting() {
 
 void RenderWidgetHostImpl::SetPageFocus(bool focused) {
   is_focused_ = focused;
+
+  // Portals should never get page focus.
+  DCHECK(!delegate_ || !delegate_->IsPortal() || !focused);
 
   if (!focused) {
     // If there is a pending mouse lock request, we don't want to reject it at
@@ -1141,8 +1117,8 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
     const blink::WebMouseEvent& mouse_event,
     const ui::LatencyInfo& latency) {
   TRACE_EVENT2("input", "RenderWidgetHostImpl::ForwardMouseEvent", "x",
-               mouse_event.PositionInWidget().x, "y",
-               mouse_event.PositionInWidget().y);
+               mouse_event.PositionInWidget().x(), "y",
+               mouse_event.PositionInWidget().y());
 
   DCHECK_GE(mouse_event.GetType(), blink::WebInputEvent::kMouseTypeFirst);
   DCHECK_LE(mouse_event.GetType(), blink::WebInputEvent::kMouseTypeLast);
@@ -1858,21 +1834,10 @@ void RenderWidgetHostImpl::RendererExited() {
   if (!renderer_initialized_)
     return;
 
-  // Clear this flag so that we can ask the next renderer for composition
-  // updates.
-  monitoring_composition_info_ = false;
-
   // Clearing this flag causes us to re-create the renderer when recovering
   // from a crashed renderer.
   renderer_initialized_ = false;
 
-  waiting_for_screen_rects_ack_ = false;
-
-  // Must reset these to ensure that keyboard events work with a new renderer.
-  suppress_events_until_keydown_ = false;
-
-  // Reset some fields in preparation for recovering from a crash.
-  ResetSentVisualProperties();
   // After the renderer crashes, the view is destroyed and so the
   // RenderWidgetHost cannot track its visibility anymore. We assume such
   // RenderWidgetHost to be invisible for the sake of internal accounting - be
@@ -1888,21 +1853,30 @@ void RenderWidgetHostImpl::RendererExited() {
       process_->UpdateClientPriority(this);
   }
 
-  // Reset this to ensure the hung renderer mechanism is working properly.
-  in_flight_event_count_ = 0;
-  StopInputEventAckTimeout();
-
   if (view_) {
     view_->RenderProcessGone();
-    view_.reset();  // The View should be deleted by RenderProcessGone.
+    SetView(nullptr);  // The View should be deleted by RenderProcessGone.
   }
+}
+
+void RenderWidgetHostImpl::ResetStateForCreatedRenderWidget(
+    const VisualProperties& initial_props) {
+  // When the RenderWidget was destroyed, the ack may never come back. Don't
+  // let that prevent us from speaking to the next RenderWidget.
+  waiting_for_screen_rects_ack_ = false;
+
+  visual_properties_ack_pending_ =
+      DoesVisualPropertiesNeedAck(nullptr, initial_props);
+  old_visual_properties_ = std::make_unique<VisualProperties>(initial_props);
 
   // Reconstruct the input router to ensure that it has fresh state for a new
-  // renderer. Otherwise it may be stuck waiting for the old renderer to ack an
-  // event. (In particular, the above call to view_->RenderProcessGone will
+  // RenderWidget. Otherwise it may be stuck waiting for the old renderer to ack
+  // an event. (In particular, the above call to view_->RenderProcessGone() will
   // destroy the aura window, which may dispatch a synthetic mouse move.)
+  //
+  // This also stops the event ack timeout to ensure the hung renderer mechanism
+  // is working properly.
   SetupInputRouter();
-  synthetic_gesture_controller_.reset();
 
   frame_token_message_queue_->Reset();
 }
@@ -2043,19 +2017,6 @@ void RenderWidgetHostImpl::Destroy(bool also_delete) {
   if (view_) {
     view_->Destroy();
     view_.reset();
-  }
-
-  // The display compositor has ownership of shared memory for each
-  // SharedBitmapId that has been reported from the client. Since the client is
-  // gone that memory can be freed. If we don't then it would leak.
-  if (shared_bitmap_manager_) {
-    for (const auto& id : owned_bitmaps_)
-      shared_bitmap_manager_->ChildDeletedSharedBitmap(id);
-  } else {
-    // If the display compositor is not in the browser process, then the
-    // |bitmap_manager| is not present in the process either, and no bitmaps
-    // should have been registered with this class.
-    DCHECK(owned_bitmaps_.empty());
   }
 
   render_process_blocked_state_changed_subscription_.reset();
@@ -2202,36 +2163,11 @@ void RenderWidgetHostImpl::OnRequestSetBounds(const gfx::Rect& bounds) {
   Send(new WidgetMsg_SetBounds_ACK(routing_id_));
 }
 
-void RenderWidgetHostImpl::DidNotProduceFrame(const viz::BeginFrameAck& ack) {
-  // |has_damage| is not transmitted.
-  viz::BeginFrameAck modified_ack = ack;
-  modified_ack.has_damage = false;
-
-  if (view_)
-    view_->OnDidNotProduceFrame(modified_ack);
-}
-
-void RenderWidgetHostImpl::DidAllocateSharedBitmap(
-    base::ReadOnlySharedMemoryRegion region,
-    const viz::SharedBitmapId& id) {
-  if (!shared_bitmap_manager_->ChildAllocatedSharedBitmap(region.Map(), id)) {
-    bad_message::ReceivedBadMessage(GetProcess(),
-                                    bad_message::RWH_SHARED_BITMAP);
-  }
-  owned_bitmaps_.insert(id);
-}
-
-void RenderWidgetHostImpl::DidDeleteSharedBitmap(
-    const viz::SharedBitmapId& id) {
-  shared_bitmap_manager_->ChildDeletedSharedBitmap(id);
-  owned_bitmaps_.erase(id);
-}
-
-void RenderWidgetHostImpl::DidUpdateVisualProperties(
+void RenderWidgetHostImpl::OnLocalSurfaceIdChanged(
     const cc::RenderFrameMetadata& metadata) {
   TRACE_EVENT_WITH_FLOW1(
       "renderer_host,disabled-by-default-viz.surface_id_flow",
-      "RenderWidgetHostImpl::DidUpdateVisualProperties",
+      "RenderWidgetHostImpl::OnLocalSurfaceIdChanged",
       metadata.local_surface_id_allocation &&
               metadata.local_surface_id_allocation->IsValid()
           ? metadata.local_surface_id_allocation->local_surface_id()
@@ -2448,11 +2384,6 @@ TouchEmulator* RenderWidgetHostImpl::GetExistingTouchEmulator() {
 
 void RenderWidgetHostImpl::OnTextInputStateChanged(
     const TextInputState& params) {
-  if (delegate_ && delegate_->GetInputEventShim()) {
-    delegate_->GetInputEventShim()->DidTextInputStateChange(params);
-    return;
-  }
-
   if (view_)
     view_->TextInputStateChanged(params);
 }
@@ -2510,11 +2441,6 @@ void RenderWidgetHostImpl::OnProcessSwapMessage(const IPC::Message& message) {
 void RenderWidgetHostImpl::OnLockMouse(bool user_gesture,
                                        bool privileged,
                                        bool request_unadjusted_movement) {
-  if (delegate_ && delegate_->GetInputEventShim()) {
-    delegate_->GetInputEventShim()->DidLockMouse(user_gesture, privileged);
-    return;
-  }
-
   if (pending_mouse_lock_request_) {
     Send(new WidgetMsg_LockMouse_ACK(routing_id_, false));
     return;
@@ -2542,11 +2468,6 @@ void RenderWidgetHostImpl::OnLockMouse(bool user_gesture,
 }
 
 void RenderWidgetHostImpl::OnUnlockMouse() {
-  if (delegate_ && delegate_->GetInputEventShim()) {
-    delegate_->GetInputEventShim()->DidUnlockMouse();
-    return;
-  }
-
   // Got unlock request from renderer. Will update |is_last_unlocked_by_target_|
   // for silent re-lock.
   const bool was_mouse_locked = !pending_mouse_lock_request_ && IsMouseLocked();
@@ -2663,11 +2584,6 @@ void RenderWidgetHostImpl::DecrementInFlightEventCount(
 }
 
 void RenderWidgetHostImpl::OnHasTouchEventHandlers(bool has_handlers) {
-  if (delegate_ && delegate_->GetInputEventShim()) {
-    delegate_->GetInputEventShim()->DidSetHasTouchEventHandlers(has_handlers);
-    return;
-  }
-
   input_router_->OnHasTouchEventHandlers(has_handlers);
   has_touch_handler_ = has_handlers;
 }
@@ -2694,17 +2610,16 @@ void RenderWidgetHostImpl::DidStartScrollingViewport() {
   if (view_)
     view_->set_is_currently_scrolling_viewport(true);
 }
-void RenderWidgetHostImpl::SetNeedsBeginFrameForFlingProgress() {
-  browser_fling_needs_begin_frame_ = true;
-  SetNeedsBeginFrame(true);
-}
 
 void RenderWidgetHostImpl::AddPendingUserActivation(
     const WebInputEvent& event) {
-  if (base::FeatureList::IsEnabled(features::kBrowserVerifiedUserActivation) &&
-      (event.GetType() == WebInputEvent::kMouseDown ||
-       event.GetType() == WebInputEvent::kKeyDown ||
-       event.GetType() == WebInputEvent::kRawKeyDown)) {
+  if ((base::FeatureList::IsEnabled(
+           features::kBrowserVerifiedUserActivationMouse) &&
+       event.GetType() == WebInputEvent::kMouseDown) ||
+      (base::FeatureList::IsEnabled(
+           features::kBrowserVerifiedUserActivationKeyboard) &&
+       (event.GetType() == WebInputEvent::kKeyDown ||
+        event.GetType() == WebInputEvent::kRawKeyDown))) {
     pending_user_activation_timer_.Start(
         FROM_HERE, kActivationNotificationExpireTime,
         base::BindOnce(&RenderWidgetHostImpl::ClearPendingUserActivation,
@@ -2951,51 +2866,23 @@ void RenderWidgetHostImpl::RequestCompositorFrameSink(
         compositor_frame_sink_receiver,
     mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient>
         compositor_frame_sink_client) {
-  if (enable_viz_) {
-      // Connects the viz process end of CompositorFrameSink message pipes. The
-      // renderer compositor may request a new CompositorFrameSink on context
-      // loss, which will destroy the existing CompositorFrameSink.
-      auto callback = base::BindOnce(
-          [](viz::HostFrameSinkManager* manager,
-             mojo::PendingReceiver<viz::mojom::CompositorFrameSink> receiver,
-             mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient> client,
-             const viz::FrameSinkId& frame_sink_id) {
-            manager->CreateCompositorFrameSink(
-                frame_sink_id, std::move(receiver), std::move(client));
-          },
-          base::Unretained(GetHostFrameSinkManager()),
-          std::move(compositor_frame_sink_receiver),
-          std::move(compositor_frame_sink_client));
-
-      if (view_)
-        std::move(callback).Run(view_->GetFrameSinkId());
-      else
-        create_frame_sink_callback_ = std::move(callback);
-
-      return;
-  }
-
-  // Consider any bitmaps registered with the old CompositorFrameSink as gone,
-  // they will be re-registered on the newly requested CompositorFrameSink if
-  // they are meant to be used still. https://crbug.com/862584.
-  for (const auto& id : owned_bitmaps_)
-    shared_bitmap_manager_->ChildDeletedSharedBitmap(id);
-  owned_bitmaps_.clear();
-
-  compositor_frame_sink_receiver_.reset();
-  compositor_frame_sink_receiver_.Bind(
+  // Connects the viz process end of CompositorFrameSink message pipes. The
+  // renderer compositor may request a new CompositorFrameSink on context
+  // loss, which will destroy the existing CompositorFrameSink.
+  auto callback = base::BindOnce(
+      [](mojo::PendingReceiver<viz::mojom::CompositorFrameSink> receiver,
+         mojo::PendingRemote<viz::mojom::CompositorFrameSinkClient> client,
+         const viz::FrameSinkId& frame_sink_id) {
+        GetHostFrameSinkManager()->CreateCompositorFrameSink(
+            frame_sink_id, std::move(receiver), std::move(client));
+      },
       std::move(compositor_frame_sink_receiver),
-      BrowserMainLoop::GetInstance()->GetResizeTaskRunner());
+      std::move(compositor_frame_sink_client));
 
-  renderer_compositor_frame_sink_.reset();
-  renderer_compositor_frame_sink_.Bind(std::move(compositor_frame_sink_client));
-  auto* compositor_frame_sink_client_ptr =
-      renderer_compositor_frame_sink_.get();
-
-  if (view_) {
-    view_->DidCreateNewRendererCompositorFrameSink(
-        compositor_frame_sink_client_ptr);
-  }
+  if (view_)
+    std::move(callback).Run(view_->GetFrameSinkId());
+  else
+    create_frame_sink_callback_ = std::move(callback);
 }
 
 void RenderWidgetHostImpl::RegisterRenderFrameMetadataObserver(
@@ -3029,47 +2916,6 @@ bool RenderWidgetHostImpl::HasGestureStopped() {
   return true;
 }
 
-void RenderWidgetHostImpl::SetNeedsBeginFrame(bool needs_begin_frames) {
-  if (needs_begin_frames_ == needs_begin_frames)
-    return;
-
-  needs_begin_frames_ = needs_begin_frames || browser_fling_needs_begin_frame_;
-  if (view_)
-    view_->SetNeedsBeginFrames(needs_begin_frames_);
-}
-
-void RenderWidgetHostImpl::SetWantsAnimateOnlyBeginFrames() {
-  if (view_)
-    view_->SetWantsAnimateOnlyBeginFrames();
-}
-
-void RenderWidgetHostImpl::SubmitCompositorFrameSync(
-    const viz::LocalSurfaceId& local_surface_id,
-    viz::CompositorFrame frame,
-    base::Optional<viz::HitTestRegionList> hit_test_region_list,
-    uint64_t submit_time,
-    const SubmitCompositorFrameSyncCallback callback) {
-  NOTIMPLEMENTED();
-}
-
-void RenderWidgetHostImpl::SubmitCompositorFrame(
-    const viz::LocalSurfaceId& local_surface_id,
-    viz::CompositorFrame frame,
-    base::Optional<viz::HitTestRegionList> hit_test_region_list,
-    uint64_t submit_time) {
-  if (view_) {
-    // If Surface Synchronization is on, then |new_content_rendering_timeout_|
-    // is stopped in DidReceiveFirstFrameAfterNavigation.
-    view_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                                 std::move(hit_test_region_list));
-    view_->DidReceiveRendererFrame();
-  } else {
-    std::vector<viz::ReturnedResource> resources =
-        viz::TransferableResource::ReturnResources(frame.resource_list);
-    renderer_compositor_frame_sink_->DidReceiveCompositorFrameAck(resources);
-  }
-}
-
 void RenderWidgetHostImpl::DidProcessFrame(uint32_t frame_token) {
   frame_token_message_queue_->DidProcessFrame(frame_token);
 }
@@ -3078,19 +2924,13 @@ void RenderWidgetHostImpl::DidProcessFrame(uint32_t frame_token) {
 device::mojom::WakeLock* RenderWidgetHostImpl::GetWakeLock() {
   // Here is a lazy binding, and will not reconnect after connection error.
   if (!wake_lock_) {
-    mojo::PendingReceiver<device::mojom::WakeLock> receiver =
-        wake_lock_.BindNewPipeAndPassReceiver();
-    // In some testing contexts, the system Connector isn't3 initialized.
-    if (GetSystemConnector()) {
-      mojo::Remote<device::mojom::WakeLockProvider> wake_lock_provider;
-      GetSystemConnector()->Connect(
-          device::mojom::kServiceName,
-          wake_lock_provider.BindNewPipeAndPassReceiver());
-      wake_lock_provider->GetWakeLockWithoutContext(
-          device::mojom::WakeLockType::kPreventDisplaySleep,
-          device::mojom::WakeLockReason::kOther, "GetSnapshot",
-          std::move(receiver));
-    }
+    mojo::Remote<device::mojom::WakeLockProvider> wake_lock_provider;
+    GetDeviceService().BindWakeLockProvider(
+        wake_lock_provider.BindNewPipeAndPassReceiver());
+    wake_lock_provider->GetWakeLockWithoutContext(
+        device::mojom::WakeLockType::kPreventDisplaySleep,
+        device::mojom::WakeLockReason::kOther, "GetSnapshot",
+        wake_lock_.BindNewPipeAndPassReceiver());
   }
   return wake_lock_.get();
 }
@@ -3098,6 +2938,8 @@ device::mojom::WakeLock* RenderWidgetHostImpl::GetWakeLock() {
 
 void RenderWidgetHostImpl::SetupInputRouter() {
   in_flight_event_count_ = 0;
+  suppress_events_until_keydown_ = false;
+  monitoring_composition_info_ = false;
   StopInputEventAckTimeout();
   associated_widget_input_handler_.reset();
   widget_input_handler_.reset();
@@ -3134,20 +2976,21 @@ void RenderWidgetHostImpl::SetInputTargetClient(
 
 void RenderWidgetHostImpl::SetWidget(
     mojo::PendingRemote<mojom::Widget> widget_remote) {
-  if (widget_remote) {
-    // If we have a bound handler ensure that we destroy the old input router.
-    if (widget_input_handler_.is_bound())
-      SetupInputRouter();
+  if (!widget_remote)
+    return;
 
-    mojo::Remote<mojom::Widget> widget(std::move(widget_remote));
-    widget->SetupWidgetInputHandler(
-        widget_input_handler_.BindNewPipeAndPassReceiver(),
-        input_router_->BindNewHost());
-  }
+  // If we have a bound handler ensure that we destroy the old input router
+  // while we reset the |widget_input_handler_|.
+  if (widget_input_handler_.is_bound())
+    SetupInputRouter();
+
+  mojo::Remote<mojom::Widget> widget(std::move(widget_remote));
+  widget->SetupWidgetInputHandler(
+      widget_input_handler_.BindNewPipeAndPassReceiver(),
+      input_router_->BindNewHost());
 }
 
 void RenderWidgetHostImpl::ProgressFlingIfNeeded(TimeTicks current_time) {
-  browser_fling_needs_begin_frame_ = false;
   fling_scheduler_->ProgressFlingOnBeginFrameIfneeded(current_time);
 }
 
@@ -3217,11 +3060,6 @@ void RenderWidgetHostImpl::OnRenderFrameMetadataChangedAfterActivation() {
 
   delegate()->OnVerticalScrollDirectionChanged(
       metadata.new_vertical_scroll_direction);
-}
-
-void RenderWidgetHostImpl::OnLocalSurfaceIdChanged(
-    const cc::RenderFrameMetadata& metadata) {
-  DidUpdateVisualProperties(metadata);
 }
 
 std::vector<viz::SurfaceId>

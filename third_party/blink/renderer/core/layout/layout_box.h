@@ -26,6 +26,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/min_max_size.h"
@@ -49,7 +50,6 @@ enum class NGLayoutCacheStatus;
 class NGLayoutResult;
 struct NGPhysicalBoxStrut;
 struct PaintInfo;
-struct WebScrollIntoViewParams;
 
 enum SizeType { kMainOrPreferredSize, kMinSize, kMaxSize };
 enum AvailableLogicalHeightType {
@@ -66,11 +66,11 @@ enum ShouldComputePreferred { kComputeActual, kComputePreferred };
 
 using SnapAreaSet = HashSet<LayoutBox*>;
 
-struct LayoutBoxRareData {
-  USING_FAST_MALLOC(LayoutBoxRareData);
-
+struct LayoutBoxRareData final : public GarbageCollected<LayoutBoxRareData> {
  public:
   LayoutBoxRareData();
+
+  void Trace(Visitor* visitor);
 
   // For spanners, the spanner placeholder that lays us out within the multicol
   // container.
@@ -115,7 +115,7 @@ struct LayoutBoxRareData {
   // Used by CSSLayoutDefinition::Instance::Layout. Represents the script
   // object for this box that web developers can query style, and perform
   // layout upon. Only created if IsCustomItem() is true.
-  Persistent<CustomLayoutChild> layout_child_;
+  Member<CustomLayoutChild> layout_child_;
 
   DISALLOW_COPY_AND_ASSIGN(LayoutBoxRareData);
 };
@@ -718,8 +718,9 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   void ScrollByRecursively(const ScrollOffset& delta);
   // If makeVisibleInVisualViewport is set, the visual viewport will be scrolled
   // if required to make the rect visible.
-  PhysicalRect ScrollRectToVisibleRecursive(const PhysicalRect&,
-                                            const WebScrollIntoViewParams&);
+  PhysicalRect ScrollRectToVisibleRecursive(
+      const PhysicalRect&,
+      mojom::blink::ScrollIntoViewParamsPtr);
 
   LayoutRectOutsets MarginBoxOutsets() const { return margin_box_outsets_; }
   LayoutUnit MarginTop() const override { return margin_box_outsets_.Top(); }
@@ -1166,7 +1167,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       const FloatPoint& point_in_root_frame) const;
   static LayoutBox* FindAutoscrollable(LayoutObject*,
                                        bool is_middle_click_autoscroll);
-  virtual void StopAutoscroll() {}
   virtual void MayUpdateHoverWhenContentUnderMouseChanged(EventHandler&);
 
   DISABLE_CFI_PERF bool HasAutoVerticalScrollbar() const {
@@ -1314,6 +1314,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   }
 
   bool IsGridItem() const { return Parent() && Parent()->IsLayoutGrid(); }
+
+  bool IsMathItem() const { return Parent() && Parent()->IsMathML(); }
 
   LayoutUnit LineHeight(
       bool first_line,
@@ -1766,8 +1768,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   LayoutBoxRareData& EnsureRareData() {
     if (!rare_data_)
-      rare_data_ = std::make_unique<LayoutBoxRareData>();
-    return *rare_data_.get();
+      rare_data_ = MakeGarbageCollected<LayoutBoxRareData>();
+    return *rare_data_.Get();
   }
 
   bool LogicalHeightComputesAsNone(SizeType) const;
@@ -1794,7 +1796,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // Returns true when the current recursive scroll into visible could propagate
   // to parent frame.
   bool AllowedToPropagateRecursiveScrollToParentFrame(
-      const WebScrollIntoViewParams&);
+      const mojom::blink::ScrollIntoViewParamsPtr&);
 
   PhysicalRect DebugRect() const override;
 
@@ -1892,7 +1894,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     wtf_size_t first_fragment_item_index_;
   };
 
-  std::unique_ptr<LayoutBoxRareData> rare_data_;
+  Persistent<LayoutBoxRareData> rare_data_;
   scoped_refptr<const NGLayoutResult> cached_layout_result_;
 };
 

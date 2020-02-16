@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import json
-import logging
 import os
 import subprocess
 
@@ -17,6 +16,12 @@ TP_BINARY_NAME = 'trace_processor_shell'
 EXPORT_JSON_QUERY_TEMPLATE = 'select export_json(%s)\n'
 METRICS_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__),
                                              'metrics'))
+_TP_NOT_SUPPLIED_ERROR_MSG = """
+Proto trace format selected but trace processor executable is not supplied.
+Either pass --legacy-json-trace-format flag to force using the json format,
+or build the trace_processor_shell target and supply the path to the binary
+via the --trace-processor-path flag.
+"""
 
 MetricFiles = namedtuple('MetricFiles', ('sql', 'proto', 'config'))
 
@@ -28,11 +33,22 @@ def _SqlString(s):
 
 def _CheckTraceProcessor(trace_processor_path):
   if trace_processor_path is None:
-    raise RuntimeError('Trace processor executable is not supplied. '
-                       'Please use the --trace-processor-path flag.')
+    raise RuntimeError(_TP_NOT_SUPPLIED_ERROR_MSG)
   if not os.path.isfile(trace_processor_path):
     raise RuntimeError("Can't find trace processor executable at %s" %
                        trace_processor_path)
+
+
+def _RunTraceProcessor(*args):
+  """Run trace processor shell with given command line arguments."""
+  p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  stdout, stderr = p.communicate()
+  if p.returncode == 0:
+    return stdout
+  else:
+    raise RuntimeError(
+        'Running trace processor failed. Command line:\n%s\nStderr:\n%s\n' %
+        (' '.join(args), stderr))
 
 
 def _CreateMetricFiles(metric_name):
@@ -81,13 +97,12 @@ def RunMetric(trace_processor_path, trace_file, metric_name):
   """
   _CheckTraceProcessor(trace_processor_path)
   metric_files = _CreateMetricFiles(metric_name)
-  output = subprocess.check_output([
+  output = _RunTraceProcessor(
       trace_processor_path,
-      trace_file,
       '--run-metrics', metric_files.sql,
-      '--metrics-output=json',
-      '--extra-metrics', METRICS_PATH
-  ])
+      '--metrics-output', 'json',
+      trace_file,
+  )
   measurements = json.loads(output)
 
   histograms = histogram_set.HistogramSet()
@@ -120,12 +135,10 @@ def ConvertProtoTraceToJson(trace_processor_path, proto_file, json_path):
   with tempfile_ext.NamedTemporaryFile() as query_file:
     query_file.write(EXPORT_JSON_QUERY_TEMPLATE % _SqlString(json_path))
     query_file.close()
-    subprocess.check_call([
+    _RunTraceProcessor(
         trace_processor_path,
-        proto_file,
         '-q', query_file.name,
-    ])
-
-  logging.info('Converted json trace written to %s', json_path)
+        proto_file,
+    )
 
   return json_path

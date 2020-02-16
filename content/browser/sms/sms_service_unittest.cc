@@ -25,7 +25,6 @@
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_browser_context.h"
 #include "content/public/test/test_renderer_host.h"
-#include "content/public/test/test_service_manager_context.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "services/service_manager/public/cpp/bind_source_info.h"
@@ -42,11 +41,9 @@ using blink::mojom::SmsReceiver;
 using blink::mojom::SmsStatus;
 using std::string;
 using ::testing::_;
-using ::testing::ByMove;
 using ::testing::Invoke;
 using ::testing::NiceMock;
 using ::testing::Return;
-using ::testing::StrictMock;
 using url::Origin;
 
 namespace content {
@@ -65,13 +62,17 @@ const char kTestUrl[] = "https://www.google.com";
 // control the testing environment.
 class Service {
  public:
-  Service(WebContents* web_contents, const Origin& origin)
-      : fetcher_(web_contents->GetBrowserContext(), &provider_) {
+  Service(WebContents* web_contents, const Origin& origin) {
+    auto provider = std::make_unique<NiceMock<MockSmsProvider>>();
+    provider_ = provider.get();
+    fetcher_ = static_cast<SmsFetcherImpl*>(
+        SmsFetcher::Get(web_contents->GetBrowserContext()));
+    fetcher_->SetSmsProviderForTesting(std::move(provider));
     WebContentsImpl* web_contents_impl =
         reinterpret_cast<WebContentsImpl*>(web_contents);
     web_contents_impl->SetDelegate(&delegate_);
     service_ = std::make_unique<SmsService>(
-        &fetcher_, origin, web_contents->GetMainFrame(),
+        fetcher_, origin, web_contents->GetMainFrame(),
         service_remote_.BindNewPipeAndPassReceiver());
   }
 
@@ -79,12 +80,11 @@ class Service {
       : Service(web_contents,
                 web_contents->GetMainFrame()->GetLastCommittedOrigin()) {}
 
-  NiceMock<MockSmsWebContentsDelegate>* delegate() { return &delegate_; }
-  NiceMock<MockSmsProvider>* provider() { return &provider_; }
-  SmsFetcher* fetcher() { return &fetcher_; }
+  NiceMock<MockSmsProvider>* provider() { return provider_; }
+  SmsFetcherImpl* fetcher() { return fetcher_; }
 
   void CreateSmsPrompt(RenderFrameHost* rfh) {
-    EXPECT_CALL(*delegate(), CreateSmsPrompt(rfh, _, _, _, _))
+    EXPECT_CALL(delegate_, CreateSmsPrompt(rfh, _, _, _, _))
         .WillOnce(Invoke([=](RenderFrameHost*, const Origin& origin,
                              const std::string&, base::OnceClosure on_confirm,
                              base::OnceClosure on_cancel) {
@@ -118,13 +118,13 @@ class Service {
   void AbortRequest() { service_remote_->Abort(); }
 
   void NotifyReceive(const GURL& url, const string& message) {
-    provider_.NotifyReceive(Origin::Create(url), "", message);
+    provider_->NotifyReceive(Origin::Create(url), "", message);
   }
 
  private:
   NiceMock<MockSmsWebContentsDelegate> delegate_;
-  NiceMock<MockSmsProvider> provider_;
-  SmsFetcherImpl fetcher_;
+  NiceMock<MockSmsProvider>* provider_;
+  SmsFetcherImpl* fetcher_ = nullptr;
   mojo::Remote<blink::mojom::SmsReceiver> service_remote_;
   std::unique_ptr<SmsService> service_;
   base::OnceClosure confirm_callback_;
@@ -404,15 +404,17 @@ TEST_F(SmsServiceTest, CleansUp) {
       reinterpret_cast<WebContentsImpl*>(web_contents());
   web_contents_impl->SetDelegate(&delegate);
 
-  NiceMock<MockSmsProvider> provider;
-  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(), &provider);
+  auto provider = std::make_unique<MockSmsProvider>();
+  MockSmsProvider* mock_provider_ptr = provider.get();
+  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(),
+                         std::move(provider));
   mojo::Remote<blink::mojom::SmsReceiver> service;
   SmsService::Create(&fetcher, main_rfh(),
                      service.BindNewPipeAndPassReceiver());
 
   base::RunLoop navigate;
 
-  EXPECT_CALL(provider, Retrieve()).WillOnce(Invoke([&navigate]() {
+  EXPECT_CALL(*mock_provider_ptr, Retrieve()).WillOnce(Invoke([&navigate]() {
     navigate.Quit();
   }));
 
@@ -660,15 +662,17 @@ TEST_F(SmsServiceTest, RecordMetricsForNewPage) {
       reinterpret_cast<WebContentsImpl*>(web_contents());
   web_contents_impl->SetDelegate(&delegate);
 
-  NiceMock<MockSmsProvider> provider;
-  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(), &provider);
+  auto provider = std::make_unique<MockSmsProvider>();
+  MockSmsProvider* mock_provider_ptr = provider.get();
+  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(),
+                         std::move(provider));
   mojo::Remote<blink::mojom::SmsReceiver> service;
   SmsService::Create(&fetcher, main_rfh(),
                      service.BindNewPipeAndPassReceiver());
 
   base::RunLoop navigate;
 
-  EXPECT_CALL(provider, Retrieve()).WillOnce(Invoke([&navigate]() {
+  EXPECT_CALL(*mock_provider_ptr, Retrieve()).WillOnce(Invoke([&navigate]() {
     navigate.Quit();
   }));
 
@@ -698,15 +702,17 @@ TEST_F(SmsServiceTest, RecordMetricsForSamePage) {
       reinterpret_cast<WebContentsImpl*>(web_contents());
   web_contents_impl->SetDelegate(&delegate);
 
-  NiceMock<MockSmsProvider> provider;
-  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(), &provider);
+  auto provider = std::make_unique<MockSmsProvider>();
+  MockSmsProvider* mock_provider_ptr = provider.get();
+  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(),
+                         std::move(provider));
   mojo::Remote<blink::mojom::SmsReceiver> service;
   SmsService::Create(&fetcher, main_rfh(),
                      service.BindNewPipeAndPassReceiver());
 
   base::RunLoop navigate;
 
-  EXPECT_CALL(provider, Retrieve()).WillOnce(Invoke([&navigate]() {
+  EXPECT_CALL(*mock_provider_ptr, Retrieve()).WillOnce(Invoke([&navigate]() {
     navigate.Quit();
   }));
 
@@ -741,15 +747,17 @@ TEST_F(SmsServiceTest, RecordMetricsForExistingPage) {
       reinterpret_cast<WebContentsImpl*>(web_contents());
   web_contents_impl->SetDelegate(&delegate);
 
-  NiceMock<MockSmsProvider> provider;
-  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(), &provider);
+  auto provider = std::make_unique<MockSmsProvider>();
+  MockSmsProvider* mock_provider_ptr = provider.get();
+  SmsFetcherImpl fetcher(web_contents()->GetBrowserContext(),
+                         std::move(provider));
   mojo::Remote<blink::mojom::SmsReceiver> service;
   SmsService::Create(&fetcher, main_rfh(),
                      service.BindNewPipeAndPassReceiver());
 
   base::RunLoop navigate;
 
-  EXPECT_CALL(provider, Retrieve()).WillOnce(Invoke([&navigate]() {
+  EXPECT_CALL(*mock_provider_ptr, Retrieve()).WillOnce(Invoke([&navigate]() {
     navigate.Quit();
   }));
 

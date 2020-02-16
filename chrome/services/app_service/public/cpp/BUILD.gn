@@ -10,9 +10,7 @@ source_set("app_update") {
     "app_update.h",
   ]
 
-  public_deps = [
-    "//chrome/services/app_service/public/mojom",
-  ]
+  public_deps = [ "//chrome/services/app_service/public/mojom" ]
 }
 
 if (is_chromeos) {
@@ -26,6 +24,7 @@ if (is_chromeos) {
       "instance_update.h",
     ]
     deps = [
+      "//content/public/browser",
       "//skia",
       "//ui/aura",
       "//ui/compositor",
@@ -43,9 +42,7 @@ source_set("icon_loader") {
     "icon_loader.h",
   ]
 
-  public_deps = [
-    "//chrome/services/app_service/public/mojom",
-  ]
+  public_deps = [ "//chrome/services/app_service/public/mojom" ]
 }
 
 source_set("icon_loader_test_support") {
@@ -54,9 +51,7 @@ source_set("icon_loader_test_support") {
     "stub_icon_loader.h",
   ]
 
-  deps = [
-    ":icon_loader",
-  ]
+  deps = [ ":icon_loader" ]
 }
 
 source_set("intents") {
@@ -106,6 +101,7 @@ source_set("unit_tests") {
   deps = [
     ":app_update",
     ":icon_loader",
+    "//content/test:test_support",
     "//testing/gtest",
   ]
 

@@ -16,7 +16,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
-#include "third_party/blink/public/mojom/permissions/permission_status.mojom.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-forward.h"
 
 class GURL;
 
@@ -82,6 +82,8 @@ class WebTestMessageFilter : public BrowserMessageFilter {
   void OnInitiateCaptureDump(bool capture_navigation_history,
                              bool capture_pixels);
   void OnInspectSecondaryWindow();
+  void OnGetWritableDirectory(base::FilePath* path);
+  void OnSetFilePathForMockFileDialog(const base::FilePath& path);
 
   int render_process_id_;
 

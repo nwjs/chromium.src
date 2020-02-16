@@ -26,7 +26,7 @@
 #include "build/build_config.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
-#include "content/browser/dom_storage/session_storage_area_impl.h"
+#include "components/services/storage/dom_storage/session_storage_area_impl.h"
 #include "content/browser/dom_storage/session_storage_namespace_impl_mojo.h"
 #include "content/public/browser/session_storage_usage_info.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -286,7 +286,7 @@ void SessionStorageContextMojo::GetStorageUsage(
     return;
   }
 
-  const SessionStorageMetadata::NamespaceOriginMap& all_namespaces =
+  const storage::SessionStorageMetadata::NamespaceOriginMap& all_namespaces =
       metadata_.namespace_origin_map();
 
   std::vector<SessionStorageUsageInfo> result;
@@ -539,12 +539,12 @@ void SessionStorageContextMojo::SetDatabaseOpenCallbackForTesting(
   RunWhenConnected(std::move(callback));
 }
 
-scoped_refptr<SessionStorageMetadata::MapData>
+scoped_refptr<storage::SessionStorageMetadata::MapData>
 SessionStorageContextMojo::RegisterNewAreaMap(
-    SessionStorageMetadata::NamespaceEntry namespace_entry,
+    storage::SessionStorageMetadata::NamespaceEntry namespace_entry,
     const url::Origin& origin) {
   std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask> save_tasks;
-  scoped_refptr<SessionStorageMetadata::MapData> map_entry =
+  scoped_refptr<storage::SessionStorageMetadata::MapData> map_entry =
       metadata_.RegisterNewMap(namespace_entry, origin, &save_tasks);
 
   if (database_) {
@@ -558,7 +558,7 @@ SessionStorageContextMojo::RegisterNewAreaMap(
 
 void SessionStorageContextMojo::OnDataMapCreation(
     const std::vector<uint8_t>& map_prefix,
-    SessionStorageDataMap* map) {
+    storage::SessionStorageDataMap* map) {
   DCHECK(data_maps_.find(map_prefix) == data_maps_.end());
   data_maps_.emplace(std::piecewise_construct,
                      std::forward_as_tuple(map_prefix),
@@ -604,7 +604,7 @@ void SessionStorageContextMojo::OnCommitResultWithCallback(
   std::move(callback).Run();
 }
 
-scoped_refptr<SessionStorageDataMap>
+scoped_refptr<storage::SessionStorageDataMap>
 SessionStorageContextMojo::MaybeGetExistingDataMapForId(
     const std::vector<uint8_t>& map_number_as_bytes) {
   auto it = data_maps_.find(map_number_as_bytes);
@@ -614,7 +614,7 @@ SessionStorageContextMojo::MaybeGetExistingDataMapForId(
 }
 
 void SessionStorageContextMojo::RegisterShallowClonedNamespace(
-    SessionStorageMetadata::NamespaceEntry source_namespace_entry,
+    storage::SessionStorageMetadata::NamespaceEntry source_namespace_entry,
     const std::string& new_namespace_id,
     const SessionStorageNamespaceImplMojo::OriginAreas& clone_from_areas) {
   std::vector<storage::AsyncDomStorageDatabase::BatchDatabaseTask> save_tasks;
@@ -658,7 +658,7 @@ void SessionStorageContextMojo::RegisterShallowClonedNamespace(
 std::unique_ptr<SessionStorageNamespaceImplMojo>
 SessionStorageContextMojo::CreateSessionStorageNamespaceImplMojo(
     std::string namespace_id) {
-  SessionStorageAreaImpl::RegisterNewAreaMap map_id_callback =
+  storage::SessionStorageAreaImpl::RegisterNewAreaMap map_id_callback =
       base::BindRepeating(&SessionStorageContextMojo::RegisterNewAreaMap,
                           base::Unretained(this));
 
@@ -787,18 +787,21 @@ void SessionStorageContextMojo::OnDatabaseOpened(leveldb::Status status) {
   database_->RunDatabaseTask(
       base::BindOnce([](const storage::DomStorageDatabase& db) {
         ValueAndStatus version;
-        version.status = db.Get(
-            base::make_span(SessionStorageMetadata::kDatabaseVersionBytes),
-            &version.value);
+        version.status =
+            db.Get(base::make_span(
+                       storage::SessionStorageMetadata::kDatabaseVersionBytes),
+                   &version.value);
 
         KeyValuePairsAndStatus namespaces;
         namespaces.status = db.GetPrefixed(
-            base::make_span(SessionStorageMetadata::kNamespacePrefixBytes),
+            base::make_span(
+                storage::SessionStorageMetadata::kNamespacePrefixBytes),
             &namespaces.key_value_pairs);
 
         ValueAndStatus next_map_id;
         next_map_id.status =
-            db.Get(base::make_span(SessionStorageMetadata::kNextMapIdKeyBytes),
+            db.Get(base::make_span(
+                       storage::SessionStorageMetadata::kNextMapIdKeyBytes),
                    &next_map_id.value);
 
         return std::make_tuple(std::move(version), std::move(namespaces),

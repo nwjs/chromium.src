@@ -5,13 +5,15 @@
 #include "components/autofill_assistant/browser/actions/collect_user_data_action.h"
 
 #include <algorithm>
+#include <array>
 #include <set>
 #include <utility>
-
+#include <vector>
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/i18n/case_conversion.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/browser/autofill_data_util.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
@@ -19,10 +21,11 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/geo/address_i18n.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
-#include "components/autofill_assistant/browser/client_memory.h"
 #include "components/autofill_assistant/browser/client_status.h"
 #include "components/autofill_assistant/browser/metrics.h"
 #include "components/autofill_assistant/browser/service.pb.h"
+#include "components/autofill_assistant/browser/user_data_util.h"
+#include "components/autofill_assistant/browser/user_model.h"
 #include "components/autofill_assistant/browser/website_login_fetcher_impl.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
@@ -32,6 +35,15 @@
 #include "ui/base/l10n/l10n_util.h"
 
 namespace {
+
+static constexpr int kDefaultMaxNumberContactSummaryLines = 1;
+static constexpr std::array<autofill_assistant::AutofillContactField, 2>
+    kDefaultContactSummaryFields = {autofill_assistant::EMAIL_ADDRESS,
+                                    autofill_assistant::NAME_FULL};
+static constexpr int kDefaultMaxNumberContactFullLines = 2;
+static constexpr std::array<autofill_assistant::AutofillContactField, 2>
+    kDefaultContactFullFields = {autofill_assistant::NAME_FULL,
+                                 autofill_assistant::EMAIL_ADDRESS};
 
 using autofill_assistant::CollectUserDataOptions;
 using autofill_assistant::DateTimeProto;
@@ -153,29 +165,67 @@ bool IsValidTermsChoice(
          terms_state != TermsAndConditionsState::NOT_SELECTED;
 }
 
-// Comparison function for |DateTimeProto|.
-// Returns 0 if equal, < 0 if |first| < |second|, > 0 if |second| > |first|.
-int CompareDateTimes(const DateTimeProto& first, const DateTimeProto& second) {
-  auto first_tuple = std::make_tuple(
-      first.date().year(), first.date().month(), first.date().day(),
-      first.time().hour(), first.time().minute(), first.time().second());
-  auto second_tuple = std::make_tuple(
-      second.date().year(), second.date().month(), second.date().day(),
-      second.time().hour(), second.time().minute(), second.time().second());
-  if (first_tuple < second_tuple) {
-    return -1;
-  } else if (second_tuple < first_tuple) {
-    return 1;
+// Checks |proto| and writes an error message to |error| if fields are missing.
+bool IsValidDateTimeRangeProto(
+    const autofill_assistant::DateTimeRangeProto& proto,
+    std::string* error) {
+  std::vector<std::string> missing_fields;
+  if (proto.start_date_label().empty())
+    missing_fields.emplace_back("start_date_label");
+  if (proto.start_time_label().empty())
+    missing_fields.emplace_back("start_time_label");
+  if (proto.end_date_label().empty())
+    missing_fields.emplace_back("end_date_label");
+  if (proto.end_time_label().empty())
+    missing_fields.emplace_back("end_time_label");
+  if (!proto.has_start_date())
+    missing_fields.emplace_back("start_date");
+  if (!proto.has_start_time_slot())
+    missing_fields.emplace_back("start_time_slot");
+  if (!proto.has_end_date())
+    missing_fields.emplace_back("end_date");
+  if (!proto.has_end_time_slot())
+    missing_fields.emplace_back("end_time_slot");
+  if (!proto.has_min_date())
+    missing_fields.emplace_back("min_date");
+  if (!proto.has_max_date())
+    missing_fields.emplace_back("max_date");
+  if (proto.time_slots().empty())
+    missing_fields.emplace_back("time_slots");
+  if (proto.date_not_set_error().empty())
+    missing_fields.emplace_back("date_not_set_error");
+  if (proto.time_not_set_error().empty())
+    missing_fields.emplace_back("time_not_set_error");
+
+  if (error != nullptr && !missing_fields.empty()) {
+    error->assign("The following fields are missing or empty: ");
+    error->append(base::JoinString(missing_fields, ", "));
   }
-  return 0;
+
+  return missing_fields.empty();
 }
 
 bool IsValidDateTimeRange(
-    const DateTimeProto& start,
-    const DateTimeProto& end,
+    const base::Optional<autofill_assistant::DateProto>& start_date,
+    const base::Optional<int> start_timeslot,
+    const base::Optional<autofill_assistant::DateProto> end_date,
+    const base::Optional<int> end_timeslot,
     const CollectUserDataOptions& collect_user_data_options) {
-  return !collect_user_data_options.request_date_time_range ||
-         CompareDateTimes(start, end) < 0;
+  if (!collect_user_data_options.request_date_time_range) {
+    return true;
+  }
+  if (!start_date.has_value() || !start_timeslot.has_value() ||
+      !end_date.has_value() || !end_timeslot.has_value()) {
+    return false;
+  }
+
+  auto temp_start_date = start_date;
+  auto temp_start_timeslot = start_timeslot;
+  auto temp_end_date = end_date;
+  auto temp_end_timeslot = end_timeslot;
+  return !autofill_assistant::CollectUserDataAction::SanitizeDateTimeRange(
+      &temp_start_date, &temp_start_timeslot, &temp_end_date,
+      &temp_end_timeslot, collect_user_data_options, false);
 }
 
 bool IsValidUserFormSection(
@@ -304,6 +354,7 @@ void CollectUserDataAction::InternalProcessAction(
 }
 
 void CollectUserDataAction::EndAction(const ClientStatus& status) {
+  delegate_->CleanUpAfterPrompt();
   action_successful_ = status.ok();
   UpdateProcessedAction(status);
   std::move(callback_).Run(std::move(processed_action_proto_));
@@ -341,19 +392,19 @@ void CollectUserDataAction::OnShowToUser(UserData* user_data,
   // merge the new proto_ into the existing user_data. the proto_ always takes
   // precedence over the existing user_data.
   *field_change = UserData::FieldChange::ALL;
-  user_data->succeed = false;
+  user_data->succeed_ = false;
   auto collect_user_data = proto_.collect_user_data();
   // the backend should explicitly set the terms and conditions state on every
   // new action.
   switch (collect_user_data.terms_and_conditions_state()) {
     case CollectUserDataProto::NOT_SELECTED:
-      user_data->terms_and_conditions = NOT_SELECTED;
+      user_data->terms_and_conditions_ = NOT_SELECTED;
       break;
     case CollectUserDataProto::ACCEPTED:
-      user_data->terms_and_conditions = ACCEPTED;
+      user_data->terms_and_conditions_ = ACCEPTED;
       break;
     case CollectUserDataProto::REVIEW_REQUIRED:
-      user_data->terms_and_conditions = REQUIRES_REVIEW;
+      user_data->terms_and_conditions_ = REQUIRES_REVIEW;
       break;
   }
   for (const auto& additional_section :
@@ -362,7 +413,7 @@ void CollectUserDataAction::OnShowToUser(UserData* user_data,
         UserFormSectionProto::kTextInputSection) {
       for (const auto& text_input :
            additional_section.text_input_section().input_fields()) {
-        user_data->additional_values_to_store[text_input.client_memory_key()] =
+        user_data->additional_values_[text_input.client_memory_key()] =
             text_input.value();
       }
     }
@@ -373,7 +424,7 @@ void CollectUserDataAction::OnShowToUser(UserData* user_data,
         UserFormSectionProto::kTextInputSection) {
       for (const auto& text_input :
            additional_section.text_input_section().input_fields()) {
-        user_data->additional_values_to_store[text_input.client_memory_key()] =
+        user_data->additional_values_[text_input.client_memory_key()] =
             text_input.value();
       }
     }
@@ -403,15 +454,16 @@ void CollectUserDataAction::OnShowToUser(UserData* user_data,
           ->choose_automatically_if_no_other_options) {
     collect_user_data_options_->request_login_choice = false;
 
-    user_data->login_choice_identifier.assign(
+    user_data->login_choice_identifier_.assign(
         collect_user_data_options_->login_choices[0].identifier);
 
     // If only the login section is requested and the choice has already been
     // made implicitly, the entire UI will not be shown and the action will
     // complete immediately.
     if (only_login_requested) {
-      user_data->succeed = true;
-      std::move(collect_user_data_options_->confirm_callback).Run(user_data);
+      user_data->succeed_ = true;
+      std::move(collect_user_data_options_->confirm_callback)
+          .Run(user_data, nullptr);
       return;
     }
   }
@@ -420,6 +472,8 @@ void CollectUserDataAction::OnShowToUser(UserData* user_data,
   delegate_->GetPersonalDataManager()->AddObserver(this);
   UpdatePersonalDataManagerProfiles(user_data);
   UpdatePersonalDataManagerCards(user_data);
+  UpdateDateTimeRangeStart(user_data);
+  UpdateDateTimeRangeEnd(user_data);
 
   // Gather info for UMA histograms.
   if (!shown_to_user_) {
@@ -431,73 +485,54 @@ void CollectUserDataAction::OnShowToUser(UserData* user_data,
   if (collect_user_data.has_prompt()) {
     delegate_->SetStatusMessage(collect_user_data.prompt());
   }
+  delegate_->Prompt(/* user_actions = */ nullptr,
+                    /* disable_force_expand_sheet = */ false);
   delegate_->CollectUserData(collect_user_data_options_.get());
 }
 
 void CollectUserDataAction::OnGetUserData(
     const CollectUserDataProto& collect_user_data,
-    UserData* user_data) {
+    UserData* user_data,
+    const UserModel* user_model) {
   if (!callback_)
     return;
 
-  bool succeed = user_data->succeed;
+  bool succeed = user_data->succeed_;
   if (succeed) {
     if (collect_user_data.request_payment_method()) {
-      DCHECK(user_data->card);
+      DCHECK(user_data->selected_card_);
       std::string card_issuer_network =
-          autofill::data_util::GetPaymentRequestData(user_data->card->network())
+          autofill::data_util::GetPaymentRequestData(
+              user_data->selected_card_->network())
               .basic_card_issuer_network;
       processed_action_proto_->mutable_collect_user_data_result()
           ->set_card_issuer_network(card_issuer_network);
-      delegate_->GetClientMemory()->set_selected_card(
-          std::move(user_data->card));
-
-      if (!collect_user_data.billing_address_name().empty()) {
-        DCHECK(user_data->billing_address);
-        delegate_->GetClientMemory()->set_selected_address(
-            collect_user_data.billing_address_name(),
-            std::move(user_data->billing_address));
-      }
-    }
-
-    if (!collect_user_data.shipping_address_name().empty()) {
-      DCHECK(user_data->shipping_address);
-      delegate_->GetClientMemory()->set_selected_address(
-          collect_user_data.shipping_address_name(),
-          std::move(user_data->shipping_address));
     }
 
     if (collect_user_data.has_contact_details()) {
-      DCHECK(user_data->contact_profile);
       auto contact_details_proto = collect_user_data.contact_details();
+      auto* selected_profile = user_data->selected_address(
+          contact_details_proto.contact_details_name());
+      DCHECK(selected_profile);
 
       if (contact_details_proto.request_payer_name()) {
         Metrics::RecordPaymentRequestFirstNameOnly(
-            user_data->contact_profile->GetRawInfo(autofill::NAME_LAST)
-                .empty());
+            selected_profile->GetRawInfo(autofill::NAME_LAST).empty());
       }
 
       if (contact_details_proto.request_payer_email()) {
         processed_action_proto_->mutable_collect_user_data_result()
-            ->set_payer_email(
-                base::UTF16ToUTF8(user_data->contact_profile->GetRawInfo(
-                    autofill::EMAIL_ADDRESS)));
-      }
-
-      if (!contact_details_proto.contact_details_name().empty()) {
-        delegate_->GetClientMemory()->set_selected_address(
-            contact_details_proto.contact_details_name(),
-            std::move(user_data->contact_profile));
+            ->set_payer_email(base::UTF16ToUTF8(
+                selected_profile->GetRawInfo(autofill::EMAIL_ADDRESS)));
       }
     }
 
     if (collect_user_data.has_login_details()) {
       auto login_details =
-          login_details_map_.find(user_data->login_choice_identifier);
+          login_details_map_.find(user_data->login_choice_identifier_);
       DCHECK(login_details != login_details_map_.end());
       if (login_details->second->login.has_value()) {
-        delegate_->GetClientMemory()->set_selected_login(
-            *login_details->second->login);
+        user_data->selected_login_ = *login_details->second->login;
       }
 
       processed_action_proto_->mutable_collect_user_data_result()
@@ -505,21 +540,46 @@ void CollectUserDataAction::OnGetUserData(
     }
 
     if (collect_user_data.has_date_time_range()) {
+      DCHECK(user_data->date_time_range_start_date_.has_value());
+      DCHECK(user_data->date_time_range_start_timeslot_.has_value());
+      DCHECK(user_data->date_time_range_end_date_.has_value());
+      DCHECK(user_data->date_time_range_end_timeslot_.has_value());
       *processed_action_proto_->mutable_collect_user_data_result()
-           ->mutable_date_time_start() = user_data->date_time_range_start;
+           ->mutable_date_range_start_date() =
+          *user_data->date_time_range_start_date_;
+      *user_data->date_time_range_start_date_;
+      processed_action_proto_->mutable_collect_user_data_result()
+          ->set_date_range_start_timeslot(
+              *user_data->date_time_range_start_timeslot_);
       *processed_action_proto_->mutable_collect_user_data_result()
-           ->mutable_date_time_end() = user_data->date_time_range_end;
+           ->mutable_date_range_end_date() =
+          *user_data->date_time_range_end_date_;
+      *user_data->date_time_range_end_date_;
+      processed_action_proto_->mutable_collect_user_data_result()
+          ->set_date_range_end_timeslot(
+              *user_data->date_time_range_end_timeslot_);
     }
 
-    for (const auto& value : user_data->additional_values_to_store) {
-      delegate_->GetClientMemory()->set_additional_value(value.first,
-                                                         value.second);
+    for (const auto& value : user_data->additional_values_) {
+      if (!value.second.empty()) {
+        processed_action_proto_->mutable_collect_user_data_result()
+            ->add_set_text_input_memory_keys(value.first);
+      }
     }
 
     processed_action_proto_->mutable_collect_user_data_result()
         ->set_is_terms_and_conditions_accepted(
-            user_data->terms_and_conditions ==
+            user_data->terms_and_conditions_ ==
             TermsAndConditionsState::ACCEPTED);
+    if (user_model != nullptr &&
+        collect_user_data.has_generic_user_interface()) {
+      *processed_action_proto_->mutable_collect_user_data_result()
+           ->mutable_model() =
+          collect_user_data.generic_user_interface().model();
+      user_model->UpdateProto(
+          processed_action_proto_->mutable_collect_user_data_result()
+              ->mutable_model());
+    }
   }
 
   EndAction(succeed ? ClientStatus(ACTION_APPLIED)
@@ -557,6 +617,54 @@ bool CollectUserDataAction::CreateOptionsFromProto() {
         contact_details.request_payer_name();
     collect_user_data_options_->request_payer_phone =
         contact_details.request_payer_phone();
+    // TODO(b/146405276): Remove legacy support for |summary_fields| and
+    // |full_fields|.
+    if (contact_details.summary_fields().empty()) {
+      collect_user_data_options_->contact_summary_max_lines =
+          kDefaultMaxNumberContactSummaryLines;
+      collect_user_data_options_->contact_summary_fields.assign(
+          kDefaultContactSummaryFields.begin(),
+          kDefaultContactSummaryFields.end());
+    } else {
+      for (const auto& field : contact_details.summary_fields()) {
+        collect_user_data_options_->contact_summary_fields.emplace_back(
+            (AutofillContactField)field);
+      }
+      if (contact_details.max_number_summary_lines() <= 0) {
+        DVLOG(1) << "max_number_summary_lines must be > 0";
+        return false;
+      }
+      collect_user_data_options_->contact_summary_max_lines =
+          contact_details.max_number_summary_lines();
+    }
+    if (contact_details.full_fields().empty()) {
+      collect_user_data_options_->contact_full_max_lines =
+          kDefaultMaxNumberContactFullLines;
+      collect_user_data_options_->contact_full_fields.assign(
+          kDefaultContactFullFields.begin(), kDefaultContactFullFields.end());
+    } else {
+      for (const auto& field : contact_details.full_fields()) {
+        collect_user_data_options_->contact_full_fields.emplace_back(
+            (AutofillContactField)field);
+      }
+      if (contact_details.max_number_full_lines() <= 0) {
+        DVLOG(1) << "max_number_full_lines must be > 0";
+        return false;
+      }
+      collect_user_data_options_->contact_full_max_lines =
+          contact_details.max_number_full_lines();
+    }
+    if (collect_user_data_options_->request_payer_email ||
+        collect_user_data_options_->request_payer_name ||
+        collect_user_data_options_->request_payer_phone) {
+      if (!contact_details.has_contact_details_name()) {
+        DVLOG(1) << "Contact details name missing";
+        return false;
+      }
+    }
+
+    collect_user_data_options_->contact_details_name =
+        contact_details.contact_details_name();
   }
 
   for (const auto& network :
@@ -571,6 +679,8 @@ bool CollectUserDataAction::CreateOptionsFromProto() {
             std::back_inserter(
                 collect_user_data_options_->supported_basic_card_networks));
 
+  collect_user_data_options_->shipping_address_name =
+      collect_user_data.shipping_address_name();
   collect_user_data_options_->request_shipping =
       !collect_user_data.shipping_address_name().empty();
   collect_user_data_options_->request_payment_method =
@@ -583,6 +693,13 @@ bool CollectUserDataAction::CreateOptionsFromProto() {
       collect_user_data_options_->billing_postal_code_missing_text.empty()) {
     return false;
   }
+  collect_user_data_options_->billing_address_name =
+      collect_user_data.billing_address_name();
+  if (collect_user_data_options_->request_payment_method &&
+      collect_user_data_options_->billing_address_name.empty()) {
+    return false;
+  }
+
   collect_user_data_options_->credit_card_expired_text =
       collect_user_data.credit_card_expired_text();
   // TODO(b/146195295): Remove fallback and enforce non-empty backend string.
@@ -638,14 +755,19 @@ bool CollectUserDataAction::CreateOptionsFromProto() {
   }
 
   if (collect_user_data.has_date_time_range()) {
-    if (!collect_user_data.date_time_range().has_start_label() ||
-        !collect_user_data.date_time_range().has_end_label() ||
-        !collect_user_data.date_time_range().has_start() ||
-        !collect_user_data.date_time_range().has_end() ||
-        !collect_user_data.date_time_range().has_min() ||
-        !collect_user_data.date_time_range().has_max()) {
-      DVLOG(1) << "Invalid action: missing one or more of the required fields "
-                  "'start', 'end', 'min', 'max', 'start_label', end_label'.";
+    std::string error_message;
+    if (!IsValidDateTimeRangeProto(collect_user_data.date_time_range(),
+                                   &error_message)) {
+      DVLOG(1) << "Invalid action: " << error_message;
+      return false;
+    }
+    if (collect_user_data.date_time_range().start_time_slot() < 0 ||
+        collect_user_data.date_time_range().end_time_slot() < 0 ||
+        collect_user_data.date_time_range().start_time_slot() >=
+            collect_user_data.date_time_range().time_slots().size() ||
+        collect_user_data.date_time_range().end_time_slot() >=
+            collect_user_data.date_time_range().time_slots().size()) {
+      DVLOG(1) << "Invalid action: time slot index out of range";
       return false;
     }
     collect_user_data_options_->request_date_time_range = true;
@@ -671,6 +793,12 @@ bool CollectUserDataAction::CreateOptionsFromProto() {
     }
     collect_user_data_options_->additional_appended_sections.emplace_back(
         section);
+  }
+
+  if (collect_user_data.has_info_section_text() &&
+      collect_user_data.info_section_text().empty()) {
+    DVLOG(1) << "Info text set but empty.";
+    return false;
   }
 
   if (collect_user_data.has_generic_user_interface()) {
@@ -712,6 +840,11 @@ bool CollectUserDataAction::CreateOptionsFromProto() {
     }
     collect_user_data_options_->terms_require_review_text =
         collect_user_data.terms_require_review_text();
+  }
+
+  if (collect_user_data.has_info_section_text()) {
+    collect_user_data_options_->info_section_text =
+        collect_user_data.info_section_text();
   }
 
   collect_user_data_options_->privacy_notice_text =
@@ -778,18 +911,111 @@ bool CollectUserDataAction::CheckInitialAutofillDataComplete(
   return true;
 }
 
+// TODO(b/148448649): Move to dedicated helper namespace.
 // static
 bool CollectUserDataAction::IsUserDataComplete(
     const UserData& user_data,
     const CollectUserDataOptions& options) {
-  return IsCompleteContact(user_data.contact_profile.get(), options) &&
-         IsCompleteShippingAddress(user_data.shipping_address.get(), options) &&
-         IsCompleteCreditCard(user_data.card.get(),
-                              user_data.billing_address.get(), options) &&
-         IsValidLoginChoice(user_data.login_choice_identifier, options) &&
-         IsValidTermsChoice(user_data.terms_and_conditions, options) &&
-         IsValidDateTimeRange(user_data.date_time_range_start,
-                              user_data.date_time_range_end, options);
+  auto* selected_profile =
+      user_data.selected_address(options.contact_details_name);
+  auto* billing_address =
+      user_data.selected_address(options.billing_address_name);
+  auto* shipping_address =
+      user_data.selected_address(options.shipping_address_name);
+  return IsCompleteContact(selected_profile, options) &&
+         IsCompleteShippingAddress(shipping_address, options) &&
+         IsCompleteCreditCard(user_data.selected_card_.get(), billing_address,
+                              options) &&
+         IsValidLoginChoice(user_data.login_choice_identifier_, options) &&
+         IsValidTermsChoice(user_data.terms_and_conditions_, options) &&
+         IsValidDateTimeRange(user_data.date_time_range_start_date_,
+                              user_data.date_time_range_start_timeslot_,
+                              user_data.date_time_range_end_date_,
+                              user_data.date_time_range_end_timeslot_, options);
+}
+
+// TODO(b/148448649): Move to dedicated helper namespace.
+// static
+int CollectUserDataAction::CompareDates(const DateProto& first,
+                                        const DateProto& second) {
+  auto first_tuple = std::make_tuple(first.year(), first.month(), first.day());
+  auto second_tuple =
+      std::make_tuple(second.year(), second.month(), second.day());
+  if (first_tuple < second_tuple) {
+    return -1;
+  } else if (second_tuple < first_tuple) {
+    return 1;
+  }
+  return 0;
+}
+
+// TODO(b/148448649): Move to dedicated helper namespace.
+// static
+bool CollectUserDataAction::SanitizeDateTimeRange(
+    base::Optional<DateProto>* start_date,
+    base::Optional<int>* start_timeslot,
+    base::Optional<DateProto>* end_date,
+    base::Optional<int>* end_timeslot,
+    const CollectUserDataOptions& collect_user_data_options,
+    bool change_start) {
+  if (!collect_user_data_options.request_date_time_range) {
+    return false;
+  }
+  DCHECK(start_date);
+  DCHECK(start_timeslot);
+  DCHECK(end_date);
+  DCHECK(end_timeslot);
+  if (!start_date->has_value() || !end_date->has_value()) {
+    return false;
+  }
+
+  auto date_comparison = CompareDates(**start_date, **end_date);
+  if (date_comparison < 0) {
+    return false;
+  }
+
+  // Start date > end date, reset date.
+  if (date_comparison > 0) {
+    if (change_start) {
+      start_date->reset();
+    } else {
+      end_date->reset();
+    }
+    return true;
+  }
+
+  if (!start_timeslot->has_value() || !end_timeslot->has_value()) {
+    return false;
+  }
+
+  DCHECK(**start_timeslot >= 0 &&
+         **start_timeslot <
+             collect_user_data_options.date_time_range.time_slots().size());
+  DCHECK(**end_timeslot >= 0 &&
+         **end_timeslot <
+             collect_user_data_options.date_time_range.time_slots().size());
+  auto start_time =
+      collect_user_data_options.date_time_range.time_slots(**start_timeslot);
+  auto end_time =
+      collect_user_data_options.date_time_range.time_slots(**end_timeslot);
+  auto time_comparison =
+      start_time.comparison_value() - end_time.comparison_value();
+  if (time_comparison < 0) {
+    return false;
+  }
+
+  // Start date == end date and start time >= end time, reset time.
+  if (time_comparison >= 0) {
+    if (change_start) {
+      start_timeslot->reset();
+    } else {
+      end_timeslot->reset();
+    }
+    return true;
+  }
+
+  NOTREACHED();
+  return false;
 }
 
 void CollectUserDataAction::UpdatePersonalDataManagerProfiles(
@@ -799,11 +1025,72 @@ void CollectUserDataAction::UpdatePersonalDataManagerProfiles(
     return;
   }
 
-  user_data->available_profiles.clear();
+  bool found_profile = false;
+  bool found_shipping_address = false;
+
+  auto* selected_profile = user_data->selected_address(
+      collect_user_data_options_->contact_details_name);
+  auto* shipping_address = user_data->selected_address(
+      collect_user_data_options_->shipping_address_name);
+  user_data->available_profiles_.clear();
   for (const auto* profile :
        delegate_->GetPersonalDataManager()->GetProfilesToSuggest()) {
-    user_data->available_profiles.emplace_back(
+    user_data->available_profiles_.emplace_back(
         std::make_unique<autofill::AutofillProfile>(*profile));
+
+    if (selected_profile != nullptr &&
+        CompareContactDetails(*collect_user_data_options_, profile,
+                              selected_profile)) {
+      found_profile = true;
+    }
+
+    if (shipping_address != nullptr &&
+        profile->Compare(*shipping_address) == 0) {
+      found_shipping_address = true;
+    }
+  }
+
+  if (!found_profile && selected_profile != nullptr) {
+    auto it = user_data->selected_addresses_.find(
+        collect_user_data_options_->contact_details_name);
+    if (it != user_data->selected_addresses_.end()) {
+      user_data->selected_addresses_.erase(it);
+    }
+  }
+
+  if (!user_data->has_selected_address(
+          collect_user_data_options_->contact_details_name) &&
+      (collect_user_data_options_->request_payer_name ||
+       collect_user_data_options_->request_payer_phone ||
+       collect_user_data_options_->request_payer_email)) {
+    int default_selection = GetDefaultContactProfile(
+        *collect_user_data_options_, user_data->available_profiles_);
+    if (default_selection != -1) {
+      user_data->selected_addresses_.emplace(
+          collect_user_data_options_->contact_details_name,
+          std::make_unique<autofill::AutofillProfile>(
+              *(user_data->available_profiles_[default_selection])));
+    }
+  }
+
+  if (!found_shipping_address && shipping_address != nullptr) {
+    auto it = user_data->selected_addresses_.find(
+        collect_user_data_options_->shipping_address_name);
+    if (it != user_data->selected_addresses_.end()) {
+      user_data->selected_addresses_.erase(it);
+    }
+  }
+  if (!user_data->has_selected_address(
+          collect_user_data_options_->shipping_address_name) &&
+      collect_user_data_options_->request_shipping) {
+    int default_selection = GetDefaultAddressProfile(
+        *collect_user_data_options_, user_data->available_profiles_);
+    if (default_selection != -1) {
+      user_data->selected_addresses_.emplace(
+          collect_user_data_options_->shipping_address_name,
+          std::make_unique<autofill::AutofillProfile>(
+              *(user_data->available_profiles_[default_selection])));
+    }
   }
 
   if (field_change != nullptr) {
@@ -815,7 +1102,9 @@ void CollectUserDataAction::UpdatePersonalDataManagerCards(
     UserData* user_data,
     UserData::FieldChange* field_change) {
   DCHECK(user_data != nullptr);
-  user_data->available_payment_instruments.clear();
+
+  bool found_card = false;
+  user_data->available_payment_instruments_.clear();
   for (const auto* card :
        delegate_->GetPersonalDataManager()->GetCreditCardsToSuggest(true)) {
     if (collect_user_data_options_->supported_basic_card_networks.empty() ||
@@ -838,8 +1127,39 @@ void CollectUserDataAction::UpdatePersonalDataManagerCards(
         }
       }
 
-      user_data->available_payment_instruments.emplace_back(
+      user_data->available_payment_instruments_.emplace_back(
           std::move(payment_instrument));
+
+      if (user_data->selected_card_ != nullptr &&
+          card->Compare(*user_data->selected_card_) == 0) {
+        found_card = true;
+      }
+    }
+  }
+
+  if (!found_card) {
+    user_data->selected_card_.reset();
+    auto it = user_data->selected_addresses_.find(
+        collect_user_data_options_->billing_address_name);
+    if (it != user_data->selected_addresses_.end()) {
+      user_data->selected_addresses_.erase(it);
+    }
+  }
+  if (user_data->selected_card_ == nullptr &&
+      collect_user_data_options_->request_payment_method) {
+    int default_selection = GetDefaultPaymentInstrument(
+        *collect_user_data_options_, user_data->available_payment_instruments_);
+    if (default_selection != -1) {
+      const auto& default_payment_instrument =
+          user_data->available_payment_instruments_[default_selection];
+      user_data->selected_card_ = std::make_unique<autofill::CreditCard>(
+          *(default_payment_instrument->card));
+      if (default_payment_instrument->billing_address != nullptr) {
+        user_data->selected_addresses_.emplace(
+            collect_user_data_options_->billing_address_name,
+            std::make_unique<autofill::AutofillProfile>(
+                *(default_payment_instrument->billing_address)));
+      }
     }
   }
 
@@ -857,6 +1177,52 @@ void CollectUserDataAction::OnPersonalDataChanged() {
   delegate_->WriteUserData(
       base::BindOnce(&CollectUserDataAction::UpdatePersonalDataManagerCards,
                      weak_ptr_factory_.GetWeakPtr()));
+}
+
+void CollectUserDataAction::UpdateDateTimeRangeStart(
+    UserData* user_data,
+    UserData::FieldChange* field_change) {
+  DCHECK(user_data != nullptr);
+  DCHECK(collect_user_data_options_ != nullptr);
+
+  UserData::FieldChange changed = UserData::FieldChange::NONE;
+  if (!user_data->date_time_range_start_date_.has_value()) {
+    user_data->date_time_range_start_date_ =
+        collect_user_data_options_->date_time_range.start_date();
+    changed = UserData::FieldChange::DATE_TIME_RANGE_START;
+  }
+  if (!user_data->date_time_range_start_timeslot_.has_value()) {
+    user_data->date_time_range_start_timeslot_ =
+        collect_user_data_options_->date_time_range.start_time_slot();
+    changed = UserData::FieldChange::DATE_TIME_RANGE_START;
+  }
+
+  if (field_change != nullptr && changed != UserData::FieldChange::NONE) {
+    *field_change = changed;
+  }
+}
+
+void CollectUserDataAction::UpdateDateTimeRangeEnd(
+    UserData* user_data,
+    UserData::FieldChange* field_change) {
+  DCHECK(user_data != nullptr);
+  DCHECK(collect_user_data_options_ != nullptr);
+
+  UserData::FieldChange changed = UserData::FieldChange::NONE;
+  if (!user_data->date_time_range_end_date_.has_value()) {
+    user_data->date_time_range_end_date_ =
+        collect_user_data_options_->date_time_range.end_date();
+    changed = UserData::FieldChange::DATE_TIME_RANGE_END;
+  }
+  if (!user_data->date_time_range_end_timeslot_.has_value()) {
+    user_data->date_time_range_end_timeslot_ =
+        collect_user_data_options_->date_time_range.end_time_slot();
+    changed = UserData::FieldChange::DATE_TIME_RANGE_END;
+  }
+
+  if (field_change != nullptr && changed != UserData::FieldChange::NONE) {
+    *field_change = changed;
+  }
 }
 
 }  // namespace autofill_assistant

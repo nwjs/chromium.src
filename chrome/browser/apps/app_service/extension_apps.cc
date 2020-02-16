@@ -9,25 +9,35 @@
 #include <vector>
 
 #include "ash/public/cpp/app_list/app_list_metrics.h"
+#include "ash/public/cpp/app_menu_constants.h"
+#include "ash/public/cpp/multi_user_window_manager.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
+#include "base/scoped_observer.h"
 #include "base/strings/string16.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
+#include "chrome/browser/apps/app_service/menu_util.h"
 #include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
+#include "chrome/browser/chromeos/child_accounts/time_limits/web_time_limit_interface.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/extensions/gfx_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
+#include "chrome/browser/extensions/launch_util.h"
+#include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/extension_app_utils.h"
 #include "chrome/browser/ui/app_list/extension_uninstaller.h"
+#include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
+#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_helper.h"
+#include "chrome/browser/ui/ash/session_controller_client_impl.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -35,6 +45,7 @@
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow_delegate.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/components/externally_installed_web_app_prefs.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
@@ -46,6 +57,8 @@
 #include "chrome/common/extensions/extension_metrics.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
+#include "chrome/services/app_service/public/cpp/instance.h"
 #include "chrome/services/app_service/public/cpp/intent_filter_util.h"
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "components/arc/arc_service_manager.h"
@@ -55,8 +68,10 @@
 #include "content/public/browser/clear_site_data_utils.h"
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/management_policy.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_urls.h"
+#include "extensions/common/manifest_handlers/options_page_info.h"
 #include "extensions/common/switches.h"
 #include "url/url_constants.h"
 
@@ -110,6 +125,7 @@ ash::ShelfLaunchSource ConvertLaunchSource(
     case apps::mojom::LaunchSource::kFromFileManager:
     case apps::mojom::LaunchSource::kFromLink:
     case apps::mojom::LaunchSource::kFromOmnibox:
+    case apps::mojom::LaunchSource::kFromChromeInternal:
       return ash::LAUNCH_FROM_UNKNOWN;
   }
 }
@@ -140,9 +156,6 @@ apps::AppLaunchParams CreateAppLaunchParamsForIntent(
 // is empty, the session_id is used.
 std::string GetLaunchId(extensions::AppWindow* app_window) {
   std::string launch_id;
-  if (app_window->extension_id() == extension_misc::kChromeCameraAppId)
-    return launch_id;
-
   if (app_window->show_in_shelf()) {
     if (!app_window->window_key().empty()) {
       launch_id = app_window->window_key();
@@ -220,18 +233,6 @@ void ExtensionApps::RecordUninstallCanceledAction(Profile* profile,
   }
 }
 
-bool ExtensionApps::ShowPauseAppDialog(const std::string& app_id) {
-  for (auto* browser : *BrowserList::GetInstance()) {
-    if (!browser->is_type_app()) {
-      continue;
-    }
-    if (web_app::GetAppIdFromApplicationName(browser->app_name()) == app_id) {
-      return true;
-    }
-  }
-  return false;
-}
-
 ExtensionApps::ExtensionApps(
     const mojo::Remote<apps::mojom::AppService>& app_service,
     Profile* profile,
@@ -241,6 +242,7 @@ ExtensionApps::ExtensionApps(
       app_type_(app_type),
       instance_registry_(instance_registry),
       app_service_(nullptr) {
+  DCHECK(instance_registry_);
   Initialize(app_service);
 }
 
@@ -310,13 +312,6 @@ void ExtensionApps::Initialize(
 }
 
 bool ExtensionApps::Accepts(const extensions::Extension* extension) {
-  // Hangouts is a special extension, which shows an window, so it should be
-  // added to the AppService to show the icon on the shelf, when launching the
-  // hangouts.
-  if (extension->id() == extension_misc::kProdHangoutsExtensionId) {
-    return app_type_ == apps::mojom::AppType::kExtension;
-  }
-
   if (!extension->is_app() || IsBlacklisted(extension->id())) {
     return false;
   }
@@ -414,6 +409,7 @@ void ExtensionApps::Launch(const std::string& app_id,
     case apps::mojom::LaunchSource::kFromFileManager:
     case apps::mojom::LaunchSource::kFromLink:
     case apps::mojom::LaunchSource::kFromOmnibox:
+    case apps::mojom::LaunchSource::kFromChromeInternal:
       break;
   }
 
@@ -515,10 +511,10 @@ void ExtensionApps::Uninstall(const std::string& app_id,
   // TODO(crbug.com/1009248): We need to add the error code, which could be used
   // by ExtensionFunction, ManagementUninstallFunctionBase on the callback
   // OnExtensionUninstallDialogClosed
-  const extensions::Extension* extension =
+  scoped_refptr<const extensions::Extension> extension =
       extensions::ExtensionRegistry::Get(profile_)->GetInstalledExtension(
           app_id);
-  if (!extension) {
+  if (!extension.get()) {
     return;
   }
 
@@ -554,7 +550,7 @@ void ExtensionApps::Uninstall(const std::string& app_id,
             },
             base::Unretained(profile_)),
         url::Origin::Create(
-            extensions::AppLaunchInfo::GetFullLaunchURL(extension)),
+            extensions::AppLaunchInfo::GetFullLaunchURL(extension.get())),
         kClearCookies, kClearStorage, kClearCache, kAvoidClosingConnections,
         base::DoNothing());
   } else {
@@ -594,7 +590,30 @@ void ExtensionApps::PauseApp(const std::string& app_id) {
   paused_apps_.insert(app_id);
   SetIconEffect(app_id);
 
-  // TODO(crbug.com/1011235): If the app is running, Stop the app.
+  // For Web apps that are opened in app windows, close all tabs to close the
+  // opened window, otherwise, show pause information in browsers.
+  bool is_web_app = false;
+  for (auto* browser : *BrowserList::GetInstance()) {
+    if (!browser->is_type_app()) {
+      continue;
+    }
+    if (web_app::GetAppIdFromApplicationName(browser->app_name()) == app_id) {
+      TabStripModel* tab_strip = browser->tab_strip_model();
+      tab_strip->CloseAllTabs();
+      is_web_app = true;
+    }
+  }
+
+  // For web apps that are open in tabs, PauseApp() should be called with
+  // Chrome's app_id to show pause information in browsers.
+  if (is_web_app) {
+    return;
+  }
+
+  chromeos::app_time::WebTimeLimitInterface* web_limit =
+      chromeos::app_time::WebTimeLimitInterface::Get(profile_);
+  DCHECK(web_limit);
+  web_limit->PauseWebActivity(app_id);
 }
 
 void ExtensionApps::UnpauseApps(const std::string& app_id) {
@@ -604,6 +623,76 @@ void ExtensionApps::UnpauseApps(const std::string& app_id) {
 
   paused_apps_.erase(app_id);
   SetIconEffect(app_id);
+
+  for (auto* browser : *BrowserList::GetInstance()) {
+    if (!browser->is_type_app()) {
+      continue;
+    }
+    if (web_app::GetAppIdFromApplicationName(browser->app_name()) == app_id) {
+      return;
+    }
+  }
+
+  chromeos::app_time::WebTimeLimitInterface* web_limit =
+      chromeos::app_time::WebTimeLimitInterface::Get(profile_);
+  DCHECK(web_limit);
+  web_limit->ResumeWebActivity(app_id);
+}
+
+void ExtensionApps::GetMenuModel(const std::string& app_id,
+                                 apps::mojom::MenuType menu_type,
+                                 int64_t display_id,
+                                 GetMenuModelCallback callback) {
+  extensions::ExtensionRegistry* registry =
+      extensions::ExtensionRegistry::Get(profile_);
+  const extensions::Extension* extension =
+      registry->GetInstalledExtension(app_id);
+  if (!extension || !Accepts(extension)) {
+    return;
+  }
+
+  if (app_id == extension_misc::kChromeAppId) {
+    GetMenuModelForChromeBrowserApp(menu_type, std::move(callback));
+    return;
+  }
+
+  apps::mojom::MenuItemsPtr menu_items = apps::mojom::MenuItems::New();
+  bool is_platform_app = extension->is_platform_app();
+  bool is_system_web_app = web_app::WebAppProvider::Get(profile_)
+                               ->system_web_app_manager()
+                               .IsSystemWebApp(app_id);
+
+  if (!is_platform_app && !is_system_web_app) {
+    CreateOpenNewSubmenu(
+        menu_type,
+        extensions::GetLaunchType(extensions::ExtensionPrefs::Get(profile_),
+                                  extension) ==
+                extensions::LaunchType::LAUNCH_TYPE_WINDOW
+            ? IDS_APP_LIST_CONTEXT_MENU_NEW_WINDOW
+            : IDS_APP_LIST_CONTEXT_MENU_NEW_TAB,
+        &menu_items);
+  }
+
+  if (!is_platform_app && menu_type == apps::mojom::MenuType::kAppList &&
+      extensions::util::IsAppLaunchableWithoutEnabling(app_id, profile_) &&
+      extensions::OptionsPageInfo::HasOptionsPage(extension)) {
+    AddCommandItem(ash::OPTIONS, IDS_NEW_TAB_APP_OPTIONS, &menu_items);
+  }
+
+  const extensions::ManagementPolicy* policy =
+      extensions::ExtensionSystem::Get(profile_)->management_policy();
+  DCHECK(policy);
+  if (policy->UserMayModifySettings(extension, nullptr) &&
+      !policy->MustRemainInstalled(extension, nullptr)) {
+    AddCommandItem(ash::UNINSTALL, IDS_APP_LIST_UNINSTALL_ITEM, &menu_items);
+  }
+
+  if (!is_system_web_app) {
+    AddCommandItem(ash::SHOW_APP_INFO, IDS_APP_CONTEXT_MENU_SHOW_INFO,
+                   &menu_items);
+  }
+
+  std::move(callback).Run(std::move(menu_items));
 }
 
 void ExtensionApps::OpenNativeSettings(const std::string& app_id) {
@@ -684,14 +773,61 @@ void ExtensionApps::OnContentSettingChanged(
 }
 
 void ExtensionApps::OnAppWindowAdded(extensions::AppWindow* app_window) {
+  if (!ShouldRecordAppWindowActivity(app_window)) {
+    return;
+  }
+
+  DCHECK(!instance_registry_->Exists(app_window->GetNativeWindow()));
+  app_window_to_aura_window_[app_window] = app_window->GetNativeWindow();
+
+  // Attach window to multi-user manager now to let it manage visibility state
+  // of the window correctly.
+  if (SessionControllerClientImpl::IsMultiProfileAvailable()) {
+    auto* multi_user_window_manager =
+        MultiUserWindowManagerHelper::GetWindowManager();
+    if (multi_user_window_manager) {
+      multi_user_window_manager->SetWindowOwner(
+          app_window->GetNativeWindow(),
+          multi_user_util::GetAccountIdFromProfile(profile_));
+    }
+  }
   RegisterInstance(app_window, InstanceState::kStarted);
 }
 
 void ExtensionApps::OnAppWindowShown(extensions::AppWindow* app_window,
                                      bool was_hidden) {
-  RegisterInstance(app_window,
-                   static_cast<InstanceState>(InstanceState::kStarted |
-                                              InstanceState::kRunning));
+  if (!ShouldRecordAppWindowActivity(app_window)) {
+    return;
+  }
+
+  InstanceState state =
+      instance_registry_->GetState(app_window->GetNativeWindow());
+
+  // If the window is shown, it should be started, running and not hidden.
+  state = static_cast<apps::InstanceState>(
+      state | apps::InstanceState::kStarted | apps::InstanceState::kRunning);
+  state =
+      static_cast<apps::InstanceState>(state & ~apps::InstanceState::kHidden);
+  RegisterInstance(app_window, state);
+}
+
+void ExtensionApps::OnAppWindowHidden(extensions::AppWindow* app_window) {
+  if (!ShouldRecordAppWindowActivity(app_window)) {
+    return;
+  }
+
+  // For hidden |app_window|, the other state bit, started, running, active, and
+  // visible should be cleared.
+  RegisterInstance(app_window, InstanceState::kHidden);
+}
+
+void ExtensionApps::OnAppWindowRemoved(extensions::AppWindow* app_window) {
+  if (!ShouldRecordAppWindowActivity(app_window)) {
+    return;
+  }
+
+  RegisterInstance(app_window, InstanceState::kDestroyed);
+  app_window_to_aura_window_.erase(app_window);
 }
 
 void ExtensionApps::OnExtensionLastLaunchTimeChanged(
@@ -1110,11 +1246,13 @@ IconEffects ExtensionApps::GetIconEffects(
   icon_effects =
       static_cast<IconEffects>(icon_effects | IconEffects::kResizeAndPad);
   if (extensions::util::ShouldApplyChromeBadge(profile_, extension->id())) {
-    icon_effects = static_cast<IconEffects>(icon_effects | IconEffects::kBadge);
+    icon_effects =
+        static_cast<IconEffects>(icon_effects | IconEffects::kChromeBadge);
   }
 #endif
   if (!extensions::util::IsAppLaunchable(extension->id(), profile_)) {
-    icon_effects = static_cast<IconEffects>(icon_effects | IconEffects::kGray);
+    icon_effects =
+        static_cast<IconEffects>(icon_effects | IconEffects::kBlocked);
   }
   if (extension->from_bookmark()) {
     icon_effects =
@@ -1154,41 +1292,85 @@ void ExtensionApps::SetIconEffect(const std::string& app_id) {
   Publish(std::move(app));
 }
 
-void ExtensionApps::RegisterInstance(extensions::AppWindow* app_window,
-                                     InstanceState new_state) {
+bool ExtensionApps::ShouldRecordAppWindowActivity(
+    extensions::AppWindow* app_window) {
   if (!base::FeatureList::IsEnabled(features::kAppServiceInstanceRegistry)) {
-    return;
+    return false;
   }
 
-  if (!instance_registry_ || !app_window) {
-    return;
-  }
+  DCHECK(app_window);
+
   const extensions::Extension* extension = app_window->GetExtension();
   if (!extension) {
-    return;
+    return false;
   }
+
+  // ARC Play Store is not published by this publisher, but the window for Play
+  // Store should be able to be added to InstanceRegistry.
+  if (extension->id() == arc::kPlayStoreAppId &&
+      app_type_ == apps::mojom::AppType::kExtension) {
+    return true;
+  }
+
   if (!Accepts(extension)) {
+    return false;
+  }
+
+  return true;
+}
+
+void ExtensionApps::RegisterInstance(extensions::AppWindow* app_window,
+                                     InstanceState new_state) {
+  aura::Window* window = app_window->GetNativeWindow();
+
+  // If the current state has been marked as |new_state|, we don't need to
+  // update.
+  if (instance_registry_->GetState(window) == new_state) {
     return;
   }
 
-  InstanceState state = InstanceState::kUnknown;
-  instance_registry_->ForOneInstance(
-      app_window->GetNativeWindow(),
-      [&state](const apps::InstanceUpdate& update) { state = update.State(); });
-
-  // If |state| has been marked as |new_state|, we don't need to update.
-  if ((state & new_state) == new_state) {
-    return;
+  if (new_state == InstanceState::kDestroyed) {
+    DCHECK(base::Contains(app_window_to_aura_window_, app_window));
+    window = app_window_to_aura_window_[app_window];
   }
-
   std::vector<std::unique_ptr<apps::Instance>> deltas;
-  auto instance = std::make_unique<apps::Instance>(
-      app_window->extension_id(), app_window->GetNativeWindow());
+  auto instance =
+      std::make_unique<apps::Instance>(app_window->extension_id(), window);
   instance->SetLaunchId(GetLaunchId(app_window));
-  instance->UpdateState(static_cast<InstanceState>(state | new_state),
-                        base::Time::Now());
+  instance->UpdateState(new_state, base::Time::Now());
+  instance->SetBrowserContext(app_window->browser_context());
   deltas.push_back(std::move(instance));
   instance_registry_->OnInstances(deltas);
+}
+
+void ExtensionApps::GetMenuModelForChromeBrowserApp(
+    apps::mojom::MenuType menu_type,
+    GetMenuModelCallback callback) {
+  apps::mojom::MenuItemsPtr menu_items = apps::mojom::MenuItems::New();
+
+  // "Normal" windows are not allowed when incognito is enforced.
+  if (IncognitoModePrefs::GetAvailability(profile_->GetPrefs()) !=
+      IncognitoModePrefs::FORCED) {
+    AddCommandItem((menu_type == apps::mojom::MenuType::kAppList)
+                       ? ash::APP_CONTEXT_MENU_NEW_WINDOW
+                       : ash::MENU_NEW_WINDOW,
+                   IDS_APP_LIST_NEW_WINDOW, &menu_items);
+  }
+
+  // Incognito windows are not allowed when incognito is disabled.
+  if (!profile_->IsOffTheRecord() &&
+      IncognitoModePrefs::GetAvailability(profile_->GetPrefs()) !=
+          IncognitoModePrefs::DISABLED) {
+    AddCommandItem((menu_type == apps::mojom::MenuType::kAppList)
+                       ? ash::APP_CONTEXT_MENU_NEW_INCOGNITO_WINDOW
+                       : ash::MENU_NEW_INCOGNITO_WINDOW,
+                   IDS_APP_LIST_NEW_INCOGNITO_WINDOW, &menu_items);
+  }
+
+  AddCommandItem(ash::SHOW_APP_INFO, IDS_APP_CONTEXT_MENU_SHOW_INFO,
+                 &menu_items);
+
+  std::move(callback).Run(std::move(menu_items));
 }
 
 }  // namespace apps

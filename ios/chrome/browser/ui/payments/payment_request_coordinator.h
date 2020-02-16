@@ -21,13 +21,11 @@
 #import "ios/chrome/browser/ui/payments/shipping_address_selection_coordinator.h"
 #import "ios/chrome/browser/ui/payments/shipping_option_selection_coordinator.h"
 
+class ChromeBrowserState;
+
 namespace autofill {
 class AutofillManager;
 }  // namespace autofill
-
-namespace ios {
-class ChromeBrowserState;
-}  // namespace ios
 
 namespace payments {
 class PaymentDetails;
@@ -88,9 +86,9 @@ class PaymentShippingOption;
 // reference is not owned by this class.
 @property(nonatomic, assign) autofill::AutofillManager* autofillManager;
 
-// An ios::ChromeBrowserState instance. This reference is not owned by this
+// An ChromeBrowserState instance. This reference is not owned by this
 // class.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 
 // The favicon of the page invoking the PaymentRequest API. Should be set before
 // calling |start|.

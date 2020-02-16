@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">graduatzailea</translation>
 <translation id="1211441953136645838">amaierako oharra</translation>
 <translation id="1281252709823657822">leihoa</translation>
+<translation id="1306460908038601864">Desaktibatuta</translation>
 <translation id="1335095011850992622">kredituak</translation>
 <translation id="1342835525016946179">artikulua</translation>
 <translation id="1359897965706325498">iragarki-banda</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Luzatu testua <ph name="MIN_CHARACTERS" /> karaktere izan ditzan gutxienez (<ph name="CURRENT_LENGTH" /> karaktere erabiltzen ari zara).</translation>
 <translation id="383465348367842624">"<ph name="ATSIGN" />" ikurraren ondoren ezin da "<ph name="INVALIDCHARACTER" />" idatzi.</translation>
 <translation id="3846214748874656680">Irten pantaila osotik</translation>
-<translation id="3889183436948184105">zuzenketa</translation>
 <translation id="3920932319529768807">ondorioa</translation>
 <translation id="3924558731517983934">aplikazioa</translation>
 <translation id="3944740393230681990">hitzaurrea</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Idatzi zenbaki bat.</translation>
 <translation id="4912536737030637138">bibliografia-sarrera</translation>
 <translation id="492244087561876220">iruzkina</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> hautatuta</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> hautatuta</translation>
 <translation id="4992066212339426712">Aktibatu audioa</translation>
 <translation id="49969490063480558">Idatzi testua "<ph name="ATSIGN" />" ikurraren ondoren. "<ph name="INVALIDADDRESS" />" ez dago osorik.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">Idatzi zati bat eta, ondoren, "<ph name="ATSIGN" />". "<ph name="INVALIDADDRESS" />" ez dago osorik.</translation>
 <translation id="5334352251556557839">Ezin da erreproduzitu multimedia-edukia.</translation>
+<translation id="537648784377940524">Gutxieneko datak (<ph name="MIN_DATE_OR_TIME" />) gehienekoaren aurrekoa izan behar du (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">zenbakia</translation>
 <translation id="5453733299334684579">zuhaitzeko elementua</translation>
 <translation id="5466621249238537318">Hautatu fitxategi bat gutxienez.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">aukera gehiago</translation>
 <translation id="576709008726043716">sarrera</translation>
 <translation id="57838592816432529">Desaktibatu audioa</translation>
-<translation id="5860033963881614850">Desaktibatuta</translation>
 <translation id="588258955323874662">Pantaila osoa</translation>
 <translation id="5888666972993069672"><ph name="DEVICE_FRIENDLY_NAME" /> gailura igortzen</translation>
 <translation id="591047860372322273">bilaketa-koadroa</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Sartu "<ph name="ATSIGN" />" ikurra helbide elektronikoan. "<ph name="INVALIDADDRESS" />" helbideari "<ph name="ATSIGN" />" ikurra falta zaio.</translation>
 <translation id="7891486169920085145">banatzailea</translation>
 <translation id="795667975304826397">Ez da fitxategirik aukeratu</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> hautatu gabe</translation>
 <translation id="8034303206267677282">garrantzitsua</translation>
 <translation id="8053789581856978548">testua bilatzeko eremua</translation>
 <translation id="8057695513531652401">oharra</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Hilabetea</translation>
 <translation id="901493112792887934">uneko denbora segundotan</translation>
 <translation id="901834265349196618">helbide elektronikoa</translation>
-<translation id="9023835124071926463">iruzkinen atala</translation>
 <translation id="9048119486235211610">nabigazioa</translation>
 <translation id="9062295712474918030">dokumentua</translation>
 <translation id="9093215626363556771">irten pantaila txikiko modutik</translation>

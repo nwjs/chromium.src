@@ -49,11 +49,7 @@ extern const base::Feature kInputPaneOnScreenKeyboard;
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 extern const base::Feature kPointerEventsForTouch;
 COMPONENT_EXPORT(UI_BASE_FEATURES)
-extern const base::Feature kPrecisionTouchpad;
-COMPONENT_EXPORT(UI_BASE_FEATURES)
 extern const base::Feature kPrecisionTouchpadLogging;
-COMPONENT_EXPORT(UI_BASE_FEATURES)
-extern const base::Feature kPrecisionTouchpadScrollPhase;
 COMPONENT_EXPORT(UI_BASE_FEATURES) extern const base::Feature kTSFImeSupport;
 
 // Returns true if the system should use WM_POINTER events for touch events.
@@ -94,6 +90,15 @@ extern const base::Feature kHandwritingGesture;
 
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 extern const base::Feature kWebUIA11yEnhancements;
+
+// Indicates whether DrmOverlayManager should used the synchronous API to
+// perform pageflip tests.
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+extern const base::Feature kSynchronousPageFlipTesting;
+
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+bool IsSynchronousPageFlipTestingEnabled();
+
 }  // namespace features
 
 #endif  // UI_BASE_UI_BASE_FEATURES_H_

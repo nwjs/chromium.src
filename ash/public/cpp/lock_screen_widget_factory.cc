@@ -22,11 +22,12 @@ class LockScreenWidgetDelegate : public views::WidgetDelegate {
   views::View* GetInitiallyFocusedView() override {
     return widget_->GetContentsView();
   }
-  views::Widget* GetWidget() override { return widget_; }
-  const views::Widget* GetWidget() const override { return widget_; }
   void DeleteDelegate() override { delete this; }
 
  private:
+  // views::WidgetDelegate:
+  const views::Widget* GetWidgetImpl() const override { return widget_; }
+
   views::Widget* widget_;
 
   DISALLOW_COPY_AND_ASSIGN(LockScreenWidgetDelegate);
@@ -44,6 +45,7 @@ std::unique_ptr<views::Widget> CreateLockScreenWidget(aura::Window* parent) {
   params.show_state = ui::SHOW_STATE_FULLSCREEN;
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   params.parent = parent;
+  params.name = "LockScreenWidget";
   widget->Init(std::move(params));
   widget->SetVisibilityAnimationTransition(views::Widget::ANIMATE_NONE);
   return widget;

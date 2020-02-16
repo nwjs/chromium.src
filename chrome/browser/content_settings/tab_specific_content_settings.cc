@@ -239,7 +239,7 @@ bool TabSpecificContentSettings::IsContentBlocked(
       content_type == ContentSettingsType::MIDI_SYSEX ||
       content_type == ContentSettingsType::ADS ||
       content_type == ContentSettingsType::SOUND ||
-      content_type == ContentSettingsType::CLIPBOARD_READ ||
+      content_type == ContentSettingsType::CLIPBOARD_READ_WRITE ||
       content_type == ContentSettingsType::SENSORS) {
     const auto& it = content_settings_status_.find(content_type);
     if (it != content_settings_status_.end())
@@ -262,7 +262,7 @@ bool TabSpecificContentSettings::IsContentAllowed(
       content_type != ContentSettingsType::MEDIASTREAM_CAMERA &&
       content_type != ContentSettingsType::PPAPI_BROKER &&
       content_type != ContentSettingsType::MIDI_SYSEX &&
-      content_type != ContentSettingsType::CLIPBOARD_READ &&
+      content_type != ContentSettingsType::CLIPBOARD_READ_WRITE &&
       content_type != ContentSettingsType::SENSORS) {
     return false;
   }
@@ -288,10 +288,7 @@ void TabSpecificContentSettings::OnContentBlocked(ContentSettingsType type) {
     status.blocked = true;
     content_settings::UpdateLocationBarUiForWebContents(web_contents());
 
-    if (type == ContentSettingsType::MIXEDSCRIPT) {
-      content_settings::RecordMixedScriptAction(
-          content_settings::MIXED_SCRIPT_ACTION_DISPLAYED_SHIELD);
-    } else if (type == ContentSettingsType::PLUGINS) {
+    if (type == ContentSettingsType::PLUGINS) {
       content_settings::RecordPluginsAction(
           content_settings::PLUGINS_ACTION_DISPLAYED_BLOCKED_ICON_IN_OMNIBOX);
     } else if (type == ContentSettingsType::POPUPS) {

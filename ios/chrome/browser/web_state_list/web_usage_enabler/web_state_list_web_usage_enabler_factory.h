@@ -9,10 +9,7 @@
 #include "base/no_destructor.h"
 #include "components/keyed_service/ios/browser_state_keyed_service_factory.h"
 
-namespace ios {
 class ChromeBrowserState;
-}
-
 class WebStateListWebUsageEnabler;
 
 // WebStateListWebUsageEnablerFactory attaches
@@ -23,7 +20,7 @@ class WebStateListWebUsageEnablerFactory
   // Convenience getter that typecasts the value returned to a
   // WebStateListWebUsageEnabler.
   static WebStateListWebUsageEnabler* GetForBrowserState(
-      ios::ChromeBrowserState* browser_state);
+      ChromeBrowserState* browser_state);
   // Getter for singleton instance.
   static WebStateListWebUsageEnablerFactory* GetInstance();
 

@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "base/containers/circular_deque.h"
+#include "base/files/file_path.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
@@ -131,6 +132,7 @@ class TestRunner : public WebTestRunner {
   bool ShouldDumpSpellCheckCallbacks() const;
   bool ShouldWaitUntilExternalURLLoad() const;
   const std::set<std::string>* HttpHeadersToClear() const;
+  bool ClearReferrer() const;
   bool is_web_platform_tests_mode() const {
     return is_web_platform_tests_mode_;
   }
@@ -407,7 +409,14 @@ class TestRunner : public WebTestRunner {
   void SetShouldStayOnPageAfterHandlingBeforeUnload(bool value);
 
   // Causes WillSendRequest to clear certain headers.
+  // Note: This cannot be used to clear the request's `Referer` header, as this
+  // header is computed later given its referrer string member. To clear it, use
+  // SetWillSendRequestClearReferrer() below.
   void SetWillSendRequestClearHeader(const std::string& header);
+
+  // Causes WillSendRequest to clear the request's referrer string and set its
+  // referrer policy to the default.
+  void SetWillSendRequestClearReferrer();
 
   // Sets a flag that causes the test to be marked as completed when the
   // WebLocalFrameClient receives a LoadURLExternally() call.
@@ -494,6 +503,15 @@ class TestRunner : public WebTestRunner {
   // Simulates a user deleting a content index entry.
   void SimulateWebContentIndexDelete(const std::string& id);
 
+  // Returns the absolute path to a directory this test can write data in. This
+  // returns the path to a fresh empty directory every time this method is
+  // called. Additionally when this method is called any previously created
+  // directories will be deleted.
+  base::FilePath GetWritableDirectory();
+
+  // Sets the path that should be returned when the test shows a file dialog.
+  void SetFilePathForMockFileDialog(const base::FilePath& path);
+
   // Takes care of notifying the delegate after a change to web test runtime
   // flags.
   void OnWebTestRuntimeFlagsChanged();
@@ -542,6 +560,7 @@ class TestRunner : public WebTestRunner {
   bool sweep_horizontally_;
 
   std::set<std::string> http_headers_to_clear_;
+  bool clear_referrer_ = false;
 
   // WAV audio data is stored here.
   std::vector<unsigned char> audio_data_;

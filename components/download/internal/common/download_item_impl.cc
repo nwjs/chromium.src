@@ -59,7 +59,6 @@
 #include "net/http/http_response_headers.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "services/service_manager/public/cpp/connector.h"
 
 #if defined(OS_ANDROID)
 #include "components/download/internal/common/android/download_collection_bridge.h"
@@ -446,7 +445,8 @@ DownloadItemImpl::DownloadItemImpl(
       is_updating_observers_(false) {
   job_ = DownloadJobFactory::CreateJob(
       this, std::move(cancel_request_callback), DownloadCreateInfo(), true,
-      URLLoaderFactoryProvider::GetNullPtr(), nullptr);
+      URLLoaderFactoryProvider::GetNullPtr(),
+      /*wake_lock_provider_binder*/ base::NullCallback());
   delegate_->Attach();
   Init(true /* actively downloading */, TYPE_SAVE_PAGE_AS);
 }
@@ -499,8 +499,6 @@ void DownloadItemImpl::ValidateDangerousDownload() {
   if (IsDone() || !IsDangerous())
     return;
 
-  RecordDangerousDownloadAccept(GetDangerType(), GetTargetFilePath());
-
   danger_type_ = DOWNLOAD_DANGER_TYPE_USER_VALIDATED;
 
   TRACE_EVENT_INSTANT1("download", "DownloadItemSaftyStateUpdated",
@@ -510,6 +508,24 @@ void DownloadItemImpl::ValidateDangerousDownload() {
   UpdateObservers();  // TODO(asanka): This is potentially unsafe. The download
                       // may not be in a consistent state or around at all after
                       // invoking observers. http://crbug.com/586610
+
+  MaybeCompleteDownload();
+}
+
+void DownloadItemImpl::ValidateMixedContentDownload() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK(!IsDone());
+  DCHECK(IsMixedContent());
+
+  DVLOG(20) << __func__ << "() download=" << DebugString(true);
+
+  mixed_content_status_ = MixedContentStatus::VALIDATED;
+
+  UpdateObservers();  // TODO(asanka): This is potentially unsafe. The download
+                      // may not be in a consistent state or around at all after
+                      // invoking observers, but we keep it here because it is
+                      // used in ValidateDangerousDownload(), too.
+                      // http://crbug.com/586610
 
   MaybeCompleteDownload();
 }
@@ -526,8 +542,8 @@ void DownloadItemImpl::StealDangerousDownload(
     if (download_file_) {
       base::PostTaskAndReplyWithResult(
           GetDownloadTaskRunner().get(), FROM_HERE,
-          base::Bind(&DownloadFileDetach, base::Passed(&download_file_)),
-          callback);
+          base::BindOnce(&DownloadFileDetach, base::Passed(&download_file_)),
+          base::BindOnce(callback));
     } else {
       callback.Run(GetFullPath());
     }
@@ -537,7 +553,8 @@ void DownloadItemImpl::StealDangerousDownload(
   } else if (download_file_) {
     base::PostTaskAndReplyWithResult(
         GetDownloadTaskRunner().get(), FROM_HERE,
-        base::Bind(&MakeCopyOfDownloadFile, download_file_.get()), callback);
+        base::BindOnce(&MakeCopyOfDownloadFile, download_file_.get()),
+        base::BindOnce(callback));
   } else {
     callback.Run(GetFullPath());
   }
@@ -970,11 +987,23 @@ bool DownloadItemImpl::IsDangerous() const {
           danger_type_ == DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE ||
           danger_type_ == DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED ||
           danger_type_ == DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK ||
-          danger_type_ == DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING);
+          danger_type_ == DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING ||
+          danger_type_ == DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING);
+}
+
+bool DownloadItemImpl::IsMixedContent() const {
+  return mixed_content_status_ == MixedContentStatus::WARN ||
+         mixed_content_status_ == MixedContentStatus::BLOCK ||
+         mixed_content_status_ == MixedContentStatus::SILENT_BLOCK;
 }
 
 DownloadDangerType DownloadItemImpl::GetDangerType() const {
   return danger_type_;
+}
+
+DownloadItem::MixedContentStatus DownloadItemImpl::GetMixedContentStatus()
+    const {
+  return mixed_content_status_;
 }
 
 bool DownloadItemImpl::TimeRemaining(base::TimeDelta* remaining) const {
@@ -1214,6 +1243,12 @@ ResumeMode DownloadItemImpl::GetResumeMode() const {
 
 bool DownloadItemImpl::HasStrongValidators() const {
   return !etag_.empty() || !last_modified_time_.empty();
+}
+
+void DownloadItemImpl::BindWakeLockProvider(
+    mojo::PendingReceiver<device::mojom::WakeLockProvider> receiver) {
+  if (delegate_)
+    delegate_->BindWakeLockProvider(std::move(receiver));
 }
 
 void DownloadItemImpl::UpdateValidatorsOnResumption(
@@ -1462,7 +1497,9 @@ void DownloadItemImpl::Start(
     URLLoaderFactoryProvider::URLLoaderFactoryProviderPtr
         url_loader_factory_provider) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(!download_file_);
+  CHECK(!download_file_) << "last interrupt reason: "
+                         << DownloadInterruptReasonToString(last_reason_)
+                         << ", state: " << DebugDownloadStateString(state_);
   DVLOG(20) << __func__ << "() this=" << DebugString(true);
   RecordDownloadCountWithSource(START_COUNT, download_source_);
 
@@ -1470,7 +1507,8 @@ void DownloadItemImpl::Start(
   job_ = DownloadJobFactory::CreateJob(
       this, std::move(cancel_request_callback), new_create_info, false,
       std::move(url_loader_factory_provider),
-      delegate_ ? delegate_->GetServiceManagerConnector() : nullptr);
+      base::BindRepeating(&DownloadItemImpl::BindWakeLockProvider,
+                          weak_ptr_factory_.GetWeakPtr()));
   if (job_->IsParallelizable()) {
     RecordParallelizableDownloadCount(START_COUNT, IsParallelDownloadEnabled());
   }
@@ -1606,6 +1644,7 @@ void DownloadItemImpl::OnDownloadTargetDetermined(
     const base::FilePath& target_path,
     TargetDisposition disposition,
     DownloadDangerType danger_type,
+    MixedContentStatus mixed_content_status,
     const base::FilePath& intermediate_path,
     DownloadInterruptReason interrupt_reason) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -1645,6 +1684,7 @@ void DownloadItemImpl::OnDownloadTargetDetermined(
   destination_info_.target_path = target_path;
   destination_info_.target_disposition = disposition;
   SetDangerType(danger_type);
+  mixed_content_status_ = mixed_content_status;
 
   // This was an interrupted download that was looking for a filename. Resolve
   // early without performing the intermediate rename. If there is a
@@ -1887,8 +1927,8 @@ void DownloadItemImpl::OnDownloadRenamedToFinalName(
   TransitionTo(COMPLETING_INTERNAL);
 
   if (delegate_->ShouldOpenDownload(
-          this, base::Bind(&DownloadItemImpl::DelayedDownloadOpened,
-                           weak_ptr_factory_.GetWeakPtr()))) {
+          this, base::BindOnce(&DownloadItemImpl::DelayedDownloadOpened,
+                               weak_ptr_factory_.GetWeakPtr()))) {
     Completed();
   } else {
     delegate_delayed_complete_ = true;
@@ -2192,6 +2232,11 @@ bool DownloadItemImpl::IsDownloadReadyForCompletion(
   if (IsDangerous())
     return false;
 
+  // If the download is mixed content, but not yet validated, it's not ready for
+  // completion.
+  if (IsMixedContent())
+    return false;
+
   // Check for consistency before invoking delegate. Since there are no pending
   // target determination calls and the download is in progress, both the target
   // and current paths should be non-empty and they should point to the same
@@ -2370,7 +2415,7 @@ void DownloadItemImpl::ResumeInterruptedDownload(
     return;
 
   // We are starting a new request. Shake off all pending operations.
-  DCHECK(!download_file_);
+  CHECK(!download_file_);
   weak_ptr_factory_.InvalidateWeakPtrs();
 
   // Reset the appropriate state if restarting.

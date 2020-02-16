@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/ui/bubble/bubble_util.h"
 #import "ios/chrome/browser/ui/bubble/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/ui/commands/toolbar_commands.h"
+#import "ios/chrome/browser/ui/toolbar/public/features.h"
 #import "ios/chrome/browser/ui/util/named_guide.h"
 #import "ios/chrome/browser/ui/util/named_guide_util.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
@@ -58,7 +59,7 @@ const CGFloat kBubblePresentationDelay = 1;
 @property(nonatomic, strong, readwrite)
     BubbleViewControllerPresenter* incognitoTabTipBubblePresenter;
 
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 @property(nonatomic, weak) id<BubblePresenterDelegate> delegate;
 @property(nonatomic, weak) UIViewController* rootViewController;
 
@@ -78,7 +79,7 @@ const CGFloat kBubblePresentationDelay = 1;
 
 #pragma mark - Public
 
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
                             delegate:(id<BubblePresenterDelegate>)delegate
                   rootViewController:(UIViewController*)rootViewController {
   self = [super init];
@@ -184,7 +185,8 @@ const CGFloat kBubblePresentationDelay = 1;
   NSString* text =
       l10n_util::GetNSString(IDS_IOS_LONG_PRESS_TOOLBAR_IPH_PROMOTION_TEXT);
   CGPoint searchButtonAnchor =
-      IsRegularXRegularSizeClass()
+      IsRegularXRegularSizeClass() &&
+              !base::FeatureList::IsEnabled(kChangeTabSwitcherPosition)
           ? [self anchorPointToGuide:kTabStripTabSwitcherGuide
                            direction:arrowDirection]
           : [self anchorPointToGuide:kTabSwitcherGuide
@@ -288,7 +290,8 @@ presentBubbleForFeature:(const base::Feature&)feature
   NSString* text =
       l10n_util::GetNSStringWithFixup(IDS_IOS_NEW_TAB_IPH_PROMOTION_TEXT);
   CGPoint tabSwitcherAnchor;
-  if (IsRegularXRegularSizeClass()) {
+  if (IsRegularXRegularSizeClass() &&
+      !base::FeatureList::IsEnabled(kChangeTabSwitcherPosition)) {
     tabSwitcherAnchor = [self anchorPointToGuide:kTabStripTabSwitcherGuide
                                        direction:arrowDirection];
   } else {

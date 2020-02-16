@@ -38,7 +38,7 @@ using ::testing::_;
 class MockPaymentRequest : public payments::TestPaymentRequest {
  public:
   MockPaymentRequest(payments::WebPaymentRequest web_payment_request,
-                     ios::ChromeBrowserState* browser_state,
+                     ChromeBrowserState* browser_state,
                      web::WebState* web_state,
                      autofill::PersonalDataManager* personal_data_manager)
       : payments::TestPaymentRequest(web_payment_request,
@@ -292,7 +292,8 @@ TEST_F(PaymentRequestCreditCardEditCoordinatorTest, DidFinishEditing) {
   // Set the payment method to be edited.
   autofill::CreditCard credit_card;
   payments::AutofillPaymentApp payment_method(
-      "", credit_card, false, payment_request_->billing_profiles(), "", nil);
+      /*method_name=*/"", credit_card, payment_request_->billing_profiles(),
+      /*app_locale=*/"", /*payment_request_delegate=*/nil);
   [coordinator setPaymentMethod:&payment_method];
 
   // Mock the coordinator delegate.

@@ -7,6 +7,11 @@ package org.chromium.chrome.browser.toolbar.top;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.ACCESSIBILITY_ENABLED;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.APP_MENU_BUTTON_HELPER;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.BUTTONS_CLICKABLE;
+import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_CLICK_HANDLER;
+import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_DESCRIPTION;
+import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_IMAGE;
+import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_IPH;
+import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IDENTITY_DISC_IS_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.INCOGNITO_STATE_PROVIDER;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.INCOGNITO_SWITCHER_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IS_INCOGNITO;
@@ -17,19 +22,22 @@ import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarPropert
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.NEW_TAB_BUTTON_IS_VISIBLE;
 import static org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.NEW_TAB_CLICK_HANDLER;
 
+import android.graphics.drawable.Drawable;
 import android.view.View;
+
+import androidx.annotation.StringRes;
 
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior.OverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
+import org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IPHContainer;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
@@ -46,6 +54,7 @@ class StartSurfaceToolbarMediator {
     @OverviewModeState
     private int mOverviewModeState;
     private boolean mIsGoogleSearchEngine;
+    private boolean mEnableIdentityDisc;
 
     StartSurfaceToolbarMediator(PropertyModel model) {
         mPropertyModel = model;
@@ -96,6 +105,7 @@ class StartSurfaceToolbarMediator {
                 @Override
                 public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
                     mPropertyModel.set(IS_INCOGNITO, mTabModelSelector.isIncognitoSelected());
+                    updateIdentityDiscVisibility();
                     if (mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_OMNIBOX_ONLY) {
                         mPropertyModel.set(INCOGNITO_SWITCHER_VISIBLE, hasIncognitoTabs());
                     }
@@ -103,6 +113,7 @@ class StartSurfaceToolbarMediator {
             };
         }
         mPropertyModel.set(IS_INCOGNITO, mTabModelSelector.isIncognitoSelected());
+        updateIdentityDiscVisibility();
         mTabModelSelector.addObserver(mTabModelSelectorObserver);
     }
 
@@ -111,7 +122,7 @@ class StartSurfaceToolbarMediator {
         // Check if there is no incognito tab, or all the incognito tabs are being closed.
         TabModel incognitoTabModel = mTabModelSelector.getModel(true);
         for (int i = 0; i < incognitoTabModel.getCount(); i++) {
-            if (!((TabImpl) incognitoTabModel.getTabAt(i)).isClosing()) return true;
+            if (!incognitoTabModel.getTabAt(i).isClosing()) return true;
         }
         assert !mTabModelSelector.isIncognitoSelected();
         return false;
@@ -148,6 +159,7 @@ class StartSurfaceToolbarMediator {
                     mOverviewModeState = overviewModeState;
                     updateNewTabButtonVisibility();
                     updateLogoVisibility(mIsGoogleSearchEngine);
+                    updateIdentityDiscVisibility();
                 }
                 @Override
                 public void onOverviewModeStartedShowing(boolean showToolbar) {
@@ -181,6 +193,35 @@ class StartSurfaceToolbarMediator {
         mPropertyModel.set(LOGO_IS_VISIBLE, shouldShowLogo);
     }
 
+    void showIdentityDisc(View.OnClickListener onClickListener, Drawable image,
+            @StringRes int contentDescriptionResId) {
+        mEnableIdentityDisc = true;
+        mPropertyModel.set(IDENTITY_DISC_CLICK_HANDLER, onClickListener);
+        mPropertyModel.set(IDENTITY_DISC_IMAGE, image);
+        mPropertyModel.set(IDENTITY_DISC_DESCRIPTION, contentDescriptionResId);
+        updateIdentityDiscVisibility();
+    }
+
+    void updateIdentityDiscImage(Drawable image) {
+        mPropertyModel.set(IDENTITY_DISC_IMAGE, image);
+    }
+
+    void hideIdentityDisc() {
+        mEnableIdentityDisc = false;
+        mPropertyModel.set(IDENTITY_DISC_IS_VISIBLE, false);
+    }
+
+    void showIPHOnIdentityDisc(@StringRes int stringId, @StringRes int accessibilityStringId,
+            Runnable dismissedCallback) {
+        // Only show IPH if IdentityDisc is actually visible, otherwise dismiss.
+        if (mPropertyModel.get(IDENTITY_DISC_IS_VISIBLE)) {
+            mPropertyModel.set(IDENTITY_DISC_IPH,
+                    new IPHContainer(stringId, accessibilityStringId, dismissedCallback));
+        } else if (dismissedCallback != null) {
+            dismissedCallback.run();
+        }
+    }
+
     private void updateNewTabButtonVisibility() {
         // This toolbar is only shown for tab switcher when accessibility is enabled. Note that
         // OverviewListLayout will be shown as the tab switcher instead of the star surface.
@@ -189,5 +230,11 @@ class StartSurfaceToolbarMediator {
                 || mOverviewModeState == OverviewModeState.SHOWN_TABSWITCHER_OMNIBOX_ONLY
                 || AccessibilityUtil.isAccessibilityEnabled();
         mPropertyModel.set(NEW_TAB_BUTTON_IS_VISIBLE, isShownTabswitcherState);
+    }
+
+    private void updateIdentityDiscVisibility() {
+        mPropertyModel.set(IDENTITY_DISC_IS_VISIBLE,
+                mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE && mEnableIdentityDisc
+                        && !mTabModelSelector.isIncognitoSelected());
     }
 }

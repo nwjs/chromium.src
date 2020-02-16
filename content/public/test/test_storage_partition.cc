@@ -44,7 +44,7 @@ TestStoragePartition::GetCookieManagerForBrowserProcess() {
 void TestStoragePartition::CreateRestrictedCookieManager(
     network::mojom::RestrictedCookieManagerRole role,
     const url::Origin& origin,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const url::Origin& top_frame_origin,
     bool is_service_worker,
     int process_id,
@@ -77,6 +77,14 @@ DOMStorageContext* TestStoragePartition::GetDOMStorageContext() {
   return dom_storage_context_;
 }
 
+storage::mojom::IndexedDBControl& TestStoragePartition::GetIndexedDBControl() {
+  // Bind and throw away the receiver. If testing is required, then add a method
+  // to set the remote.
+  if (!indexed_db_control_.is_bound())
+    ignore_result(indexed_db_control_.BindNewPipeAndPassReceiver());
+  return *indexed_db_control_;
+}
+
 IndexedDBContext* TestStoragePartition::GetIndexedDBContext() {
   return indexed_db_context_;
 }
@@ -88,6 +96,10 @@ TestStoragePartition::GetNativeFileSystemEntryFactory() {
 
 ServiceWorkerContext* TestStoragePartition::GetServiceWorkerContext() {
   return service_worker_context_;
+}
+
+DedicatedWorkerService* TestStoragePartition::GetDedicatedWorkerService() {
+  return dedicated_worker_service_;
 }
 
 SharedWorkerService* TestStoragePartition::GetSharedWorkerService() {

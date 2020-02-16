@@ -14,6 +14,7 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/android/autofill_assistant/assistant_collect_user_data_delegate.h"
 #include "chrome/browser/android/autofill_assistant/assistant_form_delegate.h"
+#include "chrome/browser/android/autofill_assistant/assistant_generic_ui_delegate.h"
 #include "chrome/browser/android/autofill_assistant/assistant_header_delegate.h"
 #include "chrome/browser/android/autofill_assistant/assistant_overlay_delegate.h"
 #include "components/autofill_assistant/browser/chip.h"
@@ -28,6 +29,7 @@
 
 namespace autofill_assistant {
 struct ClientSettings;
+class GenericUiControllerAndroid;
 
 // Starts and owns the UI elements required to display AA.
 //
@@ -101,6 +103,8 @@ class UiControllerAndroid : public ControllerObserver {
   void OnViewportModeChanged(ViewportMode mode) override;
   void OnPeekModeChanged(
       ConfigureBottomSheetProto::PeekMode peek_mode) override;
+  void OnExpandBottomSheet() override;
+  void OnCollapseBottomSheet() override;
   void OnOverlayColorsChanged(const UiDelegate::OverlayColors& colors) override;
   void OnFormChanged(const FormProto* form) override;
   void OnClientSettingsChanged(const ClientSettings& settings) override;
@@ -113,6 +117,9 @@ class UiControllerAndroid : public ControllerObserver {
   // Called by AssistantHeaderDelegate:
   void OnFeedbackButtonClicked();
 
+  // Called by AssistantGenericUiDelegate:
+  void OnViewEvent(const EventHandler::EventKey& key, const ValueProto& value);
+
   // Called by AssistantCollectUserDataDelegate:
   void OnShippingAddressChanged(
       std::unique_ptr<autofill::AutofillProfile> address);
@@ -122,21 +129,18 @@ class UiControllerAndroid : public ControllerObserver {
       std::unique_ptr<autofill::AutofillProfile> billing_profile);
   void OnTermsAndConditionsChanged(TermsAndConditionsState state);
   void OnLoginChoiceChanged(std::string identifier);
-  void OnTermsAndConditionsLinkClicked(int link);
+  void OnTextLinkClicked(int link);
   void OnFormActionLinkClicked(int link);
-  void OnDateTimeRangeStartChanged(int year,
-                                   int month,
-                                   int day,
-                                   int hour,
-                                   int minute,
-                                   int second);
-  void OnDateTimeRangeEndChanged(int year,
-                                 int month,
-                                 int day,
-                                 int hour,
-                                 int minute,
-                                 int second);
+  void OnDateTimeRangeStartDateChanged(int year, int month, int day);
+  void OnDateTimeRangeStartDateCleared();
+  void OnDateTimeRangeStartTimeSlotChanged(int index);
+  void OnDateTimeRangeStartTimeSlotCleared();
+  void OnDateTimeRangeEndDateChanged(int year, int month, int day);
+  void OnDateTimeRangeEndDateCleared();
+  void OnDateTimeRangeEndTimeSlotChanged(int index);
+  void OnDateTimeRangeEndTimeSlotCleared();
   void OnKeyValueChanged(const std::string& key, const std::string& value);
+  void OnTextFocusLost();
 
   // Called by AssistantFormDelegate:
   void OnCounterChanged(int input_index, int counter_index, int value);
@@ -182,6 +186,7 @@ class UiControllerAndroid : public ControllerObserver {
   AssistantHeaderDelegate header_delegate_;
   AssistantCollectUserDataDelegate collect_user_data_delegate_;
   AssistantFormDelegate form_delegate_;
+  AssistantGenericUiDelegate generic_ui_delegate_;
 
   // What to do if undo is not pressed on the current snackbar.
   base::OnceCallback<void()> snackbar_action_;
@@ -196,13 +201,14 @@ class UiControllerAndroid : public ControllerObserver {
 
   void SetOverlayState(OverlayState state);
   void AllowShowingSoftKeyboard(bool enabled);
-  void ExpandBottomSheet();
+  void ShowContentAndExpandBottomSheet();
   void SetSpinPoodle(bool enabled);
   std::string GetDebugContext();
   void DestroySelf();
   void Shutdown(Metrics::DropOutReason reason);
   void UpdateActions(const std::vector<UserAction>& GetUserActions);
   void UpdateSuggestions(const std::vector<UserAction>& GetUserActions);
+  void HideKeyboardIfFocusNotOnText();
 
   // Hide the UI, show a snackbar with an undo button, and execute the given
   // action after a short delay unless the user taps the undo button.
@@ -228,6 +234,10 @@ class UiControllerAndroid : public ControllerObserver {
 
   // Java-side AutofillAssistantUiController object.
   base::android::ScopedJavaGlobalRef<jobject> java_object_;
+
+  // Native controller for generic UI in collect user data action.
+  std::unique_ptr<GenericUiControllerAndroid>
+      collect_user_data_generic_ui_controller_;
 
   OverlayState desired_overlay_state_ = OverlayState::FULL;
   base::WeakPtrFactory<UiControllerAndroid> weak_ptr_factory_{this};

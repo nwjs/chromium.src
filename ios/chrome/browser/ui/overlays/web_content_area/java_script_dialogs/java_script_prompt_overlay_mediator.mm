@@ -6,6 +6,7 @@
 
 #include "base/strings/sys_string_conversions.h"
 #include "components/strings/grit/components_strings.h"
+#include "ios/chrome/browser/overlays/public/overlay_callback_manager.h"
 #import "ios/chrome/browser/overlays/public/overlay_request.h"
 #import "ios/chrome/browser/overlays/public/overlay_response.h"
 #import "ios/chrome/browser/overlays/public/web_content_area/java_script_prompt_overlay.h"
@@ -13,7 +14,7 @@
 #import "ios/chrome/browser/ui/alert_view/alert_view_controller.h"
 #import "ios/chrome/browser/ui/dialogs/dialog_constants.h"
 #import "ios/chrome/browser/ui/elements/text_field_configuration.h"
-#import "ios/chrome/browser/ui/overlays/common/alerts/alert_overlay_mediator+subclassing.h"
+#import "ios/chrome/browser/ui/overlays/common/alerts/alert_overlay_mediator+alert_consumer_support.h"
 #import "ios/chrome/browser/ui/overlays/overlay_request_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/overlays/web_content_area/java_script_dialogs/java_script_dialog_blocking_action.h"
 #import "ios/chrome/browser/ui/overlays/web_content_area/java_script_dialogs/java_script_overlay_mediator_util.h"
@@ -25,7 +26,7 @@
 #endif
 
 @interface JavaScriptPromptOverlayMediator ()
-@property(nonatomic, readonly) OverlayRequest* request;
+// The config from the request passed on initialization.
 @property(nonatomic, readonly) JavaScriptPromptOverlayRequestConfig* config;
 
 // Sets the OverlayResponse using the user input |textInput| from the prompt UI.
@@ -35,11 +36,9 @@
 @implementation JavaScriptPromptOverlayMediator
 
 - (instancetype)initWithRequest:(OverlayRequest*)request {
-  if (self = [super init]) {
-    _request = request;
-    DCHECK(_request);
+  if (self = [super initWithRequest:request]) {
     // Verify that the request is configured for JavaScript prompts.
-    DCHECK(_request->GetConfig<JavaScriptPromptOverlayRequestConfig>());
+    DCHECK(request->GetConfig<JavaScriptPromptOverlayRequestConfig>());
   }
   return self;
 }
@@ -47,20 +46,30 @@
 #pragma mark - Accessors
 
 - (JavaScriptPromptOverlayRequestConfig*)config {
-  return self.request->GetConfig<JavaScriptPromptOverlayRequestConfig>();
+  return self.request
+             ? self.request->GetConfig<JavaScriptPromptOverlayRequestConfig>()
+             : nullptr;
+}
+
+#pragma mark - OverlayRequestMediator
+
++ (const OverlayRequestSupport*)requestSupport {
+  return JavaScriptPromptOverlayRequestConfig::RequestSupport();
 }
 
 #pragma mark - Response helpers
 
 - (void)setPromptResponse:(NSString*)textInput {
-  self.request->set_response(
+  if (!self.request)
+    return;
+  self.request->GetCallbackManager()->SetCompletionResponse(
       OverlayResponse::CreateWithInfo<JavaScriptPromptOverlayResponseInfo>(
           base::SysNSStringToUTF8(textInput)));
 }
 
 @end
 
-@implementation JavaScriptPromptOverlayMediator (Subclassing)
+@implementation JavaScriptPromptOverlayMediator (AlertConsumerSupport)
 
 - (NSString*)alertTitle {
   return GetJavaScriptDialogTitle(self.config->source(),
@@ -94,12 +103,12 @@
                                           textFieldIndex:0];
                            [strongSelf setPromptResponse:input ? input : @""];
                            [strongSelf.delegate
-                               stopDialogForMediator:strongSelf];
+                               stopOverlayForMediator:strongSelf];
                          }],
     [AlertAction actionWithTitle:l10n_util::GetNSString(IDS_CANCEL)
                            style:UIAlertActionStyleCancel
                          handler:^(AlertAction* action) {
-                           [weakSelf.delegate stopDialogForMediator:weakSelf];
+                           [weakSelf.delegate stopOverlayForMediator:weakSelf];
                          }],
   ];
   AlertAction* blockingAction =

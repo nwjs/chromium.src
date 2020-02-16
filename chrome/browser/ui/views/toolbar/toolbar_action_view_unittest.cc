@@ -7,7 +7,8 @@
 #include "base/run_loop.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
+#include "build/build_config.h"
+#include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/ui/toolbar/test_toolbar_action_view_controller.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_controller.h"
 #include "chrome/test/base/testing_profile.h"
@@ -180,7 +181,13 @@ TEST_F(ToolbarActionViewUnitTest,
 
 // Test the basic ui of a ToolbarActionView and that it responds correctly to
 // a controller's state.
-TEST_F(ToolbarActionViewUnitTest, BasicToolbarActionViewTest) {
+#if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_WIN)
+// TODO(crbug.com/1042220): Test is flaky on Mac, Linux and Win10.
+#define MAYBE_BasicToolbarActionViewTest DISABLED_BasicToolbarActionViewTest
+#else
+#define MAYBE_BasicToolbarActionViewTest BasicToolbarActionViewTest
+#endif
+TEST_F(ToolbarActionViewUnitTest, MAYBE_BasicToolbarActionViewTest) {
   TestingProfile profile;
 
   // ViewsTestBase initializes the aura environment, so the factory shouldn't.
@@ -196,7 +203,7 @@ TEST_F(ToolbarActionViewUnitTest, BasicToolbarActionViewTest) {
   controller.SetTooltip(tooltip);
   content::WebContents* web_contents =
       web_contents_factory.CreateWebContents(&profile);
-  SessionTabHelper::CreateForWebContents(web_contents);
+  CreateSessionServiceTabHelper(web_contents);
   action_view_delegate.set_web_contents(web_contents);
 
   // Move the mouse off the not-yet-existent button.

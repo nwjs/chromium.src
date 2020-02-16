@@ -244,6 +244,8 @@ class NATIVE_THEME_EXPORT NativeTheme {
     bool fill_content_area;
     bool draw_edges;
     int classic_state;  // Used on Windows when uxtheme is not available.
+    bool has_border;
+    bool auto_complete_active;
   };
 
   struct TrackbarExtraParams {
@@ -277,6 +279,11 @@ class NATIVE_THEME_EXPORT NativeTheme {
   virtual gfx::Size GetPartSize(Part part,
                                 State state,
                                 const ExtraParams& extra) const = 0;
+
+  virtual float GetBorderRadiusForPart(Part part,
+                                       float width,
+                                       float height,
+                                       float zoom) const;
 
   // Paint the part to the canvas.
   virtual void Paint(
@@ -356,12 +363,21 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kColorId_LinkDisabled,
     kColorId_LinkEnabled,
     kColorId_LinkPressed,
+    kColorId_OverlayScrollbarThumbBackground,
+    kColorId_OverlayScrollbarThumbForeground,
+    // Slider
+    kColorId_SliderThumbDefault,
+    kColorId_SliderTroughDefault,
+    kColorId_SliderThumbMinimal,
+    kColorId_SliderTroughMinimal,
     // Separator
     kColorId_SeparatorColor,
     // TabbedPane
     kColorId_TabTitleColorActive,
     kColorId_TabTitleColorInactive,
     kColorId_TabBottomBorder,
+    kColorId_TabHighlightBackground,
+    kColorId_TabHighlightFocusedBackground,
     // Textfield
     kColorId_TextfieldDefaultColor,
     kColorId_TextfieldDefaultBackground,
@@ -371,6 +387,8 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kColorId_TextfieldSelectionBackgroundFocused,
     // Tooltip
     kColorId_TooltipBackground,
+    kColorId_TooltipIcon,
+    kColorId_TooltipIconHovered,
     kColorId_TooltipText,
     // Tree
     kColorId_TreeBackground,

@@ -20,6 +20,7 @@
 #include "ash/shelf/back_button.h"
 #include "ash/shelf/home_button.h"
 #include "ash/shelf/shelf_layout_manager.h"
+#include "ash/shelf/shelf_navigation_widget.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
@@ -165,7 +166,7 @@ aura::Window* AppListPresenterDelegateImpl::GetContainerForWindow(
 
 aura::Window* AppListPresenterDelegateImpl::GetRootWindowForDisplayId(
     int64_t display_id) {
-  return ash::Shell::Get()->GetRootWindowForDisplayId(display_id);
+  return Shell::Get()->GetRootWindowForDisplayId(display_id);
 }
 
 void AppListPresenterDelegateImpl::OnVisibilityChanged(bool visible,
@@ -225,23 +226,29 @@ void AppListPresenterDelegateImpl::ProcessLocatedEvent(
       return;
   }
 
-  // If the event happened on the home button, it'll get handled by the
+  // If the event happened on the home button's widget, it'll get handled by the
   // button.
   Shelf* shelf = Shelf::ForWindow(target);
-  HomeButton* home_button = shelf->shelf_widget()->GetHomeButton();
+  HomeButton* home_button =
+      shelf->shelf_widget()->navigation_widget()->GetHomeButton();
   if (home_button && home_button->GetWidget() &&
-      target == home_button->GetWidget()->GetNativeWindow() &&
-      home_button->bounds().Contains(event->location())) {
-    return;
+      target == home_button->GetWidget()->GetNativeWindow()) {
+    gfx::Point location_in_home_button = event->location();
+    views::View::ConvertPointFromWidget(home_button, &location_in_home_button);
+    if (home_button->HitTestPoint(location_in_home_button))
+      return;
   }
 
   // If the event happened on the back button, it'll get handled by the
   // button.
-  BackButton* back_button = shelf->shelf_widget()->GetBackButton();
+  BackButton* back_button =
+      shelf->shelf_widget()->navigation_widget()->GetBackButton();
   if (back_button && back_button->GetWidget() &&
-      target == back_button->GetWidget()->GetNativeWindow() &&
-      back_button->bounds().Contains(event->location())) {
-    return;
+      target == back_button->GetWidget()->GetNativeWindow()) {
+    gfx::Point location_in_back_button = event->location();
+    views::View::ConvertPointFromWidget(back_button, &location_in_back_button);
+    if (back_button->HitTestPoint(location_in_back_button))
+      return;
   }
 
   aura::Window* window = view_->GetWidget()->GetNativeView()->parent();

@@ -427,13 +427,6 @@ void TruncateOrPadText(String* text, unsigned length) {
   }
 }
 
-template <typename OffsetMappingBuilder>
-bool MayBeBidiEnabled(
-    const String& text_content,
-    const NGInlineItemsBuilderTemplate<OffsetMappingBuilder>& builder) {
-  return !text_content.Is8Bit() || builder.HasBidiControls();
-}
-
 }  // namespace
 
 NGInlineNode::NGInlineNode(LayoutBlockFlow* block)
@@ -526,6 +519,11 @@ class NGInlineNodeDataEditor final {
     // "***", all characters including collapsed white spaces are marker, and
     // new text is original text, we can't reuse shape result.
     if (layout_text_.StyleRef().TextSecurity() != ETextSecurity::kNone)
+      return nullptr;
+
+    // It is hard to figure differences of bidi control codes before/after
+    // editing. See http://crbug.com/1039143
+    if (layout_text_.HasBidiControlInlineItems())
       return nullptr;
 
     // Note: We should compute offset mapping before calling
@@ -756,6 +754,10 @@ bool NGInlineNode::SetTextWithOffset(LayoutText* layout_text,
   if (!previous_data)
     return false;
 
+  // This function runs outside of the layout phase. Prevent purging font cache
+  // while shaping.
+  FontCachePurgePreventer fontCachePurgePreventer;
+
   String new_text(std::move(new_text_in));
   layout_text->StyleRef().ApplyTextTransform(&new_text,
                                              layout_text->PreviousCharacter());
@@ -769,7 +771,7 @@ bool NGInlineNode::SetTextWithOffset(LayoutText* layout_text,
   // inline items.
   layout_text->ClearInlineItems();
   CollectInlinesInternal(node.GetLayoutBlockFlow(), &builder, previous_data);
-  data->text_content = builder.ToString();
+  builder.DidFinishCollectInlines(data);
   // Relocates |ShapeResult| in |previous_data| after |offset|+|length|
   editor.Run();
   node.SegmentText(data);
@@ -877,17 +879,7 @@ void NGInlineNode::CollectInlines(NGInlineNodeData* data,
   data->items.ReserveCapacity(EstimateInlineItemsCount(*block));
   NGInlineItemsBuilder builder(&data->items, dirty_lines);
   CollectInlinesInternal(block, &builder, previous_data);
-  data->text_content = builder.ToString();
-
-  // Set |is_bidi_enabled_| for all UTF-16 strings for now, because at this
-  // point the string may or may not contain RTL characters.
-  // |SegmentText()| will analyze the text and reset |is_bidi_enabled_| if it
-  // doesn't contain any RTL characters.
-  data->is_bidi_enabled_ = MayBeBidiEnabled(data->text_content, builder);
-  data->is_empty_inline_ = builder.IsEmptyInline();
-  data->is_block_level_ = builder.IsBlockLevel();
-  data->changes_may_affect_earlier_lines_ =
-      builder.ChangesMayAffectEarlierLines();
+  builder.DidFinishCollectInlines(data);
 }
 
 void NGInlineNode::SegmentText(NGInlineNodeData* data) {
@@ -1519,7 +1511,7 @@ static LayoutUnit ComputeContentSize(
     void AddFloat(const ComputedStyle& float_style,
                   const ComputedStyle& style,
                   LayoutUnit float_inline_max_size_with_margin) {
-      floating_objects_.push_back(FloatingObject{
+      floating_objects_.push_back(NGInlineNode::FloatingObject{
           float_style, style, float_inline_max_size_with_margin});
     }
 
@@ -1561,12 +1553,7 @@ static LayoutUnit ComputeContentSize(
 
    private:
     LayoutUnit floats_inline_size_;
-    struct FloatingObject {
-      const ComputedStyle& float_style;
-      const ComputedStyle& style;
-      LayoutUnit float_inline_max_size_with_margin;
-    };
-    Vector<FloatingObject, 4> floating_objects_;
+    HeapVector<NGInlineNode::FloatingObject, 4> floating_objects_;
   };
 
   // This struct computes the max size from the line break results for the min

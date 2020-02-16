@@ -37,7 +37,6 @@
 #include "cc/base/region.h"
 #include "cc/layers/picture_layer.h"
 #include "cc/trees/transform_node.h"
-#include "third_party/blink/public/platform/web_float_point.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -76,6 +75,16 @@ inline String IdForLayer(const cc::Layer* layer) {
 
 static std::unique_ptr<protocol::DOM::Rect> BuildObjectForRect(
     const gfx::Rect& rect) {
+  return protocol::DOM::Rect::create()
+      .setX(rect.x())
+      .setY(rect.y())
+      .setHeight(rect.height())
+      .setWidth(rect.width())
+      .build();
+}
+
+static std::unique_ptr<protocol::DOM::Rect> BuildObjectForRect(
+    const gfx::RectF& rect) {
   return protocol::DOM::Rect::create()
       .setX(rect.x())
       .setY(rect.y())
@@ -268,7 +277,7 @@ Response InspectorLayerTreeAgent::enable() {
     return Response::Error("The root frame doesn't have document");
 
   inspected_frames_->Root()->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kOther);
+      DocumentUpdateReason::kOther);
 
   LayerTreePainted();
   LayerTreeDidChange();
@@ -364,16 +373,25 @@ Response InspectorLayerTreeAgent::LayerById(const String& layer_id,
 
 Response InspectorLayerTreeAgent::compositingReasons(
     const String& layer_id,
-    std::unique_ptr<Array<String>>* reason_strings) {
+    std::unique_ptr<Array<String>>* compositing_reasons,
+    std::unique_ptr<Array<String>>* compositing_reason_ids) {
   const cc::Layer* layer = nullptr;
   Response response = LayerById(layer_id, layer);
   if (!response.isSuccess())
     return response;
-  *reason_strings = std::make_unique<protocol::Array<String>>();
+  *compositing_reasons = std::make_unique<protocol::Array<String>>();
+  *compositing_reason_ids = std::make_unique<protocol::Array<String>>();
   if (layer->debug_info()) {
-    for (const char* name : layer->debug_info()->compositing_reasons)
-      (*reason_strings)->emplace_back(name);
+    for (const char* compositing_reason :
+         layer->debug_info()->compositing_reasons) {
+      (*compositing_reasons)->emplace_back(compositing_reason);
+    }
+    for (const char* compositing_reason_id :
+         layer->debug_info()->compositing_reason_ids) {
+      (*compositing_reason_ids)->emplace_back(compositing_reason_id);
+    }
   }
+
   return Response::OK();
 }
 
@@ -391,7 +409,7 @@ Response InspectorLayerTreeAgent::makeSnapshot(const String& layer_id,
     return Response::Error("Layer does not draw content");
 
   inspected_frames_->Root()->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kOther);
+      DocumentUpdateReason::kOther);
 
   suppress_layer_paint_events_ = false;
 

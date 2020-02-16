@@ -14,6 +14,7 @@
 #include "base/message_loop/message_pump_type.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
 #include "ui/gfx/buffer_types.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/platform_window/platform_window.h"
 #include "ui/platform_window/platform_window_delegate.h"
 
@@ -77,15 +78,6 @@ class COMPONENT_EXPORT(OZONE) OzonePlatform {
     // regardless of this param.
     // TODO(crbug.com/806092): Remove after legacy IPC-based Ozone is removed.
     bool using_mojo = false;
-
-    // Setting this to true indicates the display compositor will run in the GPU
-    // process (as part of the viz service). Note this param is currently only
-    // checked in Ozone DRM for overlay support. Other Ozone platforms either
-    // don't need to change anything or assume that VizDisplayCompositor is
-    // always enabled.
-    // TODO(crbug.com/936425): Remove after VizDisplayCompositor feature
-    // launches.
-    bool viz_display_compositor = false;
   };
 
   // Struct used to indicate platform properties.
@@ -158,7 +150,8 @@ class COMPONENT_EXPORT(OZONE) OzonePlatform {
   virtual std::unique_ptr<PlatformScreen> CreateScreen() = 0;
   virtual PlatformClipboard* GetPlatformClipboard();
   virtual std::unique_ptr<InputMethod> CreateInputMethod(
-      internal::InputMethodDelegate* delegate) = 0;
+      internal::InputMethodDelegate* delegate,
+      gfx::AcceleratedWidget widget) = 0;
 
   // Returns true if the specified buffer format is supported.
   virtual bool IsNativePixmapConfigSupported(gfx::BufferFormat format,

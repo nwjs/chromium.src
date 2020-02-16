@@ -3,7 +3,6 @@
 <translationbundle lang="pl">
 <translation id="1065672644894730302">Nie można odczytać ustawień. Niektóre funkcje mogą być niedostępne, a zmiany w ustawieniach nie zostaną zapisane.</translation>
 <translation id="1104942323762546749">Chromium chce wyeksportować Twoje hasła. Wpisz swoje hasło do Windows, by na to zezwolić.</translation>
-<translation id="1115445892567829615">Chromium nie może zsynchronizować Twoich danych. Zaktualizuj hasło synchronizacji.</translation>
 <translation id="113122355610423240">Chromium jest domyślną przeglądarką</translation>
 <translation id="1185134272377778587">Chromium – informacje</translation>
 <translation id="1396446129537741364">Chromium próbuje pokazać hasła.</translation>
@@ -20,7 +19,7 @@
 <translation id="1929939181775079593">Chromium nie odpowiada. Uruchomić go teraz ponownie?</translation>
 <translation id="1966382378801805537">Chromium nie może określić ani ustawić domyślnej przeglądarki</translation>
 <translation id="2008474315282236005">Spowoduje to usunięcie 1 elementu z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chromium jako <ph name="USER_EMAIL" />.</translation>
-<translation id="2119636228670142020">System operacyjny &amp;Chromium – informacje</translation>
+<translation id="2147976119693222405">System operacyjny Chromium nie może zsynchronizować danych. Napraw teraz.</translation>
 <translation id="2241627712206172106">Jeśli dzielisz się komputerem ze znajomymi lub rodziną, wszyscy możecie niezależnie przeglądać internet i po swojemu skonfigurować Chromium.</translation>
 <translation id="2347108572062610441">To rozszerzenie ustawiło inną stronę wyświetlaną po uruchomieniu Chromium.</translation>
 <translation id="2396765026452590966">Rozszerzenie „<ph name="EXTENSION_NAME" />” ustawiło inną stronę wyświetlaną po uruchomieniu Chromium.</translation>
@@ -36,7 +35,7 @@
 <translation id="2718390899429598676">Dla większego bezpieczeństwa Chromium szyfruje dane.</translation>
 <translation id="2770231113462710648">Zmień przeglądarkę domyślną na:</translation>
 <translation id="2799223571221894425">Uruchom ponownie</translation>
-<translation id="2838154144102149890">Aby można było przeprowadzić aktualizację, musisz wyłączyć Chromium na tym komputerze. Może to spowodować, że inni zalogowani na nim użytkownicy utracą niezapisane dane.</translation>
+<translation id="2805036593126168338">System operacyjny Chromium nie może zsynchronizować haseł. Napraw teraz.</translation>
 <translation id="2847479871509788944">Usuń z Chromium...</translation>
 <translation id="2886012850691518054">Opcjonalnie: pomóż nam udoskonalać Chromium, wysyłając do Google statystyki użytkowania i raporty o awariach.</translation>
 <translation id="2910007522516064972">&amp;Chromium – informacje</translation>
@@ -53,7 +52,6 @@
 <translation id="328888136576916638">Brakuje kluczy interfejsu Google API. Niektóre funkcje Chromium będą wyłączone.</translation>
 <translation id="3296368748942286671">Kontynuuj działanie aplikacji w tle po zamknięciu Chromium</translation>
 <translation id="331951419404882060">System operacyjny Chromium nie może zsynchronizować danych z powodu błędu logowania.</translation>
-<translation id="3340978935015468852">ustawienia</translation>
 <translation id="3474745554856756813">Spowoduje to usunięcie <ph name="ITEMS_COUNT" /> elementów z tego urządzenia. Aby później odzyskać dane, zaloguj się w Chromium jako <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Zamknij wszystkie okna Chromium i spróbuj ponownie.</translation>
 <translation id="3575459661164320785">Masz na komputerze szkodliwe oprogramowanie. Chromium może je usunąć, przywrócić Twoje ustawienia i wyłączyć rozszerzenia, by przeglądarka znów działała normalnie.</translation>
@@ -144,7 +142,6 @@ Niektóre funkcje mogą być niedostępne. Podaj inny katalog z profilem lub uż
 <translation id="6847869444787758381">Chromium poinformuje Cię, jeśli Twoje hasła dostaną się w niepowołane ręce</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (skopiowana do Chromium)</translation>
-<translation id="6868056391275687737">Są uruchomione inne kopie Chromium. Zamknij je, by przeprowadzić aktualizację.</translation>
 <translation id="6893813176749746474">Przeglądarka Chromium została zaktualizowana, ale nie była przez Ciebie używana przez co najmniej 30 dni.</translation>
 <translation id="6964305034639999644">Otwórz link w oknie inco&amp;gnito Chromium</translation>
 <translation id="6990124437352146030">Chromium potrzebuje uprawnień dostępu do mikrofonu na tej stronie</translation>
@@ -201,8 +198,6 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="8682540261359803721">Jeśli ustawienia nie widać na tej stronie, zajrzyj do <ph name="LINK_BEGIN" />ustawień przeglądarki Chromium<ph name="LINK_END" /></translation>
 <translation id="8697124171261953979">Kontroluje także to, jaka strona wyświetla się po uruchomieniu Chromium lub wyszukiwaniu w omniboksie.</translation>
 <translation id="8704119203788522458">Oto Twoja przeglądarka Chromium</translation>
-<translation id="8739167630197873875">Pliki cookie są usuwane, gdy zamykasz Chromium. Aby dalej korzystać z synchronizacji, zmień <ph name="COOKIE_SETTINGS_LINK" />.</translation>
-<translation id="8748383401829947534">Zamknij wszystkie kopie Chromium.</translation>
 <translation id="8796602469536043152">Chromium potrzebuje uprawnień dostępu do aparatu i mikrofonu na tej stronie</translation>
 <translation id="8803635938069941624">Warunki korzystania z systemu operacyjnego Chromium</translation>
 <translation id="8821041990367117597">Chromium nie może zsynchronizować danych, ponieważ dane logowania na Twoje konto są nieaktualne.</translation>
@@ -212,7 +207,6 @@ Chromium nie może odzyskać ustawień.</translation>
 <translation id="8941642502866065432">Nie można zaktualizować Chromium</translation>
 <translation id="8974095189086268230">Stworzenie systemu operacyjnego Chromium było możliwe dzięki dodatkowym <ph name="BEGIN_LINK_CROS_OSS" />programom o otwartym kodzie źródłowym<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="9019929317751753759">Aby poprawić bezpieczeństwo Chromium, wyłączyliśmy to rozszerzenie. Nie jest ono dostępne w <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> i mogło zostać dodane bez Twojej wiedzy.</translation>
-<translation id="9022552996538154597">Zaloguj się w Chromium</translation>
 <translation id="9089354809943900324">Chromium jest nieaktualny</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium uruchomi się ponownie za godzinę}few{Chromium uruchomi się ponownie za # godziny}many{Chromium uruchomi się ponownie za # godzin}other{Chromium uruchomi się ponownie za # godziny}}</translation>
 <translation id="91086099826398415">O&amp;twórz link w nowej karcie Chromium</translation>

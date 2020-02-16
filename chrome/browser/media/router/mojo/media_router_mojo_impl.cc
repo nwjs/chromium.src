@@ -29,12 +29,12 @@
 #include "chrome/browser/media/router/mojo/media_sink_service_status.h"
 #include "chrome/browser/media/router/route_message_observer.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/media_router/media_source.h"
 #include "chrome/grit/chromium_strings.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/ukm/content/source_url_recorder.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -112,7 +112,8 @@ content::WebContents* GetWebContentsFromId(
       for (int i = 0; i < target_tab_strip->count(); ++i) {
         content::WebContents* target_contents =
             target_tab_strip->GetWebContentsAt(i);
-        if (SessionTabHelper::IdForTab(target_contents).id() == tab_id) {
+        if (sessions::SessionTabHelper::IdForTab(target_contents).id() ==
+            tab_id) {
           return target_contents;
         }
       }
@@ -327,9 +328,13 @@ void MediaRouterMojoImpl::CreateRoute(const MediaSource::Id& source_id,
                        presentation_id, origin, web_contents, timeout,
                        incognito, std::move(mr_callback)));
   } else {
-    const int tab_id = source.IsTabMirroringSource()
-                           ? SessionTabHelper::IdForTab(web_contents).id()
-                           : -1;
+    int tab_id = -1;
+    // A Cast SDK enabled website (e.g. Google Slides) may use the mirroring app
+    // ID rather than the tab mirroring URN.
+    if (source.IsTabMirroringSource() ||
+        source.id().find(kMirroringAppUri) == 0) {
+      tab_id = sessions::SessionTabHelper::IdForTab(web_contents).id();
+    }
     media_route_providers_[provider_id]->CreateRoute(
         source_id, sink_id, presentation_id, origin, tab_id, timeout, incognito,
         std::move(mr_callback));
@@ -360,7 +365,7 @@ void MediaRouterMojoImpl::JoinRoute(const MediaSource::Id& source_id,
     return;
   }
 
-  int tab_id = SessionTabHelper::IdForTab(web_contents).id();
+  int tab_id = sessions::SessionTabHelper::IdForTab(web_contents).id();
   auto mr_callback = base::BindOnce(
       &MediaRouterMojoImpl::RouteResponseReceived, weak_factory_.GetWeakPtr(),
       presentation_id, *provider_id, incognito, std::move(callback), true);
@@ -387,7 +392,7 @@ void MediaRouterMojoImpl::ConnectRouteByRouteId(
     return;
   }
 
-  int tab_id = SessionTabHelper::IdForTab(web_contents).id();
+  int tab_id = sessions::SessionTabHelper::IdForTab(web_contents).id();
   std::string presentation_id = MediaRouterBase::CreatePresentationId();
   auto mr_callback = base::BindOnce(
       &MediaRouterMojoImpl::RouteResponseReceived, weak_factory_.GetWeakPtr(),
@@ -1046,14 +1051,15 @@ void MediaRouterMojoImpl::BindToMojoReceiver(
 base::Optional<MediaRouteProviderId> MediaRouterMojoImpl::GetProviderIdForRoute(
     const MediaRoute::Id& route_id) {
   for (const auto& routes_query : routes_queries_) {
-    for (const auto& provider_to_routes :
-         routes_query.second->providers_to_routes()) {
+    MediaRoutesQuery* query = routes_query.second.get();
+    for (const auto& provider_to_routes : query->providers_to_routes()) {
+      const MediaRouteProviderId provider_id = provider_to_routes.first;
       const std::vector<MediaRoute>& routes = provider_to_routes.second;
       if (std::find_if(routes.begin(), routes.end(),
                        [&route_id](const MediaRoute& route) {
                          return route.media_route_id() == route_id;
                        }) != routes.end()) {
-        return provider_to_routes.first;
+        return provider_id;
       }
     }
   }
@@ -1071,14 +1077,17 @@ base::Optional<MediaRouteProviderId>
 MediaRouterMojoImpl::GetProviderIdForPresentation(
     const std::string& presentation_id) {
   for (const auto& routes_query : routes_queries_) {
-    for (const auto& provider_to_routes :
-         routes_query.second->providers_to_routes()) {
+    MediaRoutesQuery* query = routes_query.second.get();
+    for (const auto& provider_to_routes : query->providers_to_routes()) {
+      const MediaRouteProviderId provider_id = provider_to_routes.first;
       const std::vector<MediaRoute>& routes = provider_to_routes.second;
-      if (std::find_if(routes.begin(), routes.end(),
-                       [&presentation_id](const MediaRoute& route) {
-                         return route.presentation_id() == presentation_id;
-                       }) != routes.end()) {
-        return provider_to_routes.first;
+      auto pred = [&presentation_id](const MediaRoute& route) {
+        return route.presentation_id() == presentation_id;
+      };
+      DCHECK_LE(std::count_if(routes.begin(), routes.end(), pred), 1)
+          << "Found multiple routes for presentation ID " << presentation_id;
+      if (std::find_if(routes.begin(), routes.end(), pred) != routes.end()) {
+        return provider_id;
       }
     }
   }
@@ -1092,9 +1101,12 @@ const MediaSink* MediaRouterMojoImpl::GetSinkById(
   for (const auto& sinks_query : sinks_queries_) {
     const std::vector<MediaSink>& sinks =
         sinks_query.second->cached_sink_list();
-    auto sink_it = std::find_if(
-        sinks.begin(), sinks.end(),
-        [&sink_id](const MediaSink& sink) { return sink.id() == sink_id; });
+    auto pred = [&sink_id](const MediaSink& sink) {
+      return sink.id() == sink_id;
+    };
+    DCHECK_LE(std::count_if(sinks.begin(), sinks.end(), pred), 1)
+        << "Found multiple sinks with ID " << sink_id;
+    auto sink_it = std::find_if(sinks.begin(), sinks.end(), pred);
     if (sink_it != sinks.end())
       return &(*sink_it);
   }

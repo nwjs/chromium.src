@@ -166,7 +166,7 @@ WebRequestInfoInitParams::WebRequestInfoInitParams(
     base::Optional<int64_t> navigation_id)
     : id(request_id),
       url(request.url),
-      site_for_cookies(request.site_for_cookies),
+      site_for_cookies(request.site_for_cookies.RepresentativeUrl()),
       render_process_id(render_process_id),
       routing_id(routing_id),
       frame_id(render_frame_id),
@@ -206,6 +206,7 @@ void WebRequestInfoInitParams::InitializeWebViewAndFrameData(
     web_view_rules_registry_id =
         navigation_ui_data->web_view_rules_registry_id();
     frame_data = navigation_ui_data->frame_data();
+    parent_routing_id = navigation_ui_data->parent_routing_id();
     web_view_embedder_process_id =
         navigation_ui_data->web_view_embedder_process_id();
   } else if (frame_id >= 0) {
@@ -222,6 +223,9 @@ void WebRequestInfoInitParams::InitializeWebViewAndFrameData(
     // For subresource loads we attempt to resolve the FrameData immediately.
     frame_data = ExtensionApiFrameIdMap::Get()->GetFrameData(render_process_id,
                                                              frame_id);
+
+    parent_routing_id =
+        content::GlobalFrameRoutingId(render_process_id, frame_id);
   }
 }
 
@@ -246,7 +250,8 @@ WebRequestInfo::WebRequestInfo(WebRequestInfoInitParams params)
       web_view_rules_registry_id(params.web_view_rules_registry_id),
       web_view_embedder_process_id(params.web_view_embedder_process_id),
       is_service_worker_script(params.is_service_worker_script),
-      navigation_id(std::move(params.navigation_id)) {}
+      navigation_id(std::move(params.navigation_id)),
+      parent_routing_id(params.parent_routing_id) {}
 
 WebRequestInfo::~WebRequestInfo() = default;
 

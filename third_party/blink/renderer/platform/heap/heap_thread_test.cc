@@ -138,7 +138,8 @@ class MemberSameThreadCheckTester : public AlternatingThreadTester {
 #if DCHECK_IS_ON()
 // TODO(keishi) This test is flaky on mac-rel bot.
 // crbug.com/709069
-#if !defined(OS_MACOSX)
+// It it also flaky on Linux. crbug.com/1046332.
+#if !defined(OS_MACOSX) && !defined(OS_LINUX)
 TEST_F(HeapThreadDeathTest, MemberSameThreadCheck) {
   EXPECT_DEATH(MemberSameThreadCheckTester().Test(), "");
 }
@@ -161,7 +162,8 @@ class PersistentSameThreadCheckTester : public AlternatingThreadTester {
 #if DCHECK_IS_ON()
 // TODO(keishi) This test is flaky on mac-rel bot.
 // crbug.com/709069
-#if !defined(OS_MACOSX)
+// This test is also flaky on Linux. crbug.com/1043580.
+#if !defined(OS_MACOSX) && !defined(OS_LINUX)
 TEST_F(HeapThreadDeathTest, PersistentSameThreadCheck) {
   EXPECT_DEATH(PersistentSameThreadCheckTester().Test(), "");
 }
@@ -254,8 +256,9 @@ class CrossThreadWeakPersistentTester : public AlternatingThreadTester {
 
     // Step 4: Run a GC.
     ThreadState::Current()->CollectGarbage(
-        BlinkGC::kNoHeapPointersOnStack, BlinkGC::kAtomicMarking,
-        BlinkGC::kEagerSweeping, BlinkGC::GCReason::kForcedGCForTesting);
+        BlinkGC::CollectionType::kMajor, BlinkGC::kNoHeapPointersOnStack,
+        BlinkGC::kAtomicMarking, BlinkGC::kEagerSweeping,
+        BlinkGC::GCReason::kForcedGCForTesting);
     SwitchToMainThread();
   }
 

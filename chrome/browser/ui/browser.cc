@@ -75,11 +75,8 @@
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
-#include "chrome/browser/pepper_broker_infobar_delegate.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
-#include "chrome/browser/plugins/plugin_finder.h"
-#include "chrome/browser/plugins/plugin_metadata.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/printing/background_printing_manager.h"
@@ -94,7 +91,6 @@
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/subresource_filter/chrome_subresource_filter_client.h"
@@ -138,7 +134,6 @@
 #include "chrome/browser/ui/exclusive_access/mouse_lock_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
-#include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/browser/ui/global_error/global_error.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
@@ -180,6 +175,7 @@
 #include "components/bubble/bubble_controller.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/favicon/content/content_favicon_driver.h"
+#include "components/find_in_page/find_tab_helper.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -187,10 +183,11 @@
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
 #include "components/page_load_metrics/common/page_load_metrics.mojom.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/triggers/ad_redirect_trigger.h"
+#include "components/safe_browsing/content/triggers/ad_redirect_trigger.h"
 #include "components/search/search.h"
 #include "components/security_state/content/content_utils.h"
 #include "components/security_state/core/security_state.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
@@ -209,7 +206,6 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/browser/plugin_service.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -234,7 +230,9 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "net/base/filename_util.h"
-#include "third_party/blink/public/common/frame/blocked_navigation_types.h"
+#include "ppapi/buildflags/buildflags.h"
+#include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom.h"
+#include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/window_open_disposition.h"
@@ -250,16 +248,22 @@
 #include "chrome/browser/ui/view_ids.h"
 #include "components/autofill/core/browser/autofill_ie_toolbar_import_win.h"
 #include "ui/base/win/shell.h"
-#endif  // OS_WIN
+#endif  // defined(OS_WIN)
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/user_manager/user_manager.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/extension_browser_window_helper.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+#include "chrome/browser/pepper_broker_infobar_delegate.h"
+#include "chrome/browser/plugins/plugin_finder.h"
+#include "chrome/browser/plugins/plugin_metadata.h"
+#include "content/public/browser/plugin_service.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -272,7 +276,6 @@ using content::NativeWebKeyboardEvent;
 using content::NavigationController;
 using content::NavigationEntry;
 using content::OpenURLParams;
-using content::PluginService;
 using content::Referrer;
 using content::RenderWidgetHostView;
 using content::SiteInstance;
@@ -286,7 +289,7 @@ using web_modal::WebContentsModalDialogManager;
 namespace {
 
 // How long we wait before updating the browser chrome while loading a page.
-const int kUIUpdateCoalescingTimeMS = 200;
+constexpr TimeDelta kUIUpdateCoalescingTime = TimeDelta::FromMilliseconds(200);
 
 BrowserWindow* CreateBrowserWindow(std::unique_ptr<Browser> browser,
                                    bool user_gesture) {
@@ -360,7 +363,8 @@ Browser::CreateParams::CreateParams(Type type,
 Browser::CreateParams::CreateParams(const CreateParams& other) = default;
 
 // static
-Browser::CreateParams Browser::CreateParams::CreateForApp(
+Browser::CreateParams Browser::CreateParams::CreateForAppBase(
+    bool is_popup,
     const std::string& app_name,
     bool trusted_source,
     const gfx::Rect& window_bounds,
@@ -368,12 +372,35 @@ Browser::CreateParams Browser::CreateParams::CreateForApp(
     bool user_gesture) {
   DCHECK(!app_name.empty());
 
-  CreateParams params(TYPE_APP, profile, user_gesture);
+  CreateParams params(is_popup ? Type::TYPE_APP_POPUP : Type::TYPE_APP, profile,
+                      user_gesture);
   params.app_name = app_name;
   params.trusted_source = trusted_source;
   params.initial_bounds = window_bounds;
 
   return params;
+}
+
+// static
+Browser::CreateParams Browser::CreateParams::CreateForApp(
+    const std::string& app_name,
+    bool trusted_source,
+    const gfx::Rect& window_bounds,
+    Profile* profile,
+    bool user_gesture) {
+  return CreateForAppBase(false, app_name, trusted_source, window_bounds,
+                          profile, user_gesture);
+}
+
+// static
+Browser::CreateParams Browser::CreateParams::CreateForAppPopup(
+    const std::string& app_name,
+    bool trusted_source,
+    const gfx::Rect& window_bounds,
+    Profile* profile,
+    bool user_gesture) {
+  return CreateForAppBase(true, app_name, trusted_source, window_bounds,
+                          profile, user_gesture);
 }
 
 // static
@@ -724,7 +751,7 @@ ChromeBubbleManager* Browser::GetBubbleManager() {
 FindBarController* Browser::GetFindBarController() {
   if (!find_bar_controller_.get()) {
     find_bar_controller_ =
-        std::make_unique<FindBarController>(window_->CreateFindBar(), this);
+        std::make_unique<FindBarController>(window_->CreateFindBar());
     find_bar_controller_->find_bar()->SetFindBarController(
         find_bar_controller_.get());
     find_bar_controller_->ChangeWebContents(
@@ -813,7 +840,8 @@ base::string16 Browser::GetWindowTitleFromWebContents(
   // If there is no title and this is an app, fall back on the app name. This
   // ensures that the native window gets a title which is important for a11y,
   // for example the window selector uses the Aura window title.
-  if (title.empty() && (is_type_app() || is_type_devtools()) &&
+  if (title.empty() &&
+      (is_type_app() || is_type_app_popup() || is_type_devtools()) &&
       include_app_name) {
     return base::UTF8ToUTF16(
         app_controller_ ? app_controller_->GetAppShortName() : app_name());
@@ -928,7 +956,7 @@ void Browser::OnWindowClosing() {
 
   bool notify_restore_service = is_type_normal() && tab_strip_model_->count();
 #if defined(USE_AURA) || defined(OS_MACOSX)
-  notify_restore_service |= is_type_app();
+  notify_restore_service |= is_type_app() || is_type_app_popup();
 #endif
 
   if (tab_restore_service && notify_restore_service)
@@ -1109,7 +1137,22 @@ void Browser::UpdateUIForNavigationInTab(WebContents* contents,
   // navigating away from the new tab page.
   ScheduleUIUpdate(contents, content::INVALIDATE_TYPE_URL);
 
-  if (contents_is_selected &&
+  // Figure out if the navigating contents can take focus (potentially taking it
+  // away from other, currently-focused UI element like the omnibox).
+  // Specifically, user-initiated navigations can give focus to the tab;
+  // renderer-initiated navigations usually don't, unless the NTP triggers them
+  // (in which case they're treated similarly to a user-initiated navigation).
+  //
+  // TODO(lukasza): https://crbug.com/1034999: Try to avoid special-casing
+  // kChromeUINewTabURL below and covering it via IsNTPOrRelatedURL instead.
+  const GURL& current_url = contents->GetLastCommittedURL();
+  bool contents_can_take_focus =
+      user_initiated || current_url == GURL(chrome::kChromeUINewTabURL) ||
+      search::IsNTPOrRelatedURL(
+          current_url,
+          Profile::FromBrowserContext(contents->GetBrowserContext()));
+
+  if (contents_can_take_focus && contents_is_selected &&
       (window()->IsActive() || action == NavigateParams::SHOW_WINDOW)) {
     contents->SetInitialFocus();
   }
@@ -1127,6 +1170,10 @@ void Browser::UnregisterKeepAlive() {
 // Browser, PageNavigator implementation:
 
 WebContents* Browser::OpenURL(const OpenURLParams& params) {
+#if DCHECK_IS_ON()
+  DCHECK(params.Valid());
+#endif
+
   return OpenURLFromTab(NULL, params);
 }
 
@@ -1186,12 +1233,12 @@ void Browser::OnTabGroupChanged(const TabGroupChange& change) {
     SessionService* const session_service =
         SessionServiceFactory::GetForProfile(profile_);
     if (session_service) {
-      TabGroupVisualData* visual_data = tab_strip_model_->group_model()
-                                            ->GetTabGroup(change.group)
-                                            ->visual_data();
-      session_service->SetTabGroupMetadata(session_id(), change.group.token(),
-                                           visual_data->title(),
-                                           visual_data->color());
+      const tab_groups::TabGroupVisualData* visual_data =
+          tab_strip_model_->group_model()
+              ->GetTabGroup(change.group)
+              ->visual_data();
+      session_service->SetTabGroupMetadata(session_id(), change.group,
+                                           visual_data);
     }
   }
 }
@@ -1202,28 +1249,26 @@ void Browser::TabPinnedStateChanged(TabStripModel* tab_strip_model,
   SessionService* session_service =
       SessionServiceFactory::GetForProfileIfExisting(profile());
   if (session_service) {
-    SessionTabHelper* session_tab_helper =
-        SessionTabHelper::FromWebContents(contents);
+    sessions::SessionTabHelper* session_tab_helper =
+        sessions::SessionTabHelper::FromWebContents(contents);
     session_service->SetPinnedState(session_id(),
                                     session_tab_helper->session_id(),
                                     tab_strip_model_->IsTabPinned(index));
   }
 }
 
-void Browser::TabGroupedStateChanged(base::Optional<TabGroupId> group,
-                                     int index) {
+void Browser::TabGroupedStateChanged(
+    base::Optional<tab_groups::TabGroupId> group,
+    int index) {
   SessionService* const session_service =
       SessionServiceFactory::GetForProfile(profile_);
   if (session_service) {
     content::WebContents* const web_contents =
         tab_strip_model_->GetWebContentsAt(index);
-    SessionTabHelper* const session_tab_helper =
-        SessionTabHelper::FromWebContents(web_contents);
-    const base::Optional<base::Token> raw_id =
-        group.has_value() ? base::make_optional(group.value().token())
-                          : base::nullopt;
+    sessions::SessionTabHelper* const session_tab_helper =
+        sessions::SessionTabHelper::FromWebContents(web_contents);
     session_service->SetTabGroup(session_id(), session_tab_helper->session_id(),
-                                 raw_id);
+                                 std::move(group));
   }
 }
 
@@ -1446,11 +1491,13 @@ bool Browser::ShouldAllowRunningInsecureContent(
   return allowed;
 }
 
-void Browser::OnDidBlockNavigation(content::WebContents* web_contents,
-                                   const GURL& blocked_url,
-                                   const GURL& initiator_url,
-                                   blink::NavigationBlockedReason reason) {
-  if (reason == blink::NavigationBlockedReason::kRedirectWithNoUserGesture) {
+void Browser::OnDidBlockNavigation(
+    content::WebContents* web_contents,
+    const GURL& blocked_url,
+    const GURL& initiator_url,
+    blink::mojom::NavigationBlockedReason reason) {
+  if (reason ==
+      blink::mojom::NavigationBlockedReason::kRedirectWithNoUserGesture) {
     if (auto* framebust_helper =
             FramebustBlockTabHelper::FromWebContents(web_contents)) {
       auto on_click = [](const GURL& url, size_t index, size_t total_elements) {
@@ -1506,6 +1553,10 @@ std::unique_ptr<content::WebContents> Browser::SwapWebContents(
   resource_coordinator::TabLoadTracker::Get()->SwapTabContents(
       old_contents, new_contents.get());
 
+  // Clear the task manager tag. The TabStripModel will associate its own task
+  // manager tag.
+  task_manager::WebContentsTags::ClearTag(new_contents.get());
+
   int index = tab_strip_model_->GetIndexOfWebContents(old_contents);
   DCHECK_NE(TabStripModel::kNoTab, index);
   return tab_strip_model_->ReplaceWebContentsAt(index, std::move(new_contents));
@@ -1556,6 +1607,10 @@ void Browser::OnWindowDidShow() {
 
 WebContents* Browser::OpenURLFromTab(WebContents* source,
                                      const OpenURLParams& params) {
+#if DCHECK_IS_ON()
+  DCHECK(params.Valid());
+#endif
+
   if (is_type_devtools()) {
     DevToolsWindow* window = DevToolsWindow::AsDevToolsWindow(source);
     DCHECK(window);
@@ -1835,6 +1890,15 @@ void Browser::WebContentsCreated(WebContents* source_contents,
 
 void Browser::PortalWebContentsCreated(WebContents* portal_web_contents) {
   TabHelpers::AttachTabHelpers(portal_web_contents);
+
+  // Make the portal show up in the task manager.
+  task_manager::WebContentsTags::CreateForPortal(portal_web_contents);
+}
+
+void Browser::WebContentsBecamePortal(WebContents* portal_web_contents) {
+  // Make the contents show up as a portal in the task manager.
+  task_manager::WebContentsTags::ClearTag(portal_web_contents);
+  task_manager::WebContentsTags::CreateForPortal(portal_web_contents);
 }
 
 void Browser::RendererUnresponsive(
@@ -1902,7 +1966,7 @@ void Browser::EnterFullscreenModeForTab(
     const GURL& origin,
     const blink::mojom::FullscreenOptions& options) {
   exclusive_access_manager_->fullscreen_controller()->EnterFullscreenModeForTab(
-      web_contents, origin);
+      web_contents, origin, options.display_id);
 }
 
 void Browser::ExitFullscreenModeForTab(WebContents* web_contents) {
@@ -1920,7 +1984,7 @@ blink::mojom::DisplayMode Browser::GetDisplayMode(
   if (window_->IsFullscreen())
     return blink::mojom::DisplayMode::kFullscreen;
 
-  if (is_type_app() || is_type_devtools())
+  if (is_type_app() || is_type_devtools() || is_type_app_popup())
     return blink::mojom::DisplayMode::kStandalone;
 
   return blink::mojom::DisplayMode::kBrowser;
@@ -2004,7 +2068,8 @@ void Browser::FindReply(WebContents* web_contents,
                         const gfx::Rect& selection_rect,
                         int active_match_ordinal,
                         bool final_update) {
-  FindTabHelper* find_tab_helper = FindTabHelper::FromWebContents(web_contents);
+  find_in_page::FindTabHelper* find_tab_helper =
+      find_in_page::FindTabHelper::FromWebContents(web_contents);
   if (!find_tab_helper)
     return;
 
@@ -2073,6 +2138,7 @@ void Browser::RequestPpapiBrokerPermission(
     const GURL& url,
     const base::FilePath& plugin_path,
     base::OnceCallback<void(bool)> callback) {
+#if BUILDFLAG(ENABLE_PLUGINS)
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   // TODO(wad): Add ephemeral device ID support for broker in guest mode.
@@ -2113,7 +2179,7 @@ void Browser::RequestPpapiBrokerPermission(
                          : base::UserMetricsAction("PPAPI.BrokerSettingDeny"));
   tab_content_settings->SetPepperBrokerAllowed(allowed);
   std::move(callback).Run(allowed);
-  return;
+#endif
 }
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -2264,7 +2330,8 @@ void Browser::OnTranslateEnabledChanged(content::WebContents* source) {
 void Browser::OnTabInsertedAt(WebContents* contents, int index) {
   SetAsDelegate(contents, true);
 
-  SessionTabHelper::FromWebContents(contents)->SetWindowID(session_id());
+  sessions::SessionTabHelper::FromWebContents(contents)->SetWindowID(
+      session_id());
 
   SyncHistoryWithTabs(index);
 
@@ -2418,8 +2485,8 @@ void Browser::OnActiveTabChanged(WebContents* old_contents,
   if (session_service && !tab_strip_model_->closing_all()) {
     session_service->SetSelectedTabInWindow(session_id(),
                                             tab_strip_model_->active_index());
-    SessionTabHelper* session_tab_helper =
-        SessionTabHelper::FromWebContents(new_contents);
+    sessions::SessionTabHelper* session_tab_helper =
+        sessions::SessionTabHelper::FromWebContents(new_contents);
     session_service->SetLastActiveTime(
         session_id(), session_tab_helper->session_id(), base::TimeTicks::Now());
   }
@@ -2531,7 +2598,7 @@ void Browser::ScheduleUIUpdate(WebContents* source, unsigned changed_flags) {
         FROM_HERE,
         base::BindOnce(&Browser::ProcessPendingUIUpdates,
                        chrome_updater_factory_.GetWeakPtr()),
-        base::TimeDelta::FromMilliseconds(kUIUpdateCoalescingTimeMS));
+        kUIUpdateCoalescingTime);
   }
 }
 
@@ -2627,22 +2694,19 @@ void Browser::SyncHistoryWithTabs(int index) {
     for (int i = index; i < tab_strip_model_->count(); ++i) {
       WebContents* web_contents = tab_strip_model_->GetWebContentsAt(i);
       if (web_contents) {
-        SessionTabHelper* session_tab_helper =
-            SessionTabHelper::FromWebContents(web_contents);
+        sessions::SessionTabHelper* session_tab_helper =
+            sessions::SessionTabHelper::FromWebContents(web_contents);
         session_service->SetTabIndexInWindow(
             session_id(), session_tab_helper->session_id(), i);
         session_service->SetPinnedState(session_id(),
                                         session_tab_helper->session_id(),
                                         tab_strip_model_->IsTabPinned(i));
 
-        base::Optional<TabGroupId> group_id =
+        base::Optional<tab_groups::TabGroupId> group_id =
             tab_strip_model_->GetTabGroupForTab(i);
-        base::Optional<base::Token> raw_group_id =
-            group_id.has_value()
-                ? base::Optional<base::Token>(group_id.value().token())
-                : base::nullopt;
-        session_service->SetTabGroup(
-            session_id(), session_tab_helper->session_id(), raw_group_id);
+        session_service->SetTabGroup(session_id(),
+                                     session_tab_helper->session_id(),
+                                     std::move(group_id));
       }
     }
   }
@@ -2887,6 +2951,7 @@ bool Browser::SupportsWindowFeatureImpl(WindowFeature feature,
     case TYPE_NORMAL:
       return NormalBrowserSupportsWindowFeature(feature, check_can_support);
     case TYPE_POPUP:
+    case TYPE_APP_POPUP:
       return PopupBrowserSupportsWindowFeature(feature, check_can_support);
     case TYPE_APP:
       // TODO(crbug.com/992834): Change to TYPE_WEB_APP.

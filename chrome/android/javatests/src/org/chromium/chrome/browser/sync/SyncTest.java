@@ -84,7 +84,9 @@ public class SyncTest {
                 new Criteria("Timed out checking that hasPrimaryAccount() == true") {
                     @Override
                     public boolean isSatisfied() {
-                        return IdentityServicesProvider.getIdentityManager().hasPrimaryAccount();
+                        return IdentityServicesProvider.get()
+                                .getIdentityManager()
+                                .hasPrimaryAccount();
                     }
                 },
                 SyncTestUtil.TIMEOUT_MS, SyncTestUtil.INTERVAL_MS);
@@ -98,7 +100,9 @@ public class SyncTest {
                 new Criteria("Timed out checking that hasPrimaryAccount() == false") {
                     @Override
                     public boolean isSatisfied() {
-                        return !IdentityServicesProvider.getIdentityManager().hasPrimaryAccount();
+                        return !IdentityServicesProvider.get()
+                                        .getIdentityManager()
+                                        .hasPrimaryAccount();
                     }
                 },
                 SyncTestUtil.TIMEOUT_MS, SyncTestUtil.INTERVAL_MS);
@@ -136,7 +140,7 @@ public class SyncTest {
             String[] accountNames = {oldAccount.name, newAccount.name};
             String[] accountIds = {
                     provider.getAccountId(accountNames[0]), provider.getAccountId(accountNames[1])};
-            IdentityServicesProvider.getAccountTrackerService().syncForceRefreshForTest(
+            IdentityServicesProvider.get().getAccountTrackerService().syncForceRefreshForTest(
                     accountIds, accountNames);
 
             // Starts the rename process. Normally, this is triggered by the broadcast

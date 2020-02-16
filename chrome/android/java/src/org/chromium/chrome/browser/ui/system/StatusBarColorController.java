@@ -17,25 +17,25 @@ import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabThemeColorHelper;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
-import org.chromium.chrome.browser.ui.styles.ChromeColors;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.browser.widget.ScrimView;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.util.ColorUtils;
 
 /**
  * Maintains the status bar color for a {@link ChromeActivity}.
@@ -61,7 +61,7 @@ public class StatusBarColorController
          *         version.
          */
         @ColorInt
-        int getBaseStatusBarColor(boolean activityHasTab);
+        int getBaseStatusBarColor(Tab tab);
     }
 
     private final Window mWindow;
@@ -236,8 +236,7 @@ public class StatusBarColorController
 
     private @ColorInt int calculateBaseStatusBarColor() {
         // Return overridden status bar color from StatusBarColorProvider if specified.
-        final int baseStatusBarColor = mStatusBarColorProvider.getBaseStatusBarColor(
-                mCurrentTab != null /* activityHasTab */);
+        final int baseStatusBarColor = mStatusBarColorProvider.getBaseStatusBarColor(mCurrentTab);
         if (baseStatusBarColor != UNDEFINED_STATUS_BAR_COLOR) {
             return baseStatusBarColor;
         }
@@ -265,6 +264,9 @@ public class StatusBarColorController
         // Return status bar color in standard NewTabPage. If location bar is not shown in NTP, we
         // use the tab theme color regardless of the URL expansion percentage.
         if (isLocationBarShownInNTP()) {
+            boolean supportsDarkStatusIcons = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M;
+            if (!supportsDarkStatusIcons) return Color.BLACK;
+
             return ColorUtils.getColorWithOverlay(
                     TabThemeColorHelper.getBackgroundColor(mCurrentTab),
                     TabThemeColorHelper.getColor(mCurrentTab), mToolbarUrlExpansionPercentage);

@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{ಬ್ಯಾಕ್‌ಟಿಕ್}one{# ಬ್ಯಾಕ್‌ಟಿಕ್‌ಗಳು}other{# ಬ್ಯಾಕ್‌ಟಿಕ್‌ಗಳು}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{ಡಾಲರ್}one{# ಡಾಲರ್ ಚಿಹ್ನೆಗಳು}other{# ಡಾಲರ್ ಚಿಹ್ನೆಗಳು}}</translation>
-<translation id="3658742229777143148">ಪರಿಷ್ಕರಣೆ</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, ಪಟ್ಟಿಯ ಬಾಕ್ಸ್</translation>
 <translation id="3681531118904532409">ಪಪಾಯ ವಿಪ್</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">ChromeVox ಕಮಾಂಡ್‌ ಉಲ್ಲೇಖ</translation>
 <translation id="3930383913623796990">ವಸಂತಕಾಲದ ಹಸಿರು</translation>
 <translation id="3930498801443296724">ಪ್ರಮುಖ ಉಲ್ಲೇಖ</translation>
+<translation id="3935615366277838204">ದೊಡ್ಡಕ್ಷರ <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">ನಸು ಕೆನ್ನೀಲಿ ಬಣ್ಣ</translation>
 <translation id="3941269780691800708">ಮೌಸ್ ಕರ್ಸರ್‌ನ ಕೆಳಗಿರುವ ಪಠ್ಯವನ್ನು ಓದಿ.</translation>
 <translation id="394953087167197343">ಕಾಗುಣಿತ ತಪ್ಪಾಗಿದೆ ಎಂದು ಸೂಚಿಸಿ:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">ಚಪ್ಪಟೆ ಕೀಮ್ಯಾಪ್</translation>
 <translation id="6468049171101508116">ಮುಂದಿನ ಬಟನ್</translation>
 <translation id="646954774886932461">ಸೂಚಿಕೆ</translation>
-<translation id="6479792383819319132">ಮುಂದಿನ ಪ್ಯಾರಾಗ್ರಾಫ್ ಇಲ್ಲ.</translation>
 <translation id="6493991254603208962">ಪ್ರಖರತೆ ಕಡಿಮೆ ಮಾಡಿ</translation>
 <translation id="6501595918865591267">ವೈಢೂರ್ಯನೀಲಿ</translation>
 <translation id="6508059270146105198">ಬ್ರೈಲ್‌ ಡಿಸ್‌ಪ್ಲೇಯನ್ನು ಪುಟದ ಕೆಳಭಾಗಕ್ಕೆ ಸರಿಸಿ</translation>
@@ -816,7 +815,6 @@
 <translation id="6637586476836377253">ಲಾಗ್</translation>
 <translation id="6657128831881431364">ಪ್ರಗತಿ ಪಟ್ಟಿ</translation>
 <translation id="6659594942844771486">ಟ್ಯಾಬ್</translation>
-<translation id="6675661017770918201">ಹಿಂದಿನ ಪ್ಯಾರಾಗ್ರಾಫ್ ಇಲ್ಲ.</translation>
 <translation id="667999046851023355">ಡಾಕ್ಯುಮೆಂಟ್</translation>
 <translation id="6688209025607531203">ಒಂದು ಮಾದರಿ ಅಲ್ಲದ ಎಚ್ಚರಿಕೆ</translation>
 <translation id="6689672606256159458">ಗಾಢ ಗುಲಾಬಿ ಕಿತ್ತಳೆ ಬಣ್ಣ</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">ತಪ್ಪಾಗಿ ಬರೆದಿರುವ ಪದ</translation>
 <translation id="6871161210040114857">ಕೇಸ್ ನಿರ್ಲಕ್ಷಿಸಲಾಗಿದೆ.</translation>
 <translation id="6877435256196695200">ಮುಂದಿನ ಗ್ರಾಫಿಕ್‌ಯಿಲ್ಲ.</translation>
+<translation id="688976158310523235">ಹುಡುಕಾಟ ಮೆನು</translation>
 <translation id="6897341342232909480">ಎಡಕ್ಕೆ ಸೇರಿಸಿ</translation>
 <translation id="6901540140423170855">ದಿನಾಂಕ</translation>
 <translation id="6910211073230771657">ಅಳಿಸಲಾಗಿದೆ</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">ಹುಡುಕಾಟ + O + W</translation>
 <translation id="6994042831499278539">ಪದಕೋಶ ಉಲ್ಲೇಖ</translation>
 <translation id="6996566555547746822">ಮುಂದಿನ ಕಾಂಬೊ ಬಾಕ್ಸ್</translation>
+<translation id="6997224546856374593">ದೊಡ್ಡಕ್ಷರಗಳನ್ನು ಓದುವಾಗ:</translation>
 <translation id="700202842116345659">ಗ್ರಂಥಸೂಚಿ ನಮೂದು</translation>
 <translation id="7005146664810010831">ಯಾವುದೇ URL ಕಂಡುಬಂದಿಲ್ಲ</translation>
 <translation id="7010712454773919705">ChromeVox ಮಾರ್ಪಡಿಸುವ ಕೀ</translation>
@@ -937,6 +937,7 @@ Chrome ಬ್ರೌಸರ್ ಮೆನು ತೆರೆಯಲು, Alt+F ಒತ್
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">ಟ್ಯಾಬ್</translation>
 <translation id="7492049978501397201">ಸಂವಾದವನ್ನು ನಮೂದಿಸಲಾಗಿದೆ</translation>
+<translation id="7505149250476994901">ಅಕ್ಷರದ ಮೊದಲು "ದೊಡ್ಡಕ್ಷರ" ಎಂದು ಹೇಳಿ</translation>
 <translation id="7518543783849163354">ಮಾತನಾಡದಂತೆ ತಾತ್ಕಾಲಿಕವಾಗಿ ChromeVox ಅನ್ನು ನಿಲ್ಲಿಸಲು, Control ಕೀ ಒತ್ತಿ.</translation>
 <translation id="7521682724501952239">ನೀವು ChromeVox ಅನ್ನು ಟಚ್‌ಸ್ಕ್ರೀನ್‌ನೊಂದಿಗೆ ಬಳಸಬಹುದು.</translation>
 <translation id="7532613204005497612">ಜೂನ್</translation>
@@ -1104,7 +1105,6 @@ Chrome ಬ್ರೌಸರ್ ಮೆನು ತೆರೆಯಲು, Alt+F ಒತ್
 <translation id="812886159861361726">ಡೌನ್‌ಲೋಡ್ ಸ್ಥಗಿತಗೊಂಡಿದೆ <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">ಸ್ಪರ್ಶಿಸಿ</translation>
 <translation id="8153880621934657047">ಕೋಷ್ಟಕದ ಒಳಗೆ ಇಲ್ಲ.</translation>
-<translation id="8161114871611868169">ಕಾಮೆಂಟ್ ವಿಭಾಗ</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{ಅಂಡರ್‌ಸ್ಕೋರ್}one{# ಅಂಡರ್‌ಸ್ಕೋರ್‌ಗಳು}other{# ಅಂಡರ್‌ಸ್ಕೋರ್‌ಗಳು}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">ಸಾಲು</translation>
@@ -1125,6 +1125,7 @@ Chrome ಬ್ರೌಸರ್ ಮೆನು ತೆರೆಯಲು, Alt+F ಒತ್
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">ಓಲ್ಡ್ ಲೇಸ್</translation>
 <translation id="8326783648485765113">ಹುಲ್ಲುಹಾಸಿನ ಹಸಿರು</translation>
+<translation id="8328063869313048659">ಡಾರ್ಕ್ ಸ್ಕ್ರೀನ್ ಅನ್ನು ಟಾಗಲ್ ಮಾಡಿ</translation>
 <translation id="8344569602005188545">ಸಮಯ</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{ಪೌಂಡ್ ಚಿಹ್ನೆಗಳು}one{# ಪೌಂಡ್ ಚಿಹ್ನೆಗಳು}other{# ಪೌಂಡ್ ಚಿಹ್ನೆಗಳು}}</translation>
 <translation id="8374154622594089836">ತಿಂಗಳು</translation>
@@ -1209,6 +1210,7 @@ Chrome ಬ್ರೌಸರ್ ಮೆನು ತೆರೆಯಲು, Alt+F ಒತ್
 <translation id="9065283790526219006">+ಪಾಪ್‌ಅಪ್‌</translation>
 <translation id="9066023754636984703">ವಿವರಗಳಿಗೆ ಹೋಗಲು ಹುಡುಕಾಟ+A, J ಒತ್ತಿ.</translation>
 <translation id="9067522039955793016">ಪುಟ ವಿಭಜನೆ</translation>
+<translation id="9074824103975499138">ಹುಡುಕಾಟ ChromeVox ಮೆನುಗಳು</translation>
 <translation id="9077213568694924680">ಆಯ್ಕೆಯಿಂದ ತೆಗೆದುಹಾಕಲಾಗಿದೆ</translation>
 <translation id="9077305471618729969">ತಿಳಿ ಸಾಗರ ಹಸಿರು</translation>
 <translation id="9082874451376019682">ಹಿಂದಿನ ಸ್ಲೈಡರ್ ಇಲ್ಲ.</translation>

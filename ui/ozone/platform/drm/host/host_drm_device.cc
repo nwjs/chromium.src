@@ -19,7 +19,6 @@
 #include "ui/ozone/platform/drm/common/drm_util.h"
 #include "ui/ozone/platform/drm/host/drm_device_connector.h"
 #include "ui/ozone/platform/drm/host/drm_display_host_manager.h"
-#include "ui/ozone/platform/drm/host/drm_overlay_manager_host.h"
 #include "ui/ozone/platform/drm/host/host_cursor_proxy.h"
 
 namespace ui {
@@ -51,10 +50,8 @@ void HostDrmDevice::OnDrmServiceStarted() {
   // DRM thread is broken.
 }
 
-void HostDrmDevice::ProvideManagers(DrmDisplayHostManager* display_manager,
-                                    DrmOverlayManagerHost* overlay_manager) {
+void HostDrmDevice::SetDisplayManager(DrmDisplayHostManager* display_manager) {
   display_manager_ = display_manager;
-  overlay_manager_ = overlay_manager;
 }
 
 void HostDrmDevice::AddGpuThreadObserver(GpuThreadObserver* observer) {
@@ -115,35 +112,6 @@ bool HostDrmDevice::GpuWindowBoundsChanged(gfx::AcceleratedWidget widget,
     return false;
 
   drm_device_->SetWindowBounds(widget, bounds);
-
-  return true;
-}
-
-// Services needed for DrmOverlayManagerHost.
-void HostDrmDevice::RegisterHandlerForDrmOverlayManager(
-    DrmOverlayManagerHost* handler) {
-  // TODO(rjkroege): Permit overlay manager to run in Viz when the display
-  // compositor runs in Viz.
-  DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
-  overlay_manager_ = handler;
-}
-
-void HostDrmDevice::UnRegisterHandlerForDrmOverlayManager() {
-  DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
-  overlay_manager_ = nullptr;
-}
-
-bool HostDrmDevice::GpuCheckOverlayCapabilities(
-    gfx::AcceleratedWidget widget,
-    const OverlaySurfaceCandidateList& overlays) {
-  DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
-  if (!IsConnected())
-    return false;
-
-  auto callback =
-      base::BindOnce(&HostDrmDevice::GpuCheckOverlayCapabilitiesCallback, this);
-
-  drm_device_->CheckOverlayCapabilities(widget, overlays, std::move(callback));
 
   return true;
 }
@@ -289,12 +257,13 @@ bool HostDrmDevice::GpuSetGammaCorrection(
   return true;
 }
 
-void HostDrmDevice::GpuCheckOverlayCapabilitiesCallback(
-    gfx::AcceleratedWidget widget,
-    const OverlaySurfaceCandidateList& overlays,
-    const OverlayStatusList& returns) const {
+bool HostDrmDevice::GpuSetPrivacyScreen(int64_t display_id, bool enabled) {
   DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
-  overlay_manager_->GpuSentOverlayResult(widget, overlays, returns);
+  if (!IsConnected())
+    return false;
+
+  drm_device_->SetPrivacyScreen(display_id, enabled);
+  return true;
 }
 
 void HostDrmDevice::GpuConfigureNativeDisplayCallback(int64_t display_id,
@@ -363,6 +332,11 @@ void HostDrmDevice::OnGpuServiceLaunchedOnIOThread(
 void HostDrmDevice::OnGpuServiceLaunchedOnUIThread(
     mojo::PendingRemote<ui::ozone::mojom::DrmDevice> drm_device) {
   DCHECK_CALLED_ON_VALID_THREAD(on_ui_thread_);
+
+  // We can get into this state if a new instance of GpuProcessHost is created
+  // before the old one is destroyed.
+  if (IsConnected())
+    OnGpuServiceLost();
 
   drm_device_.Bind(std::move(drm_device));
 

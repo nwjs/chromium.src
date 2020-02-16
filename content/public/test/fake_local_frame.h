@@ -9,6 +9,11 @@
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-forward.h"
+
+namespace gfx {
+class Point;
+}
 
 namespace content {
 
@@ -37,6 +42,16 @@ class FakeLocalFrame : public blink::mojom::LocalFrame {
   void Collapse(bool collapsed) override;
   void EnableViewSourceMode() override;
   void Focus() override;
+  void ClearFocusedElement() override;
+  void CopyImageAt(const gfx::Point& window_point) override;
+  void SaveImageAt(const gfx::Point& window_point) override;
+  void ReportBlinkFeatureUsage(
+      const std::vector<blink::mojom::WebFeature>&) override;
+  void RenderFallbackContent() override;
+  void BeforeUnload(bool is_reload, BeforeUnloadCallback callback) override;
+  void MediaPlayerActionAt(const gfx::Point& location,
+                           blink::mojom::MediaPlayerActionPtr action) override;
+  void AdvanceFocusInForm(blink::mojom::FocusType focus_type) override;
 
  private:
   void BindFrameHostReceiver(mojo::ScopedInterfaceEndpointHandle handle);

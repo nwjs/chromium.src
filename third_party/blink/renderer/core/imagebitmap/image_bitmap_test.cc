@@ -42,11 +42,13 @@
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/color_correction_test_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/test/fake_gles2_interface.h"
 #include "third_party/blink/renderer/platform/graphics/test/fake_web_graphics_context_3d_provider.h"
+#include "third_party/blink/renderer/platform/graphics/test/gpu_test_utils.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -79,14 +81,10 @@ class ImageBitmapTest : public testing::Test {
         ReplaceMemoryCacheForTesting(MakeGarbageCollected<MemoryCache>(
             blink::scheduler::GetSingleThreadTaskRunnerForTesting()));
 
-    auto factory = [](FakeGLES2Interface* gl, bool* gpu_compositing_disabled)
-        -> std::unique_ptr<WebGraphicsContext3DProvider> {
-      *gpu_compositing_disabled = false;
-      return std::make_unique<FakeWebGraphicsContext3DProvider>(gl, nullptr);
-    };
-    SharedGpuContext::SetContextProviderFactoryForTesting(
-        WTF::BindRepeating(factory, WTF::Unretained(&gl_)));
+    test_context_provider_ = viz::TestContextProvider::Create();
+    InitializeSharedGpuContext(test_context_provider_.get());
   }
+
   void TearDown() override {
     // Garbage collection is required prior to switching out the
     // test's memory cache; image resources are released, evicting
@@ -99,7 +97,7 @@ class ImageBitmapTest : public testing::Test {
   }
 
  protected:
-  FakeGLES2Interface gl_;
+  scoped_refptr<viz::TestContextProvider> test_context_provider_;
   sk_sp<SkImage> image_, image2_;
   Persistent<MemoryCache> global_memory_cache_;
 };
@@ -120,27 +118,27 @@ TEST_F(ImageBitmapTest, ImageResourceConsistency) {
 
   base::Optional<IntRect> crop_rect =
       IntRect(0, 0, image_->width(), image_->height());
-  ImageBitmap* image_bitmap_no_crop =
-      ImageBitmap::Create(image_element, crop_rect,
-                          &(image_element->GetDocument()), default_options);
+  auto* image_bitmap_no_crop = MakeGarbageCollected<ImageBitmap>(
+      image_element, crop_rect, &(image_element->GetDocument()),
+      default_options);
   ASSERT_TRUE(image_bitmap_no_crop);
   crop_rect = IntRect(image_->width() / 2, image_->height() / 2,
                       image_->width() / 2, image_->height() / 2);
-  ImageBitmap* image_bitmap_interior_crop =
-      ImageBitmap::Create(image_element, crop_rect,
-                          &(image_element->GetDocument()), default_options);
+  auto* image_bitmap_interior_crop = MakeGarbageCollected<ImageBitmap>(
+      image_element, crop_rect, &(image_element->GetDocument()),
+      default_options);
   ASSERT_TRUE(image_bitmap_interior_crop);
   crop_rect = IntRect(-image_->width() / 2, -image_->height() / 2,
                       image_->width(), image_->height());
-  ImageBitmap* image_bitmap_exterior_crop =
-      ImageBitmap::Create(image_element, crop_rect,
-                          &(image_element->GetDocument()), default_options);
+  auto* image_bitmap_exterior_crop = MakeGarbageCollected<ImageBitmap>(
+      image_element, crop_rect, &(image_element->GetDocument()),
+      default_options);
   ASSERT_TRUE(image_bitmap_exterior_crop);
   crop_rect = IntRect(-image_->width(), -image_->height(), image_->width(),
                       image_->height());
-  ImageBitmap* image_bitmap_outside_crop =
-      ImageBitmap::Create(image_element, crop_rect,
-                          &(image_element->GetDocument()), default_options);
+  auto* image_bitmap_outside_crop = MakeGarbageCollected<ImageBitmap>(
+      image_element, crop_rect, &(image_element->GetDocument()),
+      default_options);
   ASSERT_TRUE(image_bitmap_outside_crop);
 
   ASSERT_EQ(image_bitmap_no_crop->BitmapImage()
@@ -192,7 +190,7 @@ TEST_F(ImageBitmapTest, ImageBitmapSourceChanged) {
   const ImageBitmapOptions* default_options = ImageBitmapOptions::Create();
   base::Optional<IntRect> crop_rect =
       IntRect(0, 0, image_->width(), image_->height());
-  ImageBitmap* image_bitmap = ImageBitmap::Create(
+  auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(
       image, crop_rect, &(image->GetDocument()), default_options);
   ASSERT_TRUE(image_bitmap);
   ASSERT_EQ(
@@ -249,7 +247,7 @@ static void TestImageBitmapTextureBacked(
     IntRect& rect,
     ImageBitmapOptions* options,
     bool is_texture_backed) {
-  ImageBitmap* image_bitmap = ImageBitmap::Create(bitmap, rect, options);
+  auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(bitmap, rect, options);
   EXPECT_TRUE(image_bitmap);
   EXPECT_EQ(image_bitmap->BitmapImage()->IsTextureBacked(), is_texture_backed);
 }
@@ -257,18 +255,16 @@ static void TestImageBitmapTextureBacked(
 TEST_F(ImageBitmapTest, AvoidGPUReadback) {
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper =
       SharedGpuContext::ContextProviderWrapper();
-  GrContext* gr = context_provider_wrapper->ContextProvider()->GetGrContext();
-  SkImageInfo imageInfo = SkImageInfo::MakeN32Premul(100, 100);
+  CanvasColorParams color_params;
+  auto resource_provider = CanvasResourceProvider::Create(
+      IntSize(100, 100),
+      CanvasResourceProvider::ResourceUsage::kAcceleratedResourceUsage,
+      context_provider_wrapper, 0, kLow_SkFilterQuality, color_params,
+      CanvasResourceProvider::kDefaultPresentationMode, nullptr);
+  scoped_refptr<StaticBitmapImage> bitmap = resource_provider->Snapshot();
+  ASSERT_TRUE(bitmap->IsTextureBacked());
 
-  sk_sp<SkSurface> surface =
-      SkSurface::MakeRenderTarget(gr, SkBudgeted::kNo, imageInfo);
-  sk_sp<SkImage> image = surface->makeImageSnapshot();
-
-  scoped_refptr<AcceleratedStaticBitmapImage> bitmap =
-      AcceleratedStaticBitmapImage::CreateFromSkImage(image,
-                                                      context_provider_wrapper);
-
-  ImageBitmap* image_bitmap = ImageBitmap::Create(bitmap);
+  auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(bitmap);
   EXPECT_TRUE(image_bitmap);
   EXPECT_TRUE(image_bitmap->BitmapImage()->IsTextureBacked());
 
@@ -345,7 +341,7 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionHTMLImageElement) {
     options->setColorSpaceConversion(
         ColorCorrectionTestUtils::ColorSpaceConversionToString(
             static_cast<ColorSpaceConversion>(conversion_iterator)));
-    ImageBitmap* image_bitmap = ImageBitmap::Create(
+    auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(
         image_element, crop_rect, &(image_element->GetDocument()), options);
     ASSERT_TRUE(image_bitmap);
     sk_sp<SkImage> converted_image =
@@ -404,7 +400,7 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionImageBitmap) {
   options->setColorSpaceConversion(
       ColorCorrectionTestUtils::ColorSpaceConversionToString(
           kColorSpaceConversion_Preserve));
-  ImageBitmap* source_image_bitmap = ImageBitmap::Create(
+  auto* source_image_bitmap = MakeGarbageCollected<ImageBitmap>(
       UnacceleratedStaticBitmapImage::Create(source_image), crop_rect, options);
   ASSERT_TRUE(source_image_bitmap);
 
@@ -414,8 +410,8 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionImageBitmap) {
     options->setColorSpaceConversion(
         ColorCorrectionTestUtils::ColorSpaceConversionToString(
             static_cast<ColorSpaceConversion>(conversion_iterator)));
-    ImageBitmap* image_bitmap =
-        ImageBitmap::Create(source_image_bitmap, crop_rect, options);
+    auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(source_image_bitmap,
+                                                           crop_rect, options);
     ASSERT_TRUE(image_bitmap);
     sk_sp<SkImage> converted_image =
         image_bitmap->BitmapImage()->PaintImageForCurrentFrame().GetSkImage();
@@ -477,7 +473,7 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionStaticBitmapImage) {
     options->setColorSpaceConversion(
         ColorCorrectionTestUtils::ColorSpaceConversionToString(
             static_cast<ColorSpaceConversion>(conversion_iterator)));
-    ImageBitmap* image_bitmap = ImageBitmap::Create(
+    auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(
         UnacceleratedStaticBitmapImage::Create(source_image), crop_rect,
         options);
     ASSERT_TRUE(image_bitmap);
@@ -543,8 +539,8 @@ TEST_F(ImageBitmapTest, ImageBitmapColorSpaceConversionImageData) {
     options->setColorSpaceConversion(
         ColorCorrectionTestUtils::ColorSpaceConversionToString(
             static_cast<ColorSpaceConversion>(conversion_iterator)));
-    ImageBitmap* image_bitmap =
-        ImageBitmap::Create(image_data, crop_rect, options);
+    auto* image_bitmap =
+        MakeGarbageCollected<ImageBitmap>(image_data, crop_rect, options);
     ASSERT_TRUE(image_bitmap);
     sk_sp<SkImage> converted_image =
         image_bitmap->BitmapImage()->PaintImageForCurrentFrame().GetSkImage();
@@ -591,8 +587,8 @@ TEST_F(ImageBitmapTest, ImageBitmapPixelFormat) {
 
   // source: uint8, bitmap pixel format: default
   ImageBitmapOptions* options = ImageBitmapOptions::Create();
-  ImageBitmap* image_bitmap =
-      ImageBitmap::Create(bitmap_image, bitmap_image->Rect(), options);
+  auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(
+      bitmap_image, bitmap_image->Rect(), options);
 
   ASSERT_TRUE(image_bitmap);
   sk_sp<SkImage> sk_image_internal =
@@ -601,8 +597,8 @@ TEST_F(ImageBitmapTest, ImageBitmapPixelFormat) {
 
   // source: uint8, bitmap pixel format: uint8
   options->setImagePixelFormat("uint8");
-  ImageBitmap* image_bitmap_8888 =
-      ImageBitmap::Create(bitmap_image, bitmap_image->Rect(), options);
+  auto* image_bitmap_8888 = MakeGarbageCollected<ImageBitmap>(
+      bitmap_image, bitmap_image->Rect(), options);
   ASSERT_TRUE(image_bitmap_8888);
   sk_sp<SkImage> sk_image_internal_8888 = image_bitmap_8888->BitmapImage()
                                               ->PaintImageForCurrentFrame()
@@ -625,7 +621,7 @@ TEST_F(ImageBitmapTest, ImageBitmapPixelFormat) {
 
   // source: f16, bitmap pixel format: default
   ImageBitmapOptions* options_f16 = ImageBitmapOptions::Create();
-  ImageBitmap* image_bitmap_f16 = ImageBitmap::Create(
+  auto* image_bitmap_f16 = MakeGarbageCollected<ImageBitmap>(
       bitmap_image_f16, bitmap_image_f16->Rect(), options_f16);
   ASSERT_TRUE(image_bitmap_f16);
   sk_sp<SkImage> sk_image_internal_f16 =
@@ -634,7 +630,7 @@ TEST_F(ImageBitmapTest, ImageBitmapPixelFormat) {
 
   // source: f16, bitmap pixel format: uint8
   options_f16->setImagePixelFormat("uint8");
-  ImageBitmap* image_bitmap_f16_8888 = ImageBitmap::Create(
+  auto* image_bitmap_f16_8888 = MakeGarbageCollected<ImageBitmap>(
       bitmap_image_f16, bitmap_image_f16->Rect(), options_f16);
   ASSERT_TRUE(image_bitmap_f16_8888);
   sk_sp<SkImage> sk_image_internal_f16_8888 =
@@ -665,7 +661,7 @@ TEST_F(ImageBitmapTest,
   options->setColorSpaceConversion(
       ColorCorrectionTestUtils::ColorSpaceConversionToString(
           kColorSpaceConversion_Default));
-  ImageBitmap* image_bitmap = ImageBitmap::Create(
+  auto* image_bitmap = MakeGarbageCollected<ImageBitmap>(
       image_data, IntRect(IntPoint(0, 0), image_data->Size()), options);
   DCHECK(image_bitmap);
 }

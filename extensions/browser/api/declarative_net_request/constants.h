@@ -18,11 +18,9 @@ namespace declarative_net_request {
 enum class ParseResult {
   SUCCESS,
   ERROR_RESOURCE_TYPE_DUPLICATED,
-  ERROR_EMPTY_REDIRECT_RULE_PRIORITY,
-  ERROR_EMPTY_UPGRADE_RULE_PRIORITY,
   ERROR_INVALID_RULE_ID,
-  ERROR_INVALID_REDIRECT_RULE_PRIORITY,
-  ERROR_INVALID_UPGRADE_RULE_PRIORITY,
+  ERROR_EMPTY_RULE_PRIORITY,
+  ERROR_INVALID_RULE_PRIORITY,
   ERROR_NO_APPLICABLE_RESOURCE_TYPES,
   ERROR_EMPTY_DOMAINS_LIST,
   ERROR_EMPTY_RESOURCE_TYPES_LIST,
@@ -52,6 +50,7 @@ enum class ParseResult {
   ERROR_MULTIPLE_FILTERS_SPECIFIED,
   ERROR_REGEX_SUBSTITUTION_WITHOUT_FILTER,
   ERROR_INVALID_REGEX_SUBSTITUTION,
+  ERROR_INVALID_ALLOW_ALL_REQUESTS_RESOURCE_TYPE,
 };
 
 // Describes the ways in which updating dynamic rules can fail.
@@ -83,9 +82,8 @@ extern const char* const kAllowedTransformSchemes[4];
 
 // Rule parsing errors.
 extern const char kErrorResourceTypeDuplicated[];
-extern const char kErrorEmptyRedirectRuleKey[];
-extern const char kErrorEmptyUpgradeRulePriority[];
 extern const char kErrorInvalidRuleKey[];
+extern const char kErrorEmptyRulePriority[];
 extern const char kErrorNoApplicableResourceTypes[];
 extern const char kErrorEmptyList[];
 extern const char kErrorEmptyKey[];
@@ -100,6 +98,7 @@ extern const char kErrorQueryAndTransformBothSpecified[];
 extern const char kErrorJavascriptRedirect[];
 extern const char kErrorMultipleFilters[];
 extern const char kErrorRegexSubstitutionWithoutFilter[];
+extern const char kErrorInvalidAllowAllRequestsResourceType[];
 
 extern const char kErrorListNotPassed[];
 
@@ -122,6 +121,10 @@ extern const char kReadDynamicRulesJSONStatusHistogram[];
 // Placeholder text to use for getBadgeText extension function call, when the
 // badge text is set to the DNR action count.
 extern const char kActionCountPlaceholderBadgeText[];
+
+// Error returned for the getMatchedRules extension function call, if the
+// extension does not have sufficient permissions to make the call.
+extern const char kErrorGetMatchedRulesMissingPermissions[];
 
 }  // namespace declarative_net_request
 }  // namespace extensions

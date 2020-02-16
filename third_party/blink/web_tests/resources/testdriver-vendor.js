@@ -85,6 +85,18 @@
       element.focus();
       if (!window.eventSender)
         reject(new Error("No eventSender"));
+      if (element.localName === 'input' && element.type === 'file') {
+          element.addEventListener('drop', resolve);
+          eventSender.beginDragWithFiles([keys]);
+          const centerX = element.offsetLeft + element.offsetWidth / 2;
+          const centerY = element.offsetTop + element.offsetHeight / 2;
+          // Moving the mouse could interfere with the test, if it also tries to control
+          // mouse movements. This can cause differences between tests run with run_web_tests
+          // and tests run with wptrunner.
+          eventSender.mouseMoveTo(centerX * devicePixelRatio, centerY * devicePixelRatio);
+          eventSender.mouseUp();
+          return;
+      }
       if (keys.length > 1)
         reject(new Error("No support for a sequence of multiple keys"));
       let eventSenderKeys = keys;
@@ -376,6 +388,14 @@
     let response = await manager.removeAuthenticator(authenticatorId);
     if (!response.removed)
       throw "Could not remove authenticator";
+  }
+
+  window.test_driver_internal.set_permission = function(permission_params) {
+    // TODO(https://crbug.com/977612): Chromium currently lacks support for
+    // |permission_params.one_realm| and will always consider it is set to false.
+    return internals.setPermission(permission_params.descriptor,
+                                   permission_params.state,
+                                   location.origin, location.origin);
   }
 
   // Enable automation so we don't wait for user input on unimplemented APIs

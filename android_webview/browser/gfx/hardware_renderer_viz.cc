@@ -11,6 +11,7 @@
 
 #include "android_webview/browser/gfx/aw_gl_surface.h"
 #include "android_webview/browser/gfx/aw_render_thread_context_provider.h"
+#include "android_webview/browser/gfx/display_scheduler_webview.h"
 #include "android_webview/browser/gfx/gpu_service_web_view.h"
 #include "android_webview/browser/gfx/parent_compositor_draw_constraints.h"
 #include "android_webview/browser/gfx/render_thread_manager.h"
@@ -37,6 +38,7 @@
 #include "components/viz/service/display/display.h"
 #include "components/viz/service/display/display_client.h"
 #include "components/viz/service/display/display_scheduler.h"
+#include "components/viz/service/display/overlay_processor_stub.h"
 #include "components/viz/service/display_embedder/skia_output_surface_dependency.h"
 #include "components/viz/service/display_embedder/skia_output_surface_impl.h"
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
@@ -60,7 +62,8 @@ class HardwareRendererViz::OnViz : public viz::DisplayClient {
                         const gfx::Size& frame_size,
                         const viz::SurfaceId& child_id,
                         float device_scale_factor,
-                        const gfx::ColorSpace& color_space);
+                        const gfx::ColorSpace& color_space,
+                        ChildFrame* child_frame);
   void PostDrawOnViz(viz::FrameTimingDetailsMap* timing_details);
 
   // viz::DisplayClient overrides.
@@ -90,6 +93,7 @@ class HardwareRendererViz::OnViz : public viz::DisplayClient {
   viz::SurfaceId child_surface_id_;
   viz::FrameTokenGenerator next_frame_token_;
   gfx::Size surface_size_;
+  const bool viz_frame_submission_;
 
   THREAD_CHECKER(viz_thread_checker_);
 
@@ -100,21 +104,23 @@ HardwareRendererViz::OnViz::OnViz(
     OutputSurfaceProviderWebview* output_surface_provider,
     const scoped_refptr<RootFrameSink>& root_frame_sink)
     : without_gpu_(root_frame_sink),
-      frame_sink_id_(without_gpu_->root_frame_sink_id()) {
+      frame_sink_id_(without_gpu_->root_frame_sink_id()),
+      viz_frame_submission_(features::IsUsingVizFrameSubmissionForWebView()) {
   DCHECK_CALLED_ON_VALID_THREAD(viz_thread_checker_);
 
   std::unique_ptr<viz::OutputSurface> output_surface =
       output_surface_provider->CreateOutputSurface();
 
   stub_begin_frame_source_ = std::make_unique<viz::StubBeginFrameSource>();
-  auto scheduler = std::make_unique<viz::DisplayScheduler>(
-      stub_begin_frame_source_.get(), nullptr,
-      output_surface->capabilities().max_frames_pending);
+  auto scheduler =
+      std::make_unique<DisplaySchedulerWebView>(without_gpu_.get());
+  auto overlay_processor = std::make_unique<viz::OverlayProcessorStub>();
+
   display_ = std::make_unique<viz::Display>(
       nullptr /* shared_bitmap_manager */,
       output_surface_provider->renderer_settings(), frame_sink_id_,
-      std::move(output_surface), std::move(scheduler),
-      nullptr /* current_task_runner */);
+      std::move(output_surface), std::move(overlay_processor),
+      std::move(scheduler), nullptr /* current_task_runner */);
   display_->Initialize(this, GetFrameSinkManager()->surface_manager(),
                        output_surface_provider->enable_shared_image());
 
@@ -133,15 +139,22 @@ void HardwareRendererViz::OnViz::DrawAndSwapOnViz(
     const gfx::Size& frame_size,
     const viz::SurfaceId& child_id,
     float device_scale_factor,
-    const gfx::ColorSpace& color_space) {
+    const gfx::ColorSpace& color_space,
+    ChildFrame* child_frame) {
   TRACE_EVENT1("android_webview", "HardwareRendererViz::DrawAndSwap",
                "child_id", child_id.ToString());
   DCHECK_CALLED_ON_VALID_THREAD(viz_thread_checker_);
   DCHECK(child_id.is_valid());
+  DCHECK(child_frame);
 
-  gfx::ColorSpace display_color_space =
-      color_space.IsValid() ? color_space : gfx::ColorSpace::CreateSRGB();
-  display_->SetColorSpace(display_color_space);
+  if (child_frame->frame) {
+    DCHECK(!viz_frame_submission_);
+    without_gpu_->SubmitChildCompositorFrame(child_frame);
+  }
+
+  gfx::DisplayColorSpaces display_color_spaces(
+      color_space.IsValid() ? color_space : gfx::ColorSpace::CreateSRGB());
+  display_->SetDisplayColorSpaces(display_color_spaces);
 
   // Create a frame with a single SurfaceDrawQuad referencing the child
   // Surface and transformed using the given transform.
@@ -202,12 +215,12 @@ void HardwareRendererViz::OnViz::DrawAndSwapOnViz(
   without_gpu_->support()->SubmitCompositorFrame(
       root_id_allocation_.local_surface_id(), std::move(frame));
   display_->Resize(viewport);
-  display_->DrawAndSwap();
+  display_->DrawAndSwap(base::TimeTicks::Now());
 }
 
 void HardwareRendererViz::OnViz::PostDrawOnViz(
     viz::FrameTimingDetailsMap* timing_details) {
-  *timing_details = without_gpu_->support()->TakeFrameTimingDetailsMap();
+  *timing_details = without_gpu_->TakeChildFrameTimingDetailsMap();
 }
 
 viz::FrameSinkManagerImpl* HardwareRendererViz::OnViz::GetFrameSinkManager() {
@@ -320,7 +333,7 @@ void HardwareRendererViz::DrawAndSwap(HardwareRendererDrawParams* params) {
       base::BindOnce(&HardwareRendererViz::OnViz::DrawAndSwapOnViz,
                      base::Unretained(on_viz_.get()), viewport, clip, transform,
                      viewport, surface_id_, device_scale_factor_,
-                     params->color_space));
+                     params->color_space, child_frame_.get()));
 
   output_surface_provider_.gl_surface()->MaybeDidPresent(
       gfx::PresentationFeedback(base::TimeTicks::Now(), base::TimeDelta(),
@@ -333,12 +346,11 @@ void HardwareRendererViz::DrawAndSwap(HardwareRendererDrawParams* params) {
                      base::Unretained(on_viz_.get()), &timing_details));
 
   if (need_to_update_draw_constraints || !timing_details.empty()) {
-    // We don't have client surface |frame_token| here, so we pass 0 for it and
-    // empty FrameSinkId. |frame_token| will be reported through the
-    // FrameSinkManager and the other use of FrameSinkId is on old BeginFrame
-    // path that will be different for viz.
+    // |frame_token| will be reported through the FrameSinkManager so we pass 0
+    // here.
     render_thread_manager_->PostParentDrawDataToChildCompositorOnRT(
-        draw_constraints, viz::FrameSinkId(), std::move(timing_details), 0);
+        draw_constraints, child_frame_->frame_sink_id,
+        std::move(timing_details), 0);
   }
 }
 

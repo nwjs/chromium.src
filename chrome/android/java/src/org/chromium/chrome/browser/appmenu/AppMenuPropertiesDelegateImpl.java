@@ -23,8 +23,8 @@ import androidx.annotation.Nullable;
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.ObservableSupplier;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeSwitches;
@@ -248,12 +248,16 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                             && hasMoreThanOneTab);
 
             // Don't allow either "chrome://" pages or interstitial pages to be shared.
-            menu.findItem(R.id.share_row_menu_id)
-                    .setVisible(
-                            !isChromeScheme && !((TabImpl) currentTab).isShowingInterstitialPage());
+            boolean isChromeOrInterstitialPage =
+                    isChromeScheme || ((TabImpl) currentTab).isShowingInterstitialPage();
+            menu.findItem(R.id.share_row_menu_id).setVisible(!isChromeOrInterstitialPage);
 
             ShareHelper.configureDirectShareMenuItem(
                     mContext, menu.findItem(R.id.direct_share_menu_id));
+
+            menu.findItem(R.id.paint_preview_capture_id)
+                    .setVisible(FeatureUtilities.isPaintPreviewTestEnabled()
+                            && !isChromeOrInterstitialPage && !isIncognito);
 
             // Disable find in page on the native NTP.
             menu.findItem(R.id.find_in_page_id)

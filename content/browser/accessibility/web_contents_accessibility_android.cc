@@ -312,6 +312,8 @@ class WebContentsAccessibilityAndroid::Connector
             WebContentsAccessibilityAndroid* accessibility);
   ~Connector() override;
 
+  void DeleteEarly();
+
   // RenderWidgetHostConnector:
   void UpdateRenderProcessConnection(
       RenderWidgetHostViewAndroid* old_rwhva,
@@ -335,6 +337,10 @@ WebContentsAccessibilityAndroid::Connector::~Connector() {
       accessibility_->web_contents_->GetRootBrowserAccessibilityManager());
   if (manager)
     manager->set_web_contents_accessibility(nullptr);
+}
+
+void WebContentsAccessibilityAndroid::Connector::DeleteEarly() {
+  RenderWidgetHostConnector::DestroyEarly();
 }
 
 void WebContentsAccessibilityAndroid::Connector::UpdateRenderProcessConnection(
@@ -369,6 +375,10 @@ WebContentsAccessibilityAndroid::~WebContentsAccessibilityAndroid() {
   DeleteAutofillPopupProxy();
 
   Java_WebContentsAccessibilityImpl_onNativeObjectDestroyed(env, obj);
+}
+
+void WebContentsAccessibilityAndroid::DeleteEarly(JNIEnv* env) {
+  connector_->DeleteEarly();
 }
 
 jboolean WebContentsAccessibilityAndroid::IsEnabled(
@@ -1056,9 +1066,9 @@ jboolean WebContentsAccessibilityAndroid::NextAtGranularity(
   if (root_manager_->NextAtGranularity(granularity, cursor_index, node,
                                        &start_index, &end_index)) {
     base::string16 text = node->GetInnerText();
-    Java_WebContentsAccessibilityImpl_finishGranularityMove(
+    Java_WebContentsAccessibilityImpl_finishGranularityMoveNext(
         env, obj, base::android::ConvertUTF16ToJavaString(env, text),
-        extend_selection, start_index, end_index, true);
+        extend_selection, start_index, end_index);
     return true;
   }
   return false;
@@ -1122,10 +1132,10 @@ jboolean WebContentsAccessibilityAndroid::PreviousAtGranularity(
   int end_index = -1;
   if (root_manager_->PreviousAtGranularity(granularity, cursor_index, node,
                                            &start_index, &end_index)) {
-    Java_WebContentsAccessibilityImpl_finishGranularityMove(
+    Java_WebContentsAccessibilityImpl_finishGranularityMovePrevious(
         env, obj,
         base::android::ConvertUTF16ToJavaString(env, node->GetInnerText()),
-        extend_selection, start_index, end_index, false);
+        extend_selection, start_index, end_index);
     return true;
   }
   return false;

@@ -28,6 +28,7 @@
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_paths.h"
+#include "extensions/common/file_util.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/switches.h"
 #include "extensions/common/value_builder.h"
@@ -106,10 +107,20 @@ class MockSandboxedUnpackerClient : public SandboxedUnpackerClient {
     deleted_tracker_ = deleted_tracker;
   }
 
+  void set_should_compute_hashes(bool should_compute_hashes) {
+    should_compute_hashes_ = should_compute_hashes;
+  }
+
  private:
   ~MockSandboxedUnpackerClient() override {
     if (deleted_tracker_)
       *deleted_tracker_ = true;
+  }
+
+  void ShouldComputeHashesForOffWebstoreExtension(
+      scoped_refptr<const Extension> extension,
+      base::OnceCallback<void(bool)> callback) override {
+    std::move(callback).Run(should_compute_hashes_);
   }
 
   void OnUnpackSuccess(
@@ -132,6 +143,7 @@ class MockSandboxedUnpackerClient : public SandboxedUnpackerClient {
   base::OnceClosure quit_closure_;
   base::FilePath temp_dir_;
   bool* deleted_tracker_ = nullptr;
+  bool should_compute_hashes_ = false;
 };
 
 class SandboxedUnpackerTest : public ExtensionsTest {
@@ -253,8 +265,7 @@ class SandboxedUnpackerTest : public ExtensionsTest {
     sandboxed_unpacker_->extension_root_ = path;
   }
 
-  base::DictionaryValue* RewriteManifestFile(
-      const base::DictionaryValue& manifest) {
+  base::Optional<base::Value> RewriteManifestFile(const base::Value& manifest) {
     return sandboxed_unpacker_->RewriteManifestFile(manifest);
   }
 
@@ -433,7 +444,7 @@ TEST_F(SandboxedUnpackerTest, TestRewriteManifestInjections) {
                       FILE_PATH_LITERAL("manifest.fingerprint")),
                   fingerprint.c_str(),
                   base::checked_cast<int>(fingerprint.size()));
-  std::unique_ptr<base::DictionaryValue> manifest(RewriteManifestFile(
+  base::Optional<base::Value> manifest(RewriteManifestFile(
       *DictionaryBuilder().Set(kVersionStr, kTestVersion).Build()));
   auto* key = manifest->FindStringKey("key");
   auto* version = manifest->FindStringKey(kVersionStr);
@@ -525,6 +536,24 @@ TEST_F(SandboxedUnpackerTest, ImageDecoderFails) {
       static_cast<int>(SandboxedUnpackerFailureReason::
                            UTILITY_PROCESS_CRASHED_WHILE_TRYING_TO_INSTALL),
       GetInstallErrorDetail());
+}
+
+TEST_F(SandboxedUnpackerTest, NoComputeHashes) {
+  client_->set_should_compute_hashes(false);
+  SetupUnpacker("good_package.crx", "");
+  EXPECT_TRUE(InstallSucceeded());
+  EXPECT_TRUE(GetInstallErrorMessage().empty());
+  EXPECT_FALSE(
+      base::PathExists(file_util::GetComputedHashesPath(GetInstallPath())));
+}
+
+TEST_F(SandboxedUnpackerTest, ComputeHashes) {
+  client_->set_should_compute_hashes(true);
+  SetupUnpacker("good_package.crx", "");
+  EXPECT_TRUE(InstallSucceeded());
+  EXPECT_TRUE(GetInstallErrorMessage().empty());
+  EXPECT_TRUE(
+      base::PathExists(file_util::GetComputedHashesPath(GetInstallPath())));
 }
 
 // SandboxedUnpacker is ref counted and is reference by callbacks and

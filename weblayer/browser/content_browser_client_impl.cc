@@ -12,15 +12,18 @@
 #include "base/path_service.h"
 #include "base/stl_util.h"
 #include "build/build_config.h"
+#include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/embedder_support/switches.h"
+#include "components/safe_browsing/core/features.h"
 #include "components/security_interstitials/content/ssl_cert_reporter.h"
 #include "components/security_interstitials/content/ssl_error_navigation_throttle.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/devtools_manager_delegate.h"
 #include "content/public/browser/generated_code_cache_settings.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/network_service_instance.h"
-#include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/common/user_agent.h"
@@ -31,18 +34,22 @@
 #include "services/network/network_service.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
-#include "storage/browser/quota/quota_settings.h"
+#include "services/service_manager/public/cpp/binder_map.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "weblayer/browser/browser_main_parts_impl.h"
+#include "weblayer/browser/browser_process.h"
 #include "weblayer/browser/i18n_util.h"
 #include "weblayer/browser/profile_impl.h"
 #include "weblayer/browser/ssl_error_handler.h"
+#include "weblayer/browser/system_network_context_manager.h"
 #include "weblayer/browser/tab_impl.h"
+#include "weblayer/browser/weblayer_browser_interface_binders.h"
 #include "weblayer/browser/weblayer_content_browser_overlay_manifest.h"
 #include "weblayer/common/features.h"
+#include "weblayer/public/common/switches.h"
 #include "weblayer/public/fullscreen_delegate.h"
 #include "weblayer/public/main.h"
 
@@ -122,6 +129,15 @@ ContentBrowserClientImpl::CreateBrowserMainParts(
   return browser_main_parts;
 }
 
+void ContentBrowserClientImpl::AppendExtraCommandLineSwitches(
+    base::CommandLine* command_line,
+    int child_process_id) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWebLayerFakePermissions)) {
+    command_line->AppendSwitch(switches::kWebLayerFakePermissions);
+  }
+}
+
 std::string ContentBrowserClientImpl::GetApplicationLocale() {
   return i18n::GetApplicationLocale();
 }
@@ -175,9 +191,8 @@ blink::UserAgentMetadata ContentBrowserClientImpl::GetUserAgentMetadata() {
   metadata.full_version = version_info::GetVersionNumber();
   metadata.major_version = version_info::GetMajorVersionNumber();
   metadata.platform = version_info::GetOSType();
-
-  metadata.architecture = "";
-  metadata.model = "";
+  metadata.architecture = content::BuildCpuInfo();
+  metadata.model = content::BuildModelInfo();
 
   return metadata;
 }
@@ -236,6 +251,16 @@ void ContentBrowserClientImpl::OnNetworkServiceCreated(
   network::mojom::CryptConfigPtr config = network::mojom::CryptConfig::New();
   content::GetNetworkService()->SetCryptConfig(std::move(config));
 #endif
+
+  // Create SystemNetworkContextManager if it has not been created yet. We need
+  // to set up global NetworkService state before anything else uses it and this
+  // is the first opportunity to initialize SystemNetworkContextManager with the
+  // NetworkService.
+  if (!SystemNetworkContextManager::HasInstance())
+    SystemNetworkContextManager::CreateInstance(GetUserAgent());
+
+  SystemNetworkContextManager::GetInstance()->OnNetworkServiceCreated(
+      network_service);
 }
 
 std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
@@ -251,7 +276,7 @@ ContentBrowserClientImpl::CreateURLLoaderThrottles(
       IsSafebrowsingSupported()) {
 #if defined(OS_ANDROID)
     result.push_back(GetSafeBrowsingService()->CreateURLLoaderThrottle(
-        browser_context->GetResourceContext(), wc_getter, frame_tree_node_id));
+        wc_getter, frame_tree_node_id));
 #endif
   }
 
@@ -288,6 +313,11 @@ bool ContentBrowserClientImpl::CanCreateWindow(
     return false;
   }
 
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          embedder_support::kDisablePopupBlocking)) {
+    return true;
+  }
+
   // WindowOpenDisposition has a *ton* of types, but the following are really
   // the only ones that should be hit for this code path.
   switch (disposition) {
@@ -314,6 +344,19 @@ ContentBrowserClientImpl::CreateThrottlesForNavigation(
   throttles.push_back(std::make_unique<SSLErrorNavigationThrottle>(
       handle, std::make_unique<SSLCertReporterImpl>(),
       base::BindOnce(&HandleSSLError), base::BindOnce(&IsInHostedApp)));
+
+#if defined(OS_ANDROID)
+  if (handle->IsInMainFrame()) {
+    if (base::FeatureList::IsEnabled(features::kWebLayerSafeBrowsing) &&
+        base::FeatureList::IsEnabled(
+            safe_browsing::kCommittedSBInterstitials) &&
+        IsSafebrowsingSupported()) {
+      throttles.push_back(
+          GetSafeBrowsingService()->CreateSafeBrowsingNavigationThrottle(
+              handle));
+    }
+  }
+#endif
   return throttles;
 }
 
@@ -326,6 +369,21 @@ ContentBrowserClientImpl::GetGeneratedCodeCacheSettings(
   // disk_cache::PreferredCacheSize in net/disk_cache/cache_util.cc.
   return content::GeneratedCodeCacheSettings(
       true, 0, ProfileImpl::GetCachePath(context));
+}
+
+bool ContentBrowserClientImpl::BindAssociatedReceiverFromFrame(
+    content::RenderFrameHost* render_frame_host,
+    const std::string& interface_name,
+    mojo::ScopedInterfaceEndpointHandle* handle) {
+  if (interface_name == autofill::mojom::AutofillDriver::Name_) {
+    autofill::ContentAutofillDriverFactory::BindAutofillDriver(
+        mojo::PendingAssociatedReceiver<autofill::mojom::AutofillDriver>(
+            std::move(*handle)),
+        render_frame_host);
+    return true;
+  }
+
+  return false;
 }
 
 void ContentBrowserClientImpl::ExposeInterfacesToRenderer(
@@ -349,13 +407,10 @@ void ContentBrowserClientImpl::ExposeInterfacesToRenderer(
 #endif  // defined(OS_ANDROID)
 }
 
-void ContentBrowserClientImpl::GetQuotaSettings(
-    content::BrowserContext* context,
-    content::StoragePartition* partition,
-    base::OnceCallback<void(base::Optional<storage::QuotaSettings>)> callback) {
-  storage::GetNominalDynamicSettings(
-      partition->GetPath(), context->IsOffTheRecord(),
-      storage::GetDefaultDeviceInfoHelper(), std::move(callback));
+void ContentBrowserClientImpl::RegisterBrowserInterfaceBindersForFrame(
+    content::RenderFrameHost* render_frame_host,
+    service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
+  PopulateWebLayerFrameBinders(render_frame_host, map);
 }
 
 #if defined(OS_ANDROID)

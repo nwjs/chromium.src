@@ -46,6 +46,7 @@ class PrefRegistrySimple;
 class PrefService;
 class Profile;
 class TokenHandleFetcher;
+class TurnSyncOnHelper;
 
 namespace base {
 class CommandLine;
@@ -447,7 +448,7 @@ class UserSessionManager
   void ActivateWizard(OobeScreenId screen);
 
   // Adds first-time login URLs.
-  void InitializeStartUrls() const;
+  void InitializeStartUrls(Profile* profile) const;
 
   // Perform session initialization and either move to additional login flows
   // such as TOS (public sessions), priority pref sync UI (new users) or
@@ -659,6 +660,8 @@ class UserSessionManager
   std::unique_ptr<U2FNotification> u2f_notification_;
 
   std::unique_ptr<ReleaseNotesNotification> release_notes_notification_;
+
+  std::unique_ptr<TurnSyncOnHelper> turn_sync_on_helper_;
 
   base::WeakPtrFactory<UserSessionManager> weak_factory_{this};
 

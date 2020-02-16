@@ -16,6 +16,7 @@ namespace blink {
 class CSSLayoutDefinition;
 class CustomLayoutConstraintsOptions;
 class CustomLayoutToken;
+class ExceptionState;
 
 // Represents a "CSS box" for use by a web developer. This is passed into the
 // web developer defined layout and intrinsicSizes functions so that they can
@@ -32,6 +33,7 @@ class CustomLayoutChild : public ScriptWrappable {
 
   // LayoutChild.idl
   PrepopulatedComputedStylePropertyMap* styleMap() const { return style_map_; }
+  ScriptPromise intrinsicSizes(ScriptState*, ExceptionState&);
   ScriptPromise layoutNextFragment(ScriptState*,
                                    const CustomLayoutConstraintsOptions*,
                                    ExceptionState&);

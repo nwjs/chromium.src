@@ -118,18 +118,16 @@ base::string16 StampUniqueSuffix(const char* base_str) {
 // Describes which renderer IDs are expected for username/password fields
 // identified in a PasswordForm.
 struct ParseResultIds {
-  uint32_t username_id = FormFieldData::kNotSetFormControlRendererId;
-  uint32_t password_id = FormFieldData::kNotSetFormControlRendererId;
-  uint32_t new_password_id = FormFieldData::kNotSetFormControlRendererId;
-  uint32_t confirmation_password_id =
-      FormFieldData::kNotSetFormControlRendererId;
+  uint32_t username_id = FormData::kNotSetRendererId;
+  uint32_t password_id = FormData::kNotSetRendererId;
+  uint32_t new_password_id = FormData::kNotSetRendererId;
+  uint32_t confirmation_password_id = FormData::kNotSetRendererId;
 
   bool IsEmpty() const {
-    return username_id == FormFieldData::kNotSetFormControlRendererId &&
-           password_id == FormFieldData::kNotSetFormControlRendererId &&
-           new_password_id == FormFieldData::kNotSetFormControlRendererId &&
-           confirmation_password_id ==
-               FormFieldData::kNotSetFormControlRendererId;
+    return username_id == FormData::kNotSetRendererId &&
+           password_id == FormData::kNotSetRendererId &&
+           new_password_id == FormData::kNotSetRendererId &&
+           confirmation_password_id == FormData::kNotSetRendererId;
   }
 };
 
@@ -138,7 +136,7 @@ struct ParseResultIds {
 void UpdateResultWithIdByRole(ParseResultIds* result,
                               uint32_t id,
                               ElementRole role) {
-  constexpr uint32_t kUnassigned = FormFieldData::kNotSetFormControlRendererId;
+  constexpr uint32_t kUnassigned = FormData::kNotSetRendererId;
   switch (role) {
     case ElementRole::NONE:
       // Nothing to update.
@@ -240,7 +238,7 @@ FormData GetFormDataAndExpectation(const FormParsingTestCase& test_case,
 
 // Check that |fields| has a field with unique renderer ID |renderer_id| which
 // has the name |element_name| and value |*element_value|. If |renderer_id| is
-// FormFieldData::kNotSetFormControlRendererId, then instead check that
+// FormData::kNotSetRendererId, then instead check that
 // |element_name| and |*element_value| are empty. Set |element_kind| to identify
 // the type of the field in logging: 'username', 'password', etc. The argument
 // |element_value| can be null, in which case all checks involving it are
@@ -254,7 +252,7 @@ void CheckField(const std::vector<FormFieldData>& fields,
   SCOPED_TRACE(testing::Message("Looking for element of kind ")
                << element_kind);
 
-  if (renderer_id == FormFieldData::kNotSetFormControlRendererId) {
+  if (renderer_id == FormData::kNotSetRendererId) {
     EXPECT_EQ(base::string16(), element_name);
     if (element_value)
       EXPECT_EQ(base::string16(), *element_value);
@@ -361,7 +359,6 @@ void CheckTestData(const std::vector<FormParsingTestCase>& test_cases) {
       } else {
         ASSERT_TRUE(parsed_form) << "Expected successful parsing";
         EXPECT_EQ(PasswordForm::Scheme::kHtml, parsed_form->scheme);
-        EXPECT_FALSE(parsed_form->preferred);
         EXPECT_FALSE(parsed_form->blacklisted_by_user);
         EXPECT_EQ(PasswordForm::Type::kManual, parsed_form->type);
 #if defined(OS_IOS)
@@ -961,6 +958,41 @@ TEST(FormParserTest, TestAutocomplete) {
                    .autocomplete_attribute = "current-password",
                    .form_control_type = "password"},
               },
+      },
+  });
+}
+
+// Checks that fields with "one-time-code" autocomplete attribute are
+// not parsed as usernames or passwords.
+TEST(FormParserTest, SkippingFieldsWithOTPAutocomplete) {
+  CheckTestData({
+      {
+          .description_for_logging =
+              "The only password field marked as OTP in autocomplete",
+          .fields =
+              {
+                  {.role = ElementRole::USERNAME,
+                   .autocomplete_attribute = "username",
+                   .form_control_type = "text"},
+                  {.role = ElementRole::CURRENT_PASSWORD,
+                   .autocomplete_attribute = "one-time-code",
+                   .form_control_type = "password"},
+              },
+          .fallback_only = true,
+      },
+      {
+          .description_for_logging = "Non-OTP fields are considered",
+          .fields =
+              {
+                  {.role = ElementRole::USERNAME, .form_control_type = "text"},
+                  {.autocomplete_attribute = "one-time-code",
+                   .form_control_type = "text"},
+                  {.autocomplete_attribute = "one-time-code",
+                   .form_control_type = "password"},
+                  {.role = ElementRole::CURRENT_PASSWORD,
+                   .form_control_type = "password"},
+              },
+          .number_of_all_possible_passwords = 2,
       },
   });
 }
@@ -1711,6 +1743,44 @@ TEST(FormParserTest, CVC) {
           .fallback_only = true,
       },
   });
+}
+
+// The parser should avoid identifying Social Security number and
+// one time password fields as passwords.
+TEST(FormParserTest, SSN_and_OTP) {
+  for (const char* field_name :
+       {"SocialSecurityNumber", "OneTimePassword", "SMS-token"}) {
+    CheckTestData({
+        {
+            .description_for_logging = "Field name matches the SSN/OTP pattern,"
+                                       "Ignore that one.",
+            .fields =
+                {
+                    {.role = ElementRole::USERNAME,
+                     .form_control_type = "text"},
+                    {.name = field_name, .form_control_type = "password"},
+                    {.role = ElementRole::CURRENT_PASSWORD,
+                     .form_control_type = "password"},
+                },
+            // The result should be trusted for more than just fallback, because
+            // there is an actual password field present.
+            .fallback_only = false,
+        },
+        {
+            .description_for_logging = "Create a fallback for the only password"
+                                       "field being an SSN/OTP field",
+            .fields =
+                {
+                    {.role = ElementRole::USERNAME,
+                     .form_control_type = "text"},
+                    {.role = ElementRole::CURRENT_PASSWORD,
+                     .name = field_name,
+                     .form_control_type = "password"},
+                },
+            .fallback_only = true,
+        },
+    });
+  }
 }
 
 // The parser should avoid identifying NOT_PASSWORD fields as passwords.

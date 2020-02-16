@@ -19,7 +19,7 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 
@@ -59,7 +59,7 @@ public class DisplayCutoutController implements InsetObserverView.WindowInsetObs
         }
 
         @Override
-        public void onInteractabilityChanged(boolean interactable) {
+        public void onInteractabilityChanged(Tab tab, boolean interactable) {
             // Force a layout update if the tab is now in the foreground.
             maybeUpdateLayout();
         }

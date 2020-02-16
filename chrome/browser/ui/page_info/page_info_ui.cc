@@ -14,11 +14,11 @@
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_result.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/permissions/permission_result.h"
+#include "components/permissions/permission_util.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/security_interstitials/core/common_string_util.h"
 #include "components/strings/grit/components_chromium_strings.h"
@@ -43,7 +43,7 @@
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
-#include "components/safe_browsing/password_protection/password_protection_service.h"
+#include "components/safe_browsing/content/password_protection/password_protection_service.h"
 #endif
 
 namespace {
@@ -170,7 +170,7 @@ base::span<const PermissionsUIInfo> GetContentSettingsUIInfo() {
 #endif
     {ContentSettingsType::ADS, IDS_PAGE_INFO_TYPE_ADS},
     {ContentSettingsType::SOUND, IDS_PAGE_INFO_TYPE_SOUND},
-    {ContentSettingsType::CLIPBOARD_READ, IDS_PAGE_INFO_TYPE_CLIPBOARD},
+    {ContentSettingsType::CLIPBOARD_READ_WRITE, IDS_PAGE_INFO_TYPE_CLIPBOARD},
     {ContentSettingsType::SENSORS,
      base::FeatureList::IsEnabled(features::kGenericSensorExtraClasses)
          ? IDS_PAGE_INFO_TYPE_SENSORS
@@ -184,6 +184,8 @@ base::span<const PermissionsUIInfo> GetContentSettingsUIInfo() {
     {ContentSettingsType::BLUETOOTH_SCANNING,
      IDS_PAGE_INFO_TYPE_BLUETOOTH_SCANNING},
     {ContentSettingsType::NFC, IDS_PAGE_INFO_TYPE_NFC},
+    {ContentSettingsType::VR, IDS_PAGE_INFO_TYPE_VR},
+    {ContentSettingsType::AR, IDS_PAGE_INFO_TYPE_AR},
   };
   return kPermissionsUIInfo;
 }
@@ -460,15 +462,15 @@ base::string16 PageInfoUI::PermissionDecisionReasonToUIString(
   }
 
   if (permission.setting == CONTENT_SETTING_BLOCK &&
-      PermissionUtil::IsPermission(permission.type)) {
-    PermissionResult permission_result =
+      permissions::PermissionUtil::IsPermission(permission.type)) {
+    permissions::PermissionResult permission_result =
         PermissionManager::Get(profile)->GetPermissionStatus(permission.type,
                                                              url, url);
     switch (permission_result.source) {
-      case PermissionStatusSource::MULTIPLE_DISMISSALS:
+      case permissions::PermissionStatusSource::MULTIPLE_DISMISSALS:
         message_id = IDS_PAGE_INFO_PERMISSION_AUTOMATICALLY_BLOCKED;
         break;
-      case PermissionStatusSource::MULTIPLE_IGNORES:
+      case permissions::PermissionStatusSource::MULTIPLE_IGNORES:
         message_id = IDS_PAGE_INFO_PERMISSION_AUTOMATICALLY_BLOCKED;
         break;
       default:
@@ -607,7 +609,7 @@ const gfx::ImageSkia PageInfoUI::GetPermissionIcon(const PermissionInfo& info,
     case ContentSettingsType::SOUND:
       icon = &kVolumeUpIcon;
       break;
-    case ContentSettingsType::CLIPBOARD_READ:
+    case ContentSettingsType::CLIPBOARD_READ_WRITE:
       icon = &kPageInfoContentPasteIcon;
       break;
     case ContentSettingsType::SENSORS:
@@ -624,6 +626,10 @@ const gfx::ImageSkia PageInfoUI::GetPermissionIcon(const PermissionInfo& info,
       break;
     case ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD:
       icon = &kSaveOriginalFileIcon;
+      break;
+    case ContentSettingsType::VR:
+    case ContentSettingsType::AR:
+      icon = &kVrHeadsetIcon;
       break;
     default:
       // All other |ContentSettingsType|s do not have icons on desktop or are

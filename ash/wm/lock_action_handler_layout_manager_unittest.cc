@@ -53,8 +53,6 @@ class TestWindowDelegate : public views::WidgetDelegate {
 
   // views::WidgetDelegate:
   void DeleteDelegate() override { delete this; }
-  views::Widget* GetWidget() override { return widget_; }
-  const views::Widget* GetWidget() const override { return widget_; }
   bool CanActivate() const override { return true; }
   bool CanResize() const override { return true; }
   bool CanMaximize() const override { return true; }
@@ -63,6 +61,9 @@ class TestWindowDelegate : public views::WidgetDelegate {
   void set_widget(views::Widget* widget) { widget_ = widget; }
 
  private:
+  // views::WidgetDelegate:
+  const views::Widget* GetWidgetImpl() const override { return widget_; }
+
   views::Widget* widget_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(TestWindowDelegate);
@@ -316,7 +317,7 @@ TEST_F(LockActionHandlerLayoutManagerTest, KeyboardBounds) {
 
   // Verify that window bounds get updated when Chromevox bounds are shown (so
   // the Chromevox panel does not overlay with the action handler window).
-  ash::ShelfLayoutManager* shelf_layout_manager =
+  ShelfLayoutManager* shelf_layout_manager =
       GetPrimaryShelf()->shelf_layout_manager();
   ASSERT_TRUE(shelf_layout_manager);
 

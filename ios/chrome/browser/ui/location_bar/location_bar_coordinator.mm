@@ -31,7 +31,6 @@
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/commands/load_query_commands.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
-#import "ios/chrome/browser/ui/fullscreen/fullscreen_controller_factory.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/ui/infobars/infobar_feature.h"
 #import "ios/chrome/browser/ui/location_bar/location_bar_constants.h"
@@ -95,7 +94,7 @@ const int kLocationAuthorizationStatusCount = 5;
 @property(nonatomic, strong) OmniboxCoordinator* omniboxCoordinator;
 @property(nonatomic, strong) LocationBarMediator* mediator;
 @property(nonatomic, strong) LocationBarViewController* viewController;
-@property(nonatomic, readonly) ios::ChromeBrowserState* browserState;
+@property(nonatomic, readonly) ChromeBrowserState* browserState;
 @property(nonatomic, readonly) WebStateList* webStateList;
 
 // Tracks calls in progress to -cancelOmniboxEdit to avoid calling it from
@@ -109,7 +108,7 @@ const int kLocationAuthorizationStatusCount = 5;
 
 #pragma mark - Accessors
 
-- (ios::ChromeBrowserState*)browserState {
+- (ChromeBrowserState*)browserState {
   return self.browser ? self.browser->GetBrowserState() : nullptr;
 }
 
@@ -183,15 +182,14 @@ const int kLocationAuthorizationStatusCount = 5;
   [self.viewController setBadgeView:self.badgeViewController.view];
   [self.badgeViewController didMoveToParentViewController:self.viewController];
   // Create BadgeMediator and set the viewController as its consumer.
-  self.badgeMediator =
-      [[BadgeMediator alloc] initWithConsumer:self.badgeViewController
-                                 webStateList:self.webStateList];
+  self.badgeMediator = [[BadgeMediator alloc] initWithBrowser:self.browser];
+  self.badgeMediator.consumer = self.badgeViewController;
   self.badgeMediator.dispatcher =
       static_cast<id<InfobarCommands, BrowserCoordinatorCommands>>(
           self.dispatcher);
   buttonFactory.delegate = self.badgeMediator;
   FullscreenController* fullscreenController =
-      FullscreenControllerFactory::GetForBrowserState(self.browserState);
+      FullscreenController::FromBrowserState(self.browserState);
   _badgeFullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(
       fullscreenController, self.badgeViewController);
 
@@ -218,6 +216,7 @@ const int kLocationAuthorizationStatusCount = 5;
   [self.omniboxPopupCoordinator stop];
   [self.omniboxCoordinator stop];
   [self.badgeMediator disconnect];
+  self.badgeMediator = nil;
   _editController.reset();
 
   self.viewController = nil;
@@ -344,7 +343,6 @@ const int kLocationAuthorizationStatusCount = 5;
     [self.viewController.dispatcher focusFakebox];
   } else {
     [self.omniboxCoordinator focusOmnibox];
-    [self.omniboxPopupCoordinator presentShortcutsIfNecessary];
   }
 }
 
@@ -354,7 +352,6 @@ const int kLocationAuthorizationStatusCount = 5;
   }
   self.isCancellingOmniboxEdit = YES;
   [self.omniboxCoordinator endEditing];
-  [self.omniboxPopupCoordinator dismissShortcuts];
   self.isCancellingOmniboxEdit = NO;
 }
 

@@ -118,10 +118,9 @@ class ServiceWorkerControlleeRequestHandlerTest : public testing::Test {
 
     // An empty host.
     remote_endpoints_.emplace_back();
-    provider_host_ = CreateProviderHostForWindow(
+    container_host_ = CreateContainerHostForWindow(
         helper_->mock_render_process_id(), is_parent_frame_secure,
         helper_->context()->AsWeakPtr(), &remote_endpoints_.back());
-    container_host_ = provider_host_->container_host()->GetWeakPtr();
   }
 
   void TearDown() override {
@@ -137,7 +136,6 @@ class ServiceWorkerControlleeRequestHandlerTest : public testing::Test {
   std::unique_ptr<EmbeddedWorkerTestHelper> helper_;
   scoped_refptr<ServiceWorkerRegistration> registration_;
   scoped_refptr<ServiceWorkerVersion> version_;
-  base::WeakPtr<ServiceWorkerProviderHost> provider_host_;
   base::WeakPtr<ServiceWorkerContainerHost> container_host_;
   net::URLRequestContext url_request_context_;
   net::TestDelegate url_request_delegate_;
@@ -180,7 +178,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, Basic) {
   registration_->SetActiveVersion(version_);
   {
     base::RunLoop loop;
-    context()->storage()->StoreRegistration(
+    context()->registry()->StoreRegistration(
         registration_.get(), version_.get(),
         base::BindOnce(
             [](base::OnceClosure closure,
@@ -261,8 +259,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, DisallowServiceWorker) {
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
-  context()->storage()->StoreRegistration(registration_.get(), version_.get(),
-                                          base::DoNothing());
+  context()->registry()->StoreRegistration(registration_.get(), version_.get(),
+                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
 
   // Conduct a main resource load.
@@ -289,8 +287,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, InsecureContext) {
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
-  context()->storage()->StoreRegistration(registration_.get(), version_.get(),
-                                          base::DoNothing());
+  context()->registry()->StoreRegistration(registration_.get(), version_.get(),
+                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
 
   // Conduct a main resource load.
@@ -312,8 +310,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, ActivateWaitingVersion) {
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   version_->SetStatus(ServiceWorkerVersion::INSTALLED);
   registration_->SetWaitingVersion(version_);
-  context()->storage()->StoreRegistration(registration_.get(), version_.get(),
-                                          base::DoNothing());
+  context()->registry()->StoreRegistration(registration_.get(), version_.get(),
+                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
 
   // Conduct a main resource load.
@@ -339,7 +337,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, InstallingRegistration) {
   version_->set_fetch_handler_existence(
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   registration_->SetInstallingVersion(version_);
-  context()->storage()->NotifyInstallingRegistration(registration_.get());
+  context()->registry()->NotifyInstallingRegistration(registration_.get());
 
   // Conduct a main resource load.
   ServiceWorkerRequestTestResources test_resources(
@@ -359,15 +357,15 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, InstallingRegistration) {
 }
 
 // Test to not regress crbug/414118.
-TEST_F(ServiceWorkerControlleeRequestHandlerTest, DeletedProviderHost) {
+TEST_F(ServiceWorkerControlleeRequestHandlerTest, DeletedContainerHost) {
   // Store a registration so the call to FindRegistrationForDocument will read
   // from the database.
   version_->set_fetch_handler_existence(
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
-  context()->storage()->StoreRegistration(registration_.get(), version_.get(),
-                                          base::DoNothing());
+  context()->registry()->StoreRegistration(registration_.get(), version_.get(),
+                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
   version_ = nullptr;
   registration_ = nullptr;
@@ -380,8 +378,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, DeletedProviderHost) {
 
   // Shouldn't crash if the ProviderHost is deleted prior to completion of
   // the database lookup.
-  context()->RemoveProviderHost(provider_host_->provider_id());
-  EXPECT_FALSE(container_host_.get());
+  context()->UnregisterContainerHostByClientID(container_host_->client_uuid());
+  EXPECT_FALSE(container_host_);
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(test_resources.loader());
 }
@@ -393,7 +391,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, SkipServiceWorker) {
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
   base::RunLoop loop;
-  context()->storage()->StoreRegistration(
+  context()->registry()->StoreRegistration(
       registration_.get(), version_.get(),
       base::BindLambdaForTesting(
           [&loop](blink::ServiceWorkerStatusCode status) { loop.Quit(); }));
@@ -432,7 +430,7 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, NullContext) {
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
   base::RunLoop loop;
-  context()->storage()->StoreRegistration(
+  context()->registry()->StoreRegistration(
       registration_.get(), version_.get(),
       base::BindLambdaForTesting(
           [&loop](blink::ServiceWorkerStatusCode status) { loop.Quit(); }));
@@ -471,8 +469,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, FallbackWithOfflineHeader) {
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
-  context()->storage()->StoreRegistration(registration_.get(), version_.get(),
-                                          base::DoNothing());
+  context()->registry()->StoreRegistration(registration_.get(), version_.get(),
+                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
   version_.reset();
   registration_.reset();
@@ -492,8 +490,8 @@ TEST_F(ServiceWorkerControlleeRequestHandlerTest, FallbackWithNoOfflineHeader) {
       ServiceWorkerVersion::FetchHandlerExistence::EXISTS);
   version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
   registration_->SetActiveVersion(version_);
-  context()->storage()->StoreRegistration(registration_.get(), version_.get(),
-                                          base::DoNothing());
+  context()->registry()->StoreRegistration(registration_.get(), version_.get(),
+                                           base::DoNothing());
   base::RunLoop().RunUntilIdle();
   version_.reset();
   registration_.reset();

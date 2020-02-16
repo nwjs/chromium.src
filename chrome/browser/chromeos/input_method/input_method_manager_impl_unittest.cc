@@ -10,6 +10,7 @@
 #include <memory>
 #include <utility>
 
+#include "ash/public/cpp/ime_controller.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/compiler_specific.h"
@@ -1306,20 +1307,23 @@ TEST_F(InputMethodManagerImplTest, MigrateInputMethodTest) {
 
 TEST_F(InputMethodManagerImplTest, OverrideKeyboardUrlRefWithKeyset) {
   InitComponentExtension();
+
   const GURL inputview_url(
       "chrome-extension://"
       "inputview.html#id=us.compact.qwerty&language=en-US&passwordLayout=us."
       "compact.qwerty&name=keyboard_us");
   GetActiveIMEState()->input_view_url = inputview_url;
-  EXPECT_EQ(inputview_url, GetActiveIMEState()->GetInputViewUrl());
+  EXPECT_THAT(GetActiveIMEState()->GetInputViewUrl().spec(),
+              ::testing::StartsWith(inputview_url.spec()));
 
   // Override the keyboard url ref with 'emoji'.
   const GURL overridden_url_emoji(
       "chrome-extension://"
       "inputview.html#id=us.compact.qwerty.emoji&language=en-US&passwordLayout="
       "us.compact.qwerty&name=keyboard_us");
-  manager_->OverrideKeyboardKeyset(mojom::ImeKeyset::kEmoji);
-  EXPECT_EQ(overridden_url_emoji, GetActiveIMEState()->GetInputViewUrl());
+  manager_->OverrideKeyboardKeyset(chromeos::input_method::ImeKeyset::kEmoji);
+  EXPECT_THAT(GetActiveIMEState()->GetInputViewUrl().spec(),
+              ::testing::StartsWith(overridden_url_emoji.spec()));
 
   // Override the keyboard url ref with 'hwt'.
   GetActiveIMEState()->input_view_url = inputview_url;
@@ -1327,8 +1331,10 @@ TEST_F(InputMethodManagerImplTest, OverrideKeyboardUrlRefWithKeyset) {
       "chrome-extension://"
       "inputview.html#id=us.compact.qwerty.hwt&language=en-US&passwordLayout="
       "us.compact.qwerty&name=keyboard_us");
-  manager_->OverrideKeyboardKeyset(mojom::ImeKeyset::kHandwriting);
-  EXPECT_EQ(overridden_url_hwt, GetActiveIMEState()->GetInputViewUrl());
+  manager_->OverrideKeyboardKeyset(
+      chromeos::input_method::ImeKeyset::kHandwriting);
+  EXPECT_THAT(GetActiveIMEState()->GetInputViewUrl().spec(),
+              ::testing::StartsWith(overridden_url_hwt.spec()));
 
   // Override the keyboard url ref with 'voice'.
   GetActiveIMEState()->input_view_url = inputview_url;
@@ -1336,8 +1342,9 @@ TEST_F(InputMethodManagerImplTest, OverrideKeyboardUrlRefWithKeyset) {
       "chrome-extension://"
       "inputview.html#id=us.compact.qwerty.voice&language=en-US"
       "&passwordLayout=us.compact.qwerty&name=keyboard_us");
-  manager_->OverrideKeyboardKeyset(mojom::ImeKeyset::kVoice);
-  EXPECT_EQ(overridden_url_voice, GetActiveIMEState()->GetInputViewUrl());
+  manager_->OverrideKeyboardKeyset(chromeos::input_method::ImeKeyset::kVoice);
+  EXPECT_THAT(GetActiveIMEState()->GetInputViewUrl().spec(),
+              ::testing::StartsWith(overridden_url_voice.spec()));
 }
 
 TEST_F(InputMethodManagerImplTest, OverrideDefaultKeyboardUrlRef) {
@@ -1347,7 +1354,7 @@ TEST_F(InputMethodManagerImplTest, OverrideDefaultKeyboardUrlRef) {
 
   EXPECT_EQ(default_url, GetActiveIMEState()->GetInputViewUrl());
 
-  manager_->OverrideKeyboardKeyset(mojom::ImeKeyset::kEmoji);
+  manager_->OverrideKeyboardKeyset(chromeos::input_method::ImeKeyset::kEmoji);
   EXPECT_EQ(default_url, GetActiveIMEState()->GetInputViewUrl());
 }
 
@@ -1463,9 +1470,9 @@ TEST_F(InputMethodManagerImplTest, SetLoginDefaultWithAllowedKeyboardLayouts) {
 // Verifies that the combination of InputMethodManagerImpl and
 // ImeControllerClient sends the correct data to ash.
 TEST_F(InputMethodManagerImplTest, IntegrationWithAsh) {
-  TestImeController ime_controller;  // Mojo interface to ash.
+  TestImeController ime_controller;
   ImeControllerClient ime_controller_client(manager_.get());
-  ime_controller_client.InitForTesting(ime_controller.CreateRemote());
+  ime_controller_client.Init();
 
   // Setup 3 IMEs.
   InitComponentExtension();
@@ -1475,7 +1482,6 @@ TEST_F(InputMethodManagerImplTest, IntegrationWithAsh) {
   ids.push_back(ImeIdFromEngineId(kExt2Engine2Id));
   ids.push_back(ImeIdFromEngineId(kExt2Engine1Id));
   manager_->GetActiveIMEState()->ReplaceEnabledInputMethods(ids);
-  ime_controller_client.FlushMojoForTesting();
 
   // Ash received the IMEs.
   ASSERT_EQ(3u, ime_controller.available_imes_.size());
@@ -1483,7 +1489,6 @@ TEST_F(InputMethodManagerImplTest, IntegrationWithAsh) {
 
   // Switch to Mozc.
   manager_->GetActiveIMEState()->SwitchToNextInputMethod();
-  ime_controller_client.FlushMojoForTesting();
   EXPECT_EQ(ImeIdFromEngineId(ids[1]), ime_controller.current_ime_id_);
 
   // Lock the screen.
@@ -1492,20 +1497,17 @@ TEST_F(InputMethodManagerImplTest, IntegrationWithAsh) {
   manager_->SetState(saved_ime_state->Clone());
   manager_->GetActiveIMEState()->EnableLockScreenLayouts();
   manager_->SetUISessionState(InputMethodManager::STATE_LOCK_SCREEN);
-  ime_controller_client.FlushMojoForTesting();
   EXPECT_EQ(2u, ime_controller.available_imes_.size());  // Qwerty+Dvorak.
   EXPECT_EQ(ImeIdFromEngineId("xkb:us:dvorak:eng"),
             ime_controller.current_ime_id_);
 
   manager_->GetActiveIMEState()->SwitchToNextInputMethod();
-  ime_controller_client.FlushMojoForTesting();
   EXPECT_EQ(ImeIdFromEngineId("xkb:us::eng"),  // The hardware keyboard layout.
             ime_controller.current_ime_id_);
 
   // Unlock screen. The original state, pinyin-dv, is restored.
   manager_->SetState(saved_ime_state);
   manager_->SetUISessionState(InputMethodManager::STATE_BROWSER_SCREEN);
-  ime_controller_client.FlushMojoForTesting();
   ASSERT_EQ(3u, ime_controller.available_imes_.size());  // Dvorak and 2 IMEs.
   EXPECT_EQ(ImeIdFromEngineId(ids[1]), ime_controller.current_ime_id_);
 }

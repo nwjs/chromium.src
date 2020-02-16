@@ -142,6 +142,10 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
 
   const char* GetName() const override;
 
+  virtual const NGPhysicalBoxFragment* CurrentFragment() const {
+    return nullptr;
+  }
+
  protected:
   // Insert a child correctly into the tree when |beforeDescendant| isn't a
   // direct child of |this|. This happens e.g. when there's an anonymous block
@@ -482,6 +486,8 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
            hit_test_action == kHitTestChildBlockBackground;
   }
 
+  LayoutUnit EmptyLineBaseline(LineDirectionMode line_direction) const;
+
  private:
   LayoutObjectChildList* VirtualChildren() final { return Children(); }
   const LayoutObjectChildList* VirtualChildren() const final {
@@ -558,7 +564,6 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
                                      // in LayoutBlockRareData since they are
                                      // set too frequently.
   unsigned has_margin_after_quirk_ : 1;
-  unsigned being_destroyed_ : 1;
   unsigned has_markup_truncation_ : 1;
   unsigned width_available_to_children_changed_ : 1;
   unsigned height_available_to_children_changed_ : 1;

@@ -25,7 +25,8 @@ namespace content {
 class RenderWidgetTest : public RenderViewTest {
  protected:
   RenderWidget* widget() {
-    return static_cast<RenderViewImpl*>(view_)->GetWidget();
+    auto* view_impl = static_cast<RenderViewImpl*>(view_);
+    return view_impl->GetMainRenderFrame()->GetLocalRootRenderWidget();
   }
 
   void OnSynchronizeVisualProperties(
@@ -55,7 +56,7 @@ class RenderWidgetTest : public RenderViewTest {
 };
 
 TEST_F(RenderWidgetTest, OnSynchronizeVisualProperties) {
-  widget()->DidNavigate();
+  widget()->DidNavigate(ukm::SourceId(42), GURL(""));
   // The initial bounds is empty, so setting it to the same thing should do
   // nothing.
   VisualProperties visual_properties;

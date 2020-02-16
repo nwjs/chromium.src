@@ -5,18 +5,25 @@
 #ifndef EXTENSIONS_BROWSER_API_DECLARATIVE_NET_REQUEST_RULESET_MATCHER_BASE_H_
 #define EXTENSIONS_BROWSER_API_DECLARATIVE_NET_REQUEST_RULESET_MATCHER_BASE_H_
 
+#include <map>
 #include <vector>
 
 #include "base/optional.h"
+#include "content/public/browser/global_routing_id.h"
 #include "extensions/browser/api/declarative_net_request/flat/extension_ruleset_generated.h"
+#include "extensions/browser/api/declarative_net_request/request_action.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/extension_id.h"
 
 class GURL;
+
+namespace content {
+class RenderFrameHost;
+}  // namespace content
+
 namespace extensions {
 
 namespace declarative_net_request {
-struct RequestAction;
 struct RequestParams;
 
 // An abstract class for rule matchers. Overridden by different kinds of
@@ -28,27 +35,12 @@ class RulesetMatcherBase {
 
   virtual ~RulesetMatcherBase();
 
-  // Returns any matching RequestAction with type |BLOCK| or |COLLAPSE|, or
-  // base::nullopt if the ruleset has no matching blocking rule.
-  virtual base::Optional<RequestAction> GetBlockOrCollapseAction(
-      const RequestParams& params) const = 0;
-
-  // Returns any matching RequestAction with type |ALLOW| or base::nullopt if
-  // the ruleset has no matching allow rule.
-  virtual base::Optional<RequestAction> GetAllowAction(
-      const RequestParams& params) const = 0;
-
-  // Returns a RequestAction constructed from the matching redirect rule with
-  // the highest priority, or base::nullopt if no matching redirect rules are
-  // found for this request.
-  virtual base::Optional<RequestAction> GetRedirectAction(
-      const RequestParams& params) const = 0;
-
-  // Returns a RequestAction constructed from the matching upgrade rule with the
-  // highest priority, or base::nullopt if no matching upgrade rules are found
-  // for this request.
-  virtual base::Optional<RequestAction> GetUpgradeAction(
-      const RequestParams& params) const = 0;
+  // Returns the ruleset's highest priority matching RequestAction for the
+  // onBeforeRequest phase, or base::nullopt if the ruleset has no matching
+  // rule. Also takes into account any matching allowAllRequests rules for the
+  // ancestor frames.
+  base::Optional<RequestAction> GetBeforeRequestAction(
+      const RequestParams& params) const;
 
   // Returns the bitmask of headers to remove from the request. The bitmask
   // corresponds to flat::RemoveHeaderType. |excluded_remove_headers_mask|
@@ -70,12 +62,17 @@ class RulesetMatcherBase {
     return source_type_;
   }
 
+  void OnRenderFrameDeleted(content::RenderFrameHost* host);
+  void OnDidFinishNavigation(content::RenderFrameHost* host);
+
+  // Returns the tracked highest priority matching allowsAllRequests action, if
+  // any, for |host|.
+  base::Optional<RequestAction> GetAllowlistedFrameActionForTesting(
+      content::RenderFrameHost* host) const;
+
  protected:
   using ExtensionMetadataList =
       ::flatbuffers::Vector<flatbuffers::Offset<flat::UrlRuleMetadata>>;
-
-  // Returns true if the given request can be upgraded.
-  static bool IsUpgradeableRequest(const RequestParams& params);
 
   // Helper to create a RequestAction of type |BLOCK| or |COLLAPSE|.
   RequestAction CreateBlockOrCollapseRequestAction(
@@ -87,9 +84,14 @@ class RulesetMatcherBase {
       const RequestParams& params,
       const url_pattern_index::flat::UrlRule& rule) const;
 
+  // Helper to create a RequestAction of type |ALLOW_ALL_REQUESTS|.
+  RequestAction CreateAllowAllRequestsAction(
+      const RequestParams& params,
+      const url_pattern_index::flat::UrlRule& rule) const;
+
   // Helper to create a RequestAction of type |REDIRECT| with the request
-  // upgraded.
-  RequestAction CreateUpgradeAction(
+  // upgraded. Returns base::nullopt if the request is not upgradeable.
+  base::Optional<RequestAction> CreateUpgradeAction(
       const RequestParams& params,
       const url_pattern_index::flat::UrlRule& rule) const;
 
@@ -112,8 +114,37 @@ class RulesetMatcherBase {
       uint8_t mask) const;
 
  private:
+  // Returns the ruleset's highest priority matching allowAllRequests action or
+  // base::nullopt if there is no corresponding matching rule. Only takes into
+  // account the request |params| passed in. This doesn't take any account any
+  // matching allowAllRequests rules for ancestor frames.
+  virtual base::Optional<RequestAction> GetAllowAllRequestsAction(
+      const RequestParams& params) const = 0;
+
+  // Returns the ruleset's highest priority matching RequestAction for the
+  // onBeforeRequest phase, or base::nullopt if the ruleset has no matching
+  // rule. This doesn't take any account any matching allowAllRequests rules for
+  // ancestor frames.
+  virtual base::Optional<RequestAction> GetBeforeRequestActionIgnoringAncestors(
+      const RequestParams& params) const = 0;
+
+  RequestAction CreateRequestAction(
+      RequestAction::Type type,
+      const url_pattern_index::flat::UrlRule& rule) const;
+
+  // Returns the matching RequestAction from |allowlisted_frames_| or
+  // base::nullopt if none is found.
+  base::Optional<RequestAction> GetAllowlistedFrameAction(
+      content::GlobalFrameRoutingId frame_id) const;
+
   const ExtensionId extension_id_;
   const api::declarative_net_request::SourceType source_type_;
+
+  // Stores the IDs for the RenderFrameHosts which are allow-listed due to an
+  // allowAllRequests action and the corresponding highest priority
+  // RequestAction.
+  std::map<content::GlobalFrameRoutingId, const RequestAction>
+      allowlisted_frames_;
 
   DISALLOW_COPY_AND_ASSIGN(RulesetMatcherBase);
 };

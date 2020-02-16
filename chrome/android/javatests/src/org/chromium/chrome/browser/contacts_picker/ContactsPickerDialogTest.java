@@ -26,19 +26,20 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.blink.mojom.ContactIconBlob;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate.SelectionObserver;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.RecyclerViewTestUtils;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate.SelectionObserver;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
 import org.chromium.payments.mojom.PaymentAddress;
 import org.chromium.ui.ContactsPickerListener;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -593,8 +594,51 @@ public class ContactsPickerDialogTest
         Assert.assertEquals(31, mLastPropertiesRequested);
     }
 
-    // TODO(crbug.com/1020564): Add a test (once icons have been implemented end-to-end) that
-    //                          validates that icons are not returned when the filter chip is off.
+    @Test
+    @LargeTest
+    public void testAddressesRemoved() throws Throwable {
+        setTestContacts(/*ownerEmail=*/null);
+        createDialog(/* multiselect = */ false);
+        Assert.assertTrue(mDialog.isShowing());
+
+        toggleFilter(PickerAdapter.FilterType.ADDRESSES);
+
+        int expectedSelectionCount = 1;
+        clickView(0, expectedSelectionCount, /* expectSelection = */ true);
+        clickDone();
+
+        Assert.assertEquals(ContactsPickerAction.CONTACTS_SELECTED, mLastActionRecorded);
+        Assert.assertEquals(1, mLastSelectedContacts.size());
+        Assert.assertEquals(
+                mTestContacts.get(0).getDisplayName(), mLastSelectedContacts.get(0).names.get(0));
+        Assert.assertEquals(
+                new ArrayList<ByteBuffer>(), mLastSelectedContacts.get(0).serializedAddresses);
+        Assert.assertEquals(16, mLastPercentageShared);
+        Assert.assertEquals(31, mLastPropertiesRequested);
+    }
+
+    @Test
+    @LargeTest
+    public void testIconsRemoved() throws Throwable {
+        setTestContacts(/*ownerEmail=*/null);
+        createDialog(/* multiselect = */ false);
+        Assert.assertTrue(mDialog.isShowing());
+
+        toggleFilter(PickerAdapter.FilterType.ICONS);
+
+        int expectedSelectionCount = 1;
+        clickView(0, expectedSelectionCount, /* expectSelection = */ true);
+        clickDone();
+
+        Assert.assertEquals(ContactsPickerAction.CONTACTS_SELECTED, mLastActionRecorded);
+        Assert.assertEquals(1, mLastSelectedContacts.size());
+        Assert.assertEquals(
+                mTestContacts.get(0).getDisplayName(), mLastSelectedContacts.get(0).names.get(0));
+        Assert.assertEquals(
+                new ArrayList<ByteBuffer>(), mLastSelectedContacts.get(0).serializedIcons);
+        Assert.assertEquals(16, mLastPercentageShared);
+        Assert.assertEquals(31, mLastPropertiesRequested);
+    }
 
     @Test
     @LargeTest

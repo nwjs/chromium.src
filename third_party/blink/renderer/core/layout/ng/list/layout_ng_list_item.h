@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_NG_LIST_LAYOUT_NG_LIST_ITEM_H_
 
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/html/list_item_ordinal.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
 
@@ -19,40 +20,26 @@ class CORE_EXPORT LayoutNGListItem final : public LayoutNGBlockFlow {
   ListItemOrdinal& Ordinal() { return ordinal_; }
 
   int Value() const;
-  String MarkerTextWithSuffix() const;
-  String MarkerTextWithoutSuffix() const;
 
-  // Marker text with suffix, e.g. "1. ", for use in accessibility.
-  static String TextAlternative(const LayoutObject& marker);
-
-  LayoutObject* Marker() const { return marker_; }
-  bool IsMarkerImage() const {
-    return StyleRef().ListStyleImage() &&
-           !StyleRef().ListStyleImage()->ErrorOccurred();
+  LayoutObject* Marker() const {
+    Element* list_item = To<Element>(GetNode());
+    if (PseudoElement* marker = list_item->GetPseudoElement(kPseudoIdMarker))
+      return marker->GetLayoutObject();
+    return nullptr;
   }
 
-  void UpdateMarkerTextIfNeeded() {
-    if (marker_ && !is_marker_text_updated_ && !IsMarkerImage())
-      UpdateMarkerText();
-  }
-  void UpdateMarkerContentIfNeeded();
+  void UpdateMarkerTextIfNeeded();
 
   void OrdinalValueChanged();
   void WillCollectInlines() override;
 
-  LayoutObject* SymbolMarkerLayoutText() const;
   static const LayoutObject* FindSymbolMarkerLayoutText(const LayoutObject*);
-
-  // Find the LayoutNGListItem from a marker.
-  static LayoutNGListItem* FromMarker(const LayoutObject& marker);
-  static LayoutNGListItem* FromMarkerOrMarkerContent(const LayoutObject&);
 
   const char* GetName() const override { return "LayoutNGListItem"; }
 
  private:
   bool IsOfType(LayoutObjectType) const override;
 
-  void WillBeDestroyed() override;
   void InsertedIntoTree() override;
   void WillBeRemovedFromTree() override;
   void StyleDidChange(StyleDifference, const ComputedStyle* old_style) override;
@@ -60,21 +47,7 @@ class CORE_EXPORT LayoutNGListItem final : public LayoutNGBlockFlow {
 
   bool IsInside() const;
 
-  enum MarkerTextFormat { kWithSuffix, kWithoutSuffix };
-  enum MarkerType { kStatic, kOrdinalValue, kSymbolValue };
-  MarkerType MarkerText(StringBuilder*, MarkerTextFormat) const;
-  void UpdateMarkerText();
-  void UpdateMarkerText(LayoutText*);
-  void UpdateMarker();
-  void DestroyMarker();
-
-  void ListStyleTypeChanged();
-
   ListItemOrdinal ordinal_;
-  LayoutObject* marker_ = nullptr;
-
-  unsigned marker_type_ : 2;  // MarkerType
-  unsigned is_marker_text_updated_ : 1;
 };
 
 DEFINE_LAYOUT_OBJECT_TYPE_CASTS(LayoutNGListItem, IsLayoutNGListItem());

@@ -22,7 +22,7 @@
 SelectedKeywordView::SelectedKeywordView(LocationBarView* location_bar,
                                          const gfx::FontList& font_list,
                                          Profile* profile)
-    : IconLabelBubbleView(font_list),
+    : IconLabelBubbleView(font_list, location_bar),
       location_bar_(location_bar),
       profile_(profile) {
   full_label_.SetFontList(font_list);
@@ -34,22 +34,23 @@ SelectedKeywordView::SelectedKeywordView(LocationBarView* location_bar,
 
 SelectedKeywordView::~SelectedKeywordView() {}
 
-void SelectedKeywordView::ResetImage() {
-  SetImage(gfx::CreateVectorIcon(vector_icons::kSearchIcon,
-                                 GetLayoutConstant(LOCATION_BAR_ICON_SIZE),
-                                 GetTextColor()));
+void SelectedKeywordView::SetCustomImage(const gfx::Image& image) {
+  using_custom_image_ = !image.IsEmpty();
+  if (using_custom_image_) {
+    IconLabelBubbleView::SetImage(image.AsImageSkia());
+  } else {
+    IconLabelBubbleView::SetImage(gfx::CreateVectorIcon(
+        vector_icons::kSearchIcon, GetLayoutConstant(LOCATION_BAR_ICON_SIZE),
+        GetForegroundColor()));
+  }
 }
 
 void SelectedKeywordView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   SetLabelForCurrentWidth();
 }
 
-SkColor SelectedKeywordView::GetTextColor() const {
+SkColor SelectedKeywordView::GetForegroundColor() const {
   return location_bar_->GetColor(OmniboxPart::LOCATION_BAR_SELECTED_KEYWORD);
-}
-
-SkColor SelectedKeywordView::GetInkDropBaseColor() const {
-  return location_bar_->GetLocationIconInkDropColor();
 }
 
 gfx::Size SelectedKeywordView::CalculatePreferredSize() const {
@@ -60,6 +61,12 @@ gfx::Size SelectedKeywordView::CalculatePreferredSize() const {
 gfx::Size SelectedKeywordView::GetMinimumSize() const {
   // Height will be ignored by the LocationBarView.
   return GetSizeForLabelWidth(0);
+}
+
+void SelectedKeywordView::OnThemeChanged() {
+  IconLabelBubbleView::OnThemeChanged();
+  if (!using_custom_image_)
+    SetCustomImage(gfx::Image());
 }
 
 void SelectedKeywordView::SetKeyword(const base::string16& keyword) {
@@ -76,9 +83,9 @@ void SelectedKeywordView::SetKeyword(const base::string16& keyword) {
   const base::string16 short_name =
       model->GetKeywordShortName(keyword, &is_extension_keyword);
   const base::string16 full_name =
-      is_extension_keyword
-          ? short_name
-          : l10n_util::GetStringFUTF16(IDS_OMNIBOX_KEYWORD_TEXT_MD, short_name);
+      is_extension_keyword ? short_name
+                           : l10n_util::GetStringFUTF16(
+                                 IDS_OMNIBOX_KEYWORD_TEXT_MD, short_name);
   full_label_.SetText(full_name);
   partial_label_.SetText(short_name);
 

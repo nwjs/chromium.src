@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.signin;
 
-import android.accounts.Account;
 import android.support.test.filters.MediumTest;
 
 import org.junit.After;
@@ -20,8 +19,8 @@ import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
 import org.chromium.components.signin.AccountIdProvider;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.ChromeSigninController;
-import org.chromium.components.signin.identitymanager.CoreAccountId;
-import org.chromium.components.signin.identitymanager.CoreAccountInfo;
+import org.chromium.components.signin.base.CoreAccountId;
+import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.IdentityMutator;
 import org.chromium.components.signin.test.util.AccountHolder;
@@ -45,14 +44,16 @@ public class IdentityManagerIntegrationTest {
     @Rule
     public AccountManagerTestRule mAccountManagerTestRule = new AccountManagerTestRule();
 
-    private static final Account TEST_ACCOUNT1 =
-            AccountManagerFacade.createAccountFromName("foo@gmail.com");
-    private static final Account TEST_ACCOUNT2 =
-            AccountManagerFacade.createAccountFromName("bar@gmail.com");
+    private static final String TEST_ACCOUNT1 = "foo@gmail.com";
+    private static final String TEST_ACCOUNT2 = "bar@gmail.com";
     private static final AccountHolder TEST_ACCOUNT_HOLDER_1 =
-            AccountHolder.builder(TEST_ACCOUNT1).alwaysAccept(true).build();
+            AccountHolder.builder(AccountManagerFacade.createAccountFromName(TEST_ACCOUNT1))
+                    .alwaysAccept(true)
+                    .build();
     private static final AccountHolder TEST_ACCOUNT_HOLDER_2 =
-            AccountHolder.builder(TEST_ACCOUNT2).alwaysAccept(true).build();
+            AccountHolder.builder(AccountManagerFacade.createAccountFromName(TEST_ACCOUNT2))
+                    .alwaysAccept(true)
+                    .build();
 
     private CoreAccountInfo mTestAccount1;
     private CoreAccountInfo mTestAccount2;
@@ -78,8 +79,9 @@ public class IdentityManagerIntegrationTest {
             seedAccountTrackerService();
 
             // Get a reference to the service.
-            mIdentityMutator = IdentityServicesProvider.getSigninManager().getIdentityMutator();
-            mIdentityManager = IdentityServicesProvider.getIdentityManager();
+            mIdentityMutator =
+                    IdentityServicesProvider.get().getSigninManager().getIdentityMutator();
+            mIdentityManager = IdentityServicesProvider.get().getIdentityManager();
         });
     }
 
@@ -87,7 +89,6 @@ public class IdentityManagerIntegrationTest {
     public void tearDown() {
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> { mIdentityMutator.reloadAllAccountsFromSystemWithPrimaryAccount(null); });
-        SigninHelper.resetSharedPrefs();
         SigninTestUtil.resetSigninState();
     }
 
@@ -110,19 +111,19 @@ public class IdentityManagerIntegrationTest {
     private void initializeTestAccounts() {
         AccountIdProvider provider = AccountIdProvider.getInstance();
 
-        String account1Id = provider.getAccountId(TEST_ACCOUNT1.name);
+        String account1Id = provider.getAccountId(TEST_ACCOUNT1);
         mTestAccount1 =
                 new CoreAccountInfo(new CoreAccountId(account1Id), TEST_ACCOUNT1, account1Id);
-        String account2Id = provider.getAccountId(TEST_ACCOUNT2.name);
+        String account2Id = provider.getAccountId(TEST_ACCOUNT2);
         mTestAccount2 =
                 new CoreAccountInfo(new CoreAccountId(account2Id), TEST_ACCOUNT2, account2Id);
     }
 
     private void seedAccountTrackerService() {
         AccountIdProvider provider = AccountIdProvider.getInstance();
-        String[] accountNames = {mTestAccount1.getName(), mTestAccount2.getName()};
+        String[] accountNames = {mTestAccount1.getEmail(), mTestAccount2.getEmail()};
         String[] accountIds = {mTestAccount1.getGaiaId(), mTestAccount2.getGaiaId()};
-        IdentityServicesProvider.getAccountTrackerService().syncForceRefreshForTest(
+        IdentityServicesProvider.get().getAccountTrackerService().syncForceRefreshForTest(
                 accountIds, accountNames);
     }
 

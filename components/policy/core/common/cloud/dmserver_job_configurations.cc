@@ -61,8 +61,6 @@ const char* JobTypeToRequestType(
     case DeviceManagementService::JobConfiguration::
         TYPE_ACTIVE_DIRECTORY_PLAY_ACTIVITY:
       return dm_protocol::kValueRequestActiveDirectoryPlayActivity;
-    case DeviceManagementService::JobConfiguration::TYPE_REQUEST_LICENSE_TYPES:
-      return dm_protocol::kValueRequestCheckDeviceLicense;
     case DeviceManagementService::JobConfiguration::
         TYPE_UPLOAD_APP_INSTALL_REPORT:
       return dm_protocol::kValueRequestAppInstallReport;
@@ -275,7 +273,9 @@ RegistrationJobConfiguration::RegistrationJobConfiguration(
                                oauth_token,
                                std::move(callback)) {}
 
-void RegistrationJobConfiguration::OnBeforeRetry() {
+void RegistrationJobConfiguration::OnBeforeRetry(
+    int response_code,
+    const std::string& response_body) {
   // If the initial request managed to get to the server but the response
   // didn't arrive at the client then retrying with the same client ID will
   // fail. Set the re-registration flag so that the server accepts it.

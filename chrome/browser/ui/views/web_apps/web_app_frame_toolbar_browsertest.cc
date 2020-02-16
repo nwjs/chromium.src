@@ -6,16 +6,23 @@
 
 #include <cmath>
 
+#include "base/optional.h"
+#include "base/run_loop.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/web_apps/web_app_frame_toolbar_view.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/page_zoom.h"
+#include "content/public/test/browser_test_utils.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/view.h"
@@ -27,6 +34,57 @@ namespace {
 // Keep in sync with browser_non_client_frame_view_mac.mm
 constexpr double kTitlePaddingWidthFraction = 0.1;
 #endif
+
+class LoadCompletedWaiter : public content::WebContentsObserver {
+ public:
+  explicit LoadCompletedWaiter(content::WebContents* web_contents)
+      : content::WebContentsObserver(web_contents) {}
+  ~LoadCompletedWaiter() override = default;
+
+  void Wait() {
+    if (observed_)
+      return;
+
+    run_loop_.Run();
+  }
+
+ private:
+  // content::WebContentsObserver:
+  void DocumentOnLoadCompletedInMainFrame() override {
+    observed_ = true;
+    if (run_loop_.running())
+      run_loop_.Quit();
+  }
+
+  bool observed_ = false;
+  base::RunLoop run_loop_;
+};
+
+class ThemeChangeWaiter : public content::WebContentsObserver {
+ public:
+  explicit ThemeChangeWaiter(content::WebContents* web_contents)
+      : content::WebContentsObserver(web_contents) {}
+  ~ThemeChangeWaiter() override = default;
+
+  void Wait() {
+    if (observed_)
+      return;
+
+    run_loop_.Run();
+  }
+
+ private:
+  // content::WebContentsObserver:
+  void DidChangeThemeColor() override {
+    observed_ = true;
+
+    if (run_loop_.running())
+      run_loop_.Quit();
+  }
+
+  bool observed_ = false;
+  base::RunLoop run_loop_;
+};
 
 }  // namespace
 
@@ -139,6 +197,50 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   // button retains its full width.
   EXPECT_EQ(page_action_icon_container->width(), 0);
   EXPECT_EQ(menu_button->width(), original_menu_button_width);
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, ThemeChange) {
+  ASSERT_TRUE(https_server()->Start());
+  const GURL app_url = https_server()->GetURL("/banners/theme-color.html");
+  InstallAndLaunchWebApp(app_url);
+
+  content::WebContents* web_contents =
+      app_browser()->tab_strip_model()->GetActiveWebContents();
+  LoadCompletedWaiter waiter(web_contents);
+  if (!web_contents->IsDocumentOnLoadCompletedInMainFrame())
+    waiter.Wait();
+
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS)
+  // Avoid dependence on Linux GTK+ Themes appearance setting.
+  return;
+#endif
+
+  ToolbarButtonProvider* const toolbar_button_provider =
+      browser_view()->toolbar_button_provider();
+  AppMenuButton* const app_menu_button =
+      toolbar_button_provider->GetAppMenuButton();
+
+  const SkColor original_ink_drop_color =
+      app_menu_button->GetInkDropBaseColor();
+
+  {
+    ThemeChangeWaiter theme_change_waiter(web_contents);
+    EXPECT_TRUE(content::ExecJs(web_contents,
+                                "document.getElementById('theme-color')."
+                                "setAttribute('content', '#246')"));
+    theme_change_waiter.Wait();
+
+    EXPECT_NE(app_menu_button->GetInkDropBaseColor(), original_ink_drop_color);
+  }
+
+  {
+    ThemeChangeWaiter theme_change_waiter(web_contents);
+    EXPECT_TRUE(content::ExecJs(
+        web_contents, "document.getElementById('theme-color').remove()"));
+    theme_change_waiter.Wait();
+
+    EXPECT_EQ(app_menu_button->GetInkDropBaseColor(), original_ink_drop_color);
+  }
 }
 
 // Test that a tooltip is shown when hovering over a truncated title.

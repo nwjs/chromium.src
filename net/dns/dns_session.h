@@ -13,6 +13,7 @@
 #include "base/lazy_instance.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/bucket_ranges.h"
 #include "base/time/time.h"
 #include "net/base/net_export.h"
@@ -101,6 +102,10 @@ class NET_EXPORT_PRIVATE DnsSession : public base::RefCounted<DnsSession> {
   // Returns the number of DoH servers with successful probe states.
   unsigned NumAvailableDohServers();
 
+  // TODO(b/1022059): Remove once all server stats are moved to ResolveContext.
+  base::Time GetLastDohFailure(size_t server_index);
+  int GetLastDohFailureCount(size_t server_index);
+
   // Record that server failed to respond (due to SRV_FAIL or timeout). If
   // |is_doh_server| and the number of failures has surpassed a threshold,
   // sets the DoH probe state to unavailable.
@@ -135,6 +140,10 @@ class NET_EXPORT_PRIVATE DnsSession : public base::RefCounted<DnsSession> {
   std::unique_ptr<StreamSocket> CreateTCPSocket(unsigned server_index,
                                                 const NetLogSource& source);
 
+  base::WeakPtr<DnsSession> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
  private:
   friend class base::RefCounted<DnsSession>;
   struct ServerStats;
@@ -168,6 +177,9 @@ class NET_EXPORT_PRIVATE DnsSession : public base::RefCounted<DnsSession> {
   base::TimeDelta initial_timeout_;
   base::TimeDelta max_timeout_;
 
+  // TODO(crbug.com/1022059): Move all handling of ServerStats (both for DoH and
+  // non-DoH) to ResolveContext.
+
   // Track runtime statistics of each insecure DNS server.
   std::vector<std::unique_ptr<ServerStats>> server_stats_;
 
@@ -179,6 +191,8 @@ class NET_EXPORT_PRIVATE DnsSession : public base::RefCounted<DnsSession> {
     RttBuckets();
   };
   static base::LazyInstance<RttBuckets>::Leaky rtt_buckets_;
+
+  base::WeakPtrFactory<DnsSession> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(DnsSession);
 };

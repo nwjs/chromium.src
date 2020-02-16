@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/common/extensions/extension_constants.h"
+
 #include "base/macros.h"
 #include "build/build_config.h"
-#include "chrome/common/extensions/extension_constants.h"
+#include "extensions/common/constants.h"
 
 namespace extension_urls {
 
@@ -77,13 +79,12 @@ const char* const kBuiltInFirstPartyExtensionIds[] = {
     kAutoclickExtensionId,
     kSelectToSpeakExtensionId,
     kSwitchAccessExtensionId,
+    kFilesManagerAppId,
     kFirstRunDialogId,
     kEspeakSpeechSynthesisExtensionId,
     kGoogleSpeechSynthesisExtensionId,
     kWallpaperManagerId,
     kZipArchiverExtensionId,
-    kChromeCameraAppId,
-    kChromeCameraAppDevId,
 #endif        // defined(OS_CHROMEOS)
     nullptr,  // Null-terminated array.
 };
@@ -117,10 +118,7 @@ const char kGoogleSpeechSynthesisExtensionId[] =
 const char kWallpaperManagerId[] = "obklkkbkpaoaejdabbfldmcfplpdgolj";
 const char kZipArchiverExtensionId[] = "dmboannefpncccogfdikhmhpmdnddgoe";
 const char kZipArchiverExtensionPath[] = "chromeos/zip_archiver";
-const char kChromeCameraAppId[] = "hfhhnacclhffhdffklopdkcgdhifgngh";
-const char kChromeCameraAppDevId[] = "flgnmkgjffmkephdokeeliiopbjaafpm";
-const char kChromeCameraAppPath[] = "chromeos/camera";
-
+const char kCameraAppPath[] = "chromeos/camera";
 #endif  // defined(CHROME_OS)
 
 const char kAppStateNotInstalled[] = "not_installed";

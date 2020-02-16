@@ -39,7 +39,8 @@ class ScopedClipboardWriter;
 // - specifies an ordering in which to write types to the clipboard
 //   (see PortableFormat).
 // - is generalized for all targets/operating systems.
-class COMPONENT_EXPORT(BASE_CLIPBOARD) Clipboard : public base::ThreadChecker {
+class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) Clipboard
+    : public base::ThreadChecker {
  public:
   static bool IsSupportedClipboardBuffer(ClipboardBuffer buffer) {
     switch (buffer) {
@@ -108,9 +109,18 @@ class COMPONENT_EXPORT(BASE_CLIPBOARD) Clipboard : public base::ThreadChecker {
   // Clear the clipboard data.
   virtual void Clear(ClipboardBuffer buffer) = 0;
 
+  // TODO(huangdarwin): Refactor ReadAvailableTypes to return |types|.
+  // TODO(huangdarwin): Rename to ReadAvailablePortableFormatNames().
+  // Includes all sanitized types.
+  // Also, includes pickled types by splitting them out of the pickled format.
   virtual void ReadAvailableTypes(ClipboardBuffer buffer,
                                   std::vector<base::string16>* types,
                                   bool* contains_filenames) const = 0;
+  // Includes all types, including unsanitized types.
+  // Omits formats held within pickles, as they're different from what a native
+  // application would see.
+  virtual std::vector<base::string16> ReadAvailablePlatformSpecificFormatNames(
+      ClipboardBuffer buffer) const = 0;
 
   // Reads Unicode text from the clipboard, if available.
   virtual void ReadText(ClipboardBuffer buffer,

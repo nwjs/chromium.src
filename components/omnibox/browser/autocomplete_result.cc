@@ -145,8 +145,7 @@ void AutocompleteResult::TransferOldMatches(
   old_matches->BuildProviderToMatchesMove(&old_matches_per_provider);
   for (ProviderToMatches::iterator i = old_matches_per_provider.begin();
        i != old_matches_per_provider.end(); ++i) {
-    MergeMatchesByProvider(input.current_page_classification(), &i->second,
-                           matches_per_provider[i->first]);
+    MergeMatchesByProvider(&i->second, matches_per_provider[i->first]);
   }
 
   SortAndCull(input, template_url_service);
@@ -205,7 +204,7 @@ void AutocompleteResult::SortAndCull(
   MaybeCullTailSuggestions(&matches_, comparing_object);
 #endif
 
-  DeduplicateMatches(input.current_page_classification(), &matches_);
+  DeduplicateMatches(&matches_);
 
   // Sort and trim to the most relevant GetMaxMatches() matches.
   std::sort(matches_.begin(), matches_.end(), comparing_object);
@@ -247,8 +246,7 @@ void AutocompleteResult::SortAndCull(
                                                  matches_, comparing_object);
   matches_.resize(num_matches);
 
-  if (OmniboxFieldTrial::IsGroupSuggestionsBySearchVsUrlFeatureEnabled() &&
-      matches_.size() > 2) {
+  if (matches_.size() > 2) {
     // Skip over default match.
     auto next = std::next(matches_.begin());
     // If it has submatches, skip them too.
@@ -382,6 +380,27 @@ void AutocompleteResult::AppendDedicatedPedalMatches(
   }
 }
 
+void AutocompleteResult::ConvertInSuggestionPedalMatches(
+    AutocompleteProviderClient* client) {
+  const OmniboxPedalProvider* provider = client->GetPedalProvider();
+  // Used to ensure we keep only one Pedal of each kind.
+  std::unordered_set<OmniboxPedal*> pedals_found;
+  for (auto& match : matches_) {
+    // Skip matches that will not show Pedal because they already
+    // have a tab match or associated keyword.  Also skip matches
+    // that have already detected their Pedal.
+    if (match.has_tab_match || match.associated_keyword || match.pedal)
+      continue;
+
+    OmniboxPedal* const pedal = provider->FindPedalMatch(match.contents);
+    if (pedal) {
+      const auto result = pedals_found.insert(pedal);
+      if (result.second)
+        match.pedal = pedal;
+    }
+  }
+}
+
 void AutocompleteResult::ConvertOpenTabMatches(
     AutocompleteProviderClient* client,
     const AutocompleteInput* input) {
@@ -487,23 +506,20 @@ ACMatches::const_iterator AutocompleteResult::FindTopMatch(
 ACMatches::iterator AutocompleteResult::FindTopMatch(
     const AutocompleteInput& input,
     ACMatches* matches) {
-  // The matches may be sorted by type-demoted relevance. If we want to choose
-  // the highest-relevance, allowed-to-be-default match while ignoring type
-  // demotion, as we do when IsPreserveDefaultMatchScoreEnabled is true, we need
-  // to explicitly find the highest relevance match rather than just accepting
-  // the first allowed-to-be-default match in the list.
+  // The matches may be sorted by type-demoted relevance. We want to choose the
+  // highest-relevance, allowed-to-be-default match while ignoring type demotion
+  // in order to explicitly find the highest relevance match rather than just
+  // accepting the first allowed-to-be-default match in the list.
   // The goal of this behavior is to ensure that in situations where the user
   // expects to see a commonly visited URL as the default match, the URL is not
   // suppressed by type demotion.
-  // However, even if IsPreserveDefaultMatchScoreEnabled is true, we don't care
-  // about this URL behavior when the user is using the fakebox, which is
-  // intended to work more like a search-only box. Unless the user's input is a
-  // URL in which case we still want to ensure they can get a URL as the default
-  // match.
+  // However, we don't care about this URL behavior when the user is using the
+  // fakebox, which is intended to work more like a search-only box. Unless the
+  // user's input is a URL in which case we still want to ensure they can get a
+  // URL as the default match.
   if ((input.current_page_classification() !=
            OmniboxEventProto::INSTANT_NTP_WITH_FAKEBOX_AS_STARTING_FOCUS ||
-       input.type() == metrics::OmniboxInputType::URL) &&
-      OmniboxFieldTrial::IsPreserveDefaultMatchScoreEnabled()) {
+       input.type() == metrics::OmniboxInputType::URL)) {
     auto best = matches->end();
     for (auto it = matches->begin(); it != matches->end(); ++it) {
       if (it->allowed_to_be_default_match && !it->IsSubMatch() &&
@@ -613,9 +629,7 @@ GURL AutocompleteResult::ComputeAlternateNavUrl(
              : GURL();
 }
 
-void AutocompleteResult::DeduplicateMatches(
-    metrics::OmniboxEventProto::PageClassification page_classification,
-    ACMatches* matches) {
+void AutocompleteResult::DeduplicateMatches(ACMatches* matches) {
   // Group matches by stripped URL and whether it's a calculator suggestion.
   std::unordered_map<std::pair<GURL, bool>, std::vector<ACMatches::iterator>,
                      MatchGURLHash>
@@ -824,10 +838,8 @@ void AutocompleteResult::BuildProviderToMatchesMove(
     (*provider_to_matches)[match.provider].push_back(std::move(match));
 }
 
-void AutocompleteResult::MergeMatchesByProvider(
-    metrics::OmniboxEventProto::PageClassification page_classification,
-    ACMatches* old_matches,
-    const ACMatches& new_matches) {
+void AutocompleteResult::MergeMatchesByProvider(ACMatches* old_matches,
+                                                const ACMatches& new_matches) {
   if (new_matches.size() >= old_matches->size())
     return;
 

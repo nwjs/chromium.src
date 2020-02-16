@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_length_utils.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_out_of_flow_layout_part.h"
+#include "third_party/blink/renderer/core/paint/ng/ng_box_fragment_painter.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 
 namespace blink {
@@ -28,6 +29,34 @@ LayoutNGMixin<Base>::LayoutNGMixin(Element* element) : Base(element) {
 
 template <typename Base>
 LayoutNGMixin<Base>::~LayoutNGMixin() = default;
+
+template <typename Base>
+void LayoutNGMixin<Base>::Paint(const PaintInfo& paint_info) const {
+  // Avoid painting dirty objects because descendants maybe already destroyed.
+  if (UNLIKELY(Base::NeedsLayout() &&
+               !Base::LayoutBlockedByDisplayLock(
+                   DisplayLockLifecycleTarget::kChildren))) {
+    NOTREACHED();
+    return;
+  }
+
+  if (const NGPhysicalBoxFragment* fragment = CurrentFragment())
+    NGBoxFragmentPainter(*fragment).Paint(paint_info);
+}
+
+// The current fragment from the last layout cycle for this box.
+// When pre-NG layout calls functions of this block flow, fragment and/or
+// LayoutResult are required to compute the result.
+// TODO(kojii): Use the cached result for now, we may need to reconsider as the
+// cache evolves.
+template <typename Base>
+const NGPhysicalBoxFragment* LayoutNGMixin<Base>::CurrentFragment() const {
+  const NGLayoutResult* cached_layout_result = Base::GetCachedLayoutResult();
+  if (!cached_layout_result)
+    return nullptr;
+
+  return &To<NGPhysicalBoxFragment>(cached_layout_result->PhysicalFragment());
+}
 
 template <typename Base>
 bool LayoutNGMixin<Base>::IsOfType(LayoutObject::LayoutObjectType type) const {
@@ -79,8 +108,7 @@ void LayoutNGMixin<Base>::UpdateOutOfFlowBlockLayout() {
                                                 : Base::ContainingBlock();
   const ComputedStyle* container_style = container->Style();
   NGConstraintSpace constraint_space =
-      NGConstraintSpace::CreateFromLayoutObject(*this,
-                                                false /* is_layout_root */);
+      NGConstraintSpace::CreateFromLayoutObject(*this);
 
   // As this is part of the Legacy->NG bridge, the container_builder is used
   // for indicating the resolved size of the OOF-positioned containing-block
@@ -188,6 +216,29 @@ void LayoutNGMixin<Base>::UpdateOutOfFlowBlockLayout() {
   }
   DCHECK_EQ(fragment.Children()[0]->GetLayoutObject(), this);
   Base::SetIsLegacyInitiatedOutOfFlowLayout(true);
+}
+
+template <typename Base>
+scoped_refptr<const NGLayoutResult>
+LayoutNGMixin<Base>::UpdateInFlowBlockLayout() {
+  const auto* previous_result = Base::GetCachedLayoutResult();
+  bool is_layout_root = !Base::View()->GetLayoutState()->Next();
+
+  // If we are a layout root, use the previous space if available. This will
+  // include any stretched sizes if applicable.
+  NGConstraintSpace constraint_space =
+      is_layout_root && previous_result
+          ? previous_result->GetConstraintSpaceForCaching()
+          : NGConstraintSpace::CreateFromLayoutObject(*this);
+
+  scoped_refptr<const NGLayoutResult> result =
+      NGBlockNode(this).Layout(constraint_space);
+
+  for (const auto& descendant :
+       result->PhysicalFragment().OutOfFlowPositionedDescendants())
+    descendant.node.UseLegacyOutOfFlowPositioning();
+
+  return result;
 }
 
 template class CORE_TEMPLATE_EXPORT LayoutNGMixin<LayoutBlock>;

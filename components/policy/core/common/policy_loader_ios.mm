@@ -44,13 +44,13 @@ NSString* const kEncodedChromePolicyKey = @"EncodedChromePolicy";
 // Helper that observes notifications for NSUserDefaults and triggers an update
 // at the loader on the right thread.
 @interface PolicyNotificationObserver : NSObject {
-  base::Closure callback_;
-  scoped_refptr<base::SequencedTaskRunner> taskRunner_;
+  base::RepeatingClosure _callback;
+  scoped_refptr<base::SequencedTaskRunner> _taskRunner;
 }
 
 // Designated initializer. |callback| will be posted to |taskRunner| whenever
 // the NSUserDefaults change.
-- (id)initWithCallback:(const base::Closure&)callback
+- (id)initWithCallback:(const base::RepeatingClosure&)callback
             taskRunner:(scoped_refptr<base::SequencedTaskRunner>)taskRunner;
 
 // Invoked when the NSUserDefaults change.
@@ -62,11 +62,11 @@ NSString* const kEncodedChromePolicyKey = @"EncodedChromePolicy";
 
 @implementation PolicyNotificationObserver
 
-- (id)initWithCallback:(const base::Closure&)callback
+- (id)initWithCallback:(const base::RepeatingClosure&)callback
             taskRunner:(scoped_refptr<base::SequencedTaskRunner>)taskRunner {
   if ((self = [super init])) {
-    callback_ = callback;
-    taskRunner_ = taskRunner;
+    _callback = callback;
+    _taskRunner = taskRunner;
     [[NSNotificationCenter defaultCenter]
         addObserver:self
            selector:@selector(userDefaultsChanged:)
@@ -79,7 +79,7 @@ NSString* const kEncodedChromePolicyKey = @"EncodedChromePolicy";
 - (void)userDefaultsChanged:(NSNotification*)notification {
   // This may be invoked on any thread. Post the |callback_| to the loader's
   // |taskRunner_| to make sure it Reloads() on the right thread.
-  taskRunner_->PostTask(FROM_HERE, callback_);
+  _taskRunner->PostTask(FROM_HERE, _callback);
 }
 
 - (void)dealloc {
@@ -102,8 +102,8 @@ PolicyLoaderIOS::~PolicyLoaderIOS() {
 
 void PolicyLoaderIOS::InitOnBackgroundThread() {
   DCHECK(task_runner()->RunsTasksInCurrentSequence());
-  base::Closure callback = base::Bind(&PolicyLoaderIOS::UserDefaultsChanged,
-                                      weak_factory_.GetWeakPtr());
+  base::RepeatingClosure callback = base::BindRepeating(
+      &PolicyLoaderIOS::UserDefaultsChanged, weak_factory_.GetWeakPtr());
   notification_observer_.reset(
       [[PolicyNotificationObserver alloc] initWithCallback:callback
                                                 taskRunner:task_runner()]);

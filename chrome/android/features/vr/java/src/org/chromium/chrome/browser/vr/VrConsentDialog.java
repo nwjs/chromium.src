@@ -16,8 +16,8 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
-import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
@@ -32,8 +32,8 @@ import org.chromium.ui.modelutil.PropertyModel;
 public class VrConsentDialog
         extends WebContentsObserver implements ModalDialogProperties.Controller {
     @NativeMethods
-    /* package */ interface VrConsentUiHelperImpl {
-        void onUserConsentResult(long nativeGvrConsentHelperImpl, boolean allowed);
+    /* package */ interface VrConsentUiHelper {
+        void onUserConsentResult(long nativeGvrConsentHelper, boolean allowed);
     }
 
     private ModalDialogManager mModalDialogManager;
@@ -65,15 +65,21 @@ public class VrConsentDialog
         return dialog;
     }
 
-    @VisibleForTesting
-    protected void onUserGesture(boolean allowed) {
-        VrConsentDialogJni.get().onUserConsentResult(mNativeInstance, allowed);
+    @CalledByNative
+    private void onNativeDestroy() {
+        mNativeInstance = 0;
+        mModalDialogManager.dismissAllDialogs(DialogDismissalCause.UNKNOWN);
     }
 
-    @Override
-    public void didStartNavigation(NavigationHandle navigationHandle) {
-        mModalDialogManager.dismissAllDialogs(DialogDismissalCause.UNKNOWN);
-        onUserGesture(false);
+    @VisibleForTesting
+    protected void onUserGesture(boolean allowed) {
+        if (mNativeInstance != 0) {
+            VrConsentDialogJni.get().onUserConsentResult(mNativeInstance, allowed);
+        }
+    }
+
+    private static String bulletedString(Resources resources, int id) {
+        return resources.getString(R.string.xr_consent_bullet, resources.getString(id));
     }
 
     public void show(@NonNull ChromeActivity activity, @NonNull VrConsentListener listener) {
@@ -82,18 +88,21 @@ public class VrConsentDialog
         Resources resources = activity.getResources();
 
         String dialogTitle = resources.getString(R.string.xr_consent_dialog_title,
-                UrlFormatter.formatUrlForSecurityDisplayOmitScheme(mUrl));
+                UrlFormatter.formatUrlForSecurityDisplay(mUrl, SchemeDisplay.OMIT_HTTP_AND_HTTPS));
 
-        String dialogBody = resources.getString(R.string.xr_consent_dialog_description_default);
+        String dialogBody =
+                resources.getString(R.string.xr_consent_dialog_description_default) + "\n";
         switch (mConsentLevel) {
             case XrConsentPromptLevel.VR_FLOOR_PLAN:
-                dialogBody += resources.getString(
+                dialogBody += bulletedString(resources,
                                       R.string.xr_consent_dialog_description_physical_features)
-                        + resources.getString(R.string.xr_consent_dialog_description_floor_plan);
+                        + "\n"
+                        + bulletedString(
+                                resources, R.string.xr_consent_dialog_description_floor_plan);
                 break;
             case XrConsentPromptLevel.VR_FEATURES:
-                dialogBody += resources.getString(
-                        R.string.xr_consent_dialog_description_physical_features);
+                dialogBody += bulletedString(
+                        resources, R.string.xr_consent_dialog_description_physical_features);
                 break;
             case XrConsentPromptLevel.DEFAULT:
             default:
@@ -126,7 +135,10 @@ public class VrConsentDialog
 
     @Override
     public void onDismiss(PropertyModel model, int dismissalCause) {
-        if (dismissalCause == DialogDismissalCause.UNKNOWN) return;
+        if (dismissalCause == DialogDismissalCause.UNKNOWN) {
+            mListener.onUserConsent(false);
+            return;
+        }
 
         if (dismissalCause == DialogDismissalCause.POSITIVE_BUTTON_CLICKED) {
             mListener.onUserConsent(true);

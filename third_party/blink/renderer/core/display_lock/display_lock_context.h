@@ -176,13 +176,35 @@ class CORE_EXPORT DisplayLockContext final
   // from and activatable by a specified reason. Note that passing
   // kAny will return true if the lock is activatable for any
   // reason.
+  //
+  // Important note: This returns the correct value even if the context is not
+  // currently locked. The implications of this is that the value returned here
+  // may depend on the method the context was unlocked. For example, in an
+  // attribute version activation we set the attribute to an empty string,
+  // making this value be true for all reasons. With a CSS version, however, we
+  // set |activated_| to true, but retain the style hence IsActivatable values
+  // don't change on activation. This is important since with a CSS version, we
+  // re-lock elements that have kViewport activatability and thus need to know
+  // if kViewport activatability is present even if activation has happened. To
+  // put this differently, the value returned here should always be consistent
+  // with either the current value of the attribute or the current value of the
+  // CSS property that generated this context; the UA can change the attribute
+  // value, but it cannot change the CSS property value, hence we observe the
+  // above behavior.
+  //
+  // In the common case, if the caller needs to know whether to activate the
+  // context, it should check whether the context is, in fact, locked in
+  // addition to this activatability check.
   bool IsActivatable(DisplayLockActivationReason reason) const;
 
   // Trigger commit because of activation from tab order, url fragment,
   // find-in-page, scrolling, etc.
   // This issues a before activate signal with the given element as the
   // activated element.
-  void CommitForActivationWithSignal(Element* activated_element);
+  // The reason is specified for metrics.
+  void CommitForActivationWithSignal(
+      Element* activated_element,
+      DisplayLockActivationReason reason_for_metrics);
 
   bool ShouldCommitForActivation(DisplayLockActivationReason reason) const;
 
@@ -260,7 +282,7 @@ class CORE_EXPORT DisplayLockContext final
   // Note that this returns true if there is no context at all, so in order to
   // check whether this is strictly an attribute version, as opposed to a null
   // context, one needs to compare context with nullptr first.
-  static bool IsAttributeVersion(DisplayLockContext* context) {
+  static bool IsAttributeVersion(const DisplayLockContext* context) {
     return !context ||
            context->GetMethod() == DisplayLockContextCreateMethod::kAttribute;
   }
@@ -415,7 +437,9 @@ class CORE_EXPORT DisplayLockContext final
   uint16_t activatable_mask_ =
       static_cast<uint16_t>(DisplayLockActivationReason::kAny);
 
-  bool is_activated_ = false;
+  // State that tracks whether we've been activated. Note that this is only
+  // valid for CSS version of render-subtree.
+  bool css_is_activated_ = false;
 
   DisplayLockContextCreateMethod method_ =
       DisplayLockContextCreateMethod::kUnknown;

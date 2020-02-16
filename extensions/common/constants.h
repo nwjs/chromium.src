@@ -30,6 +30,9 @@ extern const base::FilePath::CharType kLocaleFolder[];
 // The name of the messages file inside an extension.
 extern const base::FilePath::CharType kMessagesFilename[];
 
+// The name of the gzipped messages file inside an extension.
+extern const base::FilePath::CharType kGzippedMessagesFilename[];
+
 // The base directory for subdirectories with platform-specific code.
 extern const base::FilePath::CharType kPlatformSpecificFolder[];
 
@@ -196,6 +199,9 @@ extern const char kMimeHandlerPrivateTestExtensionId[];
 
 // The extension id of the Camera application.
 extern const char kCameraAppId[];
+
+// The extension id of the devoloper version of Camera application.
+extern const char kCameraAppDevId[];
 
 // The extension id of the Chrome component application.
 extern const char kChromeAppId[];

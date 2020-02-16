@@ -24,6 +24,7 @@
 
 #include "third_party/blink/renderer/core/html/forms/html_label_element.h"
 
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -87,7 +88,7 @@ HTMLElement* HTMLLabelElement::control() const {
 
 HTMLFormElement* HTMLLabelElement::form() const {
   if (HTMLElement* control = this->control()) {
-    if (auto* form_control_element = ToHTMLFormControlElementOrNull(control))
+    if (auto* form_control_element = DynamicTo<HTMLFormControlElement>(control))
       return form_control_element->Form();
     if (control->IsFormAssociatedCustomElement())
       return control->EnsureElementInternals().Form();
@@ -203,7 +204,7 @@ void HTMLLabelElement::DefaultEventHandler(Event& evt) {
       // so do not focus the control element.
       if (!is_label_text_selected) {
         element->focus(FocusParams(SelectionBehaviorOnFocus::kRestore,
-                                   kWebFocusTypeMouse, nullptr));
+                                   mojom::blink::FocusType::kMouse, nullptr));
       }
     }
 
@@ -236,7 +237,7 @@ void HTMLLabelElement::focus(const FocusParams& params) {
     return;
   }
 
-  if (params.type == blink::kWebFocusTypeAccessKey)
+  if (params.type == blink::mojom::blink::FocusType::kAccessKey)
     return;
 
   // To match other browsers, always restore previous selection.

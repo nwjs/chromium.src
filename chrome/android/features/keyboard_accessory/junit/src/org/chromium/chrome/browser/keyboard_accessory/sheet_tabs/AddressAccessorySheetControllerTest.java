@@ -38,7 +38,7 @@ import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.task.test.CustomShadowAsyncTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.JniMocker;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.keyboard_accessory.AccessoryTabType;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.AccessorySheetData;
@@ -132,7 +132,7 @@ public class AddressAccessorySheetControllerTest {
         final PropertyProvider<AccessorySheetData> testProvider = new PropertyProvider<>();
         final AccessorySheetData testData =
                 new AccessorySheetData(AccessoryTabType.ADDRESSES, "Addresses for this site", "");
-        testData.getUserInfoList().add(new UserInfo("", null));
+        testData.getUserInfoList().add(new UserInfo("", false));
         testData.getUserInfoList().get(0).addField(
                 new UserInfoField("Name", "Name", "", false, null));
         testData.getUserInfoList().get(0).addField(
@@ -160,7 +160,7 @@ public class AddressAccessorySheetControllerTest {
         assertThat(mSheetDataPieces.get(0).getDataPiece(), is(equalTo("No addresses")));
 
         // As soon UserInfo is available, discard the title.
-        testData.getUserInfoList().add(new UserInfo("", null));
+        testData.getUserInfoList().add(new UserInfo("", false));
         testData.getUserInfoList().get(0).addField(
                 new UserInfoField("Name", "Name", "", false, null));
         testData.getUserInfoList().get(0).addField(
@@ -204,7 +204,7 @@ public class AddressAccessorySheetControllerTest {
         // Add only two interactive items - the third one should not be recorded.
         AccessorySheetData accessorySheetData =
                 new AccessorySheetData(AccessoryTabType.ADDRESSES, "Addresses", "");
-        accessorySheetData.getUserInfoList().add(new UserInfo("", null));
+        accessorySheetData.getUserInfoList().add(new UserInfo("", false));
         accessorySheetData.getUserInfoList().get(0).addField(
                 new UserInfoField("Todd Tester", "Todd Tester", "0", false, result -> {}));
         accessorySheetData.getUserInfoList().get(0).addField(

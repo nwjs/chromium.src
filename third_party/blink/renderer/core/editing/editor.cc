@@ -26,7 +26,6 @@
 
 #include "third_party/blink/renderer/core/editing/editor.h"
 
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/clipboard/data_object.h"
 #include "third_party/blink/renderer/core/clipboard/data_transfer.h"
@@ -612,7 +611,8 @@ void Editor::CountEvent(ExecutionContext* execution_context,
 }
 
 void Editor::CopyImage(const HitTestResult& result) {
-  WriteImageNodeToClipboard(*result.InnerNodeOrImageMapImage(),
+  WriteImageNodeToClipboard(*frame_->GetSystemClipboard(),
+                            *result.InnerNodeOrImageMapImage(),
                             result.AltDisplayString());
 }
 
@@ -634,13 +634,13 @@ void Editor::Redo() {
 
 void Editor::SetBaseWritingDirection(WritingDirection direction) {
   Element* focused_element = GetFrame().GetDocument()->FocusedElement();
-  if (IsTextControl(focused_element)) {
+  if (auto* text_control = ToTextControlOrNull(focused_element)) {
     if (direction == WritingDirection::kNatural)
       return;
-    focused_element->setAttribute(
+    text_control->setAttribute(
         html_names::kDirAttr,
         direction == WritingDirection::kLeftToRight ? "ltr" : "rtl");
-    focused_element->DispatchInputEvent();
+    text_control->DispatchInputEvent();
     return;
   }
 
@@ -725,7 +725,8 @@ void Editor::ComputeAndSetTypingStyle(CSSPropertyValueSet* style,
       EditingStyle::kPreserveWritingDirection);
 
   // Handle block styles, substracting these from the typing style.
-  EditingStyle* block_style = typing_style_->ExtractAndRemoveBlockProperties();
+  EditingStyle* block_style =
+      typing_style_->ExtractAndRemoveBlockProperties(GetFrame().GetDocument());
   if (!block_style->IsEmpty()) {
     DCHECK(GetFrame().GetDocument());
     MakeGarbageCollected<ApplyStyleCommand>(*GetFrame().GetDocument(),

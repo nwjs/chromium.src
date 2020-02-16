@@ -100,7 +100,16 @@ class PLATFORM_EXPORT GeometryMapper {
         return SkMatrix::MakeTrans(Translation2D().Width(),
                                    Translation2D().Height());
       }
-      return TransformationMatrix::ToSkMatrix44(Matrix());
+      return SkMatrix(TransformationMatrix::ToSkMatrix44(Matrix()));
+    }
+
+    bool operator==(const Translation2DOrMatrix& other) {
+      return translation_2d_ == other.translation_2d_ &&
+             matrix_ == other.matrix_;
+    }
+
+    bool operator!=(const Translation2DOrMatrix& other) {
+      return !(*this == other);
     }
 
    private:

@@ -100,7 +100,8 @@ class NetworkStateHandler::ActiveNetworkState {
         connection_state_(network->connection_state()),
         activation_state_(network->activation_state()),
         connect_requested_(network->connect_requested()),
-        signal_strength_(network->signal_strength()) {}
+        signal_strength_(network->signal_strength()),
+        network_technology_(network->network_technology()) {}
 
   bool MatchesNetworkState(const NetworkState* network) {
     return guid_ == network->guid() &&
@@ -108,7 +109,8 @@ class NetworkStateHandler::ActiveNetworkState {
            activation_state_ == network->activation_state() &&
            connect_requested_ == network->connect_requested() &&
            (abs(signal_strength_ - network->signal_strength()) <
-            kSignalStrengthChangeThreshold);
+            kSignalStrengthChangeThreshold) &&
+           network_technology_ == network->network_technology();
   }
 
  private:
@@ -124,6 +126,9 @@ class NetworkStateHandler::ActiveNetworkState {
   const bool connect_requested_;
   // We care about signal strength changes to active networks.
   const int signal_strength_;
+  // Network technology is indicated in network icons in the UI, so we need to
+  // track changes to this value.
+  const std::string network_technology_;
 };
 
 const char NetworkStateHandler::kDefaultCheckPortalList[] =
@@ -1368,10 +1373,9 @@ void NetworkStateHandler::UpdateNetworkServiceProperty(
   if (!changed)
     return;
 
-  // If added to a Profile, request a full update so that a NetworkState
-  // gets created.
-  bool request_update =
-      prev_profile_path.empty() && !network->profile_path().empty();
+  // If added or removed from a Profile, request a full update so that a
+  // NetworkState gets created.
+  bool request_update = prev_profile_path != network->profile_path();
   bool sort_networks = false;
   bool notify_default = network->path() == default_network_path_;
   bool notify_connection_state = false;
@@ -1408,6 +1412,7 @@ void NetworkStateHandler::UpdateNetworkServiceProperty(
   if (key == shill::kSignalStrengthProperty || key == shill::kWifiBSsid ||
       key == shill::kWifiFrequency ||
       key == shill::kWifiFrequencyListProperty ||
+      key == shill::kNetworkTechnologyProperty ||
       (key == shill::kDeviceProperty && value_str == "/")) {
     // Uninteresting update. This includes 'Device' property changes to "/"
     // (occurs before just a service is removed).
@@ -1416,9 +1421,12 @@ void NetworkStateHandler::UpdateNetworkServiceProperty(
       return;
     // Otherwise do not trigger 'default network changed'.
     notify_default = false;
-    // Notify signal strength changes for active networks.
-    if (key == shill::kSignalStrengthProperty)
+    // Notify signal strength and network technology changes for active
+    // networks.
+    if (key == shill::kSignalStrengthProperty ||
+        key == shill::kNetworkTechnologyProperty) {
       notify_active = true;
+    }
   }
 
   LogPropertyUpdated(network, key, value);
@@ -2043,8 +2051,6 @@ std::vector<std::string> NetworkStateHandler::GetTechnologiesForType(
     technologies.emplace_back(shill::kTypeWifi);
   if (type.MatchesType(shill::kTypeCellular))
     technologies.emplace_back(shill::kTypeCellular);
-  if (type.MatchesType(shill::kTypeBluetooth))
-    technologies.emplace_back(shill::kTypeBluetooth);
   if (type.MatchesType(shill::kTypeVPN))
     technologies.emplace_back(shill::kTypeVPN);
   if (type.MatchesType(kTypeTether))

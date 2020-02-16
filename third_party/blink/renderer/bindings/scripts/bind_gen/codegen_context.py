@@ -4,7 +4,10 @@
 
 import copy
 
+import web_idl
+
 from . import name_style
+from .codegen_format import NonRenderable
 from .path_manager import PathManager
 
 
@@ -20,6 +23,7 @@ class CodeGenContext(object):
 
     # "for_world" attribute values
     MAIN_WORLD = "main"
+    NON_MAIN_WORLDS = "other"
     ALL_WORLDS = "all"
 
     @classmethod
@@ -49,8 +53,13 @@ class CodeGenContext(object):
             "constructor": None,
             "constructor_group": None,
             "dict_member": None,
+            "exposed_construct": None,
             "operation": None,
             "operation_group": None,
+
+            # The names of the class being generated and its base class.
+            "base_class_name": None,
+            "class_name": None,
 
             # Main world or all worlds
             "for_world": cls.ALL_WORLDS,
@@ -69,7 +78,6 @@ class CodeGenContext(object):
             "member_like",
             "property_",
             "return_type",
-            "v8_class",
         )
 
         # Define public readonly properties of this class.
@@ -133,13 +141,15 @@ class CodeGenContext(object):
 
         for attr in self._context_attrs.iterkeys():
             value = getattr(self, attr)
-            if value is not None:
-                bindings[attr] = value
+            if value is None:
+                value = NonRenderable(attr)
+            bindings[attr] = value
 
         for attr in self._computational_attrs:
             value = getattr(self, attr)
-            if value is not None:
-                bindings[attr.strip("_")] = value
+            if value is None:
+                value = NonRenderable(attr)
+            bindings[attr.strip("_")] = value
 
         return bindings
 
@@ -161,9 +171,9 @@ class CodeGenContext(object):
     @property
     def idl_location(self):
         idl_def = self.member_like or self.idl_definition
-        if idl_def:
+        if idl_def and not isinstance(idl_def, web_idl.Union):
             location = idl_def.debug_info.location
-            text = PathManager.relpath_to_project_root(location.filepath)
+            text = location.filepath
             if location.line_number is not None:
                 text += ":{}".format(location.line_number)
             return text
@@ -187,8 +197,16 @@ class CodeGenContext(object):
     def is_return_by_argument(self):
         if self.return_type is None:
             return None
-        return_type = self.return_type.unwrap()
-        return return_type.is_dictionary or return_type.is_union
+        return self.return_type.unwrap().is_union
+
+    @property
+    def is_return_value_mutable(self):
+        if (self.attribute_get
+                and "ReflectOnly" in self.attribute.extended_attributes):
+            return True
+        if self.constructor:
+            return True
+        return False
 
     @property
     def may_throw_exception(self):
@@ -209,7 +227,8 @@ class CodeGenContext(object):
     @property
     def property_(self):
         return (self.attribute or self.constant or self.constructor_group
-                or self.dict_member or self.operation_group)
+                or self.dict_member or self.exposed_construct
+                or self.operation_group)
 
     @property
     def return_type(self):
@@ -217,15 +236,11 @@ class CodeGenContext(object):
             return self.attribute.idl_type
         if self.callback_function:
             return self.callback_function.return_type
+        if self.constructor:
+            return self.constructor.return_type
         if self.operation:
             return self.operation.return_type
         return None
-
-    @property
-    def v8_class(self):
-        if not self.idl_definition:
-            return None
-        return name_style.class_("v8", self.idl_definition.identifier)
 
 
 CodeGenContext.init()

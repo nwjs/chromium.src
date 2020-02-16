@@ -14,11 +14,6 @@ using device::BluetoothUUID;
 
 namespace content {
 namespace {
-const url::Origin kTestOrigin1 =
-    url::Origin::Create(GURL("https://www.example1.com"));
-const url::Origin kTestOrigin2 =
-    url::Origin::Create(GURL("https://www.example2.com"));
-
 const std::string kDeviceAddress1 = "00:00:00";
 const std::string kDeviceAddress2 = "11:11:11";
 
@@ -35,6 +30,15 @@ const BluetoothUUID kBatteryServiceUUID(kBatteryServiceUUIDString);
 const BluetoothUUID kBloodPressureUUID(kBloodPressureUUIDString);
 const BluetoothUUID kCyclingPowerUUID(kCyclingPowerUUIDString);
 
+// TODO(https://crbug.com/1042727): Fix test GURL scoping and remove this getter
+// function.
+url::Origin TestOrigin1() {
+  return url::Origin::Create(GURL("https://www.example1.com"));
+}
+url::Origin TestOrigin2() {
+  return url::Origin::Create(GURL("https://www.example2.com"));
+}
+
 class BluetoothAllowedDevicesTest : public testing::Test {
  protected:
   BluetoothAllowedDevicesTest() {
@@ -49,8 +53,7 @@ class BluetoothAllowedDevicesTest : public testing::Test {
 }  // namespace
 
 TEST_F(BluetoothAllowedDevicesTest, UniqueOriginNotSupported) {
-  scoped_refptr<BluetoothAllowedDevicesMap> allowed_devices_map =
-      new BluetoothAllowedDevicesMap();
+  auto allowed_devices_map = std::make_unique<BluetoothAllowedDevicesMap>();
   EXPECT_DEATH_IF_SUPPORTED(
       allowed_devices_map->GetOrCreateAllowedDevices(url::Origin()), "");
 }
@@ -98,12 +101,11 @@ TEST_F(BluetoothAllowedDevicesTest, AddTwoDevices) {
 }
 
 TEST_F(BluetoothAllowedDevicesTest, AddTwoDevicesFromTwoOriginsToMap) {
-  scoped_refptr<BluetoothAllowedDevicesMap> allowed_devices_map =
-      new BluetoothAllowedDevicesMap();
+  auto allowed_devices_map = std::make_unique<BluetoothAllowedDevicesMap>();
   content::BluetoothAllowedDevices& allowed_devices1 =
-      allowed_devices_map->GetOrCreateAllowedDevices(kTestOrigin1);
+      allowed_devices_map->GetOrCreateAllowedDevices(TestOrigin1());
   content::BluetoothAllowedDevices& allowed_devices2 =
-      allowed_devices_map->GetOrCreateAllowedDevices(kTestOrigin2);
+      allowed_devices_map->GetOrCreateAllowedDevices(TestOrigin2());
 
   const blink::WebBluetoothDeviceId& device_id1 =
       allowed_devices1.AddDevice(kDeviceAddress1, empty_options_);
@@ -128,12 +130,11 @@ TEST_F(BluetoothAllowedDevicesTest, AddTwoDevicesFromTwoOriginsToMap) {
 }
 
 TEST_F(BluetoothAllowedDevicesTest, AddDeviceFromTwoOriginsToMap) {
-  scoped_refptr<BluetoothAllowedDevicesMap> allowed_devices_map =
-      new BluetoothAllowedDevicesMap();
+  auto allowed_devices_map = std::make_unique<BluetoothAllowedDevicesMap>();
   content::BluetoothAllowedDevices& allowed_devices1 =
-      allowed_devices_map->GetOrCreateAllowedDevices(kTestOrigin1);
+      allowed_devices_map->GetOrCreateAllowedDevices(TestOrigin1());
   content::BluetoothAllowedDevices& allowed_devices2 =
-      allowed_devices_map->GetOrCreateAllowedDevices(kTestOrigin2);
+      allowed_devices_map->GetOrCreateAllowedDevices(TestOrigin2());
 
   const blink::WebBluetoothDeviceId& device_id1 =
       allowed_devices1.AddDevice(kDeviceAddress1, empty_options_);
@@ -342,12 +343,11 @@ TEST_F(BluetoothAllowedDevicesTest, AllowedServices_TwoDevices) {
 }
 
 TEST_F(BluetoothAllowedDevicesTest, AllowedServices_TwoOriginsOneDevice) {
-  scoped_refptr<BluetoothAllowedDevicesMap> allowed_devices_map =
-      new BluetoothAllowedDevicesMap();
+  auto allowed_devices_map = std::make_unique<BluetoothAllowedDevicesMap>();
   content::BluetoothAllowedDevices& allowed_devices1 =
-      allowed_devices_map->GetOrCreateAllowedDevices(kTestOrigin1);
+      allowed_devices_map->GetOrCreateAllowedDevices(TestOrigin1());
   content::BluetoothAllowedDevices& allowed_devices2 =
-      allowed_devices_map->GetOrCreateAllowedDevices(kTestOrigin2);
+      allowed_devices_map->GetOrCreateAllowedDevices(TestOrigin2());
   // Setup request #1 for device.
   blink::mojom::WebBluetoothRequestDeviceOptionsPtr options1 =
       blink::mojom::WebBluetoothRequestDeviceOptions::New();

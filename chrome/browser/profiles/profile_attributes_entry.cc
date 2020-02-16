@@ -32,6 +32,7 @@ const char kAuthCredentialsKey[] = "local_auth_credentials";
 const char kPasswordTokenKey[] = "gaia_password_token";
 const char kIsAuthErrorKey[] = "is_auth_error";
 const char kMetricsBucketIndex[] = "metrics_bucket_index";
+const char kSigninRequiredKey[] = "signin_required";
 
 // Local state pref to keep track of the next available profile bucket.
 const char kNextMetricsBucketIndex[] = "profile.metrics.next_bucket_index";
@@ -49,9 +50,6 @@ int NextAvailableMetricsBucketIndex() {
 }
 
 }  // namespace
-
-const base::Feature kPersistUPAInProfileInfoCache{
-    "PersistUPAInProfileInfoCache", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const char ProfileAttributesEntry::kSupervisedUserId[] = "managed_user_id";
 const char ProfileAttributesEntry::kIsOmittedFromProfileListKey[] =
@@ -79,11 +77,6 @@ ProfileAttributesEntry::ProfileAttributesEntry()
     : profile_info_cache_(nullptr),
       prefs_(nullptr),
       profile_path_(base::FilePath()) {}
-
-// static
-bool ProfileAttributesEntry::ShouldConcatenateGaiaAndProfileName() {
-  return base::FeatureList::IsEnabled(features::kProfileMenuRevamp);
-}
 
 void ProfileAttributesEntry::Initialize(ProfileInfoCache* cache,
                                         const base::FilePath& path,
@@ -185,7 +178,6 @@ bool ProfileAttributesEntry::ShouldShowProfileLocalName(
 }
 
 base::string16 ProfileAttributesEntry::GetNameToDisplay() const {
-  DCHECK(ProfileAttributesEntry::ShouldConcatenateGaiaAndProfileName);
   base::string16 name_to_display = GetGAIANameToDisplay();
 
   base::string16 local_profile_name = GetLocalProfileName();
@@ -215,16 +207,7 @@ bool ProfileAttributesEntry::HasProfileNameChanged() {
 }
 
 base::string16 ProfileAttributesEntry::GetName() const {
-  if (ShouldConcatenateGaiaAndProfileName())
-    return GetNameToDisplay();
-
-  base::string16 name;
-  // Unless the user has customized the profile name, we should use the
-  // profile's Gaia given name, if it's available.
-  if (IsUsingDefaultName())
-    name = GetGAIANameToDisplay();
-
-  return name.empty() ? GetLocalProfileName() : name;
+  return GetNameToDisplay();
 }
 
 base::string16 ProfileAttributesEntry::GetShortcutName() const {
@@ -289,7 +272,7 @@ base::string16 ProfileAttributesEntry::GetGAIAGivenName() const {
 }
 
 std::string ProfileAttributesEntry::GetGAIAId() const {
-  return profile_info_cache_->GetGAIAIdOfProfileAtIndex(profile_index());
+  return GetString(ProfileAttributesEntry::kGAIAIdKey);
 }
 
 const gfx::Image* ProfileAttributesEntry::GetGAIAPicture() const {
@@ -327,8 +310,7 @@ bool ProfileAttributesEntry::IsOmitted() const {
 }
 
 bool ProfileAttributesEntry::IsSigninRequired() const {
-  return profile_info_cache_->ProfileIsSigninRequiredAtIndex(profile_index()) ||
-         is_force_signin_profile_locked_;
+  return GetBool(kSigninRequiredKey) || is_force_signin_profile_locked_;
 }
 
 std::string ProfileAttributesEntry::GetSupervisedUserId() const {
@@ -445,7 +427,10 @@ void ProfileAttributesEntry::SetIsUsingGAIAPicture(bool value) {
 }
 
 void ProfileAttributesEntry::SetIsSigninRequired(bool value) {
-  profile_info_cache_->SetProfileSigninRequiredAtIndex(profile_index(), value);
+  if (value != GetBool(kSigninRequiredKey)) {
+    SetBool(kSigninRequiredKey, value);
+    profile_info_cache_->NotifyIsSigninRequiredChanged(GetPath());
+  }
   if (is_force_signin_enabled_)
     LockForceSigninProfile(value);
 }

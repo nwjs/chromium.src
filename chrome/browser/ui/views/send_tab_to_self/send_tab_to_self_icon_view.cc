@@ -20,8 +20,12 @@ namespace send_tab_to_self {
 
 SendTabToSelfIconView::SendTabToSelfIconView(
     CommandUpdater* command_updater,
-    PageActionIconView::Delegate* delegate)
-    : PageActionIconView(command_updater, IDC_SEND_TAB_TO_SELF, delegate) {
+    IconLabelBubbleView::Delegate* icon_label_bubble_delegate,
+    PageActionIconView::Delegate* page_action_icon_delegate)
+    : PageActionIconView(command_updater,
+                         IDC_SEND_TAB_TO_SELF,
+                         icon_label_bubble_delegate,
+                         page_action_icon_delegate) {
   SetVisible(false);
   SetLabel(l10n_util::GetStringUTF16(IDS_OMNIBOX_ICON_SEND_TAB_TO_SELF));
   SetUpForInOutAnimation();
@@ -65,10 +69,13 @@ void SendTabToSelfIconView::UpdateImpl() {
     }
   } else if (omnibox_view->model()->has_focus() &&
              !omnibox_view->model()->user_input_in_progress()) {
-    // Shows the "Send" animation one time per window.
-    if (initial_animation_state_ == AnimationState::kNotShown) {
+    SendTabToSelfBubbleController* controller = GetController();
+    // Shows the "Send" animation once per profile.
+    if (controller && !controller->InitialSendAnimationShown() &&
+        initial_animation_state_ == AnimationState::kNotShown) {
       AnimateIn(IDS_OMNIBOX_ICON_SEND_TAB_TO_SELF);
       initial_animation_state_ = AnimationState::kShowing;
+      controller->SetInitialSendAnimationShown(true);
     }
     SetVisible(true);
   }
@@ -81,9 +88,8 @@ const gfx::VectorIcon& SendTabToSelfIconView::GetVectorIcon() const {
   return kSendTabToSelfIcon;
 }
 
-SkColor SendTabToSelfIconView::GetTextColor() const {
-  return GetOmniboxColor(GetThemeProvider(),
-                         OmniboxPart::LOCATION_BAR_TEXT_DEFAULT);
+const char* SendTabToSelfIconView::GetClassName() const {
+  return "SendTabToSelfIconView";
 }
 
 base::string16 SendTabToSelfIconView::GetTextForTooltipAndAccessibleName()

@@ -47,8 +47,8 @@ class MixerInput {
     };
 
     // TODO(b/139311908) Track channel layout.
-    virtual int num_channels() = 0;
-    virtual int input_samples_per_second() = 0;
+    virtual size_t num_channels() const = 0;
+    virtual int sample_rate() const = 0;
     virtual bool primary() = 0;
     virtual const std::string& device_id() = 0;
     virtual AudioContentType content_type() = 0;
@@ -77,6 +77,9 @@ class MixerInput {
     // Called when a mixer error occurs. No more data will be pulled from the
     // source.
     virtual void OnAudioPlaybackError(MixerError error) = 0;
+
+    // Called when an underrun error occurs on mixer output.
+    virtual void OnOutputUnderrun() {}
 
     // Called when the mixer has finished removing this input. The source may be
     // deleted at this point.

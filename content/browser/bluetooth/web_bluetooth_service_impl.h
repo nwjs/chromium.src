@@ -44,7 +44,7 @@ struct GATTNotifySessionAndCharacteristicClient;
 class RenderFrameHost;
 class RenderProcessHost;
 
-bool HasEmptyOrInvalidFilter(
+bool HasValidFilter(
     const base::Optional<
         std::vector<blink::mojom::WebBluetoothLeScanFilterPtr>>& filters);
 
@@ -93,6 +93,8 @@ class CONTENT_EXPORT WebBluetoothServiceImpl
  private:
   FRIEND_TEST_ALL_PREFIXES(WebBluetoothServiceImplTest,
                            ClearStateDuringRequestDevice);
+  FRIEND_TEST_ALL_PREFIXES(WebBluetoothServiceImplTest,
+                           ClearStateDuringRequestScanningStart);
   FRIEND_TEST_ALL_PREFIXES(WebBluetoothServiceImplTest, PermissionAllowed);
   FRIEND_TEST_ALL_PREFIXES(WebBluetoothServiceImplTest,
                            PermissionPromptCanceled);

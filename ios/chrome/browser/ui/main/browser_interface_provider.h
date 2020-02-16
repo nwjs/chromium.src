@@ -12,11 +12,8 @@
 class Browser;
 @class BrowserCoordinator;
 @class BrowserViewController;
-@class TabModel;
-
-namespace ios {
 class ChromeBrowserState;
-}
+@class TabModel;
 
 // A BrowserInterface is an abstraction that exposes an interface to the Chrome
 // user interface (and related model objects) to the application layer. Each
@@ -43,7 +40,7 @@ class ChromeBrowserState;
 // The active browser.
 @property(nonatomic, readonly) Browser* browser;
 // The browser state for this interface.
-@property(nonatomic, readonly) ios::ChromeBrowserState* browserState;
+@property(nonatomic, readonly) ChromeBrowserState* browserState;
 // YES if the tab view is available for user interaction.
 @property(nonatomic) BOOL userInteractionEnabled;
 // YES if this interface is incognito.

@@ -135,8 +135,14 @@ struct GPU_EXPORT GpuPreferences {
   // Enforce GL minimums.
   bool enforce_gl_minimums = false;
 
-  // Sets the total amount of memory that may be allocated for GPU resources
-  uint32_t force_gpu_mem_available = 0;
+  // Sets the total amount of memory that may be allocated for GPU resources.
+  uint32_t force_gpu_mem_available_bytes = 0u;
+
+  // Sets the maximum discardable cache size limit for GPU resources.
+  uint32_t force_gpu_mem_discardable_limit_bytes = 0u;
+
+  // Sets maximum texture size.
+  uint32_t force_max_texture_size = 0u;
 
   // Sets the maximum size of the in-memory gpu program cache, in kb
   uint32_t gpu_program_cache_size = kDefaultMaxProgramCacheMemoryBytes;
@@ -237,6 +243,12 @@ struct GPU_EXPORT GpuPreferences {
   // Determines message pump type for the GPU thread.
   base::MessagePumpType message_pump_type = base::MessagePumpType::DEFAULT;
 #endif
+
+  // ===================================
+  // Settings from //ui/gfx/switches.h
+
+  // Enable native CPU-mappable GPU memory buffer support on Linux.
+  bool enable_native_gpu_memory_buffers = false;
 
   // Please update gpu_preferences_unittest.cc when making additions or
   // changes to this struct.

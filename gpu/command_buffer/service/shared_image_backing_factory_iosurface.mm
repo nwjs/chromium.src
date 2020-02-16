@@ -88,22 +88,6 @@ void FlushIOSurfaceGLOperations() {
   api->glFlushFn();
 }
 
-base::Optional<WGPUTextureFormat> GetWGPUFormat(viz::ResourceFormat format) {
-  switch (format) {
-    case viz::RED_8:
-    case viz::ALPHA_8:
-    case viz::LUMINANCE_8:
-      return WGPUTextureFormat_R8Unorm;
-    case viz::RG_88:
-      return WGPUTextureFormat_RG8Unorm;
-    case viz::RGBA_8888:
-    case viz::BGRA_8888:
-      return WGPUTextureFormat_BGRA8Unorm;
-    default:
-      return {};
-  }
-}
-
 base::Optional<WGPUTextureFormat> GetWGPUFormat(gfx::BufferFormat format) {
   switch (format) {
     case gfx::BufferFormat::R_8:
@@ -320,7 +304,7 @@ class SharedImageRepresentationDawnIOSurface
       // the result.
       // TODO(cwallez@chromium.org): This is incorrect and allows reading
       // uninitialized data. When !IsCleared we should tell dawn_native to
-      // consider the texture lazy-cleared.
+      // consider the texture lazy-cleared. crbug.com/1036080
       SetCleared();
     }
 
@@ -370,7 +354,7 @@ class SharedImageRepresentationDawnIOSurface
 // guarded on the context provider already successfully using Metal.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"
-class SharedImageBackingIOSurface : public SharedImageBacking {
+class SharedImageBackingIOSurface : public ClearTrackingSharedImageBacking {
  public:
   SharedImageBackingIOSurface(const Mailbox& mailbox,
                               viz::ResourceFormat format,
@@ -380,26 +364,50 @@ class SharedImageBackingIOSurface : public SharedImageBacking {
                               base::ScopedCFTypeRef<IOSurfaceRef> io_surface,
                               base::Optional<WGPUTextureFormat> dawn_format,
                               size_t estimated_size)
-      : SharedImageBacking(mailbox,
-                           format,
-                           size,
-                           color_space,
-                           usage,
-                           estimated_size,
-                           false /* is_thread_safe */),
+      : ClearTrackingSharedImageBacking(mailbox,
+                                        format,
+                                        size,
+                                        color_space,
+                                        usage,
+                                        estimated_size,
+                                        false /* is_thread_safe */),
         io_surface_(std::move(io_surface)),
         dawn_format_(dawn_format) {
     DCHECK(io_surface_);
   }
-  ~SharedImageBackingIOSurface() final { DCHECK(!io_surface_); }
+  ~SharedImageBackingIOSurface() final {
+    TRACE_EVENT0("gpu", "SharedImageBackingFactoryIOSurface::Destroy");
+    DCHECK(io_surface_);
 
-  bool IsCleared() const final { return is_cleared_; }
-  void SetCleared() final {
     if (legacy_texture_) {
-      legacy_texture_->SetLevelCleared(legacy_texture_->target(), 0, true);
+      legacy_texture_->RemoveLightweightRef(have_context());
+      legacy_texture_ = nullptr;
     }
+    mtl_texture_.reset();
+    io_surface_.reset();
+  }
 
-    is_cleared_ = true;
+  gfx::Rect ClearedRect() const final {
+    // If a |legacy_texture_| exists, defer to that. Once created,
+    // |legacy_texture_| is never destroyed, so no need to synchronize with
+    // ClearedRect.
+    if (legacy_texture_) {
+      return legacy_texture_->GetLevelClearedRect(legacy_texture_->target(), 0);
+    } else {
+      return ClearTrackingSharedImageBacking::ClearedRect();
+    }
+  }
+
+  void SetClearedRect(const gfx::Rect& cleared_rect) final {
+    // If a |legacy_texture_| exists, defer to that. Once created,
+    // |legacy_texture_| is never destroyed, so no need to synchronize with
+    // SetClearedRect.
+    if (legacy_texture_) {
+      legacy_texture_->SetLevelClearedRect(legacy_texture_->target(), 0,
+                                           cleared_rect);
+    } else {
+      ClearTrackingSharedImageBacking::SetClearedRect(cleared_rect);
+    }
   }
 
   void Update(std::unique_ptr<gfx::GpuFence> in_fence) final {}
@@ -412,19 +420,13 @@ class SharedImageBackingIOSurface : public SharedImageBacking {
       return false;
     }
 
+    // Make sure our |legacy_texture_| has the right initial cleared rect.
+    legacy_texture_->SetLevelClearedRect(
+        legacy_texture_->target(), 0,
+        ClearTrackingSharedImageBacking::ClearedRect());
+
     mailbox_manager->ProduceTexture(mailbox(), legacy_texture_);
     return true;
-  }
-  void Destroy() final {
-    TRACE_EVENT0("gpu", "SharedImageBackingFactoryIOSurface::Destroy");
-    DCHECK(io_surface_);
-
-    if (legacy_texture_) {
-      legacy_texture_->RemoveLightweightRef(have_context());
-      legacy_texture_ = nullptr;
-    }
-    mtl_texture_.reset();
-    io_surface_.reset();
   }
 
  protected:
@@ -534,10 +536,7 @@ class SharedImageBackingIOSurface : public SharedImageBacking {
     }
 
     // If the backing is already cleared, no need to clear it again.
-    gfx::Rect cleared_rect;
-    if (is_cleared_) {
-      cleared_rect = gfx::Rect(size());
-    }
+    gfx::Rect cleared_rect = ClearedRect();
 
     // Manually create a gles2::Texture wrapping our driver texture.
     gles2::Texture* texture = new gles2::Texture(service_id);
@@ -563,7 +562,6 @@ class SharedImageBackingIOSurface : public SharedImageBacking {
   base::ScopedCFTypeRef<IOSurfaceRef> io_surface_;
   base::Optional<WGPUTextureFormat> dawn_format_;
   base::scoped_nsprotocol<id<MTLTexture>> mtl_texture_;
-  bool is_cleared_ = false;
 
   // A texture for the associated legacy mailbox.
   gles2::Texture* legacy_texture_ = nullptr;
@@ -643,9 +641,18 @@ SharedImageBackingFactoryIOSurface::CreateSharedImage(
 
   gfx::IOSurfaceSetColorSpace(io_surface, color_space);
 
+  // OpenGL textures bound to IOSurfaces won't work on macOS unless the internal
+  // format is BGRA, so force a BGRA internal format for viz::RGBA_8888.
+  base::Optional<WGPUTextureFormat> wgpu_format =
+      format == viz::RGBA_8888 ? WGPUTextureFormat_BGRA8Unorm
+                               : viz::ToWGPUFormat(format);
+  if (wgpu_format.value() == WGPUTextureFormat_Undefined) {
+    wgpu_format = base::nullopt;
+  }
+
   return std::make_unique<SharedImageBackingIOSurface>(
       mailbox, format, size, color_space, usage, std::move(io_surface),
-      GetWGPUFormat(format), estimated_size);
+      wgpu_format, estimated_size);
 }
 
 std::unique_ptr<SharedImageBacking>

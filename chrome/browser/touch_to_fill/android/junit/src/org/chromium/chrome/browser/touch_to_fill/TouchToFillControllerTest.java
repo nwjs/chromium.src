@@ -47,14 +47,15 @@ import org.chromium.base.metrics.RecordHistogramJni;
 import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.JniMocker;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.favicon.IconType;
 import org.chromium.chrome.browser.favicon.LargeIconBridge;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillComponent.UserAction;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.CredentialProperties.FaviconOrFallback;
 import org.chromium.chrome.browser.touch_to_fill.TouchToFillProperties.ItemType;
 import org.chromium.chrome.browser.touch_to_fill.data.Credential;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.url_formatter.UrlFormatterJni;
 import org.chromium.ui.modelutil.ListModel;
@@ -111,7 +112,8 @@ public class TouchToFillControllerTest {
         mJniMocker.mock(RecordHistogramJni.TEST_HOOKS, mMockRecordHistogram);
         when(mUrlFormatterJniMock.formatUrlForDisplayOmitScheme(anyString()))
                 .then(inv -> format(inv.getArgument(0)));
-        when(mUrlFormatterJniMock.formatUrlForSecurityDisplayOmitScheme(anyString()))
+        when(mUrlFormatterJniMock.formatUrlForSecurityDisplay(
+                     anyString(), eq(SchemeDisplay.OMIT_HTTP_AND_HTTPS)))
                 .then(inv -> formatForSecurityDisplay(inv.getArgument(0)));
 
         mMediator.initialize(mMockDelegate, mModel, mMockIconBridge, DESIRED_FAVICON_SIZE);

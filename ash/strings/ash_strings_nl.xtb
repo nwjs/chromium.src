@@ -15,10 +15,10 @@
 <translation id="1153356358378277386">Gekoppelde apparaten</translation>
 <translation id="1175572348579024023">Scrollen</translation>
 <translation id="1178581264944972037">Onderbreken</translation>
+<translation id="1190609913194133056">Meldingscentrum</translation>
 <translation id="1195412055398077112">overscan</translation>
 <translation id="119944043368869598">Alles wissen</translation>
 <translation id="1247372569136754018">Microfoon (intern)</translation>
-<translation id="1249456112629248620"><ph name="FEATURE_NAME" /> Deze instelling wordt door je beheerder afgedwongen.</translation>
 <translation id="1252999807265626933">Opladen via <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Wat voor weer is het?</translation>
 <translation id="1267032506238418139">Sneltoets gewijzigd</translation>
@@ -45,6 +45,7 @@
 <translation id="1460620680449458626">Volume is gedempt.</translation>
 <translation id="1467432559032391204">Links</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
+<translation id="1508507608940204251">Aan</translation>
 <translation id="1516740043221086139">'Niet storen' is ingeschakeld.</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Instellingen voor meldingen weergeven. Meldingen zijn uitgeschakeld voor een app}other{Instellingen voor meldingen weergeven. Meldingen zijn uitgeschakeld voor # apps}}</translation>
 <translation id="1525508553941733066">SLUITEN</translation>
@@ -69,6 +70,7 @@
 <translation id="1836215606488044471">Assistent (laden...)</translation>
 <translation id="1838895407229022812">Nachtverlichting is uitgeschakeld.</translation>
 <translation id="1850504506766569011">Wifi is uitgeschakeld.</translation>
+<translation id="1859889070386344428">Uit</translation>
 <translation id="1864454756846565995">USB-C-apparaat (poort aan achterkant)</translation>
 <translation id="1882897271359938046">Spiegelen naar <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Ontgrendelen met vingerafdruk</translation>
@@ -110,17 +112,19 @@
 <translation id="2352467521400612932">Stylusinstellingen</translation>
 <translation id="2354174487190027830"><ph name="NAME" /> activeren</translation>
 <translation id="2359808026110333948">Doorgaan</translation>
+<translation id="2364154243880592194">Statusvak, tijd <ph name="TIME" />, <ph name="BATTERY" />. Druk op Zoeken + pijl-links om het meldingscentrum te openen.</translation>
 <translation id="2365393535144473978">Als je mobiele data inschakelt, wordt Bluetooth ingeschakeld.</translation>
 <translation id="2391579633712104609">180°</translation>
 <translation id="2412593942846481727">Update beschikbaar</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> is een beheerde sessie die wordt beheerd door <ph name="DOMAIN" /></translation>
 <translation id="2427507373259914951">Klik met linkermuisknop</translation>
 <translation id="2429753432712299108">Bluetooth-apparaat '<ph name="DEVICE_NAME" />' wil toestemming om te koppelen. Bevestig vóór het accepteren dat de volgende toegangscode op dat apparaat wordt weergegeven: <ph name="PASSKEY" /></translation>
+<translation id="2473177541599297363">Resolutie bevestigen</translation>
 <translation id="2482878487686419369">Meldingen</translation>
 <translation id="2484513351006226581">Druk op <ph name="KEYBOARD_SHORTCUT" /> om van toetsenbordindeling te wisselen.</translation>
 <translation id="2501920221385095727">Plaktoetsen</translation>
 <translation id="2509468283778169019">CAPS LOCK is ingeschakeld</translation>
-<translation id="2517825809102302935">Uitschakelen voor vanavond</translation>
+<translation id="2519465031217098801">Aan</translation>
 <translation id="2542089167727451762">Tik op je profielafbeelding</translation>
 <translation id="255671100581129685">De Google Assistent is niet beschikbaar in een openbare sessie.</translation>
 <translation id="256712445991462162">het gedockte vergrootglas</translation>
@@ -134,10 +138,10 @@
 <translation id="2704781753052663061">Verbinden met andere wifi-netwerken</translation>
 <translation id="2718395828230677721">Nachtverlichting</translation>
 <translation id="2727977024730340865">Aangesloten op een laag-vermogen-lader. Opladen van de batterij mogelijk niet betrouwbaar.</translation>
-<translation id="2761704814324807722">Statusvak, tijd <ph name="TIME" />, <ph name="BATTERY" /></translation>
 <translation id="2792498699870441125">Alt+Zoeken</translation>
 <translation id="2803734122639935495">Geef je wachtwoord om te ontgrendelen</translation>
 <translation id="2819276065543622893">Je wordt nu uitgelogd.</translation>
+<translation id="2825224105325558319"><ph name="DISPLAY_NAME" /> ondersteunt <ph name="SPECIFIED_RESOLUTION" /> niet. De resolutie is gewijzigd in <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="2825619548187458965">Plank</translation>
 <translation id="2844169650293029770">USB-C-apparaat (poort links aan de voorkant)</translation>
 <translation id="2865888419503095837">Netwerkinfo</translation>
@@ -167,6 +171,7 @@
 <translation id="3151786313568798007">Stand</translation>
 <translation id="3153444934357957346">Je kunt maximaal <ph name="MULTI_PROFILE_USER_LIMIT" /> accounts hebben in Toegang tot meerdere accounts.</translation>
 <translation id="3154351730702813399">De apparaatbeheerder kan je browseactiviteit controleren.</translation>
+<translation id="3181441307743005334">Opnieuw opstarten kan even duren</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Verbonden met een apparaat}other{Verbonden met # apparaten}}</translation>
 <translation id="3217205077783620295">Volume staat aan. Als je het uitzet, wordt de audio gedempt.</translation>
 <translation id="3226991577105957773">+<ph name="COUNT" /> andere meldingen</translation>
@@ -224,6 +229,7 @@
 <translation id="3901991538546252627">Verbinding maken met <ph name="NAME" /></translation>
 <translation id="394485226368336402">Audio-instellingen</translation>
 <translation id="3962859241508114581">Vorig nummer</translation>
+<translation id="3965097803111112935">Uit</translation>
 <translation id="397105322502079400">Berekenen...</translation>
 <translation id="3977512764614765090">Batterij op <ph name="PERCENTAGE" />% en wordt opgeladen.</translation>
 <translation id="3995138139523574647">USB-C-apparaat (poort rechts aan de achterkant)</translation>
@@ -235,6 +241,7 @@
 <translation id="4112140312785995938">Achteruit zoeken</translation>
 <translation id="4129129681837227511">Als je meldingen op je vergrendelingsscherm wilt zien, ontgrendel je het scherm om de instellingen te wijzigen</translation>
 <translation id="4146833061457621061">Speel muziek</translation>
+<translation id="4149156641122542261"><ph name="DEVICE_TYPE" /> beheerd door <ph name="DOMAIN" /></translation>
 <translation id="4181841719683918333">Talen</translation>
 <translation id="4195877955194704651">Knop 'Automatische klikken'</translation>
 <translation id="4217571870635786043">Dicteren</translation>
@@ -297,7 +304,6 @@
 <translation id="4924411785043111640">Opnieuw opstarten en resetten</translation>
 <translation id="495046168593986294">Omhoog scrollen</translation>
 <translation id="4961318399572185831">Scherm casten</translation>
-<translation id="5018302031617932556">Met Nachtverlichting kun je je scherm beter zien en lezen bij weinig licht. Tik om dit te wijzigen.</translation>
 <translation id="5030687792513154421">De tijd is voorbij</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" /> verbonden met nieuwe telefoon</translation>
 <translation id="5083553833479578423">Ontgrendel meer functies van de Assistent.</translation>
@@ -306,6 +312,7 @@
 <translation id="5207949376430453814">Tekstcursor markeren</translation>
 <translation id="5222676887888702881">Uitloggen</translation>
 <translation id="523505283826916779">Toegankelijkheidsinstellingen</translation>
+<translation id="5250225880026334010">Uit</translation>
 <translation id="5260676007519551770">Bureau 4</translation>
 <translation id="5283198616748585639">1 min toevoegen</translation>
 <translation id="5286194356314741248">Scannen</translation>
@@ -333,6 +340,7 @@
 <translation id="5669267381087807207">Wordt geactiveerd</translation>
 <translation id="5673434351075758678">Van '<ph name="FROM_LOCALE" />' naar '<ph name="TO_LOCALE" />' na synchronisatie van je instellingen.</translation>
 <translation id="5682642926269496722">De Google Assistent is niet beschikbaar voor het huidige gebruikersaccount.</translation>
+<translation id="5689633613396158040">Met Nachtverlichting kun je je scherm beter zien en lezen bij weinig licht. Tik om te wijzigen wanneer Nachtverlichting wordt ingeschakeld of schakel de functie helemaal uit.</translation>
 <translation id="5691772641933328258">Vingerafdruk niet herkend</translation>
 <translation id="5710450975648804523">'Niet storen' is ingeschakeld</translation>
 <translation id="573413375004481890">Dit apparaat kan niet al je schermen ondersteunen, dus één scherm is ontkoppeld</translation>
@@ -344,7 +352,6 @@
 <translation id="5777841717266010279">Stoppen met scherm delen?</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5837036133683224804"><ph name="ROUTE_TITLE" /> in <ph name="RECEIVER_NAME" /> stopzetten</translation>
-<translation id="5860033963881614850">Uit</translation>
 <translation id="5895138241574237353">Opnieuw starten</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
@@ -395,6 +402,7 @@
 <translation id="6490471652906364588">USB-C-apparaat (poort aan rechterkant)</translation>
 <translation id="649452524636452238">Pincode van smartkaart</translation>
 <translation id="6501401484702599040">Scherm casten naar <ph name="RECEIVER_NAME" /></translation>
+<translation id="652139407789908527">Je scherm blijft langer leeg dan gebruikelijk (tot een minuut) tijdens deze update. Druk niet op de aan/uit-knop terwijl de update wordt uitgevoerd.</translation>
 <translation id="6521655319214113338">Handschriftinvoer</translation>
 <translation id="6528179044667508675">Niet storen</translation>
 <translation id="6537270692134705506">Screenshot maken</translation>
@@ -408,6 +416,7 @@
 <translation id="6650933572246256093">Bluetooth-apparaat '<ph name="DEVICE_NAME" />' wil toestemming om te koppelen. Voer de volgende toegangscode in op dat apparaat: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Wachtwoord</translation>
 <translation id="6665545700722362599">Kies of websites, apps en extensies mogen gebruikmaken van locatieservices of de microfoon, de camera of andere functies van het apparaat</translation>
+<translation id="6669268301501499730">Aan</translation>
 <translation id="6670153871843998651">Bureau 3</translation>
 <translation id="6691659475504239918">Zoeken+Shift+H</translation>
 <translation id="6696025732084565524">Je afneembare toetsenbord heeft een essentiële update nodig</translation>
@@ -446,6 +455,7 @@
 <translation id="7143207342074048698">Verbinding maken</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358">Terugzetten naar oude resolutie over <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7246071203293827765"><ph name="UPDATE_TEXT" />. Deze Chromebook moet opnieuw worden opgestart om een update uit te voeren. Dit kan ongeveer één minuut duren.</translation>
 <translation id="7256634071279256947">Microfoon aan achterzijde</translation>
 <translation id="726276584504105859">Sleep hier naartoe om het scherm te splitsen</translation>
 <translation id="7262906531272962081">Herinnering maken</translation>
@@ -464,7 +474,6 @@
 <translation id="7526573455193969409">Netwerk kan worden bijgehouden</translation>
 <translation id="7536035074519304529">IP-adres: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Bedtijd</translation>
-<translation id="7561014039265304140"><ph name="DISPLAY_NAME" /> ondersteunt <ph name="SPECIFIED_RESOLUTION" /> niet. De resolutie is gewijzigd in <ph name="FALLBACK_RESOLUTION" /></translation>
 <translation id="7562368315689366235">Emoji-palet</translation>
 <translation id="7564874036684306347">Verplaatsing van vensters naar een ander bureaublad kan leiden tot onverwacht gedrag. Verdere meldingen, vensters en dialoogvensters worden mogelijk verdeeld over de bureaubladen.</translation>
 <translation id="7568294522609223312">Automatische klikken uitschakelen</translation>
@@ -507,11 +516,13 @@
 <translation id="8061464966246066292">Hoog contrast</translation>
 <translation id="8098591350844501178">Schermcast naar <ph name="RECEIVER_NAME" /> stopzetten</translation>
 <translation id="8113423164597455979">Aan, alle apps</translation>
+<translation id="8131740175452115882">Bevestigen</translation>
 <translation id="8132793192354020517">Verbonden met <ph name="NAME" /></translation>
 <translation id="813913629614996137">Starten...</translation>
 <translation id="8142441511840089262">Dubbelklik</translation>
 <translation id="8142699993796781067">Privénetwerk</translation>
 <translation id="8152092012181020186">Druk op Ctrl + W om te sluiten.</translation>
+<translation id="8155007568264258537"><ph name="FEATURE_NAME" /> Deze instelling wordt beheerd door je beheerder.</translation>
 <translation id="8167567890448493835"><ph name="LOCALE_NAME" /> in gebruik</translation>
 <translation id="8190698733819146287">Talen en invoer aanpassen...</translation>
 <translation id="8192202700944119416">Meldingen zijn verborgen.</translation>
@@ -539,6 +550,7 @@
 <translation id="847056008324733326">Instellingen voor weergaveschaal</translation>
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" /> heeft <ph name="FEATURE_NAME" /> <ph name="FEATURE_STATE" />.</translation>
 <translation id="8477270416194247200">Druk op Alt+Zoeken of Shift om te annuleren.</translation>
+<translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> ondersteunt <ph name="SPECIFIED_RESOLUTION" /> niet. De resolutie is gewijzigd in <ph name="FALLBACK_RESOLUTION" />. Klik op 'Bevestigen' om de wijzigingen te behouden. De vorige instellingen worden over <ph name="TIMEOUT_SECONDS" /> hersteld.</translation>
 <translation id="8513108775083588393">Automatisch draaien</translation>
 <translation id="8517041960877371778">Je <ph name="DEVICE_TYPE" /> wordt mogelijk niet opgeladen terwijl deze is ingeschakeld.</translation>
 <translation id="8627191004499078455">Verbonden met <ph name="DEVICE_NAME" /></translation>
@@ -588,12 +600,13 @@
 <translation id="9089416786594320554">Invoermethoden</translation>
 <translation id="9091626656156419976">Scherm <ph name="DISPLAY_NAME" /> is verwijderd</translation>
 <translation id="9151726767154816831">Opnieuw opstarten en de functie Powerwash gebruiken om bij te werken</translation>
+<translation id="9168436347345867845">Later doen</translation>
 <translation id="9179259655489829027">Met deze functie kun je snel zonder wachtwoord toegang krijgen tot iedere ingelogde gebruiker. Gebruik deze functie alleen met accounts die je vertrouwt.</translation>
 <translation id="9183456764293710005">Vergrootglas voor volledig scherm</translation>
 <translation id="9193626018745640770">Casten naar een onbekende ontvanger</translation>
 <translation id="9194617393863864469">Als andere gebruiker inloggen...</translation>
+<translation id="9198992156681343238">De resolutie van <ph name="DISPLAY_NAME" /> is gewijzigd in <ph name="RESOLUTION" />. Klik op 'Bevestigen' om de wijzigingen te behouden. De vorige instellingen worden over <ph name="TIMEOUT_SECONDS" /> hersteld.</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />, beheerd door je beheerder</translation>
-<translation id="9205817095063786319">Apparaat beheerd door <ph name="DOMAIN" /></translation>
 <translation id="9210037371811586452">Samengestelde desktopmodus wordt gesloten</translation>
 <translation id="9211681782751733685">Nog <ph name="TIME_REMAINING" /> totdat de batterij volledig is opgeladen.</translation>
 <translation id="9215934040295798075">Achtergrond instellen</translation>

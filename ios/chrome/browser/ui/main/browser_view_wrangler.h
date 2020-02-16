@@ -11,19 +11,17 @@
 
 @protocol ApplicationCommands;
 @class BrowserCoordinator;
+@protocol BrowsingDataCommands;
+class ChromeBrowserState;
 @class DeviceSharingManager;
 @protocol WebStateListObserving;
 
 class AppUrlLoadingService;
 
-namespace ios {
-class ChromeBrowserState;
-}
-
 // Protocol for objects that can handle switching browser state storage.
 @protocol BrowserStateStorageSwitching
-- (void)changeStorageFromBrowserState:(ios::ChromeBrowserState*)oldState
-                       toBrowserState:(ios::ChromeBrowserState*)newState;
+- (void)changeStorageFromBrowserState:(ChromeBrowserState*)oldState
+                       toBrowserState:(ChromeBrowserState*)newState;
 @end
 
 // Wrangler (a class in need of further refactoring) for handling the creation
@@ -39,10 +37,12 @@ class ChromeBrowserState;
 // any BVCs that are created. |storageSwitcher| is used to manage changing any
 // storage associated with the interfaces when the current interface changes;
 // this is handled in the implementation of -setCurrentInterface:.
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
                 webStateListObserver:(id<WebStateListObserving>)observer
           applicationCommandEndpoint:
               (id<ApplicationCommands>)applicationCommandEndpoint
+         browsingDataCommandEndpoint:
+             (id<BrowsingDataCommands>)browsingDataCommandEndpoint
                 appURLLoadingService:(AppUrlLoadingService*)appURLLoadingService
                      storageSwitcher:
                          (id<BrowserStateStorageSwitching>)storageSwitcher

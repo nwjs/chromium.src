@@ -13483,40 +13483,48 @@ struct ResizeCHROMIUM {
 
   void SetHeader() { header.SetCmd<ValueType>(); }
 
-  void Init(GLuint _width,
-            GLuint _height,
+  void Init(GLint _width,
+            GLint _height,
             GLfloat _scale_factor,
-            GLenum _color_space,
-            GLboolean _alpha) {
+            GLboolean _alpha,
+            GLuint _shm_id,
+            GLuint _shm_offset,
+            GLsizei _color_space_size) {
     SetHeader();
     width = _width;
     height = _height;
     scale_factor = _scale_factor;
-    color_space = _color_space;
     alpha = _alpha;
+    shm_id = _shm_id;
+    shm_offset = _shm_offset;
+    color_space_size = _color_space_size;
   }
 
   void* Set(void* cmd,
-            GLuint _width,
-            GLuint _height,
+            GLint _width,
+            GLint _height,
             GLfloat _scale_factor,
-            GLenum _color_space,
-            GLboolean _alpha) {
-    static_cast<ValueType*>(cmd)->Init(_width, _height, _scale_factor,
-                                       _color_space, _alpha);
+            GLboolean _alpha,
+            GLuint _shm_id,
+            GLuint _shm_offset,
+            GLsizei _color_space_size) {
+    static_cast<ValueType*>(cmd)->Init(_width, _height, _scale_factor, _alpha,
+                                       _shm_id, _shm_offset, _color_space_size);
     return NextCmdAddress<ValueType>(cmd);
   }
 
   gpu::CommandHeader header;
-  uint32_t width;
-  uint32_t height;
+  int32_t width;
+  int32_t height;
   float scale_factor;
-  uint32_t color_space;
   uint32_t alpha;
+  uint32_t shm_id;
+  uint32_t shm_offset;
+  int32_t color_space_size;
 };
 
-static_assert(sizeof(ResizeCHROMIUM) == 24,
-              "size of ResizeCHROMIUM should be 24");
+static_assert(sizeof(ResizeCHROMIUM) == 32,
+              "size of ResizeCHROMIUM should be 32");
 static_assert(offsetof(ResizeCHROMIUM, header) == 0,
               "offset of ResizeCHROMIUM header should be 0");
 static_assert(offsetof(ResizeCHROMIUM, width) == 4,
@@ -13525,10 +13533,14 @@ static_assert(offsetof(ResizeCHROMIUM, height) == 8,
               "offset of ResizeCHROMIUM height should be 8");
 static_assert(offsetof(ResizeCHROMIUM, scale_factor) == 12,
               "offset of ResizeCHROMIUM scale_factor should be 12");
-static_assert(offsetof(ResizeCHROMIUM, color_space) == 16,
-              "offset of ResizeCHROMIUM color_space should be 16");
-static_assert(offsetof(ResizeCHROMIUM, alpha) == 20,
-              "offset of ResizeCHROMIUM alpha should be 20");
+static_assert(offsetof(ResizeCHROMIUM, alpha) == 16,
+              "offset of ResizeCHROMIUM alpha should be 16");
+static_assert(offsetof(ResizeCHROMIUM, shm_id) == 20,
+              "offset of ResizeCHROMIUM shm_id should be 20");
+static_assert(offsetof(ResizeCHROMIUM, shm_offset) == 24,
+              "offset of ResizeCHROMIUM shm_offset should be 24");
+static_assert(offsetof(ResizeCHROMIUM, color_space_size) == 28,
+              "offset of ResizeCHROMIUM color_space_size should be 28");
 
 struct GetRequestableExtensionsCHROMIUM {
   typedef GetRequestableExtensionsCHROMIUM ValueType;
@@ -18121,5 +18133,61 @@ static_assert(
 static_assert(
     offsetof(EndSharedImageAccessDirectCHROMIUM, texture) == 4,
     "offset of EndSharedImageAccessDirectCHROMIUM texture should be 4");
+
+struct BeginBatchReadAccessSharedImageCHROMIUM {
+  typedef BeginBatchReadAccessSharedImageCHROMIUM ValueType;
+  static const CommandId kCmdId = kBeginBatchReadAccessSharedImageCHROMIUM;
+  static const cmd::ArgFlags kArgFlags = cmd::kFixed;
+  static const uint8_t cmd_flags = CMD_FLAG_SET_TRACE_LEVEL(3);
+
+  static uint32_t ComputeSize() {
+    return static_cast<uint32_t>(sizeof(ValueType));  // NOLINT
+  }
+
+  void SetHeader() { header.SetCmd<ValueType>(); }
+
+  void Init() { SetHeader(); }
+
+  void* Set(void* cmd) {
+    static_cast<ValueType*>(cmd)->Init();
+    return NextCmdAddress<ValueType>(cmd);
+  }
+
+  gpu::CommandHeader header;
+};
+
+static_assert(sizeof(BeginBatchReadAccessSharedImageCHROMIUM) == 4,
+              "size of BeginBatchReadAccessSharedImageCHROMIUM should be 4");
+static_assert(
+    offsetof(BeginBatchReadAccessSharedImageCHROMIUM, header) == 0,
+    "offset of BeginBatchReadAccessSharedImageCHROMIUM header should be 0");
+
+struct EndBatchReadAccessSharedImageCHROMIUM {
+  typedef EndBatchReadAccessSharedImageCHROMIUM ValueType;
+  static const CommandId kCmdId = kEndBatchReadAccessSharedImageCHROMIUM;
+  static const cmd::ArgFlags kArgFlags = cmd::kFixed;
+  static const uint8_t cmd_flags = CMD_FLAG_SET_TRACE_LEVEL(3);
+
+  static uint32_t ComputeSize() {
+    return static_cast<uint32_t>(sizeof(ValueType));  // NOLINT
+  }
+
+  void SetHeader() { header.SetCmd<ValueType>(); }
+
+  void Init() { SetHeader(); }
+
+  void* Set(void* cmd) {
+    static_cast<ValueType*>(cmd)->Init();
+    return NextCmdAddress<ValueType>(cmd);
+  }
+
+  gpu::CommandHeader header;
+};
+
+static_assert(sizeof(EndBatchReadAccessSharedImageCHROMIUM) == 4,
+              "size of EndBatchReadAccessSharedImageCHROMIUM should be 4");
+static_assert(
+    offsetof(EndBatchReadAccessSharedImageCHROMIUM, header) == 0,
+    "offset of EndBatchReadAccessSharedImageCHROMIUM header should be 0");
 
 #endif  // GPU_COMMAND_BUFFER_COMMON_GLES2_CMD_FORMAT_AUTOGEN_H_

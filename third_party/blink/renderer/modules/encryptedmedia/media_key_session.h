@@ -46,6 +46,7 @@ namespace blink {
 
 class DOMException;
 class EventQueue;
+class ExceptionState;
 class MediaKeys;
 
 // References are held by JS only. However, even if all JS references are
@@ -87,11 +88,14 @@ class MediaKeySession final
 
   ScriptPromise generateRequest(ScriptState*,
                                 const String& init_data_type,
-                                const DOMArrayPiece& init_data);
-  ScriptPromise load(ScriptState*, const String& session_id);
-  ScriptPromise update(ScriptState*, const DOMArrayPiece& response);
-  ScriptPromise close(ScriptState*);
-  ScriptPromise remove(ScriptState*);
+                                const DOMArrayPiece& init_data,
+                                ExceptionState&);
+  ScriptPromise load(ScriptState*, const String& session_id, ExceptionState&);
+  ScriptPromise update(ScriptState*,
+                       const DOMArrayPiece& response,
+                       ExceptionState&);
+  ScriptPromise close(ScriptState*, ExceptionState&);
+  ScriptPromise remove(ScriptState*, ExceptionState&);
 
   // EventTarget
   const AtomicString& InterfaceName() const override;
@@ -153,9 +157,7 @@ class MediaKeySession final
   bool is_closing_or_closed_;
 
   // Keep track of the closed promise.
-  typedef ScriptPromiseProperty<Member<MediaKeySession>,
-                                ToV8UndefinedGenerator,
-                                Member<DOMException>>
+  typedef ScriptPromiseProperty<ToV8UndefinedGenerator, Member<DOMException>>
       ClosedPromise;
   Member<ClosedPromise> closed_promise_;
 

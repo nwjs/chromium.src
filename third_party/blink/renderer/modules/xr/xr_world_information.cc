@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/modules/xr/xr_world_information.h"
 
 #include "base/trace_event/trace_event.h"
+#include "third_party/blink/renderer/modules/xr/xr_light_estimation.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
 
 namespace blink {
@@ -14,6 +15,7 @@ XRWorldInformation::XRWorldInformation(XRSession* session)
 
 void XRWorldInformation::Trace(blink::Visitor* visitor) {
   visitor->Trace(plane_ids_to_planes_);
+  visitor->Trace(light_estimation_);
   visitor->Trace(session_);
   ScriptWrappable::Trace(visitor);
 }
@@ -33,8 +35,12 @@ XRPlaneSet* XRWorldInformation::detectedPlanes() const {
   return MakeGarbageCollected<XRPlaneSet>(result);
 }
 
+XRLightEstimation* XRWorldInformation::lightEstimation() const {
+  return light_estimation_.Get();
+}
+
 void XRWorldInformation::ProcessPlaneInformation(
-    const device::mojom::blink::XRPlaneDetectionDataPtr& detected_planes_data,
+    const device::mojom::blink::XRPlaneDetectionData* detected_planes_data,
     double timestamp) {
   TRACE_EVENT0("xr", __FUNCTION__);
 
@@ -89,6 +95,18 @@ void XRWorldInformation::ProcessPlaneInformation(
   }
 
   plane_ids_to_planes_.swap(updated_planes);
+}
+
+void XRWorldInformation::ProcessLightEstimationData(
+    const device::mojom::blink::XRLightEstimationData* data,
+    double timestamp) {
+  TRACE_EVENT0("xr", __FUNCTION__);
+
+  if (data) {
+    light_estimation_ = MakeGarbageCollected<XRLightEstimation>(*data);
+  } else {
+    light_estimation_ = nullptr;
+  }
 }
 
 }  // namespace blink

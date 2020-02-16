@@ -30,8 +30,8 @@
 #include <algorithm>
 
 #include "cc/input/scroll_snap_data.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
 #include "third_party/blink/public/platform/web_rect.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -85,6 +85,7 @@
 #include "third_party/blink/renderer/core/paint/ng/ng_paint_fragment.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/style/shadow_list.h"
 #include "third_party/blink/renderer/platform/geometry/double_rect.h"
 #include "third_party/blink/renderer/platform/geometry/float_quad.h"
@@ -108,7 +109,8 @@ struct SameSizeAsLayoutBox : public LayoutBoxModelObject {
   LayoutUnit intrinsic_content_logical_height;
   LayoutRectOutsets margin_box_outsets;
   LayoutUnit preferred_logical_width[2];
-  void* pointers[5];
+  void* pointers[4];
+  Persistent<void*> rare_data;
 };
 
 static_assert(sizeof(LayoutBox) == sizeof(SameSizeAsLayoutBox),
@@ -134,6 +136,10 @@ LayoutBoxRareData::LayoutBoxRareData()
       percent_height_container_(nullptr),
       snap_container_(nullptr),
       snap_areas_(nullptr) {}
+
+void LayoutBoxRareData::Trace(Visitor* visitor) {
+  visitor->Trace(layout_child_);
+}
 
 LayoutBox::LayoutBox(ContainerNode* node)
     : LayoutBoxModelObject(node),
@@ -468,7 +474,6 @@ void LayoutBox::UpdateScrollSnapMappingAfterStyleChange(
     const ComputedStyle& old_style) {
   DCHECK(Style());
   SnapCoordinator& snap_coordinator = GetDocument().GetSnapCoordinator();
-
   // scroll-snap-type and scroll-padding invalidate the snap container.
   if (old_style.GetScrollSnapType() != StyleRef().GetScrollSnapType() ||
       old_style.ScrollPaddingBottom() != StyleRef().ScrollPaddingBottom() ||
@@ -486,6 +491,10 @@ void LayoutBox::UpdateScrollSnapMappingAfterStyleChange(
       old_style.ScrollMarginLeft() != StyleRef().ScrollMarginLeft() ||
       old_style.ScrollMarginTop() != StyleRef().ScrollMarginTop() ||
       old_style.ScrollMarginRight() != StyleRef().ScrollMarginRight())
+    snap_coordinator.SnapAreaDidChange(*this, StyleRef().GetScrollSnapAlign());
+
+  // Transform invalidates the snap area.
+  if (old_style.Transform() != StyleRef().Transform())
     snap_coordinator.SnapAreaDidChange(*this, StyleRef().GetScrollSnapAlign());
 }
 
@@ -647,9 +656,10 @@ int LayoutBox::PixelSnappedScrollHeight() const {
 
 PhysicalRect LayoutBox::ScrollRectToVisibleRecursive(
     const PhysicalRect& absolute_rect,
-    const WebScrollIntoViewParams& params) {
-  DCHECK(params.GetScrollType() == kProgrammaticScroll ||
-         params.GetScrollType() == kUserScroll);
+    mojom::blink::ScrollIntoViewParamsPtr params) {
+  DCHECK(params->type ==
+             mojom::blink::ScrollIntoViewParams::Type::kProgrammatic ||
+         params->type == mojom::blink::ScrollIntoViewParams::Type::kUser);
 
   if (!GetFrameView())
     return absolute_rect;
@@ -659,7 +669,7 @@ PhysicalRect LayoutBox::ScrollRectToVisibleRecursive(
   // if the stop_at_main_frame_layout_viewport option is set. We do this so
   // that we can allow a smooth "scroll and zoom" animation to do the final
   // scroll in cases like scrolling a focused editable box into view.
-  if (params.stop_at_main_frame_layout_viewport && IsGlobalRootScroller())
+  if (params->stop_at_main_frame_layout_viewport && IsGlobalRootScroller())
     return absolute_rect;
 
   // Presumably the same issue as in setScrollTop. See crbug.com/343132.
@@ -681,7 +691,7 @@ PhysicalRect LayoutBox::ScrollRectToVisibleRecursive(
     absolute_rect_for_parent =
         GetScrollableArea()->ScrollIntoView(absolute_rect_to_scroll, params);
   } else if (!parent_box && CanBeProgramaticallyScrolled()) {
-    ScrollableArea* area_to_scroll = params.make_visible_in_visual_viewport
+    ScrollableArea* area_to_scroll = params->make_visible_in_visual_viewport
                                          ? GetFrameView()->GetScrollableArea()
                                          : GetFrameView()->LayoutViewport();
     absolute_rect_for_parent =
@@ -706,7 +716,7 @@ PhysicalRect LayoutBox::ScrollRectToVisibleRecursive(
   // have any effect, so we avoid using the RootFrameViewport and explicitly
   // scroll the visual viewport if we can.  If not, we're done.
   if (StyleRef().GetPosition() == EPosition::kFixed && Container() == View() &&
-      params.make_visible_in_visual_viewport) {
+      params->make_visible_in_visual_viewport) {
     if (GetFrame()->IsMainFrame()) {
       // TODO(donnd): We should continue the recursion if we're in a subframe.
       return GetFrame()->GetPage()->GetVisualViewport().ScrollIntoView(
@@ -718,11 +728,11 @@ PhysicalRect LayoutBox::ScrollRectToVisibleRecursive(
 
   if (parent_box) {
     return parent_box->ScrollRectToVisibleRecursive(absolute_rect_for_parent,
-                                                    params);
+                                                    std::move(params));
   } else if (GetFrame()->IsLocalRoot() && !GetFrame()->IsMainFrame()) {
     if (AllowedToPropagateRecursiveScrollToParentFrame(params)) {
       GetFrameView()->ScrollRectToVisibleInRemoteParent(
-          absolute_rect_for_parent, params);
+          absolute_rect_for_parent, std::move(params));
     }
   }
 
@@ -772,7 +782,7 @@ void LayoutBox::UpdateAfterLayout() {
 
 bool LayoutBox::HasOverrideIntrinsicContentWidth() const {
   const auto& style = StyleRef();
-  const IntrinsicLength& intrinsic_length = style.IntrinsicWidth();
+  const IntrinsicLength& intrinsic_length = style.ContainIntrinsicWidth();
   if (intrinsic_length.IsLegacy())
     return false;
 
@@ -788,7 +798,7 @@ bool LayoutBox::HasOverrideIntrinsicContentWidth() const {
 
 bool LayoutBox::HasOverrideIntrinsicContentHeight() const {
   const auto& style = StyleRef();
-  const IntrinsicLength& intrinsic_length = style.IntrinsicHeight();
+  const IntrinsicLength& intrinsic_length = style.ContainIntrinsicHeight();
   if (intrinsic_length.IsLegacy())
     return false;
 
@@ -805,7 +815,7 @@ bool LayoutBox::HasOverrideIntrinsicContentHeight() const {
 LayoutUnit LayoutBox::OverrideIntrinsicContentWidth() const {
   DCHECK(HasOverrideIntrinsicContentWidth());
   const auto& style = StyleRef();
-  const IntrinsicLength& intrinsic_length = style.IntrinsicWidth();
+  const IntrinsicLength& intrinsic_length = style.ContainIntrinsicWidth();
   DCHECK(!intrinsic_length.IsLegacy());
   if (intrinsic_length.IsAuto()) {
     DCHECK(style.OverflowX() != EOverflow::kVisible);
@@ -819,7 +829,7 @@ LayoutUnit LayoutBox::OverrideIntrinsicContentWidth() const {
 LayoutUnit LayoutBox::OverrideIntrinsicContentHeight() const {
   DCHECK(HasOverrideIntrinsicContentHeight());
   const auto& style = StyleRef();
-  const IntrinsicLength& intrinsic_length = style.IntrinsicHeight();
+  const IntrinsicLength& intrinsic_length = style.ContainIntrinsicHeight();
   DCHECK(!intrinsic_length.IsLegacy());
   if (intrinsic_length.IsAuto()) {
     DCHECK(style.OverflowY() != EOverflow::kVisible);
@@ -844,7 +854,7 @@ LayoutUnit LayoutBox::ConstrainLogicalWidthByMinMax(
     LayoutUnit available_width,
     const LayoutBlock* cb) const {
   const ComputedStyle& style_to_use = StyleRef();
-  if (!style_to_use.LogicalMaxWidth().IsMaxSizeNone())
+  if (!style_to_use.LogicalMaxWidth().IsNone())
     logical_width = std::min(
         logical_width,
         ComputeLogicalWidthUsing(kMaxSize, style_to_use.LogicalMaxWidth(),
@@ -860,8 +870,7 @@ LayoutUnit LayoutBox::ConstrainLogicalHeightByMinMax(
   // Note that the values 'min-content', 'max-content' and 'fit-content' should
   // behave as the initial value if specified in the block direction.
   const Length& logical_max_height = StyleRef().LogicalMaxHeight();
-  if (!logical_max_height.IsMaxSizeNone() &&
-      !logical_max_height.IsMinContent() &&
+  if (!logical_max_height.IsNone() && !logical_max_height.IsMinContent() &&
       !logical_max_height.IsMaxContent() &&
       !logical_max_height.IsFitContent()) {
     LayoutUnit max_h = ComputeLogicalHeightUsing(kMaxSize, logical_max_height,
@@ -885,7 +894,7 @@ LayoutUnit LayoutBox::ConstrainContentBoxLogicalHeightByMinMax(
   // advantage of already knowing the current resolved percentage height
   // to avoid recursing up through our containing blocks again to determine it.
   const ComputedStyle& style_to_use = StyleRef();
-  if (!style_to_use.LogicalMaxHeight().IsMaxSizeNone()) {
+  if (!style_to_use.LogicalMaxHeight().IsNone()) {
     if (style_to_use.LogicalMaxHeight().IsPercent() &&
         style_to_use.LogicalHeight().IsPercent()) {
       LayoutUnit available_logical_height(
@@ -1083,9 +1092,10 @@ void LayoutBox::Autoscroll(const PhysicalOffset& position_in_root_frame) {
   ScrollRectToVisibleRecursive(
       PhysicalRect(absolute_position,
                    PhysicalSize(LayoutUnit(1), LayoutUnit(1))),
-      WebScrollIntoViewParams(ScrollAlignment::kAlignToEdgeIfNeeded,
-                              ScrollAlignment::kAlignToEdgeIfNeeded,
-                              kUserScroll));
+      CreateScrollIntoViewParams(
+          ScrollAlignment::kAlignToEdgeIfNeeded,
+          ScrollAlignment::kAlignToEdgeIfNeeded,
+          mojom::blink::ScrollIntoViewParams::Type::kUser));
 }
 
 bool LayoutBox::CanAutoscroll() const {
@@ -1168,7 +1178,9 @@ void LayoutBox::ScrollByRecursively(const ScrollOffset& delta) {
   DCHECK(scrollable_area);
 
   ScrollOffset new_scroll_offset = scrollable_area->GetScrollOffset() + delta;
-  scrollable_area->SetScrollOffset(new_scroll_offset, kProgrammaticScroll);
+  scrollable_area->SetScrollOffset(
+      new_scroll_offset,
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
 
   // If this layer can't do the scroll we ask the next layer up that can
   // scroll to try.
@@ -2361,7 +2373,9 @@ void LayoutBox::SetFirstInlineFragmentItemIndex(wtf_size_t index) {
   CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
   DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
   DCHECK_NE(index, 0u);
-  first_fragment_item_index_ = index;
+  // TDOO(yosin): Once we update all |LayoutObject::FirstInlineFragment()|,
+  // we should enable below.
+  // first_fragment_item_index_ = index;
 }
 
 void LayoutBox::InLayoutNGInlineFormattingContextWillChange(bool new_value) {
@@ -2408,9 +2422,6 @@ scoped_refptr<const NGLayoutResult> LayoutBox::CachedLayoutResult(
     base::Optional<NGFragmentGeometry>* initial_fragment_geometry,
     NGLayoutCacheStatus* out_cache_status) {
   *out_cache_status = NGLayoutCacheStatus::kNeedsLayout;
-
-  if (!RuntimeEnabledFeatures::LayoutNGFragmentCachingEnabled())
-    return nullptr;
 
   const NGLayoutResult* cached_layout_result = GetCachedLayoutResult();
   if (!cached_layout_result)
@@ -2776,6 +2787,15 @@ bool LayoutBox::PaintedOutputOfObjectHasNoEffectRegardlessOfSize() const {
   if (HasNonCompositedScrollbars() || IsSelected() ||
       HasBoxDecorationBackground() || StyleRef().HasBoxDecorations() ||
       StyleRef().HasVisualOverflowingEffect())
+    return false;
+
+  // The HTML element and the LayoutView have a complicated background
+  // painting relationship (see ViewPainter).
+  if (IsDocumentElement())
+    return false;
+
+  // Hit tests rects are painted and depend on the size.
+  if (HasEffectiveAllowedTouchAction())
     return false;
 
   // Both mask and clip-path generates drawing display items that depends on
@@ -3564,37 +3584,18 @@ void LayoutBox::ComputeLogicalHeight(
       return;
     }
 
-    // FIXME: Account for writing-mode in flexible boxes.
-    // https://bugs.webkit.org/show_bug.cgi?id=46418
-    bool in_horizontal_box =
-        Parent()->IsDeprecatedFlexibleBox() &&
-        Parent()->StyleRef().BoxOrient() == EBoxOrient::kHorizontal;
-    bool stretching =
-        Parent()->StyleRef().BoxAlign() == EBoxAlignment::kStretch;
-    bool treat_as_replaced =
-        ShouldComputeSizeAsReplaced() && (!in_horizontal_box || !stretching);
     bool check_min_max_height = false;
 
     // The parent box is flexing us, so it has increased or decreased our
     // height. We have to grab our cached flexible height.
     if (HasOverrideLogicalHeight()) {
       h = Length::Fixed(OverrideLogicalHeight());
-    } else if (treat_as_replaced) {
+    } else if (ShouldComputeSizeAsReplaced()) {
       h = Length::Fixed(ComputeReplacedLogicalHeight() +
                         BorderAndPaddingLogicalHeight());
     } else {
       h = StyleRef().LogicalHeight();
       check_min_max_height = true;
-    }
-
-    // Block children of horizontal flexible boxes fill the height of the box.
-    // FIXME: Account for writing-mode in flexible boxes.
-    // https://bugs.webkit.org/show_bug.cgi?id=46418
-    if (h.IsAuto() && in_horizontal_box &&
-        ToLayoutDeprecatedFlexibleBox(Parent())->IsStretchingChildren()) {
-      h = Length::Fixed(ParentBox()->ContentLogicalHeight() - MarginBefore() -
-                        MarginAfter());
-      check_min_max_height = false;
     }
 
     LayoutUnit height_result;
@@ -3931,7 +3932,7 @@ LayoutUnit LayoutBox::ComputeReplacedLogicalWidthRespectingMinMaxWidth(
   LayoutUnit max_logical_width =
       (should_compute_preferred == kComputePreferred &&
        StyleRef().LogicalMaxWidth().IsPercentOrCalc()) ||
-              StyleRef().LogicalMaxWidth().IsMaxSizeNone()
+              StyleRef().LogicalMaxWidth().IsNone()
           ? logical_width
           : ComputeReplacedLogicalWidthUsing(kMaxSize,
                                              StyleRef().LogicalMaxWidth());
@@ -3988,7 +3989,7 @@ LayoutUnit LayoutBox::ComputeReplacedLogicalWidthUsing(
       return LayoutUnit();
     }
     case Length::kAuto:
-    case Length::kMaxSizeNone:
+    case Length::kNone:
       return IntrinsicLogicalWidth();
     case Length::kExtendToZoom:
     case Length::kDeviceWidth:
@@ -4583,7 +4584,7 @@ void LayoutBox::ComputePositionedLogicalWidth(
       margin_logical_right, computed_values);
 
   // Calculate constraint equation values for 'max-width' case.
-  if (!StyleRef().LogicalMaxWidth().IsMaxSizeNone()) {
+  if (!StyleRef().LogicalMaxWidth().IsNone()) {
     LogicalExtentComputedValues max_values;
 
     ComputePositionedLogicalWidthUsing(
@@ -4996,8 +4997,7 @@ void LayoutBox::ComputePositionedLogicalHeight(
 
   // Calculate constraint equation values for 'max-height' case.
   const Length& logical_max_height = style_to_use.LogicalMaxHeight();
-  if (!logical_max_height.IsMaxSizeNone() &&
-      !logical_max_height.IsMinContent() &&
+  if (!logical_max_height.IsNone() && !logical_max_height.IsMinContent() &&
       !logical_max_height.IsMaxContent() &&
       !logical_max_height.IsFitContent()) {
     LogicalExtentComputedValues max_values;
@@ -5813,7 +5813,7 @@ bool LayoutBox::HasUnsplittableScrollingOverflow() const {
   // world and is what we used to do in the old model anyway.
   return !StyleRef().LogicalHeight().IsIntrinsicOrAuto() ||
          (!StyleRef().LogicalMaxHeight().IsIntrinsicOrAuto() &&
-          !StyleRef().LogicalMaxHeight().IsMaxSizeNone() &&
+          !StyleRef().LogicalMaxHeight().IsNone() &&
           (!StyleRef().LogicalMaxHeight().IsPercentOrCalc() ||
            PercentageLogicalHeightIsResolvable())) ||
          (!StyleRef().LogicalMinHeight().IsIntrinsicOrAuto() &&
@@ -6336,11 +6336,11 @@ void LayoutBox::ReassignSnapAreas(LayoutBox& new_container) {
 }
 
 bool LayoutBox::AllowedToPropagateRecursiveScrollToParentFrame(
-    const WebScrollIntoViewParams& params) {
+    const mojom::blink::ScrollIntoViewParamsPtr& params) {
   if (!GetFrameView()->SafeToPropagateScrollToParent())
     return false;
 
-  if (params.GetScrollType() != kProgrammaticScroll)
+  if (params->type != mojom::blink::ScrollIntoViewParams::Type::kProgrammatic)
     return true;
 
   return !GetDocument().IsVerticalScrollEnforced();

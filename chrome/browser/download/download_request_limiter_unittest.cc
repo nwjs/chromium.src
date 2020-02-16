@@ -28,7 +28,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/android/chrome_feature_list.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #endif
 
 using content::WebContents;
@@ -76,6 +76,7 @@ class DownloadRequestLimiterTest : public ChromeRenderViewHostTestHarness {
         web_contents,
         "GET",  // request method
         std::move(origin),
+        false,  // from_download_cross_origin_redirect
         base::Bind(&DownloadRequestLimiterTest::ContinueDownload,
                    base::Unretained(this)));
     base::RunLoop().RunUntilIdle();

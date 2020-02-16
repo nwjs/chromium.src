@@ -23,6 +23,16 @@ AuthenticatorRequestClientDelegate::AuthenticatorRequestClientDelegate() =
 AuthenticatorRequestClientDelegate::~AuthenticatorRequestClientDelegate() =
     default;
 
+base::Optional<std::string>
+AuthenticatorRequestClientDelegate::MaybeGetRelyingPartyIdOverride(
+    const std::string& claimed_relying_party_id,
+    const url::Origin& caller_origin) {
+  return base::nullopt;
+}
+
+void AuthenticatorRequestClientDelegate::SetRelyingPartyId(const std::string&) {
+}
+
 bool AuthenticatorRequestClientDelegate::DoesBlockRequestOnFailure(
     InterestingFailureReason reason) {
   return false;
@@ -166,7 +176,7 @@ void AuthenticatorRequestClientDelegate::CollectPIN(
   NOTREACHED();
 }
 
-void AuthenticatorRequestClientDelegate::FinishCollectPIN() {
+void AuthenticatorRequestClientDelegate::FinishCollectToken() {
   NOTREACHED();
 }
 

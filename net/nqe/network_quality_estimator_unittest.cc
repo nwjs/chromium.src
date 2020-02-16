@@ -271,12 +271,6 @@ TEST_F(NetworkQualityEstimatorTest, TestKbpsRTTUpdates) {
   histogram_tester.ExpectUniqueSample(
       "NQE.MainFrame.EffectiveConnectionType",
       EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_UNKNOWN, 1);
-  histogram_tester.ExpectUniqueSample("NQE.EstimateAvailable.MainFrame.RTT", 0,
-                                      1);
-  histogram_tester.ExpectUniqueSample(
-      "NQE.EstimateAvailable.MainFrame.TransportRTT", 0, 1);
-  histogram_tester.ExpectUniqueSample("NQE.EstimateAvailable.MainFrame.Kbps", 0,
-                                      1);
   EXPECT_LE(1u,
             histogram_tester.GetAllSamples("NQE.RTT.OnECTComputation").size());
   EXPECT_LE(1u,
@@ -286,7 +280,6 @@ TEST_F(NetworkQualityEstimatorTest, TestKbpsRTTUpdates) {
       "NQE.RTT.ObservationSource", NETWORK_QUALITY_OBSERVATION_SOURCE_HTTP, 1);
   histogram_tester.ExpectBucketCount(
       "NQE.Kbps.ObservationSource", NETWORK_QUALITY_OBSERVATION_SOURCE_HTTP, 1);
-  histogram_tester.ExpectTotalCount("NQE.Kbps.RawObservation.Http", 1);
 
   std::unique_ptr<URLRequest> request2(
       context.CreateRequest(estimator.GetEchoURL(), DEFAULT_PRIORITY,
@@ -295,12 +288,6 @@ TEST_F(NetworkQualityEstimatorTest, TestKbpsRTTUpdates) {
   request2->Start();
   test_delegate.RunUntilComplete();
   histogram_tester.ExpectTotalCount("NQE.MainFrame.EffectiveConnectionType", 2);
-  histogram_tester.ExpectBucketCount("NQE.EstimateAvailable.MainFrame.RTT", 1,
-                                     1);
-  histogram_tester.ExpectUniqueSample(
-      "NQE.EstimateAvailable.MainFrame.TransportRTT", 0, 2);
-  histogram_tester.ExpectBucketCount("NQE.EstimateAvailable.MainFrame.Kbps", 1,
-                                     1);
 
   estimator.SimulateNetworkChange(
       NetworkChangeNotifier::ConnectionType::CONNECTION_WIFI, "test-1");
@@ -339,16 +326,6 @@ TEST_F(NetworkQualityEstimatorTest, TestKbpsRTTUpdates) {
       "NQE.MainFrame.EffectiveConnectionType",
       EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_UNKNOWN, 2);
   histogram_tester.ExpectTotalCount("NQE.MainFrame.EffectiveConnectionType", 3);
-  histogram_tester.ExpectBucketCount("NQE.EstimateAvailable.MainFrame.RTT", 0,
-                                     2);
-  histogram_tester.ExpectBucketCount("NQE.EstimateAvailable.MainFrame.RTT", 1,
-                                     1);
-  histogram_tester.ExpectUniqueSample(
-      "NQE.EstimateAvailable.MainFrame.TransportRTT", 0, 3);
-  histogram_tester.ExpectBucketCount("NQE.EstimateAvailable.MainFrame.Kbps", 0,
-                                     2);
-  histogram_tester.ExpectBucketCount("NQE.EstimateAvailable.MainFrame.Kbps", 1,
-                                     1);
 
   estimator.SimulateNetworkChange(
       NetworkChangeNotifier::ConnectionType::CONNECTION_UNKNOWN, "test");
@@ -453,8 +430,6 @@ TEST_F(NetworkQualityEstimatorTest, Caching) {
     histogram_tester.ExpectBucketCount(
         "NQE.Kbps.ObservationSource",
         NETWORK_QUALITY_OBSERVATION_SOURCE_HTTP_CACHED_ESTIMATE, 1);
-    histogram_tester.ExpectTotalCount(
-        "NQE.Kbps.RawObservation.HttpCachedEstimate", 1);
 
     // Verify the contents of the net log.
     EXPECT_LE(
@@ -793,11 +768,7 @@ TEST_F(NetworkQualityEstimatorTest, DefaultObservations) {
   histogram_tester.ExpectBucketCount(
       "NQE.Kbps.ObservationSource",
       NETWORK_QUALITY_OBSERVATION_SOURCE_DEFAULT_HTTP_FROM_PLATFORM, 1);
-  histogram_tester.ExpectTotalCount("NQE.Kbps.RawObservation.HttpPlatform", 1);
   histogram_tester.ExpectTotalCount("NQE.RTT.ObservationSource", 2);
-  histogram_tester.ExpectTotalCount("NQE.RTT.RawObservation.HttpPlatform", 1);
-  histogram_tester.ExpectTotalCount("NQE.RTT.RawObservation.TransportPlatform",
-                                    1);
   histogram_tester.ExpectTotalCount("NQE.Kbps.ObservationSource", 1);
 
   // Default observations should be added on connection change.
@@ -812,11 +783,7 @@ TEST_F(NetworkQualityEstimatorTest, DefaultObservations) {
   histogram_tester.ExpectBucketCount(
       "NQE.Kbps.ObservationSource",
       NETWORK_QUALITY_OBSERVATION_SOURCE_DEFAULT_HTTP_FROM_PLATFORM, 2);
-  histogram_tester.ExpectTotalCount("NQE.Kbps.RawObservation.HttpPlatform", 2);
   histogram_tester.ExpectTotalCount("NQE.RTT.ObservationSource", 4);
-  histogram_tester.ExpectTotalCount("NQE.RTT.RawObservation.HttpPlatform", 2);
-  histogram_tester.ExpectTotalCount("NQE.RTT.RawObservation.TransportPlatform",
-                                    2);
   histogram_tester.ExpectTotalCount("NQE.Kbps.ObservationSource", 2);
 
   base::TimeDelta rtt;
@@ -1903,12 +1870,6 @@ TEST_F(NetworkQualityEstimatorTest,
   EXPECT_EQ(1U, observer.effective_connection_types().size());
   histogram_tester.ExpectUniqueSample("NQE.MainFrame.EffectiveConnectionType",
                                       EFFECTIVE_CONNECTION_TYPE_2G, 1);
-  histogram_tester.ExpectUniqueSample("NQE.EstimateAvailable.MainFrame.RTT", 0,
-                                      1);
-  histogram_tester.ExpectUniqueSample(
-      "NQE.EstimateAvailable.MainFrame.TransportRTT", 0, 1);
-  histogram_tester.ExpectUniqueSample("NQE.EstimateAvailable.MainFrame.Kbps", 0,
-                                      1);
   EXPECT_LE(1u,
             histogram_tester
                 .GetAllSamples("NQE.EffectiveConnectionType.OnECTComputation")
@@ -2243,12 +2204,6 @@ TEST_F(NetworkQualityEstimatorTest, MAYBE_TestTCPSocketRTT) {
   // Verify that metrics are logged correctly on main-frame requests.
   histogram_tester.ExpectTotalCount("NQE.MainFrame.TransportRTT.Percentile50",
                                     num_requests);
-  histogram_tester.ExpectUniqueSample("NQE.EstimateAvailable.MainFrame.RTT", 1,
-                                      num_requests);
-  histogram_tester.ExpectUniqueSample(
-      "NQE.EstimateAvailable.MainFrame.TransportRTT", 1, num_requests);
-  histogram_tester.ExpectUniqueSample("NQE.EstimateAvailable.MainFrame.Kbps", 1,
-                                      num_requests);
 
   histogram_tester.ExpectTotalCount("NQE.MainFrame.EffectiveConnectionType",
                                     num_requests);

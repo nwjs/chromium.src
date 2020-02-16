@@ -1693,8 +1693,11 @@ class AndroidAppItem extends TreeItem {
       icon.setAttribute('use-generic-provided-icon', '');
     }
 
-    // Create an external link icon. TODO(crbug.com/986169) does this icon
-    // element need aria-label, role, tabindex, etc?
+    // Use aria-describedby attribute to let ChromeVox users know that the link
+    // launches an external app window.
+    this.setAttribute('aria-describedby', 'external-link-label');
+
+    // Create an external link icon.
     const externalLinkIcon = document.createElement('span');
     externalLinkIcon.className = 'external-link-icon align-right-icon';
 
@@ -1846,6 +1849,9 @@ class FakeItem extends TreeItem {
 class DirectoryTree extends cr.ui.Tree {
   constructor() {
     super();
+
+    /** @type {?HTMLElement} */
+    this.activeRow_ = null;
 
     /** @type {NavigationListModel} */
     this.dataModel_ = null;
@@ -2245,6 +2251,18 @@ class DirectoryTree extends cr.ui.Tree {
    */
   onCurrentDirectoryChanged_(event) {
     this.selectByEntry(event.newDirEntry);
+
+    const selectedItem = this.selectedItem;
+
+    if (this.activeRow_) {
+      this.activeRow_.removeAttribute('active');
+    }
+
+    this.activeRow_ = selectedItem ? selectedItem.rowElement : null;
+    if (this.activeRow_) {
+      this.activeRow_.setAttribute('active', '');
+    }
+
     this.updateSubDirectories(false /* recursive */, () => {});
   }
 
@@ -2269,7 +2287,8 @@ class DirectoryTree extends cr.ui.Tree {
   /*
    * The directory tree does not support horizontal scrolling (by design), but
    * can gain a scrollLeft > 0, see crbug.com/1025581. Always clamp scrollLeft
-   * back to 0 if needed.
+   * back to 0 if needed. In RTL, the scrollLeft clamp is not 0: it depends on
+   * the element scrollWidth and clientWidth per crbug.com/721759.
    */
   onTreeScrollEvent_() {
     if (this.scrollRAFActive_ === true) {
@@ -2285,7 +2304,12 @@ class DirectoryTree extends cr.ui.Tree {
 
     window.requestAnimationFrame(() => {
       this.scrollRAFActive_ = false;
-      if (this.scrollLeft) {
+      if (document.documentElement.getAttribute('dir') === 'rtl') {
+        const scrollRight = this.scrollWidth - this.clientWidth;
+        if (this.scrollLeft !== scrollRight) {
+          this.scrollLeft = scrollRight;
+        }
+      } else if (this.scrollLeft) {
         this.scrollLeft = 0;
       }
     });
@@ -2379,12 +2403,25 @@ DirectoryTree.decorate =
      fakeEntriesVisible) => {
       el.__proto__ = DirectoryTree.prototype;
 
-      // TODO(crbug.com/992819): add overrides for the FILES_NG_ENABLED case.
+      if (util.isFilesNg()) {
+        directorytree.FILES_NG_ENABLED = true;
+        directorytree.rightIconSetPrefix = 'files20';
+        directorytree.createRowElementContent =
+            directorytree.createRowElementContentFilesNG;
+        directorytree.styleRowElementDepth =
+            directorytree.styleRowElementDepthFilesNG;
+        el.setAttribute('files-ng', '');
+      }
+
       Object.freeze(directorytree);
 
       /** @type {DirectoryTree} */ (el).decorateDirectoryTree(
           directoryModel, volumeManager, metadataModel, fileOperationManager,
           fakeEntriesVisible);
+
+      if (directorytree.FILES_NG_ENABLED) {
+        el.rowElementDepthStyleHandler = directorytree.styleRowElementDepth;
+      }
     };
 
 cr.defineProperty(DirectoryTree, 'contextMenuForSubitems', cr.PropertyKind.JS);

@@ -5,7 +5,6 @@
 #include "components/sync_bookmarks/bookmark_model_merger.h"
 
 #include <algorithm>
-#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -56,9 +55,8 @@ const char kBookmarkBarTag[] = "bookmark_bar";
 const char kMobileBookmarksTag[] = "synced_bookmarks";
 const char kOtherBookmarksTag[] = "other_bookmarks";
 
-using UpdatesPerParentId = std::unordered_map<base::StringPiece,
-                                              syncer::UpdateResponseDataList,
-                                              base::StringPieceHash>;
+using UpdatesPerParentId =
+    std::unordered_map<std::string, syncer::UpdateResponseDataList>;
 
 // Gets the bookmark node corresponding to a permanent folder identified by
 // |server_defined_unique_tag|. |bookmark_model| must not be null.
@@ -117,49 +115,31 @@ bool NodeSemanticsMatch(const bookmarks::BookmarkNode* local_node,
   return local_node->url() == GURL(specifics.url());
 }
 
-// Goes through remote updates to detect duplicate GUIDs (should be extremely
-// rare) and resolve them by ignoring (clearing) all occurrences except one,
-// which if possible will be the one that also matches the originator client
-// item ID.
-// TODO(crbug.com/978430): Remove this logic and deprecate proto field.
-void ResolveDuplicateRemoteGUIDs(syncer::UpdateResponseDataList* updates) {
+// Goes through remote updates to detect duplicate GUIDs, which cannot exist
+// because GUIDs are guaranteed to match the originator client item ID (handled
+// in GroupValidUpdatesByParentId()) and duplicates of originator client item
+// ID are sorted out by ModelTypeWorker.
+void CheckNoDuplicatesInRemoteGUIDs(
+    const UpdatesPerParentId& updates_per_parent_id) {
+#if DCHECK_IS_ON()
   std::set<std::string> known_guids;
-  // In a first pass we process |originator_client_item_id| which is more
-  // authoritative and cannot run into duplicates.
-  for (const std::unique_ptr<UpdateResponseData>& update : *updates) {
-    DCHECK(update);
-    DCHECK(update->entity);
 
-    // |originator_client_item_id| is empty for permanent nodes.
-    if (update->entity->is_deleted() ||
-        update->entity->originator_client_item_id.empty()) {
-      continue;
-    }
+  for (const auto& parent_id_and_updates : updates_per_parent_id) {
+    for (const UpdateResponseData& update : parent_id_and_updates.second) {
+      // |originator_client_item_id| is empty for permanent nodes.
+      if (update.entity.is_deleted() ||
+          !update.entity.server_defined_unique_tag.empty()) {
+        continue;
+      }
 
-    known_guids.insert(update->entity->originator_client_item_id);
-  }
+      const std::string& guid_in_specifics =
+          update.entity.specifics.bookmark().guid();
 
-  // In a second pass, detect if GUIDs in specifics conflict with each other or
-  // with |originator_client_item_id| values processed earlier.
-  for (std::unique_ptr<UpdateResponseData>& update : *updates) {
-    DCHECK(update);
-    DCHECK(update->entity);
-
-    const std::string& guid_in_specifics =
-        update->entity->specifics.bookmark().guid();
-    if (guid_in_specifics.empty() ||
-        guid_in_specifics == update->entity->originator_client_item_id) {
-      continue;
-    }
-
-    bool success = known_guids.insert(guid_in_specifics).second;
-    if (!success) {
-      // This GUID conflicts with another one, so let's ignore it for the
-      // purpose of merging. This mimics the data produced by old clients,
-      // without the GUID being populated.
-      update->entity->specifics.mutable_bookmark()->clear_guid();
+      bool success = known_guids.insert(guid_in_specifics).second;
+      DCHECK(success);
     }
   }
+#endif  // DCHECK_IS_ON()
 }
 
 // Groups all valid updates by the server ID of their parent and moves them away
@@ -168,11 +148,8 @@ UpdatesPerParentId GroupValidUpdatesByParentId(
     UpdateResponseDataList* updates) {
   UpdatesPerParentId updates_per_parent_id;
 
-  for (std::unique_ptr<UpdateResponseData>& update : *updates) {
-    DCHECK(update);
-    DCHECK(update->entity);
-
-    const EntityData& update_entity = *update->entity;
+  for (UpdateResponseData& update : *updates) {
+    const EntityData& update_entity = update.entity;
     if (update_entity.is_deleted()) {
       continue;
     }
@@ -194,6 +171,13 @@ UpdatesPerParentId GroupValidUpdatesByParentId(
       DLOG(ERROR) << "Remote update with invalid specifics";
       continue;
     }
+    if (!HasExpectedBookmarkGuid(update_entity.specifics.bookmark(),
+                                 update_entity.originator_cache_guid,
+                                 update_entity.originator_client_item_id)) {
+      // Ignore updates with an unexpected GUID.
+      DLOG(ERROR) << "Remote update with unexpected GUID";
+      continue;
+    }
 
     updates_per_parent_id[update_entity.parent_id].push_back(std::move(update));
   }
@@ -203,87 +187,61 @@ UpdatesPerParentId GroupValidUpdatesByParentId(
 
 }  // namespace
 
-class BookmarkModelMerger::RemoteTreeNode final {
- public:
-  // Constructs a tree given |update| as root and recursively all descendants by
-  // traversing |*updates_per_parent_id|. |update| and |updates_per_parent_id|
-  // must not be null. All updates |*updates_per_parent_id| must represent valid
-  // updates. Updates corresponding from descendant nodes are moved away from
-  // |*updates_per_parent_id|.
-  static RemoteTreeNode BuildTree(
-      std::unique_ptr<syncer::UpdateResponseData> update,
-      UpdatesPerParentId* updates_per_parent_id);
+BookmarkModelMerger::RemoteTreeNode::RemoteTreeNode() = default;
 
-  ~RemoteTreeNode() = default;
+BookmarkModelMerger::RemoteTreeNode::~RemoteTreeNode() = default;
 
-  // Allow moves, useful during construction.
-  RemoteTreeNode(RemoteTreeNode&&) = default;
-  RemoteTreeNode& operator=(RemoteTreeNode&&) = default;
+BookmarkModelMerger::RemoteTreeNode::RemoteTreeNode(
+    BookmarkModelMerger::RemoteTreeNode&&) = default;
+BookmarkModelMerger::RemoteTreeNode& BookmarkModelMerger::RemoteTreeNode::
+operator=(BookmarkModelMerger::RemoteTreeNode&&) = default;
 
-  const syncer::EntityData& entity() const { return *update_->entity; }
-  int64_t response_version() const { return update_->response_version; }
+void BookmarkModelMerger::RemoteTreeNode::EmplaceSelfAndDescendantsByGUID(
+    std::unordered_map<std::string, const RemoteTreeNode*>*
+        guid_to_remote_node_map) const {
+  DCHECK(guid_to_remote_node_map);
 
-  // Direct children nodes, sorted by ascending unique position. These are
-  // guaranteed to be valid updates (e.g. IsValidBookmarkSpecifics()).
-  const std::vector<RemoteTreeNode>& children() const { return children_; }
-
-  // Recursively emplaces all GUIDs (this node and descendants) into
-  // |*guid_to_remote_node_map|, which must not be null.
-  void EmplaceSelfAndDescendantsByGUID(
-      std::unordered_map<std::string, const RemoteTreeNode*>*
-          guid_to_remote_node_map) const {
-    DCHECK(guid_to_remote_node_map);
-
+  if (entity().server_defined_unique_tag.empty()) {
     const std::string& guid = entity().specifics.bookmark().guid();
-    if (!guid.empty()) {
-      DCHECK(base::IsValidGUID(guid));
+    DCHECK(base::IsValidGUID(guid));
 
-      // Duplicate GUIDs have been sorted out before.
-      bool success = guid_to_remote_node_map->emplace(guid, this).second;
-      DCHECK(success);
-    }
-
-    for (const RemoteTreeNode& child : children_) {
-      child.EmplaceSelfAndDescendantsByGUID(guid_to_remote_node_map);
-    }
+    // Duplicate GUIDs have been sorted out before.
+    bool success = guid_to_remote_node_map->emplace(guid, this).second;
+    DCHECK(success);
   }
 
- private:
-  static bool UniquePositionLessThan(const RemoteTreeNode& lhs,
-                                     const RemoteTreeNode& rhs) {
-    const syncer::UniquePosition a_pos =
-        syncer::UniquePosition::FromProto(lhs.entity().unique_position);
-    const syncer::UniquePosition b_pos =
-        syncer::UniquePosition::FromProto(rhs.entity().unique_position);
-    return a_pos.LessThan(b_pos);
+  for (const RemoteTreeNode& child : children_) {
+    child.EmplaceSelfAndDescendantsByGUID(guid_to_remote_node_map);
   }
+}
 
-  RemoteTreeNode() = default;
-
-  std::unique_ptr<syncer::UpdateResponseData> update_;
-  std::vector<RemoteTreeNode> children_;
-};
+// static
+bool BookmarkModelMerger::RemoteTreeNode::UniquePositionLessThan(
+    const RemoteTreeNode& lhs,
+    const RemoteTreeNode& rhs) {
+  const syncer::UniquePosition a_pos =
+      syncer::UniquePosition::FromProto(lhs.entity().unique_position);
+  const syncer::UniquePosition b_pos =
+      syncer::UniquePosition::FromProto(rhs.entity().unique_position);
+  return a_pos.LessThan(b_pos);
+}
 
 // static
 BookmarkModelMerger::RemoteTreeNode
 BookmarkModelMerger::RemoteTreeNode::BuildTree(
-    std::unique_ptr<UpdateResponseData> update,
+    UpdateResponseData update,
     UpdatesPerParentId* updates_per_parent_id) {
   DCHECK(updates_per_parent_id);
-  DCHECK(update);
-  DCHECK(update->entity);
 
   RemoteTreeNode node;
   node.update_ = std::move(update);
 
   // Populate descendants recursively.
-  for (std::unique_ptr<UpdateResponseData>& child_update :
+  for (UpdateResponseData& child_update :
        (*updates_per_parent_id)[node.entity().id]) {
-    DCHECK(child_update);
-    DCHECK(child_update->entity);
-    DCHECK_EQ(child_update->entity->parent_id, node.entity().id);
-    DCHECK(IsValidBookmarkSpecifics(child_update->entity->specifics.bookmark(),
-                                    child_update->entity->is_folder));
+    DCHECK_EQ(child_update.entity.parent_id, node.entity().id);
+    DCHECK(IsValidBookmarkSpecifics(child_update.entity.specifics.bookmark(),
+                                    child_update.entity.is_folder));
 
     node.children_.push_back(
         BuildTree(std::move(child_update), updates_per_parent_id));
@@ -347,23 +305,23 @@ void BookmarkModelMerger::Merge() {
 // static
 BookmarkModelMerger::RemoteForest BookmarkModelMerger::BuildRemoteForest(
     syncer::UpdateResponseDataList updates) {
-  ResolveDuplicateRemoteGUIDs(&updates);
-
   // Filter out invalid remote updates and group the valid ones by the server ID
   // of their parent.
   UpdatesPerParentId updates_per_parent_id =
       GroupValidUpdatesByParentId(&updates);
 
+  CheckNoDuplicatesInRemoteGUIDs(updates_per_parent_id);
+
   // Construct one tree per permanent entity.
   RemoteForest update_forest;
-  for (std::unique_ptr<UpdateResponseData>& update : updates) {
-    if (!update || update->entity->server_defined_unique_tag.empty()) {
+  for (UpdateResponseData& update : updates) {
+    if (update.entity.server_defined_unique_tag.empty()) {
       continue;
     }
 
     // Make a copy of the string to avoid relying on argument evaluation order.
     const std::string server_defined_unique_tag =
-        update->entity->server_defined_unique_tag;
+        update.entity.server_defined_unique_tag;
 
     update_forest.emplace(
         server_defined_unique_tag,
@@ -382,10 +340,6 @@ BookmarkModelMerger::FindGuidMatchesOrReassignLocal(
     bookmarks::BookmarkModel* bookmark_model) {
   DCHECK(bookmark_model);
 
-  if (!base::FeatureList::IsEnabled(switches::kMergeBookmarksUsingGUIDs)) {
-    return {};
-  }
-
   // Build a temporary lookup table for remote GUIDs.
   std::unordered_map<std::string, const RemoteTreeNode*>
       guid_to_remote_node_map;
@@ -397,6 +351,9 @@ BookmarkModelMerger::FindGuidMatchesOrReassignLocal(
   // Iterate through all local bookmarks to find matches by GUID.
   std::unordered_map<std::string, BookmarkModelMerger::GuidMatch>
       guid_to_match_map;
+  // Because ReplaceBookmarkNodeGUID() cannot be used while iterating the local
+  // bookmark model, a temporary list is constructed first to reassign later.
+  std::vector<const bookmarks::BookmarkNode*> nodes_to_replace_guid;
   ui::TreeNodeIterator<const bookmarks::BookmarkNode> iterator(
       bookmark_model->root_node());
   while (iterator.has_next()) {
@@ -423,16 +380,34 @@ BookmarkModelMerger::FindGuidMatchesOrReassignLocal(
 
     if (node->is_folder() != remote_entity.is_folder ||
         (node->is_url() &&
-         node->url() != remote_entity.specifics.bookmark().url())) {
+         node->url() != remote_entity.specifics.bookmark().url()) ||
+        !base::FeatureList::IsEnabled(switches::kMergeBookmarksUsingGUIDs)) {
       // If local node and its remote node match are conflicting in node type or
-      // URL, replace local GUID with a random GUID.
+      // URL, replace local GUID with a random GUID. The logic is applied
+      // unconditionally if kMergeBookmarksUsingGUIDs is disabled, since no
+      // GUID-based matches take place and GUIDs need to be reassigned to avoid
+      // collisions (they will be reassigned once again if there is a semantic
+      // match).
       // TODO(crbug.com/978430): Local GUIDs should also be reassigned if they
       // match a remote originator_client_item_id.
-      ReplaceBookmarkNodeGUID(node, base::GenerateGUID(), bookmark_model);
+      nodes_to_replace_guid.push_back(node);
       continue;
     }
 
-    guid_to_match_map.emplace(node->guid(), GuidMatch{node, remote_node});
+    bool success =
+        guid_to_match_map.emplace(node->guid(), GuidMatch{node, remote_node})
+            .second;
+
+    // Insertion must have succeeded unless there were duplicate GUIDs in the
+    // local BookmarkModel (invariant violation that gets resolved upon
+    // restart).
+    // TODO(crbug.com/516866): The below CHECK is added to debug some crashes.
+    // Should be converted to a DCHECK after the root cause if found.
+    CHECK(success);
+  }
+
+  for (const bookmarks::BookmarkNode* node : nodes_to_replace_guid) {
+    ReplaceBookmarkNodeGUID(node, base::GenerateGUID(), bookmark_model);
   }
 
   return guid_to_match_map;
@@ -570,16 +545,12 @@ void BookmarkModelMerger::ProcessRemoteCreation(
     const bookmarks::BookmarkNode* local_parent,
     size_t index) {
   DCHECK(!FindMatchingLocalNodeByGUID(remote_node));
+
   const EntityData& remote_update_entity = remote_node.entity();
+  DCHECK(IsValidBookmarkSpecifics(remote_update_entity.specifics.bookmark(),
+                                  remote_update_entity.is_folder));
 
-  // If specifics do not have a valid GUID, create a new one. Legacy clients do
-  // not populate GUID field and if the originator_client_item_id is not of
-  // valid GUID format to replace it, the field is left blank.
-  sync_pb::EntitySpecifics specifics = remote_node.entity().specifics;
-  if (!base::IsValidGUID(specifics.bookmark().guid())) {
-    specifics.mutable_bookmark()->set_guid(base::GenerateGUID());
-  }
-
+  const sync_pb::EntitySpecifics& specifics = remote_node.entity().specifics;
   const bookmarks::BookmarkNode* bookmark_node =
       CreateBookmarkNodeFromSpecifics(specifics.bookmark(), local_parent, index,
                                       remote_update_entity.is_folder,
@@ -628,10 +599,12 @@ void BookmarkModelMerger::ProcessLocalCreation(
   const bookmarks::BookmarkNode* node = parent->children()[index].get();
   DCHECK(!FindMatchingRemoteNodeByGUID(node));
   DCHECK(base::IsValidGUID(node->guid()));
-  const std::string sync_id =
-      base::FeatureList::IsEnabled(switches::kMergeBookmarksUsingGUIDs)
-          ? node->guid()
-          : base::GenerateGUID();
+
+  // The node's GUID cannot run into collisions because
+  // FindGuidMatchesOrReassignLocal() takes care of reassigning local GUIDs if
+  // they won't actually be merged with the remote bookmark with the same GUID
+  // (e.g. incompatible types).
+  const std::string sync_id = node->guid();
   const int64_t server_version = syncer::kUncommittedVersion;
   const base::Time creation_time = base::Time::Now();
   const std::string& suffix = syncer::GenerateSyncableBookmarkHash(
@@ -650,8 +623,10 @@ void BookmarkModelMerger::ProcessLocalCreation(
             predecessor_entity->metadata()->unique_position()),
         suffix);
   }
+
   const sync_pb::EntitySpecifics specifics = CreateSpecificsFromBookmarkNode(
-      node, bookmark_model_, /*force_favicon_load=*/true);
+      node, bookmark_model_, /*force_favicon_load=*/true,
+      /*include_guid=*/true);
   bookmark_tracker_->Add(sync_id, node, server_version, creation_time,
                          pos.ToProto(), specifics);
   // Mark the entity that it needs to be committed.

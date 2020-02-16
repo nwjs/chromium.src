@@ -16,29 +16,30 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.dom_distiller.DomDistillerTabUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omnibox.OmniboxUrlEmphasizer;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
+import org.chromium.chrome.browser.previews.Previews;
 import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ssl.SecurityStateModel;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TrustedCdn;
-import org.chromium.chrome.browser.ui.styles.ChromeColors;
-import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.util.ColorUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -116,7 +117,7 @@ public class LocationBarModel implements ToolbarDataProvider, ToolbarCommonPrope
         // TODO(dtrainor, tedchoc): Remove the isInitialized() check when we no longer wait for
         // TAB_CLOSED events to remove this tab.  Otherwise there is a chance we use this tab after
         // {@link ChromeTab#destroy()} is called.
-        return mTab != null && ((TabImpl) mTab).isInitialized();
+        return mTab != null && mTab.isInitialized();
     }
 
     @Override
@@ -184,7 +185,7 @@ public class LocationBarModel implements ToolbarDataProvider, ToolbarCommonPrope
                     DomDistillerTabUtils.getFormattedUrlFromOriginalDistillerUrl(originalUrl));
 
             // Clear the editing text for untrusted offline pages.
-            if (!OfflinePageUtils.isShowingTrustedOfflinePage(mTab)) {
+            if (!OfflinePageUtils.isShowingTrustedOfflinePage(mTab.getWebContents())) {
                 return buildUrlBarData(url, formattedUrl, "");
             }
 
@@ -343,7 +344,7 @@ public class LocationBarModel implements ToolbarDataProvider, ToolbarCommonPrope
 
     @Override
     public boolean isPreview() {
-        return hasTab() && ((TabImpl) mTab).isPreview();
+        return hasTab() && Previews.isPreview(mTab);
     }
 
     @Override
@@ -369,7 +370,7 @@ public class LocationBarModel implements ToolbarDataProvider, ToolbarCommonPrope
         // If we're showing a query in the omnibox, and the security level is high enough to show
         // the search icon, return that instead of the security icon.
         if (getDisplaySearchTerms() != null) {
-                return R.drawable.omnibox_search;
+            return R.drawable.ic_suggestion_magnifier;
         }
 
         return getSecurityIconResource(getSecurityLevel(), !isTablet, isOfflinePage(), isPreview());
@@ -377,19 +378,25 @@ public class LocationBarModel implements ToolbarDataProvider, ToolbarCommonPrope
 
     @VisibleForTesting
     @ConnectionSecurityLevel
-    static int getSecurityLevel(Tab tab, boolean isOfflinePage, @Nullable String publisherUrl) {
+    int getSecurityLevel(Tab tab, boolean isOfflinePage, @Nullable String publisherUrl) {
         if (tab == null || isOfflinePage) {
             return ConnectionSecurityLevel.NONE;
         }
 
-        int securityLevel = ((TabImpl) tab).getSecurityLevel();
         if (publisherUrl != null) {
-            assert securityLevel != ConnectionSecurityLevel.DANGEROUS;
+            assert getSecurityLevelFromStateModel(tab.getWebContents())
+                    != ConnectionSecurityLevel.DANGEROUS;
             return (URI.create(publisherUrl).getScheme().equals(UrlConstants.HTTPS_SCHEME))
                     ? ConnectionSecurityLevel.SECURE
                     : ConnectionSecurityLevel.WARNING;
         }
-        return securityLevel;
+        return getSecurityLevelFromStateModel(tab.getWebContents());
+    }
+
+    @VisibleForTesting
+    @ConnectionSecurityLevel
+    int getSecurityLevelFromStateModel(WebContents webContents) {
+        return SecurityStateModel.getSecurityLevelForWebContents(webContents);
     }
 
     @VisibleForTesting

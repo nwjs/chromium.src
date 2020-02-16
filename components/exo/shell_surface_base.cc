@@ -695,14 +695,6 @@ void ShellSurfaceBase::WindowClosing() {
   widget_ = nullptr;
 }
 
-views::Widget* ShellSurfaceBase::GetWidget() {
-  return widget_;
-}
-
-const views::Widget* ShellSurfaceBase::GetWidget() const {
-  return widget_;
-}
-
 views::View* ShellSurfaceBase::GetContentsView() {
   return this;
 }
@@ -919,6 +911,7 @@ void ShellSurfaceBase::CreateShellSurfaceWidget(
   SetShellApplicationId(window, application_id_);
   SetShellStartupId(window, startup_id_);
   SetShellMainSurface(window, root_surface());
+  SetArcAppType(window);
 
   // Start tracking changes to window bounds and window state.
   window->AddObserver(this);
@@ -1079,6 +1072,10 @@ views::NonClientFrameView* ShellSurfaceBase::CreateNonClientFrameViewInternal(
 
 ////////////////////////////////////////////////////////////////////////////////
 // ShellSurfaceBase, private:
+
+const views::Widget* ShellSurfaceBase::GetWidgetImpl() const {
+  return widget_;
+}
 
 float ShellSurfaceBase::GetScale() const {
   return 1.f;

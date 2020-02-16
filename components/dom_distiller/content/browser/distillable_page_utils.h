@@ -26,7 +26,7 @@ class DistillablePageDetector;
 // |web_contents| and |detector| must be non-null.
 void IsDistillablePageForDetector(content::WebContents* web_contents,
                                   const DistillablePageDetector* detector,
-                                  base::Callback<void(bool)> callback);
+                                  base::OnceCallback<void(bool)> callback);
 
 struct DistillabilityResult {
   bool is_distillable;
@@ -38,6 +38,7 @@ std::ostream& operator<<(std::ostream& os, const DistillabilityResult& result);
 class DistillabilityObserver : public base::CheckedObserver {
  public:
   virtual void OnResult(const DistillabilityResult& result) = 0;
+  ~DistillabilityObserver() override = default;
 };
 
 // Add/remove objects to the list of observers to notify when the distillability

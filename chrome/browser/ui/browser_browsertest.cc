@@ -23,6 +23,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/system/sys_info.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -75,9 +76,10 @@
 #include "components/app_modal/javascript_app_modal_dialog.h"
 #include "components/app_modal/native_app_modal_dialog.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/embedder_support/switches.h"
 #include "components/omnibox/common/omnibox_focus_state.h"
 #include "components/prefs/pref_service.h"
-#include "components/sessions/core/base_session_service_test_helper.h"
+#include "components/sessions/core/command_storage_manager_test_helper.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/common/language_detection_details.h"
 #include "content/public/browser/browser_context.h"
@@ -449,32 +451,6 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, Title) {
   EXPECT_EQ(test_title, tab_title);
 }
 
-namespace {
-
-class DialogPlusConsoleObserverDelegate
-    : public content::ConsoleObserverDelegate {
- public:
-  DialogPlusConsoleObserverDelegate(
-      content::WebContentsDelegate* original_delegate,
-      WebContents* web_contents,
-      const std::string& filter)
-      : content::ConsoleObserverDelegate(web_contents, filter),
-        web_contents_(web_contents),
-        original_delegate_(original_delegate) {}
-
-  // WebContentsDelegate method:
-  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
-      WebContents* source) override {
-    return original_delegate_->GetJavaScriptDialogManager(web_contents_);
-  }
-
- private:
-  content::WebContents* web_contents_;
-  content::WebContentsDelegate* original_delegate_;
-};
-
-}  // namespace
-
 IN_PROC_BROWSER_TEST_F(BrowserTest, NoJavaScriptDialogsActivateTab) {
   // Set up two tabs, with the tab at index 0 active.
   GURL url(ui_test_utils::GetTestUrl(
@@ -487,31 +463,30 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NoJavaScriptDialogsActivateTab) {
 
   WebContents* second_tab = browser()->tab_strip_model()->GetWebContentsAt(1);
   ASSERT_TRUE(second_tab);
-  content::WebContentsDelegate* original_delegate = second_tab->GetDelegate();
 
   // Show a confirm() dialog from the tab at index 1. The active index shouldn't
   // budge.
-  DialogPlusConsoleObserverDelegate confirm_observer(
-      original_delegate, second_tab, "*confirm*suppressed*");
-  second_tab->SetDelegate(&confirm_observer);
-  second_tab->GetMainFrame()->ExecuteJavaScriptForTests(
-      ASCIIToUTF16("confirm('Activate!');"), base::NullCallback());
-  confirm_observer.Wait();
+  {
+    content::WebContentsConsoleObserver confirm_observer(second_tab);
+    confirm_observer.SetPattern("*confirm*suppressed*");
+    second_tab->GetMainFrame()->ExecuteJavaScriptForTests(
+        ASCIIToUTF16("confirm('Activate!');"), base::NullCallback());
+    confirm_observer.Wait();
+  }
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
   EXPECT_EQ(0, browser()->tab_strip_model()->active_index());
 
   // Show a prompt() dialog from the tab at index 1. The active index shouldn't
   // budge.
-  DialogPlusConsoleObserverDelegate prompt_observer(
-      original_delegate, second_tab, "*prompt*suppressed*");
-  second_tab->SetDelegate(&prompt_observer);
-  second_tab->GetMainFrame()->ExecuteJavaScriptForTests(
-      ASCIIToUTF16("prompt('Activate!');"), base::NullCallback());
-  prompt_observer.Wait();
+  {
+    content::WebContentsConsoleObserver prompt_observer(second_tab);
+    prompt_observer.SetPattern("*prompt*suppressed*");
+    second_tab->GetMainFrame()->ExecuteJavaScriptForTests(
+        ASCIIToUTF16("prompt('Activate!');"), base::NullCallback());
+    prompt_observer.Wait();
+  }
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
   EXPECT_EQ(0, browser()->tab_strip_model()->active_index());
-
-  second_tab->SetDelegate(original_delegate);
 
   // Show an alert() dialog from the tab at index 1. The active index shouldn't
   // budge.
@@ -905,7 +880,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTestWithTabGroupsEnabled,
   TabStripModel* const model = browser()->tab_strip_model();
   ui_test_utils::NavigateToURL(browser(),
                                embedded_test_server()->GetURL("/empty.html"));
-  const TabGroupId group_id = model->AddToNewGroup({0});
+  const tab_groups::TabGroupId group_id = model->AddToNewGroup({0});
 
   // Open a new background tab.
   WebContents* const contents =
@@ -929,7 +904,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTestWithTabGroupsEnabled,
   ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL(
                      "/frame_tree/anchor_to_same_site_location.html"));
-  const TabGroupId group_id = model->AddToNewGroup({0});
+  const tab_groups::TabGroupId group_id = model->AddToNewGroup({0});
 
   // Click a target=_blank link.
   WebContents* const contents =
@@ -1027,7 +1002,7 @@ IN_PROC_BROWSER_TEST_F(BeforeUnloadAtQuitWithTwoWindows,
 // See http://crbug.com/93517.
 IN_PROC_BROWSER_TEST_F(BrowserTest, NullOpenerRedirectForksProcess) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisablePopupBlocking);
+      embedder_support::kDisablePopupBlocking);
 
   // Create http and https servers for a cross-site transition.
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -1112,7 +1087,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NullOpenerRedirectForksProcess) {
 // fork a new renderer process.
 IN_PROC_BROWSER_TEST_F(BrowserTest, OtherRedirectsDontForkProcess) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisablePopupBlocking);
+      embedder_support::kDisablePopupBlocking);
 
   // Create http and https servers for a cross-site transition.
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -1301,6 +1276,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabClosingWhenRemovingExtension) {
 
 // Open with --app-id=<id>, and see that an application tab opens by default.
 IN_PROC_BROWSER_TEST_F(BrowserTest, AppIdSwitch) {
+  base::HistogramTester tester;
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // There should be one tab to start with.
@@ -1319,11 +1295,19 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, AppIdSwitch) {
   StartupBrowserCreatorImpl launch(base::FilePath(), command_line, first_run);
 
   // The app should open as a tab.
-  EXPECT_FALSE(launch.OpenApplicationWindow(browser()->profile()));
-  EXPECT_TRUE(launch.OpenApplicationTab(browser()->profile()));
+  EXPECT_TRUE(launch.Launch(browser()->profile(), std::vector<GURL>(),
+                            /*process_startup=*/false));
 
-  // Check that a the number of browsers and tabs is correct.
-  unsigned int expected_browsers = 1;
+  {
+    // From startup_browser_creator_impl.cc:
+    constexpr char kLaunchModesHistogram[] = "Launch.Modes";
+    const base::HistogramBase::Sample LM_AS_WEBAPP_IN_TAB = 21;
+
+    tester.ExpectUniqueSample(kLaunchModesHistogram, LM_AS_WEBAPP_IN_TAB, 1);
+  }
+
+  // Check that the number of browsers and tabs is correct.
+  const unsigned int expected_browsers = 1;
   int expected_tabs = 1;
   expected_tabs++;
 
@@ -1581,7 +1565,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
       Browser::CreateParams(Browser::TYPE_POPUP, browser()->profile(), true),
       Browser::CreateParams::CreateForApp("app_name", true, gfx::Rect(),
                                           browser()->profile(), true),
-      Browser::CreateParams::CreateForDevTools(browser()->profile())};
+      Browser::CreateParams::CreateForDevTools(browser()->profile()),
+      Browser::CreateParams::CreateForAppPopup("app_name", true, gfx::Rect(),
+                                               browser()->profile(), true)};
   for (size_t i = 0; i < base::size(params); ++i) {
     params[i].initial_show_state = ui::SHOW_STATE_MAXIMIZED;
     AddBlankTabAndShow(new Browser(params[i]));
@@ -1596,7 +1582,9 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, StartMinimized) {
       Browser::CreateParams(Browser::TYPE_POPUP, browser()->profile(), true),
       Browser::CreateParams::CreateForApp("app_name", true, gfx::Rect(),
                                           browser()->profile(), true),
-      Browser::CreateParams::CreateForDevTools(browser()->profile())};
+      Browser::CreateParams::CreateForDevTools(browser()->profile()),
+      Browser::CreateParams::CreateForAppPopup("app_name", true, gfx::Rect(),
+                                               browser()->profile(), true)};
   for (size_t i = 0; i < base::size(params); ++i) {
     params[i].initial_show_state = ui::SHOW_STATE_MINIMIZED;
     AddBlankTabAndShow(new Browser(params[i]));
@@ -1802,11 +1790,11 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PageZoom) {
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
     base::OnceClosure quit_closure = loop_runner->QuitClosure();
-    content::HostZoomMap::ZoomLevelChangedCallback callback(
-        base::BindRepeating(&OnZoomLevelChanged, &quit_closure));
+    content::HostZoomMap::ZoomLevelChangedCallback callback =
+        base::BindRepeating(&OnZoomLevelChanged, &quit_closure);
     std::unique_ptr<content::HostZoomMap::Subscription> sub =
         content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile())
-            ->AddZoomLevelChangedCallback(callback);
+            ->AddZoomLevelChangedCallback(std::move(callback));
     chrome::Zoom(browser(), content::PAGE_ZOOM_IN);
     loop_runner->Run();
     sub.reset();
@@ -1819,11 +1807,11 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PageZoom) {
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
     base::OnceClosure quit_closure = loop_runner->QuitClosure();
-    content::HostZoomMap::ZoomLevelChangedCallback callback(
-        base::Bind(&OnZoomLevelChanged, &quit_closure));
+    content::HostZoomMap::ZoomLevelChangedCallback callback =
+        base::BindRepeating(&OnZoomLevelChanged, &quit_closure);
     std::unique_ptr<content::HostZoomMap::Subscription> sub =
         content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile())
-            ->AddZoomLevelChangedCallback(callback);
+            ->AddZoomLevelChangedCallback(std::move(callback));
     chrome::Zoom(browser(), content::PAGE_ZOOM_RESET);
     loop_runner->Run();
     sub.reset();
@@ -1836,11 +1824,11 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, PageZoom) {
     scoped_refptr<content::MessageLoopRunner> loop_runner(
         new content::MessageLoopRunner);
     base::OnceClosure quit_closure = loop_runner->QuitClosure();
-    content::HostZoomMap::ZoomLevelChangedCallback callback(
-        base::Bind(&OnZoomLevelChanged, &quit_closure));
+    content::HostZoomMap::ZoomLevelChangedCallback callback =
+        base::BindRepeating(&OnZoomLevelChanged, &quit_closure);
     std::unique_ptr<content::HostZoomMap::Subscription> sub =
         content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile())
-            ->AddZoomLevelChangedCallback(callback);
+            ->AddZoomLevelChangedCallback(std::move(callback));
     chrome::Zoom(browser(), content::PAGE_ZOOM_OUT);
     loop_runner->Run();
     sub.reset();
@@ -2025,7 +2013,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest2, NoTabsInPopups) {
 
 IN_PROC_BROWSER_TEST_F(BrowserTest, WindowOpenClose1) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisablePopupBlocking);
+      embedder_support::kDisablePopupBlocking);
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url = embedded_test_server()->GetURL("/window.close.html");
   GURL::Replacements add_query;
@@ -2042,7 +2030,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, WindowOpenClose1) {
 
 IN_PROC_BROWSER_TEST_F(BrowserTest, WindowOpenClose2) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisablePopupBlocking);
+      embedder_support::kDisablePopupBlocking);
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url = embedded_test_server()->GetURL("/window.close.html");
   GURL::Replacements add_query;
@@ -2063,7 +2051,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, WindowOpenClose3) {
   ui::CATransactionCoordinator::Get().DisableForTesting();
 #endif
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisablePopupBlocking);
+      embedder_support::kDisablePopupBlocking);
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url = embedded_test_server()->GetURL("/window.close.html");
   GURL::Replacements add_query;
@@ -2234,8 +2222,9 @@ class NoStartupWindowTest : public BrowserTest {
 
   // Returns true if any commands were processed.
   bool ProcessedAnyCommands(
-      sessions::BaseSessionService* base_session_service) {
-    sessions::BaseSessionServiceTestHelper test_helper(base_session_service);
+      sessions::CommandStorageManager* command_storage_manager) {
+    sessions::CommandStorageManagerTestHelper test_helper(
+        command_storage_manager);
     return test_helper.ProcessedAnyCommands();
   }
 };
@@ -2258,13 +2247,13 @@ IN_PROC_BROWSER_TEST_F(NoStartupWindowTest, DontInitSessionServiceForApps) {
 
   SessionService* session_service =
       SessionServiceFactory::GetForProfile(profile);
-  sessions::BaseSessionService* base_session_service =
-      session_service->GetBaseSessionServiceForTest();
-  ASSERT_FALSE(ProcessedAnyCommands(base_session_service));
+  sessions::CommandStorageManager* command_storage_manager =
+      session_service->GetCommandStorageManagerForTest();
+  ASSERT_FALSE(ProcessedAnyCommands(command_storage_manager));
 
   CreateBrowserForApp("blah", profile);
 
-  ASSERT_FALSE(ProcessedAnyCommands(base_session_service));
+  ASSERT_FALSE(ProcessedAnyCommands(command_storage_manager));
 }
 #endif  // !defined(OS_CHROMEOS)
 
@@ -2732,7 +2721,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DISABLED_ChangeDisplayMode) {
   CheckDisplayModeMQ(ASCIIToUTF16("standalone"), app_contents);
 
   app_browser->exclusive_access_manager()->context()->EnterFullscreen(
-      GURL(), EXCLUSIVE_ACCESS_BUBBLE_TYPE_BROWSER_FULLSCREEN_EXIT_INSTRUCTION);
+      GURL(), EXCLUSIVE_ACCESS_BUBBLE_TYPE_BROWSER_FULLSCREEN_EXIT_INSTRUCTION,
+      display::kInvalidDisplayId);
 
   // Sync navigation just to make sure IPC has passed (updated
   // display mode is delivered to RP).

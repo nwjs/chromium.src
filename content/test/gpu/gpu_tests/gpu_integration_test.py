@@ -204,7 +204,7 @@ class GpuIntegrationTest(
         # crash, so restart the browser to make sure any state doesn't
         # propagate to the next test iteration.
         self._RestartBrowser('unexpected test failure')
-      self.fail()
+      raise
     else:
       if ResultType.Failure in expected_results:
         logging.warning(
@@ -301,7 +301,7 @@ class GpuIntegrationTest(
     This configuration is collected on Windows platform only.
     The rules to determine bot config are:
       1) DX12: Win7 doesn't support DX12. Only Win10 supports DX12
-      2) Vulkan: All bots support Vulkan except for Win FYI AMD bots
+      2) Vulkan: All bots support Vulkan.
     """
     if self.browser is None:
       raise Exception("Browser doesn't exist")
@@ -312,7 +312,6 @@ class GpuIntegrationTest(
     if gpu is None:
       raise Exception("System Info doesn't have a gpu")
     gpu_vendor_id = gpu.vendor_id
-    gpu_device_id = gpu.device_id
     assert gpu_vendor_id in _SUPPORTED_WIN_GPU_VENDORS
 
     os_version = self.browser.platform.GetOSVersionName()
@@ -328,11 +327,6 @@ class GpuIntegrationTest(
 
     if os_version == 'win7':
       config['supports_dx12'] = False
-
-    # "Win7 FYI Release (AMD)" and "Win7 FYI Debug (AMD)" bots
-    if (os_version == 'win7' and gpu_vendor_id == 0x1002
-        and gpu_device_id == 0x6613):
-      config['supports_vulkan'] = False
 
     return config
 
@@ -359,24 +353,31 @@ class GpuIntegrationTest(
     tags = super(GpuIntegrationTest, cls).GetPlatformTags(browser)
     system_info = browser.GetSystemInfo()
     if system_info:
+      gpu_tags = []
       gpu_info = system_info.gpu
-      gpu_vendor = gpu_helper.GetGpuVendorString(gpu_info)
-      gpu_device_id = gpu_helper.GetGpuDeviceId(gpu_info)
-      # The gpu device id tag will contain both the vendor and device id
-      # separated by a '-'.
-      try:
-        # If the device id is an integer then it will be added as
-        # a hexadecimal to the tag
-        gpu_device_tag = '%s-0x%x' % (gpu_vendor, gpu_device_id)
-      except TypeError:
-        # if the device id is not an integer it will be added as
-        # a string to the tag.
-        gpu_device_tag = '%s-%s' % (gpu_vendor, gpu_device_id)
-      angle_renderer = gpu_helper.GetANGLERenderer(gpu_info)
-      cmd_decoder = gpu_helper.GetCommandDecoder(gpu_info)
+      # On the dual-GPU MacBook Pros, surface the tags of the secondary GPU if
+      # it's the discrete GPU, so that test expectations can be written that
+      # target the discrete GPU.
+      gpu_tags.append(gpu_helper.GetANGLERenderer(gpu_info))
+      gpu_tags.append(gpu_helper.GetCommandDecoder(gpu_info))
+      if gpu_info and gpu_info.devices:
+        for ii in xrange(0, len(gpu_info.devices)):
+          gpu_vendor = gpu_helper.GetGpuVendorString(gpu_info, ii)
+          gpu_device_id = gpu_helper.GetGpuDeviceId(gpu_info, ii)
+          # The gpu device id tag will contain both the vendor and device id
+          # separated by a '-'.
+          try:
+            # If the device id is an integer then it will be added as
+            # a hexadecimal to the tag
+            gpu_device_tag = '%s-0x%x' % (gpu_vendor, gpu_device_id)
+          except TypeError:
+            # if the device id is not an integer it will be added as
+            # a string to the tag.
+            gpu_device_tag = '%s-%s' % (gpu_vendor, gpu_device_id)
+          if ii == 0 or gpu_vendor != 'intel':
+            gpu_tags.extend([gpu_vendor, gpu_device_tag])
       # all spaces and underscores in the tag will be replaced by dashes
-      tags.extend([re.sub('[ _]', '-', tag) for tag in [
-          gpu_vendor, gpu_device_tag, angle_renderer, cmd_decoder]])
+      tags.extend([re.sub('[ _]', '-', tag) for tag in gpu_tags])
     # If additional options have been set via '--extra-browser-args' check for
     # those which map to expectation tags. The '_browser_backend' attribute may
     # not exist in unit tests.

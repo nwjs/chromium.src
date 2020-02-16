@@ -32,7 +32,6 @@
 #include "media/base/mime_util.h"
 #include "media/media_buildflags.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
-#include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/modules/mediastream/web_media_stream_renderer_factory.h"
@@ -96,10 +95,6 @@ void WebTestContentRendererClient::
   }
   if (command_line->HasSwitch(switches::kEnableFontAntialiasing)) {
     blink::SetFontAntialiasingEnabledForTest(true);
-  }
-  if (command_line->HasSwitch(
-          switches::kDisableOriginTrialControlledBlinkFeatures)) {
-    blink::WebRuntimeFeatures::EnableOriginTrialControlledFeatures(false);
   }
 }
 

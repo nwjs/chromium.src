@@ -7,9 +7,7 @@
 
 #import "ios/chrome/browser/ui/settings/settings_root_table_view_controller.h"
 
-namespace ios {
 class ChromeBrowserState;
-}  // namespace ios
 
 // The accessibility identifier of the privacy settings collection view.
 extern NSString* const kPrivacyTableViewId;
@@ -17,13 +15,10 @@ extern NSString* const kPrivacyTableViewId;
 @interface PrivacyTableViewController : SettingsRootTableViewController
 
 // |browserState| cannot be nil
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
     NS_DESIGNATED_INITIALIZER;
 
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)style
-                           appBarStyle:
-                               (ChromeTableViewControllerStyle)appBarStyle
-    NS_UNAVAILABLE;
+- (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
 
 @end
 

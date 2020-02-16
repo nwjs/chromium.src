@@ -9,14 +9,11 @@
 
 #include <memory>
 
+class ChromeBrowserState;
 @class CommandDispatcher;
 @protocol OmniboxPopupPresenterDelegate;
 @protocol OmniboxFocuser;
 class OmniboxPopupViewIOS;
-
-namespace ios {
-class ChromeBrowserState;
-}
 class WebStateList;
 
 // Coordinator for the Omnibox Popup.
@@ -27,7 +24,7 @@ class WebStateList;
 - (instancetype)init NS_UNAVAILABLE;
 
 // BrowserState.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 // Positioner for the popup.
 @property(nonatomic, weak) id<OmniboxPopupPresenterDelegate> presenterDelegate;
 // Whether this coordinator has results to show.
@@ -41,13 +38,6 @@ class WebStateList;
 
 - (void)start;
 - (void)stop;
-
-// Presents the shortcuts feature if the current page allows for it and update
-// the popup.
-- (void)presentShortcutsIfNecessary;
-
-// Dismisses the shortcuts feature and update the popup.
-- (void)dismissShortcuts;
 
 @end
 

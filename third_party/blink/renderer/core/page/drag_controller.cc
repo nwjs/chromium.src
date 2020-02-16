@@ -33,7 +33,6 @@
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_drag_data.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/renderer/core/clipboard/data_object.h"
 #include "third_party/blink/renderer/core/clipboard/data_transfer.h"
@@ -63,6 +62,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
+#include "third_party/blink/renderer/core/html/plugin_document.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/hit_test_request.h"
@@ -261,9 +261,10 @@ void DragController::PerformDrag(DragData* drag_data, LocalFrame& local_root) {
             PhysicalOffset::FromFloatPointRound(drag_data->ClientPosition())));
         const HitTestResult result =
             event_handler.HitTestResultAtLocation(location);
+        auto* html_plugin_element =
+            DynamicTo<HTMLPlugInElement>(result.InnerNode());
         prevented_default |=
-            IsHTMLPlugInElement(*result.InnerNode()) &&
-            ToHTMLPlugInElement(result.InnerNode())->CanProcessDrag();
+            html_plugin_element && html_plugin_element->CanProcessDrag();
       }
 
       // Invalidate clipboard here for security.
@@ -300,8 +301,8 @@ void DragController::PerformDrag(DragData* drag_data, LocalFrame& local_root) {
       // the drag as the initiator of the navigation below.
       resource_request.SetRequestorOrigin(SecurityOrigin::CreateUniqueOpaque());
 
-      page_->MainFrame()->Navigate(FrameLoadRequest(nullptr, resource_request),
-                                   WebFrameLoadType::kStandard);
+      FrameLoadRequest request(nullptr, resource_request);
+      page_->MainFrame()->Navigate(request, WebFrameLoadType::kStandard);
     }
 
     // TODO(bokan): This case happens when we end a URL drag inside a guest
@@ -468,8 +469,8 @@ DragOperation DragController::OperationForLoad(DragData* drag_data,
   Document* doc = local_root.DocumentAtPoint(
       PhysicalOffset::FromFloatPointRound(drag_data->ClientPosition()));
 
-  if (doc &&
-      (did_initiate_drag_ || doc->IsPluginDocument() || HasEditableStyle(*doc)))
+  if (doc && (did_initiate_drag_ || IsA<PluginDocument>(doc) ||
+              HasEditableStyle(*doc)))
     return kDragOperationNone;
   return GetDragOperation(drag_data);
 }
@@ -720,8 +721,7 @@ bool DragController::CanProcessDrag(DragData* drag_data,
   if (drag_data->ContainsFiles() && AsFileInput(result.InnerNode()))
     return true;
 
-  if (IsHTMLPlugInElement(*result.InnerNode())) {
-    HTMLPlugInElement* plugin = ToHTMLPlugInElement(result.InnerNode());
+  if (auto* plugin = DynamicTo<HTMLPlugInElement>(result.InnerNode())) {
     if (!plugin->CanProcessDrag() && !HasEditableStyle(*result.InnerNode()))
       return false;
   } else if (!HasEditableStyle(*result.InnerNode())) {
@@ -1077,25 +1077,17 @@ static std::unique_ptr<DragImage> DragImageForImage(
       interpolation_quality = kInterpolationNone;
   }
 
-  RespectImageOrientationEnum should_respect_image_orientation =
+  RespectImageOrientationEnum respect_image_orientation =
       LayoutObject::ShouldRespectImageOrientation(element->GetLayoutObject());
-  ImageOrientation orientation;
 
-  if (should_respect_image_orientation == kRespectImageOrientation &&
-      image->IsBitmapImage())
-    orientation = ToBitmapImage(image)->CurrentFrameOrientation();
-
-  IntSize image_size = orientation.UsesWidthAsHeight()
-                           ? image->Size().TransposedSize()
-                           : image->Size();
-
+  IntSize image_size = image->Size(respect_image_orientation);
   FloatSize image_scale =
       DragImage::ClampedImageScale(image_size, image_element_size_in_pixels,
                                    MaxDragImageSize(device_scale_factor));
 
   if (image_size.Area() <= kMaxOriginalImageArea &&
       (drag_image = DragImage::Create(
-           image, should_respect_image_orientation, device_scale_factor,
+           image, respect_image_orientation, device_scale_factor,
            interpolation_quality, kDragImageAlpha, image_scale))) {
     IntSize original_size = image_element_size_in_pixels;
     origin = image_element_location;
@@ -1169,7 +1161,7 @@ std::unique_ptr<DragImage> DragController::DragImageForSelection(
   PropertyTreeState property_tree_state =
       frame.View()->GetLayoutView()->FirstFragment().LocalBorderBoxProperties();
   return DataTransfer::CreateDragImageForFrame(
-      frame, opacity, kDoNotRespectImageOrientation, painting_rect.Size(),
+      frame, opacity, kRespectImageOrientation, painting_rect.Size(),
       painting_rect.Location(), builder, property_tree_state);
 }
 

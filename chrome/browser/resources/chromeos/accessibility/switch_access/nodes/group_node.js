@@ -50,7 +50,7 @@ class GroupNode extends SAChildNode {
   asRootNode() {
     const root = new SARootNode();
 
-    let children = [];
+    const children = [];
     for (const child of this.children_) {
       children.push(child);
     }
@@ -81,12 +81,32 @@ class GroupNode extends SAChildNode {
 
   /** @override */
   isEquivalentTo(node) {
+    if (node instanceof GroupNode) {
+      return this.equals(node);
+    }
+
+    for (const child of this.children_) {
+      if (child.isEquivalentTo(node)) {
+        return true;
+      }
+    }
+
     return false;
   }
 
   /** @override */
   isGroup() {
     return true;
+  }
+
+  /** @override */
+  isValidAndVisible() {
+    for (const child of this.children_) {
+      if (child.isValidAndVisible()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** @override */
@@ -102,10 +122,10 @@ class GroupNode extends SAChildNode {
    * @return {!Array<!GroupNode>}
    */
   static separateByRow(nodes) {
-    let result = [];
+    const result = [];
 
     for (let i = 0; i < nodes.length;) {
-      let children = [];
+      const children = [];
       children.push(nodes[i]);
       i++;
 

@@ -20,9 +20,9 @@
 #include "content/renderer/render_thread_impl.h"
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "skia/ext/platform_canvas.h"
+#include "third_party/blink/public/common/input/web_gesture_event.h"
+#include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
 #include "third_party/blink/public/platform/web_cursor_info.h"
-#include "third_party/blink/public/platform/web_gesture_event.h"
-#include "third_party/blink/public/platform/web_mouse_wheel_event.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/web/web_widget.h"
 #include "ui/gfx/geometry/dip_util.h"
@@ -37,7 +37,6 @@ using blink::WebInputEvent;
 using blink::WebInputEventResult;
 using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
-using blink::WebPoint;
 using blink::WebRect;
 using blink::WebSize;
 using blink::WebString;
@@ -102,10 +101,8 @@ WebMouseEvent WebMouseEventFromGestureEvent(const WebGestureEvent& gesture) {
   mouse.click_count = (mouse.GetType() == WebInputEvent::kMouseDown ||
                        mouse.GetType() == WebInputEvent::kMouseUp);
 
-  mouse.SetPositionInWidget(gesture.PositionInWidget().x,
-                            gesture.PositionInWidget().y);
-  mouse.SetPositionInScreen(gesture.PositionInScreen().x,
-                            gesture.PositionInScreen().y);
+  mouse.SetPositionInWidget(gesture.PositionInWidget());
+  mouse.SetPositionInScreen(gesture.PositionInScreen());
 
   return mouse;
 }
@@ -193,10 +190,8 @@ class PepperWidget : public WebWidget {
           WebMouseEvent mouse(WebInputEvent::kMouseMove,
                               gesture_event->GetModifiers(),
                               gesture_event->TimeStamp());
-          mouse.SetPositionInWidget(gesture_event->PositionInWidget().x,
-                                    gesture_event->PositionInWidget().y);
-          mouse.SetPositionInScreen(gesture_event->PositionInScreen().x,
-                                    gesture_event->PositionInScreen().y);
+          mouse.SetPositionInWidget(gesture_event->PositionInWidget());
+          mouse.SetPositionInScreen(gesture_event->PositionInScreen());
           mouse.movement_x = 0;
           mouse.movement_y = 0;
           result |= widget_->plugin()->HandleInputEvent(mouse, &cursor);
@@ -297,9 +292,8 @@ RenderWidgetFullscreenPepper::RenderWidgetFullscreenPepper(
     : RenderWidget(routing_id,
                    compositor_deps,
                    /*display_mode=*/blink::mojom::DisplayMode::kUndefined,
-                   /*is_undead=*/false,
                    /*hidden=*/false,
-                   /*never_visible=*/false,
+                   /*never_composited=*/false,
                    std::move(widget_receiver)),
       plugin_(plugin),
       mouse_lock_dispatcher_(

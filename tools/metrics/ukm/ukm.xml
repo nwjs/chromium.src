@@ -1587,6 +1587,27 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Blink.FindInPage" singular="True">
+  <owner>vmpstr@chromium.org</owner>
+  <owner>chrishtr@chromium.org</owner>
+  <owner>paint-dev@chromium.org</owner>
+  <summary>
+    Logged once per page; indicates the type of find-in-page behaviors users
+    utilizied.
+  </summary>
+  <metric name="DidHaveRenderSubtreeMatch">
+    <summary>
+      Boolean indicating whether there was an active match in render-subtree
+      locked elements.
+    </summary>
+  </metric>
+  <metric name="DidSearch">
+    <summary>
+      Boolean indicating that find-in-page happened.
+    </summary>
+  </metric>
+</event>
+
 <event name="Blink.PageLoad">
   <owner>schenney@chromium.org</owner>
   <owner>paint-dev@chromium.org</owner>
@@ -1674,6 +1695,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="StyleAndLayout">
+    <obsolete>
+      Removed January 2020 in favor of separate Style and Layout metrics.
+    </obsolete>
     <summary>
       The time spent in layout and style document lifecycle work, between
       navigation and First Contentful Paint, in microseconds. Will be obsolete
@@ -2390,6 +2414,9 @@ be describing additional metrics about the same event.
     </aggregation>
   </metric>
   <metric name="StyleAndLayout">
+    <obsolete>
+      Removed January 2020 in favor of separate Style and Layout metrics.
+    </obsolete>
     <summary>
       The time taken for style and layout for the main frame in microseconds
       during the sampled frame.
@@ -2449,6 +2476,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="StyleAndLayoutPercentage">
+    <obsolete>
+      Removed January 2020 in favor of separate Style and Layout metrics.
+    </obsolete>
     <summary>
       The percentage of the main frame time used in style and layout work. An
       int in the range [0,100].
@@ -3039,6 +3069,9 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="DetachedWindows.Experimental">
+  <obsolete>
+    Deprecated as of 01/2020.
+  </obsolete>
   <owner>bartekn@chromium.org</owner>
   <summary>
     Metrics related to detached windows.
@@ -3458,24 +3491,375 @@ be describing additional metrics about the same event.
       If the font family name was matched in the top-level frame or a sub-frame.
     </summary>
   </metric>
+  <metric name="LocalFontFailures">
+    <summary>
+      The count of failed attempts to match @font-face src:local rules.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="LocalFontSuccesses">
+    <summary>
+      The count of successful attempts to match @font-face src:local rules.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="SystemFontFamilyFailures">
     <summary>
       The count of system font family match attempts that failed.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SystemFontFamilySuccesses">
     <summary>
       The count of system font family match attempts that succeeded.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="WebFontFamilyFailures">
     <summary>
       The count of web font family match attempts that failed.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="WebFontFamilySuccesses">
     <summary>
       The count of web font family match attempts that succeeded.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="GeneratedNavigation" singular="True">
+  <owner>ryansturm@chromium.org</owner>
+  <owner>avi@chromium.org</owner>
+  <summary>
+    Logged when the user navigated to their home page or their default search
+    engine. Recorded if the first URL or the final URL matches the pattern for
+    Default Search or matches the user's home page URL. Recorded upon commit
+    (even if the page was not foreground).
+  </summary>
+  <metric name="FinalURLIsDefaultSearchEngine">
+    <summary>
+      If the navigation committed URL matches the template URL of the user's
+      Default Search Engine.
+    </summary>
+  </metric>
+  <metric name="FinalURLIsHomePage">
+    <summary>
+      If the navigation committed URL matches the user's home page URL. Not
+      recorded on Android because home page is managed outside of Chrome.
+    </summary>
+  </metric>
+  <metric name="FirstURLIsDefaultSearchEngine">
+    <summary>
+      If the navigation starting URL matches the template URL of the user's
+      Default Search Engine.
+    </summary>
+  </metric>
+  <metric name="FirstURLIsHomePage">
+    <summary>
+      If the navigation starting URL (first URL in the redirect chain) matches
+      the user's home page URL. Not recorded on Android because home page is
+      managed outside of Chrome.
+    </summary>
+  </metric>
+</event>
+
+<event name="GoogleDocsOfflineExtension">
+  <owner>rhalavati@chromium.org</owner>
+  <owner>chrome-privacy-core@google.com</owner>
+  <summary>
+    Logged when a website requests a shared resource from Google Docs Offline
+    Extension. Note that this is double counted for imports since it is done
+    once in preload and once in actual load.
+  </summary>
+  <metric name="ResourceRequested">
+    <summary>
+      Marks a resource request from a website.
+    </summary>
+  </metric>
+</event>
+
+<event name="Graphics.Smoothness.Latency">
+  <owner>animations-dev@chromium.org</owner>
+  <owner>sadrul@chromium.org</owner>
+  <owner>schenney@chromium.org</owner>
+  <summary>
+    Tracks the duration of stages in the rendering pipeline while processing a
+    single frame. All times are in microseconds.
+  </summary>
+  <metric name="Activation">
+    <summary>
+      The duration of the activation stage.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="BeginImplFrameToSendBeginMainFrame">
+    <summary>
+      The time from when the Impl frame is started to when BeginMainFrame is
+      sent.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Commit">
+    <summary>
+      The duration of the commit stage.&quot;
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="CompositorAnimation" enum="Boolean">
+    <summary>
+      True when a compositor-driven animation was active this frame.
+    </summary>
+  </metric>
+  <metric name="EndActivateToSubmitCompositorFrame">
+    <summary>
+      The time from when an activation is complete to the next
+      SubmitCompositorFrame.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="EndCommitToActivation">
+    <summary>
+      The time from when a commit is complete to the beginning of the next
+      activation.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="MainThreadAnimation" enum="Boolean">
+    <summary>
+      True when a main-thread-driven animation was active this frame.
+    </summary>
+  </metric>
+  <metric name="MissedFrame" enum="Boolean">
+    <summary>
+      True when the main frame missed its deadline for this frame.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="PinchZoom" enum="Boolean">
+    <summary>
+      True when a pinch-to-zoom interaction was active this frame.
+    </summary>
+  </metric>
+  <metric name="RAF" enum="Boolean">
+    <summary>
+      True when a rAF-driven animation was active this frame.
+    </summary>
+  </metric>
+  <metric name="SendBeginMainFrameToCommit">
+    <summary>
+      The time from when the BeginMainFrame is sent to the beginning of the
+      commit.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="SubmitCompositorFrameToPresentationCompositorFrame">
+    <summary>
+      The time from when the a compositor frame is submitted to the display
+      compositor to when it is presented.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitCompositorFrameToPresentationCompositorFrame.ReceivedCompositorFrameToStartDraw">
+    <summary>
+      The time from when a compositor frame is received to when it starts to
+      draw.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitCompositorFrameToPresentationCompositorFrame.StartDrawToSwapEnd">
+    <summary>
+      The time from when the a compositor frame is started to draw to when it
+      ends swap.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitCompositorFrameToPresentationCompositorFrame.SubmitToReceiveCompositorFrame">
+    <summary>
+      The time from when the a compositor frame is submitted to when it is
+      received.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric
+      name="SubmitCompositorFrameToPresentationCompositorFrame.SwapEndToPresentationCompositorFrame">
+    <summary>
+      The time from when the a compositor frame ends swap to when it is
+      presented.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="TotalLatency">
+    <summary>
+      The total time starting from BeginImplFrame to when
+      CompositorFramePresentation is done with updates from the MainThread (i.e.
+      the time it takes for BeginImplFrame, BeginMainFrame, Commit, Activate,
+      SubmitCompositorFrame and PresentCompositorFrame).
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="TouchScroll" enum="Boolean">
+    <summary>
+      True when a touchscreen driven interaction was active this frame.
+    </summary>
+  </metric>
+  <metric name="Unknown">
+    <summary>
+      The time within a stage not attributed to any system.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Video" enum="Boolean">
+    <summary>
+      True when video playback was active this frame.
+    </summary>
+  </metric>
+  <metric name="WheelScroll" enum="Boolean">
+    <summary>
+      True when a mouse driven scroll was active this frame.
     </summary>
   </metric>
 </event>
@@ -3579,48 +3963,112 @@ be describing additional metrics about the same event.
       The worse throughput of the main and the compositor thread during a
       compositor animation.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.MainThreadAnimation">
     <summary>
       The worse throughput of the main and the compositor thread during a main
       thread animation.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.PinchZoom">
     <summary>
       The worse throughput of the main and the compositor thread during
       pinch-zoom interactions.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.RAF">
     <summary>
       The worse throughput of the main and the compositor thread during rAF
       callback driven animation.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.TouchScroll">
     <summary>
       The worse throughput of the main and the compositor thread during
       touchscroll driven interactions.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.Universal">
     <summary>
       The worse throughput of the main and the compositor thread for all frame
       production.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.Video">
     <summary>
       The worse throughput of the main and the compositor thread during video
       play.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="SlowerThread.WheelScroll">
     <summary>
       The worse throughput of the main and the compositor thread during
       mousewheel scroll driven interactions.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -3689,6 +4137,23 @@ be describing additional metrics about the same event.
       This is clamped to hours for values greater than 3 hours, to minutes for
       values greater than 3 minutes, to seconds for values greater than 5
       seconds.
+    </summary>
+  </metric>
+</event>
+
+<event name="InputEvent">
+  <owner>hbsong@chromium.org</owner>
+  <summary>
+    Metrics associated with user input events. This event is recorded in Blink
+    and may not be recorded for the same page visits as events like PageLoad.
+    Consumers of this event's metrics should be aware of this when making
+    comparisons between InputEvent metrics and PageLoad metrics.
+  </summary>
+  <metric name="InteractiveTiming.InputDelay">
+    <summary>
+      Measures Input Delay, the duration between the hardware timestamp and the
+      start of event processing on the main thread for the meaningful input. In
+      ms. (go/FirstInputDelay)
     </summary>
   </metric>
 </event>
@@ -4054,6 +4519,12 @@ be describing additional metrics about the same event.
     <summary>
       media::AudioCodec enum value. Can be kUnknownAudioCodec even when HasAudio
       is true because we don't always know the codec.
+    </summary>
+  </metric>
+  <metric name="AudioCodecProfile">
+    <summary>
+      media::AudioCodecProfile enum value. Can be AudioCodecProfile::kUnknown
+      even when HasAudio is true because we don't always know the codec profile.
     </summary>
   </metric>
   <metric name="AudioDecoderName">
@@ -4890,29 +5361,44 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="NumberOfCallsInDetachedWindowByClosing">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by closing/removal.
     </summary>
   </metric>
   <metric name="NumberOfCallsInDetachedWindowByClosing_After10sSinceDetaching">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by closing/removal, that
       happened at least 10 seconds after detaching.
     </summary>
   </metric>
   <metric name="NumberOfCallsInDetachedWindowByClosing_After1minSinceDetaching">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by closing/removal, that
       happened at least 1 minute after detaching.
     </summary>
   </metric>
   <metric name="NumberOfCallsInDetachedWindowByNavigation">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by navigating away.
     </summary>
   </metric>
   <metric
       name="NumberOfCallsInDetachedWindowByNavigation_After10sSinceDetaching">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by navigating away, that
       happened at least 10 seconds after detaching.
@@ -4920,18 +5406,27 @@ be describing additional metrics about the same event.
   </metric>
   <metric
       name="NumberOfCallsInDetachedWindowByNavigation_After1minSinceDetaching">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by navigating away, that
       happened at least 1 minute after detaching.
     </summary>
   </metric>
   <metric name="NumberOfCallsInDetachedWindowByOtherReason">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by another reason.
     </summary>
   </metric>
   <metric
       name="NumberOfCallsInDetachedWindowByOtherReason_After10sSinceDetaching">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by another reason, that
       happened at least 10 seconds after detaching.
@@ -4939,6 +5434,9 @@ be describing additional metrics about the same event.
   </metric>
   <metric
       name="NumberOfCallsInDetachedWindowByOtherReason_After1minSinceDetaching">
+    <obsolete>
+      Deprecated as of 01/2020.
+    </obsolete>
     <summary>
       The number of function calls in a window detached by another reason, that
       happened at least 1 minute after detaching.
@@ -5838,6 +6336,16 @@ be describing additional metrics about the same event.
       Total time in foreground in milliseconds, recorded each time the page is
       backgrounded.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <index fields="profile.country,profile.system_ram"/>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -5961,6 +6469,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="Experimental.PaintTiming.NavigationToLargestImagePaint">
+    <obsolete>
+      Removed on 01/2020
+    </obsolete>
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
       start to the time when the page first paints the largest image within
@@ -5981,6 +6492,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="Experimental.PaintTiming.NavigationToLargestTextPaint">
+    <obsolete>
+      Removed on 01/2020
+    </obsolete>
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
       start to the time when the page first paints the largest text within
@@ -6038,6 +6552,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.FirstInputDelay.SkipFilteringComparison">
+    <obsolete>
+      Removed in January 2020 as the experiment is launched.
+    </obsolete>
     <summary>
       For comparing FirstInputDelay metrics in the SkipTouchEventFilter
       experiment. Measures First Input Delay, the duration between the hardware
@@ -6088,6 +6605,10 @@ be describing additional metrics about the same event.
     <aggregation>
       <history>
         <index fields="profile.country"/>
+        <index fields="profile.country,profile.system_ram"/>
+        <index fields="profile.is_dominant_version"/>
+        <index fields="profile.is_latest_version"/>
+        <index fields="profile.system_ram"/>
         <statistics>
           <quantiles type="std-percentiles"/>
         </statistics>
@@ -6107,6 +6628,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.FirstInputTimestamp.SkipFilteringComparison">
+    <obsolete>
+      Removed in Jaunary 2020 as the experiment is launched.
+    </obsolete>
     <summary>
       The duration between navigation start and the hardware timestamp of the
       first meaningful input per navigation. See https://goo.gl/tr1oTZ for a
@@ -6262,6 +6786,18 @@ be describing additional metrics about the same event.
       metric's integral value is 100x the fractional cumulative layout shift
       score described in the explainer.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <index fields="profile.country,profile.system_ram"/>
+        <index fields="profile.is_dominant_version"/>
+        <index fields="profile.is_latest_version"/>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="LayoutInstability.CumulativeShiftScore.MainFrame">
     <summary>
@@ -6465,6 +7001,46 @@ be describing additional metrics about the same event.
       navigation for this page load was initiated.
     </summary>
   </metric>
+  <metric name="Net.ImageBytes">
+    <summary>
+      The total number of bytes loaded from the network for images on the page.
+      This is rounded down to the nearest exponential bucket (with a bucket
+      spacing factor of 1.3). On mobile this only records bytes up until the
+      page/app is backgrounded.
+    </summary>
+  </metric>
+  <metric name="Net.ImageSubframeBytes">
+    <summary>
+      The total number of bytes loaded from the network for images on the
+      subframes of the page. This is rounded down to the nearest exponential
+      bucket (with a bucket spacing factor of 1.3). On mobile this only records
+      bytes up until the page/app is backgrounded.
+    </summary>
+  </metric>
+  <metric name="Net.JavaScriptBytes">
+    <summary>
+      The sum of decoded body lengths of all JavaScript resouces that completed
+      loading on the page. This is rounded down to the nearest exponential
+      bucket (with a bucket spacing factor of 10). On mobile this only records
+      bytes up until the page/app is backgrounded.
+    </summary>
+  </metric>
+  <metric name="Net.JavaScriptMaxBytes">
+    <summary>
+      The max of decoded body lengths of all JavaScript resouces that completed
+      loading on the page. This is rounded down to the nearest exponential
+      bucket (with a bucket spacing factor of 10). On mobile this only records
+      bytes up until the page/app is backgrounded.
+    </summary>
+  </metric>
+  <metric name="Net.MediaBytes">
+    <summary>
+      The total number of bytes loaded from the network for media (video, audio)
+      on the page. This is rounded down to the nearest exponential bucket (with
+      a bucket spacing factor of 1.3). On mobile this only records bytes up
+      until the page/app is backgrounded.
+    </summary>
+  </metric>
   <metric name="Net.NetworkBytes">
     <obsolete>
       Deprecated 03/2019 in favor of Net.NetworkBytes2.
@@ -6517,6 +7093,11 @@ be describing additional metrics about the same event.
     <aggregation>
       <history>
         <index fields="profile.country"/>
+        <index fields="profile.country,profile.system_ram"/>
+        <index fields="profile.gender,profile.generation"/>
+        <index fields="profile.is_dominant_version"/>
+        <index fields="profile.is_latest_version"/>
+        <index fields="profile.system_ram"/>
         <statistics>
           <quantiles type="std-percentiles"/>
         </statistics>
@@ -6544,6 +7125,18 @@ be describing additional metrics about the same event.
       image) within viewport, across all frames. See http://bit.ly/fcp_plus_plus
       for more details.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <index fields="profile.country,profile.system_ram"/>
+        <index fields="profile.is_dominant_version"/>
+        <index fields="profile.is_latest_version"/>
+        <index fields="profile.system_ram"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="PaintTiming.NavigationToLargestContentfulPaint.MainFrame">
     <summary>
@@ -6568,10 +7161,20 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="ThirdPartyCookieBlockingEnabledForSite">
+    <owner>dullweber@chromium.org</owner>
+    <owner>huanzhong@chromium.org</owner>
     <summary>
       Records whether third party cookie blocking was enabled for a site. Only
       recorded for users who enabled the cookie controls ui.
     </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="WasCached">
     <summary>
@@ -7008,6 +7611,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="User.ActionSimplified">
+    <obsolete>
+      Deprecated as of 12/11/2019.
+    </obsolete>
     <summary>
       Records what the user does with a form. Recorded values correspond to the
       enum password_manager::UserAction.
@@ -7028,6 +7634,22 @@ be describing additional metrics about the same event.
       Bitfield representing the events that occurred during the Payment Request.
       Values defined in the Event enum of
       components/payments/core/journey_logger.h.
+    </summary>
+  </metric>
+</event>
+
+<event name="PaymentRequest.TransactionAmount">
+  <owner>sahel@chromium.org</owner>
+  <owner>web-payments-team@google.com</owner>
+  <metric name="Category">
+    <summary>
+      Tranaction size can be zero, micro, or regular. Values defined in the
+      TransactionSize enum of components/payments/core/journey_logger.h.
+    </summary>
+  </metric>
+  <metric name="CompletionStatus" enum="Boolean">
+    <summary>
+      Whether the transaction has been triggered or completed.
     </summary>
   </metric>
 </event>
@@ -7297,6 +7919,9 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="navigation_restart_penalty">
+    <obsolete>
+      Feature removed in M79.
+    </obsolete>
     <summary>
       Set to the number of milliseconds spent restarting navigations when a Lite
       Page Redirect preview is attempted, whether or not it is committed, during
@@ -7628,6 +8253,28 @@ be describing additional metrics about the same event.
       the responsiveness of a tab. A lower value means the tab will respond to
       inputs faster. This metric is equal to
       RendererScheduler.ExpectedTaskQueueingDuration of the main frame process.
+    </summary>
+  </metric>
+</event>
+
+<event name="SameSiteDifferentSchemeRequest">
+  <owner>bingler@chromium.org</owner>
+  <metric name="SameSiteContextWithSchemes" enum="SameSiteCookieContext">
+    <summary>
+      An enum that records the type of same-site context if a cookie marked with
+      SameSite=Lax or SameSite=Strict is sent across schemes on a request. E.x.:
+      An http site making a request to an https site.
+    </summary>
+  </metric>
+</event>
+
+<event name="SameSiteDifferentSchemeResponse">
+  <owner>bingler@chromium.org</owner>
+  <metric name="SameSiteContextWithSchemes" enum="SameSiteCookieContext">
+    <summary>
+      An enum that records the type of same-site context if a cookie marked with
+      SameSite=Lax or SameSite=Strict is set across schemes on a response. E.x.:
+      An http site returning a response to an https site.
     </summary>
   </metric>
 </event>
@@ -7992,6 +8639,135 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="SmartCharging">
+  <owner>thanhdng@chromium.org</owner>
+  <owner>jiameng@chromium.org</owner>
+  <summary>
+    Records user activities that are related to charging such as battery
+    percentage, time, device type, etc.
+  </summary>
+  <metric name="BatteryPercentage">
+    <summary>
+      Percentage of the battery.
+    </summary>
+  </metric>
+  <metric name="BatteryPercentageBeforeLastCharge">
+    <summary>
+      The percentage of the battery at the beginning of the last charge.
+    </summary>
+  </metric>
+  <metric name="BatteryPercentageOfLastCharge">
+    <summary>
+      The percentage of the battery that the last charge reached.
+    </summary>
+  </metric>
+  <metric name="DayOfMonth">
+    <summary>
+      Event's day of the month (e.g. 1-31) in local time zone.
+    </summary>
+  </metric>
+  <metric name="DayOfWeek" enum="DayOfWeek">
+    <summary>
+      Event's day of the week in local time zone. Sunday is 0.
+    </summary>
+  </metric>
+  <metric name="DeviceMode">
+    <summary>
+      Mode of the device (e.g. closed lid, tablet).
+    </summary>
+  </metric>
+  <metric name="DeviceType">
+    <summary>
+      Type of the device (e.g. laptop, tablet).
+    </summary>
+  </metric>
+  <metric name="DurationOfLastCharge">
+    <summary>
+      Duratioin of the last time the device was charged in minutes.
+    </summary>
+  </metric>
+  <metric name="DurationRecentAudioPlaying">
+    <summary>
+      Duration of audio playing in the last 30 minutes (bucketized and in
+      minutes).
+    </summary>
+  </metric>
+  <metric name="DurationRecentVideoPlaying">
+    <summary>
+      Duration of video playing in the last 30 minutes (bucketized and in
+      minutes).
+    </summary>
+  </metric>
+  <metric name="EventId">
+    <summary>
+      A unique number that represent order of an event.
+    </summary>
+  </metric>
+  <metric name="HaltFromLastCharge" enum="Boolean">
+    <summary>
+      Whether there's any shutdown/suspend actions between the last charge and
+      current event.
+    </summary>
+  </metric>
+  <metric name="Month" enum="Month">
+    <summary>
+      Event's month (e.g. Jan-Dec) in local time zone. January is 1.
+    </summary>
+  </metric>
+  <metric name="NumRecentKeyEvents">
+    <summary>
+      Number of key events in past 30 minutes.
+    </summary>
+  </metric>
+  <metric name="NumRecentMouseEvents">
+    <summary>
+      Number of mouse events in past 30 minutes.
+    </summary>
+  </metric>
+  <metric name="NumRecentStylusEvents">
+    <summary>
+      Number of stylus events in past 30 minutes.
+    </summary>
+  </metric>
+  <metric name="NumRecentTouchEvents">
+    <summary>
+      Number of touch events in past 30 minutes.
+    </summary>
+  </metric>
+  <metric name="Reason" enum="SmartChargingReason">
+    <summary>
+      Reason for the logging of an event.
+    </summary>
+  </metric>
+  <metric name="ScreenBrightnessPercent">
+    <summary>
+      Brightness of the screen in percent.
+    </summary>
+  </metric>
+  <metric name="TimeOfTheDay">
+    <summary>
+      Time of the event in minutes since midnight in the local time zone.
+    </summary>
+  </metric>
+  <metric name="TimeSinceLastCharge">
+    <summary>
+      Time since the last time user unplugged the charger in minutes.
+    </summary>
+  </metric>
+  <metric name="TimezoneDifferenceFromLastCharge">
+    <summary>
+      Timezone difference from the last charge. It is equal to current_timezone
+      - timezone_from_last_charge. The valid range of time zone value will be
+      -12 (UTC -12:00) to +14 (UTC +14:00).
+    </summary>
+  </metric>
+  <metric name="Voltage">
+    <summary>
+      Charge voltage in mV.
+    </summary>
+  </metric>
+</event>
+
 <event name="SMSReceiver">
   <owner>goto@chromium.org</owner>
   <owner>reillyg@chromium.org</owner>
@@ -8095,6 +8871,18 @@ be describing additional metrics about the same event.
       Duration in MS from when the main frame navigation was triggered to when
       the tab crashed with OOM. Recorded only on Windows, Android and Chrome OS.
       We do not have a way to detect OOMs reliably on Linux and Mac.
+    </summary>
+  </metric>
+</event>
+
+<event name="Tab.Screenshot">
+  <owner>sayman@chromium.org</owner>
+  <summary>
+    User took one or more screenshots of a page.
+  </summary>
+  <metric name="HasOccurred" enum="Boolean">
+    <summary>
+      A boolean signaling that the event has occurred; only records true values.
     </summary>
   </metric>
 </event>
@@ -8568,6 +9356,12 @@ be describing additional metrics about the same event.
     <summary>
       Boolean indicating that the intervention was disallowed because the tab is
       currently visible.
+    </summary>
+  </metric>
+  <metric name="FailureLiveWebApp" enum="Boolean">
+    <summary>
+      Boolean indicating that the intervention was disallowed because the tab is
+      a web application window.
     </summary>
   </metric>
   <metric name="FailureOriginTrialOptOut" enum="Boolean">
@@ -9240,6 +10034,149 @@ be describing additional metrics about the same event.
     <summary>
       Site engagement score in the range [0, 100], rounded down to a multiple of
       10 to limit granularity.
+    </summary>
+  </metric>
+</event>
+
+<event name="UserSettingsEvent">
+  <owner>wrong@chromium.org</owner>
+  <owner>jiameng@chromium.org</owner>
+  <summary>
+    Contains information about user activities relating to settings changes.
+  </summary>
+  <metric name="BatteryPercentage">
+    <summary>
+      Battery percentage from 0 to 100.
+    </summary>
+  </metric>
+  <metric name="Country">
+    <summary>
+      Country ID at install, corresponding to the value used by
+      src/components/country_codes/country_codes.h.
+    </summary>
+  </metric>
+  <metric name="CurrentValue">
+    <summary>
+      Value of the setting after the change.
+    </summary>
+  </metric>
+  <metric name="DayOfWeek" enum="DayOfWeek">
+    <summary>
+      Day of the week of the settings change.
+    </summary>
+  </metric>
+  <metric name="DeviceMode" enum="DeviceMode">
+    <summary>
+      The current device mode, such as clamshell or tablet.
+    </summary>
+  </metric>
+  <metric name="DeviceOrientation" enum="DeviceOrientation">
+    <summary>
+      The current orientation of the device.
+    </summary>
+  </metric>
+  <metric name="EventId">
+    <summary>
+      Randomly generated ID that links together settings events that occured at
+      the same time.
+    </summary>
+  </metric>
+  <metric name="HasNightLightSchedule" enum="Boolean">
+    <summary>
+      A boolean indicating whether the user has set up a night light schedule.
+    </summary>
+  </metric>
+  <metric name="HasWifiSecurity" enum="Boolean">
+    <summary>
+      A boolean indicating whether or not the current wifi network has security.
+      Only populated upon connection to a wifi network.
+    </summary>
+  </metric>
+  <metric name="HourOfDay">
+    <summary>
+      Time in hours since midnight in the local time zone.
+    </summary>
+  </metric>
+  <metric name="IsAfterSunset" enum="Boolean">
+    <summary>
+      A boolean, true if it is after sunset and before sunrise in the local
+      time.
+    </summary>
+  </metric>
+  <metric name="IsCharging" enum="Boolean">
+    <summary>
+      A boolean indicating whether the device is charging.
+    </summary>
+  </metric>
+  <metric name="IsFromSearch" enum="Boolean">
+    <summary>
+      A boolean indicating whether or not search was used to navigate to the
+      setting.
+    </summary>
+  </metric>
+  <metric name="IsPairedBluetoothDevice" enum="Boolean">
+    <summary>
+      A boolean indicating whether or not the current bluetooth device was
+      already paired. Only populated upon connection to a bluetooth device.
+    </summary>
+  </metric>
+  <metric name="IsPlayingAudio" enum="Boolean">
+    <summary>
+      A boolean indicating whether the device is playing audio.
+    </summary>
+  </metric>
+  <metric name="IsPlayingVideo" enum="Boolean">
+    <summary>
+      A boolean indicating whether the device is playing video.
+    </summary>
+  </metric>
+  <metric name="IsRecentlyFullscreen" enum="Boolean">
+    <summary>
+      A boolean indicating whether the device has been in fullscreen mode in the
+      last 5 minutes.
+    </summary>
+  </metric>
+  <metric name="IsRecentlyPresenting" enum="Boolean">
+    <summary>
+      A boolean indicating whether the device has been presenting in the last 5
+      minutes.
+    </summary>
+  </metric>
+  <metric name="NetworkStatus" enum="NetworkStatus">
+    <summary>
+      Internet connection status of the device.
+    </summary>
+  </metric>
+  <metric name="PreviousValue">
+    <summary>
+      Value of the setting before the change.
+    </summary>
+  </metric>
+  <metric name="SettingId" enum="SettingId">
+    <summary>
+      The setting that was changed.
+    </summary>
+  </metric>
+  <metric name="SettingType" enum="SettingType">
+    <summary>
+      Where the settings event originated from.
+    </summary>
+  </metric>
+  <metric name="SignalStrength">
+    <summary>
+      The signal strength for the connected network. Only populated upon
+      connection to a wifi or cellular network.
+    </summary>
+  </metric>
+  <metric name="TimeSinceLastSettingsChange">
+    <summary>
+      Time in minutes since the last settings change.
+    </summary>
+  </metric>
+  <metric name="UsedCellularInSession" enum="Boolean">
+    <summary>
+      A boolean indicating whether the user has connected to a cellular network
+      in the current session.
     </summary>
   </metric>
 </event>

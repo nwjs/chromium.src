@@ -13,14 +13,15 @@
 #include "components/dom_distiller/core/pref_names.h"
 #include "components/feed/buildflags.h"
 #if BUILDFLAG(ENABLE_FEED_IN_CHROME)
-#include "components/feed/core/pref_names.h"
+#include "components/feed/core/common/pref_names.h"
 #endif  // BUILDFLAG(ENABLE_FEED_IN_CHROME)
 #include "components/content_settings/core/common/pref_names.h"
+#include "components/embedder_support/pref_names.h"
 #include "components/ntp_snippets/pref_names.h"
 #include "components/offline_pages/core/prefetch/prefetch_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 
@@ -57,6 +58,7 @@ enum Pref {
   CLICKED_UPDATE_MENU_ITEM,
   LATEST_VERSION_WHEN_CLICKED_UPDATE_MENU_ITEM,
   BLOCK_THIRD_PARTY_COOKIES,
+  COOKIE_CONTROLS_MODE,
   ENABLE_DO_NOT_TRACK,
   PRINTING_ENABLED,
   OFFER_TRANSLATE_ENABLED,
@@ -109,11 +111,12 @@ const char* const kPrefsExposedToJava[] = {
     prefs::kClickedUpdateMenuItem,
     prefs::kLatestVersionWhenClickedUpdateMenuItem,
     prefs::kBlockThirdPartyCookies,
+    prefs::kCookieControlsMode,
     prefs::kEnableDoNotTrack,
     prefs::kPrintingEnabled,
     prefs::kOfferTranslateEnabled,
     prefs::kNotificationsVibrateEnabled,
-    prefs::kAlternateErrorPagesEnabled,
+    embedder_support::kAlternateErrorPagesEnabled,
     prefs::kGoogleServicesLastUsername,
     prefs::kWebKitPasswordEchoEnabled,
     prefs::kWebKitForceDarkModeEnabled,

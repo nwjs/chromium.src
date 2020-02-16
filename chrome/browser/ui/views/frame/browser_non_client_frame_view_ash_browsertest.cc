@@ -15,7 +15,6 @@
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/public/cpp/window_pin_type.h"
 #include "ash/public/cpp/window_properties.h"
-#include "ash/public/mojom/constants.mojom.h"
 #include "ash/shell.h"                                  // mash-ok
 #include "ash/wm/overview/overview_controller.h"        // mash-ok
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"  // mash-ok
@@ -39,6 +38,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller_test.h"
@@ -750,14 +750,14 @@ namespace {
 class WebAppNonClientFrameViewAshTest
     : public TopChromeMdParamTest<BrowserActionsBarBrowserTest> {
  public:
-  WebAppNonClientFrameViewAshTest()
-      : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {}
+  WebAppNonClientFrameViewAshTest() = default;
 
   ~WebAppNonClientFrameViewAshTest() override = default;
 
-  GURL GetAppURL() {
+  GURL GetAppURL() const {
     return https_server_.GetURL("app.com", "/ssl/google.html");
   }
+
   static SkColor GetThemeColor() { return SK_ColorBLUE; }
 
   Browser* app_browser_ = nullptr;
@@ -766,7 +766,7 @@ class WebAppNonClientFrameViewAshTest
   WebAppFrameToolbarView* web_app_frame_toolbar_ = nullptr;
   const std::vector<ContentSettingImageView*>* content_setting_views_ = nullptr;
   BrowserActionsContainer* browser_actions_container_ = nullptr;
-  views::Button* web_app_menu_button_ = nullptr;
+  AppMenuButton* web_app_menu_button_ = nullptr;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     TopChromeMdParamTest<BrowserActionsBarBrowserTest>::SetUpCommandLine(
@@ -826,17 +826,17 @@ class WebAppNonClientFrameViewAshTest
     content_setting_views_ =
         &web_app_frame_toolbar_->GetContentSettingViewsForTesting();
     browser_actions_container_ =
-        web_app_frame_toolbar_->browser_actions_container_;
-    web_app_menu_button_ = web_app_frame_toolbar_->web_app_menu_button_;
+        web_app_frame_toolbar_->GetBrowserActionsContainer();
+    web_app_menu_button_ = web_app_frame_toolbar_->GetAppMenuButton();
   }
 
-  AppMenu* GetAppMenu() {
-    return web_app_frame_toolbar_->web_app_menu_button_->app_menu();
+  AppMenu* GetAppMenu() { return web_app_menu_button_->app_menu(); }
+
+  SkColor GetActiveColor() const {
+    return web_app_frame_toolbar_->active_foreground_color_;
   }
 
-  SkColor GetActiveColor() { return web_app_frame_toolbar_->active_color_; }
-
-  bool GetPaintingAsActive() {
+  bool GetPaintingAsActive() const {
     return web_app_frame_toolbar_->paint_as_active_;
   }
 
@@ -855,9 +855,9 @@ class WebAppNonClientFrameViewAshTest
 
     return *std::find_if(
         content_setting_views_->begin(), content_setting_views_->end(),
-        [](auto v) {
-          return ContentSettingImageModel::ImageType::GEOLOCATION ==
-                 v->GetTypeForTesting();
+        [](const auto* view) {
+          return view->GetTypeForTesting() ==
+                 ContentSettingImageModel::ImageType::GEOLOCATION;
         });
   }
 
@@ -875,7 +875,7 @@ class WebAppNonClientFrameViewAshTest
 
  private:
   // For mocking a secure site.
-  net::EmbeddedTestServer https_server_;
+  net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
   content::ContentMockCertVerifier cert_verifier_;
 
   DISALLOW_COPY_AND_ASSIGN(WebAppNonClientFrameViewAshTest);
@@ -1287,10 +1287,8 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewAshTest,
 
 // Test that for a browser app window, its caption buttons may or may not hide
 // in tablet mode.
-// Disable due to use-of-uninitialized value error on ChromeOS.
-// https://crbug.com/1028336.
 IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewAshTest,
-                       DISABLED_AppHeaderVisibilityInTabletModeTest) {
+                       AppHeaderVisibilityInTabletModeTest) {
   // Create a browser app window.
   Browser::CreateParams params = Browser::CreateParams::CreateForApp(
       "test_browser_app", true /* trusted_source */, gfx::Rect(),

@@ -174,7 +174,7 @@ public class CookieManagerTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView", "Privacy"})
-    @CommandLineFlags.Add({"enable-blink-features=CookieStore"})
+    @CommandLineFlags.Add({"enable-blink-features=CookieStoreDocument"})
     // TODO(https://crbug.com/968649) Remove switch when CookieStore launched.
     public void testAcceptCookie_falseWontSetCookies() throws Throwable {
         testAcceptCookieHelper(false, "-disabled");
@@ -183,7 +183,7 @@ public class CookieManagerTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView", "Privacy"})
-    @CommandLineFlags.Add({"enable-blink-features=CookieStore"})
+    @CommandLineFlags.Add({"enable-blink-features=CookieStoreDocument"})
     // TODO(https://crbug.com/968649) Remove switch when CookieStore launched.
     public void testAcceptCookie_trueWillSetCookies() throws Throwable {
         testAcceptCookieHelper(true, "-enabled");
@@ -657,7 +657,7 @@ public class CookieManagerTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView", "Privacy"})
-    @CommandLineFlags.Add({"enable-blink-features=CookieStore"})
+    @CommandLineFlags.Add({"enable-blink-features=CookieStoreDocument"})
     // TODO(https://crbug.com/968649) Remove switch when CookieStore launched.
     public void testCookieStoreListener() throws Throwable {
         TestWebServer webServer = TestWebServer.startSsl();
@@ -896,7 +896,7 @@ public class CookieManagerTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView", "Privacy"})
-    @CommandLineFlags.Add({"enable-blink-features=CookieStore"})
+    @CommandLineFlags.Add({"enable-blink-features=CookieStoreDocument"})
     // TODO(https://crbug.com/968649) Remove switch when CookieStore launched.
     public void testThirdPartyJavascriptCookie() throws Throwable {
         // Using SSL server here since CookieStore API requires a secure schema.
@@ -924,7 +924,7 @@ public class CookieManagerTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView", "Privacy"})
-    @CommandLineFlags.Add({"enable-blink-features=CookieStore"})
+    @CommandLineFlags.Add({"enable-blink-features=CookieStoreDocument"})
     // TODO(https://crbug.com/968649) Remove switch when CookieStore launched.
     public void testThirdPartyCookiesArePerWebview() throws Throwable {
         // Using SSL server here since CookieStore API requires a secure schema.
@@ -975,9 +975,9 @@ public class CookieManagerTest {
         mAwContents.getSettings().setAllowFileAccess(true);
 
         mAwContents.getSettings().setAcceptThirdPartyCookies(true);
-        Assert.assertTrue(fileURLCanSetCookie("1"));
+        Assert.assertTrue(fileURLCanSetCookie("1", ""));
         mAwContents.getSettings().setAcceptThirdPartyCookies(false);
-        Assert.assertTrue(fileURLCanSetCookie("2"));
+        Assert.assertTrue(fileURLCanSetCookie("2", ""));
     }
 
     @Test
@@ -991,9 +991,9 @@ public class CookieManagerTest {
         mAwContents.getSettings().setAllowFileAccess(true);
 
         mAwContents.getSettings().setAcceptThirdPartyCookies(true);
-        Assert.assertFalse(fileURLCanSetCookie("3"));
+        Assert.assertFalse(fileURLCanSetCookie("3", ""));
         mAwContents.getSettings().setAcceptThirdPartyCookies(false);
-        Assert.assertFalse(fileURLCanSetCookie("4"));
+        Assert.assertFalse(fileURLCanSetCookie("4", ""));
     }
 
     @Test
@@ -1015,14 +1015,27 @@ public class CookieManagerTest {
         mAwContents.getSettings().setAllowFileAccess(true);
 
         mAwContents.getSettings().setAcceptThirdPartyCookies(true);
-        Assert.assertFalse(fileURLCanSetCookie("5"));
+        Assert.assertFalse(fileURLCanSetCookie("5", ""));
         mAwContents.getSettings().setAcceptThirdPartyCookies(false);
-        Assert.assertFalse(fileURLCanSetCookie("6"));
+        Assert.assertFalse(fileURLCanSetCookie("6", ""));
     }
 
-    private boolean fileURLCanSetCookie(String suffix) throws Throwable {
-        String value = "value" + suffix;
-        String url = "file:///android_asset/cookie_test.html?value=" + value;
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView", "Privacy"})
+    public void testAcceptFileSchemeCookiesExplicitSameSite() throws Throwable {
+        mCookieManager.setAcceptFileSchemeCookies(true);
+        Assert.assertTrue("allowFileSchemeCookies() should return true after "
+                        + "setAcceptFileSchemeCookies(true)",
+                mCookieManager.allowFileSchemeCookies());
+        mAwContents.getSettings().setAllowFileAccess(true);
+        mAwContents.getSettings().setAcceptThirdPartyCookies(false);
+        Assert.assertTrue(fileURLCanSetCookie("7", ";SameSite=Lax"));
+    }
+
+    private boolean fileURLCanSetCookie(String valueSuffix, String settings) throws Throwable {
+        String value = "value" + valueSuffix;
+        String url = "file:///android_asset/cookie_test.html?value=" + value + settings;
         mActivityTestRule.loadUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(), url);
         String cookie = mCookieManager.getCookie(url);
         return cookie != null && cookie.contains("test=" + value);
@@ -1150,7 +1163,7 @@ public class CookieManagerTest {
                 + "  await window.cookieStore.set("
                 + "      " + name + ", " + value + ", "
                 + "      { expires: Date.now() + 3600*1000,"
-                + "        sameSite: 'unrestricted' });"
+                + "        sameSite: 'none' });"
                 + "} finally {"
                 + "  " + finallyAction + "}\n";
     }

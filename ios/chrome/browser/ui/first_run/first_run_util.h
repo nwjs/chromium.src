@@ -7,6 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
+class ChromeBrowserState;
 @class FirstRunConfiguration;
 @protocol SyncPresenter;
 
@@ -14,9 +15,6 @@ namespace base {
 class TimeTicks;
 }
 
-namespace ios {
-class ChromeBrowserState;
-}
 namespace web {
 class WebState;
 }
@@ -40,13 +38,12 @@ BOOL FixOrphanWord(UILabel* label);
 // only after a successful sign-in or explicitly skipping signing in. First Run
 // metrics are recorded iff the sentinel file didn't previous exist and was
 // successfully created.
-void WriteFirstRunSentinelAndRecordMetrics(
-    ios::ChromeBrowserState* browserState,
-    BOOL sign_in_attempted,
-    BOOL has_sso_account);
+void WriteFirstRunSentinelAndRecordMetrics(ChromeBrowserState* browserState,
+                                           BOOL sign_in_attempted,
+                                           BOOL has_sso_account);
 
 // Methods for writing sentinel and recording metrics and posting notifications
-void FinishFirstRun(ios::ChromeBrowserState* browserState,
+void FinishFirstRun(ChromeBrowserState* browserState,
                     web::WebState* web_state,
                     FirstRunConfiguration* config,
                     id<SyncPresenter> presenter);
@@ -60,7 +57,7 @@ void FirstRunDismissed();
 
 // Enables or disables the data reduction proxy and also sets a key indicating
 // application is using Data Reduction Proxy.
-void SetDataReductionProxyEnabled(ios::ChromeBrowserState* browserState,
+void SetDataReductionProxyEnabled(ChromeBrowserState* browserState,
                                   BOOL enabled,
                                   BOOL toggled_switch);
 

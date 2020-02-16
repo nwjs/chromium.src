@@ -189,6 +189,7 @@ class AppListItemView::IconImageView : public views::ImageView {
     if (!layer()) {
       SetPaintToLayer();
       layer()->SetFillsBoundsOpaquely(false);
+      layer()->SetName(GetClassName());
     }
   }
 
@@ -218,11 +219,35 @@ AppListItemView::AppListItemView(AppsGridView* apps_grid_view,
       is_folder_(item->GetItemType() == AppListFolderItem::kItemType),
       item_weak_(item),
       delegate_(delegate),
-      apps_grid_view_(apps_grid_view),
-      icon_(new IconImageView),
-      title_(new views::Label),
-      progress_bar_(new views::ProgressBar) {
+      apps_grid_view_(apps_grid_view) {
   SetFocusBehavior(FocusBehavior::ALWAYS);
+
+  if (!is_in_folder && !is_folder_) {
+    // To display shadow for icon while not affecting the icon's bounds, icon
+    // shadow is behind the icon.
+    auto icon_shadow = std::make_unique<views::ImageView>();
+    icon_shadow->set_can_process_events_within_subtree(false);
+    icon_shadow->SetVerticalAlignment(views::ImageView::Alignment::kLeading);
+    icon_shadow_ = AddChildView(std::move(icon_shadow));
+  }
+
+  auto title = std::make_unique<views::Label>();
+  title->SetBackgroundColor(SK_ColorTRANSPARENT);
+  title->SetHandlesTooltips(false);
+  title->SetFontList(GetAppListConfig().app_title_font());
+  title->SetHorizontalAlignment(gfx::ALIGN_CENTER);
+  title->SetEnabledColor(apps_grid_view_->is_in_folder()
+                             ? kFolderGridTitleColor
+                             : GetAppListConfig().grid_title_color());
+  if (!is_in_folder) {
+    gfx::ShadowValues title_shadow = gfx::ShadowValues(
+        1,
+        gfx::ShadowValue(gfx::Vector2d(), kTitleShadowBlur, kTitleShadowColor));
+    title->SetShadows(title_shadow);
+    title_shadow_margins_ = gfx::ShadowValue::GetMargin(title_shadow);
+  }
+
+  icon_ = AddChildView(std::make_unique<IconImageView>());
 
   if (is_folder_) {
     // Set background blur for folder icon and use mask layer to clip it into
@@ -235,33 +260,8 @@ AppListItemView::AppListItemView(AppsGridView* apps_grid_view,
         gfx::Insets(GetAppListConfig().folder_icon_insets()));
   }
 
-  if (!is_in_folder && !is_folder_) {
-    // To display shadow for icon while not affecting the icon's bounds, icon
-    // shadow is behind the icon.
-    icon_shadow_ = new views::ImageView;
-    icon_shadow_->set_can_process_events_within_subtree(false);
-    icon_shadow_->SetVerticalAlignment(views::ImageView::Alignment::kLeading);
-    AddChildView(icon_shadow_);
-  }
-
-  title_->SetBackgroundColor(SK_ColorTRANSPARENT);
-  title_->SetHandlesTooltips(false);
-  title_->SetFontList(GetAppListConfig().app_title_font());
-  title_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
-  title_->SetEnabledColor(apps_grid_view_->is_in_folder()
-                              ? kFolderGridTitleColor
-                              : GetAppListConfig().grid_title_color());
-  if (!is_in_folder) {
-    gfx::ShadowValues title_shadow = gfx::ShadowValues(
-        1,
-        gfx::ShadowValue(gfx::Vector2d(), kTitleShadowBlur, kTitleShadowColor));
-    title_->SetShadows(title_shadow);
-    title_shadow_margins_ = gfx::ShadowValue::GetMargin(title_shadow);
-  }
-
-  AddChildView(icon_);
-  AddChildView(title_);
-  AddChildView(progress_bar_);
+  title_ = AddChildView(std::move(title));
+  progress_bar_ = AddChildView(std::make_unique<views::ProgressBar>());
 
   SetIcon(item->GetIcon(GetAppListConfig().type()));
   SetItemName(base::UTF8ToUTF16(item->GetDisplayName()),
@@ -501,7 +501,7 @@ void AppListItemView::OnContextMenuModelReceived(
   views::View::ConvertRectToScreen(parent(), &anchor_rect);
 
   AppLaunchedMetricParams metric_params = {
-      ash::AppListLaunchedFrom::kLaunchedFromGrid};
+      AppListLaunchedFrom::kLaunchedFromGrid};
   delegate_->GetAppLaunchedMetricParams(&metric_params);
 
   context_menu_ = std::make_unique<AppListMenuModelAdapter>(
@@ -916,8 +916,8 @@ gfx::Rect AppListItemView::GetProgressBarBoundsForTargetViewBounds(
   return progress_bar_bounds;
 }
 
-void AppListItemView::ItemIconChanged(ash::AppListConfigType config_type) {
-  if (config_type != ash::AppListConfigType::kShared &&
+void AppListItemView::ItemIconChanged(AppListConfigType config_type) {
+  if (config_type != AppListConfigType::kShared &&
       config_type != GetAppListConfig().type()) {
     return;
   }

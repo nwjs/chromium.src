@@ -16,6 +16,7 @@
 #include "build/buildflag.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
+#include "components/history/core/browser/web_history_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -89,6 +90,7 @@ class PeopleHandler : public SettingsPageUIHandler,
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, ShowSyncSetup);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, TestSyncEverything);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, TestSyncAllManually);
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, NonRegisteredType);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, TestPassphraseStillRequired);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest, TestSyncIndividualTypes);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerTest,
@@ -113,6 +115,7 @@ class PeopleHandler : public SettingsPageUIHandler,
                            DashboardClearWhileSettingsOpen_ConfirmLater);
   FRIEND_TEST_ALL_PREFIXES(PeopleHandlerDiceUnifiedConsentTest,
                            StoredAccountsList);
+  FRIEND_TEST_ALL_PREFIXES(PeopleHandlerGuestModeTest, GetStoredAccountsList);
 
   // SettingsPageUIHandler implementation.
   void RegisterMessages() override;
@@ -127,10 +130,8 @@ class PeopleHandler : public SettingsPageUIHandler,
       const CoreAccountInfo& primary_account_info) override;
   void OnPrimaryAccountCleared(
       const CoreAccountInfo& previous_primary_account_info) override;
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;
   void OnExtendedAccountInfoRemoved(const AccountInfo& info) override;
-#endif
 
   // syncer::SyncServiceObserver implementation.
   void OnStateChanged(syncer::SyncService* sync) override;
@@ -157,6 +158,8 @@ class PeopleHandler : public SettingsPageUIHandler,
   void HandleShowSetupUI(const base::ListValue* args);
   void HandleAttemptUserExit(const base::ListValue* args);
   void HandleSyncPrefsDispatch(const base::ListValue* args);
+  void HandleGetIsHistoryRecordingEnabledAndCanBeUsed(
+      const base::ListValue* args);
 #if defined(OS_CHROMEOS)
   void HandleRequestPinLoginState(const base::ListValue* args);
 #endif
@@ -182,11 +185,14 @@ class PeopleHandler : public SettingsPageUIHandler,
   void OnPinLoginAvailable(bool is_available);
 #endif
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  void OnQueryHistoryRecordingCompletion(
+      const std::string& webui_callback_id,
+      history::WebHistoryService::Request* request,
+      const base::Optional<bool>& history_recording_enabled);
+
   void HandleGetStoredAccounts(const base::ListValue* args);
   void HandleStartSyncingWithEmail(const base::ListValue* args);
   base::Value GetStoredAccountsList();
-#endif
 
   // Pushes the updated sync prefs to JavaScript.
   void PushSyncPrefs();
@@ -227,15 +233,18 @@ class PeopleHandler : public SettingsPageUIHandler,
   // Used to listen for pref changes to allow or disallow signin.
   PrefChangeRegistrar profile_pref_registrar_;
 
+  // Pending web and app activity requests to query whether history recording
+  // is enabled or not.
+  std::set<std::unique_ptr<history::WebHistoryService::Request>>
+      web_and_app_activity_requests_;
+
   // Manages observer lifetimes.
   ScopedObserver<signin::IdentityManager, signin::IdentityManager::Observer>
       identity_manager_observer_{this};
   ScopedObserver<syncer::SyncService, syncer::SyncServiceObserver>
       sync_service_observer_{this};
 
-#if defined(OS_CHROMEOS)
   base::WeakPtrFactory<PeopleHandler> weak_factory_{this};
-#endif
 
   DISALLOW_COPY_AND_ASSIGN(PeopleHandler);
 };

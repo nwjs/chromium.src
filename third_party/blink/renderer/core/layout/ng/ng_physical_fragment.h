@@ -152,6 +152,9 @@ class CORE_EXPORT NGPhysicalFragment
   // Returns whether the fragment is legacy layout root.
   bool IsLegacyLayoutRoot() const { return is_legacy_layout_root_; }
 
+  // Returns whether the fragment should be atomically painted.
+  bool IsPaintedAtomically() const { return is_painted_atomically_; }
+
   bool IsBlockFormattingContextRoot() const {
     return (IsBox() &&
             BoxType() >= NGBoxType::kMinimumBlockFormattingContextRoot) ||
@@ -266,7 +269,7 @@ class CORE_EXPORT NGPhysicalFragment
   // ScrollableOverflow(), with transforms applied wrt container if needed.
   // This does not include any offsets from the parent (including relpos).
   PhysicalRect ScrollableOverflowForPropagation(
-      const LayoutObject* container) const;
+      const NGPhysicalBoxFragment& container) const;
 
   // The allowed touch action is the union of the effective touch action
   // (from style) and blocking touch event handlers.
@@ -364,6 +367,8 @@ class CORE_EXPORT NGPhysicalFragment
   // for all types to allow methods using them to be inlined.
   unsigned is_fieldset_container_ : 1;
   unsigned is_legacy_layout_root_ : 1;
+  unsigned is_painted_atomically_ : 1;
+  unsigned has_baseline_ : 1;
 
   // The following bitfields are only to be used by NGPhysicalTextFragment
   // (it's defined here to save memory, since that class has no bitfields).

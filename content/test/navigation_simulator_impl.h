@@ -11,7 +11,6 @@
 #include "base/callback.h"
 #include "base/optional.h"
 #include "content/browser/frame_host/navigation_request.h"
-#include "content/common/content_security_policy/csp_disposition_enum.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -22,7 +21,7 @@
 #include "net/base/host_port_pair.h"
 #include "net/base/ip_endpoint.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
-#include "third_party/blink/public/mojom/referrer.mojom.h"
+#include "third_party/blink/public/mojom/referrer.mojom-forward.h"
 #include "url/gurl.h"
 
 struct FrameHostMsg_DidCommitProvisionalLoad_Params;
@@ -104,11 +103,9 @@ class NavigationSimulatorImpl : public NavigationSimulator,
 
   void SetKeepLoading(bool keep_loading) override;
   void StopLoading() override;
-  void FailLoading(const GURL& url,
-                   int error_code,
-                   const base::string16& error_description) override;
+  void FailLoading(const GURL& url, int error_code) override;
 
-  // Additional utilites usable only inside content/.
+  // Additional utilities usable only inside content/.
 
   // This will do the very beginning of a navigation but stop before the
   // beforeunload event response. Will leave the Simulator in a
@@ -119,7 +116,8 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   // Set LoadURLParams and make browser initiated navigations use
   // LoadURLWithParams instead of LoadURL.
   void SetLoadURLParams(NavigationController::LoadURLParams* load_url_params);
-  void set_should_check_main_world_csp(CSPDisposition disposition) {
+  void set_should_check_main_world_csp(
+      network::mojom::CSPDisposition disposition) {
     should_check_main_world_csp_ = disposition;
   }
 
@@ -149,8 +147,8 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   // Whether to drop the swap out ack of the previous RenderFrameHost during
   // cross-process navigations. By default this is false, set to true if you
   // want the old RenderFrameHost to be left in a pending swap out state.
-  void set_drop_swap_out_ack(bool drop_swap_out_ack) {
-    drop_swap_out_ack_ = drop_swap_out_ack;
+  void set_drop_unload_ack(bool drop_unload_ack) {
+    drop_unload_ack_ = drop_unload_ack;
   }
 
   // Whether to drop the BeforeUnloadACK of the current RenderFrameHost at the
@@ -238,9 +236,9 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   BuildDidCommitProvisionalLoadParams(bool same_document,
                                       bool failed_navigation);
 
-  // Simulate the UnloadACK in the old RenderFrameHost if it was swapped out at
-  // the commit time.
-  void SimulateSwapOutACKForPreviousFrameIfNeeded(
+  // Simulate the UnloadACK in the old RenderFrameHost if it was unloaded at the
+  // commit time.
+  void SimulateUnloadACKForPreviousFrameIfNeeded(
       RenderFrameHostImpl* previous_frame);
 
   enum State {
@@ -293,7 +291,8 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker>
       browser_interface_broker_receiver_;
   std::string contents_mime_type_;
-  CSPDisposition should_check_main_world_csp_ = CSPDisposition::CHECK;
+  network::mojom::CSPDisposition should_check_main_world_csp_ =
+      network::mojom::CSPDisposition::CHECK;
   net::HttpResponseInfo::ConnectionInfo http_connection_info_ =
       net::HttpResponseInfo::CONNECTION_INFO_UNKNOWN;
   base::Optional<net::SSLInfo> ssl_info_;
@@ -302,7 +301,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   int64_t post_id_ = -1;
 
   bool auto_advance_ = true;
-  bool drop_swap_out_ack_ = false;
+  bool drop_unload_ack_ = false;
   bool block_on_before_unload_ack_ = false;
   bool keep_loading_ = false;
 

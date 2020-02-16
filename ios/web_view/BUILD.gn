@@ -44,6 +44,8 @@ config("config") {
 
 # These are defined as vars so they can be shared with different targets below.
 ios_web_view_public_headers = [
+  "public/cwv_back_forward_list.h",
+  "public/cwv_back_forward_list_item.h",
   "public/cwv_download_task.h",
   "public/cwv_export.h",
   "public/cwv_favicon.h",
@@ -115,6 +117,10 @@ ios_web_view_sources = [
   "internal/content_settings/web_view_cookie_settings_factory.mm",
   "internal/content_settings/web_view_host_content_settings_map_factory.h",
   "internal/content_settings/web_view_host_content_settings_map_factory.mm",
+  "internal/cwv_back_forward_list.mm",
+  "internal/cwv_back_forward_list_internal.h",
+  "internal/cwv_back_forward_list_item.mm",
+  "internal/cwv_back_forward_list_item_internal.h",
   "internal/cwv_download_task.mm",
   "internal/cwv_download_task_internal.h",
   "internal/cwv_favicon.mm",
@@ -250,9 +256,9 @@ if (ios_web_view_enable_autofill) {
     "internal/autofill/cwv_credit_card_verifier.mm",
     "internal/autofill/cwv_credit_card_verifier_internal.h",
     "internal/passwords/cwv_password.mm",
-    "internal/passwords/cwv_password_internal.h",
     "internal/passwords/cwv_password_controller.h",
     "internal/passwords/cwv_password_controller.mm",
+    "internal/passwords/cwv_password_internal.h",
   ]
 }
 
@@ -273,14 +279,14 @@ ios_web_view_deps = [
   "//components/gcm_driver",
   "//components/history/core/common",
   "//components/image_fetcher/ios",
-  "//components/invalidation/impl",
   "//components/infobars/core",
+  "//components/invalidation/impl",
   "//components/keyed_service/core",
   "//components/keyed_service/ios",
   "//components/language/core/browser",
   "//components/language/core/common",
+  "//components/language/ios/browser",
   "//components/leveldb_proto",
-  "//services/network:network_service",
   "//components/password_manager/core/browser",
   "//components/password_manager/core/browser:affiliation",
   "//components/password_manager/core/common",
@@ -289,17 +295,17 @@ ios_web_view_deps = [
   "//components/prefs",
   "//components/proxy_config",
   "//components/signin/core/browser",
-  "//components/signin/public/webdata",
   "//components/signin/ios/browser",
   "//components/signin/ios/browser:active_state_manager",
   "//components/signin/public/identity_manager",
   "//components/signin/public/identity_manager/ios",
+  "//components/signin/public/webdata",
+  "//components/ssl_errors",
   "//components/strings:components_strings_grit",
   "//components/sync",
   "//components/sync_device_info",
-  "//components/sync_user_events",
-  "//components/language/ios/browser",
   "//components/sync_sessions",
+  "//components/sync_user_events",
   "//components/translate/core/browser",
   "//components/translate/core/common",
   "//components/translate/ios/browser",
@@ -309,7 +315,6 @@ ios_web_view_deps = [
   "//components/version_info:version_string",
   "//components/web_resource",
   "//components/webdata_services",
-  "//components/ssl_errors",
   "//google_apis",
   "//ios/components/io_thread",
   "//ios/net",
@@ -317,14 +322,15 @@ ios_web_view_deps = [
   "//ios/web/common",
   "//ios/web/common:user_agent",
   "//ios/web/public",
-  "//ios/web/public/init",
   "//ios/web/public/deprecated",
-  "//ios/web/public/security",
+  "//ios/web/public/init",
   "//ios/web/public/js_messaging",
+  "//ios/web/public/security",
   "//ios/web/public/web_view_only",
   "//net",
   "//net:extras",
   "//services/metrics/public/cpp:metrics_cpp",
+  "//services/network:network_service",
   "//ui/base",
   "//url",
 ]
@@ -339,9 +345,7 @@ action("web_view_umbrella_header") {
   script = "//build/config/ios/generate_umbrella_header.py"
 
   full_header_path = target_gen_dir + "/ChromeWebView.h"
-  outputs = [
-    full_header_path,
-  ]
+  outputs = [ full_header_path ]
 
   args = [
     "--output-path",
@@ -391,9 +395,7 @@ ios_web_view_test_sources = [
 
 source_set("run_all_unittests") {
   testonly = true
-  sources = [
-    "test/run_all_unittests.cc",
-  ]
+  sources = [ "test/run_all_unittests.cc" ]
   deps = [
     "//base",
     "//base/test:test_support",
@@ -463,9 +465,7 @@ test("ios_web_view_unittests") {
 test("ios_web_view_inttests") {
   testonly = true
 
-  deps = [
-    "//ios/web_view/test:inttests",
-  ]
+  deps = [ "//ios/web_view/test:inttests" ]
 
   bundle_deps = [ ":web_view+bundle" ]
 
@@ -551,12 +551,8 @@ if (additional_toolchains == [] || current_toolchain == default_toolchain) {
     _license_path = "$_package_dir/LICENSE"
 
     script = "//tools/licenses.py"
-    inputs = [
-      "//buildtools/$host_os/gn",
-    ]
-    outputs = [
-      _license_path,
-    ]
+    inputs = [ "//buildtools/$host_os/gn" ]
+    outputs = [ _license_path ]
     args = [
       "license_file",
       rebase_path(_license_path, root_build_dir),
@@ -573,13 +569,9 @@ if (additional_toolchains == [] || current_toolchain == default_toolchain) {
       "//AUTHORS",
       "//chrome/VERSION",
     ]
-    outputs = [
-      "$_package_dir/{{source_file_part}}",
-    ]
+    outputs = [ "$_package_dir/{{source_file_part}}" ]
 
-    deps = [
-      ":web_view",
-    ]
+    deps = [ ":web_view" ]
   }
 
   if (enable_dsyms) {
@@ -592,22 +584,16 @@ if (additional_toolchains == [] || current_toolchain == default_toolchain) {
       # generate both the dSYM and binary image are listed in deps.
       _dsyms = [ "$root_out_dir/$ios_web_view_output_name.dSYM" ]
 
-      sources = [
-        "$root_out_dir/$ios_web_view_output_name.framework",
-      ]
+      sources = [ "$root_out_dir/$ios_web_view_output_name.framework" ]
 
       _output = "$_package_dir/$ios_web_view_output_name.dSYM.tar.bz2"
 
-      outputs = [
-        _output,
-      ]
+      outputs = [ _output ]
 
       args = [ rebase_path(_output, root_out_dir) ] +
              rebase_path(_dsyms, root_out_dir)
 
-      deps = [
-        ":web_view",
-      ]
+      deps = [ ":web_view" ]
     }
   } else {
     group("ios_web_view_dsym_archive") {

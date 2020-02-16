@@ -227,19 +227,10 @@ const char kDisableRollbackOption[] = "disable-rollback-option";
 
 // Disables client certificate authentication on the sign-in frame on the Chrome
 // OS sign-in profile.
-// TODO(pmarko): Remove this flag in M-66 if no issues are found
-// (https://crbug.com/723849).
+// TODO(https://crbug.com/844022): Remove this flag when reaching endpoints that
+// request client certs does not hang anymore when there is no system token yet.
 const char kDisableSigninFrameClientCerts[] =
     "disable-signin-frame-client-certs";
-
-// Disables user selection of client certificate on the sign-in frame on the
-// Chrome OS sign-in profile.
-// TODO(pmarko): Remove this flag in M-65 when the
-// DeviceLoginScreenAutoSelectCertificateForUrls policy is enabled on the server
-// side (https://crbug.com/723849) and completely disable user selection of
-// certificates on the sign-in frame.
-const char kDisableSigninFrameClientCertUserSelection[] =
-    "disable-signin-frame-client-cert-user-selection";
 
 // Disables volume adjust sound.
 const char kDisableVolumeAdjustSound[] = "disable-volume-adjust-sound";
@@ -294,10 +285,6 @@ const char kEnableTouchpadThreeFingerClick[] =
 // Disables ARC for managed accounts.
 const char kEnterpriseDisableArc[] = "enterprise-disable-arc";
 
-// Disable license type selection by user during enrollment.
-const char kEnterpriseDisableLicenseTypeSelection[] =
-    "enterprise-disable-license-type-selection";
-
 // Whether to enable forced enterprise re-enrollment.
 const char kEnterpriseEnableForcedReEnrollment[] =
     "enterprise-enable-forced-re-enrollment";
@@ -338,7 +325,7 @@ const char kFakeDriveFsLauncherSocketPath[] =
 
 // Fingerprint sensor location indicates the physical sensor's location. The
 // value is a string with possible values: "power-button-top-left",
-// "keyboard-top-right", "keyboard-bottom-right".
+// "keyboard-bottom-left", keyboard-bottom-right", "keyboard-top-right".
 const char kFingerprintSensorLocation[] = "fingerprint-sensor-location";
 
 // Forces Chrome to use CertVerifyProcBuiltin for verification of server
@@ -508,6 +495,13 @@ const char kTetherHostScansIgnoreWiredConnections[] =
 // Shows all Bluetooth devices in UI (System Tray/Settings Page.)
 const char kUnfilteredBluetoothDevices[] = "unfiltered-bluetooth-devices";
 
+// Skips the call to IdentityManager SetPrimaryAccount() on login, using
+// SetUnconsentedPrimaryAccount() instead. This marks the primary account as
+// *not* consented to browser sync, allowing consent to be set later. Used for
+// manual testing, not intended for production. See also
+// chromeos::features::kSplitSettingsSync.
+const char kUseUnconsentedPrimaryAccount[] = "use-unconsented-primary-account";
+
 // Used to tell the policy infrastructure to not let profile initialization
 // complete until policy is manually set by a test. This is used to provide
 // backward compatibility with a few tests that incorrectly use the
@@ -555,11 +549,6 @@ bool IsSigninFrameClientCertsEnabled() {
       kDisableSigninFrameClientCerts);
 }
 
-bool IsSigninFrameClientCertUserSelectionEnabled() {
-  return !base::CommandLine::ForCurrentProcess()->HasSwitch(
-      kDisableSigninFrameClientCertUserSelection);
-}
-
 bool ShouldShowShelfHotseat() {
   return base::FeatureList::IsEnabled(features::kShelfHotseat);
 }
@@ -603,6 +592,11 @@ bool IsArcCpuRestrictionDisabled() {
 bool IsUnfilteredBluetoothDevicesEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       kUnfilteredBluetoothDevices);
+}
+
+bool UseUnconsentedPrimaryAccount() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kUseUnconsentedPrimaryAccount);
 }
 
 }  // namespace switches

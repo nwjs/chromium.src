@@ -8,9 +8,9 @@
 #include "third_party/blink/public/common/manifest/manifest_icon_selector.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_url_request.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_image_resource.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/background_fetch/background_fetch_bridge.h"
-#include "third_party/blink/renderer/modules/manifest/image_resource.h"
 #include "third_party/blink/renderer/modules/manifest/image_resource_type_converters.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
@@ -71,6 +71,8 @@ void BackgroundFetchIconLoader::DidGetIconDisplaySizeIfSoLoadIcon(
 
   ResourceRequest resource_request(best_icon_url);
   resource_request.SetRequestContext(mojom::RequestContextType::IMAGE);
+  resource_request.SetRequestDestination(
+      network::mojom::RequestDestination::kImage);
   resource_request.SetPriority(ResourceLoadPriority::kMedium);
   resource_request.SetKeepalive(true);
   resource_request.SetMode(network::mojom::RequestMode::kNoCors);

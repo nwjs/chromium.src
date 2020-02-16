@@ -190,7 +190,7 @@ This file contains the strings for ash.
 
       <!-- Status tray items -->
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBLE_DESCRIPTION" desc="The accessible description of the status tray and the information on it.">
-        Status tray, time <ph name="time">$1<ex>9:50</ex></ph>, <ph name="battery">$2<ex>Battery is full.</ex></ph>
+        Status tray, time <ph name="time">$1<ex>9:50</ex></ph>, <ph name="battery">$2<ex>Battery is full.</ex></ph> Press search + left to access the notification center.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BRAILLE_DISPLAY_CONNECTED" desc="The message shown on a notification when a braille display is connected">
         Braille display connected.
@@ -261,10 +261,10 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_NIGHT_LIGHT_SETTINGS_TOOLTIP" desc="The tooltip text used for the button in the status tray to show the Night Light feature (which controls the color temperature of the screen) settings.">
         Show Night Light settings
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_NIGHT_LIGHT_OFF_STATE" desc="The label for the Off state of the Night Light feature.">
+      <message name="IDS_ASH_STATUS_TRAY_NIGHT_LIGHT_OFF_STATE" desc="Button label for the Night Light feature." meaning="Night Light feature is off.">
         Off
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_NIGHT_LIGHT_ON_STATE" desc="The label for the On state of the Night Light feature.">
+      <message name="IDS_ASH_STATUS_TRAY_NIGHT_LIGHT_ON_STATE" desc="Button label for the Night Light feature." meaning="Night Light feature is on.">
         On
       </message>
       <message name="IDS_ASH_STATUS_TRAY_CAST" desc="The label used as the header in the cast popup.">
@@ -350,10 +350,10 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISABLED" desc="The label used in the tray popup to notify that bluetooth is disabled.">
         Bluetooth disabled
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_ENABLED_SHORT" desc="The short label used in the tray popup to notify that bluetooth is enabled.">
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_ENABLED_SHORT" desc="Bluetooth button label in the status tray popup." meaning="Bluetooth is enabled.">
         On
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISABLED_SHORT" desc="The short label used in the tray popup to notify that bluetooth is disabled.">
+      <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISABLED_SHORT" desc="Bluetooth button label in the status tray popup." meaning="Bluetooth is disabled.">
         Off
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH_DISCOVERING" desc="The label used in the tray popup to show bluetooth is discovering devices.">
@@ -423,6 +423,15 @@ This file contains the strings for ash.
       <message name="IDS_UPDATE_NOTIFICATION_MESSAGE_ROLLBACK" desc="The notification message used in the system notification update when the device is rolled back and data will be deleted.">
         Your administrator is rolling back your device. All data will be deleted when the device is restarted.
       </message>
+      <message name="IDS_UPDATE_NOTIFICATION_MESSAGE_SLOW_BOOT" desc="The additional body of the notification to notify the user that the next reboot is slow.">
+        <ph name="UPDATE_TEXT">$1<ex>Learn more about the latest Chromium OS update</ex></ph>. This Chromebook needs to restart to apply an update. This can take up to 1 minute.
+      </message>
+      <message name="IDS_DIALOG_TITLE_SLOW_BOOT" desc="The title of the Slow Boot Shutdown Confirmation Dialog.">
+	Restart may take awhile
+      </message>
+      <message name="IDS_DIALOG_MESSAGE_SLOW_BOOT" desc="The body of the Slow Boot Shutdown Confirmation Dialog.">
+        Your screen will go blank for longer than usual (up to a minute) during this update. Please don't press the power button while the update is in progress.
+      </message>
 
       <message name="IDS_ASH_STATUS_TRAY_VOLUME" desc="The accessible text for the toggle volume muted button in the tray.">
         Toggle Volume. <ph name="STATE_TEXT">$1<ex>Volume is muted</ex></ph>
@@ -471,7 +480,7 @@ This file contains the strings for ash.
       </message>
       <message name="IDS_ASH_ACCESSIBILITY_FEATURE_MANAGED"
                desc="The label used to indicate that, the accessibility feature is being managed by a policy.">
-        <ph name="FEATURE_NAME">$1<ex>Full-screen magnifier</ex></ph> This setting is enforced by your administrator.
+        <ph name="FEATURE_NAME">$1<ex>Full-screen magnifier</ex></ph> This setting is managed by your administrator.
       </message>
 
       <message name="IDS_ASH_STATUS_TRAY_IME_SHORT" desc="The short label used for IME button in system tray bubble.">
@@ -725,7 +734,7 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STYLUS_TOOLS_MAGNIFIER_MODE" desc="Title of the magnification mode in the stylus tools. Clicking this button opens up a magnifier. The magnifier remains active until the user turns it off by tapping the same button again.">
         Magnifying glass
       </message>
-      <message name="IDS_ASH_STYLUS_TOOLS_METALAYER_MODE" desc="Title of the metalayer mode in the stylus tools. Clicking this button opens up the voice interaction overlay. The overlay remains active until the user completes the interaction.">
+      <message name="IDS_ASH_STYLUS_TOOLS_METALAYER_MODE" desc="Title of the metalayer mode in the stylus tools. Clicking this button opens up the Assistant overlay. The overlay remains active until the user completes the interaction.">
         Assistant
       </message>
       <message name="IDS_ASH_STYLUS_TOOLS_METALAYER_MODE_LOADING" desc="Title of the metalayer mode in the stylus tools, displayed while the Assistant is still loading.">
@@ -749,25 +758,25 @@ This file contains the strings for ash.
       <message name="IDS_ASH_PALETTE_SETTINGS" desc="The label on the setting button used to open palette setting page.">
         Stylus settings
       </message>
-      <message name="IDS_ASH_ASSISTANT_LOCALE_UNSUPPORTED_TOAST_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed but the locale is unsupported.">
+      <message name="IDS_ASH_ASSISTANT_LOCALE_UNSUPPORTED_TOAST_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed but the locale is unsupported.">
         The Google Assistant doesn’t speak this language.
       </message>
-      <message name="IDS_ASH_ASSISTANT_SECONDARY_USER_TOAST_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed but the active user profile is not the primary user profile.">
+      <message name="IDS_ASH_ASSISTANT_SECONDARY_USER_TOAST_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed but the active user profile is not the primary user profile.">
         The Google Assistant is only available for primary profile.
       </message>
-      <message name="IDS_ASH_ASSISTANT_DISABLED_BY_POLICY_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed but the feature is disabled by enterprise policy.">
+      <message name="IDS_ASH_ASSISTANT_DISABLED_BY_POLICY_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed but the feature is disabled by enterprise policy.">
         The Google Assistant is disabled by your administrator.
       </message>
-      <message name="IDS_ASH_ASSISTANT_DISABLED_IN_DEMO_MODE_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed in a demo session, which does not support voice interaction.">
+      <message name="IDS_ASH_ASSISTANT_DISABLED_IN_DEMO_MODE_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed in a demo session, which does not support Assistant.">
         The Google Assistant is not available in a demo session.
       </message>
-      <message name="IDS_ASH_ASSISTANT_DISABLED_IN_PUBLIC_SESSION_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed in a public session, which does not support voice interaction.">
+      <message name="IDS_ASH_ASSISTANT_DISABLED_IN_PUBLIC_SESSION_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed in a public session, which does not support Assistant.">
         The Google Assistant is not available in a public session.
       </message>
-      <message name="IDS_ASH_ASSISTANT_DISABLED_IN_GUEST_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed in a guest session, which does not support voice interaction.">
+      <message name="IDS_ASH_ASSISTANT_DISABLED_IN_GUEST_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed in a guest session, which does not support Assistant.">
         The Google Assistant is not available in a guest session.
       </message>
-      <message name="IDS_ASH_ASSISTANT_DISABLED_BY_ACCOUNT_MESSAGE" desc="Message content on the toast that appears when the voice interaction shortcut is pressed but current logged in user account does not support voice interaction.">
+      <message name="IDS_ASH_ASSISTANT_DISABLED_BY_ACCOUNT_MESSAGE" desc="Message content on the toast that appears when the Assistant shortcut is pressed but current logged in user account does not support Assistant.">
         The Google Assistant is not available for current user account.
       </message>
       <message name="IDS_ASH_ASSISTANT_QUERY_ACCESSIBILITY_ANNOUNCEMENT" desc="The accessibility announcement that notifies users that the UI is focusing on an assistant query">
@@ -1242,8 +1251,17 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_DISPLAY_RESOLUTION_CHANGED" desc="The label used in the tray to notify that the display resolution settings has changed.">
         <ph name="DISPLAY_NAME">$1<ex>Internal Display</ex></ph>: <ph name="RESOLUTION">$2<ex>2560x1600</ex></ph>
       </message>
+      <message name="IDS_ASH_RESOLUTION_CHANGE_DIALOG_TITLE" desc="The title used in the dialog to notify that the display resolution settings has changed and asks the user to confirm the new resolution.">
+        Confirm Resolution
+      </message>
+      <message name="IDS_ASH_RESOLUTION_CHANGE_DIALOG_CHANGED" desc="The label used in the dialog to notify that the display resolution settings has changed.">
+        <ph name="DISPLAY_NAME">$1<ex>Google Monitor X</ex></ph> resolution changed to <ph name="RESOLUTION">$2<ex>2560x1600</ex></ph>. Click confirm to keep changes. The previous settings will be restored in <ph name="TIMEOUT_SECONDS">$3</ph>.
+      </message>
+      <message name="IDS_ASH_RESOLUTION_CHANGE_DIALOG_FALLBACK" desc="The label used in the dialog to notify that the display resolution settings has changed to an unsupported resolution and the system falls back to another resolution.">
+        <ph name="DISPLAY_NAME">$1<ex>Google Monitor X</ex></ph> doesn't support <ph name="SPECIFIED_RESOLUTION">$2<ex>1920x1080</ex></ph>. The resolution was changed to <ph name="FALLBACK_RESOLUTION">$3<ex>1920x1200</ex></ph>. Click confirm to keep changes. The previous settings will be restored in <ph name="TIMEOUT_SECONDS">$4</ph>.
+      </message>
       <message name="IDS_ASH_STATUS_TRAY_DISPLAY_RESOLUTION_CHANGED_TO_UNSUPPORTED" desc="The label used in the tray to notify that the display resolution settings has changed to an unsupported resolution and the system falls back to another resolution.">
-        <ph name="DISPLAY_NAME">$1</ph> doesn't support <ph name="SPECIFIED_RESOLUTION">$2<ex>2560x1600</ex></ph>. The resolution was changed to <ph name="FALLBACK_RESOLUTION">$3<ex>1920x1200</ex></ph>
+        <ph name="DISPLAY_NAME">$1<ex>Google Monitor X</ex></ph> doesn't support <ph name="SPECIFIED_RESOLUTION">$2<ex>2560x1600</ex></ph>. The resolution was changed to <ph name="FALLBACK_RESOLUTION">$3<ex>1920x1200</ex></ph>.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_DISPLAY_ROTATED" desc="The label used in the tray to notify that the display rotation settings has changed.">
         <ph name="DISPLAY_NAME">$1</ph> was rotated to <ph name="ROTATION">$2</ph>
@@ -1463,10 +1481,10 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_VPN_TOOLTIP" desc="The tooltip text used for the button that shows VPN settings.">
         Show VPN settings
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_VPN_DISCONNECTED_SHORT" desc="The short label used in system tray bubble to display vpn is disconnected.">
+      <message name="IDS_ASH_STATUS_TRAY_VPN_DISCONNECTED_SHORT" desc="VPN button label in the system tray bubble." meaning="VPN is disconnected.">
         Off
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_VPN_CONNECTED_SHORT" desc="The short label used in system tray bubble to display vpn is connected.">
+      <message name="IDS_ASH_STATUS_TRAY_VPN_CONNECTED_SHORT" desc="VPN button label in the system tray bubble." meaning="VPN is connected.">
         On
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_WIFI_ENABLED" desc="The label used in the tray popup to notify that Wi-Fi is turned on.">
@@ -1572,15 +1590,21 @@ This file contains the strings for ash.
       <message name="IDS_ASH_YES_BUTTON" desc="The text for the button on a dialog OK button that agrees to the contents of the dialog.">
         Yes
       </message>
+      <message name="IDS_ASH_SHUTDOWN_CONFIRMATION_OK_BUTTON" desc="The text for the OK button in the shutdown confirmation dialog.">
+        Restart
+      </message>
+      <message name="IDS_ASH_SHUTDOWN_CONFIRMATION_CANCEL_BUTTON" desc="The text for the Cancel button in the shutdown confirmation dialog.">
+        Do it later
+      </message>
+      <message name="IDS_ASH_CONFIRM_BUTTON" desc="The text for confirm button on display change confirmation dialogs.">
+        Confirm
+      </message>
 
       <message name="IDS_ASH_AUTO_NIGHT_LIGHT_NOTIFY_TITLE" desc="The title of the notification shown when Night Light turns on automatically when the auto-night-light feature is enabled.">
         Night Light turns on automatically at sunset
       </message>
       <message name="IDS_ASH_AUTO_NIGHT_LIGHT_NOTIFY_BODY" desc="The body of the notification shown when Night Light turns on automatically when the auto-night-light feature is enabled.">
-        Night Light makes it easier to look at your screen or read in dim light. Tap to change this.
-      </message>
-      <message name="IDS_ASH_AUTO_NIGHT_LIGHT_NOTIFY_BUTTON_TEXT" desc="The text of the button on the notification shown when Night Light turns on automatically when the auto-night-light feature is enabled.">
-        Turn off for tonight
+        Night Light makes it easier to look at your screen or read in dim light. Tap to change what time Night Light turns on or turn it off completely.
       </message>
 
       <message name="IDS_ASH_IME_MENU_ACCESSIBLE_NAME" desc="The accessible text for opt-in IME menu icon in status tray.">
@@ -1740,7 +1764,7 @@ This file contains the strings for ash.
         Delete
       </message>
       <message name="IDS_ASH_LOGIN_MANAGED_DEVICE_INDICATOR" desc="Template for text shown as a bottom status on the login screen, informing the user that this device is managed.">
-        Device managed by <ph name="DOMAIN">$1<ex>yourdomain.com</ex></ph>
+        <ph name="DEVICE_TYPE">$1<ex>Chromebook</ex></ph> managed by <ph name="DOMAIN">$2<ex>yourdomain.com</ex></ph>
       </message>
       <message name="IDS_ASH_LOGIN_POD_OWNER_USER" desc="Login/lock screen user pod menu title for a user who owns the device.">
         <ph name="USER_NAME">$1<ex>Ivan Arbuzov</ex></ph> (owner)
@@ -1937,6 +1961,9 @@ This file contains the strings for ash.
       </message>
 
       <!-- Message center -->
+      <message name="IDS_ASH_MESSAGE_CENTER_ACCESSIBLE_NAME" desc="The spoken feedback name for when accessible focus moves to the message center">
+        Notification Center
+      </message>
       <message name="IDS_ASH_MESSAGE_CENTER_QUIET_MODE_BUTTON_TOOLTIP" desc="The tooltip text for the do not disturb button.">
         Do not disturb
       </message>

@@ -59,8 +59,6 @@
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/notifications/notification_platform_bridge.h"
 #include "chrome/browser/notifications/system_notification_helper.h"
-#include "chrome/browser/plugins/chrome_plugin_service_filter.h"
-#include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
@@ -106,7 +104,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/rappor/public/rappor_utils.h"
 #include "components/rappor/rappor_service_impl.h"
-#include "components/safe_browsing/safe_browsing_service_interface.h"
+#include "components/safe_browsing/core/safe_browsing_service_interface.h"
 #include "components/sessions/core/session_id_generator.h"
 #include "components/subresource_filter/content/browser/ruleset_service.h"
 #include "components/subresource_filter/core/browser/subresource_filter_constants.h"
@@ -122,7 +120,6 @@
 #include "content/public/browser/network_quality_observer_factory.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/notification_details.h"
-#include "content/public/browser/plugin_service.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/storage_partition.h"
@@ -145,6 +142,7 @@
 #include "base/win/windows_version.h"
 #elif defined(OS_MACOSX)
 #include "chrome/browser/chrome_browser_main_mac.h"
+#include "chrome/browser/media/webrtc/system_media_capture_permissions_stats_mac.h"
 #endif
 
 #if !defined(OS_CHROMEOS)
@@ -152,10 +150,11 @@
 #endif
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/component_updater/background_task_update_scheduler.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #else
 #include "chrome/browser/gcm/gcm_product_util.h"
+#include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "components/gcm_driver/gcm_client_factory.h"
 #include "components/gcm_driver/gcm_desktop_utils.h"
@@ -178,21 +177,17 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
+#include "chrome/browser/plugins/chrome_plugin_service_filter.h"
+#include "chrome/browser/plugins/plugin_finder.h"
 #include "chrome/browser/plugins/plugins_resource_service.h"
-#endif
-
-#if !defined(OS_ANDROID)
-#include "chrome/browser/resource_coordinator/tab_manager.h"
+#include "content/public/browser/plugin_service.h"
 #endif
 
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/notifications/notification_ui_manager.h"
+#include "chrome/browser/policy/chrome_browser_cloud_management_controller.h"
 #include "chrome/browser/ui/user_manager.h"
-#endif
-
-#if defined(OS_MACOSX)
-#include "chrome/browser/media/webrtc/system_media_capture_permissions_stats_mac.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -216,7 +211,6 @@ static constexpr base::TimeDelta kEndSessionTimeout =
 
 using content::BrowserThread;
 using content::ChildProcessSecurityPolicy;
-using content::PluginService;
 
 rappor::RapporService* GetBrowserRapporService() {
   if (g_browser_process != nullptr)
@@ -369,6 +363,17 @@ void BrowserProcessImpl::StartTearDown() {
   network_time_tracker_.reset();
 #if BUILDFLAG(ENABLE_PLUGINS)
   plugins_resource_service_.reset();
+#endif
+
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+  // Initial cleanup for ChromeBrowserCloudManagement, shutdown components that
+  // depend on profile and notification system. For example, ProfileManager
+  // observer and KeyServices observer need to be removed before profiles.
+  if (browser_policy_connector_ &&
+      browser_policy_connector_->chrome_browser_cloud_management_controller()) {
+    browser_policy_connector_->chrome_browser_cloud_management_controller()
+        ->ShutDown();
+  }
 #endif
 
   system_notification_helper_.reset();
@@ -1136,7 +1141,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
-  PluginService* plugin_service = PluginService::GetInstance();
+  auto* plugin_service = content::PluginService::GetInstance();
   plugin_service->SetFilter(ChromePluginServiceFilter::GetInstance());
 
   // Triggers initialization of the singleton instance on UI thread.
@@ -1149,10 +1154,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 
 #if !defined(OS_ANDROID)
-  storage_monitor::StorageMonitor::Create(
-      content::ServiceManagerConnection::GetForProcess()
-          ->GetConnector()
-          ->Clone());
+  storage_monitor::StorageMonitor::Create();
 #endif
 
   platform_part_->PreMainMessageLoopRun();
@@ -1319,6 +1321,7 @@ void BrowserProcessImpl::CreateGCMDriver() {
 
   gcm_driver_ = gcm::CreateGCMDriverDesktop(
       base::WrapUnique(new gcm::GCMClientFactory), local_state(), store_path,
+      /*remove_account_mappings_with_email_key=*/false,
       base::BindRepeating(&RequestProxyResolvingSocketFactory),
       system_network_context_manager()->GetSharedURLLoaderFactory(),
       content::GetNetworkConnectionTracker(), chrome::GetChannel(),

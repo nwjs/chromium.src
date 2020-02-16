@@ -43,6 +43,7 @@
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager/session_manager_client.h"
+#include "chromeos/system/statistics_provider.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_features.h"
 #include "components/arc/arc_prefs.h"
@@ -80,7 +81,18 @@ base::Optional<bool> g_enable_check_android_management_in_tests;
 // Maximum amount of time we'll wait for ARC to finish booting up. Once this
 // timeout expires, keep ARC running in case the user wants to file feedback,
 // but present the UI to try again.
-constexpr base::TimeDelta kArcSignInTimeout = base::TimeDelta::FromMinutes(5);
+base::TimeDelta GetArcSignInTimeout() {
+  constexpr base::TimeDelta kArcSignInTimeout = base::TimeDelta::FromMinutes(5);
+  constexpr base::TimeDelta kArcVmSignInTimeoutForVM =
+      base::TimeDelta::FromMinutes(20);
+
+  if (chromeos::system::StatisticsProvider::GetInstance()->IsRunningOnVm() &&
+      arc::IsArcVmEnabled()) {
+    return kArcVmSignInTimeoutForVM;
+  } else {
+    return kArcSignInTimeout;
+  }
+}
 
 // Updates UMA with user cancel only if error is not currently shown.
 void MaybeUpdateOptInCancelUMA(const ArcSupportHost* support_host) {
@@ -751,7 +763,7 @@ bool ArcSessionManager::RequestEnableImpl() {
     // When in ARC kiosk mode, there's no Chrome tabs to restore. Remove the
     // cgroups now.
     if (IsArcKioskMode())
-      SetArcCpuRestriction(false /* do_restrict */);
+      SetArcCpuRestriction(CpuRestrictionState::CPU_RESTRICTION_FOREGROUND);
     // Check Android management in parallel.
     // Note: StartBackgroundAndroidManagementCheck() may call
     // OnBackgroundAndroidManagementChecked() synchronously (or
@@ -968,13 +980,13 @@ void ArcSessionManager::OnAndroidManagementChecked(
       VLOG(1) << "Starting ARC for first sign in.";
       sign_in_start_time_ = base::TimeTicks::Now();
       arc_sign_in_timer_.Start(
-          FROM_HERE, kArcSignInTimeout,
+          FROM_HERE, GetArcSignInTimeout(),
           base::Bind(&ArcSessionManager::OnArcSignInTimeout,
                      weak_ptr_factory_.GetWeakPtr()));
       StartArc();
       // Since opt-in is an explicit user (or admin) action, relax the
       // cgroups restriction now.
-      SetArcCpuRestriction(false /* do_restrict */);
+      SetArcCpuRestriction(CpuRestrictionState::CPU_RESTRICTION_FOREGROUND);
       break;
     case policy::AndroidManagementClient::Result::MANAGED:
       ShowArcSupportHostError(

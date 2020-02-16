@@ -46,7 +46,8 @@ class MockSyncEngine : public SyncEngine {
   MOCK_METHOD1(SetEncryptionPassphrase, void(const std::string&));
   MOCK_METHOD1(SetDecryptionPassphrase, void(const std::string&));
   MOCK_METHOD2(AddTrustedVaultDecryptionKeys,
-               void(const std::vector<std::string>&, base::OnceClosure));
+               void(const std::vector<std::vector<uint8_t>>&,
+                    base::OnceClosure));
   MOCK_METHOD0(StopSyncingForShutdown, void());
   MOCK_METHOD1(Shutdown, void(ShutdownReason));
   MOCK_METHOD0(EnableEncryptEverything, void());
@@ -60,8 +61,8 @@ class MockSyncEngine : public SyncEngine {
   MOCK_METHOD0(DisableProtocolEventForwarding, void());
   MOCK_METHOD0(EnableDirectoryTypeDebugInfoForwarding, void());
   MOCK_METHOD0(DisableDirectoryTypeDebugInfoForwarding, void());
-  MOCK_METHOD1(ClearServerData, void(const base::Closure&));
-  MOCK_METHOD3(OnCookieJarChanged, void(bool, bool, const base::Closure&));
+  MOCK_METHOD1(ClearServerData, void(base::OnceClosure));
+  MOCK_METHOD3(OnCookieJarChanged, void(bool, bool, base::OnceClosure));
   MOCK_METHOD1(SetInvalidationsForSessionsEnabled, void(bool));
   MOCK_METHOD1(GetNigoriNodeForDebugging, void(AllNodesCallback));
 };

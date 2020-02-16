@@ -24,7 +24,6 @@ enum class NGBreakStatus;
 class NGConstraintSpace;
 class NGEarlyBreak;
 class NGFragment;
-class NGPhysicalLineBoxFragment;
 
 // This struct is used for communicating to a child the position of the previous
 // inflow child. This will be used to calculate the position of the next child.
@@ -101,11 +100,6 @@ class CORE_EXPORT NGBlockLayoutAlgorithm
   NGBoxStrut CalculateMargins(NGLayoutInputNode child,
                               bool is_new_fc,
                               bool* margins_fully_resolved);
-
-  void StopMarginCollapsing(EMarginCollapse collapse_value,
-                            LayoutUnit this_margin,
-                            LayoutUnit* logical_block_offset,
-                            NGMarginStrut* margin_strut);
 
   // Creates a new constraint space for the current child.
   NGConstraintSpace CreateConstraintSpaceForChild(
@@ -238,25 +232,19 @@ class CORE_EXPORT NGBlockLayoutAlgorithm
   NGBreakStatus BreakBeforeChildIfNeeded(NGLayoutInputNode child,
                                          const NGLayoutResult&,
                                          NGPreviousInflowPosition*,
-                                         LayoutUnit block_offset,
+                                         LayoutUnit bfc_block_offset,
                                          bool has_container_separation);
 
   // Look for a better breakpoint (than we already have) between lines (i.e. a
   // class B breakpoint), and store it.
   void UpdateEarlyBreakBetweenLines();
 
-  void PropagateBaselinesFromChildren();
-  bool AddBaseline(const NGBaselineRequest&,
-                   const NGPhysicalFragment&,
-                   LayoutUnit child_offset);
+  // Propagates the baseline from the given |child| if needed.
+  void PropagateBaselineFromChild(const NGPhysicalContainerFragment& child,
+                                  LayoutUnit block_offset);
 
-  // Compute the baseline offset of a line box from the content box.
-  // Line boxes are in line-relative coordinates. This function returns the
-  // offset in flow-relative coordinates.
-  LayoutUnit ComputeLineBoxBaselineOffset(
-      const NGBaselineRequest&,
-      const NGPhysicalLineBoxFragment&,
-      LayoutUnit line_box_block_offset) const;
+  // Performs any final baseline adjustments needed.
+  void FinalizeBaseline();
 
   // If still unresolved, resolve the fragment's BFC block offset.
   //

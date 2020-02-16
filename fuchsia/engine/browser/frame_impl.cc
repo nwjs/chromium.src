@@ -6,7 +6,6 @@
 
 #include <lib/sys/cpp/component_context.h>
 #include <lib/ui/scenic/cpp/view_ref_pair.h>
-#include <limits>
 
 #include "base/bind_helpers.h"
 #include "base/fuchsia/default_context.h"
@@ -33,6 +32,7 @@
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/logging/logging_utils.h"
+#include "third_party/blink/public/common/messaging/web_message_port.h"
 #include "ui/aura/client/window_parenting_client.h"
 #include "ui/aura/layout_manager.h"
 #include "ui/aura/window.h"
@@ -50,6 +50,12 @@ namespace {
 // value much lower than logging::LOG_VERBOSE here.
 const logging::LogSeverity kLogSeverityNone =
     std::numeric_limits<logging::LogSeverity>::min();
+
+// Simulated screen bounds to use when headless rendering is enabled.
+constexpr gfx::Size kHeadlessWindowSize = {1, 1};
+
+// Simulated screen bounds to use when testing the SemanticsManager.
+constexpr gfx::Size kSemanticsTestingWindowSize = {720, 640};
 
 // Used for attaching popup-related metadata to a WebContents.
 constexpr char kPopupCreationInfo[] = "popup-creation-info";
@@ -528,22 +534,19 @@ void FrameImpl::CreateView(fuchsia::ui::views::ViewToken view_token) {
   fuchsia::ui::views::ViewRef accessibility_view_ref;
   zx_status_t status = properties.view_ref_pair.view_ref.reference.duplicate(
       ZX_RIGHT_SAME_RIGHTS, &accessibility_view_ref.reference);
-  if (status == ZX_OK) {
-    fuchsia::accessibility::semantics::SemanticsManagerPtr semantics_manager;
-    if (test_semantics_manager_ptr_) {
-      semantics_manager = std::move(test_semantics_manager_ptr_);
-    } else {
-      semantics_manager =
-          base::fuchsia::ComponentContextForCurrentProcess()
-              ->svc()
-              ->Connect<fuchsia::accessibility::semantics::SemanticsManager>();
-    }
-    accessibility_bridge_ = std::make_unique<AccessibilityBridge>(
-        std::move(semantics_manager), std::move(accessibility_view_ref),
-        web_contents_.get());
-  } else {
+  if (status != ZX_OK) {
     ZX_LOG(ERROR, status) << "zx_object_duplicate";
+    context_->DestroyFrame(this);
+    return;
   }
+
+  fuchsia::accessibility::semantics::SemanticsManagerPtr semantics_manager =
+      base::fuchsia::ComponentContextForCurrentProcess()
+          ->svc()
+          ->Connect<fuchsia::accessibility::semantics::SemanticsManager>();
+  accessibility_bridge_ = std::make_unique<AccessibilityBridge>(
+      std::move(semantics_manager), std::move(accessibility_view_ref),
+      web_contents_.get());
 
   SetWindowTreeHost(
       std::make_unique<FrameWindowTreeHost>(std::move(properties)));
@@ -671,7 +674,7 @@ void FrameImpl::PostMessage(std::string origin,
   }
 
   // Include outgoing MessagePorts in the message.
-  std::vector<mojo::ScopedMessagePipeHandle> message_ports;
+  std::vector<blink::WebMessagePort> message_ports;
   if (message.has_outgoing_transfer()) {
     // Verify that all the Transferables are valid before we start allocating
     // resources to them.
@@ -686,14 +689,14 @@ void FrameImpl::PostMessage(std::string origin,
 
     for (fuchsia::web::OutgoingTransferable& outgoing :
          *message.mutable_outgoing_transfer()) {
-      mojo::ScopedMessagePipeHandle port =
-          cr_fuchsia::MessagePortFromFidl(std::move(outgoing.message_port()));
-      if (!port) {
+      blink::WebMessagePort blink_port = cr_fuchsia::BlinkMessagePortFromFidl(
+          std::move(outgoing.message_port()));
+      if (!blink_port.IsValid()) {
         result.set_err(fuchsia::web::FrameError::INTERNAL_ERROR);
         callback(std::move(result));
         return;
       }
-      message_ports.push_back(std::move(port));
+      message_ports.push_back(std::move(blink_port));
     }
   }
 
@@ -744,6 +747,19 @@ void FrameImpl::EnableHeadlessRendering() {
 
   SetWindowTreeHost(std::make_unique<FrameWindowTreeHost>(
       ui::PlatformWindowInitProperties()));
+
+  gfx::Rect bounds(kHeadlessWindowSize);
+  if (semantics_manager_for_test_) {
+    scenic::ViewRefPair view_ref_pair = scenic::ViewRefPair::New();
+    accessibility_bridge_ = std::make_unique<AccessibilityBridge>(
+        std::move(semantics_manager_for_test_),
+        std::move(view_ref_pair.view_ref), web_contents_.get());
+
+    // Set bounds for testing hit testing.
+    bounds.set_size(kSemanticsTestingWindowSize);
+  }
+
+  window_tree_host_->SetBoundsInPixels(bounds);
 }
 
 void FrameImpl::DisableHeadlessRendering() {

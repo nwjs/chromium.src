@@ -9,19 +9,16 @@
 
 @protocol ActivityServicePositioner;
 @protocol ActivityServicePresentation;
+class ChromeBrowserState;
 @class CommandDispatcher;
 @class TabModel;
-
-namespace ios {
-class ChromeBrowserState;
-}  // namespace
 
 // ActivityServiceLegacyCoordinator provides a public interface for the share
 // menu feature.
 @interface ActivityServiceLegacyCoordinator : ChromeCoordinator
 
 // Models.
-@property(nonatomic, readwrite, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, readwrite, assign) ChromeBrowserState* browserState;
 @property(nonatomic, readwrite, weak) CommandDispatcher* dispatcher;
 @property(nonatomic, readwrite, weak) TabModel* tabModel;
 

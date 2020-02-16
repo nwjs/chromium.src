@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "ash/public/cpp/app_list/app_list_features.h"
 #include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/metrics/histogram_macros.h"
@@ -14,6 +15,7 @@
 #include "base/task/task_traits.h"
 #include "base/task_runner_util.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
+#include "chrome/browser/ui/app_list/search/drive_quick_access_chip_result.h"
 #include "chrome/browser/ui/app_list/search/drive_quick_access_result.h"
 
 namespace app_list {
@@ -58,6 +60,15 @@ void LogDriveFSMounted(bool mounted) {
                         mounted);
 }
 
+// Given an absolute path representing a file in the user's Drive, returns a
+// reparented version of the path within the user's DriveFS mount.
+base::FilePath ReparentToDriveMount(
+    const base::FilePath& path,
+    const drive::DriveIntegrationService* drive_service) {
+  DCHECK(path.IsAbsolute());
+  return drive_service->GetMountPointPath().Append(path.value().substr(1));
+}
+
 // Given a vector of QuickAccessItems, return only those that exist on-disk.
 std::vector<drive::QuickAccessItem> FilterResults(
     const drive::DriveIntegrationService* drive_service,
@@ -65,8 +76,7 @@ std::vector<drive::QuickAccessItem> FilterResults(
   std::vector<drive::QuickAccessItem> valid_results;
   int num_filtered = 0;
   for (const auto& result : drive_results) {
-    if (base::PathExists(
-            drive_service->GetMountPointPath().Append(result.path))) {
+    if (base::PathExists(ReparentToDriveMount(result.path, drive_service))) {
       valid_results.emplace_back(result);
       ++num_filtered;
     }
@@ -121,9 +131,15 @@ void DriveQuickAccessProvider::Start(const base::string16& query) {
 
   SearchProvider::Results results;
   for (const auto& result : results_cache_) {
+    const auto& path = ReparentToDriveMount(result.path, drive_service_);
+
     results.emplace_back(std::make_unique<DriveQuickAccessResult>(
-        drive_service_->GetMountPointPath().Append(result.path),
-        result.confidence, profile_));
+        path, result.confidence, profile_));
+    // Add suggestion chip file results
+    if (app_list_features::IsSuggestedFilesEnabled()) {
+      results.emplace_back(std::make_unique<DriveQuickAccessChipResult>(
+          path, result.confidence, profile_));
+    }
   }
   UMA_HISTOGRAM_TIMES("Apps.AppList.DriveQuickAccessProvider.Latency",
                       base::TimeTicks::Now() - query_start_time_);

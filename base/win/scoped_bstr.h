@@ -6,6 +6,7 @@
 #define BASE_WIN_SCOPED_BSTR_H_
 
 #include <windows.h>
+
 #include <oleauto.h>
 #include <stddef.h>
 
@@ -21,7 +22,7 @@ namespace win {
 // The class interface is based on unique_ptr.
 class BASE_EXPORT ScopedBstr {
  public:
-  ScopedBstr() : bstr_(nullptr) {}
+  ScopedBstr() = default;
 
   // Constructor to create a new BSTR.
   //
@@ -77,9 +78,7 @@ class BASE_EXPORT ScopedBstr {
   // Returns the number of bytes allocated for the BSTR.
   size_t ByteLength() const;
 
-  operator BSTR() const {
-    return bstr_;
-  }
+  operator BSTR() const { return bstr_; }
 
   // Forbid comparison of ScopedBstr types.  You should never have the same
   // BSTR owned by two different scoped_ptrs.
@@ -87,7 +86,7 @@ class BASE_EXPORT ScopedBstr {
   bool operator!=(const ScopedBstr& bstr2) const = delete;
 
  protected:
-  BSTR bstr_;
+  BSTR bstr_ = nullptr;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ScopedBstr);

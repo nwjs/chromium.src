@@ -15,6 +15,7 @@
 #include "ui/gl/child_window_win.h"
 #include "ui/gl/gl_export.h"
 #include "ui/gl/gl_surface_egl.h"
+#include "ui/gl/gpu_switching_observer.h"
 #include "ui/gl/vsync_observer.h"
 
 namespace gl {
@@ -24,7 +25,8 @@ class GLSurfacePresentationHelper;
 class VSyncThreadWin;
 
 class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
-                                              public VSyncObserver {
+                                              public VSyncObserver,
+                                              public ui::GpuSwitchingObserver {
  public:
   using VSyncCallback =
       base::RepeatingCallback<void(base::TimeTicks, base::TimeDelta)>;
@@ -59,6 +61,9 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
   // After this is called, hardware overlay support is disabled during the
   // current GPU process' lifetime.
   static void DisableOverlays();
+
+  // Indicate the overlay caps are invalid.
+  static void InvalidateOverlayCaps();
 
   // Returns true if scaled hardware overlays are supported.
   static bool AreScaledOverlaysSupported();
@@ -95,7 +100,7 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
   void* GetHandle() override;
   bool Resize(const gfx::Size& size,
               float scale_factor,
-              ColorSpace color_space,
+              const gfx::ColorSpace& color_space,
               bool has_alpha) override;
   gfx::SwapResult SwapBuffers(PresentationCallback callback) override;
   gfx::SwapResult PostSubBuffer(int x,
@@ -125,6 +130,11 @@ class GL_EXPORT DirectCompositionSurfaceWin : public GLSurfaceEGL,
 
   // VSyncObserver implementation.
   void OnVSync(base::TimeTicks vsync_time, base::TimeDelta interval) override;
+
+  // Implements GpuSwitchingObserver.
+  void OnGpuSwitched(gl::GpuPreference active_gpu_heuristic) override;
+  void OnDisplayAdded() override;
+  void OnDisplayRemoved() override;
 
   HWND window() const { return window_; }
 

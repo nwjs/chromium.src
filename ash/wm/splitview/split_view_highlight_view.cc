@@ -149,15 +149,18 @@ void SplitViewHighlightView::SetBounds(
     DoSplitviewTransformAnimation(
         middle_->layer(), *animation_type,
         CalculateTransformFromRects(middle_->bounds(), middle_bounds,
-                                    landscape));
+                                    landscape),
+        /*animation_observer=*/nullptr);
     DoSplitviewTransformAnimation(
         left_top_->layer(), *animation_type,
         CalculateTransformFromRects(left_top_->bounds(), left_top_bounds,
-                                    landscape));
+                                    landscape),
+        /*animation_observer=*/nullptr);
     DoSplitviewTransformAnimation(
         right_bottom_->layer(), *animation_type,
         CalculateTransformFromRects(right_bottom_->bounds(),
-                                    right_bottom_bounds, landscape));
+                                    right_bottom_bounds, landscape),
+        /*animation_observer=*/nullptr);
   } else {
     left_top_->layer()->SetTransform(gfx::Transform());
     right_bottom_->layer()->SetTransform(gfx::Transform());
@@ -187,6 +190,13 @@ void SplitViewHighlightView::OnWindowDraggingStateChanged(
     return;
   }
 
+  if (window_dragging_state ==
+      SplitViewDragIndicators::WindowDraggingState::kOtherDisplay) {
+    DoSplitviewOpacityAnimation(layer(),
+                                SPLITVIEW_ANIMATION_HIGHLIGHT_FADE_OUT);
+    return;
+  }
+
   const SplitViewController::SnapPosition preview_position =
       SplitViewDragIndicators::GetSnapPosition(window_dragging_state);
   const SplitViewController::SnapPosition previous_preview_position =
@@ -199,7 +209,8 @@ void SplitViewHighlightView::OnWindowDraggingStateChanged(
                                   SPLITVIEW_ANIMATION_HIGHLIGHT_FADE_OUT);
       return;
     }
-    if (is_right_or_bottom_ != IsPhysicalLeftOrTop(previous_preview_position)) {
+    if (is_right_or_bottom_ !=
+        SplitViewController::IsPhysicalLeftOrTop(previous_preview_position)) {
       DoSplitviewOpacityAnimation(layer(),
                                   SPLITVIEW_ANIMATION_PREVIEW_AREA_FADE_OUT);
     }
@@ -211,16 +222,19 @@ void SplitViewHighlightView::OnWindowDraggingStateChanged(
 
   if (preview_position != SplitViewController::NONE) {
     DoSplitviewOpacityAnimation(
-        layer(), is_right_or_bottom_ != IsPhysicalLeftOrTop(preview_position)
-                     ? SPLITVIEW_ANIMATION_PREVIEW_AREA_FADE_IN
-                     : SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_FADE_OUT);
+        layer(),
+        is_right_or_bottom_ !=
+                SplitViewController::IsPhysicalLeftOrTop(preview_position)
+            ? SPLITVIEW_ANIMATION_PREVIEW_AREA_FADE_IN
+            : SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_FADE_OUT);
     return;
   }
 
   if (previous_preview_position != SplitViewController::NONE) {
     // There was a snap preview showing, but now the user has dragged away from
     // the edge of the screen, so that the preview should go away.
-    if (is_right_or_bottom_ != IsPhysicalLeftOrTop(previous_preview_position)) {
+    if (is_right_or_bottom_ !=
+        SplitViewController::IsPhysicalLeftOrTop(previous_preview_position)) {
       // This code is for the preview. If |previews_only|, just fade out. Else
       // fade in from |kPreviewAreaHighlightOpacity| to |kHighlightOpacity|.
       DoSplitviewOpacityAnimation(
@@ -229,7 +243,7 @@ void SplitViewHighlightView::OnWindowDraggingStateChanged(
     } else {
       // This code is for the other highlight. If |previews_only|, just stay
       // hidden (in other words, do nothing). Else fade in.
-      DCHECK_EQ(0.f, layer()->opacity());
+      DCHECK_EQ(0.f, layer()->GetTargetOpacity());
       if (!previews_only) {
         DoSplitviewOpacityAnimation(
             layer(), SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_FADE_IN);
@@ -238,11 +252,9 @@ void SplitViewHighlightView::OnWindowDraggingStateChanged(
     return;
   }
 
-  // The drag just started, and not in a snap area. If |previews_only|, there is
-  // nothing to do. Else fade in.
-  DCHECK_EQ(SplitViewDragIndicators::WindowDraggingState::kNoDrag,
-            previous_window_dragging_state);
-  DCHECK_EQ(0.f, layer()->opacity());
+  // The drag just started or came in from another display, and is not currently
+  // in a snap area. If |previews_only|, there is nothing to do. Else fade in.
+  DCHECK_EQ(0.f, layer()->GetTargetOpacity());
   if (!previews_only) {
     DoSplitviewOpacityAnimation(layer(), SPLITVIEW_ANIMATION_HIGHLIGHT_FADE_IN);
     return;

@@ -53,21 +53,21 @@ sync_pb::ModelTypeState CreateDummyModelTypeState() {
 
 // Creates a dummy Nigori UpdateResponseData that has the keystore decryptor
 // token key name set.
-std::unique_ptr<syncer::UpdateResponseData> CreateDummyNigoriUpdateResponseData(
+syncer::UpdateResponseData CreateDummyNigoriUpdateResponseData(
     const std::string keystore_decryptor_token_key_name,
     int response_version) {
-  auto entity_data = std::make_unique<syncer::EntityData>();
-  entity_data->is_folder = true;
-  entity_data->id = kNigoriServerId;
+  syncer::EntityData entity_data;
+  entity_data.is_folder = true;
+  entity_data.id = kNigoriServerId;
   sync_pb::NigoriSpecifics* nigori_specifics =
-      entity_data->specifics.mutable_nigori();
+      entity_data.specifics.mutable_nigori();
   nigori_specifics->mutable_keystore_decryptor_token()->set_key_name(
       keystore_decryptor_token_key_name);
-  entity_data->name = kNigoriNonUniqueName;
+  entity_data.name = kNigoriNonUniqueName;
 
-  auto response_data = std::make_unique<syncer::UpdateResponseData>();
-  response_data->entity = std::move(entity_data);
-  response_data->response_version = response_version;
+  syncer::UpdateResponseData response_data;
+  response_data.entity = std::move(entity_data);
+  response_data.response_version = response_version;
   return response_data;
 }
 
@@ -256,8 +256,9 @@ TEST_F(NigoriModelTypeProcessorTest,
 
   // ApplySyncChanges() should be called to trigger persistence of the metadata.
   EXPECT_CALL(*mock_nigori_sync_bridge(), ApplySyncChanges(Eq(base::nullopt)));
-  processor()->OnCommitCompleted(CreateDummyModelTypeState(),
-                                 std::move(commit_response_list));
+  processor()->OnCommitCompleted(
+      CreateDummyModelTypeState(), std::move(commit_response_list),
+      /*error_response_list=*/FailedCommitResponseDataList());
 
   // There should be no more local changes.
   commit_response_list.clear();
@@ -285,8 +286,10 @@ TEST_F(NigoriModelTypeProcessorTest,
 
   // ApplySyncChanges() should be called to trigger persistence of the metadata.
   EXPECT_CALL(*mock_nigori_sync_bridge(), ApplySyncChanges(Eq(base::nullopt)));
-  processor()->OnCommitCompleted(CreateDummyModelTypeState(),
-                                 CommitResponseDataList());
+  processor()->OnCommitCompleted(
+      CreateDummyModelTypeState(),
+      /*committed_response_list=*/CommitResponseDataList(),
+      /*error_response_list=*/FailedCommitResponseDataList());
 
   // Data has been moved into the previous request, so the processor will ask
   // for the commit data once more.
@@ -342,8 +345,9 @@ TEST_F(NigoriModelTypeProcessorTest,
   // ApplySyncChanges() should be called to trigger persistence of the metadata.
   EXPECT_CALL(*mock_nigori_sync_bridge(), ApplySyncChanges(Eq(base::nullopt)));
   // Receive the commit response of the first request.
-  processor()->OnCommitCompleted(CreateDummyModelTypeState(),
-                                 std::move(commit_response_list));
+  processor()->OnCommitCompleted(
+      CreateDummyModelTypeState(), std::move(commit_response_list),
+      /*error_response_list=*/FailedCommitResponseDataList());
 
   // There should still be a local change.
   commit_response_list.clear();

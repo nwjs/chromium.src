@@ -5,16 +5,18 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.MESSAGE;
 import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.TAB;
 
 import android.graphics.Canvas;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
@@ -26,6 +28,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
@@ -115,7 +118,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
 
     @Override
     public boolean canDropOver(@NonNull RecyclerView recyclerView,
-               @NonNull RecyclerView.ViewHolder current, @NonNull RecyclerView.ViewHolder target) {
+            @NonNull RecyclerView.ViewHolder current, @NonNull RecyclerView.ViewHolder target) {
         if (target.getItemViewType() == TabProperties.UiType.MESSAGE
                 || target.getItemViewType() == TabProperties.UiType.NEW_TAB_TILE) {
             return false;
@@ -128,6 +131,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
             RecyclerView.ViewHolder toViewHolder) {
         assert !(fromViewHolder instanceof SimpleRecyclerViewAdapter.ViewHolder)
                 || hasTabPropertiesModel(fromViewHolder);
+
         mSelectedTabIndex = toViewHolder.getAdapterPosition();
         if (mHoveredTabIndex != TabModel.INVALID_TAB_INDEX) {
             mModel.updateHoveredTabForMergeToGroup(mHoveredTabIndex, false);
@@ -161,9 +165,21 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
 
     @Override
     public void onSwiped(RecyclerView.ViewHolder viewHolder, int i) {
-        mTabClosedListener.run(((SimpleRecyclerViewAdapter.ViewHolder) viewHolder)
-                                       .model.get(TabProperties.TAB_ID));
-        RecordUserAction.record("MobileStackViewSwipeCloseTab." + mComponentName);
+        assert viewHolder instanceof SimpleRecyclerViewAdapter.ViewHolder;
+
+        SimpleRecyclerViewAdapter.ViewHolder simpleViewHolder =
+                (SimpleRecyclerViewAdapter.ViewHolder) viewHolder;
+
+        if (simpleViewHolder.model.get(CARD_TYPE) == TAB) {
+            mTabClosedListener.run(simpleViewHolder.model.get(TabProperties.TAB_ID));
+
+            RecordUserAction.record("MobileStackViewSwipeCloseTab." + mComponentName);
+        } else if (simpleViewHolder.model.get(CARD_TYPE) == MESSAGE) {
+            // TODO(crbug.com/1004570): Have a caller instead of simulating the close click. And
+            // write unit test to verify the caller is called.
+            viewHolder.itemView.findViewById(R.id.close_button).performClick();
+            // TODO(crbug.com/1004570): UserAction swipe to dismiss.
+        }
     }
 
     @Override
@@ -256,11 +272,23 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
         super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
         if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
             float alpha = Math.max(0.2f, 1f - 0.8f * Math.abs(dX) / mSwipeToDismissThreshold);
-            int index = mModel.indexFromId(((SimpleRecyclerViewAdapter.ViewHolder) viewHolder)
-                                                   .model.get(TabProperties.TAB_ID));
+
+            assert viewHolder instanceof SimpleRecyclerViewAdapter.ViewHolder;
+
+            int index = TabModel.INVALID_TAB_INDEX;
+            SimpleRecyclerViewAdapter.ViewHolder simpleViewHolder =
+                    (SimpleRecyclerViewAdapter.ViewHolder) viewHolder;
+
+            if (simpleViewHolder.model.get(CARD_TYPE) == TAB) {
+                index = mModel.indexFromId(simpleViewHolder.model.get(TabProperties.TAB_ID));
+            } else if (simpleViewHolder.model.get(CARD_TYPE) == MESSAGE) {
+                index = mModel.lastIndexForMessageItemFromType(
+                        simpleViewHolder.model.get(MessageCardViewProperties.MESSAGE_TYPE));
+            }
+
             if (index == TabModel.INVALID_TAB_INDEX) return;
 
-            mModel.get(index).model.set(TabProperties.ALPHA, alpha);
+            mModel.get(index).model.set(TabListModel.CardProperties.CARD_ALPHA, alpha);
             boolean isOverThreshold = Math.abs(dX) >= mSwipeToDismissThreshold;
             if (isOverThreshold && !mIsSwipingToDismiss) {
                 viewHolder.itemView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
@@ -356,6 +384,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
         int flags = getMovementFlags(recyclerView, viewHolder);
         return (flags >> 16) != 0;
     }
+
     @VisibleForTesting
     boolean hasSwipeFlag(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
         int flags = getMovementFlags(recyclerView, viewHolder);

@@ -502,7 +502,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
         IsAffectedByOuterViewportBoundsDelta();
     state.direct_compositing_reasons =
         full_context_.direct_compositing_reasons &
-        CompositingReason::kScrollDependentPosition;
+        CompositingReason::kDirectReasonsForPaintOffsetTranslationProperty;
     state.rendering_context_id = context_.current.rendering_context_id;
     OnUpdate(properties_->UpdatePaintOffsetTranslation(
         *context_.current.transform, std::move(state)));
@@ -560,19 +560,17 @@ void FragmentPaintPropertyTreeBuilder::UpdateStickyTranslation() {
         constraint->is_anchored_right = layout_constraint.is_anchored_right;
         constraint->is_anchored_top = layout_constraint.is_anchored_top;
         constraint->is_anchored_bottom = layout_constraint.is_anchored_bottom;
+
         constraint->left_offset = layout_constraint.left_offset.ToFloat();
         constraint->right_offset = layout_constraint.right_offset.ToFloat();
         constraint->top_offset = layout_constraint.top_offset.ToFloat();
         constraint->bottom_offset = layout_constraint.bottom_offset.ToFloat();
         constraint->constraint_box_rect =
-            PixelSnappedIntRect(box_model.ComputeStickyConstrainingRect());
-        constraint->scroll_container_relative_sticky_box_rect =
-            PixelSnappedIntRect(
-                layout_constraint.scroll_container_relative_sticky_box_rect);
-        constraint->scroll_container_relative_containing_block_rect =
-            PixelSnappedIntRect(
-                layout_constraint
-                    .scroll_container_relative_containing_block_rect);
+            FloatRect(box_model.ComputeStickyConstrainingRect());
+        constraint->scroll_container_relative_sticky_box_rect = FloatRect(
+            layout_constraint.scroll_container_relative_sticky_box_rect);
+        constraint->scroll_container_relative_containing_block_rect = FloatRect(
+            layout_constraint.scroll_container_relative_containing_block_rect);
         if (PaintLayer* sticky_box_shifting_ancestor =
                 layout_constraint.nearest_sticky_layer_shifting_sticky_box) {
           constraint->nearest_element_shifting_sticky_box =
@@ -778,9 +776,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
           style.IsRunningTransformAnimationOnCompositor();
       auto effective_change_type = properties_->UpdateTransform(
           *context_.current.transform, std::move(state), animation_state);
-      // TODO(crbug.com/953322): We need to fix this to work with CAP as well.
-      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
-          effective_change_type ==
+      if (effective_change_type ==
               PaintPropertyChangeType::kChangedOnlySimpleValues &&
           properties_->Transform()->HasDirectCompositingReasons()) {
         if (auto* paint_artifact_compositor =
@@ -1079,9 +1075,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
       // If we have simple value change, which means opacity, we should try to
       // directly update it on the PaintArtifactCompositor in order to avoid
       // doing a full rebuild.
-      // TODO(crbug.com/953322): We need to fix this to work with CAP as well.
-      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
-          effective_change_type ==
+      if (effective_change_type ==
               PaintPropertyChangeType::kChangedOnlySimpleValues &&
           properties_->Effect()->HasDirectCompositingReasons()) {
         if (auto* paint_artifact_compositor =
@@ -1687,14 +1681,6 @@ void FragmentPaintPropertyTreeBuilder::UpdatePerspective() {
   }
 }
 
-static bool ImageWasTransposed(const LayoutImage& layout_image,
-                               const Image& image) {
-  return LayoutObject::ShouldRespectImageOrientation(&layout_image) ==
-             kRespectImageOrientation &&
-         image.IsBitmapImage() &&
-         ToBitmapImage(image).CurrentFrameOrientation().UsesWidthAsHeight();
-}
-
 static AffineTransform RectToRect(const FloatRect& src_rect,
                                   const FloatRect& dst_rect) {
   float x_scale = dst_rect.Width() / src_rect.Width();
@@ -1723,9 +1709,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateReplacedContentTransform() {
       scoped_refptr<Image> image =
           layout_image.ImageResource()->GetImage(replaced_rect.Size());
       if (image && !image->IsNull()) {
-        IntRect src_rect = image->Rect();
-        if (ImageWasTransposed(layout_image, *image))
-          src_rect = src_rect.TransposedRect();
+        IntRect src_rect(
+            IntPoint(), image->Size(LayoutObject::ShouldRespectImageOrientation(
+                            &layout_image)));
         content_to_parent_space =
             RectToRect(FloatRect(src_rect), FloatRect(replaced_rect));
       }
@@ -1836,8 +1822,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
           scrollable_area->UserInputScrollable(kHorizontalScrollbar);
       state.user_scrollable_vertical =
           scrollable_area->UserInputScrollable(kVerticalScrollbar);
-
-      state.scrolls_outer_viewport = box.IsGlobalRootScroller();
 
       // TODO(bokan): We probably don't need to pass ancestor reasons down the
       // scroll tree. On the compositor, in
@@ -2396,6 +2380,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateForObjectLocationAndSize(
     fragment_data_.SetPaintOffset(context_.current.paint_offset);
     fragment_data_.InvalidateClipPathCache();
 
+    object_.GetMutableForPainting().InvalidateIntersectionObserverCachedRects();
     object_.GetFrameView()->SetIntersectionObservationState(
         LocalFrameView::kDesired);
   }
@@ -3332,9 +3317,8 @@ PaintPropertyChangeType PaintPropertyTreeBuilder::UpdateForSelf() {
   DCHECK(!fragment_data);
 
   // We need to update property tree states of paint chunks.
-  if (property_changed >= PaintPropertyChangeType::kNodeAddedOrRemoved) {
+  if (property_changed >= PaintPropertyChangeType::kNodeAddedOrRemoved)
     context_.painting_layer->SetNeedsRepaint();
-  }
 
   return property_changed;
 }

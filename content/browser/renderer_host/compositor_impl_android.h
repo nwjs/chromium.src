@@ -104,6 +104,8 @@ class CONTENT_EXPORT CompositorImpl
   ui::ResourceManager& GetResourceManager() override;
   void CacheBackBufferForCurrentSurface() override;
   void EvictCachedBackBuffer() override;
+  void RequestPresentationTimeForNextFrame(
+      PresentationTimeCallback callback) override;
 
   // LayerTreeHostClient implementation.
   void WillBeginMainFrame() override {}
@@ -221,7 +223,7 @@ class CONTENT_EXPORT CompositorImpl
   std::unique_ptr<cc::LayerTreeHost> host_;
   ui::ResourceManagerImpl resource_manager_;
 
-  gfx::ColorSpace display_color_space_;
+  gfx::DisplayColorSpaces display_color_spaces_;
   gfx::Size size_;
   bool requires_alpha_channel_ = false;
 
@@ -247,7 +249,6 @@ class CONTENT_EXPORT CompositorImpl
   bool layer_tree_frame_sink_request_pending_;
 
   gpu::Capabilities gpu_capabilities_;
-  bool has_layer_tree_frame_sink_ = false;
   std::unordered_set<viz::FrameSinkId, viz::FrameSinkIdHash>
       pending_child_frame_sink_ids_;
   bool has_submitted_frame_since_became_visible_ = false;

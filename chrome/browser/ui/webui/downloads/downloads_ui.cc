@@ -44,6 +44,7 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/webui/web_ui_util.h"
 
 using content::BrowserContext;
 using content::DownloadManager;
@@ -73,7 +74,7 @@ content::WebUIDataSource* CreateDownloadsUIHTMLSource(Profile* profile) {
   bool requests_ap_verdicts =
       safe_browsing::AdvancedProtectionStatusManagerFactory::GetForProfile(
           profile)
-          ->RequestsAdvancedProtectionVerdicts();
+          ->IsUnderAdvancedProtection();
   source->AddBoolean("requestsApVerdicts", requests_ap_verdicts);
 
   static constexpr webui::LocalizedString kStrings[] = {
@@ -137,7 +138,8 @@ content::WebUIDataSource* CreateDownloadsUIHTMLSource(Profile* profile) {
           : IDS_BLOCK_REASON_UNCOMMON_DOWNLOAD);
   source->AddLocalizedString("dangerSettingsDesc",
                              IDS_BLOCK_REASON_UNWANTED_DOWNLOAD);
-
+  source->AddLocalizedString("mixedContentDownloadDesc",
+                             IDS_BLOCK_REASON_MIXED_CONTENT);
   if (browser_defaults::kDownloadPageHasShowInFolder)
     source->AddLocalizedString("controlShowInFolder", IDS_DOWNLOAD_LINK_SHOW);
 
@@ -185,10 +187,9 @@ DownloadsUI::DownloadsUI(content::WebUI* web_ui)
   ManagedUIHandler::Initialize(web_ui, source);
   content::WebUIDataSource::Add(profile, source);
   content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
-
-  AddHandlerToRegistry(base::BindRepeating(&DownloadsUI::BindPageHandlerFactory,
-                                           base::Unretained(this)));
 }
+
+WEB_UI_CONTROLLER_TYPE_IMPL(DownloadsUI)
 
 DownloadsUI::~DownloadsUI() = default;
 
@@ -199,7 +200,7 @@ base::RefCountedMemory* DownloadsUI::GetFaviconResourceBytes(
       IDR_DOWNLOADS_FAVICON, scale_factor);
 }
 
-void DownloadsUI::BindPageHandlerFactory(
+void DownloadsUI::BindInterface(
     mojo::PendingReceiver<downloads::mojom::PageHandlerFactory> receiver) {
   page_factory_receiver_.reset();
 

@@ -46,7 +46,6 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/startup/startup_types.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
-#include "chrome/browser/ui/tabs/tab_group_id.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -61,6 +60,9 @@
 #include "components/sessions/core/serialized_navigation_entry_test_helper.h"
 #include "components/sessions/core/session_types.h"
 #include "components/sessions/core/tab_restore_service.h"
+#include "components/tab_groups/tab_group_color.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
@@ -347,11 +349,11 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoredTabsShouldHaveWindow) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Restart and session restore the tabs.
   Browser* restored = QuitBrowserAndRestore(browser(), 3);
@@ -404,10 +406,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
       base::FilePath(FILE_PATH_LITERAL("tab-restore-visibility.html"))));
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), test_page, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), test_page, WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Restart and session restore the tabs.
   content::DOMMessageQueue message_queue;
@@ -446,10 +448,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoredTabsHaveCorrectInitialSize) {
       base::FilePath(FILE_PATH_LITERAL("tab-restore-visibility.html"))));
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), test_page, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), test_page, WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Restart and session restore the tabs.
   content::DOMMessageQueue message_queue;
@@ -914,7 +916,7 @@ void CreateTabGroups(TabStripModel* model,
   ASSERT_EQ(model->count(), static_cast<int>(specified_groups.size()));
 
   // Maps |specified_groups| IDs to actual group IDs in |model|.
-  base::flat_map<int, TabGroupId> group_map;
+  base::flat_map<int, tab_groups::TabGroupId> group_map;
 
   for (int i = 0; i < model->count(); ++i) {
     if (specified_groups[i] == base::nullopt)
@@ -926,7 +928,7 @@ void CreateTabGroups(TabStripModel* model,
     // If |group_map| doesn't contain a value for |specified_group|, we can
     // assume we haven't created the group yet.
     if (match == group_map.end()) {
-      const TabGroupId actual_group = model->AddToNewGroup({i});
+      const tab_groups::TabGroupId actual_group = model->AddToNewGroup({i});
       group_map.insert(std::make_pair(specified_group, actual_group));
     } else {
       const content::WebContents* const contents = model->GetWebContentsAt(i);
@@ -944,13 +946,14 @@ void CheckTabGrouping(TabStripModel* model,
   ASSERT_EQ(model->count(), static_cast<int>(specified_groups.size()));
 
   // Maps |specified_groups| IDs to actual group IDs in |model|.
-  base::flat_map<int, TabGroupId> group_map;
+  base::flat_map<int, tab_groups::TabGroupId> group_map;
 
   for (int i = 0; i < model->count(); ++i) {
     SCOPED_TRACE(i);
 
     const base::Optional<int> specified_group = specified_groups[i];
-    const base::Optional<TabGroupId> actual_group = model->GetTabGroupForTab(i);
+    const base::Optional<tab_groups::TabGroupId> actual_group =
+        model->GetTabGroupForTab(i);
 
     // The tab should be grouped iff it's grouped in |specified_groups|.
     EXPECT_EQ(actual_group.has_value(), specified_group.has_value());
@@ -968,9 +971,9 @@ void CheckTabGrouping(TabStripModel* model,
 }
 
 // Returns the optional group ID for each tab in a vector.
-std::vector<base::Optional<TabGroupId>> GetTabGroups(
+std::vector<base::Optional<tab_groups::TabGroupId>> GetTabGroups(
     const TabStripModel* model) {
-  std::vector<base::Optional<TabGroupId>> result(model->count());
+  std::vector<base::Optional<tab_groups::TabGroupId>> result(model->count());
   for (int i = 0; i < model->count(); ++i)
     result[i] = model->GetTabGroupForTab(i);
   return result;
@@ -1020,7 +1023,7 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreTabGroupsTest, TabsWithGroups) {
   for (int i = 1; i < kNumTabs; ++i) {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), url1_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-        ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }
   ASSERT_EQ(kNumTabs, browser()->tab_strip_model()->count());
 
@@ -1039,7 +1042,7 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreTabGroupsTest, GroupMetadataRestored) {
   for (int i = 0; i < 4; ++i) {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), url1_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-        ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }
 
   TabStripModel* const tsm = browser()->tab_strip_model();
@@ -1047,15 +1050,15 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreTabGroupsTest, GroupMetadataRestored) {
 
   // Group the first 2 and second 2 tabs, making for 2 groups with 2 tabs and 1
   // ungrouped tab in the strip.
-  const TabGroupId group1 = tsm->AddToNewGroup({0, 1});
-  const TabGroupId group2 = tsm->AddToNewGroup({2, 3});
+  const tab_groups::TabGroupId group1 = tsm->AddToNewGroup({0, 1});
+  const tab_groups::TabGroupId group2 = tsm->AddToNewGroup({2, 3});
 
   // Get the default visual data for the first group and set custom visual data
   // for the second.
-  const TabGroupVisualData group1_data =
+  const tab_groups::TabGroupVisualData group1_data =
       *tsm->group_model()->GetTabGroup(group1)->visual_data();
-  const TabGroupVisualData group2_data(base::ASCIIToUTF16("Foo"),
-                                       gfx::kGoogleBlue600);
+  const tab_groups::TabGroupVisualData group2_data(
+      base::ASCIIToUTF16("Foo"), tab_groups::TabGroupColorId::kBlue);
   tsm->group_model()->GetTabGroup(group2)->SetVisualData(group2_data);
 
   Browser* const new_browser = QuitBrowserAndRestore(browser(), 5);
@@ -1063,9 +1066,9 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreTabGroupsTest, GroupMetadataRestored) {
   ASSERT_EQ(5, new_tsm->count());
 
   // Check that the restored visual data is the same.
-  const TabGroupVisualData* const group1_restored_data =
+  const tab_groups::TabGroupVisualData* const group1_restored_data =
       new_tsm->group_model()->GetTabGroup(group1)->visual_data();
-  const TabGroupVisualData* const group2_restored_data =
+  const tab_groups::TabGroupVisualData* const group2_restored_data =
       new_tsm->group_model()->GetTabGroup(group2)->visual_data();
   EXPECT_EQ(group1_data.title(), group1_restored_data->title());
   EXPECT_EQ(group1_data.color(), group1_restored_data->color());
@@ -1162,11 +1165,11 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, NoMemoryPressureLoadsAllTabs) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   Browser* restored =
       QuitBrowserAndRestoreWithURL(browser(), 1, GURL(), true);
   TabStripModel* tab_strip_model = restored->tab_strip_model();
@@ -1187,11 +1190,11 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, MemoryPressureLoadsNotAllTabs) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   // Restore the brwoser, but instead of directly waiting, we issue a critical
   // memory pressure event and finish then the loading.
   Browser* restored =
@@ -1317,7 +1320,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, TwoTabsSecondSelected) {
 
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   Browser* new_browser = QuitBrowserAndRestore(browser(), 2);
 
@@ -1337,7 +1340,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, ClosedTabStaysClosed) {
 
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   chrome::CloseTab(browser());
 
   Browser* new_browser = QuitBrowserAndRestore(browser(), 1);
@@ -1352,10 +1355,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, ActiveIndexUpdatedAtClose) {
   ui_test_utils::NavigateToURL(browser(), url1_);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url3_, WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   browser()->tab_strip_model()->CloseWebContentsAt(
       0,
@@ -1373,7 +1376,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, ActiveIndexUpdatedAtInsert) {
   ui_test_utils::NavigateToURL(browser(), url1_);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   NavigateParams navigate_params(browser(), url3_, ui::PAGE_TRANSITION_TYPED);
   navigate_params.tabstrip_index = 0;
@@ -1462,11 +1465,11 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, ShareProcessesOnRestore) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL(url::kAboutBlankURL),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   int expected_process_count = RenderProcessHostCount();
 
@@ -1489,7 +1492,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, PersistAndRestoreUserAgentOverride) {
   // Create a tab without an overridden user agent.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
 
   // Kill the original browser then open a new one to trigger a restore.
@@ -1519,7 +1522,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestorePinnedSelectedTab) {
   // Create a nonpinned tab.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
   // Select the pinned tab.
   browser()->tab_strip_model()->ActivateTabAt(
@@ -1570,7 +1573,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
   ui_test_utils::NavigateToURL(browser(), url1_);
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Restore the session by calling chrome::Navigate().
   Browser* new_browser =
@@ -1628,7 +1631,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, ClobberRestoreTest) {
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url2_, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
   Profile* profile = browser()->profile();
 
@@ -1926,7 +1929,7 @@ IN_PROC_BROWSER_TEST_F(SmartSessionRestoreTest, MAYBE_PRE_CorrectLoadingOrder) {
   for (size_t i = 1; i < kExpectedNumTabs; i++) {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), GURL(kUrls[i]), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-        ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }
 
   ASSERT_EQ(static_cast<int>(kExpectedNumTabs),
@@ -2017,7 +2020,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreWithURLInCommandLineTest,
   for (const auto& url : {url1_, url2_, url3_}) {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-        ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
     tab_strip_model->SetTabPinned(tab_strip_model->active_index(), true);
   }
   EXPECT_EQ(4, tab_strip_model->count());
@@ -2105,7 +2108,7 @@ IN_PROC_BROWSER_TEST_F(MultiOriginSessionRestoreTest, SecFetchSite) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GetCrossSiteUrl("/title1.html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   {
     content::WebContents* tab2 = GetTab(browser(), 1);
     content::TestNavigationObserver nav_observer(tab2);
@@ -2117,7 +2120,7 @@ IN_PROC_BROWSER_TEST_F(MultiOriginSessionRestoreTest, SecFetchSite) {
   // Tab #3: Omnibox navigation.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), sec_fetch_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Verify that all the tabs have seen the expected Sec-Fetch-Site header.
   ASSERT_EQ(3, browser()->tab_strip_model()->count());

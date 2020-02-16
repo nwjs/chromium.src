@@ -291,7 +291,8 @@ bool PresentationReceiverWindowView::IsFullscreen() const {
 
 void PresentationReceiverWindowView::EnterFullscreen(
     const GURL& url,
-    ExclusiveAccessBubbleType bubble_type) {
+    ExclusiveAccessBubbleType bubble_type,
+    const int64_t display_id) {
   frame_->SetFullscreen(true);
 #if !defined(OS_CHROMEOS)
   OnFullscreenChanged();
@@ -313,7 +314,7 @@ void PresentationReceiverWindowView::UpdateExclusiveAccessExitBubbleContent(
     ExclusiveAccessBubbleType bubble_type,
     ExclusiveAccessBubbleHideCallback bubble_first_hide_callback,
     bool force_update) {
-#if defined(CHROMEOS)
+#if defined(OS_CHROMEOS)
   // On Chrome OS, we will not show the toast for the normal browser fullscreen
   // mode.  The 'F11' text is confusing since how to access F11 on a Chromebook
   // is not common knowledge and there is also a dedicated fullscreen toggle

@@ -80,7 +80,7 @@ struct APP_LIST_EXPORT GridIndex {
 class APP_LIST_EXPORT AppsGridView : public views::View,
                                      public views::ButtonListener,
                                      public AppListItemListObserver,
-                                     public ash::PaginationModelObserver,
+                                     public PaginationModelObserver,
                                      public AppListModelObserver,
                                      public ui::ImplicitAnimationObserver,
                                      public views::BoundsAnimatorObserver {
@@ -178,7 +178,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   const AppListItemView* drag_view() const { return drag_view_; }
 
   // Gets the PaginationModel used for the grid view.
-  ash::PaginationModel* pagination_model() { return &pagination_model_; }
+  PaginationModel* pagination_model() { return &pagination_model_; }
 
   // Overridden from views::View:
   gfx::Size CalculatePreferredSize() const override;
@@ -196,7 +196,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
 
   // Updates the visibility of app list items according to |app_list_state| and
   // |is_in_drag|.
-  void UpdateControlVisibility(ash::AppListViewState app_list_state,
+  void UpdateControlVisibility(AppListViewState app_list_state,
                                bool is_in_drag);
 
   // Overridden from ui::EventHandler:
@@ -347,7 +347,7 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // number of apps.
   void UpdatePulsingBlockViews();
 
-  AppListItemView* CreateViewForItemAtIndex(size_t index);
+  std::unique_ptr<AppListItemView> CreateViewForItemAtIndex(size_t index);
 
   // Returns true if the event was handled by the pagination controller.
   bool HandleScroll(const gfx::Vector2d& offset, ui::EventType type);
@@ -700,15 +700,18 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // handled by AppsGridView.
   bool ShouldHandleDragEvent(const ui::LocatedEvent& event);
 
+  // Create a layer mask for graident alpha when the feature is enabled.
+  void MaybeCreateGradientMask();
+
   AppListModel* model_ = nullptr;         // Owned by AppListView.
   AppListItemList* item_list_ = nullptr;  // Not owned.
 
   // This can be nullptr. Only grid views inside folders have a folder delegate.
   AppsGridViewFolderDelegate* folder_delegate_ = nullptr;
 
-  ash::PaginationModel pagination_model_{this};
+  PaginationModel pagination_model_{this};
   // Must appear after |pagination_model_|.
-  std::unique_ptr<ash::PaginationController> pagination_controller_;
+  std::unique_ptr<PaginationController> pagination_controller_;
 
   // Created by AppListMainView, owned by views hierarchy.
   ContentsView* contents_view_ = nullptr;
@@ -840,19 +843,19 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   bool ignore_layout_ = false;
 
   // Records the presentation time for apps grid dragging.
-  std::unique_ptr<ash::PresentationTimeRecorder> presentation_time_recorder_;
+  std::unique_ptr<PresentationTimeRecorder> presentation_time_recorder_;
 
   // Indicates whether the AppsGridView is in mouse drag.
   bool is_in_mouse_drag_ = false;
 
-  // The initial mouse drag location in screen coordinate. Updates when drag
-  // on AppsGridView starts.
-  gfx::Point mouse_drag_start_point_;
+  // The initial mouse drag location in root window coordinate. Updates when
+  // drag on AppsGridView starts.
+  gfx::PointF mouse_drag_start_point_;
 
-  // The last mouse drag location in screen coordinate. Different from
+  // The last mouse drag location in root window coordinate. Different from
   // |last_drag_point_|, |last_mouse_drag_point_| is the location of the most
   // recent drag on AppsGridView instead of the app icon.
-  gfx::Point last_mouse_drag_point_;
+  gfx::PointF last_mouse_drag_point_;
 
   DISALLOW_COPY_AND_ASSIGN(AppsGridView);
 };

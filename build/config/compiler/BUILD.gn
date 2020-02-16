@@ -6,6 +6,7 @@ import("//build/config/android/config.gni")
 import("//build/config/c++/c++.gni")
 import("//build/config/chrome_build.gni")
 import("//build/config/chromecast_build.gni")
+import("//build/config/chromeos/args.gni")
 import("//build/config/clang/clang.gni")
 import("//build/config/compiler/compiler.gni")
 import("//build/config/coverage/coverage.gni")
@@ -51,16 +52,6 @@ declare_args() {
   # Normally, Android builds are lightly optimized, even for debug builds, to
   # keep binary size down. Setting this flag to true disables such optimization
   android_full_debug = false
-
-  # Whether to use the binary binutils checked into third_party/binutils.
-  # These are not multi-arch so cannot be used except on x86 and x86-64 (the
-  # only two architectures that are currently checked in). Turn this off when
-  # you are using a custom toolchain and need to control -B in cflags.
-  linux_use_bundled_binutils =
-      linux_use_bundled_binutils_override && is_linux &&
-      (current_cpu == "x64" || current_cpu == "x86")
-  binutils_path = rebase_path("//third_party/binutils/Linux_x64/Release/bin",
-                              root_build_dir)
 
   # Compile in such a way as to make it possible for the profiler to unwind full
   # stack frames. Setting this flag has a large effect on the performance of the
@@ -143,11 +134,10 @@ declare_args() {
   # rest with 0xAA. This makes behavior of uninitialized memory bugs consistent,
   # recognizeble in debugger, and crashes memory accesses by uninitialized
   # pointers.
-  # TODO(vitalybuka): is_win needs next llvm roll.
+  # TODO(vitalybuka):
   # 'is_android' breaks content_shell_test_apk on android-kitkat-arm-rel.
   # 'use_xcode_clang' may call old clang.
-  init_stack_vars =
-      !is_android && !is_win && !use_xcode_clang && !is_official_build
+  init_stack_vars = !is_android && !use_xcode_clang && !is_official_build
 }
 
 declare_args() {
@@ -413,14 +403,7 @@ config("compiler") {
 
   # Linux-specific compiler flags setup.
   # ------------------------------------
-  if (((is_posix || is_fuchsia) && use_lld) ||
-      (target_os == "chromeos" && is_android)) {
-    # NOTE: Some Chrome OS builds globally disable LLD, but they also build some
-    # targets against Android toolchains which should use LLD. Therefore we
-    # explicitly select LLD in these cases.
-    #
-    # TODO(https://crbug.com/837095): This should be cleaned up if/when LLD can
-    # work properly for Chrome OS builds.
+  if ((is_posix || is_fuchsia) && use_lld) {
     ldflags += [ "-fuse-ld=lld" ]
     if (current_cpu == "arm64") {
       # Reduce the page size from 65536 in order to reduce binary size slightly
@@ -622,25 +605,25 @@ config("compiler") {
     } else {
       ldflags += [ "-flto=thin" ]
 
+      # Enabling ThinLTO on Chrome OS too, in an effort to reduce the memory
+      # usage in crbug.com/1038040. Note this will increase build time in
+      # Chrome OS.
+
       # Limit the parallelism to avoid too aggressive competition between
       # linker jobs. This is still suboptimal to a potential dynamic
       # resource allocation scheme, but should be good enough.
       if (use_lld) {
         ldflags += [ "-Wl,--thinlto-jobs=" + max_jobs_per_link ]
 
-        # Caching on Chrome OS materially slows the PFQ down; disable it until
-        # we can figure out why. (crbug.com/964328)
-        if (!is_chromeos) {
-          # Limit the size of the ThinLTO cache to the lesser of 10% of
-          # available disk space, 10GB and 100000 files.
-          cache_policy =
-              "cache_size=10%:cache_size_bytes=10g:cache_size_files=100000"
-          ldflags += [
-            "-Wl,--thinlto-cache-dir=" +
-                rebase_path("$root_out_dir/thinlto-cache", root_build_dir),
-            "-Wl,--thinlto-cache-policy,$cache_policy",
-          ]
-        }
+        # Limit the size of the ThinLTO cache to the lesser of 10% of
+        # available disk space, 10GB and 100000 files.
+        cache_policy =
+            "cache_size=10%:cache_size_bytes=10g:cache_size_files=100000"
+        ldflags += [
+          "-Wl,--thinlto-cache-dir=" +
+              rebase_path("$root_out_dir/thinlto-cache", root_build_dir),
+          "-Wl,--thinlto-cache-policy,$cache_policy",
+        ]
       } else {
         ldflags += [ "-Wl,-plugin-opt,jobs=" + max_jobs_per_link ]
       }
@@ -669,6 +652,17 @@ config("compiler") {
       if (!is_win) {
         ldflags += [ "-fwhole-program-vtables" ]
       }
+    }
+
+    # This is done in Android case to keep binary size under linker limit for
+    # 32bit, especially since when ThinLTO is enabled Chrome Android build
+    # cannot yet support DWARF Fission. This workaround was copied from
+    # crosbug/1032159
+    if (is_android) {
+      ldflags += [
+        "-Wl,-mllvm",
+        "-Wl,-generate-type-units",
+      ]
     }
 
     # Work-around for http://openradar.appspot.com/20356002
@@ -1538,32 +1532,18 @@ config("default_warnings") {
 
           # TODO(https://crbug.com/1028110): Evaluate and possible enable.
           "-Wno-deprecated-copy",
-        ]
 
-        if (is_fuchsia) {
-          cflags += [
-            # TODO(https://crbug.com/999871): Clean up, enable.
-            "-Wno-c99-designator",
-          ]
-        }
-        if (is_win) {
-          cflags += [
-            # TODO(https://crbug.com/1002945): Clean up, enable.
-            "-Wno-sizeof-array-div",
-          ]
-        }
+          # TODO(https://crbug.com/1031169): Clean up and enable.
+          "-Wno-misleading-indentation",
+
+          # TODO(https://crbug.com/1039697): Evaluate and possibly enable.
+          "-Wno-range-loop-analysis",
+        ]
 
         cflags_c += [
           # TODO(https://crbug.com/995993): Clean up and enable.
           "-Wno-implicit-fallthrough",
         ]
-
-        if (llvm_force_head_revision) {
-          cflags += [
-            # TODO(https://crbug.com/1031169): Clean up and enable.
-            "-Wno-misleading-indentation",
-          ]
-        }
       }
     }
   }
@@ -1957,6 +1937,13 @@ if (is_win) {
       # Mac dead code stripping requires symbols.
       common_optimize_on_ldflags += [ "-Wl,-dead_strip" ]
     }
+
+    if (is_official_build) {
+      common_optimize_on_ldflags += [
+        "-Wl,-no_data_in_code_info",
+        "-Wl,-no_function_starts",
+      ]
+    }
   } else if (current_os != "aix") {
     # Non-Mac Posix flags.
     # Aix does not support these.
@@ -2241,15 +2228,11 @@ config("afdo") {
       rebased_clang_sample_profile =
           rebase_path(_clang_sample_profile, root_build_dir)
       cflags += [ "-fprofile-sample-use=${rebased_clang_sample_profile}" ]
-      inputs = [
-        _clang_sample_profile,
-      ]
+      inputs = [ _clang_sample_profile ]
     }
   } else if (auto_profile_path != "" && is_a_target_toolchain) {
     cflags = [ "-fauto-profile=${auto_profile_path}" ]
-    inputs = [
-      auto_profile_path,
-    ]
+    inputs = [ auto_profile_path ]
   }
 }
 
@@ -2523,9 +2506,7 @@ if (is_win || is_android || is_chromeos) {
           "/ignore:4065",
         ]
       }
-      inputs = [
-        chrome_orderfile_path,
-      ]
+      inputs = [ chrome_orderfile_path ]
     }
   }
 }

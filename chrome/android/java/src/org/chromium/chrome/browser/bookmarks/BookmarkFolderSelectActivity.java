@@ -27,8 +27,8 @@ import org.chromium.chrome.browser.SynchronousInitializationActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkItem;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkModelObserver;
 import org.chromium.chrome.browser.util.IntentUtils;
-import org.chromium.chrome.browser.widget.selection.SelectableItemView;
 import org.chromium.components.bookmarks.BookmarkId;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectableItemView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -336,8 +336,8 @@ public class BookmarkFolderSelectActivity extends SynchronousInitializationActiv
                 return convertView;
             }
             if (convertView == null) {
-                convertView = LayoutInflater.from(parent.getContext()).inflate(
-                        R.layout.bookmark_folder_select_item, parent, false);
+                convertView = LayoutInflater.from(parent.getContext())
+                                      .inflate(R.layout.modern_list_item_view, parent, false);
             }
             TextView textView = (TextView) convertView.findViewById(R.id.title);
             textView.setText(entry.mTitle);
@@ -359,7 +359,7 @@ public class BookmarkFolderSelectActivity extends SynchronousInitializationActiv
          * i.e. New Folder, Normal and Selected.
          */
         private void setUpIcons(FolderListEntry entry, View view) {
-            ImageView startIcon = view.findViewById(R.id.icon_view);
+            ImageView startIcon = view.findViewById(R.id.start_icon);
 
             Drawable iconDrawable;
             if (entry.mType == FolderListEntry.TYPE_NORMAL) {

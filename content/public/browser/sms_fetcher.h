@@ -5,6 +5,8 @@
 #ifndef CONTENT_PUBLIC_BROWSER_SMS_FETCHER_H_
 #define CONTENT_PUBLIC_BROWSER_SMS_FETCHER_H_
 
+#include <string>
+
 #include "base/observer_list_types.h"
 #include "content/common/content_export.h"
 
@@ -32,6 +34,7 @@ class SmsFetcher {
                            const std::string& sms) = 0;
   };
 
+  // Idempotent function that subscribes to incoming SMSes from SmsProvider.
   virtual void Subscribe(const url::Origin& origin, Subscriber* subscriber) = 0;
   virtual void Unsubscribe(const url::Origin& origin,
                            Subscriber* subscriber) = 0;

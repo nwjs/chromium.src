@@ -385,7 +385,6 @@ Hvis du er ferdig med veiledningen, kan du bruke ChromeVox til å navigere til L
 <translation id="3646890046000188562">{COUNT,plural, =1{venstreaksent}other{# venstreaksenter}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollar}other{# dollartegn}}</translation>
-<translation id="3658742229777143148">Versjon</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, listefelt</translation>
 <translation id="3681531118904532409">Papayakrem</translation>
@@ -420,6 +419,7 @@ Hvis du er ferdig med veiledningen, kan du bruke ChromeVox til å navigere til L
 <translation id="3914732343065571127">Kommandoer i ChromeVox</translation>
 <translation id="3930383913623796990">Vårgrønn</translation>
 <translation id="3930498801443296724">Sitat</translation>
+<translation id="3935615366277838204">Stor <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Lavendelbluss</translation>
 <translation id="3941269780691800708">Les opp teksten som er under musepekeren.</translation>
 <translation id="394953087167197343">Indiker stavefeil:</translation>
@@ -793,7 +793,6 @@ Hvis du er ferdig med veiledningen, kan du bruke ChromeVox til å navigere til L
 <translation id="6459511626086141404">Flatt tastaturoppsett</translation>
 <translation id="6468049171101508116">Neste-knappen</translation>
 <translation id="646954774886932461">Stikkordregister</translation>
-<translation id="6479792383819319132">Det finnes ikke noe neste avsnitt.</translation>
 <translation id="6493991254603208962">Lysstyrke ned</translation>
 <translation id="6501595918865591267">Turkis</translation>
 <translation id="6508059270146105198">Flytt leselisten til nederst på siden</translation>
@@ -815,8 +814,7 @@ Hvis du er ferdig med veiledningen, kan du bruke ChromeVox til å navigere til L
 <translation id="6633350132811819843">Det finnes ikke flere tabeller.</translation>
 <translation id="6637586476836377253">logg</translation>
 <translation id="6657128831881431364">Fremdriftsrad</translation>
-<translation id="6659594942844771486">Fane</translation>
-<translation id="6675661017770918201">Det finnes ikke noe forrige avsnitt.</translation>
+<translation id="6659594942844771486">Tab</translation>
 <translation id="667999046851023355">Dokument</translation>
 <translation id="6688209025607531203">Et ikke-modalt varsel</translation>
 <translation id="6689672606256159458">Mørk lakserosa</translation>
@@ -845,6 +843,7 @@ Hvis du er ferdig med veiledningen, kan du bruke ChromeVox til å navigere til L
 <translation id="6865519907510167493">Feilstavet</translation>
 <translation id="6871161210040114857">Skiller ikke mellom store og små bokstaver.</translation>
 <translation id="6877435256196695200">Det finnes ikke flere illustrasjoner.</translation>
+<translation id="688976158310523235">Søkemeny</translation>
 <translation id="6897341342232909480">Flytt til venstre</translation>
 <translation id="6901540140423170855">date</translation>
 <translation id="6910211073230771657">Slettet</translation>
@@ -857,6 +856,7 @@ Hvis du er ferdig med veiledningen, kan du bruke ChromeVox til å navigere til L
 <translation id="699159175332639490">Søk + O + W</translation>
 <translation id="6994042831499278539">Ordlistereferanse</translation>
 <translation id="6996566555547746822">Neste kombinasjonsfelt</translation>
+<translation id="6997224546856374593">Ved lesing av store bokstaver:</translation>
 <translation id="700202842116345659">Bibliografioppføring</translation>
 <translation id="7005146664810010831">Fant ingen nettadresse</translation>
 <translation id="7010712454773919705">ChromeVox-modifikatortast</translation>
@@ -937,6 +937,7 @@ For å åpne Chrome-menyen, trykk på Alt+F.</translation>
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">Åpnet dialogen</translation>
+<translation id="7505149250476994901">Si «stor» før bokstaven</translation>
 <translation id="7518543783849163354">For å stoppe talemeldingene fra ChromeVox midlertidig, trykk på Control-tasten.</translation>
 <translation id="7521682724501952239">Du kan bruke ChromeVox med berøringsskjermen.</translation>
 <translation id="7532613204005497612">Juni</translation>
@@ -1104,7 +1105,6 @@ For å åpne Chrome-menyen, trykk på Alt+F.</translation>
 <translation id="812886159861361726">Nedlastingen av <ph name="FILE_NAME" /> er stanset</translation>
 <translation id="8138880386467279117">Berøring</translation>
 <translation id="8153880621934657047">Ikke inne i tabellen.</translation>
-<translation id="8161114871611868169">Kommentardel</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{understrek}other{# understreker}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">rad</translation>
@@ -1125,6 +1125,7 @@ For å åpne Chrome-menyen, trykk på Alt+F.</translation>
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Gammel blonde</translation>
 <translation id="8326783648485765113">Plengrønn</translation>
+<translation id="8328063869313048659">Slå av/på mørk skjerm</translation>
 <translation id="8344569602005188545">timer</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{firkanttegn}other{# firkanttegn}}</translation>
 <translation id="8374154622594089836">måned</translation>
@@ -1209,6 +1210,7 @@ For å åpne Chrome-menyen, trykk på Alt+F.</translation>
 <translation id="9065283790526219006">+forgrunnsvindu</translation>
 <translation id="9066023754636984703">Trykk på Søk + A, J for å gå til detaljer.</translation>
 <translation id="9067522039955793016">Sideskift</translation>
+<translation id="9074824103975499138">Søk i ChromeVox-menyer</translation>
 <translation id="9077213568694924680">fjernet fra utvalget</translation>
 <translation id="9077305471618729969">Lys sjøgrønn</translation>
 <translation id="9082874451376019682">Det fins ingen tidligere glidebrytere.</translation>

@@ -298,7 +298,7 @@ TEST_F(IncrementalMarkingTest, ManualWriteBarrierTriggersWhenMarkingIsOn) {
   {
     ExpectWriteBarrierFires scope(ThreadState::Current(), {object});
     EXPECT_FALSE(object->IsMarked());
-    MarkingVisitor::WriteBarrier(object);
+    MarkingVisitor::WriteBarrier(&object);
     EXPECT_TRUE(object->IsMarked());
   }
 }
@@ -306,7 +306,7 @@ TEST_F(IncrementalMarkingTest, ManualWriteBarrierTriggersWhenMarkingIsOn) {
 TEST_F(IncrementalMarkingTest, ManualWriteBarrierBailoutWhenMarkingIsOff) {
   auto* object = MakeGarbageCollected<Object>();
   EXPECT_FALSE(object->IsMarked());
-  MarkingVisitor::WriteBarrier(object);
+  MarkingVisitor::WriteBarrier(&object);
   EXPECT_FALSE(object->IsMarked());
 }
 
@@ -1536,8 +1536,9 @@ TEST_F(IncrementalMarkingTest, ConservativeGCWhileCompactionScheduled) {
   driver.Start();
   driver.FinishSteps();
   ThreadState::Current()->CollectGarbage(
-      BlinkGC::kHeapPointersOnStack, BlinkGC::kAtomicMarking,
-      BlinkGC::kConcurrentAndLazySweeping, BlinkGC::GCReason::kConservativeGC);
+      BlinkGC::CollectionType::kMajor, BlinkGC::kHeapPointersOnStack,
+      BlinkGC::kAtomicMarking, BlinkGC::kConcurrentAndLazySweeping,
+      BlinkGC::GCReason::kConservativeGC);
 
   // Heap compaction should be canceled if incremental marking finishes with a
   // conservative GC.

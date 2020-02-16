@@ -37,6 +37,10 @@ class PasswordPendingView : public PasswordBubbleViewBase,
  private:
   ~PasswordPendingView() override;
 
+  // PasswordBubbleViewBase
+  PasswordBubbleControllerBase* GetController() override;
+  const PasswordBubbleControllerBase* GetController() const override;
+
   // views::ButtonListener:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
 
@@ -47,8 +51,6 @@ class PasswordPendingView : public PasswordBubbleViewBase,
   // PasswordBubbleViewBase:
   gfx::Size CalculatePreferredSize() const override;
   views::View* GetInitiallyFocusedView() override;
-  int GetDialogButtons() const override;
-  base::string16 GetDialogButtonLabel(ui::DialogButton button) const override;
   bool IsDialogButtonEnabled(ui::DialogButton button) const override;
   gfx::ImageSkia GetWindowIcon() override;
   bool ShouldShowWindowIcon() const override;
@@ -64,6 +66,7 @@ class PasswordPendingView : public PasswordBubbleViewBase,
   void TogglePasswordVisibility();
   void UpdateUsernameAndPasswordInModel();
   void ReplaceWithPromo();
+  void UpdateDialogButtons();
   std::unique_ptr<views::View> CreateFooterView();
 
   // True iff it is an update password bubble on creation. False iff it is a

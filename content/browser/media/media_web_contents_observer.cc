@@ -157,6 +157,9 @@ bool MediaWebContentsObserver::OnMessageReceived(
         OnMediaEffectivelyFullscreenChanged)
     IPC_MESSAGE_HANDLER(MediaPlayerDelegateHostMsg_OnMediaSizeChanged,
                         OnMediaSizeChanged)
+    IPC_MESSAGE_HANDLER(
+        MediaPlayerDelegateHostMsg_OnPictureInPictureAvailabilityChanged,
+        OnPictureInPictureAvailabilityChanged)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
@@ -287,6 +290,14 @@ void MediaWebContentsObserver::OnMediaSizeChanged(
   web_contents_impl()->MediaResized(size, id);
 }
 
+void MediaWebContentsObserver::OnPictureInPictureAvailabilityChanged(
+    RenderFrameHost* render_frame_host,
+    int delegate_id,
+    bool available) {
+  session_controllers_manager_.OnPictureInPictureAvailabilityChanged(
+      MediaPlayerId(render_frame_host, delegate_id), available);
+}
+
 void MediaWebContentsObserver::ClearWakeLocks(
     RenderFrameHost* render_frame_host) {
   std::set<MediaPlayerId> video_players;
@@ -360,6 +371,8 @@ void MediaWebContentsObserver::AddMediaPlayerEntry(
     ActiveMediaPlayerMap* player_map) {
   (*player_map)[id.render_frame_host].insert(id.delegate_id);
   if (power_experiment_manager_) {
+    // Bind the callback to a WeakPtr for the frame, so that we won't try to
+    // notify the frame after it's been destroyed.
     power_experiment_manager_->PlayerStarted(
         id,
         base::BindRepeating(&MediaWebContentsObserver::OnExperimentStateChanged,
@@ -426,7 +439,9 @@ void MediaWebContentsObserver::SuspendAllMediaPlayers() {
 
 void MediaWebContentsObserver::OnExperimentStateChanged(MediaPlayerId id,
                                                         bool is_starting) {
-  // TODO(liberato): Notify the player.
+  id.render_frame_host->Send(
+      new MediaPlayerDelegateMsg_NotifyPowerExperimentState(
+          id.render_frame_host->GetRoutingID(), id.delegate_id, is_starting));
 }
 
 void MediaWebContentsObserver::RemoveAllPlayers(

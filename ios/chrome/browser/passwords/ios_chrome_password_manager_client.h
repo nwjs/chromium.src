@@ -17,9 +17,7 @@
 #include "components/prefs/pref_member.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 
-namespace ios {
 class ChromeBrowserState;
-}
 
 namespace autofill {
 class LogManager;
@@ -56,7 +54,7 @@ using password_manager::CredentialLeakType;
 
 @property(readonly, nonatomic) web::WebState* webState;
 
-@property(readonly, nonatomic) ios::ChromeBrowserState* browserState;
+@property(readonly, nonatomic) ChromeBrowserState* browserState;
 
 @property(readonly) password_manager::PasswordManager* passwordManager;
 

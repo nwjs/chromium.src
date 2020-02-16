@@ -241,6 +241,8 @@ void UtilWinImpl::CallExecuteSelectFile(
     CallExecuteSelectFileCallback callback) {
   base::win::ScopedCOMInitializer scoped_com_initializer;
 
+  base::win::EnableHighDPISupport();
+
   ui::ExecuteSelectFile(
       type, title, default_path, filter, file_type_index, default_extension,
       reinterpret_cast<HWND>(base::win::Uint32ToHandle(owner)),

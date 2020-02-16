@@ -36,10 +36,9 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/timer/elapsed_timer.h"
+#include "net/cookies/site_for_cookies.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
-#include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/mojom/ukm/ukm.mojom-blink.h"
-#include "third_party/blink/public/platform/web_focus_type.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/renderer/core/accessibility/axid.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -80,6 +79,12 @@ namespace ukm {
 class UkmRecorder;
 }  // namespace ukm
 
+namespace network {
+namespace mojom {
+enum class CSPDisposition : int32_t;
+}  // namespace mojom
+}  // namespace network
+
 namespace blink {
 
 class AnimationClock;
@@ -93,6 +98,7 @@ class CanvasFontCache;
 class ChromeClient;
 class Comment;
 class ComputedAccessibleNode;
+class ElementIntersectionObserverData;
 class WindowAgent;
 class WindowAgentFactory;
 class ComputedStyle;
@@ -112,6 +118,7 @@ class DocumentOutliveTimeReporter;
 class DocumentParser;
 class DocumentResourceCoordinator;
 class DocumentState;
+class DocumentAnimations;
 class DocumentTimeline;
 class DocumentType;
 class DOMFeaturePolicy;
@@ -178,6 +185,7 @@ class ScriptPromise;
 class ScriptRunner;
 class ScriptableDocumentParser;
 class ScriptedAnimationController;
+class SecurityContextInit;
 class SecurityOrigin;
 class SelectorQueryCache;
 class SerializedScriptValue;
@@ -198,7 +206,6 @@ class VisitedLinkState;
 class WebComputedAXTree;
 class WebMouseEvent;
 class WorkletAnimationController;
-enum ContentSecurityPolicyDisposition : uint8_t;
 enum class CSSPropertyID;
 enum class ScrollbarMode;
 struct AnnotatedRegionValue;
@@ -238,8 +245,6 @@ enum ShadowCascadeOrder {
   kShadowCascadeV1
 };
 
-enum class SecureContextState { kNonSecure, kSecure };
-
 using DocumentClassFlags = unsigned char;
 
 // A map of IDL attribute name to Element value, for one particular element.
@@ -262,7 +267,6 @@ using ExplicitlySetAttrElementsMap =
 // the user in a frame and an execution context for JavaScript code.
 class CORE_EXPORT Document : public ContainerNode,
                              public TreeScope,
-                             public SecurityContext,
                              public ExecutionContext,
                              public DocumentShutdownNotifier,
                              public SynchronousMutationNotifier,
@@ -294,9 +298,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   void MediaQueryAffectingValueChanged();
 
-  using SecurityContext::GetContentSecurityPolicy;
-  using SecurityContext::GetMutableSecurityOrigin;
-  using SecurityContext::GetSecurityOrigin;
   using TreeScope::getElementById;
 
   // ExecutionContext overrides:
@@ -489,10 +490,6 @@ class CORE_EXPORT Document : public ContainerNode,
   }
 
   bool IsForExternalHandler() const { return is_for_external_handler_; }
-  void SetIsForExternalHandler() {
-    DCHECK(!is_for_external_handler_);
-    is_for_external_handler_ = true;
-  }
 
   // This is a DOM function.
   StyleSheetList& StyleSheets();
@@ -824,8 +821,8 @@ class CORE_EXPORT Document : public ContainerNode,
     had_keyboard_event_ = had_keyboard_event;
   }
   bool HadKeyboardEvent() const { return had_keyboard_event_; }
-  void SetLastFocusType(WebFocusType last_focus_type);
-  WebFocusType LastFocusType() const { return last_focus_type_; }
+  void SetLastFocusType(mojom::blink::FocusType last_focus_type);
+  mojom::blink::FocusType LastFocusType() const { return last_focus_type_; }
   bool SetFocusedElement(Element*, const FocusParams&);
   void ClearFocusedElement();
   Element* FocusedElement() const { return focused_element_.Get(); }
@@ -845,7 +842,8 @@ class CORE_EXPORT Document : public ContainerNode,
   void FlushAutofocusCandidates();
   void FinalizeAutofocus();
   void SetSequentialFocusNavigationStartingPoint(Node*);
-  Element* SequentialFocusNavigationStartingPoint(WebFocusType) const;
+  Element* SequentialFocusNavigationStartingPoint(
+      mojom::blink::FocusType) const;
 
   void SetActiveElement(Element*);
   Element* GetActiveElement() const { return active_element_.Get(); }
@@ -958,6 +956,14 @@ class CORE_EXPORT Document : public ContainerNode,
   IntersectionObserverController* GetIntersectionObserverController();
   IntersectionObserverController& EnsureIntersectionObserverController();
 
+  // This is used to track IntersectionObservers for which this document is the
+  // explicit root. The IntersectionObserverController tracks *all* observers
+  // associated with this document; usually that's what you want.
+  ElementIntersectionObserverData*
+  DocumentExplicitRootIntersectionObserverData() const;
+  ElementIntersectionObserverData&
+  EnsureDocumentExplicitRootIntersectionObserverData();
+
   ResizeObserverController* GetResizeObserverController() const {
     return resize_observer_controller_;
   }
@@ -1015,7 +1021,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   scoped_refptr<const SecurityOrigin> TopFrameOrigin() const;
 
-  const KURL SiteForCookies() const;
+  net::SiteForCookies SiteForCookies() const;
 
   // Storage Access API methods to check for or request access to storage that
   // may otherwise be blocked.
@@ -1129,10 +1135,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool IsDNSPrefetchEnabled() const { return is_dns_prefetch_enabled_; }
   void ParseDNSPrefetchControlHeader(const String&);
-
-  void TasksWerePaused() final;
-  void TasksWereUnpaused() final;
-  bool TasksNeedPause() final;
 
   void FinishedParsing();
 
@@ -1301,6 +1303,9 @@ class CORE_EXPORT Document : public ContainerNode,
 
   AnimationClock& GetAnimationClock();
   const AnimationClock& GetAnimationClock() const;
+  DocumentAnimations& GetDocumentAnimations() const {
+    return *document_animations_;
+  }
   DocumentTimeline& Timeline() const { return *timeline_; }
   PendingAnimations& GetPendingAnimations() { return *pending_animations_; }
   WorkletAnimationController& GetWorkletAnimationController() {
@@ -1362,12 +1367,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   NthIndexCache* GetNthIndexCache() const { return nth_index_cache_; }
 
-  bool IsSecureContext(String& error_message) const override;
-  bool IsSecureContext() const override;
-  void SetSecureContextStateForTesting(SecureContextState state) {
-    secure_context_state_ = state;
-  }
-
   CanvasFontCache* GetCanvasFontCache();
 
   // Used by unit tests so that all parsing will be main thread for
@@ -1383,27 +1382,10 @@ class CORE_EXPORT Document : public ContainerNode,
   int NodeCount() const { return node_count_; }
 
   SnapCoordinator& GetSnapCoordinator();
+  void PerformScrollSnappingTasks();
 
   void DidEnforceInsecureRequestPolicy();
   void DidEnforceInsecureNavigationsSet();
-
-  // Temporary flag for some UseCounter items. crbug.com/859391.
-  enum class InDOMNodeRemovedHandlerState {
-    kNone,
-    kDOMNodeRemoved,
-    kDOMNodeRemovedFromDocument
-  };
-  void SetInDOMNodeRemovedHandlerState(InDOMNodeRemovedHandlerState state) {
-    in_dom_node_removed_handler_state_ = state;
-  }
-  InDOMNodeRemovedHandlerState GetInDOMNodeRemovedHandlerState() const {
-    return in_dom_node_removed_handler_state_;
-  }
-  bool InDOMNodeRemovedHandler() const {
-    return in_dom_node_removed_handler_state_ !=
-           InDOMNodeRemovedHandlerState::kNone;
-  }
-  void CountDetachingNodeAccessInDOMNodeRemovedHandler();
 
   bool MayContainV0Shadow() const { return may_contain_v0_shadow_; }
 
@@ -1440,8 +1422,8 @@ class CORE_EXPORT Document : public ContainerNode,
   // May return nullptr when PerformanceManager instrumentation is disabled.
   DocumentResourceCoordinator* GetResourceCoordinator();
 
-  // Apply pending feature policy headers.
-  void ApplyPendingFeaturePolicyHeaders();
+  // Apply pending feature policy headers and document policy headers.
+  void ApplyPendingFramePolicyHeaders();
 
   // Set the report-only feature policy on this document in response to an HTTP
   // Feature-Policy-Report-Only header.
@@ -1529,12 +1511,14 @@ class CORE_EXPORT Document : public ContainerNode,
   LazyLoadImageObserver& EnsureLazyLoadImageObserver();
 
   WindowAgent& GetWindowAgent();
-  WindowAgentFactory* GetWindowAgentFactory() { return window_agent_factory_; }
+  WindowAgentFactory* GetWindowAgentFactory() const {
+    return window_agent_factory_;
+  }
 
   void CountPotentialFeaturePolicyViolation(
-      mojom::FeaturePolicyFeature) const override;
+      mojom::blink::FeaturePolicyFeature) const override;
   void ReportFeaturePolicyViolation(
-      mojom::FeaturePolicyFeature,
+      mojom::blink::FeaturePolicyFeature,
       mojom::FeaturePolicyDisposition,
       const String& message = g_empty_string,
       // If source_file is set to empty string,
@@ -1543,12 +1527,12 @@ class CORE_EXPORT Document : public ContainerNode,
 
   void IncrementNumberOfCanvases();
 
-  void ProcessJavaScriptUrl(const KURL&, ContentSecurityPolicyDisposition);
+  void ProcessJavaScriptUrl(const KURL&, network::mojom::CSPDisposition);
 
   // Functions to keep count of display locks in this document.
-  void AddActivationBlockingDisplayLock();
-  void RemoveActivationBlockingDisplayLock();
-  int ActivationBlockingDisplayLockCount() const;
+  void IncrementDisplayLockBlockingAllActivation();
+  void DecrementDisplayLockBlockingAllActivation();
+  int DisplayLockBlockingAllActivationCount() const;
 
   void AddLockedDisplayLock();
   void RemoveLockedDisplayLock();
@@ -1614,16 +1598,19 @@ class CORE_EXPORT Document : public ContainerNode,
   // NOTE: only for use in testing.
   bool IsAnimatedPropertyCounted(CSSPropertyID property) const;
   void ClearUseCounterForTesting(mojom::WebFeature);
-  void SetSecurityOrigin(scoped_refptr<SecurityOrigin>) final;
-
-  void RecordCallInDetachedWindow(v8::Isolate::UseCounterFeature reason);
 
   // Bind Content Security Policy to this document. This will cause the
   // CSP to resolve the 'self' attribute and all policies will then be
   // applied to this document.
   void BindContentSecurityPolicy();
 
+  void UpdateForcedColors();
   bool InForcedColorsMode() const;
+
+  // Returns true if the subframe document is cross-site to the main frame. If
+  // we can't tell whether the document was ever cross-site or not (e.g. it is
+  // not the active Document in a browsing context), return false.
+  bool IsCrossSiteSubframe() const;
 
   // Capture the toggle event during parsing either by HTML parser or XML
   // parser.
@@ -1657,6 +1644,11 @@ class CORE_EXPORT Document : public ContainerNode,
   }
 #endif
 
+  void ApplyScrollRestorationLogic();
+
+  void MarkHasFindInPageRequest();
+  void MarkHasFindInPageRenderSubtreeActiveMatch();
+
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }
 
@@ -1674,17 +1666,16 @@ class CORE_EXPORT Document : public ContainerNode,
   friend class NthIndexCache;
   FRIEND_TEST_ALL_PREFIXES(FrameFetchContextSubresourceFilterTest,
                            DuringOnFreeze);
+  FRIEND_TEST_ALL_PREFIXES(DocumentTest, FindInPageUkm);
   class NetworkStateObserver;
-  class SecurityContextInit;
 
   Document(const DocumentInit& initization,
-           SecurityContextInit init_helper,
+           const SecurityContextInit& init_helper,
            DocumentClassFlags document_classes);
 
-  // Post initialization of the object handling of the feature policy.
-  void FeaturePolicyInitialized(
-      const DocumentInit& document_initializer,
-      const SecurityContextInit& security_initializer);
+  // Post initialization of the object handling of both feature policy and
+  // document policy.
+  void PoliciesInitialized(const DocumentInit& document_initializer);
 
   friend class AXContext;
   void AddAXContext(AXContext*);
@@ -1697,13 +1688,8 @@ class CORE_EXPORT Document : public ContainerNode,
   bool IsElementNode() const =
       delete;  // This will catch anyone doing an unnecessary check.
 
-  ScriptedAnimationController& EnsureScriptedAnimationController();
   ScriptedIdleTaskController& EnsureScriptedIdleTaskController();
-  void InitSecurityContext(const DocumentInit&,
-                           const SecurityContextInit& security_initializer);
-  void InitSecureContextState();
-  SecurityContext& GetSecurityContext() final { return *this; }
-  const SecurityContext& GetSecurityContext() const final { return *this; }
+  void InitSecurityContext(const DocumentInit&);
 
   bool HasPendingVisualUpdate() const {
     return lifecycle_.GetState() == DocumentLifecycle::kVisualUpdatePending;
@@ -1815,12 +1801,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void ProcessDisplayLockActivationObservation(
       const HeapVector<Member<IntersectionObserverEntry>>&);
 
-  void SetNavigationSourceId(int64_t source_id);
-
-  // TODO(bartekn): Remove after investigation is completed.
-  void EmitDetachedWindowsUkmEvent(
-      const HashSet<v8::Isolate::UseCounterFeature>& reasons);
-
   DocumentLifecycle lifecycle_;
 
   bool evaluate_media_queries_on_style_recalc_;
@@ -1834,6 +1814,12 @@ class CORE_EXPORT Document : public ContainerNode,
   Member<LocalFrame> frame_;
   Member<LocalDOMWindow> dom_window_;
   Member<HTMLImportsController> imports_controller_;
+
+  // Document::CountUse() attributes the feature counts to the DocumentLoader
+  // which is returned by Loader(). During construction Loader() returns null,
+  // so we use this UseCounter instead.
+  // TODO(dgozman): we should probably explicitly set and clear loader instead.
+  Member<UseCounter> use_counter_during_construction_;
 
   // The document of creator browsing context for frame-less documents such as
   // documents created by DOMParser and DOMImplementation.
@@ -1882,16 +1868,16 @@ class CORE_EXPORT Document : public ContainerNode,
   struct PendingJavascriptUrl {
    public:
     PendingJavascriptUrl(const KURL& input_url,
-                         ContentSecurityPolicyDisposition input_disposition)
+                         network::mojom::CSPDisposition input_disposition)
         : url(input_url), disposition(input_disposition) {}
     KURL url;
-    ContentSecurityPolicyDisposition disposition;
+    network::mojom::CSPDisposition disposition;
   };
   Vector<PendingJavascriptUrl> pending_javascript_urls_;
 
   // https://html.spec.whatwg.org/C/#autofocus-processed-flag
   bool autofocus_processed_flag_ = false;
-  WebFocusType last_focus_type_;
+  mojom::blink::FocusType last_focus_type_;
   bool had_keyboard_event_;
   TaskRunnerTimer<Document> clear_focused_element_timer_;
   // https://html.spec.whatwg.org/C/#autofocus-candidates
@@ -1917,6 +1903,9 @@ class CORE_EXPORT Document : public ContainerNode,
   uint16_t listener_types_;
 
   MutationObserverOptions mutation_observer_types_;
+
+  Member<ElementIntersectionObserverData>
+      document_explicit_root_intersection_observer_data_;
 
   Member<StyleEngine> style_engine_;
   Member<StyleSheetList> style_sheet_list_;
@@ -2049,6 +2038,7 @@ class CORE_EXPORT Document : public ContainerNode,
       HashMap<AtomicString, std::unique_ptr<Locale>>;
   LocaleIdentifierToLocaleMap locale_cache_;
 
+  Member<DocumentAnimations> document_animations_;
   Member<DocumentTimeline> timeline_;
   Member<PendingAnimations> pending_animations_;
   Member<WorkletAnimationController> worklet_animation_controller_;
@@ -2073,9 +2063,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   int node_count_;
 
-  // Temporary flag for some UseCounter items. crbug.com/859391.
-  InDOMNodeRemovedHandlerState in_dom_node_removed_handler_state_ =
-      InDOMNodeRemovedHandlerState::kNone;
   bool may_contain_v0_shadow_ = false;
 
   Member<SnapCoordinator> snap_coordinator_;
@@ -2086,8 +2073,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   TaskHandle sensitive_input_edited_task_;
 
-  SecureContextState secure_context_state_;
-
   Member<NetworkStateObserver> network_state_observer_;
 
   std::unique_ptr<DocumentOutliveTimeReporter> document_outlive_time_reporter_;
@@ -2097,10 +2082,6 @@ class CORE_EXPORT Document : public ContainerNode,
   std::unique_ptr<ukm::UkmRecorder> ukm_recorder_;
   int64_t ukm_source_id_;
   bool needs_to_record_ukm_outlive_time_;
-
-  std::unique_ptr<mojo::AssociatedRemote<mojom::blink::UkmSourceIdFrameHost>>
-      ukm_binding_;
-  uint64_t navigation_source_id_ = ukm::kInvalidSourceId;
 
   // Tracks and reports UKM metrics of the number of attempted font family match
   // attempts (both successful and not successful) by the page.
@@ -2125,8 +2106,8 @@ class CORE_EXPORT Document : public ContainerNode,
   // The number of canvas elements on the document
   int num_canvases_ = 0;
 
-  // Number of activation blocking display locks currently in this document.
-  int activation_blocking_display_lock_count_ = 0;
+  // Number of display locks in this document that block all activation.
+  int display_lock_blocking_all_activation_count_ = 0;
   // Number of locked display locks in the document.
   int locked_display_lock_count_ = 0;
 
@@ -2136,7 +2117,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // types that are handled externally. The document in this case is the
   // counterpart to a PluginDocument except that it contains a FrameView as
   // opposed to a PluginView.
-  bool is_for_external_handler_ = false;
+  bool is_for_external_handler_;
 
 #if DCHECK_IS_ON()
   // Allow traversal of Shadow DOM V0 traversal with dirty distribution.
@@ -2152,9 +2133,16 @@ class CORE_EXPORT Document : public ContainerNode,
   // We don't use std::bitset to avoid to include feature_policy.mojom-blink.h.
   mutable Vector<bool> potentially_violated_features_;
 
-  // Pending parsed headers to send to browser after DidCommitNavigation
+  // Pending feature policy headers to send to browser after DidCommitNavigation
   // IPC.
-  ParsedFeaturePolicy pending_parsed_headers_;
+  ParsedFeaturePolicy pending_fp_headers_;
+
+  // Pending document policy headers to send to browser after
+  // DidCommitNavigation IPC. Note: pending_dp_headers is the document policy
+  // state used to initialize |document_policy_| in SecurityContext. Verifying
+  // its integrity against required_document_policy has already been done in
+  // DocumentLoader.
+  DocumentPolicy::FeatureState pending_dp_headers_;
 
   AtomicString override_last_modified_;
 
@@ -2201,8 +2189,13 @@ class CORE_EXPORT Document : public ContainerNode,
 
   Member<IntersectionObserver> display_lock_activation_observer_;
 
-  HashSet<v8::Isolate::UseCounterFeature> calls_in_detached_window_orphaned_;
-  HashSet<v8::Isolate::UseCounterFeature> calls_in_detached_window_emitted_;
+  bool in_forced_colors_mode_;
+
+  bool applying_scroll_restoration_logic_ = false;
+
+  // Records find-in-page metrics, which are sent to UKM on shutdown.
+  bool had_find_in_page_request_ = false;
+  bool had_find_in_page_render_subtree_active_match_ = false;
 };
 
 extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<Document>;

@@ -19,17 +19,20 @@ import org.chromium.chrome.browser.compositor.bottombar.OverlayContentProgressOb
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelContent;
 import org.chromium.chrome.browser.favicon.FaviconHelper;
 import org.chromium.chrome.browser.favicon.FaviconUtils;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ssl.SecurityStateModel;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.embedder_support.view.ContentView;
+import org.chromium.components.feature_engagement.EventConstants;
+import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -49,11 +52,13 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
     private final ChromeActivity mActivity;
     private final BottomSheetController mBottomSheetController;
     private final FaviconLoader mFaviconLoader;
+    private final EphemeralTabMetrics mMetrics = new EphemeralTabMetrics();
     private OverlayPanelContent mPanelContent;
     private WebContentsObserver mWebContentsObserver;
     private EphemeralTabSheetContent mSheetContent;
     private boolean mIsIncognito;
     private String mUrl;
+    private int mCurrentMaxSheetHeight;
 
     /**
      * Constructor.
@@ -66,6 +71,8 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
         mBottomSheetController = bottomSheetController;
         mFaviconLoader = new FaviconLoader(mActivity);
         mBottomSheetController.addObserver(new EmptyBottomSheetObserver() {
+            private int mCloseReason;
+
             @Override
             public void onSheetContentChanged(BottomSheetContent newContent) {
                 if (newContent != mSheetContent) destroyContent();
@@ -75,6 +82,28 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
             public void onSheetStateChanged(int newState) {
                 if (mSheetContent == null) return;
                 mSheetContent.showOpenInNewTabButton(newState == SheetState.FULL);
+                switch (newState) {
+                    case SheetState.PEEK:
+                        mMetrics.recordMetricsForPeeked();
+                        break;
+                    case SheetState.FULL:
+                        mMetrics.recordMetricsForOpened();
+                        break;
+                }
+            }
+
+            @Override
+            public void onSheetClosed(int reason) {
+                // "Closed" actually means "Peek" for bottom sheet. Save the reason to log
+                // when the sheet goes to hidden state.
+                mCloseReason = reason;
+            }
+
+            @Override
+            public void onSheetOffsetChanged(float heightFraction, float offsetPx) {
+                if (heightFraction == 0.0f) {
+                    mMetrics.recordMetricsForClosed(mCloseReason);
+                }
             }
         });
     }
@@ -98,6 +127,8 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
                 getContent().getWebContents(), (ContentView) getContent().getContainerView());
         mSheetContent.updateTitle(title);
         mBottomSheetController.requestShowContent(mSheetContent, true);
+        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
+        if (tracker.isInitialized()) tracker.notifyEvent(EventConstants.EPHEMERAL_TAB_USED);
 
         // TODO(donnd): Collect UMA with OverlayPanel.StateChangeReason.CLICK.
     }
@@ -108,15 +139,13 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
                     new PageLoadProgressObserver(), mActivity, mIsIncognito,
                     mActivity.getResources().getDimensionPixelSize(
                             R.dimen.toolbar_height_no_shadow));
+            mPanelContent.setReuseWebContents(true);
         }
         return mPanelContent;
     }
 
     private void destroyContent() {
-        if (mSheetContent != null) {
-            mSheetContent.destroy();
-            mSheetContent = null;
-        }
+        mSheetContent = null; // Will be destroyed by BottomSheet controller.
 
         if (mPanelContent != null) {
             mPanelContent.destroy();
@@ -174,8 +203,14 @@ public class EphemeralTabCoordinator implements View.OnLayoutChangeListener {
     public void onLayoutChange(View view, int left, int top, int right, int bottom, int oldLeft,
             int oldTop, int oldRight, int oldBottom) {
         if (mSheetContent == null) return;
-        if ((oldBottom - oldTop) == (bottom - top)) return;
-        mSheetContent.updateContentHeight(getMaxSheetHeight());
+
+        // It may not be possible to update the content height when the actual height changes
+        // due to the current tab not being ready yet. Try it later again when the tab
+        // (hence MaxSheetHeight) becomes valid.
+        int maxSheetHeight = getMaxSheetHeight();
+        if (maxSheetHeight == 0 || mCurrentMaxSheetHeight == maxSheetHeight) return;
+        mSheetContent.updateContentHeight(maxSheetHeight);
+        mCurrentMaxSheetHeight = maxSheetHeight;
     }
 
     private int getMaxSheetHeight() {

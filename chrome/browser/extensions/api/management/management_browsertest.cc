@@ -31,6 +31,7 @@
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_utils.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_host_observer.h"
@@ -42,7 +43,6 @@
 #include "extensions/browser/updater/extension_downloader.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/test_background_page_first_load_observer.h"
-#include "net/url_request/test_url_request_interceptor.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 using content::BrowserThread;
@@ -460,8 +460,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, MAYBE_AutoUpdate) {
   extensions::ExtensionUpdater::CheckParams params2;
   params2.callback = base::BindOnce(&NotificationListener::OnFinished,
                                     base::Unretained(&notification_listener));
-  service->updater()->CheckNow(std::move(params2));
-  ASSERT_TRUE(WaitForExtensionInstallError());
+
+  {
+    content::WindowedNotificationObserver install_error_observer(
+        extensions::NOTIFICATION_EXTENSION_INSTALL_ERROR,
+        content::NotificationService::AllSources());
+    service->updater()->CheckNow(std::move(params2));
+    install_error_observer.Wait();
+  }
   ASSERT_TRUE(notification_listener.started());
   ASSERT_TRUE(notification_listener.finished());
   ASSERT_TRUE(base::Contains(notification_listener.updates(),
@@ -761,6 +767,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, ExternalPolicyRefresh) {
 #define MAYBE_PolicyOverridesUserInstall PolicyOverridesUserInstall
 #endif
 
+// Tests the behavior of force-installing extensions that the user has already
+// installed.
 IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
                        MAYBE_PolicyOverridesUserInstall) {
   extensions::ExtensionService* service =
@@ -823,7 +831,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
                nullptr);
   extensions::TestExtensionRegistryObserver install_observer(registry);
   UpdateProviderPolicy(policies);
-  install_observer.WaitForExtensionWillBeInstalled();
 
   ASSERT_EQ(size_before + 1, registry->enabled_extensions().size());
   extension = registry->enabled_extensions().GetByID(kExtensionId);
@@ -866,7 +873,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
 
   extensions::TestExtensionRegistryObserver extension_observer(registry);
   UpdateProviderPolicy(policies);
-  extension_observer.WaitForExtensionWillBeInstalled();
 
   ASSERT_EQ(size_before + 1, registry->enabled_extensions().size());
   extension = registry->enabled_extensions().GetByID(kExtensionId);

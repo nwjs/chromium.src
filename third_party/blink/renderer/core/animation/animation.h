@@ -41,9 +41,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_property.h"
 #include "third_party/blink/renderer/core/animation/animation_effect.h"
 #include "third_party/blink/renderer/core/animation/animation_effect_owner.h"
-#include "third_party/blink/renderer/core/animation/animation_timeline.h"
 #include "third_party/blink/renderer/core/animation/compositor_animations.h"
-#include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
@@ -62,6 +60,7 @@ class Element;
 class ExceptionState;
 class PaintArtifactCompositor;
 class TreeScope;
+class AnimationTimeline;
 
 class CORE_EXPORT Animation : public EventTargetWithInlineData,
                               public ActiveScriptWrappable<Animation>,
@@ -71,6 +70,7 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
                               public AnimationEffectOwner {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(Animation);
+  USING_PRE_FINALIZER(Animation, Dispose);
 
  public:
   enum AnimationPlayState {
@@ -80,6 +80,18 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
     kRunning,
     kPaused,
     kFinished
+  };
+
+  // https://drafts.csswg.org/web-animations/#animation-replace-state
+  enum ReplaceState { kActive, kRemoved, kPersisted };
+
+  // Priority for sorting getAnimation by Animation class, arranged from lowest
+  // priority to highest priority as per spec:
+  // https://drafts.csswg.org/web-animations/#dom-document-getanimations
+  enum AnimationClassPriority {
+    kCssTransitionPriority,
+    kCssAnimationPriority,
+    kDefaultPriority
   };
 
   static Animation* Create(AnimationEffect*,
@@ -161,6 +173,7 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(finish, kFinish)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(cancel, kCancel)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(remove, kRemove)
 
   const AtomicString& InterfaceName() const override;
   ExecutionContext* GetExecutionContext() const override;
@@ -225,12 +238,11 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   void PostCommit(double timeline_time);
 
   unsigned SequenceNumber() const override { return sequence_number_; }
+
   int CompositorGroup() const { return compositor_group_; }
 
-  static bool HasLowerPriority(const Animation* animation1,
-                               const Animation* animation2) {
-    return animation1->SequenceNumber() < animation2->SequenceNumber();
-  }
+  static bool HasLowerCompositeOrdering(const Animation* animation1,
+                                        const Animation* animation2);
 
   bool EffectSuppressed() const override { return effect_suppressed_; }
   void SetEffectSuppressed(bool);
@@ -241,20 +253,25 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
 
   bool CompositorPendingForTesting() const { return compositor_pending_; }
 
+  // Methods for handling removal and persistence of animations.
+  bool IsReplaceable();
+  void RemoveReplacedAnimation();
+  void persist();
+  String replaceState();
+  void commitStyles(ExceptionState& = ASSERT_NO_EXCEPTION);
+  bool ReplaceStateRemoved() const override {
+    return replace_state_ == kRemoved;
+  }
+  bool ReplaceStateActive() const { return replace_state_ == kActive; }
+
  protected:
   DispatchEventResult DispatchEventInternal(Event&) override;
   void AddedEventListener(const AtomicString& event_type,
                           RegisteredEventListener&) override;
 
  private:
-  // TODO(crbug.com/960944): Deprecate. This version of the play state is not to
-  // spec due to the inclusion of a 'pending' state. Whether or not an animation
-  // is pending is separate from the actual play state.
-  AnimationPlayState PlayStateInternal() const;
-
   base::Optional<double> CurrentTimeInternal() const;
   void SetCurrentTimeInternal(double new_current_time);
-  void SetCurrentTimeInternal(double new_current_time, TimingUpdateReason);
 
   void ClearOutdated();
   void ForceServiceOnNextFrame();
@@ -268,20 +285,8 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   double EffectivePlaybackRate() const;
   void ApplyPendingPlaybackRate();
 
-  // https://drafts.csswg.org/web-animations/#play-states
-  // Per spec the viable states are: idle, running, paused and finished.
-  // Our implementation has an additional state called 'pending' which serves a
-  // similar purpose to micro-tasks in the spec. This additional state is for
-  // internal flow control only and should not be reported via
-  // animation.playState.
-  // TODO(crbug.com/958433): Deprecate this method in favor of the
-  // spec-compliant GetPlayState().
-  AnimationPlayState CalculateExtendedPlayState() const;
-
   base::Optional<double> CalculateStartTime(double current_time) const;
   base::Optional<double> CalculateCurrentTime() const;
-
-  void UpdateCurrentTimingState(TimingUpdateReason);
 
   void BeginUpdatingState();
   void EndUpdatingState();
@@ -300,7 +305,6 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   void NotifyAnimationAborted(double monotonic_time, int group) override {}
 
   using AnimationPromise = ScriptPromiseProperty<Member<Animation>,
-                                                 Member<Animation>,
                                                  Member<DOMException>>;
   void ResolvePromiseMaybeAsync(AnimationPromise*);
   void RejectAndResetPromise(AnimationPromise*);
@@ -324,8 +328,7 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   void PlayInternal(AutoRewind auto_rewind, ExceptionState& exception_state);
 
   void ResetPendingTasks();
-  double TimelineTime() const;
-  DocumentTimeline& TickingTimeline();
+  base::Optional<double> TimelineTime() const;
 
   void ScheduleAsyncFinish();
   void AsyncFinishMicrotask();
@@ -336,11 +339,6 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
 
   String id_;
 
-  // Extended play state with additional pending state for managing timing of
-  // micro-tasks.
-  // TODO(crbug.com/958433): Phase out this version of the play state. Should
-  // just need the reported play state.
-  AnimationPlayState internal_play_state_;
   // Extended play state reported to dev tools. This play state has an
   // additional pending state that is not part of the spec by expected by dev
   // tools.
@@ -365,8 +363,9 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   Member<Document> document_;
   Member<AnimationTimeline> timeline_;
 
-  // Reflects all pausing, including via pauseForTesting().
-  bool paused_;
+  ReplaceState replace_state_;
+
+  // Testing flags.
   bool is_paused_for_testing_;
   bool is_composited_animation_disabled_for_testing_;
 
@@ -389,6 +388,8 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   Member<Event> pending_finished_event_;
 
   Member<Event> pending_cancelled_event_;
+
+  Member<Event> pending_remove_event_;
 
   // TODO(crbug.com/960944): Consider reintroducing kPause and cleanup use of
   // mutually exclusive pending_play_ and pending_pause_ flags.
@@ -416,21 +417,6 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
     kSetCompositorPending,
     kSetCompositorPendingWithEffectChanged,
     kDoNotSetCompositorPending,
-  };
-
-  class PlayStateUpdateScope {
-    STACK_ALLOCATED();
-
-   public:
-    PlayStateUpdateScope(Animation&,
-                         TimingUpdateReason,
-                         CompositorPendingChange = kSetCompositorPending);
-    ~PlayStateUpdateScope();
-
-   private:
-    Member<Animation> animation_;
-    AnimationPlayState initial_play_state_;
-    CompositorPendingChange compositor_pending_change_;
   };
 
   // CompositorAnimation objects need to eagerly sever their connection to their
@@ -468,9 +454,6 @@ class CORE_EXPORT Animation : public EventTargetWithInlineData,
   int compositor_group_;
 
   Member<CompositorAnimationHolder> compositor_animation_;
-
-  bool current_time_pending_;
-  bool state_is_being_updated_;
 
   bool effect_suppressed_;
 

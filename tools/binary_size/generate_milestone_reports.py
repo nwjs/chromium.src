@@ -71,7 +71,8 @@ _DESIRED_VERSIONS = [
     '76.0.3809.132',
     '77.0.3865.115',
     '78.0.3904.62',
-    '79.0.3945.2',  # Canary
+    '79.0.3945.79',  # Beta
+    '80.0.3987.20',  # Canary
 ]
 
 
@@ -230,6 +231,10 @@ def main():
 
   if args.sync:
     subprocess.check_call(cmd)
+    subprocess.check_call([
+        _GSUTIL, 'setmeta', '-h', 'Cache-Control:no-cache',
+        _PUSH_URL + 'milestones.json'
+    ])
   else:
     print()
     print('Sync files by running:')

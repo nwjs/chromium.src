@@ -35,17 +35,16 @@
 
 #include "base/auto_reset.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "cc/layers/picture_layer.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/media/media_player_action.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/common/plugin/plugin_action.h"
-#include "third_party/blink/public/platform/web_float_point.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_menu_source_type.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/web_text_autosizer_page_info.h"
 #include "third_party/blink/public/platform/web_text_input_info.h"
 #include "third_party/blink/public/platform/web_url_request.h"
@@ -142,6 +141,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
@@ -301,7 +301,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client,
 
   AllInstances().insert(this);
 
-  page_importance_signals_.SetObserver(client);
   resize_viewport_anchor_ =
       MakeGarbageCollected<ResizeViewportAnchor>(*AsView().page);
 }
@@ -354,8 +353,8 @@ void WebViewImpl::HandleMouseDown(LocalFrame& main_frame,
   // If the hit node is a plugin but a scrollbar is over it don't start mouse
   // capture because it will interfere with the scrollbar receiving events.
   if (event.button == WebMouseEvent::Button::kLeft) {
-    HitTestLocation location(
-        main_frame.View()->ConvertFromRootFrame(event.PositionInWidget()));
+    HitTestLocation location(main_frame.View()->ConvertFromRootFrame(
+        FloatPoint(event.PositionInWidget())));
     HitTestResult result(
         main_frame.GetEventHandler().HitTestResultAtLocation(location));
     result.SetToShadowHostIfInRestrictedShadowRoot();
@@ -364,9 +363,10 @@ void WebViewImpl::HandleMouseDown(LocalFrame& main_frame,
     if (!result.GetScrollbar() && hit_node && hit_node->GetLayoutObject() &&
         hit_node->GetLayoutObject()->IsEmbeddedObject() && html_element &&
         html_element->IsPluginElement()) {
-      mouse_capture_element_ = ToHTMLPlugInElement(hit_node);
+      mouse_capture_element_ = To<HTMLPlugInElement>(hit_node);
       main_frame.Client()->SetMouseCapture(true);
-      TRACE_EVENT_ASYNC_BEGIN0("input", "capturing mouse", this);
+      TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("input", "capturing mouse",
+                                        TRACE_ID_LOCAL(this));
     }
   }
 
@@ -411,7 +411,7 @@ void WebViewImpl::MouseContextMenu(const WebMouseEvent& event) {
       TransformWebMouseEvent(MainFrameImpl()->GetFrameView(), event);
   transformed_event.menu_source_type = kMenuSourceMouse;
   PhysicalOffset position_in_root_frame = PhysicalOffset::FromFloatPointRound(
-      transformed_event.PositionInRootFrame());
+      FloatPoint(transformed_event.PositionInRootFrame()));
 
   // Find the right target frame. See issue 1186900.
   HitTestResult result = HitTestResultForRootFramePos(position_in_root_frame);
@@ -641,7 +641,7 @@ bool WebViewImpl::StartPageScaleAnimation(const IntPoint& target_position,
       if (view && view->GetScrollableArea()) {
         view->GetScrollableArea()->SetScrollOffset(
             ScrollOffset(clamped_point.x(), clamped_point.y()),
-            kProgrammaticScroll);
+            mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
       }
 
       return false;
@@ -1009,7 +1009,7 @@ void WebViewImpl::EnableTapHighlightAtPoint(
   Node* touch_node = BestTapNode(targeted_tap_event);
   GetPage()->GetLinkHighlight().SetTapHighlight(touch_node);
   UpdateLifecycle(WebWidget::LifecycleUpdate::kAll,
-                  WebWidget::LifecycleUpdateReason::kOther);
+                  DocumentUpdateReason::kOther);
 }
 
 void WebViewImpl::AnimateDoubleTapZoom(const gfx::Point& point_in_root_frame,
@@ -1141,7 +1141,7 @@ WebPagePopupImpl* WebViewImpl::OpenPagePopup(PagePopupClient* client) {
   // CreatePopup returns nullptr if this renderer process is about to die.
   if (!popup_widget)
     return nullptr;
-  page_popup_ = ToWebPagePopupImpl(popup_widget);
+  page_popup_ = To<WebPagePopupImpl>(popup_widget);
   page_popup_->Initialize(this, client);
   EnablePopupMouseWheelEventListener(frame);
   return page_popup_.get();
@@ -1154,7 +1154,7 @@ void WebViewImpl::CancelPagePopup() {
 
 void WebViewImpl::ClosePagePopup(PagePopup* popup) {
   DCHECK(popup);
-  WebPagePopupImpl* popup_impl = ToWebPagePopupImpl(popup);
+  auto* popup_impl = To<WebPagePopupImpl>(popup);
   DCHECK_EQ(page_popup_.get(), popup_impl);
   if (page_popup_.get() != popup_impl)
     return;
@@ -1212,14 +1212,6 @@ void WebViewImpl::Close() {
   CHECK(AsView().page);
   DCHECK(AllInstances().Contains(this));
   AllInstances().erase(this);
-
-  if (does_composite_) {
-    // This must occur before WillBeDestroyed, since detaching the main frame
-    // will also destroy the WebWidgetClient and the AnimationHost.
-    // TODO(danakj): Since the AnimationHost will be destroyed anyways, there
-    // is probably no good reason to do this at all.
-    GetPage()->WillCloseAnimationHost(nullptr);
-  }
 
   // Initiate shutdown for the entire frameset.  This will cause a lot of
   // notifications to be sent. This will detach all frames in this WebView's
@@ -1292,7 +1284,7 @@ void WebViewImpl::UpdateBrowserControlsConstraint(
       GetBrowserControls().PermittedState();
 
   GetBrowserControls().UpdateConstraintsAndState(
-      constraint, cc::BrowserControlsState::kBoth, false);
+      constraint, cc::BrowserControlsState::kBoth);
 
   // If the controls are going from a locked hidden to unlocked state, or vice
   // versa, the ICB size needs to change but we can't rely on getting a
@@ -1373,7 +1365,7 @@ void WebViewImpl::ResizeViewWhileAnchored(cc::BrowserControlsParams params) {
   // for rotation anchoring, and to make sure that no lifecycle states are
   // stale if this WebView is embedded in another one.
   UpdateLifecycle(WebWidget::LifecycleUpdate::kAll,
-                  WebWidget::LifecycleUpdateReason::kOther);
+                  DocumentUpdateReason::kOther);
 }
 
 void WebViewImpl::ResizeWithBrowserControls(
@@ -1593,7 +1585,7 @@ WebViewImpl::GetBeginMainFrameMetrics() {
 }
 
 void WebViewImpl::UpdateLifecycle(WebWidget::LifecycleUpdate requested_update,
-                                  WebWidget::LifecycleUpdateReason reason) {
+                                  DocumentUpdateReason reason) {
   TRACE_EVENT0("blink", "WebViewImpl::updateAllLifecyclePhases");
   if (!MainFrameImpl())
     return;
@@ -1676,8 +1668,10 @@ void WebViewImpl::ThemeChanged() {
 }
 
 void WebViewImpl::EnterFullscreen(LocalFrame& frame,
-                                  const FullscreenOptions* options) {
-  fullscreen_controller_->EnterFullscreen(frame, options);
+                                  const FullscreenOptions* options,
+                                  bool for_cross_process_descendant) {
+  fullscreen_controller_->EnterFullscreen(frame, options,
+                                          for_cross_process_descendant);
 }
 
 void WebViewImpl::ExitFullscreen(LocalFrame& frame) {
@@ -1873,7 +1867,8 @@ void WebViewImpl::OnFallbackCursorModeToggled(bool is_on) {
 }
 
 void WebViewImpl::MouseCaptureLost() {
-  TRACE_EVENT_ASYNC_END0("input", "capturing mouse", this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("input", "capturing mouse",
+                                  TRACE_ID_LOCAL(this));
   mouse_capture_element_ = nullptr;
   if (AsView().page->DeprecatedLocalMainFrame())
     AsView().page->DeprecatedLocalMainFrame()->Client()->SetMouseCapture(false);
@@ -2084,33 +2079,8 @@ void WebViewImpl::SetInitialFocus(bool reverse) {
       document->ClearFocusedElement();
   }
   GetPage()->GetFocusController().SetInitialFocus(
-      reverse ? kWebFocusTypeBackward : kWebFocusTypeForward);
-}
-
-void WebViewImpl::ClearFocusedElement() {
-  Frame* frame = FocusedCoreFrame();
-
-  auto* local_frame = DynamicTo<LocalFrame>(frame);
-  if (!local_frame)
-    return;
-
-  Document* document = local_frame->GetDocument();
-  if (!document)
-    return;
-
-  Element* old_focused_element = document->FocusedElement();
-  document->ClearFocusedElement();
-  if (!old_focused_element)
-    return;
-
-  // If a text field has focus, we need to make sure the selection controller
-  // knows to remove selection from it. Otherwise, the text field is still
-  // processing keyboard events even though focus has been moved to the page and
-  // keystrokes get eaten as a result.
-  document->UpdateStyleAndLayoutTree();
-  if (HasEditableStyle(*old_focused_element) ||
-      old_focused_element->IsTextControl())
-    local_frame->Selection().Clear();
+      reverse ? mojom::blink::FocusType::kBackward
+              : mojom::blink::FocusType::kForward);
 }
 
 // TODO(dglazkov): Remove and replace with Node:hasEditableStyle.
@@ -2150,13 +2120,15 @@ bool WebViewImpl::ScrollFocusedEditableElementIntoView() {
   // only the visual and layout viewports. We'll call ScrollRectToVisible with
   // the stop_at_main_frame_layout_viewport param to ensure the element is
   // actually visible in the page.
-  WebScrollIntoViewParams params(ScrollAlignment::kAlignCenterIfNeeded,
-                                 ScrollAlignment::kAlignCenterIfNeeded,
-                                 kProgrammaticScroll, false,
-                                 kScrollBehaviorInstant);
-  params.stop_at_main_frame_layout_viewport = true;
+  auto params = CreateScrollIntoViewParams(
+      ScrollAlignment::kAlignCenterIfNeeded,
+      ScrollAlignment::kAlignCenterIfNeeded,
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
+      mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
+  params->stop_at_main_frame_layout_viewport = true;
   layout_object->ScrollRectToVisible(
-      PhysicalRect(layout_object->AbsoluteBoundingBoxRect()), params);
+      PhysicalRect(layout_object->AbsoluteBoundingBoxRect()),
+      std::move(params));
 
   ZoomAndScrollToFocusedEditableElementRect(
       main_frame_view->RootFrameToDocument(
@@ -2185,7 +2157,7 @@ bool WebViewImpl::ShouldZoomToLegibleScale(const Element& element) {
     // back out.
     TouchAction action =
         touch_action_util::ComputeEffectiveTouchAction(element);
-    if (!(action & TouchAction::kTouchActionPinchZoom))
+    if (!(static_cast<int>(action) & static_cast<int>(TouchAction::kPinchZoom)))
       zoom_into_legible_scale = false;
   }
 
@@ -2193,8 +2165,8 @@ bool WebViewImpl::ShouldZoomToLegibleScale(const Element& element) {
 }
 
 void WebViewImpl::ZoomAndScrollToFocusedEditableElementRect(
-    const IntRect& element_bounds_in_document,
-    const IntRect& caret_bounds_in_document,
+    const WebRect& element_bounds_in_document,
+    const WebRect& caret_bounds_in_document,
     bool zoom_into_legible_scale) {
   float scale;
   IntPoint scroll;
@@ -2328,16 +2300,17 @@ void WebViewImpl::ComputeScaleAndScrollForEditableElementRects(
 }
 
 void WebViewImpl::AdvanceFocus(bool reverse) {
-  GetPage()->GetFocusController().AdvanceFocus(reverse ? kWebFocusTypeBackward
-                                                       : kWebFocusTypeForward);
+  GetPage()->GetFocusController().AdvanceFocus(
+      reverse ? mojom::blink::FocusType::kBackward
+              : mojom::blink::FocusType::kForward);
 }
 
-void WebViewImpl::AdvanceFocusAcrossFrames(WebFocusType type,
+void WebViewImpl::AdvanceFocusAcrossFrames(mojom::blink::FocusType type,
                                            WebRemoteFrame* from,
                                            WebLocalFrame* to) {
   // TODO(alexmos): Pass in proper with sourceCapabilities.
   GetPage()->GetFocusController().AdvanceFocusAcrossFrames(
-      type, ToWebRemoteFrameImpl(from)->GetFrame(),
+      type, To<WebRemoteFrameImpl>(from)->GetFrame(),
       To<WebLocalFrameImpl>(to)->GetFrame());
 }
 
@@ -2350,8 +2323,8 @@ void WebViewImpl::PropagateZoomFactorToLocalFrameRoots(Frame* frame,
   auto* local_frame = DynamicTo<LocalFrame>(frame);
   if (local_frame && local_frame->IsLocalRoot()) {
     if (Document* document = local_frame->GetDocument()) {
-      if (!document->IsPluginDocument() ||
-          !ToPluginDocument(document)->GetPluginView()) {
+      auto* plugin_document = DynamicTo<PluginDocument>(document);
+      if (!plugin_document || !plugin_document->GetPluginView()) {
         local_frame->SetPageZoomFactor(zoom_factor);
       }
     }
@@ -2418,19 +2391,19 @@ float WebViewImpl::ClampPageScaleFactorToLimits(float scale_factor) const {
       scale_factor);
 }
 
-void WebViewImpl::SetVisualViewportOffset(const WebFloatPoint& offset) {
+void WebViewImpl::SetVisualViewportOffset(const gfx::PointF& offset) {
   DCHECK(GetPage());
-  GetPage()->GetVisualViewport().SetLocation(offset);
+  GetPage()->GetVisualViewport().SetLocation(FloatPoint(offset));
 }
 
-WebFloatPoint WebViewImpl::VisualViewportOffset() const {
+gfx::PointF WebViewImpl::VisualViewportOffset() const {
   DCHECK(GetPage());
   return GetPage()->GetVisualViewport().VisibleRect().Location();
 }
 
-WebFloatSize WebViewImpl::VisualViewportSize() const {
+gfx::SizeF WebViewImpl::VisualViewportSize() const {
   DCHECK(GetPage());
-  return GetPage()->GetVisualViewport().VisibleRect().Size();
+  return gfx::SizeF(GetPage()->GetVisualViewport().VisibleRect().Size());
 }
 
 void WebViewImpl::SetPageScaleFactorAndLocation(float scale_factor,
@@ -2725,8 +2698,11 @@ void WebViewImpl::ResetScrollAndScaleState() {
   if (LocalFrameView* frame_view = main_local_frame->View()) {
     ScrollableArea* scrollable_area = frame_view->LayoutViewport();
 
-    if (!scrollable_area->GetScrollOffset().IsZero())
-      scrollable_area->SetScrollOffset(ScrollOffset(), kProgrammaticScroll);
+    if (!scrollable_area->GetScrollOffset().IsZero()) {
+      scrollable_area->SetScrollOffset(
+          ScrollOffset(),
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
+    }
   }
 
   if (Document* document = main_local_frame->GetDocument()) {
@@ -3005,10 +2981,8 @@ void WebViewImpl::DidCommitLoad(bool is_new_navigation,
     should_dispatch_first_layout_after_finished_parsing_ = true;
     should_dispatch_first_layout_after_finished_loading_ = true;
 
-    if (is_new_navigation) {
+    if (is_new_navigation)
       GetPageScaleConstraintsSet().SetNeedsReset(true);
-      page_importance_signals_.OnCommitLoad();
-    }
   }
 
   // Give the visual viewport's scroll layer its initial size.
@@ -3130,10 +3104,6 @@ void WebViewImpl::SetMainFrameOverlayColor(SkColor color) {
   DCHECK(AsView().page->MainFrame());
   if (auto* local_frame = DynamicTo<LocalFrame>(AsView().page->MainFrame()))
     local_frame->SetMainFrameColorOverlay(color);
-}
-
-WebPageImportanceSignals* WebViewImpl::PageImportanceSignals() {
-  return &page_importance_signals_;
 }
 
 Element* WebViewImpl::FocusedElement() const {
@@ -3463,6 +3433,12 @@ void WebViewImpl::RestorePageFromBackForwardCache(
       if (frame->DomWindow() && frame->DomWindow()->IsLocalDOMWindow()) {
         frame->DomWindow()->ToLocalDOMWindow()->DispatchPersistedPageshowEvent(
             navigation_start);
+        if (frame->IsMainFrame()) {
+          UMA_HISTOGRAM_BOOLEAN(
+              "BackForwardCache.MainFrameHasPageshowListenersOnRestore",
+              frame->DomWindow()->ToLocalDOMWindow()->HasEventListeners(
+                  event_type_names::kPageshow));
+        }
       }
     }
   }

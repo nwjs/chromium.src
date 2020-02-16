@@ -41,7 +41,7 @@ void ScriptPromiseResolver::Dispose() {
       state_ == kDetached || !is_promise_called_ ||
       !GetScriptState()->ContextIsValid() || !GetExecutionContext() ||
       GetExecutionContext()->IsContextDestroyed();
-  if (!is_properly_detached) {
+  if (!is_properly_detached && !suppress_detach_check_) {
     // This is here to make it easier to track down which promise resolvers are
     // being abandoned. See https://crbug.com/873980.
     static crash_reporter::CrashKeyString<1024> trace_key(
@@ -54,8 +54,6 @@ void ScriptPromiseResolver::Dispose() {
   }
 #endif
   deferred_resolve_task_.Cancel();
-  resolver_.Clear();
-  value_.Clear();
 }
 
 void ScriptPromiseResolver::Reject(ExceptionState& exception_state) {

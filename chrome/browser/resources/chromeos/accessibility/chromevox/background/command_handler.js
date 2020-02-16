@@ -21,12 +21,12 @@ goog.require('ChromeVoxPrefs');
 goog.require('CommandStore');
 
 goog.scope(function() {
-var AutomationEvent = chrome.automation.AutomationEvent;
-var AutomationNode = chrome.automation.AutomationNode;
-var Dir = constants.Dir;
-var EventType = chrome.automation.EventType;
-var RoleType = chrome.automation.RoleType;
-var StateType = chrome.automation.StateType;
+const AutomationEvent = chrome.automation.AutomationEvent;
+const AutomationNode = chrome.automation.AutomationNode;
+const Dir = constants.Dir;
+const EventType = chrome.automation.EventType;
+const RoleType = chrome.automation.RoleType;
+const StateType = chrome.automation.StateType;
 
 /** @private {boolean} */
 CommandHandler.incognito_ = !!chrome.runtime.getManifest()['incognito'];
@@ -39,13 +39,14 @@ CommandHandler.incognito_ = !!chrome.runtime.getManifest()['incognito'];
 CommandHandler.onCommand = function(command) {
   // Check for a command disallowed in OOBE/login.
   if (CommandHandler.incognito_ && CommandStore.CMD_WHITELIST[command] &&
-      CommandStore.CMD_WHITELIST[command].disallowOOBE)
+      CommandStore.CMD_WHITELIST[command].disallowOOBE) {
     return true;
+  }
 
   // Check for loss of focus which results in us invalidating our current
   // range. Note this call is synchronis.
   chrome.automation.getFocus(function(focusedNode) {
-    var cur = ChromeVoxState.instance.currentRange;
+    const cur = ChromeVoxState.instance.currentRange;
     if (cur && !cur.isValid()) {
       ChromeVoxState.instance.setCurrentRange(
           cursors.Range.fromNode(focusedNode));
@@ -61,12 +62,12 @@ CommandHandler.onCommand = function(command) {
     case 'speakTimeAndDate':
       chrome.automation.getDesktop(function(d) {
         // First, try speaking the on-screen time.
-        var allTime = d.findAll({role: RoleType.TIME});
+        const allTime = d.findAll({role: RoleType.TIME});
         allTime.filter(function(t) {
           return t.root.role == RoleType.DESKTOP;
         });
 
-        var timeString = '';
+        let timeString = '';
         allTime.forEach(function(t) {
           if (t.name) {
             timeString = t.name;
@@ -76,8 +77,8 @@ CommandHandler.onCommand = function(command) {
           ChromeVox.tts.speak(timeString, QueueMode.FLUSH);
         } else {
           // Fallback to the old way of speaking time.
-          var output = new Output();
-          var dateTime = new Date();
+          const output = new Output();
+          const dateTime = new Date();
           output
               .withString(
                   dateTime.toLocaleTimeString() + ', ' +
@@ -196,9 +197,10 @@ CommandHandler.onCommand = function(command) {
       var description = {};
       description['Version'] = chrome.app.getDetails().version;
       description['Reproduction Steps'] = '%0a1.%0a2.%0a3.';
-      for (var key in description)
+      for (const key in description) {
         url += key + ':%20' + description[key] + '%0a';
-      chrome.tabs.create({url: url});
+      }
+      chrome.tabs.create({url});
       return false;
     case 'toggleBrailleCaptions':
       BrailleCaptionsBackground.setActive(
@@ -232,13 +234,14 @@ CommandHandler.onCommand = function(command) {
       (new PanelCommand(PanelCommandType.UPDATE_NOTES)).send();
       localStorage['notifications_update_notification_shown'] = true;
       return false;
-    case 'darkenScreen':
-      chrome.accessibilityPrivate.darkenScreen(true);
-      new Output().format('@darken_screen').go();
-      return false;
-    case 'undarkenScreen':
-      chrome.accessibilityPrivate.darkenScreen(false);
-      new Output().format('@undarken_screen').go();
+    case 'toggleDarkScreen':
+      var oldState = sessionStorage.getItem('darkScreen');
+      var newState = (oldState === 'true') ? false : true;
+      sessionStorage.setItem('darkScreen', (newState) ? 'true' : 'false');
+      chrome.accessibilityPrivate.darkenScreen(newState);
+      new Output()
+          .format((newState) ? '@darken_screen' : '@undarken_screen')
+          .go();
       return false;
     case 'toggleSpeechOnOrOff':
       var state = ChromeVox.tts.toggleSpeechOnOrOff();
@@ -265,27 +268,27 @@ CommandHandler.onCommand = function(command) {
     return true;
   }
 
-  var current = ChromeVoxState.instance.currentRange;
+  let current = ChromeVoxState.instance.currentRange;
 
   // If true, will check if the predicate matches the current node.
-  var matchCurrent = false;
+  let matchCurrent = false;
 
   // Allow edit commands first.
   if (!CommandHandler.onEditCommand_(command)) {
     return false;
   }
 
-  var dir = Dir.FORWARD;
-  var pred = null;
-  var predErrorMsg = undefined;
-  var rootPred = AutomationPredicate.rootOrEditableRoot;
-  var shouldWrap = true;
-  var speechProps = {};
-  var skipSync = false;
-  var didNavigate = false;
-  var tryScrolling = true;
-  var skipSettingSelection = false;
-  var skipInitialAncestry = true;
+  let dir = Dir.FORWARD;
+  let pred = null;
+  let predErrorMsg = undefined;
+  let rootPred = AutomationPredicate.rootOrEditableRoot;
+  let shouldWrap = true;
+  const speechProps = {};
+  let skipSync = false;
+  let didNavigate = false;
+  let tryScrolling = true;
+  let skipSettingSelection = false;
+  let skipInitialAncestry = true;
   switch (command) {
     case 'nextCharacter':
       didNavigate = true;
@@ -503,8 +506,9 @@ CommandHandler.onCommand = function(command) {
       var originalNode = node;
 
       // Scan upwards until we get a role we don't want to ignore.
-      while (node && AutomationPredicate.ignoreDuringJump(node))
+      while (node && AutomationPredicate.ignoreDuringJump(node)) {
         node = node.parent;
+      }
 
       var useNode = node || originalNode;
       pred = AutomationPredicate.roles([node.role]);
@@ -518,15 +522,6 @@ CommandHandler.onCommand = function(command) {
       pred = AutomationPredicate.makeListPredicate(current.start.node);
       predErrorMsg = 'no_previous_list';
       skipInitialAncestry = false;
-      break;
-    case 'nextParagraph':
-      pred = AutomationPredicate.paragraph;
-      predErrorMsg = 'no_next_paragraph';
-      break;
-    case 'previousParagraph':
-      dir = Dir.BACKWARD;
-      pred = AutomationPredicate.paragraph;
-      predErrorMsg = 'no_previous_paragraph';
       break;
     case 'jumpToTop':
       var node = AutomationUtil.findNodePost(
@@ -548,9 +543,10 @@ CommandHandler.onCommand = function(command) {
       if (ChromeVoxState.instance.currentRange) {
         var actionNode = ChromeVoxState.instance.currentRange.start.node;
         // Scan for a clickable, which overrides the |actionNode|.
-        var clickable = actionNode;
-        while (clickable && !clickable.clickable)
+        let clickable = actionNode;
+        while (clickable && !clickable.clickable) {
           clickable = clickable.parent;
+        }
         if (clickable) {
           clickable.doDefault();
           return false;
@@ -559,8 +555,8 @@ CommandHandler.onCommand = function(command) {
         if (EventSourceState.get() == EventSourceType.TOUCH_GESTURE &&
             actionNode.state.editable) {
           // Dispatch a click to ensure the VK gets shown.
-          var location = actionNode.location;
-          var event = {
+          const location = actionNode.location;
+          const event = {
             type: chrome.accessibilityPrivate.SyntheticMouseEventType.PRESS,
             x: location.left + Math.round(location.width / 2),
             y: location.top + Math.round(location.height / 2)
@@ -573,8 +569,9 @@ CommandHandler.onCommand = function(command) {
         }
 
         while (actionNode.role == RoleType.INLINE_TEXT_BOX ||
-               actionNode.role == RoleType.STATIC_TEXT)
+               actionNode.role == RoleType.STATIC_TEXT) {
           actionNode = actionNode.parent;
+        }
         if (actionNode.inPageLinkTarget) {
           ChromeVoxState.instance.navigateToRange(
               cursors.Range.fromNode(actionNode.inPageLinkTarget));
@@ -587,25 +584,28 @@ CommandHandler.onCommand = function(command) {
       return false;
     case 'jumpToDetails':
       var node = current.start.node;
-      while (node && !node.details)
+      while (node && !node.details) {
         node = node.parent;
-      if (node) {
-        current = cursors.Range.fromNode(node.details);
+      }
+      if (node && node.details.length) {
+        // TODO currently can only jump to first detail.
+        current = cursors.Range.fromNode(node.details[0]);
       }
       break;
     case 'readFromHere':
       ChromeVoxState.isReadingContinuously = true;
       var continueReading = function() {
         if (!ChromeVoxState.isReadingContinuously ||
-            !ChromeVoxState.instance.currentRange)
+            !ChromeVoxState.instance.currentRange) {
           return;
+        }
 
-        var prevRange = ChromeVoxState.instance.currentRange;
-        var newRange = ChromeVoxState.instance.currentRange.move(
+        const prevRange = ChromeVoxState.instance.currentRange;
+        const newRange = ChromeVoxState.instance.currentRange.move(
             cursors.Unit.NODE, Dir.FORWARD);
 
         // Stop if we've wrapped back to the document.
-        var maybeDoc = newRange.start.node;
+        const maybeDoc = newRange.start.node;
         if (AutomationPredicate.root(maybeDoc)) {
           ChromeVoxState.isReadingContinuously = false;
           return;
@@ -676,12 +676,14 @@ CommandHandler.onCommand = function(command) {
 
       if (target.root && target.root.role == RoleType.DESKTOP) {
         // Search for the first container with a name.
-        while (target && (!target.name || !AutomationPredicate.root(target)))
+        while (target && (!target.name || !AutomationPredicate.root(target))) {
           target = target.parent;
+        }
       } else {
         // Search for a window with a title.
-        while (target && (!target.name || target.role != RoleType.WINDOW))
+        while (target && (!target.name || target.role != RoleType.WINDOW)) {
           target = target.parent;
+        }
       }
 
       if (!target) {
@@ -705,7 +707,7 @@ CommandHandler.onCommand = function(command) {
       } else {
         var root = ChromeVoxState.instance.currentRange.start.node.root;
         if (root && root.selectionStartObject && root.selectionEndObject) {
-          var sel = new cursors.Range(
+          const sel = new cursors.Range(
               new cursors.Cursor(
                   root.selectionStartObject, root.selectionStartOffset),
               new cursors.Cursor(
@@ -733,7 +735,7 @@ CommandHandler.onCommand = function(command) {
     // Table commands.
     case 'previousRow':
       dir = Dir.BACKWARD;
-      var tableOpts = {row: true, dir: dir};
+      var tableOpts = {row: true, dir};
       pred = AutomationPredicate.makeTableCellPredicate(
           current.start.node, tableOpts);
       predErrorMsg = 'no_cell_above';
@@ -742,7 +744,7 @@ CommandHandler.onCommand = function(command) {
       break;
     case 'previousCol':
       dir = Dir.BACKWARD;
-      var tableOpts = {col: true, dir: dir};
+      var tableOpts = {col: true, dir};
       pred = AutomationPredicate.makeTableCellPredicate(
           current.start.node, tableOpts);
       predErrorMsg = 'no_cell_left';
@@ -750,7 +752,7 @@ CommandHandler.onCommand = function(command) {
       shouldWrap = false;
       break;
     case 'nextRow':
-      var tableOpts = {row: true, dir: dir};
+      var tableOpts = {row: true, dir};
       pred = AutomationPredicate.makeTableCellPredicate(
           current.start.node, tableOpts);
       predErrorMsg = 'no_cell_below';
@@ -758,7 +760,7 @@ CommandHandler.onCommand = function(command) {
       shouldWrap = false;
       break;
     case 'nextCol':
-      var tableOpts = {col: true, dir: dir};
+      var tableOpts = {col: true, dir};
       pred = AutomationPredicate.makeTableCellPredicate(
           current.start.node, tableOpts);
       predErrorMsg = 'no_cell_right';
@@ -768,8 +770,9 @@ CommandHandler.onCommand = function(command) {
     case 'goToRowFirstCell':
     case 'goToRowLastCell':
       var node = current.start.node;
-      while (node && node.role != RoleType.ROW)
+      while (node && node.role != RoleType.ROW) {
         node = node.parent;
+      }
       if (!node) {
         break;
       }
@@ -782,12 +785,13 @@ CommandHandler.onCommand = function(command) {
       break;
     case 'goToColFirstCell':
       var node = current.start.node;
-      while (node && node.role != RoleType.TABLE)
+      while (node && node.role != RoleType.TABLE) {
         node = node.parent;
+      }
       if (!node || !node.firstChild) {
         return false;
       }
-      var tableOpts = {col: true, dir: dir, end: true};
+      var tableOpts = {col: true, dir, end: true};
       pred = AutomationPredicate.makeTableCellPredicate(
           current.start.node, tableOpts);
       current = cursors.Range.fromNode(node.firstChild);
@@ -799,12 +803,13 @@ CommandHandler.onCommand = function(command) {
     case 'goToColLastCell':
       dir = Dir.BACKWARD;
       var node = current.start.node;
-      while (node && node.role != RoleType.TABLE)
+      while (node && node.role != RoleType.TABLE) {
         node = node.parent;
+      }
       if (!node || !node.lastChild) {
         return false;
       }
-      var tableOpts = {col: true, dir: dir, end: true};
+      var tableOpts = {col: true, dir, end: true};
       pred = AutomationPredicate.makeTableCellPredicate(
           current.start.node, tableOpts);
 
@@ -812,8 +817,9 @@ CommandHandler.onCommand = function(command) {
       // matching that node.
       var startNode = node.lastChild;
       while (startNode.lastChild &&
-             !AutomationPredicate.cellLike(startNode.role))
+             !AutomationPredicate.cellLike(startNode.role)) {
         startNode = startNode.lastChild;
+      }
       current = cursors.Range.fromNode(startNode);
       matchCurrent = true;
 
@@ -825,8 +831,9 @@ CommandHandler.onCommand = function(command) {
     case 'goToFirstCell':
     case 'goToLastCell':
       node = current.start.node;
-      while (node && node.role != RoleType.TABLE)
+      while (node && node.role != RoleType.TABLE) {
         node = node.parent;
+      }
       if (!node) {
         break;
       }
@@ -841,8 +848,9 @@ CommandHandler.onCommand = function(command) {
       var node = current.start.node;
       while (node &&
              !node.standardActions.includes(
-                 chrome.automation.ActionType.SCROLL_BACKWARD))
+                 chrome.automation.ActionType.SCROLL_BACKWARD)) {
         node = node.parent;
+      }
 
       if (node) {
         node.scrollBackward();
@@ -852,8 +860,9 @@ CommandHandler.onCommand = function(command) {
       var node = current.start.node;
       while (node &&
              !node.standardActions.includes(
-                 chrome.automation.ActionType.SCROLL_FORWARD))
+                 chrome.automation.ActionType.SCROLL_FORWARD)) {
         node = node.parent;
+      }
 
       if (node) {
         node.scrollForward();
@@ -962,7 +971,7 @@ CommandHandler.onCommand = function(command) {
         index = 0;
       }
       var word = '';
-      for (var z = 0; z < wordStarts.length; ++z) {
+      for (let z = 0; z < wordStarts.length; ++z) {
         if (wordStarts[z] <= index && wordEnds[z] >= index) {
           word = text.substring(wordStarts[z], wordEnds[z]);
           break;
@@ -974,8 +983,8 @@ CommandHandler.onCommand = function(command) {
       // We currently only load phonetic data for the browser UI language.
       var language = chrome.i18n.getUILanguage();
       for (var i = 0; i < characterArray.length; ++i) {
-        var character = characterArray[i];
-        var phoneticText =
+        const character = characterArray[i];
+        const phoneticText =
             PhoneticData.getPhoneticDisambiguation(language, character);
         // Speak the character followed by its phonetic disambiguation, if it
         // was found.
@@ -1022,7 +1031,7 @@ CommandHandler.onCommand = function(command) {
   if (pred) {
     chrome.metricsPrivate.recordUserAction('Accessibility.ChromeVox.Jump');
 
-    var bound = current.getBound(dir).node;
+    let bound = current.getBound(dir).node;
     if (bound) {
       var node = null;
 
@@ -1032,8 +1041,7 @@ CommandHandler.onCommand = function(command) {
 
       if (!node) {
         node = AutomationUtil.findNextNode(
-            bound, dir, pred,
-            {skipInitialAncestry: skipInitialAncestry, root: rootPred});
+            bound, dir, pred, {skipInitialAncestry, root: rootPred});
       }
 
       if (node && !skipSync) {
@@ -1057,8 +1065,9 @@ CommandHandler.onCommand = function(command) {
         }
 
         var root = bound;
-        while (root && !AutomationPredicate.rootOrEditableRoot(root))
+        while (root && !AutomationPredicate.rootOrEditableRoot(root)) {
           root = root.parent;
+        }
 
         if (!root) {
           root = bound.root;
@@ -1094,9 +1103,9 @@ CommandHandler.onCommand = function(command) {
 
   if (tryScrolling && current && current.start && current.start.node &&
       ChromeVoxState.instance.currentRange.start.node) {
-    var exited = AutomationUtil.getUniqueAncestors(
+    const exited = AutomationUtil.getUniqueAncestors(
         current.start.node, ChromeVoxState.instance.currentRange.start.node);
-    var scrollable = null;
+    let scrollable = null;
     for (var i = 0; i < exited.length; i++) {
       if (AutomationPredicate.autoScrollable(exited[i])) {
         scrollable = exited[i];
@@ -1107,7 +1116,7 @@ CommandHandler.onCommand = function(command) {
     // TODO(dtseng): handle more precise positioning after scroll e.g. list with
     // 10 items shoing 1-7, scroll forward, should position at item 8.
     if (scrollable) {
-      var callback = function(result) {
+      const callback = function(result) {
         if (result) {
           var innerCallback = function(currentNode, evt) {
             scrollable.removeEventListener(
@@ -1121,13 +1130,15 @@ CommandHandler.onCommand = function(command) {
             }
 
             // Otherwise, sync to the directed deepest child.
-            var sync = scrollable;
+            let sync = scrollable;
             if (dir == Dir.FORWARD) {
-              while (sync.firstChild)
+              while (sync.firstChild) {
                 sync = sync.firstChild;
+              }
             } else {
-              while (sync.lastChild)
+              while (sync.lastChild) {
                 sync = sync.lastChild;
+              }
             }
             ChromeVoxState.instance.navigateToRange(
                 cursors.Range.fromNode(sync), false, speechProps);
@@ -1180,7 +1191,7 @@ CommandHandler.imageNode_;
  * @private
  */
 CommandHandler.onImageFrameUpdated_ = function(event) {
-  var target = event.target;
+  const target = event.target;
   if (target != CommandHandler.imageNode_) {
     return;
   }
@@ -1216,7 +1227,7 @@ CommandHandler.viewGraphicAsBraille_ = function(current) {
   }
 
   // Find the first node within the current range that supports image data.
-  var imageNode = AutomationUtil.findNodePost(
+  const imageNode = AutomationUtil.findNodePost(
       current.start.node, Dir.FORWARD, AutomationPredicate.supportsImageData);
   if (!imageNode) {
     return;
@@ -1227,7 +1238,7 @@ CommandHandler.viewGraphicAsBraille_ = function(current) {
       false);
   CommandHandler.imageNode_ = imageNode;
   if (imageNode.imageDataUrl) {
-    var event = new CustomAutomationEvent(
+    const event = new CustomAutomationEvent(
         EventType.IMAGE_FRAME_UPDATED, imageNode, 'page');
     CommandHandler.onImageFrameUpdated_(event);
   } else {
@@ -1243,27 +1254,30 @@ CommandHandler.viewGraphicAsBraille_ = function(current) {
  * @private
  */
 CommandHandler.onEditCommand_ = function(command) {
-  var current = ChromeVoxState.instance.currentRange;
+  const current = ChromeVoxState.instance.currentRange;
   if (ChromeVox.isStickyModeOn() || !current || !current.start ||
-      !current.start.node || !current.start.node.state[StateType.EDITABLE])
+      !current.start.node || !current.start.node.state[StateType.EDITABLE]) {
     return true;
+  }
 
-  var textEditHandler = DesktopAutomationHandler.instance.textEditHandler;
+  const textEditHandler = DesktopAutomationHandler.instance.textEditHandler;
   if (!textEditHandler) {
     return true;
   }
 
   // Skip customized keys for read only text fields.
   if (textEditHandler.node.restriction ==
-      chrome.automation.Restriction.READ_ONLY)
+      chrome.automation.Restriction.READ_ONLY) {
     return true;
+  }
 
   // Skips customized keys if they get suppressed in speech.
   if (AutomationPredicate.shouldOnlyOutputSelectionChangeInBraille(
-          textEditHandler.node))
+          textEditHandler.node)) {
     return true;
+  }
 
-  var isMultiline = AutomationPredicate.multiline(current.start.node);
+  const isMultiline = AutomationPredicate.multiline(current.start.node);
   switch (command) {
     case 'previousCharacter':
       BackgroundKeyboardHandler.sendKeyPress(36, {shift: true});
@@ -1330,7 +1344,7 @@ CommandHandler.onEditCommand_ = function(command) {
  */
 CommandHandler.init = function() {
   ChromeVoxKbHandler.commandHandler = CommandHandler.onCommand;
-  var firstRunId = 'jdgcneonijmofocbhmijhacgchbihela';
+  const firstRunId = 'jdgcneonijmofocbhmijhacgchbihela';
   chrome.runtime.onMessageExternal.addListener(function(
       request, sender, sendResponse) {
     if (sender.id != firstRunId) {
@@ -1355,4 +1369,4 @@ CommandHandler.init = function() {
     }
   });
 };
-});  //  goog.scope
+});  // goog.scope

@@ -377,14 +377,15 @@ size_t GetMaxURLMatches();
 // ---------------------------------------------------------
 // For UI experiments.
 
-// Returns whether preserve default match score is enabled.
-bool IsPreserveDefaultMatchScoreEnabled();
-
 // Returns true if the reverse answers flag is enabled.
 bool IsReverseAnswersEnabled();
 
 // Returns true if the short bookmark suggestions flag is enabled.
 bool IsShortBookmarkSuggestionsEnabled();
+
+// Whether a single row of buttons is shown on suggestions with actionable
+// elements like keywords, tab-switch buttons, and Pedals.
+bool IsSuggestionButtonRowEnabled();
 
 // Returns true if either the tab switch suggestions flag is enabled.
 bool IsTabSwitchSuggestionsEnabled();
@@ -409,10 +410,6 @@ bool IsHideSteadyStateUrlTrivialSubdomainsEnabled();
 // Simply a convenient wrapper for testing a flag. Used downstream for an
 // assortment of keyword mode experiments.
 bool IsExperimentalKeywordModeEnabled();
-
-// Returns whether the group suggestions by type feature is enabled,
-// which "bunches" search suggestions (except for the default match).
-bool IsGroupSuggestionsBySearchVsUrlFeatureEnabled();
 
 // Returns whether the feature to limit the number of shown URL matches
 // is enabled.
@@ -480,6 +477,9 @@ extern const char kMaxNumHQPUrlsIndexedAtStartupOnNonLowEndDevicesParam[];
 // Parameter names used by UI experiments.
 extern const char kUIMaxAutocompleteMatchesParam[];
 extern const char kUIMaxAutocompleteMatchesByProviderParam[];
+
+// Parameter names used by on device head provider.
+extern const char kOnDeviceHeadSuggestIncognitoServeMode[];
 
 // The amount of time to wait before sending a new suggest request after the
 // previous one unless overridden by a field trial parameter.

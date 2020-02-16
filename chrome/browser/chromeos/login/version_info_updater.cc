@@ -62,17 +62,18 @@ VersionInfoUpdater::~VersionInfoUpdater() {
     policy_manager->core()->store()->RemoveObserver(this);
 }
 
-void VersionInfoUpdater::StartUpdate(bool is_official_build) {
+void VersionInfoUpdater::StartUpdate(bool is_chrome_branded) {
   if (base::SysInfo::IsRunningOnChromeOS()) {
     base::PostTaskAndReplyWithResult(
         FROM_HERE,
         {base::ThreadPool(), base::MayBlock(),
          base::TaskPriority::USER_VISIBLE},
-        base::Bind(&version_loader::GetVersion,
-                   is_official_build ? version_loader::VERSION_SHORT_WITH_DATE
-                                     : version_loader::VERSION_FULL),
-        base::Bind(&VersionInfoUpdater::OnVersion,
-                   weak_pointer_factory_.GetWeakPtr()));
+        base::BindOnce(&version_loader::GetVersion,
+                       is_chrome_branded
+                           ? version_loader::VERSION_SHORT_WITH_DATE
+                           : version_loader::VERSION_FULL),
+        base::BindOnce(&VersionInfoUpdater::OnVersion,
+                       weak_pointer_factory_.GetWeakPtr()));
   } else {
     OnVersion("linux-chromeos");
   }
@@ -206,12 +207,8 @@ void VersionInfoUpdater::OnQueryAdbSideload(
       break;
   }
 
-  // M80: Never show login screen warning. The entry to turn on the feature is
-  // disabled, but there are some expected errors that triggers the warning
-  // message (since we conservatively show the security warning if something goes
-  // wrong).
-  //if (delegate_)
-  //  delegate_->OnAdbSideloadStatusUpdated(enabled);
+  if (delegate_)
+    delegate_->OnAdbSideloadStatusUpdated(enabled);
 }
 
 }  // namespace chromeos

@@ -201,6 +201,11 @@ public class FeedRequestManagerImplTest {
     }
 
     @Test
+    public void testTriggerRefresh_sendFeedbackCapabilityAddedWhenFlagIsOn() throws Exception {
+        testCapabilityAdded(ConfigKey.SEND_FEEDBACK_ENABLED, Capability.SEND_FEEDBACK);
+    }
+
+    @Test
     public void testTriggerRefresh_tooltipCapabilityAddedWhenFlagIsOn() throws Exception {
         testCapabilityAdded(ConfigKey.CARD_MENU_TOOLTIP_ELIGIBLE, Capability.CARD_MENU_TOOLTIP);
     }
@@ -626,8 +631,7 @@ public class FeedRequestManagerImplTest {
     public void testHandleResponse() throws Exception {
         mRequestManager.triggerRefresh(RequestReason.HOST_REQUESTED, mConsumer);
 
-        // TODO(crbug.com/1024945): Find alternative to LiteProtoTruth.
-        // assertThat(fakeProtocolAdapter.getLastResponse()).isEqualToDefaultInstance();
+        assertThat(mFakeProtocolAdapter.getLastResponse()).isEqualTo(Response.getDefaultInstance());
         assertThat(mConsumer.isCalled()).isTrue();
         assertThat(mConsumedResult.isSuccessful()).isTrue();
     }

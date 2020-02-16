@@ -227,12 +227,13 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   // load any extensions.
   {
     InstallVerifier::Get(profile_)->Init();
-    ChromeContentVerifierDelegate::Mode mode = (ChromeContentVerifierDelegate::Mode)
+    ChromeContentVerifierDelegate::VerifyInfo::Mode mode = (ChromeContentVerifierDelegate::VerifyInfo::Mode)
         NWContentVerifierDelegate::GetDefaultMode();
 #if defined(OS_CHROMEOS)
-    mode = std::max(mode, ChromeContentVerifierDelegate::BOOTSTRAP);
+    mode = std::max(mode,
+                    ChromeContentVerifierDelegate::VerifyInfo::Mode::BOOTSTRAP);
 #endif  // defined(OS_CHROMEOS)
-    if (mode >= ChromeContentVerifierDelegate::BOOTSTRAP)
+    if (mode >= ChromeContentVerifierDelegate::VerifyInfo::Mode::BOOTSTRAP)
       content_verifier_->Start();
     info_map()->SetContentVerifier(content_verifier_.get());
 #if defined(OS_CHROMEOS)
@@ -462,7 +463,7 @@ bool ExtensionSystemImpl::FinishDelayedInstallationIfReady(
 
 void ExtensionSystemImpl::RegisterExtensionWithRequestContexts(
     const Extension* extension,
-    const base::Closure& callback) {
+    base::OnceClosure callback) {
   base::Time install_time;
   if (extension->location() != Manifest::COMPONENT) {
     install_time = ExtensionPrefs::Get(profile_)->
@@ -484,7 +485,7 @@ void ExtensionSystemImpl::RegisterExtensionWithRequestContexts(
       base::BindOnce(&InfoMap::AddExtension, info_map(),
                      base::RetainedRef(extension), install_time,
                      incognito_enabled, notifications_disabled),
-      callback);
+      std::move(callback));
 }
 
 void ExtensionSystemImpl::UnregisterExtensionWithRequestContexts(

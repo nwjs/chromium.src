@@ -122,7 +122,7 @@ base::Value SessionWindowToValue(const ::sessions::SessionWindow& window) {
     base::Value tab_value = SessionTabToValue(*tab.get());
     if (!tab_value.is_none()) {
       modification_time = std::max(modification_time, tab->timestamp);
-      tab_values.GetList().push_back(std::move(tab_value));
+      tab_values.Append(std::move(tab_value));
     }
   }
   if (tab_values.GetList().empty())
@@ -223,21 +223,6 @@ sync_sessions::OpenTabsUIDelegate* ForeignSessionHandler::GetOpenTabsUIDelegate(
 }
 
 void ForeignSessionHandler::RegisterMessages() {
-  Profile* profile = Profile::FromWebUI(web_ui());
-
-  sync_sessions::SessionSyncService* service =
-      SessionSyncServiceFactory::GetInstance()->GetForProfile(profile);
-
-  // NOTE: The SessionSyncService can be null in tests.
-  if (service) {
-    // base::Unretained() is safe below because the subscription itself is a
-    // class member field and handles destruction well.
-    foreign_session_updated_subscription_ =
-        service->SubscribeToForeignSessionsChanged(
-            base::BindRepeating(&ForeignSessionHandler::OnForeignSessionUpdated,
-                                base::Unretained(this)));
-  }
-
   web_ui()->RegisterMessageCallback(
       "deleteForeignSession",
       base::BindRepeating(&ForeignSessionHandler::HandleDeleteForeignSession,
@@ -257,8 +242,34 @@ void ForeignSessionHandler::RegisterMessages() {
           base::Unretained(this)));
 }
 
+void ForeignSessionHandler::OnJavascriptAllowed() {
+  // This can happen if the page is refreshed.
+  if (initial_session_list_.is_none())
+    initial_session_list_ = GetForeignSessions();
+
+  Profile* profile = Profile::FromWebUI(web_ui());
+
+  sync_sessions::SessionSyncService* service =
+      SessionSyncServiceFactory::GetInstance()->GetForProfile(profile);
+
+  // NOTE: The SessionSyncService can be null in tests.
+  if (service) {
+    // base::Unretained() is safe below because the subscription itself is a
+    // class member field and handles destruction well.
+    foreign_session_updated_subscription_ =
+        service->SubscribeToForeignSessionsChanged(
+            base::BindRepeating(&ForeignSessionHandler::OnForeignSessionUpdated,
+                                base::Unretained(this)));
+  }
+}
+
 void ForeignSessionHandler::OnForeignSessionUpdated() {
-  HandleGetForeignSessions(nullptr);
+  FireWebUIListener("foreign-sessions-changed",
+                    std::move(GetForeignSessions()));
+}
+
+void ForeignSessionHandler::InitializeForeignSessions() {
+  initial_session_list_ = GetForeignSessions();
 }
 
 base::string16 ForeignSessionHandler::FormatSessionTime(
@@ -272,7 +283,18 @@ base::string16 ForeignSessionHandler::FormatSessionTime(
 }
 
 void ForeignSessionHandler::HandleGetForeignSessions(
-    const base::ListValue* /*args*/) {
+    const base::ListValue* args) {
+  AllowJavascript();
+  CHECK(!initial_session_list_.is_none());
+  const base::Value& callback_id = args->GetList()[0];
+  ResolveJavascriptCallback(callback_id, std::move(initial_session_list_));
+
+  // Clear the initial list so that it will be reset in AllowJavascript if the
+  // page is refreshed.
+  initial_session_list_ = base::Value(base::Value::Type::NONE);
+}
+
+base::Value ForeignSessionHandler::GetForeignSessions() {
   sync_sessions::OpenTabsUIDelegate* open_tabs =
       GetOpenTabsUIDelegate(web_ui());
   std::vector<const sync_sessions::SyncedSession*> sessions;
@@ -324,16 +346,15 @@ void ForeignSessionHandler::HandleGetForeignSessions(
         base::Value window_data =
             SessionWindowToValue(window_pair.second->wrapped_window);
         if (!window_data.is_none()) {
-          window_list.GetList().push_back(std::move(window_data));
+          window_list.Append(std::move(window_data));
         }
       }
 
       session_data.SetKey("windows", std::move(window_list));
-      session_list.GetList().push_back(std::move(session_data));
+      session_list.Append(std::move(session_data));
     }
   }
-  web_ui()->CallJavascriptFunctionUnsafe("setForeignSessions",
-                                         std::move(session_list));
+  return session_list;
 }
 
 void ForeignSessionHandler::HandleOpenForeignSession(

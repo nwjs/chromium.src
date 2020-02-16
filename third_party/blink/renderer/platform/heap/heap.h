@@ -99,6 +99,8 @@ using WeakTableWorklist = Worklist<WeakTableItem, 16 /* local entries */>;
 using BackingStoreCallbackWorklist =
     Worklist<BackingStoreCallbackItem, 16 /* local entries */>;
 using V8ReferencesWorklist = Worklist<V8Reference, 16 /* local entries */>;
+using NotSafeToConcurrentlyTraceWorklist =
+    Worklist<MarkingItem, 256 /* local entries */>;
 
 class PLATFORM_EXPORT HeapAllocHooks {
   STATIC_ONLY(HeapAllocHooks);
@@ -260,6 +262,10 @@ class PLATFORM_EXPORT ThreadHeap {
     return v8_references_worklist_.get();
   }
 
+  NotSafeToConcurrentlyTraceWorklist* GetNotSafeToConcurrentlyTraceWorklist()
+      const {
+    return not_safe_to_concurrently_trace_worklist_.get();
+  }
   // Register an ephemeron table for fixed-point iteration.
   void RegisterWeakTable(void* container_object,
                          EphemeronCallback);
@@ -302,12 +308,17 @@ class PLATFORM_EXPORT ThreadHeap {
   bool AdvanceMarking(MarkingVisitor*, base::TimeTicks deadline);
   void VerifyMarking();
 
+  // Returns true if concurrent markers will have work to steal
+  bool HasWorkForConcurrentMarking() const;
   // Returns true if marker is done
   bool AdvanceConcurrentMarking(ConcurrentMarkingVisitor*, base::TimeTicks);
 
   // Conservatively checks whether an address is a pointer in any of the
   // thread heaps.  If so marks the object pointed to as live.
   Address CheckAndMarkPointer(MarkingVisitor*, Address);
+
+  // Visits remembered sets.
+  void MarkRememberedSets(MarkingVisitor*);
 
   size_t ObjectPayloadSizeForTesting();
   void ResetAllocationPointForTesting();
@@ -340,6 +351,10 @@ class PLATFORM_EXPORT ThreadHeap {
   // free lists. This is called after taking a snapshot and before resuming
   // the executions of mutators.
   void MakeConsistentForMutator();
+
+  // Unmarks all objects in the entire heap. This is supposed to be called in
+  // the beginning of major GC.
+  void Unmark();
 
   void Compact();
 
@@ -435,6 +450,9 @@ class PLATFORM_EXPORT ThreadHeap {
   // Worklist for storing the V8 references until ThreadHeap can flush them
   // to V8.
   std::unique_ptr<V8ReferencesWorklist> v8_references_worklist_;
+
+  std::unique_ptr<NotSafeToConcurrentlyTraceWorklist>
+      not_safe_to_concurrently_trace_worklist_;
 
   // No duplicates allowed for ephemeron callbacks. Hence, we use a hashmap
   // with the key being the HashTable.

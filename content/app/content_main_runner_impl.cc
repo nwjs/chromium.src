@@ -399,6 +399,15 @@ void PreSandboxInit() {
 
 }  // namespace
 
+class ContentClientCreator {
+ public:
+  static void Create(ContentMainDelegate* delegate) {
+    ContentClient* client = delegate->CreateContentClient();
+    DCHECK(client);
+    SetContentClient(client);
+  }
+};
+
 class ContentClientInitializer {
  public:
   static void Set(const std::string& process_type,
@@ -481,11 +490,6 @@ int RunZygote(ContentMainDelegate* delegate) {
 
   InitializeFieldTrialAndFeatureList();
   delegate->PostFieldTrialInitialization();
-
-  service_manager::SandboxType sandbox_type =
-      service_manager::SandboxTypeFromCommandLine(command_line);
-  if (sandbox_type == service_manager::SANDBOX_TYPE_PROFILING)
-    sandbox::SetUseLocaltimeOverride(false);
 
   for (size_t i = 0; i < base::size(kMainFunctions); ++i) {
     if (process_type == kMainFunctions[i].name)
@@ -643,6 +647,8 @@ int ContentMainRunnerImpl::Initialize(const ContentMainParams& params) {
 #endif  // !OS_ANDROID
 
   int exit_code = 0;
+  if (!GetContentClient())
+    ContentClientCreator::Create(delegate_);
   if (delegate_->BasicStartupComplete(&exit_code))
     return exit_code;
   completed_basic_startup_ = true;
@@ -662,8 +668,7 @@ int ContentMainRunnerImpl::Initialize(const ContentMainParams& params) {
   }
 #endif
 
-  if (!GetContentClient())
-    SetContentClient(&empty_content_client_);
+  RegisterContentSchemes();
   ContentClientInitializer::Set(process_type, delegate_);
 
 #if !defined(OS_ANDROID)
@@ -724,7 +729,6 @@ int ContentMainRunnerImpl::Initialize(const ContentMainParams& params) {
 #endif
 
     RegisterPathProvider();
-    RegisterContentSchemes(delegate_->ShouldLockSchemeRegistry());
 
 #if defined(OS_ANDROID) && (ICU_UTIL_DATA_IMPL == ICU_UTIL_DATA_FILE)
     // On Android, we have two ICU data files. A main one with most languages
@@ -878,6 +882,7 @@ int ContentMainRunnerImpl::Run(bool start_service_manager_only) {
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)
 int ContentMainRunnerImpl::RunServiceManager(MainFunctionParams& main_params,
                                              bool start_service_manager_only) {
+  TRACE_EVENT0("startup", "ContentMainRunnerImpl::RunServiceManager");
   if (is_browser_main_loop_started_)
     return -1;
 

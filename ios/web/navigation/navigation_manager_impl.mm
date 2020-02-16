@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/metrics/histogram_macros.h"
+#include "ios/web/common/features.h"
 #import "ios/web/navigation/navigation_manager_delegate.h"
 #import "ios/web/navigation/wk_navigation_util.h"
 #import "ios/web/public/web_client.h"
@@ -144,20 +145,6 @@ void NavigationManagerImpl::RemoveTransientURLRewriters() {
   transient_url_rewriters_.clear();
 }
 
-std::unique_ptr<NavigationItemImpl> NavigationManagerImpl::CreateNavigationItem(
-    const GURL& url,
-    const Referrer& referrer,
-    ui::PageTransition transition,
-    NavigationInitiationType initiation_type) {
-  NavigationItem* last_committed_item = GetLastCommittedItem();
-  auto item = CreateNavigationItemWithRewriters(
-      url, referrer, transition, initiation_type,
-      last_committed_item ? last_committed_item->GetURL() : GURL::EmptyGURL(),
-      &transient_url_rewriters_);
-  RemoveTransientURLRewriters();
-  return item;
-}
-
 void NavigationManagerImpl::UpdatePendingItemUrl(const GURL& url) const {
   // If there is no pending item, navigation is probably happening within the
   // back forward history. Don't modify the item list.
@@ -232,20 +219,6 @@ void NavigationManagerImpl::GoToIndex(int index,
   delegate_->ClearTransientContent();
   delegate_->ClearDialogs();
 
-  // Notify delegate if the new navigation will use a different user agent.
-  UserAgentType to_item_user_agent_type =
-      GetItemAtIndex(index)->GetUserAgentType();
-  NavigationItem* pending_item = GetPendingItem();
-  NavigationItem* previous_item =
-      pending_item ? pending_item : GetLastCommittedItem();
-  UserAgentType previous_item_user_agent_type =
-      previous_item ? previous_item->GetUserAgentType() : UserAgentType::NONE;
-
-  if (to_item_user_agent_type != UserAgentType::NONE &&
-      to_item_user_agent_type != previous_item_user_agent_type) {
-    delegate_->WillChangeUserAgentType();
-  }
-
   FinishGoToIndex(index, initiation_type, has_user_gesture);
 }
 
@@ -253,11 +226,9 @@ void NavigationManagerImpl::GoToIndex(int index) {
   // Silently return if still on a restore URL.  This state should only last a
   // few moments, but may be triggered when a user mashes the back or forward
   // button quickly.
-  if (web::GetWebClient()->IsSlimNavigationManagerEnabled()) {
-    NavigationItemImpl* item = GetLastCommittedItemInCurrentOrRestoredSession();
-    if (item && wk_navigation_util::IsRestoreSessionUrl(item->GetURL())) {
-      return;
-    }
+  NavigationItemImpl* item = GetLastCommittedItemInCurrentOrRestoredSession();
+  if (item && wk_navigation_util::IsRestoreSessionUrl(item->GetURL())) {
+    return;
   }
   GoToIndex(index, NavigationInitiationType::BROWSER_INITIATED,
             /*has_user_gesture=*/true);
@@ -399,46 +370,34 @@ void NavigationManagerImpl::ReloadWithUserAgentType(
     UserAgentType user_agent_type) {
   DCHECK_NE(user_agent_type, UserAgentType::NONE);
 
-  // This removes the web view, which will be recreated at the end of this.
-  delegate_->WillChangeUserAgentType();
+  NavigationItem* item_to_reload = GetTransientItem();
+  if (!item_to_reload ||
+      ui::PageTransitionIsRedirect(item_to_reload->GetTransitionType()))
+    item_to_reload = GetVisibleItem();
+  if (!item_to_reload ||
+      ui::PageTransitionIsRedirect(item_to_reload->GetTransitionType())) {
+    NavigationItem* last_committed_before_redirect =
+        GetLastCommittedNonRedirectedItem(this);
+    if (last_committed_before_redirect) {
+      // When a tab is opened on a redirect, there is no last committed item
+      // before the redirect. In that case, take the last committed item.
+      item_to_reload = last_committed_before_redirect;
+    }
+  }
 
-  NavigationItem* last_non_redirect_item = GetTransientItem();
-  if (!last_non_redirect_item ||
-      ui::PageTransitionIsRedirect(last_non_redirect_item->GetTransitionType()))
-    last_non_redirect_item = GetVisibleItem();
-  if (!last_non_redirect_item ||
-      ui::PageTransitionIsRedirect(last_non_redirect_item->GetTransitionType()))
-    last_non_redirect_item = GetLastCommittedNonRedirectedItem(this);
-
-  if (!last_non_redirect_item)
+  if (!item_to_reload)
     return;
 
   // |reloadURL| will be empty if a page was open by DOM.
-  GURL reload_url(last_non_redirect_item->GetOriginalRequestURL());
+  GURL reload_url(item_to_reload->GetOriginalRequestURL());
   if (reload_url.is_empty()) {
-    reload_url = last_non_redirect_item->GetVirtualURL();
-  }
-
-  // Reload using a client-side redirect URL to create a new entry in
-  // WKBackForwardList for the new user agent type. This hack is not needed for
-  // LegacyNavigationManagerImpl which manages its own history entries.
-  if (web::GetWebClient()->IsSlimNavigationManagerEnabled()) {
-    GURL target_url;
-    // If current entry is a redirect URL, reload the original target URL. This
-    // can happen on a slow connection when user taps on Request Desktop Site
-    // before the previous redirect has finished (https://crbug.com/833958).
-    if (wk_navigation_util::IsRestoreSessionUrl(reload_url) &&
-        wk_navigation_util::ExtractTargetURL(reload_url, &target_url)) {
-      reload_url = target_url;
-    }
-    DCHECK(!wk_navigation_util::IsRestoreSessionUrl(reload_url));
-    reload_url = wk_navigation_util::CreateRedirectUrl(reload_url);
+    reload_url = item_to_reload->GetVirtualURL();
   }
 
   WebLoadParams params(reload_url);
-  if (last_non_redirect_item->GetVirtualURL() != reload_url)
-    params.virtual_url = last_non_redirect_item->GetVirtualURL();
-  params.referrer = last_non_redirect_item->GetReferrer();
+  if (item_to_reload->GetVirtualURL() != reload_url)
+    params.virtual_url = item_to_reload->GetVirtualURL();
+  params.referrer = item_to_reload->GetReferrer();
   params.transition_type = ui::PAGE_TRANSITION_RELOAD;
 
   switch (user_agent_type) {
@@ -497,7 +456,8 @@ NavigationManagerImpl::CreateNavigationItemWithRewriters(
   // Do not rewrite placeholder URL. Navigation code relies on this special URL
   // to implement native view and WebUI, and rewriter code should not be exposed
   // to this special type of about:blank URL.
-  if (!IsPlaceholderUrl(url)) {
+  if (base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage) ||
+      !IsPlaceholderUrl(url)) {
     bool url_was_rewritten = false;
     if (additional_rewriters && !additional_rewriters->empty()) {
       url_was_rewritten = web::BrowserURLRewriter::RewriteURLWithWriters(
@@ -554,6 +514,7 @@ void NavigationManagerImpl::FinishLoadURLWithParams(
 }
 
 bool NavigationManagerImpl::IsPlaceholderUrl(const GURL& url) const {
+  DCHECK(!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage));
   return false;  // Default implementation doesn't use placeholder URLs
 }
 

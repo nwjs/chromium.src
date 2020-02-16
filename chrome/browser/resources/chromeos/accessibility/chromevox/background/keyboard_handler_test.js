@@ -7,28 +7,21 @@ GEN_INCLUDE(['../testing/chromevox_next_e2e_test_base.js']);
 
 /**
  * Test fixture for ChromeVox KeyboardHandler.
- * @constructor
- * @extends {ChromeVoxE2ETest}
  */
-function ChromeVoxBackgroundKeyboardHandlerTest() {
-  ChromeVoxNextE2ETest.call(this);
-}
-
-ChromeVoxBackgroundKeyboardHandlerTest.prototype = {
-  __proto__: ChromeVoxNextE2ETest.prototype,
-
+ChromeVoxBackgroundKeyboardHandlerTest = class extends ChromeVoxNextE2ETest {
   /** @override */
-  setUp: function() {
+  setUp() {
     window.keyboardHandler = new BackgroundKeyboardHandler();
   }
 };
+
 
 TEST_F(
     'ChromeVoxBackgroundKeyboardHandlerTest', 'SearchGetsPassedThrough',
     function() {
       this.runWithLoadedTree('<p>test</p>', function() {
         // A Search keydown gets eaten.
-        var searchDown = {};
+        const searchDown = {};
         searchDown.preventDefault = this.newCallback();
         searchDown.stopPropagation = this.newCallback();
         searchDown.metaKey = true;
@@ -37,7 +30,7 @@ TEST_F(
 
         // A Search keydown does not get eaten when there's no range.
         ChromeVoxState.instance.setCurrentRange(null);
-        var searchDown2 = {};
+        const searchDown2 = {};
         searchDown2.metaKey = true;
         keyboardHandler.onKeyDown(searchDown2);
         assertEquals(1, keyboardHandler.eatenKeyDowns_.size);

@@ -29,6 +29,10 @@ const base::Feature kArcAdbSideloadingFeature{
 const base::Feature kAutoScreenBrightness{"AutoScreenBrightness",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Controls whether to enable assist personal information.
+const base::Feature kAssistPersonalInfo{"AssistPersonalInfo",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables or disables more aggressive filtering out of Bluetooth devices with
 // "appearances" that are less likely to be pairable or useful.
 const base::Feature kBluetoothAggressiveAppearanceFilter{
@@ -47,13 +51,21 @@ const char kBlueZLongTermKeyBlocklistParamName[] = "ltk_blocklist";
 const base::Feature kCameraSystemWebApp{"CameraSystemWebApp",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables or disables Crostini Backup.
-const base::Feature kCrostiniBackup{"CrostiniBackup",
-                                    base::FEATURE_ENABLED_BY_DEFAULT};
+// Enables or disables Crostini port forwarding.
+const base::Feature kCrostiniPortForwarding{"CrostiniPortForwarding",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables or disables Crostini Disk Resizing.
+const base::Feature kCrostiniDiskResizing{"CrostiniDiskResizing",
+                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Crostini using Buster container images.
 const base::Feature kCrostiniUseBusterImage{"CrostiniUseBusterImage",
                                             base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables or disables Crostini Username picking.
+const base::Feature kCrostiniUsername{"CrostiniUsername",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Crostini GPU support.
 const base::Feature kCrostiniGpuSupport{"CrostiniGpuSupport",
@@ -63,34 +75,30 @@ const base::Feature kCrostiniGpuSupport{"CrostiniGpuSupport",
 const base::Feature kCrostiniUsbAllowUnsupported{
     "CrostiniUsbAllowUnsupported", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables or disables the new WebUI Crostini installer.
-const base::Feature kCrostiniWebUIInstaller{"CrostiniWebUIInstaller",
-                                            base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables or disables the new WebUI Crostini upgrader.
 const base::Feature kCrostiniWebUIUpgrader{"CrostiniWebUIUpgrader",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Deprecates the CryptAuth v1 DeviceSync flow. Note: During the first phase
-// of the v2 DeviceSync rollout, v1 and v2 DeviceSync run in parallel. This flag
-// is needed to deprecate the v1 service during the second phase of the rollout.
-// kCryptAuthV2DeviceSync should be enabled before this flag is flipped.
-const base::Feature kCryptAuthV1DeviceSyncDeprecate{
-    "CryptAuthV1DeviceSyncDeprecate", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables using Cryptauth's GetDevicesActivityStatus API.
 const base::Feature kCryptAuthV2DeviceActivityStatus{
     "CryptAuthV2DeviceActivityStatus", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables the CryptAuth v2 DeviceSync flow. Regardless of this
-// flag, v1 DeviceSync will continue to operate until it is deprecated via the
-// feature flag kCryptAuthV1DeviceSyncDeprecate.
+// flag, v1 DeviceSync will continue to operate until it is disabled via the
+// feature flag kDisableCryptAuthV1DeviceSync.
 const base::Feature kCryptAuthV2DeviceSync{"CryptAuthV2DeviceSync",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables the CryptAuth v2 Enrollment flow.
 const base::Feature kCryptAuthV2Enrollment{"CryptAuthV2Enrollment",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Disables the CryptAuth v1 DeviceSync flow. Note: During the first phase
+// of the v2 DeviceSync rollout, v1 and v2 DeviceSync run in parallel. This flag
+// is needed to disable the v1 service during the second phase of the rollout.
+// kCryptAuthV2DeviceSync should be enabled before this flag is flipped.
+const base::Feature kDisableCryptAuthV1DeviceSync{
+    "DisableCryptAuthV1DeviceSync", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Disables "Office Editing for Docs, Sheets & Slides" component app so handlers
 // won't be registered, making it possible to install another version for
@@ -114,15 +122,11 @@ const base::Feature kDriveFsMirroring{"DriveFsMirroring",
 const base::Feature kEduCoexistence{"EduCoexistence",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// If enabled shows the visual signals feedback panel.
-const base::Feature kEnableFileManagerFeedbackPanel{
-    "EnableFeedbackPanel", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables Device End Of Lifetime warning notifications.
 const base::Feature kEolWarningNotifications{"EolWarningNotifications",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enable or disable pointer lock for exo windows.
+// Enable or disable pointer lock for Crostini windows.
 const base::Feature kExoPointerLock{"ExoPointerLock",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -165,11 +169,6 @@ const base::Feature kImeInputLogicHmm{"ImeInputLogicHmm",
 const base::Feature kImeInputLogicFst{"ImeInputLogicFst",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enable or disable Unified Input Logic for FST decoder for non-English in
-// the IME extension on Chrome OS.
-const base::Feature kImeInputLogicFstNonEnglish{
-    "ImeInputLogicFstNonEnglish", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enable or disable Unified Input Logic for Mozc decoder in the IME extension
 // on Chrome OS.
 const base::Feature kImeInputLogicMozc{"ImeInputLogicMozc",
@@ -191,17 +190,25 @@ const base::Feature kInstantTethering{"InstantTethering",
 // ChromeOS Media App. https://crbug.com/996088.
 const base::Feature kMediaApp{"MediaApp", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable or disable native typing for rule-based input methods.
+const base::Feature kNativeRuleBasedTyping{"NativeRuleBasedTyping",
+                                           base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Controls whether to enable the Parental Controls section of settings.
 const base::Feature kParentalControlsSettings{
     "ChromeOSParentalControlsSettings", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Controls whether to enable quick answers.
+const base::Feature kQuickAnswers{"QuickAnswers",
+                                  base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes on Chrome OS.
 const base::Feature kReleaseNotes{"ReleaseNotes",
                                   base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes notifications on Chrome OS.
-const base::Feature kReleaseNotesNotification{"ReleaseNotesNotification",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kReleaseNotesNotification{
+    "ReleaseNotesNotification", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables long kill timeout for session manager daemon. When
 // enabled, session manager daemon waits for a longer time (e.g. 12s) for chrome
@@ -216,7 +223,7 @@ const base::Feature kShelfScrollable{"ShelfScrollable",
 
 // Enables or disables the shelf hotseat.
 const base::Feature kShelfHotseat{"ShelfHotseat",
-                                  base::FEATURE_DISABLED_BY_DEFAULT};
+                                  base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables or disables a toggle to enable Bluetooth debug logs.
 const base::Feature kShowBluetoothDebugLogToggle{
@@ -236,11 +243,6 @@ const base::Feature kShowPlayInDemoMode{"ShowPlayInDemoMode",
 const base::Feature kSmartDimModelV3{"SmartDimModelV3",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Splits OS settings (display, mouse, keyboard, etc.) out from browser settings
-// into a separate window.
-const base::Feature kSplitSettings{"SplitSettings",
-                                   base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enables separate sync controls for OS settings (display, keyboard, etc.).
 // For example, the user could choose to sync OS settings but not browser
 // settings.
@@ -250,11 +252,6 @@ const base::Feature kSplitSettingsSync{"SplitSettingsSync",
 // Enables the updated cellular activation UI; see go/cros-cellular-design.
 const base::Feature kUpdatedCellularActivationUi{
     "UpdatedCellularActivationUi", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Use the messages.google.com domain as part of the "Messages" feature under
-// "Connected Devices" settings.
-const base::Feature kUseMessagesGoogleComDomain{
-    "UseMessagesGoogleComDomain", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Use the staging URL as part of the "Messages" feature under "Connected
 // Devices" settings.
@@ -308,22 +305,22 @@ bool IsParentalControlsSettingsEnabled() {
   return base::FeatureList::IsEnabled(kParentalControlsSettings);
 }
 
-bool IsSplitSettingsEnabled() {
-  return base::FeatureList::IsEnabled(kSplitSettings);
+bool IsQuickAnswersEnabled() {
+  return base::FeatureList::IsEnabled(kQuickAnswers);
 }
 
 bool IsSplitSettingsSyncEnabled() {
   return base::FeatureList::IsEnabled(kSplitSettingsSync);
 }
 
-bool ShouldDeprecateV1DeviceSync() {
-  return ShouldUseV2DeviceSync() &&
-         base::FeatureList::IsEnabled(
-             chromeos::features::kCryptAuthV1DeviceSyncDeprecate);
-}
-
 bool ShouldShowPlayStoreInDemoMode() {
   return base::FeatureList::IsEnabled(kShowPlayInDemoMode);
+}
+
+bool ShouldUseV1DeviceSync() {
+  return !ShouldUseV2DeviceSync() ||
+         !base::FeatureList::IsEnabled(
+             chromeos::features::kDisableCryptAuthV1DeviceSync);
 }
 
 bool ShouldUseV2DeviceSync() {

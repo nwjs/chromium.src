@@ -34,6 +34,7 @@
 #include "base/optional.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
+#include "net/cookies/site_for_cookies.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/cors.mojom-blink-forward.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink-forward.h"
@@ -52,7 +53,6 @@
 namespace blink {
 
 class EncodedFormData;
-struct Referrer;
 
 // A ResourceRequest is a "request" object for ResourceLoader. Conceptually
 // it is https://fetch.spec.whatwg.org/#concept-request, but it contains
@@ -70,18 +70,21 @@ class PLATFORM_EXPORT ResourceRequest final {
   explicit ResourceRequest(const String& url_string);
   explicit ResourceRequest(const KURL&);
 
-  // TODO(toyoshim): Use std::unique_ptr as much as possible, and hopefully
-  // make ResourceRequest DISALLOW_COPY_AND_ASSIGN. See crbug.com/787704.
-  ResourceRequest(const ResourceRequest&);
-  ResourceRequest& operator=(const ResourceRequest&);
+  ResourceRequest(const ResourceRequest&) = delete;
+  ResourceRequest(ResourceRequest&&);
+  ResourceRequest& operator=(ResourceRequest&&);
 
   ~ResourceRequest();
+
+  // TODO(yoichio): Use move semantics as much as possible.
+  // See crbug.com/787704.
+  void CopyFrom(const ResourceRequest&);
 
   // Constructs a new ResourceRequest for a redirect from this instance.
   std::unique_ptr<ResourceRequest> CreateRedirectRequest(
       const KURL& new_url,
       const AtomicString& new_method,
-      const KURL& new_site_for_cookies,
+      const net::SiteForCookies& new_site_for_cookies,
       const String& new_referrer,
       network::mojom::ReferrerPolicy new_referrer_policy,
       bool skip_service_worker) const;
@@ -107,8 +110,12 @@ class PLATFORM_EXPORT ResourceRequest final {
   base::TimeDelta TimeoutInterval() const;
   void SetTimeoutInterval(base::TimeDelta);
 
-  const KURL& SiteForCookies() const;
-  void SetSiteForCookies(const KURL&);
+  const net::SiteForCookies& SiteForCookies() const;
+  void SetSiteForCookies(const net::SiteForCookies&);
+
+  // Returns true if SiteForCookies() was set either via SetSiteForCookies or
+  // CreateRedirectRequest.
+  bool SiteForCookiesSet() const { return site_for_cookies_set_; }
 
   const SecurityOrigin* TopFrameOrigin() const;
   void SetTopFrameOrigin(scoped_refptr<const SecurityOrigin>);
@@ -150,16 +157,6 @@ class PLATFORM_EXPORT ResourceRequest final {
   void SetHTTPContentType(const AtomicString& http_content_type) {
     SetHttpHeaderField(http_names::kContentType, http_content_type);
   }
-
-  // TODO(domfarolino): Remove this once we stop storing the generated referrer
-  // as a header, and instead use a separate member. See
-  // https://crbug.com/850813.
-  const AtomicString& HttpReferrer() const {
-    return HttpHeaderField(http_names::kReferer);
-  }
-  void SetHttpReferrer(const Referrer&);
-  bool DidSetHttpReferrer() const { return did_set_http_referrer_; }
-  void ClearHTTPReferrer();
 
   void SetReferrerPolicy(network::mojom::ReferrerPolicy referrer_policy) {
     referrer_policy_ = referrer_policy;
@@ -279,6 +276,13 @@ class PLATFORM_EXPORT ResourceRequest final {
   }
   void SetRequestContext(mojom::RequestContextType context) {
     request_context_ = context;
+  }
+
+  network::mojom::RequestDestination GetRequestDestination() const {
+    return destination_;
+  }
+  void SetRequestDestination(network::mojom::RequestDestination destination) {
+    destination_ = destination;
   }
 
   network::mojom::RequestMode GetMode() const { return mode_; }
@@ -456,6 +460,8 @@ class PLATFORM_EXPORT ResourceRequest final {
   using SharableExtraData =
       base::RefCountedData<std::unique_ptr<WebURLRequest::ExtraData>>;
 
+  ResourceRequest& operator=(const ResourceRequest&);
+
   const CacheControlHeader& GetCacheControlHeader() const;
 
   bool NeedsHTTPOrigin() const;
@@ -467,7 +473,7 @@ class PLATFORM_EXPORT ResourceRequest final {
   // base::TimeDelta::Max() represents the default timeout on platforms that
   // have one.
   base::TimeDelta timeout_interval_;
-  KURL site_for_cookies_;
+  net::SiteForCookies site_for_cookies_;
   scoped_refptr<const SecurityOrigin> top_frame_origin_;
 
   scoped_refptr<const SecurityOrigin> requestor_origin_;
@@ -488,12 +494,14 @@ class PLATFORM_EXPORT ResourceRequest final {
   mojom::FetchCacheMode cache_mode_;
   bool skip_service_worker_ : 1;
   bool download_to_cache_only_ : 1;
+  bool site_for_cookies_set_ : 1;
   ResourceLoadPriority priority_;
   int intra_priority_value_;
   int requestor_id_;
   WebURLRequest::PreviewsState previews_state_;
   scoped_refptr<SharableExtraData> sharable_extra_data_;
   mojom::RequestContextType request_context_;
+  network::mojom::RequestDestination destination_;
   network::mojom::RequestMode mode_;
   mojom::FetchImportanceMode fetch_importance_mode_;
   network::mojom::CredentialsMode credentials_mode_;
@@ -501,7 +509,6 @@ class PLATFORM_EXPORT ResourceRequest final {
   String fetch_integrity_;
   String referrer_string_;
   network::mojom::ReferrerPolicy referrer_policy_;
-  bool did_set_http_referrer_;
   bool is_external_request_;
   network::mojom::CorsPreflightPolicy cors_preflight_policy_;
   RedirectStatus redirect_status_;

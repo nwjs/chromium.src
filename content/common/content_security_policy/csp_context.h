@@ -10,7 +10,6 @@
 #include "base/optional.h"
 #include "content/common/content_export.h"
 #include "content/common/content_security_policy/content_security_policy.h"
-#include "content/common/content_security_policy_header.h"
 #include "content/common/navigation_params.h"
 #include "services/network/public/mojom/content_security_policy.mojom-forward.h"
 #include "url/gurl.h"
@@ -47,7 +46,7 @@ class CONTENT_EXPORT CSPContext {
   // * triggering the "SecurityPolicyViolation" javascript event.
   // * sending a JSON report to any uri defined with the "report-uri" directive.
   // Returns true when the request can proceed, false otherwise.
-  bool IsAllowedByCsp(CSPDirective::Name directive_name,
+  bool IsAllowedByCsp(network::mojom::CSPDirectiveName directive_name,
                       const GURL& url,
                       bool has_followed_redirect,
                       bool is_response_check,
@@ -64,7 +63,7 @@ class CONTENT_EXPORT CSPContext {
   void ModifyRequestUrlForCsp(GURL* url);
 
   void SetSelf(const url::Origin origin);
-  void SetSelf(const CSPSource& self_source);
+  void SetSelf(network::mojom::CSPSourcePtr self_source);
 
   // When a CSPSourceList contains 'self', the url is allowed when it match the
   // CSPSource returned by this function.
@@ -72,14 +71,15 @@ class CONTENT_EXPORT CSPContext {
   // unique and no urls will match 'self' whatever they are.
   // Note: When there is a 'self' source, its scheme is guaranteed to be
   // non-empty.
-  const base::Optional<CSPSource>& self_source() { return self_source_; }
+  const network::mojom::CSPSourcePtr& self_source() { return self_source_; }
 
   virtual void ReportContentSecurityPolicyViolation(
       const CSPViolationParams& violation_params);
 
   void ResetContentSecurityPolicies() { policies_.clear(); }
-  void AddContentSecurityPolicy(const ContentSecurityPolicy& policy) {
-    policies_.push_back(policy);
+  void AddContentSecurityPolicy(
+      network::mojom::ContentSecurityPolicyPtr policy) {
+    policies_.push_back(std::move(policy));
   }
 
   virtual bool SchemeShouldBypassCSP(const base::StringPiece& scheme);
@@ -94,13 +94,13 @@ class CONTENT_EXPORT CSPContext {
   // See https://crbug.com/721329
   virtual void SanitizeDataForUseInCspViolation(
       bool has_followed_redirect,
-      CSPDirective::Name directive,
+      network::mojom::CSPDirectiveName directive,
       GURL* blocked_url,
       SourceLocation* source_location) const;
 
  private:
-  base::Optional<CSPSource> self_source_;
-  std::vector<ContentSecurityPolicy> policies_;
+  network::mojom::CSPSourcePtr self_source_;  // Nullable.
+  std::vector<network::mojom::ContentSecurityPolicyPtr> policies_;
 
   DISALLOW_COPY_AND_ASSIGN(CSPContext);
 };

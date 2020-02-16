@@ -44,10 +44,10 @@ using quic::QuicErrorCode;
 using quic::QuicServerId;
 using quic::QuicSession;
 using quic::QuicSpdyClientSessionBase;
-using quic::QuicStringPiece;
 using quic::QuicTagVector;
 using quic::QuicTime;
 using quic::TransportParameters;
+using quiche::QuicheStringPiece;
 using std::string;
 
 namespace net {
@@ -76,6 +76,8 @@ MockCryptoClientStream::MockCryptoClientStream(
       proof_verify_details_(proof_verify_details),
       config_(config) {
   crypto_framer_.set_visitor(this);
+  // Simulate a negotiated cipher_suite with a fake value.
+  crypto_negotiated_params_->cipher_suite = 1;
 }
 
 MockCryptoClientStream::~MockCryptoClientStream() {}
@@ -193,7 +195,8 @@ bool MockCryptoClientStream::CryptoConnect() {
       } else {
         session()->connection()->SetDefaultEncryptionLevel(
             ENCRYPTION_FORWARD_SECURE);
-        session()->OnCryptoHandshakeEvent(QuicSession::HANDSHAKE_CONFIRMED);
+        session()->OnCryptoHandshakeEvent(
+            QuicSession::EVENT_HANDSHAKE_CONFIRMED);
         session()->connection()->OnHandshakeComplete();
       }
       break;
@@ -220,7 +223,7 @@ bool MockCryptoClientStream::encryption_established() const {
   return encryption_established_;
 }
 
-bool MockCryptoClientStream::handshake_confirmed() const {
+bool MockCryptoClientStream::one_rtt_keys_available() const {
   return handshake_confirmed_;
 }
 
@@ -233,10 +236,15 @@ CryptoMessageParser* MockCryptoClientStream::crypto_message_parser() {
   return &crypto_framer_;
 }
 
+// Tests using MockCryptoClientStream() do not care about the handshaker's
+// state.  Intercept and ignore OnOneRttPacketAcknowledged() calls to prevent
+// DCHECKs within the handshaker from failing.
+void MockCryptoClientStream::OnOneRttPacketAcknowledged() {}
+
 void MockCryptoClientStream::SendOnCryptoHandshakeEvent(
     QuicSession::CryptoHandshakeEvent event) {
   encryption_established_ = true;
-  if (event == QuicSession::HANDSHAKE_CONFIRMED) {
+  if (event == QuicSession::EVENT_HANDSHAKE_CONFIRMED) {
     handshake_confirmed_ = true;
     SetConfigNegotiated();
     if (use_mock_crypter_) {
@@ -270,6 +278,7 @@ void MockCryptoClientStream::SendOnCryptoHandshakeEvent(
     if (session()->use_handshake_delegate()) {
       session()->SetDefaultEncryptionLevel(ENCRYPTION_FORWARD_SECURE);
       session()->DiscardOldEncryptionKey(ENCRYPTION_INITIAL);
+      session()->NeuterHandshakeData();
     } else {
       session()->connection()->SetDefaultEncryptionLevel(
           ENCRYPTION_FORWARD_SECURE);
@@ -300,10 +309,8 @@ void MockCryptoClientStream::SetConfigNegotiated() {
       QuicTime::Delta::FromSeconds(2 * kMaximumIdleTimeoutSecs),
       QuicTime::Delta::FromSeconds(kMaximumIdleTimeoutSecs));
   config.SetBytesForConnectionIdToSend(PACKET_8BYTE_CONNECTION_ID);
-  config.SetMaxIncomingBidirectionalStreamsToSend(
-      kDefaultMaxStreamsPerConnection / 2);
-  config.SetMaxIncomingUnidirectionalStreamsToSend(
-      kDefaultMaxStreamsPerConnection / 2);
+  config.SetMaxBidirectionalStreamsToSend(kDefaultMaxStreamsPerConnection / 2);
+  config.SetMaxUnidirectionalStreamsToSend(kDefaultMaxStreamsPerConnection / 2);
   config.SetInitialMaxStreamDataBytesIncomingBidirectionalToSend(
       quic::kMinimumFlowControlSendWindow);
   config.SetInitialMaxStreamDataBytesOutgoingBidirectionalToSend(

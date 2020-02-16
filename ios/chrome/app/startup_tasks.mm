@@ -21,6 +21,7 @@
 #include "ios/chrome/browser/reading_list/reading_list_download_service_factory.h"
 #import "ios/chrome/browser/upgrade/upgrade_center.h"
 #include "ios/chrome/grit/ios_strings.h"
+#include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -39,7 +40,7 @@ NSString* const kStartProfileStartupTaskRunners =
 // Performs browser state initialization tasks that don't need to happen
 // synchronously at startup.
 + (void)performDeferredInitializationForBrowserState:
-    (ios::ChromeBrowserState*)browserState;
+    (ChromeBrowserState*)browserState;
 // Called when UIApplicationWillResignActiveNotification is received.
 - (void)applicationWillResignActiveNotification:(NSNotification*)notification;
 
@@ -50,7 +51,7 @@ NSString* const kStartProfileStartupTaskRunners =
 #pragma mark - Public methods.
 
 + (void)scheduleDeferredBrowserStateInitialization:
-    (ios::ChromeBrowserState*)browserState {
+    (ChromeBrowserState*)browserState {
   DCHECK(browserState);
   // Schedule the start of the profile deferred task runners.
   [[DeferredInitializationRunner sharedInstance]
@@ -59,6 +60,9 @@ NSString* const kStartProfileStartupTaskRunners =
                     [self performDeferredInitializationForBrowserState:
                               browserState];
                   }];
+
+  // Allow the embedder to schedule tasks.
+  ios::GetChromeBrowserProvider()->ScheduleDeferredStartupTasks(browserState);
 }
 
 - (void)initializeOmaha {
@@ -96,7 +100,7 @@ NSString* const kStartProfileStartupTaskRunners =
 #pragma mark - Private methods.
 
 + (void)performDeferredInitializationForBrowserState:
-    (ios::ChromeBrowserState*)browserState {
+    (ChromeBrowserState*)browserState {
   ios::StartupTaskRunnerServiceFactory::GetForBrowserState(browserState)
       ->StartDeferredTaskRunners();
   ReadingListDownloadServiceFactory::GetForBrowserState(browserState)

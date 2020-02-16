@@ -12,7 +12,6 @@
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/mac/call_with_eh_frame.h"
-#include "base/mac/sdk_forward_declarations.h"
 #include "base/observer_list.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
@@ -107,7 +106,7 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 
 @interface BrowserCrApplication ()<NativeEventProcessor> {
   base::ObserverList<content::NativeEventProcessorObserver>::Unchecked
-      observers_;
+      _observers;
 }
 @end
 
@@ -303,11 +302,11 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 }
 
 - (BOOL)isHandlingSendEvent {
-  return handlingSendEvent_;
+  return _handlingSendEvent;
 }
 
 - (void)setHandlingSendEvent:(BOOL)handlingSendEvent {
-  handlingSendEvent_ = handlingSendEvent;
+  _handlingSendEvent = handlingSendEvent;
 }
 
 - (void)sendEvent:(NSEvent*)event {
@@ -335,7 +334,7 @@ std::string DescriptionForNSEvent(NSEvent* event) {
       default: {
         base::mac::ScopedSendingEvent sendingEventScoper;
         content::ScopedNotifyNativeEventProcessorObserver
-            scopedObserverNotifier(&observers_, event);
+            scopedObserverNotifier(&_observers, event);
         [super sendEvent:event];
       }
     }
@@ -363,12 +362,12 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 
 - (void)addNativeEventProcessorObserver:
     (content::NativeEventProcessorObserver*)observer {
-  observers_.AddObserver(observer);
+  _observers.AddObserver(observer);
 }
 
 - (void)removeNativeEventProcessorObserver:
     (content::NativeEventProcessorObserver*)observer {
-  observers_.RemoveObserver(observer);
+  _observers.RemoveObserver(observer);
 }
 
 @end

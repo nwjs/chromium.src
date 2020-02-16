@@ -70,6 +70,12 @@ class DesktopCommonSystemHealth(_CommonSystemHealthBenchmark):
   def Name(cls):
     return 'system_health.common_desktop'
 
+  def CreateCoreTimelineBasedMeasurementOptions(self):
+    options = super(DesktopCommonSystemHealth,
+                    self).CreateCoreTimelineBasedMeasurementOptions()
+    options.config.chrome_trace_config.SetTraceBufferSizeInKb(300 * 1024)
+    return options
+
 
 @benchmark.Info(emails=['charliea@chromium.org', 'sullivan@chromium.org',
                         'tdresser@chromium.org',
@@ -117,7 +123,8 @@ class _MemorySystemHealthBenchmark(perf_benchmark.PerfBenchmark):
                                           take_memory_measurement=True)
 
 
-@benchmark.Info(emails=['perezju@chromium.org'],
+@benchmark.Info(emails=['pasko@chromium.org', 'crouleau@chromium.org',
+                        'chrome-android-perf-status@chromium.org'],
                 documentation_url='https://bit.ly/system-health-benchmarks')
 class DesktopMemorySystemHealth(_MemorySystemHealthBenchmark):
   """Desktop Chrome Memory System Health Benchmark."""
@@ -129,7 +136,8 @@ class DesktopMemorySystemHealth(_MemorySystemHealthBenchmark):
     return 'system_health.memory_desktop'
 
 
-@benchmark.Info(emails=['perezju@chromium.org'],
+@benchmark.Info(emails=['pasko@chromium.org', 'crouleau@chromium.org',
+                        'chrome-android-perf-status@chromium.org'],
                 documentation_url='https://bit.ly/system-health-benchmarks')
 class MobileMemorySystemHealth(_MemorySystemHealthBenchmark):
   """Mobile Chrome Memory System Health Benchmark."""
@@ -166,12 +174,13 @@ class WebviewStartupSystemHealthBenchmark(perf_benchmark.PerfBenchmark):
     return page_sets.SystemHealthBlankStorySet()
 
   def CreateCoreTimelineBasedMeasurementOptions(self):
-    cat_filter = chrome_trace_category_filter.ChromeTraceCategoryFilter(
-        filter_string='startup')
-    options = timeline_based_measurement.Options(cat_filter)
+    options = timeline_based_measurement.Options()
     options.SetTimelineBasedMetrics(['webviewStartupMetric'])
     options.config.enable_atrace_trace = True
-    options.config.enable_chrome_trace = True
+    # TODO(crbug.com/1028882): Recording a Chrome trace at the same time as
+    # atrace causes events to stack incorrectly. Fix this by recording a
+    # system+Chrome trace via system perfetto on the device instead.
+    options.config.enable_chrome_trace = False
     options.config.atrace_config.app_name = 'org.chromium.webview_shell'
     return options
 

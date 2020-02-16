@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "ash/public/cpp/ambient/ambient_mode_state.h"
 #include "ash/public/cpp/session/session_activation_observer.h"
 #include "ash/public/mojom/assistant_controller.mojom.h"
 #include "base/callback.h"
@@ -64,7 +65,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
       public ash::SessionActivationObserver,
       public ash::AssistantStateObserver,
       public AssistantManagerService::CommunicationErrorObserver,
-      public AssistantManagerService::StateObserver {
+      public AssistantManagerService::StateObserver,
+      public ash::AmbientModeStateObserver {
  public:
   Service(mojo::PendingReceiver<mojom::AssistantService> receiver,
           std::unique_ptr<network::PendingSharedURLLoaderFactory>
@@ -75,11 +77,25 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   // Allows tests to override the AssistantSettingsManager bound by the service.
   static void OverrideSettingsManagerForTesting(
       AssistantSettingsManager* manager);
+  // Allows tests to override the S3 server URI used by the service.
+  // The caller must ensure the memory passed in remains valid.
+  // This override can be removed by passing in a nullptr.
+  // Note: This would look nicer if it was a class method and not static,
+  // but unfortunately this must be called before |Service| tries to create the
+  // |AssistantManagerService|, which happens really soon after the service
+  // itself is created, so we do not have time in our tests to grab a handle
+  // to |Service| and set this before it is too late.
+  static void OverrideS3ServerUriForTesting(const char* uri);
 
   void SetIdentityAccessorForTesting(
       mojo::PendingRemote<identity::mojom::IdentityAccessor> identity_accessor);
 
   void SetTimerForTesting(std::unique_ptr<base::OneShotTimer> timer);
+
+  void SetAssistantManagerServiceForTesting(
+      std::unique_ptr<AssistantManagerService> assistant_manager_service);
+
+  AssistantStateProxy* GetAssistantStateProxyForTesting();
 
  private:
   friend class AssistantServiceTest;
@@ -88,8 +104,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
 
   // mojom::AssistantService overrides
   void Init(mojo::PendingRemote<mojom::Client> client,
-            mojo::PendingRemote<mojom::DeviceActions> device_actions,
-            bool is_test) override;
+            mojo::PendingRemote<mojom::DeviceActions> device_actions) override;
   void BindAssistant(mojo::PendingReceiver<mojom::Assistant> receiver) override;
   void BindSettingsManager(
       mojo::PendingReceiver<mojom::AssistantSettingsManager> receiver) override;
@@ -118,13 +133,16 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   // AssistantManagerService::StateObserver overrides:
   void OnStateChanged(AssistantManagerService::State new_state) override;
 
+  // ash::AmbientModeStateObserver overrides:
+  void OnAmbientModeEnabled(bool enabled) override;
+
   void UpdateAssistantManagerState();
 
   identity::mojom::IdentityAccessor* GetIdentityAccessor();
 
   void RequestAccessToken();
 
-  void GetPrimaryAccountInfoCallback(
+  void GetUnconsentedPrimaryAccountInfoCallback(
       const base::Optional<CoreAccountId>& account_id,
       const base::Optional<std::string>& gaia,
       const base::Optional<std::string>& email,
@@ -172,17 +190,18 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
                  chromeos::PowerManagerClient::Observer>
       power_manager_observer_{this};
 
-  // Whether running inside a test environment.
-  bool is_test_ = false;
   // Whether the current user session is active.
   bool session_active_ = false;
   // Whether the lock screen is on.
   bool locked_ = false;
   // Whether the power source is connected.
   bool power_source_connected_ = false;
-  // In the signed-out mode, we are going to run Assistant service without
-  // using user's signed in account information.
-  bool is_signed_out_mode_ = false;
+
+  // The value passed into |SetAssistantManagerServiceForTesting|.
+  // Will be moved into |assistant_manager_service_| when the service is
+  // supposed to be created.
+  std::unique_ptr<AssistantManagerService>
+      assistant_manager_service_for_testing_ = nullptr;
 
   base::Optional<std::string> access_token_;
 

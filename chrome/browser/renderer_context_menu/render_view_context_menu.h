@@ -37,6 +37,7 @@ class AccessibilityLabelsMenuObserver;
 class ClickToCallContextMenuObserver;
 class PrintPreviewContextMenuObserver;
 class Profile;
+class QuickAnswersMenuObserver;
 class SharedClipboardContextMenuObserver;
 class SpellingMenuObserver;
 class SpellingOptionsSubMenuObserver;
@@ -57,7 +58,9 @@ class Point;
 
 namespace blink {
 struct PluginAction;
-struct MediaPlayerAction;
+namespace mojom {
+class MediaPlayerAction;
+}
 }
 
 class RenderViewContextMenu : public RenderViewContextMenuBase {
@@ -159,6 +162,7 @@ class RenderViewContextMenu : public RenderViewContextMenuBase {
   void AppendOpenWithLinkItems();
   void AppendSmartSelectionActionItems();
   void AppendOpenInBookmarkAppLinkItems();
+  void AppendQuickAnswersItems();
   void AppendImageItems();
   void AppendAudioItems();
   void AppendCanvasItems();
@@ -235,7 +239,7 @@ class RenderViewContextMenu : public RenderViewContextMenuBase {
   void ExecPictureInPicture();
 
   void MediaPlayerActionAt(const gfx::Point& location,
-                           const blink::MediaPlayerAction& action);
+                           const blink::mojom::MediaPlayerAction& action);
   void PluginActionAt(const gfx::Point& location,
                       const blink::PluginAction& action);
 
@@ -275,6 +279,7 @@ class RenderViewContextMenu : public RenderViewContextMenuBase {
   // An observer that handles smart text selection action items.
   std::unique_ptr<RenderViewContextMenuObserver>
       start_smart_selection_action_menu_observer_;
+  std::unique_ptr<QuickAnswersMenuObserver> quick_answers_menu_observer_;
 #endif
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)

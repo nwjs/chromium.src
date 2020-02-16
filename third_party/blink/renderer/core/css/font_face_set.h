@@ -39,9 +39,7 @@ class CORE_EXPORT FontFaceSet : public EventTargetWithInlineData,
  public:
   FontFaceSet(ExecutionContext& context)
       : ContextClient(&context),
-        ready_(MakeGarbageCollected<ReadyProperty>(GetExecutionContext(),
-                                                   this,
-                                                   ReadyProperty::kReady)) {}
+        ready_(MakeGarbageCollected<ReadyProperty>(GetExecutionContext())) {}
   ~FontFaceSet() override = default;
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(loading, kLoading)
@@ -94,7 +92,6 @@ class CORE_EXPORT FontFaceSet : public EventTargetWithInlineData,
   void FireDoneEvent();
 
   using ReadyProperty = ScriptPromiseProperty<Member<FontFaceSet>,
-                                              Member<FontFaceSet>,
                                               Member<DOMException>>;
 
   bool is_loading_ = false;
@@ -131,11 +128,6 @@ class CORE_EXPORT FontFaceSet : public EventTargetWithInlineData,
     USING_GARBAGE_COLLECTED_MIXIN(LoadFontPromiseResolver);
 
    public:
-    static LoadFontPromiseResolver* Create(FontFaceArray faces,
-                                           ScriptState* script_state) {
-      return MakeGarbageCollected<LoadFontPromiseResolver>(faces, script_state);
-    }
-
     LoadFontPromiseResolver(FontFaceArray faces, ScriptState* script_state)
         : num_loading_(faces.size()),
           error_occured_(false),

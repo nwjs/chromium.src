@@ -27,16 +27,15 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
-import org.chromium.base.ObservableSupplier;
-import org.chromium.base.ObservableSupplierImpl;
-import org.chromium.base.Supplier;
+import org.chromium.base.MathUtils;
 import org.chromium.base.metrics.CachedMetrics.ActionEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.TabLoadStatus;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.ThemeColorProvider.ThemeColorObserver;
@@ -50,28 +49,26 @@ import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior.OverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeState;
 import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
-import org.chromium.chrome.browser.download.DownloadUtils;
-import org.chromium.chrome.browser.feature_engagement.ScreenshotTabObserver;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.findinpage.FindToolbarManager;
 import org.chromium.chrome.browser.findinpage.FindToolbarObserver;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager.FullscreenListener;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.metrics.OmniboxStartupMetrics;
-import org.chromium.chrome.browser.native_page.NativePage;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.ntp.FakeboxDelegate;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPage;
-import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
+import org.chromium.chrome.browser.previews.Previews;
 import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
 import org.chromium.chrome.browser.previews.PreviewsUma;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -82,6 +79,7 @@ import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabThemeColorHelper;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
@@ -89,7 +87,6 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupPopupUi;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementModuleProvider;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
@@ -104,8 +101,6 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
 import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ViewShiftingActionBarDelegate;
-import org.chromium.chrome.browser.translate.TranslateBridge;
-import org.chromium.chrome.browser.translate.TranslateUtils;
 import org.chromium.chrome.browser.ui.ImmersiveModeManager;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
@@ -113,16 +108,14 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuObserver;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.ui.appmenu.MenuButtonDelegate;
-import org.chromium.chrome.browser.ui.styles.ChromeColors;
-import org.chromium.chrome.browser.ui.widget.highlight.ViewHighlighter;
-import org.chromium.chrome.browser.ui.widget.textbubble.TextBubble;
-import org.chromium.chrome.browser.util.MathUtils;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.browser.widget.ScrimView.ScrimObserver;
 import org.chromium.chrome.browser.widget.ScrimView.ScrimParams;
+import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.widget.textbubble.TextBubble;
 import org.chromium.components.feature_engagement.EventConstants;
-import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -137,7 +130,6 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.util.TokenHolder;
 import org.chromium.ui.widget.Toast;
-import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.List;
 
@@ -250,6 +242,9 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     private AppMenuHandler mAppMenuHandler;
 
     private int mCurrentOrientation;
+
+    @OverviewModeState
+    private int mOverviewModeState = OverviewModeState.NOT_SHOWN;
 
     /**
      * Runnable for the home and search accelerator button when Start Surface home page is enabled.
@@ -464,13 +459,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
             @Override
             public void onPageLoadFinished(Tab tab, String url) {
-                if (tab.isShowingErrorPage()) {
-                    handleIPHForErrorPageShown(tab);
-                    return;
-                }
-
                 // TODO(crbug.com/896476): Remove this.
-                if (((TabImpl) tab).isPreview()) {
+                if (Previews.isPreview(tab)) {
                     // Some previews (like Client LoFi) are not fully decided until the page
                     // finishes loading. If this is a preview, update the security icon which will
                     // also update the verbose status view to make sure the "Lite" badge is
@@ -480,8 +470,6 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                             PreviewsAndroidBridge.getInstance().getPreviewsType(
                                     tab.getWebContents()));
                 }
-
-                handleIPHForSuccessfulPageLoad(tab);
             }
 
             @Override
@@ -604,7 +592,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                     mToolbar.onNavigatedToDifferentPage();
                 }
 
-                if (navigation.hasCommitted() && ((TabImpl) tab).isPreview()) {
+                if (navigation.hasCommitted() && Previews.isPreview(tab)) {
                     // Some previews are not fully decided until the page commits. If this
                     // is a preview, update the security icon which will also update the verbose
                     // status view to make sure the "Lite" badge is displayed.
@@ -635,32 +623,19 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                 }
             }
 
-            private void handleIPHForSuccessfulPageLoad(final Tab tab) {
-                if (mTextBubble != null) {
-                    mTextBubble.dismiss();
-                    mTextBubble = null;
+            @Override
+            public void onBrowserControlsOffsetChanged(Tab tab, int topControlsOffsetY,
+                    int bottomControlsOffsetY, int contentOffsetY, int topControlsMinHeightOffset,
+                    int bottomControlsMinHeightOffset) {
+                // For now, this is only useful for the offline indicator v2 feature.
+                if (ChromeFeatureList.isInitialized()
+                        && !ChromeFeatureList.isEnabled(ChromeFeatureList.OFFLINE_INDICATOR_V2)) {
                     return;
                 }
 
-                showDownloadPageTextBubble(tab, FeatureConstants.DOWNLOAD_PAGE_FEATURE);
-                showTranslateMenuButtonTextBubble(
-                        tab, FeatureConstants.TRANSLATE_MENU_BUTTON_FEATURE);
-            }
-
-            private void handleIPHForErrorPageShown(Tab tab) {
-                if (!(mActivity instanceof ChromeTabbedActivity) || mActivity.isTablet()) {
-                    return;
-                }
-
-                OfflinePageBridge bridge =
-                        OfflinePageBridge.getForProfile(((TabImpl) tab).getProfile());
-                if (bridge == null
-                        || !bridge.isShowingDownloadButtonInErrorPage(tab.getWebContents())) {
-                    return;
-                }
-
-                Tracker tracker = TrackerFactory.getTrackerForProfile(((TabImpl) tab).getProfile());
-                tracker.notifyEvent(EventConstants.USER_HAS_SEEN_DINO);
+                // Controls need to be offset to match the composited layer, which is
+                // anchored at the bottom of the controls container.
+                setControlContainerTopMargin(getToolbarExtraYOffset());
             }
         };
 
@@ -721,7 +696,11 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
             @Override
             public void onOverviewModeStateChanged(
                     @OverviewModeState int overviewModeState, boolean showTabSwitcherToolbar) {
+                assert FeatureUtilities.isStartSurfaceEnabled();
                 mToolbar.updateTabSwitcherToolbarState(showTabSwitcherToolbar);
+                mOverviewModeState = overviewModeState;
+                mIdentityDiscController.updateButtonState(
+                        mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE);
             }
 
             @Override
@@ -743,6 +722,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
             @Override
             public void onOverviewModeFinishedHiding() {
                 mToolbar.onTabSwitcherTransitionFinished();
+                updateButtonStatus();
             }
         };
 
@@ -923,84 +903,6 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
         return mBottomControlsCoordinator;
     }
 
-    // TODO(https://crbug.com/865801): Remove this IPH code from toolbar manager.
-    private void showMenuIPHTextBubble(ChromeActivity activity, Tracker tracker, String featureName,
-            @StringRes int stringId, @StringRes int accessibilityStringId, Integer highlightItemId,
-            boolean circleHighlight) {
-        ViewRectProvider rectProvider = new ViewRectProvider(getMenuButtonView());
-        int yInsetPx = mActivity.getResources().getDimensionPixelOffset(
-                R.dimen.text_bubble_menu_anchor_y_inset);
-        rectProvider.setInsetPx(0, 0, 0, yInsetPx);
-        mTextBubble = new TextBubble(
-                mActivity, getMenuButtonView(), stringId, accessibilityStringId, rectProvider);
-        mTextBubble.setDismissOnTouchInteraction(true);
-        mTextBubble.addOnDismissListener(() -> {
-            mHandler.postDelayed(() -> {
-                tracker.dismissed(featureName);
-                mAppMenuHandler.clearMenuHighlight();
-            }, ViewHighlighter.IPH_MIN_DELAY_BETWEEN_TWO_HIGHLIGHTS);
-        });
-        mAppMenuHandler.setMenuHighlight(highlightItemId, circleHighlight);
-        mTextBubble.show();
-    }
-
-    /**
-     * Show the download page in-product-help bubble. Also used by download page screenshot IPH.
-     * @param tab The current tab.
-     * @param featureName The associated feature name.
-     */
-    // TODO(https://crbug.com/865801): Remove feature specific IPH from toolbar manager.
-    public void showDownloadPageTextBubble(final Tab tab, String featureName) {
-        if (tab == null) return;
-
-        // TODO(shaktisahu): Find out if the download menu button is enabled (crbug/712438).
-        ChromeActivity activity = ((TabImpl) tab).getActivity();
-        if (!(activity instanceof ChromeTabbedActivity) || activity.isTablet()
-                || activity.isInOverviewMode() || !DownloadUtils.isAllowedToDownloadPage(tab)) {
-            return;
-        }
-
-        final Tracker tracker = TrackerFactory.getTrackerForProfile(((TabImpl) tab).getProfile());
-        if (!tracker.shouldTriggerHelpUI(featureName)) return;
-
-        showMenuIPHTextBubble(activity, tracker, featureName,
-                R.string.iph_download_page_for_offline_usage_text,
-                R.string.iph_download_page_for_offline_usage_accessibility_text,
-                R.id.offline_page_id, true);
-
-        // Record metrics if we show Download IPH after a screenshot of the page.
-        ChromeTabbedActivity chromeActivity = ((ChromeTabbedActivity) activity);
-        ScreenshotTabObserver tabObserver =
-                ScreenshotTabObserver.from(chromeActivity.getActivityTab());
-        if (tabObserver != null) {
-            tabObserver.onActionPerformedAfterScreenshot(
-                    ScreenshotTabObserver.SCREENSHOT_ACTION_DOWNLOAD_IPH);
-        }
-    }
-
-    /**
-     * Show the translate manual trigger in-product-help bubble.
-     * @param tab The current tab.
-     * @param featureName The associated feature name.
-     */
-    // TODO(https://crbug.com/865801): Remove feature specific IPH from toolbar manager.
-    public void showTranslateMenuButtonTextBubble(final Tab tab, String featureName) {
-        if (tab == null) return;
-        ChromeActivity activity = ((TabImpl) tab).getActivity();
-
-        if (mAppMenuPropertiesDelegate == null || !TranslateUtils.canTranslateCurrentTab(tab)
-                || !TranslateBridge.shouldShowManualTranslateIPH(tab)) {
-            return;
-        }
-        // Find out if the help UI should appear.
-        final Tracker tracker = TrackerFactory.getTrackerForProfile(((TabImpl) tab).getProfile());
-        if (!tracker.shouldTriggerHelpUI(featureName)) return;
-
-        showMenuIPHTextBubble(activity, tracker, featureName,
-                R.string.iph_translate_menu_button_text,
-                R.string.iph_translate_menu_button_accessibility_text, R.id.translate_id, false);
-    }
-
     /**
      * Initialize the manager with the components that had native initialization dependencies.
      * <p>
@@ -1034,9 +936,9 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                             (id) -> mActivity.onOptionsItemSelected(id, null));
         }
 
-        mToolbar.initializeWithNative(tabModelSelector, controlsVisibilityDelegate, layoutManager,
-                tabSwitcherClickHandler, tabSwitcherLongClickHandler, newTabClickHandler,
-                bookmarkClickHandler, customTabsBackClickHandler, overviewModeBehavior);
+        mToolbar.initializeWithNative(tabModelSelector, layoutManager, tabSwitcherClickHandler,
+                tabSwitcherLongClickHandler, newTabClickHandler, bookmarkClickHandler,
+                customTabsBackClickHandler, overviewModeBehavior);
 
         mToolbar.addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
             @Override
@@ -1184,6 +1086,43 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     public void showIPHOnExperimentalButton(@StringRes int stringId,
             @StringRes int accessibilityStringId, Runnable dismissedCallback) {
         mToolbar.showIPHOnExperimentalButton(stringId, accessibilityStringId, dismissedCallback);
+    }
+
+    /**
+     * Show the identity disc toolbar button.
+     * @param onClickListener The {@link OnClickListener} to be called when the button is clicked.
+     * @param image The drawable to display for the button.
+     * @param contentDescriptionResId The resource id of the content description for the button.
+     */
+    public void showIdentityDiscButton(OnClickListener onClickListener, Drawable image,
+            @StringRes int contentDescriptionResId) {
+        mToolbar.showIdentityDiscButton(onClickListener, image, contentDescriptionResId);
+    }
+
+    /**
+     * Hide the identity disc toolbar button.
+     */
+    public void hideIdentityDiscButton() {
+        mToolbar.hideIdentityDiscButton();
+    }
+
+    /**
+     * Updates image displayed on identity disc button.
+     * @param image The drawable to display for the button.
+     */
+    public void updateIdentityDiscButtonImage(Drawable image) {
+        mToolbar.updateIdentityDiscButtonImage(image);
+    }
+
+    /**
+     * Displays in-product help for the identity disc button.
+     * @param stringId The id of the string resource for the text that should be shown.
+     * @param accessibilityStringId The id of the string resource of the accessibility text.
+     * @param dismissedCallback The callback that will be called when in-product help is dismissed.
+     */
+    public void showIPHOnIdentityDiscButton(@StringRes int stringId,
+            @StringRes int accessibilityStringId, Runnable dismissedCallback) {
+        mToolbar.showIPHOnIdentityDiscButton(stringId, accessibilityStringId, dismissedCallback);
     }
 
     /**
@@ -1540,18 +1479,18 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     }
 
     @Override
-    public @ChromeTabbedActivity.BackPressedResult Integer back() {
+    public boolean back() {
         if (mBottomControlsCoordinator != null && mBottomControlsCoordinator.onBackPressed()) {
-            return ChromeTabbedActivity.BackPressedResult.EXITED_TAB_GROUP_DIALOG;
+            return true;
         }
 
         Tab tab = mLocationBarModel.getTab();
         if (tab != null && tab.canGoBack()) {
             tab.goBack();
             updateButtonStatus();
-            return ChromeTabbedActivity.BackPressedResult.NAVIGATED_BACK;
+            return true;
         }
-        return null;
+        return false;
     }
 
     @Override
@@ -1660,14 +1599,6 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     }
 
     /**
-     * @return Whether we should be updating the toolbar primary color based on updates from the
-     * Tab.
-     */
-    public boolean getShouldUpdateToolbarPrimaryColor() {
-        return mShouldUpdateToolbarPrimaryColor;
-    }
-
-    /**
      * @return The primary toolbar color.
      */
     public int getPrimaryColor() {
@@ -1709,22 +1640,23 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     }
 
     /**
-     * Sets the top margin for the control container.
-     * @param margin The margin in pixels.
-     */
-    public void setControlContainerTopMargin(int margin) {
-        final ViewGroup.MarginLayoutParams layoutParams =
-                ((ViewGroup.MarginLayoutParams) mControlContainer.getLayoutParams());
-        layoutParams.topMargin = margin;
-        mControlContainer.setLayoutParams(layoutParams);
-    }
-
-    /**
      * Gets the Toolbar view.
      */
     @Nullable
     public View getToolbarView() {
         return mControlContainer.findViewById(R.id.toolbar);
+    }
+
+    /**
+     * We use getTopControlOffset to position the top controls. However, the toolbar's height may
+     * be less than the total top controls height. If that's the case, this method will return the
+     * extra offset needed to align the toolbar at the bottom of the top controls.
+     * @return The extra Y offset for the toolbar in pixels.
+     */
+    private int getToolbarExtraYOffset() {
+        final int stripAndToolbarHeight = mActivity.getResources().getDimensionPixelSize(
+                R.dimen.tab_strip_and_toolbar_height);
+        return mActivity.getFullscreenManager().getTopControlsHeight() - stripAndToolbarHeight;
     }
 
     /**
@@ -1873,8 +1805,12 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
         if (mToolbar.getMenuButtonWrapper() != null && !isBottomToolbarVisible()) {
             mToolbar.getMenuButtonWrapper().setVisibility(View.VISIBLE);
         }
+
+        // TODO(crbug.com/1041475): Separate enabling the IdentityDiscController from enabling the
+        // ExperimentalButton.
         mIdentityDiscController.updateButtonState(
-                mLocationBarModel.getNewTabPageForCurrentTab() != null);
+                mLocationBarModel.getNewTabPageForCurrentTab() != null
+                || mOverviewModeState == OverviewModeState.SHOWN_HOMEPAGE);
     }
 
     private void updateBookmarkButtonStatus() {
@@ -2067,6 +2003,21 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                 == Configuration.KEYBOARD_QWERTY;
     }
 
+    /**
+     * Sets the top margin for the control container.
+     * @param margin The margin in pixels.
+     */
+    private void setControlContainerTopMargin(int margin) {
+        final ViewGroup.MarginLayoutParams layoutParams =
+                ((ViewGroup.MarginLayoutParams) mControlContainer.getLayoutParams());
+        if (layoutParams.topMargin == margin) {
+            return;
+        }
+
+        layoutParams.topMargin = margin;
+        mControlContainer.setLayoutParams(layoutParams);
+    }
+
     private static class LoadProgressSimulator {
         private static final int MSG_ID_UPDATE_PROGRESS = 1;
 
@@ -2126,5 +2077,16 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     @VisibleForTesting
     public ToolbarLayout getToolbarLayoutForTesting() {
         return mToolbar.getToolbarLayoutForTesting();
+    }
+
+    /**
+     * Get the home button on the top toolbar to verify the button status.
+     * Note that this home button is not always the home button that on the UI, and the button is
+     * not always visible.
+     * @return The {@link HomeButton} that lives in the top toolbar.
+     */
+    @VisibleForTesting
+    public HomeButton getHomeButtonForTesting() {
+        return mToolbar.getToolbarLayoutForTesting().getHomeButtonForTesting();
     }
 }

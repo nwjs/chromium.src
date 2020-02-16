@@ -19,14 +19,14 @@ import org.chromium.base.Log;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.favicon.FaviconHelper;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.toolbar.ToolbarCommonPropertiesModel;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
 import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.content_public.browser.BrowserStartupController;
 
@@ -171,7 +171,7 @@ public class SearchEngineLogoUtils {
     /** @return Whether the status icon should be hidden when the LocationBar is unfocused. */
     public static boolean currentlyOnNTP(
             ToolbarCommonPropertiesModel toolbarCommonPropertiesModel) {
-        return toolbarCommonPropertiesModel.getNewTabPageForCurrentTab() != null
+        return toolbarCommonPropertiesModel != null
                 && NewTabPage.isNTPUrl(toolbarCommonPropertiesModel.getCurrentUrl());
     }
 

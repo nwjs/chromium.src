@@ -22,7 +22,7 @@
 #include "content/public/test/test_renderer_host.h"
 #include "net/base/ip_endpoint.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "url/gurl.h"
 
 namespace page_load_metrics {
@@ -227,7 +227,7 @@ void PageLoadMetricsObserverTester::SimulateLoadedResource(
   }
 
   content::mojom::ResourceLoadInfo resource_load_info;
-  resource_load_info.url = info.origin_of_final_url.GetURL();
+  resource_load_info.final_url = info.origin_of_final_url.GetURL();
   resource_load_info.was_cached = info.was_cached;
   resource_load_info.raw_body_bytes = info.raw_body_bytes;
   resource_load_info.total_received_bytes =

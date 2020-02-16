@@ -14,14 +14,10 @@
 #include "base/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
-#include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "components/viz/host/host_frame_sink_manager.h"
-#include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
-#include "components/viz/service/surfaces/surface.h"
-#include "components/viz/service/surfaces/surface_manager.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/browser_plugin/browser_plugin_guest.h"
 #include "content/browser/compositor/surface_utils.h"
@@ -39,10 +35,9 @@
 #include "content/browser/renderer_host/text_input_manager.h"
 #include "content/common/text_input_state.h"
 #include "content/common/widget_messages.h"
-#include "content/public/browser/guest_mode.h"
 #include "content/public/browser/render_process_host.h"
 #include "gpu/ipc/common/gpu_messages.h"
-#include "third_party/blink/public/platform/web_touch_event.h"
+#include "third_party/blink/public/common/input/web_touch_event.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/size_f.h"
@@ -65,13 +60,11 @@ RenderWidgetHostViewChildFrame::RenderWidgetHostViewChildFrame(
       frame_sink_id_(
           base::checked_cast<uint32_t>(widget_host->GetProcess()->GetID()),
           base::checked_cast<uint32_t>(widget_host->GetRoutingID())),
-      frame_connector_(nullptr),
-      enable_viz_(features::IsVizDisplayCompositorEnabled()) {
+      frame_connector_(nullptr) {
   GetHostFrameSinkManager()->RegisterFrameSinkId(
       frame_sink_id_, this, viz::ReportFirstSurfaceActivation::kNo);
   GetHostFrameSinkManager()->SetFrameSinkDebugLabel(
       frame_sink_id_, "RenderWidgetHostViewChildFrame");
-  CreateCompositorFrameSinkSupport();
 }
 
 RenderWidgetHostViewChildFrame::~RenderWidgetHostViewChildFrame() {
@@ -81,7 +74,6 @@ RenderWidgetHostViewChildFrame::~RenderWidgetHostViewChildFrame() {
   if (frame_connector_)
     DetachFromTouchSelectionClientManagerIfNecessary();
 
-  ResetCompositorFrameSinkSupport();
   if (GetHostFrameSinkManager())
     GetHostFrameSinkManager()->InvalidateFrameSinkId(frame_sink_id_);
 }
@@ -315,13 +307,6 @@ void RenderWidgetHostViewChildFrame::SetInsets(const gfx::Insets& insets) {
 }
 
 gfx::NativeView RenderWidgetHostViewChildFrame::GetNativeView() {
-  // TODO(ekaramad): To accomodate MimeHandlerViewGuest while embedded inside
-  // OOPIF-webview, we need to return the native view to be used by
-  // RenderWidgetHostViewGuest. Remove this once https://crbug.com/642826 is
-  // fixed.
-  if (!frame_connector_)
-    return nullptr;
-
   RenderWidgetHostView* parent_view =
       frame_connector_->GetParentRenderWidgetHostView();
   return parent_view ? parent_view->GetNativeView() : nullptr;
@@ -546,19 +531,6 @@ void RenderWidgetHostViewChildFrame::ForwardTouchpadZoomEventIfNecessary(
   NOTREACHED();
 }
 
-void RenderWidgetHostViewChildFrame::DidReceiveCompositorFrameAck(
-    const std::vector<viz::ReturnedResource>& resources) {
-  if (renderer_compositor_frame_sink_)
-    renderer_compositor_frame_sink_->DidReceiveCompositorFrameAck(resources);
-}
-
-void RenderWidgetHostViewChildFrame::DidCreateNewRendererCompositorFrameSink(
-    viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink) {
-  ResetCompositorFrameSinkSupport();
-  renderer_compositor_frame_sink_ = renderer_compositor_frame_sink;
-  CreateCompositorFrameSinkSupport();
-}
-
 void RenderWidgetHostViewChildFrame::SetParentFrameSinkId(
     const viz::FrameSinkId& parent_frame_sink_id) {
   if (parent_frame_sink_id_ == parent_frame_sink_id)
@@ -585,23 +557,6 @@ void RenderWidgetHostViewChildFrame::FirstSurfaceActivation(
     const viz::SurfaceInfo& surface_info) {
   if (frame_connector_)
     frame_connector_->FirstSurfaceActivation(surface_info);
-}
-
-void RenderWidgetHostViewChildFrame::SubmitCompositorFrame(
-    const viz::LocalSurfaceId& local_surface_id,
-    viz::CompositorFrame frame,
-    base::Optional<viz::HitTestRegionList> hit_test_region_list) {
-  DCHECK(!enable_viz_);
-  TRACE_EVENT0("content",
-               "RenderWidgetHostViewChildFrame::OnSwapCompositorFrame");
-  support_->SubmitCompositorFrame(local_surface_id, std::move(frame),
-                                  std::move(hit_test_region_list));
-}
-
-void RenderWidgetHostViewChildFrame::OnDidNotProduceFrame(
-    const viz::BeginFrameAck& ack) {
-  DCHECK(!enable_viz_);
-  support_->DidNotProduceFrame(ack);
 }
 
 void RenderWidgetHostViewChildFrame::TransformPointToRootSurface(
@@ -844,36 +799,11 @@ void RenderWidgetHostViewChildFrame::CopyFromSurface(
                                                  std::move(request));
 }
 
-void RenderWidgetHostViewChildFrame::ReclaimResources(
-    const std::vector<viz::ReturnedResource>& resources) {
-  if (renderer_compositor_frame_sink_)
-    renderer_compositor_frame_sink_->ReclaimResources(resources);
-}
-
-void RenderWidgetHostViewChildFrame::OnBeginFrame(
-    const viz::BeginFrameArgs& args,
-    const viz::FrameTimingDetailsMap& timing_details) {
-  host_->ProgressFlingIfNeeded(args.frame_time);
-  if (renderer_compositor_frame_sink_)
-    renderer_compositor_frame_sink_->OnBeginFrame(args, timing_details);
-}
-
-void RenderWidgetHostViewChildFrame::OnBeginFramePausedChanged(bool paused) {
-  if (renderer_compositor_frame_sink_)
-    renderer_compositor_frame_sink_->OnBeginFramePausedChanged(paused);
-}
-
 void RenderWidgetHostViewChildFrame::OnFirstSurfaceActivation(
     const viz::SurfaceInfo& surface_info) {}
 
 void RenderWidgetHostViewChildFrame::OnFrameTokenChanged(uint32_t frame_token) {
   OnFrameTokenChangedForView(frame_token);
-}
-
-void RenderWidgetHostViewChildFrame::SetNeedsBeginFrames(
-    bool needs_begin_frames) {
-  if (support_)
-    support_->SetNeedsBeginFrame(needs_begin_frames);
 }
 
 TouchSelectionControllerClientManager*
@@ -897,11 +827,6 @@ void RenderWidgetHostViewChildFrame::
     selection_controller_client_->UpdateSelectionBoundsIfNeeded(
         metadata.selection, current_device_scale_factor_);
   }
-}
-
-void RenderWidgetHostViewChildFrame::SetWantsAnimateOnlyBeginFrames() {
-  if (support_)
-    support_->SetWantsAnimateOnlyBeginFrames();
 }
 
 void RenderWidgetHostViewChildFrame::TakeFallbackContentFrom(
@@ -1002,33 +927,6 @@ RenderWidgetHostViewChildFrame::DidUpdateVisualProperties(
           &RenderWidgetHostViewChildFrame::OnDidUpdateVisualPropertiesComplete),
       weak_factory_.GetWeakPtr(), metadata);
   return viz::ScopedSurfaceIdAllocator(std::move(allocation_task));
-}
-
-void RenderWidgetHostViewChildFrame::CreateCompositorFrameSinkSupport() {
-  if (enable_viz_)
-    return;
-
-  DCHECK(!support_);
-  constexpr bool is_root = false;
-  constexpr bool needs_sync_points = true;
-  support_ = GetHostFrameSinkManager()->CreateCompositorFrameSinkSupport(
-      this, frame_sink_id_, is_root, needs_sync_points);
-  if (parent_frame_sink_id_.is_valid()) {
-    GetHostFrameSinkManager()->RegisterFrameSinkHierarchy(parent_frame_sink_id_,
-                                                          frame_sink_id_);
-  }
-  if (host()->needs_begin_frames())
-    support_->SetNeedsBeginFrame(true);
-}
-
-void RenderWidgetHostViewChildFrame::ResetCompositorFrameSinkSupport() {
-  if (!support_)
-    return;
-  if (parent_frame_sink_id_.is_valid()) {
-    GetHostFrameSinkManager()->UnregisterFrameSinkHierarchy(
-        parent_frame_sink_id_, frame_sink_id_);
-  }
-  support_.reset();
 }
 
 ui::TextInputType RenderWidgetHostViewChildFrame::GetTextInputType() const {

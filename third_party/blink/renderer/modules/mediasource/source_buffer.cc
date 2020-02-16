@@ -104,14 +104,6 @@ WTF::String WebTimeRangesToString(const WebTimeRanges& ranges) {
 
 }  // namespace
 
-SourceBuffer* SourceBuffer::Create(
-    std::unique_ptr<WebSourceBuffer> web_source_buffer,
-    MediaSource* source,
-    EventQueue* async_event_queue) {
-  return MakeGarbageCollected<SourceBuffer>(std::move(web_source_buffer),
-                                            source, async_event_queue);
-}
-
 SourceBuffer::SourceBuffer(std::unique_ptr<WebSourceBuffer> web_source_buffer,
                            MediaSource* source,
                            EventQueue* async_event_queue)
@@ -370,24 +362,24 @@ void SourceBuffer::appendBuffer(DOMArrayBuffer* data,
                                 ExceptionState& exception_state) {
   double media_time = GetMediaTime();
   DVLOG(2) << __func__ << " this=" << this << " media_time=" << media_time
-           << " size=" << data->DeprecatedByteLengthAsUnsigned();
+           << " size=" << data->ByteLengthAsSizeT();
   // Section 3.2 appendBuffer()
   // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#widl-SourceBuffer-appendBuffer-void-ArrayBufferView-data
   AppendBufferInternal(media_time,
                        static_cast<const unsigned char*>(data->Data()),
-                       data->DeprecatedByteLengthAsUnsigned(), exception_state);
+                       data->ByteLengthAsSizeT(), exception_state);
 }
 
 void SourceBuffer::appendBuffer(NotShared<DOMArrayBufferView> data,
                                 ExceptionState& exception_state) {
   double media_time = GetMediaTime();
   DVLOG(3) << __func__ << " this=" << this << " media_time=" << media_time
-           << " size=" << data.View()->deprecatedByteLengthAsUnsigned();
+           << " size=" << data.View()->byteLengthAsSizeT();
   // Section 3.2 appendBuffer()
   // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#widl-SourceBuffer-appendBuffer-void-ArrayBufferView-data
   AppendBufferInternal(
       media_time, static_cast<const unsigned char*>(data.View()->BaseAddress()),
-      data.View()->deprecatedByteLengthAsUnsigned(), exception_state);
+      data.View()->byteLengthAsSizeT(), exception_state);
 }
 
 void SourceBuffer::abort(ExceptionState& exception_state) {
@@ -488,7 +480,8 @@ void SourceBuffer::remove(double start,
     return;
   }
 
-  TRACE_EVENT_ASYNC_BEGIN0("media", "SourceBuffer::remove", this);
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("media", "SourceBuffer::remove",
+                                    TRACE_ID_LOCAL(this));
 
   // 6. If the readyState attribute of the parent media source is in the "ended"
   //    state then run the following steps:
@@ -617,7 +610,8 @@ void SourceBuffer::CancelRemove() {
     ScheduleEvent(event_type_names::kUpdateend);
   }
 
-  TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::remove", this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::remove",
+                                  TRACE_ID_LOCAL(this));
 }
 
 void SourceBuffer::AbortIfUpdating() {
@@ -648,7 +642,8 @@ void SourceBuffer::AbortIfUpdating() {
   //      SourceBuffer object.
   ScheduleEvent(event_type_names::kUpdateend);
 
-  TRACE_EVENT_ASYNC_END0("media", trace_event_name, this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", trace_event_name,
+                                  TRACE_ID_LOCAL(this));
 }
 
 void SourceBuffer::RemovedFromMediaSource() {
@@ -1198,7 +1193,8 @@ void SourceBuffer::ScheduleEvent(const AtomicString& event_name) {
 bool SourceBuffer::PrepareAppend(double media_time,
                                  size_t new_data_size,
                                  ExceptionState& exception_state) {
-  TRACE_EVENT_ASYNC_BEGIN0("media", "SourceBuffer::prepareAppend", this);
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("media", "SourceBuffer::prepareAppend",
+                                    TRACE_ID_LOCAL(this));
   // http://w3c.github.io/media-source/#sourcebuffer-prepare-append
   // 3.5.4 Prepare Append Algorithm
   // 1. If the SourceBuffer has been removed from the sourceBuffers attribute of
@@ -1208,7 +1204,8 @@ bool SourceBuffer::PrepareAppend(double media_time,
   //    exception and abort these steps.
   if (ThrowExceptionIfRemovedOrUpdating(IsRemoved(), updating_,
                                         exception_state)) {
-    TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::prepareAppend", this);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::prepareAppend",
+                                    TRACE_ID_LOCAL(this));
     return false;
   }
 
@@ -1220,7 +1217,8 @@ bool SourceBuffer::PrepareAppend(double media_time,
     MediaSource::LogAndThrowDOMException(
         exception_state, DOMExceptionCode::kInvalidStateError,
         "The HTMLMediaElement.error attribute is not null.");
-    TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::prepareAppend", this);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::prepareAppend",
+                                    TRACE_ID_LOCAL(this));
     return false;
   }
 
@@ -1232,20 +1230,25 @@ bool SourceBuffer::PrepareAppend(double media_time,
   source_->OpenIfInEndedState();
 
   // 5. Run the coded frame eviction algorithm.
-  if (!EvictCodedFrames(media_time, new_data_size)) {
+  if (!EvictCodedFrames(media_time, new_data_size) ||
+      !base::CheckedNumeric<wtf_size_t>(new_data_size).IsValid()) {
     // 6. If the buffer full flag equals true, then throw a QUOTA_EXCEEDED_ERR
     //    exception and abort these steps.
+    //    If the incoming data exceeds wtf_size_t::max, then our implementation
+    //    cannot deal with it, so we also throw a QuotaExceededError.
     DVLOG(3) << __func__ << " this=" << this << " -> throw QuotaExceededError";
     MediaSource::LogAndThrowDOMException(exception_state,
                                          DOMExceptionCode::kQuotaExceededError,
                                          "The SourceBuffer is full, and cannot "
                                          "free space to append additional "
                                          "buffers.");
-    TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::prepareAppend", this);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::prepareAppend",
+                                    TRACE_ID_LOCAL(this));
     return false;
   }
 
-  TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::prepareAppend", this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::prepareAppend",
+                                  TRACE_ID_LOCAL(this));
   return true;
 }
 
@@ -1271,25 +1274,26 @@ bool SourceBuffer::EvictCodedFrames(double media_time, size_t new_data_size) {
 
 void SourceBuffer::AppendBufferInternal(double media_time,
                                         const unsigned char* data,
-                                        unsigned size,
+                                        size_t size,
                                         ExceptionState& exception_state) {
-  TRACE_EVENT_ASYNC_BEGIN1("media", "SourceBuffer::appendBuffer", this, "size",
-                           size);
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("media", "SourceBuffer::appendBuffer",
+                                    TRACE_ID_LOCAL(this), "size", size);
   // Section 3.2 appendBuffer()
   // https://dvcs.w3.org/hg/html-media/raw-file/default/media-source/media-source.html#widl-SourceBuffer-appendBuffer-void-ArrayBufferView-data
 
   // 1. Run the prepare append algorithm.
   if (!PrepareAppend(media_time, size, exception_state)) {
-    TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::appendBuffer", this);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::appendBuffer",
+                                    TRACE_ID_LOCAL(this));
     return;
   }
-  TRACE_EVENT_ASYNC_STEP_INTO0("media", "SourceBuffer::appendBuffer", this,
-                               "prepareAppend");
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("media", "prepareAppend",
+                                    TRACE_ID_LOCAL(this));
 
   // 2. Add data to the end of the input buffer.
   DCHECK(data || size == 0);
   if (data)
-    pending_append_data_.Append(data, size);
+    pending_append_data_.Append(data, base::checked_cast<wtf_size_t>(size));
   pending_append_data_offset_ = 0;
 
   // 3. Set the updating attribute to true.
@@ -1305,8 +1309,10 @@ void SourceBuffer::AppendBufferInternal(double media_time,
       FROM_HERE,
       WTF::Bind(&SourceBuffer::AppendBufferAsyncPart, WrapPersistent(this)));
 
-  TRACE_EVENT_ASYNC_STEP_INTO0("media", "SourceBuffer::appendBuffer", this,
-                               "initialDelay");
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "prepareAppend",
+                                  TRACE_ID_LOCAL(this));
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("media", "delay", TRACE_ID_LOCAL(this),
+                                    "type", "initialDelay");
 }
 
 void SourceBuffer::AppendBufferAsyncPart() {
@@ -1330,8 +1336,9 @@ void SourceBuffer::AppendBufferAsyncPart() {
   if (append_size > kMaxAppendSize)
     append_size = kMaxAppendSize;
 
-  TRACE_EVENT_ASYNC_STEP_INTO1("media", "SourceBuffer::appendBuffer", this,
-                               "appending", "appendSize", append_size);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "delay", TRACE_ID_LOCAL(this));
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("media", "appending", TRACE_ID_LOCAL(this),
+                                    "appendSize", append_size);
 
   // |zero| is used for 0 byte appends so we always have a valid pointer.
   // We need to convey all appends, even 0 byte ones to |m_webSourceBuffer|
@@ -1357,8 +1364,10 @@ void SourceBuffer::AppendBufferAsyncPart() {
           FROM_HERE,
           WTF::Bind(&SourceBuffer::AppendBufferAsyncPart,
                     WrapPersistent(this)));
-      TRACE_EVENT_ASYNC_STEP_INTO0("media", "SourceBuffer::appendBuffer", this,
-                                   "nextPieceDelay");
+      TRACE_EVENT_NESTABLE_ASYNC_END0("media", "appending",
+                                      TRACE_ID_LOCAL(this));
+      TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("media", "delay", TRACE_ID_LOCAL(this),
+                                        "type", "nextPieceDelay");
       return;
     }
 
@@ -1376,7 +1385,10 @@ void SourceBuffer::AppendBufferAsyncPart() {
     ScheduleEvent(event_type_names::kUpdateend);
   }
 
-  TRACE_EVENT_ASYNC_END0("media", "SourceBuffer::appendBuffer", this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "appending", TRACE_ID_LOCAL(this));
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "SourceBuffer::appendBuffer",
+                                  TRACE_ID_LOCAL(this));
+
   double media_time = GetMediaTime();
   DVLOG(3) << __func__ << " done. this=" << this << " media_time=" << media_time
            << " buffered="

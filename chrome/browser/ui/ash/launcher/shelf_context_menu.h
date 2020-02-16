@@ -25,6 +25,8 @@ class ShelfContextMenu : public ui::SimpleMenuModel::Delegate {
       const ash::ShelfItem* item,
       int64_t display_id);
 
+  std::unique_ptr<ui::SimpleMenuModel> GetBaseMenuModel();
+
   using GetMenuModelCallback =
       base::OnceCallback<void(std::unique_ptr<ui::SimpleMenuModel>)>;
   virtual void GetMenuModel(GetMenuModelCallback callback) = 0;
@@ -33,6 +35,10 @@ class ShelfContextMenu : public ui::SimpleMenuModel::Delegate {
   bool IsCommandIdChecked(int command_id) const override;
   bool IsCommandIdEnabled(int command_id) const override;
   void ExecuteCommand(int command_id, int event_flags) override;
+
+  // Helper method to get the gfx::VectorIcon for a |type|. Returns an empty
+  // gfx::VectorIcon if there is no icon for this |type|.
+  const gfx::VectorIcon& GetCommandIdVectorIcon(int type, int string_id) const;
 
  protected:
   ShelfContextMenu(ChromeLauncherController* controller,
@@ -52,11 +58,6 @@ class ShelfContextMenu : public ui::SimpleMenuModel::Delegate {
   void AddContextMenuOption(ui::SimpleMenuModel* menu_model,
                             ash::CommandId type,
                             int string_id);
-
-  // Helper method to get the gfx::VectorIcon for a |type|. Returns an empty
-  // gfx::VectorIcon if there is no icon for this |type|.
-  const gfx::VectorIcon& GetCommandIdVectorIcon(ash::CommandId type,
-                                                int string_id) const;
 
   int64_t display_id() const { return display_id_; }
 

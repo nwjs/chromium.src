@@ -4,11 +4,12 @@
 
 #include "chromecast/browser/webview/web_content_controller.h"
 
+#include <utility>
+
 #include "base/json/json_writer.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chromecast/base/version.h"
 #include "chromecast/browser/webview/proto/webview.pb.h"
-#include "chromecast/browser/webview/webview_layout_manager.h"
 #include "chromecast/browser/webview/webview_navigation_throttle.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browsing_data_remover.h"
@@ -19,6 +20,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/web_preferences.h"
+#include "third_party/blink/public/common/input/web_touch_event.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/events/event.h"
@@ -35,6 +37,9 @@ WebContentController::~WebContentController() {
   if (surface_) {
     surface_->RemoveSurfaceObserver(this);
     surface_->SetEmbeddedSurfaceId(base::RepeatingCallback<viz::SurfaceId()>());
+  }
+  for (auto* rwh : current_render_widget_set_) {
+    rwh->RemoveInputEventObserver(this);
   }
 }
 
@@ -139,9 +144,7 @@ void WebContentController::ProcessRequest(
 void WebContentController::AttachTo(aura::Window* window, int window_id) {
   content::WebContents* contents = GetWebContents();
   auto* contents_window = contents->GetNativeView();
-  window->SetLayoutManager(new WebviewLayoutManager(window));
   contents_window->set_id(window_id);
-  contents_window->SetBounds(gfx::Rect(window->bounds().size()));
   // The aura window is hidden to avoid being shown via the usual layer method,
   // instead it is shows via a SurfaceDrawQuad by exo.
   contents_window->Hide();
@@ -155,8 +158,15 @@ void WebContentController::AttachTo(aura::Window* window, int window_id) {
   surface_->AddSurfaceObserver(this);
 
   // Unretained is safe because we unset this in the destructor.
-  surface_->SetEmbeddedSurfaceId(
-      base::Bind(&WebContentController::GetSurfaceId, base::Unretained(this)));
+  surface_->SetEmbeddedSurfaceId(base::BindRepeating(
+      &WebContentController::GetSurfaceId, base::Unretained(this)));
+
+  content::RenderFrameHost* rfh = GetWebContents()->GetMainFrame();
+  if (rfh) {
+    const base::Optional<gfx::Size>& size = rfh->GetFrameSize();
+    if (size.has_value())
+      surface_->SetEmbeddedSurfaceSize(*size);
+  }
 }
 
 void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
@@ -169,8 +179,8 @@ void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
   if (!contents->GetNativeView()->HasFocus())
     contents->GetNativeView()->Focus();
 
-  ui::EventHandler* handler =
-      contents->GetRenderWidgetHostView()->GetNativeView()->delegate();
+  content::RenderWidgetHostView* rwhv = contents->GetRenderWidgetHostView();
+  ui::EventHandler* handler = rwhv->GetNativeView()->delegate();
   ui::EventType type = static_cast<ui::EventType>(ev.event_type());
   switch (type) {
     case ui::ET_TOUCH_RELEASED:
@@ -205,19 +215,24 @@ void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
                 &root_relative_event, contents->GetNativeView())) {
           return;
         }
+        // This flag is set depending on the gestures recognized in the call
+        // above, and needs to propagate with the forwarded event.
+        evt.set_may_cause_scrolling(root_relative_event.may_cause_scrolling());
+
+        if (type == ui::ET_TOUCH_PRESSED) {
+          // Ensure that we are observing the RenderWidgetHost for this touch
+          // sequence, even if we didn't get a WebContentsObserver notification
+          // for its creation. (This is not the normal case, but can happen
+          // e.g. when loading a page with the Fling interface.)
+          ObserveRenderWidget(rwhv->GetRenderWidgetHost());
+        }
+
+        // Record touch event information to match against acks.
+        TouchData touch_data = {evt.unique_event_id(), rwhv, /*acked*/ false,
+                                /*result*/ ui::ER_UNHANDLED};
+        touch_queue_.push_back(touch_data);
 
         handler->OnTouchEvent(&evt);
-
-        // Normally this would be done when the renderer acknowledges the touch
-        // event and using flags from the renderer, inside
-        // RenderWidgetHostViewAura, but we don't have those so... fake it.
-        auto list =
-            recognizer->AckTouchEvent(evt.unique_event_id(), ui::ER_UNHANDLED,
-                                      false, contents->GetNativeView());
-        for (auto& e : list) {
-          // Forward all gestures.
-          handler->OnGestureEvent(e.get());
-        }
       } else {
         client_->OnError("touch() not supplied for touch event");
       }
@@ -249,6 +264,14 @@ void WebContentController::ProcessInputEvent(const webview::InputEvent& ev) {
       break;
     default:
       break;
+  }
+}
+
+void WebContentController::ObserveRenderWidget(
+    content::RenderWidgetHost* render_widget_host) {
+  auto insertion = current_render_widget_set_.insert(render_widget_host);
+  if (insertion.second) {
+    render_widget_host->AddInputEventObserver(this);
   }
 }
 
@@ -383,7 +406,11 @@ void WebContentController::HandleSetAutoMediaPlaybackPolicy(
 }
 
 viz::SurfaceId WebContentController::GetSurfaceId() {
-  auto* rwhv = GetWebContents()->GetRenderWidgetHostView();
+  content::WebContents* web_contents = GetWebContents();
+  // Web contents are destroyed before controller for cast apps.
+  if (!web_contents)
+    return viz::SurfaceId();
+  auto* rwhv = web_contents->GetRenderWidgetHostView();
   if (!rwhv)
     return viz::SurfaceId();
   auto frame_sink_id = rwhv->GetRenderWidgetHost()->GetFrameSinkId();
@@ -396,6 +423,16 @@ void WebContentController::OnSurfaceDestroying(exo::Surface* surface) {
   DCHECK_EQ(surface, surface_);
   surface->RemoveSurfaceObserver(this);
   surface_ = nullptr;
+}
+
+void WebContentController::FrameSizeChanged(
+    content::RenderFrameHost* render_frame_host,
+    const gfx::Size& frame_size) {
+  content::RenderFrameHost* rfh = GetWebContents()->GetMainFrame();
+  if (render_frame_host == rfh && surface_) {
+    surface_->SetEmbeddedSurfaceSize(frame_size);
+    surface_->Commit();
+  }
 }
 
 void WebContentController::RenderFrameCreated(
@@ -420,8 +457,30 @@ void WebContentController::RenderFrameHostChanged(
     content::RenderFrameHost* new_host) {
   // The surface ID may have changed, so trigger a new commit to re-issue the
   // draw quad.
-  if (surface_)
+  content::RenderFrameHost* rfh = GetWebContents()->GetMainFrame();
+  if (new_host == rfh && surface_) {
+    if (new_host) {
+      auto size = new_host->GetFrameSize();
+      if (size.has_value())
+        surface_->SetEmbeddedSurfaceSize(*size);
+    }
     surface_->Commit();
+  }
+}
+
+void WebContentController::RenderViewCreated(
+    content::RenderViewHost* render_view_host) {
+  ObserveRenderWidget(render_view_host->GetWidget());
+}
+
+void WebContentController::RenderViewDeleted(
+    content::RenderViewHost* render_view_host) {
+  content::RenderWidgetHost* rwh = render_view_host->GetWidget();
+  current_render_widget_set_.erase(rwh);
+  rwh->RemoveInputEventObserver(this);
+  content::RenderWidgetHostView* rwhv = rwh->GetView();
+  base::EraseIf(touch_queue_,
+                [rwhv](TouchData data) { return data.rwhv == rwhv; });
 }
 
 void WebContentController::OnJsClientInstanceRegistered(
@@ -433,6 +492,50 @@ void WebContentController::OnJsClientInstanceRegistered(
     // If the frame exists in the set then it cannot have been handled by
     // RenderFrameCreated.
     SendInitialChannelSet(instance);
+  }
+}
+
+void WebContentController::AckTouchEvent(content::RenderWidgetHostView* rwhv,
+                                         uint32_t unique_event_id,
+                                         ui::EventResult result) {
+  // GestureRecognizerImpl makes AckTouchEvent private so cast to the interface.
+  ui::GestureRecognizer* recognizer = &gesture_recognizer_;
+  auto list = recognizer->AckTouchEvent(unique_event_id, result, false,
+                                        rwhv->GetNativeView());
+  // Forward any resulting gestures.
+  ui::EventHandler* handler = rwhv->GetNativeView()->delegate();
+  for (auto& e : list) {
+    handler->OnGestureEvent(e.get());
+  }
+}
+
+void WebContentController::OnInputEventAck(content::InputEventAckSource source,
+                                           content::InputEventAckState state,
+                                           const blink::WebInputEvent& e) {
+  if (!blink::WebInputEvent::IsTouchEventType(e.GetType()))
+    return;
+  const uint32_t id =
+      static_cast<const blink::WebTouchEvent&>(e).unique_touch_event_id;
+  ui::EventResult result =
+      state == content::InputEventAckState::INPUT_EVENT_ACK_STATE_CONSUMED
+          ? ui::ER_HANDLED
+          : ui::ER_UNHANDLED;
+  const auto it = find_if(touch_queue_.begin(), touch_queue_.end(),
+                          [id](TouchData data) { return data.id == id; });
+  if (it == touch_queue_.end()) {
+    content::WebContents* contents = GetWebContents();
+    content::RenderWidgetHostView* rwhv = contents->GetRenderWidgetHostView();
+    AckTouchEvent(rwhv, id, result);
+  } else {
+    // Record the ack.
+    it->acked = true;
+    it->result = result;
+    // Handle any available acks.
+    while (!touch_queue_.empty() && touch_queue_.front().acked) {
+      TouchData data = touch_queue_.front();
+      touch_queue_.pop_front();
+      AckTouchEvent(data.rwhv, data.id, data.result);
+    }
   }
 }
 

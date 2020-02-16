@@ -12,15 +12,14 @@
 #include "cc/input/touch_action.h"
 #include "content/common/common_param_traits_macros.h"
 #include "content/common/content_param_traits.h"
+#include "content/common/content_to_visible_time_reporter.h"
 #include "content/common/cursors/webcursor.h"
-#include "content/common/tab_switch_time_recorder.h"
 #include "content/common/text_input_state.h"
 #include "content/common/visual_properties.h"
 #include "content/public/common/common_param_traits.h"
 #include "ipc/ipc_message_macros.h"
 #include "third_party/blink/public/common/screen_orientation/web_screen_orientation_type.h"
 #include "third_party/blink/public/platform/viewport_intersection_state.h"
-#include "third_party/blink/public/platform/web_float_point.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
 #include "third_party/blink/public/web/web_text_direction.h"
@@ -36,11 +35,6 @@
 #define IPC_MESSAGE_START WidgetMsgStart
 
 // Traits for WebDeviceEmulationParams.
-IPC_STRUCT_TRAITS_BEGIN(blink::WebFloatPoint)
-  IPC_STRUCT_TRAITS_MEMBER(x)
-  IPC_STRUCT_TRAITS_MEMBER(y)
-IPC_STRUCT_TRAITS_END()
-
 IPC_STRUCT_TRAITS_BEGIN(blink::WebFloatRect)
   IPC_STRUCT_TRAITS_MEMBER(x)
   IPC_STRUCT_TRAITS_MEMBER(y)
@@ -95,6 +89,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::TextInputState)
   IPC_STRUCT_TRAITS_MEMBER(show_ime_if_needed)
   IPC_STRUCT_TRAITS_MEMBER(always_hide_ime)
   IPC_STRUCT_TRAITS_MEMBER(reply_to_request)
+  IPC_STRUCT_TRAITS_MEMBER(edit_context_control_bounds)
+  IPC_STRUCT_TRAITS_MEMBER(edit_context_selection_bounds)
 IPC_STRUCT_TRAITS_END()
 
 //
@@ -123,13 +119,11 @@ IPC_MESSAGE_ROUTED0(WidgetMsg_DisableDeviceEmulation)
 IPC_MESSAGE_ROUTED0(WidgetMsg_WasHidden)
 
 // Tells the render view that it is no longer hidden (see WasHidden).
-IPC_MESSAGE_ROUTED3(
-    WidgetMsg_WasShown,
-    base::TimeTicks /* show_request_timestamp */,
-    bool /* was_evicted */,
-    base::Optional<
-        content::
-            RecordTabSwitchTimeRequest> /* record_tab_switch_time_request */)
+IPC_MESSAGE_ROUTED3(WidgetMsg_WasShown,
+                    base::TimeTicks /* show_request_timestamp */,
+                    bool /* was_evicted */,
+                    base::Optional<content::RecordContentToVisibleTimeRequest>
+                    /* record_tab_switch_time_request */)
 
 // Activate/deactivate the RenderWidget (i.e., set its controls' tint
 // accordingly, etc.).
@@ -220,7 +214,7 @@ IPC_MESSAGE_ROUTED0(WidgetHostMsg_UpdateScreenRects_ACK)
 // browser can then notify a containing frame that the frame may need to
 // trigger a new layout.
 //
-// Also see FrameMsg_IntrinsicSizingInfoOfChildChanged.
+// Also see blink::mojom::RemoteFrame::IntrinsicSizingInfoOfChildChanged.
 IPC_MESSAGE_ROUTED1(WidgetHostMsg_IntrinsicSizingInfoChanged,
                     blink::WebIntrinsicSizingInfo)
 

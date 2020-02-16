@@ -11,7 +11,7 @@
 #include "base/bind.h"
 #include "base/macros.h"
 
-#include "chrome/browser/sessions/session_tab_helper.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"

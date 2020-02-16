@@ -29,14 +29,6 @@ class ExtensionUrlPatternIndexMatcher final : public RulesetMatcherBase {
 
   // RulesetMatcherBase override:
   ~ExtensionUrlPatternIndexMatcher() override;
-  base::Optional<RequestAction> GetBlockOrCollapseAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetAllowAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetRedirectAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetUpgradeAction(
-      const RequestParams& params) const override;
   uint8_t GetRemoveHeadersMask(
       const RequestParams& params,
       uint8_t excluded_remove_headers_mask,
@@ -48,15 +40,26 @@ class ExtensionUrlPatternIndexMatcher final : public RulesetMatcherBase {
  private:
   using UrlPatternIndexMatcher = url_pattern_index::UrlPatternIndexMatcher;
 
+  // RulesetMatcherBase override:
+  base::Optional<RequestAction> GetAllowAllRequestsAction(
+      const RequestParams& params) const override;
+  base::Optional<RequestAction> GetBeforeRequestActionIgnoringAncestors(
+      const RequestParams& params) const override;
+
+  // Returns the highest priority action from
+  // |flat::IndexType_before_request_except_allow_all_requests| index.
+  base::Optional<RequestAction> GetBeforeRequestActionHelper(
+      const RequestParams& params) const;
+
   const url_pattern_index::flat::UrlRule* GetMatchingRule(
       const RequestParams& params,
-      flat::ActionIndex index,
+      flat::IndexType index,
       UrlPatternIndexMatcher::FindRuleStrategy strategy =
           UrlPatternIndexMatcher::FindRuleStrategy::kAny) const;
 
   const ExtensionMetadataList* const metadata_list_;
 
-  // UrlPatternIndexMatchers corresponding to entries in flat::ActionIndex.
+  // UrlPatternIndexMatchers corresponding to entries in flat::IndexType.
   const std::vector<UrlPatternIndexMatcher> matchers_;
 
   const bool is_extra_headers_matcher_;

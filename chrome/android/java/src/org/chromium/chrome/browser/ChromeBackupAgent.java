@@ -8,7 +8,6 @@ import android.app.backup.BackupAgent;
 import android.app.backup.BackupDataInput;
 import android.app.backup.BackupDataOutput;
 import android.app.backup.BackupManager;
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.ParcelFileDescriptor;
 
@@ -22,13 +21,10 @@ import org.chromium.base.PathUtils;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
-import org.chromium.chrome.browser.firstrun.FirstRunSignInProcessor;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
-import org.chromium.chrome.browser.firstrun.FirstRunUtils;
 import org.chromium.chrome.browser.init.AsyncInitTaskRunner;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
-import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
-import org.chromium.chrome.browser.settings.privacy.PrivacyPreferencesManager;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
@@ -49,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Backup agent for Chrome, using Android key/value backup.
  */
-
+@SuppressWarnings("UseSharedPreferencesManagerFromChromeCheck")
 public class ChromeBackupAgent extends BackupAgent {
     private static final String ANDROID_DEFAULT_PREFIX = "AndroidDefault.";
     private static final String NATIVE_PREF_PREFIX = "native.";
@@ -90,11 +86,12 @@ public class ChromeBackupAgent extends BackupAgent {
 
     // List of preferences that should be restored unchanged.
     static final String[] BACKUP_ANDROID_BOOL_PREFS = {
-            DataReductionProxySettings.DATA_REDUCTION_ENABLED_PREF,
-            FirstRunUtils.CACHED_TOS_ACCEPTED_PREF, FirstRunStatus.FIRST_RUN_FLOW_COMPLETE,
-            FirstRunStatus.LIGHTWEIGHT_FIRST_RUN_FLOW_COMPLETE,
-            FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_SETUP,
-            PrivacyPreferencesManager.PREF_METRICS_REPORTING,
+            ChromePreferenceKeys.DATA_REDUCTION_ENABLED,
+            ChromePreferenceKeys.FIRST_RUN_CACHED_TOS_ACCEPTED,
+            ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE,
+            ChromePreferenceKeys.FIRST_RUN_LIGHTWEIGHT_FLOW_COMPLETE,
+            ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_SETUP,
+            ChromePreferenceKeys.PRIVACY_METRICS_REPORTING,
     };
 
     // Timeout for running the background tasks, needs to be quite long since they may be doing
@@ -152,7 +149,7 @@ public class ChromeBackupAgent extends BackupAgent {
     // TODO (aberent) Refactor the tests to use a mocked ChromeBrowserInitializer, and make this
     // private again.
     @VisibleForTesting
-    boolean initializeBrowser(Context context) {
+    boolean initializeBrowser() {
         // Workaround for https://crbug.com/718166. The backup agent is sometimes being started in a
         // child process, before the child process loads its native library. If backup then loads
         // the native library the child process is left in a very confused state and crashes.
@@ -160,7 +157,7 @@ public class ChromeBackupAgent extends BackupAgent {
             Log.e(TAG, "Backup agent started from child process");
             return false;
         }
-        ChromeBrowserInitializer.getInstance(context).handleSynchronousStartup();
+        ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
         return true;
     }
 
@@ -175,8 +172,6 @@ public class ChromeBackupAgent extends BackupAgent {
     @Override
     public void onBackup(ParcelFileDescriptor oldState, BackupDataOutput data,
             ParcelFileDescriptor newState) throws IOException {
-        final ChromeBackupAgent backupAgent = this;
-
         final ArrayList<String> backupNames = new ArrayList<>();
         final ArrayList<byte[]> backupValues = new ArrayList<>();
 
@@ -185,7 +180,7 @@ public class ChromeBackupAgent extends BackupAgent {
             // Start the browser if necessary, so that Chrome can access the native
             // preferences. Although Chrome requests the backup, it doesn't happen
             // immediately, so by the time it does Chrome may not be running.
-            if (!initializeBrowser(backupAgent)) return false;
+            if (!initializeBrowser()) return false;
 
             String[] nativeBackupNames = ChromeBackupAgentJni.get().getBoolBackupNames(this);
             boolean[] nativeBackupValues = ChromeBackupAgentJni.get().getBoolBackupValues(this);
@@ -331,10 +326,9 @@ public class ChromeBackupAgent extends BackupAgent {
 
         // Chrome has to be running before it can check if the account exists. Because the native
         // library is already loaded Chrome startup should be fast.
-        final ChromeBackupAgent backupAgent = this;
         boolean browserStarted = PostTask.runSynchronously(UiThreadTaskTraits.DEFAULT, () -> {
             // Start the browser if necessary.
-            return initializeBrowser(backupAgent);
+            return initializeBrowser();
         });
         if (!browserStarted) {
             // Something went wrong starting Chrome, skip the restore.
@@ -386,8 +380,7 @@ public class ChromeBackupAgent extends BackupAgent {
         // Because FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_COMPLETE is not restored Chrome
         // will sign in the user on first run to the account in FIRST_RUN_FLOW_SIGNIN_ACCOUNT_NAME
         // if any. If the rest of FRE has been completed this will happen silently.
-        editor.putString(
-                FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_ACCOUNT_NAME, restoredUserName);
+        editor.putString(ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_ACCOUNT_NAME, restoredUserName);
         editor.apply();
 
         // The silent first run will change things, so there is no point in trying to prevent

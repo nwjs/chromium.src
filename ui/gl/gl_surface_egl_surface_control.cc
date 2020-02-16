@@ -115,7 +115,7 @@ void GLSurfaceEGLSurfaceControl::Destroy() {
 
 bool GLSurfaceEGLSurfaceControl::Resize(const gfx::Size& size,
                                         float scale_factor,
-                                        ColorSpace color_space,
+                                        const gfx::ColorSpace& color_space,
                                         bool has_alpha) {
   // TODO(khushalsagar): Update GLSurfaceFormat using the |color_space| above?
   // We don't do this for the NativeViewGLSurfaceEGL as well yet.
@@ -209,8 +209,10 @@ void GLSurfaceEGLSurfaceControl::CommitPendingTransaction(
   // the next transaction.
   DCHECK_LE(pending_surfaces_count_, surface_list_.size());
   for (size_t i = pending_surfaces_count_; i < surface_list_.size(); ++i) {
-    pending_transaction_->SetBuffer(*surface_list_[i].surface, nullptr,
+    const auto& surface_state = surface_list_[i];
+    pending_transaction_->SetBuffer(*surface_state.surface, nullptr,
                                     base::ScopedFD());
+    pending_transaction_->SetVisibility(*surface_state.surface, false);
   }
 
   // TODO(khushalsagar): Consider using the SetDamageRect API for partial
@@ -414,16 +416,6 @@ void GLSurfaceEGLSurfaceControl::OnTransactionAckOnGpuThread(
 
   transaction_ack_pending_ = false;
 
-  // The presentation feedback callback must run after swap completion.
-  std::move(completion_callback).Run(gfx::SwapResult::SWAP_ACK, nullptr);
-
-  PendingPresentationCallback pending_cb;
-  pending_cb.latch_time = transaction_stats.latch_time;
-  pending_cb.present_fence = std::move(transaction_stats.present_fence);
-  pending_cb.callback = std::move(presentation_callback);
-  pending_presentation_callback_queue_.push(std::move(pending_cb));
-  CheckPendingPresentationCallbacks();
-
   const bool has_context = context_->MakeCurrent(this);
   for (auto& surface_stat : transaction_stats.surface_stats) {
     auto it = released_resources.find(surface_stat.surface);
@@ -450,6 +442,17 @@ void GLSurfaceEGLSurfaceControl::OnTransactionAckOnGpuThread(
   // which were updated in that transaction, the surfaces with no buffer updates
   // won't be present in the ack.
   released_resources.clear();
+
+  // The presentation feedback callback must run after swap completion.
+  std::move(completion_callback).Run(gfx::SwapResult::SWAP_ACK, nullptr);
+
+  PendingPresentationCallback pending_cb;
+  pending_cb.latch_time = transaction_stats.latch_time;
+  pending_cb.present_fence = std::move(transaction_stats.present_fence);
+  pending_cb.callback = std::move(presentation_callback);
+  pending_presentation_callback_queue_.push(std::move(pending_cb));
+
+  CheckPendingPresentationCallbacks();
 
   if (!pending_transaction_queue_.empty()) {
     transaction_ack_pending_ = true;

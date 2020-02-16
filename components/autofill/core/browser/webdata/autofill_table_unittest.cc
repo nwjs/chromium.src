@@ -25,6 +25,7 @@
 #include "components/autofill/core/browser/data_model/autofill_metadata.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
+#include "components/autofill/core/browser/data_model/credit_card_cloud_token_data.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
 #include "components/autofill/core/browser/webdata/autofill_entry.h"
@@ -2363,28 +2364,6 @@ TEST_F(AutofillTableTest, SetServerCardModify) {
   outputs.clear();
 }
 
-TEST_F(AutofillTableTest, ServerCardBankName) {
-  // Add a masked card.
-  CreditCard masked_card(CreditCard::MASKED_SERVER_CARD, "a123");
-  masked_card.SetRawInfo(CREDIT_CARD_NAME_FULL,
-                         ASCIIToUTF16("Paul F. Tompkins"));
-  masked_card.SetRawInfo(CREDIT_CARD_EXP_MONTH, ASCIIToUTF16("1"));
-  masked_card.SetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR, ASCIIToUTF16("2020"));
-  masked_card.SetRawInfo(CREDIT_CARD_NUMBER, ASCIIToUTF16("1111"));
-  masked_card.SetNetworkForMaskedCard(kVisaCard);
-  masked_card.set_bank_name("Chase");
-
-  // Set server credit cards
-  std::vector<CreditCard> inputs = {masked_card};
-  test::SetServerCreditCards(table_.get(), inputs);
-
-  // Get server credit cards and check bank names equal
-  std::vector<std::unique_ptr<CreditCard>> outputs;
-  table_->GetServerCreditCards(&outputs);
-  ASSERT_EQ(1u, outputs.size());
-  EXPECT_EQ("Chase", outputs[0]->bank_name());
-}
-
 TEST_F(AutofillTableTest, SetServerCardUpdateUsageStatsAndBillingAddress) {
   // Add a masked card.
   CreditCard masked_card(CreditCard::MASKED_SERVER_CARD, "a123");
@@ -2626,6 +2605,42 @@ TEST_F(AutofillTableTest, SetGetPaymentsCustomerData_MultipleSet) {
   std::unique_ptr<PaymentsCustomerData> output;
   ASSERT_TRUE(table_->GetPaymentsCustomerData(&output));
   EXPECT_EQ(input3, *output);
+}
+
+TEST_F(AutofillTableTest, SetGetCreditCardCloudData_OneTimeSet) {
+  std::vector<CreditCardCloudTokenData> inputs;
+  inputs.push_back(test::GetCreditCardCloudTokenData1());
+  inputs.push_back(test::GetCreditCardCloudTokenData2());
+  table_->SetCreditCardCloudTokenData(inputs);
+
+  std::vector<std::unique_ptr<CreditCardCloudTokenData>> outputs;
+  ASSERT_TRUE(table_->GetCreditCardCloudTokenData(&outputs));
+  EXPECT_EQ(outputs.size(), inputs.size());
+  EXPECT_EQ(0, outputs[0]->Compare(test::GetCreditCardCloudTokenData1()));
+  EXPECT_EQ(0, outputs[1]->Compare(test::GetCreditCardCloudTokenData2()));
+}
+
+TEST_F(AutofillTableTest, SetGetCreditCardCloudData_MultipleSet) {
+  std::vector<CreditCardCloudTokenData> inputs;
+  CreditCardCloudTokenData input1 = test::GetCreditCardCloudTokenData1();
+  inputs.push_back(input1);
+  table_->SetCreditCardCloudTokenData(inputs);
+
+  inputs.clear();
+  CreditCardCloudTokenData input2 = test::GetCreditCardCloudTokenData2();
+  inputs.push_back(input2);
+  table_->SetCreditCardCloudTokenData(inputs);
+
+  std::vector<std::unique_ptr<CreditCardCloudTokenData>> outputs;
+  ASSERT_TRUE(table_->GetCreditCardCloudTokenData(&outputs));
+  EXPECT_EQ(1u, outputs.size());
+  EXPECT_EQ(0, outputs[0]->Compare(test::GetCreditCardCloudTokenData2()));
+}
+
+TEST_F(AutofillTableTest, GetCreditCardCloudData_NoData) {
+  std::vector<std::unique_ptr<CreditCardCloudTokenData>> output;
+  ASSERT_TRUE(table_->GetCreditCardCloudTokenData(&output));
+  EXPECT_TRUE(output.empty());
 }
 
 const size_t kMaxCount = 2;
@@ -3000,8 +3015,8 @@ TEST_F(AutofillTableTest, RemoveOrphanAutofillTableRows) {
   EXPECT_FALSE(s_autofill_profile_phones.Step());
 }
 
-TEST_F(AutofillTableTest, VPA) {
-  EXPECT_TRUE(table_->InsertVPA("name@indianbank"));
+TEST_F(AutofillTableTest, UpiId) {
+  EXPECT_TRUE(table_->InsertUpiId("name@indianbank"));
 
   sql::Statement s_inspect(db_->GetSQLConnection()->GetUniqueStatement(
       "SELECT vpa FROM payments_upi_vpa"));

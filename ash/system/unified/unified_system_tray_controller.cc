@@ -439,17 +439,26 @@ void UnifiedSystemTrayController::UpdateExpandedAmount() {
   if (bubble_)
     bubble_->UpdateTransform();
   if (expanded_amount == 0.0 || expanded_amount == 1.0)
-    model_->set_expanded_on_open(expanded_amount == 1.0);
+    model_->set_expanded_on_open(
+        expanded_amount == 1.0
+            ? UnifiedSystemTrayModel::StateOnOpen::EXPANDED
+            : UnifiedSystemTrayModel::StateOnOpen::COLLAPSED);
 }
 
 void UnifiedSystemTrayController::ResetToCollapsedIfRequired() {
-  if (features::IsUnifiedMessageCenterRefactorEnabled()) {
-    if (unified_view_->feature_pods_container()->row_count() ==
-        kUnifiedFeaturePodMinRows) {
-      unified_view_->SetExpandedAmount(0.0);
-      animation_->Reset(0);
-    }
+  if (model_->IsExplicitlyExpanded())
+    return;
+
+  if (features::IsUnifiedMessageCenterRefactorEnabled() &&
+      unified_view_->feature_pods_container()->row_count() ==
+          kUnifiedFeaturePodMinRows) {
+    CollapseWithoutAnimating();
   }
+}
+
+void UnifiedSystemTrayController::CollapseWithoutAnimating() {
+  unified_view_->SetExpandedAmount(0.0);
+  animation_->Reset(0);
 }
 
 double UnifiedSystemTrayController::GetDragExpandedAmount(

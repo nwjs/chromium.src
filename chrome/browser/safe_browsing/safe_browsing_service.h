@@ -25,9 +25,9 @@
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/safe_browsing/services_delegate.h"
 #include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/db/util.h"
-#include "components/safe_browsing/safe_browsing_service_interface.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/db/util.h"
+#include "components/safe_browsing/core/safe_browsing_service_interface.h"
 #include "content/public/browser/browser_thread.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
 
@@ -180,6 +180,8 @@ class SafeBrowsingService : public SafeBrowsingServiceInterface,
 
   // Get the cache manager by profile.
   VerdictCacheManager* GetVerdictCacheManager(Profile* profile) const;
+  base::WeakPtr<VerdictCacheManager> GetVerdictCacheManagerWeakPtr(
+      Profile* profile) const;
 
   // Get the binary upload service by profile.
   BinaryUploadService* GetBinaryUploadService(Profile* profile) const;
@@ -228,6 +230,11 @@ class SafeBrowsingService : public SafeBrowsingServiceInterface,
   // shutdown is true, then the operations on the io thread are shutdown
   // permanently and cannot be restarted.
   void StopOnIOThread(bool shutdown);
+
+  // Called on the IO thread when any active profile is destroyed.
+  void OnProfileWillBeDestroyedOnIOThread(
+      std::unique_ptr<network::PendingSharedURLLoaderFactory>
+          url_loader_factory);
 
   // Start up SafeBrowsing objects. This can be called at browser start, or when
   // the user checks the "Enable SafeBrowsing" option in the Advanced options

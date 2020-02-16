@@ -46,7 +46,7 @@ DawnContextProvider::DawnContextProvider() {
 
 DawnContextProvider::~DawnContextProvider() = default;
 
-dawn::Device DawnContextProvider::CreateDevice(dawn_native::BackendType type) {
+wgpu::Device DawnContextProvider::CreateDevice(dawn_native::BackendType type) {
   instance_.DiscoverDefaultAdapters();
   DawnProcTable backend_procs = dawn_native::GetProcs();
   dawnProcSetProcs(&backend_procs);

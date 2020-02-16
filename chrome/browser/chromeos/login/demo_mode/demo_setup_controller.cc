@@ -18,6 +18,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_resources.h"
+#include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
 #include "chrome/browser/chromeos/login/enrollment/auto_enrollment_controller.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
@@ -263,9 +264,6 @@ DemoSetupController::DemoSetupError::CreateFromEnrollmentStatus(
     case policy::EnrollmentStatus::DM_TOKEN_STORE_FAILED:
       return DemoSetupError(ErrorCode::kDMTokenStoreError,
                             RecoveryMethod::kUnknown, debug_message);
-    case policy::EnrollmentStatus::LICENSE_REQUEST_FAILED:
-      return DemoSetupError(ErrorCode::kLicenseError, RecoveryMethod::kUnknown,
-                            debug_message);
     case policy::EnrollmentStatus::OFFLINE_POLICY_LOAD_FAILED:
     case policy::EnrollmentStatus::OFFLINE_POLICY_DECODING_FAILED:
       return DemoSetupError(ErrorCode::kOfflinePolicyError,
@@ -464,10 +462,14 @@ bool DemoSetupController::IsOobeDemoSetupFlowInProgress() {
 std::string DemoSetupController::GetSubOrganizationEmail() {
   const std::string country =
       g_browser_process->local_state()->GetString(prefs::kDemoModeCountry);
-  const base::flat_set<std::string> kCountriesWithCustomization(
-      {"de", "dk", "fi", "fr", "jp", "nl", "no", "se"});
-  if (kCountriesWithCustomization.contains(country))
+
+  // Exclude US as it is the default country.
+  if (country != "us" &&
+      std::find(std::begin(DemoSession::kSupportedCountries),
+                std::end(DemoSession::kSupportedCountries),
+                country) != std::end(DemoSession::kSupportedCountries)) {
     return "admin-" + country + "@" + policy::kDemoModeDomain;
+  }
   return std::string();
 }
 
@@ -650,11 +652,6 @@ void DemoSetupController::OnDeviceEnrolled() {
   StartupUtils::MarkDeviceRegistered(
       base::BindOnce(&DemoSetupController::OnDeviceRegistered,
                      weak_ptr_factory_.GetWeakPtr()));
-}
-
-void DemoSetupController::OnMultipleLicensesAvailable(
-    const EnrollmentLicenseMap& licenses) {
-  NOTREACHED();
 }
 
 void DemoSetupController::OnDeviceAttributeUploadCompleted(bool success) {

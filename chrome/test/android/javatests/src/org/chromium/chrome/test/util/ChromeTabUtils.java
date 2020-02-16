@@ -23,16 +23,15 @@ import org.chromium.chrome.browser.compositor.layouts.components.CompositorButto
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabWebContentsObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.browser.TabTitleObserver;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -285,7 +284,7 @@ public class ChromeTabUtils {
         }
 
         @Override
-        public void onInteractabilityChanged(boolean interactable) {
+        public void onInteractabilityChanged(Tab tab, boolean interactable) {
             if (interactable) {
                 mCallback.notifyCalled();
                 mTab.removeObserver(this);
@@ -306,7 +305,7 @@ public class ChromeTabUtils {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             // If a tab is hidden, don't wait for interactivity. See note in
             // TabPageInteractableObserver.
-            if (tab.isUserInteractable() || ((TabImpl) tab).isHidden()) {
+            if (tab.isUserInteractable() || tab.isHidden()) {
                 interactableCallback.notifyCalled();
                 return;
             }

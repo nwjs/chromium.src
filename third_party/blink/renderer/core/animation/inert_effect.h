@@ -60,7 +60,7 @@ class CORE_EXPORT InertEffect final : public AnimationEffect {
   AnimationTimeDelta CalculateTimeToEffectChange(
       bool forwards,
       base::Optional<double> inherited_time,
-      double time_to_next_iteration) const override;
+      AnimationTimeDelta time_to_next_iteration) const override;
 
  private:
   Member<KeyframeEffectModelBase> model_;
@@ -68,11 +68,12 @@ class CORE_EXPORT InertEffect final : public AnimationEffect {
   base::Optional<double> inherited_time_;
 };
 
-DEFINE_TYPE_CASTS(InertEffect,
-                  AnimationEffect,
-                  animationEffect,
-                  animationEffect->IsInertEffect(),
-                  animationEffect.IsInertEffect());
+template <>
+struct DowncastTraits<InertEffect> {
+  static bool AllowFrom(const AnimationEffect& animationEffect) {
+    return animationEffect.IsInertEffect();
+  }
+};
 
 }  // namespace blink
 

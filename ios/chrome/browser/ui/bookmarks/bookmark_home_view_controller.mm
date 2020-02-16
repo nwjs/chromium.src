@@ -51,6 +51,7 @@
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/url_loading/url_loading_service.h"
 #import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
+#import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/common/colors/semantic_color_names.h"
 #import "ios/chrome/common/favicon/favicon_attributes.h"
 #import "ios/chrome/common/favicon/favicon_view.h"
@@ -133,7 +134,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 @property(nonatomic, assign) bookmarks::BookmarkModel* bookmarks;
 
 // The user's browser state model used.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 
 // The mediator that provides data for this view controller.
 @property(nonatomic, strong) BookmarkHomeMediator* mediator;
@@ -205,12 +206,11 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 #pragma mark - Initializer
 
 - (instancetype)
-    initWithBrowserState:(ios::ChromeBrowserState*)browserState
+    initWithBrowserState:(ChromeBrowserState*)browserState
               dispatcher:(id<ApplicationCommands, BrowserCommands>)dispatcher
             webStateList:(WebStateList*)webStateList {
   DCHECK(browserState);
-  self = [super initWithTableViewStyle:UITableViewStylePlain
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:UITableViewStylePlain];
   if (self) {
     _browserState = browserState->GetOriginalChromeBrowserState();
     _dispatcher = dispatcher;
@@ -1063,6 +1063,7 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
     return;
 
   new_tab_page_uma::RecordAction(self.browserState,
+                                 self.webStateList->GetActiveWebState(),
                                  new_tab_page_uma::ACTION_OPENED_BOOKMARK);
   base::RecordAction(
       base::UserMetricsAction("MobileBookmarkManagerEntryOpened"));
@@ -1176,8 +1177,9 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
 
 - (int)topMostVisibleIndexPathRow {
   // If on root node screen, return 0.
-  if (self.sharedState.tableViewDisplayedRootNode ==
-      self.sharedState.bookmarkModel->root_node()) {
+  if (self.sharedState.bookmarkModel &&
+      self.sharedState.tableViewDisplayedRootNode ==
+          self.sharedState.bookmarkModel->root_node()) {
     return 0;
   }
 

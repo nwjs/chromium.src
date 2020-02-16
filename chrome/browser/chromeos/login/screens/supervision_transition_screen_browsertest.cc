@@ -117,7 +117,9 @@ IN_PROC_BROWSER_TEST_P(SupervisionTransitionScreenTest, PRE_TransitionTimeout) {
   arc::SetArcPlayStoreEnabledForProfile(profile, true);
 }
 
-IN_PROC_BROWSER_TEST_P(SupervisionTransitionScreenTest, TransitionTimeout) {
+// Flaky on linux-chromeos-rel (see https://crbug.com/1032997)
+IN_PROC_BROWSER_TEST_P(SupervisionTransitionScreenTest,
+                       DISABLED_TransitionTimeout) {
   OobeScreenWaiter(SupervisionTransitionScreenView::kScreenId).Wait();
 
   test::OobeJS().ExpectVisiblePath(
@@ -164,7 +166,7 @@ IN_PROC_BROWSER_TEST_P(SupervisionTransitionScreenTest,
   logged_in_user_mixin().GetLoginManagerMixin()->WaitForActiveSession();
 }
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          SupervisionTransitionScreenTest,
                          testing::Values(LoggedInUserMixin::LogInType::kRegular,
                                          LoggedInUserMixin::LogInType::kChild));

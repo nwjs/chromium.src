@@ -3,7 +3,9 @@
 # found in the LICENSE file.
 
 import("//ios/build/config.gni")
+import("//ios/chrome/features.gni")
 import("//ios/public/provider/chrome/browser/build_config.gni")
+import("//ios/third_party/features.gni")
 import("//ios/third_party/firebase/firebase.gni")
 import("//testing/test.gni")
 
@@ -36,9 +38,7 @@ source_set("test_support") {
     "testing_application_context.mm",
   ]
 
-  public_deps = [
-    ":block_cleanup_test",
-  ]
+  public_deps = [ ":block_cleanup_test" ]
 
   deps = [
     "//base",
@@ -117,9 +117,7 @@ source_set("block_cleanup_test") {
 
 source_set("run_all_unittests") {
   testonly = true
-  sources = [
-    "run_all_unittests.cc",
-  ]
+  sources = [ "run_all_unittests.cc" ]
   deps = [
     ":test_support",
     "//base",
@@ -127,6 +125,20 @@ source_set("run_all_unittests") {
     "//ios/chrome/app/startup:startup_basic",
     "//mojo/core/embedder",
   ]
+
+  if (ios_third_party_material_components_built_as_framework) {
+    if (ios_chrome_links_with_material_components_framework) {
+      public_deps = [
+        "//ios/third_party/material_components_ios:material_components_ios+bundle",
+        "//ios/third_party/material_components_ios:material_components_ios+link",
+      ]
+    } else {
+      assert_no_deps = [
+        "//ios/third_party/material_components_ios:material_components_ios+bundle",
+        "//ios/third_party/material_components_ios:material_components_ios+link",
+      ]
+    }
+  }
 }
 
 test("ios_chrome_perftests") {
@@ -174,6 +186,10 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/geolocation:unit_tests",
     "//ios/chrome/browser/history:unit_tests",
     "//ios/chrome/browser/infobars:unit_tests",
+    "//ios/chrome/browser/infobars/overlays:unit_tests",
+    "//ios/chrome/browser/infobars/overlays/browser_agent:unit_tests",
+    "//ios/chrome/browser/infobars/overlays/browser_agent/interaction_handlers/common:unit_tests",
+    "//ios/chrome/browser/infobars/overlays/browser_agent/interaction_handlers/passwords:unit_tests",
     "//ios/chrome/browser/itunes_urls:unit_tests",
     "//ios/chrome/browser/json_parser:unit_tests",
     "//ios/chrome/browser/language:unit_tests",
@@ -188,7 +204,6 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/overlays:unit_tests",
     "//ios/chrome/browser/overscroll_actions:unit_tests",
     "//ios/chrome/browser/passwords:unit_tests",
-    "//ios/chrome/browser/payments:unit_tests",
     "//ios/chrome/browser/prerender:unit_tests",
     "//ios/chrome/browser/reading_list:unit_tests",
     "//ios/chrome/browser/safe_mode:unit_tests",
@@ -249,11 +264,13 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/ui/open_in:unit_tests",
     "//ios/chrome/browser/ui/overlays:unit_tests",
     "//ios/chrome/browser/ui/overlays/common/alerts:unit_tests",
+    "//ios/chrome/browser/ui/overlays/infobar_banner:unit_tests",
+    "//ios/chrome/browser/ui/overlays/infobar_banner/passwords:unit_tests",
+    "//ios/chrome/browser/ui/overlays/infobar_modal:unit_tests",
+    "//ios/chrome/browser/ui/overlays/infobar_modal/passwords:unit_tests",
     "//ios/chrome/browser/ui/overlays/web_content_area/app_launcher:unit_tests",
     "//ios/chrome/browser/ui/overlays/web_content_area/http_auth_dialogs:unit_tests",
     "//ios/chrome/browser/ui/overlays/web_content_area/java_script_dialogs:unit_tests",
-    "//ios/chrome/browser/ui/payments:unit_tests",
-    "//ios/chrome/browser/ui/payments/cells:unit_tests",
     "//ios/chrome/browser/ui/popup_menu:unit_tests",
     "//ios/chrome/browser/ui/presenters:unit_tests",
     "//ios/chrome/browser/ui/promos:unit_tests",
@@ -270,8 +287,6 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/ui/settings/password:unit_tests",
     "//ios/chrome/browser/ui/settings/sync:unit_tests",
     "//ios/chrome/browser/ui/side_swipe:unit_tests",
-    "//ios/chrome/browser/ui/snackbar:unit_tests",
-    "//ios/chrome/browser/ui/static_content:unit_tests",
     "//ios/chrome/browser/ui/tab_grid:unit_tests",
     "//ios/chrome/browser/ui/tab_grid/grid:unit_tests",
     "//ios/chrome/browser/ui/table_view:unit_tests",

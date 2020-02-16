@@ -10,7 +10,6 @@
 #include "base/command_line.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_block.h"
-#include "base/mac/sdk_forward_declarations.h"
 #include "base/macros.h"
 #import "skia/ext/skia_utils_mac.h"
 #include "ui/base/ui_base_features.h"
@@ -55,13 +54,13 @@ bool IsHighContrast() {
 @end
 
 @implementation NativeThemeEffectiveAppearanceObserver {
-  base::mac::ScopedBlock<void (^)()> handler_;
+  base::mac::ScopedBlock<void (^)()> _handler;
 }
 
 - (instancetype)initWithHandler:(void (^)())handler {
   self = [super init];
   if (self) {
-    handler_.reset([handler copy]);
+    _handler.reset([handler copy]);
     if (@available(macOS 10.14, *)) {
       [NSApp addObserver:self
               forKeyPath:@"effectiveAppearance"
@@ -83,7 +82,7 @@ bool IsHighContrast() {
                       ofObject:(id)object
                         change:(NSDictionary*)change
                        context:(void*)context {
-  handler_.get()();
+  _handler.get()();
 }
 
 @end

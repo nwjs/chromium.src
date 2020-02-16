@@ -36,6 +36,7 @@ class HttpRequestHeaders;
 class IOBuffer;
 class IPEndPoint;
 class NetLogWithSource;
+class SiteForCookies;
 class URLRequest;
 class URLRequestContext;
 struct WebSocketHandshakeRequestInfo;
@@ -54,8 +55,8 @@ class NET_EXPORT WebSocketChannel {
       const GURL&,
       const std::vector<std::string>&,
       const url::Origin&,
-      const GURL&,
-      const net::NetworkIsolationKey&,
+      const SiteForCookies&,
+      const NetworkIsolationKey&,
       const HttpRequestHeaders&,
       URLRequestContext*,
       const NetLogWithSource&,
@@ -79,7 +80,7 @@ class NET_EXPORT WebSocketChannel {
       const GURL& socket_url,
       const std::vector<std::string>& requested_protocols,
       const url::Origin& origin,
-      const GURL& site_for_cookies,
+      const SiteForCookies& site_for_cookies,
       const net::NetworkIsolationKey& network_isolation_key,
       const HttpRequestHeaders& additional_headers);
 
@@ -128,7 +129,7 @@ class NET_EXPORT WebSocketChannel {
       const GURL& socket_url,
       const std::vector<std::string>& requested_protocols,
       const url::Origin& origin,
-      const GURL& site_for_cookies,
+      const SiteForCookies& site_for_cookies,
       const net::NetworkIsolationKey& network_isolation_key,
       const HttpRequestHeaders& additional_headers,
       const WebSocketStreamRequestCreationCallback& callback);
@@ -147,11 +148,6 @@ class NET_EXPORT WebSocketChannel {
   // This method is public for testing.
   void OnStartOpeningHandshake(
       std::unique_ptr<WebSocketHandshakeRequestInfo> request);
-
-  // Called when the stream ends the WebSocket Opening Handshake.
-  // This method is public for testing.
-  void OnFinishOpeningHandshake(
-      std::unique_ptr<WebSocketHandshakeResponseInfo> response);
 
   // The renderer calls AddReceiveFlowControlQuota() to the browser per
   // recerving this amount of data so that the browser can continue sending
@@ -195,7 +191,7 @@ class NET_EXPORT WebSocketChannel {
       const GURL& socket_url,
       const std::vector<std::string>& requested_protocols,
       const url::Origin& origin,
-      const GURL& site_for_cookies,
+      const SiteForCookies& site_for_cookies,
       const net::NetworkIsolationKey& network_isolation_key,
       const HttpRequestHeaders& additional_headers,
       const WebSocketStreamRequestCreationCallback& callback);
@@ -205,7 +201,9 @@ class NET_EXPORT WebSocketChannel {
 
   // Success callback from WebSocketStream::CreateAndConnectStream(). Reports
   // success to the event interface. May delete |this|.
-  void OnConnectSuccess(std::unique_ptr<WebSocketStream> stream);
+  void OnConnectSuccess(
+      std::unique_ptr<WebSocketStream> stream,
+      std::unique_ptr<WebSocketHandshakeResponseInfo> response);
 
   // Failure callback from WebSocketStream::CreateAndConnectStream(). Reports
   // failure to the event interface. May delete |this|.

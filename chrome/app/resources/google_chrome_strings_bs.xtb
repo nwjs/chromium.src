@@ -9,7 +9,6 @@
 Neke funkcije možda neće biti dostupne i promjene postavki se neće sačuvati.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> je prethodno koristio/la Chrome</translation>
 <translation id="1097330777386562916">Obriši kolačiće i podatke o web lokaciji pri napuštanju Chromea</translation>
-<translation id="1104959162601287462">O &amp;Chrome OS-u</translation>
 <translation id="110877069173485804">Ovo je vaš Chrome</translation>
 <translation id="1142745911746664600">Nije moguće ažurirati Chrome</translation>
 <translation id="1154147086299354128">&amp;Otvori u Chromeu</translation>
@@ -21,10 +20,8 @@ Neke funkcije možda neće biti dostupne i promjene postavki se neće sačuvati.
 <translation id="1553358976309200471">Ažuriraj Chrome</translation>
 <translation id="1587223624401073077">Google Chrome koristi vašu kameru.</translation>
 <translation id="1587325591171447154">Fajl <ph name="FILE_NAME" /> je opasan, pa ga je Chrome blokirao.</translation>
-<translation id="1590588151039584890">Za potrebe ažuriranja, Chromium mora prestati raditi na ovom računaru. Zbog toga drugi korisnici koji su prijavljeni na ovaj računar mogu izgubiti izmjene koje nisu sačuvane.</translation>
 <translation id="1619887657840448962">Kako bi Chrome bio sigurniji, onemogućili smo sljedeću ekstenziju koja nije navedena u <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> i koja je dodana bez vašeg znanja.</translation>
 <translation id="1628000112320670027">Pomoć za Chrome</translation>
-<translation id="1635734105302489219">Kolačići se brišu kada napustite Chrome. Da nastavite sa sinhroniziranjem, promijenite postavku <ph name="COOKIE_SETTINGS_LINK" />.</translation>
 <translation id="1662639173275167396">OS Chrome omogućen je dodatnim <ph name="BEGIN_LINK_CROS_OSS" />softverom otvorenog izvornog koda<ph name="END_LINK_CROS_OSS" />, isto kao i <ph name="BEGIN_LINK_LINUX_OSS" />Linux (Beta)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">Još malo pa je ažurirano! Ponovo pokrenite Google Chrome da završite ažuriranje. Anonimni prozori se neće ponovo otvoriti.</translation>
 <translation id="1674870198290878346">Otvori link u anon&amp;imnom prozoru Chromea</translation>
@@ -53,6 +50,7 @@ Neke funkcije možda neće biti dostupne i promjene postavki se neće sačuvati.
 <translation id="2290014774651636340">Nedostaju ključevi za Google API. Neke funkcionalnosti Google Chromea će biti onemogućene.</translation>
 <translation id="2290095356545025170">Jeste li sigurni da želite deinstalirati Google Chrome?</translation>
 <translation id="2309047409763057870">Ovo je sekundarna instalacija Google Chromea, pa on ne može biti vaš zadani preglednik.</translation>
+<translation id="2341767445688917208">Chrome OS nije uspio sinhronizirati vaše lozinke. Ispravi sada.</translation>
 <translation id="2348335408836342058">Chromeu treba odobrenje za pristup vašoj kameri i mikrofonu na ovoj web lokaciji</translation>
 <translation id="2429317896000329049">Google Chrome ne može sinhronizirati vaše podatke jer sinhronizacija nije dostupna za vašu domenu.</translation>
 <translation id="2467438592969358367">Google Chrome želi izvesti vaše lozinke. Unesite svoju lozinku za Windows da ovo omogućite.</translation>
@@ -77,8 +75,6 @@ Neke funkcije možda neće biti dostupne i promjene postavki se neće sačuvati.
 <translation id="3080151273017101988">Ostavi aplikacije da rade u pozadini kada se Google Chrome zatvori</translation>
 <translation id="3089968997497233615">Dostupna je nova, sigurnija verzija Google Chromea.</translation>
 <translation id="3149510190863420837">Chrome aplikacije</translation>
-<translation id="3282568296779691940">Prijava na Chrome</translation>
-<translation id="3340978935015468852">postavke</translation>
 <translation id="3360895254066713204">Pomoćnik za Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome će se sada ponovo pokrenuti}=1{Chrome će se ponovo pokrenuti za 1 sekundu}one{Chrome će se ponovo pokrenuti za # sekundu}few{Chrome će se ponovo pokrenuti za # sekunde}other{Chrome će se ponovo pokrenuti za # sekundi}}</translation>
 <translation id="3395323229510056640">Potražite pomoć za Chrome OS</translation>
@@ -131,7 +127,6 @@ Neke funkcije možda neće biti dostupne i promjene postavki se neće sačuvati.
 <translation id="4953650215774548573">Postavi Google Chrome kao zadani preglednik</translation>
 <translation id="495931528404527476">Iz Chromea</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Google Chrome nije mogao sinhronizirati vaše podatke. Ažurirajte pristupni izraz za sinhronizaciju.</translation>
 <translation id="5062123544085870375">Ponovo pokrenite Chrome OS</translation>
 <translation id="5132929315877954718">Otkrijte odlične aplikacije, igre, ekstenzije i teme za Google Chrome.</translation>
 <translation id="5170938038195470297">Ne možete koristiti profil jer je s novije verzije Google Chromea.
@@ -144,7 +139,6 @@ Moguće je da neke funkcije neće biti dostupne. Odredite drugi direktorij profi
 <translation id="5386244825306882791">Također kontrolira koja stranica će se prikazati kada pokrenete Chrome ili budete pretraživali iz višenamjenskog okvira.</translation>
 <translation id="5394833366792865639">Dijelite Chrome karticu</translation>
 <translation id="5430073640787465221">Datoteka vaših postavki oštećena je ili nevažeća. Google Chrome nema mogućnost oporavka vaših postavki.</translation>
-<translation id="5543953544073077331">Drugi primjerci Chromea su pokrenuti. Da ih ažurirate, zatvorite ih.</translation>
 <translation id="556024056938947818">Google Chrome pokušava prikazati lozinke.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">Ako se postavka ne prikazuje na ovoj stranici, pogledajte u <ph name="LINK_BEGIN" />
@@ -194,7 +188,6 @@ Moguće je da neke funkcije neće biti dostupne. Odredite drugi direktorij profi
 <translation id="7408085963519505752">Uslovi korištenja Chrome OS-a</translation>
 <translation id="7419046106786626209">Chrome OS nije sinhronizirao vaše podatke jer sinhronizacija nije dostupna za vašu domenu.</translation>
 <translation id="7486227612705979895">Chrome će pristupiti Disku kako bi pružio prijedloge u traci za adresu.</translation>
-<translation id="7531671357096394523">Napusti sve primjerke Chromea.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Da vidite je li vaš uređaj ažuriran, idite u <ph name="LINK_BEGIN" />Postavke Chrome OS-a<ph name="LINK_END" /></translation>
 <translation id="7589360514048265910">Ovaj računar neće više primati ažuriranja za Google Chrome jer Mac OS X 10.9 nije više podržan.</translation>
@@ -213,6 +206,7 @@ Moguće je da neke funkcije neće biti dostupne. Odredite drugi direktorij profi
 <translation id="7855730255114109580">Google Chrome je ažuriran</translation>
 <translation id="7890208801193284374">Ako dijelite računar, prijatelji i porodica mogu odvojeno pretraživati i postaviti Chrome na način koji njima odgovara.</translation>
 <translation id="7896673875602241923">Netko se prethodno prijavio u Chrome na ovom računalu kao <ph name="ACCOUNT_EMAIL_LAST" />. Izradite novog korisnika Chromea kako bi vaši podaci bili odvojeni.</translation>
+<translation id="7916016681687251387">Chrome OS nije uspio sinhronizirati vaše podatke. Ispravi sada.</translation>
 <translation id="7962410387636238736">Ovaj računar više neće primati ažuriranja za Google Chrome jer sistemi Windows XP i Windows Vista više nisu podržani</translation>
 <translation id="8008534537613507642">Ponovo instaliraj Chrome</translation>
 <translation id="8013993649590906847">Ako slika ne sadrži koristan opis, Chrome će ga pokušati pružiti. Slike se šalju Googleu radi kreiranja opisa.</translation>

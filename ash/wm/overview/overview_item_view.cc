@@ -4,6 +4,9 @@
 
 #include "ash/wm/overview/overview_item_view.h"
 
+#include <algorithm>
+#include <memory>
+
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/wm/overview/overview_constants.h"
@@ -11,12 +14,14 @@
 #include "ash/wm/overview/overview_item.h"
 #include "ash/wm/overview/rounded_rect_view.h"
 #include "ash/wm/window_preview_view.h"
+#include "ash/wm/wm_highlight_item_border.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/aura/window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
+#include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/animation/flood_fill_ink_drop_ripple.h"
@@ -147,17 +152,16 @@ class OverviewCloseButton : public views::ImageButton {
 OverviewItemView::OverviewItemView(OverviewItem* overview_item,
                                    aura::Window* window,
                                    bool show_preview)
-    : WindowMiniView(window, /*views_should_paint_to_layers=*/true),
-      overview_item_(overview_item) {
+    : WindowMiniView(window), overview_item_(overview_item) {
   DCHECK(overview_item_);
   // This should not be focusable. It's also to avoid accessibility error when
   // |window->GetTitle()| is empty.
   SetFocusBehavior(FocusBehavior::NEVER);
 
-  close_button_ = new OverviewCloseButton(overview_item_);
+  close_button_ = header_view()->AddChildView(
+      std::make_unique<OverviewCloseButton>(overview_item_));
   close_button_->SetPaintToLayer();
   close_button_->layer()->SetFillsBoundsOpaquely(false);
-  AddChildViewOf(header_view(), close_button_);
 
   // Call this last as it calls |Layout()| which relies on the some of the other
   // elements existing.
@@ -168,6 +172,8 @@ OverviewItemView::OverviewItemView(OverviewItem* overview_item,
     header_view()->layer()->SetOpacity(0.f);
     current_header_visibility_ = HeaderVisibility::kInvisible;
   }
+
+  border_ptr()->set_extra_margin(kWindowMargin);
 }
 
 OverviewItemView::~OverviewItemView() = default;
@@ -228,17 +234,6 @@ void OverviewItemView::RefreshPreviewView() {
   Layout();
 }
 
-void OverviewItemView::UpdatePreviewRoundedCorners(bool show, float rounding) {
-  if (!preview_view())
-    return;
-
-  DCHECK(preview_view()->layer());
-  const float scale = preview_view()->layer()->transform().Scale2d().x();
-  const gfx::RoundedCornersF radii(show ? rounding / scale : 0.0f);
-  preview_view()->layer()->SetRoundedCornerRadius(radii);
-  preview_view()->layer()->SetIsFastRoundedCorner(true);
-}
-
 int OverviewItemView::GetMargin() const {
   return kOverviewMargin;
 }
@@ -280,21 +275,31 @@ gfx::Rect OverviewItemView::GetHeaderBounds() const {
                    kHeaderHeightDp);
 }
 
-views::View* OverviewItemView::GetView() {
-  return this;
+gfx::Size OverviewItemView::GetPreviewViewSize() const {
+  // The preview should expand to fit the bounds allocated for the content,
+  // except if it is letterboxed or pillarboxed.
+  const gfx::SizeF preview_pref_size(preview_view()->GetPreferredSize());
+  const float aspect_ratio =
+      preview_pref_size.width() / preview_pref_size.height();
+  gfx::SizeF target_size(GetContentAreaBounds().size());
+  ScopedOverviewTransformWindow::GridWindowFillMode fill_mode =
+      overview_item_->GetWindowDimensionsType();
+  switch (fill_mode) {
+    case ScopedOverviewTransformWindow::GridWindowFillMode::kNormal:
+      break;
+    case ScopedOverviewTransformWindow::GridWindowFillMode::kLetterBoxed:
+      target_size.set_height(target_size.width() / aspect_ratio);
+      break;
+    case ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed:
+      target_size.set_width(target_size.height() * aspect_ratio);
+      break;
+  }
+
+  return gfx::ToRoundedSize(target_size);
 }
 
-gfx::Rect OverviewItemView::GetHighlightBoundsInScreen() {
-  // Use the target bounds instead of |GetBoundsInScreen()| because |this| may
-  // be animating. However, the origin will be incorrect because the windows are
-  // always positioned above and left of the parents origin, then translated. To
-  // get the proper origin we use |GetBoundsInScreen()| which takes into account
-  // the transform (but returns the wrong height and width).
-  auto* window = GetWidget()->GetNativeWindow();
-  gfx::Rect target_bounds = window->GetTargetBounds();
-  target_bounds.set_origin(window->GetBoundsInScreen().origin());
-  target_bounds.Inset(kWindowMargin, kWindowMargin);
-  return target_bounds;
+views::View* OverviewItemView::GetView() {
+  return this;
 }
 
 void OverviewItemView::MaybeActivateHighlightedView() {
@@ -305,6 +310,14 @@ void OverviewItemView::MaybeActivateHighlightedView() {
 void OverviewItemView::MaybeCloseHighlightedView() {
   if (overview_item_)
     overview_item_->OnHighlightedViewClosed();
+}
+
+void OverviewItemView::OnViewHighlighted() {
+  UpdateBorderState(/*show=*/true);
+}
+
+void OverviewItemView::OnViewUnhighlighted() {
+  UpdateBorderState(/*show=*/false);
 }
 
 gfx::Point OverviewItemView::GetMagnifierFocusPointInScreen() {

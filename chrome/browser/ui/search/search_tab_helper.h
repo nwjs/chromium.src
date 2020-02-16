@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_SEARCH_SEARCH_TAB_HELPER_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "base/gtest_prod_util.h"
@@ -44,6 +45,7 @@ class OmniboxView;
 class Profile;
 class SearchIPCRouterTest;
 class SearchSuggestService;
+class SkBitmap;
 
 // This is the browser-side, per-tab implementation of the embeddedSearch API
 // (see https://www.chromium.org/embeddedsearch).
@@ -142,7 +144,13 @@ class SearchTabHelper : public content::WebContentsObserver,
                          bool prevent_inline_autocomplete) override;
   void DeleteAutocompleteMatch(uint8_t line) override;
   void StopAutocomplete(bool clear_result) override;
+  void LogCharTypedToRepaintLatency(uint32_t latency_ms) override;
   void BlocklistPromo(const std::string& promo_id) override;
+  void OpenExtensionsPage(double button,
+                          bool alt_key,
+                          bool ctrl_key,
+                          bool meta_key,
+                          bool shift_key) override;
   void OpenAutocompleteMatch(uint8_t line,
                              const GURL& url,
                              bool are_matches_showing,
@@ -166,6 +174,10 @@ class SearchTabHelper : public content::WebContentsObserver,
 
   // Overridden from AutocompleteControllerDelegate:
   void OnResultChanged(bool default_match_changed) override;
+
+  void OnBitmapFetched(int match_index,
+                       const std::string& image_url,
+                       const SkBitmap& bitmap);
 
   OmniboxView* GetOmniboxView();
   const OmniboxView* GetOmniboxView() const;

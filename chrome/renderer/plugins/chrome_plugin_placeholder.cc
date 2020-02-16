@@ -34,10 +34,10 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/platform/url_conversion.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_plugin_container.h"
@@ -322,12 +322,13 @@ void ChromePluginPlaceholder::ShowContextMenu(
   hide_item.label = l10n_util::GetStringUTF16(IDS_CONTENT_CONTEXT_PLUGIN_HIDE);
   params.custom_items.push_back(hide_item);
 
-  blink::WebPoint point(event.PositionInWidget().x, event.PositionInWidget().y);
+  gfx::Point point =
+      gfx::Point(event.PositionInWidget().x(), event.PositionInWidget().y());
   if (plugin() && plugin()->Container())
     point = plugin()->Container()->LocalToRootFramePoint(point);
 
-  params.x = point.x;
-  params.y = point.y;
+  params.x = point.x();
+  params.y = point.y();
 
   context_menu_request_id_ = render_frame()->ShowContextMenu(this, params);
   g_last_active_menu = this;

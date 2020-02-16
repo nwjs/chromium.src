@@ -256,8 +256,8 @@ void RemoveTransientDescendants(std::vector<aura::Window*>* out_window_list) {
   }
 }
 
-void HideAndMaybeMinimizeWithoutAnimation(std::vector<aura::Window*> windows,
-                                          bool minimize) {
+void MinimizeAndHideWithoutAnimation(
+    const std::vector<aura::Window*>& windows) {
   for (auto* window : windows) {
     ScopedAnimationDisabler disable(window);
 
@@ -265,8 +265,7 @@ void HideAndMaybeMinimizeWithoutAnimation(std::vector<aura::Window*> windows,
     // minimization. We minimize ARC windows first so they receive occlusion
     // updates before losing focus from being hidden. See crbug.com/910304.
     // TODO(oshima): Investigate better way to handle ARC apps immediately.
-    if (minimize)
-      WindowState::Get(window)->Minimize();
+    WindowState::Get(window)->Minimize();
 
     window->Hide();
   }
@@ -308,6 +307,22 @@ bool IsArcWindow(const aura::Window* window) {
 
 bool IsArcPipWindow(const aura::Window* window) {
   return IsArcWindow(window) && WindowState::Get(window)->IsPip();
+}
+
+void ExpandArcPipWindow() {
+  auto* pip_container = Shell::GetContainer(Shell::GetPrimaryRootWindow(),
+                                            kShellWindowId_PipContainer);
+  if (!pip_container)
+    return;
+
+  auto pip_window_iter =
+      std::find_if(pip_container->children().begin(),
+                   pip_container->children().end(), IsArcPipWindow);
+  if (pip_window_iter == pip_container->children().end())
+    return;
+
+  auto* window_state = WindowState::Get(*pip_window_iter);
+  window_state->Restore();
 }
 
 }  // namespace window_util

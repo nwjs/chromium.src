@@ -38,6 +38,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/info_map.h"
+#include "extensions/browser/unloaded_extension_reason.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
@@ -126,7 +127,8 @@ network::ResourceRequest CreateResourceRequest(const std::string& method,
   network::ResourceRequest request;
   request.method = method;
   request.url = url;
-  request.site_for_cookies = url;  // bypass third-party cookie blocking.
+  request.site_for_cookies =
+      net::SiteForCookies::FromUrl(url);  // bypass third-party cookie blocking.
   request.request_initiator =
       url::Origin::Create(url);  // ensure initiator set.
   request.referrer_policy = content::Referrer::GetDefaultReferrerPolicy();

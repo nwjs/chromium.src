@@ -162,8 +162,8 @@ Resource::Resource(const ResourceRequest& request,
       integrity_disposition_(ResourceIntegrityDisposition::kNotChecked),
       options_(options),
       response_timestamp_(Now()),
-      resource_request_(request),
       overhead_size_(CalculateOverheadSize()) {
+  resource_request_.CopyFrom(request);
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceCounter);
 
   if (IsMainThread())
@@ -490,7 +490,7 @@ void Resource::SetRevalidatingRequest(const ResourceRequest& request) {
   DCHECK(!request.IsNull());
   CHECK(!is_revalidation_start_forbidden_);
   is_revalidating_ = true;
-  resource_request_ = request;
+  resource_request_.CopyFrom(request);
   status_ = ResourceStatus::kNotStarted;
 }
 
@@ -823,12 +823,13 @@ Resource::MatchStatus Resource::CanReuse(const FetchParameters& params) const {
   if (resource_request_.GetKeepalive() || new_request.GetKeepalive())
     return MatchStatus::kKeepaliveSet;
 
-  if (GetResourceRequest().HttpMethod() != new_request.HttpMethod())
+  if (GetResourceRequest().HttpMethod() != http_names::kGET ||
+      new_request.HttpMethod() != http_names::kGET) {
     return MatchStatus::kRequestMethodDoesNotMatch;
+  }
 
-  if (GetResourceRequest().HttpBody() != new_request.HttpBody())
-    return MatchStatus::kUnknownFailure;
-
+  // A GET request doesn't have a request body.
+  DCHECK(!new_request.HttpBody());
 
   // Don't reuse an existing resource when the source origin is different.
   if (!existing_origin->IsSameOriginWith(new_origin.get()))
@@ -851,8 +852,6 @@ Resource::MatchStatus Resource::CanReuse(const FetchParameters& params) const {
   switch (new_mode) {
     case network::mojom::RequestMode::kNoCors:
     case network::mojom::RequestMode::kNavigate:
-    case network::mojom::RequestMode::kNavigateNestedFrame:
-    case network::mojom::RequestMode::kNavigateNestedObject:
       break;
 
     case network::mojom::RequestMode::kCors:

@@ -42,8 +42,11 @@
 -keep class com.android.webview.chromium.DrawGLFunctor
 -keep class com.android.webview.chromium.GraphicsUtils
 
--keep class org.chromium.android_webview.AwBrowserProcess {
+# The lock file object must be kept explicitly to avoid it being optimized
+# away and the lock released by the object's finalizer.
+-keep class org.chromium.android_webview.AwDataDirLock {
     java.nio.channels.FileLock sExclusiveFileLock;
+    java.io.RandomAccessFile sLockFile;
 }
 
 # Workaround for crbug/1002847. Methods of BaseGmsClient are incorrectly
@@ -302,27 +305,6 @@
 }
 
 ################################################################################
-# ../../chrome/android/feed/core/java/src/org/chromium/chrome/browser/feed/library/buildtools/proguard/r8_release.flags
-################################################################################
-# Feed proguard flags should only target and affect Feed classes. Any app-wide
-# specific flags should be added to each host's proguard specs and overall
-# should be avoided.
-
--assumenosideeffects class org.chromium.chrome.browser.feed.library.common.logging.Logger {
-  public static boolean isDebugEnabled(java.lang.String) return false;
-  public static boolean isVerboseEnabled(java.lang.String) return false;
-  private static boolean shouldWtfCrash() return false;
-
-  public static void v(...);
-  public static void vWithStackTrace(...);
-  public static void d(...);
-  public static void dWithStackTrace(...);
-
-  # Protocol buffers are large. Only allow spamming a developer's device.
-  public static void debugLogRawProto(...);
-}
-
-################################################################################
 # ../../chrome/android/java/proguard.flags
 ################################################################################
 # Copyright 2016 The Chromium Authors. All rights reserved.
@@ -414,6 +396,57 @@
 
 -assumevalues class android.support.v7.media.RegisteredMediaRouteProvider {
   static boolean DEBUG return false;
+}
+
+################################################################################
+# ../../third_party/arcore-android-sdk-client/proguard.txt
+################################################################################
+# Keep ARCore public-facing classes
+# This line from the ARCore SDK's .aar should not be needed when consuming ARCore SDK:
+# -keepparameternames
+
+# These are part of the Java <-> native interfaces for ARCore.
+-keepclasseswithmembernames,includedescriptorclasses class !com.google.ar.core.viewer.**, !com.google.ar.core.services.logging.**, !com.google.ar.sceneform.**, com.google.ar.** {
+    native <methods>;
+}
+
+# This line from the ARCore SDK's .aar should not be needed when consuming ARCore SDK:
+# -keep public class !com.google.ar.core.viewer.**, !com.google.ar.core**.R$*, !com.google.ar.core.services.logging.**, com.google.ar.core.** {*;}
+
+# If you need to build a library on top of arcore_client, and use this library for your project
+# Please un-comment this line below.
+# -keepattributes *Annotation*
+
+-keep class com.google.ar.core.annotations.UsedByNative
+-keep @com.google.ar.core.annotations.UsedByNative class *
+-keepclassmembers class * {
+    @com.google.ar.core.annotations.UsedByNative *;
+}
+
+-keep class com.google.ar.core.annotations.UsedByReflection
+-keep @com.google.ar.core.annotations.UsedByReflection class *
+-keepclassmembers class * {
+    @com.google.ar.core.annotations.UsedByReflection *;
+}
+# Keep Dynamite classes
+
+# .aidl file will be proguarded, we should keep all Aidls.
+# These lines from the ARCore SDK's .aar should not be needed when consuming ARCore SDK:
+# -keep class com.google.vr.dynamite.client.IObjectWrapper { *; }
+# -keep class com.google.vr.dynamite.client.ILoadedInstanceCreator { *; }
+# -keep class com.google.vr.dynamite.client.INativeLibraryLoader { *; }
+
+# Keep annotation files and the file got annotated.
+-keep class com.google.vr.dynamite.client.UsedByNative
+-keep @com.google.vr.dynamite.client.UsedByNative class *
+-keepclassmembers class * {
+    @com.google.vr.dynamite.client.UsedByNative *;
+}
+
+-keep class com.google.vr.dynamite.client.UsedByReflection
+-keep @com.google.vr.dynamite.client.UsedByReflection class *
+-keepclassmembers class * {
+    @com.google.vr.dynamite.client.UsedByReflection *;
 }
 
 ################################################################################
@@ -713,54 +746,6 @@
 # Ensure that proguard will not strip the handleIntent method.
 -keepclassmembers class com.google.android.gms.gcm.GcmListenerService {
     public void handleIntent(android.content.Intent);
-}
-
-################################################################################
-# obj/third_party/arcore-android-sdk-client/com_google_ar_core_java/proguard.txt
-################################################################################
-# Keep ARCore public-facing classes
--keepparameternames
-
-# These are part of the Java <-> native interfaces for ARCore.
--keepclasseswithmembernames,includedescriptorclasses class !com.google.ar.core.viewer.**, !com.google.ar.core.services.logging.**, !com.google.ar.sceneform.**, com.google.ar.** {
-    native <methods>;
-}
-
--keep public class !com.google.ar.core.viewer.**, !com.google.ar.core**.R$*, !com.google.ar.core.services.logging.**, com.google.ar.core.** {*;}
-
-# If you need to build a library on top of arcore_client, and use this library for your project
-# Please un-comment this line below.
-# -keepattributes *Annotation*
-
--keep class com.google.ar.core.annotations.UsedByNative
--keep @com.google.ar.core.annotations.UsedByNative class *
--keepclassmembers class * {
-    @com.google.ar.core.annotations.UsedByNative *;
-}
-
--keep class com.google.ar.core.annotations.UsedByReflection
--keep @com.google.ar.core.annotations.UsedByReflection class *
--keepclassmembers class * {
-    @com.google.ar.core.annotations.UsedByReflection *;
-}
-# Keep Dynamite classes
-
-# .aidl file will be proguarded, we should keep all Aidls.
--keep class com.google.vr.dynamite.client.IObjectWrapper { *; }
--keep class com.google.vr.dynamite.client.ILoadedInstanceCreator { *; }
--keep class com.google.vr.dynamite.client.INativeLibraryLoader { *; }
-
-# Keep annotation files and the file got annotated.
--keep class com.google.vr.dynamite.client.UsedByNative
--keep @com.google.vr.dynamite.client.UsedByNative class *
--keepclassmembers class * {
-    @com.google.vr.dynamite.client.UsedByNative *;
-}
-
--keep class com.google.vr.dynamite.client.UsedByReflection
--keep @com.google.vr.dynamite.client.UsedByReflection class *
--keepclassmembers class * {
-    @com.google.vr.dynamite.client.UsedByReflection *;
 }
 
 ################################################################################

@@ -384,7 +384,6 @@ Ef þú hefur ekki lengur þörf fyrir frekari kennslu skaltu nota ChromeVox til
 <translation id="3646890046000188562">{COUNT,plural, =1{högg}one{# högg}other{# högg}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollari}one{# dollaramerki}other{# dollaramerki}}</translation>
-<translation id="3658742229777143148">Endurskoðun</translation>
 <translation id="3659787053479271466">viðvörun</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, listareitur</translation>
 <translation id="3681531118904532409">Fölappelsínugulur</translation>
@@ -419,6 +418,7 @@ Ef þú hefur ekki lengur þörf fyrir frekari kennslu skaltu nota ChromeVox til
 <translation id="3914732343065571127">Skipanir í ChromeVox</translation>
 <translation id="3930383913623796990">Vorgrænn</translation>
 <translation id="3930498801443296724">Útdregin tilvitnun</translation>
+<translation id="3935615366277838204">Stórt <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Ljósfjólubleikur</translation>
 <translation id="3941269780691800708">Textaupplestur á því sem er undir músarbendli</translation>
 <translation id="394953087167197343">Gefa ábendingu um ritvillu:</translation>
@@ -792,7 +792,6 @@ Ef þú hefur ekki lengur þörf fyrir frekari kennslu skaltu nota ChromeVox til
 <translation id="6459511626086141404">Flöt lyklaskipan</translation>
 <translation id="6468049171101508116">Hnappurinn Áfram</translation>
 <translation id="646954774886932461">Atriðisorðaskrá</translation>
-<translation id="6479792383819319132">Engin næsta efnisgrein.</translation>
 <translation id="6493991254603208962">Minnka birtustig</translation>
 <translation id="6501595918865591267">Grænblár</translation>
 <translation id="6508059270146105198">Færa blindraletursskjá neðst á síðuna</translation>
@@ -815,7 +814,6 @@ Ef þú hefur ekki lengur þörf fyrir frekari kennslu skaltu nota ChromeVox til
 <translation id="6637586476836377253">annáll</translation>
 <translation id="6657128831881431364">Framvindustika</translation>
 <translation id="6659594942844771486">Flipi</translation>
-<translation id="6675661017770918201">Engin fyrri efnisgrein.</translation>
 <translation id="667999046851023355">Skjal</translation>
 <translation id="6688209025607531203">Viðvörun sem krefst ekki staðfestingar</translation>
 <translation id="6689672606256159458">Dökklaxableikur</translation>
@@ -844,6 +842,7 @@ Ef þú hefur ekki lengur þörf fyrir frekari kennslu skaltu nota ChromeVox til
 <translation id="6865519907510167493">Stafsetningarvilla</translation>
 <translation id="6871161210040114857">Hunsar há- og lágstafi.</translation>
 <translation id="6877435256196695200">Engin næsta mynd.</translation>
+<translation id="688976158310523235">Leitarvalmynd</translation>
 <translation id="6897341342232909480">Færa til vinstri</translation>
 <translation id="6901540140423170855">dagsetning</translation>
 <translation id="6910211073230771657">Eytt</translation>
@@ -856,6 +855,7 @@ Ef þú hefur ekki lengur þörf fyrir frekari kennslu skaltu nota ChromeVox til
 <translation id="699159175332639490">Leit + O + W</translation>
 <translation id="6994042831499278539">Tilvísun í orðalista</translation>
 <translation id="6996566555547746822">Næsta fellivalmynd</translation>
+<translation id="6997224546856374593">Þegar hástafir eru lesnir:</translation>
 <translation id="700202842116345659">Færsla í heimildaskrá</translation>
 <translation id="7005146664810010831">Engin vefslóð fannst</translation>
 <translation id="7010712454773919705">ChromeVox breytingalykill</translation>
@@ -936,6 +936,7 @@ Til að opna og fara sjálfkrafa í nýjan flipa skal ýta á Ctrl+T. Bendillinn
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">flipi</translation>
 <translation id="7492049978501397201">Gluggi opnaður</translation>
+<translation id="7505149250476994901">Segðu „cap“ á undan staf</translation>
 <translation id="7518543783849163354">Ýttu á Ctrl-lykilinn til að fá ChromeVox til að hætta tímabundið að tala.</translation>
 <translation id="7521682724501952239">Hægt er að nota ChromeVox með snertiskjánum.</translation>
 <translation id="7532613204005497612">Júní</translation>
@@ -1103,7 +1104,6 @@ Til að opna og fara sjálfkrafa í nýjan flipa skal ýta á Ctrl+T. Bendillinn
 <translation id="812886159861361726">Niðurhal stöðvað <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">Snerting</translation>
 <translation id="8153880621934657047">Ekki í töflu.</translation>
-<translation id="8161114871611868169">Athugasemdahluti</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{undirstrik}one{# undirstrik}other{# undirstrik}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">lína</translation>
@@ -1124,6 +1124,7 @@ Til að opna og fara sjálfkrafa í nýjan flipa skal ýta á Ctrl+T. Bendillinn
 <translation id="8313653172105209786">mappa</translation>
 <translation id="8316881042119029234">Kremhvítur</translation>
 <translation id="8326783648485765113">Grasgrænn</translation>
+<translation id="8328063869313048659">Kveikja/slökkva á dökkum skjá</translation>
 <translation id="8344569602005188545">klukkustundir</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{myllumerki}one{# myllumerki}other{# myllumerki}}</translation>
 <translation id="8374154622594089836">mánuður</translation>
@@ -1208,6 +1209,7 @@ Til að opna og fara sjálfkrafa í nýjan flipa skal ýta á Ctrl+T. Bendillinn
 <translation id="9065283790526219006">+sprettigluggi</translation>
 <translation id="9066023754636984703">Ýttu á Leita + A, J til að hoppa í smáatriði.</translation>
 <translation id="9067522039955793016">Síðuskil</translation>
+<translation id="9074824103975499138">Leita í ChromeVox valmyndum</translation>
 <translation id="9077213568694924680">fjarlægt úr vali</translation>
 <translation id="9077305471618729969">Ljóssægrænn</translation>
 <translation id="9082874451376019682">Engin fyrri sleði.</translation>

@@ -401,16 +401,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
 
 #undef kWebComponentsV0DeprecationPost
 
-    case WebFeature::kPresentationRequestStartInsecureOrigin:
-    case WebFeature::kPresentationReceiverInsecureOrigin:
-      return {
-          "PresentationInsecureOrigin", kM72,
-          String("Using the Presentation API on insecure origins is "
-                 "deprecated and will be removed in M72. You should consider "
-                 "switching your application to a secure origin, such as "
-                 "HTTPS. See "
-                 "https://goo.gl/rStTGz for more details.")};
-
     case WebFeature::kLocalCSSFileExtensionRejected:
       return {"LocalCSSFileExtensionRejected", kM64,
               String("CSS cannot be loaded from `file:` URLs unless they end "
@@ -480,13 +470,13 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   MilestoneString(kM72).Ascii().c_str())};
 
     case WebFeature::kNoSysexWebMIDIWithoutPermission:
-      return {"NoSysexWebMIDIWithoutPermission", kM77,
+      return {"NoSysexWebMIDIWithoutPermission", kM82,
               String::Format(
                   "Web MIDI will ask a permission to use even if the sysex is "
-                  "not specified in the MIDIOptions since %s. See "
+                  "not specified in the MIDIOptions since around %s. See "
                   "https://www.chromestatus.com/feature/5138066234671104 for "
                   "more details.",
-                  MilestoneString(kM77).Ascii().c_str())};
+                  MilestoneString(kM82).Ascii().c_str())};
 
     case WebFeature::kCustomCursorIntersectsViewport:
       return {
@@ -641,10 +631,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
               WillBeRemoved("'-webkit-appearance: textarea' for "
                             "elements other than textarea",
                             kM79, "5070237827334144")};
-    case WebFeature::kARIAHelpAttribute:
-      return {"ARIAHelpAttribute", kM80,
-              WillBeRemoved("'aria-help'", kM80, "5645050857914368")};
-
     case WebFeature::kXRSupportsSession:
       return {"XRSupportsSession", kM80,
               ReplacedBy(
@@ -680,8 +666,6 @@ namespace blink {
 
 Deprecation::Deprecation() : mute_count_(0) {
 }
-
-Deprecation::~Deprecation() = default;
 
 void Deprecation::ClearSuppression() {
   css_property_deprecation_bits_.reset();

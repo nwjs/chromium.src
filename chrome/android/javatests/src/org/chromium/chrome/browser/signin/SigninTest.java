@@ -4,8 +4,14 @@
 
 package org.chromium.chrome.browser.signin;
 
+import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.action.ViewActions.click;
+import static android.support.test.espresso.matcher.RootMatchers.isDialog;
+import static android.support.test.espresso.matcher.ViewMatchers.withId;
+
+import static org.hamcrest.Matchers.sameInstance;
+
 import android.app.Instrumentation.ActivityMonitor;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
@@ -28,27 +34,25 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeSwitches;
-import org.chromium.chrome.browser.SyncFirstSetupCompleteSource;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.MainPreferences;
+import org.chromium.chrome.browser.settings.MainSettings;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.sync.AccountManagementFragment;
 import org.chromium.chrome.browser.settings.sync.SignInPreference;
-import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ActivityUtils;
+import org.chromium.chrome.test.util.BookmarkTestUtil;
 import org.chromium.chrome.test.util.ChromeRestriction;
 import org.chromium.chrome.test.util.browser.signin.SigninTestUtil;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
-import org.chromium.content_public.browser.test.util.TestTouchUtils;
 
 /**
  * Test suite for sign in tests.
@@ -150,27 +154,13 @@ public class SigninTest {
      */
     private static class TestBookmarkModelObserver extends BookmarkBridge.BookmarkModelObserver {
         private final Object mLock = new Object();
-        private boolean mIsLoaded;
         private boolean mAdded;
 
-        public TestBookmarkModelObserver(BookmarkBridge bookmarks) {
-            mIsLoaded = bookmarks.isBookmarkModelLoaded();
+        TestBookmarkModelObserver() {
             mAdded = false;
         }
 
-        public void waitForBookmarkModelToLoad() {
-            synchronized (mLock) {
-                while (!mIsLoaded) {
-                    try {
-                        mLock.wait();
-                    } catch (InterruptedException exception) {
-                        // Ignore.
-                    }
-                }
-            }
-        }
-
-        public void waitForBookmarkAdded() {
+        void waitForBookmarkAdded() {
             synchronized (mLock) {
                 while (!mAdded) {
                     try {
@@ -179,14 +169,6 @@ public class SigninTest {
                         // Ignore.
                     }
                 }
-            }
-        }
-
-        @Override
-        public void bookmarkModelLoaded() {
-            synchronized (mLock) {
-                mIsLoaded = true;
-                mLock.notify();
             }
         }
 
@@ -211,7 +193,6 @@ public class SigninTest {
         }
     }
 
-    private Context mContext;
     private SigninManager mSigninManager;
     private PrefServiceBridge mPrefService;
     private BookmarkBridge mBookmarks;
@@ -224,7 +205,6 @@ public class SigninTest {
         SigninTestUtil.setUpAuthForTest();
 
         mActivityTestRule.startMainActivityOnBlankPage();
-        mContext = InstrumentationRegistry.getTargetContext();
         final TestSignInAllowedObserver signinAllowedObserver = new TestSignInAllowedObserver();
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
@@ -233,7 +213,7 @@ public class SigninTest {
 
             // Start observing the SigninManager.
             mTestSignInObserver = new TestSignInObserver();
-            mSigninManager = IdentityServicesProvider.getSigninManager();
+            mSigninManager = IdentityServicesProvider.get().getSigninManager();
             mSigninManager.addSignInStateObserver(mTestSignInObserver);
 
             // Get these handles in the UI thread.
@@ -241,11 +221,13 @@ public class SigninTest {
             Profile profile =
                     ((TabImpl) mActivityTestRule.getActivity().getActivityTab()).getProfile();
             mBookmarks = new BookmarkBridge(profile);
-
+            mBookmarks.loadFakePartnerBookmarkShimForTesting();
+        });
+        BookmarkTestUtil.waitForBookmarkModelLoaded();
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
             // Add a test bookmark, to verify later if sign out cleared the bookmarks.
-            mTestBookmarkModelObserver = new TestBookmarkModelObserver(mBookmarks);
+            mTestBookmarkModelObserver = new TestBookmarkModelObserver();
             mBookmarks.addObserver(mTestBookmarkModelObserver);
-            mTestBookmarkModelObserver.waitForBookmarkModelToLoad();
             Assert.assertEquals(0, mBookmarks.getChildCount(mBookmarks.getMobileFolderId()));
             BookmarkId mTestBookmark = mBookmarks.addBookmark(
                     mBookmarks.getMobileFolderId(), 0, "Test Bookmark", "http://google.com");
@@ -297,8 +279,8 @@ public class SigninTest {
 
         // Verify that its preference UI is enabled.
         SettingsActivity settingsActivity = mActivityTestRule.startSettingsActivity(null);
-        MainPreferences mainPrefs = getMainPreferences(settingsActivity);
-        Preference passwordPref = mainPrefs.findPreference(MainPreferences.PREF_SAVED_PASSWORDS);
+        MainSettings mainPrefs = getMainSettings(settingsActivity);
+        Preference passwordPref = mainPrefs.findPreference(MainSettings.PREF_PASSWORDS);
         Assert.assertNotNull(passwordPref);
         // This preference opens a new fragment when clicked.
         Assert.assertNotNull(passwordPref.getFragment());
@@ -335,22 +317,8 @@ public class SigninTest {
         SigninActivity signinActivity =
                 (SigninActivity) InstrumentationRegistry.getInstrumentation().waitForMonitor(
                         monitor);
-        Button positiveButton = (Button) signinActivity.findViewById(R.id.positive_button);
-        // Press 'sign in'.
-        TestTouchUtils.performClickOnMainSync(
-                InstrumentationRegistry.getInstrumentation(), positiveButton);
+        onView(withId(R.id.positive_button)).perform(click());
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        // Press 'ok, got it' (the same button is reused).
-        TestTouchUtils.performClickOnMainSync(
-                InstrumentationRegistry.getInstrumentation(), positiveButton);
-
-        // Sync doesn't actually start up until we finish the sync setup. This usually happens
-        // in the resume of the Main activity, but we forcefully do this here.
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        TestThreadUtils.runOnUiThreadBlocking(
-                ()
-                        -> ProfileSyncService.get().setFirstSetupComplete(
-                                SyncFirstSetupCompleteSource.BASIC_FLOW));
         settingsActivity.finish();
 
         // Verify that signin succeeded.
@@ -385,16 +353,16 @@ public class SigninTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
-    private static MainPreferences getMainPreferences(SettingsActivity settingsActivity) {
+    private static MainSettings getMainSettings(SettingsActivity settingsActivity) {
         Fragment fragment = settingsActivity.getMainFragment();
         Assert.assertNotNull(fragment);
-        Assert.assertTrue(fragment instanceof MainPreferences);
-        return (MainPreferences) fragment;
+        Assert.assertTrue(fragment instanceof MainSettings);
+        return (MainSettings) fragment;
     }
 
     private static void clickSigninPreference(SettingsActivity settingsActivity) {
-        MainPreferences mainPrefs = getMainPreferences(settingsActivity);
-        Preference signinPref = mainPrefs.findPreference(MainPreferences.PREF_SIGN_IN);
+        MainSettings mainPrefs = getMainSettings(settingsActivity);
+        Preference signinPref = mainPrefs.findPreference(MainSettings.PREF_SIGN_IN);
         Assert.assertNotNull(signinPref);
         Assert.assertTrue(signinPref instanceof SignInPreference);
         Assert.assertNotNull(signinPref.getOnPreferenceClickListener());
@@ -417,10 +385,10 @@ public class SigninTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         DialogFragment fragment = ActivityUtils.waitForFragment(activity, tag);
         AlertDialog dialog = (AlertDialog) fragment.getDialog();
-        Assert.assertTrue(dialog != null);
+        Assert.assertNotNull(dialog);
         Assert.assertTrue(dialog.isShowing());
         Button button = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
         Assert.assertNotNull("Could not find the accept button.", button);
-        TestTouchUtils.performClickOnMainSync(InstrumentationRegistry.getInstrumentation(), button);
+        onView(sameInstance(button)).inRoot(isDialog()).perform(click());
     }
 }

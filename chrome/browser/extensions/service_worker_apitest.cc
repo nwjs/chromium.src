@@ -30,11 +30,9 @@
 #include "chrome/browser/notifications/notification_permission_context.h"
 #include "chrome/browser/notifications/stub_notification_display_service.h"
 #include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_result.h"
 #include "chrome/browser/push_messaging/push_messaging_app_identifier.h"
 #include "chrome/browser/push_messaging/push_messaging_service_factory.h"
 #include "chrome/browser/push_messaging/push_messaging_service_impl.h"
-#include "chrome/browser/ui/extensions/browser_action_test_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/web_navigation.h"
@@ -42,6 +40,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/gcm_driver/fake_gcm_profile_service.h"
 #include "components/gcm_driver/instance_id/fake_gcm_driver_for_instance_id.h"
+#include "components/permissions/permission_result.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/console_message.h"
 #include "content/public/browser/navigation_controller.h"
@@ -162,7 +161,7 @@ class ServiceWorkerTest : public ExtensionApiTest {
   content::WebContents* Navigate(const GURL& url) {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-        ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     content::WaitForLoadStop(web_contents);
@@ -1168,13 +1167,9 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, NotificationAPI) {
                                   "page.html"));
 }
 
-// Flaky on Linux (crbug.com/1006129).
-#if defined(OS_LINUX)
-#define MAYBE_WebAccessibleResourcesFetch DISABLED_WebAccessibleResourcesFetch
-#else
-#define MAYBE_WebAccessibleResourcesFetch WebAccessibleResourcesFetch
-#endif
-IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, MAYBE_WebAccessibleResourcesFetch) {
+// Flaky (crbug.com/1006129).
+IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
+                       DISABLED_WebAccessibleResourcesFetch) {
   EXPECT_TRUE(RunExtensionSubtest(
       "service_worker/web_accessible_resources/fetch/", "page.html"));
 }
@@ -1182,9 +1177,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, MAYBE_WebAccessibleResourcesFetch) {
 // Tests that updating a packed extension with modified scripts works
 // properly -- we expect that the new script will execute, rather than the
 // previous one.
-// Flaky on all platforms: https://crbug.com/1003244
 IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
-                       DISABLED_UpdatePackedExtension) {
+                       UpdatePackedExtension) {
   constexpr char kManifest1[] =
       R"({
            "name": "Test Extension",
@@ -2009,7 +2003,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, EventsAfterRestart) {
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, TabsOnCreated) {
   ASSERT_TRUE(RunExtensionTestWithFlags("tabs/lazy_background_on_created",
-                                        kFlagRunAsServiceWorkerBasedExtension))
+                                        kFlagRunAsServiceWorkerBasedExtension,
+                                        kFlagNone))
       << message_;
 }
 

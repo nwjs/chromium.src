@@ -30,7 +30,10 @@
   "accessibilityPrivate": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app", "platform_app"],
-    "whitelist": [ "2FCBCE08B34CCA1728A85F1EFBD9A34DD2558B2E" ]
+    "whitelist": [
+      "0D209B5E4401BB8E7873B5AB5B1346A1CB067015",  // http://crbug.com/1039158
+      "2FCBCE08B34CCA1728A85F1EFBD9A34DD2558B2E"
+    ]
   },
   "activeTab": {
     "channel": "stable",
@@ -247,10 +250,6 @@
     "channel": "stable",
     "extension_types": ["extension"]
   },
-  "embeddedExtensionOptions": {
-    "channel": "trunk",
-    "extension_types": ["extension"]
-  },
   "enterprise.deviceAttributes": [{
     "channel": "stable",
     "platforms": ["chromeos"],
@@ -443,6 +442,7 @@
     "platforms": ["chromeos"],
     "whitelist": [
       "7FE4A999359A456C4B0FB7B7AD85CEA29CA50519",  // Login screen APIs test extension
+      "3F5995FE79A861F019C6F093BEF98D73FA9D3A5F",  // Login screen APIs in-sesesion test extension
       "E219EE36A3B40612FD2A8CD6937B03EF0C97D3FE",  // Imprivata (login screen)
       "4DBFC1C52D6660DD90791976DF7FEF7B3D360509",  // Imprivata (login screen) DEV
       "A24DE1B21A67E25FB62AC8491642038FE25DA75B",  // Imprivata (in session)
@@ -472,11 +472,21 @@
       "4DBFC1C52D6660DD90791976DF7FEF7B3D360509"  // Imprivata (login screen) DEV
     ]
   },
-  "loginState": {
-    "channel": "stable",
-    "extension_types": ["login_screen_extension", "extension"],
-    "platforms": ["chromeos"]
-  },
+  "loginState": [
+    {
+      "channel": "stable",
+      "extension_types": ["login_screen_extension", "extension"],
+      "platforms": ["chromeos"]
+    },
+    {
+      "channel": "stable",
+      "extension_types": ["platform_app"],
+      "platforms": ["chromeos"],
+      "whitelist": [
+        "EC3DE21E048B67319893889529354DFBFA96FD23"  // Smart Card Connector
+      ]
+    }
+  ],
   "webcamPrivate": {
     "channel": "stable",
     "platforms": ["chromeos"],
@@ -592,7 +602,7 @@
     "extension_types": ["extension", "legacy_packaged_app"]
   },
   "printing": {
-    "channel": "dev",
+    "channel": "stable",
     "platforms": ["chromeos"],
     "extension_types": ["extension"]
   },
@@ -746,8 +756,10 @@
     "extension_types": ["extension", "legacy_packaged_app", "platform_app"],
     "platforms": ["chromeos"],
     "whitelist": [
-      "0EA6B717932AD64C469C1CCB6911457733295907",  // HTerm
-      "58B0C2968C335964D5433E89CA4D86628A0E3D4B"   // HTerm dev
+      "0EA6B717932AD64C469C1CCB6911457733295907",  // Secure Shell App (stable)
+      "58B0C2968C335964D5433E89CA4D86628A0E3D4B",  // Secure Shell App (dev)
+      "3BC1ED0B3E6EFDC7BD4D3D1D75D44B52DEE0A226",  // Secure Shell Ext (stable)
+      "38C361D4A0726CE45D3572D65071B6BDB3092371"   // Secure Shell Ext (dev)
     ]
   },
   "topSites": {

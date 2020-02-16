@@ -139,7 +139,9 @@ LogicalRect ExpandSelectionRectToLineHeight(const LogicalRect& rect,
   NGInlineCursor line(cursor);
   line.MoveToContainingLine();
   const PhysicalRect line_physical_rect(
-      line.CurrentOffset() - cursor.CurrentOffset(), line.CurrentSize());
+      line.Current().OffsetInContainerBlock() -
+          cursor.Current().OffsetInContainerBlock(),
+      line.Current().Size());
   return ExpandSelectionRectToLineHeight(
       rect, ComputeLogicalRectFor(line_physical_rect, cursor));
 }
@@ -506,12 +508,15 @@ void NGPaintFragment::AssociateWithLayoutObject(
       return;
     }
     // This |layout_object| was fragmented across multiple blocks.
+    DCHECK_EQ(layout_object, first_fragment->GetLayoutObject());
     NGPaintFragment* last_fragment = first_fragment->LastForSameLayoutObject();
     last_fragment->next_for_same_layout_object_ = this;
     return;
   }
-  DCHECK(add_result.stored_value->value);
-  add_result.stored_value->value->next_for_same_layout_object_ = this;
+  NGPaintFragment* last_fragment = add_result.stored_value->value;
+  DCHECK(last_fragment) << layout_object;
+  DCHECK_EQ(layout_object, last_fragment->GetLayoutObject());
+  last_fragment->next_for_same_layout_object_ = this;
   add_result.stored_value->value = this;
 }
 
@@ -755,7 +760,7 @@ base::Optional<PhysicalRect> NGPaintFragment::LocalVisualRectFor(
     if (fragment->PhysicalFragment().IsHiddenForPaint())
       continue;
     PhysicalRect child_visual_rect = fragment->SelfInkOverflow();
-    child_visual_rect.offset += fragment->InlineOffsetToContainerBox();
+    child_visual_rect.offset += fragment->OffsetInContainerBlock();
     visual_rect.Unite(child_visual_rect);
   }
   return visual_rect;
@@ -781,7 +786,9 @@ NGPaintFragment* NGPaintFragment::FirstLineBox() const {
 }
 
 const NGPaintFragment* NGPaintFragment::Root() const {
-  DCHECK(PhysicalFragment().IsInline());
+  // Because of this function can be called during |LayoutObject::Destroy()|,
+  // we use |physical_fragment_| to avoid calling |IsAlive()|.
+  DCHECK(physical_fragment_->IsInline());
   const NGPaintFragment* root = this;
   for (const NGPaintFragment* fragment :
        NGPaintFragmentTraversal::InclusiveAncestorsOf(*this)) {
@@ -938,7 +945,7 @@ PhysicalRect ComputeLocalSelectionRectForText(
 PhysicalRect ComputeLocalSelectionRectForReplaced(
     const NGInlineCursor& cursor) {
   DCHECK(cursor.CurrentLayoutObject()->IsLayoutReplaced());
-  const PhysicalRect selection_rect = PhysicalRect({}, cursor.CurrentSize());
+  const PhysicalRect selection_rect = PhysicalRect({}, cursor.Current().Size());
   LogicalRect logical_rect = ComputeLogicalRectFor(selection_rect, cursor);
   const LogicalRect line_height_expanded_rect =
       ExpandSelectionRectToLineHeight(logical_rect, cursor);

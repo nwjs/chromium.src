@@ -10,11 +10,10 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_ice_candidate_pair.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_ice_parameters.h"
 #include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/ice_transport_proxy.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_ice_candidate_pair.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_ice_parameters.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/webrtc/api/transport/enums.h"
 
@@ -130,7 +129,7 @@ class MODULES_EXPORT RTCIceTransport final
   RTCIceParameters* getLocalParameters() const;
   RTCIceParameters* getRemoteParameters() const;
   void gather(RTCIceGatherOptions* options, ExceptionState& exception_state);
-  void start(RTCIceParameters* remote_parameters,
+  void start(RTCIceParameters* raw_remote_parameters,
              const String& role,
              ExceptionState& exception_state);
   void stop();

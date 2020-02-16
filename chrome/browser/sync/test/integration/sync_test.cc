@@ -7,7 +7,6 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/guid.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
@@ -33,6 +32,7 @@
 #include "chrome/browser/sync/test/integration/profile_sync_service_harness.h"
 #include "chrome/browser/sync/test/integration/single_client_status_change_checker.h"
 #include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
+#include "chrome/browser/sync/test/integration/sync_disabled_checker.h"
 #include "chrome/browser/sync/test/integration/sync_integration_test_util.h"
 #include "chrome/browser/sync/test/integration/updated_progress_marker_checker.h"
 #include "chrome/browser/ui/browser.h"
@@ -52,7 +52,7 @@
 #include "components/invalidation/impl/fcm_network_handler.h"
 #include "components/invalidation/impl/invalidation_prefs.h"
 #include "components/invalidation/impl/invalidation_switches.h"
-#include "components/invalidation/impl/per_user_topic_registration_manager.h"
+#include "components/invalidation/impl/per_user_topic_subscription_manager.h"
 #include "components/invalidation/impl/profile_identity_provider.h"
 #include "components/invalidation/impl/profile_invalidation_provider.h"
 #include "components/invalidation/public/invalidation_service.h"
@@ -120,23 +120,24 @@ void SetURLLoaderFactoryForTest(
   account_manager->SetUrlLoaderFactoryForTests(url_loader_factory);
 #endif  // defined(OS_CHROMEOS)
 }
-class FakePerUserTopicRegistrationManager
-    : public syncer::PerUserTopicRegistrationManager {
+
+class FakePerUserTopicSubscriptionManager
+    : public syncer::PerUserTopicSubscriptionManager {
  public:
-  explicit FakePerUserTopicRegistrationManager(PrefService* local_state)
-      : syncer::PerUserTopicRegistrationManager(
+  explicit FakePerUserTopicSubscriptionManager(PrefService* local_state)
+      : syncer::PerUserTopicSubscriptionManager(
             /*identity_provider=*/nullptr,
             /*pref_service=*/local_state,
             /*url_loader_factory=*/nullptr,
             /*project_id*/ kInvalidationGCMSenderId,
             /*migrate_prefs=*/false) {}
-  ~FakePerUserTopicRegistrationManager() override = default;
+  ~FakePerUserTopicSubscriptionManager() override = default;
 
-  void UpdateRegisteredTopics(const syncer::Topics& topics,
+  void UpdateSubscribedTopics(const syncer::Topics& topics,
                               const std::string& instance_id_token) override {}
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(FakePerUserTopicRegistrationManager);
+  DISALLOW_COPY_AND_ASSIGN(FakePerUserTopicSubscriptionManager);
 };
 
 std::unique_ptr<syncer::FCMNetworkHandler> CreateFCMNetworkHandler(
@@ -153,20 +154,26 @@ std::unique_ptr<syncer::FCMNetworkHandler> CreateFCMNetworkHandler(
   return handler;
 }
 
-std::unique_ptr<syncer::PerUserTopicRegistrationManager>
-CreatePerUserTopicRegistrationManager(
+std::unique_ptr<syncer::PerUserTopicSubscriptionManager>
+CreatePerUserTopicSubscriptionManager(
     invalidation::IdentityProvider* identity_provider,
     PrefService* local_state,
     network::mojom::URLLoaderFactory* url_loader_factory,
     const std::string& project_id,
     bool migrate_prefs) {
-  return std::make_unique<FakePerUserTopicRegistrationManager>(local_state);
+  return std::make_unique<FakePerUserTopicSubscriptionManager>(local_state);
 }
 
 syncer::FCMNetworkHandler* GetFCMNetworkHandler(
-    const Profile* profile,
+    Profile* profile,
     std::map<const Profile*, syncer::FCMNetworkHandler*>*
         profile_to_fcm_network_handler_map) {
+  // Delivering FCM notifications does not work if explicitly signed-out.
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  if (!identity_manager || !identity_manager->HasUnconsentedPrimaryAccount())
+    return nullptr;
+
   auto it = profile_to_fcm_network_handler_map->find(profile);
   return it != profile_to_fcm_network_handler_map->end() ? it->second : nullptr;
 }
@@ -233,8 +240,7 @@ SyncTest::SyncTest(TestType test_type)
       server_type_(SERVER_TYPE_UNDECIDED),
       previous_profile_(nullptr),
       num_clients_(-1),
-      use_verifier_(true),
-      create_gaia_account_at_runtime_(false) {
+      use_verifier_(true) {
   sync_datatype_helper::AssociateWithTest(this);
   switch (test_type_) {
     case SINGLE_CLIENT: {
@@ -261,12 +267,7 @@ void SyncTest::SetUp() {
     // Decide on username to use or create one.
     if (cl->HasSwitch(switches::kSyncUserForTest)) {
       username_ = cl->GetSwitchValueASCII(switches::kSyncUserForTest);
-    } else if (UsingExternalServers()) {
-      // We assume the need to automatically create a Gaia account which
-      // requires URL navigation and needs to be done outside SetUp() function.
-      create_gaia_account_at_runtime_ = true;
-      username_ = base::GenerateGUID();
-    } else {
+    } else if (!UsingExternalServers()) {
       username_ = "user@gmail.com";
     }
     // Decide on password to use.
@@ -325,24 +326,6 @@ void SyncTest::AddTestSwitches(base::CommandLine* cl) {
   // should be removed.
   if (!cl->HasSwitch(switches::kSyncEnableGetUpdatesBeforeCommit))
     cl->AppendSwitch(switches::kSyncEnableGetUpdatesBeforeCommit);
-}
-
-bool SyncTest::CreateGaiaAccount(const std::string& username,
-                                 const std::string& password) {
-  std::string relative_url = base::StringPrintf(
-      "/CreateUsers?%s=%s", username.c_str(), password.c_str());
-  GURL create_user_url =
-      GaiaUrls::GetInstance()->gaia_url().Resolve(relative_url);
-  // NavigateToURL blocks until the navigation finishes.
-  ui_test_utils::NavigateToURL(browser(), create_user_url);
-  content::WebContents* contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::NavigationEntry* entry = contents->GetController().GetVisibleEntry();
-  EXPECT_TRUE(entry)
-      << "Could not get a hold on NavigationEntry post URL navigate.";
-  DVLOG(1) << "Create Gaia account request return code = "
-           << entry->GetHttpStatusCode();
-  return entry->GetHttpStatusCode() == 200;
 }
 
 void SyncTest::BeforeSetupClient(int index,
@@ -545,16 +528,6 @@ bool SyncTest::SetupClients() {
   clients_.resize(num_clients_);
   fake_server_invalidation_observers_.resize(num_clients_);
 
-  if (create_gaia_account_at_runtime_) {
-    if (!UsingExternalServers()) {
-      ADD_FAILURE() << "Cannot create Gaia accounts without external "
-                       "authentication servers.";
-      return false;
-    }
-    if (!CreateGaiaAccount(username_, password_))
-      LOG(FATAL) << "Could not create Gaia account.";
-  }
-
   auto* cl = base::CommandLine::ForCurrentProcess();
   if (!cl->HasSwitch(switches::kSyncDeferredStartupTimeoutSeconds)) {
     cl->AppendSwitchASCII(switches::kSyncDeferredStartupTimeoutSeconds, "1");
@@ -685,9 +658,9 @@ void SyncTest::SetUpInvalidations(int index) {
           fake_server_invalidation_observers_[index].get());
 
       // Store in prefs the mapping between public and private topics names. In
-      // real clients, those are stored upon registration with the
+      // real clients, those are stored upon subscription with the
       // per-user-topic server. The pref name is defined in
-      // per_user_topic_registration_manager.cc.
+      // per_user_topic_subscription_manager.cc.
       DictionaryPrefUpdate update(
           GetProfile(index)->GetPrefs(),
           "invalidation.per_sender_registered_for_invalidation");
@@ -939,7 +912,7 @@ std::unique_ptr<KeyedService> SyncTest::CreateProfileInvalidationProvider(
                               gcm_profile_service->driver(),
                               instance_id_driver),
           base::BindRepeating(
-              &CreatePerUserTopicRegistrationManager,
+              &CreatePerUserTopicSubscriptionManager,
               profile_identity_provider.get(), profile->GetPrefs(),
               base::RetainedRef(
                   content::BrowserContext::GetDefaultStoragePartition(profile)
@@ -975,7 +948,17 @@ void SyncTest::ResetSyncForPrimaryAccount() {
     // clearing.
     SetupSyncNoWaitingForCompletion();
     GetClient(0)->ResetSyncForPrimaryAccount();
-    GetClient(0)->StopSyncServiceAndClearData();
+    // After reset account, the client should get a NOT_MY_BIRTHDAY error
+    // and disable sync. Adding a wait to make sure this is propagated.
+    ASSERT_TRUE(SyncDisabledChecker(GetSyncService(0)).Wait());
+    CloseBrowserSynchronously(browsers_[0]);
+    // After reset, this client will disable sync. It may log some messages
+    // that do not contribute to test failures. It includes:
+    //   PostClientToServerMessage with SERVER_RETURN_NOT_MY_BIRTHDAY
+    //   PostClientToServerMessage with NETWORK_CONNECTION_UNAVAILABLE
+    //   mcs_client fails with 401.
+    LOG(WARNING) << "Finished reset account. Warning logs before "
+                 << "this log may be safe to ignore.";
     ClearProfiles();
     use_new_user_data_dir_ = old_use_new_user_data_dir;
     num_clients_ = old_num_clients;
@@ -1060,8 +1043,8 @@ void SyncTest::SetupMockGaiaResponses() {
 
 void SyncTest::SetOAuth2TokenResponse(const std::string& response_data,
                                       net::HttpStatusCode status_code,
-                                      net::URLRequestStatus::Status status) {
-  network::URLLoaderCompletionStatus completion_status(status);
+                                      net::Error net_error) {
+  network::URLLoaderCompletionStatus completion_status(net_error);
   completion_status.decoded_body_length = response_data.size();
 
   std::string response = base::StringPrintf("HTTP/1.1 %d %s\r\n", status_code,

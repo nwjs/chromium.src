@@ -173,13 +173,11 @@ class InteractiveRenderWidget : public RenderWidget {
       : RenderWidget(++next_routing_id_,
                      compositor_deps,
                      blink::mojom::DisplayMode::kUndefined,
-                     /*is_undead=*/false,
                      /*is_hidden=*/false,
-                     /*never_visible=*/false,
+                     /*never_composited=*/false,
                      mojo::NullReceiver()),
         always_overscroll_(false) {
-    UnconditionalInit(base::NullCallback());
-    LivingInit(&mock_webwidget_, screen_info);
+    Initialize(base::NullCallback(), &mock_webwidget_, screen_info);
 
     mock_input_handler_host_ = std::make_unique<MockWidgetInputHandlerHost>();
 
@@ -220,13 +218,13 @@ class InteractiveRenderWidget : public RenderWidget {
   bool WillHandleGestureEvent(const blink::WebGestureEvent& event) override {
     if (always_overscroll_ &&
         event.GetType() == blink::WebInputEvent::kGestureScrollUpdate) {
-      DidOverscroll(blink::WebFloatSize(event.data.scroll_update.delta_x,
-                                        event.data.scroll_update.delta_y),
-                    blink::WebFloatSize(event.data.scroll_update.delta_x,
-                                        event.data.scroll_update.delta_y),
+      DidOverscroll(gfx::Vector2dF(event.data.scroll_update.delta_x,
+                                   event.data.scroll_update.delta_y),
+                    gfx::Vector2dF(event.data.scroll_update.delta_x,
+                                   event.data.scroll_update.delta_y),
                     event.PositionInWidget(),
-                    blink::WebFloatSize(event.data.scroll_update.velocity_x,
-                                        event.data.scroll_update.velocity_y));
+                    gfx::Vector2dF(event.data.scroll_update.velocity_x,
+                                   event.data.scroll_update.velocity_y));
       return true;
     }
 
@@ -444,7 +442,6 @@ class StubRenderWidgetDelegate : public RenderWidgetDelegate {
   void SetActiveForWidget(bool active) override {}
   bool SupportsMultipleWindowsForWidget() override { return true; }
   bool ShouldAckSyntheticInputImmediately() override { return true; }
-  void CancelPagePopupForWidget() override {}
   void ApplyNewDisplayModeForWidget(
       blink::mojom::DisplayMode new_display_mode) override {}
   void ApplyAutoResizeLimitsForWidget(const gfx::Size& min_size,

@@ -8,9 +8,9 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.support.annotation.DrawableRes;
 
-import org.chromium.base.Supplier;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcher;
 import org.chromium.chrome.browser.omnibox.OmniboxSuggestionType;
@@ -133,7 +133,7 @@ public class AnswerSuggestionProcessor extends BaseSuggestionViewProcessor {
                     for (int i = 0; i < currentModels.size(); i++) {
                         PropertyModel currentModel = currentModels.get(i);
                         setSuggestionDrawableState(currentModel,
-                                SuggestionDrawableState.Builder.forBitmap(bitmap)
+                                SuggestionDrawableState.Builder.forBitmap(mContext, bitmap)
                                         .setLarge(true)
                                         .build());
                     }

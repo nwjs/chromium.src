@@ -136,7 +136,7 @@ const CrPngBehavior = {
    * @param {!Array<string>} images The data URLs for each image.
    * @return {string} A data URL for an animated PNG image.
    */
-  convertImageSequenceToPng: function(images) {
+  convertImageSequenceToPng(images) {
     const png =
         /** @type {!CrPngState} */ ({frames: 0, sequences: 0, chunks: []});
 
@@ -218,9 +218,9 @@ const CrPngBehavior = {
    * @param {string} url An btoa encoded data URL for a PNG image.
    * @return {boolean} True if data URL is an animated PNG image.
    */
-  isEncodedPngDataUrlAnimated: function(url) {
+  isEncodedPngDataUrlAnimated(url) {
     const decoded = atob(url.substr('data:image/png;base64,'.length));
-    return decoded.substr(37, 4) == 'acTL';
+    return decoded.substr(37, 4) === 'acTL';
   },
 
   /**
@@ -230,7 +230,7 @@ const CrPngBehavior = {
    * @return {number} The value read.
    * @private
    */
-  readUInt32_: function(buffer, offset) {
+  readUInt32_(buffer, offset) {
     return (buffer[offset + 0] << 24) + (buffer[offset + 1] << 16) +
         (buffer[offset + 2] << 8) + (buffer[offset + 3] << 0);
   },
@@ -243,7 +243,7 @@ const CrPngBehavior = {
    * @return {string} The value read.
    * @private
    */
-  readString_: function(buffer, offset, length) {
+  readString_(buffer, offset, length) {
     let str = '';
     for (let i = 0; i < length; i++) {
       str += String.fromCharCode(buffer[offset + i]);
@@ -258,7 +258,7 @@ const CrPngBehavior = {
    * @param {number} offset Offset in buffer to write bytes at.
    * @private
    */
-  writeBytes_: function(buffer, bytes, offset) {
+  writeBytes_(buffer, bytes, offset) {
     for (let i = 0; i < bytes.length; i++) {
       buffer[offset + i] = bytes[i] & 0xFF;
     }
@@ -271,7 +271,7 @@ const CrPngBehavior = {
    * @param {number} offset Offset in buffer to write UInt8 at.
    * @private
    */
-  writeUInt8_: function(buffer, u8, offset) {
+  writeUInt8_(buffer, u8, offset) {
     buffer[offset] = u8 & 0xFF;
   },
 
@@ -282,7 +282,7 @@ const CrPngBehavior = {
    * @param {number} offset Offset in buffer to write UInt16 at.
    * @private
    */
-  writeUInt16_: function(buffer, u16, offset) {
+  writeUInt16_(buffer, u16, offset) {
     buffer[offset + 0] = (u16 >> 8) & 0xFF;
     buffer[offset + 1] = (u16 >> 0) & 0xFF;
   },
@@ -294,7 +294,7 @@ const CrPngBehavior = {
    * @param {number} offset Offset in buffer to write UInt32 at.
    * @private
    */
-  writeUInt32_: function(buffer, u32, offset) {
+  writeUInt32_(buffer, u32, offset) {
     buffer[offset + 0] = (u32 >> 24) & 0xFF;
     buffer[offset + 1] = (u32 >> 16) & 0xFF;
     buffer[offset + 2] = (u32 >> 8) & 0xFF;
@@ -308,7 +308,7 @@ const CrPngBehavior = {
    * @param {number} offset Offset in buffer to write string at.
    * @private
    */
-  writeString_: function(buffer, string, offset) {
+  writeString_(buffer, string, offset) {
     for (let i = 0; i < string.length; i++) {
       buffer[offset + i] = string.charCodeAt(i);
     }
@@ -321,7 +321,7 @@ const CrPngBehavior = {
    * @param {number} offset Offset in buffer to write FourCC code at.
    * @private
    */
-  writeFourCC_: function(buffer, fourcc, offset) {
+  writeFourCC_(buffer, fourcc, offset) {
     buffer[offset + 0] = fourcc.charCodeAt(0);
     buffer[offset + 1] = fourcc.charCodeAt(1);
     buffer[offset + 2] = fourcc.charCodeAt(2);
@@ -336,7 +336,7 @@ const CrPngBehavior = {
    * @return {number} The computed CRC.
    * @private
    */
-  getCRC_: function(buffer, start, end) {
+  getCRC_(buffer, start, end) {
     let crc = 0xFFFFFFFF;
     for (let i = start; i < end; i++) {
       const crcTableIndex = (crc ^ (buffer[i])) & 0xFF;
@@ -351,7 +351,7 @@ const CrPngBehavior = {
    * @param {!CrPngState} png PNG object to add frame to.
    * @private
    */
-  appendFrameFromDataURL_: function(dataURL, png) {
+  appendFrameFromDataURL_(dataURL, png) {
     /** Convert data URL to Uint8Array. */
     const byteString = atob(dataURL.split(',')[1]);
     const bytes = new Uint8Array(byteString.length);
@@ -359,7 +359,7 @@ const CrPngBehavior = {
 
     /** Check signature. */
     const signature = bytes.subarray(0, PNG_SIGNATURE.length);
-    if (signature.toString() != PNG_SIGNATURE.toString()) {
+    if (signature.toString() !== PNG_SIGNATURE.toString()) {
       console.error('Bad PNG signature');
     }
 
@@ -407,7 +407,7 @@ const CrPngBehavior = {
       const chunk = bytes.subarray(i + 8, i + 8 + length);
 
       /** We should have enough bytes left for length. */
-      if (length != chunk.length) {
+      if (length !== chunk.length) {
         console.error('Unexpectedly reached end of file');
       }
 
@@ -433,38 +433,38 @@ const CrPngBehavior = {
           const interlace = chunk[12];
 
           /** Initialize size and colour if this is the first frame. */
-          if (png.frames == 0) {
+          if (png.frames === 0) {
             png.width = width;
             png.height = height;
             png.colour = colour;
           }
 
           /** Check that header matches our expectations. */
-          if (width != png.width) {
+          if (width !== png.width) {
             console.error('Bad PNG width: ' + width);
           }
-          if (height != png.height) {
+          if (height !== png.height) {
             console.error('Bad PNG height: ' + height);
           }
-          if (depth != PNG_BIT_DEPTH) {
+          if (depth !== PNG_BIT_DEPTH) {
             console.error('Bad PNG bit depth: ' + depth);
           }
-          if (colour != png.colour) {
+          if (colour !== png.colour) {
             console.error('Bad PNG colour type: ' + colour);
           }
-          if (compression != PNG_COMPRESSION_METHOD) {
+          if (compression !== PNG_COMPRESSION_METHOD) {
             console.error('Bad PNG compression method: ' + compression);
           }
-          if (filter != PNG_FILTER_METHOD) {
+          if (filter !== PNG_FILTER_METHOD) {
             console.error('Bad PNG filter method: ' + filter);
           }
-          if (interlace != PNG_INTERLACE_METHOD) {
+          if (interlace !== PNG_INTERLACE_METHOD) {
             console.error('Bad PNG interlace method: ' + interlace);
           }
           break;
         case 'IDAT':
           /** Append as IDAT chunk if this is the first frame. */
-          if (png.frames == 0) {
+          if (png.frames === 0) {
             /**
              * http://www.w3.org/TR/2003/REC-PNG-20031110/#11IDAT
              *

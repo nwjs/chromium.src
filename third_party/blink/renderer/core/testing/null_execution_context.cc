@@ -8,6 +8,7 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
+#include "third_party/blink/renderer/core/execution_context/security_context_init.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/dom_timer.h"
 #include "third_party/blink/renderer/platform/scheduler/public/dummy_schedulers.h"
@@ -20,30 +21,21 @@ NullExecutionContext::NullExecutionContext(
     OriginTrialContext* origin_trial_context)
     : ExecutionContext(
           v8::Isolate::GetCurrent(),
-          MakeGarbageCollected<Agent>(v8::Isolate::GetCurrent(),
-                                      base::UnguessableToken::Null()),
-          origin_trial_context),
-      tasks_need_pause_(false),
-      is_secure_context_(true),
+          SecurityContextInit(
+              nullptr,
+              origin_trial_context,
+              MakeGarbageCollected<Agent>(v8::Isolate::GetCurrent(),
+                                          base::UnguessableToken::Null()))),
       scheduler_(scheduler::CreateDummyFrameScheduler()) {}
 
 NullExecutionContext::~NullExecutionContext() {}
 
-void NullExecutionContext::SetIsSecureContext(bool is_secure_context) {
-  is_secure_context_ = is_secure_context;
-}
-
-bool NullExecutionContext::IsSecureContext(String& error_message) const {
-  if (!is_secure_context_)
-    error_message = "A secure context is required";
-  return is_secure_context_;
-}
-
-void NullExecutionContext::SetUpSecurityContext() {
+void NullExecutionContext::SetUpSecurityContextForTesting() {
   auto* policy = MakeGarbageCollected<ContentSecurityPolicy>();
-  SecurityContext::SetSecurityOrigin(SecurityOrigin::Create(url_));
+  GetSecurityContext().SetSecurityOriginForTesting(
+      SecurityOrigin::Create(url_));
   policy->BindToDelegate(GetContentSecurityPolicyDelegate());
-  SecurityContext::SetContentSecurityPolicy(policy);
+  GetSecurityContext().SetContentSecurityPolicy(policy);
 }
 
 FrameOrWorkerScheduler* NullExecutionContext::GetScheduler() {

@@ -27,10 +27,10 @@
 
 #include <memory>
 
+#include "third_party/blink/renderer/bindings/modules/v8/v8_biquad_filter_options.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_basic_processor_handler.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_node_output.h"
-#include "third_party/blink/renderer/modules/webaudio/biquad_filter_options.h"
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
@@ -122,20 +122,23 @@ BiquadFilterNode::BiquadFilterNode(BaseAudioContext& context)
                             1.0,
                             AudioParamHandler::AutomationRate::kAudio,
                             AudioParamHandler::AutomationRateMode::kVariable)),
-      gain_(
+      gain_(AudioParam::Create(context,
+                               Uuid(),
+                               AudioParamHandler::kParamTypeBiquadFilterGain,
+                               0.0,
+                               AudioParamHandler::AutomationRate::kAudio,
+                               AudioParamHandler::AutomationRateMode::kVariable,
+                               std::numeric_limits<float>::lowest(),
+                               40 * log10f(std::numeric_limits<float>::max()))),
+      detune_(
           AudioParam::Create(context,
                              Uuid(),
-                             AudioParamHandler::kParamTypeBiquadFilterGain,
+                             AudioParamHandler::kParamTypeBiquadFilterDetune,
                              0.0,
                              AudioParamHandler::AutomationRate::kAudio,
-                             AudioParamHandler::AutomationRateMode::kVariable)),
-      detune_(AudioParam::Create(
-          context,
-          Uuid(),
-          AudioParamHandler::kParamTypeBiquadFilterDetune,
-          0.0,
-          AudioParamHandler::AutomationRate::kAudio,
-          AudioParamHandler::AutomationRateMode::kVariable)) {
+                             AudioParamHandler::AutomationRateMode::kVariable,
+                             -1200 * log2f(std::numeric_limits<float>::max()),
+                             1200 * log2f(std::numeric_limits<float>::max()))) {
   SetHandler(BiquadFilterHandler::Create(*this, context.sampleRate(),
                                          frequency_->Handler(), q_->Handler(),
                                          gain_->Handler(), detune_->Handler()));
@@ -245,35 +248,37 @@ void BiquadFilterNode::getFrequencyResponse(
     NotShared<DOMFloat32Array> mag_response,
     NotShared<DOMFloat32Array> phase_response,
     ExceptionState& exception_state) {
-  unsigned frequency_hz_length =
-      frequency_hz.View()->deprecatedLengthAsUnsigned();
+  size_t frequency_hz_length = frequency_hz.View()->lengthAsSizeT();
 
-  if (mag_response.View()->deprecatedLengthAsUnsigned() !=
-      frequency_hz_length) {
+  if (mag_response.View()->lengthAsSizeT() != frequency_hz_length) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         ExceptionMessages::IndexOutsideRange(
-            "magResponse length",
-            mag_response.View()->deprecatedLengthAsUnsigned(),
+            "magResponse length", mag_response.View()->lengthAsSizeT(),
             frequency_hz_length, ExceptionMessages::kInclusiveBound,
             frequency_hz_length, ExceptionMessages::kInclusiveBound));
     return;
   }
 
-  if (phase_response.View()->deprecatedLengthAsUnsigned() !=
-      frequency_hz_length) {
+  if (phase_response.View()->lengthAsSizeT() != frequency_hz_length) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         ExceptionMessages::IndexOutsideRange(
-            "phaseResponse length",
-            phase_response.View()->deprecatedLengthAsUnsigned(),
+            "phaseResponse length", phase_response.View()->lengthAsSizeT(),
             frequency_hz_length, ExceptionMessages::kInclusiveBound,
             frequency_hz_length, ExceptionMessages::kInclusiveBound));
     return;
   }
 
+  int frequency_hz_length_as_int;
+  if (!base::CheckedNumeric<int>(frequency_hz_length)
+           .AssignIfValid(&frequency_hz_length_as_int)) {
+    exception_state.ThrowRangeError(
+        "frequencyHz length exceeds the maximum supported length");
+    return;
+  }
   GetBiquadProcessor()->GetFrequencyResponse(
-      frequency_hz_length, frequency_hz.View()->Data(),
+      frequency_hz_length_as_int, frequency_hz.View()->Data(),
       mag_response.View()->Data(), phase_response.View()->Data());
 }
 

@@ -67,8 +67,9 @@ void DeviceMotionController::DidAddEventListener(
           "DeviceSensors.DeviceMotionCrossOrigin", WebURL(GetDocument().Url()));
     }
 
-    if (!CheckPolicyFeatures({mojom::FeaturePolicyFeature::kAccelerometer,
-                              mojom::FeaturePolicyFeature::kGyroscope})) {
+    if (!CheckPolicyFeatures(
+            {mojom::blink::FeaturePolicyFeature::kAccelerometer,
+             mojom::blink::FeaturePolicyFeature::kGyroscope})) {
       DeviceOrientationController::LogToConsolePolicyFeaturesDisabled(
           GetDocument().GetFrame(), EventTypeName());
       return;
@@ -110,7 +111,7 @@ Event* DeviceMotionController::LastEvent() const {
 }
 
 bool DeviceMotionController::IsNullEvent(Event* event) const {
-  DeviceMotionEvent* motion_event = ToDeviceMotionEvent(event);
+  auto* motion_event = To<DeviceMotionEvent>(event);
   return !motion_event->GetDeviceMotionData()->CanProvideEventData();
 }
 

@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 #include "third_party/blink/renderer/core/svg/svg_uri_reference.h"
 #include "third_party/blink/renderer/core/svg_names.h"
+#include "third_party/blink/renderer/platform/bindings/parkable_string.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace blink {
@@ -81,7 +82,8 @@ class SVGScriptElement final : public SVGElement,
   bool NomoduleAttributeValue() const override { return false; }
   String SourceAttributeValue() const override;
   String TypeAttributeValue() const override;
-  String TextFromChildren() override;
+  String ChildTextContent() override;
+  String ScriptTextInternalSlot() const override;
   bool HasSourceAttribute() const override;
   bool IsConnected() const override;
   bool HasChildren() const override;
@@ -104,6 +106,8 @@ class SVGScriptElement final : public SVGElement,
   }
 
   bool have_fired_load_ = false;
+
+  ParkableString script_text_internal_slot_;
 
   Member<ScriptLoader> loader_;
 };

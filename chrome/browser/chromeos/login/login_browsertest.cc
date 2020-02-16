@@ -7,6 +7,7 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
+#include "ash/system/status_area_widget_test_helper.h"
 #include "ash/system/unified/unified_system_tray.h"
 #include "base/command_line.h"
 #include "chrome/browser/chrome_notification_types.h"
@@ -106,7 +107,10 @@ void TestSystemTrayIsVisible(bool otr) {
       shelf->GetStatusAreaWidget()->unified_system_tray();
   SCOPED_TRACE(testing::Message()
                << "ShelfVisibilityState=" << shelf->GetVisibilityState()
-               << " ShelfAutoHideBehavior=" << shelf->auto_hide_behavior());
+               << " ShelfAutoHideBehavior="
+               << static_cast<int>(shelf->auto_hide_behavior()));
+  ash::StatusAreaWidgetTestHelper::WaitForAnimationEnd(
+      shelf->GetStatusAreaWidget());
   EXPECT_TRUE(tray->GetVisible());
 
   // This check flakes for LoginGuestTest: https://crbug.com/693106.

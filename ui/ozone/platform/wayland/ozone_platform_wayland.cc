@@ -18,6 +18,7 @@
 #include "ui/base/ime/linux/input_method_auralinux.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
 #include "ui/gfx/linux/client_native_pixmap_dmabuf.h"
+#include "ui/gfx/native_widget_types.h"
 #include "ui/ozone/common/stub_overlay_manager.h"
 #include "ui/ozone/platform/wayland/common/wayland_util.h"
 #include "ui/ozone/platform/wayland/gpu/drm_render_node_path_finder.h"
@@ -46,7 +47,7 @@
 
 #if defined(WAYLAND_GBM)
 #include "ui/base/ui_base_features.h"
-#include "ui/ozone/common/linux/gbm_wrapper.h"
+#include "ui/gfx/linux/gbm_wrapper.h"
 #include "ui/ozone/platform/wayland/gpu/drm_render_node_handle.h"
 #endif
 
@@ -107,10 +108,8 @@ class OzonePlatformWayland : public OzonePlatform {
   std::unique_ptr<PlatformWindow> CreatePlatformWindow(
       PlatformWindowDelegate* delegate,
       PlatformWindowInitProperties properties) override {
-    auto window = std::make_unique<WaylandWindow>(delegate, connection_.get());
-    if (!window->Initialize(std::move(properties)))
-      return nullptr;
-    return std::move(window);
+    return WaylandWindow::Create(delegate, connection_.get(),
+                                 std::move(properties));
   }
 
   std::unique_ptr<display::NativeDisplayDelegate> CreateNativeDisplayDelegate()
@@ -132,7 +131,8 @@ class OzonePlatformWayland : public OzonePlatform {
   }
 
   std::unique_ptr<InputMethod> CreateInputMethod(
-      internal::InputMethodDelegate* delegate) override {
+      internal::InputMethodDelegate* delegate,
+      gfx::AcceleratedWidget) override {
     return std::make_unique<InputMethodAuraLinux>(delegate);
   }
 

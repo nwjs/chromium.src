@@ -28,19 +28,19 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
-import org.chromium.base.task.TaskTraits;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.init.FirstDrawDetector;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFeatureUtilities;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
@@ -48,12 +48,12 @@ import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.List;
@@ -101,8 +101,9 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
                 public void onContentOffsetChanged(int offset) {}
 
                 @Override
-                public void onControlsOffsetChanged(
-                        int topOffset, int bottomOffset, boolean needsAnimate) {}
+                public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
+                        int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {
+                }
 
                 @Override
                 public void onToggleOverlayVideoMode(boolean enabled) {}
@@ -144,7 +145,7 @@ class TabSwitcherMediator implements TabSwitcher.Controller, TabListRecyclerView
         private void record(int numOfThumbnails) {
             assert numOfThumbnails >= 0;
             long elasped = SystemClock.elapsedRealtime() - mActivityCreationTimeMs;
-            PostTask.postTask(TaskTraits.CURRENT_THREAD_BEST_EFFORT,
+            PostTask.postTask(UiThreadTaskTraits.BEST_EFFORT,
                     ()
                             -> ReturnToChromeExperimentsUtil.recordTimeToGTSFirstMeaningfulPaint(
                                     elasped, numOfThumbnails));

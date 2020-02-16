@@ -31,6 +31,7 @@ using syncer::SyncChange;
 using syncer::SyncData;
 using syncer::SyncDataList;
 using syncer::SyncError;
+using testing::_;
 using testing::AnyNumber;
 using testing::DoAll;
 using testing::ElementsAre;
@@ -41,7 +42,6 @@ using testing::Matches;
 using testing::Return;
 using testing::SetArgPointee;
 using testing::UnorderedElementsAre;
-using testing::_;
 
 namespace password_manager {
 
@@ -93,7 +93,6 @@ MATCHER_P(PasswordIs, form, "") {
           actual_password.password_element() &&
       expected_password.username_value() == actual_password.username_value() &&
       expected_password.password_value() == actual_password.password_value() &&
-      expected_password.preferred() == actual_password.preferred() &&
       expected_password.date_last_used() == actual_password.date_last_used() &&
       expected_password.date_created() == actual_password.date_created() &&
       expected_password.blacklisted() == actual_password.blacklisted() &&
@@ -329,13 +328,11 @@ TEST_F(PasswordSyncableServiceTest, Merge) {
   form1.signon_realm = kSignonRealm;
   form1.action = GURL("http://pie.com");
   form1.date_created = base::Time::Now();
-  form1.preferred = true;
   form1.date_last_used = form1.date_created;
   form1.username_value = base::ASCIIToUTF16(kUsername);
   form1.password_value = base::ASCIIToUTF16(kPassword);
 
   autofill::PasswordForm form2(form1);
-  form2.preferred = false;
   form2.date_created = form1.date_created + base::TimeDelta::FromDays(1);
   EXPECT_CALL(*password_store(), FillAutofillableLogins(_))
       .WillOnce(AppendForm(form1));
@@ -518,8 +515,10 @@ TEST_F(PasswordSyncableServiceTest, FailedReadFromPasswordStore) {
                           syncer::PASSWORDS);
   EXPECT_CALL(*password_store(), FillAutofillableLogins(_))
       .WillOnce(Return(false));
+#if defined(OS_MACOSX) && !defined(OS_IOS)
   EXPECT_CALL(*password_store(), DeleteUndecryptableLogins())
       .WillOnce(Return(DatabaseCleanupResult::kDatabaseUnavailable));
+#endif
   EXPECT_CALL(*error_factory, CreateAndUploadError(_, _))
       .WillOnce(Return(error));
   // ActOnPasswordStoreChanges() below shouldn't generate any changes for Sync.
@@ -548,6 +547,7 @@ class PasswordSyncableServiceTestWithoutDeleteCorruptedPasswords
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
+#if defined(OS_MACOSX) && !defined(OS_IOS)
 // Test that passwords are recovered for Sync users using the older logic (i.e.
 // recover passwords only for Sync users) when the feature for deleting
 // corrupted passwords for all users is disabled.
@@ -566,6 +566,7 @@ TEST_F(PasswordSyncableServiceTestWithoutDeleteCorruptedPasswords,
       syncer::PASSWORDS, SyncDataList(), std::move(processor_), nullptr);
   EXPECT_FALSE(result.error().IsSet());
 }
+#endif
 
 class PasswordSyncableServiceTestWithDeleteCorruptedPasswords
     : public PasswordSyncableServiceTest {
@@ -600,6 +601,7 @@ TEST_F(PasswordSyncableServiceTestWithDeleteCorruptedPasswords,
   EXPECT_TRUE(result.error().IsSet());
 }
 
+#if defined(OS_MACOSX) && !defined(OS_IOS)
 // Database cleanup fails because encryption is unavailable.
 TEST_F(PasswordSyncableServiceTestWithoutDeleteCorruptedPasswords,
        FailedDeleteUndecryptableLogins) {
@@ -621,6 +623,7 @@ TEST_F(PasswordSyncableServiceTestWithoutDeleteCorruptedPasswords,
       std::move(error_factory));
   EXPECT_TRUE(result.error().IsSet());
 }
+#endif
 
 // Start syncing with an error in ProcessSyncChanges. Subsequent password store
 // updates shouldn't be propagated to Sync.
@@ -698,8 +701,6 @@ TEST_F(PasswordSyncableServiceTest, SerializeEmptyPasswordForm) {
   EXPECT_EQ("", specifics.password_element());
   EXPECT_TRUE(specifics.has_password_value());
   EXPECT_EQ("", specifics.password_value());
-  EXPECT_TRUE(specifics.has_preferred());
-  EXPECT_FALSE(specifics.preferred());
   EXPECT_TRUE(specifics.has_date_last_used());
   EXPECT_EQ(0, specifics.date_last_used());
   EXPECT_TRUE(specifics.has_date_created());
@@ -730,7 +731,6 @@ TEST_F(PasswordSyncableServiceTest, SerializeNonEmptyPasswordForm) {
   form.username_value = base::ASCIIToUTF16("god@google.com");
   form.password_element = base::ASCIIToUTF16("password_element");
   form.password_value = base::ASCIIToUTF16("!@#$%^&*()");
-  form.preferred = true;
   form.date_last_used = base::Time::FromDeltaSinceWindowsEpoch(
       base::TimeDelta::FromMicroseconds(100));
   form.date_created = base::Time::FromInternalValue(100);
@@ -760,8 +760,6 @@ TEST_F(PasswordSyncableServiceTest, SerializeNonEmptyPasswordForm) {
   EXPECT_EQ("password_element", specifics.password_element());
   EXPECT_TRUE(specifics.has_password_value());
   EXPECT_EQ("!@#$%^&*()", specifics.password_value());
-  EXPECT_TRUE(specifics.has_preferred());
-  EXPECT_TRUE(specifics.preferred());
   EXPECT_TRUE(specifics.has_date_last_used());
   EXPECT_EQ(100, specifics.date_last_used());
   EXPECT_TRUE(specifics.has_date_created());

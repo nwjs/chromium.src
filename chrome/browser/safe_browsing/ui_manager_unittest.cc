@@ -5,6 +5,7 @@
 #include "chrome/browser/safe_browsing/ui_manager.h"
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/run_loop.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/net/system_network_context_manager.h"
@@ -15,9 +16,11 @@
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/db/util.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/db/util.h"
+#include "components/security_interstitials/content/unsafe_resource_util.h"
 #include "components/security_interstitials/core/base_safe_browsing_error_ui.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -49,19 +52,19 @@ class SafeBrowsingCallbackWaiter {
    bool callback_called() const { return callback_called_; }
    bool proceed() const { return proceed_; }
 
-   void OnBlockingPageDone(bool proceed) {
+   void OnBlockingPageDone(bool proceed, bool showed_interstitial) {
      DCHECK_CURRENTLY_ON(BrowserThread::UI);
      callback_called_ = true;
      proceed_ = proceed;
      loop_.Quit();
    }
 
-   void OnBlockingPageDoneOnIO(bool proceed) {
+   void OnBlockingPageDoneOnIO(bool proceed, bool showed_interstitial) {
      DCHECK_CURRENTLY_ON(BrowserThread::IO);
      base::PostTask(
          FROM_HERE, {BrowserThread::UI},
          base::BindOnce(&SafeBrowsingCallbackWaiter::OnBlockingPageDone,
-                        base::Unretained(this), proceed));
+                        base::Unretained(this), proceed, showed_interstitial));
    }
 
    void WaitForCallback() {
@@ -130,10 +133,9 @@ class SafeBrowsingUIManagerTest : public ChromeRenderViewHostTestHarness {
     security_interstitials::UnsafeResource resource;
     resource.url = GURL(url);
     resource.is_subresource = is_subresource;
-    resource.web_contents_getter =
-        security_interstitials::UnsafeResource::GetWebContentsGetter(
-            web_contents()->GetMainFrame()->GetProcess()->GetID(),
-            web_contents()->GetMainFrame()->GetRoutingID());
+    resource.web_contents_getter = security_interstitials::GetWebContentsGetter(
+        web_contents()->GetMainFrame()->GetProcess()->GetID(),
+        web_contents()->GetMainFrame()->GetRoutingID());
     resource.threat_type = SB_THREAT_TYPE_URL_MALWARE;
     return resource;
   }
@@ -161,7 +163,8 @@ class SafeBrowsingUIManagerTest : public ChromeRenderViewHostTestHarness {
       main_frame_url = entry->GetURL();
 
     ui_manager_->OnBlockingPageDone(resources, proceed, web_contents(),
-                                    main_frame_url);
+                                    main_frame_url,
+                                    true /* showed_interstitial */);
   }
 
  protected:
@@ -504,6 +507,13 @@ TEST_F(SafeBrowsingUIManagerTest,
       MakeUnsafeResource(kBadURL, true /* is_subresource */);
   // Needed for showing the blocking page.
   resource.threat_source = safe_browsing::ThreatSource::REMOTE;
+
+  // The callback needs to be set for committed interstitials, just set it to do
+  // nothing.
+  resource.callback = base::DoNothing();
+  resource.callback_thread =
+      base::CreateSingleThreadTaskRunner({BrowserThread::IO});
+
   NavigateAndCommit(GURL("http://example.test"));
 
   delegate.ClearVisibleSecurityStateChanged();

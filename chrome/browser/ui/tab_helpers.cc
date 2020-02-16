@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/captive_portal/captive_portal_service_factory.h"
 #include "chrome/browser/client_hints/client_hints.h"
 #include "chrome/browser/complex_tasks/task_tab_helper.h"
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
@@ -39,10 +40,12 @@
 #include "chrome/browser/optimization_guide/optimization_guide_web_contents_observer.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/performance_hints/performance_hints_observer.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/plugins/pdf_plugin_placeholder_observer.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/loading_predictor_tab_helper.h"
+#include "chrome/browser/prerender/isolated/isolated_prerender_tab_helper.h"
 #include "chrome/browser/prerender/prerender_tab_helper.h"
 #include "chrome/browser/previews/previews_lite_page_redirect_predictor.h"
 #include "chrome/browser/previews/previews_ui_tab_helper.h"
@@ -53,10 +56,12 @@
 #include "chrome/browser/resource_coordinator/tab_helper.h"
 #include "chrome/browser/safe_browsing/safe_browsing_navigation_observer.h"
 #include "chrome/browser/safe_browsing/trigger_creator.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
+#include "chrome/browser/sessions/session_tab_helper_factory.h"
+#include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
 #include "chrome/browser/ssl/connection_help_tab_helper.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/subresource_filter/chrome_subresource_filter_client.h"
+#include "chrome/browser/subresource_redirect/subresource_redirect_observer.h"
 #include "chrome/browser/sync/sessions/sync_sessions_router_tab_helper.h"
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
 #include "chrome/browser/sync/sync_encryption_keys_tab_helper.h"
@@ -66,7 +71,7 @@
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/blocked_content/popup_blocker_tab_helper.h"
 #include "chrome/browser/ui/blocked_content/popup_opener_tab_helper.h"
-#include "chrome/browser/ui/find_bar/find_tab_helper.h"
+#include "chrome/browser/ui/find_bar/find_bar_state.h"
 #include "chrome/browser/ui/javascript_dialogs/javascript_dialog_tab_helper.h"
 #include "chrome/browser/ui/navigation_correction_tab_observer.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
@@ -85,6 +90,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/autofill_manager.h"
+#include "components/captive_portal/core/buildflags.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/download/content/factory/navigation_monitor_factory.h"
 #include "components/download/content/public/download_navigation_observer.h"
@@ -92,8 +98,7 @@
 #include "components/history/core/browser/top_sites.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/password_manager/core/browser/password_manager.h"
-#include "components/performance_manager/performance_manager_tab_helper.h"
-#include "components/performance_manager/public/performance_manager.h"
+#include "components/performance_manager/embedder/performance_manager_registry.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "components/tracing/common/tracing_switches.h"
 #include "components/ukm/content/source_url_recorder.h"
@@ -104,17 +109,20 @@
 #include "printing/buildflags/buildflags.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/oom_intervention/oom_intervention_tab_helper.h"
 #include "chrome/browser/android/search_permissions/search_geolocation_disclosure_tab_helper.h"
 #include "chrome/browser/banners/app_banner_manager_android.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/ui/android/context_menu_helper.h"
 #include "chrome/browser/ui/android/view_android_helper.h"
+#include "chrome/browser/ui/javascript_dialogs/javascript_dialog_tab_helper_delegate_android.h"
 #else
 #include "chrome/browser/banners/app_banner_manager_desktop.h"
 #include "chrome/browser/safe_browsing/safe_browsing_tab_observer.h"
+#include "chrome/browser/tab_contents/form_interaction_tab_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
+#include "chrome/browser/ui/javascript_dialogs/javascript_dialog_tab_helper_delegate_desktop.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/sync/browser_synced_tab_delegate.h"
@@ -130,15 +138,15 @@
 #endif
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-#include "chrome/browser/captive_portal/captive_portal_tab_helper.h"
+#include "components/captive_portal/content/captive_portal_tab_helper.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/api/web_navigation/web_navigation_api.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/extensions/tab_helper.h"
-#include "chrome/browser/web_applications/components/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/components/web_app_utils.h"
+#include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "extensions/browser/view_type_utils.h"
 #endif
 
@@ -159,6 +167,10 @@
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_navigation_observer.h"
+#endif
+
+#if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/child_accounts/time_limits/web_time_navigation_observer.h"
 #endif
 
 using content::WebContents;
@@ -191,7 +203,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
 
   // SessionTabHelper comes first because it sets up the tab ID, and other
   // helpers may rely on that.
-  SessionTabHelper::CreateForWebContents(web_contents);
+  CreateSessionServiceTabHelper(web_contents);
 
 #if !defined(OS_ANDROID)
   // ZoomController comes before common tab helpers since ChromeAutofillClient
@@ -221,7 +233,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   DataReductionProxyTabHelper::CreateForWebContents(web_contents);
   ExternalProtocolObserver::CreateForWebContents(web_contents);
   favicon::CreateContentFaviconDriverForWebContents(web_contents);
-  FindTabHelper::CreateForWebContents(web_contents);
+  FindBarState::ConfigureWebContents(web_contents);
 
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
@@ -233,6 +245,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   HistoryTabHelper::CreateForWebContents(web_contents);
   InfoBarService::CreateForWebContents(web_contents);
   InstallableManager::CreateForWebContents(web_contents);
+  IsolatedPrerenderTabHelper::CreateForWebContents(web_contents);
   metrics::RendererUptimeWebContentsObserver::CreateForWebContents(
       web_contents);
   MixedContentSettingsTabHelper::CreateForWebContents(web_contents);
@@ -244,6 +257,9 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   OutOfMemoryReporter::CreateForWebContents(web_contents);
   chrome::InitializePageLoadMetricsForWebContents(web_contents);
   PDFPluginPlaceholderObserver::CreateForWebContents(web_contents);
+  if (base::FeatureList::IsEnabled(kPerformanceHintsObserver)) {
+    PerformanceHintsObserver::CreateForWebContents(web_contents);
+  }
   PermissionRequestManager::CreateForWebContents(web_contents);
   // The PopupBlockerTabHelper has an implicit dependency on
   // ChromeSubresourceFilterClient being available in its constructor.
@@ -268,6 +284,8 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   if (SiteEngagementService::IsEnabled())
     SiteEngagementService::Helper::CreateForWebContents(web_contents);
   SoundContentSettingObserver::CreateForWebContents(web_contents);
+  subresource_redirect::SubresourceRedirectObserver::MaybeCreateForWebContents(
+      web_contents);
 #if 0
   sync_sessions::SyncSessionsRouterTabHelper::CreateForWebContents(
       web_contents,
@@ -292,7 +310,9 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
     banners::AppBannerManagerAndroid::CreateForWebContents(web_contents);
   }
   ContextMenuHelper::CreateForWebContents(web_contents);
-  JavaScriptDialogTabHelper::CreateForWebContents(web_contents);
+  JavaScriptDialogTabHelper::CreateForWebContents(
+      web_contents,
+      std::make_unique<JavaScriptDialogTabHelperDelegateAndroid>(web_contents));
   if (OomInterventionTabHelper::IsEnabled()) {
     OomInterventionTabHelper::CreateForWebContents(web_contents);
   }
@@ -306,9 +326,12 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
       web_contents);
   extensions::WebNavigationTabObserver::CreateForWebContents(web_contents);
+  FormInteractionTabHelper::CreateForWebContents(web_contents);
   FramebustBlockTabHelper::CreateForWebContents(web_contents);
   IntentPickerTabHelper::CreateForWebContents(web_contents);
-  JavaScriptDialogTabHelper::CreateForWebContents(web_contents);
+  JavaScriptDialogTabHelper::CreateForWebContents(
+      web_contents,
+      std::make_unique<JavaScriptDialogTabHelperDelegateDesktop>(web_contents));
   ManagePasswordsUIController::CreateForWebContents(web_contents);
   pdf::PDFWebContentsHelper::CreateForWebContentsWithClient(
       web_contents, std::make_unique<ChromePDFWebContentsHelperClient>());
@@ -321,13 +344,8 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
     SyncEncryptionKeysTabHelper::CreateForWebContents(web_contents);
   }
   TabDialogs::CreateForWebContents(web_contents);
-#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
   if (base::FeatureList::IsEnabled(features::kTabHoverCardImages) ||
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kWebUITabStrip)) {
-#else
-  if (base::FeatureList::IsEnabled(features::kTabHoverCardImages)) {
-#endif
+      base::FeatureList::IsEnabled(features::kWebUITabStrip)) {
     ThumbnailTabHelper::CreateForWebContents(web_contents);
   }
   web_modal::WebContentsModalDialogManager::CreateForWebContents(web_contents);
@@ -350,7 +368,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   // --- Feature tab helpers behind flags ---
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-  CaptivePortalTabHelper::CreateForWebContents(web_contents);
+  CaptivePortalTabHelper::CreateForWebContents(
+      web_contents, CaptivePortalServiceFactory::GetForProfile(profile),
+      base::Bind(&ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents,
+                 web_contents, false));
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -376,7 +397,12 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  SupervisedUserNavigationObserver::CreateForWebContents(web_contents);
+  SupervisedUserNavigationObserver::MaybeCreateForWebContents(web_contents);
+#endif
+
+#if defined(OS_CHROMEOS)
+  chromeos::app_time::WebTimeNavigationObserver::MaybeCreateForWebContents(
+      web_contents);
 #endif
 
   if (predictors::LoadingPredictorFactory::GetForProfile(profile))
@@ -391,9 +417,9 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   if (base::FeatureList::IsEnabled(media::kUseMediaHistoryStore))
     MediaHistoryContentsObserver::CreateForWebContents(web_contents);
 
-  if (performance_manager::PerformanceManager::IsAvailable()) {
-    performance_manager::PerformanceManagerTabHelper::CreateForWebContents(
-        web_contents);
+  if (auto* performance_manager_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    performance_manager_registry->CreatePageNodeForWebContents(web_contents);
   }
 
   // TODO(siggi): Remove this once the Resource Coordinator refactoring is done.

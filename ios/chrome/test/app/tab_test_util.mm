@@ -11,6 +11,7 @@
 #include "ios/chrome/browser/chrome_url_constants.h"
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/metrics/tab_usage_recorder.h"
+#import "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
 #include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/tabs/tab_title_util.h"
@@ -59,14 +60,21 @@ void OpenNewTab() {
       return;
     }
       // The TabGrid is currently presented.
-    TabModel* tabModel =
-        GetMainController().interfaceProvider.mainInterface.tabModel;
+    Browser* browser =
+        GetMainController().interfaceProvider.mainInterface.browser;
     UrlLoadParams params = UrlLoadParams::InNewTab(GURL(kChromeUINewTabURL));
     [GetMainController().tabSwitcher
-        dismissWithNewTabAnimationToModel:tabModel
-                        withUrlLoadParams:params
-                                  atIndex:NSNotFound];
+        dismissWithNewTabAnimationToBrowser:browser
+                          withUrlLoadParams:params
+                                    atIndex:INT_MAX];
   }
+}
+
+void SimulateExternalAppURLOpening() {
+  NSURL* url = [NSURL URLWithString:@"http://www.example.com"];
+  UIApplication* application = UIApplication.sharedApplication;
+  id<UIApplicationDelegate> applicationDelegate = application.delegate;
+  [applicationDelegate application:application openURL:url options:@{}];
 }
 
 void OpenNewIncognitoTab() {
@@ -79,13 +87,13 @@ void OpenNewIncognitoTab() {
       return;
     }
       // The TabGrid is currently presented.
-    TabModel* tabModel =
-        GetMainController().interfaceProvider.incognitoInterface.tabModel;
+    Browser* browser =
+        GetMainController().interfaceProvider.incognitoInterface.browser;
     UrlLoadParams params = UrlLoadParams::InNewTab(GURL(kChromeUINewTabURL));
     [GetMainController().tabSwitcher
-        dismissWithNewTabAnimationToModel:tabModel
-                        withUrlLoadParams:params
-                                  atIndex:NSNotFound];
+        dismissWithNewTabAnimationToBrowser:browser
+                          withUrlLoadParams:params
+                                    atIndex:INT_MAX];
   }
 }
 
@@ -132,6 +140,12 @@ void CloseTabAtIndex(NSUInteger index) {
   @autoreleasepool {  // Make sure that all internals are deallocated.
     [GetCurrentTabModel() closeTabAtIndex:index];
   }
+}
+
+NSUInteger GetIndexOfActiveNormalTab() {
+  TabModel* model = chrome_test_util::GetMainController()
+                        .interfaceProvider.mainInterface.tabModel;
+  return model.webStateList->active_index();
 }
 
 void CloseAllTabsInCurrentMode() {
@@ -197,12 +211,14 @@ BOOL SimulateTabsBackgrounding() {
 }
 
 void SaveSessionImmediately() {
-  [GetCurrentTabModel() saveSessionImmediately:YES];
+  Browser* browser =
+      GetMainController().interfaceProvider.mainInterface.browser;
+  SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(true);
 }
 
 void EvictOtherTabModelTabs() {
   id<BrowserInterfaceProvider> provider = GetMainController().interfaceProvider;
-  ios::ChromeBrowserState* otherBrowserState =
+  ChromeBrowserState* otherBrowserState =
       IsIncognitoMode() ? provider.mainInterface.browserState
                         : provider.incognitoInterface.browserState;
   // Disabling and enabling web usage will evict all web views.

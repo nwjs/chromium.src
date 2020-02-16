@@ -16,6 +16,7 @@
 
 namespace {
 
+const char kCUPSDeviceUri[] = "device-uri";
 const char kCUPSPrinterInfoOpt[] = "printer-info";
 const char kCUPSPrinterStateOpt[] = "printer-state";
 
@@ -56,7 +57,7 @@ std::vector<base::StringPiece> CupsPrinter::GetSupportedOptionValueStrings(
   base::StringPiece value;
   int num_options = ippGetCount(attr);
   for (int i = 0; i < num_options; ++i) {
-    value.set(ippGetString(attr, i, nullptr));
+    value = ippGetString(attr, i, nullptr);
     values.push_back(value);
   }
 
@@ -121,6 +122,12 @@ std::string CupsPrinter::GetMakeAndModel() const {
       kDriverNameTagName, destination_->num_options, destination_->options);
 
   return make_and_model ? std::string(make_and_model) : std::string();
+}
+
+std::string CupsPrinter::GetUri() const {
+  const char* uri = cupsGetOption(kCUPSDeviceUri, destination_->num_options,
+                                  destination_->options);
+  return uri ? std::string(uri) : std::string();
 }
 
 bool CupsPrinter::EnsureDestInfo() const {

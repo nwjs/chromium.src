@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "net/base/escape.h"
@@ -56,7 +57,7 @@ GURL GenerateVshInCroshUrl(Profile* profile,
 
 apps::AppLaunchParams GenerateTerminalAppLaunchParams() {
   apps::AppLaunchParams launch_params(
-      kCrostiniCroshBuiltinAppId,
+      extension_misc::kCroshBuiltinAppId,
       apps::mojom::LaunchContainer::kLaunchContainerWindow,
       WindowOpenDisposition::NEW_WINDOW,
       apps::mojom::AppLaunchSource::kSourceAppLauncher);
@@ -75,8 +76,9 @@ void ShowContainerTerminal(Profile* profile,
                            const apps::AppLaunchParams& launch_params,
                            const GURL& vsh_in_crosh_url,
                            Browser* browser) {
-  ShowApplicationWindow(profile, launch_params, vsh_in_crosh_url, browser,
-                        WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  NavigateApplicationWindow(browser, launch_params, vsh_in_crosh_url,
+                            WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  browser->window()->Show();
   browser->window()->GetNativeWindow()->SetProperty(
       kOverrideWindowIconResourceIdKey, IDR_LOGO_CROSTINI_TERMINAL);
 }
@@ -98,6 +100,14 @@ void LaunchContainerTerminal(Profile* profile,
   Browser* browser =
       CreateContainerTerminal(profile, launch_params, vsh_in_crosh_url);
   ShowContainerTerminal(profile, launch_params, vsh_in_crosh_url, browser);
+}
+
+void LaunchTerminalSettings(Profile* profile) {
+  DCHECK(base::FeatureList::IsEnabled(features::kTerminalSystemApp));
+  web_app::LaunchSystemWebApp(profile, web_app::SystemAppType::TERMINAL,
+                              GURL(std::string(chrome::kChromeUITerminalURL) +
+                                   "html/terminal_settings.html"),
+                              /*is_popup=*/true);
 }
 
 }  // namespace crostini

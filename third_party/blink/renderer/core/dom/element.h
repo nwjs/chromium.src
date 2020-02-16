@@ -25,8 +25,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_DOM_ELEMENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_DOM_ELEMENT_H_
 
-#include "third_party/blink/public/platform/pointer_id.h"
-#include "third_party/blink/public/platform/web_focus_type.h"
+#include "third_party/blink/public/common/input/pointer_id.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_focus_options.h"
 #include "third_party/blink/renderer/core/animation/animatable.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
@@ -37,7 +38,6 @@
 #include "third_party/blink/renderer/core/dom/element_data.h"
 #include "third_party/blink/renderer/core/dom/names_map.h"
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
-#include "third_party/blink/renderer/core/html/focus_options.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -65,7 +65,6 @@ class ElementRareData;
 class ExceptionState;
 class FloatQuad;
 class FloatSize;
-class FocusOptions;
 class Image;
 class InputDeviceCapabilities;
 class Locale;
@@ -145,7 +144,7 @@ struct FocusParams {
  public:
   FocusParams() : options(FocusOptions::Create()) {}
   FocusParams(SelectionBehaviorOnFocus selection,
-              WebFocusType focus_type,
+              mojom::blink::FocusType focus_type,
               InputDeviceCapabilities* capabilities,
               const FocusOptions* focus_options = FocusOptions::Create())
       : selection_behavior(selection),
@@ -155,9 +154,9 @@ struct FocusParams {
 
   SelectionBehaviorOnFocus selection_behavior =
       SelectionBehaviorOnFocus::kRestore;
-  WebFocusType type = kWebFocusTypeNone;
-  Member<InputDeviceCapabilities> source_capabilities = nullptr;
-  Member<const FocusOptions> options;
+  mojom::blink::FocusType type = mojom::blink::FocusType::kNone;
+  InputDeviceCapabilities* source_capabilities = nullptr;
+  const FocusOptions* options = nullptr;
 };
 
 typedef HeapVector<Member<Attr>> AttrNodeList;
@@ -208,6 +207,14 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   void SetFloatingPointAttribute(const QualifiedName& attribute_name,
                                  double value);
 
+  // Returns true if |this| element has attr-associated elements that were set
+  // via the IDL, rather than computed from the content attribute.
+  // See
+  // https://whatpr.org/html/3917/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes:element
+  // for more information.
+  // This is only exposed as an implementation detail to AXRelationCache, which
+  // computes aria-owns differently for element reflection.
+  bool HasExplicitlySetAttrAssociatedElements(const QualifiedName& name);
   Element* GetElementAttribute(const QualifiedName& name);
   void SetElementAttribute(const QualifiedName&, Element*);
   HeapVector<Member<Element>> GetElementArrayAttribute(
@@ -613,8 +620,11 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   }
 
   bool IsDefined() const {
-    return !(static_cast<int>(GetCustomElementState()) &
-             static_cast<int>(CustomElementState::kNotDefinedFlag));
+    // An element whose custom element state is "uncustomized" or "custom"
+    // is said to be defined.
+    // https://dom.spec.whatwg.org/#concept-element-defined
+    return GetCustomElementState() == CustomElementState::kUncustomized ||
+           GetCustomElementState() == CustomElementState::kCustom;
   }
   bool IsUpgradedV0CustomElement() {
     return GetV0CustomElementState() == kV0Upgraded;
@@ -679,16 +689,16 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   virtual void DispatchFocusEvent(
       Element* old_focused_element,
-      WebFocusType,
+      mojom::blink::FocusType,
       InputDeviceCapabilities* source_capabilities = nullptr);
   virtual void DispatchBlurEvent(
       Element* new_focused_element,
-      WebFocusType,
+      mojom::blink::FocusType,
       InputDeviceCapabilities* source_capabilities = nullptr);
   virtual void DispatchFocusInEvent(
       const AtomicString& event_type,
       Element* old_focused_element,
-      WebFocusType,
+      mojom::blink::FocusType,
       InputDeviceCapabilities* source_capabilities = nullptr);
   void DispatchFocusOutEvent(
       const AtomicString& event_type,
@@ -763,7 +773,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   scoped_refptr<ComputedStyle> StyleForPseudoElement(
       const PseudoElementStyleRequest&,
       const ComputedStyle* parent_style = nullptr);
-  bool CanGeneratePseudoElement(PseudoId) const;
+  virtual bool CanGeneratePseudoElement(PseudoId) const;
 
   virtual bool MatchesDefaultPseudoClass() const { return false; }
   virtual bool MatchesEnabledPseudoClass() const { return false; }
@@ -920,10 +930,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
 
   ElementIntersectionObserverData* IntersectionObserverData() const;
   ElementIntersectionObserverData& EnsureIntersectionObserverData();
-  bool ComputeIntersectionsForLifecycleUpdate(unsigned flags);
-  // Returns true if the Element is being observed by an IntersectionObserver
-  // for which trackVisibility() is true.
-  bool NeedsOcclusionTracking() const;
 
   HeapHashMap<Member<ResizeObserver>, Member<ResizeObservation>>*
   ResizeObserverData() const;
@@ -1216,7 +1222,6 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   Member<ElementData> element_data_;
 };
 
-DEFINE_NODE_TYPE_CASTS(Element, IsElementNode());
 template <typename T>
 bool IsElementOfType(const Node&);
 template <>
@@ -1237,27 +1242,6 @@ struct DowncastTraits<Element> {
   static bool AllowFrom(const Node& node) { return node.IsElementNode(); }
 };
 
-// Type casting.
-template <typename T>
-inline T& ToElement(Node& node) {
-  SECURITY_DCHECK(IsElementOfType<const T>(node));
-  return static_cast<T&>(node);
-}
-template <typename T>
-inline T* ToElement(Node* node) {
-  SECURITY_DCHECK(!node || IsElementOfType<const T>(*node));
-  return static_cast<T*>(node);
-}
-template <typename T>
-inline const T& ToElement(const Node& node) {
-  SECURITY_DCHECK(IsElementOfType<const T>(node));
-  return static_cast<const T&>(node);
-}
-template <typename T>
-inline const T* ToElement(const Node* node) {
-  SECURITY_DCHECK(!node || IsElementOfType<const T>(*node));
-  return static_cast<const T*>(node);
-}
 
 inline bool IsDisabledFormControl(const Node* node) {
   auto* element = DynamicTo<Element>(node);
@@ -1401,23 +1385,6 @@ inline bool IsAtShadowBoundary(const Element* element) {
   ContainerNode* parent_node = element->parentNode();
   return parent_node && parent_node->IsShadowRoot();
 }
-
-// These macros do the same as their NODE equivalents but additionally provide a
-// template specialization for isElementOfType<>() so that the Traversal<> API
-// works for these Element types.
-#define DEFINE_ELEMENT_TYPE_CASTS(thisType, predicate)            \
-  template <>                                                     \
-  inline bool IsElementOfType<const thisType>(const Node& node) { \
-    return node.predicate;                                        \
-  }                                                               \
-  DEFINE_NODE_TYPE_CASTS(thisType, predicate)
-
-#define DEFINE_ELEMENT_TYPE_CASTS_WITH_FUNCTION(thisType)         \
-  template <>                                                     \
-  inline bool IsElementOfType<const thisType>(const Node& node) { \
-    return Is##thisType(node);                                    \
-  }                                                               \
-  DEFINE_NODE_TYPE_CASTS_WITH_FUNCTION(thisType)
 
 }  // namespace blink
 

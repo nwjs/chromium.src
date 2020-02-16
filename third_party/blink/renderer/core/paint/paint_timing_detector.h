@@ -5,7 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_PAINT_TIMING_DETECTOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_PAINT_TIMING_DETECTOR_H_
 
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/web/web_widget_client.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
@@ -138,7 +138,7 @@ class CORE_EXPORT PaintTimingDetector
   void NotifyPaintFinished();
   void NotifyInputEvent(WebInputEvent::Type);
   bool NeedToNotifyInputOrScroll() const;
-  void NotifyScroll(ScrollType);
+  void NotifyScroll(mojom::blink::ScrollIntoViewParams::Type);
   // The returned value indicates whether the candidates have changed.
   bool NotifyIfChangedLargestImagePaint(base::TimeTicks, uint64_t size);
   bool NotifyIfChangedLargestTextPaint(base::TimeTicks, uint64_t size);
@@ -251,7 +251,7 @@ class ScopedPaintTimingDetectorBlockPaintHook {
 
     const LayoutBoxModelObject& aggregator_;
     const PropertyTreeState& property_tree_state_;
-    Member<TextPaintTimingDetector> detector_;
+    TextPaintTimingDetector* detector_;
     IntRect aggregated_visual_rect_;
   };
   base::Optional<Data> data_;

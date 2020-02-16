@@ -11,6 +11,7 @@
 #include "base/guid.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/browser_accessibility_state.h"
@@ -56,7 +57,7 @@ std::unique_ptr<BrowserMainParts> ContentBrowserClient::CreateBrowserMainParts(
 
 void ContentBrowserClient::PostAfterStartupTask(
     const base::Location& from_here,
-    const scoped_refptr<base::TaskRunner>& task_runner,
+    const scoped_refptr<base::SequencedTaskRunner>& task_runner,
     base::OnceClosure task) {
   task_runner->PostTask(from_here, std::move(task));
 }
@@ -101,7 +102,11 @@ bool ContentBrowserClient::IsExplicitNavigation(ui::PageTransition transition) {
 }
 
 bool ContentBrowserClient::ShouldUseMobileFlingCurve() {
+#if defined(OS_ANDROID)
+  return true;
+#else
   return false;
+#endif
 }
 
 bool ContentBrowserClient::ShouldUseProcessPerSite(
@@ -129,11 +134,6 @@ bool ContentBrowserClient::ShouldLockToOrigin(BrowserContext* browser_context,
   return true;
 }
 
-const char*
-ContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
-  return nullptr;
-}
-
 bool ContentBrowserClient::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
     base::StringPiece scheme,
     bool is_embedded_origin_secure) {
@@ -152,8 +152,9 @@ bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, BrowserContext*
 }
 
 void ContentBrowserClient::OverrideURLLoaderFactoryParams(
-    RenderProcessHost* process,
+    BrowserContext* browser_context,
     const url::Origin& origin,
+    bool is_for_isolated_world,
     network::mojom::URLLoaderFactoryParams* factory_params) {}
 
 void ContentBrowserClient::GetAdditionalViewSourceSchemes(
@@ -407,16 +408,6 @@ ContentBrowserClient::CreateQuotaPermissionContext() {
   return nullptr;
 }
 
-void ContentBrowserClient::GetQuotaSettings(
-    BrowserContext* context,
-    StoragePartition* partition,
-    storage::OptionalQuotaSettingsCallback callback) {
-  DCHECK(context);
-
-  // By default, no quota is provided, embedders should override.
-  std::move(callback).Run(storage::GetNoQuotaSettings());
-}
-
 GeneratedCodeCacheSettings ContentBrowserClient::GetGeneratedCodeCacheSettings(
     BrowserContext* context) {
   // By default, code cache is disabled, embedders should override.
@@ -630,6 +621,11 @@ bool ContentBrowserClient::IsPluginAllowedToUseDevChannelAPIs(
   return false;
 }
 
+mojo::Remote<media::mojom::MediaService>
+ContentBrowserClient::RunSecondaryMediaService() {
+  return mojo::Remote<media::mojom::MediaService>();
+}
+
 bool ContentBrowserClient::BindAssociatedReceiverFromFrame(
     RenderFrameHost* render_frame_host,
     const std::string& interface_name,
@@ -679,7 +675,7 @@ bool ContentBrowserClient::PreSpawnRenderer(sandbox::TargetPolicy* policy,
 }
 
 base::string16 ContentBrowserClient::GetAppContainerSidForSandboxType(
-    int sandbox_type) {
+    service_manager::SandboxType sandbox_type) {
   // Embedders should override this method and return different SIDs for each
   // sandbox type. Note: All content level tests will run child processes in the
   // same AppContainer.
@@ -761,6 +757,7 @@ bool ContentBrowserClient::WillCreateURLLoaderFactory(
     mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>*
         header_client,
     bool* bypass_redirect_checks,
+    bool* disable_secure_dns,
     network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
   DCHECK(browser_context);
   return false;
@@ -778,7 +775,7 @@ void ContentBrowserClient::CreateWebSocket(
     RenderFrameHost* frame,
     WebSocketFactory factory,
     const GURL& url,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const base::Optional<std::string>& user_agent,
     mojo::PendingRemote<network::mojom::WebSocketHandshakeClient>
         handshake_client) {
@@ -790,7 +787,7 @@ bool ContentBrowserClient::WillCreateRestrictedCookieManager(
     network::mojom::RestrictedCookieManagerRole role,
     BrowserContext* browser_context,
     const url::Origin& origin,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const url::Origin& top_frame_origin,
     bool is_service_worker,
     int process_id,
@@ -886,8 +883,7 @@ bool ContentBrowserClient::ShouldCreateThreadPool() {
 
 std::unique_ptr<AuthenticatorRequestClientDelegate>
 ContentBrowserClient::GetWebAuthenticationRequestDelegate(
-    RenderFrameHost* render_frame_host,
-    const std::string& relying_party_id) {
+    RenderFrameHost* render_frame_host) {
   return std::make_unique<AuthenticatorRequestClientDelegate>();
 }
 
@@ -1041,5 +1037,22 @@ void ContentBrowserClient::FetchRemoteSms(
     content::BrowserContext* browser_context,
     const url::Origin& origin,
     base::OnceCallback<void(base::Optional<std::string>)> callback) {}
+
+void ContentBrowserClient::IsClipboardPasteAllowed(
+    content::WebContents* web_contents,
+    const GURL& url,
+    const ui::ClipboardFormatType& data_type,
+    const std::string& data,
+    IsClipboardPasteAllowedCallback callback) {
+  std::move(callback).Run(ClipboardPasteAllowed(true));
+}
+
+#if BUILDFLAG(ENABLE_PLUGINS)
+bool ContentBrowserClient::ShouldAllowPluginCreation(
+    const url::Origin& embedder_origin,
+    const content::PepperPluginInfo& plugin_info) {
+  return true;
+}
+#endif
 
 }  // namespace content

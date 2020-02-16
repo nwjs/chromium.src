@@ -178,9 +178,9 @@ Calling the non-`[Clamp]` version of `setColor()` uses **ToUint8()** to coerce t
 
 Calling the `[Clamp]` version of `setColor()` uses **clampTo()** to coerce the Numbers to octets. Hence calling `context.setColor(-1, 255, 257)` is equivalent to calling `setColorClamped(0, 255, 255)`.
 
-### [Constructor] _(i)_
+### [Constructor] _(i)_ _deprecated_
 
-Standard: [Constructor](https://heycam.github.io/webidl/#Constructor)
+`[Constructor]` is deprecated. Use [constructor operations](https://heycam.github.io/webidl/#idl-constructors) instead.
 
 Summary: `[Constructor]` indicates that the interface should have a constructor, i.e. "new XXX()".
 
@@ -927,7 +927,7 @@ Usage: `[CustomElementCallbacks]` takes no arguments.
 Summary: Denotes an API that exposes data that folks on the internet find useful for fingerprinting.
 
 Attributes and methods marked as `[HighEntropy]` are known to be practically useful for [identifying particular clients](https://dev.chromium.org/Home/chromium-security/client-identification-mechanisms) on the web today.
-Both methods and attribute/constant getters annotated with this attribute are wired up to [`Dactyloscoper::Record`](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/core/frame/use_counter.cc&q=Dactyloscoper::Record) for additional processing.
+Both methods and attribute/constant getters annotated with this attribute are wired up to [`Dactyloscoper::Record`](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/core/frame/dactyloscoper.cc&q=Dactyloscoper::Record) for additional processing.
 
 This attribute must be accompanied by either `[Measure]` or `[MeasureAs]`.
 
@@ -966,7 +966,11 @@ Summary: Measures usage of a specific feature via UseCounter.
 
 In order to measure usage of specific features, Chrome submits anonymous statistics through the Histogram recording system for users who opt-in to sharing usage statistics. This extended attribute hooks up a specific feature to this measurement system.
 
-Usage: `[Measure]` can be specified on interfaces, methods, attributes, and constants. When specified on an interface usage of the constructor will be measured. The generated feature name must be added to [UseCounter::Feature](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h&q=%22enum%20Feature%22&sq=package:chromium&type=cs&l=61) (in [platform/instrumentation/use_counter.h](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h)).
+Usage: `[Measure]` can be specified on interfaces, methods, attributes, and constants.
+
+(_deprecated_) When specified on an interface usage of the constructor will be measured. This behavior could be changed in the future. Specify `[Measure]` on constructor operations instead.
+
+The generated feature name must be added to [UseCounter::Feature](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h&q=%22enum%20Feature%22&sq=package:chromium&type=cs&l=61) (in [platform/instrumentation/use_counter.h](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h)).
 
 ```webidl
 [Measure] attribute Node interestingAttribute;
@@ -979,7 +983,11 @@ Usage: `[Measure]` can be specified on interfaces, methods, attributes, and cons
 Summary: Like `[Measure]`, but the feature name is provided as the extended attribute value.
 This is similar to the standard `[DeprecateAs]` extended attribute, but does not display a deprecation warning.
 
-Usage: `[MeasureAs]` can be specified on interfaces, methods, attributes, and constants. The value must match one of the enumeration values in [UseCounter::Feature](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h&q=%22enum%20Feature%22&sq=package:chromium&type=cs&l=61) (in [platform/instrumentation/use_counter.h](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h)).
+Usage: `[MeasureAs]` can be specified on interfaces, methods, attributes, and constants.
+
+(_deprecated_) Specifying `[MeasureAs]` on interfaces is deprecated. Specify `[MeasureAs]` on constructor operations instead.
+
+The value must match one of the enumeration values in [UseCounter::Feature](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h&q=%22enum%20Feature%22&sq=package:chromium&type=cs&l=61) (in [platform/instrumentation/use_counter.h](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/platform/instrumentation/use_counter.h)).
 
 ```webidl
 [MeasureAs=AttributeWeAreInterestedIn] attribute Node interestingAttribute;
@@ -1370,7 +1378,9 @@ reads would leak cross-origin information.
 With both `Getter` and `Setter`, allows both cross-origin reads and cross-origin
 writes. This is used for the `Window.location` attribute.
 
-### [CustomConstructor] _(i)_
+### [CustomConstructor] _(i)_ _deprecated_
+
+`[CustomConstructor]` is deprecated. Use [constructor operations](https://heycam.github.io/webidl/#idl-constructors) with `[Custom]`.
 
 Summary: They allow you to write custom bindings for constructors.
 

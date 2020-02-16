@@ -13,9 +13,7 @@ jumbo_component("blink_features") {
     "blink_features.h",
   ]
 
-  deps = [
-    "//base",
-  ]
+  deps = [ "//base" ]
 }
 
 jumbo_source_set("blink") {
@@ -70,14 +68,13 @@ jumbo_source_set("blink") {
     "web_input_event_traits.h",
   ]
 
-  public_deps = [
-    ":blink_features",
-  ]
+  public_deps = [ ":blink_features" ]
 
   deps = [
     "//cc:cc",
     "//third_party/blink/public:blink_headers",
     "//third_party/one_euro_filter",
+    "//ui/base:base",
     "//ui/events",
     "//ui/events:dom_keycode_converter",
     "//ui/events:events_base",

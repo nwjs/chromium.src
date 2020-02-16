@@ -202,9 +202,14 @@ void UnifiedSystemTray::ExpandMessageCenter() {
     message_center_bubble_->ExpandMessageCenter();
 }
 
-void UnifiedSystemTray::EnsureQuickSettingsCollapsed() {
-  if (bubble_)
+void UnifiedSystemTray::EnsureQuickSettingsCollapsed(bool animate) {
+  if (!bubble_)
+    return;
+
+  if (animate)
     bubble_->EnsureCollapsed();
+  else
+    bubble_->CollapseWithoutAnimating();
 }
 
 void UnifiedSystemTray::EnsureBubbleExpanded() {
@@ -237,7 +242,11 @@ void UnifiedSystemTray::FocusFirstNotification() {
     return;
 
   FocusMessageCenter(false /*reverse*/);
-  message_center_bubble()->FocusFirstNotification();
+
+  // Do not focus an individual element in quick settings if chrome vox is
+  // enabled
+  if (!ShouldEnableExtraKeyboardAccessibility())
+    message_center_bubble()->FocusFirstNotification();
 }
 
 bool UnifiedSystemTray::FocusMessageCenter(bool reverse) {
@@ -249,7 +258,11 @@ bool UnifiedSystemTray::FocusMessageCenter(bool reverse) {
   message_center_widget->widget_delegate()->SetCanActivate(true);
 
   Shell::Get()->focus_cycler()->FocusWidget(message_center_widget);
-  message_center_bubble_->FocusEntered(reverse);
+
+  // Do not focus an individual element in quick settings if chrome vox is
+  // enabled
+  if (!ShouldEnableExtraKeyboardAccessibility())
+    message_center_bubble_->FocusEntered(reverse);
 
   return true;
 }
@@ -259,10 +272,20 @@ bool UnifiedSystemTray::FocusQuickSettings(bool reverse) {
     return false;
 
   views::Widget* quick_settings_widget = bubble_->GetBubbleWidget();
+  quick_settings_widget->widget_delegate()->SetCanActivate(true);
+
   Shell::Get()->focus_cycler()->FocusWidget(quick_settings_widget);
-  bubble_->FocusEntered(reverse);
+
+  // Do not focus an individual element in quick settings if chrome vox is
+  // enabled
+  if (!ShouldEnableExtraKeyboardAccessibility())
+    bubble_->FocusEntered(reverse);
 
   return true;
+}
+
+bool UnifiedSystemTray::IsQuickSettingsExplicitlyExpanded() const {
+  return model_->IsExplicitlyExpanded();
 }
 
 gfx::Rect UnifiedSystemTray::GetBubbleBoundsInScreen() const {
@@ -394,7 +417,6 @@ void UnifiedSystemTray::ShowBubbleInternal(bool show_by_click) {
   if (features::IsUnifiedMessageCenterRefactorEnabled()) {
     message_center_bubble_ = std::make_unique<UnifiedMessageCenterBubble>(this);
     message_center_bubble_->ShowBubble();
-    FocusQuickSettings(false /*reverse*/);
   }
 
   SetIsActive(true);

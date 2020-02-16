@@ -10,7 +10,7 @@
 #include "base/optional.h"
 #include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "url/gurl.h"
 
 namespace web_app {
@@ -55,6 +55,7 @@ class TestAppRegistrar : public AppRegistrar {
   std::vector<WebApplicationIconInfo> GetAppIconInfos(
       const AppId& app_id) const override;
   std::vector<AppId> GetAppIds() const override;
+  WebAppRegistrar* AsWebAppRegistrar() override;
 
  private:
   std::map<AppId, AppInfo> installed_apps_;

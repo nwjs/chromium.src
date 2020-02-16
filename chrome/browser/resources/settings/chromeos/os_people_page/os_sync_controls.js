@@ -12,8 +12,11 @@
 const SyncPrefsIndividualDataTypes = [
   'osAppsSynced',
   'osPreferencesSynced',
-  'printersSynced',
   'wifiConfigurationsSynced',
+
+  // Note: Wallpaper uses a different naming scheme because it's stored as its
+  // own separate pref instead of through the sync service.
+  'wallpaperEnabled',
 ];
 
 /**
@@ -23,28 +26,41 @@ const SyncPrefsIndividualDataTypes = [
 Polymer({
   is: 'os-sync-controls',
 
-  behaviors: [WebUIListenerBehavior],
+  behaviors: [
+    settings.RouteObserverBehavior,
+    WebUIListenerBehavior,
+  ],
 
   properties: {
     hidden: {
       type: Boolean,
-      value: false,
-      computed: 'syncControlsHidden_(' +
-          'syncStatus.signedIn, syncStatus.disabled, syncStatus.hasError)',
+      value: true,
+      computed: 'syncControlsHidden_(osSyncPrefs)',
       reflectToAttribute: true,
     },
 
     /**
-     * The current OS sync preferences.
+     * Whether the OS sync feature is enabled. This object does not directly
+     * manipulate prefs so we can defer turning on OS sync until the user
+     * navigates away from the page.
+     */
+    osSyncFeatureEnabled: Boolean,
+
+    /**
+     * The current OS sync preferences. Cached so we can restore individual
+     * toggle state when turning "sync everything" on and off, without affecting
+     * the underlying chrome prefs.
      * @type {settings.OsSyncPrefs|undefined}
      */
     osSyncPrefs: Object,
 
-    /**
-     * The current sync status, supplied by the parent.
-     * @type {settings.SyncStatus}
-     */
-    syncStatus: Object,
+    /** @private */
+    areDataTypeTogglesDisabled_: {
+      type: Boolean,
+      value: true,
+      computed: `computeDataTypeTogglesDisabled_(osSyncFeatureEnabled,
+          osSyncPrefs.syncAllOsTypes)`,
+    },
   },
 
   /** @private {?settings.OsSyncBrowserProxy} */
@@ -58,24 +74,27 @@ Polymer({
   cachedOsSyncPrefs_: null,
 
   /** @override */
-  created: function() {
+  created() {
     this.browserProxy_ = settings.OsSyncBrowserProxyImpl.getInstance();
   },
 
   /** @override */
-  attached: function() {
+  attached() {
     this.addWebUIListener(
         'os-sync-prefs-changed', this.handleOsSyncPrefsChanged_.bind(this));
-
-    // Request the initial SyncPrefs and start the sync engine if necessary.
-    if (settings.getCurrentRoute() == settings.routes.OS_SYNC) {
-      this.browserProxy_.didNavigateToOsSyncPage();
-    }
   },
 
-  /** @override */
-  detached: function() {
-    if (settings.routes.OS_SYNC.contains(settings.getCurrentRoute())) {
+  /**
+   * settings.RouteObserverBehavior
+   * @param {!settings.Route|undefined} newRoute
+   * @param {!settings.Route|undefined} oldRoute
+   * @protected
+   */
+  currentRouteChanged(newRoute, oldRoute) {
+    if (newRoute == settings.routes.OS_SYNC) {
+      this.browserProxy_.didNavigateToOsSyncPage();
+    }
+    if (oldRoute == settings.routes.OS_SYNC) {
       this.browserProxy_.didNavigateAwayFromOsSyncPage();
     }
   },
@@ -84,18 +103,33 @@ Polymer({
    * Handler for when the sync preferences are updated.
    * @private
    */
-  handleOsSyncPrefsChanged_: function(osSyncPrefs) {
+  handleOsSyncPrefsChanged_(osSyncFeatureEnabled, osSyncPrefs) {
+    this.osSyncFeatureEnabled = osSyncFeatureEnabled;
     this.osSyncPrefs = osSyncPrefs;
+
+    // If the feature is disabled the checkboxes appear toggled off, regardless
+    // of the underlying chrome pref.
+    if (!this.osSyncFeatureEnabled) {
+      this.set('osSyncPrefs.syncAllOsTypes', false);
+      for (const dataType of SyncPrefsIndividualDataTypes) {
+        this.set(['osSyncPrefs', dataType], false);
+      }
+    }
+
+    // If apps are not registered or synced, force wallpaper off.
+    if (!this.osSyncPrefs.osAppsRegistered || !this.osSyncPrefs.osAppsSynced) {
+      this.set('osSyncPrefs.wallpaperEnabled', false);
+    }
   },
 
-  /**
-   * Handler for when the feature enabled checkbox is changed.
-   * @param {!Event} event
-   * @private
-   */
-  onFeatureEnabledChanged_: function(event) {
-    this.set('osSyncPrefs.featureEnabled', !!event.target.checked);
-    this.sendOsSyncDatatypes_();
+  /** @private */
+  onTurnOnSyncButtonClick_() {
+    this.browserProxy_.setOsSyncFeatureEnabled(true);
+  },
+
+  /** @private */
+  onTurnOffSyncButtonClick_() {
+    this.browserProxy_.setOsSyncFeatureEnabled(false);
   },
 
   /**
@@ -103,7 +137,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  onSyncAllOsTypesChanged_: function(event) {
+  onSyncAllOsTypesChanged_(event) {
     if (event.target.checked) {
       this.set('osSyncPrefs.syncAllOsTypes', true);
 
@@ -129,45 +163,58 @@ Polymer({
    * Handler for when any sync data type checkbox is changed.
    * @private
    */
-  onSingleSyncDataTypeChanged_: function() {
+  onSingleSyncDataTypeChanged_() {
     this.sendOsSyncDatatypes_();
+  },
+
+  /**
+   * Handler for changes to the apps sync state; apps have a special handler
+   * instead of relying on onSingleSyncDataTypeChanged_() because wallpaper has
+   * a dependency on apps.
+   * @private
+   */
+  onAppsSyncedChanged_() {
+    this.set('osSyncPrefs.wallpaperEnabled', this.osSyncPrefs.osAppsSynced);
+
+    this.onSingleSyncDataTypeChanged_();
   },
 
   /**
    * Sends the osSyncPrefs dictionary back to the C++ handler.
    * @private
    */
-  sendOsSyncDatatypes_: function() {
+  sendOsSyncDatatypes_() {
     assert(this.osSyncPrefs);
     this.browserProxy_.setOsSyncDatatypes(this.osSyncPrefs);
   },
 
   /**
-   * @param {boolean} syncAllOsTypes
-   * @param {boolean} enforced
-   * @return {boolean} Whether the sync checkbox should be disabled.
+   * @return {boolean} Whether the sync data type toggles should be disabled.
+   * @private
    */
-  shouldSyncCheckboxBeDisabled_: function(syncAllOsTypes, enforced) {
-    return syncAllOsTypes || enforced;
+  computeDataTypeTogglesDisabled_() {
+    return !this.osSyncFeatureEnabled ||
+        (this.osSyncPrefs !== undefined && this.osSyncPrefs.syncAllOsTypes);
   },
 
   /**
    * @return {boolean} Whether the sync controls are hidden.
    * @private
    */
-  syncControlsHidden_: function() {
-    if (!this.syncStatus) {
-      // Show sync controls by default.
-      return false;
-    }
+  syncControlsHidden_() {
+    // Hide everything until the initial prefs are received from C++,
+    // otherwise there is a visible layout reshuffle on first load.
+    return !this.osSyncPrefs;
+  },
 
-    if (!this.syncStatus.signedIn || this.syncStatus.disabled) {
-      return true;
-    }
-
-    // TODO(jamescook): Passphrase support.
-    return !!this.syncStatus.hasError &&
-        this.syncStatus.statusAction !== settings.StatusAction.ENTER_PASSPHRASE;
+  /**
+   * @return {boolean} Whether the wallpaper checkbox and label should be
+   *     disabled.
+   * @private
+   */
+  shouldWallpaperSyncSectionBeDisabled_() {
+    return this.areDataTypeTogglesDisabled_ || !this.osSyncPrefs ||
+        !this.osSyncPrefs.osAppsSynced;
   },
 });
 })();

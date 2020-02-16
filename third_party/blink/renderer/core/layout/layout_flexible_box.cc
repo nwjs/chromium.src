@@ -1019,19 +1019,11 @@ void LayoutFlexibleBox::PrepareOrderIteratorAndMargins() {
       continue;
 
     // Before running the flex algorithm, 'auto' has a margin of 0.
-    // Also, if we're not auto sizing, we don't do a layout that computes the
-    // start/end margins.
-    if (IsHorizontalFlow()) {
-      child->SetMarginLeft(
-          ComputeChildMarginValue(child->StyleRef().MarginLeft()));
-      child->SetMarginRight(
-          ComputeChildMarginValue(child->StyleRef().MarginRight()));
-    } else {
-      child->SetMarginTop(
-          ComputeChildMarginValue(child->StyleRef().MarginTop()));
-      child->SetMarginBottom(
-          ComputeChildMarginValue(child->StyleRef().MarginBottom()));
-    }
+    const ComputedStyle& style = child->StyleRef();
+    child->SetMarginTop(ComputeChildMarginValue(style.MarginTop()));
+    child->SetMarginRight(ComputeChildMarginValue(style.MarginRight()));
+    child->SetMarginBottom(ComputeChildMarginValue(style.MarginBottom()));
+    child->SetMarginLeft(ComputeChildMarginValue(style.MarginLeft()));
   }
 }
 
@@ -1204,21 +1196,25 @@ void LayoutFlexibleBox::ConstructAndAppendFlexItem(
     }
   }
 
-  LayoutUnit border_and_padding = IsHorizontalFlow()
-                                      ? child.BorderAndPaddingWidth()
-                                      : child.BorderAndPaddingHeight();
+  LayoutUnit main_axis_border_padding = IsHorizontalFlow()
+                                            ? child.BorderAndPaddingWidth()
+                                            : child.BorderAndPaddingHeight();
+  LayoutUnit cross_axis_border_padding = IsHorizontalFlow()
+                                             ? child.BorderAndPaddingHeight()
+                                             : child.BorderAndPaddingWidth();
 
-  LayoutUnit child_inner_flex_base_size =
-      ComputeInnerFlexBaseSizeForChild(child, border_and_padding, layout_type);
+  LayoutUnit child_inner_flex_base_size = ComputeInnerFlexBaseSizeForChild(
+      child, main_axis_border_padding, layout_type);
 
-  MinMaxSize sizes =
-      ComputeMinAndMaxSizesForChild(*algorithm, child, border_and_padding);
+  MinMaxSize sizes = ComputeMinAndMaxSizesForChild(*algorithm, child,
+                                                   main_axis_border_padding);
 
-  LayoutUnit margin =
-      IsHorizontalFlow() ? child.MarginWidth() : child.MarginHeight();
-  algorithm->emplace_back(&child, child_inner_flex_base_size, sizes,
-                          /* cross axis min max sizes */ base::nullopt,
-                          border_and_padding, margin);
+  NGPhysicalBoxStrut physical_margins(child.MarginTop(), child.MarginRight(),
+                                      child.MarginBottom(), child.MarginLeft());
+  algorithm->emplace_back(
+      &child, child.StyleRef(), child_inner_flex_base_size, sizes,
+      /* min_max_cross_sizes */ base::nullopt, main_axis_border_padding,
+      cross_axis_border_padding, physical_margins);
 }
 
 void LayoutFlexibleBox::SetOverrideMainAxisContentSizeForChild(FlexItem& item) {
@@ -1455,6 +1451,7 @@ void LayoutFlexibleBox::ApplyLineItemsPosition(FlexLine* current_line) {
     const FlexItem& flex_item = current_line->line_items[i];
     LayoutBox* child = flex_item.box;
     SetFlowAwareLocationForChild(*child, flex_item.desired_location);
+    child->SetMargin(flex_item.physical_margins);
 
     if (is_paginated)
       UpdateFragmentationInfoForChild(*child);
@@ -1558,6 +1555,7 @@ void LayoutFlexibleBox::AlignChildren(FlexLayoutAlgorithm& algorithm) {
         flex_item.needs_relayout_for_stretch = false;
       }
       ResetAlignmentForChild(*flex_item.box, flex_item.desired_location.Y());
+      flex_item.box->SetMargin(flex_item.physical_margins);
     }
   }
 }

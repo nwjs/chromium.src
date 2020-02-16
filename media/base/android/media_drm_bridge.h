@@ -21,12 +21,12 @@
 #include "media/base/android/android_util.h"
 #include "media/base/android/media_crypto_context.h"
 #include "media/base/android/media_crypto_context_impl.h"
-#include "media/base/android/media_drm_storage.h"
 #include "media/base/android/media_drm_storage_bridge.h"
 #include "media/base/cdm_context.h"
 #include "media/base/cdm_promise.h"
 #include "media/base/cdm_promise_adapter.h"
 #include "media/base/content_decryption_module.h"
+#include "media/base/media_drm_storage.h"
 #include "media/base/media_export.h"
 #include "media/base/player_tracker.h"
 #include "media/base/provision_fetcher.h"
@@ -147,8 +147,8 @@ class MEDIA_EXPORT MediaDrmBridge : public ContentDecryptionModule,
   //
   // Note: RegisterPlayer() should be called before SetMediaCryptoReadyCB() to
   // avoid missing any new key notifications.
-  int RegisterPlayer(const base::Closure& new_key_cb,
-                     const base::Closure& cdm_unset_cb) override;
+  int RegisterPlayer(base::RepeatingClosure new_key_cb,
+                     base::RepeatingClosure cdm_unset_cb) override;
   void UnregisterPlayer(int registration_id) override;
 
   // Helper function to determine whether a secure decoder is required for the

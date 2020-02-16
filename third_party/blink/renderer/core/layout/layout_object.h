@@ -31,6 +31,7 @@
 
 #include "base/auto_reset.h"
 #include "base/macros.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_context.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -89,13 +90,15 @@ class PaintLayer;
 class PseudoElementStyleRequest;
 struct PaintInfo;
 struct PaintInvalidatorContext;
-struct WebScrollIntoViewParams;
 
 enum VisualRectFlags {
   kDefaultVisualRectFlags = 0,
   kEdgeInclusive = 1 << 0,
   // Use the GeometryMapper fast-path, if possible.
   kUseGeometryMapper = 1 << 1,
+  // When mapping to absolute coordinates and the main frame is remote, don't
+  // apply the main frame root scroller's overflow clip.
+  kDontApplyMainFrameOverflowClip = 1 << 2,
 };
 
 enum CursorDirective { kSetCursorBasedOnStyle, kSetCursor, kDoNotSetCursor };
@@ -374,7 +377,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // TODO(nburris): The returned rect is actually in document coordinates, not
   // root frame coordinates.
   PhysicalRect ScrollRectToVisible(const PhysicalRect&,
-                                   const WebScrollIntoViewParams&);
+                                   mojom::blink::ScrollIntoViewParamsPtr);
 
   // Convenience function for getting to the nearest enclosing box of a
   // LayoutObject.
@@ -669,6 +672,8 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   bool IsListBox() const { return IsOfType(kLayoutObjectListBox); }
   bool IsListItem() const { return IsOfType(kLayoutObjectListItem); }
   bool IsListMarker() const { return IsOfType(kLayoutObjectListMarker); }
+  bool IsMathML() const { return IsOfType(kLayoutObjectMathML); }
+  bool IsMathMLRoot() const { return IsOfType(kLayoutObjectMathMLRoot); }
   bool IsMedia() const { return IsOfType(kLayoutObjectMedia); }
   bool IsMenuList() const { return IsOfType(kLayoutObjectMenuList); }
   bool IsProgress() const { return IsOfType(kLayoutObjectProgress); }
@@ -1357,6 +1362,8 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     SetPreferredLogicalWidthsDirty();
   }
 
+  void InvalidateIntersectionObserverCachedRects();
+
   void SetPositionState(EPosition position) {
     DCHECK(
         (position != EPosition::kAbsolute && position != EPosition::kFixed) ||
@@ -1479,6 +1486,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   virtual void AddAnnotatedRegions(Vector<AnnotatedRegionValue>&);
 
   CompositingState GetCompositingState() const;
+
+  // True for object types which override |AdditionalCompositingReasons|.
+  virtual bool CanHaveAdditionalCompositingReasons() const;
   virtual CompositingReasons AdditionalCompositingReasons() const;
 
   // |accumulated_offset| is accumulated physical offset of this object from
@@ -1860,6 +1870,14 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
       TransformState&,
       VisualRectFlags = kDefaultVisualRectFlags) const;
 
+  // Returns the nearest ancestor in the containing block chain that
+  // HasLocalBorderBoxProperties. If AncestorSkipInfo* is non-null and the
+  // ancestor was skipped, returns nullptr. If PropertyTreeState* is non-null,
+  // it will be populated with paint property nodes suitable for mapping upward
+  // from the coordinate system of the property container.
+  const LayoutObject* GetPropertyContainer(AncestorSkipInfo*,
+                                           PropertyTreeState* = nullptr) const;
+
   // Do a rect-based hit test with this object as the stop node.
   HitTestResult HitTestForOcclusion(const PhysicalRect&) const;
   HitTestResult HitTestForOcclusion() const {
@@ -1877,6 +1895,14 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
 
   bool IsFloatingOrOutOfFlowPositioned() const {
     return (IsFloating() || IsOutOfFlowPositioned());
+  }
+
+  // Outside list markers are in-flow but behave kind of out-of-flowish.
+  // We include them here to prevent code like '<li> <ol></ol></li>' from
+  // generating an anonymous block box for the whitespace between the marker
+  // and the <ol>.
+  bool AffectsWhitespaceSiblings() const {
+    return !IsFloatingOrOutOfFlowPositioned() && !IsLayoutNGListMarker();
   }
 
   bool HasReflection() const { return bitfields_.HasReflection(); }
@@ -1932,12 +1958,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
 
   void DestroyAndCleanupAnonymousWrappers();
 
-  // While the destroy() method is virtual, this should only be overriden in
-  // very rare circumstances.
-  // You want to override willBeDestroyed() instead unless you explicitly need
-  // to stop this object from being destroyed (for example,
-  // LayoutEmbeddedContent overrides destroy() for this purpose).
-  virtual void Destroy();
+  void Destroy();
 
   // Virtual function helpers for the deprecated Flexible Box Layout (display:
   // -webkit-box).
@@ -2176,8 +2197,12 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // Returns the bounding box of the visual rects of all fragments.
   IntRect FragmentsVisualRectBoundingBox() const;
 
-  void SetNeedsOverflowRecalc();
-  void SetNeedsVisualOverflowAndPaintInvalidation();
+  enum OverflowRecalcType {
+    kOnlyVisualOverflowRecalc,
+    kLayoutAndVisualOverflowRecalc,
+  };
+  void SetNeedsOverflowRecalc(
+      OverflowRecalcType = OverflowRecalcType::kLayoutAndVisualOverflowRecalc);
 
   void InvalidateClipPathCache();
 
@@ -2189,11 +2214,11 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // (from style) and blocking touch event handlers.
   TouchAction EffectiveAllowedTouchAction() const {
     if (InsideBlockingTouchEventHandler())
-      return TouchAction::kTouchActionNone;
+      return TouchAction::kNone;
     return StyleRef().GetEffectiveTouchAction();
   }
   bool HasEffectiveAllowedTouchAction() const {
-    return EffectiveAllowedTouchAction() != TouchAction::kTouchActionAuto;
+    return EffectiveAllowedTouchAction() != TouchAction::kAuto;
   }
 
   // Whether this object's Node has a blocking touch event handler on itself
@@ -2303,6 +2328,10 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
       layout_object_.UpdateInsideBlockingTouchEventHandler(inside);
     }
 
+    void InvalidateIntersectionObserverCachedRects() {
+      layout_object_.InvalidateIntersectionObserverCachedRects();
+    }
+
 #if DCHECK_IS_ON()
     // Same as setNeedsPaintPropertyUpdate() but does not mark ancestors as
     // having a descendant needing a paint property update.
@@ -2352,6 +2381,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // updated, SetNeedsPaintPropertyUpdate marks all ancestors as having a
   // descendant needing a paint property update too.
   void SetNeedsPaintPropertyUpdate();
+  void SetNeedsPaintPropertyUpdatePreservingCachedRects();
   bool NeedsPaintPropertyUpdate() const {
     return bitfields_.NeedsPaintPropertyUpdate();
   }
@@ -2467,6 +2497,8 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     bitfields_.SetHasNonCollapsedBorderDecoration(b);
   }
 
+  bool BeingDestroyed() const { return bitfields_.BeingDestroyed(); }
+
   DisplayLockContext* GetDisplayLockContext() const {
     if (!RuntimeEnabledFeatures::DisplayLockingEnabled(&GetDocument()))
       return nullptr;
@@ -2491,6 +2523,8 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     kLayoutObjectListBox,
     kLayoutObjectListItem,
     kLayoutObjectListMarker,
+    kLayoutObjectMathML,
+    kLayoutObjectMathMLRoot,
     kLayoutObjectMedia,
     kLayoutObjectMenuList,
     kLayoutObjectNGBlockFlow,
@@ -2553,6 +2587,15 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     kLayoutObjectSVGResourceFilterPrimitive,
   };
   virtual bool IsOfType(LayoutObjectType type) const { return false; }
+
+  // While the |DeleteThis()| method is virtual, this should only be overridden
+  // in very rare circumstances.
+  // You want to override |WillBeDestroyed()| instead unless you explicitly need
+  // to stop this object from being destroyed (for example,
+  // |LayoutEmbeddedContent| overrides |DeleteThis()| for this purpose).
+  virtual void DeleteThis();
+
+  void SetBeingDestroyedForTesting() { bitfields_.SetBeingDestroyed(true); }
 
   const ComputedStyle& SlowEffectiveStyle(NGStyleVariant style_variant) const;
 
@@ -2709,7 +2752,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // scroll anchoring on.
   void SetScrollAnchorDisablingStyleChangedOnAncestor();
 
-  inline void MarkContainerChainForOverflowRecalcIfNeeded();
+  bool SelfPaintingLayerNeedsVisualOverflowRecalc() const;
+  inline void MarkContainerChainForOverflowRecalcIfNeeded(
+      bool mark_container_chain_layout_overflow_recalc);
 
   inline void SetNeedsPaintOffsetAndVisualRectUpdate();
 
@@ -2864,6 +2909,7 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
           registered_as_first_line_image_observer_(false),
           is_html_legend_element_(false),
           has_non_collapsed_border_decoration_(false),
+          being_destroyed_(false),
           positioned_state_(kIsStaticallyPositioned),
           selection_state_(static_cast<unsigned>(SelectionState::kNone)),
           subtree_paint_property_update_reasons_(
@@ -3123,6 +3169,9 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
     // !Table()->ShouldCollapseBorders().
     ADD_BOOLEAN_BITFIELD(has_non_collapsed_border_decoration_,
                          HasNonCollapsedBorderDecoration);
+
+    // True at start of |Destroy()| before calling |WillBeDestroyed()|.
+    ADD_BOOLEAN_BITFIELD(being_destroyed_, BeingDestroyed);
 
    private:
     // This is the cached 'position' value of this object

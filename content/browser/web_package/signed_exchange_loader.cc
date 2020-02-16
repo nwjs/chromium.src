@@ -42,15 +42,6 @@ namespace {
 constexpr char kLoadResultHistogram[] = "SignedExchange.LoadResult2";
 constexpr char kPrefetchLoadResultHistogram[] =
     "SignedExchange.Prefetch.LoadResult2";
-constexpr char kContentTypeOptionsHeaderName[] = "x-content-type-options";
-constexpr char kNoSniffHeaderValue[] = "nosniff";
-
-bool HasNoSniffHeader(const network::mojom::URLResponseHead& response) {
-  std::string content_type_options;
-  response.headers->EnumerateHeader(nullptr, kContentTypeOptionsHeaderName,
-                                    &content_type_options);
-  return base::LowerCaseEqualsASCII(content_type_options, kNoSniffHeaderValue);
-}
 
 SignedExchangeHandlerFactory* g_signed_exchange_factory_for_testing_ = nullptr;
 
@@ -135,7 +126,7 @@ void SignedExchangeLoader::OnUploadProgress(
 }
 
 void SignedExchangeLoader::OnReceiveCachedMetadata(mojo_base::BigBuffer data) {
-  // Curerntly CachedMetadata for Signed Exchange is not supported.
+  // CachedMetadata for Signed Exchange is not supported.
   NOTREACHED();
 }
 
@@ -148,7 +139,11 @@ void SignedExchangeLoader::OnStartLoadingResponseBody(
     mojo::ScopedDataPipeConsumerHandle response_body) {
   auto cert_fetcher_factory = SignedExchangeCertFetcherFactory::Create(
       url_loader_factory_, url_loader_throttles_getter_,
-      outer_request_.throttling_profile_id);
+      outer_request_.throttling_profile_id,
+      outer_request_.trusted_params
+          ? base::make_optional(
+                outer_request_.trusted_params->network_isolation_key)
+          : base::nullopt);
 
   if (g_signed_exchange_factory_for_testing_) {
     signed_exchange_handler_ = g_signed_exchange_factory_for_testing_->Create(
@@ -163,7 +158,8 @@ void SignedExchangeLoader::OnStartLoadingResponseBody(
 
   signed_exchange_handler_ = std::make_unique<SignedExchangeHandler>(
       IsOriginSecure(outer_request_.url),
-      HasNoSniffHeader(*outer_response_head_), content_type_,
+      signed_exchange_utils::HasNoSniffHeader(*outer_response_head_),
+      content_type_,
       std::make_unique<network::DataPipeToSourceStream>(
           std::move(response_body)),
       base::BindOnce(&SignedExchangeLoader::OnHTTPExchangeFound,

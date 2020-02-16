@@ -6,14 +6,12 @@
 
 #include "base/bind.h"
 #include "chrome/browser/content_settings/tab_specific_content_settings.h"
-#include "chrome/browser/permissions/permission_request_id.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/permissions/permission_request_id.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/device_service.h"
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
-#include "services/device/public/mojom/constants.mojom.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "url/origin.h"
 
 GeolocationPermissionContext::GeolocationPermissionContext(Profile* profile)
@@ -27,7 +25,7 @@ GeolocationPermissionContext::~GeolocationPermissionContext() {
 
 void GeolocationPermissionContext::DecidePermission(
     content::WebContents* web_contents,
-    const PermissionRequestID& id,
+    const permissions::PermissionRequestID& id,
     const GURL& requesting_origin,
     const GURL& embedding_origin,
     bool user_gesture,
@@ -58,7 +56,7 @@ void GeolocationPermissionContext::DecidePermission(
 }
 
 void GeolocationPermissionContext::UpdateTabContext(
-    const PermissionRequestID& id,
+    const permissions::PermissionRequestID& id,
     const GURL& requesting_frame,
     bool allowed) {
   TabSpecificContentSettings* content_settings =
@@ -83,12 +81,9 @@ bool GeolocationPermissionContext::IsRestrictedToSecureOrigins() const {
 device::mojom::GeolocationControl*
 GeolocationPermissionContext::GetGeolocationControl() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (geolocation_control_)
-    return geolocation_control_.get();
-
-  auto receiver = geolocation_control_.BindNewPipeAndPassReceiver();
-  service_manager::Connector* connector = content::GetSystemConnector();
-  if (connector)
-    connector->Connect(device::mojom::kServiceName, std::move(receiver));
+  if (!geolocation_control_) {
+    content::GetDeviceService().BindGeolocationControl(
+        geolocation_control_.BindNewPipeAndPassReceiver());
+  }
   return geolocation_control_.get();
 }

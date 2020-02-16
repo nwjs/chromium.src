@@ -16,15 +16,11 @@ const char* const kAllowedTransformSchemes[4] = {
 
 const char kErrorResourceTypeDuplicated[] =
     "Rule with id * includes and excludes the same resource.";
-const char kErrorEmptyRedirectRuleKey[] =
-    "Rule with id * does not specify the value for * key. This is required "
-    "for redirect rules.";
-const char kErrorEmptyUpgradeRulePriority[] =
-    "Rule with id * does not specify the value for priority key. This is "
-    "required for upgradeScheme rules.";
 const char kErrorInvalidRuleKey[] =
     "Rule with id * has an invalid value for * key. This should be greater "
     "than or equal to *.";
+const char kErrorEmptyRulePriority[] =
+    "Rule with id * does not specify the value for priority key.";
 const char kErrorNoApplicableResourceTypes[] =
     "Rule with id * is not applicable to any resource type.";
 const char kErrorEmptyList[] =
@@ -57,7 +53,10 @@ const char kErrorMultipleFilters[] =
 const char kErrorRegexSubstitutionWithoutFilter[] =
     "Rule with id * can't specify the \"*\" key without specifying the \"*\" "
     "key.";
-
+const char kErrorInvalidAllowAllRequestsResourceType[] =
+    "Rule with id * is an \"allowAllRequests\" rule and must specify the "
+    "\"resourceTypes\" key. It may only include the \"main_frame\" and "
+    "\"sub_frame\" resource types.";
 const char kErrorListNotPassed[] = "Rules file must contain a list.";
 
 const char kRuleCountExceeded[] =
@@ -84,6 +83,11 @@ const char kReadDynamicRulesJSONStatusHistogram[] =
 
 const char kActionCountPlaceholderBadgeText[] =
     "<<declarativeNetRequestActionCount>>";
+
+const char kErrorGetMatchedRulesMissingPermissions[] =
+    "The extension must have the declarativeNetRequestFeedback permission or "
+    "have activeTab granted for the specified tab ID in order to call this "
+    "function.";
 
 }  // namespace declarative_net_request
 }  // namespace extensions

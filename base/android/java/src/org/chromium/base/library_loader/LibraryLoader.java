@@ -13,6 +13,7 @@ import android.os.SystemClock;
 import android.support.v4.content.ContextCompat;
 import android.system.Os;
 
+import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
@@ -22,7 +23,10 @@ import org.chromium.base.BuildInfo;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
+import org.chromium.base.JNIUtils;
 import org.chromium.base.Log;
+import org.chromium.base.NativeLibraryLoadedStatus;
+import org.chromium.base.NativeLibraryLoadedStatus.NativeLibraryLoadedStatusProvider;
 import org.chromium.base.StreamUtil;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.TraceEvent;
@@ -30,6 +34,7 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.MainDex;
 import org.chromium.base.annotations.NativeMethods;
+import org.chromium.base.annotations.RemovableInRelease;
 import org.chromium.base.compat.ApiHelperForM;
 import org.chromium.base.metrics.CachedMetrics;
 import org.chromium.base.metrics.RecordHistogram;
@@ -37,6 +42,8 @@ import org.chromium.base.metrics.RecordHistogram;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -95,8 +102,15 @@ public class LibraryLoader {
     // threads without a lock.
     private volatile boolean mInitialized;
 
+    // State that only transitions one-way from 0->1->2. Volatile for the same reasons as
+    // mInitialized.
+    private volatile @LoadState int mLoadState;
+
     // Guards all fields below.
     private final Object mLock = new Object();
+
+    // Guards non-Main Dex initialization, which doesn't touch any fields guarded my mLock.
+    private final Object mNonMainDexLock = new Object();
 
     private NativeLibraryPreloader mLibraryPreloader;
     private boolean mLibraryPreloaderCalled;
@@ -110,8 +124,13 @@ public class LibraryLoader {
     // Whether the configuration has been set.
     private boolean mConfigurationSet;
 
-    // One-way switch becomes true when the libraries are loaded.
-    private boolean mLoaded;
+    @IntDef({LoadState.NOT_LOADED, LoadState.MAIN_DEX_LOADED, LoadState.LOADED})
+    @Retention(RetentionPolicy.SOURCE)
+    private @interface LoadState {
+        int NOT_LOADED = 0;
+        int MAIN_DEX_LOADED = 1;
+        int LOADED = 2;
+    }
 
     // Similar to |mLoaded| but is limited case of being loaded in app zygote.
     // This is exposed to clients.
@@ -130,7 +149,7 @@ public class LibraryLoader {
 
     // Stores information about attempts to load the library and eventually emits those bits as
     // UMA histograms.
-    private static final LoadStatusRecorder sLoadStatusRecorder = new LoadStatusRecorder();
+    private final LoadStatusRecorder mLoadStatusRecorder = new LoadStatusRecorder();
 
     /**
      * Call this method to determine if the chromium project must load the library
@@ -142,22 +161,69 @@ public class LibraryLoader {
         return NativeLibraries.sUseLibraryInZipFile;
     }
 
+    public static LibraryLoader getInstance() {
+        return sInstance;
+    }
+
+    @VisibleForTesting
+    protected LibraryLoader() {}
+
+    /**
+     * Set the {@Link LibraryProcessType} for this process.
+     *
+     * Since this function is called extremely early on in startup, locking is not required.
+     *
+     * @param type the process type.
+     */
+    public void setLibraryProcessType(@LibraryProcessType int type) {
+        assert type != LibraryProcessType.PROCESS_UNINITIALIZED;
+        if (type == mLibraryProcessType) return;
+        if (mLibraryProcessType != LibraryProcessType.PROCESS_UNINITIALIZED) {
+            throw new IllegalStateException(
+                    String.format("Trying to change the LibraryProcessType from %d to %d",
+                            mLibraryProcessType, type));
+        }
+        mLibraryProcessType = type;
+        mLoadStatusRecorder.setProcessType(type);
+    }
+
     /**
      * Set native library preloader, if set, the NativeLibraryPreloader.loadLibrary will be invoked
      * before calling System.loadLibrary, this only applies when not using the chromium linker.
+     *
+     * Since this function is called extremely early on in startup, locking is not required.
      *
      * @param loader the NativeLibraryPreloader, it shall only be set once and before the
      *               native library loaded.
      */
     public void setNativeLibraryPreloader(NativeLibraryPreloader loader) {
-        synchronized (mLock) {
-            assert mLibraryPreloader == null && !mLoaded;
-            mLibraryPreloader = loader;
-        }
+        assert mLibraryPreloader == null;
+        assert mLoadState == LoadState.NOT_LOADED;
+        mLibraryPreloader = loader;
+    }
+
+    /**
+     * Sets the configuration for library loading.
+     *
+     * Must be called before loading the library. Since this function is called extremely early on
+     * in startup, locking is not required.
+     *
+     * @param useChromiumLinker Whether to use the chromium linker.
+     * @param useModernLinker Whether to use ModernLinker.
+     */
+    public void setLinkerImplementation(boolean useChromiumLinker, boolean useModernLinker) {
+        assert !mInitialized;
+
+        mUseChromiumLinker = useChromiumLinker;
+        mUseModernLinker = useModernLinker;
+
+        Log.d(TAG, "Configuration, useChromiumLinker = %b, useModernLinker = %b",
+                mUseChromiumLinker, mUseModernLinker);
+        mConfigurationSet = true;
     }
 
     @GuardedBy("mLock")
-    private void setConfigurationIfNeeded() {
+    private void setLinkerImplementationIfNeededAlreadyLocked() {
         if (mConfigurationSet) return;
 
         // Cannot use initializers for the variables below, as this makes roboelectric tests fail,
@@ -165,33 +231,6 @@ public class LibraryLoader {
         mUseChromiumLinker = NativeLibraries.sUseLinker;
         mUseModernLinker = NativeLibraries.sUseModernLinker;
         mConfigurationSet = true;
-    }
-
-    public static LibraryLoader getInstance() {
-        return sInstance;
-    }
-
-    private LibraryLoader() {}
-
-    /**
-     * Sets the configuration for library loading.
-     *
-     * Must be called before loading the library.
-     *
-     * @param useChromiumLinker Whether to use the chromium linker.
-     * @param useModernLinker Whether to use ModernLinker.
-     */
-    public void setConfiguration(boolean useChromiumLinker, boolean useModernLinker) {
-        synchronized (mLock) {
-            assert !mInitialized;
-
-            mUseChromiumLinker = useChromiumLinker;
-            mUseModernLinker = useModernLinker;
-
-            Log.d(TAG, "Configuration, useChromiumLinker = %b, useModernLinker = %b",
-                    mUseChromiumLinker, mUseModernLinker);
-            mConfigurationSet = true;
-        }
     }
 
     public boolean useChromiumLinker() {
@@ -206,6 +245,23 @@ public class LibraryLoader {
         return NativeLibraries.sEnableLinkerTests;
     }
 
+    @RemovableInRelease
+    public void enableJniChecks() {
+        if (!BuildConfig.DCHECK_IS_ON) return;
+
+        NativeLibraryLoadedStatus.setProvider(new NativeLibraryLoadedStatusProvider() {
+            @Override
+            public boolean areMainDexNativeMethodsReady() {
+                return mLoadState >= LoadState.MAIN_DEX_LOADED;
+            }
+
+            @Override
+            public boolean areNativeMethodsReady() {
+                return isInitialized();
+            }
+        });
+    }
+
     /**
      * Return if library is already loaded successfully by the zygote.
      */
@@ -215,16 +271,28 @@ public class LibraryLoader {
 
     /**
      *  This method blocks until the library is fully loaded and initialized.
-     *
-     * @param processType the process the shared library is loaded in.
      */
-    public void ensureInitialized(@LibraryProcessType int processType) {
-        synchronized (mLock) {
-            if (mInitialized) return;
+    public void ensureInitialized() {
+        if (isInitialized()) return;
+        ensureMainDexInitialized();
+        loadNonMainDex();
+    }
 
-            loadAlreadyLocked(ContextUtils.getApplicationContext().getApplicationInfo(),
-                    false /* inZygote */);
-            initializeAlreadyLocked(processType);
+    /**
+     * This method blocks until the native library is initialized, and the Main Dex is loaded
+     * (MainDex JNI is registered).
+     *
+     * You should use this if you would like to use isolated parts of the native library that don't
+     * depend on content initialization, and only use MainDex classes with JNI.
+     *
+     * However, you should be careful not to call this too early in startup on the UI thread, or you
+     * may significantly increase the time to first draw.
+     */
+    public void ensureMainDexInitialized() {
+        synchronized (mLock) {
+            loadMainDexAlreadyLocked(
+                    ContextUtils.getApplicationContext().getApplicationInfo(), false);
+            initializeAlreadyLocked();
         }
     }
 
@@ -243,16 +311,16 @@ public class LibraryLoader {
      */
     public void preloadNowOverrideApplicationContext(Context appContext) {
         synchronized (mLock) {
-            setConfigurationIfNeeded();
+            setLinkerImplementationIfNeededAlreadyLocked();
             if (mUseChromiumLinker) return;
-            preloadAlreadyLocked(appContext.getApplicationInfo());
+            preloadAlreadyLocked(appContext.getApplicationInfo(), false /* inZygote */);
         }
     }
 
-    private void preloadAlreadyLocked(ApplicationInfo appInfo) {
+    private void preloadAlreadyLocked(ApplicationInfo appInfo, boolean inZygote) {
         try (TraceEvent te = TraceEvent.scoped("LibraryLoader.preloadAlreadyLocked")) {
             // Preloader uses system linker, we shouldn't preload if Chromium linker is used.
-            assert !mUseChromiumLinker;
+            assert !mUseChromiumLinker || inZygote;
             if (mLibraryPreloader != null && !mLibraryPreloaderCalled) {
                 mLibraryPreloader.loadLibrary(appInfo);
                 mLibraryPreloaderCalled = true;
@@ -264,7 +332,7 @@ public class LibraryLoader {
      * Checks if library is fully loaded and initialized.
      */
     public boolean isInitialized() {
-        return mInitialized;
+        return mInitialized && mLoadState == LoadState.LOADED;
     }
 
     /**
@@ -287,17 +355,20 @@ public class LibraryLoader {
      */
     public void loadNowOverrideApplicationContext(Context appContext) {
         synchronized (mLock) {
-            if (mLoaded && appContext != ContextUtils.getApplicationContext()) {
+            if (mLoadState != LoadState.NOT_LOADED
+                    && appContext != ContextUtils.getApplicationContext()) {
                 throw new IllegalStateException("Attempt to load again from alternate context.");
             }
-            loadAlreadyLocked(appContext.getApplicationInfo(), false /* inZygote */);
+            loadMainDexAlreadyLocked(appContext.getApplicationInfo(), false /* inZygote */);
         }
+        loadNonMainDex();
     }
 
     public void loadNowInZygote(ApplicationInfo appInfo) {
         synchronized (mLock) {
-            assert !mLoaded;
-            loadAlreadyLocked(appInfo, true /* inZygote */);
+            assert mLoadState == LoadState.NOT_LOADED;
+            loadMainDexAlreadyLocked(appInfo, true /* inZygote */);
+            loadNonMainDex();
             mLoadedByZygote = true;
         }
     }
@@ -306,12 +377,10 @@ public class LibraryLoader {
      * Initializes the library here and now: must be called on the thread that the
      * native will call its "main" thread. The library must have previously been
      * loaded with loadNow.
-     *
-     * @param processType the process the shared library is loaded in.
      */
-    public void initialize(@LibraryProcessType int processType) {
+    public void initialize() {
         synchronized (mLock) {
-            initializeAlreadyLocked(processType);
+            initializeAlreadyLocked();
         }
     }
 
@@ -345,7 +414,7 @@ public class LibraryLoader {
 
     // Helper for loadAlreadyLocked(). Load a native shared library with the Chromium linker.
     // Records UMA histograms depending on the results of loading.
-    private static void loadLibraryWithCustomLinker(
+    private void loadLibraryWithCustomLinker(
             Linker linker, String library, boolean isFirstAttempt) {
         // Attempt shared RELROs, and if that fails then retry without.
         boolean loadAtFixedAddress = true;
@@ -354,14 +423,14 @@ public class LibraryLoader {
             linker.loadLibrary(library, true /* isFixedAddressPermitted */);
         } catch (UnsatisfiedLinkError e) {
             Log.w(TAG, "Failed to load native library with shared RELRO, retrying without");
-            sLoadStatusRecorder.recordLoadAttempt(
+            mLoadStatusRecorder.recordLoadAttempt(
                     false /* success */, isFirstAttempt, true /* loadAtFixedAddress */);
             loadAtFixedAddress = false;
             success = false;
             linker.loadLibrary(library, false /* isFixedAddressPermitted */);
             success = true;
         } finally {
-            sLoadStatusRecorder.recordLoadAttempt(success, isFirstAttempt, loadAtFixedAddress);
+            mLoadStatusRecorder.recordLoadAttempt(success, isFirstAttempt, loadAtFixedAddress);
         }
     }
 
@@ -376,7 +445,7 @@ public class LibraryLoader {
         return extractFileIfStale(appInfo, libraryEntry, makeLibraryDirAndSetPermission());
     }
 
-    private static void loadWithChromiumLinker(ApplicationInfo appInfo, String library) {
+    private void loadWithChromiumLinker(ApplicationInfo appInfo, String library) {
         Linker linker = Linker.getInstance();
 
         if (isInZipFile()) {
@@ -402,9 +471,9 @@ public class LibraryLoader {
 
     @GuardedBy("mLock")
     @SuppressLint("UnsafeDynamicallyLoadedCode")
-    private void loadWithSystemLinkerAlreadyLocked(ApplicationInfo appInfo) {
+    private void loadWithSystemLinkerAlreadyLocked(ApplicationInfo appInfo, boolean inZygote) {
         setEnvForNative();
-        preloadAlreadyLocked(appInfo);
+        preloadAlreadyLocked(appInfo, inZygote);
 
         // If the libraries are located in the zip file, assert that the device API level is M or
         // higher. On devices <=M, the libraries should always be loaded by LegacyLinker.
@@ -432,11 +501,13 @@ public class LibraryLoader {
     // Invoke either Linker.loadLibrary(...), System.loadLibrary(...) or System.load(...),
     // triggering JNI_OnLoad in native code.
     @GuardedBy("mLock")
-    private void loadAlreadyLocked(ApplicationInfo appInfo, boolean inZygote) {
-        try (TraceEvent te = TraceEvent.scoped("LibraryLoader.loadAlreadyLocked")) {
-            if (mLoaded) return;
+    @VisibleForTesting
+    protected void loadMainDexAlreadyLocked(ApplicationInfo appInfo, boolean inZygote) {
+        if (mLoadState >= LoadState.MAIN_DEX_LOADED) return;
+        try (TraceEvent te = TraceEvent.scoped("LibraryLoader.loadMainDexAlreadyLocked")) {
             assert !mInitialized;
-            setConfigurationIfNeeded();
+            assert mLibraryProcessType != LibraryProcessType.PROCESS_UNINITIALIZED || inZygote;
+            setLinkerImplementationIfNeededAlreadyLocked();
 
             long startTime = SystemClock.uptimeMillis();
 
@@ -449,16 +520,32 @@ public class LibraryLoader {
                 loadWithChromiumLinker(appInfo, library);
             } else {
                 Log.d(TAG, "Loading with the System linker.");
-                loadWithSystemLinkerAlreadyLocked(appInfo);
+                loadWithSystemLinkerAlreadyLocked(appInfo, inZygote);
             }
 
             long stopTime = SystemClock.uptimeMillis();
             mLibraryLoadTimeMs = stopTime - startTime;
             Log.d(TAG, "Time to load native libraries: %d ms", mLibraryLoadTimeMs);
 
-            mLoaded = true;
+            mLoadState = LoadState.MAIN_DEX_LOADED;
         } catch (UnsatisfiedLinkError e) {
             throw new ProcessInitException(LoaderErrors.NATIVE_LIBRARY_LOAD_FAILED, e);
+        }
+    }
+
+    @VisibleForTesting
+    // After Android M, this function is likely a no-op.
+    protected void loadNonMainDex() {
+        if (mLoadState == LoadState.LOADED) return;
+        synchronized (mNonMainDexLock) {
+            assert mLoadState != LoadState.NOT_LOADED;
+            if (mLoadState == LoadState.LOADED) return;
+            try (TraceEvent te = TraceEvent.scoped("LibraryLoader.loadNonMainDex")) {
+                if (!JNIUtils.isSelectiveJniRegistrationEnabled()) {
+                    LibraryLoaderJni.get().registerNonMainDexJni();
+                }
+                mLoadState = LoadState.LOADED;
+            }
         }
     }
 
@@ -516,7 +603,7 @@ public class LibraryLoader {
     // switch the Java CommandLine will delegate all calls the native CommandLine).
     @GuardedBy("mLock")
     private void ensureCommandLineSwitchedAlreadyLocked() {
-        assert mLoaded;
+        assert mLoadState >= LoadState.MAIN_DEX_LOADED;
         if (mCommandLineSwitched) {
             return;
         }
@@ -526,15 +613,9 @@ public class LibraryLoader {
 
     // Invoke base::android::LibraryLoaded in library_loader_hooks.cc
     @GuardedBy("mLock")
-    private void initializeAlreadyLocked(@LibraryProcessType int processType) {
-        if (mInitialized) {
-            if (mLibraryProcessType != processType) {
-                throw new ProcessInitException(LoaderErrors.NATIVE_LIBRARY_LOAD_FAILED);
-            }
-            return;
-        }
-        mLibraryProcessType = processType;
-        sLoadStatusRecorder.setProcessType(processType);
+    private void initializeAlreadyLocked() {
+        if (mInitialized) return;
+        assert mLibraryProcessType != LibraryProcessType.PROCESS_UNINITIALIZED;
 
         // Add a switch for the reached code profiler as late as possible since it requires a read
         // from the shared preferences. At this point the shared preferences are usually warmed up.
@@ -563,11 +644,12 @@ public class LibraryLoader {
             Log.i(TAG, "Loaded native library version number \"%s\"",
                     NativeLibraries.sVersionNumber);
         }
+        RecordHistogram.onLibraryLoaded();
 
         // From now on, keep tracing in sync with native.
         TraceEvent.registerNativeEnabledObserver();
 
-        if (processType == LibraryProcessType.PROCESS_BROWSER
+        if (mLibraryProcessType == LibraryProcessType.PROCESS_BROWSER
                 && PLATFORM_REQUIRES_NATIVE_FALLBACK_EXTRACTION) {
             // Perform the detection and deletion of obsolete native libraries on a
             // background thread.
@@ -597,9 +679,8 @@ public class LibraryLoader {
             }).start();
         }
 
-        // From this point on, native code is ready to use and checkIsReady()
-        // shouldn't complain from now on (and in fact, it's used by the
-        // following calls).
+        // From this point on, native code is ready to use, but non-MainDex JNI may not yet have
+        // been registered. Check isInitialized() to be sure that initialization is fully complete.
         // Note that this flag can be accessed asynchronously, so any initialization
         // must be performed before.
         mInitialized = true;
@@ -712,6 +793,16 @@ public class LibraryLoader {
                 ContextCompat.getCodeCacheDir(ContextUtils.getApplicationContext()), LIBRARY_DIR);
     }
 
+    /**
+     * This sets the LibraryLoader internal state to its fully initialized state and should *only*
+     * be used by clients like NativeTests which manually load their native libraries without using
+     * the LibraryLoader.
+     */
+    public void setLibrariesLoadedForNativeTests() {
+        mLoadState = LoadState.LOADED;
+        mInitialized = true;
+    }
+
     @NativeMethods
     interface Natives {
         // Only methods needed before or during normal JNI registration are during System.OnLoad.
@@ -721,6 +812,8 @@ public class LibraryLoader {
         //
         // Return true on success and false on failure.
         boolean libraryLoaded(@LibraryProcessType int processType);
+
+        void registerNonMainDexJni();
 
         // Records the number of milliseconds it took to load the libraries in the renderer.
         void recordRendererLibraryLoadTime(long libraryLoadTime);

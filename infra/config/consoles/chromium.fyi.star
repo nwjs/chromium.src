@@ -23,11 +23,6 @@ luci.console_view(
             short_name = 'lnx',
         ),
         luci.console_view_entry(
-            builder = 'ci/chromeos-vm-code-coverage',
-            category = 'code_coverage',
-            short_name = 'vm',
-        ),
-        luci.console_view_entry(
             builder = 'ci/linux-chromeos-code-coverage',
             category = 'code_coverage',
             short_name = 'lcr',
@@ -150,7 +145,7 @@ luci.console_view(
             category = 'linux',
         ),
         luci.console_view_entry(
-            builder = 'ci/linux-oor-cors-rel',
+            builder = 'ci/linux-blink-cors-rel',
             category = 'linux',
         ),
         luci.console_view_entry(
@@ -160,6 +155,13 @@ luci.console_view(
         luci.console_view_entry(
             builder = 'ci/linux-wpt-fyi-rel',
             category = 'linux',
+        ),
+        # Moved to the FYI console for being habitually flaky.
+        # https://crbug.com/1014673
+        luci.console_view_entry(
+            builder = 'ci/Leak Detection Linux',
+            category = 'linux',
+            short_name = 'lk',
         ),
         luci.console_view_entry(
             builder = 'ci/Mojo Android',

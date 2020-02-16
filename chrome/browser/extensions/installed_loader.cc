@@ -235,7 +235,9 @@ void InstalledLoader::Load(const ExtensionInfo& info, bool write_to_prefs) {
       // external updates.
       PendingExtensionManager* pending_manager =
           extension_service_->pending_extension_manager();
-      pending_manager->ExpectPolicyReinstallForCorruption(extension->id());
+      pending_manager->ExpectPolicyReinstallForCorruption(
+          extension->id(), PendingExtensionManager::PolicyReinstallReason::
+                               CORRUPTION_DETECTED_IN_PRIOR_SESSION);
     }
   } else {
     // Extension is enabled. Check management policy to verify if it should
@@ -612,25 +614,6 @@ void InstalledLoader::RecordExtensionsMetrics() {
       } else {
         UMA_HISTOGRAM_ENUMERATION("Extensions.ExternalItemState",
                                   EXTERNAL_ITEM_NONWEBSTORE_DISABLED,
-                                  EXTERNAL_ITEM_MAX_ITEMS);
-      }
-    }
-  }
-
-  std::unique_ptr<ExtensionPrefs::ExtensionsInfo> uninstalled_extensions_info(
-      extension_prefs_->GetUninstalledExtensionsInfo());
-  for (size_t i = 0; i < uninstalled_extensions_info->size(); ++i) {
-    ExtensionInfo* info = uninstalled_extensions_info->at(i).get();
-    if (Manifest::IsExternalLocation(info->extension_location)) {
-      std::string update_url;
-      if (info->extension_manifest->GetString("update_url", &update_url) &&
-          extension_urls::IsWebstoreUpdateUrl(GURL(update_url))) {
-        UMA_HISTOGRAM_ENUMERATION("Extensions.ExternalItemState",
-                                  EXTERNAL_ITEM_WEBSTORE_UNINSTALLED,
-                                  EXTERNAL_ITEM_MAX_ITEMS);
-      } else {
-        UMA_HISTOGRAM_ENUMERATION("Extensions.ExternalItemState",
-                                  EXTERNAL_ITEM_NONWEBSTORE_UNINSTALLED,
                                   EXTERNAL_ITEM_MAX_ITEMS);
       }
     }

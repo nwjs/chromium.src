@@ -30,7 +30,7 @@ class UI_DEVTOOLS_EXPORT UiDevToolsClient : public protocol::FrontendChannel {
 
   void AddAgent(std::unique_ptr<UiDevToolsAgent> agent);
   void Disconnect();
-  void Dispatch(const std::string& data);
+  void Dispatch(const std::string& json);
 
   bool connected() const;
   void set_connection_id(int connection_id);
@@ -38,6 +38,8 @@ class UI_DEVTOOLS_EXPORT UiDevToolsClient : public protocol::FrontendChannel {
 
  private:
   void DisableAllAgents();
+  void MaybeSendProtocolResponseOrNotification(
+      std::unique_ptr<protocol::Serializable> message);
 
   // protocol::FrontendChannel
   void sendProtocolResponse(
@@ -48,7 +50,7 @@ class UI_DEVTOOLS_EXPORT UiDevToolsClient : public protocol::FrontendChannel {
   void flushProtocolNotifications() override;
   void fallThrough(int call_id,
                    const std::string& method,
-                   const std::string& message) override;
+                   crdtp::span<uint8_t> message) override;
 
   std::string name_;
   int connection_id_;

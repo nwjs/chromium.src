@@ -13,7 +13,7 @@
 #include "content/public/common/common_param_traits_macros.h"
 #include "ipc/ipc_message_macros.h"
 #include "ipc/ipc_platform_file.h"
-#include "third_party/blink/public/mojom/permissions/permission_status.mojom.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-forward.h"
 #include "url/gurl.h"
 #include "url/ipc/url_param_traits.h"
 
@@ -49,6 +49,11 @@ IPC_MESSAGE_ROUTED0(WebTestHostMsg_InspectSecondaryWindow)
 IPC_MESSAGE_ROUTED2(WebTestHostMsg_InitiateCaptureDump,
                     bool /* should dump navigation history */,
                     bool /* should dump pixels */)
+
+IPC_SYNC_MESSAGE_ROUTED0_1(WebTestHostMsg_GetWritableDirectory,
+                           base::FilePath /* local_path */)
+IPC_MESSAGE_ROUTED1(WebTestHostMsg_SetFilePathForMockFileDialog,
+                    base::FilePath /* local_path */)
 
 // Notifies the browser that one of renderers has changed web test runtime
 // flags (i.e. has set dump_as_text).

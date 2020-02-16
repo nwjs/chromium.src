@@ -48,7 +48,6 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "net/base/url_util.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/re2/src/re2/re2.h"
@@ -91,6 +90,8 @@ AutocompleteMatch::DocumentType GetIconForMIMEType(
           {"image/gif", AutocompleteMatch::DocumentType::DRIVE_IMAGE},
           {"application/pdf", AutocompleteMatch::DocumentType::DRIVE_PDF},
           {"video/mp4", AutocompleteMatch::DocumentType::DRIVE_VIDEO},
+          {"application/vnd.google-apps.folder",
+           AutocompleteMatch::DocumentType::DRIVE_FOLDER},
       };
 
   const auto& iterator = kIconMap.find(mimetype);

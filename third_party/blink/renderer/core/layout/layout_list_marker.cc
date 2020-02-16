@@ -77,7 +77,8 @@ LayoutSize LayoutListMarker::ImageBulletSize() const {
       font_data->GetFontMetrics().Ascent() / LayoutUnit(2);
   return RoundedLayoutSize(
       image_->ImageSize(GetDocument(), StyleRef().EffectiveZoom(),
-                        LayoutSize(bullet_width, bullet_width)));
+                        LayoutSize(bullet_width, bullet_width),
+                        LayoutObject::ShouldRespectImageOrientation(this)));
 }
 
 void LayoutListMarker::StyleWillChange(StyleDifference diff,
@@ -311,6 +312,8 @@ void LayoutListMarker::UpdateMargins() {
 std::pair<LayoutUnit, LayoutUnit> LayoutListMarker::InlineMarginsForInside(
     const ComputedStyle& style,
     bool is_image) {
+  if (!style.ContentBehavesAsNormal())
+    return {};
   if (is_image)
     return {LayoutUnit(), LayoutUnit(kCMarkerPaddingPx)};
   switch (GetListStyleCategory(style.ListStyleType())) {
@@ -329,51 +332,31 @@ std::pair<LayoutUnit, LayoutUnit> LayoutListMarker::InlineMarginsForOutside(
     LayoutUnit marker_inline_size) {
   LayoutUnit margin_start;
   LayoutUnit margin_end;
-  if (style.IsLeftToRightDirection()) {
-    if (is_image) {
-      margin_start = -marker_inline_size - kCMarkerPaddingPx;
-    } else {
-      switch (GetListStyleCategory(style.ListStyleType())) {
-        case ListStyleCategory::kNone:
-          break;
-        case ListStyleCategory::kSymbol: {
-          const SimpleFontData* font_data = style.GetFont().PrimaryFont();
-          DCHECK(font_data);
-          if (!font_data)
-            return {};
-          const FontMetrics& font_metrics = font_data->GetFontMetrics();
-          int offset = font_metrics.Ascent() * 2 / 3;
-          margin_start = LayoutUnit(-offset - kCMarkerPaddingPx - 1);
-          break;
-        }
-        default:
-          margin_start = -marker_inline_size;
-      }
-    }
-    margin_end = -margin_start - marker_inline_size;
+  if (!style.ContentBehavesAsNormal()) {
+    margin_start = -marker_inline_size;
+  } else if (is_image) {
+    margin_start = -marker_inline_size - kCMarkerPaddingPx;
+    margin_end = LayoutUnit(kCMarkerPaddingPx);
   } else {
-    if (is_image) {
-      margin_end = LayoutUnit(kCMarkerPaddingPx);
-    } else {
-      switch (GetListStyleCategory(style.ListStyleType())) {
-        case ListStyleCategory::kNone:
-          break;
-        case ListStyleCategory::kSymbol: {
-          const SimpleFontData* font_data = style.GetFont().PrimaryFont();
-          DCHECK(font_data);
-          if (!font_data)
-            return {};
-          const FontMetrics& font_metrics = font_data->GetFontMetrics();
-          int offset = font_metrics.Ascent() * 2 / 3;
-          margin_end = offset + kCMarkerPaddingPx + 1 - marker_inline_size;
-          break;
-        }
-        default:
-          margin_end = LayoutUnit();
+    switch (GetListStyleCategory(style.ListStyleType())) {
+      case ListStyleCategory::kNone:
+        break;
+      case ListStyleCategory::kSymbol: {
+        const SimpleFontData* font_data = style.GetFont().PrimaryFont();
+        DCHECK(font_data);
+        if (!font_data)
+          return {};
+        const FontMetrics& font_metrics = font_data->GetFontMetrics();
+        int offset = font_metrics.Ascent() * 2 / 3;
+        margin_start = LayoutUnit(-offset - kCMarkerPaddingPx - 1);
+        margin_end = offset + kCMarkerPaddingPx + 1 - marker_inline_size;
+        break;
       }
+      default:
+        margin_start = -marker_inline_size;
     }
-    margin_start = -margin_end - marker_inline_size;
   }
+  DCHECK_EQ(margin_start + margin_end, -marker_inline_size);
   return {margin_start, margin_end};
 }
 
@@ -476,8 +459,10 @@ LayoutListMarker::ListStyleCategory LayoutListMarker::GetListStyleCategory(
 }
 
 bool LayoutListMarker::IsInside() const {
-  return list_item_->Ordinal().NotInList() ||
-         StyleRef().ListStylePosition() == EListStylePosition::kInside;
+  const ComputedStyle& parent_style = list_item_->StyleRef();
+  return parent_style.ListStylePosition() == EListStylePosition::kInside ||
+         (IsA<HTMLLIElement>(list_item_->GetNode()) &&
+          !parent_style.IsInsideListElement());
 }
 
 LayoutRect LayoutListMarker::GetRelativeMarkerRect() const {
@@ -536,23 +521,13 @@ LayoutRect LayoutListMarker::RelativeSymbolMarkerRect(
 }
 
 void LayoutListMarker::ListItemStyleDidChange() {
-  Node* list_item = list_item_->GetNode();
+  Element* list_item = To<Element>(list_item_->GetNode());
   const ComputedStyle* cached_marker_style =
-      list_item->IsPseudoElement()
-          ? nullptr
-          : ToElement(list_item)->CachedStyleForPseudoElement(kPseudoIdMarker);
-  scoped_refptr<ComputedStyle> new_style;
-  if (cached_marker_style) {
-    new_style = ComputedStyle::Clone(*cached_marker_style);
-  } else {
-    // The marker always inherits from the list item, regardless of where it
-    // might end up (e.g., in some deeply nested line box). See CSS3 spec.
-    new_style = ComputedStyle::Create();
-    new_style->InheritFrom(list_item_->StyleRef());
-    new_style->SetStyleType(kPseudoIdMarker);
-    new_style->SetUnicodeBidi(UnicodeBidi::kIsolate);
-    new_style->SetFontVariantNumericSpacing(FontVariantNumeric::kTabularNums);
-  }
+      list_item->CachedStyleForPseudoElement(kPseudoIdMarker);
+  scoped_refptr<ComputedStyle> new_style =
+      cached_marker_style ? ComputedStyle::Clone(*cached_marker_style)
+                          : list_item->StyleForPseudoElement(kPseudoIdMarker);
+  DCHECK(new_style);
   if (Style()) {
     // Reuse the current margins. Otherwise resetting the margins to initial
     // values would trigger unnecessary layout.

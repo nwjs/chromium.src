@@ -119,6 +119,9 @@ class NET_EXPORT URLRequestContextBuilder {
     // based off available disk space.
     int max_size;
 
+    // Whether or not we need to reset the cache due to an experiment change.
+    bool reset_cache;
+
     // The cache path (when type is DISK).
     base::FilePath path;
 
@@ -327,8 +330,6 @@ class NET_EXPORT URLRequestContextBuilder {
       CreateHttpTransactionFactoryCallback
           create_http_network_transaction_factory);
 
-  void set_allow_copy() { allow_copy_ = true; }
-
   // Creates a mostly self-contained URLRequestContext. May only be called once
   // per URLRequestContextBuilder. After this is called, the Builder can be
   // safely destroyed.
@@ -397,7 +398,6 @@ class NET_EXPORT URLRequestContextBuilder {
   std::unique_ptr<HttpServerProperties> http_server_properties_;
   std::map<std::string, std::unique_ptr<URLRequestJobFactory::ProtocolHandler>>
       protocol_handlers_;
-  bool allow_copy_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(URLRequestContextBuilder);
 };

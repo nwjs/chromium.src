@@ -737,7 +737,7 @@ virtual void UnmapTexSubImage2DCHROMIUM(const void* mem) = 0;
 virtual void ResizeCHROMIUM(GLuint width,
                             GLuint height,
                             GLfloat scale_factor,
-                            GLenum color_space,
+                            GLcolorSpace color_space,
                             GLboolean alpha) = 0;
 virtual const GLchar* GetRequestableExtensionsCHROMIUM() = 0;
 virtual void RequestExtensionCHROMIUM(const char* extension) = 0;
@@ -1034,7 +1034,7 @@ virtual void TexStorage2DImageCHROMIUM(GLenum target,
                                        GLsizei width,
                                        GLsizei height) = 0;
 virtual void SetColorSpaceMetadataCHROMIUM(GLuint texture_id,
-                                           GLColorSpace color_space) = 0;
+                                           GLcolorSpace color_space) = 0;
 virtual void WindowRectanglesEXT(GLenum mode,
                                  GLsizei count,
                                  const GLint* box) = 0;
@@ -1058,4 +1058,6 @@ virtual GLuint CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
 virtual void BeginSharedImageAccessDirectCHROMIUM(GLuint texture,
                                                   GLenum mode) = 0;
 virtual void EndSharedImageAccessDirectCHROMIUM(GLuint texture) = 0;
+virtual void BeginBatchReadAccessSharedImageCHROMIUM() = 0;
+virtual void EndBatchReadAccessSharedImageCHROMIUM() = 0;
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_INTERFACE_AUTOGEN_H_

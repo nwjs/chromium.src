@@ -89,7 +89,7 @@ class CORE_EXPORT InspectorCSSAgent final
     }
 
    private:
-    Member<ContentSecurityPolicy> content_security_policy_;
+    ContentSecurityPolicy* content_security_policy_;
   };
 
   static CSSStyleRule* AsCSSStyleRule(CSSRule*);
@@ -202,8 +202,8 @@ class CORE_EXPORT InspectorCSSAgent final
 
   protocol::Response startRuleUsageTracking() override;
   protocol::Response takeCoverageDelta(
-      std::unique_ptr<protocol::Array<protocol::CSS::RuleUsage>>* result)
-      override;
+      std::unique_ptr<protocol::Array<protocol::CSS::RuleUsage>>* result,
+      double* out_timestamp) override;
   protocol::Response stopRuleUsageTracking(
       std::unique_ptr<protocol::Array<protocol::CSS::RuleUsage>>* result)
       override;

@@ -47,7 +47,7 @@
 #include "net/cert/cert_status_flags.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/platform/web_keyboard_event.h"
+#include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_ax_enums.h"
 #include "third_party/blink/public/web/web_ax_object.h"
@@ -59,7 +59,6 @@
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_node.h"
 #include "third_party/blink/public/web/web_option_element.h"
-#include "third_party/blink/public/web/web_user_gesture_indicator.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -80,7 +79,6 @@ using blink::WebLocalFrame;
 using blink::WebNode;
 using blink::WebOptionElement;
 using blink::WebString;
-using blink::WebUserGestureIndicator;
 using blink::WebVector;
 
 namespace autofill {
@@ -149,8 +147,8 @@ AutofillAgent::AutofillAgent(content::RenderFrame* render_frame,
   render_frame->GetWebFrame()->SetAutofillClient(this);
   password_autofill_agent->SetAutofillAgent(this);
   AddFormObserver(this);
-  registry->AddInterface(
-      base::Bind(&AutofillAgent::BindPendingReceiver, base::Unretained(this)));
+  registry->AddInterface(base::BindRepeating(
+      &AutofillAgent::BindPendingReceiver, base::Unretained(this)));
 }
 
 AutofillAgent::~AutofillAgent() {
@@ -232,8 +230,8 @@ void AutofillAgent::FocusedElementChanged(const WebElement& element) {
   was_focused_before_now_ = false;
 
   if ((IsKeyboardAccessoryEnabled() || !focus_requires_scroll_) &&
-      WebUserGestureIndicator::IsProcessingUserGesture(
-          element.IsNull() ? nullptr : element.GetDocument().GetFrame())) {
+      !element.IsNull() &&
+      element.GetDocument().GetFrame()->HasTransientUserActivation()) {
     focused_node_was_last_clicked_ = true;
     HandleFocusChangeComplete();
   }

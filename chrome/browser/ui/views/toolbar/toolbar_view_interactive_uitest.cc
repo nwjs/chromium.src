@@ -56,7 +56,7 @@ class ToolbarViewInteractiveUITest : public AppMenuButtonObserver,
                                      public extensions::ExtensionBrowserTest,
                                      public views::WidgetObserver {
  public:
-  ToolbarViewInteractiveUITest() = default;
+  ToolbarViewInteractiveUITest();
   ~ToolbarViewInteractiveUITest() override = default;
 
   // AppMenuButtonObserver:
@@ -93,10 +93,16 @@ class ToolbarViewInteractiveUITest : public AppMenuButtonObserver,
   // InProcessBrowserTest:
   void SetUpOnMainThread() override;
 
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   bool menu_shown_ = false;
   base::OnceClosure quit_closure_;
 };
+
+ToolbarViewInteractiveUITest::ToolbarViewInteractiveUITest() {
+  scoped_feature_list_.InitAndDisableFeature(features::kExtensionsToolbarMenu);
+}
 
 void ToolbarViewInteractiveUITest::AppMenuShown() {
   menu_shown_ = true;
@@ -275,6 +281,7 @@ void ToolbarViewTest::RunToolbarCycleFocusTest(Browser* browser) {
   size_t count = ids.size();
   for (size_t i = 0; i < count - 1; i++)
     EXPECT_EQ(ids[i], reverse_ids[count - 2 - i]);
+  EXPECT_EQ(ids[count - 1], reverse_ids[count - 1]);
 }
 
 IN_PROC_BROWSER_TEST_F(ToolbarViewTest, ToolbarCycleFocus) {

@@ -18,11 +18,11 @@
 #include "media/base/limits.h"
 #include "media/webrtc/webrtc_switches.h"
 #include "third_party/blink/public/common/mediastream/media_stream_controls.h"
-#include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/modules/mediastream/media_stream_video_source.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_constraints_util_sets.h"
 #include "third_party/blink/renderer/modules/mediastream/processed_local_audio_source.h"
+#include "third_party/blink/renderer/platform/mediastream/media_constraints.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_processor_options.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_source.h"
 
@@ -32,7 +32,7 @@ namespace blink {
 
 using blink::AudioCaptureSettings;
 using blink::AudioProcessingProperties;
-using ConstraintSet = blink::WebMediaTrackConstraintSet;
+using ConstraintSet = MediaTrackConstraintSetPlatform;
 using BooleanConstraint = blink::BooleanConstraint;
 using EchoCancellationType = AudioProcessingProperties::EchoCancellationType;
 using ProcessingType = AudioCaptureSettings::ProcessingType;
@@ -812,7 +812,7 @@ class ProcessingBasedContainer {
   // This struct groups related fields or entries from
   // AudioProcessingProperties,
   // ProcessingBasedContainer::boolean_containers_, and
-  // blink::WebMediaTrackConstraintSet.
+  // MediaTrackConstraintSetPlatform.
   struct BooleanPropertyContainerInfo {
     BooleanContainerId index;
     BooleanConstraint ConstraintSet::*constraint_member;
@@ -1177,7 +1177,7 @@ class DeviceContainer {
   };
 
   // This struct groups related fields or entries from
-  // DeviceContainer::boolean_containers_ and blink::WebMediaTrackConstraintSet.
+  // DeviceContainer::boolean_containers_ and MediaTrackConstraintSetPlatform.
   struct BooleanPropertyContainerInfo {
     BooleanContainerId index;
     BooleanConstraint ConstraintSet::*constraint_member;
@@ -1312,7 +1312,7 @@ class CandidatesContainer {
   std::vector<DeviceContainer> devices_;
 };
 
-std::string GetMediaStreamSource(const WebMediaConstraints& constraints) {
+std::string GetMediaStreamSource(const MediaConstraints& constraints) {
   std::string source;
   if (constraints.Basic().media_stream_source.HasIdeal() &&
       constraints.Basic().media_stream_source.Ideal().size() > 0) {
@@ -1364,7 +1364,7 @@ const media::AudioParameters& AudioDeviceCaptureCapability::Parameters() const {
 
 AudioCaptureSettings SelectSettingsAudioCapture(
     const AudioDeviceCaptureCapabilities& capabilities,
-    const blink::WebMediaConstraints& constraints,
+    const MediaConstraints& constraints,
     bool should_disable_hardware_noise_suppression,
     bool is_reconfiguration_allowed) {
   if (capabilities.IsEmpty())
@@ -1405,7 +1405,7 @@ AudioCaptureSettings SelectSettingsAudioCapture(
 
 AudioCaptureSettings SelectSettingsAudioCapture(
     blink::MediaStreamAudioSource* source,
-    const blink::WebMediaConstraints& constraints) {
+    const MediaConstraints& constraints) {
   DCHECK(source);
   if (source->device().type !=
           blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE &&

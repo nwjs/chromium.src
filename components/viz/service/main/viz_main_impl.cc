@@ -11,7 +11,7 @@
 #include "base/feature_list.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/power_monitor/power_monitor.h"
-#include "base/power_monitor/power_monitor_device_source.h"
+#include "base/power_monitor/power_monitor_source.h"
 #include "base/single_thread_task_runner.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
@@ -68,32 +68,31 @@ VizMainImpl::VizMainImpl(Delegate* delegate,
   // TODO(crbug.com/609317): Remove this when Mus Window Server and GPU are
   // split into separate processes. Until then this is necessary to be able to
   // run Mushrome (chrome with mus) with Mus running in the browser process.
-  if (!base::PowerMonitor::IsInitialized()) {
+  if (dependencies_.power_monitor_source) {
     base::PowerMonitor::Initialize(
-        std::make_unique<base::PowerMonitorDeviceSource>());
+        std::move(dependencies_.power_monitor_source));
   }
 
   if (!dependencies_.io_thread_task_runner)
     io_thread_ = CreateAndStartIOThread();
-  if (dependencies_.create_display_compositor) {
-    if (dependencies.viz_compositor_thread_runner) {
-      viz_compositor_thread_runner_ = dependencies.viz_compositor_thread_runner;
-    } else {
-      viz_compositor_thread_runner_impl_ =
-          std::make_unique<VizCompositorThreadRunnerImpl>();
-      viz_compositor_thread_runner_ = viz_compositor_thread_runner_impl_.get();
-    }
-    if (delegate_) {
-      delegate_->PostCompositorThreadCreated(
-          viz_compositor_thread_runner_->task_runner());
-    }
+
+  if (dependencies_.viz_compositor_thread_runner) {
+    viz_compositor_thread_runner_ = dependencies_.viz_compositor_thread_runner;
+  } else {
+    viz_compositor_thread_runner_impl_ =
+        std::make_unique<VizCompositorThreadRunnerImpl>();
+    viz_compositor_thread_runner_ = viz_compositor_thread_runner_impl_.get();
+  }
+  if (delegate_) {
+    delegate_->PostCompositorThreadCreated(
+        viz_compositor_thread_runner_->task_runner());
   }
 
-  if (!gpu_init_->gpu_info().in_process_gpu && dependencies.ukm_recorder) {
+  if (!gpu_init_->gpu_info().in_process_gpu && dependencies_.ukm_recorder) {
     // NOTE: If the GPU is running in the browser process, we can use the
     // browser's UKMRecorder.
-    ukm_recorder_ = std::move(dependencies.ukm_recorder);
-    ukm::DelegatingUkmRecorder::Get()->AddDelegate(ukm_recorder_->GetWeakPtr());
+    ukm::DelegatingUkmRecorder::Get()->AddDelegate(
+        dependencies_.ukm_recorder->GetWeakPtr());
   }
 
   gpu_service_ = std::make_unique<GpuServiceImpl>(
@@ -103,8 +102,6 @@ VizMainImpl::VizMainImpl(Delegate* delegate,
       gpu_init_->gpu_feature_info_for_hardware_gpu(),
       gpu_init_->gpu_extra_info(), gpu_init_->vulkan_implementation(),
       base::BindOnce(&VizMainImpl::ExitProcess, base::Unretained(this)));
-  if (dependencies_.create_display_compositor)
-    gpu_service_->set_oopd_enabled();
 }
 
 VizMainImpl::~VizMainImpl() {
@@ -125,8 +122,9 @@ VizMainImpl::~VizMainImpl() {
   viz_compositor_thread_runner_ = nullptr;
   viz_compositor_thread_runner_impl_.reset();
 
-  if (ukm_recorder_)
-    ukm::DelegatingUkmRecorder::Get()->RemoveDelegate(ukm_recorder_.get());
+  if (dependencies_.ukm_recorder)
+    ukm::DelegatingUkmRecorder::Get()->RemoveDelegate(
+        dependencies_.ukm_recorder.get());
 }
 
 void VizMainImpl::SetLogMessagesForHost(LogMessages log_messages) {
@@ -242,7 +240,9 @@ void VizMainImpl::CreateFrameSinkManagerInternal(
       gpu_service_->gpu_channel_manager()->gpu_preferences(),
       gpu_service_->shared_image_manager(),
       gpu_service_->gpu_channel_manager()->program_cache(),
-      gpu_service_->GetContextState());
+      // Unretained is safe since |gpu_service_| outlives |task_executor_|.
+      base::BindRepeating(&GpuServiceImpl::GetContextState,
+                          base::Unretained(gpu_service_.get())));
 
   viz_compositor_thread_runner_->CreateFrameSinkManager(
       std::move(params), task_executor_.get(), gpu_service_.get());

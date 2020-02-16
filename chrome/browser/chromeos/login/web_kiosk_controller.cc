@@ -73,13 +73,16 @@ KioskAppManagerBase::App WebKioskController::GetAppData() {
 void WebKioskController::OnTimerFire() {
   // Start launching now.
   if (app_state_ == AppState::INSTALLED) {
-    app_launcher_->LaunchApp();
+    LaunchApp();
   } else {
     launch_on_install_ = true;
   }
 }
 
 void WebKioskController::OnCancelAppLaunch() {
+  if (WebKioskAppManager::Get()->GetDisableBailoutShortcut())
+    return;
+
   KioskAppLaunchError::Save(KioskAppLaunchError::USER_CANCEL);
   CleanUp();
   chrome::AttemptUserExit();
@@ -108,8 +111,9 @@ void WebKioskController::OnNetworkConfigRequested() {
 void WebKioskController::OnNetworkConfigFinished() {
   network_ui_state_ = NetworkUIState::NOT_SHOWING;
   OnNetworkStateChanged(/*online=*/true);
-  if (app_state_ == AppState::INSTALLED)
-    app_launcher_->LaunchApp();
+  if (app_state_ == AppState::INSTALLED) {
+    LaunchApp();
+  }
 }
 
 void WebKioskController::MaybeShowNetworkConfigureUI() {
@@ -255,11 +259,6 @@ void WebKioskController::OnProfilePrepared(Profile* profile,
   // Reset virtual keyboard to use IME engines in app profile early.
   ChromeKeyboardControllerClient::Get()->RebuildKeyboardIfEnabled();
 
-  // We need to change the session state so we are able to create browser
-  // windows.
-  session_manager::SessionManager::Get()->SetSessionState(
-      session_manager::SessionState::LOGGED_IN_NOT_ACTIVE);
-
   // Can be not null in tests.
   if (!app_launcher_)
     app_launcher_.reset(new WebKioskAppLauncher(profile, this));
@@ -288,7 +287,33 @@ void WebKioskController::OnAppPrepared() {
           APP_LAUNCH_STATE_WAITING_APP_WINDOW);
   web_kiosk_splash_screen_view_->Show();
   if (launch_on_install_)
-    app_launcher_->LaunchApp();
+    LaunchApp();
+}
+
+void WebKioskController::OnAppInstallFailed() {
+  // When app installation, still try running the app(there can network/app
+  // restrictions that block app launch until we handle them).
+  // For example, chat.google.com on the first launch opens accounts.google.com
+  // to get the gaia id.
+  app_state_ = AppState::INSTALLED;
+
+  if (!web_kiosk_splash_screen_view_)
+    return;
+  web_kiosk_splash_screen_view_->UpdateAppLaunchState(
+      AppLaunchSplashScreenView::AppLaunchState::
+          APP_LAUNCH_STATE_WAITING_APP_WINDOW_INSTALL_FAILED);
+  web_kiosk_splash_screen_view_->Show();
+  if (launch_on_install_)
+    LaunchApp();
+}
+
+void WebKioskController::LaunchApp() {
+  DCHECK(app_state_ == AppState::INSTALLED);
+  // We need to change the session state so we are able to create browser
+  // windows.
+  session_manager::SessionManager::Get()->SetSessionState(
+      session_manager::SessionState::LOGGED_IN_NOT_ACTIVE);
+  app_launcher_->LaunchApp();
 }
 
 void WebKioskController::OnAppLaunched() {

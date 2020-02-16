@@ -73,9 +73,10 @@ source_set("chromeos") {
     "//chrome/browser/chromeos/power/ml/smart_dim",
     "//chrome/browser/devtools",
     "//chrome/browser/extensions",
+    "//chrome/browser/image_decoder",
     "//chrome/browser/resource_coordinator:tab_metrics_event_proto",
-    "//chrome/browser/ssl:proto",
     "//chrome/browser/ui/webui/bluetooth_internals:mojo_bindings",
+    "//chrome/browser/ui/webui/chromeos/crostini_upgrader:mojo_bindings",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_applications_on_extensions",
     "//chrome/browser/web_applications/components",
@@ -85,7 +86,9 @@ source_set("chromeos") {
     "//chrome/common/string_matching",
     "//chrome/services/app_service:lib",
     "//chrome/services/app_service/public/cpp:app_update",
+    "//chrome/services/app_service/public/cpp:instance_update",
     "//chrome/services/file_util/public/cpp",
+    "//chrome/services/keymaster/public/mojom",
     "//chrome/services/printing/public/mojom",
     "//chrome/services/wilco_dtc_supportd/public/mojom",
     "//chromeos",
@@ -100,7 +103,10 @@ source_set("chromeos") {
     "//chromeos/components/multidevice/logging",
     "//chromeos/components/power",
     "//chromeos/components/proximity_auth",
+    "//chromeos/components/smbfs",
+    "//chromeos/components/smbfs/mojom",
     "//chromeos/components/tether",
+    "//chromeos/constants",
     "//chromeos/cryptohome",
     "//chromeos/dbus",
     "//chromeos/dbus:metrics_event_proto",
@@ -166,7 +172,7 @@ source_set("chromeos") {
     "//components/arc/media_session",
     "//components/arc/mojom:mojom_traits",
     "//components/browser_sync",
-    "//components/captive_portal",
+    "//components/captive_portal/core",
     "//components/component_updater:crl_set_remover",
     "//components/consent_auditor:consent_auditor",
     "//components/constrained_window",
@@ -199,6 +205,8 @@ source_set("chromeos") {
     "//components/ownership",
     "//components/password_manager/core/browser",
     "//components/password_manager/core/browser:hash_password_manager",
+    "//components/performance_manager",
+    "//components/permissions",
     "//components/policy:generated",
     "//components/policy/core/browser",
     "//components/policy/core/common",
@@ -210,8 +218,8 @@ source_set("chromeos") {
     "//components/rappor",
     "//components/renderer_context_menu",
     "//components/rlz",
-    "//components/safe_browsing:csd_proto",
-    "//components/safe_browsing/db:metadata_proto",
+    "//components/safe_browsing/core:csd_proto",
+    "//components/safe_browsing/core/db:metadata_proto",
     "//components/session_manager/core",
     "//components/signin/public/identity_manager",
     "//components/signin/public/webdata",
@@ -223,6 +231,7 @@ source_set("chromeos") {
     "//components/tracing:startup_tracing",
     "//components/translate/core/browser",
     "//components/ukm/content",
+    "//components/unified_consent",
     "//components/user_manager",
     "//components/vector_icons",
 
@@ -248,6 +257,7 @@ source_set("chromeos") {
     "//gpu/ipc/host",
     "//gpu/ipc/service",
     "//media",
+    "//media/capture:capture_switches",
     "//media/mojo/mojom",
     "//mojo/public/cpp/platform",
     "//mojo/public/cpp/system",
@@ -311,9 +321,7 @@ source_set("chromeos") {
     "//ui/wm/public",
     "//url",
   ]
-  data_deps = [
-    ":dbus_service_files",
-  ]
+  data_deps = [ ":dbus_service_files" ]
 
   allow_circular_includes_from = [
     "//chrome/browser/extensions",
@@ -358,6 +366,8 @@ source_set("chromeos") {
     "account_manager/account_manager_util.h",
     "account_manager/account_migration_runner.cc",
     "account_manager/account_migration_runner.h",
+    "account_manager/child_account_type_changed_user_data.cc",
+    "account_manager/child_account_type_changed_user_data.h",
     "android_sms/android_sms_app_manager.cc",
     "android_sms/android_sms_app_manager.h",
     "android_sms/android_sms_app_manager_impl.cc",
@@ -455,6 +465,8 @@ source_set("chromeos") {
     "apps/intent_helper/chromeos_apps_navigation_throttle.h",
     "apps/intent_helper/common_apps_navigation_throttle.cc",
     "apps/intent_helper/common_apps_navigation_throttle.h",
+    "apps/metrics/intent_handling_metrics.cc",
+    "apps/metrics/intent_handling_metrics.h",
     "arc/accessibility/accessibility_info_data_wrapper.cc",
     "arc/accessibility/accessibility_info_data_wrapper.h",
     "arc/accessibility/accessibility_node_info_data_wrapper.cc",
@@ -467,6 +479,8 @@ source_set("chromeos") {
     "arc/accessibility/arc_accessibility_util.h",
     "arc/accessibility/ax_tree_source_arc.cc",
     "arc/accessibility/ax_tree_source_arc.h",
+    "arc/accessibility/geometry_util.cc",
+    "arc/accessibility/geometry_util.h",
     "arc/app_shortcuts/arc_app_shortcut_item.cc",
     "arc/app_shortcuts/arc_app_shortcut_item.h",
     "arc/app_shortcuts/arc_app_shortcuts_menu_builder.cc",
@@ -519,10 +533,16 @@ source_set("chromeos") {
     "arc/enterprise/cert_store/arc_cert_store_bridge.h",
     "arc/enterprise/cert_store/arc_smart_card_manager_bridge.cc",
     "arc/enterprise/cert_store/arc_smart_card_manager_bridge.h",
+    "arc/enterprise/cert_store/security_token_operation_bridge.cc",
+    "arc/enterprise/cert_store/security_token_operation_bridge.h",
     "arc/extensions/arc_support_message_host.cc",
     "arc/extensions/arc_support_message_host.h",
     "arc/file_system_watcher/arc_file_system_watcher_service.cc",
     "arc/file_system_watcher/arc_file_system_watcher_service.h",
+    "arc/file_system_watcher/arc_file_system_watcher_util.cc",
+    "arc/file_system_watcher/arc_file_system_watcher_util.h",
+    "arc/file_system_watcher/file_system_scanner.cc",
+    "arc/file_system_watcher/file_system_scanner.h",
     "arc/fileapi/arc_content_file_system_async_file_util.cc",
     "arc/fileapi/arc_content_file_system_async_file_util.h",
     "arc/fileapi/arc_content_file_system_backend_delegate.cc",
@@ -600,6 +620,10 @@ source_set("chromeos") {
     "arc/intent_helper/open_with_menu.h",
     "arc/intent_helper/start_smart_selection_action_menu.cc",
     "arc/intent_helper/start_smart_selection_action_menu.h",
+    "arc/keymaster/arc_keymaster_bridge.cc",
+    "arc/keymaster/arc_keymaster_bridge.h",
+    "arc/keymaster/cert_store_bridge.cc",
+    "arc/keymaster/cert_store_bridge.h",
     "arc/kiosk/arc_kiosk_bridge.cc",
     "arc/kiosk/arc_kiosk_bridge.h",
     "arc/metrics/arc_metrics_service_proxy.cc",
@@ -789,10 +813,19 @@ source_set("chromeos") {
     "child_accounts/time_limit_notifier.h",
     "child_accounts/time_limit_override.cc",
     "child_accounts/time_limit_override.h",
+    "child_accounts/time_limits/app_activity_registry.cc",
+    "child_accounts/time_limits/app_activity_registry.h",
+    "child_accounts/time_limits/app_activity_report_interface.cc",
+    "child_accounts/time_limits/app_activity_report_interface.h",
     "child_accounts/time_limits/app_service_wrapper.cc",
     "child_accounts/time_limits/app_service_wrapper.h",
     "child_accounts/time_limits/app_time_controller.cc",
     "child_accounts/time_limits/app_time_controller.h",
+    "child_accounts/time_limits/app_time_limits_whitelist_policy_wrapper.cc",
+    "child_accounts/time_limits/app_time_limits_whitelist_policy_wrapper.h",
+    "child_accounts/time_limits/app_time_notification_delegate.h",
+    "child_accounts/time_limits/app_time_policy_helpers.cc",
+    "child_accounts/time_limits/app_time_policy_helpers.h",
     "child_accounts/time_limits/app_types.cc",
     "child_accounts/time_limits/app_types.h",
     "child_accounts/time_limits/web_time_limit_enforcer.cc",
@@ -801,6 +834,8 @@ source_set("chromeos") {
     "child_accounts/time_limits/web_time_limit_interface.h",
     "child_accounts/time_limits/web_time_limit_navigation_throttle.cc",
     "child_accounts/time_limits/web_time_limit_navigation_throttle.h",
+    "child_accounts/time_limits/web_time_navigation_observer.cc",
+    "child_accounts/time_limits/web_time_navigation_observer.h",
     "child_accounts/usage_time_limit_processor.cc",
     "child_accounts/usage_time_limit_processor.h",
     "child_accounts/usage_time_state_notifier.cc",
@@ -823,8 +858,8 @@ source_set("chromeos") {
     "crostini/ansible/software_config.h",
     "crostini/crostini_export_import.cc",
     "crostini/crostini_export_import.h",
-    "crostini/crostini_export_import_notification.cc",
-    "crostini/crostini_export_import_notification.h",
+    "crostini/crostini_export_import_notification_controller.cc",
+    "crostini/crostini_export_import_notification_controller.h",
     "crostini/crostini_export_import_status_tracker.cc",
     "crostini/crostini_export_import_status_tracker.h",
     "crostini/crostini_features.cc",
@@ -847,6 +882,8 @@ source_set("chromeos") {
     "crostini/crostini_package_operation_status.h",
     "crostini/crostini_package_service.cc",
     "crostini/crostini_package_service.h",
+    "crostini/crostini_port_forwarder.cc",
+    "crostini/crostini_port_forwarder.h",
     "crostini/crostini_pref_names.cc",
     "crostini/crostini_pref_names.h",
     "crostini/crostini_registry_service.cc",
@@ -979,6 +1016,8 @@ source_set("chromeos") {
     "extensions/permissions_updater_delegate_chromeos.h",
     "extensions/public_session_permission_helper.cc",
     "extensions/public_session_permission_helper.h",
+    "extensions/signin_screen_extensions_external_loader.cc",
+    "extensions/signin_screen_extensions_external_loader.h",
     "extensions/signin_screen_policy_provider.cc",
     "extensions/signin_screen_policy_provider.h",
     "external_metrics.cc",
@@ -1660,22 +1699,26 @@ source_set("chromeos") {
     "platform_keys/platform_keys_service.h",
     "platform_keys/platform_keys_service_factory.cc",
     "platform_keys/platform_keys_service_factory.h",
+    "plugin_vm/plugin_vm_drive_image_download_service.cc",
+    "plugin_vm/plugin_vm_drive_image_download_service.h",
     "plugin_vm/plugin_vm_engagement_metrics_service.cc",
     "plugin_vm/plugin_vm_engagement_metrics_service.h",
     "plugin_vm/plugin_vm_files.cc",
     "plugin_vm/plugin_vm_files.h",
     "plugin_vm/plugin_vm_image_download_client.cc",
     "plugin_vm/plugin_vm_image_download_client.h",
-    "plugin_vm/plugin_vm_image_manager.cc",
-    "plugin_vm/plugin_vm_image_manager.h",
-    "plugin_vm/plugin_vm_image_manager_factory.cc",
-    "plugin_vm/plugin_vm_image_manager_factory.h",
+    "plugin_vm/plugin_vm_installer.cc",
+    "plugin_vm/plugin_vm_installer.h",
+    "plugin_vm/plugin_vm_installer_factory.cc",
+    "plugin_vm/plugin_vm_installer_factory.h",
     "plugin_vm/plugin_vm_manager.cc",
     "plugin_vm/plugin_vm_manager.h",
     "plugin_vm/plugin_vm_metrics_util.cc",
     "plugin_vm/plugin_vm_metrics_util.h",
     "plugin_vm/plugin_vm_pref_names.cc",
     "plugin_vm/plugin_vm_pref_names.h",
+    "plugin_vm/plugin_vm_uninstaller_notification.cc",
+    "plugin_vm/plugin_vm_uninstaller_notification.h",
     "plugin_vm/plugin_vm_util.cc",
     "plugin_vm/plugin_vm_util.h",
     "policy/active_directory_join_delegate.h",
@@ -1994,6 +2037,8 @@ source_set("chromeos") {
     "power/renderer_freezer.h",
     "power/smart_charging/smart_charging_manager.cc",
     "power/smart_charging/smart_charging_manager.h",
+    "power/smart_charging/smart_charging_ukm_logger.cc",
+    "power/smart_charging/smart_charging_ukm_logger.h",
     "preferences.cc",
     "preferences.h",
     "printing/automatic_usb_printer_configurer.cc",
@@ -2147,6 +2192,8 @@ source_set("chromeos") {
     "smb_client/smb_file_system.h",
     "smb_client/smb_file_system_id.cc",
     "smb_client/smb_file_system_id.h",
+    "smb_client/smb_kerberos_credentials_updater.cc",
+    "smb_client/smb_kerberos_credentials_updater.h",
     "smb_client/smb_provider.cc",
     "smb_client/smb_provider.h",
     "smb_client/smb_service.cc",
@@ -2161,14 +2208,22 @@ source_set("chromeos") {
     "smb_client/smb_task_queue.h",
     "smb_client/smb_url.cc",
     "smb_client/smb_url.h",
+    "smb_client/smbfs_share.cc",
+    "smb_client/smbfs_share.h",
     "smb_client/temp_file_manager.cc",
     "smb_client/temp_file_manager.h",
     "startup_settings_cache.cc",
     "startup_settings_cache.h",
-    "sync/os_preferences_model_type_controller.cc",
-    "sync/os_preferences_model_type_controller.h",
+    "sync/app_settings_model_type_controller.cc",
+    "sync/app_settings_model_type_controller.h",
+    "sync/apps_model_type_controller.cc",
+    "sync/apps_model_type_controller.h",
     "sync/os_sync_model_type_controller.cc",
     "sync/os_sync_model_type_controller.h",
+    "sync/os_syncable_service_model_type_controller.cc",
+    "sync/os_syncable_service_model_type_controller.h",
+    "sync/turn_sync_on_helper.cc",
+    "sync/turn_sync_on_helper.h",
     "system/automatic_reboot_manager.cc",
     "system/automatic_reboot_manager.h",
     "system/automatic_reboot_manager_observer.h",
@@ -2266,6 +2321,7 @@ source_set("chromeos") {
     "wilco_dtc_supportd/wilco_dtc_supportd_manager.h",
     "wilco_dtc_supportd/wilco_dtc_supportd_messaging.cc",
     "wilco_dtc_supportd/wilco_dtc_supportd_messaging.h",
+    "wilco_dtc_supportd/wilco_dtc_supportd_network_context.cc",
     "wilco_dtc_supportd/wilco_dtc_supportd_notification_controller.cc",
     "wilco_dtc_supportd/wilco_dtc_supportd_notification_controller.h",
     "wilco_dtc_supportd/wilco_dtc_supportd_web_request_service.cc",
@@ -2319,6 +2375,8 @@ source_set("chromeos") {
     "extensions/input_method_api.h",
     "extensions/login_screen/login/login_api.cc",
     "extensions/login_screen/login/login_api.h",
+    "extensions/login_screen/login/login_api_lock_handler.cc",
+    "extensions/login_screen/login/login_api_lock_handler.h",
     "extensions/login_screen/login_screen_storage/login_screen_storage_api.cc",
     "extensions/login_screen/login_screen_storage/login_screen_storage_api.h",
     "extensions/login_screen/login_screen_ui/login_screen_ui_api.cc",
@@ -2331,6 +2389,8 @@ source_set("chromeos") {
     "extensions/login_screen/login_state/session_state_changed_event_dispatcher.h",
     "extensions/media_player_api.cc",
     "extensions/media_player_api.h",
+    "extensions/printing/printer_capabilities_provider.cc",
+    "extensions/printing/printer_capabilities_provider.h",
     "extensions/printing_metrics/print_job_finished_event_dispatcher.cc",
     "extensions/printing_metrics/print_job_finished_event_dispatcher.h",
     "extensions/printing_metrics/print_job_info_idl_conversions.cc",
@@ -2354,11 +2414,16 @@ source_set("chromeos") {
   ]
 
   if (use_cups) {
+    configs += [ "//printing:cups" ]
     deps += [
       "//chrome/services/cups_proxy",
       "//chrome/services/cups_proxy/public/mojom",
     ]
     sources += [
+      "extensions/printing/print_job_controller.cc",
+      "extensions/printing/print_job_controller.h",
+      "extensions/printing/print_job_submitter.cc",
+      "extensions/printing/print_job_submitter.h",
       "extensions/printing/printing_api.cc",
       "extensions/printing/printing_api.h",
       "extensions/printing/printing_api_handler.cc",
@@ -2374,6 +2439,7 @@ source_set("chromeos") {
       "printing/cups_proxy_service_manager_factory.h",
       "printing/cups_wrapper.cc",
       "printing/cups_wrapper.h",
+      "printing/cups_wrapper_impl.cc",
       "printing/printer_error_codes.cc",
       "printing/printer_error_codes.h",
       "printing/printer_info_cups.cc",
@@ -2411,9 +2477,7 @@ action("dbus_service_files") {
     "dbus/org.chromium.VmApplicationsService.conf",
   ]
   output_conf_file = "$root_out_dir/dbus/chrome_dbus_services.conf"
-  outputs = [
-    output_conf_file,
-  ]
+  outputs = [ output_conf_file ]
 
   script = "//chromeos/tools/concat_dbus_conf_files.py"
   args = [ rebase_path(output_conf_file, root_build_dir) ]
@@ -2551,9 +2615,11 @@ source_set("unit_tests") {
     "android_sms/connection_manager_unittest.cc",
     "android_sms/fcm_connection_establisher_unittest.cc",
     "android_sms/pairing_lost_notifier_unittest.cc",
+    "app_mode/app_session_unittest.cc",
     "app_mode/startup_app_launcher_unittest.cc",
     "apps/apk_web_app_installer_unittest.cc",
     "apps/intent_helper/chromeos_apps_navigation_throttle_unittest.cc",
+    "apps/metrics/intent_handling_metrics_unittest.cc",
     "arc/accessibility/arc_accessibility_helper_bridge_unittest.cc",
     "arc/accessibility/ax_tree_source_arc_unittest.cc",
     "arc/app_shortcuts/arc_app_shortcuts_menu_builder_unittest.cc",
@@ -2566,10 +2632,12 @@ source_set("unit_tests") {
     "arc/bluetooth/arc_bluetooth_task_queue_unittest.cc",
     "arc/boot_phase_monitor/arc_boot_phase_monitor_bridge_unittest.cc",
     "arc/enterprise/cert_store/arc_cert_installer_unittest.cc",
-    "arc/enterprise/cert_store/arc_cert_installer_utils_unittest.cc",
     "arc/enterprise/cert_store/arc_smart_card_manager_bridge_unittest.cc",
+    "arc/enterprise/cert_store/security_token_operation_bridge_unittest.cc",
     "arc/extensions/arc_support_message_host_unittest.cc",
     "arc/file_system_watcher/arc_file_system_watcher_service_unittest.cc",
+    "arc/file_system_watcher/arc_file_system_watcher_util_unittest.cc",
+    "arc/file_system_watcher/file_system_scanner_unittest.cc",
     "arc/fileapi/arc_content_file_system_async_file_util_unittest.cc",
     "arc/fileapi/arc_content_file_system_file_stream_reader_unittest.cc",
     "arc/fileapi/arc_content_file_system_file_stream_writer_unittest.cc",
@@ -2638,8 +2706,10 @@ source_set("unit_tests") {
     "child_accounts/parent_access_code/parent_access_test_utils.h",
     "child_accounts/time_limit_notifier_unittest.cc",
     "child_accounts/time_limit_test_utils.cc",
+    "child_accounts/time_limits/app_activity_registry_unittest.cc",
     "child_accounts/time_limits/app_service_wrapper_unittest.cc",
     "child_accounts/time_limits/app_time_controller_unittest.cc",
+    "child_accounts/time_limits/app_types_unittest.cc",
     "child_accounts/usage_time_limit_processor_unittest.cc",
     "child_accounts/usage_time_state_notifier_unittest.cc",
     "chrome_content_browser_client_chromeos_part_unittest.cc",
@@ -2655,9 +2725,11 @@ source_set("unit_tests") {
     "crostini/crostini_mime_types_service_unittest.cc",
     "crostini/crostini_package_notification_unittest.cc",
     "crostini/crostini_package_service_unittest.cc",
+    "crostini/crostini_port_forwarder_unittest.cc",
     "crostini/crostini_registry_service_unittest.cc",
     "crostini/crostini_reporting_util_unittest.cc",
     "crostini/crostini_unsupported_action_notifier_unittest.cc",
+    "crostini/crostini_util_unittest.cc",
     "crostini/crosvm_metrics_unittest.cc",
     "crostini/crosvm_process_list_unittest.cc",
     "crostini/throttle/crostini_active_window_throttle_observer_unittest.cc",
@@ -2685,6 +2757,7 @@ source_set("unit_tests") {
     "extensions/login_screen/login_state/login_state_api_unittest.cc",
     "extensions/login_screen/login_state/session_state_changed_event_dispatcher_unittest.cc",
     "extensions/permissions_updater_delegate_chromeos_unittest.cc",
+    "extensions/printing/printer_capabilities_provider_unittest.cc",
     "extensions/printing_metrics/print_job_finished_event_dispatcher_unittest.cc",
     "extensions/printing_metrics/print_job_info_idl_conversions_unittest.cc",
     "extensions/printing_metrics/printing_metrics_api_unittest.cc",
@@ -2693,6 +2766,7 @@ source_set("unit_tests") {
     "extensions/signin_screen_policy_provider_unittest.cc",
     "extensions/wallpaper_private_api_unittest.cc",
     "external_metrics_unittest.cc",
+    "file_manager/crostini_file_tasks_unittest.cc",
     "file_manager/documents_provider_root_manager_unittest.cc",
     "file_manager/file_tasks_notifier_unittest.cc",
     "file_manager/file_tasks_unittest.cc",
@@ -2815,7 +2889,7 @@ source_set("unit_tests") {
     "note_taking_helper_unittest.cc",
     "ownership/owner_settings_service_chromeos_unittest.cc",
     "plugin_vm/plugin_vm_files_unittest.cc",
-    "plugin_vm/plugin_vm_image_manager_unittest.cc",
+    "plugin_vm/plugin_vm_installer_unittest.cc",
     "plugin_vm/plugin_vm_manager_unittest.cc",
     "plugin_vm/plugin_vm_test_helper.cc",
     "plugin_vm/plugin_vm_test_helper.h",
@@ -2903,6 +2977,7 @@ source_set("unit_tests") {
     "power/process_data_collector_unittest.cc",
     "power/renderer_freezer_unittest.cc",
     "power/smart_charging/smart_charging_manager_unittest.cc",
+    "power/smart_charging/smart_charging_ukm_logger_unittest.cc",
     "preferences_unittest.cc",
     "printing/automatic_usb_printer_configurer_unittest.cc",
     "printing/bulk_printers_calculator_unittest.cc",
@@ -2959,13 +3034,16 @@ source_set("unit_tests") {
     "smb_client/smb_errors_unittest.cc",
     "smb_client/smb_file_system_id_test.cc",
     "smb_client/smb_file_system_unittest.cc",
+    "smb_client/smb_kerberos_credentials_updater_unittest.cc",
     "smb_client/smb_service_helper_unittest.cc",
     "smb_client/smb_service_unittest.cc",
     "smb_client/smb_share_finder_unittest.cc",
     "smb_client/smb_task_queue_unittest.cc",
     "smb_client/smb_url_unittest.cc",
+    "smb_client/smbfs_share_unittest.cc",
     "smb_client/temp_file_manager_unittest.cc",
     "startup_settings_cache_unittest.cc",
+    "sync/turn_sync_on_helper_unittest.cc",
     "system/automatic_reboot_manager_unittest.cc",
     "system/device_disabling_manager_unittest.cc",
     "system/procfs_util_unittest.cc",
@@ -2983,6 +3061,8 @@ source_set("unit_tests") {
     "usb/cros_usb_detector_unittest.cc",
     "wilco_dtc_supportd/testing_wilco_dtc_supportd_bridge_wrapper.cc",
     "wilco_dtc_supportd/testing_wilco_dtc_supportd_bridge_wrapper.h",
+    "wilco_dtc_supportd/testing_wilco_dtc_supportd_network_context.cc",
+    "wilco_dtc_supportd/testing_wilco_dtc_supportd_network_context.h",
     "wilco_dtc_supportd/wilco_dtc_supportd_bridge_unittest.cc",
     "wilco_dtc_supportd/wilco_dtc_supportd_manager_unittest.cc",
     "wilco_dtc_supportd/wilco_dtc_supportd_messaging_unittest.cc",
@@ -3003,6 +3083,7 @@ source_set("unit_tests") {
     "../ui/webui/chromeos/login/oobe_display_chooser_unittest.cc",
     "../ui/webui/chromeos/login/signin_userlist_unittest.cc",
     "../ui/webui/settings/chromeos/device_keyboard_handler_unittest.cc",
+    "../ui/webui/settings/chromeos/device_storage_handler_unittest.cc",
     "../ui/webui/settings/chromeos/internet_handler_unittest.cc",
     "../ui/webui/settings/chromeos/multidevice_handler_unittest.cc",
   ]
@@ -3010,12 +3091,12 @@ source_set("unit_tests") {
     sources += [
       "extensions/printing/printing_api_handler_unittest.cc",
       "extensions/printing/printing_api_utils_unittest.cc",
+      "printing/test_cups_wrapper.cc",
+      "printing/test_cups_wrapper.h",
     ]
   }
 
-  public_deps = [
-    ":chromeos",
-  ]
+  public_deps = [ ":chromeos" ]
   deps = [
     ":arc_test_support",
     ":attestation_proto",
@@ -3032,6 +3113,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui:ash_test_support",
     "//chrome/browser/web_applications/components",
     "//chrome/common",
+    "//chrome/services/keymaster/public/mojom",
     "//chrome/services/wilco_dtc_supportd/public/mojom",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
@@ -3127,53 +3209,37 @@ source_set("unit_tests") {
     "//ui/events/devices:test_support",
     "//ui/shell_dialogs",
   ]
-  data = [
-    "//chromeos/test/data/",
-  ]
+  data = [ "//chromeos/test/data/" ]
 }
 
 proto_library("attestation_proto") {
-  sources = [
-    "attestation/attestation_key_payload.proto",
-  ]
+  sources = [ "attestation/attestation_key_payload.proto" ]
 }
 
 proto_library("screen_brightness_event_proto") {
-  sources = [
-    "power/ml/screen_brightness_event.proto",
-  ]
+  sources = [ "power/ml/screen_brightness_event.proto" ]
 }
 
 proto_library("user_charging_event_proto") {
-  sources = [
-    "power/smart_charging/user_charging_event.proto",
-  ]
+  sources = [ "power/smart_charging/user_charging_event.proto" ]
 }
 
 proto_library("user_activity_event_proto") {
-  sources = [
-    "power/ml/user_activity_event.proto",
-  ]
+  sources = [ "power/ml/user_activity_event.proto" ]
 }
 
 proto_library("backdrop_wallpaper_proto") {
-  sources = [
-    "backdrop_wallpaper_handlers/backdrop_wallpaper.proto",
-  ]
+  sources = [ "backdrop_wallpaper_handlers/backdrop_wallpaper.proto" ]
   generate_python = false
 }
 
 proto_library("device_configuration_proto") {
-  sources = [
-    "login/screens/recommend_apps/device_configuration.proto",
-  ]
+  sources = [ "login/screens/recommend_apps/device_configuration.proto" ]
   generate_python = false
 }
 
 proto_library("print_job_info_proto") {
-  sources = [
-    "printing/history/print_job_info.proto",
-  ]
+  sources = [ "printing/history/print_job_info.proto" ]
 }
 
 device_policy_remover_path = "$target_gen_dir/device_policy_remover.cc"
@@ -3199,9 +3265,7 @@ action("device_policy_remover_generate") {
     chrome_device_policy_pb2_path,
   ]
 
-  outputs = [
-    device_policy_remover_path,
-  ]
+  outputs = [ device_policy_remover_path ]
 
   args = [
     # generated file name
@@ -3220,13 +3284,9 @@ action("device_policy_remover_generate") {
 }
 
 static_library("device_policy_remover_generated") {
-  sources = [
-    device_policy_remover_path,
-  ]
+  sources = [ device_policy_remover_path ]
 
-  public_deps = [
-    ":device_policy_remover_generate",
-  ]
+  public_deps = [ ":device_policy_remover_generate" ]
 }
 
 fuzzer_test("smb_url_fuzzer") {
@@ -3250,9 +3310,7 @@ fuzzer_test("smb_url_fuzzer") {
 }
 
 fuzzer_test("zeroconf_printer_detector_fuzzer") {
-  sources = [
-    "printing/zeroconf_printer_detector_fuzzer.cc",
-  ]
+  sources = [ "printing/zeroconf_printer_detector_fuzzer.cc" ]
   deps = [
     "//base/test:test_support",
     "//chrome/browser",
@@ -3262,9 +3320,7 @@ fuzzer_test("zeroconf_printer_detector_fuzzer") {
 
 if (use_libfuzzer) {
   fuzzer_test("policy_fuzzer") {
-    sources = [
-      "policy/fuzzer/policy_fuzzer.cc",
-    ]
+    sources = [ "policy/fuzzer/policy_fuzzer.cc" ]
 
     deps = [
       ":policy_fuzzer_proto",
@@ -3276,9 +3332,7 @@ if (use_libfuzzer) {
   }
 
   fuzzable_proto_library("policy_fuzzer_proto") {
-    sources = [
-      "policy/fuzzer/policy_fuzzer.proto",
-    ]
+    sources = [ "policy/fuzzer/policy_fuzzer.proto" ]
 
     import_dirs = [ "//components/policy/proto" ]
 

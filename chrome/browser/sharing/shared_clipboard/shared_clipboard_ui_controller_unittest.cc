@@ -11,6 +11,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/sharing/fake_device_info.h"
+#include "chrome/browser/sharing/features.h"
 #include "chrome/browser/sharing/mock_sharing_service.h"
 #include "chrome/browser/sharing/sharing_constants.h"
 #include "chrome/browser/sharing/sharing_service_factory.h"
@@ -26,6 +27,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
+using ::testing::Eq;
 using ::testing::Property;
 
 namespace {
@@ -47,16 +49,11 @@ class SharedClipboardUiControllerTest : public testing::Test {
                                            -> std::unique_ptr<KeyedService> {
           return std::make_unique<testing::NiceMock<MockSharingService>>();
         }));
-    syncer::DeviceInfo device_info(kReceiverGuid, kReceiverName,
-                                   "chrome_version", "user_agent",
-                                   sync_pb::SyncEnums_DeviceType_TYPE_PHONE,
-                                   "device_id", base::SysInfo::HardwareInfo(),
-                                   /*last_updated_timestamp=*/base::Time::Now(),
-                                   /*send_tab_to_self_receiving_enabled=*/false,
-                                   /*sharing_info=*/base::nullopt);
+    std::unique_ptr<syncer::DeviceInfo> device_info =
+        CreateFakeDeviceInfo(kReceiverGuid, kReceiverName);
     controller_ = SharedClipboardUiController::GetOrCreateFromWebContents(
         web_contents_.get());
-    controller_->OnDeviceSelected(base::UTF8ToUTF16(kText), device_info);
+    controller_->OnDeviceSelected(base::UTF8ToUTF16(kText), *device_info.get());
   }
 
  protected:
@@ -88,16 +85,17 @@ TEST_F(SharedClipboardUiControllerTest, OnDeviceChosen) {
   sharing_message.mutable_shared_clipboard_message()->set_text(kExpectedText);
   EXPECT_CALL(
       *service(),
-      SendMessageToDevice(Property(&syncer::DeviceInfo::guid, kReceiverGuid),
-                          testing::Eq(kSendMessageTimeout),
-                          ProtoEquals(sharing_message), testing::_));
+      SendMessageToDevice(
+          Property(&syncer::DeviceInfo::guid, kReceiverGuid),
+          Eq(base::TimeDelta::FromSeconds(kSharingMessageTTLSeconds.Get())),
+          ProtoEquals(sharing_message), testing::_));
   controller_->OnDeviceChosen(*device_info.get());
 }
 
 // Check the call to sharing service to get all synced devices.
 TEST_F(SharedClipboardUiControllerTest, GetSyncedDevices) {
   EXPECT_CALL(*service(),
-              GetDeviceCandidates(testing::Eq(
-                  sync_pb::SharingSpecificFields::SHARED_CLIPBOARD)));
+              GetDeviceCandidates(
+                  Eq(sync_pb::SharingSpecificFields::SHARED_CLIPBOARD)));
   controller_->GetDevices();
 }

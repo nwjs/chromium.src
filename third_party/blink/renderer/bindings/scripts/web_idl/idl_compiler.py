@@ -4,6 +4,9 @@
 
 import functools
 import itertools
+import posixpath
+
+from blinkbuild.name_style_converter import NameStyleConverter
 
 from .callback_function import CallbackFunction
 from .callback_interface import CallbackInterface
@@ -13,6 +16,7 @@ from .database import Database
 from .database import DatabaseBody
 from .dictionary import Dictionary
 from .enumeration import Enumeration
+from .extended_attribute import ExtendedAttribute
 from .idl_type import IdlTypeFactory
 from .interface import Interface
 from .ir_map import IRMap
@@ -79,6 +83,7 @@ class IdlCompiler(object):
         # Merge partial definitions.
         self._record_defined_in_partial_and_mixin()
         self._propagate_extattrs_per_idl_fragment()
+        self._determine_blink_headers()
         self._merge_partial_interface_likes()
         self._merge_partial_dictionaries()
         # Merge mixins.
@@ -90,7 +95,10 @@ class IdlCompiler(object):
 
         # Make groups of overloaded functions including inherited ones.
         self._group_overloaded_functions()
+        self._propagate_extattrs_to_overload_group()
         self._calculate_group_exposure()
+
+        self._fill_exposed_constructs()
 
         self._sort_dictionary_members()
 
@@ -120,11 +128,17 @@ class IdlCompiler(object):
         for old_ir in old_irs:
             new_ir = make_copy(old_ir)
             self._ir_map.add(new_ir)
+            is_partial = False
+            is_mixin = False
+            if "LegacyTreatAsPartialInterface" in new_ir.extended_attributes:
+                is_partial = True
+            elif hasattr(new_ir, "is_partial") and new_ir.is_partial:
+                is_partial = True
+            elif hasattr(new_ir, "is_mixin") and new_ir.is_mixin:
+                is_mixin = True
             for member in new_ir.iter_all_members():
-                member.code_generator_info.set_defined_in_partial(
-                    hasattr(new_ir, 'is_partial') and new_ir.is_partial)
-                member.code_generator_info.set_defined_in_mixin(
-                    hasattr(new_ir, 'is_mixin') and new_ir.is_mixin)
+                member.code_generator_info.set_defined_in_partial(is_partial)
+                member.code_generator_info.set_defined_in_mixin(is_mixin)
 
     def _propagate_extattrs_per_idl_fragment(self):
         def propagate_extattr(extattr_key_and_attr_name,
@@ -164,8 +178,8 @@ class IdlCompiler(object):
             if not hasattr(ir, 'iter_all_members'):
                 return
             if (only_to_members_of_partial_or_mixin
-                    and ((hasattr(ir, 'is_partial') and ir.is_partial) or
-                         (hasattr(ir, 'is_mixin') and ir.is_mixin))):
+                    and not ((hasattr(ir, 'is_partial') and ir.is_partial) or
+                             (hasattr(ir, 'is_mixin') and ir.is_mixin))):
                 return
             for member in ir.iter_all_members():
                 apply_to(member)
@@ -206,6 +220,33 @@ class IdlCompiler(object):
         self._ir_map.move_to_new_phase()
 
         map(process_interface_like, old_irs)
+
+    def _determine_blink_headers(self):
+        irs = self._ir_map.irs_of_kinds(
+            IRMap.IR.Kind.INTERFACE, IRMap.IR.Kind.INTERFACE_MIXIN,
+            IRMap.IR.Kind.NAMESPACE, IRMap.IR.Kind.PARTIAL_INTERFACE,
+            IRMap.IR.Kind.PARTIAL_INTERFACE_MIXIN,
+            IRMap.IR.Kind.PARTIAL_NAMESPACE)
+
+        self._ir_map.move_to_new_phase()
+
+        for old_ir in irs:
+            new_ir = make_copy(old_ir)
+            self._ir_map.add(new_ir)
+
+            if (new_ir.is_mixin and "LegacyTreatAsPartialInterface" not in
+                    new_ir.extended_attributes):
+                continue
+
+            basepath, _ = posixpath.splitext(
+                new_ir.debug_info.location.filepath)
+            dirpath, filename = posixpath.split(basepath)
+            impl_class = new_ir.extended_attributes.value_of("ImplementedAs")
+            if impl_class:
+                filename = NameStyleConverter(impl_class).to_snake_case()
+            header = posixpath.join(dirpath,
+                                    posixpath.extsep.join([filename, "h"]))
+            new_ir.code_generator_info.set_blink_headers([header])
 
     def _merge_partial_interface_likes(self):
         irs = self._ir_map.irs_of_kinds(IRMap.IR.Kind.INTERFACE,
@@ -275,12 +316,20 @@ class IdlCompiler(object):
             self._ir_map.add(new_ir)
             for ir in irs_to_be_merged:
                 to_be_merged = make_copy(ir)
-                new_ir.add_components(to_be_merged.components)
+                if new_ir.is_mixin == to_be_merged.is_mixin:
+                    new_ir.add_components(to_be_merged.components)
                 new_ir.debug_info.add_locations(
                     to_be_merged.debug_info.all_locations)
                 new_ir.attributes.extend(to_be_merged.attributes)
                 new_ir.constants.extend(to_be_merged.constants)
                 new_ir.operations.extend(to_be_merged.operations)
+
+                new_ir_headers = new_ir.code_generator_info.blink_headers
+                to_be_merged_headers = (
+                    to_be_merged.code_generator_info.blink_headers)
+                if (new_ir_headers is not None
+                        and to_be_merged_headers is not None):
+                    new_ir_headers.extend(to_be_merged_headers)
 
     def _process_interface_inheritances(self):
         def is_own_member(member):
@@ -335,6 +384,31 @@ class IdlCompiler(object):
                     sorted(new_ir.operations, key=sort_key), key=sort_key)
                 if identifier
             ]
+
+    def _propagate_extattrs_to_overload_group(self):
+        ANY_OF = ("CrossOrigin", "Custom", "LenientThis", "NotEnumerable",
+                  "PerWorldBindings", "SecureContext", "Unforgeable",
+                  "Unscopable")
+
+        old_irs = self._ir_map.irs_of_kinds(IRMap.IR.Kind.INTERFACE,
+                                            IRMap.IR.Kind.NAMESPACE)
+
+        self._ir_map.move_to_new_phase()
+
+        for old_ir in old_irs:
+            new_ir = make_copy(old_ir)
+            self._ir_map.add(new_ir)
+
+            for group in new_ir.constructor_groups + new_ir.operation_groups:
+                for key in ANY_OF:
+                    if any(key in overload.extended_attributes
+                           for overload in group):
+                        group.extended_attributes.append(
+                            ExtendedAttribute(key=key))
+                if all((overload.extended_attributes.value_of("Affects") ==
+                        "Nothing") for overload in group):
+                    group.extended_attributes.append(
+                        ExtendedAttribute(key="Affects", values="Nothing"))
 
     def _calculate_group_exposure(self):
         old_irs = self._ir_map.irs_of_kinds(IRMap.IR.Kind.INTERFACE,
@@ -392,6 +466,32 @@ class IdlCompiler(object):
                             if exposure.only_in_secure_contexts is not True
                         ]))
                     group.exposure.set_only_in_secure_contexts(flag_names)
+
+    def _fill_exposed_constructs(self):
+        old_interfaces = self._ir_map.irs_of_kind(IRMap.IR.Kind.INTERFACE)
+        old_namespaces = self._ir_map.irs_of_kind(IRMap.IR.Kind.NAMESPACE)
+
+        exposed_map = {}  # global name: [construct's identifier...]
+        for ir in itertools.chain(old_interfaces, old_namespaces):
+            for pair in ir.exposure.global_names_and_features:
+                exposed_map.setdefault(pair.global_name,
+                                       []).append(ir.identifier)
+
+        self._ir_map.move_to_new_phase()
+
+        for old_ir in old_interfaces:
+            new_ir = make_copy(old_ir)
+            self._ir_map.add(new_ir)
+
+            assert not new_ir.exposed_constructs
+            global_names = new_ir.extended_attributes.values_of("Global")
+            if not global_names:
+                continue
+            constructs = set()
+            for global_name in global_names:
+                constructs.update(exposed_map.get(global_name, []))
+            new_ir.exposed_constructs = map(
+                self._ref_to_idl_def_factory.create, sorted(constructs))
 
     def _sort_dictionary_members(self):
         """Sorts dictionary members in alphabetical order."""
@@ -503,6 +603,5 @@ class IdlCompiler(object):
             self._db.register(
                 DatabaseBody.Kind.UNION,
                 Union(
-                    Identifier(key),  # dummy identifier
                     union_types=union_types,
                     typedef_backrefs=grouped_typedefs.get(key, [])))

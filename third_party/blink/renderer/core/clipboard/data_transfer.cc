@@ -148,8 +148,8 @@ class DraggedNodeImageBuilder {
   }
 
  private:
-  const Member<LocalFrame> local_frame_;
-  const Member<Node> node_;
+  LocalFrame* const local_frame_;
+  Node* const node_;
 #if DCHECK_IS_ON()
   const uint64_t dom_tree_version_;
 #endif
@@ -219,6 +219,7 @@ static String NormalizeType(const String& type,
   return clean_type;
 }
 
+// static
 DataTransfer* DataTransfer::Create() {
   DataTransfer* data = Create(
       kCopyAndPaste, DataTransferAccessPolicy::kWritable, DataObject::Create());
@@ -227,6 +228,7 @@ DataTransfer* DataTransfer::Create() {
   return data;
 }
 
+// static
 DataTransfer* DataTransfer::Create(DataTransferType type,
                                    DataTransferAccessPolicy policy,
                                    DataObject* data_object) {

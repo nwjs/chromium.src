@@ -1,3 +1,8 @@
+# tags: [ Android Fuchsia IOS IOS12.2 IOS13.0 Linux Mac Mac10.10 Mac10.11 Mac10.12 Retina
+#         Mac10.13 Win Win7 Win10 ]
+# tags: [ Release Debug ]
+# results: [ Timeout Crash Pass Failure Slow Skip ]
+
 # This file is used for tests that only need to be suppressed on the Chromium
 # WebKit Leak bots.
 # Further documentation:
@@ -6,7 +11,7 @@
 ###########################################################################
 # WARNING: Memory leaks must be fixed asap. Sheriff is expected to revert #
 # culprit CLs instead of suppressing the leaks. If you have any question, #
-# ask hajimehoshi@.                                                       #
+# ask hajimehoshi@ or yuzus@.                                             #
 ###########################################################################
 
 # FIXME: scroll customization leaks memory. See
@@ -16,7 +21,7 @@ crbug.com/410974 virtual/scroll_customization/fast/scroll-behavior/scroll-custom
 crbug.com/410974 virtual/scroll_customization/fast/scroll-behavior/scroll-customization/scrollstate-distribute-to-scroll-chain-descendant.html [ Failure ]
 
 crbug.com/786995 virtual/threaded/http/tests/devtools/tracing/timeline-style/timeline-style-recalc-all-invalidator-types.js [ Failure Pass ]
-crbug.com/859640 http/tests/devtools/tracing/timeline-style/timeline-style-recalc-all-invalidator-types.js  [ Failure Pass ]
+crbug.com/859640 http/tests/devtools/tracing/timeline-style/timeline-style-recalc-all-invalidator-types.js [ Failure Pass ]
 
 # Requests with keepalive specified will be kept alive even when the frame is
 # detached, which means leaks reported by the leak detector are by design.
@@ -91,11 +96,11 @@ crbug.com/996235 [ Linux ] virtual/audio-service/media/controls/doubletap-to-jum
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/application-panel/app-manifest-view-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/audits-start-view-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/basic-a11y-test.js [ Failure Pass ]
-crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/console-a11y-test.js [ Failure Pass ]
+crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/console/console-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/elements/event-listeners-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/memory/heap-profiler-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/network/network-condition-a11y-test.js [ Failure Pass ]
-crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/security/security-origin-a11y-test.js  [ Failure Pass ]
+crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/security/security-origin-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/sources/source-navigator-filesystem-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/settings/geolocations-a11y-test.js [ Failure Pass ]
 crbug.com/1000512 [ Linux ] http/tests/devtools/a11y-axe-core/sources/source-navigator-network-a11y-test.js [ Failure Pass ]
@@ -110,8 +115,11 @@ crbug.com/769885 [ Linux ] virtual/android/fullscreen/video-scrolled-iframe.html
 # Sheriff 2019-11-29
 crbug.com/1029417 [ Linux ] external/wpt/web-nfc/NDEFReader_scan_filter.https.html [ Failure ]
 
+# Sheriff 2019-12-30
+crbug.com/1038388 [ Linux ] http/tests/devtools/tracing/timeline-time/timeline-time.js [ Pass Failure ]
+
 ###########################################################################
 # WARNING: Memory leaks must be fixed asap. Sheriff is expected to revert #
 # culprit CLs instead of suppressing the leaks. If you have any question, #
-# ask hajimehoshi@.                                                       #
+# ask hajimehoshi@ or yuzus@.                                             #
 ###########################################################################

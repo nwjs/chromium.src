@@ -26,7 +26,6 @@
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
-#include "third_party/blink/public/platform/interface_provider.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_http_body.h"
@@ -293,7 +292,8 @@ scoped_refptr<network::ResourceRequestBody> GetRequestBodyForWebHTTPBody(
         if (element.file_length == -1) {
           request_body->AppendFileRange(
               blink::WebStringToFilePath(element.file_path), 0,
-              std::numeric_limits<uint64_t>::max(), base::Time());
+              std::numeric_limits<uint64_t>::max(),
+              element.modification_time.value_or(base::Time()));
         } else {
           request_body->AppendFileRange(
               blink::WebStringToFilePath(element.file_path),

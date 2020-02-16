@@ -14,12 +14,13 @@
 #include "build/build_config.h"
 #include "third_party/khronos/EGL/egl.h"
 #include "ui/gfx/buffer_format_util.h"
+#include "ui/gfx/linux/drm_util_linux.h"
+#include "ui/gfx/linux/gbm_defines.h"
+#include "ui/gfx/linux/scoped_gbm_device.h"
 #include "ui/gfx/native_pixmap.h"
 #include "ui/gl/gl_surface_egl.h"
 #include "ui/ozone/common/egl_util.h"
 #include "ui/ozone/common/gl_ozone_egl.h"
-#include "ui/ozone/common/linux/drm_util_linux.h"
-#include "ui/ozone/common/linux/scoped_gbm_device.h"
 #include "ui/ozone/platform/drm/common/drm_util.h"
 #include "ui/ozone/platform/drm/gpu/drm_thread_proxy.h"
 #include "ui/ozone/platform/drm/gpu/drm_window_proxy.h"
@@ -274,7 +275,7 @@ std::unique_ptr<OverlaySurface> GbmSurfaceFactory::CreateOverlaySurface(
 
 std::unique_ptr<SurfaceOzoneCanvas> GbmSurfaceFactory::CreateCanvasForWidget(
     gfx::AcceleratedWidget widget,
-    base::TaskRunner* task_runner) {
+    scoped_refptr<base::SequencedTaskRunner> task_runner) {
   DCHECK(thread_checker_.CalledOnValidThread());
   LOG(ERROR) << "Software rendering mode is not supported with GBM platform";
   return nullptr;

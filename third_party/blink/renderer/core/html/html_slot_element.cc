@@ -30,6 +30,7 @@
 
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/v8_assigned_nodes_options.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -42,7 +43,6 @@
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
-#include "third_party/blink/renderer/core/html/assigned_nodes_options.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
@@ -273,8 +273,10 @@ void HTMLSlotElement::AttachLayoutTree(AttachContext& context) {
 void HTMLSlotElement::DetachLayoutTree(bool performing_reattach) {
   if (SupportsAssignment()) {
     const HeapVector<Member<Node>>& flat_tree_children = assigned_nodes_;
-    for (auto& node : flat_tree_children)
-      node->DetachLayoutTree(performing_reattach);
+    for (auto& node : flat_tree_children) {
+      if (node->GetDocument() == GetDocument())
+        node->DetachLayoutTree(performing_reattach);
+    }
   }
   HTMLElement::DetachLayoutTree(performing_reattach);
 }

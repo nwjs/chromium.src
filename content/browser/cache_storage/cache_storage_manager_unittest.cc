@@ -255,7 +255,7 @@ class TestCacheStorageContext : public CacheStorageContextWithManager {
     NOTREACHED();
   }
 
-  void DeleteForOrigin(const GURL& origin_url) override { NOTREACHED(); }
+  void DeleteForOrigin(const url::Origin& origin) override { NOTREACHED(); }
 
  private:
   ~TestCacheStorageContext() override = default;
@@ -664,7 +664,8 @@ class CacheStorageManagerTest : public testing::Test {
         std::vector<std::string>() /* cors_exposed_header_names */,
         nullptr /* side_data_blob */,
         nullptr /* side_data_blob_for_cache_put */,
-        nullptr /* content_security_policy */);
+        std::vector<network::mojom::ContentSecurityPolicyPtr>(),
+        false /* loaded_with_credentials */);
 
     blink::mojom::BatchOperationPtr operation =
         blink::mojom::BatchOperation::New();
@@ -1440,7 +1441,8 @@ TEST_F(CacheStorageManagerTest, TestErrorInitializingCache) {
   EXPECT_EQ(0, Size(origin1_));
 }
 
-TEST_F(CacheStorageManagerTest, PutResponseWithExistingFileTest) {
+// TODO(crbug.com/1041371): Flaky on platforms which use POSIX file I/O.
+TEST_F(CacheStorageManagerTest, DISABLED_PutResponseWithExistingFileTest) {
   const GURL kFooURL("http://example.com/foo");
   const std::string kCacheName = "foo";
 

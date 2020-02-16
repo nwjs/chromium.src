@@ -45,13 +45,12 @@ class UseAddressActionTest : public testing::Test {
     autofill::test::SetProfileInfo(&autofill_profile_, kFirstName, "",
                                    kLastName, kEmail, "", "", "", "", "", "",
                                    "", "");
-    client_memory_.set_selected_address(kAddressName,
-                                        std::move(autofill_profile));
+    user_data_.selected_addresses_[kAddressName] = std::move(autofill_profile);
 
     ON_CALL(mock_personal_data_manager_, GetProfileByGUID)
         .WillByDefault(Return(&autofill_profile_));
-    ON_CALL(mock_action_delegate_, GetClientMemory)
-        .WillByDefault(Return(&client_memory_));
+    ON_CALL(mock_action_delegate_, GetUserData)
+        .WillByDefault(Return(&user_data_));
     ON_CALL(mock_action_delegate_, GetPersonalDataManager)
         .WillByDefault(Return(&mock_personal_data_manager_));
     ON_CALL(mock_action_delegate_, RunElementChecks)
@@ -100,7 +99,7 @@ class UseAddressActionTest : public testing::Test {
   MockPersonalDataManager mock_personal_data_manager_;
   MockActionDelegate mock_action_delegate_;
   MockWebController mock_web_controller_;
-  ClientMemory client_memory_;
+  UserData user_data_;
 
   autofill::AutofillProfile autofill_profile_;
 };
@@ -126,7 +125,7 @@ TEST_F(UseAddressActionTest, NoSelectedAddress) {
   ActionProto action_proto = CreateUseAddressAction();
   action_proto.mutable_use_address()->set_prompt(kSelectionPrompt);
 
-  client_memory_.set_selected_address(kAddressName, nullptr);
+  user_data_.selected_addresses_[kAddressName] = nullptr;
 
   EXPECT_EQ(ProcessedActionStatusProto::PRECONDITION_FAILED,
             ProcessAction(action_proto));
@@ -137,8 +136,8 @@ TEST_F(UseAddressActionTest, PreconditionFailedPopulatesUnexpectedErrorInfo) {
 
   ActionProto action_proto = CreateUseAddressAction();
   action_proto.mutable_use_address()->set_prompt(kSelectionPrompt);
-  client_memory_.set_selected_address(kAddressName, nullptr);
-  client_memory_.set_selected_address("one_more", nullptr);
+  user_data_.selected_addresses_[kAddressName] = nullptr;
+  user_data_.selected_addresses_["one_more"] = nullptr;
 
   UseAddressAction action(&mock_action_delegate_, action_proto);
 
@@ -201,7 +200,8 @@ TEST_F(UseAddressActionTest, ValidationSucceeds) {
 }
 
 TEST_F(UseAddressActionTest, FallbackFails) {
-  InSequence seq;
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
 
   ActionProto action_proto = CreateUseAddressAction();
   AddRequiredField(&action_proto, UseAddressProto::RequiredField::FIRST_NAME,
@@ -238,7 +238,8 @@ TEST_F(UseAddressActionTest, FallbackFails) {
 }
 
 TEST_F(UseAddressActionTest, FallbackSucceeds) {
-  InSequence seq;
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
 
   ActionProto action_proto = CreateUseAddressAction();
   AddRequiredField(&action_proto, UseAddressProto::RequiredField::FIRST_NAME,
@@ -254,29 +255,28 @@ TEST_F(UseAddressActionTest, FallbackSucceeds) {
                   NotNull(), Eq(Selector({kFakeSelector}).MustBeVisible()), _))
       .WillOnce(RunOnceCallback<2>(OkClientStatus()));
 
-  {
-    InSequence seq;
+  // Validation fails when getting FIRST_NAME.
+  EXPECT_CALL(mock_web_controller_,
+              OnGetFieldValue(Eq(Selector({"#email"})), _))
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
+  EXPECT_CALL(mock_web_controller_,
+              OnGetFieldValue(Eq(Selector({"#first_name"})), _))
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), ""));
+  EXPECT_CALL(mock_web_controller_,
+              OnGetFieldValue(Eq(Selector({"#last_name"})), _))
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
 
-    // Validation fails when getting FIRST_NAME.
-    EXPECT_CALL(mock_web_controller_,
-                OnGetFieldValue(Eq(Selector({"#email"})), _))
-        .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
-    EXPECT_CALL(mock_web_controller_,
-                OnGetFieldValue(Eq(Selector({"#first_name"})), _))
-        .WillOnce(RunOnceCallback<1>(OkClientStatus(), ""));
-    EXPECT_CALL(mock_web_controller_,
-                OnGetFieldValue(Eq(Selector({"#last_name"})), _))
-        .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
+  // Fallback succeeds.
+  Expectation set_first_name =
+      EXPECT_CALL(mock_action_delegate_,
+                  OnSetFieldValue(Eq(Selector({"#first_name"})), kFirstName, _))
+          .WillOnce(RunOnceCallback<2>(OkClientStatus()));
 
-    // Fallback succeeds.
-    EXPECT_CALL(mock_action_delegate_,
-                OnSetFieldValue(Eq(Selector({"#first_name"})), kFirstName, _))
-        .WillOnce(RunOnceCallback<2>(OkClientStatus()));
+  // Second validation succeeds.
+  EXPECT_CALL(mock_web_controller_, OnGetFieldValue(_, _))
+      .After(set_first_name)
+      .WillRepeatedly(RunOnceCallback<1>(OkClientStatus(), "not empty"));
 
-    // Second validation succeeds.
-    EXPECT_CALL(mock_web_controller_, OnGetFieldValue(_, _))
-        .WillRepeatedly(RunOnceCallback<1>(OkClientStatus(), "not empty"));
-  }
   EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED,
             ProcessAction(action_proto));
 }
@@ -302,6 +302,9 @@ TEST_F(UseAddressActionTest, AutofillFailureWithoutRequiredFieldsIsFatal) {
 
 TEST_F(UseAddressActionTest,
        AutofillFailureWithRequiredFieldsLaunchesFallback) {
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
+
   ActionProto action_proto = CreateUseAddressAction();
   AddRequiredField(&action_proto, UseAddressProto::RequiredField::FIRST_NAME,
                    "#first_name");

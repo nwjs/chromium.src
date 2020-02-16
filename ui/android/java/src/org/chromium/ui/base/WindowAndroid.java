@@ -25,6 +25,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ActivityState;
@@ -42,9 +43,9 @@ import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.compat.ApiHelperForO;
 import org.chromium.base.compat.ApiHelperForOMR1;
 import org.chromium.ui.KeyboardVisibilityDelegate;
-import org.chromium.ui.VSyncMonitor;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.display.DisplayAndroid.DisplayAndroidObserver;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.touchless.CursorObserver;
 import org.chromium.ui.touchless.TouchlessEventHandler;
 import org.chromium.ui.widget.Toast;
@@ -95,7 +96,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
 
     // Native pointer to the c++ WindowAndroid object.
     private long mNativeWindowAndroid;
-    private final VSyncMonitor mVSyncMonitor;
     private final DisplayAndroid mDisplayAndroid;
 
     // A string used as a key to store intent errors in a bundle
@@ -131,7 +131,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
 
     // Note that this state lives in Java, rather than in the native BeginFrameSource because
     // clients may pause VSync before the native WindowAndroid is created.
-    private boolean mPendingVSyncRequest;
     private boolean mVSyncPaused;
 
     // List of display modes with the same dimensions as the current mode but varying refresh rate.
@@ -188,20 +187,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
     private final ObserverList<OnCloseContextMenuListener> mContextMenuCloseListeners =
             new ObserverList<>();
 
-    private final VSyncMonitor.Listener mVSyncListener = new VSyncMonitor.Listener() {
-        @Override
-        public void onVSync(VSyncMonitor monitor, long vsyncTimeMicros) {
-            if (mVSyncPaused) {
-                mPendingVSyncRequest = true;
-                return;
-            }
-            if (mNativeWindowAndroid != 0) {
-                WindowAndroidJni.get().onVSync(mNativeWindowAndroid, WindowAndroid.this,
-                        vsyncTimeMicros, mVSyncMonitor.getVSyncPeriodInMicroseconds());
-            }
-        }
-    };
-
     private final CursorObserver mCursorObserver =
             new CursorObserver() {
                 @Override
@@ -220,23 +205,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
                     }
                 }
             };
-
-    /**
-     * @return true if onVSync handler is executing.
-     *
-     * @see org.chromium.ui.VSyncMonitor#isInsideVSync()
-     */
-    public boolean isInsideVSync() {
-        return mVSyncMonitor.isInsideVSync();
-    }
-
-    /**
-     * @return The time interval between two consecutive vsync pulses in milliseconds.
-     */
-    public long getVsyncPeriodInMillis() {
-        return mVSyncMonitor.getVSyncPeriodInMicroseconds() / 1000;
-    }
-
     /**
      * @param context The application context.
      */
@@ -262,8 +230,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
 
         // Temporary solution for flaky tests, see https://crbug.com/767624 for context
         try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
-            mVSyncMonitor =
-                    new VSyncMonitor(context, mVSyncListener, mDisplayAndroid.getRefreshRate());
             mAccessibilityManager =
                     (AccessibilityManager) ContextUtils.getApplicationContext().getSystemService(
                             Context.ACCESSIBILITY_SERVICE);
@@ -642,15 +608,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
         return ActivityState.DESTROYED;
     }
 
-    @CalledByNative
-    private void requestVSyncUpdate() {
-        if (mVSyncPaused) {
-            mPendingVSyncRequest = true;
-            return;
-        }
-        mVSyncMonitor.requestUpdate();
-    }
-
     /**
      * An interface that intent callback objects have to implement.
      */
@@ -672,6 +629,14 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
      */
     public boolean canResolveActivity(Intent intent) {
         return !PackageManagerUtils.queryIntentActivities(intent, 0).isEmpty();
+    }
+
+    /**
+     * Returns the ModalDialogManager to be used with this window.
+     * @return a {@link ModalDialogManager} for this window, or null if there is none.
+     */
+    public @Nullable ModalDialogManager getModalDialogManager() {
+        return null;
     }
 
     /**
@@ -888,7 +853,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
     public void setVSyncPaused(boolean paused) {
         if (mVSyncPaused == paused) return;
         mVSyncPaused = paused;
-        if (!mVSyncPaused && mPendingVSyncRequest) requestVSyncUpdate();
         if (mNativeWindowAndroid != 0) {
             WindowAndroidJni.get().setVSyncPaused(mNativeWindowAndroid, WindowAndroid.this, paused);
         }
@@ -896,7 +860,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
 
     @Override
     public void onRefreshRateChanged(float refreshRate) {
-        mVSyncMonitor.updateRefreshRate(refreshRate);
         if (mNativeWindowAndroid != 0) {
             WindowAndroidJni.get().onUpdateRefreshRate(
                     mNativeWindowAndroid, WindowAndroid.this, refreshRate);
@@ -1017,8 +980,6 @@ public class WindowAndroid implements AndroidPermissionDelegate, DisplayAndroidO
     interface Natives {
         long init(WindowAndroid caller, int displayId, float scrollFactor,
                 boolean windowIsWideColorGamut);
-        void onVSync(long nativeWindowAndroid, WindowAndroid caller, long vsyncTimeMicros,
-                long vsyncPeriodMicros);
         void onVisibilityChanged(long nativeWindowAndroid, WindowAndroid caller, boolean visible);
         void onActivityStopped(long nativeWindowAndroid, WindowAndroid caller);
         void onActivityStarted(long nativeWindowAndroid, WindowAndroid caller);

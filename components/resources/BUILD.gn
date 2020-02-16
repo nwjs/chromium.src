@@ -12,15 +12,14 @@ group("resources") {
   public_deps = [
     ":components_resources",
     ":components_scaled_resources",
+    ":dev_ui_components_resources",
   ]
 }
 
 grit("components_resources") {
   source = "components_resources.grd"
 
-  inputs = [
-    about_credits_file,
-  ]
+  inputs = [ about_credits_file ]
 
   outputs = [
     "grit/components_resources.h",
@@ -33,15 +32,30 @@ grit("components_resources") {
   grit_flags = [
     "-E",
     "about_credits_file=" + rebase_path(about_credits_file, root_build_dir),
+    "-E",
+    "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
   ]
+
   defines = [
     "enable_basic_printing=$enable_basic_printing",
     "enable_print_preview=$enable_print_preview",
   ]
 
-  deps = [
-    ":about_credits",
+  deps = [ ":about_credits" ]
+
+  if (!is_ios) {
+    deps += [ "//components/resources/ssl/ssl_error_assistant:make_ssl_error_assistant_protobuf" ]
+  }
+}
+
+grit("dev_ui_components_resources") {
+  source = "dev_ui_components_resources.grd"
+
+  outputs = [
+    "grit/dev_ui_components_resources.h",
+    "dev_ui_components_resources.pak",
   ]
+  output_dir = "$root_gen_dir/components"
 }
 
 grit("components_scaled_resources") {
@@ -67,9 +81,7 @@ action("about_credits") {
     "../about_ui/resources/about_credits_entry.tmpl",
   ]
 
-  outputs = [
-    about_credits_file,
-  ]
+  outputs = [ about_credits_file ]
 
   args = [
     "--target-os=$target_os",

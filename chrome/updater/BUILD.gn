@@ -10,14 +10,13 @@ import("//testing/test.gni")
 # TODO(sorin): make the code build on Linux. https://crbug.com/1014320
 group("updater") {
   if (is_win) {
-    deps = [
-      "//chrome/updater/win",
-    ]
+    deps = [ "//chrome/updater/win" ]
   }
   if (is_mac) {
-    deps = [
-      "//chrome/updater/mac",
-    ]
+    deps = [ "//chrome/updater/mac" ]
+  }
+  if (is_win || is_mac) {
+    deps += [ "//chrome/updater/tools:tools" ]
   }
 }
 
@@ -68,7 +67,7 @@ if (is_win || is_mac) {
     ]
 
     if (is_win) {
-      deps += [ "//chrome/updater/win:updater_idl_idl" ]
+      deps += [ "//chrome/updater/win:com" ]
     }
   }
 
@@ -103,17 +102,18 @@ if (is_win || is_mac) {
         "//chrome/updater/win:updater_tests",
       ]
 
-      data_deps = [
-        "//chrome/updater/win:updater",
-      ]
+      data_deps = [ "//chrome/updater/win:updater" ]
     }
 
     if (is_mac) {
-      deps += [ "//chrome/updater/mac:updater_tests" ]
-
-      data_deps = [
-        "//chrome/updater/mac:updater",
+      deps += [
+        "//chrome/updater/mac:updater_bundle",
+        "//chrome/updater/mac:updater_tests",
       ]
+    }
+
+    if (is_win || is_mac) {
+      deps += [ "//chrome/updater/tools:unittest" ]
     }
   }
 }

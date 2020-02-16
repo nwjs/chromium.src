@@ -11,6 +11,7 @@
 
 #include "base/optional.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_action_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
@@ -18,7 +19,6 @@
 class Browser;
 class ExtensionsToolbarButton;
 class ToolbarActionViewController;
-class ToolbarActionsBarBubbleViews;
 
 // Container for extensions shown in the toolbar. These include pinned
 // extensions and extensions that are 'popped out' transitively to show dialogs
@@ -30,6 +30,7 @@ class ToolbarActionsBarBubbleViews;
 // up after the experiment.
 class ExtensionsToolbarContainer : public ToolbarIconContainerView,
                                    public ExtensionsContainer,
+                                   public TabStripModelObserver,
                                    public ToolbarActionsModel::Observer,
                                    public ToolbarActionView::Delegate,
                                    public views::WidgetObserver {
@@ -43,13 +44,24 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   ExtensionsToolbarButton* extensions_button() const {
     return extensions_button_;
   }
-  ToolbarActionsBarBubbleViews* action_bubble_public_for_testing() {
-    return active_bubble_;
-  }
   const ToolbarIconMap& icons_for_testing() const { return icons_; }
   ToolbarActionViewController* popup_owner_for_testing() {
     return popup_owner_;
   }
+
+  // Get the view corresponding to the extension |id|, if any.
+  ToolbarActionView* GetViewForId(const std::string& id);
+
+  // Pop out and show the extension corresponding to |extension_id|, then show
+  // the Widget when the icon is visible. If the icon is already visible the
+  // action will be posted immediately (not run synchronously).
+  void ShowWidgetForExtension(views::Widget* widget,
+                              const std::string& extension_id);
+
+  // Gets the widget that anchors to the extension (or is about to anchor to the
+  // extension, pending pop-out).
+  views::Widget* GetAnchoredWidgetForExtensionForTesting(
+      const std::string& extension_id);
 
   // ToolbarIconContainerView:
   void UpdateAllIcons() override;
@@ -95,15 +107,32 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
                            const gfx::Point& press_pt,
                            const gfx::Point& p) override;
 
-  ToolbarActionView* GetViewForId(const std::string& id);
-
-  void ShowActiveBubble(
-      views::View* anchor_view,
-      std::unique_ptr<ToolbarActionsBarBubbleDelegate> controller);
-
  private:
   // A struct representing the position and action being dragged.
   struct DropInfo;
+
+  // Pairing of widgets associated with this container and the extension they
+  // are associated with. This is used to keep track of icons that are popped
+  // out due to a widget showing (or being queued to show).
+  struct AnchoredWidget {
+    views::Widget* widget;
+    std::string extension_id;
+  };
+
+  // Determines whether an action must be visible (i.e. cannot be hidden for any
+  // reason). Returns true if the action is popped out or has an attached
+  // bubble.
+  bool ShouldForceVisibility(const std::string& extension_id) const;
+
+  // Updates the view's visibility state according to
+  // IsActionVisibleOnToolbar(). Note that IsActionVisibleOnToolbar() does not
+  // return View visibility but whether the action should be visible or not
+  // (according to pin and pop-out state).
+  void UpdateIconVisibility(const std::string& extension_id);
+
+  // Set |widget|'s anchor (to the corresponding extension) and then show it.
+  // Posted from |ShowWidgetForExtension|.
+  void AnchorAndShowWidgetImmediately(views::Widget* widget);
 
   // Creates toolbar actions and icons corresponding to the model. This is only
   // called in the constructor or when the model initializes and should not be
@@ -117,9 +146,6 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   // popped out actions, extensions button).
   void ReorderViews();
 
-  // Clears the |active_bubble_|, and unregisters the container as an observer.
-  void ClearActiveBubble(views::Widget* widget);
-
   // Utility function for going from width to icon counts.
   size_t WidthToIconCount(int x_offset);
 
@@ -128,6 +154,16 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   // Sets a pinned extension button's image to be shown/hidden.
   void SetExtensionIconVisibility(ToolbarActionsModel::ActionId id,
                                   bool visible);
+
+  // Calls SetVisible to make sure that the container is showing only when there
+  // are extensions available.
+  void UpdateContainerVisibility();
+
+  // TabStripModelObserver:
+  void OnTabStripModelChanged(
+      TabStripModel* tab_strip_model,
+      const TabStripModelChange& change,
+      const TabStripSelectionChange& selection) override;
 
   // ToolbarActionsModel::Observer:
   void OnToolbarActionAdded(const ToolbarActionsModel::ActionId& action_id,
@@ -166,8 +202,9 @@ class ExtensionsToolbarContainer : public ToolbarIconContainerView,
   // The action that triggered the current popup, if any.
   ToolbarActionViewController* popup_owner_ = nullptr;
 
-  // The extension bubble that is actively showing, if any.
-  ToolbarActionsBarBubbleViews* active_bubble_ = nullptr;
+  // The widgets currently popped out and, for each, the extension it is
+  // associated with. See AnchoredWidget.
+  std::vector<AnchoredWidget> anchored_widgets_;
 
   // The DropInfo for the current drag-and-drop operation, or a null pointer if
   // there is none.

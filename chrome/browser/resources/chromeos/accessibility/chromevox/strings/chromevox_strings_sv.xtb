@@ -385,7 +385,6 @@ Om du är klar med självstudierna kan du använda ChromeVox till att navigera t
 <translation id="3646890046000188562">{COUNT,plural, =1{grav accent}other{# grav accent-tecken}}</translation>
 <translation id="3650317109285159359">menyalternativ med kryssruta</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollartecken}other{# dollartecken}}</translation>
-<translation id="3658742229777143148">Version</translation>
 <translation id="3659787053479271466">varning</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, listruta</translation>
 <translation id="3681531118904532409">Papayakrämorange</translation>
@@ -420,6 +419,7 @@ Om du är klar med självstudierna kan du använda ChromeVox till att navigera t
 <translation id="3914732343065571127">Referenshandbok för ChromeVox</translation>
 <translation id="3930383913623796990">Vårgrön</translation>
 <translation id="3930498801443296724">Utvalt citat</translation>
+<translation id="3935615366277838204">Stort <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Lavendelrosa</translation>
 <translation id="3941269780691800708">Läs upp text under muspekaren.</translation>
 <translation id="394953087167197343">Ange felstavning:</translation>
@@ -793,7 +793,6 @@ Om du är klar med självstudierna kan du använda ChromeVox till att navigera t
 <translation id="6459511626086141404">Platt tangentuppsättning</translation>
 <translation id="6468049171101508116">Nästa knapp</translation>
 <translation id="646954774886932461">Index</translation>
-<translation id="6479792383819319132">Det finns inget nästa stycke.</translation>
 <translation id="6493991254603208962">minska ljusstyrkan</translation>
 <translation id="6501595918865591267">Turkos</translation>
 <translation id="6508059270146105198">Flytta punktskriftsskärmen till sidans slut</translation>
@@ -816,7 +815,6 @@ Om du är klar med självstudierna kan du använda ChromeVox till att navigera t
 <translation id="6637586476836377253">logg</translation>
 <translation id="6657128831881431364">Förloppsindikator</translation>
 <translation id="6659594942844771486">Flik</translation>
-<translation id="6675661017770918201">Det finns inget föregående stycke.</translation>
 <translation id="667999046851023355">Dokument</translation>
 <translation id="6688209025607531203">En icke-modal avisering</translation>
 <translation id="6689672606256159458">Mörkt laxrosa</translation>
@@ -845,6 +843,7 @@ Om du är klar med självstudierna kan du använda ChromeVox till att navigera t
 <translation id="6865519907510167493">Felstavning</translation>
 <translation id="6871161210040114857">Inte skiftlägeskänsligt.</translation>
 <translation id="6877435256196695200">Det finns inga fler bilder.</translation>
+<translation id="688976158310523235">Sökmeny</translation>
 <translation id="6897341342232909480">Flytta åt vänster</translation>
 <translation id="6901540140423170855">datum</translation>
 <translation id="6910211073230771657">Borttagen</translation>
@@ -857,6 +856,7 @@ Om du är klar med självstudierna kan du använda ChromeVox till att navigera t
 <translation id="699159175332639490">Söktangent + O + W</translation>
 <translation id="6994042831499278539">Hänvisning till ordlista</translation>
 <translation id="6996566555547746822">Nästa kombinationsruta</translation>
+<translation id="6997224546856374593">När stora bokstäver läses upp:</translation>
 <translation id="700202842116345659">Bibliografipost</translation>
 <translation id="7005146664810010831">Ingen webbadress hittades</translation>
 <translation id="7010712454773919705">ChromeVox-specialtangent</translation>
@@ -937,6 +937,7 @@ Flytta framåt mellan öppna flikar genom att trycka på Ctrl + tabbtangenten.
 <translation id="744163271241493234">lösenordsfält</translation>
 <translation id="7491962110804786152">tabb</translation>
 <translation id="7492049978501397201">Dialogruta öppnad</translation>
+<translation id="7505149250476994901">Säg ”stort” före bokstaven</translation>
 <translation id="7518543783849163354">Stoppa ChromeVox från att tala genom att trycka på Ctrl-tangenten.</translation>
 <translation id="7521682724501952239">Du kan använda ChromeVox med pekskärmen.</translation>
 <translation id="7532613204005497612">juni</translation>
@@ -1104,7 +1105,6 @@ Flytta framåt mellan öppna flikar genom att trycka på Ctrl + tabbtangenten.
 <translation id="812886159861361726">Nedladdningen stoppades <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">Trycka</translation>
 <translation id="8153880621934657047">Inte i tabellen.</translation>
-<translation id="8161114871611868169">Kommentarsfält</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{understreck}other{# understreck}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">rad</translation>
@@ -1125,6 +1125,7 @@ Flytta framåt mellan öppna flikar genom att trycka på Ctrl + tabbtangenten.
 <translation id="8313653172105209786">kat</translation>
 <translation id="8316881042119029234">Blekt gulorange</translation>
 <translation id="8326783648485765113">Gräsgrön</translation>
+<translation id="8328063869313048659">Aktivera och inaktivera mörk skärm</translation>
 <translation id="8344569602005188545">timmar</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{nummertecken}other{# nummertecken}}</translation>
 <translation id="8374154622594089836">månad</translation>
@@ -1209,6 +1210,7 @@ Flytta framåt mellan öppna flikar genom att trycka på Ctrl + tabbtangenten.
 <translation id="9065283790526219006">+popup</translation>
 <translation id="9066023754636984703">Du kan hoppa till mer information om detta med söktangenten+A, J.</translation>
 <translation id="9067522039955793016">Sidbrytning</translation>
+<translation id="9074824103975499138">Sök i ChromeVox-menyer</translation>
 <translation id="9077213568694924680">togs bort från markeringen</translation>
 <translation id="9077305471618729969">Ljust havsgrön</translation>
 <translation id="9082874451376019682">Det finns inget föregående skjutreglage.</translation>

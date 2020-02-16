@@ -88,15 +88,26 @@ void InstallationReporter::ReportDownloadingCacheStatus(
   }
 }
 
+void InstallationReporter::ReportFetchError(
+    const ExtensionId& id,
+    FailureReason reason,
+    const ExtensionDownloaderDelegate::FailureData& failure_data) {
+  DCHECK(reason == FailureReason::MANIFEST_FETCH_FAILED ||
+         reason == FailureReason::CRX_FETCH_FAILED);
+  InstallationData& data = installation_data_map_[id];
+  data.failure_reason = reason;
+  data.network_error_code = failure_data.network_error_code;
+  data.response_code = failure_data.response_code;
+  data.fetch_tries = failure_data.fetch_tries;
+  NotifyObserversOfFailure(id, reason, data);
+}
+
 void InstallationReporter::ReportFailure(const ExtensionId& id,
                                          FailureReason reason) {
   DCHECK_NE(reason, FailureReason::UNKNOWN);
   InstallationData& data = installation_data_map_[id];
   data.failure_reason = reason;
-  for (auto& observer : observers_) {
-    observer.OnExtensionInstallationFailed(id, reason);
-    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
-  }
+  NotifyObserversOfFailure(id, reason, data);
 }
 
 void InstallationReporter::ReportCrxInstallError(
@@ -110,10 +121,18 @@ void InstallationReporter::ReportCrxInstallError(
   InstallationData& data = installation_data_map_[id];
   data.failure_reason = reason;
   data.install_error_detail = crx_install_error;
-  for (auto& observer : observers_) {
-    observer.OnExtensionInstallationFailed(id, reason);
-    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
-  }
+  NotifyObserversOfFailure(id, reason, data);
+}
+
+void InstallationReporter::ReportSandboxedUnpackerFailureReason(
+    const ExtensionId& id,
+    SandboxedUnpackerFailureReason unpacker_failure_reason) {
+  InstallationData& data = installation_data_map_[id];
+  data.failure_reason =
+      FailureReason::CRX_INSTALL_ERROR_SANDBOXED_UNPACKER_FAILURE;
+  data.unpacker_failure_reason = unpacker_failure_reason;
+  NotifyObserversOfFailure(
+      id, FailureReason::CRX_INSTALL_ERROR_SANDBOXED_UNPACKER_FAILURE, data);
 }
 
 InstallationReporter::InstallationData InstallationReporter::Get(
@@ -132,6 +151,16 @@ void InstallationReporter::AddObserver(Observer* observer) {
 
 void InstallationReporter::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
+}
+
+void InstallationReporter::NotifyObserversOfFailure(
+    const ExtensionId& id,
+    FailureReason reason,
+    const InstallationData& data) {
+  for (auto& observer : observers_) {
+    observer.OnExtensionInstallationFailed(id, reason);
+    observer.OnExtensionDataChangedForTesting(id, browser_context_, data);
+  }
 }
 
 }  //  namespace extensions

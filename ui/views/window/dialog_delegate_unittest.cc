@@ -6,6 +6,7 @@
 
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/bind_test_util.h"
 #include "build/build_config.h"
 #include "ui/base/hit_test.h"
 #include "ui/events/event_processor.h"
@@ -68,7 +69,6 @@ class TestDialog : public DialogDelegateView {
   }
   base::string16 GetWindowTitle() const override { return title_; }
   View* GetInitiallyFocusedView() override { return input_; }
-  int GetDialogButtons() const override { return dialog_buttons_; }
 
   void CheckAndResetStates(bool canceled,
                            bool accepted,
@@ -93,9 +93,6 @@ class TestDialog : public DialogDelegateView {
   void set_should_handle_escape(bool should_handle_escape) {
     should_handle_escape_ = should_handle_escape;
   }
-  void set_dialog_buttons(int dialog_buttons) {
-    dialog_buttons_ = dialog_buttons;
-  }
 
   views::Textfield* input() { return input_; }
 
@@ -109,7 +106,6 @@ class TestDialog : public DialogDelegateView {
   base::string16 title_;
   bool show_close_button_ = true;
   bool should_handle_escape_ = false;
-  int dialog_buttons_ = ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL;
 
   DISALLOW_COPY_AND_ASSIGN(TestDialog);
 };
@@ -368,11 +364,10 @@ TEST_F(DialogTest, InitialFocus) {
 // A dialog for testing initial focus with only an OK button.
 class InitialFocusTestDialog : public DialogDelegateView {
  public:
-  InitialFocusTestDialog() = default;
+  InitialFocusTestDialog() {
+    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_OK);
+  }
   ~InitialFocusTestDialog() override = default;
-
-  // DialogDelegateView overrides:
-  int GetDialogButtons() const override { return ui::DIALOG_BUTTON_OK; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(InitialFocusTestDialog);
@@ -430,6 +425,26 @@ TEST_F(DialogTest, UnfocusableInitialFocus) {
   EXPECT_TRUE(textfield->HasFocus());
   EXPECT_EQ(textfield, dialog->GetFocusManager()->GetFocusedView());
   dialog_widget->CloseNow();
+}
+
+using DialogDelegateCloseTest = ViewsTestBase;
+
+TEST_F(DialogDelegateCloseTest, AnyCallbackInhibitsDefaultClose) {
+  DialogDelegateView dialog;
+
+  bool cancelled = false;
+  bool accepted = false;
+
+  dialog.set_cancel_callback(
+      base::BindLambdaForTesting([&]() { cancelled = true; }));
+  dialog.set_accept_callback(
+      base::BindLambdaForTesting([&]() { accepted = true; }));
+
+  // At this point DefaultClose() would invoke either Accept() or Cancel().
+  EXPECT_TRUE(dialog.Close());
+
+  EXPECT_FALSE(cancelled);
+  EXPECT_FALSE(accepted);
 }
 
 }  // namespace views

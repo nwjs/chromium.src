@@ -244,16 +244,8 @@ component("vr_common") {
     "platform_controller.h",
     "scheduler_browser_renderer_interface.h",
     "scheduler_delegate.h",
-    "service/browser_xr_runtime.cc",
-    "service/browser_xr_runtime.h",
-    "service/gvr_consent_helper.cc",
-    "service/gvr_consent_helper.h",
-    "service/vr_service_impl.cc",
-    "service/vr_service_impl.h",
     "service/xr_device_service.cc",
     "service/xr_device_service.h",
-    "service/xr_runtime_manager.cc",
-    "service/xr_runtime_manager.h",
     "service/xr_runtime_manager_observer.h",
     "service/xr_session_request_consent_manager.cc",
     "service/xr_session_request_consent_manager.h",
@@ -271,13 +263,6 @@ component("vr_common") {
     "platform_controller_for_testing.h",
   ]
 
-  if (enable_arcore) {
-    sources += [
-      "service/arcore_consent_prompt_interface.cc",
-      "service/arcore_consent_prompt_interface.h",
-    ]
-  }
-
   public_deps = [
     ":vr_base",
     "//device/vr/public/mojom",
@@ -293,6 +278,7 @@ component("vr_common") {
     "//components/rappor/public:public",
     "//components/ukm/content",
     "//content/public/browser",
+    "//device/base",
     "//device/vr",
     "//device/vr/buildflags:buildflags",
     "//device/vr/public/mojom",
@@ -454,18 +440,12 @@ component("vr_base") {
 }
 
 source_set("vr_gl_bindings") {
-  sources = [
-    "gl_bindings.h",
-  ]
+  sources = [ "gl_bindings.h" ]
   public_configs = [ ":vr_gl_mode" ]
   if (use_command_buffer) {
-    public_deps = [
-      "//gpu/command_buffer/client:gles2_c_lib",
-    ]
+    public_deps = [ "//gpu/command_buffer/client:gles2_c_lib" ]
   } else {
-    public_deps = [
-      "//ui/gl",
-    ]
+    public_deps = [ "//ui/gl" ]
   }
 }
 
@@ -521,15 +501,24 @@ test("vr_common_unittests") {
 
   deps = [
     ":vr_test_support",
+    "//chrome/browser",
+    "//chrome/test:test_support",
     "//components/url_formatter",
     "//components/vector_icons",
+    "//content/test:test_support",
     "//mojo/public/cpp/bindings",
     "//services/network:test_support",
     "//testing/gmock",
     "//ui/gfx/geometry",
   ]
   if (is_android) {
-    deps += [ "//ui/android:ui_java" ]
+    deps += [
+      "//chrome:chrome_android_core",
+      "//ui/android:ui_java",
+    ]
+  }
+  if (is_win) {
+    configs += [ "//build/config/win:delayloads" ]
   }
 }
 
@@ -567,9 +556,7 @@ test("vr_common_perftests") {
   }
 
   # Needed for isolate script to execute
-  data_deps = [
-    "//testing:run_perf_test",
-  ]
+  data_deps = [ "//testing:run_perf_test" ]
 }
 
 source_set("vr_test_support") {
@@ -598,7 +585,6 @@ source_set("vr_test_support") {
 
   public_deps = [
     ":vr_common",
-    ":vr_test_pak",
     ":vr_ui",
     "//base/test:test_support",
     "//cc:test_support",
@@ -619,9 +605,7 @@ source_set("vr_test_support") {
     # doesn't propagate to individual test executable targets.
   ]
 
-  data = [
-    "$root_out_dir/vr_test.pak",
-  ]
+  data_deps = [ ":vr_test_pak" ]
 }
 
 source_set("vr_gl_test_support") {
@@ -746,9 +730,7 @@ if (!is_android) {
 }
 
 fuzzer_test("vr_omnibox_formatting_fuzzer") {
-  sources = [
-    "elements/omnibox_formatting_fuzzer.cc",
-  ]
+  sources = [ "elements/omnibox_formatting_fuzzer.cc" ]
   deps = [
     ":vr_common",
     ":vr_ui",

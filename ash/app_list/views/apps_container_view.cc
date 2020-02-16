@@ -62,25 +62,26 @@ AppsContainerView::AppsContainerView(ContentsView* contents_view,
     : contents_view_(contents_view) {
   SetPaintToLayer(ui::LAYER_NOT_DRAWN);
 
-  suggestion_chip_container_view_ =
-      new SuggestionChipContainerView(contents_view);
-  AddChildView(suggestion_chip_container_view_);
+  suggestion_chip_container_view_ = AddChildView(
+      std::make_unique<SuggestionChipContainerView>(contents_view));
 
-  apps_grid_view_ = new AppsGridView(contents_view_, nullptr);
-  AddChildView(apps_grid_view_);
+  apps_grid_view_ =
+      AddChildView(std::make_unique<AppsGridView>(contents_view_, nullptr));
 
   // Page switcher should be initialized after AppsGridView.
-  page_switcher_ =
-      new PageSwitcher(apps_grid_view_->pagination_model(), true /* vertical */,
-                       contents_view_->app_list_view()->is_tablet_mode());
-  AddChildView(page_switcher_);
+  auto page_switcher = std::make_unique<PageSwitcher>(
+      apps_grid_view_->pagination_model(), true /* vertical */,
+      contents_view_->app_list_view()->is_tablet_mode());
+  page_switcher_ = AddChildView(std::move(page_switcher));
 
-  app_list_folder_view_ = new AppListFolderView(this, model, contents_view_);
+  auto app_list_folder_view =
+      std::make_unique<AppListFolderView>(this, model, contents_view_);
   // The folder view is initially hidden.
-  app_list_folder_view_->SetVisible(false);
-  folder_background_view_ = new FolderBackgroundView(app_list_folder_view_);
-  AddChildView(folder_background_view_);
-  AddChildView(app_list_folder_view_);
+  app_list_folder_view->SetVisible(false);
+  auto folder_background_view =
+      std::make_unique<FolderBackgroundView>(app_list_folder_view.get());
+  folder_background_view_ = AddChildView(std::move(folder_background_view));
+  app_list_folder_view_ = AddChildView(std::move(app_list_folder_view));
 
   apps_grid_view_->SetModel(model);
   apps_grid_view_->SetItemList(model->top_level_item_list());
@@ -158,38 +159,36 @@ void AppsContainerView::ReparentDragEnded() {
   show_state_ = AppsContainerView::SHOW_APPS;
 }
 
-void AppsContainerView::UpdateControlVisibility(
-    ash::AppListViewState app_list_state,
-    bool is_in_drag) {
-  if (app_list_state == ash::AppListViewState::kClosed)
+void AppsContainerView::UpdateControlVisibility(AppListViewState app_list_state,
+                                                bool is_in_drag) {
+  if (app_list_state == AppListViewState::kClosed)
     return;
 
   set_can_process_events_within_subtree(
-      app_list_state == ash::AppListViewState::kFullscreenAllApps ||
-      app_list_state == ash::AppListViewState::kPeeking);
+      app_list_state == AppListViewState::kFullscreenAllApps ||
+      app_list_state == AppListViewState::kPeeking);
 
   apps_grid_view_->UpdateControlVisibility(app_list_state, is_in_drag);
   page_switcher_->SetVisible(
-      is_in_drag ||
-      app_list_state == ash::AppListViewState::kFullscreenAllApps ||
+      is_in_drag || app_list_state == AppListViewState::kFullscreenAllApps ||
       (app_list_features::IsScalableAppListEnabled() &&
-       app_list_state == ash::AppListViewState::kFullscreenSearch));
+       app_list_state == AppListViewState::kFullscreenSearch));
 
   // Ignore button press during dragging to avoid app list item views' opacity
   // being set to wrong value.
   page_switcher_->set_ignore_button_press(is_in_drag);
 
   suggestion_chip_container_view_->SetVisible(
-      app_list_state == ash::AppListViewState::kFullscreenAllApps ||
-      app_list_state == ash::AppListViewState::kPeeking || is_in_drag);
+      app_list_state == AppListViewState::kFullscreenAllApps ||
+      app_list_state == AppListViewState::kPeeking || is_in_drag);
 }
 
 void AppsContainerView::AnimateOpacity(float current_progress,
-                                       ash::AppListViewState target_view_state,
+                                       AppListViewState target_view_state,
                                        const OpacityAnimator& animator) {
   const bool target_suggestion_chip_visibility =
-      target_view_state == ash::AppListViewState::kFullscreenAllApps ||
-      target_view_state == ash::AppListViewState::kPeeking;
+      target_view_state == AppListViewState::kFullscreenAllApps ||
+      target_view_state == AppListViewState::kPeeking;
   animator.Run(suggestion_chip_container_view_,
                target_suggestion_chip_visibility);
 
@@ -200,16 +199,15 @@ void AppsContainerView::AnimateOpacity(float current_progress,
   }
 
   const bool target_grid_visibility =
-      target_view_state == ash::AppListViewState::kFullscreenAllApps ||
-      target_view_state == ash::AppListViewState::kFullscreenSearch;
+      target_view_state == AppListViewState::kFullscreenAllApps ||
+      target_view_state == AppListViewState::kFullscreenSearch;
   animator.Run(apps_grid_view_, target_grid_visibility);
 
   animator.Run(page_switcher_, target_grid_visibility);
 }
 
-void AppsContainerView::AnimateYPosition(
-    ash::AppListViewState target_view_state,
-    const TransformAnimator& animator) {
+void AppsContainerView::AnimateYPosition(AppListViewState target_view_state,
+                                         const TransformAnimator& animator) {
   const int target_suggestion_chip_y = GetExpectedSuggestionChipY(
       AppListView::GetTransitionProgressForState(target_view_state));
 
@@ -263,6 +261,14 @@ void AppsContainerView::UpdateYPositionAndOpacity(float progress,
                         chip_grid_y_distance_);
   page_switcher_->SetY(suggestion_chip_container_view_->y() +
                        chip_grid_y_distance_);
+
+  // If app list is in drag, reset transforms that might started animating in
+  // AnimateYPosition().
+  if (app_list_view->is_in_drag()) {
+    suggestion_chip_container_view_->layer()->SetTransform(gfx::Transform());
+    apps_grid_view_->layer()->SetTransform(gfx::Transform());
+    page_switcher_->layer()->SetTransform(gfx::Transform());
+  }
 }
 
 void AppsContainerView::OnTabletModeChanged(bool started) {
@@ -320,7 +326,7 @@ void AppsContainerView::Layout() {
         const gfx::Insets grid_insets = apps_grid_view_->GetInsets();
         const gfx::Insets margins = CalculateMarginsForAvailableBounds(
             GetContentsBounds(),
-            contents_view_->GetSearchBoxSize(ash::AppListState::kStateApps),
+            contents_view_->GetSearchBoxSize(AppListState::kStateApps),
             true /*for_full_container_bounds*/);
         grid_rect.Inset(
             margins.left(),
@@ -428,8 +434,7 @@ views::View* AppsContainerView::GetFirstFocusableView() {
       this, GetWidget(), false /* reverse */, false /* dont_loop */);
 }
 
-gfx::Rect AppsContainerView::GetPageBoundsForState(
-    ash::AppListState state) const {
+gfx::Rect AppsContainerView::GetPageBoundsForState(AppListState state) const {
   return contents_view_->GetContentsBounds();
 }
 
@@ -522,6 +527,17 @@ void AppsContainerView::UpdateSuggestionChips() {
           ->results());
 }
 
+base::ScopedClosureRunner AppsContainerView::DisableSuggestionChipsBlur() {
+  ++suggestion_chips_blur_disabler_count_;
+
+  if (suggestion_chips_blur_disabler_count_ == 1)
+    suggestion_chip_container_view_->SetBlurDisabled(true);
+
+  return base::ScopedClosureRunner(
+      base::BindOnce(&AppsContainerView::OnSuggestionChipsBlurDisablerReleased,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
 const AppListConfig& AppsContainerView::GetAppListConfig() const {
   return contents_view_->app_list_view()->GetAppListConfig();
 }
@@ -590,7 +606,7 @@ int AppsContainerView::GetSuggestionChipContainerTopMargin(
 int AppsContainerView::GetExpectedSuggestionChipY(float progress) {
   const gfx::Rect search_box_bounds =
       contents_view_->GetSearchBoxExpectedBoundsForProgress(
-          ash::AppListState::kStateApps, progress);
+          AppListState::kStateApps, progress);
   return search_box_bounds.bottom() +
          GetSuggestionChipContainerTopMargin(progress);
 }
@@ -614,6 +630,14 @@ AppsContainerView::GridLayout AppsContainerView::CalculateGridLayout() const {
     result.rows = config.preferred_rows();
   }
   return result;
+}
+
+void AppsContainerView::OnSuggestionChipsBlurDisablerReleased() {
+  DCHECK_GT(suggestion_chips_blur_disabler_count_, 0u);
+  --suggestion_chips_blur_disabler_count_;
+
+  if (suggestion_chips_blur_disabler_count_ == 0)
+    suggestion_chip_container_view_->SetBlurDisabled(false);
 }
 
 }  // namespace ash

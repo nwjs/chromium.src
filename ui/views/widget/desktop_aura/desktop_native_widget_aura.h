@@ -107,15 +107,13 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   void UpdateWindowTransparency();
 
  protected:
-  // Overridden from internal::NativeWidgetPrivate:
+  // internal::NativeWidgetPrivate:
   void InitNativeWidget(Widget::InitParams params) override;
   void OnWidgetInitDone() override;
   NonClientFrameView* CreateNonClientFrameView() override;
   bool ShouldUseNativeFrame() const override;
   bool ShouldWindowContentsBeTransparent() const override;
   void FrameTypeChanged() override;
-  Widget* GetWidget() override;
-  const Widget* GetWidget() const override;
   gfx::NativeView GetNativeView() const override;
   Widget* GetTopLevelWidget() override;
   const ui::Compositor* GetCompositor() const override;
@@ -198,9 +196,11 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   bool IsTranslucentWindowOpacitySupported() const override;
   ui::GestureRecognizer* GetGestureRecognizer() override;
   void OnSizeConstraintsChanged() override;
+  void OnNativeViewHierarchyWillChange() override;
+  void OnNativeViewHierarchyChanged() override;
   std::string GetName() const override;
 
-  // Overridden from aura::WindowDelegate:
+  // aura::WindowDelegate:
   gfx::Size GetMinimumSize() const override;
   gfx::Size GetMaximumSize() const override;
   void OnBoundsChanged(const gfx::Rect& old_bounds,
@@ -222,32 +222,32 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
   void GetHitTestMask(SkPath* mask) const override;
   void UpdateVisualState() override;
 
-  // Overridden from ui::EventHandler:
+  // ui::EventHandler:
   void OnKeyEvent(ui::KeyEvent* event) override;
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnScrollEvent(ui::ScrollEvent* event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
 
-  // Overridden from wm::ActivationDelegate:
+  // wm::ActivationDelegate:
   bool ShouldActivate() const override;
 
-  // Overridden from wm::ActivationChangeObserver:
+  // wm::ActivationChangeObserver:
   void OnWindowActivated(wm::ActivationChangeObserver::ActivationReason reason,
                          aura::Window* gained_active,
                          aura::Window* lost_active) override;
 
-  // Overridden from aura::client::FocusChangeObserver:
+  // aura::client::FocusChangeObserver:
   void OnWindowFocused(aura::Window* gained_focus,
                        aura::Window* lost_focus) override;
 
-  // Overridden from aura::client::DragDropDelegate:
+  // ura::client::DragDropDelegate:
   void OnDragEntered(const ui::DropTargetEvent& event) override;
   int OnDragUpdated(const ui::DropTargetEvent& event) override;
   void OnDragExited() override;
   int OnPerformDrop(const ui::DropTargetEvent& event,
                     std::unique_ptr<ui::OSExchangeData> data) override;
 
-  // Overridden from aura::WindowTreeHostObserver:
+  // aura::WindowTreeHostObserver:
   void OnHostCloseRequested(aura::WindowTreeHost* host) override;
   void OnHostResized(aura::WindowTreeHost* host) override;
   void OnHostWorkspaceChanged(aura::WindowTreeHost* host) override;
@@ -261,6 +261,9 @@ class VIEWS_EXPORT DesktopNativeWidgetAura
 
   // Notify the root view of our widget of a native accessibility event.
   void NotifyAccessibilityEvent(ax::mojom::Event event_type);
+
+  // internal::NativeWidgetPrivate
+  const Widget* GetWidgetImpl() const override;
 
   std::unique_ptr<aura::WindowTreeHost> host_;
   DesktopWindowTreeHost* desktop_window_tree_host_;

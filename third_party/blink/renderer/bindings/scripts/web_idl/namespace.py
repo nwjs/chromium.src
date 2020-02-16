@@ -60,6 +60,7 @@ class Namespace(UserDefinedType, WithExtendedAttributes, WithCodeGeneratorInfo,
             WithDebugInfo.__init__(self, debug_info)
 
             self.is_partial = is_partial
+            self.is_mixin = False
             self.attributes = list(attributes)
             self.constants = list(constants)
             self.constructors = []
@@ -81,7 +82,7 @@ class Namespace(UserDefinedType, WithExtendedAttributes, WithCodeGeneratorInfo,
 
         ir = make_copy(ir)
         UserDefinedType.__init__(self, ir.identifier)
-        WithExtendedAttributes.__init__(self, ir)
+        WithExtendedAttributes.__init__(self, ir, readonly=True)
         WithCodeGeneratorInfo.__init__(self, ir, readonly=True)
         WithExposure.__init__(self, ir, readonly=True)
         WithComponent.__init__(self, ir, readonly=True)
@@ -140,3 +141,8 @@ class Namespace(UserDefinedType, WithExtendedAttributes, WithCodeGeneratorInfo,
     def operation_groups(self):
         """Returns a list of OperationGroups."""
         return self._operation_groups
+
+    @property
+    def exposed_constructs(self):
+        """Returns exposed constructs."""
+        return ()

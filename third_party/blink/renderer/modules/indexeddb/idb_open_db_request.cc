@@ -165,7 +165,7 @@ void IDBOpenDBRequest::EnqueueResponse(int64_t old_version) {
     // This database hasn't had an integer version before.
     old_version = IDBDatabaseMetadata::kDefaultVersion;
   }
-  SetResult(IDBAny::CreateUndefined());
+  SetResult(MakeGarbageCollected<IDBAny>(IDBAny::kUndefinedType));
   EnqueueEvent(MakeGarbageCollected<IDBVersionChangeEvent>(
       event_type_names::kSuccess, old_version, base::nullopt));
 }
@@ -180,6 +180,15 @@ bool IDBOpenDBRequest::ShouldEnqueueEvent() const {
 }
 
 DispatchEventResult IDBOpenDBRequest::DispatchEventInternal(Event& event) {
+  // If this event originated from script, it should have no side effects.
+  if (!event.isTrusted())
+    return IDBRequest::DispatchEventInternal(event);
+  DCHECK(event.type() == event_type_names::kSuccess ||
+         event.type() == event_type_names::kError ||
+         event.type() == event_type_names::kBlocked ||
+         event.type() == event_type_names::kUpgradeneeded)
+      << "event type was " << event.type();
+
   // If the connection closed between onUpgradeNeeded and the delivery of the
   // "success" event, an "error" event should be fired instead.
   if (event.type() == event_type_names::kSuccess &&

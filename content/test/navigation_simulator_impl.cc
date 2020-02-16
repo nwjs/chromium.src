@@ -472,7 +472,7 @@ void NavigationSimulatorImpl::Redirect(const GURL& new_url) {
   redirect_info.status_code = 302;
   redirect_info.new_method = "GET";
   redirect_info.new_url = new_url;
-  redirect_info.new_site_for_cookies = new_url;
+  redirect_info.new_site_for_cookies = net::SiteForCookies::FromUrl(new_url);
   redirect_info.new_referrer = referrer_->url.spec();
   redirect_info.new_referrer_policy =
       Referrer::ReferrerPolicyForUrlRequest(referrer_->policy);
@@ -609,7 +609,7 @@ void NavigationSimulatorImpl::Commit() {
       request_, std::move(params), std::move(interface_provider_receiver_),
       std::move(browser_interface_broker_receiver_), same_document_);
 
-  SimulateSwapOutACKForPreviousFrameIfNeeded(previous_rfh);
+  SimulateUnloadACKForPreviousFrameIfNeeded(previous_rfh);
 
   loading_scenario_ =
       TestRenderFrameHost::LoadingScenario::NewDocumentNavigation;
@@ -746,7 +746,7 @@ void NavigationSimulatorImpl::CommitErrorPage() {
       request_, std::move(params), std::move(interface_provider_receiver_),
       std::move(browser_interface_broker_receiver_), false /* same_document */);
 
-  SimulateSwapOutACKForPreviousFrameIfNeeded(previous_rfh);
+  SimulateUnloadACKForPreviousFrameIfNeeded(previous_rfh);
 
   state_ = FINISHED;
   if (!keep_loading_)
@@ -1017,8 +1017,8 @@ void NavigationSimulatorImpl::DidFinishNavigation(
       RenderFrameHostImpl* previous_rfh = RenderFrameHostImpl::FromID(
           navigation_handle->GetPreviousRenderFrameHostId());
       CHECK(previous_rfh) << "Previous RenderFrameHost should not be destroyed "
-                             "without a SwapOut_ACK";
-      SimulateSwapOutACKForPreviousFrameIfNeeded(previous_rfh);
+                             "without a Unload_ACK";
+      SimulateUnloadACKForPreviousFrameIfNeeded(previous_rfh);
       state_ = FINISHED;
     }
     request_ = nullptr;
@@ -1113,8 +1113,7 @@ bool NavigationSimulatorImpl::SimulateRendererInitiatedStart() {
           GURL() /* client_side_redirect_url */,
           base::nullopt /* detools_initiator_info */,
           false /* attach_same_site_cookies */);
-  mojom::CommonNavigationParamsPtr common_params =
-      mojom::CommonNavigationParams::New();
+  auto common_params = CreateCommonNavigationParams();
   common_params->navigation_start = base::TimeTicks::Now();
   common_params->url = navigation_url_;
   common_params->initiator_origin = url::Origin();
@@ -1126,9 +1125,9 @@ bool NavigationSimulatorImpl::SimulateRendererInitiatedStart() {
           ? mojom::NavigationType::RELOAD
           : mojom::NavigationType::DIFFERENT_DOCUMENT;
   common_params->has_user_gesture = has_user_gesture_;
-  common_params->initiator_csp_info =
-      InitiatorCSPInfo(should_check_main_world_csp_,
-                       std::vector<ContentSecurityPolicy>(), base::nullopt);
+  common_params->initiator_csp_info = mojom::InitiatorCSPInfo::New(
+      should_check_main_world_csp_,
+      std::vector<network::mojom::ContentSecurityPolicyPtr>(), nullptr);
 
   mojo::PendingAssociatedRemote<mojom::NavigationClient>
       navigation_client_remote;
@@ -1327,6 +1326,15 @@ NavigationSimulatorImpl::BuildDidCommitProvisionalLoadParams(
     params->document_sequence_number = ++g_unique_identifier;
   }
 
+  // Simulate embedding token creation.
+  if (!same_document && !request_->IsInMainFrame()) {
+    RenderFrameHostImpl* parent = request_->GetParentFrame();
+    if (parent && parent->GetSiteInstance() !=
+                      request_->GetRenderFrameHost()->GetSiteInstance()) {
+      params->embedding_token = base::UnguessableToken::Create();
+    }
+  }
+
   params->page_state =
       page_state_.value_or(PageState::CreateForTestingWithSequenceNumbers(
           navigation_url_, params->item_sequence_number,
@@ -1344,28 +1352,26 @@ void NavigationSimulatorImpl::StopLoading() {
   render_frame_host_->SimulateLoadingCompleted(loading_scenario_);
 }
 
-void NavigationSimulatorImpl::FailLoading(
-    const GURL& url,
-    int error_code,
-    const base::string16& error_description) {
+void NavigationSimulatorImpl::FailLoading(const GURL& url, int error_code) {
   CHECK(render_frame_host_);
-  render_frame_host_->DidFailLoadWithError(url, error_code, error_description);
+  render_frame_host_->DidFailLoadWithError(url, error_code);
 }
 
-void NavigationSimulatorImpl::SimulateSwapOutACKForPreviousFrameIfNeeded(
+void NavigationSimulatorImpl::SimulateUnloadACKForPreviousFrameIfNeeded(
     RenderFrameHostImpl* previous_rfh) {
-  // Do not dispatch SwapOutACK if the navigation was committed in the same
-  // RenderFrameHost.
+  // Do not dispatch FrameHostMsg_Unload_ACK if the navigation was committed in
+  // the same RenderFrameHost.
   if (previous_rfh == render_frame_host_)
     return;
-  if (drop_swap_out_ack_)
+  if (drop_unload_ack_)
     return;
   // The previous RenderFrameHost entered the back-forward cache and hasn't been
-  // requested to swap out. The browser process do not expect any swap out ACK.
+  // requested to unload. The browser process do not expect
+  // FrameHostMsg_Unload_ACK.
   if (previous_rfh->is_in_back_forward_cache())
     return;
   previous_rfh->OnMessageReceived(
-      FrameHostMsg_SwapOut_ACK(previous_rfh->GetRoutingID()));
+      FrameHostMsg_Unload_ACK(previous_rfh->GetRoutingID()));
 }
 
 }  // namespace content

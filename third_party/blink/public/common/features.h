@@ -28,8 +28,9 @@ BLINK_COMMON_EXPORT extern const base::Feature kFreezeUserAgent;
 BLINK_COMMON_EXPORT extern const base::Feature kImplicitRootScroller;
 BLINK_COMMON_EXPORT extern const base::Feature kCSSOMViewScrollCoordinates;
 BLINK_COMMON_EXPORT extern const base::Feature kDisplayLocking;
-BLINK_COMMON_EXPORT extern const base::Feature kDoNotCompositeTrivial3D;
-BLINK_COMMON_EXPORT extern const base::Feature kFastBorderRadius;
+BLINK_COMMON_EXPORT extern const base::Feature
+    kAssumeOverlapAfterFixedOrStickyPosition;
+BLINK_COMMON_EXPORT extern const base::Feature kJSONModules;
 BLINK_COMMON_EXPORT extern const base::Feature kLayoutNG;
 BLINK_COMMON_EXPORT extern const base::Feature kMixedContentAutoupgrade;
 BLINK_COMMON_EXPORT extern const base::Feature kNavigationPredictor;
@@ -42,6 +43,7 @@ BLINK_COMMON_EXPORT extern const base::Feature
     kPreviewsResourceLoadingHintsSpecificResourceTypes;
 BLINK_COMMON_EXPORT extern const base::Feature
     kPurgeRendererMemoryWhenBackgrounded;
+BLINK_COMMON_EXPORT extern const base::Feature kRawClipboard;
 BLINK_COMMON_EXPORT extern const base::Feature kRTCGetDisplayMedia;
 BLINK_COMMON_EXPORT extern const base::Feature kRTCUnifiedPlanByDefault;
 BLINK_COMMON_EXPORT extern const base::Feature kRTCOfferExtmapAllowMixed;
@@ -53,8 +55,6 @@ BLINK_COMMON_EXPORT extern const base::Feature kWebRtcH264WithOpenH264FFmpeg;
 #endif  // BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
 
 BLINK_COMMON_EXPORT extern const base::Feature kResourceLoadViaDataPipe;
-BLINK_COMMON_EXPORT extern const base::Feature
-    kServiceWorkerImportedScriptUpdateCheck;
 BLINK_COMMON_EXPORT extern const base::Feature kServiceWorkerUpdateDelay;
 BLINK_COMMON_EXPORT extern const base::Feature kStopInBackground;
 BLINK_COMMON_EXPORT extern const base::Feature
@@ -63,6 +63,7 @@ BLINK_COMMON_EXPORT extern const base::Feature kStopNonTimersInBackground;
 BLINK_COMMON_EXPORT extern const base::Feature kStorageAccessAPI;
 BLINK_COMMON_EXPORT extern const base::Feature kTextFragmentAnchor;
 BLINK_COMMON_EXPORT extern const base::Feature kWasmCodeCache;
+BLINK_COMMON_EXPORT extern const base::Feature kFontAccess;
 BLINK_COMMON_EXPORT extern const base::Feature kNativeFileSystemAPI;
 BLINK_COMMON_EXPORT extern const base::Feature kFileHandlingAPI;
 BLINK_COMMON_EXPORT extern const base::Feature kAllowSyncXHRInPageDismissal;
@@ -110,9 +111,6 @@ BLINK_COMMON_EXPORT extern const base::Feature kBlinkHeapIncrementalMarking;
 BLINK_COMMON_EXPORT extern const base::Feature
     kBlinkHeapIncrementalMarkingStress;
 
-BLINK_COMMON_EXPORT extern const base::Feature kBufferingBytesConsumerDelay;
-BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
-    kBufferingBytesConsumerDelayMilliseconds;
 BLINK_COMMON_EXPORT extern const base::Feature
     kVerifyHTMLFetchedFromAppCacheBeforeDelay;
 
@@ -128,19 +126,12 @@ BLINK_COMMON_EXPORT extern const base::Feature
 
 BLINK_COMMON_EXPORT extern const base::Feature kARIAAnnotations;
 
-BLINK_COMMON_EXPORT extern const base::Feature kDisableDirectlyCompositedImages;
 BLINK_COMMON_EXPORT extern const base::Feature kCompositeCrossOriginIframes;
+BLINK_COMMON_EXPORT extern const base::Feature kVizHitTestOcclusionCheck;
 
 BLINK_COMMON_EXPORT extern const base::Feature kSubresourceRedirect;
 
 BLINK_COMMON_EXPORT extern const base::Feature kSetLowPriorityForBeacon;
-
-BLINK_COMMON_EXPORT extern const base::Feature
-    kSetDetachedWindowReasonByNavigation;
-BLINK_COMMON_EXPORT extern const base::Feature
-    kSetDetachedWindowReasonByClosing;
-BLINK_COMMON_EXPORT extern const base::Feature
-    kSetDetachedWindowReasonByOtherReason;
 
 BLINK_COMMON_EXPORT extern const base::Feature kCacheStorageCodeCacheHintHeader;
 BLINK_COMMON_EXPORT extern const base::FeatureParam<std::string>

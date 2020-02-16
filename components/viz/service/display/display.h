@@ -23,6 +23,7 @@
 #include "components/viz/service/display/display_scheduler.h"
 #include "components/viz/service/display/frame_rate_decider.h"
 #include "components/viz/service/display/output_surface_client.h"
+#include "components/viz/service/display/overlay_processor_interface.h"
 #include "components/viz/service/display/software_output_device_client.h"
 #include "components/viz/service/display/surface_aggregator.h"
 #include "components/viz/service/surfaces/latest_local_surface_id_lookup_delegate.h"
@@ -30,7 +31,7 @@
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/texture_in_use_response.h"
-#include "ui/gfx/color_space.h"
+#include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/overlay_transform.h"
 #include "ui/gfx/swap_result.h"
 #include "ui/latency/latency_info.h"
@@ -81,7 +82,8 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
           const RendererSettings& settings,
           const FrameSinkId& frame_sink_id,
           std::unique_ptr<OutputSurface> output_surface,
-          std::unique_ptr<DisplayScheduler> scheduler,
+          std::unique_ptr<OverlayProcessorInterface> overlay_processor,
+          std::unique_ptr<DisplaySchedulerBase> scheduler,
           scoped_refptr<base::SingleThreadTaskRunner> current_task_runner);
 
   ~Display() override;
@@ -124,19 +126,14 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   // display. This is only supported for GPU compositing.
   void SetColorMatrix(const SkMatrix44& matrix);
 
-  void SetColorSpace(
-      const gfx::ColorSpace& device_color_space,
-      float sdr_white_level = gfx::ColorSpace::kDefaultSDRWhiteLevel);
+  void SetDisplayColorSpaces(
+      const gfx::DisplayColorSpaces& display_color_spaces);
   void SetOutputIsSecure(bool secure);
 
   const SurfaceId& CurrentSurfaceId();
 
   // DisplaySchedulerClient implementation.
-  bool DrawAndSwap() override;
-  bool SurfaceHasUnackedFrame(const SurfaceId& surface_id) const override;
-  bool SurfaceDamaged(const SurfaceId& surface_id,
-                      const BeginFrameAck& ack) override;
-  void SurfaceDestroyed(const SurfaceId& surface_id) override;
+  bool DrawAndSwap(base::TimeTicks expected_display_time) override;
   void DidFinishFrame(const BeginFrameAck& ack) override;
 
   // OutputSurfaceClient implementation.
@@ -175,8 +172,10 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   base::ScopedClosureRunner GetCacheBackBufferCb();
 
   bool IsRootFrameMissing() const;
+  bool HasPendingSurfaces(const BeginFrameArgs& args) const;
 
  private:
+  friend class DisplayTest;
   // PresentationGroupTiming stores rendering pipeline stage timings associated
   // with a call to Display::DrawAndSwap along with a list of
   // Surface::PresentationHelper's for each aggregated Surface that will be
@@ -210,8 +209,6 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   // TODO(cblume, crbug.com/900973): |enable_shared_images| is a temporary
   // solution that unblocks us until SharedImages are threadsafe in WebView.
   void InitializeRenderer(bool enable_shared_images = true);
-  void UpdateRootFrameMissing();
-  void RunDrawCallbacks();
 
   // ContextLostObserver implementation.
   void OnContextLost() override;
@@ -226,8 +223,7 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   SurfaceId current_surface_id_;
   gfx::Size current_surface_size_;
   float device_scale_factor_ = 1.f;
-  gfx::ColorSpace device_color_space_ = gfx::ColorSpace::CreateSRGB();
-  float sdr_white_level_ = gfx::ColorSpace::kDefaultSDRWhiteLevel;
+  gfx::DisplayColorSpaces display_color_spaces_;
   bool visible_ = false;
   bool swapped_since_resize_ = false;
   bool output_is_secure_ = false;
@@ -238,7 +234,8 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
 #endif
   std::unique_ptr<OutputSurface> output_surface_;
   SkiaOutputSurface* const skia_output_surface_;
-  std::unique_ptr<DisplayScheduler> scheduler_;
+  std::unique_ptr<DisplayDamageTracker> damage_tracker_;
+  std::unique_ptr<DisplaySchedulerBase> scheduler_;
   std::unique_ptr<DisplayResourceProvider> resource_provider_;
   std::unique_ptr<SurfaceAggregator> aggregator_;
   std::unique_ptr<FrameRateDecider> frame_rate_decider_;
@@ -246,8 +243,8 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   scoped_refptr<base::SingleThreadTaskRunner> current_task_runner_;
   std::unique_ptr<DirectRenderer> renderer_;
   SoftwareRenderer* software_renderer_ = nullptr;
+  std::unique_ptr<OverlayProcessorInterface> overlay_processor_;
   std::vector<ui::LatencyInfo> stored_latency_info_;
-  std::vector<SurfaceId> surfaces_to_ack_on_next_draw_;
 
   // |pending_presentation_group_timings_| stores a
   // Display::PresentationGroupTiming for each group currently waiting for
@@ -255,12 +252,15 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
   base::circular_deque<Display::PresentationGroupTiming>
       pending_presentation_group_timings_;
 
+  bool disable_draw_until_resize_ = true;
+
   // Callback that will be run after all pending swaps have acked.
   base::OnceClosure no_pending_swaps_callback_;
 
   int64_t swapped_trace_id_ = 0;
   int64_t last_swap_ack_trace_id_ = 0;
   int64_t last_presented_trace_id_ = 0;
+  int pending_swaps_ = 0;
 
   // The height of the top-controls in the previously drawn frame.
   float last_top_controls_visible_height_ = 0.f;

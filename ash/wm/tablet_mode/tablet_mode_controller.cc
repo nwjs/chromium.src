@@ -10,6 +10,7 @@
 
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/fps_counter.h"
+#include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/tablet_mode.h"
 #include "ash/public/cpp/tablet_mode_observer.h"
@@ -435,6 +436,25 @@ bool TabletModeController::InTabletMode() const {
   return state_ == State::kInTabletMode || state_ == State::kEnteringTabletMode;
 }
 
+void TabletModeController::ForceUiTabletModeState(
+    base::Optional<bool> enabled) {
+  if (!enabled.has_value()) {
+    tablet_mode_behavior_ = kDefault;
+    forced_ui_mode_ = UiMode::kNone;
+    if (!SetIsInTabletPhysicalState(CalculateIsInTabletPhysicalState()))
+      UpdateUiTabletState();
+    return;
+  }
+  if (*enabled) {
+    tablet_mode_behavior_ = kLockInTabletMode;
+    forced_ui_mode_ = UiMode::kTabletMode;
+  } else {
+    tablet_mode_behavior_ = kLockInClamshellMode;
+    forced_ui_mode_ = UiMode::kClamshell;
+  }
+  UpdateUiTabletState();
+}
+
 void TabletModeController::SetEnabledForTest(bool enabled) {
   tablet_mode_behavior_ = enabled ? kOnForTest : kDefault;
 
@@ -619,6 +639,11 @@ void TabletModeController::OnLayerAnimationAborted(
 
 void TabletModeController::OnLayerAnimationEnded(
     ui::LayerAnimationSequence* sequence) {
+  // This may be called before |OnLayerAnimationScheduled()| if tablet is
+  // entered/exited while an animation is in progress, so we won't get
+  // stats/screenshot in those cases.
+  // TODO(sammiequon): We may want to remove the |fps_counter_| check and
+  // simplify things since those are edge cases.
   if (!fps_counter_ || !IsTransformAnimationSequence(sequence))
     return;
 
@@ -651,6 +676,9 @@ void TabletModeController::SetEnabledForDev(bool enabled) {
 }
 
 bool TabletModeController::ShouldShowOverviewButton() const {
+  if (!ShelfConfig::Get()->shelf_controls_shown())
+    return false;
+
   return AreInternalInputDeviceEventsBlocked() ||
          tablet_mode_behavior_.always_show_overview_button;
 }
@@ -676,21 +704,28 @@ void TabletModeController::SetTabletModeEnabledInternal(bool should_enable) {
     state_ = State::kEnteringTabletMode;
 
     // Take a screenshot if there is a top window that will get animated.
-    // Since with ash::features::kDragToSnapInClamshellMode enabled, we'll keep
-    // overview active after clamshell <-> tablet mode transition if it was
-    // active before transition, do not take screenshot if overview is active
-    // in this case.
     // TODO(sammiequon): Handle the case where the top window is not on the
     // primary display.
     aura::Window* top_window = TabletModeWindowManager::GetTopWindow();
     const bool top_window_on_primary_display =
         top_window &&
         top_window->GetRootWindow() == Shell::GetPrimaryRootWindow();
+    // If the top window was already animating (eg. tablet mode event received
+    // while create window animation still running), skip taking the screenshot.
+    // It will take a performance hit but will remove cases where the screenshot
+    // might not get deleted because of the extra animation observer methods
+    // getting fired.
+    const bool top_window_animating =
+        top_window && top_window->layer()->GetAnimator()->is_animating();
+    // Since with ash::features::kDragToSnapInClamshellMode enabled, we'll keep
+    // overview active after clamshell <-> tablet mode transition if it was
+    // active before transition, do not take screenshot if overview is active
+    // in this case.
     const bool overview_remain_active =
         IsClamshellSplitViewModeEnabled() &&
         Shell::Get()->overview_controller()->InOverviewSession();
     if (use_screenshot_for_test && top_window_on_primary_display &&
-        !overview_remain_active) {
+        !top_window_animating && !overview_remain_active) {
       TakeScreenshot(top_window);
     } else {
       FinishInitTabletMode();
@@ -1095,9 +1130,9 @@ bool TabletModeController::ShouldUiBeInTabletMode() const {
   return is_in_tablet_physical_state_;
 }
 
-void TabletModeController::SetIsInTabletPhysicalState(bool new_state) {
+bool TabletModeController::SetIsInTabletPhysicalState(bool new_state) {
   if (new_state == is_in_tablet_physical_state_)
-    return;
+    return false;
 
   is_in_tablet_physical_state_ = new_state;
 
@@ -1107,9 +1142,10 @@ void TabletModeController::SetIsInTabletPhysicalState(bool new_state) {
   // InputDeviceBlocker must always be updated, but don't update it here if the
   // UI state has changed because it's already done.
   if (UpdateUiTabletState())
-    return;
+    return true;
 
   UpdateInternalInputDevicesEventBlocker();
+  return true;
 }
 
 bool TabletModeController::UpdateUiTabletState() {

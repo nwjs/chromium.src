@@ -14,6 +14,7 @@
 #include "ash/shelf/hotseat_transition_animator.h"
 #include "ash/shelf/hotseat_widget.h"
 #include "ash/shelf/shelf_background_animator.h"
+#include "ash/shelf/shelf_component.h"
 #include "ash/shelf/shelf_layout_manager_observer.h"
 #include "ash/shelf/shelf_observer.h"
 #include "base/macros.h"
@@ -22,9 +23,7 @@
 namespace ash {
 enum class AnimationChangeType;
 class ApplicationDragAndDropHost;
-class BackButton;
 class FocusCycler;
-class HomeButton;
 class HotseatWidget;
 class LoginShelfView;
 class Shelf;
@@ -36,11 +35,12 @@ class StatusAreaWidget;
 // The ShelfWidget manages the shelf view (which contains the shelf icons) and
 // the status area widget. There is one ShelfWidget per display. It is created
 // early during RootWindowController initialization.
-class ASH_EXPORT ShelfWidget : public views::Widget,
+class ASH_EXPORT ShelfWidget : public AccessibilityObserver,
+                               public SessionObserver,
+                               public ShelfComponent,
                                public ShelfLayoutManagerObserver,
                                public ShelfObserver,
-                               public SessionObserver,
-                               public AccessibilityObserver {
+                               public views::Widget {
  public:
   explicit ShelfWidget(Shelf* shelf);
   ~ShelfWidget() override;
@@ -95,12 +95,6 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
   // See Shelf::GetScreenBoundsOfItemIconForWindow().
   gfx::Rect GetScreenBoundsOfItemIconForWindow(aura::Window* window);
 
-  // Returns the button that opens the app launcher.
-  HomeButton* GetHomeButton() const;
-
-  // Returns the browser back button.
-  BackButton* GetBackButton() const;
-
   // Returns the ApplicationDragAndDropHost for this shelf.
   ApplicationDragAndDropHost* GetDragAndDropHostForAppList();
 
@@ -113,6 +107,11 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
+
+  // ShelfComponent:
+  void CalculateTargetBounds() override;
+  gfx::Rect GetTargetBounds() const override;
+  void UpdateLayout(bool animate) override;
 
   // ShelfLayoutManagerObserver:
   void WillDeleteShelfLayoutManager() override;
@@ -144,6 +143,16 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
   // background.
   ui::Layer* GetAnimatingBackground();
 
+  // Gets the layer used to animate drag handle transitions between in-app and
+  // home.
+  ui::Layer* GetAnimatingDragHandle();
+
+  // Gets the view used to display the drag handle on the in-app shelf.
+  views::View* GetDragHandle();
+
+  // Sets opacity of login shelf buttons to be consistent with shelf icons.
+  void SetLoginShelfButtonOpacity(float target_opacity);
+
   // Internal implementation detail. Do not expose outside of tests.
   ShelfView* shelf_view_for_testing() const {
     return hotseat_widget()->GetShelfView();
@@ -151,6 +160,10 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
 
   ShelfBackgroundAnimator* background_animator_for_testing() {
     return &background_animator_;
+  }
+
+  HotseatTransitionAnimator* hotseat_transition_animator_for_testing() {
+    return hotseat_transition_animator_.get();
   }
 
  private:

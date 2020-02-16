@@ -40,7 +40,8 @@ cr.define('bluetooth_internals', function() {
   let userRequestedScanStop = false;
 
   /** @type {!mojom.BluetoothInternalsHandlerRemote} */
-  const bluetoothInternalsHandler = mojom.BluetoothInternalsHandler.getRemote();
+  const bluetoothInternalsHandler = mojom.BluetoothInternalsHandler.getRemote(
+      /*useBrowserInterfaceBroker=*/ true);
 
   /**
    * Observer for page changes. Used to update page title header.
@@ -52,7 +53,7 @@ cr.define('bluetooth_internals', function() {
   PageObserver.prototype = {
     __proto__: PageManager.Observer.prototype,
 
-    updateHistory: function(path) {
+    updateHistory(path) {
       window.location.hash = '#' + path;
     },
 
@@ -61,7 +62,7 @@ cr.define('bluetooth_internals', function() {
      * @override
      * @param {string} title
      */
-    updateTitle: function(title) {
+    updateTitle(title) {
       document.querySelector('.page-title').textContent = title;
     },
   };

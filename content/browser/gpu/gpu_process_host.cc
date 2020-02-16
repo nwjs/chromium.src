@@ -107,9 +107,8 @@ namespace content {
 
 base::subtle::Atomic32 GpuProcessHost::gpu_crash_count_ = 0;
 bool GpuProcessHost::crashed_before_ = false;
-int GpuProcessHost::hardware_accelerated_recent_crash_count_ = 0;
-int GpuProcessHost::swiftshader_recent_crash_count_ = 0;
-int GpuProcessHost::display_compositor_recent_crash_count_ = 0;
+int GpuProcessHost::recent_crash_count_ = 0;
+gpu::GpuMode GpuProcessHost::last_crash_mode_ = gpu::GpuMode::UNKNOWN;
 
 namespace {
 
@@ -121,12 +120,49 @@ constexpr char kProcessLifetimeEventsSwiftShader[] =
 constexpr char kProcessLifetimeEventsDisplayCompositor[] =
     "GPU.ProcessLifetimeEvents.DisplayCompositor";
 
+// Returns the UMA histogram name for the given GPU mode.
+const char* GetProcessLifetimeUmaName(gpu::GpuMode gpu_mode) {
+  switch (gpu_mode) {
+    // TODO(sgilhuly): Add separate histograms for the different hardware modes.
+    case gpu::GpuMode::HARDWARE_GL:
+    case gpu::GpuMode::HARDWARE_METAL:
+    case gpu::GpuMode::HARDWARE_VULKAN:
+      return kProcessLifetimeEventsHardwareAccelerated;
+    case gpu::GpuMode::SWIFTSHADER:
+      return kProcessLifetimeEventsSwiftShader;
+    case gpu::GpuMode::DISPLAY_COMPOSITOR:
+      return kProcessLifetimeEventsDisplayCompositor;
+    default:
+      NOTREACHED();
+      return nullptr;
+  }
+}
+
 // Forgive one GPU process crash after this many minutes.
 constexpr int kForgiveGpuCrashMinutes = 60;
 
 // Forgive one GPU process crash, when the GPU process is launched to run only
 // the display compositor, after this many minutes.
 constexpr int kForgiveDisplayCompositorCrashMinutes = 10;
+
+int GetForgiveMinutes(gpu::GpuMode gpu_mode) {
+  return gpu_mode == gpu::GpuMode::DISPLAY_COMPOSITOR
+             ? kForgiveDisplayCompositorCrashMinutes
+             : kForgiveGpuCrashMinutes;
+}
+
+#if !defined(OS_ANDROID)
+// Feature controlling whether or not memory pressure signals will be forwarded
+// to the GPU process.
+const base::Feature kForwardMemoryPressureEventsToGpuProcess{
+  "ForwardMemoryPressureEventsToGpuProcess",
+#if defined(OS_FUCHSIA)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
+#endif
 
 // This matches base::TerminationStatus.
 // These values are persisted to logs. Entries (except MAX_ENUM) should not be
@@ -191,10 +227,6 @@ static const char* const kSwitchNames[] = {
     service_manager::switches::kDisableGpuSandbox,
     service_manager::switches::kNoSandbox,
 #if defined(OS_WIN)
-    service_manager::switches::kAddGpuAppContainerCaps,
-    service_manager::switches::kDisableGpuAppContainer,
-    service_manager::switches::kDisableGpuLpac,
-    service_manager::switches::kEnableGpuAppContainer,
     switches::kDisableHighResTimer,
 #endif  // defined(OS_WIN)
     switches::kEnableANGLEFeatures,
@@ -396,10 +428,10 @@ class GpuSandboxedProcessLauncherDelegate
 #if defined(OS_WIN)
     if (cmd_line_.HasSwitch(service_manager::switches::kDisableGpuSandbox)) {
       DVLOG(1) << "GPU sandbox is disabled";
-      return service_manager::SANDBOX_TYPE_NO_SANDBOX;
+      return service_manager::SandboxType::kNoSandbox;
     }
 #endif
-    return service_manager::SANDBOX_TYPE_GPU;
+    return service_manager::SandboxType::kGpu;
   }
 
  private:
@@ -426,7 +458,7 @@ void RecordAppContainerStatus(int error_code, bool crashed_before) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (!crashed_before &&
       service_manager::SandboxWin::IsAppContainerEnabledForSandbox(
-          *command_line, service_manager::SANDBOX_TYPE_GPU)) {
+          *command_line, service_manager::SandboxType::kGpu)) {
     base::UmaHistogramSparse("GPU.AppContainer.Status", error_code);
   }
 }
@@ -605,24 +637,31 @@ int GpuProcessHost::GetGpuCrashCount() {
 }
 
 // static
-void GpuProcessHost::IncrementCrashCount(int forgive_minutes,
-                                         int* crash_count) {
+void GpuProcessHost::IncrementCrashCount(gpu::GpuMode gpu_mode) {
+  int forgive_minutes = GetForgiveMinutes(gpu_mode);
   DCHECK_GT(forgive_minutes, 0);
 
   // Last time the process crashed.
   static base::TimeTicks last_crash_time;
 
-  // Remove one crash per |forgive_minutes| from the crash count, so occasional
-  // crashes won't add up and eventually prevent using the GPU process.
   base::TimeTicks current_time = base::TimeTicks::Now();
-  if (crashed_before_) {
+  if (gpu_mode != last_crash_mode_) {
+    // Reset the crash count when the GPU starts crashing in a different mode.
+    recent_crash_count_ = 0;
+  } else if (crashed_before_) {
+    // Remove one crash per |forgive_minutes| from the crash count, so
+    // occasional crashes won't add up and eventually prevent using the GPU
+    // process.
     int minutes_delta = (current_time - last_crash_time).InMinutes();
     int crashes_to_forgive = minutes_delta / forgive_minutes;
-    *crash_count = std::max(0, *crash_count - crashes_to_forgive);
+    recent_crash_count_ = std::max(0, recent_crash_count_ - crashes_to_forgive);
   }
-  ++(*crash_count);
+  recent_crash_count_ =
+      std::min(recent_crash_count_ + 1,
+               static_cast<int>(GPU_PROCESS_LIFETIME_EVENT_MAX) - 1);
 
   crashed_before_ = true;
+  last_crash_mode_ = gpu_mode;
   last_crash_time = current_time;
 }
 
@@ -639,6 +678,14 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
           switches::kInProcessGPU)) {
     in_process_ = true;
   }
+#if !defined(OS_ANDROID)
+  if (!in_process_ &&
+      base::FeatureList::IsEnabled(kForwardMemoryPressureEventsToGpuProcess)) {
+    memory_pressure_listener_ =
+        std::make_unique<base::MemoryPressureListener>(base::BindRepeating(
+            &GpuProcessHost::OnMemoryPressure, base::Unretained(this)));
+  }
+#endif
 
   // If the 'single GPU process' policy ever changes, we still want to maintain
   // it for 'gpu thread' mode and only create one instance of host and thread.
@@ -953,7 +1000,7 @@ void GpuProcessHost::DidInitialize(
   // Android may kill the GPU process to free memory, especially when the app
   // is the background, so Android cannot have a hard limit on GPU starts.
   // Reset crash count on Android when context creation succeeds.
-  hardware_accelerated_recent_crash_count_ = 0;
+  recent_crash_count_ = 0;
 #endif
 }
 
@@ -968,7 +1015,7 @@ void GpuProcessHost::DidCreateContextSuccessfully() {
   // Android may kill the GPU process to free memory, especially when the app
   // is the background, so Android cannot have a hard limit on GPU starts.
   // Reset crash count on Android when context creation succeeds.
-  hardware_accelerated_recent_crash_count_ = 0;
+  recent_crash_count_ = 0;
 #endif
 }
 
@@ -1124,16 +1171,8 @@ bool GpuProcessHost::LaunchGpuProcess() {
   process_launched_ = true;
 
   if (kind_ == GPU_PROCESS_KIND_SANDBOXED) {
-    if (mode_ == gpu::GpuMode::HARDWARE_ACCELERATED) {
-      UMA_HISTOGRAM_ENUMERATION(kProcessLifetimeEventsHardwareAccelerated,
-                                LAUNCHED, GPU_PROCESS_LIFETIME_EVENT_MAX);
-    } else if (mode_ == gpu::GpuMode::SWIFTSHADER) {
-      UMA_HISTOGRAM_ENUMERATION(kProcessLifetimeEventsSwiftShader, LAUNCHED,
-                                GPU_PROCESS_LIFETIME_EVENT_MAX);
-    } else if (mode_ == gpu::GpuMode::DISPLAY_COMPOSITOR) {
-      UMA_HISTOGRAM_ENUMERATION(kProcessLifetimeEventsDisplayCompositor,
-                                LAUNCHED, GPU_PROCESS_LIFETIME_EVENT_MAX);
-    }
+    base::UmaHistogramEnumeration(GetProcessLifetimeUmaName(mode_), LAUNCHED,
+                                  GPU_PROCESS_LIFETIME_EVENT_MAX);
   }
 
   return true;
@@ -1169,32 +1208,13 @@ void GpuProcessHost::RecordProcessCrash() {
   LOG(WARNING) << "The GPU process has crashed " << GetGpuCrashCount()
                << " time(s)";
 
-  int recent_crash_count = 0;
-  if (mode_ == gpu::GpuMode::HARDWARE_ACCELERATED) {
-    IncrementCrashCount(kForgiveGpuCrashMinutes,
-                        &hardware_accelerated_recent_crash_count_);
-    UMA_HISTOGRAM_EXACT_LINEAR(
-        kProcessLifetimeEventsHardwareAccelerated,
-        DIED_FIRST_TIME + hardware_accelerated_recent_crash_count_ - 1,
-        static_cast<int>(GPU_PROCESS_LIFETIME_EVENT_MAX));
-    recent_crash_count = hardware_accelerated_recent_crash_count_;
-  } else if (mode_ == gpu::GpuMode::SWIFTSHADER) {
-    IncrementCrashCount(kForgiveGpuCrashMinutes,
-                        &swiftshader_recent_crash_count_);
-    UMA_HISTOGRAM_EXACT_LINEAR(
-        kProcessLifetimeEventsSwiftShader,
-        DIED_FIRST_TIME + swiftshader_recent_crash_count_ - 1,
-        static_cast<int>(GPU_PROCESS_LIFETIME_EVENT_MAX));
-    recent_crash_count = swiftshader_recent_crash_count_;
-  } else if (mode_ == gpu::GpuMode::DISPLAY_COMPOSITOR) {
-    IncrementCrashCount(kForgiveDisplayCompositorCrashMinutes,
-                        &display_compositor_recent_crash_count_);
-    UMA_HISTOGRAM_EXACT_LINEAR(
-        kProcessLifetimeEventsDisplayCompositor,
-        DIED_FIRST_TIME + display_compositor_recent_crash_count_ - 1,
-        static_cast<int>(GPU_PROCESS_LIFETIME_EVENT_MAX));
-    recent_crash_count = display_compositor_recent_crash_count_;
-  }
+  // It's possible GPU mode fallback has already happened. In this case, |mode_|
+  // will still be the mode of the failed process.
+  IncrementCrashCount(mode_);
+  base::UmaHistogramExactLinear(
+      GetProcessLifetimeUmaName(mode_),
+      DIED_FIRST_TIME + recent_crash_count_ - 1,
+      static_cast<int>(GPU_PROCESS_LIFETIME_EVENT_MAX));
 
   // GPU process initialization failed and fallback already happened.
   if (did_fail_initialize_)
@@ -1205,7 +1225,7 @@ void GpuProcessHost::RecordProcessCrash() {
 
   // GPU process crashed too many times, fallback on a different GPU process
   // mode.
-  if (recent_crash_count >= kGpuFallbackCrashCount && !disable_crash_limit)
+  if (recent_crash_count_ >= kGpuFallbackCrashCount && !disable_crash_limit)
     GpuDataManagerImpl::GetInstance()->FallBackToNextGpuMode();
 }
 
@@ -1217,5 +1237,12 @@ viz::mojom::GpuService* GpuProcessHost::gpu_service() {
 int GpuProcessHost::GetIDForTesting() const {
   return process_->GetData().id;
 }
+
+#if !defined(OS_ANDROID)
+void GpuProcessHost::OnMemoryPressure(
+    base::MemoryPressureListener::MemoryPressureLevel level) {
+  gpu_host_->gpu_service()->OnMemoryPressure(level);
+}
+#endif
 
 }  // namespace content

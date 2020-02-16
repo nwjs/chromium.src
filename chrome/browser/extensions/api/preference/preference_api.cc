@@ -27,10 +27,11 @@
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_pref_names.h"
+#include "components/embedder_support/pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/spellcheck/browser/pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "extensions/browser/extension_pref_value_map.h"
@@ -41,6 +42,7 @@
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/common/error_utils.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "media/media_buildflags.h"
@@ -88,8 +90,9 @@ const PrefMappingEntry kPrefMapping[] = {
     {"data_usage_reporting.enabled",
      data_reduction_proxy::prefs::kDataUsageReportingEnabled,
      APIPermission::kDataReductionProxy, APIPermission::kDataReductionProxy},
-    {"alternateErrorPagesEnabled", prefs::kAlternateErrorPagesEnabled,
-     APIPermission::kPrivacy, APIPermission::kPrivacy},
+    {"alternateErrorPagesEnabled",
+     embedder_support::kAlternateErrorPagesEnabled, APIPermission::kPrivacy,
+     APIPermission::kPrivacy},
     {"autofillEnabled", autofill::prefs::kAutofillEnabledDeprecated,
      APIPermission::kPrivacy, APIPermission::kPrivacy},
     {"autofillAddressEnabled", autofill::prefs::kAutofillProfileEnabled,
@@ -145,6 +148,15 @@ const PrefMappingEntry kPrefMapping[] = {
     {"autoclick", ash::prefs::kAccessibilityAutoclickEnabled,
      APIPermission::kAccessibilityFeaturesRead,
      APIPermission::kAccessibilityFeaturesModify},
+    {"caretHighlight", ash::prefs::kAccessibilityCaretHighlightEnabled,
+     APIPermission::kAccessibilityFeaturesRead,
+     APIPermission::kAccessibilityFeaturesModify},
+    {"cursorHighlight", ash::prefs::kAccessibilityCursorHighlightEnabled,
+     APIPermission::kAccessibilityFeaturesRead,
+     APIPermission::kAccessibilityFeaturesModify},
+    {"focusHighlight", ash::prefs::kAccessibilityFocusHighlightEnabled,
+     APIPermission::kAccessibilityFeaturesRead,
+     APIPermission::kAccessibilityFeaturesModify},
     {"highContrast", ash::prefs::kAccessibilityHighContrastEnabled,
      APIPermission::kAccessibilityFeaturesRead,
      APIPermission::kAccessibilityFeaturesModify},
@@ -161,6 +173,9 @@ const PrefMappingEntry kPrefMapping[] = {
      APIPermission::kAccessibilityFeaturesRead,
      APIPermission::kAccessibilityFeaturesModify},
     {"stickyKeys", ash::prefs::kAccessibilityStickyKeysEnabled,
+     APIPermission::kAccessibilityFeaturesRead,
+     APIPermission::kAccessibilityFeaturesModify},
+    {"switchAccess", ash::prefs::kAccessibilitySwitchAccessEnabled,
      APIPermission::kAccessibilityFeaturesRead,
      APIPermission::kAccessibilityFeaturesModify},
     {"virtualKeyboard", ash::prefs::kAccessibilityVirtualKeyboardEnabled,

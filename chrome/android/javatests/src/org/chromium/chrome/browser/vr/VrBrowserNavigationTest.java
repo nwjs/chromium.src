@@ -23,8 +23,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.test.BundleTestRule;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
@@ -33,7 +33,7 @@ import org.chromium.chrome.browser.history.HistoryItemView;
 import org.chromium.chrome.browser.history.HistoryPage;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.vr.rules.ChromeTabbedActivityVrTestRule;
@@ -45,12 +45,12 @@ import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
-import org.chromium.chrome.test.util.RenderTestRule;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.ClickUtils;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.ui.test.util.RenderTestRule;
 
 import java.io.IOException;
 import java.lang.annotation.Retention;
@@ -71,6 +71,9 @@ public class VrBrowserNavigationTest {
     // only ever runs in ChromeTabbedActivity.
     @Rule
     public ChromeTabbedActivityVrTestRule mTestRule = new ChromeTabbedActivityVrTestRule();
+
+    @Rule
+    public BundleTestRule mBundleTestRule = new BundleTestRule();
 
     @Rule
     public RenderTestRule mRenderTestRule =
@@ -532,13 +535,6 @@ public class VrBrowserNavigationTest {
         final Tab tab = mTestRule.getActivity().getActivityTab();
         int activityState =
                 ApplicationStatus.getStateForActivity(tab.getWindowAndroid().getActivity().get());
-        android.util.Log.i("crdebug",
-                "test "
-                        + " as: " + activityState + " cond: "
-                        + (activityState == ActivityState.PAUSED
-                                || activityState == ActivityState.STOPPED
-                                || activityState == ActivityState.DESTROYED));
-
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> ChromeTabUtils.simulateRendererKilledForTesting(tab, true));
 
@@ -708,9 +704,8 @@ public class VrBrowserNavigationTest {
                 UserFriendlyElementName.SUGGESTION_BOX, true /* visible */,
                 () -> { NativeUiUtils.inputString("chrome://"); });
         // Click near the bottom of the suggestion box to get the last suggestion, which for
-        // "chrome://" should be a valid chrome:// URL. The suggestion that triggers a search can
-        // be in either the middle or top spot depending on whether the
-        // OmniboxGroupSuggestionsBySearchVsUrl feature is enabled or not.
+        // "chrome://" should be a valid chrome:// URL. The suggestion that triggers a search will
+        // be in the top spot because we group by searches vs. URLs.
         NativeUiUtils.clickElement(UserFriendlyElementName.SUGGESTION_BOX, new PointF(0.0f, -0.4f));
         ChromeTabUtils.waitForTabPageLoaded(
                 mTestRule.getActivity().getActivityTab(), (String) null);

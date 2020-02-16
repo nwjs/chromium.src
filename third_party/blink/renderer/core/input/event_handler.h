@@ -29,9 +29,10 @@
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/optional.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_menu_source_type.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_input_event_result.h"
-#include "third_party/blink/public/platform/web_menu_source_type.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/events/text_event_input_type.h"
 #include "third_party/blink/renderer/core/input/fallback_cursor_event_manager.h"
@@ -139,7 +140,7 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
 
   // Performs a logical scroll that chains, crossing frames, starting from
   // the given node or a reasonable default (focus/last clicked).
-  bool BubblingScroll(ScrollDirection,
+  bool BubblingScroll(mojom::blink::ScrollDirection,
                       ScrollGranularity,
                       Node* starting_node = nullptr);
 
@@ -250,23 +251,6 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
   SelectionController& GetSelectionController() const {
     return *selection_controller_;
   }
-
-  // FIXME(nzolghadr): This function is technically a private function of
-  // EventHandler class. Making it public temporary to make it possible to
-  // move some code around in the refactoring process.
-  // Performs a chaining logical scroll, within a *single* frame, starting
-  // from either a provided starting node or a default based on the focused or
-  // most recently clicked node, falling back to the frame.
-  // Returns true if the scroll was consumed.
-  // direction - The logical direction to scroll in. This will be converted to
-  //             a physical direction for each LayoutBox we try to scroll
-  //             based on that box's writing mode.
-  // granularity - The units that the  scroll delta parameter is in.
-  // startNode - Optional. If provided, start chaining from the given node.
-  //             If not, use the current focus or last clicked node.
-  bool LogicalScroll(ScrollDirection,
-                     ScrollGranularity,
-                     Node* start_node = nullptr);
 
   bool IsPointerIdActiveOnFrame(PointerId, LocalFrame*) const;
 
@@ -388,7 +372,7 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
   void DefaultBackspaceEventHandler(KeyboardEvent*);
   void DefaultTabEventHandler(KeyboardEvent*);
   void DefaultEscapeEventHandler(KeyboardEvent*);
-  void DefaultArrowEventHandler(WebFocusType, KeyboardEvent*);
+  void DefaultArrowEventHandler(mojom::blink::FocusType, KeyboardEvent*);
 
   // |last_scrollbar_under_mouse_| is set when the mouse moves off of a
   // scrollbar, and used to notify it of MouseUp events to release mouse

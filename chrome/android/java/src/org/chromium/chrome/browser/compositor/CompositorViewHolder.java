@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.compositor;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -30,6 +31,8 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 
+import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.ObserverList;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.compat.ApiHelperForN;
@@ -84,6 +87,27 @@ public class CompositorViewHolder extends FrameLayout
                    FullscreenListener, InsetObserverView.WindowInsetObserver,
                    CompositorViewResizer.Observer {
     private static final long SYSTEM_UI_VIEWPORT_UPDATE_DELAY_MS = 500;
+
+    /**
+     * Observer interface for any object that needs to process touch events.
+     */
+    public interface TouchEventObserver {
+        /**
+         * Determine if touch events should be forwarded to the observing object.
+         * Should return {@link true} if the object decided to consume the events.
+         * @param e {@link MotionEvent} object to process.
+         * @return {@code true} if the observer will process touch events going forward.
+         */
+        boolean shouldInterceptTouchEvent(MotionEvent e);
+
+        /**
+         * Handle touch events.
+         * @param e {@link MotionEvent} object to process.
+         */
+        void handleTouchEvent(MotionEvent e);
+    }
+
+    private ObserverList<TouchEventObserver> mTouchEventObservers = new ObserverList<>();
 
     private EventOffsetHandler mEventOffsetHandler;
     private boolean mIsKeyboardShowing;
@@ -556,10 +580,28 @@ public class CompositorViewHolder extends FrameLayout
         return mInvalidator;
     }
 
+    /**
+     * Add observer that needs to listen and process touch events.
+     * @param o {@link TouchEventObserver} object.
+     */
+    public void addTouchEventObserver(TouchEventObserver o) {
+        mTouchEventObservers.addObserver(o);
+    }
+
+    /**
+     * Remove observer that needs to listen and process touch events.
+     * @param o {@link TouchEventObserver} object.
+     */
+    public void removeTouchEventObserver(TouchEventObserver o) {
+        mTouchEventObservers.removeObserver(o);
+    }
+
     @Override
     public boolean onInterceptTouchEvent(MotionEvent e) {
         super.onInterceptTouchEvent(e);
-
+        for (TouchEventObserver o : mTouchEventObservers) {
+            if (o.shouldInterceptTouchEvent(e)) return true;
+        }
         if (mLayoutManager == null) return false;
 
         mEventOffsetHandler.onInterceptTouchEvent(e);
@@ -603,6 +645,7 @@ public class CompositorViewHolder extends FrameLayout
     @Override
     public boolean dispatchTouchEvent(MotionEvent e) {
         updateLastActiveTouchEvent(e);
+        for (TouchEventObserver o : mTouchEventObservers) o.handleTouchEvent(e);
         return super.dispatchTouchEvent(e);
     }
 
@@ -758,7 +801,8 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
+    public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
+            int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {
         onViewportChanged();
         if (needsAnimate) requestRender();
     }
@@ -767,6 +811,7 @@ public class CompositorViewHolder extends FrameLayout
     public void onBottomControlsHeightChanged(
             int bottomControlsHeight, int bottomControlsMinHeight) {
         if (mTabVisible == null) return;
+        onBrowserControlsHeightChanged();
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
                 viewportSize.y);
@@ -774,13 +819,23 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onTopControlsHeightChanged(
-            int topControlsHeight, int topControlsMinHeight, boolean controlsResizeView) {
+    public void onTopControlsHeightChanged(int topControlsHeight, int topControlsMinHeight) {
         if (mTabVisible == null) return;
+        onBrowserControlsHeightChanged();
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
                 viewportSize.y);
         onViewportChanged();
+    }
+
+    /**
+     * Notify the {@link WebContents} of the browser controls height changes. Unlike #setSize, this
+     * will make sure the renderer's properties are updated even if the size didn't change.
+     */
+    private void onBrowserControlsHeightChanged() {
+        final WebContents webContents = getWebContents();
+        if (webContents == null) return;
+        webContents.notifyBrowserControlsHeightChanged();
     }
 
     @Override
@@ -961,9 +1016,10 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public int getBrowserControlsBackgroundColor() {
-        return mTabVisible == null ? Color.WHITE
-                                   : ToolbarColors.getToolbarSceneLayerBackground(mTabVisible);
+    public int getBrowserControlsBackgroundColor(Resources res) {
+        return mTabVisible == null
+                ? ApiCompatibilityUtils.getColor(res, R.color.toolbar_background_primary)
+                : ToolbarColors.getToolbarSceneLayerBackground(mTabVisible);
     }
 
     @Override
@@ -1134,7 +1190,10 @@ public class CompositorViewHolder extends FrameLayout
 
         if (mTabVisible != tab) {
             if (mTabVisible != null) mTabVisible.removeObserver(mTabObserver);
-            if (tab != null) tab.addObserver(mTabObserver);
+            if (tab != null) {
+                tab.addObserver(mTabObserver);
+                mCompositorView.onTabChanged();
+            }
         }
 
         mTabVisible = tab;

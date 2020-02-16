@@ -14,7 +14,7 @@
 #include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "base/numerics/ranges.h"
-#include "chromecast/media/cma/backend/audio_fader.h"
+#include "chromecast/media/audio/audio_fader.h"
 #include "chromecast/media/cma/backend/mixer/audio_output_redirector_input.h"
 #include "chromecast/media/cma/backend/mixer/filter_group.h"
 #include "media/base/audio_bus.h"
@@ -40,7 +40,7 @@ int RoundUpMultiple(int value, int multiple) {
 MixerInput::MixerInput(Source* source, FilterGroup* filter_group)
     : source_(source),
       num_channels_(source->num_channels()),
-      input_samples_per_second_(source->input_samples_per_second()),
+      input_samples_per_second_(source->sample_rate()),
       output_samples_per_second_(filter_group->input_samples_per_second()),
       primary_(source->primary()),
       device_id_(source->device_id()),

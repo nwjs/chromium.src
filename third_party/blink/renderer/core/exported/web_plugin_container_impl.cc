@@ -32,11 +32,11 @@
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 
 #include "build/build_config.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_coalesced_input_event.h"
 #include "third_party/blink/public/platform/web_cursor_info.h"
 #include "third_party/blink/public/platform/web_drag_data.h"
-#include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -103,6 +103,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/foreign_layer_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scroll_hit_test_display_item.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -137,8 +138,7 @@ void WebPluginContainerImpl::UpdateAllLifecyclePhases() {
   if (!web_plugin_)
     return;
 
-  web_plugin_->UpdateAllLifecyclePhases(
-      WebWidget::LifecycleUpdateReason::kOther);
+  web_plugin_->UpdateAllLifecyclePhases(DocumentUpdateReason::kOther);
 }
 
 void WebPluginContainerImpl::Paint(GraphicsContext& context,
@@ -159,11 +159,12 @@ void WebPluginContainerImpl::Paint(GraphicsContext& context,
     layer_->SetBounds(gfx::Size(Size()));
     layer_->SetIsDrawable(true);
     layer_->SetHitTestable(true);
+    auto offset = GetLayoutEmbeddedContent()->ReplacedContentRect().offset;
     // When compositing is after paint, composited plugins should have their
     // layers inserted rather than invoking WebPlugin::paint.
     RecordForeignLayer(context, *element_->GetLayoutObject(),
                        DisplayItem::kForeignLayerPlugin, layer_,
-                       FloatPoint(DocumentLocation()));
+                       FloatPoint(offset));
     return;
   }
 
@@ -212,7 +213,8 @@ void WebPluginContainerImpl::InvalidateRect(const IntRect& rect) {
   layout_object->InvalidatePaintRectangle(PhysicalRect(dirty_rect));
 }
 
-void WebPluginContainerImpl::SetFocused(bool focused, WebFocusType focus_type) {
+void WebPluginContainerImpl::SetFocused(bool focused,
+                                        mojom::blink::FocusType focus_type) {
   web_plugin_->UpdateFocus(focused, focus_type);
 }
 
@@ -336,11 +338,6 @@ void WebPluginContainerImpl::SetCcLayer(cc::Layer* new_layer,
       prevent_contents_opaque_changes == prevent_contents_opaque_changes_)
     return;
 
-  if (layer_)
-    GraphicsLayer::UnregisterContentsLayer(layer_);
-  if (new_layer)
-    GraphicsLayer::RegisterContentsLayer(new_layer);
-
   layer_ = new_layer;
   prevent_contents_opaque_changes_ = prevent_contents_opaque_changes;
 
@@ -397,9 +394,10 @@ void WebPluginContainerImpl::Copy() {
   if (!web_plugin_->HasSelection())
     return;
 
-  SystemClipboard::GetInstance().WriteHTML(
+  LocalFrame* frame = element_->GetDocument().GetFrame();
+  frame->GetSystemClipboard()->WriteHTML(
       web_plugin_->SelectionAsMarkup(), KURL(), web_plugin_->SelectionAsText());
-  SystemClipboard::GetInstance().CommitWrite();
+  frame->GetSystemClipboard()->CommitWrite();
 }
 
 bool WebPluginContainerImpl::ExecuteEditCommand(const WebString& name) {
@@ -442,8 +440,8 @@ void WebPluginContainerImpl::DispatchProgressEvent(const WebString& type,
   if (url.IsEmpty()) {
     event = ProgressEvent::Create(type, length_computable, loaded, total);
   } else {
-    event = ResourceProgressEvent::Create(type, length_computable, loaded,
-                                          total, url);
+    event = MakeGarbageCollected<ResourceProgressEvent>(type, length_computable,
+                                                        loaded, total, url);
   }
   element_->DispatchEvent(*event);
 }
@@ -650,16 +648,16 @@ void WebPluginContainerImpl::SetWantsWheelEvents(bool wants_wheel_events) {
   }
 }
 
-WebPoint WebPluginContainerImpl::RootFrameToLocalPoint(
-    const WebPoint& point_in_root_frame) {
-  WebPoint point_in_content =
-      ParentFrameView()->ConvertFromRootFrame(point_in_root_frame);
+gfx::Point WebPluginContainerImpl::RootFrameToLocalPoint(
+    const gfx::Point& point_in_root_frame) {
+  gfx::Point point_in_content =
+      ParentFrameView()->ConvertFromRootFrame(IntPoint(point_in_root_frame));
   return RoundedIntPoint(element_->GetLayoutObject()->AbsoluteToLocalPoint(
       PhysicalOffset(point_in_content)));
 }
 
-WebPoint WebPluginContainerImpl::LocalToRootFramePoint(
-    const WebPoint& point_in_local) {
+gfx::Point WebPluginContainerImpl::LocalToRootFramePoint(
+    const gfx::Point& point_in_local) {
   IntPoint absolute_point =
       RoundedIntPoint(element_->GetLayoutObject()->LocalToAbsolutePoint(
           PhysicalOffset(point_in_local)));
@@ -778,10 +776,7 @@ void WebPluginContainerImpl::Dispose() {
     web_plugin_ = nullptr;
   }
 
-  if (layer_) {
-    GraphicsLayer::UnregisterContentsLayer(layer_);
-    layer_ = nullptr;
-  }
+  layer_ = nullptr;
 }
 
 void WebPluginContainerImpl::SetFrameRect(const IntRect& rect) {
@@ -849,10 +844,10 @@ void WebPluginContainerImpl::HandleDragEvent(MouseEvent& event) {
   WebDragData drag_data = data_transfer->GetDataObject()->ToWebDragData();
   WebDragOperationsMask drag_operation_mask =
       static_cast<WebDragOperationsMask>(data_transfer->SourceOperation());
-  WebFloatPoint drag_screen_location(event.screenX(), event.screenY());
+  gfx::PointF drag_screen_location(event.screenX(), event.screenY());
   IntPoint location(Location());
-  WebFloatPoint drag_location(event.AbsoluteLocation().X() - location.X(),
-                              event.AbsoluteLocation().Y() - location.Y());
+  gfx::PointF drag_location(event.AbsoluteLocation().X() - location.X(),
+                            event.AbsoluteLocation().Y() - location.Y());
 
   web_plugin_->HandleDragStatusUpdate(drag_status, drag_data,
                                       drag_operation_mask, drag_location,
@@ -860,7 +855,8 @@ void WebPluginContainerImpl::HandleDragEvent(MouseEvent& event) {
 }
 
 void WebPluginContainerImpl::HandleWheelEvent(WheelEvent& event) {
-  WebFloatPoint absolute_location = event.NativeEvent().PositionInRootFrame();
+  FloatPoint absolute_location =
+      FloatPoint(event.NativeEvent().PositionInRootFrame());
 
   // Translate the root frame position to content coordinates.
   absolute_location =
@@ -955,8 +951,8 @@ WebTouchEvent WebPluginContainerImpl::TransformTouchEvent(
 
   LocalFrameView* parent = ParentFrameView();
   for (unsigned i = 0; i < transformed_event.touches_length; ++i) {
-    WebFloatPoint absolute_location =
-        transformed_event.touches[i].PositionInWidget();
+    FloatPoint absolute_location =
+        FloatPoint(transformed_event.touches[i].PositionInWidget());
 
     // Translate the root frame position to content coordinates.
     absolute_location = parent->ConvertFromRootFrame(absolute_location);
@@ -1021,11 +1017,11 @@ void WebPluginContainerImpl::HandleGestureEvent(GestureEvent& event) {
   // Take a copy of the event and translate it into the coordinate
   // system of the plugin.
   WebGestureEvent translated_event = event.NativeEvent();
-  WebFloatPoint absolute_root_frame_location =
+  gfx::PointF absolute_root_frame_location =
       event.NativeEvent().PositionInRootFrame();
   FloatPoint local_point =
       element_->GetLayoutObject()->AbsoluteToLocalFloatPoint(
-          absolute_root_frame_location);
+          FloatPoint(absolute_root_frame_location));
   translated_event.FlattenTransform();
   translated_event.SetPositionInWidget(local_point);
 

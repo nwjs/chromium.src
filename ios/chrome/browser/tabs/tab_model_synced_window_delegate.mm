@@ -28,13 +28,14 @@ SessionID TabModelSyncedWindowDelegate::GetTabIdAt(int index) const {
 }
 
 bool TabModelSyncedWindowDelegate::IsSessionRestoreInProgress() const {
-  for (int index = 0; index < web_state_list_->count(); ++index) {
-    const web::NavigationManager* navigation_manager =
-        web_state_list_->GetWebStateAt(index)->GetNavigationManager();
-    if (navigation_manager->IsRestoreSessionInProgress()) {
-      return true;
-    }
-  }
+  // On iOS, the WebStateList restoration is done in a batch operation on the
+  // main thread.
+  // * as this is in a batch operation, no event is forwarded to the sync engine
+  // * as it is on main thread, the tab sync (also on the main thread) is not
+  // called during the process. See
+  // |TabModel restoreSessionWindow:forInitialRestore:|.
+  // TODO(crbug.com/1010164): Use SessionRestorationObserver to track if the
+  // TabModel is restoring.
   return false;
 }
 

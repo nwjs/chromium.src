@@ -8,20 +8,14 @@
 #include <utility>
 
 #include "base/android/jni_string.h"
-#include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/android/vr/android_vr_utils.h"
 #include "chrome/browser/android/vr/ar_jni_headers/ArCoreJavaUtils_jni.h"
 #include "chrome/browser/android/vr/arcore_device/arcore_shim.h"
-#include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/web_contents.h"
 
 using base::android::AttachCurrentThread;
 using base::android::ScopedJavaLocalRef;
 
 namespace vr {
-
-namespace {
-
-}  // namespace
 
 ArCoreJavaUtils::ArCoreJavaUtils() {
   JNIEnv* env = AttachCurrentThread();
@@ -55,7 +49,7 @@ void ArCoreJavaUtils::RequestArSession(
 
   Java_ArCoreJavaUtils_startSession(
       env, j_arcore_java_utils_,
-      getTabFromRenderer(render_process_id, render_frame_id), use_overlay);
+      GetTabFromRenderer(render_process_id, render_frame_id), use_overlay);
 }
 
 void ArCoreJavaUtils::EndSession() {
@@ -109,33 +103,27 @@ bool ArCoreJavaUtils::EnsureLoaded() {
   // absolute path.
   ScopedJavaLocalRef<jstring> java_path =
       Java_ArCoreJavaUtils_getArCoreShimLibraryPath(env);
+
+  // Crash in debug builds if `java_path` is a null pointer but handle this
+  // situation in release builds. This is done by design - the `java_path` will
+  // be null only if there was a regression introduced to our gn/gni files w/o
+  // causing a build break. In release builds, this approach will result in the
+  // site not being able to request an AR session.
+  DCHECK(java_path)
+      << "Unable to find path to ARCore SDK library - please ensure that "
+         "loadable_modules and secondary_abi_loadable_modules are set "
+         "correctly when building";
+  if (!java_path) {
+    LOG(ERROR) << "Unable to find path to ARCore SDK library";
+    return false;
+  }
+
   return LoadArCoreSdk(base::android::ConvertJavaStringToUTF8(env, java_path));
 }
 
 ScopedJavaLocalRef<jobject> ArCoreJavaUtils::GetApplicationContext() {
   JNIEnv* env = AttachCurrentThread();
   return Java_ArCoreJavaUtils_getApplicationContext(env);
-}
-
-base::android::ScopedJavaLocalRef<jobject> ArCoreJavaUtils::getTabFromRenderer(
-    int render_process_id,
-    int render_frame_id) {
-  content::RenderFrameHost* render_frame_host =
-      content::RenderFrameHost::FromID(render_process_id, render_frame_id);
-  DCHECK(render_frame_host);
-
-  content::WebContents* web_contents =
-      content::WebContents::FromRenderFrameHost(render_frame_host);
-  DCHECK(web_contents);
-
-  TabAndroid* tab_android = TabAndroid::FromWebContents(web_contents);
-  DCHECK(tab_android);
-
-  base::android::ScopedJavaLocalRef<jobject> j_tab_android =
-      tab_android->GetJavaObject();
-  DCHECK(!j_tab_android.is_null());
-
-  return j_tab_android;
 }
 
 }  // namespace vr

@@ -5,19 +5,18 @@
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service.h"
 
 #include "base/compiler_specific.h"
+#include "build/build_config.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/web_contents.h"
 
 NavigationPredictorKeyedService::Prediction::Prediction(
-    const content::RenderFrameHost* render_frame_host,
+    const content::WebContents* web_contents,
     const GURL& source_document_url,
     const std::vector<GURL>& sorted_predicted_urls)
-    : render_frame_host_(render_frame_host),
+    : web_contents_(web_contents),
       source_document_url_(source_document_url),
-      sorted_predicted_urls_(sorted_predicted_urls) {
-  // |render_frame_host_| will be used by consumers in future.
-  ALLOW_UNUSED_LOCAL(render_frame_host_);
-}
+      sorted_predicted_urls_(sorted_predicted_urls) {}
 
 NavigationPredictorKeyedService::Prediction::Prediction(
     const NavigationPredictorKeyedService::Prediction& other) = default;
@@ -37,10 +36,21 @@ NavigationPredictorKeyedService::Prediction::sorted_predicted_urls() const {
   return sorted_predicted_urls_;
 }
 
+const content::WebContents*
+NavigationPredictorKeyedService::Prediction::web_contents() const {
+  return web_contents_;
+}
+
 NavigationPredictorKeyedService::NavigationPredictorKeyedService(
-    content::BrowserContext* browser_context) {
+    content::BrowserContext* browser_context)
+    : search_engine_preconnector_(browser_context) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(!browser_context->IsOffTheRecord());
+
+#if !defined(OS_ANDROID)
+  // Start preconnecting to the search engine.
+  search_engine_preconnector_.StartPreconnecting(/*with_startup_delay=*/true);
+#endif
 }
 
 NavigationPredictorKeyedService::~NavigationPredictorKeyedService() {
@@ -48,12 +58,12 @@ NavigationPredictorKeyedService::~NavigationPredictorKeyedService() {
 }
 
 void NavigationPredictorKeyedService::OnPredictionUpdated(
-    const content::RenderFrameHost* render_frame_host,
+    const content::WebContents* web_contents,
     const GURL& document_url,
     const std::vector<GURL>& sorted_predicted_urls) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   last_prediction_ =
-      Prediction(render_frame_host, document_url, sorted_predicted_urls);
+      Prediction(web_contents, document_url, sorted_predicted_urls);
   for (auto& observer : observer_list_) {
     observer.OnPredictionUpdated(last_prediction_);
   }
@@ -70,4 +80,10 @@ void NavigationPredictorKeyedService::AddObserver(Observer* observer) {
 void NavigationPredictorKeyedService::RemoveObserver(Observer* observer) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   observer_list_.RemoveObserver(observer);
+}
+
+SearchEnginePreconnector*
+NavigationPredictorKeyedService::search_engine_preconnector() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  return &search_engine_preconnector_;
 }

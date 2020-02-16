@@ -20,8 +20,7 @@ struct CONTENT_EXPORT AppCacheNamespace {
   AppCacheNamespace();  // Type is APPCACHE_FALLBACK_NAMESPACE by default.
   AppCacheNamespace(AppCacheNamespaceType type,
                     const GURL& url,
-                    const GURL& target,
-                    bool is_pattern);
+                    const GURL& target);
   ~AppCacheNamespace();
 
   bool IsMatch(const GURL& url) const;
@@ -29,10 +28,6 @@ struct CONTENT_EXPORT AppCacheNamespace {
   AppCacheNamespaceType type;
   GURL namespace_url;
   GURL target_url;
-
-  // TODO(jsbell): Remove pattern support, since it has been removed from the
-  // parser already.
-  bool is_pattern;
 };
 
 }  // namespace content

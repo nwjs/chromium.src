@@ -9,12 +9,12 @@
 #include "base/optional.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_list_item.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_cookie_store_get_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/cookie_store/cookie_change_event.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_list_item.h"
-#include "third_party/blink/renderer/modules/cookie_store/cookie_store_get_options.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_global_scope.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_registration.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
@@ -38,7 +38,11 @@ mojom::blink::CookieChangeSubscriptionPtr ToBackendSubscription(
 
   if (subscription->hasURL()) {
     KURL subscription_url(default_cookie_url, subscription->url());
-    // TODO(crbug.com/729800): Check that the URL is under default_cookie_url.
+    if (!subscription_url.GetString().StartsWith(
+            default_cookie_url.GetString())) {
+      exception_state.ThrowTypeError("URL must be within ServiceWorker scope");
+      return nullptr;
+    }
     backend_subscription->url = subscription_url;
   } else {
     backend_subscription->url = default_cookie_url;

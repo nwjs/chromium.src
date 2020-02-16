@@ -108,12 +108,6 @@ class WaitUntilObserver::ThenFunction final : public ScriptFunction {
   PromiseSettledCallback callback_;
 };
 
-WaitUntilObserver* WaitUntilObserver::Create(ExecutionContext* context,
-                                             EventType type,
-                                             int event_id) {
-  return MakeGarbageCollected<WaitUntilObserver>(context, type, event_id);
-}
-
 void WaitUntilObserver::WillDispatchEvent() {
   DCHECK(GetExecutionContext());
 
@@ -277,6 +271,10 @@ void WaitUntilObserver::MaybeCompleteEvent() {
       service_worker_global_scope->DidHandleInstallEvent(event_id_, status);
       break;
     case kMessage:
+      service_worker_global_scope->DidHandleExtendableMessageEvent(event_id_,
+                                                                   status);
+      break;
+    case kMessageerror:
       service_worker_global_scope->DidHandleExtendableMessageEvent(event_id_,
                                                                    status);
       break;

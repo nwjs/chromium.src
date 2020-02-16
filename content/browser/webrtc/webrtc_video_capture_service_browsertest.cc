@@ -494,7 +494,6 @@ class WebRtcVideoCaptureServiceBrowserTest : public ContentBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     // Note: We are not planning to actually use the fake device, but we want
     // to avoid enumerating or otherwise calling into real capture devices.
-    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
     command_line->AppendSwitch(switches::kUseFakeUIForMediaStream);
   }
 
@@ -510,7 +509,7 @@ class WebRtcVideoCaptureServiceBrowserTest : public ContentBrowserTest {
   }
 
   base::Thread virtual_device_thread_;
-  scoped_refptr<base::TaskRunner> main_task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> main_task_runner_;
 
  private:
   base::TimeDelta CalculateTimeSinceFirstInvocation() {

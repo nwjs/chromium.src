@@ -23,9 +23,12 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
+import org.chromium.chrome.browser.favicon.LargeIconBridge;
 import org.chromium.chrome.browser.omnibox.OmniboxSuggestionType;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
-import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -36,6 +39,12 @@ import org.chromium.ui.modelutil.PropertyModel;
 public final class EditUrlSuggestionTest {
     private static final String TEST_URL = "http://www.example.com";
     private static final String TEST_TITLE = "Test Page";
+
+    private static final String FOOBAR_SEARCH_URL = "http://www.example.com?q=foobar";
+    private static final String FOOBAR_SEARCH_TERMS = "foobar";
+
+    private static final String BARBAZ_SEARCH_URL = "http://www.example.com?q=barbaz";
+    private static final String BARBAZ_SEARCH_TERMS = "barbaz";
 
     private EditUrlSuggestionProcessor mProcessor;
     private PropertyModel mModel;
@@ -50,13 +59,16 @@ public final class EditUrlSuggestionTest {
     private ActivityTabProvider mTabProvider;
 
     @Mock
-    private Tab mTab;
+    private TabImpl mTab;
 
     @Mock
     private OmniboxSuggestion mWhatYouTypedSuggestion;
 
     @Mock
     private OmniboxSuggestion mOtherSuggestion;
+
+    @Mock
+    private OmniboxSuggestion mSearchSuggestion;
 
     @Mock
     private EditUrlSuggestionProcessor.LocationBarDelegate mLocationBarDelegate;
@@ -70,9 +82,17 @@ public final class EditUrlSuggestionTest {
     @Mock
     private View mSuggestionView;
 
+    @Mock
+    private LargeIconBridge mIconBridge;
+
+    @Mock
+    private TemplateUrlService mTemplateUrlService;
+
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+
+        TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
 
         when(mContext.getResources()).thenReturn(mResources);
         when(mTab.getUrl()).thenReturn(TEST_URL);
@@ -86,12 +106,16 @@ public final class EditUrlSuggestionTest {
                 .thenReturn(OmniboxSuggestionType.URL_WHAT_YOU_TYPED);
         when(mWhatYouTypedSuggestion.getUrl()).thenReturn(TEST_URL);
 
+        when(mSearchSuggestion.getType()).thenReturn(OmniboxSuggestionType.SEARCH_WHAT_YOU_TYPED);
+        when(mSearchSuggestion.getUrl()).thenReturn(FOOBAR_SEARCH_URL);
+        when(mSearchSuggestion.getFillIntoEdit()).thenReturn(FOOBAR_SEARCH_TERMS);
+
         when(mOtherSuggestion.getType()).thenReturn(OmniboxSuggestionType.SEARCH_HISTORY);
 
         mModel = new PropertyModel.Builder(EditUrlSuggestionProperties.ALL_KEYS).build();
 
         mProcessor = new EditUrlSuggestionProcessor(
-                mContext, null, mLocationBarDelegate, mSelectionHandler);
+                mContext, null, mLocationBarDelegate, mSelectionHandler, () -> mIconBridge);
         mProcessor.setActivityTabProvider(mTabProvider);
 
         when(mEditButton.getId()).thenReturn(R.id.url_edit_icon);
@@ -115,16 +139,14 @@ public final class EditUrlSuggestionTest {
                 mModel.get(EditUrlSuggestionProperties.URL_TEXT));
     }
 
-    /** Test that the suggestion is not triggered if it is not the first suggestion. */
+    /** Test that the suggestion is not triggered if its url doesn't match the current page's. */
     @Test
     @SmallTest
-    public void testWhatYouTypedSecondSuggestion() {
+    public void testWhatYouTypedWrongUrl() {
         mProcessor.onUrlFocusChange(true);
 
+        when(mWhatYouTypedSuggestion.getUrl()).thenReturn(FOOBAR_SEARCH_URL);
         Assert.assertFalse("The processor should not handle the suggestion.",
-                mProcessor.doesProcessSuggestion(mOtherSuggestion));
-
-        Assert.assertFalse("The processor should not handle the \"what you typed\" suggestion.",
                 mProcessor.doesProcessSuggestion(mWhatYouTypedSuggestion));
     }
 
@@ -152,5 +174,23 @@ public final class EditUrlSuggestionTest {
         mModel.get(EditUrlSuggestionProperties.BUTTON_CLICK_LISTENER).onClick(mSuggestionView);
 
         verify(mSelectionHandler).onEditUrlSuggestionSelected(mWhatYouTypedSuggestion);
+    }
+
+    @Test
+    @SmallTest
+    public void testSearchSuggestion() {
+        when(mTab.getUrl()).thenReturn(FOOBAR_SEARCH_URL);
+        mProcessor.onUrlFocusChange(true);
+        when(mTemplateUrlService.getSearchQueryForUrl(FOOBAR_SEARCH_URL))
+                .thenReturn(FOOBAR_SEARCH_TERMS);
+        when(mTemplateUrlService.getSearchQueryForUrl(BARBAZ_SEARCH_URL))
+                .thenReturn(BARBAZ_SEARCH_TERMS);
+
+        Assert.assertTrue(mProcessor.doesProcessSuggestion(mSearchSuggestion));
+
+        when(mSearchSuggestion.getUrl()).thenReturn(BARBAZ_SEARCH_URL);
+        when(mSearchSuggestion.getFillIntoEdit()).thenReturn(BARBAZ_SEARCH_TERMS);
+
+        Assert.assertFalse(mProcessor.doesProcessSuggestion(mSearchSuggestion));
     }
 }

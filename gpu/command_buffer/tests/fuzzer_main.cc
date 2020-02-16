@@ -322,15 +322,15 @@ class CommandBufferSetup {
 
     CHECK(gl::init::InitializeStaticGLBindingsImplementation(
         gl::kGLImplementationEGLANGLE, false));
-    CHECK(gl::init::InitializeGLOneOffPlatformImplementation(false, false,
-                                                             false, true));
+    CHECK(
+        gl::init::InitializeGLOneOffPlatformImplementation(false, false, true));
 #elif defined(GPU_FUZZER_USE_SWIFTSHADER)
     command_line->AppendSwitchASCII(switches::kUseGL,
                                     gl::kGLImplementationSwiftShaderName);
     CHECK(gl::init::InitializeStaticGLBindingsImplementation(
         gl::kGLImplementationSwiftShaderGL, false));
-    CHECK(gl::init::InitializeGLOneOffPlatformImplementation(false, false,
-                                                             false, true));
+    CHECK(
+        gl::init::InitializeGLOneOffPlatformImplementation(false, false, true));
 #elif defined(GPU_FUZZER_USE_STUB)
     gl::GLSurfaceTestSupport::InitializeOneOffWithStubBindings();
     // Because the context depends on configuration bits, we want to recreate
@@ -339,9 +339,10 @@ class CommandBufferSetup {
 #else
 #error invalid configuration
 #endif
-    discardable_manager_ = std::make_unique<ServiceDiscardableManager>();
+    discardable_manager_ =
+        std::make_unique<ServiceDiscardableManager>(gpu_preferences_);
     passthrough_discardable_manager_ =
-        std::make_unique<PassthroughDiscardableManager>();
+        std::make_unique<PassthroughDiscardableManager>(gpu_preferences_);
 
     if (gpu_preferences_.use_passthrough_cmd_decoder)
       recreate_context_ = true;
@@ -384,7 +385,8 @@ class CommandBufferSetup {
         share_group_, surface_, std::move(shared_context),
         config_.workarounds.use_virtualized_gl_contexts, base::DoNothing(),
         gpu_preferences_.gr_context_type);
-    context_state_->InitializeGrContext(config_.workarounds, nullptr);
+    context_state_->InitializeGrContext(gpu_preferences_, config_.workarounds,
+                                        nullptr);
     context_state_->InitializeGL(gpu_preferences_, feature_info);
 
     shared_image_manager_ = std::make_unique<SharedImageManager>();
@@ -418,7 +420,7 @@ class CommandBufferSetup {
     decoder_.reset(raster::RasterDecoder::Create(
         command_buffer_.get(), command_buffer_->service(), &outputter_,
         gpu_feature_info, gpu_preferences_, nullptr /* memory_tracker */,
-        shared_image_manager_.get(), context_state_));
+        shared_image_manager_.get(), context_state_, true /* is_privileged */));
 #else
     context_->MakeCurrent(surface_.get());
     // GLES2Decoder may Initialize feature_info differently than

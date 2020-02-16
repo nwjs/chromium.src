@@ -65,7 +65,10 @@ AtomicString ConsumeStringOrURI(CSSParserTokenStream& stream) {
 
 CSSParserImpl::CSSParserImpl(const CSSParserContext* context,
                              StyleSheetContents* style_sheet)
-    : context_(context), style_sheet_(style_sheet), observer_(nullptr) {}
+    : context_(context),
+      style_sheet_(style_sheet),
+      observer_(nullptr),
+      lazy_state_(nullptr) {}
 
 MutableCSSPropertyValueSet::SetResult CSSParserImpl::ParseValue(
     MutableCSSPropertyValueSet* declaration,
@@ -836,7 +839,7 @@ StyleRuleProperty* CSSParserImpl::ConsumePropertyRule(
   }
 
   ConsumeDeclarationList(block, StyleRule::kProperty);
-  return StyleRuleProperty::Create(
+  return MakeGarbageCollected<StyleRuleProperty>(
       name, CreateCSSPropertyValueSet(parsed_properties_, context_->Mode()));
 }
 
@@ -1003,7 +1006,8 @@ void CSSParserImpl::ConsumeDeclaration(CSSParserTokenRange range,
     AtRuleDescriptorParser::ParseAtRule(atrule_id, range, *context_,
                                         parsed_properties_);
   } else {
-    unresolved_property = lhs.ParseAsUnresolvedCSSPropertyID(context_->Mode());
+    unresolved_property = lhs.ParseAsUnresolvedCSSPropertyID(
+        context_->GetDocument(), context_->Mode());
   }
 
   // @rules other than FontFace still handled with legacy code.

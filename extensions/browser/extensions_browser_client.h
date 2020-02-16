@@ -22,7 +22,6 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/network/public/mojom/url_loader.mojom-forward.h"
 #include "services/service_manager/public/cpp/binder_map.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
 #include "ui/base/page_transition_types.h"
 
 class ExtensionFunctionRegistry;
@@ -227,17 +226,11 @@ class ExtensionsBrowserClient {
   // ExtensionSystem::Get.
   virtual ExtensionSystemProvider* GetExtensionSystemFactory() = 0;
 
-  // [Deprecated] Registers additional interfaces to expose to a RenderFrame.
-  virtual void RegisterExtensionInterfaces(
-      service_manager::BinderRegistryWithArgs<content::RenderFrameHost*>*
-          registry,
-      content::RenderFrameHost* render_frame_host,
-      const Extension* extension) const = 0;
-
   // Registers additional interfaces to a binder map for a browser interface
   // broker.
   virtual void RegisterBrowserInterfaceBindersForFrame(
-      service_manager::BinderMapWithContext<content::RenderFrameHost*>* map,
+      service_manager::BinderMapWithContext<content::RenderFrameHost*>*
+          binder_map,
       content::RenderFrameHost* render_frame_host,
       const Extension* extension) const = 0;
 

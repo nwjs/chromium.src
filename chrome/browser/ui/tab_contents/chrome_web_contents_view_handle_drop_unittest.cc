@@ -19,8 +19,8 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/features.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/features.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/drop_data.h"
 #include "content/public/test/browser_task_environment.h"
@@ -60,7 +60,7 @@ class ChromeWebContentsViewDelegateHandleOnPerformDrop : public testing::Test {
 
     using FakeDelegate = safe_browsing::FakeDeepScanningDialogDelegate;
     using Verdict = safe_browsing::DlpDeepScanningVerdict;
-    auto callback = base::Bind(
+    auto callback = base::BindRepeating(
         [](bool scan_succeeds, const base::FilePath&) {
           return scan_succeeds ? FakeDelegate::SuccessfulResponse()
                                : FakeDelegate::DlpResponse(
@@ -68,13 +68,16 @@ class ChromeWebContentsViewDelegateHandleOnPerformDrop : public testing::Test {
                                      Verdict::TriggeredRule::REPORT_ONLY);
         },
         scan_succeeds);
+    auto is_encrypted_callback =
+        base::BindRepeating([](const base::FilePath&) { return false; });
 
     safe_browsing::SetDMTokenForTesting(
         policy::DMToken::CreateValidTokenForTesting("dm_token"));
     safe_browsing::DeepScanningDialogDelegate::SetFactoryForTesting(
         base::BindRepeating(
             &safe_browsing::FakeDeepScanningDialogDelegate::Create,
-            run_loop_->QuitClosure(), callback, "dm_token"));
+            run_loop_->QuitClosure(), callback, is_encrypted_callback,
+            "dm_token"));
   }
 
   // Common code for running the test cases.

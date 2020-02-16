@@ -138,6 +138,7 @@ struct AutocompleteMatch {
     DRIVE_IMAGE,
     DRIVE_PDF,
     DRIVE_VIDEO,
+    DRIVE_FOLDER,
     DRIVE_OTHER,
     DOCUMENT_TYPE_SIZE
   };
@@ -239,6 +240,10 @@ struct AutocompleteMatch {
   // like entity, personalized, profile or postfix.
   static bool IsSpecializedSearchType(Type type);
 
+  // Convenience function to check if |type| is a search history type -
+  // usually this surfaces a clock icon to the user.
+  static bool IsSearchHistoryType(Type type);
+
   // If this match is a submatch, returns the parent's type, otherwise this
   // match's type.
   Type GetDemotionType() const;
@@ -299,21 +304,6 @@ struct AutocompleteMatch {
   // components are important (part of the match), and should not be trimmed.
   static url_formatter::FormatUrlTypes GetFormatTypes(bool preserve_scheme,
                                                       bool preserve_subdomain);
-
-  // Determines whether a particular match is allowed to be the default match
-  // by comparing |input.text| and |match.inline_autocompletion|. Therefore,
-  // |match.inline_autocompletion| should be set prior to invoking this method.
-  // Also considers trailing whitespace in the input, so the input should not be
-  // fixed up.
-  //
-  // Input "x" will allow default matches "x", "xy", and "x y".
-  // Input "x " will allow default matches "x" and "x y".
-  // Input "x  " will allow default match "x".
-  // Input "x y" will allow default match "x y".
-  // Input "x" with prevent_inline_autocomplete will allow default match "x".
-  static bool AllowedToBeDefault(const AutocompleteInput& input,
-                                 AutocompleteMatch& match);
-
   // Logs the search engine used to navigate to a search page or auto complete
   // suggestion. For direct URL navigations, nothing is logged.
   static void LogSearchEngineUsed(const AutocompleteMatch& match,
@@ -430,6 +420,19 @@ struct AutocompleteMatch {
   // get confused about which is which.  See the code that sets
   // |swap_contents_and_description| for conditions they are swapped.
   AutocompleteMatch GetMatchWithContentsAndDescriptionPossiblySwapped() const;
+
+  // Determines whether this match is allowed to be the default match by
+  // comparing |input.text| and |inline_autocompletion|. Therefore,
+  // |inline_autocompletion| should be set prior to invoking this method. Also
+  // Also considers trailing whitespace in the input, so the input should not be
+  // fixed up. May trim trailing whitespaces from |inline_autocompletion|.
+  //
+  // Input "x" will allow default matches "x", "xy", and "x y".
+  // Input "x " will allow default matches "x" and "x y".
+  // Input "x  " will allow default match "x".
+  // Input "x y" will allow default match "x y".
+  // Input "x" with prevent_inline_autocomplete will allow default match "x".
+  void SetAllowedToBeDefault(const AutocompleteInput& input);
 
   // If this match is a tail suggestion, prepends the passed |common_prefix|.
   // If not, but the prefix matches the beginning of the suggestion, dims that
@@ -643,12 +646,13 @@ struct AutocompleteMatch {
 #if DCHECK_IS_ON()
   // Does a data integrity check on this match.
   void Validate() const;
+#endif  // DCHECK_IS_ON()
 
   // Checks one text/classifications pair for valid values.
-  void ValidateClassifications(
+  static void ValidateClassifications(
       const base::string16& text,
-      const ACMatchClassifications& classifications) const;
-#endif  // DCHECK_IS_ON()
+      const ACMatchClassifications& classifications,
+      const std::string& provider_name = "");
 };
 
 typedef AutocompleteMatch::ACMatchClassification ACMatchClassification;

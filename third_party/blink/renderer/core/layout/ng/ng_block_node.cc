@@ -25,6 +25,8 @@
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
 #include "third_party/blink/renderer/core/layout/ng/legacy_layout_tree_walking.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
+#include "third_party/blink/renderer/core/layout/ng/mathml/ng_math_row_layout_algorithm.h"
+#include "third_party/blink/renderer/core/layout/ng/mathml/ng_math_space_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_box_fragment.h"
@@ -43,6 +45,8 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_simplified_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_space_utils.h"
 #include "third_party/blink/renderer/core/layout/shapes/shape_outside_info.h"
+#include "third_party/blink/renderer/core/mathml/mathml_element.h"
+#include "third_party/blink/renderer/core/mathml/mathml_space_element.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
@@ -74,6 +78,21 @@ NOINLINE void CreateAlgorithmAndRun(const NGLayoutAlgorithmParams& params,
 }
 
 template <typename Callback>
+NOINLINE void DetermineMathMLAlgorithmAndRun(
+    const LayoutBox& box,
+    const NGLayoutAlgorithmParams& params,
+    const Callback& callback) {
+  DCHECK(box.IsMathML());
+  // Currently math layout algorithms can only apply to MathML elements.
+  auto* element = box.GetNode();
+  DCHECK(element);
+  if (IsA<MathMLSpaceElement>(element))
+    CreateAlgorithmAndRun<NGMathSpaceLayoutAlgorithm>(params, callback);
+  else
+    CreateAlgorithmAndRun<NGMathRowLayoutAlgorithm>(params, callback);
+}
+
+template <typename Callback>
 NOINLINE void DetermineAlgorithmAndRun(const NGLayoutAlgorithmParams& params,
                                        const Callback& callback) {
   const ComputedStyle& style = params.node.Style();
@@ -82,6 +101,8 @@ NOINLINE void DetermineAlgorithmAndRun(const NGLayoutAlgorithmParams& params,
     CreateAlgorithmAndRun<NGFlexLayoutAlgorithm>(params, callback);
   } else if (box.IsLayoutNGCustom()) {
     CreateAlgorithmAndRun<NGCustomLayoutAlgorithm>(params, callback);
+  } else if (box.IsMathML()) {
+    DetermineMathMLAlgorithmAndRun(box, params, callback);
   } else if (box.IsLayoutNGFieldset()) {
     CreateAlgorithmAndRun<NGFieldsetLayoutAlgorithm>(params, callback);
     // If there's a legacy layout box, we can only do block fragmentation if
@@ -271,7 +292,7 @@ void SetupBoxLayoutExtraInput(const NGConstraintSpace& space,
 
 scoped_refptr<const NGLayoutResult> NGBlockNode::Layout(
     const NGConstraintSpace& constraint_space,
-    const NGBreakToken* break_token,
+    const NGBlockBreakToken* break_token,
     const NGEarlyBreak* early_break) {
   // Use the old layout code and synthesize a fragment.
   if (!CanUseNewLayout())
@@ -328,8 +349,7 @@ scoped_refptr<const NGLayoutResult> NGBlockNode::Layout(
   PrepareForLayout();
 
   NGLayoutAlgorithmParams params(*this, *fragment_geometry, constraint_space,
-                                 To<NGBlockBreakToken>(break_token),
-                                 early_break);
+                                 break_token, early_break);
 
   // Try to perform "simplified" layout.
   // TODO(crbug.com/992953): Add a simplified layout pass for custom layout.
@@ -506,7 +526,7 @@ void NGBlockNode::PrepareForLayout() {
 void NGBlockNode::FinishLayout(
     LayoutBlockFlow* block_flow,
     const NGConstraintSpace& constraint_space,
-    const NGBreakToken* break_token,
+    const NGBlockBreakToken* break_token,
     scoped_refptr<const NGLayoutResult> layout_result) {
   // If we abort layout and don't clear the cached layout-result, we can end
   // up in a state where the layout-object tree doesn't match fragment tree
@@ -549,8 +569,7 @@ void NGBlockNode::FinishLayout(
         CopyFragmentDataToLayoutBoxForInlineChildren(
             physical_fragment, physical_fragment.Size().width,
             Style().IsFlippedBlocksWritingMode());
-        block_flow->SetPaintFragment(To<NGBlockBreakToken>(break_token),
-                                     &physical_fragment);
+        block_flow->SetPaintFragment(break_token, &physical_fragment);
       } else {
         CopyFragmentDataToLayoutBoxForInlineChildren(physical_fragment);
 
@@ -566,12 +585,11 @@ void NGBlockNode::FinishLayout(
       // We still need to clear paint fragments in case it had inline children,
       // and thus had NGPaintFragment.
       block_flow->ClearNGInlineNodeData();
-      block_flow->SetPaintFragment(To<NGBlockBreakToken>(break_token), nullptr);
+      block_flow->SetPaintFragment(break_token, nullptr);
     }
   }
 
-  CopyFragmentDataToLayoutBox(constraint_space, *layout_result,
-                              To<NGBlockBreakToken>(break_token));
+  CopyFragmentDataToLayoutBox(constraint_space, *layout_result, break_token);
 }
 
 MinMaxSize NGBlockNode::ComputeMinMaxSize(
@@ -857,10 +875,9 @@ void NGBlockNode::CopyFragmentDataToLayoutBox(
   LayoutBlock* block = DynamicTo<LayoutBlock>(box_);
   bool needs_full_invalidation = false;
   if (LIKELY(block && is_last_fragment)) {
-    LayoutUnit intrinsic_block_size =
-        layout_result.UnconstrainedIntrinsicBlockSize();
+    LayoutUnit overflow_block_size = layout_result.OverflowBlockSize();
     if (UNLIKELY(previous_break_token))
-      intrinsic_block_size += previous_break_token->ConsumedBlockSize();
+      overflow_block_size += previous_break_token->ConsumedBlockSize();
 
 #if DCHECK_IS_ON()
     block->CheckPositionedObjectsNeedLayout();
@@ -881,10 +898,9 @@ void NGBlockNode::CopyFragmentDataToLayoutBox(
 
     // |ComputeOverflow()| below calls |AddVisualOverflowFromChildren()|, which
     // computes visual overflow from |RootInlineBox| if |ChildrenInline()|
-    // TODO(rego): This causes that ChildNeedsLayoutOverflowRecalc flags are not
-    // cleared after layout (see https://crbug.com/941180).
-    block->SetNeedsOverflowRecalc();
-    block->ComputeLayoutOverflow(intrinsic_block_size - borders.block_end -
+    block->SetNeedsOverflowRecalc(
+        LayoutObject::OverflowRecalcType::kOnlyVisualOverflowRecalc);
+    block->ComputeLayoutOverflow(overflow_block_size - borders.block_end -
                                  scrollbars.block_end);
   }
 
@@ -1062,7 +1078,8 @@ void NGBlockNode::CopyFragmentDataToLayoutBoxForInlineChildren(
       if (!layout_object)
         continue;
       if (LayoutBox* layout_box = ToLayoutBoxOrNull(layout_object)) {
-        PhysicalOffset maybe_flipped_offset = cursor.CurrentOffset();
+        PhysicalOffset maybe_flipped_offset =
+            cursor.Current().OffsetInContainerBlock();
         if (initial_container_is_flipped) {
           maybe_flipped_offset.left = container.Size().width -
                                       child->Size().width -
@@ -1121,21 +1138,17 @@ bool NGBlockNode::IsCustomLayoutLoaded() const {
 scoped_refptr<const NGLayoutResult> NGBlockNode::LayoutAtomicInline(
     const NGConstraintSpace& parent_constraint_space,
     const ComputedStyle& parent_style,
-    FontBaseline baseline_type,
-    bool use_first_line_style) {
+    bool use_first_line_style,
+    NGBaselineAlgorithmType baseline_algorithm_type) {
   NGConstraintSpaceBuilder builder(
       parent_constraint_space, Style().GetWritingMode(), /* is_new_fc */ true);
   SetOrthogonalFallbackInlineSizeIfNeeded(parent_style, *this, &builder);
 
+  builder.SetIsPaintedAtomically(true);
   builder.SetUseFirstLineStyle(use_first_line_style);
 
-  // Request to compute baseline during the layout, except when we know the box
-  // would synthesize box-baseline.
-  LayoutBox* layout_box = GetLayoutBox();
-  if (NGBaseline::ShouldPropagateBaselines(layout_box)) {
-    builder.AddBaselineRequest(
-        {NGBaselineAlgorithmType::kAtomicInline, baseline_type});
-  }
+  builder.SetNeedsBaseline(true);
+  builder.SetBaselineAlgorithmType(baseline_algorithm_type);
 
   builder.SetIsShrinkToFit(Style().LogicalWidth().IsAuto());
   builder.SetAvailableSize(parent_constraint_space.AvailableSize());
@@ -1148,7 +1161,7 @@ scoped_refptr<const NGLayoutResult> NGBlockNode::LayoutAtomicInline(
   scoped_refptr<const NGLayoutResult> result = Layout(constraint_space);
   // TODO(kojii): Investigate why ClearNeedsLayout() isn't called automatically
   // when it's being laid out.
-  layout_box->ClearNeedsLayout();
+  GetLayoutBox()->ClearNeedsLayout();
   return result;
 }
 
@@ -1208,7 +1221,9 @@ scoped_refptr<const NGLayoutResult> NGBlockNode::RunLegacyLayout(
         constraint_space.IsNewFormattingContext());
     builder.SetInitialFragmentGeometry(fragment_geometry);
     builder.SetIsLegacyLayoutRoot();
-    builder.SetIntrinsicBlockSize(box_->IntrinsicContentLogicalHeight());
+    builder.SetIntrinsicBlockSize(box_->IntrinsicContentLogicalHeight() +
+                                  box_->BorderAndPaddingLogicalHeight() +
+                                  box_->ScrollbarLogicalHeight());
 
     // If we're block-fragmented, we can only handle monolithic content, since
     // the two block fragmentation machineries (NG and legacy) cannot cooperate.
@@ -1273,34 +1288,32 @@ scoped_refptr<const NGLayoutResult> NGBlockNode::RunSimplifiedLayout(
 void NGBlockNode::CopyBaselinesFromLegacyLayout(
     const NGConstraintSpace& constraint_space,
     NGBoxFragmentBuilder* builder) {
-  const NGBaselineRequestList requests = constraint_space.BaselineRequests();
-  if (requests.IsEmpty())
+  // As the calls to query baselines from legacy layout are potentially
+  // expensive we only ask for them if needed.
+  // TODO(layout-dev): Once we have flexbox, and editing switched over to
+  // LayoutNG we should be able to safely remove this flag without a
+  // performance penalty.
+  if (!constraint_space.NeedsBaseline())
     return;
 
-  if (UNLIKELY(constraint_space.GetWritingMode() != Style().GetWritingMode()))
-    return;
-
-  for (const auto& request : requests) {
-    switch (request.AlgorithmType()) {
-      case NGBaselineAlgorithmType::kAtomicInline: {
-        LayoutUnit position =
-            AtomicInlineBaselineFromLegacyLayout(request, constraint_space);
-        if (position != -1)
-          builder->AddBaseline(request, position);
-        break;
-      }
-      case NGBaselineAlgorithmType::kFirstLine: {
-        LayoutUnit position = box_->FirstLineBoxBaseline();
-        if (position != -1)
-          builder->AddBaseline(request, position);
-        break;
-      }
+  switch (constraint_space.BaselineAlgorithmType()) {
+    case NGBaselineAlgorithmType::kFirstLine: {
+      LayoutUnit position = box_->FirstLineBoxBaseline();
+      if (position != -1)
+        builder->SetBaseline(position);
+      break;
+    }
+    case NGBaselineAlgorithmType::kInlineBlock: {
+      LayoutUnit position =
+          AtomicInlineBaselineFromLegacyLayout(constraint_space);
+      if (position != -1)
+        builder->SetBaseline(position);
+      break;
     }
   }
 }
 
 LayoutUnit NGBlockNode::AtomicInlineBaselineFromLegacyLayout(
-    const NGBaselineRequest& request,
     const NGConstraintSpace& constraint_space) {
   LineDirectionMode line_direction = box_->IsHorizontalWritingMode()
                                          ? LineDirectionMode::kHorizontalLine
@@ -1310,13 +1323,16 @@ LayoutUnit NGBlockNode::AtomicInlineBaselineFromLegacyLayout(
   // classes override it assuming inline layout calls |BaselinePosition()|.
   if (box_->IsInline()) {
     LayoutUnit position = LayoutUnit(box_->BaselinePosition(
-        request.BaselineType(), constraint_space.UseFirstLineStyle(),
+        box_->Style()->GetFontBaseline(), constraint_space.UseFirstLineStyle(),
         line_direction, kPositionOnContainingLine));
 
     // BaselinePosition() uses margin edge for atomic inlines. Subtract
     // margin-over so that the position is relative to the border box.
     if (box_->IsAtomicInlineLevel())
       position -= box_->MarginOver();
+
+    if (IsFlippedLinesWritingMode(constraint_space.GetWritingMode()))
+      return box_->Size().Width() - position;
 
     return position;
   }
@@ -1360,6 +1376,10 @@ void NGBlockNode::StoreMargins(const NGConstraintSpace& constraint_space,
                                const NGBoxStrut& margins) {
   NGPhysicalBoxStrut physical_margins = margins.ConvertToPhysical(
       constraint_space.GetWritingMode(), constraint_space.Direction());
+  box_->SetMargin(physical_margins);
+}
+
+void NGBlockNode::StoreMargins(const NGPhysicalBoxStrut& physical_margins) {
   box_->SetMargin(physical_margins);
 }
 

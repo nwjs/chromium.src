@@ -70,6 +70,7 @@
 #include "third_party/blink/renderer/core/html/html_table_section_element.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
+#include "third_party/blink/renderer/core/html/portal/html_portal_element.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -145,20 +146,6 @@ AXObject* AXNodeObject::ActiveDescendant() {
   return ax_descendant;
 }
 
-bool HasAriaAttribute(Element* element) {
-  if (!element)
-    return false;
-
-  AttributeCollection attributes = element->AttributesWithoutUpdate();
-  for (const Attribute& attr : attributes) {
-    // Attributes cache their uppercase names.
-    if (attr.GetName().LocalNameUpper().StartsWith("ARIA-"))
-      return true;
-  }
-
-  return false;
-}
-
 AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
     IgnoredReasons* ignored_reasons) const {
   // If this element is within a parent that cannot have children, it should not
@@ -192,21 +179,24 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   if (IsTableLikeRole() || IsTableRowLikeRole() || IsTableCellLikeRole())
     return kIncludeObject;
 
-  // Ignore labels that are already referenced by a control.
-  AXObject* control_object = CorrespondingControlForLabelElement();
-  HTMLLabelElement* label = LabelElementContainer();
-  if (control_object && control_object->IsCheckboxOrRadio() &&
-      control_object->NameFromLabelElement() &&
+  // Ignore labels that are already referenced by a control but are not set to
+  // be focusable.
+  AXObject* control_ax_object = CorrespondingControlAXObjectForLabelElement();
+  if (control_ax_object && control_ax_object->IsCheckboxOrRadio() &&
+      control_ax_object->NameFromLabelElement() &&
       AccessibleNode::GetPropertyOrARIAAttribute(
-          label, AOMStringProperty::kRole) == g_null_atom) {
+          LabelElementContainer(), AOMStringProperty::kRole) == g_null_atom) {
+    AXObject* label_ax_object = CorrespondingLabelAXObject();
+    // If the label is set to be focusable, we should expose it.
+    if (label_ax_object && label_ax_object->CanSetFocusAttribute())
+      return kIncludeObject;
+
     if (ignored_reasons) {
-      if (label && label != GetNode()) {
-        AXObject* label_ax_object = AXObjectCache().GetOrCreate(label);
+      if (label_ax_object && label_ax_object != this)
         ignored_reasons->push_back(
             IgnoredReason(kAXLabelContainer, label_ax_object));
-      }
 
-      ignored_reasons->push_back(IgnoredReason(kAXLabelFor, control_object));
+      ignored_reasons->push_back(IgnoredReason(kAXLabelFor, control_ax_object));
     }
     return kIgnoreObject;
   }
@@ -303,7 +293,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   // These checks are simplified in the interest of execution speed;
   // for example, any element having an alt attribute will make it
   // not ignored, rather than just images.
-  if (HasAriaAttribute(GetElement()) || !GetAttribute(kTitleAttr).IsEmpty() ||
+  if (HasAriaAttribute() || !GetAttribute(kTitleAttr).IsEmpty() ||
       has_non_empty_alt_attribute)
     return kIncludeObject;
 
@@ -321,7 +311,7 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
 
 base::Optional<String> AXNodeObject::GetCSSAltText(Node* node) {
   if (!node || !node->GetComputedStyle() ||
-      !node->GetComputedStyle()->GetContentData()) {
+      node->GetComputedStyle()->ContentBehavesAsNormal()) {
     return base::nullopt;
   }
 
@@ -425,7 +415,7 @@ static bool IsRequiredOwnedElement(AXObject* parent,
 
   if (!current_element)
     return false;
-  if (IsHTMLTableCellElement(*current_element))
+  if (IsA<HTMLTableCellElement>(*current_element))
     return IsA<HTMLTableRowElement>(*parent_node);
   if (IsA<HTMLTableRowElement>(*current_element))
     return IsA<HTMLTableSectionElement>(parent_html_element);
@@ -527,7 +517,7 @@ static ax::mojom::Role DecideRoleFromSiblings(Element* cell) {
       IsNonEmptyNonHeaderCell(previous_cell))
     return ax::mojom::Role::kRowHeader;
 
-  const Element* row = ToElement(cell->parentNode());
+  const auto* row = To<Element>(cell->parentNode());
   if (!row || !row->HasTagName(html_names::kTrTag))
     return ax::mojom::Role::kColumnHeader;
 
@@ -627,8 +617,12 @@ ax::mojom::Role AXNodeObject::NativeRoleIgnoringAria() const {
                                             : ax::mojom::Role::kLink;
   }
 
+  if (IsA<HTMLPortalElement>(*GetNode())) {
+    return ax::mojom::Role::kPortal;
+  }
+
   if (IsA<HTMLAnchorElement>(*GetNode())) {
-    // We assume that an anchor element is LinkRole if it has event listners
+    // We assume that an anchor element is LinkRole if it has event listeners
     // even though it doesn't have kHrefAttr.
     if (IsClickable())
       return ax::mojom::Role::kLink;
@@ -658,7 +652,7 @@ ax::mojom::Role AXNodeObject::NativeRoleIgnoringAria() const {
   }
   if (IsA<HTMLTableRowElement>(*GetNode()))
     return DetermineTableRowRole();
-  if (IsHTMLTableCellElement(*GetNode()))
+  if (IsA<HTMLTableCellElement>(*GetNode()))
     return DetermineTableCellRole();
   if (IsA<HTMLTableSectionElement>(*GetNode()))
     return DetermineTableCellRole();
@@ -873,8 +867,11 @@ ax::mojom::Role AXNodeObject::NativeRoleIgnoringAria() const {
   if (GetNode()->nodeName() == "TIME")
     return ax::mojom::Role::kTime;
 
-  if (IsEmbeddedObject())
-    return ax::mojom::Role::kEmbeddedObject;
+  if (IsA<HTMLPlugInElement>(GetNode())) {
+    if (IsA<HTMLEmbedElement>(GetNode()))
+      return ax::mojom::Role::kEmbeddedObject;
+    return ax::mojom::Role::kPluginObject;
+  }
 
   if (IsA<HTMLHRElement>(*GetNode()))
     return ax::mojom::Role::kSplitter;
@@ -1117,10 +1114,6 @@ bool AXNodeObject::ComputeIsEditableRoot() const {
   return false;
 }
 
-bool AXNodeObject::IsEmbeddedObject() const {
-  return IsHTMLPlugInElement(GetNode());
-}
-
 bool AXNodeObject::IsFieldset() const {
   return IsA<HTMLFieldSetElement>(GetNode());
 }
@@ -1238,10 +1231,7 @@ bool AXNodeObject::IsNativeImage() const {
   if (!node)
     return false;
 
-  if (IsA<HTMLImageElement>(*node))
-    return true;
-
-  if (IsHTMLPlugInElement(*node))
+  if (IsA<HTMLImageElement>(*node) || IsA<HTMLPlugInElement>(*node))
     return true;
 
   if (const auto* input = DynamicTo<HTMLInputElement>(*node))
@@ -1516,23 +1506,47 @@ unsigned AXNodeObject::HierarchicalLevel() const {
       return level;
   }
 
-  // Only tree item will calculate its level through the DOM currently.
-  if (RoleValue() != ax::mojom::Role::kTreeItem)
-    return 0;
+  // Only tree item and list item will calculate its level through the DOM
+  // currently.
+  if (RoleValue() == ax::mojom::Role::kTreeItem) {
+    // Hierarchy leveling starts at 1, to match the aria-level spec.
+    // We measure tree hierarchy by the number of groups that the item is
+    // within.
+    level = 1;
+    for (AXObject* parent = ParentObject(); parent;
+         parent = parent->ParentObject()) {
+      ax::mojom::Role parent_role = parent->RoleValue();
+      if (parent_role == ax::mojom::Role::kGroup)
+        level++;
+      else if (parent_role == ax::mojom::Role::kTree)
+        break;
+    }
+    return level;
+  } else if (RoleValue() == ax::mojom::Role::kListItem) {
+    level = 0;
+    for (AXObject* parent = ParentObject(); parent;
+         parent = parent->ParentObject()) {
+      ax::mojom::Role parent_role = parent->RoleValue();
+      if (parent_role == ax::mojom::Role::kList)
+        level++;
+    }
 
-  // Hierarchy leveling starts at 1, to match the aria-level spec.
-  // We measure tree hierarchy by the number of groups that the item is within.
-  level = 1;
-  for (AXObject* parent = ParentObject(); parent;
-       parent = parent->ParentObject()) {
-    ax::mojom::Role parent_role = parent->RoleValue();
-    if (parent_role == ax::mojom::Role::kGroup)
-      level++;
-    else if (parent_role == ax::mojom::Role::kTree)
-      break;
+    // When level count is 0 due to this list item not having an ancestor of
+    // Role::kList, not nested in list groups, this list item has a level of 1.
+    return level == 0 ? 1 : level;
+  } else if (RoleValue() == ax::mojom::Role::kComment) {
+    // Comment: level is based on counting comment ancestors until the root.
+    level = 1;
+    for (AXObject* parent = ParentObject(); parent;
+         parent = parent->ParentObject()) {
+      ax::mojom::Role parent_role = parent->RoleValue();
+      if (parent_role == ax::mojom::Role::kComment)
+        level++;
+    }
+    return level;
   }
 
-  return level;
+  return 0;
 }
 
 String AXNodeObject::AutoComplete() const {
@@ -2117,6 +2131,25 @@ ax::mojom::Role AXNodeObject::AriaRoleAttribute() const {
   return aria_role_;
 }
 
+bool AXNodeObject::HasAriaAttribute() const {
+  Element* element = GetElement();
+  if (!element)
+    return false;
+
+  // Explicit ARIA role should be considered an aria attribute.
+  if (AriaRoleAttribute() != ax::mojom::Role::kUnknown)
+    return true;
+
+  AttributeCollection attributes = element->AttributesWithoutUpdate();
+  for (const Attribute& attr : attributes) {
+    // Attributes cache their uppercase names.
+    if (attr.GetName().LocalNameUpper().StartsWith("ARIA-"))
+      return true;
+  }
+
+  return false;
+}
+
 // Returns the nearest block-level LayoutBlockFlow ancestor
 static LayoutBlockFlow* NonInlineBlockFlow(LayoutObject* object) {
   LayoutObject* current = object;
@@ -2441,10 +2474,16 @@ bool AXNodeObject::NameFromLabelElement() const {
     return false;
 
   // Step 2B from: http://www.w3.org/TR/accname-aam-1.1
-  HeapVector<Member<Element>> elements;
+  // Try both spellings, but prefer aria-labelledby, which is the official spec.
+  const QualifiedName& attr =
+      HasAttribute(html_names::kAriaLabeledbyAttr) &&
+              !HasAttribute(html_names::kAriaLabelledbyAttr)
+          ? html_names::kAriaLabeledbyAttr
+          : html_names::kAriaLabelledbyAttr;
+  HeapVector<Member<Element>> elements_from_attribute;
   Vector<String> ids;
-  AriaLabelledbyElementVector(elements, ids);
-  if (ids.size() > 0)
+  ElementsFromAttribute(elements_from_attribute, attr, ids);
+  if (elements_from_attribute.size() > 0)
     return false;
 
   // Step 2C from: http://www.w3.org/TR/accname-aam-1.1
@@ -2600,6 +2639,8 @@ void AXNodeObject::AddChildren() {
 
   for (Node* child = LayoutTreeBuilderTraversal::FirstChild(*node_); child;
        child = LayoutTreeBuilderTraversal::NextSibling(*child)) {
+    if (child->IsMarkerPseudoElement() && AccessibilityIsIgnored())
+      continue;
     AXObject* child_obj = AXObjectCache().GetOrCreate(child);
     if (child_obj && !AXObjectCache().IsAriaOwned(child_obj))
       AddChild(child_obj);
@@ -2777,7 +2818,7 @@ void AXNodeObject::SetNode(Node* node) {
   node_ = node;
 }
 
-AXObject* AXNodeObject::CorrespondingControlForLabelElement() const {
+AXObject* AXNodeObject::CorrespondingControlAXObjectForLabelElement() const {
   HTMLLabelElement* label_element = LabelElementContainer();
   if (!label_element)
     return nullptr;
@@ -2793,6 +2834,14 @@ AXObject* AXNodeObject::CorrespondingControlForLabelElement() const {
     return nullptr;
 
   return AXObjectCache().GetOrCreate(corresponding_control);
+}
+
+AXObject* AXNodeObject::CorrespondingLabelAXObject() const {
+  HTMLLabelElement* label_element = LabelElementContainer();
+  if (!label_element)
+    return nullptr;
+
+  return AXObjectCache().GetOrCreate(label_element);
 }
 
 HTMLLabelElement* AXNodeObject::LabelElementContainer() const {
@@ -3040,6 +3089,21 @@ void AXNodeObject::ComputeAriaOwnsChildren(
       HasContentEditableAttributeSet()) {
     if (GetNode())
       AXObjectCache().UpdateAriaOwns(this, id_vector, owned_children);
+    return;
+  }
+
+  // We first check if the element has an explicitly set aria-owns association.
+  // Explicitly set elements are validated on setting time (that they are in a
+  // valid scope etc). The content attribute can contain ids that are not
+  // legally ownable.
+  Element* element = GetElement();
+  if (element && element->HasExplicitlySetAttrAssociatedElements(
+                     html_names::kAriaOwnsAttr)) {
+    bool is_null = false;
+    AXObjectCache().UpdateAriaOwnsFromAttrAssociatedElements(
+        this,
+        element->GetElementArrayAttribute(html_names::kAriaOwnsAttr, is_null),
+        owned_children);
     return;
   }
 
@@ -3610,14 +3674,30 @@ String AXNodeObject::Description(ax::mojom::NameFrom name_from,
 
   // aria-describedby overrides any other accessible description, from:
   // http://rawgit.com/w3c/aria/master/html-aam/html-aam.html
-  const AtomicString& aria_describedby =
-      GetAttribute(html_names::kAriaDescribedbyAttr);
-  if (!aria_describedby.IsNull()) {
-    if (description_sources)
-      description_sources->back().attribute_value = aria_describedby;
+  Element* element = GetElement();
+  if (!element)
+    return String();
 
-    Vector<String> ids;
-    description = TextFromAriaDescribedby(related_objects, ids);
+  Vector<String> ids;
+  HeapVector<Member<Element>> elements_from_attribute;
+  ElementsFromAttribute(elements_from_attribute,
+                        html_names::kAriaDescribedbyAttr, ids);
+  if (!elements_from_attribute.IsEmpty()) {
+    // TODO(meredithl): Determine description sources when |aria_describedby| is
+    // the empty string, in order to make devtools work with attr-associated
+    // elements.
+    if (description_sources) {
+      description_sources->back().attribute_value =
+          GetAttribute(html_names::kAriaDescribedbyAttr);
+    }
+    AXObjectSet visited;
+    description = TextFromElements(true, visited, elements_from_attribute,
+                                   related_objects);
+
+    for (auto& element : elements_from_attribute)
+      ids.push_back(element->GetIdAttribute());
+
+    TokenVectorFromAttribute(ids, html_names::kAriaDescribedbyAttr);
     AXObjectCache().UpdateReverseRelations(this, ids);
 
     if (!description.IsNull()) {
@@ -3679,7 +3759,7 @@ String AXNodeObject::Description(ax::mojom::NameFrom name_from,
 
   // table caption, 5.9.2 from:
   // http://rawgit.com/w3c/aria/master/html-aam/html-aam.html
-  auto* table_element = DynamicTo<HTMLTableElement>(GetNode());
+  auto* table_element = DynamicTo<HTMLTableElement>(element);
   if (name_from != ax::mojom::NameFrom::kCaption && table_element) {
     description_from = ax::mojom::DescriptionFrom::kRelatedElement;
     if (description_sources) {
@@ -3754,26 +3834,6 @@ String AXNodeObject::Description(ax::mojom::NameFrom name_from,
       } else {
         return description;
       }
-    }
-  }
-
-  // aria-help.
-  // FIXME: this is not part of the official standard, but it's needed because
-  // the built-in date/time controls use it.
-  description_from = ax::mojom::DescriptionFrom::kAttribute;
-  if (description_sources) {
-    description_sources->push_back(
-        DescriptionSource(found_description, html_names::kAriaHelpAttr));
-    description_sources->back().type = description_from;
-  }
-  const AtomicString& help = GetAttribute(html_names::kAriaHelpAttr);
-  if (!help.IsEmpty()) {
-    description = help;
-    if (description_sources) {
-      found_description = true;
-      description_sources->back().text = description;
-    } else {
-      return description;
     }
   }
 

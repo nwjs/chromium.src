@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-#include "ash/public/cpp/ambient/ambient_mode_state.h"
 #include "ash/public/mojom/assistant_controller.mojom.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/optional.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread.h"
 #include "chromeos/assistant/internal/action/cros_action_module.h"
@@ -95,8 +95,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
       public assistant_client::DeviceStateListener,
       public assistant_client::MediaManager::Listener,
       public media_session::mojom::MediaControllerObserver,
-      public mojom::AppListEventSubscriber,
-      public ash::AmbientModeStateObserver {
+      public mojom::AppListEventSubscriber {
  public:
   // |service| owns this class and must outlive this class.
   AssistantManagerServiceImpl(
@@ -105,7 +104,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
       std::unique_ptr<AssistantManagerServiceDelegate> delegate,
       std::unique_ptr<network::PendingSharedURLLoaderFactory>
           pending_url_loader_factory,
-      bool is_signed_out_mode);
+      base::Optional<std::string> s3_server_uri_override);
 
   ~AssistantManagerServiceImpl() override;
 
@@ -114,7 +113,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
              bool enable_hotword) override;
   void Stop() override;
   State GetState() const override;
-  void SetAccessToken(const std::string& access_token) override;
+  void SetAccessToken(const base::Optional<std::string>& access_token) override;
+  void EnableAmbientMode(bool enabled) override;
   void EnableListening(bool enable) override;
   void EnableHotword(bool enable) override;
   void SetArcPlayStoreEnabled(bool enable) override;
@@ -150,6 +150,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   void OnAccessibilityStatusChanged(bool spoken_feedback_enabled) override;
   void SendAssistantFeedback(
       mojom::AssistantFeedbackPtr assistant_feedback) override;
+  void NotifyEntryIntoAssistantUi(
+      mojom::AssistantEntryPoint entry_point) override;
   void StopAlarmTimerRinging() override;
   void CreateTimer(base::TimeDelta duration) override;
 
@@ -201,9 +203,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   // mojom::AppListEventSubscriber overrides:
   void OnAndroidAppListRefreshed(
       std::vector<mojom::AndroidAppInfoPtr> apps_info) override;
-
-  // ash::AmbientModeStateObserver overrides:
-  void OnAmbientModeEnabled(bool enabled) override;
 
   void UpdateInternalOptions(
       assistant_client::AssistantManagerInternal* assistant_manager_internal);
@@ -300,6 +299,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
       mojom::AssistantQuerySource source,
       const std::string& query);
 
+  std::string ConsumeLastTriggerSource();
+
   ash::mojom::AssistantAlarmTimerController* assistant_alarm_timer_controller();
   ash::mojom::AssistantNotificationController*
   assistant_notification_controller();
@@ -350,8 +351,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   ax::mojom::AssistantExtraPtr assistant_extra_;
   std::unique_ptr<ui::AssistantTree> assistant_tree_;
   std::vector<uint8_t> assistant_screenshot_;
-  std::string last_search_source_;
-  base::Lock last_search_source_lock_;
+  std::string last_trigger_source_;
+  base::Lock last_trigger_source_lock_;
   base::TimeTicks started_time_;
 
   base::Thread background_thread_;
@@ -365,7 +366,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
   std::string receive_url_response_;
 
   bool is_first_client_discourse_context_query_ = true;
-  bool is_signed_out_mode_;
 
   mojo::Receiver<media_session::mojom::MediaControllerObserver>
       media_controller_observer_receiver_{this};
@@ -378,6 +378,9 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) AssistantManagerServiceImpl
 
   base::UnguessableToken media_session_audio_focus_id_ =
       base::UnguessableToken::Null();
+
+  // Configuration passed to libassistant.
+  std::string libassistant_config_;
 
   mojo::Receiver<mojom::AppListEventSubscriber> app_list_subscriber_receiver_{
       this};

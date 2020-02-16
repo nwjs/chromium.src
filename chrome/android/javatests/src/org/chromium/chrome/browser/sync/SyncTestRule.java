@@ -14,7 +14,6 @@ import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.SyncFirstSetupCompleteSource;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
@@ -179,7 +178,7 @@ public class SyncTestRule extends ChromeActivityTestRule<ChromeActivity> {
     public void signOut() throws InterruptedException {
         final Semaphore s = new Semaphore(0);
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            IdentityServicesProvider.getSigninManager().signOut(
+            IdentityServicesProvider.get().getSigninManager().signOut(
                     SignoutReason.SIGNOUT_TEST, s::release, false);
         });
         Assert.assertTrue(s.tryAcquire(SyncTestUtil.TIMEOUT_MS, TimeUnit.MILLISECONDS));
@@ -253,7 +252,7 @@ public class SyncTestRule extends ChromeActivityTestRule<ChromeActivity> {
 
                 TestThreadUtils.runOnUiThreadBlocking(() -> {
                     // Ensure SyncController is registered with the new AndroidSyncSettings.
-                    AndroidSyncSettings.get().registerObserver(SyncController.get(mContext));
+                    AndroidSyncSettings.get().registerObserver(SyncController.get());
                     mFakeServerHelper = FakeServerHelper.get();
                 });
                 FakeServerHelper.useFakeServer(mContext);
@@ -338,13 +337,11 @@ public class SyncTestRule extends ChromeActivityTestRule<ChromeActivity> {
 
     private void signinAndEnableSyncInternal(final Account account, boolean setFirstSetupComplete) {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            IdentityServicesProvider.getSigninManager().signIn(
+            IdentityServicesProvider.get().getSigninManager().signIn(
                     SigninAccessPoint.UNKNOWN, account, new SigninManager.SignInCallback() {
                         @Override
                         public void onSignInComplete() {
-                            if (ChromeFeatureList.isEnabled(
-                                        ChromeFeatureList.SYNC_MANUAL_START_ANDROID)
-                                    && setFirstSetupComplete) {
+                            if (setFirstSetupComplete) {
                                 mProfileSyncService.setFirstSetupComplete(
                                         SyncFirstSetupCompleteSource.BASIC_FLOW);
                             }

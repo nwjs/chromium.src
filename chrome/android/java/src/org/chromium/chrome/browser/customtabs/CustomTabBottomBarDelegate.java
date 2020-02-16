@@ -51,7 +51,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
             new CachedMetrics.ActionEvent("CustomTabsRemoteViewsUpdated");
     private static final int SLIDE_ANIMATION_DURATION_MS = 400;
 
-    private final ChromeActivity mActivity;
+    private final ChromeActivity<?> mActivity;
     private final ChromeFullscreenManager mFullscreenManager;
     private final BrowserServicesIntentDataProvider mDataProvider;
     private final CustomTabNightModeStateController mNightModeStateController;
@@ -80,7 +80,7 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
     };
 
     @Inject
-    public CustomTabBottomBarDelegate(ChromeActivity activity,
+    public CustomTabBottomBarDelegate(ChromeActivity<?> activity,
             BrowserServicesIntentDataProvider dataProvider,
             ChromeFullscreenManager fullscreenManager,
             CustomTabNightModeStateController nightModeStateController,
@@ -327,7 +327,8 @@ public class CustomTabBottomBarDelegate implements FullscreenListener {
 
     // FullscreenListener methods
     @Override
-    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
+    public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
+            int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {
         if (mBottomBarView != null) mBottomBarView.setTranslationY(bottomOffset);
         // If the bottom bar is not visible use the top controls as a guide to set state.
         int offset = getBottomBarHeight() == 0 ? topOffset : bottomOffset;

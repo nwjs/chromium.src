@@ -204,15 +204,6 @@ OmniboxViewViews::OmniboxViewViews(OmniboxEditController* controller,
       friendly_suggestion_text_prefix_length_(0) {
   SetID(VIEW_ID_OMNIBOX);
   SetFontList(font_list);
-
-  if (base::FeatureList::IsEnabled(
-          omnibox::kHideSteadyStateUrlPathQueryAndRef)) {
-    // The animation only applies when the path is dimmed to begin with.
-    SkColor starting_color =
-        location_bar_view_->GetColor(OmniboxPart::LOCATION_BAR_TEXT_DIMMED);
-    path_fade_animation_ =
-        std::make_unique<PathFadeAnimation>(this, starting_color);
-  }
 }
 
 OmniboxViewViews::~OmniboxViewViews() {
@@ -231,20 +222,17 @@ void OmniboxViewViews::Init() {
   SetTextInputType(ui::TEXT_INPUT_TYPE_URL);
   GetRenderText()->SetElideBehavior(gfx::ELIDE_TAIL);
   GetRenderText()->set_symmetric_selection_visual_bounds(true);
+  InstallPlaceholderText();
+  scoped_template_url_service_observer_.Add(
+      model()->client()->GetTemplateURLService());
 
   if (popup_window_mode_)
     SetReadOnly(true);
 
   if (location_bar_view_) {
-    InstallPlaceholderText();
-    scoped_template_url_service_observer_.Add(
-        model()->client()->GetTemplateURLService());
-
     // Initialize the popup view using the same font.
     popup_view_.reset(
-        new OmniboxPopupContentsView(this, model(), location_bar_view_,
-                                     &ThemeService::GetThemeProviderForProfile(
-                                         location_bar_view_->profile())));
+        new OmniboxPopupContentsView(this, model(), location_bar_view_));
   }
 
   // Override the default FocusableBorder from Textfield, since the
@@ -309,9 +297,6 @@ void OmniboxViewViews::ResetTabState(content::WebContents* web_contents) {
 }
 
 void OmniboxViewViews::InstallPlaceholderText() {
-  set_placeholder_text_color(
-      location_bar_view_->GetColor(OmniboxPart::LOCATION_BAR_TEXT_DIMMED));
-
   const TemplateURL* const default_provider =
       model()->client()->GetTemplateURLService()->GetDefaultSearchProvider();
   if (default_provider) {
@@ -420,8 +405,6 @@ void OmniboxViewViews::RevertAll() {
 }
 
 void OmniboxViewViews::SetFocus(bool is_user_initiated) {
-  const bool already_focused = HasFocus();
-
   // Temporarily reveal the top-of-window views (if not already revealed) so
   // that the location bar view is visible and is considered focusable. When it
   // actually receives focus, ImmersiveFocusWatcher will add another lock to
@@ -434,9 +417,11 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
             ->GetRevealedLock(ImmersiveModeController::ANIMATE_REVEAL_YES));
   }
 
-  suppress_on_focus_suggestions_ = !is_user_initiated;
   RequestFocus();
-  suppress_on_focus_suggestions_ = false;
+
+  // |is_user_initiated| is true for focus events from keyboard accelerators.
+  if (is_user_initiated)
+    model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
 
   // Restore caret visibility if focus is explicitly requested. This is
   // necessary because if we already have invisible focus, the RequestFocus()
@@ -449,17 +434,6 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
   // re-pressed. This occurs even if the omnibox is already focused and we
   // re-request focus (e.g. pressing ctrl-l twice).
   model()->ConsumeCtrlKey();
-
-  if (already_focused)
-    model()->ClearKeyword();
-
-  if (is_user_initiated) {
-    SelectAll(true);
-
-    // Only exit Query in Omnibox mode on focus command if the location bar was
-    // already focused to begin with, i.e. user presses Ctrl+L twice.
-    model()->Unelide(/*exit_query_in_omnibox=*/already_focused);
-  }
 }
 
 int OmniboxViewViews::GetTextWidth() const {
@@ -584,6 +558,23 @@ bool OmniboxViewViews::ShouldDoLearning() {
   return location_bar_view_ && !location_bar_view_->profile()->IsOffTheRecord();
 }
 
+void OmniboxViewViews::OnThemeChanged() {
+  views::Textfield::OnThemeChanged();
+
+  const SkColor dimmed_text_color = GetOmniboxColor(
+      GetThemeProvider(), OmniboxPart::LOCATION_BAR_TEXT_DIMMED);
+  set_placeholder_text_color(dimmed_text_color);
+
+  if (base::FeatureList::IsEnabled(
+          omnibox::kHideSteadyStateUrlPathQueryAndRef)) {
+    // The animation only applies when the path is dimmed to begin with.
+    path_fade_animation_ =
+        std::make_unique<PathFadeAnimation>(this, dimmed_text_color);
+  }
+
+  EmphasizeURLComponents();
+}
+
 bool OmniboxViewViews::IsDropCursorForInsertion() const {
   // Dragging text from within omnibox itself will behave like text input
   // editor, showing insertion-style drop cursor as usual;
@@ -675,6 +666,24 @@ bool OmniboxViewViews::HandleEarlyTabActions(const ui::KeyEvent& event) {
     // If tab switch button is focused, unfocus it.
     if (MaybeUnfocusSecondaryButton())
       return true;
+  }
+
+  if (base::FeatureList::IsEnabled(omnibox::kTabKeyCanEscapeOmniboxPopup)) {
+    // Close the popup if tab traversal exits the list.
+    size_t selected_line = model()->popup_model()->selected_line();
+    bool close_popup = event.IsShiftDown()
+                           ? selected_line == 0
+                           : selected_line == (model()->result().size() - 1);
+    if (close_popup) {
+      CloseOmniboxPopup();
+
+      // When we close the popup, we also want to restore the user's text back
+      // to the state it was before the popup opened.
+      model()->RevertTemporaryTextAndPopup();
+
+      // Return false so the focus manager will go to the next element.
+      return false;
+    }
   }
 
   // Translate tab and shift-tab into down and up respectively.
@@ -857,13 +866,20 @@ void OmniboxViewViews::ClearAccessibilityLabel() {
 
 void OmniboxViewViews::SetAccessibilityLabel(const base::string16& display_text,
                                              const AutocompleteMatch& match) {
-  bool is_tab_switch_button_focused =
-      model()->popup_model()->selected_line_state() ==
-      OmniboxPopupModel::BUTTON_FOCUSED;
-  friendly_suggestion_text_ = AutocompleteMatchType::ToAccessibilityLabel(
-      match, display_text, model()->popup_model()->selected_line(),
-      model()->result().size(), is_tab_switch_button_focused,
-      &friendly_suggestion_text_prefix_length_);
+  size_t selected_line = model()->popup_model()->selected_line();
+  if (selected_line != OmniboxPopupModel::kNoMatch && popup_view_) {
+    // Although it feels bad to ask a whole different view for the accessibility
+    // text, only the OmniboxResultView knows which secondary button is shown.
+    OmniboxResultView* result_view = popup_view_->result_view_at(selected_line);
+    friendly_suggestion_text_ =
+        result_view->ToAccessibilityLabelWithSecondaryButton(
+            display_text, model()->result().size(),
+            &friendly_suggestion_text_prefix_length_);
+  } else {
+    friendly_suggestion_text_ = AutocompleteMatchType::ToAccessibilityLabel(
+        match, display_text, selected_line, model()->result().size(), 0,
+        &friendly_suggestion_text_prefix_length_);
+  }
 
 #if defined(OS_MACOSX)
   // On macOS, the text field value changed notification is not
@@ -1032,9 +1048,9 @@ int OmniboxViewViews::GetOmniboxTextLength() const {
 }
 
 void OmniboxViewViews::SetEmphasis(bool emphasize, const gfx::Range& range) {
-  SkColor color = location_bar_view_->GetColor(
-      emphasize ? OmniboxPart::LOCATION_BAR_TEXT_DEFAULT
-                : OmniboxPart::LOCATION_BAR_TEXT_DIMMED);
+  SkColor color = GetOmniboxColor(
+      GetThemeProvider(), emphasize ? OmniboxPart::LOCATION_BAR_TEXT_DEFAULT
+                                    : OmniboxPart::LOCATION_BAR_TEXT_DIMMED);
   if (range.IsValid())
     ApplyColor(color, range);
   else
@@ -1044,6 +1060,14 @@ void OmniboxViewViews::SetEmphasis(bool emphasize, const gfx::Range& range) {
 void OmniboxViewViews::UpdateSchemeStyle(const gfx::Range& range) {
   DCHECK(range.IsValid());
   DCHECK(!model()->user_input_in_progress());
+
+  // Do not style the scheme for non-http/https URLs. For such schemes, styling
+  // could be confusing or misleading. For example, the scheme isn't meaningful
+  // in about:blank URLs. Or in blob: or filesystem: URLs, which have an inner
+  // origin, the URL is likely too syntax-y to be able to meaningfully draw
+  // attention to any part of it.
+  if (!controller()->GetLocationBarModel()->GetURL().SchemeIsHTTPOrHTTPS())
+    return;
 
   security_state::SecurityLevel security_level =
       controller()->GetLocationBarModel()->GetSecurityLevel();
@@ -1130,6 +1154,12 @@ bool OmniboxViewViews::OnMousePressed(const ui::MouseEvent& event) {
     saved_selection_for_focus_change_ = gfx::Range::InvalidRange();
   }
 
+  // Show on-focus suggestions if either:
+  //  - The textfield doesn't already have focus.
+  //  - Or if the textfield is empty, to cover the NTP ZeroSuggest case.
+  if (event.IsOnlyLeftMouseButton() && (!HasFocus() || GetText().empty()))
+    model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
+
   bool handled = views::Textfield::OnMousePressed(event);
 
   // This ensures that when the user makes a double-click partial select, we
@@ -1139,13 +1169,6 @@ bool OmniboxViewViews::OnMousePressed(const ui::MouseEvent& event) {
       UnapplySteadyStateElisions(UnelisionGesture::OTHER)) {
     TextChanged();
     filter_drag_events_for_unelision_ = true;
-  }
-
-  // This is intended to cover the NTP case where the omnibox starts focused.
-  // The user can explicitly request on-focus suggestions by clicking or tapping
-  // the omnibox. Restricted to empty textfield to avoid disrupting selections.
-  if (HasFocus() && GetText().empty() && event.IsOnlyLeftMouseButton()) {
-    model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
   }
 
   return handled;
@@ -1198,6 +1221,12 @@ void OmniboxViewViews::OnGestureEvent(ui::GestureEvent* event) {
     saved_selection_for_focus_change_ = gfx::Range::InvalidRange();
   }
 
+  // Show on-focus suggestions if either:
+  //  - The textfield doesn't already have focus.
+  //  - Or if the textfield is empty, to cover the NTP ZeroSuggest case.
+  if (!HasFocus() || GetText().empty())
+    model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
+
   views::Textfield::OnGestureEvent(event);
 
   if (select_all_on_gesture_tap_ && event->type() == ui::ET_GESTURE_TAP) {
@@ -1212,13 +1241,6 @@ void OmniboxViewViews::OnGestureEvent(ui::GestureEvent* event) {
       event->type() == ui::ET_GESTURE_LONG_PRESS ||
       event->type() == ui::ET_GESTURE_LONG_TAP) {
     select_all_on_gesture_tap_ = false;
-  }
-
-  // This is intended to cover the NTP case where the omnibox starts focused.
-  // The user can explicitly request on-focus suggestions by clicking or tapping
-  // the omnibox. Restricted to empty textfield to avoid disrupting selections.
-  if (HasFocus() && GetText().empty() && event->type() == ui::ET_GESTURE_TAP) {
-    model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
   }
 }
 
@@ -1342,14 +1364,8 @@ void OmniboxViewViews::OnFocus() {
   // Investigate why it's needed and see if we can remove it.
   model()->ResetDisplayTexts();
 
-  bool suppress = suppress_on_focus_suggestions_;
-  if (GetFocusManager() &&
-      GetFocusManager()->focus_change_reason() !=
-          views::FocusManager::FocusChangeReason::kDirectFocusChange) {
-    suppress = true;
-  }
   // TODO(oshima): Get control key state.
-  model()->OnSetFocus(false, suppress);
+  model()->OnSetFocus(false);
   // Don't call controller()->OnSetFocus, this view has already acquired focus.
 
   // Restore the selection we saved in OnBlur() if it's still valid.

@@ -33,15 +33,10 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
 
-namespace viz {
-class CompositorFrameSinkSupport;
-}
-
 namespace content {
 class FrameConnectorDelegate;
 class RenderWidgetHost;
 class RenderWidgetHostViewChildFrameTest;
-class RenderWidgetHostViewGuestSurfaceTest;
 class TouchSelectionControllerClientChildFrame;
 
 // RenderWidgetHostViewChildFrame implements the view for a RenderWidgetHost
@@ -55,24 +50,12 @@ class TouchSelectionControllerClientChildFrame;
 class CONTENT_EXPORT RenderWidgetHostViewChildFrame
     : public RenderWidgetHostViewBase,
       public TouchSelectionControllerClientManager::Observer,
-      public viz::mojom::CompositorFrameSinkClient,
       public viz::HostFrameSinkClient {
  public:
   static RenderWidgetHostViewChildFrame* Create(RenderWidgetHost* widget);
   ~RenderWidgetHostViewChildFrame() override;
 
   void SetFrameConnectorDelegate(FrameConnectorDelegate* frame_connector);
-
-  // This functions registers single-use callbacks that want to be notified when
-  // the next frame is swapped. The callback is triggered by
-  // SubmitCompositorFrame, which is the appropriate time to request pixel
-  // readback for the frame that is about to be drawn. Once called, the callback
-  // pointer is released.
-  // TODO(crbug.com/787941): This should be removed because it doesn't work when
-  // VIZ display compositing is enabled. The public CopyFromSurface() API does
-  // not make guarantees that it will succeed before the first frame is
-  // composited.
-  void RegisterFrameSwappedCallback(base::OnceClosure callback);
 
   // TouchSelectionControllerClientManager::Observer implementation.
   void OnManagerWillDestroy(
@@ -101,8 +84,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   gfx::NativeView GetNativeView() override;
   gfx::NativeViewAccessible GetNativeViewAccessible() override;
   bool IsMouseLocked() override;
-  void SetNeedsBeginFrames(bool needs_begin_frames) override;
-  void SetWantsAnimateOnlyBeginFrames() override;
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
 
   // RenderWidgetHostViewBase implementation.
@@ -119,14 +100,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void SetTooltipText(const base::string16& tooltip_text) override;
   void GestureEventAck(const blink::WebGestureEvent& event,
                        InputEventAckState ack_result) override;
-  void DidCreateNewRendererCompositorFrameSink(
-      viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink)
-      override;
-  void SubmitCompositorFrame(
-      const viz::LocalSurfaceId& local_surface_id,
-      viz::CompositorFrame frame,
-      base::Optional<viz::HitTestRegionList> hit_test_region_list) override;
-  void OnDidNotProduceFrame(const viz::BeginFrameAck& ack) override;
   // Since the URL of content rendered by this class is not displayed in
   // the URL bar, this method does not need an implementation.
   void ResetFallbackToFirstNavigationSurface() override {}
@@ -185,15 +158,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   viz::ScopedSurfaceIdAllocator DidUpdateVisualProperties(
       const cc::RenderFrameMetadata& metadata) override;
 
-  // viz::mojom::CompositorFrameSinkClient implementation.
-  void DidReceiveCompositorFrameAck(
-      const std::vector<viz::ReturnedResource>& resources) override;
-  void OnBeginFrame(const viz::BeginFrameArgs& args,
-                    const viz::FrameTimingDetailsMap& timing_details) override;
-  void ReclaimResources(
-      const std::vector<viz::ReturnedResource>& resources) override;
-  void OnBeginFramePausedChanged(bool paused) override;
-
   // viz::HostFrameSinkClient implementation.
   void OnFirstSurfaceActivation(const viz::SurfaceInfo& surface_info) override;
   void OnFrameTokenChanged(uint32_t frame_token) override;
@@ -226,7 +190,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
  protected:
   friend class RenderWidgetHostView;
   friend class RenderWidgetHostViewChildFrameTest;
-  friend class RenderWidgetHostViewGuestSurfaceTest;
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostViewChildFrameTest,
                            ForwardsBeginFrameAcks);
 
@@ -252,7 +215,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   viz::FrameSinkId frame_sink_id_;
 
   // Surface-related state.
-  std::unique_ptr<viz::CompositorFrameSinkSupport> support_;
   viz::SurfaceInfo last_activated_surface_info_;
   gfx::Rect last_screen_rect_;
 
@@ -275,8 +237,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 
   virtual void FirstSurfaceActivation(const viz::SurfaceInfo& surface_info);
 
-  void CreateCompositorFrameSinkSupport();
-  void ResetCompositorFrameSinkSupport();
   void DetachFromTouchSelectionClientManagerIfNecessary();
 
   // Returns false if the view cannot be shown. This is the case where the frame
@@ -297,10 +257,6 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
 
   // The surface client ID of the parent RenderWidgetHostView.  0 if none.
   viz::FrameSinkId parent_frame_sink_id_;
-
-  const bool enable_viz_;
-  viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink_ =
-      nullptr;
 
   gfx::RectF last_stable_screen_rect_;
   base::TimeTicks screen_rect_stable_since_;

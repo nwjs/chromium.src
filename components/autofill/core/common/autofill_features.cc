@@ -76,11 +76,6 @@ const base::Feature kAutofillEnforceMinRequiredFieldsForUpload{
     "AutofillEnforceMinRequiredFieldsForUpload",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// When enabled, gets payment identity from sync service instead of
-// identity manager.
-const base::Feature kAutofillGetPaymentsIdentityFromSync{
-    "AutofillGetPaymentsIdentityFromSync", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // When enabled, autofill suggestions are displayed in the keyboard accessory
 // instead of the regular popup.
 const base::Feature kAutofillKeyboardAccessory{
@@ -198,6 +193,9 @@ const base::Feature kAutofillUseImprovedLabelDisambiguation{
 // Server predictions for CVC fields are used if the feature is enabled.
 const base::Feature kAutofillUseServerCVCPrediction{
     "AutofillUseServerCVCPrediction", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kAutofillSmsReceiver{"AutofillSmsReceiver",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 #if defined(OS_ANDROID)
 // Controls whether the Autofill manual fallback for Addresses and Payments is

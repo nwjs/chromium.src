@@ -44,10 +44,6 @@ enum class MakeCredentialStatus;
 
 }  // namespace device
 
-namespace service_manager {
-class Connector;
-}  // namespace service_manager
-
 namespace url {
 class Origin;
 }
@@ -68,9 +64,8 @@ CONTENT_EXPORT extern const char kGetType[];
 // Common code for any WebAuthn Authenticator interfaces.
 class CONTENT_EXPORT AuthenticatorCommon {
  public:
-  // Permits setting connector and timer for testing.
+  // Permits setting timer for testing.
   AuthenticatorCommon(RenderFrameHost* render_frame_host,
-                      service_manager::Connector*,
                       std::unique_ptr<base::OneShotTimer>);
   virtual ~AuthenticatorCommon();
 
@@ -91,6 +86,8 @@ class CONTENT_EXPORT AuthenticatorCommon {
 
   void Cleanup();
 
+  void DisableUI();
+
   base::flat_set<device::FidoTransportProtocol> enabled_transports_for_testing()
       const {
     return transports_;
@@ -102,7 +99,7 @@ class CONTENT_EXPORT AuthenticatorCommon {
 
  protected:
   virtual std::unique_ptr<AuthenticatorRequestClientDelegate>
-  CreateRequestDelegate(std::string relying_party_id);
+  CreateRequestDelegate();
 
   std::unique_ptr<AuthenticatorRequestClientDelegate> request_delegate_;
 
@@ -192,7 +189,6 @@ class CONTENT_EXPORT AuthenticatorCommon {
   BrowserContext* browser_context() const;
 
   RenderFrameHost* const render_frame_host_;
-  service_manager::Connector* connector_ = nullptr;
   base::flat_set<device::FidoTransportProtocol> transports_;
   device::FidoDiscoveryFactory* discovery_factory_ = nullptr;
   std::unique_ptr<device::FidoRequestHandlerBase> request_;
@@ -205,6 +201,7 @@ class CONTENT_EXPORT AuthenticatorCommon {
   // empty_allow_list_ is true iff a GetAssertion is currently pending and the
   // request did not list any credential IDs in the allow list.
   bool empty_allow_list_ = false;
+  bool disable_ui_ = false;
   url::Origin caller_origin_;
   std::string relying_party_id_;
   std::unique_ptr<base::OneShotTimer> timer_;

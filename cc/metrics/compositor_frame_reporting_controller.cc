@@ -5,6 +5,7 @@
 #include "cc/metrics/compositor_frame_reporting_controller.h"
 
 #include "cc/metrics/compositor_frame_reporter.h"
+#include "cc/metrics/latency_ukm_reporter.h"
 #include "components/viz/common/frame_timing_details.h"
 #include "components/viz/common/quads/compositor_frame_metadata.h"
 
@@ -15,7 +16,8 @@ using StageType = CompositorFrameReporter::StageType;
 
 CompositorFrameReportingController::CompositorFrameReportingController(
     bool is_single_threaded)
-    : is_single_threaded_(is_single_threaded) {}
+    : is_single_threaded_(is_single_threaded),
+      latency_ukm_reporter_(std::make_unique<LatencyUkmReporter>()) {}
 
 CompositorFrameReportingController::~CompositorFrameReportingController() {
   base::TimeTicks now = Now();
@@ -49,7 +51,8 @@ base::TimeTicks CompositorFrameReportingController::Now() const {
   return base::TimeTicks::Now();
 }
 
-void CompositorFrameReportingController::WillBeginImplFrame() {
+void CompositorFrameReportingController::WillBeginImplFrame(
+    const viz::BeginFrameId& id) {
   base::TimeTicks begin_time = Now();
   if (reporters_[PipelineStage::kBeginImplFrame]) {
     // If the the reporter is replaced in this stage, it means that Impl frame
@@ -59,20 +62,23 @@ void CompositorFrameReportingController::WillBeginImplFrame() {
         begin_time);
   }
   std::unique_ptr<CompositorFrameReporter> reporter =
-      std::make_unique<CompositorFrameReporter>(&active_trackers_,
+      std::make_unique<CompositorFrameReporter>(&active_trackers_, id,
+                                                latency_ukm_reporter_.get(),
                                                 is_single_threaded_);
   reporter->StartStage(StageType::kBeginImplFrameToSendBeginMainFrame,
                        begin_time);
   reporters_[PipelineStage::kBeginImplFrame] = std::move(reporter);
 }
 
-void CompositorFrameReportingController::WillBeginMainFrame() {
+void CompositorFrameReportingController::WillBeginMainFrame(
+    const viz::BeginFrameId& id) {
   if (reporters_[PipelineStage::kBeginImplFrame]) {
     // We need to use .get() below because operator<< in std::unique_ptr is a
     // C++20 feature.
 #if 0
     DCHECK_NE(reporters_[PipelineStage::kBeginMainFrame].get(),
               reporters_[PipelineStage::kBeginImplFrame].get());
+    DCHECK_EQ(reporters_[PipelineStage::kBeginImplFrame]->frame_id_, id);
 #endif
     reporters_[PipelineStage::kBeginImplFrame]->StartStage(
         StageType::kSendBeginMainFrameToCommit, Now());
@@ -83,28 +89,20 @@ void CompositorFrameReportingController::WillBeginMainFrame() {
     // beginMain frame before next BeginImplFrame (Not reached the ImplFrame
     // deadline yet). So will start a new reporter at BeginMainFrame.
     std::unique_ptr<CompositorFrameReporter> reporter =
-        std::make_unique<CompositorFrameReporter>(&active_trackers_,
+        std::make_unique<CompositorFrameReporter>(&active_trackers_, id,
+                                                  latency_ukm_reporter_.get(),
                                                   is_single_threaded_);
     reporter->StartStage(StageType::kSendBeginMainFrameToCommit, Now());
     reporters_[PipelineStage::kBeginMainFrame] = std::move(reporter);
   }
 }
 
-void CompositorFrameReportingController::BeginMainFrameAborted() {
+void CompositorFrameReportingController::BeginMainFrameAborted(
+    const viz::BeginFrameId& id) {
   DCHECK(reporters_[PipelineStage::kBeginMainFrame]);
-
+  DCHECK_EQ(reporters_[PipelineStage::kBeginMainFrame]->frame_id_, id);
   auto& begin_main_reporter = reporters_[PipelineStage::kBeginMainFrame];
   begin_main_reporter->OnAbortBeginMainFrame();
-
-  // If the main-frame was aborted (e.g. there was no visible update), then
-  // advance to activate stage if the compositor has already made changes to
-  // the active tree (i.e. if impl-frame has finished).
-  if (begin_main_reporter->did_finish_impl_frame()) {
-    begin_main_reporter->StartStage(
-        StageType::kEndActivateToSubmitCompositorFrame, Now());
-    AdvanceReporterStage(PipelineStage::kBeginMainFrame,
-                         PipelineStage::kActivate);
-  }
 }
 
 void CompositorFrameReportingController::WillCommit() {
@@ -144,25 +142,41 @@ void CompositorFrameReportingController::DidActivate() {
 }
 
 void CompositorFrameReportingController::DidSubmitCompositorFrame(
-    uint32_t frame_token) {
-  // If there is no reporter in active stage and there exists a finished
-  // BeginImplFrame reporter (i.e. if impl-frame has finished), then advance it
-  // to the activate stage.
-  if (!reporters_[PipelineStage::kActivate] &&
-      reporters_[PipelineStage::kBeginImplFrame]) {
-    auto& begin_impl_frame = reporters_[PipelineStage::kBeginImplFrame];
-    if (begin_impl_frame->did_finish_impl_frame()) {
-      begin_impl_frame->StartStage(
-          StageType::kEndActivateToSubmitCompositorFrame,
-          begin_impl_frame->impl_frame_finish_time());
+    uint32_t frame_token,
+    const viz::BeginFrameId& current_frame_id,
+    const viz::BeginFrameId& last_activated_frame_id) {
+  // If the last_activated_frame_id from scheduler is the same as
+  // last_submitted_frame_id_ in reporting controller, this means that we are
+  // submitting the Impl frame. In this case the frame will be submitted if
+  // Impl work is finished.
+  bool is_activated_frame_new =
+      (last_activated_frame_id != last_submitted_frame_id_);
+  if (is_activated_frame_new) {
+    DCHECK_EQ(reporters_[PipelineStage::kActivate]->frame_id_,
+              last_activated_frame_id);
+    // The reporter in activate state can be submitted
+  } else {
+    // There is no Main damage, which is possible if (1) there was no beginMain
+    // so the reporter in beginImpl will be submitted or (2) the beginMain is
+    // sent and aborted, so the reporter in beginMain will be submitted.
+    if (CanSubmitImplFrame(current_frame_id)) {
+      auto& reporter = reporters_[PipelineStage::kBeginImplFrame];
+      reporter->StartStage(StageType::kEndActivateToSubmitCompositorFrame,
+                           reporter->impl_frame_finish_time());
       AdvanceReporterStage(PipelineStage::kBeginImplFrame,
                            PipelineStage::kActivate);
+    } else if (CanSubmitMainFrame(current_frame_id)) {
+      auto& reporter = reporters_[PipelineStage::kBeginMainFrame];
+      reporter->StartStage(StageType::kEndActivateToSubmitCompositorFrame,
+                           reporter->impl_frame_finish_time());
+      AdvanceReporterStage(PipelineStage::kBeginMainFrame,
+                           PipelineStage::kActivate);
+    } else {
+      return;
     }
   }
 
-  if (!reporters_[PipelineStage::kActivate])
-    return;
-
+  last_submitted_frame_id_ = last_activated_frame_id;
   std::unique_ptr<CompositorFrameReporter> submitted_reporter =
       std::move(reporters_[PipelineStage::kActivate]);
   submitted_reporter->StartStage(
@@ -171,22 +185,27 @@ void CompositorFrameReportingController::DidSubmitCompositorFrame(
                                             std::move(submitted_reporter));
 }
 
-void CompositorFrameReportingController::OnFinishImplFrame() {
+void CompositorFrameReportingController::DidNotProduceFrame(
+    const viz::BeginFrameId& id) {
+  for (auto& stage_reporter : reporters_) {
+    if (stage_reporter && stage_reporter->frame_id_ == id) {
+      stage_reporter->TerminateFrame(
+          CompositorFrameReporter::FrameTerminationStatus::kDidNotProduceFrame,
+          Now());
+      return;
+    }
+  }
+}
+
+void CompositorFrameReportingController::OnFinishImplFrame(
+    const viz::BeginFrameId& id) {
   if (reporters_[PipelineStage::kBeginImplFrame]) {
+    DCHECK_EQ(reporters_[PipelineStage::kBeginImplFrame]->frame_id_, id);
     reporters_[PipelineStage::kBeginImplFrame]->OnFinishImplFrame(Now());
   } else if (reporters_[PipelineStage::kBeginMainFrame]) {
+    DCHECK_EQ(reporters_[PipelineStage::kBeginMainFrame]->frame_id_, id);
     auto& begin_main_reporter = reporters_[PipelineStage::kBeginMainFrame];
     begin_main_reporter->OnFinishImplFrame(Now());
-
-    // If the main-frame was aborted (e.g. there was no visible update), then
-    // advance to activate stage if the compositor has already made changes to
-    // the active tree (i.e. if impl-frame has finished).
-    if (begin_main_reporter->did_abort_main_frame()) {
-      begin_main_reporter->StartStage(
-          StageType::kEndActivateToSubmitCompositorFrame, Now());
-      AdvanceReporterStage(PipelineStage::kBeginMainFrame,
-                           PipelineStage::kActivate);
-    }
   }
 }
 
@@ -212,10 +231,11 @@ void CompositorFrameReportingController::DidPresentCompositorFrame(
 }
 
 void CompositorFrameReportingController::SetBlinkBreakdown(
-    std::unique_ptr<BeginMainFrameMetrics> details) {
+    std::unique_ptr<BeginMainFrameMetrics> details,
+    base::TimeTicks main_thread_start_time) {
   DCHECK(reporters_[PipelineStage::kBeginMainFrame]);
   reporters_[PipelineStage::kBeginMainFrame]->SetBlinkBreakdown(
-      std::move(details));
+      std::move(details), main_thread_start_time);
 }
 
 void CompositorFrameReportingController::AddActiveTracker(
@@ -238,4 +258,26 @@ void CompositorFrameReportingController::AdvanceReporterStage(
   }
   reporters_[target] = std::move(reporters_[start]);
 }
+
+bool CompositorFrameReportingController::CanSubmitImplFrame(
+    const viz::BeginFrameId& id) const {
+  if (!reporters_[PipelineStage::kBeginImplFrame])
+    return false;
+  auto& reporter = reporters_[PipelineStage::kBeginImplFrame];
+  return (reporter->frame_id_ == id && reporter->did_finish_impl_frame());
+}
+
+bool CompositorFrameReportingController::CanSubmitMainFrame(
+    const viz::BeginFrameId& id) const {
+  if (!reporters_[PipelineStage::kBeginMainFrame])
+    return false;
+  auto& reporter = reporters_[PipelineStage::kBeginMainFrame];
+  return (reporter->frame_id_ == id && reporter->did_finish_impl_frame() &&
+          reporter->did_abort_main_frame());
+}
+
+void CompositorFrameReportingController::SetUkmManager(UkmManager* manager) {
+  latency_ukm_reporter_->SetUkmManager(manager);
+}
+
 }  // namespace cc

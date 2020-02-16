@@ -16,6 +16,7 @@ import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.BuildConfig;
 import org.chromium.base.BuildInfo;
+import org.chromium.base.BundleUtils;
 import org.chromium.base.CommandLineInitUtil;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.JNIUtils;
@@ -23,6 +24,7 @@ import org.chromium.base.PathUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.annotations.MainDex;
 import org.chromium.base.library_loader.LibraryLoader;
+import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.memory.MemoryPressureMonitor;
 import org.chromium.base.multidex.ChromiumMultiDexInstaller;
 import org.chromium.base.task.AsyncTask;
@@ -79,7 +81,8 @@ public class ChromeApplication extends Application {
         if (isBrowserProcess) UmaUtils.recordMainEntryPointTime();
         super.attachBaseContext(context);
         ContextUtils.initApplicationContext(this);
-
+        maybeInitProcessType(isBrowserProcess);
+        BundleUtils.setIsBundle(ProductConfig.IS_BUNDLE);
         if (isBrowserProcess) {
             if (BuildConfig.IS_MULTIDEX_ENABLED) {
                 ChromiumMultiDexInstaller.install(this);
@@ -141,19 +144,43 @@ public class ChromeApplication extends Application {
         JNIUtils.setClassLoader(getClassLoader());
         ResourceBundle.setAvailablePakLocales(
                 ProductConfig.COMPRESSED_LOCALES, ProductConfig.UNCOMPRESSED_LOCALES);
-        LibraryLoader.getInstance().setConfiguration(
+        LibraryLoader.getInstance().setLinkerImplementation(
                 ProductConfig.USE_CHROMIUM_LINKER, ProductConfig.USE_MODERN_LINKER);
+        LibraryLoader.getInstance().enableJniChecks();
 
         if (isBrowserProcess) {
             TraceEvent.end("ChromeApplication.attachBaseContext");
         }
     }
 
+    private void maybeInitProcessType(boolean isBrowserProcess) {
+        if (isBrowserProcess) {
+            LibraryLoader.getInstance().setLibraryProcessType(LibraryProcessType.PROCESS_BROWSER);
+            return;
+        }
+        // WebView initialization sets the correct process type.
+        if (isWebViewProcess()) return;
+
+        // Child processes set their own process type when bound.
+        String processName = ContextUtils.getProcessName();
+        if (processName.contains("privileged_process")
+                || processName.contains("sandboxed_process")) {
+            return;
+        }
+
+        // We must be in an isolated service process.
+        LibraryLoader.getInstance().setLibraryProcessType(LibraryProcessType.PROCESS_CHILD);
+    }
+
+    protected boolean isWebViewProcess() {
+        return false;
+    }
+
     private static Boolean shouldUseDebugFlags() {
         return FeatureUtilities.isCommandLineOnNonRootedEnabled();
     }
 
-    private static boolean isBrowserProcess() {
+    protected static boolean isBrowserProcess() {
         return !ContextUtils.getProcessName().contains(":");
     }
 

@@ -35,6 +35,7 @@
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
 #include "components/omnibox/browser/search_provider.h"
+#include "components/omnibox/browser/search_suggestion_parser.h"
 #include "components/omnibox/browser/verbatim_match.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -44,7 +45,6 @@
 #include "components/url_formatter/url_formatter.h"
 #include "components/variations/net/variations_http_headers.h"
 #include "net/base/escape.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
@@ -451,13 +451,6 @@ bool ZeroSuggestProvider::UpdateResults(const std::string& json_data) {
   return results_updated;
 }
 
-void ZeroSuggestProvider::AddSuggestResultsToMap(
-    const SearchSuggestionParser::SuggestResults& results,
-    MatchMap* map) {
-  for (size_t i = 0; i < results.size(); ++i)
-    AddMatchToMap(results[i], std::string(), i, false, false, map);
-}
-
 AutocompleteMatch ZeroSuggestProvider::NavigationToMatch(
     const SearchSuggestionParser::NavigationResult& navigation) {
   AutocompleteMatch match(this, navigation.relevance(), false,
@@ -524,7 +517,16 @@ void ZeroSuggestProvider::ConvertResultsToAutocompleteMatches() {
     return;
 
   MatchMap map;
-  AddSuggestResultsToMap(results_.suggest_results, &map);
+
+  // Add all the SuggestResults to the map, re-classifying based on the
+  // permanent text as we go. This is to make ZeroSuggest results formatted in
+  // a congruent way with as-you-type search suggestions.
+  for (size_t i = 0; i < results_.suggest_results.size(); ++i) {
+    results_.suggest_results[i].ClassifyMatchContents(true, permanent_text_);
+
+    AddMatchToMap(results_.suggest_results[i], std::string(), i, false, false,
+                  &map);
+  }
 
   const int num_query_results = map.size();
   const int num_nav_results = results_.navigation_results.size();
@@ -694,11 +696,8 @@ ZeroSuggestProvider::ResultType ZeroSuggestProvider::TypeOfResultToRun(
   const auto field_trial_variants =
       OmniboxFieldTrial::GetZeroSuggestVariants(current_page_classification_);
 
-  if (base::Contains(field_trial_variants, kNoneVariant) ||
-      base::FeatureList::IsEnabled(
-          omnibox::kOmniboxPopupShortcutIconsInZeroState)) {
+  if (base::Contains(field_trial_variants, kNoneVariant))
     return NONE;
-  }
 
   // TODO(tommycli): Since this can be configured via ZeroSuggestVariant, we
   // should eliminate this special case and use a field trial configuration.

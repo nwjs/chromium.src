@@ -23,7 +23,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_HASH_TABLE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_HASH_TABLE_H_
 
-#include <atomic>
 #include <memory>
 
 #include "base/numerics/checked_math.h"
@@ -91,13 +90,6 @@
   } while (0)
 #endif
 #endif
-
-namespace {
-template <typename T>
-ALWAYS_INLINE std::atomic<T>& AsAtomic(T& t) {
-  return reinterpret_cast<std::atomic<T>&>(t);
-}
-}  // namespace
 
 namespace WTF {
 
@@ -657,15 +649,23 @@ struct HashTableAddResult final {
 
 template <typename Value, typename Extractor, typename KeyTraits>
 struct HashTableHelper {
+  using Key = typename KeyTraits::TraitType;
+
   STATIC_ONLY(HashTableHelper);
-  static bool IsEmptyBucket(const Value& value) {
-    return IsHashTraitsEmptyValue<KeyTraits>(Extractor::Extract(value));
+  static bool IsEmptyBucket(const Key& key) {
+    return IsHashTraitsEmptyValue<KeyTraits>(key);
   }
-  static bool IsDeletedBucket(const Value& value) {
-    return KeyTraits::IsDeletedValue(Extractor::Extract(value));
+  static bool IsDeletedBucket(const Key& key) {
+    return KeyTraits::IsDeletedValue(key);
   }
   static bool IsEmptyOrDeletedBucket(const Value& value) {
-    return IsEmptyBucket(value) || IsDeletedBucket(value);
+    const auto& key = Extractor::Extract(value);
+    return IsEmptyBucket(key) || IsDeletedBucket(key);
+  }
+  static bool IsEmptyOrDeletedBucketSafe(const Value& value) {
+    char buf[sizeof(Key)];
+    const Key& key = Extractor::ExtractSafe(value, &buf);
+    return IsEmptyBucket(key) || IsDeletedBucket(key);
   }
 };
 
@@ -952,6 +952,22 @@ class HashTable final
   void SetEnqueued() { queue_flag_ = true; }
   void ClearEnqueued() { queue_flag_ = false; }
   bool Enqueued() { return queue_flag_; }
+
+  // Constructor for hash tables with raw storage.
+  struct RawStorageTag {};
+  HashTable(RawStorageTag, ValueType* table, unsigned size)
+      : table_(table),
+        table_size_(size),
+        key_count_(0),
+        deleted_count_(0),
+        queue_flag_(0)
+#if DCHECK_IS_ON()
+        ,
+        access_forbidden_(0),
+        modifications_(0)
+#endif
+  {
+  }
 
   ValueType* table_;
   unsigned table_size_;
@@ -1751,7 +1767,7 @@ HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
     }
   }
   table_ = temporary_table;
-  Allocator::template BackingWriteBarrierForHashTable<HashTable>(table_);
+  Allocator::template BackingWriteBarrierForHashTable<HashTable>(&table_);
 
   if (Traits::kEmptyValueIsZero) {
     memset(original_table, 0, new_table_size * sizeof(ValueType));
@@ -1760,10 +1776,6 @@ HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
       InitializeBucket(original_table[i]);
   }
   new_entry = RehashTo(original_table, new_table_size, new_entry);
-
-  EnterAccessForbiddenScope();
-  DeleteAllBucketsAndDeallocate(temporary_table, old_table_size);
-  LeaveAccessForbiddenScope();
 
   return new_entry;
 }
@@ -1778,41 +1790,50 @@ template <typename Key,
 Value*
 HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
     RehashTo(ValueType* new_table, unsigned new_table_size, Value* entry) {
-  unsigned old_table_size = table_size_;
-  ValueType* old_table = table_;
-
 #if DUMP_HASHTABLE_STATS
-  if (old_table_size != 0) {
+  if (table_size_ != 0) {
     HashTableStats::instance().numRehashes.fetch_add(1,
                                                      std::memory_order_relaxed);
   }
 #endif
 
 #if DUMP_HASHTABLE_STATS_PER_TABLE
-  if (old_table_size != 0)
+  if (table_size_ != 0)
     stats_->numRehashes.fetch_add(1, std::memory_order_relaxed);
 #endif
 
-  AsAtomic<ValueType*>(table_).store(new_table, std::memory_order_relaxed);
-  Allocator::template BackingWriteBarrierForHashTable<HashTable>(new_table);
-  table_size_ = new_table_size;
+  HashTable new_hash_table(RawStorageTag{}, new_table, new_table_size);
 
   Value* new_entry = nullptr;
-  for (unsigned i = 0; i != old_table_size; ++i) {
-    if (IsEmptyOrDeletedBucket(old_table[i])) {
-      DCHECK_NE(&old_table[i], entry);
+  for (unsigned i = 0; i != table_size_; ++i) {
+    if (IsEmptyOrDeletedBucket(table_[i])) {
+      DCHECK_NE(&table_[i], entry);
       continue;
     }
-    Value* reinserted_entry = Reinsert(std::move(old_table[i]));
-    if (&old_table[i] == entry) {
+    Value* reinserted_entry = new_hash_table.Reinsert(std::move(table_[i]));
+    if (&table_[i] == entry) {
       DCHECK(!new_entry);
       new_entry = reinserted_entry;
     }
   }
-  // Rescan the contents of the backing store as no write barriers were emitted
-  // during re-insertion. Traits::NeedsToForbidGCOnMove ensures that no
-  // garbage collection is triggered during moving.
-  Allocator::TraceMarkedBackingStore(new_table);
+
+  Allocator::TraceBackingStoreIfMarked(new_hash_table.table_);
+
+  ValueType* old_table = table_;
+  unsigned old_table_size = table_size_;
+
+  // This swaps the newly allocated buffer with the current one. The store to
+  // the current table has to be atomic to prevent races with concurrent marker.
+  AsAtomicPtr(&table_)->store(new_hash_table.table_, std::memory_order_relaxed);
+  Allocator::template BackingWriteBarrierForHashTable<HashTable>(&table_);
+  table_size_ = new_table_size;
+
+  new_hash_table.table_ = old_table;
+  new_hash_table.table_size_ = old_table_size;
+
+  // Explicitly clear since garbage collected HashTables don't do this on
+  // destruction.
+  new_hash_table.clear();
 
   deleted_count_ = 0;
 
@@ -1835,7 +1856,6 @@ Value*
 HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
     Rehash(unsigned new_table_size, Value* entry) {
   unsigned old_table_size = table_size_;
-  ValueType* old_table = table_;
 
 #if DUMP_HASHTABLE_STATS
   if (old_table_size != 0) {
@@ -1861,10 +1881,6 @@ HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
 
   ValueType* new_table = AllocateTable(new_table_size);
   Value* new_entry = RehashTo(new_table, new_table_size, entry);
-
-  EnterAccessForbiddenScope();
-  DeleteAllBucketsAndDeallocate(old_table, old_table_size);
-  LeaveAccessForbiddenScope();
 
   return new_entry;
 }
@@ -1977,10 +1993,18 @@ void HashTable<Key,
   // on the mutator thread, which is also the only one that writes to them, so
   // there is *no* risk of data races when reading.
   Value* tmp_table = other.table_;
-  AsAtomic<Value*>(other.table_).store(table_, std::memory_order_relaxed);
-  AsAtomic<Value*>(table_).store(tmp_table, std::memory_order_relaxed);
-  Allocator::template BackingWriteBarrierForHashTable<HashTable>(table_);
-  Allocator::template BackingWriteBarrierForHashTable<HashTable>(other.table_);
+  AsAtomicPtr(&other.table_)->store(table_, std::memory_order_relaxed);
+  AsAtomicPtr(&table_)->store(tmp_table, std::memory_order_relaxed);
+  Allocator::template BackingWriteBarrierForHashTable<HashTable>(&table_);
+  Allocator::template BackingWriteBarrierForHashTable<HashTable>(&other.table_);
+  if (IsWeak<ValueType>::value) {
+    // Weak processing is omitted when no backing store is present. In case such
+    // an empty table is later on used it needs to be strongified.
+    if (table_)
+      Allocator::TraceBackingStoreIfMarked(table_);
+    if (other.table_)
+      Allocator::TraceBackingStoreIfMarked(other.table_);
+  }
   std::swap(table_size_, other.table_size_);
   std::swap(key_count_, other.key_count_);
   // std::swap does not work for bit fields.
@@ -2106,11 +2130,19 @@ template <typename VisitorDispatcher, typename A>
 std::enable_if_t<A::kIsGarbageCollected>
 HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocator>::
     Trace(VisitorDispatcher visitor) {
+  // bail out for concurrent marking
+  if (visitor->ConcurrentTracingBailOut(
+          {this, [](blink::Visitor* visitor, void* object) {
+             reinterpret_cast<HashTable<Key, Value, Extractor, HashFunctions,
+                                        Traits, KeyTraits, Allocator>*>(object)
+                 ->Trace(visitor);
+           }}))
+    return;
+
   static_assert(WTF::IsWeak<ValueType>::value ||
                     IsTraceableInCollectionTrait<Traits>::value,
                 "Value should not be traced");
-  ValueType* table =
-      AsAtomic<ValueType*>(table_).load(std::memory_order_relaxed);
+  ValueType* table = AsAtomicPtr(&table_)->load(std::memory_order_relaxed);
   if (!WTF::IsWeak<ValueType>::value) {
     // Strong HashTable.
     Allocator::template TraceHashTableBackingStrongly<ValueType, HashTable>(

@@ -86,7 +86,7 @@
             "DEFAULT": "system_health_desktop_056.wprgo"
         },
         "browse:social:tumblr_infinite_scroll:2018": {
-            "DEFAULT": "system_health_desktop_e6232c2d50.wprgo"
+            "DEFAULT": "system_health_desktop_2015ed2b54.wprgo"
         },
         "browse:social:twitter": {
             "DEFAULT": "system_health_desktop_053.wprgo"
@@ -159,6 +159,9 @@
         },
         "load:media:dailymotion": {
             "DEFAULT": "system_health_desktop_003.wprgo"
+        },
+        "load:media:dailymotion:2019": {
+            "DEFAULT": "system_health_desktop_fb04043fc0.wprgo"
         },
         "load:media:facebook_photos:2018": {
             "DEFAULT": "system_health_desktop_eba368f102.wprgo"
@@ -298,6 +301,9 @@
         "load:social:pinterest": {
             "DEFAULT": "system_health_desktop_001.wprgo"
         },
+        "load:social:pinterest:2019": {
+            "DEFAULT": "system_health_desktop_f399a24dd4.wprgo"
+        },
         "load:social:tumblr": {
             "DEFAULT": "system_health_desktop_001.wprgo"
         },
@@ -310,17 +316,29 @@
         "load:social:vk:2018": {
             "DEFAULT": "system_health_desktop_a099b947c2.wprgo"
         },
+        "load:tools:chat:2020": {
+            "DEFAULT": "system_health_desktop_62b68fb318.wprgo"
+        },
         "load:tools:docs": {
             "DEFAULT": "system_health_desktop_004.wprgo"
         },
+        "load:tools:docs:2019": {
+            "DEFAULT": "system_health_desktop_5f62c3d808.wprgo"
+        },
         "load:tools:drive": {
             "DEFAULT": "system_health_desktop_004.wprgo"
+        },
+        "load:tools:drive:2019": {
+            "DEFAULT": "system_health_desktop_3f8ef10603.wprgo"
         },
         "load:tools:dropbox": {
             "DEFAULT": "system_health_desktop_004.wprgo"
         },
         "load:tools:gmail": {
             "DEFAULT": "system_health_desktop_004.wprgo"
+        },
+        "load:tools:gmail:2019": {
+            "DEFAULT": "system_health_desktop_0e466e2324.wprgo"
         },
         "load:tools:maps": {
             "DEFAULT": "system_health_desktop_004.wprgo"
@@ -333,6 +351,9 @@
         },
         "load:tools:weather": {
             "DEFAULT": "system_health_desktop_004.wprgo"
+        },
+        "load:tools:weather:2019": {
+            "DEFAULT": "system_health_desktop_70d821feeb.wprgo"
         },
         "load_accessibility:media:wikipedia": {
             "DEFAULT": "system_health_desktop_059.wprgo"

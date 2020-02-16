@@ -21,6 +21,7 @@ class Message;
 }
 
 namespace content {
+class RenderFrameHostImpl;
 class RenderFrameProxyHost;
 
 // CrossProcessFrameConnector provides the platform view abstraction for
@@ -181,13 +182,18 @@ class CONTENT_EXPORT CrossProcessFrameConnector
   void OnUpdateRenderThrottlingStatus(bool is_throttled,
                                       bool subtree_throttled);
 
+  // Gets the current RenderFrameHost for the
+  // |frame_proxy_in_parent_renderer_|'s (i.e., the child frame's)
+  // FrameTreeNode. This corresponds to B2 in the class-level comment
+  // above for CrossProcessFrameConnector.
+  RenderFrameHostImpl* current_child_frame_host() const;
+
   // The RenderFrameProxyHost that routes messages to the parent frame's
   // renderer process.
   RenderFrameProxyHost* frame_proxy_in_parent_renderer_;
 
   bool is_inert_ = false;
-  cc::TouchAction inherited_effective_touch_action_ =
-      cc::TouchAction::kTouchActionAuto;
+  cc::TouchAction inherited_effective_touch_action_ = cc::TouchAction::kAuto;
 
   bool is_throttled_ = false;
   bool subtree_throttled_ = false;

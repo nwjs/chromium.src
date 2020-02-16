@@ -609,6 +609,7 @@ void ExtensionDownloader::CreateManifestLoader() {
 void ExtensionDownloader::OnManifestLoadComplete(
     std::unique_ptr<std::string> response_body) {
   const GURL url = manifest_loader_->GetFinalURL();
+  int net_error = manifest_loader_->NetError();
   DCHECK(manifests_queue_.active_request());
 
   int response_code = -1;
@@ -650,10 +651,16 @@ void ExtensionDownloader::OnManifestLoadComplete(
       NotifyExtensionsDownloadStageChanged(
           manifests_queue_.active_request()->extension_ids(),
           ExtensionDownloaderDelegate::Stage::FINISHED);
-      NotifyExtensionsDownloadFailed(
+      ExtensionDownloaderDelegate::FailureData failure_data(
+          -net_error,
+          response_code > 0 ? base::Optional<int>(response_code)
+                            : base::nullopt,
+          manifests_queue_.active_request_failure_count());
+      NotifyExtensionsDownloadFailedWithFailureData(
           manifests_queue_.active_request()->extension_ids(),
           manifests_queue_.active_request()->request_ids(),
-          ExtensionDownloaderDelegate::Error::MANIFEST_FETCH_FAILED);
+          ExtensionDownloaderDelegate::Error::MANIFEST_FETCH_FAILED,
+          failure_data);
     }
   }
   manifest_loader_.reset();
@@ -905,9 +912,15 @@ void ExtensionDownloader::FetchUpdatedExtension(
                   << "' for extension " << fetch_data->id;
     delegate_->OnExtensionDownloadStageChanged(
         fetch_data->id, ExtensionDownloaderDelegate::Stage::FINISHED);
-    NotifyExtensionsDownloadFailed(
-        {fetch_data->id}, fetch_data->request_ids,
-        ExtensionDownloaderDelegate::Error::CRX_FETCH_FAILED);
+    if (fetch_data->url.is_empty()) {
+      NotifyExtensionsDownloadFailed(
+          {fetch_data->id}, fetch_data->request_ids,
+          ExtensionDownloaderDelegate::Error::CRX_FETCH_URL_EMPTY);
+    } else {
+      NotifyExtensionsDownloadFailed(
+          {fetch_data->id}, fetch_data->request_ids,
+          ExtensionDownloaderDelegate::Error::CRX_FETCH_URL_INVALID);
+    }
     return;
   }
 
@@ -1080,8 +1093,7 @@ void ExtensionDownloader::StartExtensionLoader() {
 
 void ExtensionDownloader::OnExtensionLoadComplete(base::FilePath crx_path) {
   GURL url = extension_loader_->GetFinalURL();
-  net::URLRequestStatus status =
-      net::URLRequestStatus::FromError(extension_loader_->NetError());
+  int net_error = extension_loader_->NetError();
   int response_code = -1;
   if (extension_loader_->ResponseInfo() &&
       extension_loader_->ResponseInfo()->headers) {
@@ -1112,8 +1124,8 @@ void ExtensionDownloader::OnExtensionLoadComplete(base::FilePath crx_path) {
       NotifyDelegateDownloadFinished(std::move(fetch_data), false, crx_path,
                                      true);
     }
-  } else if (IterateFetchCredentialsAfterFailure(
-                 &active_request, status, response_code)) {
+  } else if (IterateFetchCredentialsAfterFailure(&active_request,
+                                                 response_code)) {
     delegate_->OnExtensionDownloadStageChanged(
         id, ExtensionDownloaderDelegate::Stage::DOWNLOADING_CRX_RETRY);
     extensions_queue_.RetryRequest(backoff_delay);
@@ -1133,13 +1145,18 @@ void ExtensionDownloader::OnExtensionLoadComplete(base::FilePath crx_path) {
       RETRY_HISTOGRAM("CrxFetchFailure",
                       extensions_queue_.active_request_failure_count(),
                       url);
-      // status.error() is 0 (net::OK) or negative. (See net/base/net_errors.h)
-      base::UmaHistogramSparse("Extensions.CrxFetchError", -status.error());
+      // net_error is 0 (net::OK) or negative. (See net/base/net_errors.h)
+      base::UmaHistogramSparse("Extensions.CrxFetchError", -net_error);
       delegate_->OnExtensionDownloadStageChanged(
           id, ExtensionDownloaderDelegate::Stage::FINISHED);
+      ExtensionDownloaderDelegate::FailureData failure_data(
+          -net_error,
+          response_code > 0 ? base::Optional<int>(response_code)
+                            : base::nullopt,
+          extensions_queue_.active_request_failure_count());
       delegate_->OnExtensionDownloadFailed(
           id, ExtensionDownloaderDelegate::Error::CRX_FETCH_FAILED, ping,
-          request_ids);
+          request_ids, failure_data);
     }
     ping_results_.erase(id);
     extensions_queue_.reset_active_request();
@@ -1159,14 +1176,23 @@ void ExtensionDownloader::NotifyExtensionsDownloadStageChanged(
     delegate_->OnExtensionDownloadStageChanged(it, stage);
   }
 }
-
 void ExtensionDownloader::NotifyExtensionsDownloadFailed(
     std::set<std::string> extension_ids,
     std::set<int> request_ids,
     ExtensionDownloaderDelegate::Error error) {
+  NotifyExtensionsDownloadFailedWithFailureData(
+      std::move(extension_ids), std::move(request_ids), error,
+      ExtensionDownloaderDelegate::FailureData());
+}
+
+void ExtensionDownloader::NotifyExtensionsDownloadFailedWithFailureData(
+    std::set<std::string> extension_ids,
+    std::set<int> request_ids,
+    ExtensionDownloaderDelegate::Error error,
+    const ExtensionDownloaderDelegate::FailureData& data) {
   for (const auto& it : extension_ids) {
     const ExtensionDownloaderDelegate::PingResult& ping = ping_results_[it];
-    delegate_->OnExtensionDownloadFailed(it, error, ping, request_ids);
+    delegate_->OnExtensionDownloadFailed(it, error, ping, request_ids, data);
     ping_results_.erase(it);
   }
 }
@@ -1182,7 +1208,6 @@ void ExtensionDownloader::NotifyUpdateFound(const std::string& id,
 
 bool ExtensionDownloader::IterateFetchCredentialsAfterFailure(
     ExtensionFetch* fetch,
-    const net::URLRequestStatus& status,
     int response_code) {
   bool auth_failure = response_code == net::HTTP_UNAUTHORIZED ||
                       response_code == net::HTTP_FORBIDDEN;

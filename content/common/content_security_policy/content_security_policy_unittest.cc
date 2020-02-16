@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/optional.h"
 #include "base/stl_util.h"
 #include "content/common/content_security_policy/csp_context.h"
-#include "content/common/content_security_policy_header.h"
 #include "content/common/navigation_params.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace content {
+
+using CSPDirectiveName = network::mojom::CSPDirectiveName;
 
 namespace {
 class CSPContextTest : public CSPContext {
@@ -36,40 +39,56 @@ class CSPContextTest : public CSPContext {
   DISALLOW_COPY_AND_ASSIGN(CSPContextTest);
 };
 
-ContentSecurityPolicyHeader EmptyCspHeader() {
-  return ContentSecurityPolicyHeader(
-      std::string(), network::mojom::ContentSecurityPolicyType::kEnforce,
-      network::mojom::ContentSecurityPolicySource::kHTTP);
+network::mojom::ContentSecurityPolicyPtr EmptyCSP() {
+  auto policy = network::mojom::ContentSecurityPolicy::New();
+  policy->header = network::mojom::ContentSecurityPolicyHeader::New();
+  return policy;
+}
+
+// Build a new policy made of only one directive and no report endpoints.
+network::mojom::ContentSecurityPolicyPtr BuildPolicy(
+    CSPDirectiveName directive_name,
+    network::mojom::CSPSourcePtr source) {
+  auto directive = network::mojom::CSPDirective::New();
+  directive->name = directive_name;
+  directive->source_list = network::mojom::CSPSourceList::New();
+  directive->source_list->sources.push_back(std::move(source));
+  auto policy = EmptyCSP();
+  policy->directives.push_back(std::move(directive));
+  return policy;
+}
+
+network::mojom::CSPSourcePtr BuildCSPSource(const char* scheme,
+                                            const char* host) {
+  return network::mojom::CSPSource::New(scheme, host, url::PORT_UNSPECIFIED, "",
+                                        false, false);
+}
+
+// Return "Content-Security-Policy: default-src <host>"
+network::mojom::ContentSecurityPolicyPtr DefaultSrc(const char* scheme,
+                                                    const char* host) {
+  return BuildPolicy(CSPDirectiveName::DefaultSrc,
+                     BuildCSPSource(scheme, host));
 }
 
 }  // namespace
 
 TEST(ContentSecurityPolicy, NoDirective) {
   CSPContextTest context;
-  std::vector<std::string> report_end_points;  // empty
-  ContentSecurityPolicy policy(EmptyCspHeader(), std::vector<CSPDirective>(),
-                               report_end_points, false);
 
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FormAction, GURL("http://www.example.com"), false,
-      false, &context, SourceLocation(), true));
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      EmptyCSP(), CSPDirectiveName::FormAction, GURL("http://www.example.com"),
+      false, false, &context, SourceLocation(), true));
   ASSERT_EQ(0u, context.violations().size());
 }
 
 TEST(ContentSecurityPolicy, ReportViolation) {
   CSPContextTest context;
+  auto policy = BuildPolicy(CSPDirectiveName::FormAction,
+                            BuildCSPSource("", "www.example.com"));
 
-  // source = "www.example.com"
-  CSPSource source("", "www.example.com", false, url::PORT_UNSPECIFIED, false,
-                   "");
-  CSPSourceList source_list(false, false, false, {source});
-  CSPDirective directive(CSPDirective::FormAction, source_list);
-  std::vector<std::string> report_end_points;  // empty
-  ContentSecurityPolicy policy(EmptyCspHeader(), {directive}, report_end_points,
-                               false);
-
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FormAction, GURL("http://www.not-example.com"),
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FormAction, GURL("http://www.not-example.com"),
       false, false, &context, SourceLocation(), true));
 
   ASSERT_EQ(1u, context.violations().size());
@@ -81,22 +100,21 @@ TEST(ContentSecurityPolicy, ReportViolation) {
 }
 
 TEST(ContentSecurityPolicy, DirectiveFallback) {
-  CSPSource source_a("http", "a.com", false, url::PORT_UNSPECIFIED, false, "");
-  CSPSource source_b("http", "b.com", false, url::PORT_UNSPECIFIED, false, "");
-  CSPSourceList source_list_a(false, false, false, {source_a});
-  CSPSourceList source_list_b(false, false, false, {source_b});
-
-  std::vector<std::string> report_end_points;  // Empty.
+  auto allow_host = [](const char* host) {
+    std::vector<network::mojom::CSPSourcePtr> sources;
+    sources.push_back(BuildCSPSource("http", host));
+    return network::mojom::CSPSourceList::New(std::move(sources), false, false,
+                                              false);
+  };
 
   {
     CSPContextTest context;
-    ContentSecurityPolicy policy(
-        EmptyCspHeader(),
-        {CSPDirective(CSPDirective::DefaultSrc, source_list_a)},
-        report_end_points, false);
-    EXPECT_FALSE(ContentSecurityPolicy::Allow(
-        policy, CSPDirective::FrameSrc, GURL("http://b.com"), false, false,
-        &context, SourceLocation(), false));
+    auto policy = EmptyCSP();
+    policy->directives.push_back(network::mojom::CSPDirective::New(
+        CSPDirectiveName::DefaultSrc, allow_host("a.com")));
+    EXPECT_FALSE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
+                                            GURL("http://b.com"), false, false,
+                                            &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
     const char console_message[] =
         "Refused to frame 'http://b.com/' because it violates "
@@ -104,18 +122,18 @@ TEST(ContentSecurityPolicy, DirectiveFallback) {
         "http://a.com\". Note that 'frame-src' was not explicitly "
         "set, so 'default-src' is used as a fallback.\n";
     EXPECT_EQ(console_message, context.violations()[0].console_message);
-    EXPECT_TRUE(ContentSecurityPolicy::Allow(
-        policy, CSPDirective::FrameSrc, GURL("http://a.com"), false, false,
-        &context, SourceLocation(), false));
+    EXPECT_TRUE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
+                                           GURL("http://a.com"), false, false,
+                                           &context, SourceLocation(), false));
   }
   {
     CSPContextTest context;
-    ContentSecurityPolicy policy(
-        EmptyCspHeader(), {CSPDirective(CSPDirective::ChildSrc, source_list_a)},
-        report_end_points, false);
-    EXPECT_FALSE(ContentSecurityPolicy::Allow(
-        policy, CSPDirective::FrameSrc, GURL("http://b.com"), false, false,
-        &context, SourceLocation(), false));
+    auto policy = EmptyCSP();
+    policy->directives.push_back(network::mojom::CSPDirective::New(
+        CSPDirectiveName::ChildSrc, allow_host("a.com")));
+    EXPECT_FALSE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
+                                            GURL("http://b.com"), false, false,
+                                            &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
     const char console_message[] =
         "Refused to frame 'http://b.com/' because it violates "
@@ -123,24 +141,23 @@ TEST(ContentSecurityPolicy, DirectiveFallback) {
         "http://a.com\". Note that 'frame-src' was not explicitly "
         "set, so 'child-src' is used as a fallback.\n";
     EXPECT_EQ(console_message, context.violations()[0].console_message);
-    EXPECT_TRUE(ContentSecurityPolicy::Allow(
-        policy, CSPDirective::FrameSrc, GURL("http://a.com"), false, false,
-        &context, SourceLocation(), false));
+    EXPECT_TRUE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
+                                           GURL("http://a.com"), false, false,
+                                           &context, SourceLocation(), false));
   }
   {
     CSPContextTest context;
-    CSPSourceList source_list(false, false, false, {source_a, source_b});
-    ContentSecurityPolicy policy(
-        EmptyCspHeader(),
-        {CSPDirective(CSPDirective::FrameSrc, {source_list_a}),
-         CSPDirective(CSPDirective::ChildSrc, {source_list_b})},
-        report_end_points, false);
-    EXPECT_TRUE(ContentSecurityPolicy::Allow(
-        policy, CSPDirective::FrameSrc, GURL("http://a.com"), false, false,
-        &context, SourceLocation(), false));
-    EXPECT_FALSE(ContentSecurityPolicy::Allow(
-        policy, CSPDirective::FrameSrc, GURL("http://b.com"), false, false,
-        &context, SourceLocation(), false));
+    auto policy = EmptyCSP();
+    policy->directives.push_back(network::mojom::CSPDirective::New(
+        CSPDirectiveName::FrameSrc, allow_host("a.com")));
+    policy->directives.push_back(network::mojom::CSPDirective::New(
+        CSPDirectiveName::ChildSrc, allow_host("b.com")));
+    EXPECT_TRUE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
+                                           GURL("http://a.com"), false, false,
+                                           &context, SourceLocation(), false));
+    EXPECT_FALSE(CheckContentSecurityPolicy(policy, CSPDirectiveName::FrameSrc,
+                                            GURL("http://b.com"), false, false,
+                                            &context, SourceLocation(), false));
     ASSERT_EQ(1u, context.violations().size());
     const char console_message[] =
         "Refused to frame 'http://b.com/' because it violates "
@@ -152,210 +169,184 @@ TEST(ContentSecurityPolicy, DirectiveFallback) {
 
 TEST(ContentSecurityPolicy, RequestsAllowedWhenBypassingCSP) {
   CSPContextTest context;
-  std::vector<std::string> report_end_points;  // empty
-  CSPSource source("https", "example.com", false, url::PORT_UNSPECIFIED, false,
-                   "");
-  CSPSourceList source_list(false, false, false, {source});
-  ContentSecurityPolicy policy(
-      EmptyCspHeader(), {CSPDirective(CSPDirective::DefaultSrc, source_list)},
-      report_end_points, false);
+  auto policy = DefaultSrc("https", "example.com");
 
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("https://example.com/"), false,
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("https://example.com/"), false,
       false, &context, SourceLocation(), false));
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("https://not-example.com/"), false,
-      false, &context, SourceLocation(), false));
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("https://not-example.com/"),
+      false, false, &context, SourceLocation(), false));
 
   // Register 'https' as bypassing CSP, which should now bypass it entirely.
   context.AddSchemeToBypassCSP("https");
 
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("https://example.com/"), false,
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("https://example.com/"), false,
       false, &context, SourceLocation(), false));
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("https://not-example.com/"), false,
-      false, &context, SourceLocation(), false));
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("https://not-example.com/"),
+      false, false, &context, SourceLocation(), false));
 }
 
 TEST(ContentSecurityPolicy, RequestsAllowedWhenHostMixedCase) {
   CSPContextTest context;
-  std::vector<std::string> report_end_points;  // empty
-  CSPSource source("https", "ExAmPle.com", false, url::PORT_UNSPECIFIED, false,
-                   "");
-  CSPSourceList source_list(false, false, false, {source});
-  ContentSecurityPolicy policy(
-      EmptyCspHeader(), {CSPDirective(CSPDirective::DefaultSrc, source_list)},
-      report_end_points, false);
+  auto policy = DefaultSrc("https", "ExAmPle.com");
 
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("https://example.com/"), false,
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("https://example.com/"), false,
       false, &context, SourceLocation(), false));
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("https://not-example.com/"), false,
-      false, &context, SourceLocation(), false));
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("https://not-example.com/"),
+      false, false, &context, SourceLocation(), false));
 }
 
 TEST(ContentSecurityPolicy, FilesystemAllowedWhenBypassingCSP) {
   CSPContextTest context;
-  std::vector<std::string> report_end_points;  // empty
-  CSPSource source("https", "example.com", false, url::PORT_UNSPECIFIED, false,
-                   "");
-  CSPSourceList source_list(false, false, false, {source});
-  ContentSecurityPolicy policy(
-      EmptyCspHeader(), {CSPDirective(CSPDirective::DefaultSrc, source_list)},
-      report_end_points, false);
+  auto policy = DefaultSrc("https", "example.com");
 
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc,
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc,
       GURL("filesystem:https://example.com/file.txt"), false, false, &context,
       SourceLocation(), false));
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc,
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc,
       GURL("filesystem:https://not-example.com/file.txt"), false, false,
       &context, SourceLocation(), false));
 
   // Register 'https' as bypassing CSP, which should now bypass it entirely.
   context.AddSchemeToBypassCSP("https");
 
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc,
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc,
       GURL("filesystem:https://example.com/file.txt"), false, false, &context,
       SourceLocation(), false));
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc,
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc,
       GURL("filesystem:https://not-example.com/file.txt"), false, false,
       &context, SourceLocation(), false));
 }
 
 TEST(ContentSecurityPolicy, BlobAllowedWhenBypassingCSP) {
   CSPContextTest context;
-  std::vector<std::string> report_end_points;  // empty
-  CSPSource source("https", "example.com", false, url::PORT_UNSPECIFIED, false,
-                   "");
-  CSPSourceList source_list(false, false, false, {source});
-  ContentSecurityPolicy policy(
-      EmptyCspHeader(), {CSPDirective(CSPDirective::DefaultSrc, source_list)},
-      report_end_points, false);
+  auto policy = DefaultSrc("https", "example.com");
 
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("blob:https://example.com/"), false,
-      false, &context, SourceLocation(), false));
-  EXPECT_FALSE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("blob:https://not-example.com/"),
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("blob:https://example.com/"),
+      false, false, &context, SourceLocation(), false));
+  EXPECT_FALSE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("blob:https://not-example.com/"),
       false, false, &context, SourceLocation(), false));
 
   // Register 'https' as bypassing CSP, which should now bypass it entirely.
   context.AddSchemeToBypassCSP("https");
 
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("blob:https://example.com/"), false,
-      false, &context, SourceLocation(), false));
-  EXPECT_TRUE(ContentSecurityPolicy::Allow(
-      policy, CSPDirective::FrameSrc, GURL("blob:https://not-example.com/"),
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("blob:https://example.com/"),
+      false, false, &context, SourceLocation(), false));
+  EXPECT_TRUE(CheckContentSecurityPolicy(
+      policy, CSPDirectiveName::FrameSrc, GURL("blob:https://not-example.com/"),
       false, false, &context, SourceLocation(), false));
 }
 
 TEST(ContentSecurityPolicy, ShouldUpgradeInsecureRequest) {
-  std::vector<std::string> report_end_points;  // empty
-  CSPSource source("https", "example.com", false, url::PORT_UNSPECIFIED, false,
-                   "");
-  CSPSourceList source_list(false, false, false, {source});
-  ContentSecurityPolicy policy(
-      EmptyCspHeader(), {CSPDirective(CSPDirective::DefaultSrc, source_list)},
-      report_end_points, false);
+  auto policy = DefaultSrc("https", "example.com");
 
-  EXPECT_FALSE(ContentSecurityPolicy::ShouldUpgradeInsecureRequest(policy));
+  EXPECT_FALSE(ShouldUpgradeInsecureRequest(policy));
 
-  policy.directives.push_back(
-      CSPDirective(CSPDirective::UpgradeInsecureRequests, CSPSourceList()));
-  EXPECT_TRUE(ContentSecurityPolicy::ShouldUpgradeInsecureRequest(policy));
+  policy->directives.push_back(network::mojom::CSPDirective::New(
+      CSPDirectiveName::UpgradeInsecureRequests,
+      network::mojom::CSPSourceList::New()));
+  EXPECT_TRUE(ShouldUpgradeInsecureRequest(policy));
 }
 
 TEST(ContentSecurityPolicy, NavigateToChecks) {
+  GURL url_a("https://a");
+  GURL url_b("https://b");
   CSPContextTest context;
-  std::vector<std::string> report_end_points;  // empty
-  CSPSource example("https", "example.test", false, url::PORT_UNSPECIFIED,
-                    false, "");
-  CSPSourceList none_source_list(false, false, false, {});
-  CSPSourceList example_source_list(false, false, false, {example});
-  CSPSourceList self_source_list(true, false, false, {});
-  CSPSourceList redirects_source_list(false, false, true, {});
-  CSPSourceList redirects_example_source_list(false, false, true, {example});
-  context.SetSelf(example);
+  auto allow_none = [] {
+    return network::mojom::CSPSourceList::New(
+        std::vector<network::mojom::CSPSourcePtr>(), false, false, false);
+  };
+  auto allow_self = [] {
+    return network::mojom::CSPSourceList::New(
+        std::vector<network::mojom::CSPSourcePtr>(), true, false, false);
+  };
+  auto allow_redirect = [] {
+    return network::mojom::CSPSourceList::New(
+        std::vector<network::mojom::CSPSourcePtr>(), false, false, true);
+  };
+  auto source_a = [] {
+    return network::mojom::CSPSource::New("https", "a", url::PORT_UNSPECIFIED,
+                                          "", false, false);
+  };
+  auto allow_a = [&] {
+    std::vector<network::mojom::CSPSourcePtr> sources;
+    sources.push_back(source_a());
+    return network::mojom::CSPSourceList::New(std::move(sources), false, false,
+                                              false);
+  };
+  auto allow_redirect_a = [&] {
+    std::vector<network::mojom::CSPSourcePtr> sources;
+    sources.push_back(source_a());
+    return network::mojom::CSPSourceList::New(std::move(sources), false, false,
+                                              true);
+  };
+  context.SetSelf(source_a());
 
   struct TestCase {
-    const CSPSourceList& navigate_to_list;
+    network::mojom::CSPSourceListPtr navigate_to_list;
     const GURL& url;
     bool is_response_check;
-    bool expected;
     bool is_form_submission;
-    const CSPSourceList* form_action_list;
+    network::mojom::CSPSourceListPtr form_action_list;
+    bool expected;
   } cases[] = {
       // Basic source matching.
-      {none_source_list, GURL("https://example.test"), false, false, false,
-       nullptr},
-      {example_source_list, GURL("https://example.test"), false, true, false,
-       nullptr},
-      {example_source_list, GURL("https://not-example.test"), false, false,
-       false, nullptr},
-      {self_source_list, GURL("https://example.test"), false, true, false,
-       nullptr},
+      {allow_none(), url_a, false, false, {}, false},
+      {allow_a(), url_a, false, false, {}, true},
+      {allow_a(), url_b, false, false, {}, false},
+      {allow_self(), url_a, false, false, {}, true},
 
       // Checking allow_redirect flag interactions.
-      {redirects_source_list, GURL("https://example.test"), false, true, false,
-       nullptr},
-      {redirects_source_list, GURL("https://example.test"), true, false, false,
-       nullptr},
-      {redirects_example_source_list, GURL("https://example.test"), false, true,
-       false, nullptr},
-      {redirects_example_source_list, GURL("https://example.test"), true, true,
-       false, nullptr},
+      {allow_redirect(), url_a, false, false, {}, true},
+      {allow_redirect(), url_a, true, false, {}, false},
+      {allow_redirect_a(), url_a, false, false, {}, true},
+      {allow_redirect_a(), url_a, true, false, {}, true},
 
-      // Interaction with form-action
+      // Interaction with form-action:
 
-      // Form submission without form-action present
-      {none_source_list, GURL("https://example.test"), false, false, true,
-       nullptr},
-      {example_source_list, GURL("https://example.test"), false, true, true,
-       nullptr},
-      {example_source_list, GURL("https://not-example.test"), false, false,
-       true, nullptr},
-      {self_source_list, GURL("https://example.test"), false, true, true,
-       nullptr},
+      // Form submission without form-action present.
+      {allow_none(), url_a, false, true, {}, false},
+      {allow_a(), url_a, false, true, {}, true},
+      {allow_a(), url_b, false, true, {}, false},
+      {allow_self(), url_a, false, true, {}, true},
 
-      // Form submission with form-action present
-      {none_source_list, GURL("https://example.test"), false, true, true,
-       &example_source_list},
-      {example_source_list, GURL("https://example.test"), false, true, true,
-       &example_source_list},
-      {example_source_list, GURL("https://not-example.test"), false, true, true,
-       &example_source_list},
-      {self_source_list, GURL("https://example.test"), false, true, true,
-       &example_source_list},
+      // Form submission with form-action present.
+      {allow_none(), url_a, false, true, allow_a(), true},
+      {allow_a(), url_a, false, true, allow_a(), true},
+      {allow_a(), url_b, false, true, allow_a(), true},
+      {allow_self(), url_a, false, true, allow_a(), true},
   };
 
-  for (const auto& test : cases) {
-    std::vector<CSPDirective> directives;
-    directives.push_back(
-        CSPDirective(CSPDirective::NavigateTo, test.navigate_to_list));
+  for (auto& test : cases) {
+    auto policy = EmptyCSP();
+    policy->directives.push_back(network::mojom::CSPDirective::New(
+        CSPDirectiveName::NavigateTo, std::move(test.navigate_to_list)));
 
-    if (test.form_action_list)
-      directives.push_back(
-          CSPDirective(CSPDirective::FormAction, *(test.form_action_list)));
+    if (test.form_action_list) {
+      policy->directives.push_back(network::mojom::CSPDirective::New(
+          CSPDirectiveName::FormAction, std::move(test.form_action_list)));
+    }
 
-    ContentSecurityPolicy policy(EmptyCspHeader(), directives,
-                                 report_end_points, false);
-
-    EXPECT_EQ(test.expected, ContentSecurityPolicy::Allow(
-                                 policy, CSPDirective::NavigateTo, test.url,
+    EXPECT_EQ(test.expected, CheckContentSecurityPolicy(
+                                 policy, CSPDirectiveName::NavigateTo, test.url,
                                  true, test.is_response_check, &context,
                                  SourceLocation(), test.is_form_submission));
-    EXPECT_EQ(test.expected, ContentSecurityPolicy::Allow(
-                                 policy, CSPDirective::NavigateTo, test.url,
+    EXPECT_EQ(test.expected, CheckContentSecurityPolicy(
+                                 policy, CSPDirectiveName::NavigateTo, test.url,
                                  false, test.is_response_check, &context,
                                  SourceLocation(), test.is_form_submission));
   }
 }
-
 }  // namespace content

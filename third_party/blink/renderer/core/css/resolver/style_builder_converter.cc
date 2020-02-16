@@ -130,7 +130,7 @@ scoped_refptr<StyleSVGResource> StyleBuilderConverter::ConvertElementReference(
     return nullptr;
   SVGResource* resource =
       state.GetElementStyleResources().GetSVGResourceFromValue(
-          state.GetTreeScope(), *url_value);
+          state.GetElement().OriginatingTreeScope(), *url_value);
   return StyleSVGResource::Create(resource, url_value->ValueForSerialization());
 }
 
@@ -152,7 +152,7 @@ scoped_refptr<ClipPathOperation> StyleBuilderConverter::ConvertClipPath(
   if (const auto* url_value = DynamicTo<cssvalue::CSSURIValue>(value)) {
     SVGResource* resource =
         state.GetElementStyleResources().GetSVGResourceFromValue(
-            state.GetTreeScope(), *url_value);
+            state.GetElement().OriginatingTreeScope(), *url_value);
     // TODO(fs): Doesn't work with external SVG references (crbug.com/109212.)
     return ReferenceClipPathOperation::Create(
         url_value->ValueForSerialization(), resource);
@@ -1089,7 +1089,7 @@ Length StyleBuilderConverter::ConvertLengthMaxSizing(StyleResolverState& state,
                                                      const CSSValue& value) {
   auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
   if (identifier_value && identifier_value->GetValueID() == CSSValueID::kNone)
-    return Length::MaxSizeNone();
+    return Length::None();
   return ConvertLengthSizing(state, value);
 }
 
@@ -1683,11 +1683,11 @@ scoped_refptr<ScaleTransformOperation> StyleBuilderConverter::ConvertScale(
 RespectImageOrientationEnum StyleBuilderConverter::ConvertImageOrientation(
     StyleResolverState& state,
     const CSSValue& value) {
+  // The default is kFromImage, so branch on the only other valid value, kNone
   auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
-  return identifier_value &&
-                 identifier_value->GetValueID() == CSSValueID::kFromImage
-             ? kRespectImageOrientation
-             : kDoNotRespectImageOrientation;
+  return identifier_value && identifier_value->GetValueID() == CSSValueID::kNone
+             ? kDoNotRespectImageOrientation
+             : kRespectImageOrientation;
 }
 
 scoped_refptr<StylePath> StyleBuilderConverter::ConvertPathOrNone(
@@ -1872,6 +1872,14 @@ IntrinsicLength StyleBuilderConverter::ConvertIntrinsicLength(
       return IntrinsicLength::MakeAuto();
   }
   return IntrinsicLength::Make(ConvertLength(state, value));
+}
+
+bool StyleBuilderConverter::ConvertInternalEmptyLineHeight(
+    StyleResolverState&,
+    const CSSValue& value) {
+  auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
+  return identifier_value &&
+         identifier_value->GetValueID() == CSSValueID::kFabricated;
 }
 
 }  // namespace blink

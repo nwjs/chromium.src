@@ -23,7 +23,7 @@
 #include "chrome/browser/chromeos/settings/scoped_cros_settings_test_helper.h"
 #include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
-#include "chrome/browser/ui/ash/assistant/assistant_client.h"
+#include "chrome/browser/ui/ash/assistant/assistant_client_impl.h"
 #include "chrome/browser/ui/ash/test_session_controller.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -36,7 +36,6 @@
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/test/browser_task_environment.h"
-#include "content/public/test/test_service_manager_context.h"
 #include "net/cert/x509_certificate.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/test_data_directory.h"
@@ -113,8 +112,8 @@ class SessionControllerClientImplTest : public testing::Test {
     user_manager_ = new TestChromeUserManager;
     user_manager_enabler_ = std::make_unique<user_manager::ScopedUserManager>(
         base::WrapUnique(user_manager_));
-    // Initialize AssistantClient singleton.
-    assistant_client_ = std::make_unique<AssistantClient>();
+    // Initialize AssistantClientImpl singleton.
+    assistant_client_ = std::make_unique<AssistantClientImpl>();
 
     profile_manager_.reset(
         new TestingProfileManager(TestingBrowserProcess::GetGlobal()));
@@ -191,9 +190,8 @@ class SessionControllerClientImplTest : public testing::Test {
   }
 
   content::BrowserTaskEnvironment task_environment_;
-  content::TestServiceManagerContext context_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
-  std::unique_ptr<AssistantClient> assistant_client_;
+  std::unique_ptr<AssistantClientImpl> assistant_client_;
   session_manager::SessionManager session_manager_;
   chromeos::SessionTerminationManager session_termination_manager_;
 
@@ -442,6 +440,33 @@ TEST_F(SessionControllerClientImplTest, SendUserSession) {
 
   // Session was not updated because nothing changed.
   EXPECT_EQ(1, session_controller.update_user_session_count());
+}
+
+TEST_F(SessionControllerClientImplTest, SetUserSessionOrder) {
+  // Create an object to test and connect it to our test interface.
+  SessionControllerClientImpl client;
+  TestSessionController session_controller;
+  client.Init();
+
+  // User session order is not sent.
+  EXPECT_EQ(0, session_controller.set_user_session_order_count());
+
+  // Simulate a not-signed-in user has the user image changed.
+  const AccountId not_signed_in(
+      AccountId::FromUserEmailGaiaId("not_signed_in@test.com", "12345"));
+  user_manager::User* not_signed_in_user =
+      user_manager()->AddUser(not_signed_in);
+  user_manager()->NotifyUserImageChanged(*not_signed_in_user);
+
+  // User session order should not be sent.
+  EXPECT_EQ(0, session_controller.set_user_session_order_count());
+
+  // Simulate login.
+  UserAddedToSession(
+      AccountId::FromUserEmailGaiaId("signed_in@test.com", "67890"));
+
+  // User session order is sent after the sign-in.
+  EXPECT_EQ(1, session_controller.set_user_session_order_count());
 }
 
 TEST_F(SessionControllerClientImplTest, SupervisedUser) {

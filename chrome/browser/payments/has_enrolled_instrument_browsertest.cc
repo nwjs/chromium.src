@@ -22,7 +22,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/android/chrome_feature_list.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/test/base/android/android_browser_test.h"
 #else
 #include "chrome/test/base/in_process_browser_test.h"
@@ -331,7 +331,7 @@ IN_PROC_BROWSER_TEST_P(HasEnrolledInstrumentTest, InvalidEmailAddress) {
 // Run all tests with both values for
 // features::kStrictHasEnrolledAutofillInstrument.
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HasEnrolledInstrumentTest,
     ::testing::Values(STRICT_HAS_ENROLLED_INSTRUMENT,
                       LEGACY_HAS_ENROLLED_INSTRUMENT));

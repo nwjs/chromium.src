@@ -22,8 +22,9 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.chromium.base.MathUtils;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -31,7 +32,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
-import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modelutil.MVCListAdapter;
@@ -56,7 +56,7 @@ public class TabListCoordinator implements Destroyable {
      * NOTE: CAROUSEL mode currently uses a fixed height and card width set in dimens.xml with names
      *  tab_carousel_height and tab_carousel_card_width.
      *
-     *  STRIP and GRID modes will have height equal to that of the container view.
+     *  STRIP, LIST, and GRID modes will have height equal to that of the container view.
      * */
     @IntDef({TabListMode.GRID, TabListMode.STRIP, TabListMode.CAROUSEL, TabListMode.LIST})
     @Retention(RetentionPolicy.SOURCE)
@@ -230,6 +230,7 @@ public class TabListCoordinator implements Destroyable {
             mMediator.registerOrientationListener(gridLayoutManager);
             mMediator.updateSpanCountForOrientation(
                     gridLayoutManager, context.getResources().getConfiguration().orientation);
+            mMediator.setupAccessibilityDelegate(mRecyclerView);
         } else if (mMode == TabListMode.STRIP || mMode == TabListMode.CAROUSEL
                 || mMode == TabListMode.LIST) {
             mRecyclerView.setLayoutManager(new LinearLayoutManager(context,
@@ -238,6 +239,8 @@ public class TabListCoordinator implements Destroyable {
                     false));
         }
 
+        // TODO(crbug.com/1004570) : Support drag and drop, and swipe to dismiss when
+        // CLOSE_TAB_SUGGESTIONS is enabled.
         if ((mMode == TabListMode.GRID || mMode == TabListMode.LIST)
                 && selectionDelegateProvider == null) {
             ItemTouchHelper touchHelper = new ItemTouchHelper(mMediator.getItemTouchHelperCallback(

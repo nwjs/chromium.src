@@ -134,8 +134,6 @@ TEST_P(SharedImageBackingFactoryD3DTestSwapChain, InvalidFormat) {
         color_space, usage);
     EXPECT_TRUE(backings.front_buffer);
     EXPECT_TRUE(backings.back_buffer);
-    backings.front_buffer->Destroy();
-    backings.back_buffer->Destroy();
   }
   {
     auto valid_format = viz::BGRA_8888;
@@ -144,8 +142,6 @@ TEST_P(SharedImageBackingFactoryD3DTestSwapChain, InvalidFormat) {
         color_space, usage);
     EXPECT_TRUE(backings.front_buffer);
     EXPECT_TRUE(backings.back_buffer);
-    backings.front_buffer->Destroy();
-    backings.back_buffer->Destroy();
   }
   {
     auto valid_format = viz::RGBA_F16;
@@ -154,8 +150,6 @@ TEST_P(SharedImageBackingFactoryD3DTestSwapChain, InvalidFormat) {
         color_space, usage);
     EXPECT_TRUE(backings.front_buffer);
     EXPECT_TRUE(backings.back_buffer);
-    backings.front_buffer->Destroy();
-    backings.back_buffer->Destroy();
   }
   {
     auto invalid_format = viz::RGBA_4444;
@@ -433,7 +427,7 @@ class SharedImageBackingFactoryD3DTest
     context_state_ = base::MakeRefCounted<SharedContextState>(
         std::move(share_group), surface_, context_,
         /*use_virtualized_gl_contexts=*/false, base::DoNothing());
-    context_state_->InitializeGrContext(workarounds, nullptr);
+    context_state_->InitializeGrContext(GpuPreferences(), workarounds, nullptr);
     auto feature_info =
         base::MakeRefCounted<gles2::FeatureInfo>(workarounds, GpuFeatureInfo());
     context_state_->InitializeGL(GpuPreferences(), std::move(feature_info));
@@ -448,10 +442,12 @@ class SharedImageBackingFactoryD3DTest
                                                           context_state_);
     ASSERT_NE(skia_representation, nullptr);
 
-    SharedImageRepresentationSkia::ScopedReadAccess scoped_read_access(
-        skia_representation.get(), nullptr, nullptr);
+    std::unique_ptr<SharedImageRepresentationSkia::ScopedReadAccess>
+        scoped_read_access =
+            skia_representation->BeginScopedReadAccess(nullptr, nullptr);
+    EXPECT_TRUE(scoped_read_access);
 
-    auto* promise_texture = scoped_read_access.promise_image_texture();
+    auto* promise_texture = scoped_read_access->promise_image_texture();
     GrBackendTexture backend_texture = promise_texture->backendTexture();
 
     EXPECT_TRUE(backend_texture.isValid());
@@ -516,9 +512,11 @@ TEST_P(SharedImageBackingFactoryD3DTest, GL_SkiaGL) {
   EXPECT_EQ(expected_target,
             gl_representation->GetTexturePassthrough()->target());
 
-  SharedImageRepresentationGLTexturePassthrough::ScopedAccess scoped_access(
-      gl_representation.get(), GL_SHARED_IMAGE_ACCESS_MODE_READWRITE_CHROMIUM);
-  EXPECT_TRUE(scoped_access.success());
+  std::unique_ptr<SharedImageRepresentationGLTexturePassthrough::ScopedAccess>
+      scoped_access = gl_representation->BeginScopedAccess(
+          GL_SHARED_IMAGE_ACCESS_MODE_READWRITE_CHROMIUM,
+          SharedImageRepresentation::AllowUnclearedAccess::kYes);
+  EXPECT_TRUE(scoped_access);
 
   // Create an FBO.
   GLuint fbo = 0;
@@ -584,9 +582,14 @@ TEST_P(SharedImageBackingFactoryD3DTest, Dawn_SkiaGL) {
     auto dawn_representation =
         shared_image_representation_factory_->ProduceDawn(mailbox,
                                                           device.Get());
+    ASSERT_TRUE(dawn_representation);
 
-    wgpu::Texture texture = wgpu::Texture::Acquire(
-        dawn_representation->BeginAccess(WGPUTextureUsage_OutputAttachment));
+    auto scoped_access = dawn_representation->BeginScopedAccess(
+        WGPUTextureUsage_OutputAttachment,
+        SharedImageRepresentation::AllowUnclearedAccess::kNo);
+    ASSERT_TRUE(scoped_access);
+
+    wgpu::Texture texture = wgpu::Texture::Acquire(scoped_access->texture());
 
     wgpu::RenderPassColorAttachmentDescriptor color_desc;
     color_desc.attachment = texture.CreateView();
@@ -607,8 +610,6 @@ TEST_P(SharedImageBackingFactoryD3DTest, Dawn_SkiaGL) {
 
     wgpu::Queue queue = device.CreateQueue();
     queue.Submit(1, &commands);
-
-    dawn_representation->EndAccess();
   }
 
   CheckSkiaPixels(mailbox, size);
@@ -621,10 +622,10 @@ TEST_P(SharedImageBackingFactoryD3DTest, Dawn_SkiaGL) {
 }
 #endif  // BUILDFLAG(USE_DAWN)
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          SharedImageBackingFactoryD3DTestSwapChain,
                          testing::Bool());
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          SharedImageBackingFactoryD3DTest,
                          testing::Values(true));
 }  // anonymous namespace

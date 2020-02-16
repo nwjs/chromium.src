@@ -229,9 +229,7 @@ void KioskAppManager::InitSession(Profile* profile,
   app_session_ = CreateAppSession();
   if (app_session_)
     app_session_->Init(profile, app_id);
-
-  for (auto& observer : observers_)
-    observer.OnKioskSessionInitialized();
+  NotifySessionInitialized();
 }
 
 bool KioskAppManager::GetSwitchesForSessionRestore(
@@ -276,6 +274,14 @@ bool KioskAppManager::GetSwitchesForSessionRestore(
     switches->AppendSwitch(switches::kAppAutoLaunched);
 
   return true;
+}
+
+void KioskAppManager::OnExternalCacheDamaged(const std::string& app_id) {
+  CHECK(external_cache_);
+  base::FilePath crx_path;
+  std::string version;
+  GetCachedCrx(app_id, &crx_path, &version);
+  external_cache_->OnDamagedFileDetected(crx_path);
 }
 
 void KioskAppManager::AddAppForTest(
@@ -516,16 +522,6 @@ bool KioskAppManager::GetApp(const std::string& app_id, App* app) const {
     return false;
   *app = ConstructApp(*data);
   return true;
-}
-
-bool KioskAppManager::GetDisableBailoutShortcut() const {
-  bool enable;
-  if (CrosSettings::Get()->GetBoolean(
-          kAccountsPrefDeviceLocalAccountAutoLoginBailoutEnabled, &enable)) {
-    return !enable;
-  }
-
-  return false;
 }
 
 void KioskAppManager::ClearAppData(const std::string& app_id) {

@@ -67,7 +67,7 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/point.h"
 
@@ -2391,16 +2391,15 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 
   // Try to get cross-site passwords from the subframe's process and wait for it
   // to be killed.
-  std::vector<autofill::PasswordForm> password_forms;
-  password_forms.push_back(autofill::PasswordForm());
-  password_forms.back().origin = main_frame_url;
+  std::vector<autofill::FormData> forms_data(1, autofill::FormData());
+  forms_data.back().url = main_frame_url;
   ContentPasswordManagerDriverFactory* factory =
       ContentPasswordManagerDriverFactory::FromWebContents(WebContents());
   EXPECT_TRUE(factory);
   autofill::mojom::PasswordManagerDriver* driver =
       factory->GetDriverForFrame(iframe);
   EXPECT_TRUE(driver);
-  driver->PasswordFormsParsed(password_forms);
+  driver->PasswordFormsParsed(forms_data);
 
   iframe_killed.Wait();
 }
@@ -3004,7 +3003,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, InternalsPage_Renderer) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("chrome://password-manager-internals"),
       WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* internals_web_contents = WebContents();
 
   // The renderer is supposed to ask whether logging is available. To avoid
@@ -3015,7 +3014,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, InternalsPage_Renderer) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/password/done.html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* forms_web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -3027,7 +3026,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, InternalsPage_Renderer) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/password/password_form.html"),
       WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   observer.Wait();
 
   std::string find_logs =
@@ -3045,13 +3044,13 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, InternalsPage_Browser) {
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("chrome://password-manager-internals"),
       WindowOpenDisposition::CURRENT_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* internals_web_contents = WebContents();
 
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/password/password_form.html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   std::string find_logs =
       "var text = document.getElementById('log-entries').innerText;"
@@ -3339,7 +3338,6 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   password_store->AddLogin(signin_form);
   signin_form.username_value = base::ASCIIToUTF16("last_used_username");
   signin_form.password_value = base::ASCIIToUTF16("last_used_password");
-  signin_form.preferred = true;
   password_store->AddLogin(signin_form);
   WaitForPasswordStore();
 
@@ -3868,12 +3866,10 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
   admin_form.origin = embedded_test_server()->base_url();
   admin_form.username_value = base::ASCIIToUTF16("admin");
   admin_form.password_value = base::ASCIIToUTF16("random_secret");
-  admin_form.preferred = true;
   password_store->AddLogin(admin_form);
 
   autofill::PasswordForm user_form = admin_form;
   user_form.username_value = base::ASCIIToUTF16("user");
-  user_form.preferred = false;
   password_store->AddLogin(user_form);
 
   NavigateToFile("/password/password_form.html");

@@ -640,11 +640,6 @@ size_t OmniboxFieldTrial::GetMaxURLMatches() {
       OmniboxFieldTrial::kOmniboxMaxURLMatchesParam, kDefaultMaxURLMatches);
 }
 
-bool OmniboxFieldTrial::IsPreserveDefaultMatchScoreEnabled() {
-  return base::FeatureList::IsEnabled(
-      omnibox::kOmniboxPreserveDefaultMatchScore);
-}
-
 bool OmniboxFieldTrial::IsReverseAnswersEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kOmniboxReverseAnswers);
 }
@@ -653,6 +648,10 @@ bool OmniboxFieldTrial::IsShortBookmarkSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(
              omnibox::kOmniboxShortBookmarkSuggestions) ||
          base::FeatureList::IsEnabled(omnibox::kAutocompleteTitles);
+}
+
+bool OmniboxFieldTrial::IsSuggestionButtonRowEnabled() {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxSuggestionButtonRow);
 }
 
 bool OmniboxFieldTrial::IsTabSwitchSuggestionsEnabled() {
@@ -684,11 +683,6 @@ bool OmniboxFieldTrial::IsHideSteadyStateUrlTrivialSubdomainsEnabled() {
 
 bool OmniboxFieldTrial::IsExperimentalKeywordModeEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kExperimentalKeywordMode);
-}
-
-bool OmniboxFieldTrial::IsGroupSuggestionsBySearchVsUrlFeatureEnabled() {
-  return base::FeatureList::IsEnabled(
-      omnibox::kOmniboxGroupSuggestionsBySearchVsUrl);
 }
 
 bool OmniboxFieldTrial::IsMaxURLMatchesFeatureEnabled() {
@@ -768,6 +762,9 @@ const char OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam[] =
     "UIMaxAutocompleteMatches";
 const char OmniboxFieldTrial::kUIMaxAutocompleteMatchesByProviderParam[] =
     "UIMaxAutocompleteMatchesByProvider";
+
+const char OmniboxFieldTrial::kOnDeviceHeadSuggestIncognitoServeMode[] =
+    "IncognitoServeMode";
 
 // static
 int OmniboxFieldTrial::kDefaultMinimumTimeBetweenSuggestQueriesMs = 100;

@@ -11,6 +11,7 @@
 
 #include "base/auto_reset.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
@@ -1371,30 +1372,31 @@ class LayerTreeHostTestNoDamageCausesNoInvalidate : public LayerTreeHostTest {
         break;
       case 2:
         EndTest();
+        break;
     }
   }
 
   void DidInvalidateLayerTreeFrameSink(LayerTreeHostImpl* impl) override {
-    switch (impl->active_tree()->source_frame_number()) {
+    int source_frame_number = impl->active_tree()->source_frame_number();
+    if (source_frame_number == 0) {
       // Be sure that invalidates happen before commits, so the below failure
       // works.
-      case 0:
-        first_frame_invalidate_before_commit_ = true;
-        break;
-      // Frame 1 will invalidate, even though it has no damage. The early
-      // damage check that prevents frame 2 from invalidating only runs if
-      // a previous frame did not have damage.
-
-      // This frame should not cause an invalidate, since there is no visible
-      // damage.
-      case 2:
-        ADD_FAILURE();
+      first_frame_invalidate_before_commit_ = true;
+    } else if (source_frame_number > 0) {
+      // The first frame (frame number 0) has damage because it's the first
+      // frame. All subsequent frames in this test are set up to have no damage.
+      // The early damage check will prevent further invalidates without damage
+      // after 2 consecutive invalidates without damage. So check there is no
+      // more than 2.
+      invalidate_without_damage_count_++;
+      EXPECT_LT(invalidate_without_damage_count_, 2);
     }
   }
 
  private:
   scoped_refptr<Layer> layer_;
   bool first_frame_invalidate_before_commit_ = false;
+  int invalidate_without_damage_count_ = 0;
 };
 
 // This behavior is specific to Android WebView, which only uses
@@ -1495,7 +1497,8 @@ class LayerTreeHostTestEarlyDamageCheckStops : public LayerTreeHostTest {
 
 // This behavior is specific to Android WebView, which only uses
 // multi-threaded compositor.
-MULTI_THREAD_TEST_F(LayerTreeHostTestEarlyDamageCheckStops);
+// TODO (crbug.com/1043900): Disabled because test is flaky on Mac10.13.
+// MULTI_THREAD_TEST_F(LayerTreeHostTestEarlyDamageCheckStops);
 
 // When settings->enable_early_damage_check is true, verifies that PrepareTiles
 // need not cause a draw when there is no visible damage. Here, a child layer is
@@ -1753,7 +1756,6 @@ class LayerTreeHostTestAnimationOpacityMutatedUsingLayerLists
  protected:
   void BeginTest() override {
     Layer* root = layer_tree_host()->root_layer();
-    EXPECT_EQ(1.0f, root->opacity());
     EXPECT_EQ(1.0f, layer_tree_host()
                         ->property_trees()
                         ->effect_tree.FindNodeFromElementId(root->element_id())
@@ -1762,8 +1764,6 @@ class LayerTreeHostTestAnimationOpacityMutatedUsingLayerLists
     layer_tree_host()->SetElementOpacityMutated(root->element_id(),
                                                 ElementListType::ACTIVE, 0.3f);
 
-    // When using layer lists, we don't have to store the opacity on the layer.
-    EXPECT_EQ(1.0f, root->opacity());
     // The opacity should have been set directly on the effect node instead.
     EXPECT_EQ(0.3f, layer_tree_host()
                         ->property_trees()
@@ -1815,7 +1815,6 @@ class LayerTreeHostTestAnimationTransformMutatedUsingLayerLists
  protected:
   void BeginTest() override {
     Layer* root = layer_tree_host()->root_layer();
-    EXPECT_EQ(gfx::Transform(), root->transform());
     EXPECT_EQ(gfx::Transform(),
               layer_tree_host()
                   ->property_trees()
@@ -1827,9 +1826,6 @@ class LayerTreeHostTestAnimationTransformMutatedUsingLayerLists
     layer_tree_host()->SetElementTransformMutated(
         root->element_id(), ElementListType::ACTIVE, expected_transform);
 
-    // When using layer lists, we don't have to store the transform on the
-    // layer.
-    EXPECT_EQ(gfx::Transform(), root->transform());
     // The transform should have been set directly on the transform node
     // instead.
     EXPECT_EQ(expected_transform,
@@ -1872,7 +1868,6 @@ class LayerTreeHostTestAnimationFilterMutatedUsingLayerLists
  protected:
   void BeginTest() override {
     Layer* root = layer_tree_host()->root_layer();
-    EXPECT_EQ(FilterOperations(), root->filters());
     EXPECT_EQ(FilterOperations(),
               layer_tree_host()
                   ->property_trees()
@@ -1884,8 +1879,6 @@ class LayerTreeHostTestAnimationFilterMutatedUsingLayerLists
     layer_tree_host()->SetElementFilterMutated(
         root->element_id(), ElementListType::ACTIVE, filters);
 
-    // When using layer lists, we don't have to store the filters on the layer.
-    EXPECT_EQ(FilterOperations(), root->filters());
     // The filter should have been set directly on the effect node instead.
     EXPECT_EQ(filters,
               layer_tree_host()
@@ -4071,6 +4064,62 @@ class LayerTreeHostTestAbortedCommitDoesntStallSynchronousCompositor
 
 MULTI_THREAD_TEST_F(
     LayerTreeHostTestAbortedCommitDoesntStallSynchronousCompositor);
+
+class LayerTreeHostTestSynchronousCompositorActivateWithoutDraw
+    : public LayerTreeHostTest {
+ protected:
+  void InitializeSettings(LayerTreeSettings* settings) override {
+    settings->using_synchronous_renderer_compositor = true;
+  }
+
+  std::unique_ptr<TestLayerTreeFrameSink> CreateLayerTreeFrameSink(
+      const viz::RendererSettings& renderer_settings,
+      double refresh_rate,
+      scoped_refptr<viz::ContextProvider> compositor_context_provider,
+      scoped_refptr<viz::RasterContextProvider> worker_context_provider)
+      override {
+    // Make |invalidate_callback| do nothing so there is no draw.
+    auto frame_sink = std::make_unique<OnDrawLayerTreeFrameSink>(
+        compositor_context_provider, std::move(worker_context_provider),
+        gpu_memory_buffer_manager(), renderer_settings, ImplThreadTaskRunner(),
+        /*synchronous_composite=*/false, refresh_rate,
+        /*invalidate_callback=*/base::DoNothing());
+    return std::move(frame_sink);
+  }
+
+  void BeginTest() override { PostSetNeedsCommitToMainThread(); }
+
+  void DidCommit() override { commit_count_++; }
+
+  void DidActivateTreeOnThread(LayerTreeHostImpl* host_impl) override {
+    activate_count_++;
+    if (activate_count_ == 1) {
+      PostSetNeedsCommitToMainThread();
+    } else if (activate_count_ == 2) {
+      EndTest();
+    } else {
+      NOTREACHED();
+    }
+  }
+
+  void DrawLayersOnThread(LayerTreeHostImpl* host_impl) override {
+    // This test specifically tests that two commit-activate cycles without
+    // draw in between them.
+    ADD_FAILURE();
+  }
+
+  void AfterTest() override {
+    // There should be two commits and activations without any draw.
+    EXPECT_EQ(commit_count_, 2);
+    EXPECT_EQ(activate_count_, 2);
+  }
+
+ private:
+  int commit_count_ = 0;
+  int activate_count_ = 0;
+};
+
+MULTI_THREAD_TEST_F(LayerTreeHostTestSynchronousCompositorActivateWithoutDraw);
 
 class LayerTreeHostTestUninvertibleTransformDoesNotBlockActivation
     : public LayerTreeHostTest {
@@ -6789,7 +6838,7 @@ class LayerTreeHostTestCrispUpAfterPinchEnds : public LayerTreeHostTest {
           viz::TileDrawQuad::MaterialCast(draw_quad);
       float quad_scale =
           quad->tex_coord_rect.width() / static_cast<float>(quad->rect.width());
-      float transform_scale = SkMScalarToFloat(
+      float transform_scale = SkScalarToFloat(
           quad->shared_quad_state->quad_to_target_transform.matrix().get(0, 0));
       float scale = quad_scale / transform_scale;
       if (frame_scale != 0.f && frame_scale != scale)
@@ -7080,7 +7129,7 @@ class LayerTreeHostTestContinuousDrawWhenCreatingVisibleTiles
           viz::TileDrawQuad::MaterialCast(draw_quad);
       float quad_scale =
           quad->tex_coord_rect.width() / static_cast<float>(quad->rect.width());
-      float transform_scale = SkMScalarToFloat(
+      float transform_scale = SkScalarToFloat(
           quad->shared_quad_state->quad_to_target_transform.matrix().get(0, 0));
       float scale = quad_scale / transform_scale;
       if (frame_scale != 0.f && frame_scale != scale)
@@ -8071,6 +8120,9 @@ SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestDiscardAckAfterRelease);
 
 class LayerTreeHostTestImageAnimation : public LayerTreeHostTest {
  public:
+  explicit LayerTreeHostTestImageAnimation(RendererType type = RENDERER_GL)
+      : LayerTreeHostTest(type) {}
+
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   virtual void AddImageOp(const PaintImage& image) = 0;
@@ -8147,6 +8199,12 @@ class LayerTreeHostTestImageAnimation : public LayerTreeHostTest {
 
 class LayerTreeHostTestImageAnimationDrawImage
     : public LayerTreeHostTestImageAnimation {
+ public:
+  explicit LayerTreeHostTestImageAnimationDrawImage(
+      RendererType type = RENDERER_GL)
+      : LayerTreeHostTestImageAnimation(type) {}
+
+ private:
   void AddImageOp(const PaintImage& image) override {
     content_layer_client_.add_draw_image(image, gfx::Point(0, 0), PaintFlags());
   }
@@ -8198,6 +8256,10 @@ MULTI_THREAD_TEST_F(LayerTreeHostTestImageAnimationPaintFilter);
 class LayerTreeHostTestImageAnimationSynchronousScheduling
     : public LayerTreeHostTestImageAnimationDrawImage {
  public:
+  explicit LayerTreeHostTestImageAnimationSynchronousScheduling(
+      RendererType type = RENDERER_GL)
+      : LayerTreeHostTestImageAnimationDrawImage(type) {}
+
   void InitializeSettings(LayerTreeSettings* settings) override {
     LayerTreeHostTestImageAnimation::InitializeSettings(settings);
     settings->using_synchronous_renderer_compositor = true;
@@ -8209,11 +8271,9 @@ MULTI_THREAD_TEST_F(LayerTreeHostTestImageAnimationSynchronousScheduling);
 class LayerTreeHostTestImageAnimationSynchronousSchedulingSoftwareDraw
     : public LayerTreeHostTestImageAnimationSynchronousScheduling {
  public:
-  void InitializeSettings(LayerTreeSettings* settings) override {
-    LayerTreeHostTestImageAnimationSynchronousScheduling::InitializeSettings(
-        settings);
-    renderer_type_ = RENDERER_SOFTWARE;
-  }
+  LayerTreeHostTestImageAnimationSynchronousSchedulingSoftwareDraw()
+      : LayerTreeHostTestImageAnimationSynchronousScheduling(
+            RENDERER_SOFTWARE) {}
 
   void AfterTest() override {
     LayerTreeHostTestImageAnimationSynchronousScheduling::AfterTest();
@@ -8230,6 +8290,11 @@ MULTI_THREAD_TEST_F(
 
 class LayerTreeHostTestImageDecodingHints : public LayerTreeHostTest {
  public:
+  void InitializeSettings(LayerTreeSettings* settings) override {
+    LayerTreeHostTest::InitializeSettings(settings);
+    settings->enable_checker_imaging = true;
+  }
+
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
   void SetupTree() override {

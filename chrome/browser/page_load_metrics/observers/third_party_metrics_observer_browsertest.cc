@@ -18,15 +18,15 @@
 namespace {
 
 const char kReadCookieHistogram[] =
-    "PageLoad.Clients.ThirdParty.Origins.CookieRead";
+    "PageLoad.Clients.ThirdParty.Origins.CookieRead2";
 const char kWriteCookieHistogram[] =
-    "PageLoad.Clients.ThirdParty.Origins.CookieWrite";
+    "PageLoad.Clients.ThirdParty.Origins.CookieWrite2";
 const char kAccessLocalStorageHistogram[] =
-    "PageLoad.Clients.ThirdParty.Origins.LocalStorageAccess";
+    "PageLoad.Clients.ThirdParty.Origins.LocalStorageAccess2";
 const char kAccessSessionStorageHistogram[] =
-    "PageLoad.Clients.ThirdParty.Origins.SessionStorageAccess";
+    "PageLoad.Clients.ThirdParty.Origins.SessionStorageAccess2";
 const char kSubframeFCPHistogram[] =
-    "PageLoad.Clients.ThirdParty.Frames.NavigationToFirstContentfulPaint";
+    "PageLoad.Clients.ThirdParty.Frames.NavigationToFirstContentfulPaint3";
 class ThirdPartyMetricsObserverBrowserTest : public InProcessBrowserTest {
  protected:
   ThirdPartyMetricsObserverBrowserTest()
@@ -370,7 +370,7 @@ IN_PROC_BROWSER_TEST_P(ThirdPartyDomStorageAccessMetricsObserverBrowserTest,
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     ThirdPartyDomStorageAccessMetricsObserverBrowserTest,
     ::testing::Values(false, true));
 

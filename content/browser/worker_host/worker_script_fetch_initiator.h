@@ -13,9 +13,9 @@
 #include "base/macros.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/resource_type.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/controller_service_worker.mojom.h"
@@ -36,7 +36,7 @@ class AppCacheHost;
 class BrowserContext;
 class RenderFrameHost;
 class ServiceWorkerContextWrapper;
-class ServiceWorkerNavigationHandle;
+class ServiceWorkerMainResourceHandle;
 class ServiceWorkerObjectHost;
 class StoragePartitionImpl;
 struct SubresourceLoaderParams;
@@ -68,7 +68,7 @@ class WorkerScriptFetchInitiator {
           outside_fetch_client_settings_object,
       ResourceType resource_type,
       scoped_refptr<ServiceWorkerContextWrapper> service_worker_context,
-      ServiceWorkerNavigationHandle* service_worker_handle,
+      ServiceWorkerMainResourceHandle* service_worker_handle,
       base::WeakPtr<AppCacheHost> appcache_host,
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
       scoped_refptr<network::SharedURLLoaderFactory>
@@ -99,14 +99,14 @@ class WorkerScriptFetchInitiator {
   static void CreateScriptLoader(
       int worker_process_id,
       RenderFrameHost* creator_render_frame_host,
+      const net::NetworkIsolationKey& trusted_network_isolation_key,
       std::unique_ptr<network::ResourceRequest> resource_request,
-      StoragePartitionImpl* storage_partition,
       std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           factory_bundle_for_browser_info,
       std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
           subresource_loader_factories,
       scoped_refptr<ServiceWorkerContextWrapper> service_worker_context,
-      ServiceWorkerNavigationHandle* service_worker_handle,
+      ServiceWorkerMainResourceHandle* service_worker_handle,
       base::WeakPtr<AppCacheHost> appcache_host,
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
       scoped_refptr<network::SharedURLLoaderFactory>

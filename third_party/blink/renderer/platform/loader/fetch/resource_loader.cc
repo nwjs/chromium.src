@@ -389,7 +389,7 @@ ResourceLoader::ResourceLoader(ResourceFetcher* fetcher,
   // If they are keepalive request && their responses are not observable to web
   // content, we can have them survive without breaking web content when the
   // page is put into BackForwardCache.
-  auto request = resource_->GetResourceRequest();
+  auto& request = resource_->GetResourceRequest();
   if (!RequestContextObserveResponse(request.GetRequestContext())) {
     if (FrameScheduler* frame_scheduler = fetcher->GetFrameScheduler()) {
       feature_handle_for_scheduler_ = frame_scheduler->RegisterFeature(
@@ -570,7 +570,8 @@ void ResourceLoader::StartWith(const ResourceRequest& request) {
   if (is_cache_aware_loading_activated_) {
     // Override cache policy for cache-aware loading. If this request fails, a
     // reload with original request will be triggered in DidFail().
-    ResourceRequest cache_aware_request(request);
+    ResourceRequest cache_aware_request;
+    cache_aware_request.CopyFrom(request);
     cache_aware_request.SetCacheMode(
         mojom::FetchCacheMode::kUnspecifiedOnlyIfCachedStrict);
     RequestAsynchronously(cache_aware_request);
@@ -685,7 +686,7 @@ static bool IsManualRedirectFetchRequest(const ResourceRequest& request) {
 
 bool ResourceLoader::WillFollowRedirect(
     const WebURL& new_url,
-    const WebURL& new_site_for_cookies,
+    const net::SiteForCookies& new_site_for_cookies,
     const WebString& new_referrer,
     network::mojom::ReferrerPolicy new_referrer_policy,
     const WebString& new_method,
@@ -756,9 +757,9 @@ bool ResourceLoader::WillFollowRedirect(
               new_url, request_mode, origin.get(),
               GetCorsFlag() ? CorsFlag::Set : CorsFlag::Unset);
       if (!cors_error && GetCorsFlag()) {
-        cors_error = cors::CheckAccess(
-            new_url, redirect_response.HttpStatusCode(),
-            redirect_response.HttpHeaderFields(), credentials_mode, *origin);
+        cors_error =
+            cors::CheckAccess(new_url, redirect_response.HttpHeaderFields(),
+                              credentials_mode, *origin);
       }
       if (cors_error) {
         HandleError(
@@ -830,7 +831,7 @@ bool ResourceLoader::WillFollowRedirect(
   // First-party cookie logic moved from DocumentLoader in Blink to
   // net::URLRequest in the browser. Assert that Blink didn't try to change it
   // to something else.
-  DCHECK(KURL(new_site_for_cookies) == new_request->SiteForCookies());
+  DCHECK(new_request->SiteForCookies().IsEquivalent(new_site_for_cookies));
 
   // The following parameters never change during the lifetime of a request.
   DCHECK_EQ(new_request->GetRequestContext(), request_context);
@@ -962,7 +963,8 @@ void ResourceLoader::DidReceiveResponseInternal(
             kEnableCorsHandlingByResourceFetcher &&
         request_mode == network::mojom::RequestMode::kCors &&
         response.WasFallbackRequiredByServiceWorker()) {
-      ResourceRequest last_request = resource_->LastResourceRequest();
+      ResourceRequest last_request;
+      last_request.CopyFrom(resource_->LastResourceRequest());
       DCHECK(!last_request.GetSkipServiceWorker());
       // This code handles the case when a controlling service worker doesn't
       // handle a cross origin request.
@@ -1021,9 +1023,8 @@ void ResourceLoader::DidReceiveResponseInternal(
       !(resource_->IsCacheValidator() && response.HttpStatusCode() == 304)) {
     if (GetCorsFlag()) {
       base::Optional<network::CorsErrorStatus> cors_error = cors::CheckAccess(
-          response.CurrentRequestUrl(), response.HttpStatusCode(),
-          response.HttpHeaderFields(), initial_request.GetCredentialsMode(),
-          *resource_->GetOrigin());
+          response.CurrentRequestUrl(), response.HttpHeaderFields(),
+          initial_request.GetCredentialsMode(), *resource_->GetOrigin());
       if (cors_error) {
         HandleError(ResourceError(response.CurrentRequestUrl(), *cors_error));
         return;

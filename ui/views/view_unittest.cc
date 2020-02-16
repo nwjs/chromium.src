@@ -12,6 +12,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/i18n/rtl.h"
+
 #include "base/macros.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
@@ -380,6 +381,22 @@ TEST_F(ViewTest, OnBoundsChanged) {
   EXPECT_TRUE(v.did_change_bounds_);
   EXPECT_EQ(v.new_bounds_, new_rect);
   EXPECT_EQ(v.bounds(), new_rect);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// OnStateChanged
+////////////////////////////////////////////////////////////////////////////////
+
+TEST_F(ViewTest, OnStateChangedFiresA11yEvent) {
+  TestView v;
+
+  v.last_a11y_event_ = ax::mojom::Event::kNone;
+  v.SetEnabled(false);
+  EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kStateChanged);
+
+  v.last_a11y_event_ = ax::mojom::Event::kNone;
+  v.SetEnabled(true);
+  EXPECT_EQ(v.last_a11y_event_, ax::mojom::Event::kStateChanged);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2967,7 +2984,7 @@ TEST_F(ViewTest, ConversionsWithTransform) {
     transform.Translate(1.0, 1.0);
 
     // convert to a 3x3 matrix.
-    const SkMatrix& matrix = transform.matrix();
+    const SkMatrix& matrix = SkMatrix(transform.matrix());
 
     EXPECT_EQ(210, matrix.getTranslateX());
     EXPECT_EQ(-55, matrix.getTranslateY());
@@ -2988,7 +3005,7 @@ TEST_F(ViewTest, ConversionsWithTransform) {
     transform.ConcatTransform(t3);
 
     // convert to a 3x3 matrix
-    const SkMatrix& matrix = transform.matrix();
+    const SkMatrix& matrix = SkMatrix(transform.matrix());
 
     EXPECT_EQ(210, matrix.getTranslateX());
     EXPECT_EQ(-55, matrix.getTranslateY());
@@ -4846,7 +4863,7 @@ TEST_F(ViewLayerTest, LayerBeneathStackedCorrectly) {
   root.SetPaintToLayer();
 
   ui::Layer layer;
-  layer.set_name("layer");
+  layer.SetName("layer");
 
   View* v1 = root.AddChildView(std::make_unique<View>());
   View* v2 = root.AddChildView(std::make_unique<View>());
@@ -4854,13 +4871,13 @@ TEST_F(ViewLayerTest, LayerBeneathStackedCorrectly) {
 
   // Check that |layer| is stacked correctly as we add more layers to the tree.
   v2->AddLayerBeneathView(&layer);
-  v2->layer()->set_name("v2");
+  v2->layer()->SetName("v2");
   EXPECT_EQ(ChildLayerNamesAsString(*root.layer()), "layer v2");
   v3->SetPaintToLayer();
-  v3->layer()->set_name("v3");
+  v3->layer()->SetName("v3");
   EXPECT_EQ(ChildLayerNamesAsString(*root.layer()), "layer v2 v3");
   v1->SetPaintToLayer();
-  v1->layer()->set_name("v1");
+  v1->layer()->SetName("v1");
   EXPECT_EQ(ChildLayerNamesAsString(*root.layer()), "v1 layer v2 v3");
 
   v2->RemoveLayerBeneathView(&layer);
@@ -4889,21 +4906,21 @@ TEST_F(ViewLayerTest, LayerBeneathMovedWithView) {
 
   View root;
   root.SetPaintToLayer();
-  root.layer()->set_name("root");
+  root.layer()->SetName("root");
 
   ui::Layer layer;
-  layer.set_name("layer");
+  layer.SetName("layer");
 
   View* v1 = root.AddChildView(std::make_unique<View>());
   View* v2 = root.AddChildView(std::make_unique<View>());
   View* v3 = v1->AddChildView(std::make_unique<View>());
 
   v1->SetPaintToLayer();
-  v1->layer()->set_name("v1");
+  v1->layer()->SetName("v1");
   v2->SetPaintToLayer();
-  v2->layer()->set_name("v2");
+  v2->layer()->SetName("v2");
   v3->SetPaintToLayer();
-  v3->layer()->set_name("v3");
+  v3->layer()->SetName("v3");
 
   // Verify that |layer| is stacked correctly.
   v3->AddLayerBeneathView(&layer);

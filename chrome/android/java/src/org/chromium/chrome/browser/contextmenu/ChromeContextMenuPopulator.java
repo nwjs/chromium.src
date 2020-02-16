@@ -13,23 +13,29 @@ import android.webkit.MimeTypeMap;
 import android.webkit.URLUtil;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Supplier;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.bottombar.ephemeraltab.EphemeralTabPanel;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuItem.Item;
+import org.chromium.chrome.browser.contextmenu.ContextMenuParams.PerformanceClass;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.share.LensUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareParams;
 import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.components.feature_engagement.FeatureConstants;
+import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.BrowserStartupController;
@@ -51,6 +57,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private final @ContextMenuMode int mMode;
     private final Supplier<ShareDelegate> mShareDelegateSupplier;
     private boolean mEnableLensWithSearchByImageText;
+
+    // True when the tracker indicates IPH in the form of "new" label needs to be shown.
+    private Boolean mShowEphemeralTabNewLabel;
 
     /**
      * Defines the Groups of each Context Menu Item
@@ -86,8 +95,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 Action.COPY_PHONE_NUMBER, Action.OPEN_IN_NEW_CHROME_TAB,
                 Action.OPEN_IN_CHROME_INCOGNITO_TAB, Action.OPEN_IN_BROWSER, Action.OPEN_IN_CHROME,
                 Action.SHARE_LINK, Action.OPEN_IN_EPHEMERAL_TAB, Action.OPEN_IMAGE_IN_EPHEMERAL_TAB,
-                Action.DIRECT_SHARE_LINK, Action.DIRECT_SHARE_IMAGE,
-                Action.SEARCH_WITH_GOOGLE_LENS})
+                Action.DIRECT_SHARE_LINK, Action.DIRECT_SHARE_IMAGE, Action.SEARCH_WITH_GOOGLE_LENS,
+                Action.COPY_IMAGE})
         @Retention(RetentionPolicy.SOURCE)
         public @interface Action {
             int OPEN_IN_NEW_TAB = 0;
@@ -123,8 +132,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int DIRECT_SHARE_IMAGE = 27;
 
             int SEARCH_WITH_GOOGLE_LENS = 28;
+            int COPY_IMAGE = 29;
 
-            int NUM_ENTRIES = 29;
+            int NUM_ENTRIES = 30;
         }
 
         // Note: these values must match the ContextMenuSaveLinkType enum in enums.xml.
@@ -175,6 +185,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 histogramName = "ContextMenu.SelectedOptionAndroid.Link";
             }
             RecordHistogram.recordEnumeratedHistogram(histogramName, action, Action.NUM_ENTRIES);
+            if (params.isAnchor()
+                    && params.getPerformanceClass() == PerformanceClass.PERFORMANCE_FAST) {
+                RecordHistogram.recordEnumeratedHistogram(
+                        histogramName + ".PerformanceClassFast", action, Action.NUM_ENTRIES);
+            }
         }
 
         /**
@@ -298,6 +313,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     public List<Pair<Integer, List<ContextMenuItem>>> buildContextMenu(
             ContextMenu menu, Context context, ContextMenuParams params) {
         boolean hasSaveImage = false;
+        mShowEphemeralTabNewLabel = null;
 
         // clang-format off
         List<Pair<Integer, List<ContextMenuItem>>> groupedItems = new ArrayList<>();
@@ -316,7 +332,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_OTHER_WINDOW));
                 }
                 if (EphemeralTabPanel.isSupported()) {
-                    linkTab.add(new ChromeContextMenuItem(Item.OPEN_IN_EPHEMERAL_TAB));
+                    ContextMenuItem item = new ChromeContextMenuItem(Item.OPEN_IN_EPHEMERAL_TAB);
+                    mShowEphemeralTabNewLabel = shouldTriggerEphemeralTabHelpUi();
+                    if (mShowEphemeralTabNewLabel) item.setShowInProductHelp();
+                    linkTab.add(item);
                 }
             }
             if (!MailTo.isMailTo(params.getLinkUrl())
@@ -376,7 +395,16 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     imageTab.add(new ChromeContextMenuItem(Item.OPEN_IMAGE_IN_NEW_TAB));
                 }
                 if (EphemeralTabPanel.isSupported()) {
-                    imageTab.add(new ChromeContextMenuItem(Item.OPEN_IMAGE_IN_EPHEMERAL_TAB));
+                    ContextMenuItem item =
+                            new ChromeContextMenuItem(Item.OPEN_IMAGE_IN_EPHEMERAL_TAB);
+                    if (mShowEphemeralTabNewLabel == null) {
+                        mShowEphemeralTabNewLabel = shouldTriggerEphemeralTabHelpUi();
+                    }
+                    if (mShowEphemeralTabNewLabel) item.setShowInProductHelp();
+                    imageTab.add(item);
+                }
+                if (ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_COPY_IMAGE)) {
+                    imageTab.add(new ChromeContextMenuItem(Item.COPY_IMAGE));
                 }
                 if (isSrcDownloadableScheme) {
                     imageTab.add(new ChromeContextMenuItem(Item.SAVE_IMAGE));
@@ -399,8 +427,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                                 mEnableLensWithSearchByImageText = true;
                                 imageTab.add(new ChromeContextMenuItem(Item.SEARCH_BY_IMAGE));
                             } else {
-                                imageTab.add(
-                                        new ChromeContextMenuItem(Item.SEARCH_WITH_GOOGLE_LENS));
+                                ContextMenuItem item =
+                                        new ChromeContextMenuItem(Item.SEARCH_WITH_GOOGLE_LENS);
+                                item.setShowInProductHelp();
+                                imageTab.add(item);
                             }
                         } else {
                             imageTab.add(new ChromeContextMenuItem(Item.SEARCH_BY_IMAGE));
@@ -473,6 +503,13 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         return groupedItems;
     }
 
+    @VisibleForTesting
+    boolean shouldTriggerEphemeralTabHelpUi() {
+        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
+        return tracker.isInitialized()
+                && tracker.shouldTriggerHelpUI(FeatureConstants.EPHEMERAL_TAB_FEATURE);
+    }
+
     @Override
     public boolean onItemSelected(ContextMenuHelper helper, ContextMenuParams params, int itemId) {
         if (itemId == R.id.contextmenu_open_in_new_tab) {
@@ -487,9 +524,6 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         } else if (itemId == R.id.contextmenu_open_in_ephemeral_tab) {
             ContextMenuUma.record(params, ContextMenuUma.Action.OPEN_IN_EPHEMERAL_TAB);
             mDelegate.onOpenInEphemeralTab(params.getUrl(), params.getLinkText());
-            SharedPreferencesManager prefManager = SharedPreferencesManager.getInstance();
-            prefManager.writeBoolean(
-                    ChromePreferenceKeys.CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED, true);
         } else if (itemId == R.id.contextmenu_open_image) {
             ContextMenuUma.record(params, ContextMenuUma.Action.OPEN_IMAGE);
             mDelegate.onOpenImageUrl(params.getSrcUrl(), params.getReferrer());
@@ -503,9 +537,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 title = URLUtil.guessFileName(params.getSrcUrl(), null, null);
             }
             mDelegate.onOpenInEphemeralTab(params.getSrcUrl(), title);
-            SharedPreferencesManager prefManager = SharedPreferencesManager.getInstance();
-            prefManager.writeBoolean(
-                    ChromePreferenceKeys.CONTEXT_MENU_OPEN_IMAGE_IN_EPHEMERAL_TAB_CLICKED, true);
+        } else if (itemId == R.id.contextmenu_copy_image) {
+            ContextMenuUma.record(params, ContextMenuUma.Action.COPY_IMAGE);
+            helper.copyImageToClipboard(mDelegate);
         } else if (itemId == R.id.contextmenu_copy_link_address) {
             ContextMenuUma.record(params, ContextMenuUma.Action.COPY_LINK_ADDRESS);
             mDelegate.onSaveToClipboard(
@@ -598,6 +632,14 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         }
 
         return true;
+    }
+
+    @Override
+    public void onMenuClosed() {
+        if (!mShowEphemeralTabNewLabel) return;
+        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
+        if (!tracker.isInitialized()) return;
+        tracker.dismissed(FeatureConstants.EPHEMERAL_TAB_FEATURE);
     }
 
     /**

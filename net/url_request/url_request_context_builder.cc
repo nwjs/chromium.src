@@ -128,8 +128,7 @@ class BasicNetworkDelegate : public NetworkDelegateImpl {
 // it's not safe to subclass this.
 class ContainerURLRequestContext final : public URLRequestContext {
  public:
-  explicit ContainerURLRequestContext(bool allow_copy)
-      : URLRequestContext(allow_copy), storage_(this) {}
+  explicit ContainerURLRequestContext() : storage_(this) {}
 
   ~ContainerURLRequestContext() override {
 #if BUILDFLAG(ENABLE_REPORTING)
@@ -176,7 +175,7 @@ class ContainerURLRequestContext final : public URLRequestContext {
 }  // namespace
 
 URLRequestContextBuilder::HttpCacheParams::HttpCacheParams()
-    : type(IN_MEMORY), max_size(0) {}
+    : type(IN_MEMORY), max_size(0), reset_cache(false) {}
 URLRequestContextBuilder::HttpCacheParams::~HttpCacheParams() = default;
 
 URLRequestContextBuilder::URLRequestContextBuilder() = default;
@@ -369,7 +368,7 @@ void URLRequestContextBuilder::SetCreateHttpTransactionFactoryCallback(
 
 std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
   std::unique_ptr<ContainerURLRequestContext> context(
-      new ContainerURLRequestContext(allow_copy_));
+      new ContainerURLRequestContext());
   URLRequestContextStorage* storage = context->storage();
 
   if (!name_.empty())
@@ -604,7 +603,7 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
       }
       http_cache_backend.reset(new HttpCache::DefaultBackend(
           DISK_CACHE, backend_type, http_cache_params_.path,
-          http_cache_params_.max_size));
+          http_cache_params_.max_size, http_cache_params_.reset_cache));
     } else {
       http_cache_backend =
           HttpCache::DefaultBackend::InMemory(http_cache_params_.max_size);

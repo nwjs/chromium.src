@@ -86,8 +86,7 @@ bool AttemptFastNotify(const base::CommandLine& command_line) {
   HWND chrome = chrome::FindRunningChromeWindow(user_data_dir);
   if (!chrome)
     return false;
-  return chrome::AttemptToNotifyRunningChrome(chrome, true) ==
-      chrome::NOTIFY_SUCCESS;
+  return chrome::AttemptToNotifyRunningChrome(chrome) == chrome::NOTIFY_SUCCESS;
 }
 #endif
 
@@ -245,5 +244,12 @@ int main() {
   int rc = loader->Launch(instance, exe_entry_point_ticks);
   loader->RelaunchChromeBrowserWithNewCommandLineIfNeeded();
   delete loader;
+
+  // Process shutdown is hard and some process types have been crashing during
+  // shutdown. TerminateProcess is safer and faster.
+  if (process_type == switches::kUtilityProcess ||
+      process_type == switches::kPpapiPluginProcess) {
+    TerminateProcess(GetCurrentProcess(), rc);
+  }
   return rc;
 }

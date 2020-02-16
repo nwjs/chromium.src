@@ -9,15 +9,15 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/unrestricted_double_or_keyframe_effect_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_effect_timing.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_keyframe_effect_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_optional_effect_timing.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
 #include "third_party/blink/renderer/core/animation/animation_clock.h"
 #include "third_party/blink/renderer/core/animation/animation_test_helper.h"
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
-#include "third_party/blink/renderer/core/animation/effect_timing.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect_model.h"
-#include "third_party/blink/renderer/core/animation/optional_effect_timing.h"
 #include "third_party/blink/renderer/core/animation/timing.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
@@ -138,11 +138,11 @@ TEST_F(AnimationKeyframeEffectV8Test, CanCreateAnAnimation) {
   EXPECT_EQ(1, keyframes[1]->CheckedOffset());
 
   const CSSValue& keyframe1_width =
-      ToStringKeyframe(keyframes[0])
-          ->CssPropertyValue(PropertyHandle(GetCSSPropertyWidth()));
+      To<StringKeyframe>(*keyframes[0])
+          .CssPropertyValue(PropertyHandle(GetCSSPropertyWidth()));
   const CSSValue& keyframe2_width =
-      ToStringKeyframe(keyframes[1])
-          ->CssPropertyValue(PropertyHandle(GetCSSPropertyWidth()));
+      To<StringKeyframe>(*keyframes[1])
+          .CssPropertyValue(PropertyHandle(GetCSSPropertyWidth()));
 
   EXPECT_EQ("100px", keyframe1_width.CssText());
   EXPECT_EQ("0px", keyframe2_width.CssText());

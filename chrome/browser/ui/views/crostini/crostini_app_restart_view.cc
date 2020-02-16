@@ -4,8 +4,8 @@
 
 #include "chrome/browser/ui/views/crostini/crostini_app_restart_view.h"
 
-#include "chrome/browser/ui/ash/launcher/app_service_app_window_crostini_tracker.h"
-#include "chrome/browser/ui/ash/launcher/app_service_app_window_launcher_controller.h"
+#include "chrome/browser/ui/ash/launcher/app_service/app_service_app_window_crostini_tracker.h"
+#include "chrome/browser/ui/ash/launcher/app_service/app_service_app_window_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/crostini_app_window_shelf_controller.h"
 #include "chrome/browser/ui/browser_dialogs.h"
@@ -37,10 +37,6 @@ void CrostiniAppRestartView::Show(const ash::ShelfID& id, int64_t display_id) {
       view, GetNativeWindowFromDisplayId(display_id), nullptr);
   view->GetWidget()->Show();
   chrome::RecordDialogCreation(chrome::DialogIdentifier::CROSTINI_APP_RESTART);
-}
-
-int CrostiniAppRestartView::GetDialogButtons() const {
-  return ui::DIALOG_BUTTON_CANCEL | ui::DIALOG_BUTTON_OK;
 }
 
 bool CrostiniAppRestartView::ShouldShowCloseButton() const {

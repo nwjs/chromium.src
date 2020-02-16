@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">Որոնում ինկոգնիտո ռեժիմում</translation>
 <translation id="277771892408211951">Ընտրեք լեզուն</translation>
 <translation id="2780046210906776326">Էլփոստի հաշիվներ չկան</translation>
+<translation id="2781331604911854368">Միացված է</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">Փակել ներդիրների փոխարկիչը</translation>
 <translation id="2830972654601096923">Կառավարել հասցեները…</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">Բաց ներդիրները</translation>
 <translation id="3277021493514034324">Կայքի հասցեն պատճենվել է</translation>
 <translation id="3290875554372353449">Ընտրեք հաշիվ</translation>
+<translation id="3311748811247479259">Անջատված է</translation>
 <translation id="3324193307694657476">Հասցե 2</translation>
 <translation id="3329904751041170572">Չհաջողվեց կապակցվել սերվերին:</translation>
 <translation id="3335947283844343239">Նորից բացել փակված ներդիրը</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">Ձևերը լրացվեցին:</translation>
 <translation id="3478058380795961209">Ժամկետի սպառման ամիսը</translation>
 <translation id="3482959374254649722">Ներդիրների համաժամացում...</translation>
+<translation id="3484946776651937681">Բացել Ներբեռնումներում</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Իմացեք ավելին<ph name="END_LINK" /> առաջարկվող բովանդակության վերաբերյալ</translation>
 <translation id="3494788280727468875">Հաստատել այցելությունների պատմության ջնջումը</translation>
+<translation id="35083190962747987">Անցնել ${url}</translation>
 <translation id="3519193562722059437">Բացեք ներդիր՝ համացանցում կայքեր դիտելու համար:</translation>
 <translation id="3527085408025491307">Պանակ</translation>
 <translation id="3529024052484145543">Անվտանգ չէ</translation>
@@ -301,6 +305,7 @@
 <translation id="5062321486222145940">Տեղադրել Google Drive-ը</translation>
 <translation id="5083464117946352670">Չհաջողվեց որոշել ֆայլի չափը:</translation>
 <translation id="5094827893301452931">Twitter-ում տարածումն ավարտվեց:</translation>
+<translation id="5118764316110575523">Անջատված է</translation>
 <translation id="5127805178023152808">Համաժամացումն անջատված է</translation>
 <translation id="5132942445612118989">Համաժամացրեք ձեր գաղտնաբառերը, պատմությունն ու մյուս կարգավորումները ձեր բոլոր սարքերում</translation>
 <translation id="5140288047769711648">Chrome-ը կպահի այս գաղտնաբառը ձեզ համար։ Կարիք չկա այն հիշելու։</translation>
@@ -349,13 +354,11 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="5854790677617711513">30 օր և ավելի</translation>
 <translation id="5857090052475505287">Նոր պանակ</translation>
 <translation id="5857770089550859117">Համաժամացումը սկսելու համար անհրաժեշտ է անցաբառ:</translation>
-<translation id="5860033963881614850">Անջատ.</translation>
 <translation id="5869029295770560994">Լավ, հասկացա</translation>
 <translation id="5871497086027727873">Տեղափոխվել է 1 տարր</translation>
 <translation id="5897956970858271241">Անցնել պատճենված հղումով</translation>
 <translation id="5911030830365207728">Google Translate</translation>
 <translation id="5913600720976431809">Էջը թարգմանելու տարբերակներ</translation>
-<translation id="5916664084637901428">Միացնել</translation>
 <translation id="5938160824633642847">Ձեր սարքի հիշողությունը գրեթե լիքն է։ Ազատեք տարածք և նորից փորձեք:</translation>
 <translation id="5948291296578561264">Սրա շնորհիվ կկարողանաք լուսանկարներ պահել ձեր ֆոտոդարանում:</translation>
 <translation id="5955891643922670672">Անցանց տարբերակի դիտում</translation>
@@ -365,6 +368,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="5979837087407522202">Գաղտնաբառերի որոնում</translation>
 <translation id="5982717868370722439">Առկա տվյալների ավելացում <ph name="USER_EMAIL" /> հաշվում:</translation>
 <translation id="5984222099446776634">Recently Visited</translation>
+<translation id="5988851877894965432">Բացել URL-ները Chrome-ում</translation>
 <translation id="6012140227487808125">Գաղտնագրում…</translation>
 <translation id="6021332621416007159">Բացել այս հավելվածում…</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />, <ph name="PUBLISHER_INFORMATION" />, <ph name="PUBLICATION_DATE" /></translation>
@@ -475,6 +479,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="734758817008927353">Քարտը պահելու կարգավորումներ</translation>
 <translation id="7348502496356775519">Էջանիշ</translation>
 <translation id="7383797227493018512">Ընթերցանության ցանկ</translation>
+<translation id="7392048574806661116">Դուրս եկեք հաշվից և մաքրեք համաժամացված տվյալները</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> չընթերցված հոդված</translation>
 <translation id="7425346204213733349">Ձեր էջանիշների, այցելությունների պատմության, գաղտնաբառերի և այլ կարգավորումների փոփոխությունները չեն համաժամացվի ձեր Google հաշվի հետ: Այդուհանդերձ, ձեր առկա տվյալները կպահվեն ձեր Google հաշվում:</translation>
@@ -514,6 +519,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="7961015016161918242">Երբեք</translation>
 <translation id="7971521879845308059">Արգելափակել ելնող պատուհանները</translation>
 <translation id="7982789257301363584">Ցանց</translation>
+<translation id="800361585186029508">Մուտքագրված URL-ները բացվում են Google Chrome-ում։</translation>
 <translation id="8007420562015504427">Որոնել ինկոգնիտո ռեժիմում</translation>
 <translation id="8019783059653722575">Թույլ է տալիս պահել և վերբեռնել լուսանկարները:</translation>
 <translation id="802154636333426148">Ներբեռնումը ձախողվեց</translation>
@@ -533,6 +539,7 @@ Handoff-ը պետք է միացված լինի նաև Կարգավորումնե
 <translation id="8319076807703933069">Նոր որոնում</translation>
 <translation id="8323906514956095947">Հպեք և պահեք՝ ներդիրներին առնչվող այլ ընտրանքներ տեսնելու համար</translation>
 <translation id="8328777765163860529">Փակել բոլորը</translation>
+<translation id="8386068868580335421">Վերակայել</translation>
 <translation id="8407669440184693619">Այս կայքի համար գաղտնաբառեր չեն գտնվել</translation>
 <translation id="842017693807136194">Մուտք եք գործել որպես</translation>
 <translation id="8428045167754449968">Քաղաք</translation>

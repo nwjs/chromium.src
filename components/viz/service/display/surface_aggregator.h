@@ -19,7 +19,7 @@
 #include "components/viz/common/surfaces/surface_id.h"
 #include "components/viz/common/surfaces/surface_range.h"
 #include "components/viz/service/viz_service_export.h"
-#include "ui/gfx/color_space.h"
+#include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/overlay_transform.h"
 
 namespace viz {
@@ -69,7 +69,7 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
 
   // Set the color spaces for the created RenderPasses, which is propagated
   // to the output surface.
-  void SetOutputColorSpace(const gfx::ColorSpace& output_color_space);
+  void SetDisplayColorSpaces(const gfx::DisplayColorSpaces& color_spaces);
 
   void SetMaximumTextureSize(int max_texture_size);
 
@@ -206,7 +206,7 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
       RenderPassMapEntry* current_pass_entry,
       const gfx::Transform& transform_to_root_target,
       base::flat_map<SurfaceRange, ChildSurfaceInfo>* child_surfaces,
-      gfx::Rect* pixel_moving_backdrop_filters_rect);
+      std::vector<gfx::Rect>* pixel_moving_backdrop_filters_rects);
 
   gfx::Rect PrewalkTree(Surface* surface,
                         bool in_moved_pixel_surface,
@@ -304,7 +304,7 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
   // The color space for the root render pass. If this is different from its
   // blending color space (e.g. for HDR), then a final render pass to convert
   // between the two will be added. This space must always be valid.
-  gfx::ColorSpace output_color_space_ = gfx::ColorSpace::CreateSRGB();
+  gfx::DisplayColorSpaces display_color_spaces_;
   // Maximum texture size which if positive, will limit the size of render
   // passes.
   int max_texture_size_ = 0;

@@ -19,8 +19,6 @@
 #include "chrome/browser/permissions/mock_permission_request.h"
 #include "chrome/browser/permissions/permission_context_base.h"
 #include "chrome/browser/permissions/permission_request_impl.h"
-#include "chrome/browser/permissions/permission_request_manager_test_api.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/permission_bubble/mock_permission_prompt_factory.h"
@@ -30,7 +28,9 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chrome/test/permissions/permission_request_manager_test_api.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/permissions/permission_util.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -39,7 +39,6 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
-#include "media/base/media_switches.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 
@@ -72,12 +71,6 @@ class PermissionRequestManagerBrowserTest : public InProcessBrowserTest {
     mock_permission_prompt_factory_.reset();
   }
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    // Enable fake devices so we can test getUserMedia() on devices without
-    // physical media devices.
-    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
-  }
-
   PermissionRequestManager* GetPermissionRequestManager() {
     return PermissionRequestManager::FromWebContents(
         browser()->tab_strip_model()->GetActiveWebContents());
@@ -89,8 +82,8 @@ class PermissionRequestManagerBrowserTest : public InProcessBrowserTest {
 
   void EnableKillSwitch(ContentSettingsType content_settings_type) {
     std::map<std::string, std::string> params;
-    params[PermissionUtil::GetPermissionString(content_settings_type)] =
-        kPermissionsKillSwitchBlockedValue;
+    params[permissions::PermissionUtil::GetPermissionString(
+        content_settings_type)] = kPermissionsKillSwitchBlockedValue;
     variations::AssociateVariationParams(
         kPermissionsKillSwitchFieldStudy, kPermissionsKillSwitchTestGroup,
         params);
@@ -186,21 +179,23 @@ class PermissionDialogTest
 
   GURL GetUrl() { return GURL("https://example.com"); }
 
-  PermissionRequest* MakeRegisterProtocolHandlerRequest();
-  PermissionRequest* MakePermissionRequest(ContentSettingsType permission);
+  permissions::PermissionRequest* MakeRegisterProtocolHandlerRequest();
+  permissions::PermissionRequest* MakePermissionRequest(
+      ContentSettingsType permission);
 
   // TestBrowserDialog:
   void ShowUi(const std::string& name) override;
   void DismissUi() override;
 
   // Holds requests that do not delete themselves.
-  std::vector<std::unique_ptr<PermissionRequest>> owned_requests_;
+  std::vector<std::unique_ptr<permissions::PermissionRequest>> owned_requests_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PermissionDialogTest);
 };
 
-PermissionRequest* PermissionDialogTest::MakeRegisterProtocolHandlerRequest() {
+permissions::PermissionRequest*
+PermissionDialogTest::MakeRegisterProtocolHandlerRequest() {
   std::string protocol = "mailto";
   bool user_gesture = true;
   ProtocolHandler handler =
@@ -213,7 +208,7 @@ PermissionRequest* PermissionDialogTest::MakeRegisterProtocolHandlerRequest() {
                                                       GetUrl(), user_gesture);
 }
 
-PermissionRequest* PermissionDialogTest::MakePermissionRequest(
+permissions::PermissionRequest* PermissionDialogTest::MakePermissionRequest(
     ContentSettingsType permission) {
   bool user_gesture = true;
   auto decided = [](ContentSetting) {};
@@ -422,7 +417,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest,
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/empty.html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // SetUp() only creates a mock prompt factory for the first tab.
   MockPermissionPromptFactory* bubble_factory_0 = bubble_factory();
@@ -464,14 +459,10 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest,
   EXPECT_EQ(2, bubble_factory_1->show_count());
 }
 
-// Regularly timing out in Linux Debug Builds. https://crbug.com/931657
-#if defined(OS_LINUX)
-#define MAYBE_BackgroundTabNavigation DISABLED_BackgroundTabNavigation
-#else
-#define MAYBE_BackgroundTabNavigation BackgroundTabNavigation
-#endif
+// Regularly timing out in Windows, Linux and macOS Debug Builds.
+// https://crbug.com/931657
 IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest,
-                       MAYBE_BackgroundTabNavigation) {
+                       DISABLED_BackgroundTabNavigation) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   ui_test_utils::NavigateToURLBlockUntilNavigationsComplete(
@@ -490,7 +481,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest,
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/empty.html"),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Navigate background tab, prompt should be removed.
   ExecuteScriptAndGetValue(
@@ -715,16 +706,16 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest_AnimatedIcon,
   // First add a quiet permission request. Ensure that this request is decided
   // by the end of this test.
   MockPermissionRequest request_quiet(
-      "quiet", PermissionRequestType::PERMISSION_NOTIFICATIONS,
-      PermissionRequestGestureType::UNKNOWN);
+      "quiet", permissions::PermissionRequestType::PERMISSION_NOTIFICATIONS,
+      permissions::PermissionRequestGestureType::UNKNOWN);
   GetPermissionRequestManager()->AddRequest(&request_quiet);
   base::RunLoop().RunUntilIdle();
 
   // Add a second permission request. This ones should cause the initial
   // request to be cancelled.
   MockPermissionRequest request_loud(
-      "loud", PermissionRequestType::PERMISSION_GEOLOCATION,
-      PermissionRequestGestureType::UNKNOWN);
+      "loud", permissions::PermissionRequestType::PERMISSION_GEOLOCATION,
+      permissions::PermissionRequestGestureType::UNKNOWN);
   GetPermissionRequestManager()->AddRequest(&request_loud);
   base::RunLoop().RunUntilIdle();
 
@@ -742,14 +733,15 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest_AnimatedIcon,
 IN_PROC_BROWSER_TEST_F(PermissionRequestManagerBrowserTest,
                        LoudPendingRequestsQueued) {
   MockPermissionRequest request1(
-      "request1", PermissionRequestType::PERMISSION_CLIPBOARD_READ,
-      PermissionRequestGestureType::UNKNOWN);
+      "request1",
+      permissions::PermissionRequestType::PERMISSION_CLIPBOARD_READ_WRITE,
+      permissions::PermissionRequestGestureType::UNKNOWN);
   GetPermissionRequestManager()->AddRequest(&request1);
   base::RunLoop().RunUntilIdle();
 
-  MockPermissionRequest request2("request2",
-                                 PermissionRequestType::PERMISSION_GEOLOCATION,
-                                 PermissionRequestGestureType::UNKNOWN);
+  MockPermissionRequest request2(
+      "request2", permissions::PermissionRequestType::PERMISSION_GEOLOCATION,
+      permissions::PermissionRequestGestureType::UNKNOWN);
   GetPermissionRequestManager()->AddRequest(&request2);
   base::RunLoop().RunUntilIdle();
 

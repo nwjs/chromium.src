@@ -52,6 +52,14 @@ IdentityTokenCacheValue::IdentityTokenCacheValue(
                               identity_constants::kCachedIssueAdviceTTLSeconds);
 }
 
+IdentityTokenCacheValue::IdentityTokenCacheValue(
+    const RemoteConsentResolutionData& resolution_data)
+    : status_(CACHE_STATUS_REMOTE_CONSENT), resolution_data_(resolution_data) {
+  expiration_time_ =
+      base::Time::Now() + base::TimeDelta::FromSeconds(
+                              identity_constants::kCachedIssueAdviceTTLSeconds);
+}
+
 IdentityTokenCacheValue::IdentityTokenCacheValue(const std::string& token,
                                                  base::TimeDelta time_to_live)
     : status_(CACHE_STATUS_TOKEN), token_(token) {
@@ -81,6 +89,11 @@ IdentityTokenCacheValue::CacheValueStatus IdentityTokenCacheValue::status()
 
 const IssueAdviceInfo& IdentityTokenCacheValue::issue_advice() const {
   return issue_advice_;
+}
+
+const RemoteConsentResolutionData& IdentityTokenCacheValue::resolution_data()
+    const {
+  return resolution_data_;
 }
 
 const std::string& IdentityTokenCacheValue::token() const { return token_; }
@@ -136,6 +149,18 @@ const IdentityAPI::CachedTokens& IdentityAPI::GetAllCachedTokens() {
   return token_cache_;
 }
 
+void IdentityAPI::SetConsentResult(const std::string& result,
+                                   const std::string& window_id) {
+  on_set_consent_result_callback_list_.Notify(result, window_id);
+}
+
+std::unique_ptr<
+    base::CallbackList<IdentityAPI::OnSetConsentResultSignature>::Subscription>
+IdentityAPI::RegisterOnSetConsentResultCallback(
+    const base::RepeatingCallback<OnSetConsentResultSignature>& callback) {
+  return on_set_consent_result_callback_list_.Add(callback);
+}
+
 void IdentityAPI::Shutdown() {
   on_shutdown_callback_list_.Notify();
   IdentityManagerFactory::GetForProfile(profile_)->RemoveObserver(this);
@@ -149,6 +174,11 @@ BrowserContextKeyedAPIFactory<IdentityAPI>* IdentityAPI::GetFactoryInstance() {
   return g_identity_api_factory.Pointer();
 }
 
+std::unique_ptr<base::CallbackList<void()>::Subscription>
+IdentityAPI::RegisterOnShutdownCallback(const base::Closure& cb) {
+  return on_shutdown_callback_list_.Add(cb);
+}
+
 bool IdentityAPI::AreExtensionsRestrictedToPrimaryAccount() {
   return !AccountConsistencyModeManager::IsDiceEnabledForProfile(profile_);
 }
@@ -156,8 +186,8 @@ bool IdentityAPI::AreExtensionsRestrictedToPrimaryAccount() {
 void IdentityAPI::OnRefreshTokenUpdatedForAccount(
     const CoreAccountInfo& account_info) {
   // Refresh tokens are sometimes made available in contexts where
-  // AccountTrackerService is not tracking the account in question (one example
-  // is SupervisedUserService::InitSync()). Bail out in these cases.
+  // AccountTrackerService is not tracking the account in question. Bail out in
+  // these cases.
   if (account_info.gaia.empty())
     return;
 

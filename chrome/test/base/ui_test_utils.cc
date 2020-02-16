@@ -36,8 +36,6 @@
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/find_bar/find_notification_details.h"
-#include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
@@ -46,6 +44,8 @@
 #include "components/app_modal/javascript_app_modal_dialog.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/download/public/common/download_item.h"
+#include "components/find_in_page/find_notification_details.h"
+#include "components/find_in_page/find_tab_helper.h"
 #include "components/history/core/browser/history_service_observer.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/omnibox_controller_emitter.h"
@@ -266,7 +266,7 @@ void NavigateToURLWithPost(Browser* browser, const GURL& url) {
 content::RenderProcessHost* NavigateToURL(Browser* browser, const GURL& url) {
   return NavigateToURLWithDisposition(browser, url,
                                       WindowOpenDisposition::CURRENT_TAB,
-                                      BROWSER_TEST_WAIT_FOR_NAVIGATION);
+                                      BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 }
 
 content::RenderProcessHost*
@@ -296,7 +296,7 @@ NavigateToURLWithDispositionBlockUntilNavigationsComplete(
     browser = WaitForBrowserNotInSet(initial_browsers);
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_TAB)
     tab_added_waiter.Wait();
-  if (!(browser_test_flags & BROWSER_TEST_WAIT_FOR_NAVIGATION)) {
+  if (!(browser_test_flags & BROWSER_TEST_WAIT_FOR_LOAD_STOP)) {
     // Some other flag caused the wait prior to this.
     return nullptr;
   }
@@ -347,7 +347,7 @@ content::RenderProcessHost* NavigateToURLBlockUntilNavigationsComplete(
     int number_of_navigations) {
   return NavigateToURLWithDispositionBlockUntilNavigationsComplete(
       browser, url, number_of_navigations, WindowOpenDisposition::CURRENT_TAB,
-      BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 }
 
 base::FilePath GetTestFilePath(const base::FilePath& dir,
@@ -441,7 +441,8 @@ int FindInPage(WebContents* tab,
                bool match_case,
                int* ordinal,
                gfx::Rect* selection_rect) {
-  FindTabHelper* find_tab_helper = FindTabHelper::FromWebContents(tab);
+  find_in_page::FindTabHelper* find_tab_helper =
+      find_in_page::FindTabHelper::FromWebContents(tab);
   find_tab_helper->StartFinding(search_string, forward, match_case,
                                 true /* run_synchronously_for_testing */);
   FindResultWaiter observer(tab);
@@ -480,8 +481,7 @@ void SendToOmniboxAndSubmit(Browser* browser,
                             base::TimeTicks match_selection_timestamp) {
   LocationBar* location_bar = browser->window()->GetLocationBar();
   OmniboxView* omnibox = location_bar->GetOmniboxView();
-  omnibox->model()->OnSetFocus(/*control_down=*/false,
-                               /*suppress_on_focus_suggestions=*/false);
+  omnibox->model()->OnSetFocus(/*control_down=*/false);
   omnibox->SetUserText(base::ASCIIToUTF16(input));
   location_bar->AcceptInput(match_selection_timestamp);
 

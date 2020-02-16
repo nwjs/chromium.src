@@ -16,9 +16,6 @@ struct DocumentTiming {
 
   // Time immediately before the load event is fired.
   mojo_base.mojom.TimeDelta? load_event_start;
-
-  // Time when the first layout is completed.
-  mojo_base.mojom.TimeDelta? first_layout;
 };
 
 // TimeDeltas below relative to navigation start.
@@ -189,6 +186,10 @@ struct ResourceDataUpdate {
   // The length of the response body for the resource before removing any
   // content encodings. Only set for complete resources.
   int64 encoded_body_length = 0;
+
+  // The length of the response body in bytes for the resource after decoding.
+  // Only set for complete resources.
+  int64 decoded_body_length = 0;
 
   // Whether this resource load has completed.
   bool is_complete;

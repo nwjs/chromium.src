@@ -14,20 +14,22 @@
 #include "base/files/file_path.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
-#include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/binary_upload_service.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog_delegate.h"
-#include "components/safe_browsing/proto/webprotect.pb.h"
+#include "chrome/common/safe_browsing/archive_analyzer_results.h"
+#include "components/safe_browsing/core/proto/webprotect.pb.h"
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "url/gurl.h"
 
 class Profile;
 
 namespace safe_browsing {
+
+class DeepScanningDialogViews;
 
 extern const base::Feature kDeepScanningOfUploadsUI;
 
@@ -57,7 +59,7 @@ extern const base::Feature kDeepScanningOfUploadsUI;
 //     safe_browsing::DeepScanningDialogDelegate::ShowForWebContents(
 //         contents, std::move(data), base::BindOnce(...));
 //   }
-class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
+class DeepScanningDialogDelegate {
  public:
   // Used as an input to ShowForWebContents() to describe what data needs
   // deeper scanning.  Any members can be empty.
@@ -73,6 +75,9 @@ class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
     // strings are not scanned for malware.
     bool do_dlp_scan = false;
     bool do_malware_scan = false;
+
+    // URL of the page that is to receive sensitive data.
+    std::string url;
 
     // Text data to scan, such as plain text, URLs, HTML content, etc.
     std::vector<base::string16> text;
@@ -111,7 +116,7 @@ class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
     std::string sha256;
 
     // File size in bytes. -1 represents an unknown size.
-    uint64_t size;
+    uint64_t size = 0;
   };
 
   // Callback used with ShowForWebContents() that informs caller of verdict
@@ -127,16 +132,17 @@ class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
           Data,
           CompletionCallback)>;
 
+  using AnalyzeCallback = base::OnceCallback<void(
+      const safe_browsing::ArchiveAnalyzerResults& results)>;
+
   DeepScanningDialogDelegate(const DeepScanningDialogDelegate&) = delete;
   DeepScanningDialogDelegate& operator=(const DeepScanningDialogDelegate&) =
       delete;
-  ~DeepScanningDialogDelegate() override;
+  virtual ~DeepScanningDialogDelegate();
 
-  // TabModelConfirmDialogDelegate implementation.
-  base::string16 GetTitle() override;
-  base::string16 GetDialogMessage() override;
-  int GetDialogButtons() const override;
-  void OnCanceled() override;
+  // Called when the user decides to cancel the file upload. This will stop the
+  // upload to Chrome since the scan wasn't allowed to complete.
+  void Cancel();
 
   // Returns true if the deep scanning feature is enabled in the upload
   // direction via enterprise policies.  If the appropriate enterprise policies
@@ -155,27 +161,24 @@ class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
   // in the background.
   //
   // Whether the UI is enabled or not, verdicts of the scan will be reported.
-  static void ShowForWebContents(
-      content::WebContents* web_contents,
-      Data data,
-      CompletionCallback callback,
-      base::Optional<DeepScanAccessPoint> access_point = base::nullopt);
+  static void ShowForWebContents(content::WebContents* web_contents,
+                                 Data data,
+                                 CompletionCallback callback,
+                                 DeepScanAccessPoint access_point);
 
   // In tests, sets a factory function for creating fake
   // DeepScanningDialogDelegates.
   static void SetFactoryForTesting(Factory factory);
 
-  // Returns true if the given file type is supported for scanning.
-  static bool FileTypeSupported(const bool for_malware_scan,
-                                const bool for_dlp_scan,
-                                const base::FilePath& path);
+  // Determines if a request result should be used to allow a data use or to
+  // block it.
+  static bool ResultShouldAllowDataUse(BinaryUploadService::Result result);
 
  protected:
-  DeepScanningDialogDelegate(
-      content::WebContents* web_contents,
-      Data data,
-      CompletionCallback callback,
-      base::Optional<DeepScanAccessPoint> access_point = base::nullopt);
+  DeepScanningDialogDelegate(content::WebContents* web_contents,
+                             Data data,
+                             CompletionCallback callback,
+                             DeepScanAccessPoint access_point);
 
   // Callbacks from uploading data.  Protected so they can be called from
   // testing derived classes.
@@ -195,6 +198,16 @@ class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
   // Uploads data for deep scanning.  Returns true if uploading is occurring in
   // the background and false if there is nothing to do.
   bool UploadData();
+
+  // Prepares an upload request for the file at |path|.  If the file
+  // cannot be uploaded it will have a failure verdict added to |result_|.
+  // Virtual so that it can be overridden in tests.
+  virtual void PrepareFileRequest(base::FilePath path,
+                                  AnalyzeCallback callback);
+
+  // Prepares an upload request for the given file.
+  void AnalyzerCallback(int index,
+                        const safe_browsing::ArchiveAnalyzerResults& results);
 
   // Adds required fields to |request| before sending it to the binary upload
   // service.
@@ -262,11 +275,10 @@ class DeepScanningDialogDelegate : public TabModalConfirmDialogDelegate {
   CompletionCallback callback_;
 
   // Pointer to UI when enabled.
-  TabModalConfirmDialog* dialog_ = nullptr;
+  DeepScanningDialogViews* dialog_ = nullptr;
 
-  // Access point to use to record UMA metrics. base::nullopt implies no metrics
-  // are to be recorded.
-  base::Optional<DeepScanAccessPoint> access_point_;
+  // Access point to use to record UMA metrics.
+  DeepScanAccessPoint access_point_;
 
   base::TimeTicks upload_start_time_;
 

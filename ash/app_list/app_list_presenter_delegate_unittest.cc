@@ -137,7 +137,15 @@ class AppListPresenterDelegateZeroStateTest
   bool TestMouseEventParam() { return GetParam(); }
 
   gfx::Point GetPointOutsideSearchbox() {
-    return GetAppListView()->GetBoundsInScreen().origin();
+    // Ensures that the point satisfies the following conditions:
+    // (1) The point is within AppListView.
+    // (2) The point is outside of the search box.
+    // (3) The touch event on the point should not be consumed by the handler
+    // for back gesture.
+    return GetAppListView()
+        ->search_box_view()
+        ->GetBoundsInScreen()
+        .bottom_right();
   }
 
   gfx::Point GetPointInsideSearchbox() {
@@ -777,26 +785,26 @@ TEST_F(AppListPresenterDelegateTest, TabletModeTextStateTransitions) {
 TEST_F(AppListPresenterDelegateTest, AppListClosesWhenLeavingTabletMode) {
   EnableTabletMode(true);
   GetAppListTestHelper()->ShowAndRunLoop(GetPrimaryDisplayId());
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kFullscreenAllApps);
+  GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
 
   EnableTabletMode(false);
   GetAppListTestHelper()->WaitUntilIdle();
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kClosed);
+  GetAppListTestHelper()->CheckState(AppListViewState::kClosed);
 
   EnableTabletMode(true);
   GetAppListTestHelper()->ShowAndRunLoop(GetPrimaryDisplayId());
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kFullscreenAllApps);
+  GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
 
   // Enter text in the searchbox, the app list should transition to fullscreen
   // search.
   ui::test::EventGenerator* generator = GetEventGenerator();
   generator->PressKey(ui::KeyboardCode::VKEY_0, 0);
   GetAppListTestHelper()->WaitUntilIdle();
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kFullscreenSearch);
+  GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenSearch);
 
   EnableTabletMode(false);
   GetAppListTestHelper()->WaitUntilIdle();
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kClosed);
+  GetAppListTestHelper()->CheckState(AppListViewState::kClosed);
 }
 
 // Tests that the app list state responds correctly to tablet mode being
@@ -1698,7 +1706,7 @@ TEST_F(AppListPresenterDelegateTest, ShowInInvalidDisplay) {
 // app list but keep shelf visible.
 TEST_F(AppListPresenterDelegateTest, TapAutoHideShelfWithAppListOpened) {
   Shelf* shelf = GetPrimaryShelf();
-  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
+  shelf->SetAutoHideBehavior(ShelfAutoHideBehavior::kAlways);
 
   // Create a normal unmaximized window; the shelf should be hidden.
   std::unique_ptr<views::Widget> window = CreateTestWidget();
@@ -1949,11 +1957,11 @@ class AppListPresenterDelegateScalableAppListTest
     if (GetParam()) {
       scoped_feature_list_.InitWithFeatures(
           {app_list_features::kScalableAppList,
-           ash::features::kEnableBackgroundBlur},
+           features::kEnableBackgroundBlur},
           {});
     } else {
       scoped_feature_list_.InitWithFeatures(
-          {ash::features::kEnableBackgroundBlur},
+          {features::kEnableBackgroundBlur},
           {app_list_features::kScalableAppList});
     }
   }
@@ -2012,11 +2020,9 @@ class AppListPresenterDelegateScalableAppListTest
     // offset by the difference between search box bottom bounds in the apps and
     // search results page.
     const int search_box_diff =
+        contents_view()->GetSearchBoxBounds(AppListState::kStateApps).bottom() -
         contents_view()
-            ->GetSearchBoxBounds(ash::AppListState::kStateApps)
-            .bottom() -
-        contents_view()
-            ->GetSearchBoxBounds(ash::AppListState::kStateSearchResults)
+            ->GetSearchBoxBounds(AppListState::kStateSearchResults)
             .bottom();
     return top + search_box_diff +
            24 /*apps grid offset in fullscreen search state*/;
@@ -2522,7 +2528,7 @@ class AppListPresenterDelegateHomeLauncherTest
   }
 
   void PressHomeButton() {
-    Shell::Get()->app_list_controller()->OnHomeButtonPressed(
+    Shell::Get()->app_list_controller()->ToggleAppList(
         GetPrimaryDisplayId(), AppListShowSource::kShelfButton,
         base::TimeTicks());
     GetAppListTestHelper()->WaitUntilIdle();

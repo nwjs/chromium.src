@@ -20,6 +20,7 @@
 #include "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
 #import "ios/chrome/browser/ui/icons/chrome_icon.h"
+#import "ios/chrome/browser/ui/settings/google_services/advanced_signin_settings_constants.h"
 #import "ios/chrome/browser/ui/settings/google_services/advanced_signin_settings_navigation_controller.h"
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_coordinator.h"
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_mode.h"
@@ -31,11 +32,6 @@
 #endif
 
 using l10n_util::GetNSString;
-
-NSString* const kSyncSettingsConfirmButtonId =
-    @"kAdvancedSyncSettingsConfirmButtonId";
-NSString* const kSyncSettingsCancelButtonId =
-    @"kAdvancedSyncSettingsCancelButtonId";
 
 // Advanced sign-in settings result.
 typedef NS_ENUM(NSInteger, AdvancedSigninSettingsCoordinatorResult) {
@@ -169,7 +165,8 @@ typedef NS_ENUM(NSInteger, AdvancedSigninSettingsCoordinatorResult) {
           "Signin_Signin_ConfirmCancelAdvancedSyncSettings"));
       syncSetupService->CommitSyncChanges();
       AuthenticationServiceFactory::GetForBrowserState(self.browserState)
-          ->SignOut(signin_metrics::ABORT_SIGNIN, nil);
+          ->SignOut(signin_metrics::ABORT_SIGNIN,
+                    /*force_clear_browsing_data=*/false, nil);
       break;
     case AdvancedSigninSettingsCoordinatorResultInterrupted:
       base::RecordAction(

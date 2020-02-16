@@ -89,25 +89,26 @@ def _ValidateBrowserType(builder_name, test_config):
   browser_options = _ParseBrowserFlags(test_config['args'])
   if 'WebView' in builder_name or 'webview' in builder_name:
     if browser_options.browser not in (
-        'android-webview', 'android-webview-google', 'exact'):
+        'android-webview', 'android-webview-google'):
       raise ValueError(
-          "%s must use 'android-webview', 'android-webview-google' or 'exact' "
+          "%s must use 'android-webview' or 'android-webview-google' "
           "browser" % builder_name)
-    if len(browser_options.webview_embedder_apk) != 1:
-      raise ValueError('%s must set --webview-embedder-apk flag exactly once' %
-                       builder_name)
   elif 'Android' in builder_name or 'android' in builder_name:
-    if browser_options.browser not in (
-        'android-chromium', 'android-chrome', 'exact'):
-      raise ValueError(
-          "%s must use 'android-chromium', 'android-chrome' or 'exact' "
-          "browser" % builder_name)
+    android_browsers = (
+        'android-chromium',
+        'android-chrome',
+        'android-chrome-bundle',
+        'exact')
+    if browser_options.browser not in android_browsers:
+      raise ValueError( 'The browser type for %s must be one of %s' % (
+          builder_name, ', '.join(android_browsers)))
   elif 'chromeos' in builder_name:
     if browser_options.browser != 'cros-chrome':
       raise ValueError("%s must use 'cros-chrome' browser type" %
                        builder_name)
   elif builder_name in ('win-10-perf', 'Win 7 Nvidia GPU Perf',
-                        'win-10_laptop_low_end-perf_HP-Candidate'):
+                        'win-10_laptop_low_end-perf_HP-Candidate',
+                        'win-10_laptop_low_end-perf'):
     if browser_options.browser != 'release_x64':
       raise ValueError("%s must use 'release_x64' browser type" %
                        builder_name)

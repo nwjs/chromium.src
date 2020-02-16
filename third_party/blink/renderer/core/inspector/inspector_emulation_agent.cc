@@ -4,9 +4,8 @@
 
 #include "third_party/blink/renderer/core/inspector/inspector_emulation_agent.h"
 
+#include "third_party/blink/public/common/input/web_touch_event.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_float_point.h"
-#include "third_party/blink/public/platform/web_touch_event.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
@@ -145,8 +144,10 @@ void InspectorEmulationAgent::Restore() {
 }
 
 Response InspectorEmulationAgent::disable() {
-  if (enabled_)
+  if (enabled_) {
     instrumenting_agents_->RemoveInspectorEmulationAgent(this);
+    enabled_ = false;
+  }
   setUserAgentOverride(String(), protocol::Maybe<String>(),
                        protocol::Maybe<String>());
   if (!web_local_frame_)
@@ -373,8 +374,9 @@ void InspectorEmulationAgent::ApplyVirtualTimePolicy(
   virtual_time_base_ticks_ =
       web_local_frame_->View()->Scheduler()->EnableVirtualTime();
   if (new_policy.virtual_time_budget_ms) {
-    TRACE_EVENT_ASYNC_BEGIN1("renderer.scheduler", "VirtualTimeBudget", this,
-                             "budget", *new_policy.virtual_time_budget_ms);
+    TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("renderer.scheduler", "VirtualTimeBudget",
+                                      TRACE_ID_LOCAL(this), "budget",
+                                      *new_policy.virtual_time_budget_ms);
     base::TimeDelta budget_amount =
         base::TimeDelta::FromMillisecondsD(*new_policy.virtual_time_budget_ms);
     web_local_frame_->View()->Scheduler()->GrantVirtualTimeBudget(
@@ -422,7 +424,8 @@ Response InspectorEmulationAgent::setNavigatorOverrides(
 }
 
 void InspectorEmulationAgent::VirtualTimeBudgetExpired() {
-  TRACE_EVENT_ASYNC_END0("renderer.scheduler", "VirtualTimeBudget", this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("renderer.scheduler", "VirtualTimeBudget",
+                                  TRACE_ID_LOCAL(this));
   WebView* view = web_local_frame_->View();
   if (!view)
     return;
@@ -430,7 +433,10 @@ void InspectorEmulationAgent::VirtualTimeBudgetExpired() {
   view->Scheduler()->SetVirtualTimePolicy(
       PageScheduler::VirtualTimePolicy::kPause);
   virtual_time_policy_.Set(protocol::Emulation::VirtualTimePolicyEnum::Pause);
-  GetFrontend()->virtualTimeBudgetExpired();
+  // We could have been detached while VT was still running.
+  // TODO(caseq): should we rather force-pause the time upon Disable()?
+  if (auto* frontend = GetFrontend())
+    frontend->virtualTimeBudgetExpired();
 }
 
 Response InspectorEmulationAgent::setDefaultBackgroundColorOverride(

@@ -10,6 +10,7 @@
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "components/security_interstitials/content/security_interstitial_page.h"
 #include "content/public/browser/certificate_request_result_type.h"
 #include "net/ssl/ssl_info.h"
@@ -34,15 +35,23 @@ using BlockingPageReadyCallback = base::OnceCallback<void(
 // |blocking_page_ready_callback|.
 // |blocking_page_ready_callback| is guaranteed not to be called
 // synchronously.
-void HandleSSLError(
-    content::WebContents* web_contents,
-    int cert_error,
-    const net::SSLInfo& ssl_info,
-    const GURL& request_url,
-    std::unique_ptr<SSLCertReporter> ssl_cert_reporter,
-    const base::Callback<void(content::CertificateRequestResultType)>&
-        decision_callback,
-    BlockingPageReadyCallback blocking_page_ready_callback);
+void HandleSSLError(content::WebContents* web_contents,
+                    int cert_error,
+                    const net::SSLInfo& ssl_info,
+                    const GURL& request_url,
+                    std::unique_ptr<SSLCertReporter> ssl_cert_reporter,
+                    BlockingPageReadyCallback blocking_page_ready_callback);
+
+// Pass true to simulate the OS reporting that SSL errors are due to captive
+// portals.
+void SetDiagnoseSSLErrorsAsCaptivePortalForTesting(bool enabled);
+
+#if defined(OS_ANDROID)
+// Returns the URL that will be navigated to when the user clicks on the
+// "Connect" button of the captive portal interstitial. Used by tests to
+// verify this flow.
+GURL GetCaptivePortalLoginPageUrlForTesting();
+#endif
 
 }  // namespace weblayer
 

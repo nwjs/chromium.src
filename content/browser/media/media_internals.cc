@@ -37,7 +37,7 @@
 #include "content/public/common/service_manager_connection.h"
 #include "media/audio/audio_features.h"
 #include "media/base/audio_parameters.h"
-#include "media/base/media_log_event.h"
+#include "media/base/media_log_record.h"
 #include "media/webrtc/webrtc_switches.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/service_manager/sandbox/features.h"
@@ -329,14 +329,13 @@ void MediaInternals::Observe(int type,
 
 // Converts the |event| to a |update|. Returns whether the conversion succeeded.
 static bool ConvertEventToUpdate(int render_process_id,
-                                 const media::MediaLogEvent& event,
+                                 const media::MediaLogRecord& event,
                                  base::string16* update) {
   DCHECK(update);
 
   base::DictionaryValue dict;
   dict.SetInteger("renderer", render_process_id);
   dict.SetInteger("player", event.id);
-  dict.SetString("type", media::MediaLog::EventTypeToString(event.type));
 
   // TODO(dalecurtis): This is technically not correct.  TimeTicks "can't" be
   // converted to to a human readable time format.  See base/time/time.h.
@@ -344,8 +343,28 @@ static bool ConvertEventToUpdate(int render_process_id,
   const double ticks_millis = ticks / base::Time::kMicrosecondsPerMillisecond;
   dict.SetDouble("ticksMillis", ticks_millis);
 
+  base::Value cloned_params = event.params.Clone();
+  switch (event.type) {
+    case media::MediaLogRecord::Type::kMessage:
+      dict.SetString("type", "MEDIA_LOG_ENTRY");
+      break;
+    case media::MediaLogRecord::Type::kMediaPropertyChange:
+      dict.SetString("type", "PROPERTY_CHANGE");
+      break;
+    case media::MediaLogRecord::Type::kMediaEventTriggered: {
+      // Delete the "event" param so that it won't spam the log.
+      base::Optional<base::Value> exists = cloned_params.ExtractPath("event");
+      DCHECK(exists.has_value());
+      dict.SetKey("type", std::move(exists.value()));
+      break;
+    }
+    case media::MediaLogRecord::Type::kMediaError:
+      dict.SetString("type", "PIPELINE_ERROR");
+      break;
+  }
+
   // Convert PipelineStatus to human readable string
-  if (event.type == media::MediaLogEvent::PIPELINE_ERROR) {
+  if (event.type == media::MediaLogRecord::Type::kMediaError) {
     int status;
     if (!event.params.GetInteger("pipeline_error", &status) ||
         status < static_cast<int>(media::PIPELINE_OK) ||
@@ -356,7 +375,7 @@ static bool ConvertEventToUpdate(int render_process_id,
     dict.SetString("params.pipeline_error",
                    media::PipelineStatusToString(error));
   } else {
-    dict.SetKey("params", event.params.Clone());
+    dict.SetKey("params", std::move(cloned_params));
   }
 
   *update = SerializeUpdate("media.onMediaEvent", &dict);
@@ -365,7 +384,7 @@ static bool ConvertEventToUpdate(int render_process_id,
 
 void MediaInternals::OnMediaEvents(
     int render_process_id,
-    const std::vector<media::MediaLogEvent>& events) {
+    const std::vector<media::MediaLogRecord>& events) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // Notify observers that |event| has occurred.
   for (const auto& event : events) {
@@ -378,9 +397,9 @@ void MediaInternals::OnMediaEvents(
   }
 }
 
-void MediaInternals::AddUpdateCallback(const UpdateCallback& callback) {
+void MediaInternals::AddUpdateCallback(UpdateCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  update_callbacks_.push_back(callback);
+  update_callbacks_.push_back(std::move(callback));
 
   base::AutoLock auto_lock(lock_);
   can_update_ = true;
@@ -578,7 +597,7 @@ void MediaInternals::SendUpdate(const base::string16& update) {
 }
 
 void MediaInternals::SaveEvent(int process_id,
-                               const media::MediaLogEvent& event) {
+                               const media::MediaLogRecord& event) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
 // Save the event and limit the total number per renderer. At the time of
@@ -596,7 +615,7 @@ void MediaInternals::SaveEvent(int process_id,
     // Remove all events for a given player as soon as we have to remove a
     // single event for that player to avoid showing incomplete players.
     const int id_to_remove = saved_events.front().id;
-    base::EraseIf(saved_events, [&](const media::MediaLogEvent& event) {
+    base::EraseIf(saved_events, [&](const media::MediaLogRecord& event) {
       return event.id == id_to_remove;
     });
   }

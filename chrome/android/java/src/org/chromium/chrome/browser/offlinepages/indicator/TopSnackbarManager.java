@@ -15,7 +15,7 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager.FullscreenListener;
-import org.chromium.chrome.browser.snackbar.Snackbar;
+import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.ui.base.WindowAndroid;
 
 /**
@@ -52,7 +52,8 @@ public class TopSnackbarManager
     }
 
     @Override
-    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
+    public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
+            int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {
         // When the top toolbar offset changes, dismiss the top snackbar. Ideally we want to move
         // the top snackbar together with the top toolbar, but they can't be made sync because they
         // are drawn in different layers (C++ vs Android native).

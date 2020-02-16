@@ -2786,17 +2786,6 @@ TEST_F(GLES2ImplementationTest, FlushMappedBufferRange) {
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 
-TEST_F(GLES2ImplementationTest, ResizeCHROMIUM) {
-  struct Cmds {
-    cmds::ResizeCHROMIUM cmd;
-  };
-  Cmds expected;
-  expected.cmd.Init(1, 2, 3, 4, true);
-
-  gl_->ResizeCHROMIUM(1, 2, 3, 4, true);
-  EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
-}
-
 TEST_F(GLES2ImplementationTest, DescheduleUntilFinishedCHROMIUM) {
   struct Cmds {
     cmds::DescheduleUntilFinishedCHROMIUM cmd;
@@ -3268,6 +3257,28 @@ TEST_F(GLES2ImplementationTest, EndSharedImageAccessDirectCHROMIUM) {
   expected.cmd.Init(1);
 
   gl_->EndSharedImageAccessDirectCHROMIUM(1);
+  EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
+}
+
+TEST_F(GLES2ImplementationTest, BeginBatchReadAccessSharedImageCHROMIUM) {
+  struct Cmds {
+    cmds::BeginBatchReadAccessSharedImageCHROMIUM cmd;
+  };
+  Cmds expected;
+  expected.cmd.Init();
+
+  gl_->BeginBatchReadAccessSharedImageCHROMIUM();
+  EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
+}
+
+TEST_F(GLES2ImplementationTest, EndBatchReadAccessSharedImageCHROMIUM) {
+  struct Cmds {
+    cmds::EndBatchReadAccessSharedImageCHROMIUM cmd;
+  };
+  Cmds expected;
+  expected.cmd.Init();
+
+  gl_->EndBatchReadAccessSharedImageCHROMIUM();
   EXPECT_EQ(0, memcmp(&expected, commands_, sizeof(expected)));
 }
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_IMPLEMENTATION_UNITTEST_AUTOGEN_H_

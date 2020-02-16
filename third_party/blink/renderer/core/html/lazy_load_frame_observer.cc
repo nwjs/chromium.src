@@ -93,11 +93,13 @@ int GetLazyFrameLoadingViewportDistanceThresholdPx(const Document& document) {
 }  // namespace
 
 struct LazyLoadFrameObserver::LazyLoadRequestInfo {
-  LazyLoadRequestInfo(const ResourceRequest& resource_request,
+  LazyLoadRequestInfo(const ResourceRequest& passed_resource_request,
                       WebFrameLoadType frame_load_type)
-      : resource_request(resource_request), frame_load_type(frame_load_type) {}
+      : frame_load_type(frame_load_type) {
+    resource_request.CopyFrom(passed_resource_request);
+  }
 
-  const ResourceRequest resource_request;
+  ResourceRequest resource_request;
   const WebFrameLoadType frame_load_type;
 };
 
@@ -179,11 +181,11 @@ void LazyLoadFrameObserver::LoadImmediately() {
 
   // Note that calling FrameLoader::StartNavigation() causes the
   // |lazy_load_intersection_observer_| to be disconnected.
+  FrameLoadRequest request(&element_->GetDocument(),
+                           scoped_request_info->resource_request);
   To<LocalFrame>(element_->ContentFrame())
       ->Loader()
-      .StartNavigation(FrameLoadRequest(&element_->GetDocument(),
-                                        scoped_request_info->resource_request),
-                       scoped_request_info->frame_load_type);
+      .StartNavigation(request, scoped_request_info->frame_load_type);
 
   DCHECK(!IsLazyLoadPending());
 }

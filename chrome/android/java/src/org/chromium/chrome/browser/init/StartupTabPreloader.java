@@ -9,13 +9,13 @@ import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Supplier;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.WebContentsFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -23,10 +23,9 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -62,7 +61,7 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
 
     @Override
     public void destroy() {
-        if (mTab != null) ((TabImpl) mTab).destroy();
+        if (mTab != null) mTab.destroy();
         mTab = null;
 
         ProfileManager.removeObserver(this);
@@ -87,7 +86,7 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
                 "Startup.Android.StartupTabPreloader.TabTaken", tabMatches);
 
         if (!tabMatches) {
-            ((TabImpl) mTab).destroy();
+            mTab.destroy();
             mTab = null;
             mLoadUrlParams = null;
             return null;
@@ -121,8 +120,8 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
      * {@link ChromeTabCreator}.
      */
     @Override
-    public void onProfileCreated(Profile profile) {
-        try (TraceEvent e = TraceEvent.scoped("StartupTabPreloader.onProfileCreated")) {
+    public void onProfileAdded(Profile profile) {
+        try (TraceEvent e = TraceEvent.scoped("StartupTabPreloader.onProfileAdded")) {
             // We only care about the first non-incognito profile that's created during startup.
             if (profile.isOffTheRecord()) return;
 
@@ -133,6 +132,9 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
                     "Startup.Android.StartupTabPreloader.TabLoaded", shouldLoad);
         }
     }
+
+    @Override
+    public void onProfileDestroyed(Profile profile) {}
 
     /**
      * @returns True if based on the intent we should load the tab, returns false otherwise.

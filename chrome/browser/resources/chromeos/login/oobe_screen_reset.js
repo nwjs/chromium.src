@@ -35,7 +35,7 @@ login.createScreen('ResetScreen', 'reset', function() {
       'setIsTpmFirmwareUpdateEditable',
       'setTpmFirmwareUpdateMode',
       'setIsConfirmational',
-      'setIsOfficialBuild',
+      'setIsGoogleBrandedBuild',
       'setScreenState',
     ],
 
@@ -53,41 +53,39 @@ login.createScreen('ResetScreen', 'reset', function() {
     tpmFirmwareUpdateMode_: RESET_SCREEN_UI_STATE.REVERT_PROMISE,
     /** @type {boolean} */
     isConfirmational_: false,
-    /** @type {boolean} */
-    isOfficialBuild_: false,
     /** @type {RESET_SCREEN_STATE} */
     screenState_: RESET_SCREEN_STATE.RESTART_REQUIRED,
 
-    setIsRollbackAvailable: function(rollbackAvailable) {
+    setIsRollbackAvailable(rollbackAvailable) {
       this.isRollbackAvailable_ = rollbackAvailable;
       this.setRollbackOptionView();
     },
 
-    setIsRollbackChecked: function(rollbackChecked) {
+    setIsRollbackChecked(rollbackChecked) {
       this.isRollbackChecked_ = rollbackChecked;
       this.setRollbackOptionView();
     },
 
-    setIsTpmFirmwareUpdateAvailable: function(value) {
+    setIsTpmFirmwareUpdateAvailable(value) {
       this.isTpmFirmwareUpdateAvailable_ = value;
       this.setTPMFirmwareUpdateView_();
     },
 
-    setIsTpmFirmwareUpdateChecked: function(value) {
+    setIsTpmFirmwareUpdateChecked(value) {
       this.isTpmFirmwareUpdateChecked_ = value;
       this.setTPMFirmwareUpdateView_();
     },
 
-    setIsTpmFirmwareUpdateEditable: function(value) {
+    setIsTpmFirmwareUpdateEditable(value) {
       this.isTpmFirmwareUpdateEditable_ = value;
       this.setTPMFirmwareUpdateView_();
     },
 
-    setTpmFirmwareUpdateMode: function(value) {
+    setTpmFirmwareUpdateMode(value) {
       this.tpmFirmwareUpdateMode_ = value;
     },
 
-    setIsConfirmational: function(isConfirmational) {
+    setIsConfirmational(isConfirmational) {
       this.isConfirmational_ = isConfirmational;
       if (isConfirmational) {
         if (this.screenState_ != RESET_SCREEN_STATE.POWERWASH_PROPOSAL)
@@ -100,13 +98,11 @@ login.createScreen('ResetScreen', 'reset', function() {
       }
     },
 
-    setIsOfficialBuild: function(isOfficial) {
-      this.isOfficialBuild_ = isOfficial;
-
-      $('oobe-reset-md').isOfficial_ = isOfficial;
+    setIsGoogleBrandedBuild(isGoogleBranded) {
+      $('oobe-reset-md').isGoogleBranded_ = isGoogleBranded;
     },
 
-    setScreenState: function(state) {
+    setScreenState(state) {
       this.screenState_ = state;
 
       if (state == RESET_SCREEN_STATE.RESTART_REQUIRED)
@@ -124,7 +120,7 @@ login.createScreen('ResetScreen', 'reset', function() {
     },
 
     /** @override */
-    decorate: function() {
+    decorate() {
       $('oobe-reset-md').screen = this;
     },
 
@@ -138,7 +134,7 @@ login.createScreen('ResetScreen', 'reset', function() {
     /**
      * Cancels the reset and drops the user back to the login screen.
      */
-    cancel: function() {
+    cancel() {
       if (this.isConfirmational_) {
         $('reset').send(
             login.Screen.CALLBACK_USER_ACTED,
@@ -152,10 +148,10 @@ login.createScreen('ResetScreen', 'reset', function() {
      * Event handler that is invoked just before the screen in shown.
      * @param {Object} data Screen init payload.
      */
-    onBeforeShow: function(data) {},
+    onBeforeShow(data) {},
 
     /** Event handler that is invoked after the screen is shown. */
-    onAfterShow: function() {
+    onAfterShow() {
       Oobe.resetSigninUI(false);
     },
 
@@ -163,7 +159,7 @@ login.createScreen('ResetScreen', 'reset', function() {
      * Sets css style for corresponding state of the screen.
      * @private
      */
-    setDialogView_: function(state) {
+    setDialogView_(state) {
       state = this.ui_state;
       this.classList.toggle(
           'revert-promise-view', state == RESET_SCREEN_UI_STATE.REVERT_PROMISE);
@@ -194,7 +190,7 @@ login.createScreen('ResetScreen', 'reset', function() {
       }
     },
 
-    setRollbackOptionView: function() {
+    setRollbackOptionView() {
       if (this.isConfirmational_)
         return;
       if (this.screenState_ != RESET_SCREEN_STATE.POWERWASH_PROPOSAL)
@@ -209,7 +205,7 @@ login.createScreen('ResetScreen', 'reset', function() {
       this.setTPMFirmwareUpdateView_();
     },
 
-    setTPMFirmwareUpdateView_: function() {
+    setTPMFirmwareUpdateView_() {
       $('oobe-reset-md').tpmFirmwareUpdateAvailable_ =
           this.ui_state == RESET_SCREEN_UI_STATE.POWERWASH_PROPOSAL &&
           this.isTpmFirmwareUpdateAvailable_;
@@ -219,14 +215,14 @@ login.createScreen('ResetScreen', 'reset', function() {
           this.isTpmFirmwareUpdateEditable_;
     },
 
-    onTPMFirmwareUpdateChanged_: function(value) {
+    onTPMFirmwareUpdateChanged_(value) {
       chrome.send('ResetScreen.setTpmFirmwareUpdateChecked', [value]);
     },
 
     /**
      * Updates localized content of the screen that is not updated via template.
      */
-    updateLocalizedContent: function() {
+    updateLocalizedContent() {
       $('oobe-reset-md').i18nUpdateLocale();
       $('reset-confirm-overlay-md').i18nUpdateLocale();
     },

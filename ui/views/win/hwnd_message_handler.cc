@@ -31,7 +31,6 @@
 #include "ui/accessibility/platform/ax_fragment_root_win.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/ax_system_caret_win.h"
-#include "ui/base/ime/input_method.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/ime/text_input_type.h"
 #include "ui/base/ui_base_features.h"
@@ -424,14 +423,9 @@ HWNDMessageHandler::HWNDMessageHandler(HWNDMessageHandlerDelegate* delegate,
       sent_window_size_changing_(false),
       left_button_down_on_caption_(false),
       background_fullscreen_hack_(false),
-      pointer_events_for_touch_(::features::IsUsingWMPointerForTouch()),
-      precision_touchpad_scroll_phase_enabled_(base::FeatureList::IsEnabled(
-          ::features::kPrecisionTouchpadScrollPhase)) {}
+      pointer_events_for_touch_(::features::IsUsingWMPointerForTouch()) {}
 
 HWNDMessageHandler::~HWNDMessageHandler() {
-  DCHECK(delegate_->GetHWNDMessageDelegateInputMethod());
-  delegate_->GetHWNDMessageDelegateInputMethod()->RemoveObserver(this);
-  delegate_ = nullptr;
   // Prevent calls back into this class via WNDPROC now that we've been
   // destroyed.
   ClearUserData();
@@ -472,7 +466,7 @@ void HWNDMessageHandler::Init(HWND parent, const gfx::Rect& bounds) {
       hwnd(), ui::WindowEventTarget::kWin32InputEventTarget,
       static_cast<ui::WindowEventTarget*>(this));
   DCHECK(delegate_->GetHWNDMessageDelegateInputMethod());
-  delegate_->GetHWNDMessageDelegateInputMethod()->AddObserver(this);
+  observer_.Add(delegate_->GetHWNDMessageDelegateInputMethod());
 
   // The usual way for UI Automation to obtain a fragment root is through
   // WM_GETOBJECT. However, if there's a relation such as "Controller For"
@@ -1223,17 +1217,10 @@ void HWNDMessageHandler::ApplyPanGestureEvent(
 
   int modifiers = ui::GetModifiersFromKeyState();
 
-  if (precision_touchpad_scroll_phase_enabled_) {
-    ui::ScrollEvent event(ui::ET_SCROLL, cursor_location, ui::EventTimeForNow(),
-                          modifiers, scroll_x, scroll_y, scroll_x, scroll_y, 2,
-                          momentum_phase, phase);
-    delegate_->HandleScrollEvent(&event);
-  } else {
-    ui::MouseWheelEvent wheel_event(
-        offset, cursor_location, cursor_root_location, base::TimeTicks::Now(),
-        modifiers | ui::EF_PRECISION_SCROLLING_DELTA, ui::EF_NONE);
-    delegate_->HandleMouseEvent(&wheel_event);
-  }
+  ui::ScrollEvent event(ui::ET_SCROLL, cursor_location, ui::EventTimeForNow(),
+                        modifiers, scroll_x, scroll_y, scroll_x, scroll_y, 2,
+                        momentum_phase, phase);
+  delegate_->HandleScrollEvent(&event);
 }
 
 void HWNDMessageHandler::ApplyPanGestureScroll(int scroll_x, int scroll_y) {
@@ -1255,9 +1242,6 @@ void HWNDMessageHandler::ApplyPanGestureScrollBegin(int scroll_x,
 }
 
 void HWNDMessageHandler::ApplyPanGestureScrollEnd(bool transitioning_to_pinch) {
-  if (!precision_touchpad_scroll_phase_enabled_)
-    return;
-
   ApplyPanGestureEvent(0, 0,
                        transitioning_to_pinch ? ui::EventMomentumPhase::BLOCKED
                                               : ui::EventMomentumPhase::NONE,
@@ -1265,17 +1249,11 @@ void HWNDMessageHandler::ApplyPanGestureScrollEnd(bool transitioning_to_pinch) {
 }
 
 void HWNDMessageHandler::ApplyPanGestureFlingBegin() {
-  if (!precision_touchpad_scroll_phase_enabled_)
-    return;
-
   ApplyPanGestureEvent(0, 0, ui::EventMomentumPhase::BEGAN,
                        ui::ScrollEventPhase::kNone);
 }
 
 void HWNDMessageHandler::ApplyPanGestureFlingEnd() {
-  if (!precision_touchpad_scroll_phase_enabled_)
-    return;
-
   ApplyPanGestureEvent(0, 0, ui::EventMomentumPhase::END,
                        ui::ScrollEventPhase::kNone);
 }

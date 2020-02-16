@@ -27,6 +27,7 @@
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/webui/content_web_ui_controller_factory.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
+#include "content/common/content_navigation_policy.h"
 #include "content/common/frame_messages.h"
 #include "content/common/input/synthetic_web_input_event_builders.h"
 #include "content/common/page_messages.h"
@@ -48,7 +49,6 @@
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_features.h"
-#include "content/public/common/navigation_policy.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/fake_local_frame.h"
 #include "content/public/test/mock_render_process_host.h"
@@ -314,8 +314,7 @@ class TestWebContentsObserver : public WebContentsObserver {
   }
   void DidFailLoad(RenderFrameHost* render_frame_host,
                    const GURL& validated_url,
-                   int error_code,
-                   const base::string16& error_description) override {
+                   int error_code) override {
     last_url_ = validated_url;
   }
 
@@ -324,17 +323,21 @@ class TestWebContentsObserver : public WebContentsObserver {
     EXPECT_TRUE(web_contents()->CompletedFirstVisuallyNonEmptyPaint());
   }
 
-  void DidChangeThemeColor(base::Optional<SkColor> theme_color) override {
-    last_theme_color_ = theme_color;
-  }
+  void DidChangeThemeColor() override { ++theme_color_change_calls_; }
 
   void DidChangeVerticalScrollDirection(
       viz::VerticalScrollDirection scroll_direction) override {
     last_vertical_scroll_direction_ = scroll_direction;
   }
 
+  void OnIsConnectedToBluetoothDeviceChanged(
+      bool is_connected_to_bluetooth_device) override {
+    ++num_is_connected_to_bluetooth_device_changed_;
+    last_is_connected_to_bluetooth_device_ = is_connected_to_bluetooth_device;
+  }
+
   const GURL& last_url() const { return last_url_; }
-  base::Optional<SkColor> last_theme_color() const { return last_theme_color_; }
+  int theme_color_change_calls() const { return theme_color_change_calls_; }
   base::Optional<viz::VerticalScrollDirection> last_vertical_scroll_direction()
       const {
     return last_vertical_scroll_direction_;
@@ -342,12 +345,20 @@ class TestWebContentsObserver : public WebContentsObserver {
   bool observed_did_first_visually_non_empty_paint() const {
     return observed_did_first_visually_non_empty_paint_;
   }
+  int num_is_connected_to_bluetooth_device_changed() const {
+    return num_is_connected_to_bluetooth_device_changed_;
+  }
+  bool last_is_connected_to_bluetooth_device() const {
+    return last_is_connected_to_bluetooth_device_;
+  }
 
  private:
   GURL last_url_;
-  base::Optional<SkColor> last_theme_color_;
+  int theme_color_change_calls_ = 0;
   base::Optional<viz::VerticalScrollDirection> last_vertical_scroll_direction_;
   bool observed_did_first_visually_non_empty_paint_ = false;
+  int num_is_connected_to_bluetooth_device_changed_ = 0;
+  bool last_is_connected_to_bluetooth_device_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(TestWebContentsObserver);
 };
@@ -1059,9 +1070,7 @@ TEST_F(WebContentsImplTest, CrossSiteUnloadHandlers) {
   controller().LoadURL(
       url2, Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
   EXPECT_TRUE(orig_rfh->is_waiting_for_beforeunload_ack());
-  base::TimeTicks now = base::TimeTicks::Now();
-  orig_rfh->OnMessageReceived(
-      FrameHostMsg_BeforeUnload_ACK(0, false, now, now));
+  orig_rfh->SendBeforeUnloadACK(false);
   EXPECT_FALSE(orig_rfh->is_waiting_for_beforeunload_ack());
   EXPECT_FALSE(contents()->CrossProcessNavigationPending());
   EXPECT_EQ(orig_rfh, main_test_rfh());
@@ -1257,7 +1266,7 @@ TEST_F(WebContentsImplTest, CrossSiteNavigationBackOldNavigationIgnored) {
   // Before that commits, go back again.
   auto back_navigation2 =
       NavigationSimulatorImpl::CreateHistoryNavigation(-1, contents());
-  back_navigation2->set_drop_swap_out_ack(true);
+  back_navigation2->set_drop_unload_ack(true);
   back_navigation2->ReadyToCommit();
   EXPECT_TRUE(contents()->CrossProcessNavigationPending());
   EXPECT_TRUE(contents()->GetPendingMainFrame());
@@ -2455,10 +2464,10 @@ TEST_F(WebContentsImplTest, NoJSMessageOnInterstitials) {
 
   // While the interstitial is showing, let's simulate the hidden page
   // attempting to show a JS message.
-  IPC::Message* dummy_message = new IPC::Message;
   contents()->RunJavaScriptDialog(
       main_test_rfh(), base::ASCIIToUTF16("This is an informative message"),
-      base::ASCIIToUTF16("OK"), JAVASCRIPT_DIALOG_TYPE_ALERT, dummy_message);
+      base::ASCIIToUTF16("OK"), JAVASCRIPT_DIALOG_TYPE_ALERT,
+      base::DoNothing());
   EXPECT_TRUE(contents()->last_dialog_suppressed_);
 }
 
@@ -2572,8 +2581,7 @@ TEST_F(WebContentsImplTest, FilterURLs) {
   other_contents->NavigateAndCommit(url_normalized);
 
   // Check that an IPC with about:whatever is correctly normalized.
-  other_contents->GetMainFrame()->DidFailLoadWithError(url_from_ipc, 1,
-                                                       base::string16());
+  other_contents->GetMainFrame()->DidFailLoadWithError(url_from_ipc, 1);
   EXPECT_EQ(url_blocked, other_observer.last_url());
 }
 
@@ -3345,27 +3353,27 @@ TEST_F(WebContentsImplTest, ThemeColorChangeDependingOnFirstVisiblePaint) {
   rfh->InitializeRenderFrameIfNeeded();
 
   EXPECT_EQ(base::nullopt, contents()->GetThemeColor());
-  EXPECT_EQ(base::nullopt, observer.last_theme_color());
+  EXPECT_EQ(0, observer.theme_color_change_calls());
 
   // Theme color changes should not propagate past the WebContentsImpl before
   // the first visually non-empty paint has occurred.
   rfh->DidChangeThemeColor(SK_ColorRED);
 
   EXPECT_EQ(SK_ColorRED, contents()->GetThemeColor());
-  EXPECT_EQ(base::nullopt, observer.last_theme_color());
+  EXPECT_EQ(0, observer.theme_color_change_calls());
 
   // Simulate that the first visually non-empty paint has occurred. This will
   // propagate the current theme color to the delegates.
   RenderViewHostTester::SimulateFirstPaint(test_rvh());
 
   EXPECT_EQ(SK_ColorRED, contents()->GetThemeColor());
-  EXPECT_EQ(SK_ColorRED, observer.last_theme_color());
+  EXPECT_EQ(1, observer.theme_color_change_calls());
 
   // Additional changes made by the web contents should propagate as well.
   rfh->DidChangeThemeColor(SK_ColorGREEN);
 
   EXPECT_EQ(SK_ColorGREEN, contents()->GetThemeColor());
-  EXPECT_EQ(SK_ColorGREEN, observer.last_theme_color());
+  EXPECT_EQ(2, observer.theme_color_change_calls());
 }
 
 TEST_F(WebContentsImplTest, ParseDownloadHeaders) {
@@ -3582,6 +3590,54 @@ TEST_F(WebContentsImplTest, RegisterProtocolHandlerDataURL) {
   }
 
   contents()->SetDelegate(nullptr);
+}
+
+TEST_F(WebContentsImplTest, Bluetooth) {
+  TestWebContentsObserver observer(contents());
+  EXPECT_EQ(observer.num_is_connected_to_bluetooth_device_changed(), 0);
+  EXPECT_FALSE(contents()->IsConnectedToBluetoothDevice());
+
+  contents()->TestIncrementBluetoothConnectedDeviceCount();
+  EXPECT_EQ(observer.num_is_connected_to_bluetooth_device_changed(), 1);
+  EXPECT_TRUE(observer.last_is_connected_to_bluetooth_device());
+  EXPECT_TRUE(contents()->IsConnectedToBluetoothDevice());
+
+  contents()->TestDecrementBluetoothConnectedDeviceCount();
+  EXPECT_EQ(observer.num_is_connected_to_bluetooth_device_changed(), 2);
+  EXPECT_FALSE(observer.last_is_connected_to_bluetooth_device());
+  EXPECT_FALSE(contents()->IsConnectedToBluetoothDevice());
+}
+
+TEST_F(WebContentsImplTest, FaviconURLsSet) {
+  const FaviconURL kFavicon(GURL("https://example.com/favicon.ico"),
+                            FaviconURL::IconType::kFavicon, {});
+
+  contents()->NavigateAndCommit(GURL("https://example.com"));
+  EXPECT_EQ(0u, contents()->GetFaviconURLs().size());
+
+  contents()->OnUpdateFaviconURL(contents()->GetMainFrame(), {kFavicon});
+  EXPECT_EQ(1u, contents()->GetFaviconURLs().size());
+
+  contents()->OnUpdateFaviconURL(contents()->GetMainFrame(),
+                                 {kFavicon, kFavicon});
+  EXPECT_EQ(2u, contents()->GetFaviconURLs().size());
+
+  contents()->OnUpdateFaviconURL(contents()->GetMainFrame(), {kFavicon});
+  EXPECT_EQ(1u, contents()->GetFaviconURLs().size());
+}
+
+TEST_F(WebContentsImplTest, FaviconURLsResetWithNavigation) {
+  const FaviconURL kFavicon(GURL("https://example.com/favicon.ico"),
+                            FaviconURL::IconType::kFavicon, {});
+
+  contents()->NavigateAndCommit(GURL("https://example.com"));
+  EXPECT_EQ(0u, contents()->GetFaviconURLs().size());
+
+  contents()->OnUpdateFaviconURL(contents()->GetMainFrame(), {kFavicon});
+  EXPECT_EQ(1u, contents()->GetFaviconURLs().size());
+
+  contents()->NavigateAndCommit(GURL("https://example.com/navigation.html"));
+  EXPECT_EQ(0u, contents()->GetFaviconURLs().size());
 }
 
 }  // namespace content

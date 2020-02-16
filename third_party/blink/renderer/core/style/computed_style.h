@@ -106,6 +106,11 @@ class ColumnRuleColor;
 class Fill;
 class Float;
 class FloodColor;
+class InternalUaBackgroundColor;
+class InternalUaBorderBottomColor;
+class InternalUaBorderLeftColor;
+class InternalUaBorderRightColor;
+class InternalUaBorderTopColor;
 class InternalVisitedBackgroundColor;
 class InternalVisitedBorderBottomColor;
 class InternalVisitedBorderLeftColor;
@@ -211,6 +216,11 @@ class ComputedStyle : public ComputedStyleBase,
   friend class css_longhand::Fill;
   friend class css_longhand::Float;
   friend class css_longhand::FloodColor;
+  friend class css_longhand::InternalUaBackgroundColor;
+  friend class css_longhand::InternalUaBorderBottomColor;
+  friend class css_longhand::InternalUaBorderLeftColor;
+  friend class css_longhand::InternalUaBorderRightColor;
+  friend class css_longhand::InternalUaBorderTopColor;
   friend class css_longhand::InternalVisitedBackgroundColor;
   friend class css_longhand::InternalVisitedBorderBottomColor;
   friend class css_longhand::InternalVisitedBorderLeftColor;
@@ -237,6 +247,7 @@ class ComputedStyle : public ComputedStyleBase,
   // Access to private Appearance() and HasAppearance().
   friend class LayoutTheme;
   friend class StyleAdjuster;
+  friend class StyleCascade;
   friend class css_longhand::WebkitAppearance;
   // Editing has to only reveal unvisited info.
   friend class ApplyStyleCommand;
@@ -248,6 +259,7 @@ class ComputedStyle : public ComputedStyleBase,
   friend class StyleBuilderFunctions;
   // Saves Border/Background information for later comparison.
   friend class CachedUAStyle;
+  friend class UAStyle;
   // Accesses visited and unvisited colors.
   friend class ColorPropertyFunctions;
   // Edits the background for media controls.
@@ -948,7 +960,6 @@ class ComputedStyle : public ComputedStyleBase,
 
   // color
   void SetColor(const Color&);
-  void ResolveInternalTextColor(const Color&);
 
   // line-height
   Length LineHeight() const;
@@ -1074,9 +1085,6 @@ class ComputedStyle : public ComputedStyleBase,
   // word-spacing
   float WordSpacing() const { return GetFontDescription().WordSpacing(); }
   void SetWordSpacing(float);
-
-  // font-variant-numeric spacing
-  void SetFontVariantNumericSpacing(FontVariantNumeric::NumericSpacing);
 
   // orphans
   void SetOrphans(int16_t o) { SetOrphansInternal(clampTo<int16_t>(o, 1)); }
@@ -1214,7 +1222,6 @@ class ComputedStyle : public ComputedStyleBase,
   }
   bool IsDeprecatedFlexboxUsingFlexLayout() const {
     return IsDeprecatedWebkitBox() &&
-           RuntimeEnabledFeatures::WebkitBoxLayoutUsesFlexLayoutEnabled() &&
            (!HasLineClamp() || BoxOrient() == EBoxOrient::kHorizontal);
   }
 
@@ -1340,19 +1347,23 @@ class ComputedStyle : public ComputedStyleBase,
   // Grid utility functions.
   GridAutoFlow GetGridAutoFlow() const { return GridAutoFlowInternal(); }
   bool IsGridAutoFlowDirectionRow() const {
-    return (GridAutoFlowInternal() & kInternalAutoFlowDirectionRow) ==
+    return (GridAutoFlowInternal() &
+            static_cast<int>(kInternalAutoFlowDirectionRow)) ==
            kInternalAutoFlowDirectionRow;
   }
   bool IsGridAutoFlowDirectionColumn() const {
-    return (GridAutoFlowInternal() & kInternalAutoFlowDirectionColumn) ==
+    return (GridAutoFlowInternal() &
+            static_cast<int>(kInternalAutoFlowDirectionColumn)) ==
            kInternalAutoFlowDirectionColumn;
   }
   bool IsGridAutoFlowAlgorithmSparse() const {
-    return (GridAutoFlowInternal() & kInternalAutoFlowAlgorithmSparse) ==
+    return (GridAutoFlowInternal() &
+            static_cast<int>(kInternalAutoFlowAlgorithmSparse)) ==
            kInternalAutoFlowAlgorithmSparse;
   }
   bool IsGridAutoFlowAlgorithmDense() const {
-    return (GridAutoFlowInternal() & kInternalAutoFlowAlgorithmDense) ==
+    return (GridAutoFlowInternal() &
+            static_cast<int>(kInternalAutoFlowAlgorithmDense)) ==
            kInternalAutoFlowAlgorithmDense;
   }
 
@@ -1996,6 +2007,7 @@ class ComputedStyle : public ComputedStyleBase,
   }
   CORE_EXPORT int OutlineOutsetExtent() const;
   CORE_EXPORT float GetOutlineStrokeWidthForFocusRing() const;
+  CORE_EXPORT int GetDefaultOffsetForFocusRing() const;
   bool HasOutlineWithCurrentColor() const {
     return HasOutline() && OutlineColor().IsCurrentColor();
   }
@@ -2117,8 +2129,10 @@ class ComputedStyle : public ComputedStyleBase,
 
   bool IsDisplayTableType() const { return IsDisplayTableType(Display()); }
 
+  bool IsDisplayMathType() const { return IsDisplayMathBox(Display()); }
+
   bool BlockifiesChildren() const {
-    return IsDisplayFlexibleOrGridBox() || IsDisplayMathBox(Display()) ||
+    return IsDisplayFlexibleOrGridBox() || IsDisplayMathType() ||
            IsDisplayLayoutCustomBox() ||
            (Display() == EDisplay::kContents && IsInBlockifyingDisplay());
   }
@@ -2127,7 +2141,25 @@ class ComputedStyle : public ComputedStyleBase,
   bool HasIsolation() const { return Isolation() != EIsolation::kAuto; }
 
   // Content utility functions.
-  bool HasContent() const { return GetContentData(); }
+  bool ContentBehavesAsNormal() const {
+    switch (StyleType()) {
+      case kPseudoIdMarker:
+        return !GetContentData();
+      default:
+        return !GetContentData() || GetContentData()->IsNone();
+    }
+  }
+  bool ContentPreventsBoxGeneration() const {
+    switch (StyleType()) {
+      case kPseudoIdBefore:
+      case kPseudoIdAfter:
+        return ContentBehavesAsNormal();
+      case kPseudoIdMarker:
+        return GetContentData() && GetContentData()->IsNone();
+      default:
+        return false;
+    }
+  }
 
   // Cursor utility functions.
   CursorList* Cursors() const { return CursorDataInternal().Get(); }
@@ -2514,14 +2546,14 @@ class ComputedStyle : public ComputedStyleBase,
   InterpolationQuality GetInterpolationQuality() const;
 
   bool CanGeneratePseudoElement(PseudoId pseudo) const {
-    if (!HasPseudoElementStyle(pseudo))
-      return false;
     if (Display() == EDisplay::kNone)
       return false;
     if (IsEnsuredInDisplayNone())
       return false;
     if (pseudo == kPseudoIdMarker)
       return Display() == EDisplay::kListItem;
+    if (!HasPseudoElementStyle(pseudo))
+      return false;
     if (Display() != EDisplay::kContents)
       return true;
     // For display: contents elements, we still need to generate ::before and
@@ -2534,7 +2566,22 @@ class ComputedStyle : public ComputedStyleBase,
   void LoadDeferredImages(Document&) const;
 
   enum WebColorScheme UsedColorScheme() const {
+    return DarkColorScheme() &&
+                   RuntimeEnabledFeatures::CSSColorSchemeUARenderingEnabled()
+               ? WebColorScheme::kDark
+               : WebColorScheme::kLight;
+  }
+
+  enum WebColorScheme UsedColorSchemeForInitialColors() const {
     return DarkColorScheme() ? WebColorScheme::kDark : WebColorScheme::kLight;
+  }
+
+  Color InitialColorForColorScheme() const {
+    // TODO(crbug.com/1046753, crbug.com/929098): The initial value of the color
+    // property should be canvastext, but since we do not yet ship color-scheme
+    // aware system colors, we use this method instead. This should be replaced
+    // by default_value:"canvastext" in css_properties.json5.
+    return DarkColorScheme() ? Color::kWhite : Color::kBlack;
   }
 
   Color ForcedBackplateColor() const {
@@ -2554,6 +2601,11 @@ class ComputedStyle : public ComputedStyleBase,
   bool RenderSubtreeSkipViewportActivation() const {
     return static_cast<unsigned>(RenderSubtree()) &
            static_cast<unsigned>(RenderSubtreeFlags::kSkipViewportActivation);
+  }
+
+  bool GeneratesMarkerImage() const {
+    return Display() == EDisplay::kListItem && ListStyleImage() &&
+           !ListStyleImage()->ErrorOccurred();
   }
 
  private:

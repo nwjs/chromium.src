@@ -16,6 +16,7 @@
 #include "base/bind_helpers.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/location.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
@@ -27,6 +28,7 @@
 #include "base/time/default_clock.h"
 #include "build/build_config.h"
 #include "components/leveldb_proto/public/proto_database_provider.h"
+#include "components/services/storage/public/mojom/indexed_db_control.mojom.h"
 #include "content/browser/background_fetch/background_fetch_context.h"
 #include "content/browser/blob_storage/blob_registry_wrapper.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
@@ -36,6 +38,7 @@
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/code_cache/generated_code_cache.h"
 #include "content/browser/code_cache/generated_code_cache_context.h"
+#include "content/browser/conversions/conversion_manager.h"
 #include "content/browser/cookie_store/cookie_store_context.h"
 #include "content/browser/devtools/devtools_url_loader_interceptor.h"
 #include "content/browser/file_system/browser_file_system_helper.h"
@@ -63,6 +66,7 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/session_storage_usage_info.h"
+#include "content/public/browser/storage_notification_service.h"
 #include "content/public/browser/storage_usage_info.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -71,11 +75,13 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_options.h"
 #include "net/cookies/cookie_util.h"
 #include "net/http/http_auth_preferences.h"
 #include "net/ssl/client_cert_store.h"
 #include "net/url_request/url_request_context.h"
 #include "ppapi/buildflags/buildflags.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/cookie_manager.h"
 #include "services/network/network_context.h"
 #include "services/network/network_service.h"
@@ -86,6 +92,7 @@
 #include "storage/browser/blob/blob_storage_context.h"
 #include "storage/browser/database/database_tracker.h"
 #include "storage/browser/quota/quota_manager.h"
+#include "storage/browser/quota/quota_settings.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 
 #if defined(OS_ANDROID)
@@ -105,8 +112,15 @@ namespace content {
 
 namespace {
 
-base::LazyInstance<StoragePartitionImpl::CreateNetworkFactoryCallback>::Leaky
-    g_url_loader_factory_callback_for_test = LAZY_INSTANCE_INITIALIZER;
+const storage::QuotaSettings* g_test_quota_settings;
+
+// A callback to create a URLLoaderFactory that is used in tests.
+StoragePartitionImpl::CreateNetworkFactoryCallback&
+GetCreateURLLoaderFactoryCallback() {
+  static base::NoDestructor<StoragePartitionImpl::CreateNetworkFactoryCallback>
+      create_factory_callback;
+  return *create_factory_callback;
+}
 
 void OnClearedCookies(base::OnceClosure callback, uint32_t num_deleted) {
   // The final callback needs to happen from UI thread.
@@ -363,26 +377,24 @@ void DeprecateSameSiteCookies(int process_id,
                                             excluded_cookie.cookie.IsSecure())
             .possibly_invalid_spec();
 
-    net::CanonicalCookie::CookieInclusionStatus::WarningReason warning =
-        excluded_cookie.status.warning();
-    switch (warning) {
-      case net::CanonicalCookie::CookieInclusionStatus::
-          WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT:
-      case net::CanonicalCookie::CookieInclusionStatus::
-          WARN_SAMESITE_UNSPECIFIED_LAX_ALLOW_UNSAFE:
+    if (excluded_cookie.status.ShouldWarn()) {
+      if (excluded_cookie.status.HasWarningReason(
+              net::CanonicalCookie::CookieInclusionStatus::
+                  WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT))
         samesite_treated_as_lax_cookies = true;
-        break;
-      case net::CanonicalCookie::CookieInclusionStatus::
-          WARN_SAMESITE_NONE_INSECURE:
+      if (excluded_cookie.status.HasWarningReason(
+              net::CanonicalCookie::CookieInclusionStatus::
+                  WARN_SAMESITE_UNSPECIFIED_LAX_ALLOW_UNSAFE))
+        samesite_treated_as_lax_cookies = true;
+      if (excluded_cookie.status.HasWarningReason(
+              net::CanonicalCookie::CookieInclusionStatus::
+                  WARN_SAMESITE_NONE_INSECURE))
         samesite_none_insecure_cookies = true;
-        break;
-      default:
-        break;
     }
 
     if (emit_messages) {
       root_frame_host->AddSameSiteCookieDeprecationMessage(
-          cookie_url, warning,
+          cookie_url, excluded_cookie.status,
           net::cookie_util::IsSameSiteByDefaultCookiesEnabled(),
           net::cookie_util::IsCookiesWithoutSameSiteMustBeSecureEnabled());
     }
@@ -398,6 +410,47 @@ void DeprecateSameSiteCookies(int process_id,
   if (samesite_none_insecure_cookies) {
     GetContentClient()->browser()->LogWebFeatureForCurrentPage(
         frame, blink::mojom::WebFeature::kCookieInsecureAndSameSiteNone);
+  }
+}
+
+int64_t CrossSchemeWarningToContextInt64(
+    net::CanonicalCookie::CookieInclusionStatus::WarningReason reason) {
+  // Convert from the status's WarningReason enum to a SameSiteCookieContext
+  // enum and cast to a int64_t for UKM. The UKMs are using the
+  // SameSiteCookieContext in order to match up with the UMAs which are
+  // recording similar information.
+  // TODO(https://crbug.com/1046456): Remove after deprecated.
+  switch (reason) {
+    case net::CanonicalCookie::CookieInclusionStatus::
+        WARN_SAMESITE_LAX_METHOD_UNSAFE_CROSS_SCHEME_SECURE_URL:
+      return static_cast<int64_t>(
+          net::CookieOptions::SameSiteCookieContext::
+              SAME_SITE_LAX_METHOD_UNSAFE_CROSS_SCHEME_SECURE_URL);
+    case net::CanonicalCookie::CookieInclusionStatus::
+        WARN_SAMESITE_LAX_CROSS_SCHEME_SECURE_URL:
+      return static_cast<int64_t>(net::CookieOptions::SameSiteCookieContext::
+                                      SAME_SITE_LAX_CROSS_SCHEME_SECURE_URL);
+    case net::CanonicalCookie::CookieInclusionStatus::
+        WARN_SAMESITE_STRICT_CROSS_SCHEME_SECURE_URL:
+      return static_cast<int64_t>(net::CookieOptions::SameSiteCookieContext::
+                                      SAME_SITE_STRICT_CROSS_SCHEME_SECURE_URL);
+    case net::CanonicalCookie::CookieInclusionStatus::
+        WARN_SAMESITE_LAX_METHOD_UNSAFE_CROSS_SCHEME_INSECURE_URL:
+      return static_cast<int64_t>(
+          net::CookieOptions::SameSiteCookieContext::
+              SAME_SITE_LAX_METHOD_UNSAFE_CROSS_SCHEME_INSECURE_URL);
+    case net::CanonicalCookie::CookieInclusionStatus::
+        WARN_SAMESITE_LAX_CROSS_SCHEME_INSECURE_URL:
+      return static_cast<int64_t>(net::CookieOptions::SameSiteCookieContext::
+                                      SAME_SITE_LAX_CROSS_SCHEME_INSECURE_URL);
+    case net::CanonicalCookie::CookieInclusionStatus::
+        WARN_SAMESITE_STRICT_CROSS_SCHEME_INSECURE_URL:
+      return static_cast<int64_t>(
+          net::CookieOptions::SameSiteCookieContext::
+              SAME_SITE_STRICT_CROSS_SCHEME_INSECURE_URL);
+    default:
+      // Return invalid value if there is no cross-scheme warning.
+      return -1;
   }
 }
 
@@ -433,6 +486,22 @@ void ReportCookiesChangedOnUI(
         web_contents->OnCookieChange(url, site_for_cookies,
                                      cookie_and_status.cookie,
                                      /* blocked_by_policy =*/false);
+
+        // TODO(https://crbug.com/1046456): Remove after deprecated.
+        net::CanonicalCookie::CookieInclusionStatus::WarningReason
+            cross_scheme_warning;
+        if (cookie_and_status.status.HasCrossSchemeWarning(
+                &cross_scheme_warning)) {
+          ukm::SourceId source_id =
+              static_cast<WebContentsImpl*>(web_contents)
+                  ->GetUkmSourceIdForLastCommittedSource();
+
+          int64_t context =
+              CrossSchemeWarningToContextInt64(cross_scheme_warning);
+          ukm::builders::SameSiteDifferentSchemeRequest(source_id)
+              .SetSameSiteContextWithSchemes(context)
+              .Record(ukm::UkmRecorder::Get());
+        }
       }
     }
   }
@@ -450,6 +519,7 @@ void ReportCookiesReadOnUI(
   }
 
   net::CookieList accepted, blocked;
+  std::vector<net::CanonicalCookie::CookieInclusionStatus> accepted_status;
   for (auto& cookie_and_status : cookie_list) {
     if (cookie_and_status.status.HasExclusionReason(
             net::CanonicalCookie::CookieInclusionStatus::
@@ -457,6 +527,7 @@ void ReportCookiesReadOnUI(
       blocked.push_back(std::move(cookie_and_status.cookie));
     } else if (cookie_and_status.status.IsInclude()) {
       accepted.push_back(std::move(cookie_and_status.cookie));
+      accepted_status.push_back(std::move(cookie_and_status.status));
     }
   }
 
@@ -468,6 +539,23 @@ void ReportCookiesReadOnUI(
         continue;
       web_contents->OnCookiesRead(url, site_for_cookies, accepted,
                                   /* blocked_by_policy =*/false);
+
+      // TODO(https://crbug.com/1046456): Remove after deprecated.
+      for (const auto& status : accepted_status) {
+        net::CanonicalCookie::CookieInclusionStatus::WarningReason
+            cross_scheme_warning;
+        if (status.HasCrossSchemeWarning(&cross_scheme_warning)) {
+          ukm::SourceId source_id =
+              static_cast<WebContentsImpl*>(web_contents)
+                  ->GetUkmSourceIdForLastCommittedSource();
+
+          int64_t context =
+              CrossSchemeWarningToContextInt64(cross_scheme_warning);
+          ukm::builders::SameSiteDifferentSchemeResponse(source_id)
+              .SetSameSiteContextWithSchemes(context)
+              .Record(ukm::UkmRecorder::Get());
+        }
+      }
     }
   }
 
@@ -933,14 +1021,13 @@ int StoragePartitionImpl::GenerateQuotaClientMask(uint32_t remove_mask) {
 // static
 void StoragePartitionImpl::
     SetGetURLLoaderFactoryForBrowserProcessCallbackForTesting(
-        const CreateNetworkFactoryCallback& url_loader_factory_callback) {
+        CreateNetworkFactoryCallback url_loader_factory_callback) {
   DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
          BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(url_loader_factory_callback.is_null() ||
-         g_url_loader_factory_callback_for_test.Get().is_null())
+  DCHECK(!url_loader_factory_callback || !GetCreateURLLoaderFactoryCallback())
       << "It is not expected that this is called with non-null callback when "
       << "another overriding callback is already set.";
-  g_url_loader_factory_callback_for_test.Get() = url_loader_factory_callback;
+  GetCreateURLLoaderFactoryCallback() = std::move(url_loader_factory_callback);
 }
 
 // Helper for deleting quota managed data from a partition.
@@ -1198,6 +1285,24 @@ void StoragePartitionImpl::Initialize() {
   scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy =
       quota_manager_->proxy();
 
+  StorageNotificationService* storage_notification_service =
+      browser_context_->GetStorageNotificationService();
+  if (storage_notification_service) {
+    base::RepeatingCallback<void(const url::Origin)>
+        send_notification_function = base::BindRepeating(
+            [](scoped_refptr<base::SequencedTaskRunner> runner,
+               const base::RepeatingCallback<void(url::Origin)>& callback,
+               const url::Origin origin) {
+              base::PostTask(FROM_HERE, {BrowserThread::UI},
+                             base::BindRepeating(callback, std::move(origin)));
+            },
+            base::CreateSingleThreadTaskRunner({BrowserThread::UI}),
+            storage_notification_service
+                ->GetStoragePressureNotificationClosure());
+
+    quota_manager_->SetStoragePressureCallback(send_notification_function);
+  }
+
   // Each consumer is responsible for registering its QuotaClient during
   // its construction.
   filesystem_context_ =
@@ -1213,12 +1318,15 @@ void StoragePartitionImpl::Initialize() {
       relative_partition_path_, browser_context_->GetSpecialStoragePolicy());
 
   idle_manager_ = std::make_unique<IdleManager>();
-  lock_manager_ = new LockManager();
+  lock_manager_ = std::make_unique<LockManager>();
 
   base::FilePath path = is_in_memory_ ? base::FilePath() : partition_path_;
   indexed_db_context_ = new IndexedDBContextImpl(
       path, browser_context_->GetSpecialStoragePolicy(), quota_manager_proxy,
-      base::DefaultClock::GetInstance(), /*task_runner=*/nullptr);
+      base::DefaultClock::GetInstance(),
+      ChromeBlobStorageContext::GetRemoteFor(browser_context_),
+      base::CreateSingleThreadTaskRunner({BrowserThread::IO}),
+      /*task_runner=*/nullptr);
 
   cache_storage_context_ = new CacheStorageContextImpl(browser_context_);
   cache_storage_context_->Init(
@@ -1230,11 +1338,13 @@ void StoragePartitionImpl::Initialize() {
   appcache_service_ = base::MakeRefCounted<ChromeAppCacheService>(
       quota_manager_proxy.get(), weak_factory_.GetWeakPtr());
 
+  dedicated_worker_service_ = std::make_unique<DedicatedWorkerServiceImpl>();
+
   shared_worker_service_ = std::make_unique<SharedWorkerServiceImpl>(
       this, service_worker_context_, appcache_service_);
 
-  push_messaging_context_ =
-      new PushMessagingContext(browser_context_, service_worker_context_);
+  push_messaging_context_ = std::make_unique<PushMessagingContext>(
+      browser_context_, service_worker_context_);
 
 #if !defined(OS_ANDROID)
   host_zoom_level_context_ = new HostZoomLevelContext(
@@ -1263,9 +1373,10 @@ void StoragePartitionImpl::Initialize() {
   payment_app_context_ = new PaymentAppContextImpl();
   payment_app_context_->Init(service_worker_context_);
 
-  broadcast_channel_provider_ = new BroadcastChannelProvider();
+  broadcast_channel_provider_ = std::make_unique<BroadcastChannelProvider>();
 
-  bluetooth_allowed_devices_map_ = new BluetoothAllowedDevicesMap();
+  bluetooth_allowed_devices_map_ =
+      std::make_unique<BluetoothAllowedDevicesMap>();
 
   scoped_refptr<ChromeBlobStorageContext> blob_context =
       ChromeBlobStorageContext::GetFor(browser_context_);
@@ -1296,6 +1407,15 @@ void StoragePartitionImpl::Initialize() {
           filesystem_context_, blob_context,
           browser_context_->GetNativeFileSystemPermissionContext(),
           browser_context_->IsOffTheRecord());
+
+  // The Conversion Measurement API is not available in Incognito mode.
+  if (!is_in_memory_ &&
+      base::FeatureList::IsEnabled(features::kConversionMeasurement)) {
+    conversion_manager_ = std::make_unique<ConversionManager>(
+        path,
+        base::CreateSequencedTaskRunner({base::ThreadPool(), base::MayBlock(),
+                                         base::TaskPriority::BEST_EFFORT}));
+  }
 
   GeneratedCodeCacheSettings settings =
       GetContentClient()->browser()->GetGeneratedCodeCacheSettings(
@@ -1377,7 +1497,7 @@ StoragePartitionImpl::GetCookieManagerForBrowserProcess() {
 void StoragePartitionImpl::CreateRestrictedCookieManager(
     network::mojom::RestrictedCookieManagerRole role,
     const url::Origin& origin,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const url::Origin& top_frame_origin,
     bool is_service_worker,
     int process_id,
@@ -1433,6 +1553,25 @@ LockManager* StoragePartitionImpl::GetLockManager() {
   return lock_manager_.get();
 }
 
+storage::mojom::IndexedDBControl& StoragePartitionImpl::GetIndexedDBControl() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK(
+      !(indexed_db_control_.is_bound() && !indexed_db_control_.is_connected()))
+      << "Rebinding is not supported yet.";
+
+  if (indexed_db_control_.is_bound())
+    return *indexed_db_control_;
+
+  IndexedDBContextImpl* idb_context = GetIndexedDBContext();
+  idb_context->IDBTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&IndexedDBContextImpl::Bind,
+                     base::WrapRefCounted(idb_context),
+                     indexed_db_control_.BindNewPipeAndPassReceiver()));
+
+  return *indexed_db_control_;
+}
+
 IndexedDBContextImpl* StoragePartitionImpl::GetIndexedDBContext() {
   DCHECK(initialized_);
   return indexed_db_context_.get();
@@ -1452,6 +1591,11 @@ CacheStorageContextImpl* StoragePartitionImpl::GetCacheStorageContext() {
 ServiceWorkerContextWrapper* StoragePartitionImpl::GetServiceWorkerContext() {
   DCHECK(initialized_);
   return service_worker_context_.get();
+}
+
+DedicatedWorkerServiceImpl* StoragePartitionImpl::GetDedicatedWorkerService() {
+  DCHECK(initialized_);
+  return dedicated_worker_service_.get();
 }
 
 SharedWorkerServiceImpl* StoragePartitionImpl::GetSharedWorkerService() {
@@ -1591,8 +1735,8 @@ void StoragePartitionImpl::OpenSessionStorage(
 
 void StoragePartitionImpl::OnAuthRequired(
     const base::Optional<base::UnguessableToken>& window_id,
-    uint32_t process_id,
-    uint32_t routing_id,
+    int32_t process_id,
+    int32_t routing_id,
     uint32_t request_id,
     const GURL& url,
     bool first_auth_attempt,
@@ -1626,8 +1770,8 @@ void StoragePartitionImpl::OnAuthRequired(
 
 void StoragePartitionImpl::OnCertificateRequested(
     const base::Optional<base::UnguessableToken>& window_id,
-    uint32_t process_id,
-    uint32_t routing_id,
+    int32_t process_id,
+    int32_t routing_id,
     uint32_t request_id,
     const scoped_refptr<net::SSLCertRequestInfo>& cert_info,
     mojo::PendingRemote<network::mojom::ClientCertificateResponder>
@@ -1654,8 +1798,8 @@ void StoragePartitionImpl::OnCertificateRequested(
 }
 
 void StoragePartitionImpl::OnSSLCertificateError(
-    uint32_t process_id,
-    uint32_t routing_id,
+    int32_t process_id,
+    int32_t routing_id,
     const GURL& url,
     int net_error,
     const net::SSLInfo& ssl_info,
@@ -1670,7 +1814,7 @@ void StoragePartitionImpl::OnSSLCertificateError(
 }
 
 void StoragePartitionImpl::OnFileUploadRequested(
-    uint32_t process_id,
+    int32_t process_id,
     bool async,
     const std::vector<base::FilePath>& file_paths,
     OnFileUploadRequestedCallback callback) {
@@ -1711,7 +1855,7 @@ void StoragePartitionImpl::OnCanSendDomainReliabilityUpload(
       blink::mojom::PermissionStatus::GRANTED);
 }
 
-void StoragePartitionImpl::OnClearSiteData(uint32_t process_id,
+void StoragePartitionImpl::OnClearSiteData(int32_t process_id,
                                            int32_t routing_id,
                                            const GURL& url,
                                            const std::string& header_value,
@@ -1732,20 +1876,21 @@ void StoragePartitionImpl::OnCookiesChanged(
     int32_t process_id,
     int32_t routing_id,
     const GURL& url,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const std::vector<net::CookieWithStatus>& cookie_list) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(initialized_);
   if (is_service_worker) {
     RunOrPostTaskOnThread(
         FROM_HERE, ServiceWorkerContext::GetCoreThreadId(),
-        base::BindOnce(&OnServiceWorkerCookiesChangedOnCoreThread,
-                       service_worker_context_, url, site_for_cookies,
-                       std::move(cookie_list)));
+        base::BindOnce(
+            &OnServiceWorkerCookiesChangedOnCoreThread, service_worker_context_,
+            url, site_for_cookies.RepresentativeUrl(), std::move(cookie_list)));
   } else {
     std::vector<GlobalFrameRoutingId> destination;
     destination.emplace_back(process_id, routing_id);
-    ReportCookiesChangedOnUI(destination, url, site_for_cookies, cookie_list);
+    ReportCookiesChangedOnUI(destination, url,
+                             site_for_cookies.RepresentativeUrl(), cookie_list);
   }
 }
 
@@ -1754,20 +1899,21 @@ void StoragePartitionImpl::OnCookiesRead(
     int32_t process_id,
     int32_t routing_id,
     const GURL& url,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const std::vector<net::CookieWithStatus>& cookie_list) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(initialized_);
   if (is_service_worker) {
     RunOrPostTaskOnThread(
         FROM_HERE, ServiceWorkerContext::GetCoreThreadId(),
-        base::BindOnce(&OnServiceWorkerCookiesReadOnCoreThread,
-                       service_worker_context_, url, site_for_cookies,
-                       std::move(cookie_list)));
+        base::BindOnce(
+            &OnServiceWorkerCookiesReadOnCoreThread, service_worker_context_,
+            url, site_for_cookies.RepresentativeUrl(), std::move(cookie_list)));
   } else {
     std::vector<GlobalFrameRoutingId> destination;
     destination.emplace_back(process_id, routing_id);
-    ReportCookiesReadOnUI(destination, url, site_for_cookies, cookie_list);
+    ReportCookiesReadOnUI(destination, url,
+                          site_for_cookies.RepresentativeUrl(), cookie_list);
   }
 }
 
@@ -2006,7 +2152,7 @@ void StoragePartitionImpl::DataDeletionHelper::ClearDataOnUIThread(
     const base::Time begin,
     const base::Time end) {
   DCHECK_NE(remove_mask_, 0u);
-  DCHECK(!callback_.is_null());
+  DCHECK(callback_);
 
   base::ScopedClosureRunner synchronous_clear_operations(
       CreateTaskCompletionClosure(TracingDataType::kSynchronous));
@@ -2088,8 +2234,7 @@ void StoragePartitionImpl::DataDeletionHelper::ClearDataOnUIThread(
             base::WrapRefCounted(filesystem_context), storage_origin,
             std::move(origin_matcher),
             base::WrapRefCounted(special_storage_policy), begin, end,
-            base::AdaptCallbackForRepeating(
-                CreateTaskCompletionClosure(TracingDataType::kPluginPrivate))));
+            CreateTaskCompletionClosure(TracingDataType::kPluginPrivate)));
   }
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 }
@@ -2260,8 +2405,15 @@ void StoragePartitionImpl::OverrideSharedWorkerServiceForTesting(
 
 void StoragePartitionImpl::GetQuotaSettings(
     storage::OptionalQuotaSettingsCallback callback) {
-  GetContentClient()->browser()->GetQuotaSettings(browser_context_, this,
-                                                  std::move(callback));
+  if (g_test_quota_settings) {
+    // For debugging tests harness can inject settings.
+    std::move(callback).Run(*g_test_quota_settings);
+    return;
+  }
+
+  storage::GetNominalDynamicSettings(
+      GetPath(), browser_context_->IsOffTheRecord(),
+      storage::GetDefaultDeviceInfoHelper(), std::move(callback));
 }
 
 void StoragePartitionImpl::InitNetworkContext() {
@@ -2289,8 +2441,7 @@ StoragePartitionImpl::GetURLLoaderFactoryForBrowserProcessInternal(
   // Create the URLLoaderFactory as needed, but make sure not to reuse a
   // previously created one if the test override has changed.
   if (url_loader_factory && url_loader_factory.is_connected() &&
-      is_test_url_loader_factory !=
-          g_url_loader_factory_callback_for_test.Get().is_null()) {
+      is_test_url_loader_factory != !GetCreateURLLoaderFactoryCallback()) {
     return url_loader_factory.get();
   }
 
@@ -2305,7 +2456,7 @@ StoragePartitionImpl::GetURLLoaderFactoryForBrowserProcessInternal(
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableWebSecurity);
   url_loader_factory.reset();
-  if (g_url_loader_factory_callback_for_test.Get().is_null()) {
+  if (!GetCreateURLLoaderFactoryCallback()) {
     GetNetworkContext()->CreateURLLoaderFactory(
         url_loader_factory.BindNewPipeAndPassReceiver(), std::move(params));
     is_test_url_loader_factory = false;
@@ -2315,8 +2466,8 @@ StoragePartitionImpl::GetURLLoaderFactoryForBrowserProcessInternal(
   mojo::PendingRemote<network::mojom::URLLoaderFactory> original_factory;
   GetNetworkContext()->CreateURLLoaderFactory(
       original_factory.InitWithNewPipeAndPassReceiver(), std::move(params));
-  url_loader_factory.Bind(g_url_loader_factory_callback_for_test.Get().Run(
-      std::move(original_factory)));
+  url_loader_factory.Bind(
+      GetCreateURLLoaderFactoryCallback().Run(std::move(original_factory)));
   is_test_url_loader_factory = true;
   return url_loader_factory.get();
 }
@@ -2345,6 +2496,11 @@ void StoragePartitionImpl::
     ResetOriginPolicyManagerForBrowserProcessForTesting() {
   DCHECK(initialized_);
   origin_policy_manager_for_browser_process_.reset();
+}
+
+void StoragePartition::SetDefaultQuotaSettingsForTesting(
+    const storage::QuotaSettings* settings) {
+  g_test_quota_settings = settings;
 }
 
 }  // namespace content

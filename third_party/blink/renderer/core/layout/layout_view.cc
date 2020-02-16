@@ -34,6 +34,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
+#include "third_party/blink/renderer/core/html/plugin_document.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
@@ -96,8 +97,9 @@ LayoutView::LayoutView(Document* document)
     : LayoutBlockFlow(document),
       frame_view_(document->View()),
       layout_state_(nullptr),
-      // TODO(pdr): This should be null if CompositeAfterPaintEnabled() is true.
-      compositor_(std::make_unique<PaintLayerCompositor>(*this)),
+      compositor_(RuntimeEnabledFeatures::CompositeAfterPaintEnabled()
+                      ? nullptr
+                      : std::make_unique<PaintLayerCompositor>(*this)),
       layout_quote_head_(nullptr),
       layout_counter_count_(0),
       hit_test_count_(0),
@@ -240,7 +242,8 @@ bool LayoutView::CanHaveChildren() const {
   // the PluginDocument's <embed> element to have an EmbeddedContentView, which
   // it acquires during LocalFrameView::UpdatePlugins, which operates on the
   // <embed> element's layout object (LayoutEmbeddedObject).
-  if (GetDocument().IsPluginDocument() || GetDocument().IsForExternalHandler())
+  if (IsA<PluginDocument>(GetDocument()) ||
+      GetDocument().IsForExternalHandler())
     return true;
   return !owner->IsDisplayNone();
 }
@@ -528,7 +531,8 @@ bool LayoutView::MapToVisualRectInAncestorSpaceInternal(
   if (!owner) {
     PhysicalRect rect = PhysicalRect::EnclosingRect(
         transform_state.LastPlanarQuad().BoundingBox());
-    bool retval = GetFrameView()->MapToVisualRectInRemoteRootFrame(rect);
+    bool retval = GetFrameView()->MapToVisualRectInRemoteRootFrame(
+        rect, !(visual_rect_flags & kDontApplyMainFrameOverflowClip));
     transform_state.SetQuad(FloatQuad(FloatRect(rect)));
     return retval;
   }
@@ -813,7 +817,6 @@ bool LayoutView::UsesCompositing() const {
 }
 
 PaintLayerCompositor* LayoutView::Compositor() {
-  DCHECK(compositor_);
   return compositor_.get();
 }
 

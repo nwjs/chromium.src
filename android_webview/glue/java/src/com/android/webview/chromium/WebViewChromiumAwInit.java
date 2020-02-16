@@ -30,13 +30,18 @@ import org.chromium.android_webview.AwProxyController;
 import org.chromium.android_webview.AwServiceWorkerController;
 import org.chromium.android_webview.AwTracingController;
 import org.chromium.android_webview.HttpAuthDatabase;
+import org.chromium.android_webview.ProductConfig;
 import org.chromium.android_webview.R;
 import org.chromium.android_webview.VariationsSeedLoader;
 import org.chromium.android_webview.WebViewChromiumRunQueue;
 import org.chromium.android_webview.common.AwResource;
+import org.chromium.android_webview.common.DeveloperModeUtils;
+import org.chromium.android_webview.common.FlagOverrideHelper;
+import org.chromium.android_webview.common.ProductionSupportedFlagList;
 import org.chromium.android_webview.gfx.AwDrawFnImpl;
 import org.chromium.base.BuildConfig;
 import org.chromium.base.BuildInfo;
+import org.chromium.base.BundleUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.FieldTrialList;
 import org.chromium.base.JNIUtils;
@@ -44,8 +49,9 @@ import org.chromium.base.PathService;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.library_loader.LibraryLoader;
-import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.CachedMetrics;
+import org.chromium.base.metrics.CachedMetrics.BooleanHistogramSample;
+import org.chromium.base.metrics.CachedMetrics.Count100HistogramSample;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.ScopedSysTraceEvent;
 import org.chromium.base.task.PostTask;
@@ -53,6 +59,8 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.ResourceBundle;
+
+import java.util.Map;
 
 /**
  * Class controlling the Chromium initialization for WebView.
@@ -125,6 +133,7 @@ public class WebViewChromiumAwInit {
     protected void startChromiumLocked() {
         try (ScopedSysTraceEvent event =
                         ScopedSysTraceEvent.scoped("WebViewChromiumAwInit.startChromiumLocked")) {
+            TraceEvent.setATraceEnabled(mFactory.getWebViewDelegate().isTraceTagEnabled());
             assert Thread.holdsLock(mLock) && ThreadUtils.runningOnUiThread();
 
             // The post-condition of this method is everything is ready, so notify now to cover all
@@ -144,12 +153,14 @@ public class WebViewChromiumAwInit {
             ResourceBundle.setAvailablePakLocales(
                     new String[] {}, AwLocaleConfig.getWebViewSupportedPakLocales());
 
+            BundleUtils.setIsBundle(ProductConfig.IS_BUNDLE);
+
             // We are rewriting Java resources in the background.
             // NOTE: Any reference to Java resources will cause a crash.
 
             try (ScopedSysTraceEvent e =
                             ScopedSysTraceEvent.scoped("WebViewChromiumAwInit.LibraryLoader")) {
-                LibraryLoader.getInstance().ensureInitialized(LibraryProcessType.PROCESS_WEBVIEW);
+                LibraryLoader.getInstance().ensureInitialized();
             }
 
             PathService.override(PathService.DIR_MODULE, "/system/lib/");
@@ -168,6 +179,24 @@ public class WebViewChromiumAwInit {
             // available when AwFeatureListCreator::SetUpFieldTrials() runs.
             finishVariationsInitLocked();
 
+            String webViewPackageName = AwBrowserProcess.getWebViewPackageName();
+            boolean isDeveloperModeEnabled =
+                    DeveloperModeUtils.isDeveloperModeEnabled(webViewPackageName);
+            final BooleanHistogramSample developerModeSample =
+                    new BooleanHistogramSample("Android.WebView.DevUi.DeveloperModeEnabled");
+            developerModeSample.record(isDeveloperModeEnabled);
+            if (isDeveloperModeEnabled) {
+                FlagOverrideHelper helper =
+                        new FlagOverrideHelper(ProductionSupportedFlagList.sFlagList);
+                Map<String, Boolean> flagOverrides =
+                        DeveloperModeUtils.getFlagOverrides(webViewPackageName);
+                helper.applyFlagOverrides(flagOverrides);
+
+                final Count100HistogramSample flagOverrideSample =
+                        new Count100HistogramSample("Android.WebView.DevUi.ToggledFlagCount");
+                flagOverrideSample.record(flagOverrides.size());
+            }
+
             AwBrowserProcess.start();
             AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(true /* updateMetricsConsent */);
 
@@ -176,7 +205,6 @@ public class WebViewChromiumAwInit {
                 mSharedStatics.setWebContentsDebuggingEnabledUnconditionally(true);
             }
 
-            TraceEvent.setATraceEnabled(mFactory.getWebViewDelegate().isTraceTagEnabled());
             mFactory.getWebViewDelegate().setOnTraceEnabledChangeListener(
                     new WebViewDelegate.OnTraceEnabledChangeListener() {
                         @Override

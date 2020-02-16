@@ -44,11 +44,13 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_menu_model.h"
 #include "chrome/browser/web_applications/components/app_registry_controller.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/external_install_options.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_provider_base.h"
 #include "chrome/browser/web_applications/test/web_app_install_observer.h"
 #include "chrome/common/chrome_features.h"
@@ -83,6 +85,7 @@
 #include "net/base/host_port_pair.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "testing/gtest/include/gtest/gtest-param-test.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -703,8 +706,16 @@ IN_PROC_BROWSER_TEST_P(HostedAppTest,
   NavigateAndCheckForToolbar(app_browser_, app_url, true);
 }
 
+// Flaky, mostly on Windows: http://crbug.com/1032319
+#if defined(OS_WIN)
+#define MAYBE_ShouldShowCustomTabBarForHTTPAppHTTPSUrl \
+  DISABLED_ShouldShowCustomTabBarForHTTPAppHTTPSUrl
+#else
+#define MAYBE_ShouldShowCustomTabBarForHTTPAppHTTPSUrl \
+  ShouldShowCustomTabBarForHTTPAppHTTPSUrl
+#endif
 IN_PROC_BROWSER_TEST_P(HostedAppTest,
-                       ShouldShowCustomTabBarForHTTPAppHTTPSUrl) {
+                       MAYBE_ShouldShowCustomTabBarForHTTPAppHTTPSUrl) {
   ASSERT_TRUE(https_server()->Start());
 
   const GURL app_url = https_server()->GetURL("app.com", "/simple.html");
@@ -1329,6 +1340,25 @@ IN_PROC_BROWSER_TEST_P(SharedPWATest, CannotInstallOverWindowPwa) {
             kEnabled);
 }
 
+IN_PROC_BROWSER_TEST_P(SharedPWATest, CannotInstallOverPolicyPwa) {
+  ASSERT_TRUE(https_server()->Start());
+
+  web_app::ExternalInstallOptions options =
+      web_app::CreateInstallOptions(GetInstallableAppURL());
+  options.install_source = web_app::ExternalInstallSource::kExternalPolicy;
+  web_app::PendingAppManagerInstall(profile(), options);
+
+  // Avoid any interference if active browser was changed by PWA install.
+  Browser* new_browser =
+      NavigateInNewWindowAndAwaitInstallabilityCheck(GetInstallableAppURL());
+
+  EXPECT_EQ(GetAppMenuCommandState(IDC_CREATE_SHORTCUT, new_browser),
+            kDisabled);
+  EXPECT_EQ(GetAppMenuCommandState(IDC_INSTALL_PWA, new_browser), kNotPresent);
+  EXPECT_EQ(GetAppMenuCommandState(IDC_OPEN_IN_PWA_WINDOW, new_browser),
+            kEnabled);
+}
+
 // Tests that the command for OpenActiveTabInPwaWindow is available for secure
 // pages in an app's scope.
 IN_PROC_BROWSER_TEST_P(SharedPWATest, ReparentWebAppForSecureActiveTab) {
@@ -1719,6 +1749,21 @@ class HostedAppProcessModelTest : public HostedAppTest {
   void SetUpOnMainThread() override {
     HostedAppTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
+
+    // Some tests make requests to URLs that purposefully end with a double
+    // slash to test this edge case (note that "//" is a valid path).  Install
+    // a custom handler to return dummy content for such requests before
+    // starting the test server.
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        [](const net::test_server::HttpRequest& request)
+            -> std::unique_ptr<net::test_server::HttpResponse> {
+          if (request.relative_url == "//") {
+            return std::make_unique<net::test_server::RawHttpResponse>(
+                "HTTP/1.1 200 OK", "Hello there!");
+          }
+          return nullptr;
+        }));
+
     embedded_test_server()->StartAcceptingConnections();
 
     should_swap_for_cross_site_ = content::AreAllSitesIsolatedForTesting();
@@ -2192,6 +2237,49 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
   EXPECT_FALSE(registrar().IsInstalled(app_->id()));
 }
 
+// Check that we can successfully complete a navigation to an app URL with a
+// "//" path (on which GURL::Resolve() currently fails due to
+// https://crbug.com/1034197), and that the resulting SiteInstance has a valid
+// site URL. See https://crbug.com/1016954.
+IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
+                       NavigateToAppURLWithDoubleSlashPath) {
+  // Set up and launch the hosted app.
+  GURL app_url =
+      embedded_test_server()->GetURL("app.site.com", "/frame_tree/simple.htm");
+  extensions::TestExtensionDir test_app_dir;
+  test_app_dir.WriteManifest(base::StringPrintf(kHostedAppProcessModelManifest,
+                                                app_url.spec().c_str()));
+  SetupApp(test_app_dir.UnpackedPath());
+
+  // Navigate to a URL under the app's extent, but with a path (//) that
+  // GURL::Resolve() fails to resolve against a relative URL (see the
+  // explanation in https://crbug.com/1034197).  Avoid giving the "//" directly
+  // to EmbeddedTestServer::GetURL(), which also uses GURL::Resolve()
+  // internally and would otherwise produce an empty/invalid URL to navigate
+  // to.
+  GURL double_slash_path_app_url =
+      embedded_test_server()->GetURL("isolated.site.com", "/");
+  GURL::Replacements replace_path;
+  replace_path.SetPathStr("//");
+  double_slash_path_app_url =
+      double_slash_path_app_url.ReplaceComponents(replace_path);
+
+  ui_test_utils::NavigateToURL(browser(), double_slash_path_app_url);
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  RenderFrameHost* main_frame = contents->GetMainFrame();
+  EXPECT_EQ(double_slash_path_app_url, main_frame->GetLastCommittedURL());
+
+  // The resulting page should load in an app process, and the corresponding
+  // SiteInstance's site URL should be a valid, non-empty chrome-extension://
+  // URL with a valid host that corresponds to the app's ID.
+  EXPECT_TRUE(process_map_->Contains(main_frame->GetProcess()->GetID()));
+  EXPECT_FALSE(main_frame->GetSiteInstance()->GetSiteURL().is_empty());
+  EXPECT_TRUE(main_frame->GetSiteInstance()->GetSiteURL().SchemeIs(
+      extensions::kExtensionScheme));
+  EXPECT_EQ(main_frame->GetSiteInstance()->GetSiteURL().host(), app_->id());
+}
+
 // Helper class that sets up two isolated origins, where one is a subdomain of
 // the other: https://isolated.com and https://very.isolated.com.
 class HostedAppIsolatedOriginTest : public HostedAppProcessModelTest {
@@ -2626,7 +2714,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
   GURL bar_app_url(embedded_test_server()->GetURL("bar.com", "/title2.html"));
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), bar_app_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* bar_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_EQ(bar_app_url, bar_contents->GetLastCommittedURL());
@@ -2635,7 +2723,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
   GURL foo_app_url2(embedded_test_server()->GetURL("foo.com", "/title3.html"));
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), foo_app_url2, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* foo_contents2 =
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_EQ(foo_app_url2, foo_contents2->GetLastCommittedURL());
@@ -2700,7 +2788,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest,
   GURL bar_app_url2(embedded_test_server()->GetURL("bar.com", "/title3.html"));
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), bar_app_url2, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* bar_contents2 =
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_EQ(bar_app_url2, bar_contents2->GetLastCommittedURL());
@@ -2765,38 +2853,38 @@ IN_PROC_BROWSER_TEST_P(HostedAppPWAOnlyTest,
   NavigateAndCheckForToolbar(app_browser_, popup_url, false);
 }
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          HostedAppTest,
                          ::testing::Values(AppType::HOSTED_APP,
                                            AppType::BOOKMARK_APP));
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          SharedAppTest,
                          ::testing::Values(AppType::HOSTED_APP,
                                            AppType::BOOKMARK_APP,
                                            AppType::WEB_APP));
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HostedAppPWAOnlyTest,
     ::testing::Values(AppType::BOOKMARK_APP));
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     SharedPWATest,
     ::testing::Values(AppType::BOOKMARK_APP, AppType::WEB_APP));
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HostedAppProcessModelTest,
     ::testing::Values(AppType::HOSTED_APP));
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HostedAppIsolatedOriginTest,
     ::testing::Values(AppType::HOSTED_APP));
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     HostedAppSitePerProcessTest,
     ::testing::Values(AppType::HOSTED_APP));

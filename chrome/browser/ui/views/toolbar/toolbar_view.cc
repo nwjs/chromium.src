@@ -44,7 +44,8 @@
 #include "chrome/browser/ui/views/global_media_controls/media_toolbar_button_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/media_router/cast_toolbar_button.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_container_view.h"
+#include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
+#include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/browser_actions_container.h"
@@ -363,8 +364,6 @@ void ToolbarView::UpdateForWebUITabStrip() {
     const int insertion_index = GetIndexOf(app_menu_button_);
     AddChildViewAt(browser_view_->webui_tab_strip()->CreateTabCounter(),
                    insertion_index);
-    AddChildViewAt(browser_view_->webui_tab_strip()->CreateNewTabButton(),
-                   insertion_index);
     LoadImages();
   }
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
@@ -540,13 +539,59 @@ bool ToolbarView::GetAcceleratorForCommandId(int command_id,
 // ToolbarView, views::View overrides:
 
 gfx::Size ToolbarView::CalculatePreferredSize() const {
-  gfx::Size size = View::CalculatePreferredSize();
+  gfx::Size size;
+  switch (display_mode_) {
+    case DisplayMode::CUSTOM_TAB:
+      size = custom_tab_bar_->GetPreferredSize();
+      break;
+    case DisplayMode::LOCATION:
+      size = location_bar_->GetPreferredSize();
+      break;
+    case DisplayMode::NORMAL:
+      size = View::CalculatePreferredSize();
+      // Because there are odd cases where something causes one of the views in
+      // the toolbar to report an unreasonable height (see crbug.com/985909), we
+      // cap the height at the size of known child views (location bar and back
+      // button) plus margins.
+      // TODO(crbug.com/1033627): Figure out why the height reports incorrectly
+      // on some installations.
+      if (layout_manager_ && location_bar_->GetVisible()) {
+        const int max_height =
+            std::max(location_bar_->GetPreferredSize().height(),
+                     back_->GetPreferredSize().height()) +
+            layout_manager_->interior_margin().height();
+        size.SetToMin({size.width(), max_height});
+      }
+  }
   size.set_height(size.height() * size_animation_.GetCurrentValue());
   return size;
 }
 
 gfx::Size ToolbarView::GetMinimumSize() const {
-  gfx::Size size = View::GetMinimumSize();
+  gfx::Size size;
+  switch (display_mode_) {
+    case DisplayMode::CUSTOM_TAB:
+      size = custom_tab_bar_->GetMinimumSize();
+      break;
+    case DisplayMode::LOCATION:
+      size = location_bar_->GetMinimumSize();
+      break;
+    case DisplayMode::NORMAL:
+      size = View::GetMinimumSize();
+      // Because there are odd cases where something causes one of the views in
+      // the toolbar to report an unreasonable height (see crbug.com/985909), we
+      // cap the height at the size of known child views (location bar and back
+      // button) plus margins.
+      // TODO(crbug.com/1033627): Figure out why the height reports incorrectly
+      // on some installations.
+      if (layout_manager_ && location_bar_->GetVisible()) {
+        const int max_height =
+            std::max(location_bar_->GetMinimumSize().height(),
+                     back_->GetMinimumSize().height()) +
+            layout_manager_->interior_margin().height();
+        size.SetToMin({size.width(), max_height});
+      }
+  }
   size.set_height(size.height() * size_animation_.GetCurrentValue());
   return size;
 }
@@ -661,10 +706,7 @@ void ToolbarView::InitLayout() {
           views::MinimumFlexSizeRule::kScaleToMinimum,
           views::MaximumFlexSizeRule::kUnbounded)
           .WithOrder(2);
-  const views::FlexSpecification browser_actions_flex_rule =
-      views::FlexSpecification::ForCustomRule(
-          BrowserActionsContainer::GetFlexRule())
-          .WithOrder(3);
+  constexpr int kExtensionsFlexOrder = 3;
 
   layout_manager_ = SetLayoutManager(std::make_unique<views::FlexLayout>());
 
@@ -678,11 +720,25 @@ void ToolbarView::InitLayout() {
                              gfx::Insets(0, location_bar_margin));
 
   if (browser_actions_) {
+    const views::FlexSpecification browser_actions_flex_rule =
+        views::FlexSpecification::ForCustomRule(
+            BrowserActionsContainer::GetFlexRule())
+            .WithOrder(kExtensionsFlexOrder);
+
     browser_actions_->SetProperty(views::kFlexBehaviorKey,
                                   browser_actions_flex_rule);
     browser_actions_->SetProperty(views::kMarginsKey, gfx::Insets());
     browser_actions_->SetProperty(views::kInternalPaddingKey,
                                   gfx::Insets(0, location_bar_margin));
+  } else if (extensions_container_) {
+    const views::FlexSpecification extensions_flex_rule =
+        views::FlexSpecification::ForCustomRule(
+            extensions_container_->animating_layout_manager()
+                ->GetDefaultFlexRule())
+            .WithOrder(kExtensionsFlexOrder);
+
+    extensions_container_->SetProperty(views::kFlexBehaviorKey,
+                                       extensions_flex_rule);
   }
 
   if (toolbar_account_icon_container_) {
@@ -743,16 +799,8 @@ BrowserActionsContainer* ToolbarView::GetBrowserActionsContainer() {
   return browser_actions_;
 }
 
-ToolbarActionView* ToolbarView::GetToolbarActionViewForId(
-    const std::string& id) {
-  if (display_mode_ != DisplayMode::NORMAL)
-    return nullptr;
-  if (base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu)) {
-    DCHECK(extensions_container_);
-    return extensions_container_->GetViewForId(id);
-  }
-  DCHECK(GetBrowserActionsContainer());
-  return GetBrowserActionsContainer()->GetViewForId(id);
+ExtensionsToolbarContainer* ToolbarView::GetExtensionsToolbarContainer() {
+  return extensions_container_;
 }
 
 views::View* ToolbarView::GetDefaultExtensionDialogAnchorView() {
@@ -764,11 +812,11 @@ views::View* ToolbarView::GetDefaultExtensionDialogAnchorView() {
 PageActionIconView* ToolbarView::GetPageActionIconView(
     PageActionIconType type) {
   PageActionIconView* icon =
-      location_bar()->page_action_icon_container()->GetIconView(type);
+      location_bar()->page_action_icon_controller()->GetIconView(type);
   if (icon)
     return icon;
   return toolbar_account_icon_container_
-             ? toolbar_account_icon_container_->page_action_icon_container()
+             ? toolbar_account_icon_container_->page_action_icon_controller()
                    ->GetIconView(type)
              : nullptr;
 }
@@ -813,7 +861,7 @@ views::View* ToolbarView::GetAnchorView(PageActionIconType type) {
 }
 
 void ToolbarView::ZoomChangedForActiveTab(bool can_show_bubble) {
-  location_bar_->page_action_icon_container()->ZoomChangedForActiveTab(
+  location_bar_->page_action_icon_controller()->ZoomChangedForActiveTab(
       can_show_bubble);
 }
 

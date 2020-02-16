@@ -46,6 +46,7 @@ class Checkbox::FocusRingHighlightPathGenerator
 
 Checkbox::Checkbox(const base::string16& label, ButtonListener* listener)
     : LabelButton(listener, label), checked_(false), label_ax_id_(0) {
+  SetImageCentered(false);
   SetHorizontalAlignment(gfx::ALIGN_LEFT);
   SetFocusForPlatform();
 
@@ -178,10 +179,6 @@ SkPath Checkbox::GetFocusRingPath() const {
   return path;
 }
 
-const gfx::VectorIcon& Checkbox::GetVectorIcon() const {
-  return GetChecked() ? kCheckboxActiveIcon : kCheckboxNormalIcon;
-}
-
 SkColor Checkbox::GetIconImageColor(int icon_state) const {
   const SkColor active_color = GetNativeTheme()->GetSystemColor(
       (icon_state & IconState::CHECKED)
@@ -191,6 +188,10 @@ SkColor Checkbox::GetIconImageColor(int icon_state) const {
              ? active_color
              : color_utils::BlendTowardMaxContrast(active_color,
                                                    gfx::kDisabledControlAlpha);
+}
+
+const gfx::VectorIcon& Checkbox::GetVectorIcon() const {
+  return GetChecked() ? kCheckboxActiveIcon : kCheckboxNormalIcon;
 }
 
 void Checkbox::NotifyClick(const ui::Event& event) {

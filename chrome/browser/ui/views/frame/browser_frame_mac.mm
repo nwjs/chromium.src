@@ -70,9 +70,9 @@ bool ShouldHandleKeyboardEvent(const content::NativeWebKeyboardEvent& event) {
 API_AVAILABLE(macos(10.12.2))
 @interface BrowserWindowTouchBarViewsDelegate
     : NSObject<WindowTouchBarDelegate> {
-  Browser* browser_;  // Weak.
-  NSWindow* window_;  // Weak.
-  base::scoped_nsobject<BrowserWindowTouchBarController> touchBarController_;
+  Browser* _browser;  // Weak.
+  NSWindow* _window;  // Weak.
+  base::scoped_nsobject<BrowserWindowTouchBarController> _touchBarController;
 }
 
 - (BrowserWindowTouchBarController*)touchBarController;
@@ -83,24 +83,24 @@ API_AVAILABLE(macos(10.12.2))
 
 - (instancetype)initWithBrowser:(Browser*)browser window:(NSWindow*)window {
   if ((self = [super init])) {
-    browser_ = browser;
-    window_ = window;
+    _browser = browser;
+    _window = window;
   }
 
   return self;
 }
 
 - (BrowserWindowTouchBarController*)touchBarController {
-  return touchBarController_.get();
+  return _touchBarController.get();
 }
 
 - (NSTouchBar*)makeTouchBar API_AVAILABLE(macos(10.12.2)) {
-  if (!touchBarController_) {
-    touchBarController_.reset([[BrowserWindowTouchBarController alloc]
-        initWithBrowser:browser_
-                 window:window_]);
+  if (!_touchBarController) {
+    _touchBarController.reset([[BrowserWindowTouchBarController alloc]
+        initWithBrowser:_browser
+                 window:_window]);
   }
-  return [touchBarController_ makeTouchBar];
+  return [_touchBarController makeTouchBar];
 }
 
 @end
@@ -248,11 +248,19 @@ void BrowserFrameMac::ValidateUserInterfaceItem(
       result->new_toggle_state = !model->empty() && !will_mute;
       break;
     }
-    case IDC_WINDOW_PIN_TAB:
+    case IDC_WINDOW_PIN_TAB: {
       TabStripModel* model = browser->tab_strip_model();
       result->new_toggle_state =
           !model->empty() && !model->WillContextMenuPin(model->active_index());
       break;
+    }
+    case IDC_WINDOW_GROUP_TAB: {
+      TabStripModel* model = browser->tab_strip_model();
+      result->new_toggle_state =
+          !model->empty() &&
+          !model->WillContextMenuGroup(model->active_index());
+      break;
+    }
   }
 }
 

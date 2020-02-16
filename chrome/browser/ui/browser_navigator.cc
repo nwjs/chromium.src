@@ -57,7 +57,6 @@
 #include "ash/public/cpp/multi_user_window_manager.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_helper.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/account_id/account_id.h"
 #endif
 
@@ -569,8 +568,7 @@ void Navigate(NavigateParams* params) {
   if (source_browser) {
     // If OS Settings is accessed in any means other than explicitly typing the
     // URL into the URL bar, open OS Settings in its own standalone surface.
-    if (chromeos::features::IsSplitSettingsEnabled() &&
-        params->url.host() == chrome::kChromeUIOSSettingsHost &&
+    if (params->url.host() == chrome::kChromeUIOSSettingsHost &&
         !PageTransitionCoreTypeIs(params->transition,
                                   ui::PageTransition::PAGE_TRANSITION_TYPED)) {
       chrome::SettingsWindowManager* settings_window_manager =
@@ -646,18 +644,7 @@ void Navigate(NavigateParams* params) {
   // inform the target WebContents, and we may need to update the UI.
   bool user_initiated =
       params->transition & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR ||
-      ui::PageTransitionCoreTypeIs(params->transition,
-                                   ui::PAGE_TRANSITION_TYPED) ||
-      ui::PageTransitionCoreTypeIs(params->transition,
-                                   ui::PAGE_TRANSITION_AUTO_BOOKMARK) ||
-      ui::PageTransitionCoreTypeIs(params->transition,
-                                   ui::PAGE_TRANSITION_GENERATED) ||
-      ui::PageTransitionCoreTypeIs(params->transition,
-                                   ui::PAGE_TRANSITION_AUTO_TOPLEVEL) ||
-      ui::PageTransitionCoreTypeIs(params->transition,
-                                   ui::PAGE_TRANSITION_RELOAD) ||
-      ui::PageTransitionCoreTypeIs(params->transition,
-                                   ui::PAGE_TRANSITION_KEYWORD);
+      !ui::PageTransitionIsWebTriggerable(params->transition);
 
   // Did we use a prerender?
   bool swapped_in_prerender = false;
@@ -821,7 +808,8 @@ bool IsHostAllowedInIncognito(const GURL& url) {
          host != chrome::kChromeUIThumbnailHost2 &&
          host != chrome::kChromeUIThumbnailListHost &&
          host != chrome::kChromeUISuggestionsHost &&
-         host != chrome::kChromeUIDevicesHost;
+         host != chrome::kChromeUIDevicesHost &&
+         host != chrome::kChromeUINewTabPageHost;
 }
 
 bool IsURLAllowedInIncognito(const GURL& url,

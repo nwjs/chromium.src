@@ -147,21 +147,11 @@ void BookmarkBubbleView::WindowClosing() {
 
 // views::DialogDelegate -------------------------------------------------------
 
-bool BookmarkBubbleView::Cancel() {
+void BookmarkBubbleView::OnDialogCancelled() {
   base::RecordAction(UserMetricsAction("BookmarkBubble_Unstar"));
   // Set this so we remove the bookmark after the window closes.
   remove_bookmark_ = true;
   apply_edits_ = false;
-  return true;
-}
-
-bool BookmarkBubbleView::Accept() {
-  return true;
-}
-
-bool BookmarkBubbleView::Close() {
-  // Allow closing when activation lost. Default would call Accept().
-  return true;
 }
 
 void BookmarkBubbleView::OnDialogInitialized() {
@@ -197,8 +187,8 @@ void BookmarkBubbleView::OnPerformAction(views::Combobox* combobox) {
 
 void BookmarkBubbleView::Init() {
   SetLayoutManager(std::make_unique<views::FillLayout>());
-  bookmark_contents_view_ = new views::View();
-  views::GridLayout* layout = bookmark_contents_view_->SetLayoutManager(
+  auto bookmark_contents_view = std::make_unique<views::View>();
+  views::GridLayout* layout = bookmark_contents_view->SetLayoutManager(
       std::make_unique<views::GridLayout>());
 
   constexpr int kColumnId = 0;
@@ -221,7 +211,7 @@ void BookmarkBubbleView::Init() {
   parent_combobox_->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_BOOKMARK_AX_BUBBLE_FOLDER_LABEL));
 
-  AddChildView(bookmark_contents_view_);
+  bookmark_contents_view_ = AddChildView(std::move(bookmark_contents_view));
 }
 
 // Private methods -------------------------------------------------------------
@@ -246,6 +236,9 @@ BookmarkBubbleView::BookmarkBubbleView(
       l10n_util::GetStringUTF16(IDS_BOOKMARK_BUBBLE_REMOVE_BOOKMARK));
   DialogDelegate::SetExtraView(CreateEditButton(this));
   DialogDelegate::SetFootnoteView(CreateSigninPromoView());
+
+  DialogDelegate::set_cancel_callback(base::Bind(
+      &BookmarkBubbleView::OnDialogCancelled, base::Unretained(this)));
 
   chrome::RecordDialogCreation(chrome::DialogIdentifier::BOOKMARK);
   set_margins(ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(

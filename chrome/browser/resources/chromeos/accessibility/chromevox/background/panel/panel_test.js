@@ -13,73 +13,68 @@ GEN_INCLUDE([
 
 /**
  * Test fixture for Panel.
- * @constructor
- * @extends {ChromeVoxNextE2ETest}
  */
-function ChromeVoxPanelTest() {
-  ChromeVoxNextE2ETest.call(this);
-}
-
-ChromeVoxPanelTest.prototype = {
-  __proto__: ChromeVoxNextE2ETest.prototype,
-
+ChromeVoxPanelTest = class extends ChromeVoxNextE2ETest {
   /** @override */
-  testGenCppIncludes: function() {
+  testGenCppIncludes() {
     ChromeVoxE2ETest.prototype.testGenCppIncludes.call(this);
-  },
+  }
 
   /**
    * @return {!MockFeedback}
    */
-  createMockFeedback: function() {
-    var mockFeedback =
+  createMockFeedback() {
+    const mockFeedback =
         new MockFeedback(this.newCallback(), this.newCallback.bind(this));
     mockFeedback.install();
     return mockFeedback;
-  },
+  }
 
-  getPanelWindow: function() {
-    var panelWindow = null;
+  getPanelWindow() {
+    let panelWindow = null;
     while (!panelWindow) {
       panelWindow = chrome.extension.getViews().find(function(view) {
         return view.location.href.indexOf('background/panel.html') > 0;
       });
     }
     return panelWindow;
-  },
+  }
 
   /**
    * Gets the Panel object in the panel.html window. Note that the extension
    * system destroys our reference to this object unpredictably so always ask
    * chrome.extension.getViews for it.
    */
-  getPanel: function() {
+  getPanel() {
     return this.getPanelWindow().Panel;
-  },
+  }
 
-  fireMockEvent: function(key) {
+  fireMockEvent(key) {
     return function() {
-      var obj = {};
+      const obj = {};
       obj.preventDefault = function() {};
       obj.stopPropagation = function() {};
       obj.key = key;
       this.getPanel().onKeyDown(obj);
     }.bind(this);
-  },
+  }
 
-  linksDoc: `
-    <p>start</p>
-    <a href="#">apple</a>
-    <a href="#">grape</a>
-    <a href="#">banana</a>
-  `
+  get linksDoc() {
+    return `
+      <p>start</p>
+      <a href="#">apple</a>
+      <a href="#">grape</a>
+      <a href="#">banana</a>
+    `;
+  }
 };
+
 
 // TODO: Flaky timeouts. https://crbug.com/795840 and https://crbug.com/990229
 TEST_F('ChromeVoxPanelTest', 'DISABLED_ActivateMenu', function() {
-  var mockFeedback = this.createMockFeedback();
+  const mockFeedback = this.createMockFeedback();
   this.runWithLoadedTree(this.linksDoc, function(root) {
-    var openMenus = new PanelCommand(PanelCommandType.OPEN_MENUS);
+    const openMenus = new PanelCommand(PanelCommandType.OPEN_MENUS);
     mockFeedback.call(openMenus.send.bind(openMenus))
         .expectSpeech(
             'Jump', 'Menu',
@@ -96,9 +91,10 @@ TEST_F('ChromeVoxPanelTest', 'DISABLED_ActivateMenu', function() {
 
 // TODO: Flaky timeouts. https://crbug.com/795840 and https://crbug.com/990229
 TEST_F('ChromeVoxPanelTest', 'DISABLED_LinkMenu', function() {
-  var mockFeedback = this.createMockFeedback();
+  const mockFeedback = this.createMockFeedback();
   this.runWithLoadedTree(this.linksDoc, function(root) {
-    var openMenus = new PanelCommand(PanelCommandType.OPEN_MENUS, 'role_link');
+    const openMenus =
+        new PanelCommand(PanelCommandType.OPEN_MENUS, 'role_link');
     mockFeedback.call(openMenus.send.bind(openMenus))
         .expectSpeech(
             'Link',

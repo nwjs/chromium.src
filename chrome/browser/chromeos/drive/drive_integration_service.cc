@@ -33,6 +33,7 @@
 #include "chrome/browser/drive/drive_notification_manager_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/components/drivefs/drivefs_bootstrap.h"
@@ -58,7 +59,6 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "services/device/public/mojom/constants.mojom.h"
 #include "services/device/public/mojom/wake_lock_provider.mojom.h"
 #include "services/identity/public/mojom/identity_service.mojom.h"
 #include "services/network/public/cpp/network_connection_tracker.h"
@@ -894,14 +894,13 @@ void DriveIntegrationService::Initialize() {
   state_ = INITIALIZING;
 
   base::PostTaskAndReplyWithResult(
-      blocking_task_runner_.get(),
-      FROM_HERE,
-      base::Bind(&InitializeMetadata,
-                 cache_root_directory_,
-                 metadata_storage_.get(),
-                 file_manager::util::GetDownloadsFolderForProfile(profile_)),
-      base::Bind(&DriveIntegrationService::InitializeAfterMetadataInitialized,
-                 weak_ptr_factory_.GetWeakPtr()));
+      blocking_task_runner_.get(), FROM_HERE,
+      base::BindOnce(
+          &InitializeMetadata, cache_root_directory_, metadata_storage_.get(),
+          file_manager::util::GetDownloadsFolderForProfile(profile_)),
+      base::BindOnce(
+          &DriveIntegrationService::InitializeAfterMetadataInitialized,
+          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void DriveIntegrationService::InitializeAfterMetadataInitialized(

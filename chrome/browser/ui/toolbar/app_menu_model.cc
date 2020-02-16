@@ -178,10 +178,7 @@ class HelpMenuModel : public ui::SimpleMenuModel {
     int help_string_id = IDS_HELP_PAGE;
 #endif
 #if defined(OS_CHROMEOS)
-    if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings))
-      AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
-    else
-      AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT_OS));
+    AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
 #else
     AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
 #endif
@@ -265,7 +262,7 @@ void AppMenuModel::Init() {
 
   browser_zoom_subscription_ =
       zoom::ZoomEventManager::GetForBrowserContext(browser_->profile())
-          ->AddZoomLevelChangedCallback(base::Bind(
+          ->AddZoomLevelChangedCallback(base::BindRepeating(
               &AppMenuModel::OnZoomLevelChanged, base::Unretained(this)));
 
   TabStripModel* tab_strip_model = browser_->tab_strip_model();
@@ -822,10 +819,7 @@ void AppMenuModel::Build() {
   AddSubMenuWithStringId(IDC_HELP_MENU, IDS_HELP_MENU, sub_menus_.back().get());
 #else
 #if defined(OS_CHROMEOS)
-  if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings))
-    AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
-  else
-    AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT_OS));
+  AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
 #else
   AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
 #endif
@@ -862,10 +856,14 @@ bool AppMenuModel::CreateActionToolbarOverflowMenu() {
 
   // We only add the extensions overflow container if there are any icons that
   // aren't shown in the main container.
-  // browser_->window() can return null during startup, and
-  // GetToolbarActionsBar() can be null in testing.
-  if (browser_->window() && browser_->window()->GetToolbarActionsBar() &&
-      browser_->window()->GetToolbarActionsBar()->NeedsOverflow()) {
+  // browser_->window() can return null during startup.
+  if (!browser_->window())
+    return false;
+
+  // |toolbar_actions_bar| can be null in testing.
+  ToolbarActionsBar* const toolbar_actions_bar =
+      ToolbarActionsBar::FromBrowserWindow(browser_->window());
+  if (toolbar_actions_bar && toolbar_actions_bar->NeedsOverflow()) {
     AddItem(IDC_EXTENSIONS_OVERFLOW_MENU, base::string16());
     return true;
   }

@@ -71,7 +71,8 @@ class BackForwardCacheMetrics
     kRenderFrameHostReused_SameSite = 27,
     kRenderFrameHostReused_CrossSite = 28,
     kNotMostRecentNavigationEntry = 29,
-    kMaxValue = kNotMostRecentNavigationEntry,
+    kServiceWorkerClaim = 30,
+    kMaxValue = kServiceWorkerClaim,
   };
 
   using NotRestoredReasons =
@@ -92,6 +93,24 @@ class BackForwardCacheMetrics
     kRestored = 0,
     kByJavaScript = 1,
     kMaxValue = kByJavaScript,
+  };
+
+  // Please keep in sync with BackForwardCacheReloadsAndHistoryNavigations
+  // in tools/metrics/histograms/enums.xml. These values should not be
+  // renumbered.
+  enum class ReloadsAndHistoryNavigations {
+    kHistoryNavigation = 0,
+    kReloadAfterHistoryNavigation = 1,
+    kMaxValue = kReloadAfterHistoryNavigation,
+  };
+
+  // Please keep in sync with BackForwardCacheReloadsAfterHistoryNavigation
+  // in tools/metrics/histograms/enums.xml. These values should not be
+  // renumbered.
+  enum class ReloadsAfterHistoryNavigation {
+    kNotServedFromBackForwardCache = 0,
+    kServedFromBackForwardCache = 1,
+    kMaxValue = kServedFromBackForwardCache,
   };
 
   // Creates a potential new metrics object for the navigation.
@@ -166,8 +185,20 @@ class BackForwardCacheMetrics
   void CollectFeatureUsageFromSubtree(RenderFrameHostImpl* rfh,
                                       const url::Origin& main_frame_origin);
 
+  // Dumps the current recorded information.
+  // |back_forward_cache_allowed| indicates whether back-forward cache is
+  // allowed for the URL of |navigation_request|.
   void RecordMetricsForHistoryNavigationCommit(
-      NavigationRequest* navigation) const;
+      NavigationRequest* navigation,
+      bool back_forward_cache_allowed) const;
+
+  // Record metrics for the number of reloads after history navigation. In
+  // particular we are interested in number of reloads after a restore from
+  // the back-forward cache as a proxy for detecting whether the page was
+  // broken or not.
+  void RecordHistogramForReloadsAndHistoryNavigations(
+      bool is_reload,
+      bool back_forward_cache_allowed) const;
 
   // Record additional reason why navigation was not served from bfcache which
   // are known only at the commit time.
@@ -206,6 +237,11 @@ class BackForwardCacheMetrics
   // The reasons given at BackForwardCache::DisableForRenderFrameHost. These are
   // a further breakdown of NotRestoredReason::kDisableForRenderFrameHostCalled.
   std::set<std::string> disabled_reasons_;
+
+  // This value is updated only for navigations which are not same-document and
+  // main-frame navigations.
+  bool previous_navigation_is_history_ = false;
+  bool previous_navigation_is_served_from_bfcache_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(BackForwardCacheMetrics);
 };

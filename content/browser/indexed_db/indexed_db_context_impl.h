@@ -18,9 +18,14 @@
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/strings/string16.h"
+#include "components/services/storage/public/mojom/indexed_db_control.mojom.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/indexed_db/indexed_db_backing_store.h"
 #include "content/public/browser/indexed_db_context.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "storage/browser/blob/mojom/blob_storage_context.mojom.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
 #include "storage/browser/quota/special_storage_policy.h"
 #include "url/origin.h"
@@ -40,20 +45,10 @@ namespace content {
 class IndexedDBConnection;
 class IndexedDBFactoryImpl;
 
-class CONTENT_EXPORT IndexedDBContextImpl : public IndexedDBContext {
+class CONTENT_EXPORT IndexedDBContextImpl
+    : public IndexedDBContext,
+      public storage::mojom::IndexedDBControl {
  public:
-  // Recorded in histograms, so append only.
-  enum ForceCloseReason {
-    FORCE_CLOSE_DELETE_ORIGIN = 0,
-    FORCE_CLOSE_BACKING_STORE_FAILURE,
-    FORCE_CLOSE_INTERNALS_PAGE,
-    FORCE_CLOSE_COPY_ORIGIN,
-    FORCE_SCHEMA_DOWNGRADE_INTERNALS_PAGE,
-    // Append new values here and update IDBContextForcedCloseReason in
-    // enums.xml.
-    FORCE_CLOSE_REASON_MAX
-  };
-
   class Observer {
    public:
     virtual void OnIndexedDBListChanged(const url::Origin& origin) = 0;
@@ -71,25 +66,47 @@ class CONTENT_EXPORT IndexedDBContextImpl : public IndexedDBContext {
 
   // If |data_path| is empty, nothing will be saved to disk.
   // |task_runner| is optional, and only set during testing.
+  // This is called on the UI thread.
   IndexedDBContextImpl(
       const base::FilePath& data_path,
       scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       base::Clock* clock,
+      mojo::PendingRemote<storage::mojom::BlobStorageContext>
+          blob_storage_context,
+      scoped_refptr<base::SequencedTaskRunner> io_task_runner,
       scoped_refptr<base::SequencedTaskRunner> custom_task_runner);
 
+  void Bind(mojo::PendingReceiver<storage::mojom::IndexedDBControl> control);
+
+  // mojom::IndexedDBControl implementation:
+  void GetUsage(GetUsageCallback usage_callback) override;
+  void DeleteForOrigin(const url::Origin& origin,
+                       DeleteForOriginCallback callback) override;
+  void ForceClose(const url::Origin& origin,
+                  storage::mojom::ForceCloseReason reason,
+                  base::OnceClosure callback) override;
+  void GetConnectionCount(const url::Origin& origin,
+                          GetConnectionCountCallback callback) override;
+  void DownloadOriginData(const url::Origin& origin,
+                          DownloadOriginDataCallback callback) override;
+  void GetAllOriginsDetails(GetAllOriginsDetailsCallback callback) override;
+
+  // TODO(enne): fix internal indexeddb callers to use ForceClose async instead.
+  void ForceCloseSync(const url::Origin& origin,
+                      storage::mojom::ForceCloseReason reason);
+
   IndexedDBFactoryImpl* GetIDBFactory();
+
+  base::SequencedTaskRunner* IOTaskRunner();
 
   // Called by StoragePartitionImpl to clear session-only data.
   void Shutdown();
 
-
   int64_t GetOriginDiskUsage(const url::Origin& origin);
 
   // IndexedDBContext implementation:
-  base::SequencedTaskRunner* TaskRunner() override;
-  std::vector<StorageUsageInfo> GetAllOriginsInfo() override;
-  void DeleteForOrigin(const url::Origin& origin) override;
+  base::SequencedTaskRunner* IDBTaskRunner() override;
   void CopyOriginData(const url::Origin& origin,
                       IndexedDBContext* dest_context) override;
   base::FilePath GetFilePathForTesting(const url::Origin& origin) override;
@@ -119,9 +136,6 @@ class CONTENT_EXPORT IndexedDBContextImpl : public IndexedDBContext {
   // Used by IndexedDBInternalsUI to populate internals page.
   base::ListValue* GetAllOriginsDetails();
 
-  // ForceClose takes a value rather than a reference since it may release the
-  // owning object.
-  void ForceClose(const url::Origin origin, ForceCloseReason reason);
   bool ForceSchemaDowngrade(const url::Origin& origin);
   V2SchemaCorruptionStatus HasV2SchemaCorruption(const url::Origin& origin);
   // GetStoragePaths returns all paths owned by this database, in arbitrary
@@ -130,7 +144,7 @@ class CONTENT_EXPORT IndexedDBContextImpl : public IndexedDBContext {
 
   base::FilePath data_path() const { return data_path_; }
   bool IsInMemoryContext() const { return data_path_.empty(); }
-  size_t GetConnectionCount(const url::Origin& origin);
+  size_t GetConnectionCountSync(const url::Origin& origin);
   int GetOriginBlobFileCount(const url::Origin& origin);
 
   // For unit tests allow to override the |data_path_|.
@@ -177,6 +191,8 @@ class CONTENT_EXPORT IndexedDBContextImpl : public IndexedDBContext {
   // backing stores); the cache will be primed as needed by checking disk.
   std::set<url::Origin>* GetOriginSet();
 
+  // Bound and accessed on the |idb_task_runner_|.
+  mojo::Remote<storage::mojom::BlobStorageContext> blob_storage_context_;
   std::unique_ptr<IndexedDBFactoryImpl> indexeddb_factory_;
 
   // If |data_path_| is empty then this is an incognito session and the backing
@@ -187,11 +203,14 @@ class CONTENT_EXPORT IndexedDBContextImpl : public IndexedDBContext {
   bool force_keep_session_state_;
   scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
   scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy_;
-  scoped_refptr<base::SequencedTaskRunner> task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> idb_task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   std::unique_ptr<std::set<url::Origin>> origin_set_;
   std::map<url::Origin, int64_t> origin_size_map_;
   base::ObserverList<Observer>::Unchecked observers_;
   base::Clock* clock_;
+
+  mojo::ReceiverSet<storage::mojom::IndexedDBControl> receivers_;
 
   DISALLOW_COPY_AND_ASSIGN(IndexedDBContextImpl);
 };

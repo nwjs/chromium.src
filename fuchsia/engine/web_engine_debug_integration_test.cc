@@ -13,12 +13,12 @@
 #include "base/fuchsia/file_utils.h"
 #include "base/macros.h"
 #include "base/test/task_environment.h"
+#include "fuchsia/base/context_provider_test_connector.h"
 #include "fuchsia/base/fit_adapter.h"
 #include "fuchsia/base/frame_test_util.h"
 #include "fuchsia/base/result_receiver.h"
 #include "fuchsia/base/test_devtools_list_fetcher.h"
 #include "fuchsia/base/test_navigation_listener.h"
-#include "fuchsia/engine/test/context_provider_test_connector.h"
 #include "fuchsia/engine/test_debug_listener.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -37,8 +37,8 @@ class WebEngineDebugIntegrationTest : public testing::Test {
   ~WebEngineDebugIntegrationTest() override = default;
 
   void SetUp() override {
-    ConnectContextProvider(web_context_provider_.NewRequest(),
-                           web_context_controller_.NewRequest());
+    web_context_provider_ =
+        cr_fuchsia::ConnectContextProvider(web_engine_controller_.NewRequest());
     web_context_provider_.set_error_handler(
         [](zx_status_t status) { ADD_FAILURE(); });
 
@@ -105,7 +105,7 @@ class WebEngineDebugIntegrationTest : public testing::Test {
   std::unique_ptr<sys::ServiceDirectory> debug_dir_;
   fuchsia::web::ContextProviderPtr web_context_provider_;
   fidl::InterfaceHandle<fuchsia::sys::ComponentController>
-      web_context_controller_;
+      web_engine_controller_;
   fuchsia::web::DebugSyncPtr debug_;
 
   base::OnceClosure on_url_fetch_complete_ack_;

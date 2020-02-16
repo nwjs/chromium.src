@@ -8,8 +8,6 @@ source_set("settings_root") {
     "bar_button_activity_indicator.h",
     "bar_button_activity_indicator.mm",
     "settings_navigation_controller.h",
-    "settings_root_collection_view_controller.h",
-    "settings_root_collection_view_controller.mm",
     "settings_root_table_view_controller.h",
     "settings_root_table_view_controller.mm",
     "settings_root_view_controlling.h",
@@ -19,11 +17,7 @@ source_set("settings_root") {
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/ui:feature_flags",
-    "//ios/chrome/browser/ui/collection_view",
-    "//ios/chrome/browser/ui/collection_view/cells",
-    "//ios/chrome/browser/ui/collection_view/cells",
     "//ios/chrome/browser/ui/commands",
-    "//ios/chrome/browser/ui/material_components",
     "//ios/chrome/browser/ui/settings/cells",
     "//ios/chrome/browser/ui/settings/cells:public",
     "//ios/chrome/browser/ui/table_view",
@@ -33,7 +27,6 @@ source_set("settings_root") {
     "//ios/chrome/common/ui_util",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser/user_feedback",
-    "//ios/third_party/material_components_ios",
     "//ui/base",
   ]
 }
@@ -44,9 +37,7 @@ source_set("settings_root_constants") {
     "settings_root_table_constants.h",
     "settings_root_table_constants.mm",
   ]
-  deps = [
-    "//base",
-  ]
+  deps = [ "//base" ]
 }
 
 source_set("settings") {
@@ -66,8 +57,6 @@ source_set("settings") {
     "handoff_table_view_controller.mm",
     "import_data_table_view_controller.h",
     "import_data_table_view_controller.mm",
-    "material_cell_catalog_view_controller.h",
-    "material_cell_catalog_view_controller.mm",
     "privacy_table_view_controller.h",
     "privacy_table_view_controller.mm",
     "search_engine_table_view_controller.h",
@@ -121,7 +110,6 @@ source_set("settings") {
     "//components/keyed_service/core",
     "//components/password_manager/core/browser",
     "//components/password_manager/core/common",
-    "//components/payments/core",
     "//components/prefs/ios",
     "//components/resources",
     "//components/search_engines",
@@ -154,7 +142,6 @@ source_set("settings") {
     "//ios/chrome/browser/ui/authentication",
     "//ios/chrome/browser/ui/authentication/cells",
     "//ios/chrome/browser/ui/autofill/cells",
-    "//ios/chrome/browser/ui/collection_view",
     "//ios/chrome/browser/ui/colors",
     "//ios/chrome/browser/ui/commands",
     "//ios/chrome/browser/ui/content_suggestions/cells",
@@ -164,8 +151,6 @@ source_set("settings") {
     "//ios/chrome/browser/ui/icons",
     "//ios/chrome/browser/ui/keyboard",
     "//ios/chrome/browser/ui/list_model",
-    "//ios/chrome/browser/ui/material_components",
-    "//ios/chrome/browser/ui/payments/cells",
     "//ios/chrome/browser/ui/settings/autofill",
     "//ios/chrome/browser/ui/settings/cells",
     "//ios/chrome/browser/ui/settings/cells:public",
@@ -196,13 +181,9 @@ source_set("settings") {
     "//ios/public/provider/chrome/browser/signin",
     "//ios/public/provider/chrome/browser/user_feedback",
     "//ios/public/provider/chrome/browser/voice",
-    "//ios/third_party/material_components_ios",
     "//net",
     "//ui/base",
     "//url",
-  ]
-  public_deps = [
-    "//ios/chrome/browser/ui/collection_view/cells",
   ]
   allow_circular_includes_from = [ "//ios/chrome/browser/ui/authentication" ]
   libs = [
@@ -222,6 +203,7 @@ source_set("constants") {
 }
 
 source_set("test_support") {
+  defines = [ "CHROME_EARL_GREY_1" ]
   configs += [ "//build/config/compiler:enable_arc" ]
   testonly = true
   sources = [
@@ -229,6 +211,8 @@ source_set("test_support") {
     "passphrase_table_view_controller_test.mm",
     "personal_data_manager_finished_profile_tasks_waiter.cc",
     "personal_data_manager_finished_profile_tasks_waiter.h",
+    "signin_settings_app_interface.h",
+    "signin_settings_app_interface.mm",
   ]
   deps = [
     ":settings",
@@ -237,11 +221,13 @@ source_set("test_support") {
     "//components/autofill/core/browser",
     "//components/keyed_service/core",
     "//components/pref_registry",
+    "//components/prefs",
     "//components/sync",
     "//components/sync:test_support",
     "//components/sync_preferences",
     "//components/sync_preferences:test_support",
     "//google_apis",
+    "//ios/chrome/browser",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/browser_state:test_support",
     "//ios/chrome/browser/main:test_support",
@@ -252,6 +238,7 @@ source_set("test_support") {
     "//ios/chrome/browser/sync:test_support",
     "//ios/chrome/browser/ui/settings/password",
     "//ios/chrome/browser/ui/table_view:test_support",
+    "//ios/chrome/test/app:test_support",
     "//ios/public/provider/chrome/browser/signin:test_support",
     "//ios/web/public/test",
     "//testing/gtest",
@@ -271,7 +258,6 @@ source_set("unit_tests") {
     "privacy_table_view_controller_unittest.mm",
     "search_engine_table_view_controller_unittest.mm",
     "settings_navigation_controller_unittest.mm",
-    "settings_root_collection_view_controller_unittest.mm",
     "settings_root_table_view_controller_unittest.mm",
     "translate_table_view_controller_unittest.mm",
     "voice_search_table_view_controller_unittest.mm",
@@ -288,7 +274,6 @@ source_set("unit_tests") {
     "//components/language/core/browser",
     "//components/password_manager/core/browser:test_support",
     "//components/password_manager/core/common",
-    "//components/payments/core",
     "//components/pref_registry",
     "//components/prefs:test_support",
     "//components/search_engines",
@@ -316,9 +301,6 @@ source_set("unit_tests") {
     "//ios/chrome/browser/sync",
     "//ios/chrome/browser/translate",
     "//ios/chrome/browser/ui:feature_flags",
-    "//ios/chrome/browser/ui/collection_view",
-    "//ios/chrome/browser/ui/collection_view:test_support",
-    "//ios/chrome/browser/ui/collection_view/cells",
     "//ios/chrome/browser/ui/icons",
     "//ios/chrome/browser/ui/settings/cells",
     "//ios/chrome/browser/ui/table_view",
@@ -331,7 +313,6 @@ source_set("unit_tests") {
     "//ios/chrome/test/app:test_support",
     "//ios/public/provider/chrome/browser",
     "//ios/public/provider/chrome/browser/voice",
-    "//ios/third_party/material_components_ios",
     "//ios/web/public/test",
     "//net",
     "//net:test_support",
@@ -350,14 +331,24 @@ source_set("eg_test_support") {
   sources = [
     "block_popups_app_interface.h",
     "block_popups_app_interface.mm",
+    "settings_app_interface.h",
+    "settings_app_interface.mm",
   ]
   deps = [
     "//base",
+    "//components/browsing_data/core",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
+    "//components/metrics",
+    "//components/prefs",
+    "//ios/chrome/app:app_internal",
+    "//ios/chrome/browser",
+    "//ios/chrome/browser:pref_names",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/content_settings",
+    "//ios/chrome/browser/content_settings",
     "//ios/chrome/test/app:test_support",
+    "//third_party/breakpad:client",
   ]
 }
 
@@ -370,9 +361,10 @@ source_set("eg_tests") {
   testonly = true
   sources = [
     "block_popups_egtest.mm",
+    "search_engine_settings_egtest.mm",
+    "settings_accessibility_egtest.mm",
     "settings_egtest.mm",
     "signin_settings_egtest.mm",
-    "translate_ui_egtest.mm",
   ]
 
   deps = [
@@ -413,12 +405,14 @@ source_set("eg_tests") {
     "//ios/chrome/test:test_support",
     "//ios/chrome/test/app:test_support",
     "//ios/chrome/test/earl_grey:test_support",
+    "//ios/public/provider/chrome/browser/signin:fake_chrome_identity",
     "//ios/public/provider/chrome/browser/signin:test_support",
     "//ios/testing/earl_grey:earl_grey_support",
     "//ios/third_party/earl_grey:earl_grey+link",
     "//ios/web:earl_grey_test_support",
     "//ios/web/public/test/http_server",
     "//net",
+    "//net:test_support",
     "//ui/base",
     "//url",
   ]
@@ -432,17 +426,25 @@ source_set("eg_app_support+eg2") {
   sources = [
     "block_popups_app_interface.h",
     "block_popups_app_interface.mm",
+    "settings_app_interface.h",
+    "settings_app_interface.mm",
+    "signin_settings_app_interface.h",
+    "signin_settings_app_interface.mm",
   ]
   deps = [
     "//base",
+    "//components/browsing_data/core",
     "//components/content_settings/core/browser",
+    "//components/metrics",
+    "//components/prefs",
+    "//ios/chrome/app:app_internal",
+    "//ios/chrome/browser",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/content_settings",
     "//ios/chrome/test/app:test_support",
+    "//third_party/breakpad:client",
   ]
-  public_deps = [
-    "//components/content_settings/core/common",
-  ]
+  public_deps = [ "//components/content_settings/core/common" ]
 }
 
 source_set("eg_test_support+eg2") {
@@ -451,10 +453,11 @@ source_set("eg_test_support+eg2") {
   testonly = true
   sources = [
     "block_popups_app_interface.h",
+    "settings_app_interface.h",
+    "signin_settings_app_interface.h",
   ]
-  public_deps = [
-    "//components/content_settings/core/common",
-  ]
+  public_deps = [ "//components/content_settings/core/common" ]
+  deps = [ "//base" ]
 }
 
 source_set("eg2_tests") {
@@ -466,15 +469,28 @@ source_set("eg2_tests") {
   testonly = true
   sources = [
     "block_popups_egtest.mm",
+    "search_engine_settings_egtest.mm",
+    "settings_accessibility_egtest.mm",
+    "settings_egtest.mm",
+    "signin_settings_egtest.mm",
   ]
   deps = [
     ":eg_test_support+eg2",
     "//base",
+    "//base/test:test_support",
+    "//build:branding_buildflags",
+    "//components/strings",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/ui:feature_flags",
+    "//ios/chrome/browser/ui/authentication:eg_test_support+eg2",
+    "//ios/chrome/browser/ui/authentication/cells:constants",
+    "//ios/chrome/browser/ui/settings:constants",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
+    "//ios/public/provider/chrome/browser/signin:fake_chrome_identity",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/third_party/earl_grey2:test_lib",
     "//ios/web/public/test/http_server",
+    "//net:test_support",
     "//ui/base",
     "//url",
   ]

@@ -220,11 +220,11 @@ enum KeyboardCode {
   VKEY_POWER = 0x98,
   VKEY_ASSISTANT = 0x99,
   VKEY_SETTINGS = 0x9A,
+  VKEY_PRIVACY_SCREEN_TOGGLE = 0x9B,
   VKEY_BRIGHTNESS_DOWN = 0xD8,
   VKEY_BRIGHTNESS_UP = 0xD9,
   VKEY_KBD_BRIGHTNESS_DOWN = 0xDA,
   VKEY_KBD_BRIGHTNESS_UP = 0xE8,
-  VKEY_SPATNAV_BACK = 0xE9,
 
   // Windows does not have a specific key code for AltGr. We use the unused 0xE1
   // (VK_OEM_AX) code to represent AltGr, matching the behaviour of Firefox on

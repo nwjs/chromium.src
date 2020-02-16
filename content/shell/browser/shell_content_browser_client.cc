@@ -16,7 +16,9 @@
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/stl_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/threading/sequence_local_storage_slot.h"
 #include "build/build_config.h"
 #include "content/public/browser/client_certificate_delegate.h"
 #include "content/public/browser/cors_exempt_headers.h"
@@ -47,11 +49,11 @@
 #include "content/test/data/mojo_web_test_helper_test.mojom.h"
 #include "device/bluetooth/public/mojom/test/fake_bluetooth.mojom.h"
 #include "media/mojo/buildflags.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/ssl/client_cert_identity.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/service_manager/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
-#include "storage/browser/quota/quota_settings.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "ui/base/ui_base_features.h"
@@ -62,7 +64,6 @@
 #if defined(OS_ANDROID)
 #include "base/android/apk_assets.h"
 #include "base/android/path_utils.h"
-#include "components/crash/content/app/crashpad.h"
 #include "content/shell/android/shell_descriptors.h"
 #endif
 
@@ -70,9 +71,13 @@
 #include "content/public/browser/context_factory.h"
 #endif
 
-#if defined(OS_LINUX) || defined(OS_ANDROID)
-#include "base/debug/leak_annotations.h"
+#if defined(OS_ANDROID)
 #include "components/crash/content/browser/crash_handler_host_linux.h"
+#endif
+
+#if defined(OS_LINUX) || defined(OS_ANDROID)
+#include "components/crash/content/app/crash_switches.h"
+#include "components/crash/content/app/crashpad.h"
 #include "content/public/common/content_descriptors.h"
 #endif
 
@@ -81,9 +86,7 @@
 #include "services/service_manager/sandbox/win/sandbox_win.h"
 #endif
 
-#if BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS) || \
-    BUILDFLAG(ENABLE_CAST_RENDERER)
-#include "media/mojo/mojom/constants.mojom.h"      // nogncheck
+#if BUILDFLAG(ENABLE_CAST_RENDERER)
 #include "media/mojo/services/media_service_factory.h"  // nogncheck
 #endif
 
@@ -98,52 +101,12 @@ int GetCrashSignalFD(const base::CommandLine& command_line) {
   return crashpad::CrashHandlerHost::Get()->GetDeathSignalSocket();
 }
 #elif defined(OS_LINUX)
-breakpad::CrashHandlerHostLinux* CreateCrashHandlerHost(
-    const std::string& process_type) {
-  base::FilePath dumps_path =
-      base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
-          switches::kCrashDumpsDir);
-  {
-    ANNOTATE_SCOPED_MEMORY_LEAK;
-    breakpad::CrashHandlerHostLinux* crash_handler =
-        new breakpad::CrashHandlerHostLinux(
-            process_type, dumps_path, false);
-    crash_handler->StartUploaderThread();
-    return crash_handler;
-  }
-}
-
 int GetCrashSignalFD(const base::CommandLine& command_line) {
-  if (!breakpad::IsCrashReporterEnabled())
-    return -1;
-
-  std::string process_type =
-      command_line.GetSwitchValueASCII(switches::kProcessType);
-
-  if (process_type == switches::kRendererProcess) {
-    static breakpad::CrashHandlerHostLinux* crash_handler = nullptr;
-    if (!crash_handler)
-      crash_handler = CreateCrashHandlerHost(process_type);
-    return crash_handler->GetDeathSignalSocket();
-  }
-
-  if (process_type == switches::kPpapiPluginProcess) {
-    static breakpad::CrashHandlerHostLinux* crash_handler = nullptr;
-    if (!crash_handler)
-      crash_handler = CreateCrashHandlerHost(process_type);
-    return crash_handler->GetDeathSignalSocket();
-  }
-
-  if (process_type == switches::kGpuProcess) {
-    static breakpad::CrashHandlerHostLinux* crash_handler = nullptr;
-    if (!crash_handler)
-      crash_handler = CreateCrashHandlerHost(process_type);
-    return crash_handler->GetDeathSignalSocket();
-  }
-
-  return -1;
+  int fd;
+  pid_t pid;
+  return crash_reporter::GetHandlerSocket(&fd, &pid) ? fd : -1;
 }
-#endif  // defined(OS_ANDROID)
+#endif
 
 const service_manager::Manifest& GetContentBrowserOverlayManifest() {
   static base::NoDestructor<service_manager::Manifest> manifest{
@@ -155,10 +118,6 @@ const service_manager::Manifest& GetContentBrowserOverlayManifest() {
                   mojom::FakeBluetoothChooserFactory,
                   mojom::WebTestBluetoothFakeAdapterSetter,
                   bluetooth::mojom::FakeBluetooth>())
-          .ExposeInterfaceFilterCapability_Deprecated(
-              "navigation:frame", "renderer",
-              service_manager::Manifest::InterfaceList<
-                  mojom::MojoWebTestHelper>())
           .Build()};
   return *manifest;
 }
@@ -189,10 +148,8 @@ blink::UserAgentMetadata GetShellUserAgentMetadata() {
   metadata.full_version = CONTENT_SHELL_VERSION;
   metadata.major_version = CONTENT_SHELL_MAJOR_VERSION;
   metadata.platform = BuildOSCpuInfo(false);
-
-  // TODO(mkwst): Split these out from BuildOSCpuInfo().
-  metadata.architecture = "";
-  metadata.model = "";
+  metadata.architecture = BuildCpuInfo();
+  metadata.model = BuildModelInfo();
 
   return metadata;
 }
@@ -225,53 +182,16 @@ bool ShellContentBrowserClient::IsHandledURL(const GURL& url) {
   if (!url.is_valid())
     return false;
   static const char* const kProtocolList[] = {
-      url::kHttpScheme, url::kHttpsScheme,     url::kWsScheme,
-      url::kWssScheme,  url::kBlobScheme,      url::kFileSystemScheme,
-      kChromeUIScheme,  kChromeDevToolsScheme, url::kDataScheme,
-      url::kFileScheme,
+      url::kHttpScheme, url::kHttpsScheme,        url::kWsScheme,
+      url::kWssScheme,  url::kBlobScheme,         url::kFileSystemScheme,
+      kChromeUIScheme,  kChromeUIUntrustedScheme, kChromeDevToolsScheme,
+      url::kDataScheme, url::kFileScheme,
   };
   for (const char* supported_protocol : kProtocolList) {
     if (url.scheme_piece() == supported_protocol)
       return true;
   }
   return false;
-}
-
-void ShellContentBrowserClient::BindInterfaceRequestFromFrame(
-    RenderFrameHost* render_frame_host,
-    const std::string& interface_name,
-    mojo::ScopedMessagePipeHandle interface_pipe) {
-  if (!frame_interfaces_) {
-    frame_interfaces_ = std::make_unique<
-        service_manager::BinderRegistryWithArgs<content::RenderFrameHost*>>();
-    ExposeInterfacesToFrame(frame_interfaces_.get());
-  }
-
-  frame_interfaces_->TryBindInterface(interface_name, &interface_pipe,
-                                      render_frame_host);
-}
-
-void ShellContentBrowserClient::RunServiceInstance(
-    const service_manager::Identity& identity,
-    mojo::PendingReceiver<service_manager::mojom::Service>* receiver) {
-#if BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS) || \
-    BUILDFLAG(ENABLE_CAST_RENDERER)
-  bool is_media_service = false;
-#if BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS)
-  if (identity.name() == media::mojom::kMediaServiceName)
-    is_media_service = true;
-#endif  // BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS)
-#if BUILDFLAG(ENABLE_CAST_RENDERER)
-  if (identity.name() == media::mojom::kMediaRendererServiceName)
-    is_media_service = true;
-#endif  // BUILDFLAG(ENABLE_CAST_RENDERER)
-
-  if (is_media_service) {
-    service_manager::Service::RunAsyncUntilTermination(
-        media::CreateMediaServiceForTesting(std::move(*receiver)));
-  }
-#endif  // BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS) ||
-        // BUILDFLAG(ENABLE_CAST_RENDERER)
 }
 
 bool ShellContentBrowserClient::ShouldTerminateOnServiceQuit(
@@ -299,6 +219,15 @@ void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableCrashReporter)) {
     command_line->AppendSwitch(switches::kEnableCrashReporter);
+#if defined(OS_LINUX)
+    int fd;
+    pid_t pid;
+    if (crash_reporter::GetHandlerSocket(&fd, &pid)) {
+      command_line->AppendSwitchASCII(
+          crash_reporter::switches::kCrashpadHandlerPid,
+          base::NumberToString(pid));
+    }
+#endif  // OS_LINUX
   }
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kCrashDumpsDir)) {
@@ -344,13 +273,6 @@ ShellContentBrowserClient::CreateQuotaPermissionContext() {
   return new ShellQuotaPermissionContext();
 }
 
-void ShellContentBrowserClient::GetQuotaSettings(
-    BrowserContext* context,
-    StoragePartition* partition,
-    storage::OptionalQuotaSettingsCallback callback) {
-  std::move(callback).Run(storage::GetHardCodedSettings(100 * 1024 * 1024));
-}
-
 GeneratedCodeCacheSettings
 ShellContentBrowserClient::GetGeneratedCodeCacheSettings(
     content::BrowserContext* context) {
@@ -383,6 +305,19 @@ base::FilePath ShellContentBrowserClient::GetFontLookupTableCacheDir() {
 DevToolsManagerDelegate*
 ShellContentBrowserClient::GetDevToolsManagerDelegate() {
   return new ShellDevToolsManagerDelegate(browser_context());
+}
+
+mojo::Remote<::media::mojom::MediaService>
+ShellContentBrowserClient::RunSecondaryMediaService() {
+  mojo::Remote<::media::mojom::MediaService> remote;
+#if BUILDFLAG(ENABLE_CAST_RENDERER)
+  static base::NoDestructor<
+      base::SequenceLocalStorageSlot<std::unique_ptr<::media::MediaService>>>
+      service;
+  service->emplace(::media::CreateMediaServiceForTesting(
+      remote.BindNewPipeAndPassReceiver()));
+#endif
+  return remote;
 }
 
 void ShellContentBrowserClient::OpenURL(
@@ -497,9 +432,5 @@ ShellBrowserContext*
     ShellContentBrowserClient::off_the_record_browser_context() {
   return shell_browser_main_parts_->off_the_record_browser_context();
 }
-
-void ShellContentBrowserClient::ExposeInterfacesToFrame(
-    service_manager::BinderRegistryWithArgs<content::RenderFrameHost*>*
-        registry) {}
 
 }  // namespace content

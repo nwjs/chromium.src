@@ -63,7 +63,8 @@ suite(extension_detail_view_tests.suiteName, function() {
     const testIsVisible = isVisible.bind(null, item);
     expectTrue(testIsVisible('#closeButton'));
     expectTrue(testIsVisible('#icon'));
-    expectTrue(testIsVisible('#enable-toggle'));
+    expectTrue(testIsVisible('#enableToggle'));
+    expectFalse(testIsVisible('#enableButton'));
     expectFalse(testIsVisible('#extensions-options'));
     expectTrue(
         item.$.description.textContent.indexOf('This is an extension') !== -1);
@@ -168,11 +169,33 @@ suite(extension_detail_view_tests.suiteName, function() {
     flush();
     expectTrue(testIsVisible('.warning-icon'));
 
-    expectTrue(testIsVisible('#enable-toggle'));
+    expectTrue(testIsVisible('#enableToggle'));
+    expectFalse(testIsVisible('#enableButton'));
     expectFalse(testIsVisible('#terminated-reload-button'));
+
+    // This section tests that the enable toggle is visible but disabled when
+    // disableReasons.blockedByPolicy is true. This test prevents a regression
+    // to crbug/1003014.
+    item.set('data.disableReasons.blockedByPolicy', true);
+    flush();
+    expectTrue(testIsVisible('#enableToggle'));
+    expectTrue(item.$$('#enableToggle').disabled);
+    expectFalse(testIsVisible('#enableButton'));
+    item.set('data.disableReasons.blockedByPolicy', false);
+    flush();
+
+    item.set('data.disableReasons.custodianApprovalRequired', true);
+    flush();
+    expectFalse(testIsVisible('#enableToggle'));
+    expectTrue(testIsVisible('#enableButton'));
+    expectFalse(item.$$('#enableButton').disabled);
+    item.set('data.disableReasons.custodianApprovalRequired', false);
+    flush();
+
     item.set('data.state', chrome.developerPrivate.ExtensionState.TERMINATED);
     flush();
-    expectFalse(testIsVisible('#enable-toggle'));
+    expectFalse(testIsVisible('#enableToggle'));
+    expectFalse(testIsVisible('#enableButton'));
     expectTrue(testIsVisible('#terminated-reload-button'));
 
     // Ensure that the runtime warning reload button is not visible if there
@@ -348,6 +371,9 @@ suite(extension_detail_view_tests.suiteName, function() {
     testWarningVisible('#suspicious-warning', false);
     testWarningVisible('#blacklisted-warning', false);
     testWarningVisible('#update-required-warning', false);
+    const testIsVisible = isVisible.bind(null, item);
+    expectTrue(testIsVisible('#enableToggle'));
+    expectFalse(testIsVisible('#enableButton'));
 
     item.set('data.disableReasons.suspiciousInstall', true);
     flush();

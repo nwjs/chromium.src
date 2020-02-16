@@ -24,9 +24,9 @@
 #include "chrome/browser/safe_browsing/download_protection/ppapi_download_request.h"
 #include "chrome/common/safe_browsing/file_type_policies.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/common/utils.h"
-#include "components/safe_browsing/web_ui/safe_browsing_ui.h"
+#include "components/safe_browsing/content/web_ui/safe_browsing_ui.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/utils.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -130,7 +130,6 @@ CheckClientDownloadRequestBase::CheckClientDownloadRequestBase(
     base::FilePath target_file_path,
     base::FilePath full_path,
     TabUrls tab_urls,
-    size_t file_size,
     std::string mime_type,
     std::string hash,
     content::BrowserContext* browser_context,
@@ -143,7 +142,6 @@ CheckClientDownloadRequestBase::CheckClientDownloadRequestBase(
       full_path_(std::move(full_path)),
       tab_url_(std::move(tab_urls.url)),
       tab_referrer_url_(std::move(tab_urls.referrer)),
-      file_size_(file_size),
       callback_(std::move(callback)),
       service_(service),
       binary_feature_extractor_(std::move(binary_feature_extractor)),
@@ -161,20 +159,7 @@ CheckClientDownloadRequestBase::CheckClientDownloadRequestBase(
     is_under_advanced_protection_ =
         profile &&
         AdvancedProtectionStatusManagerFactory::GetForProfile(profile)
-            ->is_under_advanced_protection();
-    requests_ap_verdicts_ =
-        profile &&
-        AdvancedProtectionStatusManagerFactory::GetForProfile(profile)
-            ->RequestsAdvancedProtectionVerdicts();
-
-    int password_protected_allowed_policy =
-        g_browser_process->local_state()->GetInteger(
-            prefs::kAllowPasswordProtectedFiles);
-    password_protected_allowed_ =
-        (password_protected_allowed_policy ==
-             AllowPasswordProtectedFilesValues::ALLOW_DOWNLOADS ||
-         password_protected_allowed_policy ==
-             AllowPasswordProtectedFilesValues::ALLOW_UPLOADS_AND_DOWNLOADS);
+            ->IsUnderAdvancedProtection();
   }
 }
 
@@ -211,41 +196,23 @@ void CheckClientDownloadRequestBase::FinishRequest(
                               reason, REASON_MAX);
   }
 
-  if (ShouldUploadBinary(reason)) {
-    if (password_protected_allowed_ && is_password_protected_) {
-      Profile* profile = Profile::FromBrowserContext(GetBrowserContext());
-      extensions::SafeBrowsingPrivateEventRouterFactory::GetForProfile(profile)
-          ->OnUnscannedFileEvent(
-              source_url_, target_file_path_.AsUTF8Unsafe(),
-              base::HexEncode(hash_.data(), hash_.size()), mime_type_,
-              extensions::SafeBrowsingPrivateEventRouter::kTriggerFileDownload,
-              "filePasswordProtected", file_size_);
-    }
-
-    if (is_password_protected_ && !password_protected_allowed_) {
-      result = DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED;
-      reason = DownloadCheckResultReason::REASON_BLOCKED_PASSWORD_PROTECTED;
-    } else if (BinaryUploadService::ShouldBlockFileSize(file_size_)) {
-      result = DownloadCheckResult::BLOCKED_TOO_LARGE;
-      reason = DownloadCheckResultReason::REASON_BLOCKED_TOO_LARGE;
-    } else {
-      UploadBinary(result, reason);
-    }
+  if (ShouldPromptForDeepScanning(reason)) {
+    result = DownloadCheckResult::PROMPT_FOR_SCANNING;
+    reason = DownloadCheckResultReason::REASON_ADVANCED_PROTECTION_PROMPT;
   }
 
-  DVLOG(2) << "SafeBrowsing download verdict for: " << source_url_
-           << " verdict:" << reason << " result:" << static_cast<int>(result);
+  if (ShouldUploadBinary(reason)) {
+    UploadBinary(reason);
+  } else {
+    std::move(callback_).Run(result);
+  }
+
   UMA_HISTOGRAM_ENUMERATION("SBClientDownload.CheckDownloadStats", reason,
                             REASON_MAX);
 
-  if (MaybeReturnAsynchronousVerdict(reason)) {
-    timeout_closure_.Cancel();
-  } else {
-    std::move(callback_).Run(result);
-    NotifyRequestFinished(result, reason);
-    service()->RequestFinished(this);
-    // DownloadProtectionService::RequestFinished may delete us.
-  }
+  NotifyRequestFinished(result, reason);
+  service()->RequestFinished(this);
+  // DownloadProtectionService::RequestFinished may delete us.
 }
 
 bool CheckClientDownloadRequestBase::ShouldSampleWhitelistedDownload() {
@@ -358,12 +325,6 @@ void CheckClientDownloadRequestBase::OnFileFeatureExtractionDone(
                   REASON_ARCHIVE_WITHOUT_BINARIES);
     return;
   }
-
-  is_password_protected_ = std::any_of(
-      results.archived_binaries.begin(), results.archived_binaries.end(),
-      [](const ClientDownloadRequest::ArchivedBinary& binary) {
-        return binary.is_encrypted();
-      });
 
   // The content checks cannot determine that we decided to sample this file, so
   // special case that DownloadType.
@@ -558,7 +519,7 @@ void CheckClientDownloadRequestBase::SendRequest() {
     request->mutable_archived_binary()->Swap(&archived_binaries_);
   request->set_archive_file_count(file_count_);
   request->set_archive_directory_count(directory_count_);
-  request->set_request_ap_verdicts(requests_ap_verdicts_);
+  request->set_request_ap_verdicts(is_under_advanced_protection_);
 
   if (!request->SerializeToString(&client_download_request_data_)) {
     FinishRequest(DownloadCheckResult::UNKNOWN, REASON_INVALID_REQUEST_PROTO);

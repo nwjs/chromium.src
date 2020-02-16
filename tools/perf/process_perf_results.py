@@ -17,6 +17,11 @@ import tempfile
 import time
 import uuid
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='(%(levelname)s) %(asctime)s pid=%(process)d'
+           '  %(module)s.%(funcName)s:%(lineno)d  %(message)s')
+
 from core import path_util
 from core import upload_results_to_perf_dashboard
 from core import results_merger
@@ -48,30 +53,6 @@ DATA_FORMAT_GTEST = 'gtest'
 DATA_FORMAT_CHARTJSON = 'chartjson'
 DATA_FORMAT_HISTOGRAMS = 'histograms'
 DATA_FORMAT_UNKNOWN = 'unknown'
-
-# See https://crbug.com/923564.
-# We want to switch over to using histograms for everything, but converting from
-# the format output by gtest perf tests to histograms has introduced several
-# problems. So, only perform the conversion on tests that are whitelisted and
-# are okay with potentially encountering issues.
-GTEST_CONVERSION_WHITELIST = [
-  'angle_perftests',
-  'cc_perftests',
-  'components_perftests',
-  'gpu_perftests',
-  'latency_perftests',
-  'load_library_perf_tests',
-  'media_perftests',
-  'net_perftests',
-  'passthrough_command_buffer_perftests',
-  'performance_browser_tests',
-  'services_perftests',
-  'tracing_perftests',
-  'validating_command_buffer_perftests',
-  'views_perftests',
-  'viz_perftests',
-  'xr.vr.common_perftests',
-]
 
 
 def _GetMachineGroup(build_properties):
@@ -115,13 +96,6 @@ def _upload_perf_results(json_to_upload, name, configuration_name,
   buildbucket = build_properties.get('buildbucket', {})
   if isinstance(buildbucket, basestring):
     buildbucket = json.loads(buildbucket)
-
-  if _is_gtest(json_to_upload) and name in GTEST_CONVERSION_WHITELIST:
-    path_util.AddTracingToPath()
-    from tracing.value import (  # pylint: disable=no-name-in-module
-        gtest_json_converter)
-    gtest_json_converter.ConvertGtestJsonFile(json_to_upload)
-    _data_format_cache[json_to_upload] = DATA_FORMAT_HISTOGRAMS
 
   if 'build' in buildbucket:
     args += [
@@ -203,7 +177,8 @@ def _handle_perf_json_test_results(
             # Output is null meaning the test didn't produce any results.
             # Want to output an error and continue loading the rest of the
             # test results.
-            print('No results produced for %s, skipping upload' % directory)
+            logging.warning(
+                'No results produced for %s, skipping upload' % directory)
             continue
           if json_results.get('version') == 3:
             # Non-telemetry tests don't have written json results but
@@ -224,7 +199,7 @@ def _handle_perf_json_test_results(
       if not enabled:
         # We don't upload disabled benchmarks or tests that are run
         # as a smoke test
-        print(
+        logging.info(
             'Benchmark %s ran no tests on at least one shard' % benchmark_name)
         continue
       benchmark_enabled_map[benchmark_name] = True
@@ -441,7 +416,7 @@ def _upload_individual(
       results_filename = os.path.join(directories[0], 'perf_results.json')
 
     results_size_in_mib = os.path.getsize(results_filename) / (2 ** 20)
-    print('Uploading perf results from %s benchmark (size %s Mib)' %
+    logging.info('Uploading perf results from %s benchmark (size %s Mib)' %
           (benchmark_name, results_size_in_mib))
     with open(output_json_file, 'w') as oj:
       upload_return_code = _upload_perf_results(
@@ -513,14 +488,20 @@ def _handle_perf_results(
         build_properties, output_json_file))
 
   # Kick off the uploads in multiple processes
-  pool = multiprocessing.Pool(_GetCpuCount())
+  # crbug.com/1035930: We are hitting HTTP Response 429. Limit ourselves
+  # to 2 processes to avoid this error. Uncomment the following code once
+  # the problem is fixed on the dashboard side.
+  # pool = multiprocessing.Pool(_GetCpuCount())
+  pool = multiprocessing.Pool(2)
+  upload_result_timeout = False
   try:
     async_result = pool.map_async(
         _upload_individual_benchmark, invocations)
     # TODO(crbug.com/947035): What timeout is reasonable?
     results = async_result.get(timeout=4000)
   except multiprocessing.TimeoutError:
-    logging.error('Failed uploading benchmarks to perf dashboard in parallel')
+    upload_result_timeout = True
+    logging.error('Timeout uploading benchmarks to perf dashboard in parallel')
     results = []
     for benchmark_name in benchmark_directory_map:
       results.append((benchmark_name, False))
@@ -557,7 +538,7 @@ def _handle_perf_results(
   extra_links[logdog_label] = logdog_stream
   end_time = time.time()
   print_duration('Uploading results to perf dashboard', begin_time, end_time)
-  if upload_failures_counter > 0:
+  if upload_result_timeout or upload_failures_counter > 0:
     return 1, benchmark_upload_result_map
   return 0, benchmark_upload_result_map
 
@@ -568,20 +549,25 @@ def _write_perf_data_to_logfile(benchmark_name, output_file,
   viewer_url = None
   # logdog file to write perf results to
   if os.path.exists(output_file):
-    output_json_file = logdog_helper.open_text(benchmark_name)
+    results = None
     with open(output_file) as f:
       try:
         results = json.load(f)
-        json.dump(results, output_json_file,
-                indent=4, separators=(',', ': '))
       except ValueError:
-        print('Error parsing perf results JSON for benchmark  %s' %
+        logging.error('Error parsing perf results JSON for benchmark  %s' %
               benchmark_name)
-
-    output_json_file.close()
-    viewer_url = output_json_file.get_viewer_url()
+    if results:
+      try:
+        output_json_file = logdog_helper.open_text(benchmark_name)
+        json.dump(results, output_json_file,
+                  indent=4, separators=(',', ': '))
+      except ValueError as e:
+        logging.error('ValueError: "%s" while dumping output to logdog' % e)
+      finally:
+        output_json_file.close()
+      viewer_url = output_json_file.get_viewer_url()
   else:
-    print("Perf results JSON file doesn't exist for benchmark %s" %
+    logging.warning("Perf results JSON file doesn't exist for benchmark %s" %
           benchmark_name)
 
   base_benchmark_name = benchmark_name.replace('.reference', '')
@@ -592,7 +578,8 @@ def _write_perf_data_to_logfile(benchmark_name, output_file,
   # add links for the perf results and the dashboard url to
   # the logs section of buildbot
   if is_ref:
-    logdog_dict[base_benchmark_name]['perf_results_ref'] = viewer_url
+    if viewer_url:
+      logdog_dict[base_benchmark_name]['perf_results_ref'] = viewer_url
     if upload_failure:
       logdog_dict[base_benchmark_name]['ref_upload_failed'] = 'True'
   else:
@@ -602,18 +589,19 @@ def _write_perf_data_to_logfile(benchmark_name, output_file,
             configuration_name, RESULTS_URL,
             build_properties['got_revision_cp'],
             _GetMachineGroup(build_properties)))
-    logdog_dict[base_benchmark_name]['perf_results'] = viewer_url
+    if viewer_url:
+      logdog_dict[base_benchmark_name]['perf_results'] = viewer_url
     if upload_failure:
       logdog_dict[base_benchmark_name]['upload_failed'] = 'True'
 
 
 def print_duration(step, start, end):
-  print('Duration of %s: %d seconds' % (step, end - start))
+  logging.info('Duration of %s: %d seconds' % (step, end - start))
 
 
 def main():
   """ See collect_task.collect_task for more on the merge script API. """
-  print(sys.argv)
+  logging.info(sys.argv)
   parser = argparse.ArgumentParser()
   # configuration-name (previously perf-id) is the name of bot the tests run on
   # For example, buildbot-test is the name of the android-go-perf bot

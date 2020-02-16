@@ -51,7 +51,7 @@ WorkerFetchContext::WorkerFetchContext(
   DCHECK(web_context_);
 }
 
-KURL WorkerFetchContext::GetSiteForCookies() const {
+net::SiteForCookies WorkerFetchContext::GetSiteForCookies() const {
   return web_context_->SiteForCookies();
 }
 
@@ -226,12 +226,14 @@ void WorkerFetchContext::AddResourceTiming(const ResourceTimingInfo& info) {
   const SecurityOrigin* security_origin = GetResourceFetcherProperties()
                                               .GetFetchClientSettingsObject()
                                               .GetSecurityOrigin();
-  WebResourceTimingInfo web_info = Performance::GenerateResourceTiming(
-      *security_origin, info, *global_scope_);
+  mojom::blink::ResourceTimingInfoPtr mojo_info =
+      Performance::GenerateResourceTiming(*security_origin, info,
+                                          *global_scope_);
   // |info| is taken const-ref but this can make destructive changes to
   // WorkerTimingContainer on |info| when a page is controlled by a service
   // worker.
-  resource_timing_notifier_->AddResourceTiming(web_info, info.InitiatorType(),
+  resource_timing_notifier_->AddResourceTiming(std::move(mojo_info),
+                                               info.InitiatorType(),
                                                info.TakeWorkerTimingReceiver());
 }
 
@@ -243,7 +245,7 @@ void WorkerFetchContext::PopulateResourceRequest(
   MixedContentChecker::UpgradeInsecureRequest(
       out_request,
       &GetResourceFetcherProperties().GetFetchClientSettingsObject(),
-      global_scope_, network::mojom::RequestContextFrameType::kNone,
+      global_scope_, mojom::RequestContextFrameType::kNone,
       global_scope_->ContentSettingsClient());
   SetFirstPartyCookie(out_request);
   if (!out_request.TopFrameOrigin())

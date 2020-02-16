@@ -152,8 +152,7 @@ class ImagePaintTimingDetectorTest : public testing::Test {
   }
 
   void UpdateAllLifecyclePhases() {
-    GetDocument().View()->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    GetDocument().View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   }
 
   void UpdateAllLifecyclePhasesAndInvokeCallbackIfAny() {
@@ -235,7 +234,14 @@ class ImagePaintTimingDetectorTest : public testing::Test {
     To<SVGImageElement>(element)->SetImageForTest(content);
   }
 
-  void SimulateScroll() { GetPaintTimingDetector().NotifyScroll(kUserScroll); }
+  void SimulateScroll() {
+    GetPaintTimingDetector().NotifyScroll(
+        mojom::blink::ScrollIntoViewParams::Type::kUser);
+  }
+
+  void SimulateKeyUp() {
+    GetPaintTimingDetector().NotifyInputEvent(WebInputEvent::kKeyUp);
+  }
 
   scoped_refptr<base::TestMockTimeTaskRunner> test_task_runner_;
   frame_test_helpers::WebViewHelper web_view_helper_;
@@ -982,6 +988,18 @@ TEST_F(ImagePaintTimingDetectorTest, DeactivateAfterUserInput) {
   SetImageAndPaint("target", 5, 5);
   UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
   EXPECT_FALSE(GetPaintTimingDetector().GetImagePaintTimingDetector());
+}
+
+TEST_F(ImagePaintTimingDetectorTest, ContinueAfterKeyUp) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="parent">
+      <img id="target"></img>
+    </div>
+  )HTML");
+  SimulateKeyUp();
+  SetImageAndPaint("target", 5, 5);
+  UpdateAllLifecyclePhasesAndInvokeCallbackIfAny();
+  EXPECT_TRUE(GetPaintTimingDetector().GetImagePaintTimingDetector());
 }
 
 TEST_F(ImagePaintTimingDetectorTest, NullTimeNoCrash) {

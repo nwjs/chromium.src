@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{نقل قول وارونه}one{# نقل قول وارونه}other{# نقل قول وارونه}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{علامت دلار}one{# علامت دلار}other{# علامت دلار}}</translation>
-<translation id="3658742229777143148">ویرایش</translation>
 <translation id="3659787053479271466">هشدار</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />، کادر فهرست</translation>
 <translation id="3681531118904532409">هلویی روشن</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">‏مرجع فرمان ChromeVox</translation>
 <translation id="3930383913623796990">سبز بهاری</translation>
 <translation id="3930498801443296724">نقل‌قول</translation>
+<translation id="3935615366277838204"><ph name="LETTER" /> بزرگ</translation>
 <translation id="3936394396199829062">صورتی مات</translation>
 <translation id="3941269780691800708">نوشتار زیر نشانگر موشواره خوانده شود.</translation>
 <translation id="394953087167197343">نشان دادن غلط املایی:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">نقشه کلید مسطح</translation>
 <translation id="6468049171101508116">دکمه بعدی</translation>
 <translation id="646954774886932461">فهرست موضوعی</translation>
-<translation id="6479792383819319132">پاراگراف بعدی وجود ندارد.</translation>
 <translation id="6493991254603208962">کم کردن روشنایی</translation>
 <translation id="6501595918865591267">فیروزه‌ای</translation>
 <translation id="6508059270146105198">انتقال صفحه‌نمایش بریل به پایین صفحه</translation>
@@ -815,8 +814,7 @@
 <translation id="6633350132811819843">جدول بعدی موجود نیست.</translation>
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">نوار پیشرفت</translation>
-<translation id="6659594942844771486">برگه</translation>
-<translation id="6675661017770918201">پاراگراف قبلی وجود ندارد.</translation>
+<translation id="6659594942844771486">Tab</translation>
 <translation id="667999046851023355">سند</translation>
 <translation id="6688209025607531203">هشدار غیرکیفیتی</translation>
 <translation id="6689672606256159458">قهوه‌ای حنایی</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">غلط املایی</translation>
 <translation id="6871161210040114857">بزرگی و کوچکی حروف نادیده گرفته شود.</translation>
 <translation id="6877435256196695200">گرافیک بعدی موجود نیست.</translation>
+<translation id="688976158310523235">منوی جستجو</translation>
 <translation id="6897341342232909480">حرکت به چپ</translation>
 <translation id="6901540140423170855">تاریخ</translation>
 <translation id="6910211073230771657">حذف شد</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">Search + O + W</translation>
 <translation id="6994042831499278539">مرجع واژه‌نامه</translation>
 <translation id="6996566555547746822">کادر ترکیبی بعدی</translation>
+<translation id="6997224546856374593">هنگام خواندن حروف بزرگ:</translation>
 <translation id="700202842116345659">ورودی فهرست منابع</translation>
 <translation id="7005146664810010831">نشانی وب پیدا نشد</translation>
 <translation id="7010712454773919705">‏کلید تغییردهنده ChromeVox</translation>
@@ -937,6 +937,7 @@
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">برگه</translation>
 <translation id="7492049978501397201">گفتگو وارد شد</translation>
+<translation id="7505149250476994901">‏گفتن «cap» (حرف بزرگ) قبل از حرف</translation>
 <translation id="7518543783849163354">‏برای توقف موقت صدای ChromeVox، کلید Control را فشار دهید.</translation>
 <translation id="7521682724501952239">‏می‌توانید با صفحه لمسی از ChromeVox استفاده کنید.</translation>
 <translation id="7532613204005497612">ژوئن</translation>
@@ -1104,7 +1105,6 @@
 <translation id="812886159861361726">بارگیری <ph name="FILE_NAME" /> متوقف شد</translation>
 <translation id="8138880386467279117">لمس</translation>
 <translation id="8153880621934657047">خارج از جدول</translation>
-<translation id="8161114871611868169">بخش نظرات</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{زیرخط}one{# زیرخط}other{# زیرخط}}</translation>
 <translation id="8179976553408161302">ورود</translation>
 <translation id="8184828902145951186">ردیف</translation>
@@ -1125,6 +1125,7 @@
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">بژ روشن</translation>
 <translation id="8326783648485765113">سبز چمنی</translation>
+<translation id="8328063869313048659">خاموش/روشن کردن صفحه تاریک</translation>
 <translation id="8344569602005188545">ساعت</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{پوند}one{# علامت پوند}other{# علامت پوند}}</translation>
 <translation id="8374154622594089836">ماه</translation>
@@ -1209,6 +1210,7 @@
 <translation id="9065283790526219006">+پنجره بازشو</translation>
 <translation id="9066023754636984703">‏برای پرش به جزئیات، «جستجو + A، ‏J» را فشار دهید.</translation>
 <translation id="9067522039955793016">جداساز صفحه</translation>
+<translation id="9074824103975499138">‏جستجوی منوهای ChromeVox</translation>
 <translation id="9077213568694924680">از قسمت انتخابی حذف شد</translation>
 <translation id="9077305471618729969">سبز کبریتی روشن</translation>
 <translation id="9082874451376019682">اسلایدر قبلی موجود نیست.</translation>

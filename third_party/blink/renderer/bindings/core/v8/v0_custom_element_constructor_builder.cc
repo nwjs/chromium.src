@@ -33,10 +33,10 @@
 #include "third_party/blink/renderer/bindings/core/v8/string_or_element_creation_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_document.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_element_registration_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_html_element.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_svg_element.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/dom/element_registration_options.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/custom/v0_custom_element_definition.h"
 #include "third_party/blink/renderer/core/html/custom/v0_custom_element_descriptor.h"
@@ -66,7 +66,7 @@ static void ConstructCustomElement(const v8::FunctionCallbackInfo<v8::Value>&);
 V0CustomElementConstructorBuilder::V0CustomElementConstructorBuilder(
     ScriptState* script_state,
     const ElementRegistrationOptions* options)
-    : script_state_(script_state), options_(options) {
+    : script_state_(script_state), options_(options), callbacks_(nullptr) {
   DCHECK(script_state_->GetContext() ==
          script_state_->GetIsolate()->GetCurrentContext());
 }
@@ -167,7 +167,7 @@ V0CustomElementConstructorBuilder::CreateCallbacks() {
   callbacks_ = MakeGarbageCollected<V8V0CustomElementLifecycleCallbacks>(
       script_state_, prototype_, created, attached, detached,
       attribute_changed);
-  return callbacks_.Get();
+  return callbacks_;
 }
 
 v8::MaybeLocal<v8::Function>

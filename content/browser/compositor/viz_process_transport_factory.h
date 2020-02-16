@@ -9,7 +9,6 @@
 
 #include "base/macros.h"
 #include "build/build_config.h"
-#include "components/viz/common/gpu/context_lost_observer.h"
 #include "components/viz/service/main/viz_compositor_thread_runner_impl.h"
 #include "content/browser/compositor/image_transport_factory.h"
 #include "gpu/command_buffer/common/context_result.h"
@@ -41,13 +40,10 @@ class ContextProviderCommandBuffer;
 
 namespace content {
 
-// A replacement for GpuProcessTransportFactory to be used when running viz. In
-// this configuration the display compositor is located in the viz process
-// instead of in the browser process. Any interaction with the display
-// compositor must happen over IPC.
+// Interface implementations to interact with the display compositor in the viz
+// process.
 class VizProcessTransportFactory : public ui::ContextFactory,
-                                   public ImageTransportFactory,
-                                   public viz::ContextLostObserver {
+                                   public ImageTransportFactory {
  public:
   VizProcessTransportFactory(
       gpu::GpuChannelEstablishFactory* gpu_channel_establish_factory,
@@ -69,17 +65,11 @@ class VizProcessTransportFactory : public ui::ContextFactory,
   void RemoveCompositor(ui::Compositor* compositor) override;
   gpu::GpuMemoryBufferManager* GetGpuMemoryBufferManager() override;
   cc::TaskGraphRunner* GetTaskGraphRunner() override;
-  void AddObserver(ui::ContextFactoryObserver* observer) override;
-  void RemoveObserver(ui::ContextFactoryObserver* observer) override;
-  bool SyncTokensRequiredForDisplayCompositor() override;
 
   // ImageTransportFactory implementation.
   void DisableGpuCompositing() override;
   ui::ContextFactory* GetContextFactory() override;
   ui::ContextFactoryPrivate* GetContextFactoryPrivate() override;
-
-  // viz::ContextLostObserver implementation.
-  void OnContextLost() override;
 
  private:
   // Disables GPU compositing. This notifies UI and renderer compositors to drop
@@ -110,15 +100,11 @@ class VizProcessTransportFactory : public ui::ContextFactory,
   gpu::ContextResult TryCreateContextsForGpuCompositing(
       scoped_refptr<gpu::GpuChannelHost> gpu_channel_host);
 
-  void OnLostMainThreadSharedContext();
-
   gpu::GpuChannelEstablishFactory* const gpu_channel_establish_factory_;
 
   // Controls the compositing mode based on what mode the display compositors
   // are using.
   viz::CompositingModeReporterImpl* const compositing_mode_reporter_;
-
-  base::ObserverList<ui::ContextFactoryObserver>::Unchecked observer_list_;
 
   // ContextProvider used on worker threads for rasterization.
   scoped_refptr<viz::RasterContextProvider> worker_context_provider_;

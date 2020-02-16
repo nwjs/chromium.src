@@ -12,7 +12,7 @@
 #include "base/threading/scoped_blocking_call.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "components/viz/common/features.h"
+#include "build/chromecast_buildflags.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_driver_bug_list.h"
@@ -109,7 +109,7 @@ void InitializePlatformOverlaySettings(GPUInfo* gpu_info) {
 #endif
 }
 
-#if defined(OS_LINUX) && !defined(OS_CHROMEOS) && !defined(IS_CHROMECAST)
+#if defined(OS_LINUX) && !defined(OS_CHROMEOS) && !BUILDFLAG(IS_CHROMECAST)
 bool CanAccessNvidiaDeviceFile() {
   bool res = true;
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
@@ -120,7 +120,7 @@ bool CanAccessNvidiaDeviceFile() {
   }
   return res;
 }
-#endif  // OS_LINUX && !OS_CHROMEOS && !IS_CHROMECAST
+#endif  // OS_LINUX && !OS_CHROMEOS && !BUILDFLAG(IS_CHROMECAST)
 
 class GpuWatchdogInit {
  public:
@@ -150,7 +150,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   // need more context based GPUInfo. In such situations, switching to
   // SwiftShader needs to wait until creating a context.
   bool needs_more_info = true;
-#if !defined(OS_ANDROID) && !defined(IS_CHROMECAST)
+#if !defined(OS_ANDROID) && !BUILDFLAG(IS_CHROMECAST)
   needs_more_info = false;
   if (!PopGPUInfoCache(&gpu_info_)) {
     CollectBasicGraphicsInfo(command_line, &gpu_info_);
@@ -181,7 +181,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
     gpu_feature_info_ = gpu::ComputeGpuFeatureInfo(
         gpu_info_, gpu_preferences_, command_line, &needs_more_info);
   }
-#endif  // !OS_ANDROID && !IS_CHROMECAST
+#endif  // !OS_ANDROID && !BUILDFLAG(IS_CHROMECAST)
   gpu_info_.in_process_gpu = false;
   bool use_swiftshader = false;
 
@@ -221,10 +221,16 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   delayed_watchdog_enable = true;
 #endif
 
+#if defined(OS_LINUX)
   // PreSandbox is mainly for resource handling and not related to the GPU
   // driver, it doesn't need the GPU watchdog. The loadLibrary may take long
   // time that killing and restarting the GPU process will not help.
-  sandbox_helper_->PreSandboxStartup();
+  if (gpu_preferences_.gpu_sandbox_start_early) {
+    // The sandbox will be started earlier than usual (i.e. before GL) so
+    // execute the pre-sandbox steps now.
+    sandbox_helper_->PreSandboxStartup();
+  }
+#endif
 
   // Start the GPU watchdog only after anything that is expected to be time
   // consuming has completed, otherwise the process is liable to be aborted.
@@ -273,7 +279,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   ui::OzonePlatform::InitParams params;
   params.single_process = false;
   params.using_mojo = features::IsOzoneDrmMojo();
-  params.viz_display_compositor = features::IsVizDisplayCompositorEnabled();
   ui::OzonePlatform::InitializeForGPU(params);
   const std::vector<gfx::BufferFormat> supported_buffer_formats_for_texturing =
       ui::OzonePlatform::GetInstance()
@@ -319,6 +324,23 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
         return false;
       }
     }
+  }
+
+  // The ContentSandboxHelper is currently the only one implementation of
+  // gpu::GpuSandboxHelper and it has no dependency. Except on Linux where
+  // VaapiWrapper checks the GL implementation to determine which display
+  // to use. So call PreSandboxStartup after GL initialization. But make
+  // sure the watchdog is paused as loadLibrary may take a long time and
+  // restarting the GPU process will not help.
+  if (!attempted_startsandbox) {
+    if (watchdog_thread_)
+      watchdog_thread_->PauseWatchdog();
+
+    // The sandbox is not started yet.
+    sandbox_helper_->PreSandboxStartup();
+
+    if (watchdog_thread_)
+      watchdog_thread_->ResumeWatchdog();
   }
 
   bool gl_disabled = gl::GetGLImplementation() == gl::kGLImplementationDisabled;
@@ -387,7 +409,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 
   // Collect GPU process info
   if (!gl_disabled) {
-    if (!CollectGpuExtraInfo(&gpu_extra_info_))
+    if (!CollectGpuExtraInfo(&gpu_extra_info_, gpu_preferences))
       return false;
   }
 
@@ -489,12 +511,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   ui::OzonePlatform::GetInstance()->AfterSandboxEntry();
 #endif
 
-#if defined(OS_ANDROID)
-  // Disable AImageReader if the workaround is enabled.
-  if (gpu_feature_info_.IsWorkaroundEnabled(DISABLE_AIMAGEREADER)) {
-    base::android::AndroidImageReader::DisableSupport();
-  }
-#endif
 #if defined(USE_OZONE)
   gpu_feature_info_.supported_buffer_formats_for_allocation_and_texturing =
       std::move(supported_buffer_formats_for_texturing);
@@ -521,11 +537,6 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
 
   default_offscreen_surface_ = gl::init::CreateOffscreenGLSurface(gfx::Size());
 
-  // Disable AImageReader if the workaround is enabled.
-  if (gpu_feature_info_.IsWorkaroundEnabled(DISABLE_AIMAGEREADER)) {
-    base::android::AndroidImageReader::DisableSupport();
-  }
-
   UMA_HISTOGRAM_ENUMERATION("GPU.GLImplementation", gl::GetGLImplementation());
 }
 #else
@@ -537,7 +548,6 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
   ui::OzonePlatform::InitParams params;
   params.single_process = true;
   params.using_mojo = features::IsOzoneDrmMojo();
-  params.viz_display_compositor = features::IsVizDisplayCompositorEnabled();
   ui::OzonePlatform::InitializeForGPU(params);
   const std::vector<gfx::BufferFormat> supported_buffer_formats_for_texturing =
       ui::OzonePlatform::GetInstance()
@@ -545,7 +555,7 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
           ->GetSupportedFormatsForTexturing();
 #endif
   bool needs_more_info = true;
-#if !defined(IS_CHROMECAST)
+#if !BUILDFLAG(IS_CHROMECAST)
   needs_more_info = false;
   if (!PopGPUInfoCache(&gpu_info_)) {
     CollectBasicGraphicsInfo(command_line, &gpu_info_);
@@ -563,7 +573,7 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
     InitializeSwitchableGPUs(
         gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
   }
-#endif  // !IS_CHROMECAST
+#endif  // !BUILDFLAG(IS_CHROMECAST)
 
   bool use_swiftshader = EnableSwiftShaderIfNeeded(
       command_line, gpu_feature_info_,

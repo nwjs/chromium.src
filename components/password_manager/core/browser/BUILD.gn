@@ -13,15 +13,17 @@ if (is_android) {
 # TODO(crbug.com/1006430): Fix password reuse detection not fully functional on
 # Android.
 password_reuse_detection_support = !is_ios
-password_reuse_warning_support = !is_android && !is_ios
+password_reuse_warning_support = !is_ios
 password_on_focus_ping_support = !is_ios
 
 config("password_reuse_detection_config") {
   defines = []
   if (password_reuse_detection_support) {
+    # TODO(crbug.com/1036042): Rename it to PASSWORD_REUSE_DETECTION_ENABLED.
     defines += [ "SYNC_PASSWORD_REUSE_DETECTION_ENABLED" ]
   }
   if (password_reuse_warning_support) {
+    # TODO(crbug.com/1036042): Rename it to PASSWORD_REUSE_WARNING_ENABLED.
     defines += [ "SYNC_PASSWORD_REUSE_WARNING_ENABLED" ]
   }
   if (password_on_focus_ping_support) {
@@ -61,6 +63,7 @@ jumbo_static_library("browser") {
     "android_affiliation/lookup_affiliation_response_parser.cc",
     "android_affiliation/lookup_affiliation_response_parser.h",
     "android_affiliation/test_affiliation_fetcher_factory.h",
+    "biometric_authenticator.h",
     "browser_save_password_progress_logger.cc",
     "browser_save_password_progress_logger.h",
     "compromised_credentials_observer.cc",
@@ -132,6 +135,8 @@ jumbo_static_library("browser") {
     "multi_store_password_save_manager.h",
     "origin_credential_store.cc",
     "origin_credential_store.h",
+    "password_access_authenticator.cc",
+    "password_access_authenticator.h",
     "password_autofill_manager.cc",
     "password_autofill_manager.h",
     "password_bubble_experiment.cc",
@@ -146,7 +151,6 @@ jumbo_static_library("browser") {
     "password_form_manager_for_ui.h",
     "password_form_metrics_recorder.cc",
     "password_form_metrics_recorder.h",
-    "password_form_user_action.h",
     "password_generation_frame_helper.cc",
     "password_generation_frame_helper.h",
     "password_generation_manager.cc",
@@ -197,6 +201,7 @@ jumbo_static_library("browser") {
     "possible_username_data.h",
     "psl_matching_helper.cc",
     "psl_matching_helper.h",
+    "reauth_purpose.h",
     "site_affiliation/asset_link_data.cc",
     "site_affiliation/asset_link_data.h",
     "sql_table_builder.cc",
@@ -270,7 +275,8 @@ jumbo_static_library("browser") {
     "//components/password_manager/core/common",
     "//components/pref_registry",
     "//components/prefs",
-    "//components/safe_browsing:features",
+    "//components/safe_browsing/core:features",
+    "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/security_state/core",
     "//components/signin/public/identity_manager",
     "//components/strings",
@@ -300,7 +306,6 @@ jumbo_static_library("browser") {
       "http_credentials_cleaner.cc",
       "http_credentials_cleaner.h",
     ]
-    deps += [ "//components/safe_browsing/common:safe_browsing_prefs" ]
   }
 
   if ((is_posix && !is_mac && !is_ios) || is_fuchsia) {
@@ -365,17 +370,14 @@ static_library("password_generator") {
     "generation/password_generator.cc",
     "generation/password_generator.h",
   ]
-  public_deps = [
-    "//components/autofill/core/browser/proto",
-  ]
-  deps = [
-    "//base",
-  ]
+  public_deps = [ "//components/autofill/core/browser/proto" ]
+  deps = [ "//base" ]
 }
 
 if (is_android) {
   java_cpp_enum("password_manager_java_enums_srcjar") {
     sources = [
+      "biometric_authenticator.h",
       "manage_passwords_referrer.h",
       "password_manager_metrics_util.h",
     ]
@@ -383,9 +385,7 @@ if (is_android) {
 }
 
 fuzzable_proto_library("proto") {
-  sources = [
-    "android_affiliation/affiliation_api.proto",
-  ]
+  sources = [ "android_affiliation/affiliation_api.proto" ]
 }
 
 jumbo_static_library("password_hash_data") {
@@ -504,10 +504,8 @@ bundle_data("unit_tests_bundle_data") {
     "//components/test/data/password_manager/login_db_v9.sql",
     "//components/test/data/password_manager/login_db_v9_without_use_additional_auth_field.sql",
   ]
-  outputs = [
-    "{{bundle_resources_dir}}/" +
-        "{{source_root_relative_dir}}/{{source_file_part}}",
-  ]
+  outputs = [ "{{bundle_resources_dir}}/" +
+              "{{source_root_relative_dir}}/{{source_file_part}}" ]
 }
 
 source_set("unit_tests") {
@@ -547,6 +545,7 @@ source_set("unit_tests") {
     "multi_store_form_fetcher_unittest.cc",
     "multi_store_password_save_manager_unittest.cc",
     "origin_credential_store_unittest.cc",
+    "password_access_authenticator_unittest.cc",
     "password_autofill_manager_unittest.cc",
     "password_bubble_experiment_unittest.cc",
     "password_form_filling_unittest.cc",
@@ -629,7 +628,8 @@ source_set("unit_tests") {
     "//components/password_manager/core/browser/leak_detection:unit_tests",
     "//components/password_manager/core/common",
     "//components/prefs:test_support",
-    "//components/safe_browsing:features",
+    "//components/safe_browsing/core:features",
+    "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/security_state/core",
     "//components/signin/public/identity_manager:test_support",
     "//components/strings",
@@ -651,16 +651,10 @@ source_set("unit_tests") {
     "//ui/gfx:test_support",
     "//url",
   ]
-
-  if (password_reuse_detection_support) {
-    deps += [ "//components/safe_browsing/common:safe_browsing_prefs" ]
-  }
 }
 
 fuzzer_test("csv_reader_fuzzer") {
-  sources = [
-    "import/password_csv_reader_fuzzer.cc",
-  ]
+  sources = [ "import/password_csv_reader_fuzzer.cc" ]
   deps = [
     ":browser",
     ":csv",
@@ -673,9 +667,8 @@ fuzzer_test("csv_reader_fuzzer") {
 
 if (use_libfuzzer) {
   fuzzer_test("lookup_affiliation_response_parser_fuzzer") {
-    sources = [
-      "android_affiliation/lookup_affiliation_response_parser_fuzzer.cc",
-    ]
+    sources =
+        [ "android_affiliation/lookup_affiliation_response_parser_fuzzer.cc" ]
     deps = [
       ":browser",
       ":proto",
@@ -686,9 +679,7 @@ if (use_libfuzzer) {
   }
 
   fuzzer_test("password_generator_proto_fuzzer") {
-    sources = [
-      "generation/password_generator_proto_fuzzer.cc",
-    ]
+    sources = [ "generation/password_generator_proto_fuzzer.cc" ]
     deps = [
       ":password_generator",
       "//components/autofill/core/browser/proto",
@@ -718,9 +709,7 @@ static_library("affiliation") {
 
 source_set("affiliation_unittests") {
   testonly = true
-  sources = [
-    "android_affiliation/affiliation_utils_unittest.cc",
-  ]
+  sources = [ "android_affiliation/affiliation_utils_unittest.cc" ]
   deps = [
     ":affiliation",
     "//base",

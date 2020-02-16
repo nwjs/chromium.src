@@ -18,8 +18,8 @@
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/overview/scoped_overview_animation_settings.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
-#include "ash/wm/window_preview_view.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_transient_descendant_iterator.h"
 #include "ash/wm/window_util.h"
@@ -33,7 +33,6 @@
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_observer.h"
-#include "ui/compositor/paint_recorder.h"
 #include "ui/gfx/geometry/safe_integer_conversions.h"
 #include "ui/gfx/transform_util.h"
 #include "ui/views/layout/layout_provider.h"
@@ -52,23 +51,6 @@ bool immediate_close_for_tests = false;
 
 // Delay closing window to allow it to shrink and fade out.
 constexpr int kCloseWindowDelayInMilliseconds = 150;
-
-ScopedOverviewTransformWindow::GridWindowFillMode GetWindowDimensionsType(
-    aura::Window* window) {
-  if (window->bounds().width() >
-      window->bounds().height() *
-          ScopedOverviewTransformWindow::kExtremeWindowRatioThreshold) {
-    return ScopedOverviewTransformWindow::GridWindowFillMode::kLetterBoxed;
-  }
-
-  if (window->bounds().height() >
-      window->bounds().width() *
-          ScopedOverviewTransformWindow::kExtremeWindowRatioThreshold) {
-    return ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed;
-  }
-
-  return ScopedOverviewTransformWindow::GridWindowFillMode::kNormal;
-}
 
 }  // namespace
 
@@ -106,9 +88,8 @@ ScopedOverviewTransformWindow::ScopedOverviewTransformWindow(
     : overview_item_(overview_item),
       window_(window),
       original_opacity_(window->layer()->GetTargetOpacity()),
-      original_mask_layer_(window_->layer()->layer_mask_layer()),
       original_clip_rect_(window_->layer()->clip_rect()) {
-  type_ = GetWindowDimensionsType(window);
+  type_ = GetWindowDimensionsType(window->bounds().size());
 
   std::vector<aura::Window*> transient_children_to_hide;
   for (auto* transient : GetTransientTreeIterator(window)) {
@@ -183,6 +164,18 @@ float ScopedOverviewTransformWindow::GetItemScale(const gfx::SizeF& source,
                             (source.height() - top_view_inset));
 }
 
+// static
+ScopedOverviewTransformWindow::GridWindowFillMode
+ScopedOverviewTransformWindow::GetWindowDimensionsType(const gfx::Size& size) {
+  if (size.width() > size.height() * kExtremeWindowRatioThreshold)
+    return ScopedOverviewTransformWindow::GridWindowFillMode::kLetterBoxed;
+
+  if (size.height() > size.width() * kExtremeWindowRatioThreshold)
+    return ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed;
+
+  return ScopedOverviewTransformWindow::GridWindowFillMode::kNormal;
+}
+
 void ScopedOverviewTransformWindow::RestoreWindow(bool reset_transform) {
   // Shadow controller may be null on shutdown.
   if (Shell::Get()->shadow_controller())
@@ -202,6 +195,8 @@ void ScopedOverviewTransformWindow::RestoreWindow(bool reset_transform) {
     for (auto& settings : animation_settings_list) {
       auto exit_observer = std::make_unique<ExitAnimationObserver>();
       settings->AddObserver(exit_observer.get());
+      if (window_->layer()->GetAnimator() == settings->GetAnimator())
+        settings->AddObserver(new WindowTransformAnimationObserver(window_));
       Shell::Get()->overview_controller()->AddExitAnimationObserver(
           std::move(exit_observer));
     }
@@ -223,7 +218,6 @@ void ScopedOverviewTransformWindow::RestoreWindow(bool reset_transform) {
   ScopedOverviewAnimationSettings animation_settings(
       overview_item_->GetExitOverviewAnimationType(), window_);
   SetOpacity(original_opacity_);
-  window_->layer()->SetMaskLayer(original_mask_layer_);
 }
 
 void ScopedOverviewTransformWindow::BeginScopedAnimation(
@@ -325,30 +319,24 @@ gfx::RectF ScopedOverviewTransformWindow::ShrinkRectToFitPreservingAspectRatio(
     case ScopedOverviewTransformWindow::GridWindowFillMode::kLetterBoxed:
     case ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed: {
       // Attempt to scale |rect| to fit |bounds|. Maintain the aspect ratio of
-      // |rect|. Letter boxed windows' width will match |bounds|'s height and
+      // |rect|. Letter boxed windows' width will match |bounds|'s width and
       // pillar boxed windows' height will match |bounds|'s height.
       const bool is_pillar =
           type() ==
           ScopedOverviewTransformWindow::GridWindowFillMode::kPillarBoxed;
-      gfx::RectF src = rect;
-      new_bounds = bounds;
-      src.Inset(0, top_view_inset, 0, 0);
-      new_bounds.Inset(0, title_height, 0, 0);
-      float scale = is_pillar ? new_bounds.height() / src.height()
-                              : new_bounds.width() / src.width();
-      gfx::SizeF size(is_pillar ? src.width() * scale : new_bounds.width(),
-                      is_pillar ? new_bounds.height() : src.height() * scale);
-      new_bounds.ClampToCenteredSize(size);
-
-      // Extend |new_bounds| in the vertical direction to account for the header
-      // that will be hidden.
-      if (top_view_inset > 0)
-        new_bounds.Inset(0, -(scale * top_view_inset), 0, 0);
-
-      // Save the original bounds minus the title into |overview_bounds_|
-      // so a larger backdrop can be drawn behind the window after.
-      overview_bounds_ = bounds;
-      overview_bounds_->Inset(0, title_height, 0, 0);
+      const gfx::Rect window_bounds =
+          ::wm::GetTransientRoot(window_)->GetBoundsInScreen();
+      const float window_ratio =
+          float{window_bounds.width()} / window_bounds.height();
+      if (is_pillar) {
+        const float new_x = height * window_ratio;
+        new_bounds.set_width(new_x);
+      } else {
+        const float new_y = bounds.width() / window_ratio;
+        new_bounds = bounds;
+        new_bounds.Inset(0, title_height, 0, 0);
+        new_bounds.ClampToCenteredSize(gfx::SizeF(bounds.width(), new_y));
+      }
       break;
     }
     default:
@@ -384,9 +372,6 @@ bool ScopedOverviewTransformWindow::IsMinimized() const {
 void ScopedOverviewTransformWindow::PrepareForOverview() {
   Shell::Get()->shadow_controller()->UpdateShadowForWindow(window_);
 
-  DCHECK(!overview_started_);
-  overview_started_ = true;
-
   // Add requests to cache render surface and perform trilinear filtering. The
   // requests will be removed in dtor. So the requests will be valid during the
   // enter animation and the whole time during overview mode. For the exit
@@ -404,8 +389,7 @@ void ScopedOverviewTransformWindow::EnsureVisible() {
 }
 
 void ScopedOverviewTransformWindow::UpdateWindowDimensionsType() {
-  type_ = GetWindowDimensionsType(window_);
-  overview_bounds_.reset();
+  type_ = GetWindowDimensionsType(window_->bounds().size());
 }
 
 void ScopedOverviewTransformWindow::UpdateRoundedCorners(bool show,
@@ -413,7 +397,7 @@ void ScopedOverviewTransformWindow::UpdateRoundedCorners(bool show,
   // Hide the corners if minimized, OverviewItemView will handle showing the
   // rounded corners on the UI.
   const bool show_corners = show && !IsMinimized();
-  // Add the mask which gives the overview item rounded corners, and add the
+  // Add the clipping which gives the overview item rounded corners, and add the
   // shadow around the window.
   ui::Layer* layer = window_->layer();
   const float scale = layer->transform().Scale2d().x();

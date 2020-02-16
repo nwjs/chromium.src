@@ -86,6 +86,7 @@ enum class WebFeature : int32_t;
 }  // namespace mojom
 
 class AssociatedInterfaceProvider;
+class ContentSecurityPolicy;
 class Document;
 class DocumentLoader;
 class HTMLFormElement;
@@ -107,10 +108,8 @@ class WebMediaPlayer;
 class WebMediaPlayerClient;
 class WebMediaPlayerSource;
 class WebRemotePlaybackClient;
-struct WebResourceTimingInfo;
 class WebServiceWorkerProvider;
 class WebSpellCheckPanelHostClient;
-struct WebScrollIntoViewParams;
 class WebTextCheckClient;
 
 class CORE_EXPORT LocalFrameClient : public FrameClient {
@@ -149,7 +148,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
 
   virtual void BeginNavigation(
       const ResourceRequest&,
-      network::mojom::RequestContextFrameType,
+      mojom::RequestContextFrameType,
       Document* origin_document,
       DocumentLoader*,
       WebNavigationType,
@@ -159,7 +158,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       bool is_client_redirect,
       TriggeringEventInfo,
       HTMLFormElement*,
-      ContentSecurityPolicyDisposition
+      network::mojom::CSPDisposition
           should_check_main_world_content_security_policy,
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
       base::TimeTicks input_start_time,
@@ -171,20 +170,12 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   virtual void DispatchWillSendSubmitEvent(HTMLFormElement*) = 0;
 
   virtual void DidStartLoading() = 0;
-  virtual void ProgressEstimateChanged(double progress_estimate) = 0;
   virtual void DidStopLoading() = 0;
-
-  virtual void ForwardResourceTimingToParent(const WebResourceTimingInfo&) = 0;
 
   virtual void DownloadURL(const ResourceRequest&,
                            network::mojom::RedirectMode) = 0;
 
   virtual bool NavigateBackForward(int offset) const = 0;
-
-  // Another page has accessed the initial empty document of this frame. It is
-  // no longer safe to display a provisional URL, since a URL spoof is now
-  // possible.
-  virtual void DidAccessInitialDocument() {}
 
   // The indicated security origin has run active content (such as a script)
   // from an insecure source.  Note that the insecure content can spread to
@@ -241,6 +232,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   virtual DocumentLoader* CreateDocumentLoader(
       LocalFrame*,
       WebNavigationType,
+      ContentSecurityPolicy*,
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) = 0;
 
@@ -321,7 +313,8 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
 
   virtual void DidSetFramePolicyHeaders(
       WebSandboxFlags,
-      const ParsedFeaturePolicy& parsed_header) {}
+      const ParsedFeaturePolicy& feature_policy_header,
+      const DocumentPolicy::FeatureState& document_policy_header) {}
 
   // Called when a set of new Content Security Policies is added to the frame's
   // document. This can be triggered by handling of HTTP headers, handling of
@@ -367,9 +360,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // Tell the embedder that the associated frame has consumed user activation so
   // that the replicated states in the browser and other renderers can be
   // updated.
-  virtual void ConsumeUserActivation() {}
-
-  virtual void SetHasReceivedUserGestureBeforeNavigation(bool value) {}
+  virtual void ConsumeTransientUserActivation() {}
 
   virtual void AbortClientNavigation() {}
 
@@ -380,20 +371,6 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   virtual std::unique_ptr<WebURLLoaderFactory> CreateURLLoaderFactory() = 0;
 
   virtual void AnnotatedRegionsChanged() = 0;
-
-  virtual void DidBlockNavigation(const KURL& blocked_url,
-                                  const KURL& initiator_urk,
-                                  blink::NavigationBlockedReason reason) {}
-
-  // Called when the corresponding frame should be scrolled in a remote parent
-  // frame.
-  virtual void ScrollRectToVisibleInParentFrame(
-      const WebRect&,
-      const WebScrollIntoViewParams&) {}
-
-  virtual void BubbleLogicalScrollInParentFrame(
-      ScrollDirection direction,
-      ScrollGranularity granularity) = 0;
 
   virtual void SetVirtualTimePauser(
       WebScopedVirtualTimePauser virtual_time_pauser) {}

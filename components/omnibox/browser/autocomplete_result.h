@@ -69,6 +69,9 @@ class AutocompleteResult {
   void AppendDedicatedPedalMatches(AutocompleteProviderClient* client,
                                    const AutocompleteInput& input);
 
+  // Sets |pedal| in matches that have Pedal-triggering text.
+  void ConvertInSuggestionPedalMatches(AutocompleteProviderClient* client);
+
   // Sets |has_tab_match| in matches whose URL matches an open tab's URL.
   // Also, fixes up the description if not using another UI element to
   // annotate (e.g. tab switch button). |input| can be null; if provided,
@@ -100,8 +103,7 @@ class AutocompleteResult {
   bool TopMatchIsStandaloneVerbatimMatch() const;
 
   // Returns the first match in |matches| which might be chosen as default.
-  // If |kOmniboxPreserveDefaultMatchScore| is enabled and the page is not
-  // the fake box, the scores are not demoted by type.
+  // If the page is not the fake box, the scores are not demoted by type.
   static ACMatches::const_iterator FindTopMatch(const AutocompleteInput& input,
                                                 const ACMatches& matches);
   static ACMatches::iterator FindTopMatch(const AutocompleteInput& input,
@@ -177,9 +179,7 @@ class AutocompleteResult {
   // Modifies |matches| such that any duplicate matches are coalesced into
   // representative "best" matches. The erased matches are moved into the
   // |duplicate_matches| members of their representative matches.
-  static void DeduplicateMatches(
-      metrics::OmniboxEventProto::PageClassification page_classification,
-      ACMatches* matches);
+  static void DeduplicateMatches(ACMatches* matches);
 
   // Returns true if |matches| contains a match with the same destination as
   // |match|.
@@ -201,10 +201,8 @@ class AutocompleteResult {
   // Moves matches into this result. |old_matches| gives the matches from the
   // last result, and |new_matches| the results from this result. |old_matches|
   // should not be used afterwards.
-  void MergeMatchesByProvider(
-      metrics::OmniboxEventProto::PageClassification page_classification,
-      ACMatches* old_matches,
-      const ACMatches& new_matches);
+  void MergeMatchesByProvider(ACMatches* old_matches,
+                              const ACMatches& new_matches);
 
   // This pulls the relevant fields out of a match for comparison with other
   // matches for the purpose of deduping. It uses the stripped URL, so that we

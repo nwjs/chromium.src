@@ -155,8 +155,8 @@ FileMonitorImpl::~FileMonitorImpl() = default;
 void FileMonitorImpl::Initialize(const InitCallback& callback) {
   base::PostTaskAndReplyWithResult(
       file_thread_task_runner_.get(), FROM_HERE,
-      base::Bind(&InitializeAndCreateDownloadDirectory, download_file_dir_),
-      callback);
+      base::BindOnce(&InitializeAndCreateDownloadDirectory, download_file_dir_),
+      base::BindOnce(callback));
 }
 
 void FileMonitorImpl::DeleteUnknownFiles(
@@ -185,8 +185,7 @@ void FileMonitorImpl::CleanupFilesForCompletedEntries(
 
     // TODO(xingliu): Consider logs life time after the file being deleted on
     // the file thread.
-    stats::LogFileLifeTime(base::Time::Now() - entry->completion_time,
-                           entry->cleanup_attempt_count);
+    stats::LogFileLifeTime(base::Time::Now() - entry->completion_time);
   }
 
   file_thread_task_runner_->PostTaskAndReply(
@@ -207,7 +206,8 @@ void FileMonitorImpl::DeleteFiles(
 void FileMonitorImpl::HardRecover(const InitCallback& callback) {
   base::PostTaskAndReplyWithResult(
       file_thread_task_runner_.get(), FROM_HERE,
-      base::Bind(&HardRecoverOnFileThread, download_file_dir_), callback);
+      base::BindOnce(&HardRecoverOnFileThread, download_file_dir_),
+      base::BindOnce(callback));
 }
 
 }  // namespace download

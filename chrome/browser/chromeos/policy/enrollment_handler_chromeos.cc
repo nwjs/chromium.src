@@ -223,60 +223,6 @@ EnrollmentHandlerChromeOS::~EnrollmentHandlerChromeOS() {
   store_->RemoveObserver(this);
 }
 
-void EnrollmentHandlerChromeOS::CheckAvailableLicenses(
-    const AvailableLicensesCallback& license_callback) {
-  CHECK_EQ(STEP_PENDING, enrollment_step_);
-  available_licenses_callback_ = license_callback;
-  client_->RequestAvailableLicenses(
-      dm_auth_->oauth_token(),
-      base::Bind(&EnrollmentHandlerChromeOS::HandleAvailableLicensesResult,
-                 weak_ptr_factory_.GetWeakPtr()));
-}
-
-void EnrollmentHandlerChromeOS::HandleAvailableLicensesResult(
-    DeviceManagementStatus status,
-    const CloudPolicyClient::LicenseMap& license_map) {
-  if (status == DM_STATUS_SERVICE_MANAGEMENT_NOT_SUPPORTED ||
-      status == DM_STATUS_SERVICE_CONSUMER_ACCOUNT_WITH_PACKAGED_LICENSE) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&EnrollmentHandlerChromeOS::ReportResult,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       EnrollmentStatus::ForRegistrationError(status)));
-    return;
-  } else if (status != DM_STATUS_SUCCESS) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE,
-        base::BindOnce(&EnrollmentHandlerChromeOS::ReportResult,
-                       weak_ptr_factory_.GetWeakPtr(),
-                       EnrollmentStatus::ForStatus(
-                           EnrollmentStatus::LICENSE_REQUEST_FAILED)));
-    return;
-  }
-  if (available_licenses_callback_)
-    available_licenses_callback_.Run(license_map);
-}
-
-void EnrollmentHandlerChromeOS::StartEnrollmentWithLicense(
-    LicenseType license_type) {
-  CHECK_EQ(STEP_PENDING, enrollment_step_);
-  CHECK_NE(license_type, ::policy::LicenseType::UNKNOWN);
-  switch (license_type) {
-    case LicenseType::PERPETUAL:
-      register_params_->license_type = ::em::LicenseType::CDM_PERPETUAL;
-      break;
-    case LicenseType::ANNUAL:
-      register_params_->license_type = ::em::LicenseType::CDM_ANNUAL;
-      break;
-    case LicenseType::KIOSK:
-      register_params_->license_type = ::em::LicenseType::KIOSK;
-      break;
-    case LicenseType::UNKNOWN:
-      NOTREACHED();
-  }
-  StartEnrollment();
-}
-
 void EnrollmentHandlerChromeOS::StartEnrollment() {
   CHECK_EQ(STEP_PENDING, enrollment_step_);
 
@@ -302,6 +248,7 @@ void EnrollmentHandlerChromeOS::StartEnrollment() {
     return;
   }
 
+  VLOG(1) << "Requesting state keys.";
   state_keys_broker_->RequestStateKeys(
       base::Bind(&EnrollmentHandlerChromeOS::HandleStateKeysResult,
                  weak_ptr_factory_.GetWeakPtr()));
@@ -435,12 +382,14 @@ void EnrollmentHandlerChromeOS::HandleStateKeysResult(
     register_params_->current_state_key =
         state_keys_broker_->current_state_key();
     if (state_keys.empty() || register_params_->current_state_key.empty()) {
+      LOG(ERROR) << "State keys empty.";
       ReportResult(
           EnrollmentStatus::ForStatus(EnrollmentStatus::NO_STATE_KEYS));
       return;
     }
   }
 
+  VLOG(1) << "State keys generated.";
   SetStep(STEP_LOADING_STORE);
   StartRegistration();
 }
@@ -452,6 +401,7 @@ void EnrollmentHandlerChromeOS::StartRegistration() {
     // after the CloudPolicyStore has initialized.
     return;
   }
+  VLOG(1) << "Start registration, config mode = " << enrollment_config_.mode;
   SetStep(STEP_REGISTRATION);
   if (enrollment_config_.is_mode_attestation()) {
     StartAttestationBasedEnrollmentFlow();
@@ -463,15 +413,15 @@ void EnrollmentHandlerChromeOS::StartRegistration() {
 }
 
 void EnrollmentHandlerChromeOS::StartAttestationBasedEnrollmentFlow() {
-  const chromeos::attestation::AttestationFlow::CertificateCallback callback =
-      base::Bind(
+  chromeos::attestation::AttestationFlow::CertificateCallback callback =
+      base::BindOnce(
           &EnrollmentHandlerChromeOS::HandleRegistrationCertificateResult,
           weak_ptr_factory_.GetWeakPtr());
   attestation_flow_->GetCertificate(
       chromeos::attestation::PROFILE_ENTERPRISE_ENROLLMENT_CERTIFICATE,
       EmptyAccountId(), std::string() /* request_origin */,
       false /* force_new_key */, std::string(), /* key_name */
-      callback);
+      std::move(callback));
 }
 
 void EnrollmentHandlerChromeOS::HandleRegistrationCertificateResult(
@@ -797,7 +747,6 @@ void EnrollmentHandlerChromeOS::Stop() {
   SetStep(STEP_FINISHED);
   weak_ptr_factory_.InvalidateWeakPtrs();
   completion_callback_.Reset();
-  available_licenses_callback_.Reset();
 }
 
 void EnrollmentHandlerChromeOS::ReportResult(EnrollmentStatus status) {

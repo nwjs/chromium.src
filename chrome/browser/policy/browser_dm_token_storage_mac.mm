@@ -15,6 +15,7 @@
 #include "base/hash/sha1.h"
 #include "base/logging.h"
 #include "base/mac/foundation_util.h"
+#include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/mac/scoped_ioobject.h"
 #include "base/no_destructor.h"
@@ -39,14 +40,8 @@ const char kDmTokenBaseDir[] =
     FILE_PATH_LITERAL("Google/Chrome Cloud Enrollment/");
 const CFStringRef kEnrollmentTokenPolicyName =
     CFSTR("CloudManagementEnrollmentToken");
-// TODO(crbug.com/907589) : Remove once no longer in use.
-const CFStringRef kEnrollmentTokenOldPolicyName =
-    CFSTR("MachineLevelUserCloudPolicyEnrollmentToken");
 const char kEnrollmentTokenFilePath[] =
     FILE_PATH_LITERAL("/Library/Google/Chrome/CloudManagementEnrollmentToken");
-// TODO(crbug.com/907589) : Remove once no longer in use.
-const char kEnrollmentTokenOldFilePath[] = FILE_PATH_LITERAL(
-    "/Library/Google/Chrome/MachineLevelUserCloudPolicyEnrollmentToken");
 
 // Enrollment Mandatory Option
 const CFStringRef kEnrollmentMandatoryOptionPolicyName =
@@ -103,13 +98,7 @@ bool GetEnrollmentTokenFromPolicy(std::string* enrollment_token) {
   // is no token set.
   if (!value ||
       !CFPreferencesAppValueIsForced(kEnrollmentTokenPolicyName, kBundleId)) {
-    // TODO(crbug.com/907589) : Remove once no longer in use.
-    value.reset(
-        CFPreferencesCopyAppValue(kEnrollmentTokenOldPolicyName, kBundleId));
-    if (!value || !CFPreferencesAppValueIsForced(kEnrollmentTokenOldPolicyName,
-                                                 kBundleId)) {
-      return false;
-    }
+    return false;
   }
   CFStringRef value_string = base::mac::CFCast<CFStringRef>(value);
   if (!value_string)
@@ -125,11 +114,7 @@ bool GetEnrollmentTokenFromFile(std::string* enrollment_token) {
   // is no token set.
   if (!base::ReadFileToString(base::FilePath(kEnrollmentTokenFilePath),
                               enrollment_token)) {
-    // TODO(crbug.com/907589) : Remove once no longer in use.
-    if (!base::ReadFileToString(base::FilePath(kEnrollmentTokenOldFilePath),
-                                enrollment_token)) {
-      return false;
-    }
+    return false;
   }
   *enrollment_token =
       base::TrimWhitespaceASCII(*enrollment_token, base::TRIM_ALL).as_string();
@@ -179,27 +164,7 @@ BrowserDMTokenStorageMac::BrowserDMTokenStorageMac()
 BrowserDMTokenStorageMac::~BrowserDMTokenStorageMac() {}
 
 std::string BrowserDMTokenStorageMac::InitClientId() {
-  // Returns the device s/n.
-  base::mac::ScopedIOObject<io_service_t> expert_device(
-      IOServiceGetMatchingService(kIOMasterPortDefault,
-                                  IOServiceMatching("IOPlatformExpertDevice")));
-  if (!expert_device) {
-    SYSLOG(ERROR) << "Error retrieving the machine serial number.";
-    return std::string();
-  }
-
-  base::ScopedCFTypeRef<CFTypeRef> serial_number(
-      IORegistryEntryCreateCFProperty(expert_device,
-                                      CFSTR(kIOPlatformSerialNumberKey),
-                                      kCFAllocatorDefault, 0));
-  CFStringRef serial_number_cfstring =
-      base::mac::CFCast<CFStringRef>(serial_number);
-  if (!serial_number_cfstring) {
-    SYSLOG(ERROR) << "Error retrieving the machine serial number.";
-    return std::string();
-  }
-
-  return base::SysCFStringRefToUTF8(serial_number_cfstring);
+  return base::mac::GetPlatformSerialNumber();
 }
 
 std::string BrowserDMTokenStorageMac::InitEnrollmentToken() {

@@ -48,6 +48,11 @@ bool IOSChromeControllerClient::CanGoBack() {
   return web_state_->GetNavigationManager()->CanGoBack();
 }
 
+bool IOSChromeControllerClient::CanGoBackBeforeNavigation() {
+  NOTREACHED();
+  return false;
+}
+
 void IOSChromeControllerClient::GoBackAfterNavigationCommitted() {
   NOTREACHED();
 }
@@ -79,8 +84,7 @@ const std::string& IOSChromeControllerClient::GetApplicationLocale() const {
 }
 
 PrefService* IOSChromeControllerClient::GetPrefService() {
-  return ios::ChromeBrowserState::FromBrowserState(
-             web_state_->GetBrowserState())
+  return ChromeBrowserState::FromBrowserState(web_state_->GetBrowserState())
       ->GetPrefs();
 }
 

@@ -8,56 +8,50 @@ GEN_INCLUDE(['../testing/mock_feedback.js']);
 
 /**
  * Test fixture for ChromeVox LanguageSwitching.
- * @constructor
- * @extends {ChromeVoxE2ETest}
  */
-function ChromeVoxLanguageSwitchingTest() {
-  ChromeVoxNextE2ETest.call(this);
-}
-
-ChromeVoxLanguageSwitchingTest.prototype = {
-  __proto__: ChromeVoxNextE2ETest.prototype,
-
+ChromeVoxLanguageSwitchingTest = class extends ChromeVoxNextE2ETest {
   /** @override */
-  testGenCppIncludes: function() {
+  testGenCppIncludes() {
     GEN(`
-// The following includes are copy-pasted from chromevox_e2e_test_base.js.
-#include "ash/accessibility/accessibility_delegate.h"
-#include "ash/shell.h"
-#include "base/bind.h"
-#include "base/callback.h"
-#include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
-#include "chrome/common/extensions/extension_constants.h"
+  // The following includes are copy-pasted from chromevox_e2e_test_base.js.
+  #include "ash/accessibility/accessibility_delegate.h"
+  #include "ash/shell.h"
+  #include "base/bind.h"
+  #include "base/callback.h"
+  #include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
+  #include "chrome/common/extensions/extension_constants.h"
+  #include "extensions/common/extension_l10n_util.h"
 
-// The following includes are necessary for this test file.
-#include "base/command_line.h"
-#include "ui/accessibility/accessibility_switches.h"
-#include "ui/base/ui_base_switches.h"
-    `);
-  },
+  // The following includes are necessary for this test file.
+  #include "base/command_line.h"
+  #include "ui/accessibility/accessibility_switches.h"
+  #include "ui/base/ui_base_switches.h"
+      `);
+  }
 
   /** @override */
-  testGenPreamble: function() {
+  testGenPreamble() {
     GEN(`
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-    ::switches::kEnableExperimentalAccessibilityLanguageDetection);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-    ::switches::kEnableExperimentalAccessibilityChromeVoxLanguageSwitching);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-    ::switches::kEnableExperimentalAccessibilityChromeVoxSubNodeLanguageSwitching);
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(::switches::kLang, "en-US");
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ::switches::kEnableExperimentalAccessibilityLanguageDetection);
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ::switches::kEnableExperimentalAccessibilityChromeVoxLanguageSwitching);
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ::switches::kEnableExperimentalAccessibilityChromeVoxSubNodeLanguageSwitching);
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(::switches::kLang, "en-US");
 
-  // Copy-pasted from chromevox_e2e_test_base.js.
-  base::Closure load_cb =
-    base::Bind(&chromeos::AccessibilityManager::EnableSpokenFeedback,
-        base::Unretained(chromeos::AccessibilityManager::Get()),
-        true);
-  WaitForExtension(extension_misc::kChromeVoxExtensionId, load_cb);
-    `);
-  },
+    // Copy-pasted from chromevox_e2e_test_base.js.
+    auto allow = extension_l10n_util::AllowGzippedMessagesAllowedForTest();
+    base::Closure load_cb =
+      base::Bind(&chromeos::AccessibilityManager::EnableSpokenFeedback,
+          base::Unretained(chromeos::AccessibilityManager::Get()),
+          true);
+    WaitForExtension(extension_misc::kChromeVoxExtensionId, load_cb);
+      `);
+  }
 
   /** @override */
-  setUp: function() {
+  setUp() {
     window.doCmd = this.doCmd;
     // Mock this api to return a predefined set of voices.
     chrome.tts.getVoices = function(callback) {
@@ -69,127 +63,146 @@ ChromeVoxLanguageSwitchingTest.prototype = {
     };
 
     this.setAvailableVoices();
-  },
+  }
 
   /**
    * @return {!MockFeedback}
    */
-  createMockFeedback: function() {
-    var mockFeedback =
+  createMockFeedback() {
+    const mockFeedback =
         new MockFeedback(this.newCallback(), this.newCallback.bind(this));
 
     mockFeedback.install();
     return mockFeedback;
-  },
+  }
 
   /**
    * Create a function which performs the command |cmd|.
    * @param {string} cmd
    * @return {function(): void}
    */
-  doCmd: function(cmd) {
+  doCmd(cmd) {
     return function() {
       CommandHandler.onCommand(cmd);
     };
-  },
+  }
 
   /**
    * Calls mock version of chrome.tts.getVoices() to populate
    * LanguageSwitching's available voice list with a specific set of voices.
    */
-  setAvailableVoices: function() {
+  setAvailableVoices() {
     chrome.tts.getVoices(function(voices) {
       LanguageSwitching.availableVoices_ = voices;
     });
-  },
+  }
 
-  // Test documents //
+  get asturianAndJapaneseDoc() {
+    return `
+      <meta charset="utf-8">
+      <p lang="ja">ど</p>
+      <p lang="ast">
+        Pretend that this text is Asturian. Testing three-letter language code logic.
+      </p>
+    `;
+  }
 
+  get buttonAndLinkDoc() {
+    return `
+      <body lang="es">
+        <p>This is a paragraph, written in English.</p>
+        <button type="submit">This is a button, written in English.</button>
+        <a href="https://www.google.com">Este es un enlace.</a>
+      </body>
+    `;
+  }
 
-  // The purpose of this doc is to test functionality with three-letter language
-  // codes. Asturian has a language code of 'ast'. It is a language spoken
-  // in Principality of Asturias, Spain.
-  asturianAndJapaneseDoc: `
-    <meta charset="utf-8">
-    <p lang="ja">ど</p>
-    <p lang="ast">
-      Pretend that this text is Asturian. Testing three-letter language code logic.
-    </p>
-  `,
+  get englishAndFrenchUnlabeledDoc() {
+    return `
+      <p>
+        This entire object should be read in English, even the following French passage:
+        salut mon ami! Ca va? Bien, et toi? It's hard to differentiate between latin-based languages.
+      </p>
+    `;
+  }
 
-  buttonAndLinkDoc: `
-    <body lang="es">
-      <p>This is a paragraph, written in English.</p>
-      <button type="submit">This is a button, written in English.</button>
-      <a href="https://www.google.com">Este es un enlace.</a>
-    </body>
-  `,
+  get englishAndKoreanUnlabeledDoc() {
+    return `
+      <meta charset="utf-8">
+      <p>This text is written in English. 차에 한하여 중임할 수. This text is also written in English.</p>
+    `;
+  }
 
-  englishAndFrenchUnlabeledDoc: `
-    <p>
-      This entire object should be read in English, even the following French passage:
-      salut mon ami! Ca va? Bien, et toi? It's hard to differentiate between latin-based languages.
-    </p>
-  `,
+  get japaneseAndChineseUnlabeledDoc() {
+    return `
+      <meta charset="utf-8">
+      <p id="text">
+        天気はいいですね. 右万諭全中結社原済権人点掲年難出面者会追
+      </p>
+    `;
+  }
 
-  englishAndKoreanUnlabeledDoc: `
-    <meta charset="utf-8">
-    <p>This text is written in English. 차에 한하여 중임할 수. This text is also written in English.</p>
-  `,
+  get japaneseAndEnglishUnlabeledDoc() {
+    return `
+      <meta charset="utf-8">
+      <p>Hello, my name is 太田あきひろ. It's a pleasure to meet you. どうぞよろしくお願いします.</p>
+    `;
+  }
 
-  japaneseAndChineseUnlabeledDoc: `
-    <meta charset="utf-8">
-    <p id="text">
-      天気はいいですね. 右万諭全中結社原済権人点掲年難出面者会追
-    </p>
-  `,
+  get japaneseAndKoreanUnlabeledDoc() {
+    return `
+      <meta charset="utf-8">
+      <p lang="ko">
+        私は. 법률이 정하는 바에 의하여 대법관이 아닌 법관을 둘 수 있다
+      </p>
+    `;
+  }
 
-  japaneseAndEnglishUnlabeledDoc: `
-    <meta charset="utf-8">
-    <p>Hello, my name is 太田あきひろ. It's a pleasure to meet you. どうぞよろしくお願いします.</p>
-  `,
+  get japaneseCharacterUnlabeledDoc() {
+    return `
+      <meta charset="utf-8">
+      <p>ど</p>
+    `;
+  }
 
-  japaneseAndKoreanUnlabeledDoc: `
-    <meta charset="utf-8">
-    <p lang="ko">
-      私は. 법률이 정하는 바에 의하여 대법관이 아닌 법관을 둘 수 있다
-    </p>
-  `,
+  get multipleLanguagesLabeledDoc() {
+    return `
+      <p lang="es">Hola.</p>
+      <p lang="en">Hello.</p>
+      <p lang="fr">Salut.</p>
+      <span lang="it">Ciao amico.</span>
+    `;
+  }
 
-  japaneseCharacterUnlabeledDoc: `
-    <meta charset="utf-8">
-    <p>ど</p>
-  `,
+  get japaneseAndInvalidLanguagesLabeledDoc() {
+    return `
+      <meta charset="utf-8">
+      <p lang="ja">どうぞよろしくお願いします</p>
+      <p lang="invalid-code">Test</p>
+      <p lang="hello">Yikes</p>
+    `;
+  }
 
-  multipleLanguagesLabeledDoc: `
-    <p lang="es">Hola.</p>
-    <p lang="en">Hello.</p>
-    <p lang="fr">Salut.</p>
-    <span lang="it">Ciao amico.</span>
-  `,
+  get nestedLanguagesLabeledDoc() {
+    return `
+      <p id="breakfast" lang="en">In the morning, I sometimes eat breakfast.</p>
+      <p id="lunch" lang="fr">Dans l'apres-midi, je dejeune.</p>
+      <p id="greeting" lang="en">
+        Hello it's a pleasure to meet you.
+        <span lang="fr">Comment ca va?</span>Switching back to English.
+        <span lang="es">Hola.</span>Goodbye.
+      </p>
+    `;
+  }
 
-  japaneseAndInvalidLanguagesLabeledDoc: `
-    <meta charset="utf-8">
-    <p lang="ja">どうぞよろしくお願いします</p>
-    <p lang="invalid-code">Test</p>
-    <p lang="hello">Yikes</p>
-  `,
-
-  nestedLanguagesLabeledDoc: `
-    <p id="breakfast" lang="en">In the morning, I sometimes eat breakfast.</p>
-    <p id="lunch" lang="fr">Dans l'apres-midi, je dejeune.</p>
-    <p id="greeting" lang="en">
-      Hello it's a pleasure to meet you.
-      <span lang="fr">Comment ca va?</span>Switching back to English.
-      <span lang="es">Hola.</span>Goodbye.
-    </p>
-  `,
-
-  vietnameseAndUrduLabeledDoc: `
-    <p lang="vi">Vietnamese text.</p>
-    <p lang="ur">Urdu text.</p>
-  `,
+  get vietnameseAndUrduLabeledDoc() {
+    return `
+      <p lang="vi">Vietnamese text.</p>
+      <p lang="ur">Urdu text.</p>
+    `;
+  }
 };
+
 
 // Overview:
 // The naming scheme of the language switching tests is as follows:
@@ -203,7 +216,7 @@ ChromeVoxLanguageSwitchingTest.prototype = {
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_MultipleLanguagesLabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.multipleLanguagesLabeledDoc, function() {
         // Turn on language switching.
         localStorage['languageSwitching'] = 'true';
@@ -223,7 +236,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_MultipleLanguagesLabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.multipleLanguagesLabeledDoc, function() {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -245,7 +258,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_NestedLanguagesLabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.nestedLanguagesLabeledDoc, function() {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -279,7 +292,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_NestedLanguagesLabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.nestedLanguagesLabeledDoc, function() {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -311,7 +324,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_ButtonAndLinkDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.buttonAndLinkDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -340,7 +353,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_ButtonAndLinkDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.buttonAndLinkDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -369,7 +382,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_JapaneseAndEnglishUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(
           this.japaneseAndEnglishUnlabeledDoc, function(root) {
             localStorage['languageSwitching'] = 'true';
@@ -386,7 +399,8 @@ TEST_F(
                 // with high enough probability. We fall back on node-level
                 // detected language, which is 'en-us'.
                 .expectSpeechWithLanguage(
-                    'en-us', 'English: It\'s a pleasure to meet you. ')
+                    'en-us',
+                    'English (United States): It\'s a pleasure to meet you. ')
                 .expectSpeechWithLanguage(
                     'ja', '日本語: どうぞよろしくお願いします.');
             mockFeedback.replay();
@@ -396,7 +410,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_JapaneseAndEnglishUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(
           this.japaneseAndEnglishUnlabeledDoc, function(root) {
             localStorage['languageSwitching'] = 'true';
@@ -423,7 +437,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_EnglishAndKoreanUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.englishAndKoreanUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -447,7 +461,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_EnglishAndKoreanUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.englishAndKoreanUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -466,7 +480,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_EnglishAndFrenchUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.englishAndFrenchUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -487,7 +501,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_EnglishAndFrenchUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.englishAndFrenchUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -506,7 +520,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_JapaneseCharacterUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(
           this.japaneseCharacterUnlabeledDoc, function(root) {
             localStorage['languageSwitching'] = 'true';
@@ -524,7 +538,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_JapaneseCharacterUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(
           this.japaneseCharacterUnlabeledDoc, function(root) {
             localStorage['languageSwitching'] = 'true';
@@ -540,7 +554,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_JapaneseAndChineseUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.japaneseAndChineseUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -556,7 +570,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_JapaneseAndChineseUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.japaneseAndChineseUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -572,7 +586,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_JapaneseAndChineseLabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       // Only difference between doc used in this test and
       // this.japaneseAndChineseUnlabeledDoc is the lang="zh" attribute.
       this.runWithLoadedTree(
@@ -598,7 +612,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_JapaneseAndKoreanUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.japaneseAndKoreanUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -614,7 +628,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_JapaneseAndKoreanUnlabeledDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.japaneseAndKoreanUnlabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -634,7 +648,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'SubNodeLevelSwitching_AsturianAndJapaneseDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.asturianAndJapaneseDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -652,7 +666,7 @@ TEST_F(
 TEST_F(
     'ChromeVoxLanguageSwitchingTest',
     'NodeLevelSwitching_AsturianAndJapaneseDoc_Test', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.asturianAndJapaneseDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
         this.setAvailableVoices();
@@ -673,7 +687,7 @@ TEST_F(
 // tested.
 TEST_F(
     'ChromeVoxLanguageSwitchingTest', 'LanguageSwitchingOffTest', function() {
-      var mockFeedback = this.createMockFeedback();
+      const mockFeedback = this.createMockFeedback();
       this.runWithLoadedTree(this.multipleLanguagesLabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'false';
         this.setAvailableVoices();
@@ -691,7 +705,7 @@ TEST_F(
     });
 
 TEST_F('ChromeVoxLanguageSwitchingTest', 'DefaultToUILanguageTest', function() {
-  var mockFeedback = this.createMockFeedback();
+  const mockFeedback = this.createMockFeedback();
   this.runWithLoadedTree(
       this.japaneseAndInvalidLanguagesLabeledDoc, function(root) {
         localStorage['languageSwitching'] = 'true';
@@ -703,7 +717,7 @@ TEST_F('ChromeVoxLanguageSwitchingTest', 'DefaultToUILanguageTest', function() {
             .expectSpeechWithLanguage(
                 'ja', '日本語: どうぞよろしくお願いします')
             .call(doCmd('nextObject'))
-            .expectSpeechWithLanguage('en-us', 'English: Test')
+            .expectSpeechWithLanguage('en-us', 'English (United States): Test')
             .call(doCmd('nextObject'))
             .expectSpeechWithLanguage('en-us', 'Yikes');
         mockFeedback.replay();
@@ -711,7 +725,7 @@ TEST_F('ChromeVoxLanguageSwitchingTest', 'DefaultToUILanguageTest', function() {
 });
 
 TEST_F('ChromeVoxLanguageSwitchingTest', 'NoAvailableVoicesTest', function() {
-  var mockFeedback = this.createMockFeedback();
+  const mockFeedback = this.createMockFeedback();
   this.runWithLoadedTree(this.vietnameseAndUrduLabeledDoc, function(root) {
     localStorage['languageSwitching'] = 'true';
     this.setAvailableVoices();

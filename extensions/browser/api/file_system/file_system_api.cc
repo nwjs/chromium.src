@@ -752,7 +752,7 @@ ExtensionFunction::ResponseAction FileSystemChooseEntryFunction::Run() {
     return RespondLater();
   }
 
-  base::Callback<void(bool)> set_initial_path_callback = base::Bind(
+  base::OnceCallback<void(bool)> set_initial_path_callback = base::BindOnce(
       &FileSystemChooseEntryFunction::SetInitialPathAndShowPicker, this,
       previous_path, suggested_name, file_type_info, picker_type);
 
@@ -762,16 +762,16 @@ ExtensionFunction::ResponseAction FileSystemChooseEntryFunction::Run() {
       ExtensionsAPIClient::Get()->GetNonNativeFileSystemDelegate();
   if (delegate &&
       delegate->IsUnderNonNativeLocalPath(browser_context(), previous_path)) {
-    delegate->IsNonNativeLocalPathDirectory(browser_context(), previous_path,
-                                            set_initial_path_callback);
+    delegate->IsNonNativeLocalPathDirectory(
+        browser_context(), previous_path, std::move(set_initial_path_callback));
     return RespondLater();
   }
 #endif
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&base::DirectoryExists, previous_path),
-      set_initial_path_callback);
+      base::BindOnce(&base::DirectoryExists, previous_path),
+      std::move(set_initial_path_callback));
 
   return RespondLater();
 }
@@ -811,14 +811,14 @@ ExtensionFunction::ResponseAction FileSystemRetainEntryFunction::Run() {
     if (!storage::CrackIsolatedFileSystemName(filesystem_name, &filesystem_id))
       return RespondNow(Error(kRetainEntryError));
 
-    const GURL site =
-        util::GetSiteForExtensionId(extension_id(), browser_context());
     storage::FileSystemContext* const context =
-        content::BrowserContext::GetStoragePartitionForSite(browser_context(),
-                                                            site)
+        util::GetStoragePartitionForExtensionId(extension_id(),
+                                                browser_context())
             ->GetFileSystemContext();
+    const GURL origin =
+        util::GetSiteForExtensionId(extension_id(), browser_context());
     const storage::FileSystemURL url = context->CreateCrackedFileSystemURL(
-        site, storage::kFileSystemTypeIsolated,
+        origin, storage::kFileSystemTypeIsolated,
         storage::IsolatedContext::GetInstance()
             ->CreateVirtualRootPath(filesystem_id)
             .Append(base::FilePath::FromUTF8Unsafe(filesystem_path)));

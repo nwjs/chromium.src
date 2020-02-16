@@ -19,6 +19,7 @@
 #include "ios/chrome/browser/chrome_url_constants.h"
 #include "ios/chrome/browser/passwords/password_manager_features.h"
 #import "ios/chrome/browser/web/error_page_util.h"
+#include "ios/web/common/features.h"
 #import "ios/web/common/web_view_creation_util.h"
 #import "ios/web/public/test/error_test_util.h"
 #import "ios/web/public/test/fakes/test_web_state.h"
@@ -30,6 +31,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gtest_mac.h"
 #include "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -61,11 +63,11 @@ class ChromeWebClientTest : public PlatformTest {
 
   ~ChromeWebClientTest() override = default;
 
-  ios::ChromeBrowserState* browser_state() { return browser_state_.get(); }
+  ChromeBrowserState* browser_state() { return browser_state_.get(); }
 
  private:
   base::test::TaskEnvironment environment_;
-  std::unique_ptr<ios::ChromeBrowserState> browser_state_;
+  std::unique_ptr<ChromeBrowserState> browser_state_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeWebClientTest);
 };
@@ -175,20 +177,6 @@ TEST_F(ChromeWebClientTest, WKWebViewEarlyPageScriptCredentialManager) {
   web::test::ExecuteJavaScript(web_view, script);
   EXPECT_NSEQ(@"object", web::test::ExecuteJavaScript(
                              web_view, @"typeof navigator.credentials"));
-}
-
-// Tests that ChromeWebClient provides payment request script for WKWebView.
-TEST_F(ChromeWebClientTest, WKWebViewEarlyPageScriptPaymentRequest) {
-  // Chrome scripts rely on __gCrWeb object presence.
-  WKWebView* web_view = web::BuildWKWebView(CGRectZero, browser_state());
-  web::test::ExecuteJavaScript(web_view, @"__gCrWeb = {};");
-
-  web::ScopedTestingWebClient web_client(std::make_unique<ChromeWebClient>());
-  NSString* script =
-      web_client.Get()->GetDocumentStartScriptForMainFrame(browser_state());
-  web::test::ExecuteJavaScript(web_view, script);
-  EXPECT_NSEQ(@"function", web::test::ExecuteJavaScript(
-                               web_view, @"typeof window.PaymentRequest"));
 }
 
 // Tests PrepareErrorPage wth non-post, not Off The Record error.
@@ -331,4 +319,72 @@ TEST_F(ChromeWebClientTest, PrepareErrorPageWithSSLInfo) {
   NSString* error_string = base::SysUTF8ToNSString(
       net::ErrorToShortString(net::ERR_CERT_COMMON_NAME_INVALID));
   EXPECT_TRUE([page containsString:error_string]);
+}
+
+// Tests the default user agent for different views.
+TEST_F(ChromeWebClientTest, DefaultUserAgent) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      web::features::kUseDefaultUserAgentInWebClient);
+
+  ChromeWebClient web_client;
+
+  UITraitCollection* regular_vertical_size_class = [UITraitCollection
+      traitCollectionWithVerticalSizeClass:UIUserInterfaceSizeClassRegular];
+  UITraitCollection* regular_horizontal_size_class = [UITraitCollection
+      traitCollectionWithHorizontalSizeClass:UIUserInterfaceSizeClassRegular];
+  UITraitCollection* compact_vertical_size_class = [UITraitCollection
+      traitCollectionWithVerticalSizeClass:UIUserInterfaceSizeClassCompact];
+  UITraitCollection* compact_horizontal_size_class = [UITraitCollection
+      traitCollectionWithHorizontalSizeClass:UIUserInterfaceSizeClassCompact];
+
+  UIView* view = [[UIView alloc] init];
+  UITraitCollection* original_traits = view.traitCollection;
+
+  UITraitCollection* regular_regular =
+      [UITraitCollection traitCollectionWithTraitsFromCollections:@[
+        original_traits, regular_vertical_size_class,
+        regular_horizontal_size_class
+      ]];
+  UITraitCollection* regular_compact =
+      [UITraitCollection traitCollectionWithTraitsFromCollections:@[
+        original_traits, regular_vertical_size_class,
+        compact_horizontal_size_class
+      ]];
+  UITraitCollection* compact_regular =
+      [UITraitCollection traitCollectionWithTraitsFromCollections:@[
+        original_traits, compact_vertical_size_class,
+        regular_horizontal_size_class
+      ]];
+  UITraitCollection* compact_compact =
+      [UITraitCollection traitCollectionWithTraitsFromCollections:@[
+        original_traits, compact_vertical_size_class,
+        compact_horizontal_size_class
+      ]];
+
+  // Check that desktop is returned for Regular x Regular.
+  id mock_regular_regular_view = OCMClassMock([UIView class]);
+  OCMStub([mock_regular_regular_view traitCollection])
+      .andReturn(regular_regular);
+  EXPECT_EQ(web::UserAgentType::DESKTOP,
+            web_client.GetDefaultUserAgent(mock_regular_regular_view));
+
+  // Check that mobile is returned for all other combinations.
+  id mock_regular_compact_view = OCMClassMock([UIView class]);
+  OCMStub([mock_regular_compact_view traitCollection])
+      .andReturn(regular_compact);
+  EXPECT_EQ(web::UserAgentType::MOBILE,
+            web_client.GetDefaultUserAgent(mock_regular_compact_view));
+
+  id mock_compact_regular_view = OCMClassMock([UIView class]);
+  OCMStub([mock_compact_regular_view traitCollection])
+      .andReturn(compact_regular);
+  EXPECT_EQ(web::UserAgentType::MOBILE,
+            web_client.GetDefaultUserAgent(mock_compact_regular_view));
+
+  id mock_compact_compact_view = OCMClassMock([UIView class]);
+  OCMStub([mock_compact_compact_view traitCollection])
+      .andReturn(compact_compact);
+  EXPECT_EQ(web::UserAgentType::MOBILE,
+            web_client.GetDefaultUserAgent(mock_compact_compact_view));
 }

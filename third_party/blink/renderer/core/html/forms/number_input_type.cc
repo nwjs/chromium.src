@@ -153,7 +153,7 @@ bool NumberInputType::SizeShouldIncludeDecoration(int default_size,
 
   const String step_string =
       GetElement().FastGetAttribute(html_names::kStepAttr);
-  if (DeprecatedEqualIgnoringCase(step_string, "any"))
+  if (EqualIgnoringASCIICase(step_string, "any"))
     return false;
 
   const Decimal minimum = ParseToDecimalForNumberType(
@@ -246,10 +246,7 @@ void NumberInputType::WarnIfValueIsInvalid(const String& value) const {
   if (value.IsEmpty() || !GetElement().SanitizeValue(value).IsEmpty())
     return;
   AddWarningToConsole(
-      "The specified value %s is not a valid number. The value must match to "
-      "the following regular expression: "
-      "-?(\\d+|\\d+\\.\\d+|\\.\\d+)([eE][-+]?\\d+)?",
-      value);
+      "The specified value %s cannot be parsed, or is out of range.", value);
 }
 
 bool NumberInputType::HasBadInput() const {

@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_scroll_to_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_void_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy.h"
 #include "third_party/blink/renderer/core/accessibility/ax_context.h"
@@ -50,11 +51,11 @@
 #include "third_party/blink/renderer/core/css/style_media.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
 #include "third_party/blink/renderer/core/dom/dom_implementation.h"
+#include "third_party/blink/renderer/core/dom/events/add_event_listener_options_resolved.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
 #include "third_party/blink/renderer/core/dom/scripted_idle_task_controller.h"
-#include "third_party/blink/renderer/core/dom/sink_document.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/events/hash_change_event.h"
@@ -74,13 +75,13 @@
 #include "third_party/blink/renderer/core/frame/navigator.h"
 #include "third_party/blink/renderer/core/frame/sandbox_flags.h"
 #include "third_party/blink/renderer/core/frame/screen.h"
-#include "third_party/blink/renderer/core/frame/scroll_to_options.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/viewport_data.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
+#include "third_party/blink/renderer/core/html/plugin_document.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
@@ -244,8 +245,7 @@ TrustedTypePolicyFactory* LocalDOMWindow::trustedTypes() const {
   return trusted_types_.Get();
 }
 
-Document* LocalDOMWindow::CreateDocument(const String& mime_type,
-                                         const DocumentInit& init,
+Document* LocalDOMWindow::CreateDocument(const DocumentInit& init,
                                          bool force_xhtml) {
   Document* document = nullptr;
   if (force_xhtml) {
@@ -253,14 +253,7 @@ Document* LocalDOMWindow::CreateDocument(const String& mime_type,
     // XSLTProcessor::createDocumentFromSource().
     document = MakeGarbageCollected<Document>(init);
   } else {
-    document = DOMImplementation::createDocument(
-        mime_type, init,
-        init.GetFrame() ? init.GetFrame()->InViewSourceMode() : false);
-    if (document->IsPluginDocument() &&
-        document->IsSandboxed(WebSandboxFlags::kPlugins)) {
-      // document->Shutdown();
-      document = MakeGarbageCollected<SinkDocument>(init);
-    }
+    document = DOMImplementation::createDocument(init);
   }
 
   return document;
@@ -271,14 +264,13 @@ LocalDOMWindow* LocalDOMWindow::From(const ScriptState* script_state) {
   return blink::ToLocalDOMWindow(script_state->GetContext());
 }
 
-Document* LocalDOMWindow::InstallNewDocument(const String& mime_type,
-                                             const DocumentInit& init,
+Document* LocalDOMWindow::InstallNewDocument(const DocumentInit& init,
                                              bool force_xhtml) {
   DCHECK_EQ(init.GetFrame(), GetFrame());
 
   ClearDocument();
 
-  document_ = CreateDocument(mime_type, init, force_xhtml);
+  document_ = CreateDocument(init, force_xhtml);
   document_->Initialize();
 
   if (!GetFrame())
@@ -714,6 +706,9 @@ void LocalDOMWindow::print(ScriptState* script_state) {
     return;
   }
 
+  if (!GetFrame()->IsMainFrame() && !GetFrame()->IsCrossOriginSubframe()) {
+    document()->CountUse(WebFeature::kSameOriginIframeWindowPrint);
+  }
   document()->CountUseOnlyInCrossOriginIframe(
       WebFeature::kCrossOriginWindowPrint);
 
@@ -751,6 +746,9 @@ void LocalDOMWindow::alert(ScriptState* script_state, const String& message) {
   if (!page)
     return;
 
+  if (!GetFrame()->IsMainFrame() && !GetFrame()->IsCrossOriginSubframe()) {
+    document()->CountUse(WebFeature::kSameOriginIframeWindowAlert);
+  }
   document()->CountUseOnlyInCrossOriginIframe(
       WebFeature::kCrossOriginWindowAlert);
 
@@ -781,6 +779,9 @@ bool LocalDOMWindow::confirm(ScriptState* script_state, const String& message) {
   if (!page)
     return false;
 
+  if (!GetFrame()->IsMainFrame() && !GetFrame()->IsCrossOriginSubframe()) {
+    document()->CountUse(WebFeature::kSameOriginIframeWindowConfirm);
+  }
   document()->CountUseOnlyInCrossOriginIframe(
       WebFeature::kCrossOriginWindowConfirm);
 
@@ -818,6 +819,9 @@ String LocalDOMWindow::prompt(ScriptState* script_state,
                                                    default_value, return_value))
     return return_value;
 
+  if (!GetFrame()->IsMainFrame() && !GetFrame()->IsCrossOriginSubframe()) {
+    document()->CountUse(WebFeature::kSameOriginIframeWindowPrompt);
+  }
   document()->CountUseOnlyInCrossOriginIframe(
       WebFeature::kCrossOriginWindowPrompt);
 
@@ -1103,17 +1107,19 @@ void LocalDOMWindow::scrollBy(const ScrollToOptions* scroll_to_options) const {
 
   std::unique_ptr<cc::SnapSelectionStrategy> strategy =
       cc::SnapSelectionStrategy::CreateForEndAndDirection(
-          gfx::ScrollOffset(current_position), gfx::ScrollOffset(scaled_delta));
+          gfx::ScrollOffset(current_position), gfx::ScrollOffset(scaled_delta),
+          RuntimeEnabledFeatures::FractionalScrollOffsetsEnabled());
   new_scaled_position =
       viewport->GetSnapPositionAndSetTarget(*strategy).value_or(
           new_scaled_position);
 
-  ScrollBehavior scroll_behavior = kScrollBehaviorAuto;
+  mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior =
+      mojom::blink::ScrollIntoViewParams::Behavior::kAuto;
   ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
                                            scroll_behavior);
   viewport->SetScrollOffset(
       viewport->ScrollPositionToOffset(new_scaled_position),
-      kProgrammaticScroll, scroll_behavior);
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, scroll_behavior);
 }
 
 void LocalDOMWindow::scrollTo(double x, double y) const {
@@ -1172,12 +1178,13 @@ void LocalDOMWindow::scrollTo(const ScrollToOptions* scroll_to_options) const {
   new_scaled_position =
       viewport->GetSnapPositionAndSetTarget(*strategy).value_or(
           new_scaled_position);
-  ScrollBehavior scroll_behavior = kScrollBehaviorAuto;
+  mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior =
+      mojom::blink::ScrollIntoViewParams::Behavior::kAuto;
   ScrollableArea::ScrollBehaviorFromString(scroll_to_options->behavior(),
                                            scroll_behavior);
   viewport->SetScrollOffset(
       viewport->ScrollPositionToOffset(new_scaled_position),
-      kProgrammaticScroll, scroll_behavior);
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, scroll_behavior);
 }
 
 void LocalDOMWindow::moveBy(int x, int y) const {
@@ -1562,13 +1569,13 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   // an embedder-initiated navigation.  FrameLoader assumes no responsibility
   // for generating an embedder-initiated navigation's referrer, so we need to
   // ensure the proper referrer is set now.
-  // TODO(domfarolino): Stop setting ResourceRequest's HTTP Referrer and store
-  // this is a separate member. See https://crbug.com/850813.
-  frame_request.GetResourceRequest().SetHttpReferrer(
-      SecurityPolicy::GenerateReferrer(
-          active_document->GetReferrerPolicy(), completed_url,
-          window_features.noreferrer ? Referrer::NoReferrer()
-                                     : active_document->OutgoingReferrer()));
+  Referrer referrer = SecurityPolicy::GenerateReferrer(
+      active_document->GetReferrerPolicy(), completed_url,
+      window_features.noreferrer ? Referrer::NoReferrer()
+                                 : active_document->OutgoingReferrer());
+  frame_request.GetResourceRequest().SetReferrerString(referrer.referrer);
+  frame_request.GetResourceRequest().SetReferrerPolicy(
+      referrer.referrer_policy);
 
   frame_request.GetResourceRequest().SetHasUserGesture(
       LocalFrame::HasTransientUserActivation(GetFrame()));

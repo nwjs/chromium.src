@@ -67,6 +67,11 @@ std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
     const PaintArtifact* paint_artifact) const {
   DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
          paint_artifact);
+
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
+      !tracks_raster_invalidations_)
+    flags &= ~kLayerTreeIncludesPaintInvalidations;
+
   LayersAsJSON layers_as_json(flags);
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     for (const auto& layer : root_layer_->children()) {
@@ -90,9 +95,7 @@ std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
         }
       }
       DCHECK(transform);
-      layers_as_json.AddLayer(*layer,
-                              FloatPoint(layer->offset_to_transform_parent()),
-                              *transform, json_client);
+      layers_as_json.AddLayer(*layer, *transform, json_client);
     }
   } else {
     for (const auto& paint_chunk : paint_artifact->PaintChunks()) {
@@ -102,9 +105,22 @@ std::unique_ptr<JSONObject> PaintArtifactCompositor::GetLayersAsJSON(
       const auto& foreign_layer_display_item =
           static_cast<const ForeignLayerDisplayItem&>(display_item);
       cc::Layer* layer = foreign_layer_display_item.GetLayer();
+      // Need to retrieve the transform from |pending_layers_| so that
+      // any decomposition is not double-reported via |layer|'s
+      // offset_from_transform_parent and |paint_chunk|'s transform inside
+      // AddLayer.
+      const TransformPaintPropertyNode* transform = nullptr;
+      for (const auto& pending_layer : pending_layers_) {
+        if (pending_layer.property_tree_state.Transform().CcNodeId(
+                layer->property_tree_sequence_number()) ==
+            layer->transform_tree_index()) {
+          transform = &pending_layer.property_tree_state.Transform();
+          break;
+        }
+      }
+      DCHECK(transform);
       layers_as_json.AddLayer(
-          *layer, foreign_layer_display_item.Offset(),
-          paint_chunk.properties.Transform(),
+          *layer, *transform,
           foreign_layer_display_item.GetLayerAsJSONClient());
     }
   }
@@ -436,26 +452,165 @@ PaintArtifactCompositor::PendingLayer::PendingLayer(
   paint_chunk_indices.push_back(chunk_index);
 }
 
-void PaintArtifactCompositor::PendingLayer::Merge(const PendingLayer& guest) {
-  DCHECK(compositing_type != kRequiresOwnLayer &&
-         guest.compositing_type != kRequiresOwnLayer);
-  paint_chunk_indices.AppendVector(guest.paint_chunk_indices);
-  FloatClipRect guest_bounds_in_home(guest.bounds);
-  GeometryMapper::LocalToAncestorVisualRect(
-      guest.property_tree_state, property_tree_state, guest_bounds_in_home);
-  bounds.Unite(guest_bounds_in_home.Rect());
-  // TODO(crbug.com/701991): Upgrade GeometryMapper.
-  // If we knew the new bounds is enclosed by the mapped opaque region of
-  // the guest layer, we can deduce the merged layer being opaque too, and
-  // update rect_known_to_be_opaque accordingly.
+FloatRect PaintArtifactCompositor::PendingLayer::UniteRectsKnownToBeOpaque(
+    const FloatRect& a,
+    const FloatRect& b) {
+  // Check a or b by itself.
+  FloatRect maximum(a);
+  float maximum_area = a.Size().Area();
+  if (b.Size().Area() > maximum_area) {
+    maximum = b;
+    maximum_area = b.Size().Area();
+  }
+  // Check the regions that include the intersection of a and b. This can be
+  // done by taking the intersection and expanding it vertically and
+  // horizontally. These expanded intersections will both still be fully opaque.
+  FloatRect intersection = a;
+  intersection.InclusiveIntersect(b);
+  if (!intersection.IsZero()) {
+    FloatRect vert_expanded_intersection(intersection);
+    vert_expanded_intersection.ShiftYEdgeTo(std::min(a.Y(), b.Y()));
+    vert_expanded_intersection.ShiftMaxYEdgeTo(std::max(a.MaxY(), b.MaxY()));
+    if (vert_expanded_intersection.Size().Area() > maximum_area) {
+      maximum = vert_expanded_intersection;
+      maximum_area = vert_expanded_intersection.Size().Area();
+    }
+    FloatRect horiz_expanded_intersection(intersection);
+    horiz_expanded_intersection.ShiftXEdgeTo(std::min(a.X(), b.X()));
+    horiz_expanded_intersection.ShiftMaxXEdgeTo(std::max(a.MaxX(), b.MaxX()));
+    if (horiz_expanded_intersection.Size().Area() > maximum_area) {
+      maximum = horiz_expanded_intersection;
+      maximum_area = horiz_expanded_intersection.Size().Area();
+    }
+  }
+  return maximum;
 }
 
-static bool CanUpcastTo(const PropertyTreeState& guest,
-                        const PropertyTreeState& home);
+FloatRect PaintArtifactCompositor::PendingLayer::MapRectKnownToBeOpaque(
+    const PropertyTreeState& new_state) const {
+  if (rect_known_to_be_opaque.IsEmpty())
+    return FloatRect();
+
+  FloatClipRect float_clip_rect(rect_known_to_be_opaque);
+  GeometryMapper::LocalToAncestorVisualRect(property_tree_state, new_state,
+                                            float_clip_rect);
+  return float_clip_rect.IsTight() ? float_clip_rect.Rect() : FloatRect();
+}
+
+bool PaintArtifactCompositor::PendingLayer::Merge(const PendingLayer& guest) {
+  PropertyTreeState new_state = PropertyTreeState::Uninitialized();
+  if (!CanMerge(guest, guest.property_tree_state, &new_state, &bounds))
+    return false;
+
+  paint_chunk_indices.AppendVector(guest.paint_chunk_indices);
+  rect_known_to_be_opaque =
+      UniteRectsKnownToBeOpaque(MapRectKnownToBeOpaque(new_state),
+                                guest.MapRectKnownToBeOpaque(new_state));
+  property_tree_state = new_state;
+  return true;
+}
+
+void PaintArtifactCompositor::PendingLayer::Upcast(
+    const PropertyTreeState& new_state) {
+  DCHECK(compositing_type != kRequiresOwnLayer);
+  if (property_tree_state == new_state)
+    return;
+
+  FloatClipRect float_clip_rect(bounds);
+  GeometryMapper::LocalToAncestorVisualRect(property_tree_state, new_state,
+                                            float_clip_rect);
+  bounds = float_clip_rect.Rect();
+
+  rect_known_to_be_opaque = MapRectKnownToBeOpaque(new_state);
+  property_tree_state = new_state;
+}
+
+const PaintChunk& PaintArtifactCompositor::PendingLayer::FirstPaintChunk(
+    const PaintArtifact& paint_artifact) const {
+  return paint_artifact.PaintChunks()[paint_chunk_indices[0]];
+}
+
+static bool HasCompositedTransformToAncestor(
+    const TransformPaintPropertyNode& node,
+    const TransformPaintPropertyNode& unaliased_ancestor) {
+  for (const auto* n = &node.Unalias(); n != &unaliased_ancestor;
+       n = SafeUnalias(n->Parent())) {
+    if (n->HasDirectCompositingReasons())
+      return true;
+  }
+  return false;
+}
+
+// Returns the lowest common ancestor if there is no composited transform
+// between the two transforms.
+static const TransformPaintPropertyNode* NonCompositedLowestCommonAncestor(
+    const TransformPaintPropertyNode& transform1,
+    const TransformPaintPropertyNode& transform2) {
+  const auto& lca = LowestCommonAncestor(transform1, transform2).Unalias();
+  if (HasCompositedTransformToAncestor(transform1, lca) ||
+      HasCompositedTransformToAncestor(transform2, lca))
+    return nullptr;
+  return &lca;
+}
+
+static bool ClipChainHasCompositedTransformTo(
+    const ClipPaintPropertyNode& node,
+    const ClipPaintPropertyNode& unaliased_ancestor,
+    const TransformPaintPropertyNode& transform) {
+  for (const auto* n = &node.Unalias(); n != &unaliased_ancestor;
+       n = SafeUnalias(n->Parent())) {
+    if (!NonCompositedLowestCommonAncestor(n->LocalTransformSpace(), transform))
+      return true;
+  }
+  return false;
+}
+
+// Determines whether drawings based on the 'guest' state can be painted into
+// a layer with the 'home' state, and if yes, returns the common ancestor state
+// to which both layer will be upcasted.
+// A number of criteria need to be met:
+// 1. The guest effect must be a descendant of the home effect. However this
+//    check is enforced by the layerization recursion. Here we assume the
+//    guest has already been upcasted to the same effect.
+// 2. The guest transform and the home transform have compatible backface
+//    visibility.
+// 3. The guest transform space must be within compositing boundary of the home
+//    transform space.
+// 4. The local space of each clip and effect node on the ancestor chain must
+//    be within compositing boundary of the home transform space.
+base::Optional<PropertyTreeState> CanUpcastWith(const PropertyTreeState& guest,
+                                                const PropertyTreeState& home) {
+  DCHECK_EQ(&home.Effect().Unalias(), &guest.Effect().Unalias());
+
+  if (home.Transform().IsBackfaceHidden() !=
+      guest.Transform().IsBackfaceHidden())
+    return base::nullopt;
+
+  auto* upcast_transform =
+      NonCompositedLowestCommonAncestor(home.Transform(), guest.Transform());
+  if (!upcast_transform)
+    return base::nullopt;
+
+  const auto& clip_lca =
+      LowestCommonAncestor(home.Clip(), guest.Clip()).Unalias();
+  if (ClipChainHasCompositedTransformTo(home.Clip(), clip_lca,
+                                        *upcast_transform) ||
+      ClipChainHasCompositedTransformTo(guest.Clip(), clip_lca,
+                                        *upcast_transform))
+    return base::nullopt;
+
+  return PropertyTreeState(*upcast_transform, clip_lca, home.Effect());
+}
+
+// We will only allow merging if the merged-area:home-area+guest-area doesn't
+// exceed the ratio |kMergingSparsityTolerance|:1.
+static constexpr float kMergeSparsityTolerance = 6;
 
 bool PaintArtifactCompositor::PendingLayer::CanMerge(
     const PendingLayer& guest,
-    const PropertyTreeState& guest_state) const {
+    const PropertyTreeState& guest_state,
+    PropertyTreeState* out_merged_state,
+    FloatRect* out_merged_bounds) const {
   if (compositing_type == kRequiresOwnLayer ||
       guest.compositing_type == kRequiresOwnLayer) {
     return false;
@@ -464,81 +619,38 @@ bool PaintArtifactCompositor::PendingLayer::CanMerge(
       &guest_state.Effect().Unalias()) {
     return false;
   }
-  return CanUpcastTo(guest_state, property_tree_state);
-}
 
-void PaintArtifactCompositor::PendingLayer::Upcast(
-    const PropertyTreeState& new_state) {
-  DCHECK(compositing_type != kRequiresOwnLayer);
-  FloatClipRect float_clip_rect(bounds);
-  GeometryMapper::LocalToAncestorVisualRect(property_tree_state, new_state,
-                                            float_clip_rect);
-  bounds = float_clip_rect.Rect();
-
-  property_tree_state = new_state;
-  // TODO(crbug.com/701991): Upgrade GeometryMapper.
-  // A local visual rect mapped to an ancestor space may become a polygon
-  // (e.g. consider transformed clip), also effects may affect the opaque
-  // region. To determine whether the layer is still opaque, we need to
-  // query conservative opaque rect after mapping to an ancestor space,
-  // which is not supported by GeometryMapper yet.
-  rect_known_to_be_opaque = FloatRect();
-}
-
-const PaintChunk& PaintArtifactCompositor::PendingLayer::FirstPaintChunk(
-    const PaintArtifact& paint_artifact) const {
-  return paint_artifact.PaintChunks()[paint_chunk_indices[0]];
-}
-
-static bool IsNonCompositingAncestorOf(
-    const TransformPaintPropertyNode& unaliased_ancestor,
-    const TransformPaintPropertyNode& node) {
-  for (const auto* n = &node; n != &unaliased_ancestor;
-       n = SafeUnalias(n->Parent())) {
-    if (!n || n->HasDirectCompositingReasons())
-      return false;
-  }
-  return true;
-}
-
-// Determines whether drawings based on the 'guest' state can be painted into
-// a layer with the 'home' state. A number of criteria need to be met:
-// 1. The guest effect must be a descendant of the home effect. However this
-//    check is enforced by the layerization recursion. Here we assume the
-//    guest has already been upcasted to the same effect.
-// 2. The guest transform and the home transform have compatible backface
-//    visibility.
-// 3. The guest clip must be a descendant of the home clip.
-// 4. The local space of each clip and effect node on the ancestor chain must
-//    be within compositing boundary of the home transform space.
-// 5. The guest transform space must be within compositing boundary of the
-// home
-//    transform space.
-static bool CanUpcastTo(const PropertyTreeState& guest,
-                        const PropertyTreeState& home) {
-  DCHECK_EQ(&home.Effect().Unalias(), &guest.Effect().Unalias());
-
-  if (home.Transform().IsBackfaceHidden() !=
-      guest.Transform().IsBackfaceHidden())
+  const base::Optional<PropertyTreeState>& merged_state =
+      CanUpcastWith(guest_state, property_tree_state);
+  if (!merged_state)
     return false;
 
-  const auto& home_clip = home.Clip().Unalias();
-  for (const auto* current_clip = &guest.Clip().Unalias();
-       current_clip != &home_clip;
-       current_clip = SafeUnalias(current_clip->Parent())) {
-    // If we had direct compositing reasons on a clip node, we would want to
-    // return false here.
-    if (!current_clip)
+  FloatClipRect new_home_bounds(bounds);
+  GeometryMapper::LocalToAncestorVisualRect(property_tree_state, *merged_state,
+                                            new_home_bounds);
+  FloatClipRect new_guest_bounds(guest.bounds);
+  GeometryMapper::LocalToAncestorVisualRect(guest_state, *merged_state,
+                                            new_guest_bounds);
+
+  FloatRect merged_bounds =
+      UnionRect(new_home_bounds.Rect(), new_guest_bounds.Rect());
+  // Don't check for sparcity if we may further decomposite the effect, so that
+  // the merged layer may be merged to other layers with the decomposited
+  // effect, which is often better than not merging even if the merged layer is
+  // sparse because we may create less composited effects and render surfaces.
+  if (guest_state.Effect().IsRoot() ||
+      guest_state.Effect().HasDirectCompositingReasons()) {
+    float sum_area = new_home_bounds.Rect().Size().Area() +
+                     new_guest_bounds.Rect().Size().Area();
+    if (merged_bounds.Size().Area() > kMergeSparsityTolerance * sum_area)
       return false;
-    if (!IsNonCompositingAncestorOf(
-            home.Transform().Unalias(),
-            current_clip->LocalTransformSpace().Unalias())) {
-      return false;
-    }
   }
 
-  return IsNonCompositingAncestorOf(home.Transform().Unalias(),
-                                    guest.Transform().Unalias());
+  if (out_merged_state)
+    *out_merged_state = *merged_state;
+  if (out_merged_bounds)
+    *out_merged_bounds = merged_bounds;
+  return true;
 }
 
 // Returns nullptr if 'ancestor' is not a strict ancestor of 'node'.
@@ -593,11 +705,12 @@ bool PaintArtifactCompositor::DecompositeEffect(
                                     ? *unaliased_effect.OutputClip()
                                     : layer.property_tree_state.Clip(),
                                 unaliased_effect);
-  if (!CanUpcastTo(layer.property_tree_state, group_state))
+  base::Optional<PropertyTreeState> upcast_state =
+      CanUpcastWith(layer.property_tree_state, group_state);
+  if (!upcast_state)
     return false;
 
-  PropertyTreeState upcast_state = group_state;
-  upcast_state.SetEffect(unaliased_parent_effect);
+  upcast_state->SetEffect(unaliased_parent_effect);
 
   // Exotic blending layer can be decomposited only if its parent group
   // (which defines the scope of the blending) has only one layer before it,
@@ -606,11 +719,11 @@ bool PaintArtifactCompositor::DecompositeEffect(
     if (layer_index - 1 != first_layer_in_parent_group_index)
       return false;
     if (!pending_layers_[first_layer_in_parent_group_index].CanMerge(
-            layer, upcast_state))
+            layer, *upcast_state))
       return false;
   }
 
-  layer.Upcast(upcast_state);
+  layer.Upcast(*upcast_state);
   return true;
 }
 
@@ -697,10 +810,10 @@ void PaintArtifactCompositor::LayerizeGroup(
   // Every paint chunk will be visited by the main loop below for exactly
   // once, except for chunks that enter or exit groups (case B & C below). For
   // normal chunk visit (case A), the only cost is determining squash, which
-  // costs O(qd), where d came from "canUpcastTo" and geometry mapping.
+  // costs O(qd), where d came from |CanUpcastWith| and geometry mapping.
   // Subtotal: O(pqd)
   // For group entering and exiting, it could cost O(d) for each group, for
-  // searching the shallowest subgroup (strictChildOfAlongPath), thus O(d^2)
+  // searching the shallowest subgroup (StrictChildOfAlongPath), thus O(d^2)
   // in total.
   // Also when exiting group, the group may be decomposited and squashed to a
   // previous layer. Again finding the host costs O(qd). Merging would cost
@@ -761,8 +874,7 @@ void PaintArtifactCompositor::LayerizeGroup(
     for (wtf_size_t candidate_index = pending_layers_.size() - 1;
          candidate_index-- > first_layer_in_current_group;) {
       PendingLayer& candidate_layer = pending_layers_[candidate_index];
-      if (candidate_layer.CanMerge(new_layer, new_layer.property_tree_state)) {
-        candidate_layer.Merge(new_layer);
+      if (candidate_layer.Merge(new_layer)) {
         pending_layers_.pop_back();
         break;
       }
@@ -788,8 +900,8 @@ void PaintArtifactCompositor::CollectPendingLayers(
 }
 
 void SynthesizedClip::UpdateLayer(bool needs_layer,
-                                  const FloatRoundedRect& rrect,
-                                  scoped_refptr<const RefCountedPath> path) {
+                                  const ClipPaintPropertyNode& clip,
+                                  const TransformPaintPropertyNode& transform) {
   if (!needs_layer) {
     layer_.reset();
     return;
@@ -799,33 +911,40 @@ void SynthesizedClip::UpdateLayer(bool needs_layer,
     layer_->SetIsDrawable(true);
   }
 
-  IntRect layer_bounds = EnclosingIntRect(rrect.Rect());
-  gfx::Vector2dF new_layer_origin(layer_bounds.X(), layer_bounds.Y());
+  const RefCountedPath* path = clip.ClipPath();
+  SkRRect new_rrect = clip.ClipRect();
+  IntRect layer_bounds = EnclosingIntRect(clip.ClipRect().Rect());
+  bool needs_display = false;
 
-  SkRRect new_local_rrect = rrect;
-  new_local_rrect.offset(-new_layer_origin.x(), -new_layer_origin.y());
+  auto new_translation_2d_or_matrix =
+      GeometryMapper::SourceToDestinationProjection(clip.LocalTransformSpace(),
+                                                    transform);
+  new_translation_2d_or_matrix.MapRect(layer_bounds);
+  new_translation_2d_or_matrix.PostTranslate(-layer_bounds.X(),
+                                             -layer_bounds.Y());
 
-  bool path_in_layer_changed = false;
-  if (path_ == path) {
-    path_in_layer_changed = path && layer_origin_ != new_layer_origin;
-  } else if (!path_ || !path) {
-    path_in_layer_changed = true;
+  if (!path && new_translation_2d_or_matrix.IsIdentityOr2DTranslation()) {
+    const auto& translation = new_translation_2d_or_matrix.Translation2D();
+    new_rrect.offset(translation.Width(), translation.Height());
+    needs_display = !rrect_is_local_ || new_rrect != rrect_;
+    translation_2d_or_matrix_ = GeometryMapper::Translation2DOrMatrix();
+    rrect_is_local_ = true;
   } else {
-    SkPath new_path = path->GetSkPath();
-    new_path.offset(layer_origin_.x() - new_layer_origin.x(),
-                    layer_origin_.y() - new_layer_origin.y());
-    path_in_layer_changed = path_->GetSkPath() != new_path;
+    needs_display = rrect_is_local_ || new_rrect != rrect_ ||
+                    new_translation_2d_or_matrix != translation_2d_or_matrix_ ||
+                    (path_ != path && (!path_ || !path || *path_ != *path));
+    translation_2d_or_matrix_ = new_translation_2d_or_matrix;
+    rrect_is_local_ = false;
   }
 
-  if (local_rrect_ != new_local_rrect || path_in_layer_changed) {
+  if (needs_display)
     layer_->SetNeedsDisplay();
-  }
-  layer_->SetOffsetToTransformParent(new_layer_origin);
-  layer_->SetBounds(gfx::Size(layer_bounds.Width(), layer_bounds.Height()));
 
-  layer_origin_ = new_layer_origin;
-  local_rrect_ = new_local_rrect;
-  path_ = std::move(path);
+  layer_->SetOffsetToTransformParent(
+      gfx::Vector2dF(layer_bounds.X(), layer_bounds.Y()));
+  layer_->SetBounds(gfx::Size(layer_bounds.Size()));
+  rrect_ = new_rrect;
+  path_ = path;
 }
 
 scoped_refptr<cc::DisplayItemList> SynthesizedClip::PaintContentsToDisplayList(
@@ -835,16 +954,22 @@ scoped_refptr<cc::DisplayItemList> SynthesizedClip::PaintContentsToDisplayList(
   PaintFlags flags;
   flags.setAntiAlias(true);
   cc_list->StartPaint();
-  if (!path_) {
-    cc_list->push<cc::DrawRRectOp>(local_rrect_, flags);
+  if (rrect_is_local_) {
+    cc_list->push<cc::DrawRRectOp>(rrect_, flags);
   } else {
     cc_list->push<cc::SaveOp>();
-    cc_list->push<cc::TranslateOp>(-layer_origin_.x(), -layer_origin_.y());
-    cc_list->push<cc::ClipPathOp>(path_->GetSkPath(), SkClipOp::kIntersect,
-                                  true);
-    SkRRect rrect = local_rrect_;
-    rrect.offset(layer_origin_.x(), layer_origin_.y());
-    cc_list->push<cc::DrawRRectOp>(rrect, flags);
+    if (translation_2d_or_matrix_.IsIdentityOr2DTranslation()) {
+      const auto& translation = translation_2d_or_matrix_.Translation2D();
+      cc_list->push<cc::TranslateOp>(translation.Width(), translation.Height());
+    } else {
+      cc_list->push<cc::ConcatOp>(SkMatrix(TransformationMatrix::ToSkMatrix44(
+          translation_2d_or_matrix_.Matrix())));
+    }
+    if (path_) {
+      cc_list->push<cc::ClipPathOp>(path_->GetSkPath(), SkClipOp::kIntersect,
+                                    true);
+    }
+    cc_list->push<cc::DrawRRectOp>(rrect_, flags);
     cc_list->push<cc::RestoreOp>();
   }
   cc_list->EndPaintOfUnpaired(gfx::Rect(layer_->bounds()));
@@ -853,26 +978,26 @@ scoped_refptr<cc::DisplayItemList> SynthesizedClip::PaintContentsToDisplayList(
 }
 
 SynthesizedClip& PaintArtifactCompositor::CreateOrReuseSynthesizedClipLayer(
-    const ClipPaintPropertyNode& node,
+    const ClipPaintPropertyNode& clip,
+    const TransformPaintPropertyNode& transform,
     bool needs_layer,
     CompositorElementId& mask_isolation_id,
     CompositorElementId& mask_effect_id) {
   auto* entry =
       std::find_if(synthesized_clip_cache_.begin(),
-                   synthesized_clip_cache_.end(), [&node](const auto& entry) {
-                     return entry.key == &node && !entry.in_use;
+                   synthesized_clip_cache_.end(), [&clip](const auto& entry) {
+                     return entry.key == &clip && !entry.in_use;
                    });
   if (entry == synthesized_clip_cache_.end()) {
-    auto clip = std::make_unique<SynthesizedClip>();
-    synthesized_clip_cache_.push_back(
-        SynthesizedClipEntry{&node, std::move(clip), false});
+    synthesized_clip_cache_.push_back(SynthesizedClipEntry{
+        &clip, std::make_unique<SynthesizedClip>(), false});
     entry = synthesized_clip_cache_.end() - 1;
   }
 
   entry->in_use = true;
   SynthesizedClip& synthesized_clip = *entry->synthesized_clip;
   if (needs_layer) {
-    synthesized_clip.UpdateLayer(needs_layer, node.ClipRect(), node.ClipPath());
+    synthesized_clip.UpdateLayer(needs_layer, clip, transform);
     synthesized_clip.Layer()->SetLayerTreeHost(root_layer_->layer_tree_host());
   }
   mask_isolation_id = synthesized_clip.GetMaskIsolationId();
@@ -903,14 +1028,14 @@ static void UpdateCompositorViewportProperties(
             *properties.page_scale);
   }
   if (properties.inner_scroll_translation) {
-    ids.inner_scroll = property_tree_manager.EnsureCompositorScrollNode(
+    ids.inner_scroll = property_tree_manager.EnsureCompositorInnerScrollNode(
         *properties.inner_scroll_translation);
     if (properties.outer_clip) {
       ids.outer_clip = property_tree_manager.EnsureCompositorClipNode(
           *properties.outer_clip);
     }
     if (properties.outer_scroll_translation) {
-      ids.outer_scroll = property_tree_manager.EnsureCompositorScrollNode(
+      ids.outer_scroll = property_tree_manager.EnsureCompositorOuterScrollNode(
           *properties.outer_scroll_translation);
     }
   }
@@ -1125,6 +1250,9 @@ void PaintArtifactCompositor::Update(
     bool backface_hidden = property_state.Transform().IsBackfaceHidden();
     layer->SetDoubleSided(!backface_hidden);
     layer->SetShouldCheckBackfaceVisibility(backface_hidden);
+    bool has_will_change_transform =
+        property_state.Transform().RequiresCompositingForWillChangeTransform();
+    layer->SetHasWillChangeTransformHint(has_will_change_transform);
 
     // If the property tree state has changed between the layer and the root,
     // we need to inform the compositor so damage can be calculated. Calling
@@ -1274,6 +1402,19 @@ bool PaintArtifactCompositor::DirectlyUpdatePageScaleTransform(
   return false;
 }
 
+bool PaintArtifactCompositor::DirectlyUpdateScrollOffset(
+    CompositorElementId element_id,
+    const FloatPoint& scroll_offset) {
+  if (!root_layer_ || !root_layer_->layer_tree_host())
+    return false;
+  auto* property_trees = root_layer_->layer_tree_host()->property_trees();
+  if (!property_trees->element_id_to_scroll_node_index.contains(element_id))
+    return false;
+  property_trees->scroll_tree.SetScrollOffset(element_id,
+                                              gfx::ScrollOffset(scroll_offset));
+  return true;
+}
+
 static cc::RenderSurfaceReason GetRenderSurfaceCandidateReason(
     const cc::EffectNode& effect,
     const Vector<const EffectPaintPropertyNode*>& blink_effects) {
@@ -1379,6 +1520,8 @@ void PaintArtifactCompositor::UpdateLayerDebugInfo(
 
   debug_info.compositing_reasons =
       CompositingReason::Descriptions(compositing_reasons);
+  debug_info.compositing_reason_ids =
+      CompositingReason::ShortNames(compositing_reasons);
   debug_info.owner_node_id = id.client.OwnerNodeId();
 
   if (RasterInvalidationTracking::IsTracingRasterInvalidations() &&
@@ -1442,7 +1585,11 @@ Vector<cc::Layer*> PaintArtifactCompositor::SynthesizedClipLayersForTesting()
 }
 
 void LayerListBuilder::Add(scoped_refptr<cc::Layer> layer) {
+#if DCHECK_IS_ON()
   DCHECK(list_valid_);
+  DCHECK(!layer_ids_.Contains(layer->id()));
+  layer_ids_.insert(layer->id());
+#endif
   list_.push_back(layer);
 }
 

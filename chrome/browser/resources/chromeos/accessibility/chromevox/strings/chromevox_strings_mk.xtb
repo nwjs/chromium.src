@@ -386,7 +386,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{обратен знак}one{# обратен знак}other{# обратни знаци}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{долар}one{# знак за долар}other{# знаци за долар}}</translation>
-<translation id="3658742229777143148">Ревизија</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, поле за списоци</translation>
 <translation id="3681531118904532409">Боја на крем од папаја</translation>
@@ -421,6 +420,7 @@
 <translation id="3914732343065571127">Упатство за наредбите на ChromeVox</translation>
 <translation id="3930383913623796990">Пролетнозелена</translation>
 <translation id="3930498801443296724">Цитат</translation>
+<translation id="3935615366277838204">Голема <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Боја на румена лаванда</translation>
 <translation id="3941269780691800708">Изговарај го текстот под глувчето.</translation>
 <translation id="394953087167197343">Означи грешка во правопис:</translation>
@@ -794,7 +794,6 @@
 <translation id="6459511626086141404">Flat keymap</translation>
 <translation id="6468049171101508116">Копче „Следно“</translation>
 <translation id="646954774886932461">Индекс</translation>
-<translation id="6479792383819319132">Нема следен пасус.</translation>
 <translation id="6493991254603208962">Затемни</translation>
 <translation id="6501595918865591267">Тиркизна</translation>
 <translation id="6508059270146105198">Премести го брајовиот екран на дното од страницата</translation>
@@ -817,7 +816,6 @@
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">Лента на напредок</translation>
 <translation id="6659594942844771486">Картичка</translation>
-<translation id="6675661017770918201">Нема претходен пасус.</translation>
 <translation id="667999046851023355">Документ</translation>
 <translation id="6688209025607531203">Немодално предупредување</translation>
 <translation id="6689672606256159458">Темна боја на лосос</translation>
@@ -846,6 +844,7 @@
 <translation id="6865519907510167493">Правописна грешка</translation>
 <translation id="6871161210040114857">Игнорирање на малите и големите букви.</translation>
 <translation id="6877435256196695200">Нема следна графика.</translation>
+<translation id="688976158310523235">Мени за пребарување</translation>
 <translation id="6897341342232909480">Помести налево</translation>
 <translation id="6901540140423170855">датум</translation>
 <translation id="6910211073230771657">Избришано</translation>
@@ -858,6 +857,7 @@
 <translation id="699159175332639490">Пребарување + O + W</translation>
 <translation id="6994042831499278539">Референца за поимници</translation>
 <translation id="6996566555547746822">Следно поле со комбинации</translation>
+<translation id="6997224546856374593">При читање големи букви:</translation>
 <translation id="700202842116345659">Библиографски запис</translation>
 <translation id="7005146664810010831">Нема најдено URL-адреса</translation>
 <translation id="7010712454773919705">Копче за промена на ChromeVox</translation>
@@ -938,6 +938,7 @@
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">картичка</translation>
 <translation id="7492049978501397201">Внесен дијалог</translation>
+<translation id="7505149250476994901">Изговарајте „cap“ (голема) пред буквата</translation>
 <translation id="7518543783849163354">За привремено да го запрете зборувањето на ChromeVox, притиснете го копчето Control.</translation>
 <translation id="7521682724501952239">Може да го користите ChromeVox со екранот на допир.</translation>
 <translation id="7532613204005497612">Јуни</translation>
@@ -1105,7 +1106,6 @@
 <translation id="812886159861361726">Преземањето на <ph name="FILE_NAME" /> запре</translation>
 <translation id="8138880386467279117">Допир</translation>
 <translation id="8153880621934657047">Не е во табела.</translation>
-<translation id="8161114871611868169">Дел со коментари</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{долна црта}one{# долна црта}other{# долни црти}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">ред</translation>
@@ -1126,6 +1126,7 @@
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Боја на стара чипка</translation>
 <translation id="8326783648485765113">Зелена како трева</translation>
+<translation id="8328063869313048659">Вклучи/исклучи темен екран</translation>
 <translation id="8344569602005188545">часови</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{тараба}one{# знак тараба}other{# знаци тараба}}</translation>
 <translation id="8374154622594089836">месец</translation>
@@ -1210,6 +1211,7 @@
 <translation id="9065283790526219006">+појавни прозорци</translation>
 <translation id="9066023754636984703">Притиснете Search+A, J за да скокнете до деталите.</translation>
 <translation id="9067522039955793016">Прелом на страница</translation>
+<translation id="9074824103975499138">Пребарувајте ги менијата на ChromeVox</translation>
 <translation id="9077213568694924680">отстрането од изборот</translation>
 <translation id="9077305471618729969">Светла морскозелена</translation>
 <translation id="9082874451376019682">Нема претходен лизгач.</translation>

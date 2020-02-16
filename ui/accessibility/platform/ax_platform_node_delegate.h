@@ -120,6 +120,15 @@ class AX_EXPORT AXPlatformNodeDelegate {
   // exists.
   virtual gfx::NativeViewAccessible GetPreviousSibling() = 0;
 
+  // Returns true if an ancestor of this node (not including itself) is a
+  // leaf node, meaning that this node is not actually exposed to the
+  // platform.
+  virtual bool IsChildOfLeaf() const = 0;
+
+  // If this object is exposed to the platform, returns this object. Otherwise,
+  // returns the platform leaf under which this object is found.
+  virtual gfx::NativeViewAccessible GetClosestPlatformObject() const = 0;
+
   class ChildIterator {
    public:
     virtual ~ChildIterator() = default;
@@ -309,6 +318,7 @@ class AX_EXPORT AXPlatformNodeDelegate {
   virtual base::Optional<int> GetTableAriaColCount() const = 0;
   virtual base::Optional<int> GetTableAriaRowCount() const = 0;
   virtual base::Optional<int> GetTableCellCount() const = 0;
+  virtual base::Optional<bool> GetTableHasColumnOrRowHeaderNode() const = 0;
   virtual std::vector<int32_t> GetColHeaderNodeIds() const = 0;
   virtual std::vector<int32_t> GetColHeaderNodeIds(int col_index) const = 0;
   virtual std::vector<int32_t> GetRowHeaderNodeIds() const = 0;

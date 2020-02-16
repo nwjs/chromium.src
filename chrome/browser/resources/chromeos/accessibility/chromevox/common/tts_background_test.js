@@ -11,20 +11,13 @@ GEN_INCLUDE([
 
 /**
  * Test fixture.
- * @constructor
- * @extends {ChromeVoxE2ETest}
  */
-function ChromeVoxTtsBackgroundTest() {
-  ChromeVoxE2ETest.call(this);
-}
+ChromeVoxTtsBackgroundTest = class extends ChromeVoxE2ETest {};
 
-ChromeVoxTtsBackgroundTest.prototype = {
-  __proto__: ChromeVoxE2ETest.prototype
-};
 
 SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'Preprocess', function() {
-  var tts = new TtsBackground(false);
-  var preprocess = tts.preprocess.bind(tts);
+  const tts = new TtsBackground(false);
+  const preprocess = tts.preprocess.bind(tts);
 
   // Punctuation.
   assertEquals('dot', preprocess('.'));
@@ -46,8 +39,8 @@ SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'Preprocess', function() {
 });
 
 TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
-  var tts = new TtsBackground(false);
-  var voices = [
+  const tts = new TtsBackground(false);
+  const voices = [
     {lang: 'zh-CN', voiceName: 'Chinese'},
     {lang: 'zh-TW', voiceName: 'Chinese (Taiwan)'},
     {lang: 'es', voiceName: 'Spanish'},
@@ -60,7 +53,7 @@ TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
 
   // Asks this test to process the next task immediately.
   var flushNextTask = function() {
-    var task = tasks.shift();
+    const task = tasks.shift();
     if (!task) {
       return;
     }
@@ -80,7 +73,7 @@ TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
     {testVoice: '', expectedVoice: constants.SYSTEM_VOICE},
 
     {
-      setup: function() {
+      setup() {
         voices[3].lang = 'en';
       },
       testVoice: 'U.S. English',
@@ -88,7 +81,7 @@ TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
     },
 
     {
-      setup: function() {
+      setup() {
         voices[3].lang = 'fr-FR';
         voices[3].voiceName = 'French';
       },
@@ -108,11 +101,11 @@ TEST_F('ChromeVoxTtsBackgroundTest', 'UpdateVoice', function() {
 TEST_F(
     'ChromeVoxTtsBackgroundTest', 'DISABLED_EmptyStringCallsCallbacks',
     function() {
-      var tts = new TtsBackground(false);
-      var startCalls = 0, endCalls = 0;
+      const tts = new TtsBackground(false);
+      let startCalls = 0, endCalls = 0;
       assertCallsCallbacks = function(text, speakCalls) {
         tts.speak(text, QueueMode.QUEUE, {
-          startCallback: function() {
+          startCallback() {
             ++startCalls;
           },
           endCallback: this.newCallback(function() {
@@ -131,8 +124,8 @@ TEST_F(
 SYNC_TEST_F(
     'ChromeVoxTtsBackgroundTest', 'CapitalizeSingleLettersAfterNumbers',
     function() {
-      var tts = new TtsBackground(false);
-      var preprocess = tts.preprocess.bind(tts);
+      const tts = new TtsBackground(false);
+      const preprocess = tts.preprocess.bind(tts);
 
       // Capitalize single letters if they appear directly after a number.
       assertEquals(
@@ -146,3 +139,19 @@ SYNC_TEST_F(
           'Please do the shopping at 3 a thing came up at work',
           preprocess('Please do the shopping at 3 a thing came up at work'));
     });
+
+SYNC_TEST_F('ChromeVoxTtsBackgroundTest', 'AnnounceCapitalLetters', function() {
+  const tts = new TtsBackground(false);
+  const preprocess = tts.preprocess.bind(tts);
+
+  assertEquals('A', preprocess('A'));
+
+  // Only announce capital for solo capital letters.
+  localStorage['capitalStrategy'] = 'announceCapitals';
+  assertEquals('Cap A', preprocess('A'));
+  assertEquals('Cap Z', preprocess('Z'));
+
+  // Do not announce capital for the following inputs.
+  assertEquals('BB', preprocess('BB'));
+  assertEquals('A.', preprocess('A.'));
+});

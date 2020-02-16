@@ -15,7 +15,7 @@
 #include "chrome/browser/chromeos/arc/accessibility/ax_tree_source_arc.h"
 #include "chrome/browser/chromeos/arc/input_method_manager/arc_input_method_manager_service.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
-#include "components/arc/mojom/accessibility_helper.mojom.h"
+#include "components/arc/mojom/accessibility_helper.mojom-forward.h"
 #include "components/arc/session/connection_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "ui/accessibility/ax_action_handler.h"
@@ -103,22 +103,27 @@ class ArcAccessibilityHelperBridge
   void OnNotificationSurfaceRemoved(
       ash::ArcNotificationSurface* surface) override {}
 
-  const std::map<int32_t, std::unique_ptr<AXTreeSourceArc>>&
-  task_id_to_tree_for_test() const {
-    return task_id_to_tree_;
-  }
+  void InvokeUpdateEnabledFeatureForTesting();
 
-  const std::map<std::string, std::unique_ptr<AXTreeSourceArc>>&
-  notification_key_to_tree_for_test() const {
-    return notification_key_to_tree_;
-  }
+  enum class TreeKeyType {
+    kTaskId,
+    kNotificationKey,
+    kInputMethod,
+  };
 
-  void set_filter_type_all_for_test() { use_filter_type_all_for_test_ = true; }
+  using TreeKey = std::tuple<TreeKeyType, int32_t, std::string>;
+  using TreeMap = std::map<TreeKey, std::unique_ptr<AXTreeSourceArc>>;
+
+  static TreeKey KeyForNotification(std::string notification_key);
+
+  const TreeMap& trees_for_test() const { return trees_; }
 
  private:
   // virtual for testing.
   virtual aura::Window* GetActiveWindow();
   virtual extensions::EventRouter* GetEventRouter() const;
+  virtual arc::mojom::AccessibilityFilterType GetFilterTypeForProfile(
+      Profile* profile);
 
   std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
   void UpdateCaptionSettings() const;
@@ -133,10 +138,12 @@ class ArcAccessibilityHelperBridge
       const ui::AXActionData& data,
       const base::Optional<gfx::Rect>& result_rect) const;
 
+  base::Optional<gfx::Rect> OnGetTextLocationDataResultInternal(
+      const base::Optional<gfx::Rect>& result_rect) const;
+
   void OnAccessibilityStatusChanged(
       const chromeos::AccessibilityStatusEventDetails& event_details);
-  arc::mojom::AccessibilityFilterType GetFilterTypeForProfile(Profile* profile);
-  void UpdateFilterType();
+  void UpdateEnabledFeature();
   void UpdateWindowProperties(aura::Window* window);
   void SetExploreByTouchEnabled(bool enabled);
   void UpdateTreeIdOfNotificationSurface(const std::string& notification_key,
@@ -144,23 +151,21 @@ class ArcAccessibilityHelperBridge
   void HandleFilterTypeFocusEvent(mojom::AccessibilityEventDataPtr event_data);
   void HandleFilterTypeAllEvent(mojom::AccessibilityEventDataPtr event_data);
 
-  AXTreeSourceArc* GetFromTaskId(int32_t task_id);
-  AXTreeSourceArc* CreateFromTaskId(int32_t task_id);
-  AXTreeSourceArc* GetFromNotificationKey(const std::string& notification_key);
-  AXTreeSourceArc* CreateFromNotificationKey(
-      const std::string& notification_key);
+  AXTreeSourceArc* CreateFromKey(TreeKey);
+  AXTreeSourceArc* GetFromKey(const TreeKey&);
   AXTreeSourceArc* GetFromTreeId(ui::AXTreeID tree_id) const;
 
   bool activation_observer_added_ = false;
+  bool is_focus_highlight_enabled_ = false;
   Profile* const profile_;
   ArcBridgeService* const arc_bridge_service_;
-  std::map<int32_t, std::unique_ptr<AXTreeSourceArc>> task_id_to_tree_;
-  std::map<std::string, std::unique_ptr<AXTreeSourceArc>>
-      notification_key_to_tree_;
-  std::unique_ptr<AXTreeSourceArc> input_method_tree_;
+  TreeMap trees_;
+
   std::unique_ptr<chromeos::AccessibilityStatusSubscription>
       accessibility_status_subscription_;
-  bool use_filter_type_all_for_test_ = false;
+
+  arc::mojom::AccessibilityFilterType filter_type_ =
+      arc::mojom::AccessibilityFilterType::OFF;
 
   DISALLOW_COPY_AND_ASSIGN(ArcAccessibilityHelperBridge);
 };

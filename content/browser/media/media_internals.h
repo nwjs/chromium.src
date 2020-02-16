@@ -31,7 +31,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 
 namespace media {
-struct MediaLogEvent;
+struct MediaLogRecord;
 }
 
 namespace media_session {
@@ -49,7 +49,7 @@ class CONTENT_EXPORT MediaInternals : public media::AudioLogFactory,
                                       public NotificationObserver {
  public:
   // Called with the update string.
-  typedef base::Callback<void(const base::string16&)> UpdateCallback;
+  using UpdateCallback = base::RepeatingCallback<void(const base::string16&)>;
 
   static MediaInternals* GetInstance();
 
@@ -62,11 +62,11 @@ class CONTENT_EXPORT MediaInternals : public media::AudioLogFactory,
 
   // Called when a MediaEvent occurs.
   void OnMediaEvents(int render_process_id,
-                     const std::vector<media::MediaLogEvent>& events);
+                     const std::vector<media::MediaLogRecord>& events);
 
   // Add/remove update callbacks (see above). Must be called on the UI thread.
   // The callbacks must also be fired on UI thread.
-  void AddUpdateCallback(const UpdateCallback& callback);
+  void AddUpdateCallback(UpdateCallback callback);
   void RemoveUpdateCallback(const UpdateCallback& callback);
 
   // Whether there are any update callbacks available. Can be called on any
@@ -131,7 +131,7 @@ class CONTENT_EXPORT MediaInternals : public media::AudioLogFactory,
   void SendUpdate(const base::string16& update);
 
   // Saves |event| so that it can be sent later in SendHistoricalMediaEvents().
-  void SaveEvent(int process_id, const media::MediaLogEvent& event);
+  void SaveEvent(int process_id, const media::MediaLogRecord& event);
 
   // Caches |value| under |cache_key| so that future UpdateAudioLog() calls
   // will include the current data.  Calls JavaScript |function|(|value|) for
@@ -156,7 +156,7 @@ class CONTENT_EXPORT MediaInternals : public media::AudioLogFactory,
   std::vector<UpdateCallback> update_callbacks_;
 
   // Saved events by process ID for showing recent players in the UI.
-  std::map<int, std::list<media::MediaLogEvent>> saved_events_by_process_;
+  std::map<int, std::list<media::MediaLogRecord>> saved_events_by_process_;
 
   // Must only be accessed on the IO thread.
   base::ListValue video_capture_capabilities_cached_data_;

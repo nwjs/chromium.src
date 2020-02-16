@@ -16,10 +16,11 @@ namespace viz {
 
 scoped_refptr<VulkanInProcessContextProvider>
 VulkanInProcessContextProvider::Create(
-    gpu::VulkanImplementation* vulkan_implementation) {
+    gpu::VulkanImplementation* vulkan_implementation,
+    const GrContextOptions& options) {
   scoped_refptr<VulkanInProcessContextProvider> context_provider(
       new VulkanInProcessContextProvider(vulkan_implementation));
-  if (!context_provider->Initialize())
+  if (!context_provider->Initialize(options))
     return nullptr;
   return context_provider;
 }
@@ -43,7 +44,8 @@ VulkanInProcessContextProvider::~VulkanInProcessContextProvider() {
   Destroy();
 }
 
-bool VulkanInProcessContextProvider::Initialize() {
+bool VulkanInProcessContextProvider::Initialize(
+    const GrContextOptions& context_options) {
   DCHECK(!device_queue_);
 
   const auto& instance_extensions = vulkan_implementation_->GetVulkanInstance()
@@ -98,7 +100,7 @@ bool VulkanInProcessContextProvider::Initialize() {
       vulkan_implementation_->enforce_protected_memory() ? GrProtected::kYes
                                                          : GrProtected::kNo;
 
-  gr_context_ = GrContext::MakeVulkan(backend_context);
+  gr_context_ = GrContext::MakeVulkan(backend_context, context_options);
 
   return gr_context_ != nullptr;
 }

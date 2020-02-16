@@ -44,6 +44,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
+#include "extensions/browser/content_verifier.h"
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
@@ -475,6 +476,30 @@ base::Optional<CrxInstallError> CrxInstaller::AllowInstall(
   return base::nullopt;
 }
 
+void CrxInstaller::ShouldComputeHashesOnUI(
+    scoped_refptr<const Extension> extension,
+    base::OnceCallback<void(bool)> callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  extensions::ContentVerifier* content_verifier =
+      extensions::ExtensionSystem::Get(profile_)->content_verifier();
+  bool result = content_verifier &&
+                content_verifier->ShouldComputeHashesOnInstall(*extension);
+  installer_task_runner_->PostTask(FROM_HERE,
+                                   base::BindOnce(std::move(callback), result));
+}
+
+void CrxInstaller::ShouldComputeHashesForOffWebstoreExtension(
+    scoped_refptr<const Extension> extension,
+    base::OnceCallback<void(bool)> callback) {
+  DCHECK(installer_task_runner_->RunsTasksInCurrentSequence());
+  if (!base::PostTask(
+          FROM_HERE, {BrowserThread::UI},
+          base::BindOnce(&CrxInstaller::ShouldComputeHashesOnUI, this,
+                         std::move(extension), std::move(callback)))) {
+    NOTREACHED();
+  }
+}
+
 void CrxInstaller::OnUnpackFailure(const CrxInstallError& error) {
   DCHECK(installer_task_runner_->RunsTasksInCurrentSequence());
 
@@ -720,7 +745,7 @@ void CrxInstaller::ConfirmInstall() {
     client_->ShowDialog(base::Bind(&CrxInstaller::OnInstallPromptDone, this),
                         extension(), nullptr, show_dialog_callback_);
   } else {
-    UpdateCreationFlagsAndCompleteInstall();
+    UpdateCreationFlagsAndCompleteInstall(kDontWithholdPermissions);
   }
 }
 
@@ -731,29 +756,45 @@ void CrxInstaller::OnInstallPromptDone(ExtensionInstallPrompt::Result result) {
   // getting called in response to ExtensionInstallPrompt::ConfirmReEnable()
   // and if it is false, this function is called in response to
   // ExtensionInstallPrompt::ShowDialog().
-  if (result == ExtensionInstallPrompt::Result::ACCEPTED) {
-    ExtensionService* service = service_weak_.get();
-    if (!service || service->browser_terminating())
-      return;
 
-    if (update_from_settings_page_) {
-      service->GrantPermissionsAndEnableExtension(extension());
-    } else {
-      UpdateCreationFlagsAndCompleteInstall();
-    }
-  } else if (!update_from_settings_page_) {
-    const char* histogram_name =
-        result == ExtensionInstallPrompt::Result::USER_CANCELED
-            ? "InstallCancel"
-            : "InstallAbort";
-    ExtensionService::RecordPermissionMessagesHistogram(
-        extension(), histogram_name);
+  ExtensionService* service = service_weak_.get();
+  switch (result) {
+    case ExtensionInstallPrompt::Result::ACCEPTED:
+      if (!service || service->browser_terminating())
+        return;
 
-    NotifyCrxInstallComplete(
-        CrxInstallError(CrxInstallErrorType::OTHER,
-                        result == ExtensionInstallPrompt::Result::USER_CANCELED
-                            ? CrxInstallErrorDetail::USER_CANCELED
-                            : CrxInstallErrorDetail::USER_ABORTED));
+      // Install (or re-enable) the extension with full permissions.
+      if (update_from_settings_page_)
+        service->GrantPermissionsAndEnableExtension(extension());
+      else
+        UpdateCreationFlagsAndCompleteInstall(kDontWithholdPermissions);
+      break;
+    case ExtensionInstallPrompt::Result::ACCEPTED_AND_OPTION_CHECKED:
+      if (!service || service->browser_terminating())
+        return;
+
+      // TODO(tjudkins): Add support for withholding permissions on the
+      // re-enable prompt here once we know how that should be handled.
+      DCHECK(!update_from_settings_page_);
+      // Install the extension with permissions withheld.
+      UpdateCreationFlagsAndCompleteInstall(kWithholdPermissions);
+      break;
+    case ExtensionInstallPrompt::Result::USER_CANCELED:
+      if (!update_from_settings_page_) {
+        ExtensionService::RecordPermissionMessagesHistogram(extension(),
+                                                            "InstallCancel");
+        NotifyCrxInstallComplete(CrxInstallError(
+            CrxInstallErrorType::OTHER, CrxInstallErrorDetail::USER_CANCELED));
+      }
+      break;
+    case ExtensionInstallPrompt::Result::ABORTED:
+      if (!update_from_settings_page_) {
+        ExtensionService::RecordPermissionMessagesHistogram(extension(),
+                                                            "InstallAbort");
+        NotifyCrxInstallComplete(CrxInstallError(
+            CrxInstallErrorType::OTHER, CrxInstallErrorDetail::USER_ABORTED));
+      }
+      break;
   }
 
   Release();  // balanced in ConfirmInstall() or ConfirmReEnable().
@@ -787,12 +828,16 @@ void CrxInstaller::InitializeCreationFlagsForUpdate(const Extension* extension,
     creation_flags_ |= Extension::WAS_INSTALLED_BY_OEM;
 }
 
-void CrxInstaller::UpdateCreationFlagsAndCompleteInstall() {
+void CrxInstaller::UpdateCreationFlagsAndCompleteInstall(
+    WithholdingBehavior withholding_behavior) {
   creation_flags_ = extension()->creation_flags() | Extension::REQUIRE_KEY;
   // If the extension was already installed and had file access, also grant file
   // access to the updated extension.
   if (ExtensionPrefs::Get(profile())->AllowFileAccess(extension()->id()))
     creation_flags_ |= Extension::ALLOW_FILE_ACCESS;
+
+  if (withholding_behavior == kWithholdPermissions)
+    creation_flags_ |= Extension::WITHHOLD_PERMISSIONS;
 
   if (!installer_task_runner_->PostTask(
           FROM_HERE, base::BindOnce(&CrxInstaller::CompleteInstall, this))) {
@@ -977,9 +1022,8 @@ void CrxInstaller::NotifyCrxInstallComplete(
             error->detail());
         break;
       case CrxInstallErrorType::SANDBOXED_UNPACKER_FAILURE:
-        installation_reporter->ReportFailure(
-            extension_id, InstallationReporter::FailureReason::
-                              CRX_INSTALL_ERROR_SANDBOXED_UNPACKER_FAILURE);
+        installation_reporter->ReportSandboxedUnpackerFailureReason(
+            extension_id, error->sandbox_failure_detail());
         break;
       case CrxInstallErrorType::OTHER:
         installation_reporter->ReportCrxInstallError(

@@ -27,6 +27,7 @@
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/profiling.h"
+#include "gpu/config/gpu_switches.h"
 #include "headless/lib/browser/headless_browser_impl.h"
 #include "headless/lib/browser/headless_content_browser_client.h"
 #include "headless/lib/headless_crash_reporter_client.h"
@@ -228,9 +229,12 @@ bool HeadlessContentMainDelegate::BasicStartupComplete(int* exit_code) {
   // is ready for display (because it isn't displayed to users).
   command_line->AppendSwitch(::switches::kAllowPreCommitInput);
 
-  content::Profiling::ProcessStarted();
+#if defined(OS_WIN)
+  command_line->AppendSwitch(
+      ::switches::kDisableGpuProcessForDX12VulkanInfoCollection);
+#endif
 
-  SetContentClient(&content_client_);
+  content::Profiling::ProcessStarted();
   return false;
 }
 
@@ -447,6 +451,10 @@ HeadlessBrowser::Options* HeadlessContentMainDelegate::options() {
   if (browser_)
     return browser_->options();
   return options_.get();
+}
+
+content::ContentClient* HeadlessContentMainDelegate::CreateContentClient() {
+  return &content_client_;
 }
 
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)

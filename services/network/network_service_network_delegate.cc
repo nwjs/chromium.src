@@ -7,6 +7,7 @@
 #include <string>
 
 #include "base/bind.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/domain_reliability/monitor.h"
@@ -181,8 +182,8 @@ void NetworkServiceNetworkDelegate::OnCompleted(net::URLRequest* request,
   DCHECK_NE(net::ERR_IO_PENDING, net_error);
 
   if (network_context_->domain_reliability_monitor()) {
-    network_context_->domain_reliability_monitor()->OnCompleted(request,
-                                                                started);
+    network_context_->domain_reliability_monitor()->OnCompleted(
+        request, started, net_error);
   }
 
   ForwardProxyErrors(net_error);
@@ -201,19 +202,21 @@ bool NetworkServiceNetworkDelegate::OnCanGetCookies(
     const net::URLRequest& request,
     const net::CookieList& cookie_list,
     bool allowed_from_caller) {
-  bool allowed = allowed_from_caller &&
-                 network_context_->cookie_manager()
-                     ->cookie_settings()
-                     .IsCookieAccessAllowed(
-                         request.url(), request.site_for_cookies(),
-                         request.network_isolation_key().GetTopFrameOrigin());
+  bool allowed =
+      allowed_from_caller &&
+      network_context_->cookie_manager()
+          ->cookie_settings()
+          .IsCookieAccessAllowed(
+              request.url(), request.site_for_cookies().RepresentativeUrl(),
+              request.network_isolation_key().GetTopFrameOrigin());
 
   if (!allowed)
     return false;
 
   URLLoader* url_loader = URLLoader::ForRequest(request);
   if (url_loader)
-    return url_loader->AllowCookies(request.url(), request.site_for_cookies());
+    return url_loader->AllowCookies(
+        request.url(), request.site_for_cookies().RepresentativeUrl());
 #if !defined(OS_IOS)
   WebSocket* web_socket = WebSocket::ForRequest(request);
   if (web_socket)
@@ -227,17 +230,19 @@ bool NetworkServiceNetworkDelegate::OnCanSetCookie(
     const net::CanonicalCookie& cookie,
     net::CookieOptions* options,
     bool allowed_from_caller) {
-  bool allowed = allowed_from_caller &&
-                 network_context_->cookie_manager()
-                     ->cookie_settings()
-                     .IsCookieAccessAllowed(
-                         request.url(), request.site_for_cookies(),
-                         request.network_isolation_key().GetTopFrameOrigin());
+  bool allowed =
+      allowed_from_caller &&
+      network_context_->cookie_manager()
+          ->cookie_settings()
+          .IsCookieAccessAllowed(
+              request.url(), request.site_for_cookies().RepresentativeUrl(),
+              request.network_isolation_key().GetTopFrameOrigin());
   if (!allowed)
     return false;
   URLLoader* url_loader = URLLoader::ForRequest(request);
   if (url_loader)
-    return url_loader->AllowCookies(request.url(), request.site_for_cookies());
+    return url_loader->AllowCookies(
+        request.url(), request.site_for_cookies().RepresentativeUrl());
 #if !defined(OS_IOS)
   WebSocket* web_socket = WebSocket::ForRequest(request);
   if (web_socket)
@@ -248,11 +253,12 @@ bool NetworkServiceNetworkDelegate::OnCanSetCookie(
 
 bool NetworkServiceNetworkDelegate::OnForcePrivacyMode(
     const GURL& url,
-    const GURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const base::Optional<url::Origin>& top_frame_origin) const {
   return !network_context_->cookie_manager()
               ->cookie_settings()
-              .IsCookieAccessAllowed(url, site_for_cookies, top_frame_origin);
+              .IsCookieAccessAllowed(url, site_for_cookies.RepresentativeUrl(),
+                                     top_frame_origin);
 }
 
 bool NetworkServiceNetworkDelegate::
@@ -268,6 +274,14 @@ bool NetworkServiceNetworkDelegate::
 
   LOG(ERROR) << "Cancelling request to " << target_url
              << " with invalid referrer " << referrer_url;
+  // Record information to help debug issues like http://crbug.com/422871.
+  if (target_url.SchemeIsHTTPOrHTTPS()) {
+    auto referrer_policy = request.referrer_policy();
+    base::debug::Alias(&referrer_policy);
+    DEBUG_ALIAS_FOR_GURL(target_buf, target_url);
+    DEBUG_ALIAS_FOR_GURL(referrer_buf, referrer_url);
+    base::debug::DumpWithoutCrashing();
+  }
   return true;
 }
 

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.omnibox;
 import static org.chromium.chrome.test.util.OmniboxTestUtils.buildSuggestionMap;
 
 import android.annotation.SuppressLint;
+import android.content.pm.ActivityInfo;
 import android.os.Build;
 import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
@@ -39,13 +40,12 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.status.StatusViewCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorTestUtils;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
-import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionView;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -338,6 +338,10 @@ public class OmniboxTest {
             requestedOrientation = 0;
         }
         doTestAutoCompleteAndCorrectionForOrientation(requestedOrientation);
+
+        // Reset orientation.
+        mActivityTestRule.getActivity().setRequestedOrientation(
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     @Test
@@ -353,6 +357,10 @@ public class OmniboxTest {
             requestedOrientation = 1;
         }
         doTestAutoCompleteAndCorrectionForOrientation(requestedOrientation);
+
+        // Reset device orientation.
+        mActivityTestRule.getActivity().setRequestedOrientation(
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     private void doTestAutoCompleteAndCorrectionForOrientation(
@@ -621,8 +629,8 @@ public class OmniboxTest {
             boolean securityIcon = statusViewCoordinator.isSecurityButtonShown();
             if (mActivityTestRule.getActivity().isTablet()) {
                 Assert.assertTrue("Omnibox should have a Security icon", securityIcon);
-                Assert.assertEquals(
-                        R.drawable.omnibox_info, statusViewCoordinator.getSecurityIconResourceId());
+                Assert.assertEquals(R.drawable.omnibox_info,
+                        statusViewCoordinator.getSecurityIconResourceIdForTesting());
             } else {
                 Assert.assertFalse("Omnibox should not have a Security icon", securityIcon);
             }
@@ -671,7 +679,7 @@ public class OmniboxTest {
                     R.id.location_bar_status_icon, securityButton.getId());
             Assert.assertTrue(securityButton.isShown());
             Assert.assertEquals(R.drawable.omnibox_https_valid,
-                    statusViewCoordinator.getSecurityIconResourceId());
+                    statusViewCoordinator.getSecurityIconResourceIdForTesting());
         } finally {
             httpsTestServer.stopAndDestroyServer();
         }
@@ -810,7 +818,7 @@ public class OmniboxTest {
                     locationBar.getAutocompleteCoordinator());
             Assert.assertEquals(expectedSuggestionCount, suggestionsList.getChildCount());
             for (int i = 0; i < suggestionsList.getChildCount(); i++) {
-                SuggestionView suggestionView = (SuggestionView) suggestionsList.getChildAt(i);
+                View suggestionView = suggestionsList.getChildAt(i);
                 Assert.assertEquals(
                         String.format(Locale.getDefault(),
                                 "Incorrect layout direction of suggestion at index %d", i),

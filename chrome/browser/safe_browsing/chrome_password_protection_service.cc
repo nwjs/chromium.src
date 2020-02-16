@@ -34,19 +34,22 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/google/core/common/google_util.h"
 #include "components/password_manager/core/browser/compromised_credentials_table.h"
+#include "components/password_manager/core/browser/form_parsing/form_parser.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/common/utils.h"
-#include "components/safe_browsing/db/database_manager.h"
-#include "components/safe_browsing/features.h"
-#include "components/safe_browsing/password_protection/password_protection_navigation_throttle.h"
-#include "components/safe_browsing/password_protection/password_protection_request.h"
-#include "components/safe_browsing/proto/csd.pb.h"
-#include "components/safe_browsing/triggers/trigger_throttler.h"
-#include "components/safe_browsing/verdict_cache_manager.h"
-#include "components/safe_browsing/web_ui/safe_browsing_ui.h"
+#include "components/safe_browsing/content/password_protection/password_protection_navigation_throttle.h"
+#include "components/safe_browsing/content/password_protection/password_protection_request.h"
+#include "components/safe_browsing/content/web_ui/safe_browsing_ui.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/utils.h"
+#include "components/safe_browsing/core/db/database_manager.h"
+#include "components/safe_browsing/core/features.h"
+#include "components/safe_browsing/core/proto/csd.pb.h"
+#include "components/safe_browsing/core/triggers/trigger_throttler.h"
+#include "components/safe_browsing/core/verdict_cache_manager.h"
+#include "components/security_interstitials/content/unsafe_resource_util.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
@@ -68,6 +71,10 @@
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#endif
+
+#if defined(OS_ANDROID)
+#include "chrome/browser/safe_browsing/android/password_reuse_controller_android.h"
 #endif
 
 using content::BrowserThread;
@@ -263,7 +270,10 @@ ChromePasswordProtectionService::ChromePasswordProtectionService(
 }
 
 void ChromePasswordProtectionService::Init() {
-#if defined(SYNC_PASSWORD_REUSE_WARNING_ENABLED)
+// The following code is disabled on Android. RefreshTokenIsAvailable cannot be
+// used in unit tests, because it needs to interact with system accounts.
+// Considering avoid running it during unit tests. See: crbug.com/1009957.
+#if !defined(OS_ANDROID)
   // This code is shared by the normal ctor and testing ctor.
 
   sync_password_hash_ = GetSyncPasswordHashFromPrefs();
@@ -376,12 +386,22 @@ void ChromePasswordProtectionService::ShowModalWarning(
   if (web_contents->IsFullscreenForCurrentTab())
     web_contents->ExitFullscreen(true);
 
+#if defined(OS_ANDROID)
+  (new PasswordReuseControllerAndroid(
+       web_contents, this, password_type,
+       base::BindOnce(&ChromePasswordProtectionService::OnUserAction,
+                      base::Unretained(this), web_contents, password_type,
+                      outcome, verdict_type, verdict_token,
+                      WarningUIType::MODAL_DIALOG)))
+      ->ShowDialog();
+#else   // !defined(OS_ANDROID)
   ShowPasswordReuseModalWarningDialog(
       web_contents, this, password_type,
       base::BindOnce(&ChromePasswordProtectionService::OnUserAction,
                      base::Unretained(this), web_contents, password_type,
                      outcome, verdict_type, verdict_token,
                      WarningUIType::MODAL_DIALOG));
+#endif  // defined(OS_ANDROID)
 
   LogWarningAction(WarningUIType::MODAL_DIALOG, WarningAction::SHOWN,
                    password_type);
@@ -546,7 +566,7 @@ void ChromePasswordProtectionService::MaybeStartThreatDetailsCollection(
     resource.threat_type = SB_THREAT_TYPE_SIGNED_IN_NON_SYNC_PASSWORD_REUSE;
   }
   resource.url = web_contents->GetLastCommittedURL();
-  resource.web_contents_getter = resource.GetWebContentsGetter(
+  resource.web_contents_getter = security_interstitials::GetWebContentsGetter(
       web_contents->GetMainFrame()->GetProcess()->GetID(),
       web_contents->GetMainFrame()->GetRoutingID());
   resource.token = token;
@@ -831,12 +851,15 @@ void ChromePasswordProtectionService::OnGaiaPasswordChanged(
   for (auto& observer : observer_list_)
     observer.OnGaiaPasswordChanged();
 
+// Disabled on Android, because enterprise reporting extension is not supported.
+#if !defined(OS_ANDROID)
   // Only report if the current password changed is the primary account and it's
   // not a Gmail account or if the current password changed is a content area
   // account and it's not a Gmail account.
   if ((!is_other_gaia_password && !IsPrimaryAccountGmail()) ||
       (is_other_gaia_password && !IsOtherGaiaAccountGmail(username)))
     ReportPasswordChanged();
+#endif
 }
 
 GURL ChromePasswordProtectionService::GetEnterpriseChangePasswordURL() const {
@@ -1134,7 +1157,10 @@ std::string ChromePasswordProtectionService::GetOrganizationName(
           : GetSignedInNonSyncAccount(username_for_last_shown_warning()).email;
   return email.empty() ? std::string() : gaia::ExtractDomainName(email);
 }
+#endif
 
+// Disabled on Android, because enterprise reporting extension is not supported.
+#if !defined(OS_ANDROID)
 void ChromePasswordProtectionService::MaybeReportPasswordReuseDetected(
     content::WebContents* web_contents,
     const std::string& username,
@@ -1174,7 +1200,9 @@ void ChromePasswordProtectionService::ReportPasswordChanged() {
         ->OnPolicySpecifiedPasswordChanged(GetAccountInfo().email);
   }
 }
+#endif
 
+#if defined(SYNC_PASSWORD_REUSE_WARNING_ENABLED)
 bool ChromePasswordProtectionService::HasUnhandledEnterprisePasswordReuse(
     content::WebContents* web_contents) const {
   return web_contents_with_unhandled_enterprise_reuses_.find(web_contents) !=
@@ -1394,7 +1422,14 @@ bool ChromePasswordProtectionService::IsPingingEnabled(
       *reason = RequestOutcome::TURNED_OFF_BY_ADMIN;
       return false;
     }
+
+// Only saved password reuse warnings are shown on Android, so other types of
+// password reuse events should be gated by extended reporting.
+#if defined(OS_ANDROID)
+    return extended_reporting_enabled;
+#else
     return true;
+#endif
   }
 
   // Password field on focus pinging is enabled for !incognito &&
@@ -1616,7 +1651,8 @@ void ChromePasswordProtectionService::PersistPhishedSavedPasswordCredential(
   for (const std::string& domain : matching_domains) {
     password_store->AddCompromisedCredentials(
         password_manager::CompromisedCredentials(
-            GURL(domain), base::ASCIIToUTF16(username), base::Time::Now(),
+            password_manager::GetSignonRealm(GURL(domain)),
+            base::ASCIIToUTF16(username), base::Time::Now(),
             password_manager::CompromiseType::kPhished));
   }
 }
@@ -1654,8 +1690,8 @@ void ChromePasswordProtectionService::CacheVerdict(
     const base::Time& receive_time) {
   if (!CanGetReputationOfURL(url) || IsIncognito())
     return;
-  cache_manager_->CachePhishGuardVerdict(url, trigger_type, password_type,
-                                         verdict, receive_time);
+  cache_manager_->CachePhishGuardVerdict(trigger_type, password_type, verdict,
+                                         receive_time);
 }
 
 // Looks up |settings| to find the cached verdict response. If verdict is not
@@ -1681,7 +1717,7 @@ int ChromePasswordProtectionService::GetStoredVerdictCount(
 #if BUILDFLAG(FULL_SAFE_BROWSING)
 bool ChromePasswordProtectionService::IsUnderAdvancedProtection() {
   return AdvancedProtectionStatusManagerFactory::GetForProfile(profile_)
-      ->is_under_advanced_protection();
+      ->IsUnderAdvancedProtection();
 }
 
 gfx::Size ChromePasswordProtectionService::GetCurrentContentAreaSize() const {

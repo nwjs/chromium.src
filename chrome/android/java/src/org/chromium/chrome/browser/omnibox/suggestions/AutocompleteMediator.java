@@ -11,7 +11,6 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.View;
-import android.widget.TextView;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -19,16 +18,17 @@ import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
-import org.chromium.base.Supplier;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.GlobalDiscardableReferencePool;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
+import org.chromium.chrome.browser.favicon.LargeIconBridge;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcher;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcherConfig;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcherFactory;
@@ -45,6 +45,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionHost;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewDelegate;
 import org.chromium.chrome.browser.omnibox.suggestions.editurl.EditUrlSuggestionProcessor;
 import org.chromium.chrome.browser.omnibox.suggestions.entity.EntitySuggestionProcessor;
+import org.chromium.chrome.browser.omnibox.suggestions.tail.TailSuggestionProcessor;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
@@ -111,6 +112,7 @@ class AutocompleteMediator
     private @Nullable EditUrlSuggestionProcessor mEditUrlProcessor;
     private AnswerSuggestionProcessor mAnswerSuggestionProcessor;
     private final EntitySuggestionProcessor mEntitySuggestionProcessor;
+    private final TailSuggestionProcessor mTailSuggestionProcessor;
 
     private ToolbarDataProvider mDataProvider;
     private OverviewModeBehavior mOverviewModeBehavior;
@@ -154,8 +156,6 @@ class AutocompleteMediator
     private boolean mPreventSuggestionListPropertyChanges;
     private long mLastActionUpTimestamp;
     private boolean mIgnoreOmniboxItemSelection = true;
-    private float mMaxRequiredWidth;
-    private float mMaxMatchContentsWidth;
     private boolean mUseDarkColors = true;
     private boolean mShowSuggestionFavicons;
     private int mLayoutDirection;
@@ -165,6 +165,7 @@ class AutocompleteMediator
     private ActivityTabTabObserver mTabObserver;
 
     private ImageFetcher mImageFetcher;
+    private LargeIconBridge mIconBridge;
 
     public AutocompleteMediator(Context context, AutocompleteDelegate delegate,
             UrlBarEditingTextStateProvider textProvider, PropertyModel listPropertyModel) {
@@ -175,14 +176,28 @@ class AutocompleteMediator
         mCurrentModels = new ArrayList<>();
         mAutocomplete = new AutocompleteController(this);
         mHandler = new Handler();
-        Supplier<ImageFetcher> imageFetcherSupplier = this::getImageFetcher;
-        mBasicSuggestionProcessor = new BasicSuggestionProcessor(mContext, this, textProvider);
+
+        final Supplier<ImageFetcher> imageFetcherSupplier = createImageFetcherSupplier();
+        final Supplier<LargeIconBridge> iconBridgeSupplier = createIconBridgeSupplier();
+
+        mBasicSuggestionProcessor =
+                new BasicSuggestionProcessor(mContext, this, textProvider, iconBridgeSupplier);
         mAnswerSuggestionProcessor =
                 new AnswerSuggestionProcessor(mContext, this, textProvider, imageFetcherSupplier);
-        mEditUrlProcessor = new EditUrlSuggestionProcessor(
-                mContext, this, delegate, (suggestion) -> onSelection(suggestion, 0));
+        mEditUrlProcessor = new EditUrlSuggestionProcessor(mContext, this, delegate,
+                (suggestion) -> onSelection(suggestion, 0), iconBridgeSupplier);
         mEntitySuggestionProcessor =
                 new EntitySuggestionProcessor(mContext, this, imageFetcherSupplier);
+        mTailSuggestionProcessor = new TailSuggestionProcessor(mContext, this);
+
+        mOverviewModeObserver = new EmptyOverviewModeObserver() {
+            @Override
+            public void onOverviewModeStartedShowing(boolean showToolbar) {
+                if (mDataProvider.shouldShowLocationBarInOverviewMode()) {
+                    AutocompleteControllerJni.get().prefetchZeroSuggestResults();
+                }
+            }
+        };
     }
 
     public void destroy() {
@@ -216,16 +231,57 @@ class AutocompleteMediator
         notifyPropertyModelsChanged();
     }
 
-    private ImageFetcher getImageFetcher() {
-        if (getCurrentProfile() == null) {
-            return null;
-        }
-        if (mImageFetcher == null) {
-            mImageFetcher = ImageFetcherFactory.createImageFetcher(
-                    ImageFetcherConfig.IN_MEMORY_ONLY,
-                    GlobalDiscardableReferencePool.getReferencePool(), MAX_IMAGE_CACHE_SIZE);
-        }
-        return mImageFetcher;
+    /**
+     * Create a new supplier that returns ImageFetcher instances.
+     * Consumers of this call:
+     * - should never cache the returned object, since its lifecycle is bound to external
+     *   objects, such as Profile,
+     * - should always check for null ahead of using returned value. ImageFetcher may not be
+     *   constructed if Profile is not yet initialized.
+     *
+     * @return Supplier returning ImageFetcher.
+     */
+    private Supplier<ImageFetcher> createImageFetcherSupplier() {
+        return new Supplier<ImageFetcher>() {
+            @Override
+            public ImageFetcher get() {
+                if (getCurrentProfile() == null) {
+                    return null;
+                }
+                if (mImageFetcher == null) {
+                    mImageFetcher = ImageFetcherFactory.createImageFetcher(
+                            ImageFetcherConfig.IN_MEMORY_ONLY,
+                            GlobalDiscardableReferencePool.getReferencePool(),
+                            MAX_IMAGE_CACHE_SIZE);
+                }
+                return mImageFetcher;
+            }
+        };
+    }
+
+    /**
+     * Create a new supplier that returns LargeIconBridge instances.
+     * Consumers of this call:
+     * - should never cache the returned object, since its lifecycle is bound to external
+     *   objects, such as Profile,
+     * - should always check for null ahead of using returned value. LargeIconBridge may not be
+     *   constructed if Profile is not yet initialized.
+     *
+     * @return Supplier returning LargeIconBridge.
+     */
+    private Supplier<LargeIconBridge> createIconBridgeSupplier() {
+        return new Supplier<LargeIconBridge>() {
+            @Override
+            public LargeIconBridge get() {
+                if (getCurrentProfile() == null) {
+                    return null;
+                }
+                if (mIconBridge == null) {
+                    mIconBridge = new LargeIconBridge(getCurrentProfile());
+                }
+                return mIconBridge;
+            }
+        };
     }
 
     private Profile getCurrentProfile() {
@@ -305,17 +361,9 @@ class AutocompleteMediator
      *         listen to state changes.
      */
     public void setOverviewModeBehavior(OverviewModeBehavior overviewModeBehavior) {
-        assert overviewModeBehavior != null;
+        assert mOverviewModeBehavior == null;
 
         mOverviewModeBehavior = overviewModeBehavior;
-        mOverviewModeObserver = new EmptyOverviewModeObserver() {
-            @Override
-            public void onOverviewModeStartedShowing(boolean showToolbar) {
-                if (mDataProvider.shouldShowLocationBarInOverviewMode()) {
-                    AutocompleteControllerJni.get().prefetchZeroSuggestResults();
-                }
-            }
-        };
         mOverviewModeBehavior.addOverviewModeObserver(mOverviewModeObserver);
     }
 
@@ -397,6 +445,7 @@ class AutocompleteMediator
         mAnswerSuggestionProcessor.onNativeInitialized();
         mBasicSuggestionProcessor.onNativeInitialized();
         mEntitySuggestionProcessor.onNativeInitialized();
+        mTailSuggestionProcessor.onNativeInitialized();
         if (mEditUrlProcessor != null) mEditUrlProcessor.onNativeInitialized();
     }
 
@@ -468,6 +517,7 @@ class AutocompleteMediator
         mAnswerSuggestionProcessor.onUrlFocusChange(hasFocus);
         mBasicSuggestionProcessor.onUrlFocusChange(hasFocus);
         mEntitySuggestionProcessor.onUrlFocusChange(hasFocus);
+        mTailSuggestionProcessor.onUrlFocusChange(hasFocus);
     }
 
     /**
@@ -486,8 +536,7 @@ class AutocompleteMediator
      */
     void setAutocompleteProfile(Profile profile) {
         mAutocomplete.setProfile(profile);
-        mBasicSuggestionProcessor.setProfile(profile);
-        if (mEditUrlProcessor != null) mEditUrlProcessor.setProfile(profile);
+        mIconBridge = null;
     }
 
     /**
@@ -547,27 +596,6 @@ class AutocompleteMediator
             @Override
             public void onGestureDown() {
                 stopAutocomplete(false);
-            }
-
-            @Override
-            public int getAdditionalTextLine1StartPadding(TextView line1, int maxTextWidth) {
-                if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)) return 0;
-                if (suggestion.getType() != OmniboxSuggestionType.SEARCH_SUGGEST_TAIL) return 0;
-
-                String fillIntoEdit = suggestion.getFillIntoEdit();
-                float fullTextWidth =
-                        line1.getPaint().measureText(fillIntoEdit, 0, fillIntoEdit.length());
-                String query = line1.getText().toString();
-                float abbreviatedTextWidth = line1.getPaint().measureText(query, 0, query.length());
-
-                AutocompleteMediator.this.onTextWidthsUpdated(fullTextWidth, abbreviatedTextWidth);
-
-                final float maxRequiredWidth = AutocompleteMediator.this.mMaxRequiredWidth;
-                final float maxMatchContentsWidth =
-                        AutocompleteMediator.this.mMaxMatchContentsWidth;
-                return (int) ((maxTextWidth > maxRequiredWidth)
-                                ? (fullTextWidth - abbreviatedTextWidth)
-                                : Math.max(maxTextWidth - maxMatchContentsWidth, 0));
             }
         };
     }
@@ -683,27 +711,6 @@ class AutocompleteMediator
      */
     void onSetUrlToSuggestion(OmniboxSuggestion suggestion) {
         mDelegate.setOmniboxEditingText(suggestion.getFillIntoEdit());
-    }
-
-    /**
-     * Triggered when text width information is updated.
-     * These values should be used to calculate max text widths.
-     * @param requiredWidth a new required width.
-     * @param matchContentsWidth a new match contents width.
-     */
-    private void onTextWidthsUpdated(float requiredWidth, float matchContentsWidth) {
-        mMaxRequiredWidth = Math.max(mMaxRequiredWidth, requiredWidth);
-        mMaxMatchContentsWidth = Math.max(mMaxMatchContentsWidth, matchContentsWidth);
-    }
-
-    /**
-     * Updates the maximum widths required to render the suggestions.
-     * This is needed for infinite suggestions where we try to vertically align the leading
-     * ellipsis.
-     */
-    private void resetMaxTextWidths() {
-        mMaxRequiredWidth = 0;
-        mMaxMatchContentsWidth = 0;
     }
 
     /**
@@ -839,12 +846,15 @@ class AutocompleteMediator
      * @param suggestion The suggestion to be processed.
      * @return The appropriate suggestion processor for the provided suggestion.
      */
-    private SuggestionProcessor getProcessorForSuggestion(OmniboxSuggestion suggestion) {
+    private SuggestionProcessor getProcessorForSuggestion(
+            OmniboxSuggestion suggestion, boolean isFirst) {
         if (mAnswerSuggestionProcessor.doesProcessSuggestion(suggestion)) {
             return mAnswerSuggestionProcessor;
         } else if (mEntitySuggestionProcessor.doesProcessSuggestion(suggestion)) {
             return mEntitySuggestionProcessor;
-        } else if (mEditUrlProcessor != null
+        } else if (mTailSuggestionProcessor.doesProcessSuggestion(suggestion)) {
+            return mTailSuggestionProcessor;
+        } else if (isFirst && mEditUrlProcessor != null
                 && mEditUrlProcessor.doesProcessSuggestion(suggestion)) {
             return mEditUrlProcessor;
         }
@@ -888,13 +898,13 @@ class AutocompleteMediator
         }
 
         // Show the suggestion list.
-        resetMaxTextWidths();
+        mTailSuggestionProcessor.reset();
         // Ensure the list is fully replaced before broadcasting any change notifications.
         mPreventSuggestionListPropertyChanges = true;
         mCurrentModels.clear();
         for (int i = 0; i < newSuggestions.size(); i++) {
             OmniboxSuggestion suggestion = newSuggestions.get(i);
-            SuggestionProcessor processor = getProcessorForSuggestion(suggestion);
+            SuggestionProcessor processor = getProcessorForSuggestion(suggestion, i == 0);
             PropertyModel model = processor.createModelForSuggestion(suggestion);
             model.set(SuggestionCommonProperties.LAYOUT_DIRECTION, mLayoutDirection);
             model.set(SuggestionCommonProperties.USE_DARK_COLORS, mUseDarkColors);

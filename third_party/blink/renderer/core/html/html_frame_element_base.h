@@ -24,7 +24,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_FRAME_ELEMENT_BASE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_HTML_FRAME_ELEMENT_BASE_H_
 
-#include "third_party/blink/public/platform/web_focus_type.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 
@@ -67,7 +67,7 @@ class CORE_EXPORT HTMLFrameElementBase : public HTMLFrameOwnerElement {
  private:
   bool SupportsFocus() const final;
   int DefaultTabIndex() const final;
-  void SetFocused(bool, WebFocusType) final;
+  void SetFocused(bool, mojom::blink::FocusType) final;
 
   bool IsURLAttribute(const Attribute&) const final;
   bool HasLegalLinkAttribute(const QualifiedName&) const final;
@@ -88,11 +88,21 @@ class CORE_EXPORT HTMLFrameElementBase : public HTMLFrameOwnerElement {
   AtomicString frame_name_;
 };
 
-inline bool IsHTMLFrameElementBase(const HTMLElement& element) {
-  return IsA<HTMLFrameElement>(element) || IsA<HTMLIFrameElement>(element);
+template <>
+inline bool IsElementOfType<const HTMLFrameElementBase>(const Node& node) {
+  return IsA<HTMLFrameElementBase>(node);
 }
-
-DEFINE_HTMLELEMENT_TYPE_CASTS_WITH_FUNCTION(HTMLFrameElementBase);
+template <>
+struct DowncastTraits<HTMLFrameElementBase> {
+  static bool AllowFrom(const Node& node) {
+    auto* html_element = DynamicTo<HTMLElement>(node);
+    return html_element && AllowFrom(*html_element);
+  }
+  static bool AllowFrom(const HTMLElement& html_element) {
+    return IsA<HTMLFrameElement>(html_element) ||
+           IsA<HTMLIFrameElement>(html_element);
+  }
+};
 
 }  // namespace blink
 

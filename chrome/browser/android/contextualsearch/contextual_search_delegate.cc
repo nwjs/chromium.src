@@ -15,10 +15,10 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/contextualsearch/contextual_search_field_trial.h"
 #include "chrome/browser/android/contextualsearch/resolved_search_term.h"
 #include "chrome/browser/android/proto/client_discourse_context.pb.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -272,8 +272,7 @@ std::string ContextualSearchDelegate::BuildRequestUrl(
       TemplateURLRef::SearchTermsArgs(base::string16());
 
   // Set the Coca-integration version.
-  // This is based on our current active feature, or an override param from a
-  // field trial, possibly augmented by using simplified server logic.
+  // This is based on our current active feature.
   int contextual_cards_version =
       contextual_search::kContextualCardsUrlActionsIntegration;
   if (base::FeatureList::IsEnabled(
@@ -281,24 +280,20 @@ std::string ContextualSearchDelegate::BuildRequestUrl(
     contextual_cards_version =
         contextual_search::kContextualCardsDefinitionsIntegration;
   }
+  if (base::FeatureList::IsEnabled(
+          chrome::android::kContextualSearchTranslations)) {
+    contextual_cards_version =
+        contextual_search::kContextualCardsTranslationsIntegration;
+  }
   // Let the field-trial override.
   if (field_trial_->GetContextualCardsVersion() != 0) {
     contextual_cards_version = field_trial_->GetContextualCardsVersion();
-  }
-  // Add the simplified-server mixin, if enabled.
-  if (base::FeatureList::IsEnabled(
-          chrome::android::kContextualSearchSimplifiedServer) &&
-      contextual_cards_version <
-          contextual_search::kContextualCardsSimplifiedServerMixin) {
-    contextual_cards_version =
-        contextual_cards_version +
-        contextual_search::kContextualCardsSimplifiedServerMixin;
   }
 
   TemplateURLRef::SearchTermsArgs::ContextualSearchParams params(
       kContextualSearchRequestVersion, contextual_cards_version,
       context->GetHomeCountry(), context->GetPreviousEventId(),
-      context->GetPreviousEventResults());
+      context->GetPreviousEventResults(), context->GetExactResolve());
 
   search_terms_args.contextual_search_params = params;
 
@@ -426,27 +421,6 @@ bool ContextualSearchDelegate::CanSendPageURL(
                   sync_service);
   // If they have, then allow sending of the URL.
   return anonymized_unified_consent_url_helper->IsEnabled();
-}
-
-// Gets the target language from the translate service using the user's profile.
-std::string ContextualSearchDelegate::GetTargetLanguage() {
-  Profile* profile = ProfileManager::GetActiveUserProfile();
-  LanguageModel* language_model =
-      LanguageModelManagerFactory::GetForBrowserContext(profile)
-          ->GetPrimaryModel();
-  DCHECK(language_model);
-  PrefService* pref_service = profile->GetPrefs();
-  std::string result =
-      TranslateService::GetTargetLanguage(pref_service, language_model);
-  DCHECK(!result.empty());
-  return result;
-}
-
-// Returns the accept languages preference string.
-std::string ContextualSearchDelegate::GetAcceptLanguages() {
-  Profile* profile = ProfileManager::GetActiveUserProfile();
-  PrefService* pref_service = profile->GetPrefs();
-  return pref_service->GetString(language::prefs::kAcceptLanguages);
 }
 
 // Decodes the given response from the search term resolution request and sets

@@ -19,9 +19,9 @@ import org.junit.runner.RunWith;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsActivityTest;
 import org.chromium.content_public.browser.test.util.Criteria;
@@ -270,7 +270,7 @@ public class AutofillProfilesFragmentTest {
                 InstrumentationRegistry.getInstrumentation(),
                 AutofillProfilesFragment.class.getName());
 
-        PreferenceFragmentCompat fragment = (PreferenceFragmentCompat) activity.getMainFragment();
+        AutofillProfilesFragment fragment = (AutofillProfilesFragment) activity.getMainFragment();
         AutofillProfileEditorPreference addProfile =
                 (AutofillProfileEditorPreference) fragment.findPreference(
                         AutofillProfilesFragment.PREF_NEW_PROFILE);
@@ -278,13 +278,14 @@ public class AutofillProfilesFragmentTest {
 
         // Open AutofillProfileEditorPreference.
         TestThreadUtils.runOnUiThreadBlocking(addProfile::performClick);
-        rule.setEditorDialogAndWait(addProfile.getEditorDialog());
+        rule.setEditorDialogAndWait(fragment.getEditorDialogForTest());
         // The keyboard is shown as soon as AutofillProfileEditorPreference comes into view.
         waitForKeyboardStatus(true, activity);
 
         // Hide the keyboard.
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            List<EditText> fields = addProfile.getEditorDialog().getEditableTextFieldsForTest();
+            List<EditText> fields =
+                    fragment.getEditorDialogForTest().getEditableTextFieldsForTest();
             KeyboardVisibilityDelegate.getInstance().hideKeyboard(fields.get(0));
         });
         // Check that the keyboard is hidden.
@@ -319,7 +320,7 @@ public class AutofillProfilesFragmentTest {
             boolean waitForError) throws TimeoutException {
         TestThreadUtils.runOnUiThreadBlocking(profile::performClick);
 
-        rule.setEditorDialogAndWait(profile.getEditorDialog());
+        rule.setEditorDialogAndWait(profileFragment.getEditorDialogForTest());
         if (values != null) rule.setTextInEditorAndWait(values);
         if (waitForError) {
             rule.clickInEditorAndWaitForValidationError(buttonId);

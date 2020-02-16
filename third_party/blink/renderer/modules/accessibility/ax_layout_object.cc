@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/modules/accessibility/ax_layout_object.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/core/aom/accessible_node.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -55,7 +56,6 @@
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
-#include "third_party/blink/renderer/core/imagebitmap/image_bitmap_options.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_api_shim.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
@@ -78,7 +78,6 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
-#include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
 #include "third_party/blink/renderer/core/loader/progress_tracker.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -268,13 +267,6 @@ Node* AXLayoutObject::GetNodeOrContainingBlockNode() const {
 
   if (layout_object_->IsListMarker())
     return ToLayoutListMarker(layout_object_)->ListItem()->GetNode();
-
-  if (layout_object_->IsLayoutNGListMarkerIncludingInside()) {
-    if (LayoutNGListItem* list_item =
-            LayoutNGListItem::FromMarker(*layout_object_))
-      return list_item->GetNode();
-    return nullptr;
-  }
 
   if (layout_object_->IsAnonymous() && layout_object_->ContainingBlock()) {
     return layout_object_->ContainingBlock()->GetNode();
@@ -505,23 +497,34 @@ AccessibilitySelectedState AXLayoutObject::IsSelected() const {
   if (!GetLayoutObject() || !GetNode() || !CanSetSelectedAttribute())
     return kSelectedStateUndefined;
 
-  // aria-selected overrides automatic behaviors
+  // The aria-selected attribute overrides automatic behaviors.
   bool is_selected;
   if (HasAOMPropertyOrARIAAttribute(AOMBooleanProperty::kSelected, is_selected))
     return is_selected ? kSelectedStateTrue : kSelectedStateFalse;
 
-  // Tab item with focus in the associated tab
-  if (IsTabItem() && IsTabItemSelected())
-    return kSelectedStateTrue;
+  // The selection should only follow the focus when the aria-selected attribute
+  // is marked as required or implied for this element in the ARIA specs.
+  // If this object can't follow the focus, then we can't say that it's selected
+  // nor that it's not.
+  if (!SelectionShouldFollowFocus())
+    return kSelectedStateUndefined;
 
-  // Selection follows focus, but ONLY in single selection containers,
-  // and only if aria-selected was not present to override
+  // Selection follows focus, but ONLY in single selection containers, and only
+  // if aria-selected was not present to override.
   return IsSelectedFromFocus() ? kSelectedStateTrue : kSelectedStateFalse;
 }
 
 // In single selection containers, selection follows focus unless aria_selected
-// is set to false.
+// is set to false. This is only valid for a subset of elements.
 bool AXLayoutObject::IsSelectedFromFocus() const {
+  if (!SelectionShouldFollowFocus())
+    return false;
+
+  // A tab item can also be selected if it is associated to a focused tabpanel
+  // via the aria-labelledby attribute.
+  if (IsTabItem() && IsTabItemSelected())
+    return kSelectedStateTrue;
+
   // If not a single selection container, selection does not follow focus.
   AXObject* container = ContainerWidget();
   if (!container || container->IsMultiSelectable())
@@ -539,6 +542,20 @@ bool AXLayoutObject::IsSelectedFromFocus() const {
   bool is_selected;
   return !HasAOMPropertyOrARIAAttribute(AOMBooleanProperty::kSelected,
                                         is_selected);
+}
+
+// Returns true if the node's aria-selected attribute should be set to true
+// when the node is focused. This is true for only a subset of roles.
+bool AXLayoutObject::SelectionShouldFollowFocus() const {
+  switch (RoleValue()) {
+    case ax::mojom::Role::kListBoxOption:
+    case ax::mojom::Role::kMenuListOption:
+    case ax::mojom::Role::kTab:
+      return true;
+    default:
+      break;
+  }
+  return false;
 }
 
 //
@@ -961,14 +978,14 @@ String AXLayoutObject::ImageDataUrl(const IntSize& max_size) const {
   ImageBitmap* image_bitmap = nullptr;
   Document* document = &node->GetDocument();
   if (auto* image = DynamicTo<HTMLImageElement>(node)) {
-    image_bitmap = ImageBitmap::Create(image, base::Optional<IntRect>(),
-                                       document, options);
+    image_bitmap = MakeGarbageCollected<ImageBitmap>(
+        image, base::Optional<IntRect>(), document, options);
   } else if (auto* canvas = DynamicTo<HTMLCanvasElement>(node)) {
-    image_bitmap =
-        ImageBitmap::Create(canvas, base::Optional<IntRect>(), options);
+    image_bitmap = MakeGarbageCollected<ImageBitmap>(
+        canvas, base::Optional<IntRect>(), options);
   } else if (auto* video = DynamicTo<HTMLVideoElement>(node)) {
-    image_bitmap = ImageBitmap::Create(video, base::Optional<IntRect>(),
-                                       document, options);
+    image_bitmap = MakeGarbageCollected<ImageBitmap>(
+        video, base::Optional<IntRect>(), document, options);
   }
   if (!image_bitmap)
     return String();
@@ -1524,10 +1541,11 @@ String AXLayoutObject::TextAlternative(bool recursive,
     } else if (layout_object_->IsListMarker() && !recursive) {
       text_alternative = ToLayoutListMarker(layout_object_)->TextAlternative();
       found_text_alternative = true;
-    } else if (layout_object_->IsLayoutNGListMarkerIncludingInside() &&
-               !recursive) {
-      text_alternative = LayoutNGListItem::TextAlternative(*layout_object_);
-      found_text_alternative = true;
+    } else if (!recursive) {
+      if (ListMarker* marker = ListMarker::Get(layout_object_)) {
+        text_alternative = marker->TextAlternative(*layout_object_);
+        found_text_alternative = true;
+      }
     }
 
     if (found_text_alternative) {
@@ -1639,10 +1657,6 @@ ax::mojom::Dropeffect AXLayoutObject::ParseDropeffect(
   return ax::mojom::Dropeffect::kNone;
 }
 
-bool AXLayoutObject::SupportsARIAFlowTo() const {
-  return !GetAttribute(html_names::kAriaFlowtoAttr).IsEmpty();
-}
-
 bool AXLayoutObject::SupportsARIAOwns() const {
   if (!layout_object_)
     return false;
@@ -1746,7 +1760,8 @@ AXObject* AXLayoutObject::AccessibilityHitTest(const IntPoint& point) const {
     // control.
     if (result->IsAXLayoutObject()) {
       AXObject* control_object =
-          ToAXLayoutObject(result)->CorrespondingControlForLabelElement();
+          ToAXLayoutObject(result)
+              ->CorrespondingControlAXObjectForLabelElement();
       if (control_object && control_object->NameFromLabelElement())
         return control_object;
     }
@@ -2537,11 +2552,11 @@ bool AXLayoutObject::IsDataTable() const {
 
       // In this case, the developer explicitly assigned a "data" table
       // attribute.
-      if (IsHTMLTableCellElement(*cell_node)) {
-        HTMLTableCellElement& cell_element = ToHTMLTableCellElement(*cell_node);
-        if (!cell_element.Headers().IsEmpty() ||
-            !cell_element.Abbr().IsEmpty() || !cell_element.Axis().IsEmpty() ||
-            !cell_element.FastGetAttribute(html_names::kScopeAttr).IsEmpty())
+      if (auto* cell_element = DynamicTo<HTMLTableCellElement>(*cell_node)) {
+        if (!cell_element->Headers().IsEmpty() ||
+            !cell_element->Abbr().IsEmpty() ||
+            !cell_element->Axis().IsEmpty() ||
+            !cell_element->FastGetAttribute(html_names::kScopeAttr).IsEmpty())
           return true;
       }
 
@@ -3082,15 +3097,7 @@ void AXLayoutObject::AddImageMapChildren() {
 
 void AXLayoutObject::AddListMarker() {
   if (!CanHaveChildren() || !GetLayoutObject() || AccessibilityIsIgnored() ||
-      !GetLayoutObject()->IsListItemIncludingNG()) {
-    return;
-  }
-  if (GetLayoutObject()->IsLayoutNGListItem()) {
-    LayoutNGListItem* list_item = ToLayoutNGListItem(GetLayoutObject());
-    LayoutObject* list_marker = list_item->Marker();
-    AXObject* list_marker_obj = AXObjectCache().GetOrCreate(list_marker);
-    if (list_marker_obj)
-      children_.push_back(list_marker_obj);
+      !GetLayoutObject()->IsListItem()) {
     return;
   }
   LayoutListItem* list_item = ToLayoutListItem(GetLayoutObject());

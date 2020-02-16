@@ -9,7 +9,6 @@ import os
 import socket
 import stat
 import subprocess
-import textwrap
 import threading
 
 from google.protobuf import text_format  # pylint: disable=import-error
@@ -20,15 +19,10 @@ from devil.utils import cmd_helper
 from devil.utils import timeout_retry
 from py_utils import tempfile_ext
 from pylib import constants
+from pylib.local.emulator import ini
 from pylib.local.emulator.proto import avd_pb2
 
 _ALL_PACKAGES = object()
-_CONFIG_INI_CONTENTS = textwrap.dedent("""\
-    disk.dataPartition.size=4G
-    hw.lcd.density={density}
-    hw.lcd.height={height}
-    hw.lcd.width={width}
-    """)
 _DEFAULT_AVDMANAGER_PATH = os.path.join(constants.ANDROID_SDK_ROOT, 'tools',
                                         'bin', 'avdmanager')
 # Default to a 480dp mdpi screen (a relatively large phone).
@@ -98,7 +92,7 @@ class _AvdManagerAgent(object):
         '-Dcom.android.sdkmanager.toolsdir=%s' % fake_tools_dir,
     })
 
-  def Create(self, avd_name, system_image, force=False, sdcard=None):
+  def Create(self, avd_name, system_image, force=False):
     """Call `avdmanager create`.
 
     Args:
@@ -119,8 +113,6 @@ class _AvdManagerAgent(object):
     ]
     if force:
       create_cmd += ['--force']
-    if sdcard:
-      create_cmd += ['--sdcard', sdcard]
 
     create_proc = cmd_helper.Popen(
         create_cmd,
@@ -228,8 +220,7 @@ class AvdConfig(object):
     avd_manager.Create(
         avd_name=self._config.avd_name,
         system_image=self._config.system_image_name,
-        force=force,
-        sdcard=self._config.avd_settings.sdcard.size)
+        force=force)
 
     try:
       logging.info('Modifying AVD configuration.')
@@ -249,15 +240,19 @@ class AvdConfig(object):
       density = (self._config.avd_settings.screen.density
                  or _DEFAULT_SCREEN_DENSITY)
 
+      config_ini_contents = {
+          'disk.dataPartition.size': '4G',
+          'hw.lcd.density': density,
+          'hw.lcd.height': height,
+          'hw.lcd.width': width,
+      }
       with open(config_ini, 'a') as config_ini_file:
-        config_ini_contents = _CONFIG_INI_CONTENTS.format(
-            density=density, height=height, width=width)
-        config_ini_file.write(config_ini_contents)
+        ini.dump(config_ini_contents, config_ini_file)
 
       # Start & stop the AVD.
       self._Initialize()
-      instance = _AvdInstance(self._emulator_path, self._config.avd_name,
-                              self._emulator_home)
+      instance = _AvdInstance(self._emulator_path, self._emulator_home,
+                              self._config)
       instance.Start(read_only=False, snapshot_save=snapshot)
       device_utils.DeviceUtils(instance.serial).WaitUntilFullyBooted(
           timeout=180, retries=0)
@@ -407,8 +402,7 @@ class AvdConfig(object):
       An _AvdInstance.
     """
     self._Initialize()
-    return _AvdInstance(self._emulator_path, self._config.avd_name,
-                        self._emulator_home)
+    return _AvdInstance(self._emulator_path, self._emulator_home, self._config)
 
   def StartInstance(self):
     """Starts an AVD instance.
@@ -428,15 +422,16 @@ class _AvdInstance(object):
   but its other methods can be freely called.
   """
 
-  def __init__(self, emulator_path, avd_name, emulator_home):
+  def __init__(self, emulator_path, emulator_home, avd_config):
     """Create an _AvdInstance object.
 
     Args:
       emulator_path: path to the emulator binary.
-      avd_name: name of the AVD to run.
       emulator_home: path to the emulator home directory.
+      avd_config: AVD config proto.
     """
-    self._avd_name = avd_name
+    self._avd_config = avd_config
+    self._avd_name = avd_config.avd_name
     self._emulator_home = emulator_home
     self._emulator_path = emulator_path
     self._emulator_proc = None
@@ -446,8 +441,13 @@ class _AvdInstance(object):
   def __str__(self):
     return '%s|%s' % (self._avd_name, (self._emulator_serial or id(self)))
 
-  def Start(self, read_only=True, snapshot_save=False, window=False):
+  def Start(self,
+            read_only=True,
+            snapshot_save=False,
+            window=False,
+            writable_system=False):
     """Starts the emulator running an instance of the given AVD."""
+
     with tempfile_ext.TemporaryFileName() as socket_path, (contextlib.closing(
         socket.socket(socket.AF_UNIX))) as sock:
       sock.bind(socket_path)
@@ -457,11 +457,26 @@ class _AvdInstance(object):
           self._avd_name,
           '-report-console',
           'unix:%s' % socket_path,
+          '-no-boot-anim',
       ]
+
+      android_avd_home = os.path.join(self._emulator_home, 'avd')
+      avd_dir = os.path.join(android_avd_home, '%s.avd' % self._avd_name)
+
+      hardware_qemu_path = os.path.join(avd_dir, 'hardware-qemu.ini')
+      if os.path.exists(hardware_qemu_path):
+        with open(hardware_qemu_path) as hardware_qemu_file:
+          hardware_qemu_contents = ini.load(hardware_qemu_file)
+      else:
+        hardware_qemu_contents = {}
+
       if read_only:
         emulator_cmd.append('-read-only')
       if not snapshot_save:
         emulator_cmd.append('-no-snapshot-save')
+      if writable_system:
+        emulator_cmd.append('-writable-system')
+
       emulator_env = {}
       if self._emulator_home:
         emulator_env['ANDROID_EMULATOR_HOME'] = self._emulator_home
@@ -472,6 +487,27 @@ class _AvdInstance(object):
           raise AvdException('Emulator failed to start: DISPLAY not defined')
       else:
         emulator_cmd.append('-no-window')
+
+      hardware_qemu_contents['hw.sdCard'] = 'true'
+      if self._avd_config.avd_settings.sdcard.size:
+        sdcard_path = os.path.join(self._emulator_home, 'avd',
+                                   '%s.avd' % self._avd_name, 'cr-sdcard.img')
+        if not os.path.exists(sdcard_path):
+          mksdcard_path = os.path.join(
+              os.path.dirname(self._emulator_path), 'mksdcard')
+          mksdcard_cmd = [
+              mksdcard_path,
+              self._avd_config.avd_settings.sdcard.size,
+              sdcard_path,
+          ]
+          cmd_helper.RunCmd(mksdcard_cmd)
+
+        emulator_cmd.extend(['-sdcard', sdcard_path])
+        hardware_qemu_contents['hw.sdCard.path'] = sdcard_path
+
+      with open(hardware_qemu_path, 'w') as hardware_qemu_file:
+        ini.dump(hardware_qemu_contents, hardware_qemu_file)
+
       sock.listen(1)
 
       logging.info('Starting emulator.')
@@ -502,9 +538,13 @@ class _AvdInstance(object):
     """Stops the emulator process."""
     if self._emulator_proc:
       if self._emulator_proc.poll() is None:
-        self._emulator_proc.terminate()
+        if self._emulator_serial:
+          device_utils.DeviceUtils(self._emulator_serial).adb.Emu('kill')
+        else:
+          self._emulator_proc.terminate()
         self._emulator_proc.wait()
       self._emulator_proc = None
+
     if self._sink:
       self._sink.close()
       self._sink = None

@@ -34,9 +34,11 @@
 
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "services/network/public/mojom/referrer_policy.mojom-blink.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/isolated_world_csp.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
@@ -73,6 +75,9 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
+
+using network::mojom::ContentSecurityPolicySource;
+using network::mojom::ContentSecurityPolicyType;
 
 class DocumentTest : public PageTestBase {
  protected:
@@ -996,8 +1001,8 @@ TEST_P(IsolatedWorldCSPTest, CSPForWorld) {
   // Set a CSP for the main world.
   const char* kMainWorldCSP = "connect-src https://google.com;";
   GetDocument().GetContentSecurityPolicy()->DidReceiveHeader(
-      kMainWorldCSP, kContentSecurityPolicyHeaderTypeEnforce,
-      kContentSecurityPolicyHeaderSourceHTTP);
+      kMainWorldCSP, ContentSecurityPolicyType::kEnforce,
+      ContentSecurityPolicySource::kHTTP);
 
   LocalFrame* frame = GetDocument().GetFrame();
   ScriptState* main_world_script_state = ToScriptStateForMainWorld(frame);
@@ -1031,7 +1036,7 @@ TEST_P(IsolatedWorldCSPTest, CSPForWorld) {
     ScriptState::Scope scope(main_world_script_state);
     EXPECT_THAT(get_csp_headers(),
                 ElementsAre(CSPHeaderAndType(
-                    {kMainWorldCSP, kContentSecurityPolicyHeaderTypeEnforce})));
+                    {kMainWorldCSP, ContentSecurityPolicyType::kEnforce})));
   }
 
   {
@@ -1042,7 +1047,7 @@ TEST_P(IsolatedWorldCSPTest, CSPForWorld) {
     // CSP.
     EXPECT_THAT(get_csp_headers(),
                 ElementsAre(CSPHeaderAndType(
-                    {kMainWorldCSP, kContentSecurityPolicyHeaderTypeEnforce})));
+                    {kMainWorldCSP, ContentSecurityPolicyType::kEnforce})));
   }
 
   {
@@ -1062,7 +1067,7 @@ TEST_P(IsolatedWorldCSPTest, CSPForWorld) {
       EXPECT_THAT(
           get_csp_headers(),
           ElementsAre(CSPHeaderAndType(
-              {kIsolatedWorldCSP, kContentSecurityPolicyHeaderTypeEnforce})));
+              {kIsolatedWorldCSP, ContentSecurityPolicyType::kEnforce})));
     }
   }
 }
@@ -1199,41 +1204,98 @@ TEST_F(DocumentTest, PrefersColorSchemeChanged) {
 
 TEST_F(DocumentTest, DocumentPolicyFeaturePolicyCoexist) {
   blink::ScopedDocumentPolicyForTest sdp(true);
-  const auto test_feature = blink::mojom::FeaturePolicyFeature::kFontDisplay;
+  const auto test_feature =
+      blink::mojom::blink::FeaturePolicyFeature::kFontDisplay;
+  const auto unsupported_feature =
+      blink::mojom::blink::FeaturePolicyFeature::kSyncScript;
   const auto report_option = blink::ReportOptions::kReportOnFailure;
 
-  // When document_policy is not initialized, feature_policy should
-  // be sufficient to determine the result.
-  NavigateTo(KURL("https://www.example.com/"), "font-display-late-swap 'none'",
-             "");
-  EXPECT_FALSE(GetDocument().IsFeatureEnabled(test_feature, report_option));
-
-  NavigateTo(KURL("https://www.example.com/"), "font-display-late-swap *", "");
-  EXPECT_TRUE(GetDocument().IsFeatureEnabled(test_feature, report_option));
+  // When document_policy is not specified in response header, default values
+  // are used for document policy.
+  NavigateTo(KURL("https://www.example.com/"), "", "");
+  GetDocument().GetSecurityContext().SetDocumentPolicyForTesting(
+      DocumentPolicy::CreateWithHeaderPolicy({}));
+  EXPECT_EQ(
+      DocumentPolicy::GetFeatureDefaults().at(test_feature),
+      GetDocument().GetSecurityContext().GetDocumentPolicy()->GetFeatureValue(
+          test_feature));
 
   // When document_policy is specified, both feature_policy and
   // document_policy need to return true for the feature to be
   // enabled.
   NavigateTo(KURL("https://www.example.com/"), "font-display-late-swap *", "");
-  GetDocument().SetDocumentPolicyForTesting(
-      DocumentPolicy::CreateWithRequiredPolicy(
+  GetDocument().GetSecurityContext().SetDocumentPolicyForTesting(
+      DocumentPolicy::CreateWithHeaderPolicy(
           {{test_feature, blink::PolicyValue(true)}}));
   EXPECT_TRUE(GetDocument().IsFeatureEnabled(test_feature, report_option));
-  GetDocument().SetDocumentPolicyForTesting(
-      DocumentPolicy::CreateWithRequiredPolicy(
+  GetDocument().GetSecurityContext().SetDocumentPolicyForTesting(
+      DocumentPolicy::CreateWithHeaderPolicy(
           {{test_feature, blink::PolicyValue(false)}}));
   EXPECT_FALSE(GetDocument().IsFeatureEnabled(test_feature, report_option));
 
   NavigateTo(KURL("https://www.example.com/"), "font-display-late-swap 'none'",
              "");
-  GetDocument().SetDocumentPolicyForTesting(
-      DocumentPolicy::CreateWithRequiredPolicy(
+  GetDocument().GetSecurityContext().SetDocumentPolicyForTesting(
+      DocumentPolicy::CreateWithHeaderPolicy(
           {{test_feature, blink::PolicyValue(true)}}));
   EXPECT_FALSE(GetDocument().IsFeatureEnabled(test_feature, report_option));
-  GetDocument().SetDocumentPolicyForTesting(
-      DocumentPolicy::CreateWithRequiredPolicy(
+  GetDocument().GetSecurityContext().SetDocumentPolicyForTesting(
+      DocumentPolicy::CreateWithHeaderPolicy(
           {{test_feature, blink::PolicyValue(false)}}));
   EXPECT_FALSE(GetDocument().IsFeatureEnabled(test_feature, report_option));
+
+  // When document policy does not handle a particular feature, it must not
+  // block it.
+  NavigateTo(KURL("https://www.example.com/"), "sync-script *", "");
+  EXPECT_TRUE(
+      GetDocument().IsFeatureEnabled(unsupported_feature, report_option));
+  GetDocument().GetSecurityContext().SetDocumentPolicyForTesting(
+      DocumentPolicy::CreateWithHeaderPolicy(
+          {{test_feature, blink::PolicyValue(true)}}));
+  ASSERT_FALSE(GetDocument()
+                   .GetSecurityContext()
+                   .GetDocumentPolicy()
+                   ->IsFeatureSupported(unsupported_feature));
+  EXPECT_TRUE(
+      GetDocument().IsFeatureEnabled(unsupported_feature, report_option));
+}
+
+TEST_F(DocumentTest, FindInPageUkm) {
+  GetDocument().ukm_recorder_ = std::make_unique<ukm::TestUkmRecorder>();
+  auto* recorder =
+      static_cast<ukm::TestUkmRecorder*>(GetDocument().UkmRecorder());
+
+  EXPECT_EQ(recorder->entries_count(), 0u);
+  GetDocument().MarkHasFindInPageRequest();
+  EXPECT_EQ(recorder->entries_count(), 1u);
+  GetDocument().MarkHasFindInPageRequest();
+  EXPECT_EQ(recorder->entries_count(), 1u);
+
+  auto entries = recorder->GetEntriesByName("Blink.FindInPage");
+  EXPECT_EQ(entries.size(), 1u);
+  EXPECT_TRUE(ukm::TestUkmRecorder::EntryHasMetric(entries[0], "DidSearch"));
+  EXPECT_EQ(*ukm::TestUkmRecorder::GetEntryMetric(entries[0], "DidSearch"), 1);
+  EXPECT_FALSE(ukm::TestUkmRecorder::EntryHasMetric(
+      entries[0], "DidHaveRenderSubtreeMatch"));
+
+  GetDocument().MarkHasFindInPageRenderSubtreeActiveMatch();
+  EXPECT_EQ(recorder->entries_count(), 2u);
+  GetDocument().MarkHasFindInPageRenderSubtreeActiveMatch();
+  EXPECT_EQ(recorder->entries_count(), 2u);
+  entries = recorder->GetEntriesByName("Blink.FindInPage");
+  EXPECT_EQ(entries.size(), 2u);
+
+  EXPECT_TRUE(ukm::TestUkmRecorder::EntryHasMetric(entries[0], "DidSearch"));
+  EXPECT_EQ(*ukm::TestUkmRecorder::GetEntryMetric(entries[0], "DidSearch"), 1);
+  EXPECT_FALSE(ukm::TestUkmRecorder::EntryHasMetric(
+      entries[0], "DidHaveRenderSubtreeMatch"));
+
+  EXPECT_TRUE(ukm::TestUkmRecorder::EntryHasMetric(
+      entries[1], "DidHaveRenderSubtreeMatch"));
+  EXPECT_EQ(*ukm::TestUkmRecorder::GetEntryMetric(entries[1],
+                                                  "DidHaveRenderSubtreeMatch"),
+            1);
+  EXPECT_FALSE(ukm::TestUkmRecorder::EntryHasMetric(entries[1], "DidSearch"));
 }
 
 /**

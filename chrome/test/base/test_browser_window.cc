@@ -68,6 +68,11 @@ TestBrowserWindow::TestBrowserWindow() {}
 
 TestBrowserWindow::~TestBrowserWindow() {}
 
+void TestBrowserWindow::Close() {
+  if (close_callback_)
+    std::move(close_callback_).Run();
+}
+
 bool TestBrowserWindow::IsActive() const {
   return false;
 }
@@ -152,10 +157,6 @@ LocationBar* TestBrowserWindow::GetLocationBar() const {
 
 autofill::AutofillBubbleHandler* TestBrowserWindow::GetAutofillBubbleHandler() {
   return &autofill_bubble_handler_;
-}
-
-ToolbarActionsBar* TestBrowserWindow::GetToolbarActionsBar() {
-  return nullptr;
 }
 
 ExtensionsContainer* TestBrowserWindow::GetExtensionsContainer() {
@@ -260,6 +261,10 @@ bool TestBrowserWindow::IsVisibleOnAllWorkspaces() const {
 
 void TestBrowserWindow::SetNativeWindow(gfx::NativeWindow window) {
   native_window_ = window;
+}
+
+void TestBrowserWindow::SetCloseCallback(base::OnceClosure close_callback) {
+  close_callback_ = std::move(close_callback);
 }
 
 // TestBrowserWindowOwner -----------------------------------------------------

@@ -373,6 +373,25 @@ void FakeShillServiceClient::GetLoadableProfileEntries(
                      call_status, base::Owned(result_properties.release())));
 }
 
+void FakeShillServiceClient::GetWiFiPassphrase(
+    const dbus::ObjectPath& service_path,
+    StringCallback callback,
+    ErrorCallback error_callback) {
+  base::DictionaryValue* service_properties =
+      GetModifiableServiceProperties(service_path.value(), false);
+  if (!service_properties) {
+    LOG(ERROR) << "Service not found: " << service_path.value();
+    std::move(error_callback).Run("Error.InvalidService", "Invalid Service");
+    return;
+  }
+
+  std::string passphrase;
+  service_properties->GetStringWithoutPathExpansion(shill::kPassphraseProperty,
+                                                    &passphrase);
+
+  std::move(callback).Run(passphrase);
+}
+
 ShillServiceClient::TestInterface* FakeShillServiceClient::GetTestInterface() {
   return this;
 }
@@ -591,7 +610,10 @@ bool FakeShillServiceClient::ClearConfiguredServiceProperties(
 
   const base::Value* visible_property = service_dict->FindKeyOfType(
       shill::kVisibleProperty, base::Value::Type::BOOLEAN);
-  if (!visible_property || !visible_property->GetBool()) {
+  const base::Value* service_type = service_dict->FindKeyOfType(
+      shill::kTypeProperty, base::Value::Type::STRING);
+  if (!visible_property || !visible_property->GetBool() || !service_type ||
+      (service_type->GetString() == shill::kTypeVPN)) {
     stub_services_.RemoveKey(service_path);
     RemoveService(service_path);
     return true;

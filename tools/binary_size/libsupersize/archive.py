@@ -1011,23 +1011,7 @@ class _ResourceSourceMapper(object):
   @staticmethod
   def _ParseResInfoFile(res_info_path):
     with open(res_info_path, 'r') as info_file:
-      res_info = {}
-      renames = {}
-      for line in info_file.readlines():
-        dest, source = line.strip().split(',')
-        # Allow indirection due to renames.
-        if dest.startswith('Rename:'):
-          dest = dest.split(':', 1)[1]
-          renames[dest] = source
-        else:
-          res_info[dest] = source
-      for dest, renamed_dest in renames.iteritems():
-        # Allow one more level of indirection due to renaming renamed files
-        renamed_dest = renames.get(renamed_dest, renamed_dest)
-        actual_source = res_info.get(renamed_dest)
-        if actual_source:
-          res_info[dest] = actual_source
-    return res_info
+      return dict(l.rstrip().split('\t') for l in info_file)
 
   def _LoadResInfo(self, size_info_prefix):
     apk_res_info_path = size_info_prefix + '.res.info'
@@ -1485,8 +1469,8 @@ def CreateSectionSizesAndSymbols(map_path=None,
         size_info_prefix, knobs)
 
     if knobs.analyze_java:
-      dex_symbols = apkanalyzer.CreateDexSymbols(
-          apk_path, mapping_path, size_info_prefix, output_directory)
+      dex_symbols = apkanalyzer.CreateDexSymbols(apk_path, mapping_path,
+                                                 size_info_prefix)
       raw_symbols.extend(dex_symbols)
 
       # We can't meaningfully track section size of dex methods vs other, so
@@ -1549,23 +1533,12 @@ def CreateSectionSizesAndSymbols(map_path=None,
   return section_sizes, raw_symbols
 
 
-def SortSymbols(raw_symbols):
-  logging.debug('Sorting %d symbols', len(raw_symbols))
-  # TODO(agrieve): Either change this sort so that it's only sorting by section
-  #     (and not using .sort()), or have it specify a total ordering (which must
-  #     also include putting padding-only symbols before others of the same
-  #     address). Note: The sort as-is takes ~1.5 seconds.
-  raw_symbols.sort(
-      key=lambda s: (s.IsPak(), s.IsBss(), s.section_name, s.address))
-  logging.info('Processed %d symbols', len(raw_symbols))
-
-
 def CreateSizeInfo(section_sizes,
                    raw_symbols,
                    metadata=None,
                    normalize_names=True):
   """Performs operations on all symbols and creates a SizeInfo object."""
-  SortSymbols(raw_symbols)
+  file_format.SortSymbols(raw_symbols)
   file_format.CalculatePadding(raw_symbols)
 
   # Do not call _NormalizeNames() during archive since that method tends to need

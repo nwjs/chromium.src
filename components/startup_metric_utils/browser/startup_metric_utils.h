@@ -15,15 +15,6 @@
 
 namespace startup_metric_utils {
 
-// Identifies the workload of profiled WebContents, used to refine startup
-// metrics.
-enum class WebContentsWorkload {
-  // Only loading a single tab.
-  SINGLE_TAB,
-  // Loading multiple tabs (of which the profiled WebContents is foreground).
-  MULTI_TABS,
-};
-
 // Returns true when browser UI was not launched normally: some other UI was
 // shown first or browser was launched in background mode.
 bool WasMainWindowStartupInterrupted();
@@ -64,12 +55,6 @@ void RecordBrowserWindowDisplay(base::TimeTicks ticks);
 // Call this with the time delta that the browser spent opening its tabs.
 void RecordBrowserOpenTabsDelta(base::TimeDelta delta);
 
-// Call this with a renderer main entry time. The value provided for the first
-// call to this function is used to compute
-// Startup.LoadTime.BrowserMainToRendererMain. Further calls to this
-// function are ignored.
-void RecordRendererMainEntryTime(base::TimeTicks ticks);
-
 // Call this with the time when the first web contents had a non-empty paint,
 // only if the first web contents was unimpeded in its attempt to do so.
 void RecordFirstWebContentsNonEmptyPaint(
@@ -77,9 +62,8 @@ void RecordFirstWebContentsNonEmptyPaint(
     base::TimeTicks render_process_host_init_time);
 
 // Call this with the time when the first web contents began navigating its main
-// frame. Adds a suffix to its metrics according to |workload|.
-void RecordFirstWebContentsMainNavigationStart(base::TimeTicks ticks,
-                                               WebContentsWorkload workload);
+// frame.
+void RecordFirstWebContentsMainNavigationStart(base::TimeTicks ticks);
 
 // Call this with the time when the first web contents successfully committed
 // its navigation for the main frame.

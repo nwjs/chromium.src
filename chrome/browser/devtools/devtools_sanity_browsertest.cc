@@ -100,7 +100,7 @@
 #include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/compositor/compositor_switches.h"
 #include "ui/gl/gl_switches.h"
 #include "url/gurl.h"
@@ -1053,7 +1053,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
 // different from the extension's background page, are rendered in their own
 // processes and not in the devtools process or the extension's process.
 IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
-                       DISABLED_HttpIframeInDevToolsExtensionDevtools) {
+                       HttpIframeInDevToolsExtensionDevtools) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // Install the dynamically-generated extension.
@@ -1819,23 +1819,13 @@ class MAYBE_DevToolsReattachAfterCrashTest : public DevToolsSanityTest {
   }
 };
 
-// Crashes on Win. http://crbug.com/1025369
-#if defined(OS_WIN)
-#define MAYBE_TestReattachAfterCrashOnTimeline \
-  DISABLED_TestReattachAfterCrashOnTimeline
-#define MAYBE_TestReattachAfterCrashOnNetwork \
-  DISABLED_TestReattachAfterCrashOnNetwork
-#else
-#define MAYBE_TestReattachAfterCrashOnTimeline TestReattachAfterCrashOnTimeline
-#define MAYBE_TestReattachAfterCrashOnNetwork TestReattachAfterCrashOnNetwork
-#endif
 IN_PROC_BROWSER_TEST_F(MAYBE_DevToolsReattachAfterCrashTest,
-                       MAYBE_TestReattachAfterCrashOnTimeline) {
+                       TestReattachAfterCrashOnTimeline) {
   RunTestWithPanel("timeline");
 }
 
 IN_PROC_BROWSER_TEST_F(MAYBE_DevToolsReattachAfterCrashTest,
-                       MAYBE_TestReattachAfterCrashOnNetwork) {
+                       TestReattachAfterCrashOnNetwork) {
   RunTestWithPanel("network");
 }
 
@@ -1858,7 +1848,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, SecondTabAfterDevTools) {
       browser(), spawned_test_server()->GetURL(kDebuggerTestPage),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
-          ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+          ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   WebContents* second = browser()->tab_strip_model()->GetActiveWebContents();
 
   scoped_refptr<content::DevToolsAgentHost> agent(

@@ -206,6 +206,7 @@ bool StructTraits<
   out->corb_detachable = data.corb_detachable();
   out->corb_excluded = data.corb_excluded();
   out->fetch_request_context_type = data.fetch_request_context_type();
+  out->destination = data.destination();
   out->keepalive = data.keepalive();
   out->has_user_gesture = data.has_user_gesture();
   out->enable_load_timing = data.enable_load_timing();
@@ -256,32 +257,6 @@ bool StructTraits<network::mojom::DataElementDataView, network::DataElement>::
   out->offset_ = data.offset();
   out->length_ = data.length();
   return true;
-}
-
-// static
-const GURL&
-StructTraits<network::mojom::URLRequestDataView, network::ResourceRequest>::
-    referrer(const network::ResourceRequest& request) {
-  // TODO(crbug.com/912680, crbug.com/1021908): Move this method back inline,
-  // and move the debugging logic back to NetworkServiceNetworkDelegate when the
-  // current cause of referrer mismatches is found.
-  if (request.referrer !=
-      net::URLRequestJob::ComputeReferrerForPolicy(
-          request.referrer_policy, request.referrer, request.url)) {
-    // Record information to help debug issues like http://crbug.com/422871.
-    if (request.url.SchemeIsHTTPOrHTTPS()) {
-      auto referrer_policy = request.referrer_policy;
-      base::debug::Alias(&referrer_policy);
-      DEBUG_ALIAS_FOR_GURL(target_buf, request.url);
-      DEBUG_ALIAS_FOR_GURL(referrer_buf, request.referrer);
-      DEBUG_ALIAS_FOR_GURL(
-          initiator_buf,
-          request.request_initiator.value_or(url::Origin()).GetURL())
-      base::debug::DumpWithoutCrashing();
-    }
-  }
-
-  return request.referrer;
 }
 
 }  // namespace mojo

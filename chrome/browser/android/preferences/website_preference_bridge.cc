@@ -31,10 +31,9 @@
 #include "chrome/browser/engagement/important_sites_util.h"
 #include "chrome/browser/media/android/cdm/media_drm_license_manager.h"
 #include "chrome/browser/notifications/notification_permission_context.h"
-#include "chrome/browser/permissions/permission_decision_auto_blocker.h"
+#include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/permissions/permission_manager.h"
 #include "chrome/browser/permissions/permission_uma_util.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/permissions/quiet_notification_permission_ui_state.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_android.h"
@@ -45,6 +44,8 @@
 #include "chrome/common/pref_names.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/permissions/permission_decision_auto_blocker.h"
+#include "components/permissions/permission_util.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/storage_partition.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
@@ -190,8 +191,8 @@ void JNI_WebsitePreferenceBridge_GetOrigins(
   // Add any origins which have a default content setting value (thus skipped
   // above), but have been automatically blocked for this permission type.
   // We use an empty embedder since embargo doesn't care about it.
-  PermissionDecisionAutoBlocker* auto_blocker =
-      PermissionDecisionAutoBlocker::GetForProfile(
+  permissions::PermissionDecisionAutoBlocker* auto_blocker =
+      PermissionDecisionAutoBlockerFactory::GetForProfile(
           GetActiveUserProfile(false /* is_incognito */));
   ScopedJavaLocalRef<jstring> jembedder;
 
@@ -249,8 +250,8 @@ void JNI_WebsitePreferenceBridge_SetSettingForOrigin(
   // The permission may have been blocked due to being under embargo, so if it
   // was changed away from BLOCK, clear embargo status if it exists.
   if (setting != CONTENT_SETTING_BLOCK) {
-    PermissionDecisionAutoBlocker::GetForProfile(profile)->RemoveEmbargoByUrl(
-        origin_url, content_type);
+    PermissionDecisionAutoBlockerFactory::GetForProfile(profile)
+        ->RemoveEmbargoByUrl(origin_url, content_type);
   }
 
   if (MaybeResetDSEPermission(content_type, origin_url, embedder_url,
@@ -258,7 +259,7 @@ void JNI_WebsitePreferenceBridge_SetSettingForOrigin(
     return;
   }
 
-  PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+  PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
       profile, origin_url, embedder_url, content_type,
       PermissionSourceUI::SITE_SETTINGS);
   HostContentSettingsMapFactory::GetForProfile(profile)
@@ -348,7 +349,7 @@ static void JNI_WebsitePreferenceBridge_GetClipboardOrigins(
     JNIEnv* env,
     const JavaParamRef<jobject>& list) {
   JNI_WebsitePreferenceBridge_GetOrigins(
-      env, ContentSettingsType::CLIPBOARD_READ,
+      env, ContentSettingsType::CLIPBOARD_READ_WRITE,
       &Java_WebsitePreferenceBridge_insertClipboardInfoIntoList, list, false);
 }
 
@@ -357,7 +358,8 @@ static jint JNI_WebsitePreferenceBridge_GetClipboardSettingForOrigin(
     const JavaParamRef<jstring>& origin,
     jboolean is_incognito) {
   return JNI_WebsitePreferenceBridge_GetSettingForOrigin(
-      env, ContentSettingsType::CLIPBOARD_READ, origin, origin, is_incognito);
+      env, ContentSettingsType::CLIPBOARD_READ_WRITE, origin, origin,
+      is_incognito);
 }
 
 static void JNI_WebsitePreferenceBridge_SetClipboardSettingForOrigin(
@@ -366,7 +368,7 @@ static void JNI_WebsitePreferenceBridge_SetClipboardSettingForOrigin(
     jint value,
     jboolean is_incognito) {
   JNI_WebsitePreferenceBridge_SetSettingForOrigin(
-      env, ContentSettingsType::CLIPBOARD_READ, origin, origin,
+      env, ContentSettingsType::CLIPBOARD_READ_WRITE, origin, origin,
       static_cast<ContentSetting>(value), is_incognito);
 }
 
@@ -481,13 +483,15 @@ static jboolean JNI_WebsitePreferenceBridge_IsNotificationEmbargoedForOrigin(
     const JavaParamRef<jobject>& jprofile,
     const JavaParamRef<jstring>& origin) {
   GURL origin_url(ConvertJavaStringToUTF8(env, origin));
-  PermissionResult status =
+  permissions::PermissionResult status =
       PermissionManager::Get(ProfileAndroid::FromProfileAndroid(jprofile))
           ->GetPermissionStatus(ContentSettingsType::NOTIFICATIONS, origin_url,
                                 origin_url);
   return status.content_setting == ContentSetting::CONTENT_SETTING_BLOCK &&
-         (status.source == PermissionStatusSource::MULTIPLE_IGNORES ||
-          status.source == PermissionStatusSource::MULTIPLE_DISMISSALS);
+         (status.source ==
+              permissions::PermissionStatusSource::MULTIPLE_IGNORES ||
+          status.source ==
+              permissions::PermissionStatusSource::MULTIPLE_DISMISSALS);
 }
 
 static void JNI_WebsitePreferenceBridge_SetNotificationSettingForOrigin(
@@ -509,15 +513,15 @@ static void JNI_WebsitePreferenceBridge_SetNotificationSettingForOrigin(
   GURL url = GURL(ConvertJavaStringToUTF8(env, origin));
   ContentSetting setting = static_cast<ContentSetting>(value);
 
-  PermissionDecisionAutoBlocker::GetForProfile(profile)->RemoveEmbargoByUrl(
-      url, ContentSettingsType::NOTIFICATIONS);
+  PermissionDecisionAutoBlockerFactory::GetForProfile(profile)
+      ->RemoveEmbargoByUrl(url, ContentSettingsType::NOTIFICATIONS);
 
   if (MaybeResetDSEPermission(ContentSettingsType::NOTIFICATIONS, url, GURL(),
                               is_incognito, setting)) {
     return;
   }
 
-  PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+  PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
       profile, url, GURL(), ContentSettingsType::NOTIFICATIONS,
       PermissionSourceUI::SITE_SETTINGS);
 
@@ -896,6 +900,34 @@ static jboolean JNI_WebsitePreferenceBridge_GetAdBlockingActivated(
       url, GURL(), ContentSettingsType::ADS_DATA, std::string(), nullptr);
 }
 
+static void JNI_WebsitePreferenceBridge_GetArOrigins(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& list) {
+  JNI_WebsitePreferenceBridge_GetOrigins(
+      env, ContentSettingsType::AR,
+      &Java_WebsitePreferenceBridge_insertArInfoIntoList, list, false);
+}
+
+static jint JNI_WebsitePreferenceBridge_GetArSettingForOrigin(
+    JNIEnv* env,
+    const JavaParamRef<jstring>& origin,
+    const JavaParamRef<jstring>& embedder,
+    jboolean is_incognito) {
+  return JNI_WebsitePreferenceBridge_GetSettingForOrigin(
+      env, ContentSettingsType::AR, origin, embedder, is_incognito);
+}
+
+static void JNI_WebsitePreferenceBridge_SetArSettingForOrigin(
+    JNIEnv* env,
+    const JavaParamRef<jstring>& origin,
+    const JavaParamRef<jstring>& embedder,
+    jint value,
+    jboolean is_incognito) {
+  JNI_WebsitePreferenceBridge_SetSettingForOrigin(
+      env, ContentSettingsType::AR, origin, embedder,
+      static_cast<ContentSetting>(value), is_incognito);
+}
+
 static void JNI_WebsitePreferenceBridge_GetNfcOrigins(
     JNIEnv* env,
     const JavaParamRef<jobject>& list) {
@@ -952,6 +984,34 @@ static void JNI_WebsitePreferenceBridge_SetSensorsSettingForOrigin(
       static_cast<ContentSetting>(value), is_incognito);
 }
 
+static void JNI_WebsitePreferenceBridge_GetVrOrigins(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& list) {
+  JNI_WebsitePreferenceBridge_GetOrigins(
+      env, ContentSettingsType::VR,
+      &Java_WebsitePreferenceBridge_insertVrInfoIntoList, list, false);
+}
+
+static jint JNI_WebsitePreferenceBridge_GetVrSettingForOrigin(
+    JNIEnv* env,
+    const JavaParamRef<jstring>& origin,
+    const JavaParamRef<jstring>& embedder,
+    jboolean is_incognito) {
+  return JNI_WebsitePreferenceBridge_GetSettingForOrigin(
+      env, ContentSettingsType::VR, origin, embedder, is_incognito);
+}
+
+static void JNI_WebsitePreferenceBridge_SetVrSettingForOrigin(
+    JNIEnv* env,
+    const JavaParamRef<jstring>& origin,
+    const JavaParamRef<jstring>& embedder,
+    jint value,
+    jboolean is_incognito) {
+  JNI_WebsitePreferenceBridge_SetSettingForOrigin(
+      env, ContentSettingsType::VR, origin, embedder,
+      static_cast<ContentSetting>(value), is_incognito);
+}
+
 // On Android O+ notification channels are not stored in the Chrome profile and
 // so are persisted across tests. This function resets them.
 static void JNI_WebsitePreferenceBridge_ResetNotificationsSettingsForTest(
@@ -977,7 +1037,7 @@ static jboolean JNI_WebsitePreferenceBridge_IsContentSettingEnabled(
   DCHECK(type == ContentSettingsType::JAVASCRIPT ||
          type == ContentSettingsType::POPUPS ||
          type == ContentSettingsType::ADS ||
-         type == ContentSettingsType::CLIPBOARD_READ ||
+         type == ContentSettingsType::CLIPBOARD_READ_WRITE ||
          type == ContentSettingsType::USB_GUARD ||
          type == ContentSettingsType::BLUETOOTH_SCANNING);
   return GetBooleanForContentSetting(type);
@@ -1016,13 +1076,20 @@ static void JNI_WebsitePreferenceBridge_SetContentSettingEnabled(
 static void JNI_WebsitePreferenceBridge_SetContentSettingForPattern(
     JNIEnv* env,
     int content_settings_type,
-    const JavaParamRef<jstring>& pattern,
+    const JavaParamRef<jstring>& primary_pattern,
+    const JavaParamRef<jstring>& secondary_pattern,
     int setting) {
+  std::string primary_pattern_string =
+      ConvertJavaStringToUTF8(env, primary_pattern);
+  std::string secondary_pattern_string =
+      ConvertJavaStringToUTF8(env, secondary_pattern);
   HostContentSettingsMap* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(GetOriginalProfile());
   host_content_settings_map->SetContentSettingCustomScope(
-      ContentSettingsPattern::FromString(ConvertJavaStringToUTF8(env, pattern)),
-      ContentSettingsPattern::Wildcard(),
+      ContentSettingsPattern::FromString(primary_pattern_string),
+      secondary_pattern_string.empty()
+          ? ContentSettingsPattern::Wildcard()
+          : ContentSettingsPattern::FromString(secondary_pattern_string),
       static_cast<ContentSettingsType>(content_settings_type), std::string(),
       static_cast<ContentSetting>(setting));
 }
@@ -1040,6 +1107,7 @@ static void JNI_WebsitePreferenceBridge_GetContentSettingsExceptions(
     Java_WebsitePreferenceBridge_addContentSettingExceptionToList(
         env, list, content_settings_type,
         ConvertUTF8ToJavaString(env, entries[i].primary_pattern.ToString()),
+        ConvertUTF8ToJavaString(env, entries[i].secondary_pattern.ToString()),
         entries[i].GetContentSetting(),
         ConvertUTF8ToJavaString(env, entries[i].source));
   }
@@ -1063,6 +1131,14 @@ static void JNI_WebsitePreferenceBridge_SetContentSetting(
   host_content_settings_map->SetDefaultContentSetting(
       static_cast<ContentSettingsType>(content_settings_type),
       static_cast<ContentSetting>(setting));
+}
+
+static jboolean JNI_WebsitePreferenceBridge_GetArEnabled(JNIEnv* env) {
+  return GetBooleanForContentSetting(ContentSettingsType::AR);
+}
+
+static jboolean JNI_WebsitePreferenceBridge_GetVrEnabled(JNIEnv* env) {
+  return GetBooleanForContentSetting(ContentSettingsType::VR);
 }
 
 static jboolean JNI_WebsitePreferenceBridge_GetAcceptCookiesEnabled(
@@ -1133,12 +1209,21 @@ static jboolean JNI_WebsitePreferenceBridge_GetAllowLocationManagedByCustodian(
   return IsContentSettingManagedByCustodian(ContentSettingsType::GEOLOCATION);
 }
 
+static void JNI_WebsitePreferenceBridge_SetArEnabled(JNIEnv* env,
+                                                     jboolean allow) {
+  HostContentSettingsMap* host_content_settings_map =
+      HostContentSettingsMapFactory::GetForProfile(GetOriginalProfile());
+  host_content_settings_map->SetDefaultContentSetting(
+      ContentSettingsType::AR,
+      allow ? CONTENT_SETTING_ASK : CONTENT_SETTING_BLOCK);
+}
+
 static void JNI_WebsitePreferenceBridge_SetClipboardEnabled(JNIEnv* env,
                                                             jboolean allow) {
   HostContentSettingsMap* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(GetOriginalProfile());
   host_content_settings_map->SetDefaultContentSetting(
-      ContentSettingsType::CLIPBOARD_READ,
+      ContentSettingsType::CLIPBOARD_READ_WRITE,
       allow ? CONTENT_SETTING_ASK : CONTENT_SETTING_BLOCK);
 }
 
@@ -1148,6 +1233,15 @@ static void JNI_WebsitePreferenceBridge_SetNfcEnabled(JNIEnv* env,
       HostContentSettingsMapFactory::GetForProfile(GetOriginalProfile());
   host_content_settings_map->SetDefaultContentSetting(
       ContentSettingsType::NFC,
+      allow ? CONTENT_SETTING_ASK : CONTENT_SETTING_BLOCK);
+}
+
+static void JNI_WebsitePreferenceBridge_SetVrEnabled(JNIEnv* env,
+                                                     jboolean allow) {
+  HostContentSettingsMap* host_content_settings_map =
+      HostContentSettingsMapFactory::GetForProfile(GetOriginalProfile());
+  host_content_settings_map->SetDefaultContentSetting(
+      ContentSettingsType::VR,
       allow ? CONTENT_SETTING_ASK : CONTENT_SETTING_BLOCK);
 }
 

@@ -12,8 +12,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/tabs/tab_group_id.h"
-#include "chrome/browser/ui/tabs/tab_group_visual_data.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -27,6 +25,8 @@
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/views/chrome_views_test_base.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/gfx/color_palette.h"
@@ -57,8 +57,8 @@ class FakeTabController : public TabController {
   void ToggleSelected(Tab* tab) override {}
   void AddSelectionFromAnchorTo(Tab* tab) override {}
   void CloseTab(Tab* tab, CloseTabSource source) override {}
-  void MoveTabRight(Tab* tab) override {}
-  void MoveTabLeft(Tab* tab) override {}
+  void ShiftTabRight(Tab* tab) override {}
+  void ShiftTabLeft(Tab* tab) override {}
   void MoveTabFirst(Tab* tab) override {}
   void MoveTabLast(Tab* tab) override {}
   void ShowContextMenuForTab(Tab* tab,
@@ -120,19 +120,30 @@ class FakeTabController : public TabController {
   }
   float GetHoverOpacityForRadialHighlight() const override { return 1.0f; }
 
-  const TabGroupVisualData* GetVisualDataForGroup(
-      TabGroupId group) const override {
-    return nullptr;
+  base::string16 GetGroupTitle(
+      const tab_groups::TabGroupId& group_id) const override {
+    return base::string16();
   }
 
-  void SetVisualDataForGroup(TabGroupId group,
-                             TabGroupVisualData visual_data) override {}
+  tab_groups::TabGroupColorId GetGroupColorId(
+      const tab_groups::TabGroupId& group_id) const override {
+    return tab_groups::TabGroupColorId();
+  }
 
-  void CloseAllTabsInGroup(TabGroupId group) override {}
+  SkColor GetPaintedGroupColor(
+      const tab_groups::TabGroupColorId& color_id) const override {
+    return SkColor();
+  }
 
-  void UngroupAllTabsInGroup(TabGroupId group) override {}
+  void SetVisualDataForGroup(
+      const tab_groups::TabGroupId& group,
+      const tab_groups::TabGroupVisualData& visual_data) override {}
 
-  void AddNewTabInGroup(TabGroupId group) override {}
+  void CloseAllTabsInGroup(const tab_groups::TabGroupId& group) override {}
+
+  void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) override {}
+
+  void AddNewTabInGroup(const tab_groups::TabGroupId& group) override {}
 
   const Browser* GetBrowser() override { return nullptr; }
 

@@ -7,19 +7,27 @@ package org.chromium.chrome.browser.toolbar.top;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.RelativeLayout;
+
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.toolbar.IncognitoStateProvider;
 import org.chromium.chrome.browser.toolbar.MenuButton;
 import org.chromium.chrome.browser.toolbar.NewTabButton;
+import org.chromium.chrome.browser.toolbar.top.StartSurfaceToolbarProperties.IPHContainer;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
-import org.chromium.chrome.browser.util.ColorUtils;
-import org.chromium.chrome.browser.ui.styles.ChromeColors;
+import org.chromium.chrome.browser.util.AccessibilityUtil;
+import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.widget.textbubble.TextBubble;
+import org.chromium.ui.util.ColorUtils;
 
 /** View of the StartSurfaceToolbar */
 class StartSurfaceToolbarView extends RelativeLayout {
@@ -27,6 +35,8 @@ class StartSurfaceToolbarView extends RelativeLayout {
     private View mIncognitoSwitch;
     private MenuButton mMenuButton;
     private View mLogo;
+    @Nullable
+    private ImageButton mIdentityDiscButton;
     private int mPrimaryColor;
     private ColorStateList mLightIconTint;
     private ColorStateList mDarkIconTint;
@@ -46,6 +56,7 @@ class StartSurfaceToolbarView extends RelativeLayout {
         mIncognitoSwitch = findViewById(R.id.incognito_switch);
         mMenuButton = findViewById(R.id.menu_button_wrapper);
         mLogo = findViewById(R.id.logo);
+        mIdentityDiscButton = findViewById(R.id.identity_disc_button);
         updatePrimaryColorAndTint(false);
     }
 
@@ -60,7 +71,9 @@ class StartSurfaceToolbarView extends RelativeLayout {
         mLogoRect.set(mLogo.getLeft(), mLogo.getTop(), mLogo.getRight(), mLogo.getBottom());
         for (int viewIndex = 0; viewIndex < getChildCount(); viewIndex++) {
             View view = getChildAt(viewIndex);
-            if (view == mLogo) continue;
+            if (view == mLogo || view.getVisibility() == View.GONE) continue;
+
+            assert view.getVisibility() == View.VISIBLE;
             mViewRect.set(view.getLeft(), view.getTop(), view.getRight(), view.getBottom());
             if (Rect.intersects(mLogoRect, mViewRect)) {
                 mLogo.setVisibility(View.GONE);
@@ -100,6 +113,14 @@ class StartSurfaceToolbarView extends RelativeLayout {
      */
     void setMenuButtonVisibility(boolean isVisible) {
         mMenuButton.setVisibility(isVisible ? View.VISIBLE : View.GONE);
+        final int buttonPaddingLeft = getContext().getResources().getDimensionPixelOffset(
+                R.dimen.start_surface_toolbar_button_padding_to_button);
+        final int buttonPaddingRight =
+                (isVisible ? buttonPaddingLeft
+                           : getContext().getResources().getDimensionPixelOffset(
+                                   R.dimen.start_surface_toolbar_button_padding_to_edge));
+        mIdentityDiscButton.setPadding(buttonPaddingLeft, 0, buttonPaddingRight, 0);
+        mNewTabButton.setPadding(buttonPaddingLeft, 0, buttonPaddingRight, 0);
     }
 
     /**
@@ -154,6 +175,53 @@ class StartSurfaceToolbarView extends RelativeLayout {
     /** Called when accessibility status changes. */
     void onAccessibilityStatusChanged(boolean enabled) {
         mNewTabButton.onAccessibilityStatusChanged();
+    }
+
+    /**
+     * @param isVisible Whether the identity disc is visible.
+     */
+    void setIdentityDiscVisibility(boolean isVisible) {
+        mIdentityDiscButton.setVisibility(isVisible ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * Sets the {@link OnClickListener} that will be notified when the identity disc button is
+     * pressed.
+     * @param listener The callback that will be notified when the identity disc  is pressed.
+     */
+    void setIdentityDiscClickHandler(View.OnClickListener listener) {
+        mIdentityDiscButton.setOnClickListener(listener);
+    }
+
+    /**
+     * Updates the image displayed on the identity disc button.
+     * @param image The new image for the button.
+     */
+    void setIdentityDiscImage(Drawable image) {
+        mIdentityDiscButton.setImageDrawable(image);
+    }
+
+    /**
+     * Updates idnetity disc content description.
+     * @param contentDescriptionResId The new description for the button.
+     */
+    void setIdentityDiscContentDescription(@StringRes int contentDescriptionResId) {
+        mIdentityDiscButton.setContentDescription(
+                getContext().getResources().getString(contentDescriptionResId));
+    }
+
+    /**
+     * Show the IPH for the identity disc button.
+     */
+    void showIPHOnIdentityDisc(IPHContainer iphContainer) {
+        TextBubble textBubble = new TextBubble(getContext(), mIdentityDiscButton,
+                iphContainer.stringId, iphContainer.accessibilityStringId, mIdentityDiscButton,
+                AccessibilityUtil.isAccessibilityEnabled());
+        textBubble.setDismissOnTouchInteraction(true);
+        if (iphContainer.dismissedCallback != null) {
+            textBubble.addOnDismissListener(() -> { iphContainer.dismissedCallback.run(); });
+        }
+        textBubble.show();
     }
 
     private void updatePrimaryColorAndTint(boolean isIncognito) {

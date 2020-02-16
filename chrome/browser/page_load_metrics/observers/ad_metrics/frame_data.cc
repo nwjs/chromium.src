@@ -62,6 +62,7 @@ FrameData::FrameData(FrameTreeNodeId root_frame_tree_node_id,
       network_bytes_(0u),
       same_origin_bytes_(0u),
       origin_status_(OriginStatus::kUnknown),
+      creative_origin_status_(OriginStatus::kUnknown),
       frame_navigated_(false),
       user_activation_status_(UserActivationStatus::kNoActivation),
       is_display_none_(false),
@@ -150,10 +151,8 @@ void FrameData::SetDisplayState(bool is_display_none) {
 }
 
 void FrameData::UpdateCpuUsage(base::TimeTicks update_time,
-                               base::TimeDelta update,
-                               InteractiveStatus interactive) {
+                               base::TimeDelta update) {
   // Update the overall usage for all of the relevant buckets.
-  cpu_by_interactive_period_[static_cast<size_t>(interactive)] += update;
   cpu_by_activation_period_[static_cast<size_t>(user_activation_status_)] +=
       update;
 
@@ -204,10 +203,6 @@ bool FrameData::MaybeTriggerHeavyAdIntervention() {
   return true;
 }
 
-base::TimeDelta FrameData::GetInteractiveCpuUsage(
-    InteractiveStatus status) const {
-  return cpu_by_interactive_period_[static_cast<int>(status)];
-}
 
 base::TimeDelta FrameData::GetActivationCpuUsage(
     UserActivationStatus status) const {
@@ -216,7 +211,7 @@ base::TimeDelta FrameData::GetActivationCpuUsage(
 
 base::TimeDelta FrameData::GetTotalCpuUsage() const {
   base::TimeDelta total_cpu_time;
-  for (base::TimeDelta cpu_time : cpu_by_interactive_period_)
+  for (base::TimeDelta cpu_time : cpu_by_activation_period_)
     total_cpu_time += cpu_time;
   return total_cpu_time;
 }

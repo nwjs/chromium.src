@@ -14,16 +14,16 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
-import org.chromium.chrome.browser.autofill.CardType;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.payments.PaymentRequestTestRule.MainActivityStartCallback;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ui.DisableAnimationsTestRule;
+import org.chromium.ui.test.util.DisableAnimationsTestRule;
 
 import java.util.ArrayList;
 import java.util.concurrent.TimeoutException;
@@ -52,34 +52,29 @@ public class PaymentRequestMultiplePaymentInstrumentsTest implements MainActivit
             // CARD_0 missing billing address.
             new CreditCard("", "https://example.com", true /* isLocal */, true /* isCached */,
                     "Jon Doe", "4111111111111111", "1111", "12", "2050", "visa",
-                    R.drawable.visa_card, CardType.UNKNOWN, "" /* billingAddressId */,
-                    "" /* serverId */),
+                    R.drawable.visa_card, "" /* billingAddressId */, "" /* serverId */),
 
             // For the rest of the cards billing address id will be added in
             // onMainActivityStarted().
             // CARD_1 complete card.
             new CreditCard("", "https://example.com", true /* isLocal */, true /* isCached */,
                     "John Smith", "4111111111113333", "3333", "10", "2050", "visa",
-                    R.drawable.amex_card, CardType.UNKNOWN, "" /* billingAddressId */,
-                    "" /* serverId */),
+                    R.drawable.amex_card, "" /* billingAddressId */, "" /* serverId */),
 
             // CARD_2 complete card, different from CARD_1.
             new CreditCard("", "https://example.com", true /* isLocal */, true /* isCached */,
                     "Jane Doe", "4111111111112222", "2222", "07", "2077", "visa",
-                    R.drawable.visa_card, CardType.UNKNOWN, "" /* billingAddressId */,
-                    "" /* serverId */),
+                    R.drawable.visa_card, "" /* billingAddressId */, "" /* serverId */),
 
             // CARD_3 expired card.
             new CreditCard("", "https://example.com", true /* isLocal */, true /* isCached */,
                     "Lisa Simpson", "4111111111111111", "1111", "12", "2010", "visa",
-                    R.drawable.visa_card, CardType.UNKNOWN, "" /* billingAddressId */,
-                    "" /* serverId */),
+                    R.drawable.visa_card, "" /* billingAddressId */, "" /* serverId */),
 
             // CARD_4 missing name.
             new CreditCard("", "https://example.com", true /* isLocal */, true /* isCached */,
                     "" /* name */, "4012888888881881", "1881", "06", "2049", "visa",
-                    R.drawable.visa_card, CardType.UNKNOWN, "" /* billingAddressId */,
-                    "" /* serverId */),
+                    R.drawable.visa_card, "" /* billingAddressId */, "" /* serverId */),
     };
 
     private CreditCard[] mCreditCardsToAdd;
@@ -105,7 +100,9 @@ public class PaymentRequestMultiplePaymentInstrumentsTest implements MainActivit
 
         // Set up the autofill payment instruments use stats.
         for (int i = 0; i < guids.size(); i++) {
-            helper.setCreditCardUseStatsForTesting(guids.get(i), mCountsToSet[i], mDatesToSet[i]);
+            PaymentPreferencesUtil.setPaymentInstrumentUseCountForTest(
+                    guids.get(i), mCountsToSet[i]);
+            PaymentPreferencesUtil.setPaymentInstrumentLastUseDate(guids.get(i), mDatesToSet[i]);
         }
     }
 
@@ -116,6 +113,7 @@ public class PaymentRequestMultiplePaymentInstrumentsTest implements MainActivit
      */
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/1045923")
     @Feature({"Payments"})
     public void testCreditCardSuggestionOrdering() throws TimeoutException {
         mCreditCardsToAdd = new CreditCard[] {CREDIT_CARDS[0], CREDIT_CARDS[3], CREDIT_CARDS[2],

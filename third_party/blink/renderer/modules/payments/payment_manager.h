@@ -14,6 +14,7 @@
 
 namespace blink {
 
+class ExceptionState;
 class PaymentInstruments;
 class ScriptPromiseResolver;
 class ScriptPromise;
@@ -24,8 +25,6 @@ class MODULES_EXPORT PaymentManager final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  static PaymentManager* Create(ServiceWorkerRegistration*);
-
   explicit PaymentManager(ServiceWorkerRegistration*);
 
   PaymentInstruments* instruments();
@@ -35,9 +34,9 @@ class MODULES_EXPORT PaymentManager final : public ScriptWrappable {
 
   void Trace(blink::Visitor*) override;
 
-  ScriptPromise enableDelegations(
-      ScriptState*,
-      const Vector<String>& stringified_delegations);
+  ScriptPromise enableDelegations(ScriptState*,
+                                  const Vector<String>& stringified_delegations,
+                                  ExceptionState&);
 
  private:
   void OnServiceConnectionError();

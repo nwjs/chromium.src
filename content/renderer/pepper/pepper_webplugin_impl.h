@@ -15,6 +15,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ppapi/c/pp_var.h"
 #include "third_party/blink/public/mojom/clipboard/clipboard.mojom.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-forward.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -44,14 +45,13 @@ class PepperWebPluginImpl : public blink::WebPlugin {
   bool Initialize(blink::WebPluginContainer* container) override;
   void Destroy() override;
   v8::Local<v8::Object> V8ScriptableObject(v8::Isolate* isolate) override;
-  void UpdateAllLifecyclePhases(
-      blink::WebWidget::LifecycleUpdateReason) override {}
+  void UpdateAllLifecyclePhases(blink::DocumentUpdateReason) override {}
   void Paint(cc::PaintCanvas* canvas, const blink::WebRect& rect) override;
   void UpdateGeometry(const blink::WebRect& window_rect,
                       const blink::WebRect& clip_rect,
                       const blink::WebRect& unobscured_rect,
                       bool is_visible) override;
-  void UpdateFocus(bool focused, blink::WebFocusType focus_type) override;
+  void UpdateFocus(bool focused, blink::mojom::FocusType focus_type) override;
   void UpdateVisibility(bool visible) override;
   blink::WebInputEventResult HandleInputEvent(
       const blink::WebCoalescedInputEvent& event,
@@ -70,7 +70,7 @@ class PepperWebPluginImpl : public blink::WebPlugin {
   bool ExecuteEditCommand(const blink::WebString& name) override;
   bool ExecuteEditCommand(const blink::WebString& name,
                           const blink::WebString& value) override;
-  blink::WebURL LinkAtPosition(const blink::WebPoint& position) const override;
+  blink::WebURL LinkAtPosition(const gfx::Point& position) const override;
   bool GetPrintPresetOptionsFromDocument(
       blink::WebPrintPresetOptions* preset_options) override;
   bool IsPdfPlugin() override;

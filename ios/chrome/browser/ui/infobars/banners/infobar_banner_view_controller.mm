@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_view_controller.h"
 
+#import "base/ios/block_types.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "ios/chrome/browser/infobars/infobar_metrics_recorder.h"
@@ -53,6 +54,14 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
 }  // namespace
 
 @interface InfobarBannerViewController ()
+
+// Properties backing the InfobarBannerConsumer protocol.
+@property(nonatomic, copy) NSString* bannerAccessibilityLabel;
+@property(nonatomic, copy) NSString* buttonText;
+@property(nonatomic, strong) UIImage* iconImage;
+@property(nonatomic, assign) BOOL presentsModal;
+@property(nonatomic, copy) NSString* titleText;
+@property(nonatomic, copy) NSString* subtitleText;
 
 // The original position of this InfobarVC view in the parent's view coordinate
 // system.
@@ -177,7 +186,7 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
                                       forAxis:UILayoutConstraintAxisVertical];
 
   self.subTitleLabel = [[UILabel alloc] init];
-  self.subTitleLabel.text = self.subTitleText;
+  self.subTitleLabel.text = self.subtitleText;
   self.subTitleLabel.font =
       [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
   self.subTitleLabel.adjustsFontForContentSizeCategory = YES;
@@ -185,7 +194,7 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
   self.subTitleLabel.numberOfLines = 0;
   // If |self.subTitleText| hasn't been set or is empty, hide the label to keep
   // the title label centered in the Y axis.
-  self.subTitleLabel.hidden = ![self.subTitleText length];
+  self.subTitleLabel.hidden = !self.subtitleText.length;
 
   UIStackView* labelsStackView = [[UIStackView alloc]
       initWithArrangedSubviews:@[ self.titleLabel, self.subTitleLabel ]];
@@ -330,10 +339,7 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
   if (!self.touchInProgress) {
     [self.metricsRecorder
         recordBannerDismissType:MobileMessagesBannerDismissType::TimedOut];
-    [self.delegate dismissInfobarBanner:self
-                               animated:YES
-                             completion:nil
-                          userInitiated:NO];
+    [self.delegate dismissInfobarBannerForUserInteraction:NO];
   }
   self.shouldDismissAfterTouchesEnded = YES;
 }
@@ -342,30 +348,23 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
 
 - (void)setTitleText:(NSString*)titleText {
   _titleText = titleText;
-  if (self.titleLabel) {
-    self.titleLabel.text = _titleText;
-  }
+  self.titleLabel.text = _titleText;
 }
 
-- (void)setSubTitleText:(NSString*)subTitleText {
-  _subTitleText = subTitleText;
-  if (self.subTitleLabel) {
-    self.subTitleLabel.text = _subTitleText;
-  }
+- (void)setSubtitleText:(NSString*)subtitleText {
+  _subtitleText = subtitleText;
+  self.subTitleLabel.text = _subtitleText;
 }
 
 - (void)setButtonText:(NSString*)buttonText {
   _buttonText = buttonText;
-  if (self.infobarButton) {
-    [self.infobarButton setTitle:_buttonText forState:UIControlStateNormal];
-  }
+  [self.infobarButton setTitle:_buttonText forState:UIControlStateNormal];
 }
 
 - (void)setPresentsModal:(BOOL)presentsModal {
   // TODO(crbug.com/961343): Write a test for setting this to NO;
-  if (_presentsModal == presentsModal) {
+  if (_presentsModal == presentsModal)
     return;
-  }
   _presentsModal = presentsModal;
   self.openModalButton.hidden = !presentsModal;
   self.view.accessibilityCustomActions = [self accessibilityActions];
@@ -412,17 +411,11 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
       if (dragUpExceededThreshold) {
         [self.metricsRecorder
             recordBannerDismissType:MobileMessagesBannerDismissType::SwipedUp];
-        [self.delegate dismissInfobarBanner:self
-                                   animated:YES
-                                 completion:nil
-                              userInitiated:YES];
+        [self.delegate dismissInfobarBannerForUserInteraction:YES];
       } else {
         [self.metricsRecorder
             recordBannerDismissType:MobileMessagesBannerDismissType::TimedOut];
-        [self.delegate dismissInfobarBanner:self
-                                   animated:YES
-                                 completion:nil
-                              userInitiated:NO];
+        [self.delegate dismissInfobarBannerForUserInteraction:NO];
       }
     } else {
       [self.metricsRecorder
@@ -566,22 +559,18 @@ const CGFloat kLongPressTimeDurationInSeconds = 0.4;
 }
 
 - (BOOL)dismiss {
-  [self.delegate dismissInfobarBanner:self
-                             animated:YES
-                           completion:nil
-                        userInitiated:YES];
+  [self.delegate dismissInfobarBannerForUserInteraction:YES];
   return NO;
 }
 
 - (NSString*)accessibilityLabel {
-  if ([self.optionalAccessibilityLabel length])
-    return self.optionalAccessibilityLabel;
-  NSString* accessibilityLabel = self.titleText;
-  if ([self.subTitleText length]) {
-    accessibilityLabel =
-        [NSString stringWithFormat:@"%@,%@", self.titleText, self.subTitleText];
+  if ([self.bannerAccessibilityLabel length])
+    return self.bannerAccessibilityLabel;
+  if (self.subtitleText.length) {
+    return
+        [NSString stringWithFormat:@"%@,%@", self.titleText, self.subtitleText];
   }
-  return accessibilityLabel;
+  return self.titleText;
 }
 
 @end

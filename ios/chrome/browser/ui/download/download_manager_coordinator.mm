@@ -12,7 +12,6 @@
 #include "base/logging.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/sys_string_conversions.h"
@@ -23,13 +22,18 @@
 #import "ios/chrome/browser/installation_notifier.h"
 #import "ios/chrome/browser/store_kit/store_kit_coordinator.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
+#import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/download/activities/open_downloads_folder_activity.h"
 #import "ios/chrome/browser/ui/download/download_manager_mediator.h"
 #import "ios/chrome/browser/ui/download/download_manager_view_controller.h"
 #import "ios/chrome/browser/ui/presenters/contained_presenter.h"
 #import "ios/chrome/browser/ui/presenters/contained_presenter_delegate.h"
+#include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_observer.h"
 #include "ios/chrome/grit/ios_strings.h"
+#include "ios/web/common/features.h"
 #import "ios/web/public/download/download_task.h"
 #include "net/base/net_errors.h"
 #include "net/url_request/url_fetcher_response_writer.h"
@@ -58,17 +62,26 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
   // DownloadTaskObserver overrides:
   void OnDownloadUpdated(web::DownloadTask* task) override {
     if (task->IsDone()) {
-      UMA_HISTOGRAM_ENUMERATION("Download.IOSDownloadFileResult",
-                                task->GetErrorCode()
-                                    ? DownloadFileResult::Failure
-                                    : DownloadFileResult::Completed,
-                                DownloadFileResult::Count);
+      base::UmaHistogramEnumeration("Download.IOSDownloadFileResult",
+                                    task->GetErrorCode()
+                                        ? DownloadFileResult::Failure
+                                        : DownloadFileResult::Completed,
+                                    DownloadFileResult::Count);
       if (task->GetErrorCode()) {
         base::UmaHistogramSparse("Download.IOSDownloadedFileNetError",
                                  -task->GetErrorCode());
       } else {
-        UMA_HISTOGRAM_BOOLEAN("Download.IOSDownloadInstallDrivePromoShown",
-                              !IsGoogleDriveAppInstalled());
+        bool GoogleDriveIsInstalled = IsGoogleDriveAppInstalled();
+        if (GoogleDriveIsInstalled)
+          base::UmaHistogramEnumeration(
+              "Download.IOSDownloadFileUIGoogleDrive",
+              DownloadFileUIGoogleDrive::GoogleDriveAlreadyInstalled,
+              DownloadFileUIGoogleDrive::Count);
+        else
+          base::UmaHistogramEnumeration(
+              "Download.IOSDownloadFileUIGoogleDrive",
+              DownloadFileUIGoogleDrive::GoogleDriveNotInstalled,
+              DownloadFileUIGoogleDrive::Count);
       }
 
       bool backgrounded = task->HasPerformedBackgroundDownload();
@@ -80,9 +93,9 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
               : (backgrounded
                      ? DownloadFileInBackground::SucceededWithBackgrounding
                      : DownloadFileInBackground::SucceededWithoutBackgrounding);
-      UMA_HISTOGRAM_ENUMERATION("Download.IOSDownloadFileInBackground",
-                                histogram_value,
-                                DownloadFileInBackground::Count);
+      base::UmaHistogramEnumeration("Download.IOSDownloadFileInBackground",
+                                    histogram_value,
+                                    DownloadFileInBackground::Count);
     }
   }
   void OnDownloadDestroyed(web::DownloadTask* task) override {
@@ -96,14 +109,14 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
   // Logs histograms. Called when DownloadTask or this object was destroyed.
   void DownloadAborted(web::DownloadTask* task) {
     if (task->GetState() == web::DownloadTask::State::kInProgress) {
-      UMA_HISTOGRAM_ENUMERATION("Download.IOSDownloadFileResult",
-                                DownloadFileResult::Other,
-                                DownloadFileResult::Count);
+      base::UmaHistogramEnumeration("Download.IOSDownloadFileResult",
+                                    DownloadFileResult::Other,
+                                    DownloadFileResult::Count);
 
       if (did_close_web_state_without_user_action) {
         // web state can be closed without user action only during the app
         // shutdown.
-        UMA_HISTOGRAM_ENUMERATION(
+        base::UmaHistogramEnumeration(
             "Download.IOSDownloadFileInBackground",
             DownloadFileInBackground::CanceledAfterAppQuit,
             DownloadFileInBackground::Count);
@@ -111,7 +124,7 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
     }
 
     if (task->IsDone() && task->GetErrorCode() == net::OK) {
-      UMA_HISTOGRAM_ENUMERATION(
+      base::UmaHistogramEnumeration(
           "Download.IOSDownloadedFileAction",
           DownloadedFileAction::NoActionOrOpenedViaExtension,
           DownloadedFileAction::Count);
@@ -143,16 +156,15 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
 };
 }  // namespace
 
-@interface DownloadManagerCoordinator ()<
+@interface DownloadManagerCoordinator () <
     ContainedPresenterDelegate,
-    DownloadManagerViewControllerDelegate,
-    UIDocumentInteractionControllerDelegate> {
+    DownloadManagerViewControllerDelegate> {
   // View controller for presenting Download Manager UI.
   DownloadManagerViewController* _viewController;
   // A dialog which requests a confirmation from the user.
   UIAlertController* _confirmationDialog;
   // View controller for presenting "Open In.." dialog.
-  UIDocumentInteractionController* _openInController;
+  UIActivityViewController* _openInController;
   DownloadManagerMediator _mediator;
   StoreKitCoordinator* _storeKitCoordinator;
   // Coordinator for displaying the alert informing the user that no application
@@ -172,6 +184,7 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
 @synthesize bottomMarginHeightAnchor = _bottomMarginHeightAnchor;
 
 - (void)dealloc {
+  [self stop];
   [[InstallationNotifier sharedInstance] unregisterForNotifications:self];
 }
 
@@ -234,7 +247,10 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
 - (void)downloadManagerTabHelper:(nonnull DownloadManagerTabHelper*)tabHelper
                didCreateDownload:(nonnull web::DownloadTask*)download
                webStateIsVisible:(BOOL)webStateIsVisible {
-  base::RecordAction(base::UserMetricsAction("MobileDownloadFileUIShown"));
+  base::UmaHistogramEnumeration("Download.IOSDownloadFileUI",
+                                DownloadFileUI::DownloadFileStarted,
+                                DownloadFileUI::Count);
+
   if (!webStateIsVisible) {
     // Do nothing if a background Tab requested download UI presentation.
     return;
@@ -261,8 +277,8 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
                           confirmTitle:IDS_OK
                            cancelTitle:IDS_CANCEL
                      completionHandler:^(BOOL confirmed) {
-                       UMA_HISTOGRAM_BOOLEAN("Download.IOSDownloadReplaced",
-                                             confirmed);
+                       base::UmaHistogramBoolean("Download.IOSDownloadReplaced",
+                                                 confirmed);
                        handler(confirmed ? kNewDownloadPolicyReplace
                                          : kNewDownloadPolicyDiscard);
                      }];
@@ -285,21 +301,6 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
   self.animatesPresentation = YES;
 }
 
-#pragma mark - UIDocumentInteractionControllerDelegate
-
-- (void)documentInteractionController:
-            (UIDocumentInteractionController*)controller
-        willBeginSendingToApplication:(NSString*)applicationID {
-  DownloadedFileAction action = [applicationID isEqual:kGoogleDriveAppBundleID]
-                                    ? DownloadedFileAction::OpenedInDrive
-                                    : DownloadedFileAction::OpenedInOtherApp;
-  UMA_HISTOGRAM_ENUMERATION("Download.IOSDownloadedFileAction", action,
-                            DownloadedFileAction::Count);
-  if (_downloadTask) {  // _downloadTask can be null if coordinator was stopped.
-    _unopenedDownloads.Remove(_downloadTask);
-  }
-}
-
 #pragma mark - ContainedPresenterDelegate
 
 - (void)containedPresenterDidPresent:(id<ContainedPresenter>)presenter {
@@ -315,9 +316,9 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
 - (void)downloadManagerViewControllerDidClose:
     (DownloadManagerViewController*)controller {
   if (_downloadTask->GetState() != web::DownloadTask::State::kInProgress) {
-    UMA_HISTOGRAM_ENUMERATION("Download.IOSDownloadFileResult",
-                              DownloadFileResult::NotStarted,
-                              DownloadFileResult::Count);
+    base::UmaHistogramEnumeration("Download.IOSDownloadFileResult",
+                                  DownloadFileResult::NotStarted,
+                                  DownloadFileResult::Count);
     [self cancelDownload];
     return;
   }
@@ -330,7 +331,7 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
                            cancelTitle:IDS_IOS_DOWNLOAD_MANAGER_CONTINUE
                      completionHandler:^(BOOL confirmed) {
                        if (confirmed) {
-                         UMA_HISTOGRAM_ENUMERATION(
+                         base::UmaHistogramEnumeration(
                              "Download.IOSDownloadFileResult",
                              DownloadFileResult::Cancelled,
                              DownloadFileResult::Count);
@@ -355,31 +356,37 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
   _mediator.StartDowloading();
 }
 
-- (void)downloadManagerViewController:(DownloadManagerViewController*)controller
-     presentOpenInMenuWithLayoutGuide:(UILayoutGuide*)layoutGuide {
+- (void)presentOpenInForDownloadManagerViewController:
+    (DownloadManagerViewController*)controller {
   base::FilePath path =
       _downloadTask->GetResponseWriter()->AsFileWriter()->file_path();
   NSURL* URL = [NSURL fileURLWithPath:base::SysUTF8ToNSString(path.value())];
-  _openInController =
-      [UIDocumentInteractionController interactionControllerWithURL:URL];
 
-  base::ScopedCFTypeRef<CFStringRef> MIMEType(
-      base::SysUTF8ToCFStringRef(_downloadTask->GetMimeType()));
-  CFStringRef UTI = UTTypeCreatePreferredIdentifierForTag(
-      kUTTagClassMIMEType, MIMEType.get(), nullptr);
-  _openInController.UTI = CFBridgingRelease(UTI);
-  _openInController.delegate = self;
+  NSArray* customActions = @[ URL ];
+  NSArray* activities = nil;
 
-  BOOL menuShown =
-      [_openInController presentOpenInMenuFromRect:layoutGuide.layoutFrame
-                                            inView:layoutGuide.owningView
-                                          animated:YES];
-
-  // No application on this device can open the file. Typically happens on
-  // iOS 10, where Files app does not exist.
-  if (!menuShown) {
-    [self didFailOpenInMenuPresentation];
+  if (base::FeatureList::IsEnabled(web::features::kEnablePersistentDownloads)) {
+    OpenDownloadsFolderActivity* customActivity =
+        [[OpenDownloadsFolderActivity alloc] init];
+    customActivity.browserHandler =
+        HandlerForProtocol(self.dispatcher, BrowserCoordinatorCommands);
+    activities = @[ customActivity ];
   }
+  _openInController =
+      [[UIActivityViewController alloc] initWithActivityItems:customActions
+                                        applicationActivities:activities];
+
+  _openInController.excludedActivityTypes =
+      @[ UIActivityTypeCopyToPasteboard, UIActivityTypeSaveToCameraRoll ];
+
+  // UIActivityViewController is presented in a popover on iPad.
+  _openInController.popoverPresentationController.sourceView =
+      _viewController.actionButton;
+  _openInController.popoverPresentationController.sourceRect =
+      _viewController.actionButton.bounds;
+  [_viewController presentViewController:_openInController
+                                animated:YES
+                              completion:nil];
 }
 
 #pragma mark - Private
@@ -432,8 +439,10 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
 
 // Called when Google Drive app is installed after starting StoreKitCoordinator.
 - (void)didInstallGoogleDriveApp {
-  base::RecordAction(
-      base::UserMetricsAction("MobileDownloadFileUIInstallGoogleDrive"));
+  base::UmaHistogramEnumeration(
+      "Download.IOSDownloadFileUIGoogleDrive",
+      DownloadFileUIGoogleDrive::GoogleDriveInstalledAfterDisplay,
+      DownloadFileUIGoogleDrive::Count);
 }
 
 // Called when Open In... menu was not presented. This method shows the alert
@@ -471,7 +480,8 @@ class UnopenedDownloadsTracker : public web::DownloadTaskObserver,
 - (void)presentStoreKitForGoogleDriveApp {
   if (!_storeKitCoordinator) {
     _storeKitCoordinator = [[StoreKitCoordinator alloc]
-        initWithBaseViewController:self.baseViewController];
+        initWithBaseViewController:self.baseViewController
+                           browser:self.browser];
     _storeKitCoordinator.iTunesProductParameters = @{
       SKStoreProductParameterITunesItemIdentifier :
           kGoogleDriveITunesItemIdentifier

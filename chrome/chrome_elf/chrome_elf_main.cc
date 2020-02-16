@@ -17,9 +17,11 @@
 #include "chrome/install_static/user_data_dir.h"
 
 extern std::wstring g_nwjs_prod_name, g_nwjs_prod_version;
-// This function is a temporary workaround for https://crbug.com/655788. We
-// need to come up with a better way to initialize crash reporting that can
-// happen inside DllMain().
+
+// This function is exported from the DLL so that it can be called by WinMain
+// after startup has completed in the browser process. For non-browser processes
+// it will be called inside the DLL loader lock so it should do as little as
+// possible to prevent deadlocks.
 void SignalInitializeCrashReporting(void* prod_name, void* prod_version) {
   if (prod_name) g_nwjs_prod_name = *(std::wstring*)prod_name;
   if (prod_version) g_nwjs_prod_version = *(std::wstring*)prod_version;
@@ -68,26 +70,25 @@ void* ElfGetReporterClient() {
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
   if (reason == DLL_PROCESS_ATTACH) {
     install_static::InitializeProductDetailsForPrimaryModule();
-
-    // CRT on initialization installs an exception filter which calls
-    // TerminateProcess. We need to hook CRT's attempt to set an exception.
-#if 0 ////disable this or NW will fail with Enigma VB
-    elf_crash::DisableSetUnhandledExceptionFilter();
-#endif
-
     install_static::InitializeProcessType();
 
-    // If this is not the browser process, all done.
-    if (install_static::IsNonBrowserProcess())
-      return TRUE;
-
-    __try {
-      // Initialize the blocking of third-party DLLs if the initialization of
-      // the safety beacon succeeds.
-      if (third_party_dlls::LeaveSetupBeacon())
-        third_party_dlls::Init();
-    } __except (elf_crash::GenerateCrashDump(GetExceptionInformation())) {
+    if (!install_static::IsNonBrowserProcess()) {
+      __try {
+        // Initialize the blocking of third-party DLLs if the initialization of
+        // the safety beacon succeeds.
+        if (third_party_dlls::LeaveSetupBeacon())
+          third_party_dlls::Init();
+      } __except (elf_crash::GenerateCrashDump(GetExceptionInformation())) {
+      }
+    } else if (!install_static::IsCrashpadHandlerProcess()) {
+      SignalInitializeCrashReporting();
+      // CRT on initialization installs an exception filter which calls
+      // TerminateProcess. We need to hook CRT's attempt to set an exception.
+#if 0 ////disable this or NW will fail with Enigma VB
+      elf_crash::DisableSetUnhandledExceptionFilter();
+#endif
     }
+
   } else if (reason == DLL_PROCESS_DETACH) {
     elf_crash::ShutdownCrashReporting();
   }

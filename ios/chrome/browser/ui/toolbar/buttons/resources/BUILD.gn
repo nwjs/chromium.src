@@ -5,15 +5,11 @@
 import("//build/config/ios/asset_catalog.gni")
 
 colorset("omnibox_incognito_background_color") {
-  sources = [
-    "omnibox_incognito_background_color.colorset/Contents.json",
-  ]
+  sources = [ "omnibox_incognito_background_color.colorset/Contents.json" ]
 }
 
 colorset("tab_toolbar_button_color_highlighted") {
-  sources = [
-    "tab_toolbar_button_color_highlighted.colorset/Contents.json",
-  ]
+  sources = [ "tab_toolbar_button_color_highlighted.colorset/Contents.json" ]
 }
 
 colorset("tab_toolbar_button_color_highlighted_incognito") {
@@ -23,15 +19,11 @@ colorset("tab_toolbar_button_color_highlighted_incognito") {
 }
 
 colorset("tab_toolbar_button_halo_color") {
-  sources = [
-    "tab_toolbar_button_halo_color.colorset/Contents.json",
-  ]
+  sources = [ "tab_toolbar_button_halo_color.colorset/Contents.json" ]
 }
 
 colorset("tab_toolbar_button_halo_color_incognito") {
-  sources = [
-    "tab_toolbar_button_halo_color_incognito.colorset/Contents.json",
-  ]
+  sources = [ "tab_toolbar_button_halo_color_incognito.colorset/Contents.json" ]
 }
 
 imageset("toolbar_new_tab_page") {
@@ -90,7 +82,6 @@ imageset("toolbar_share") {
 imageset("toolbar_back") {
   sources = [
     "toolbar_back.imageset/Contents.json",
-    "toolbar_back.imageset/toolbar_back.png",
     "toolbar_back.imageset/toolbar_back@2x.png",
     "toolbar_back.imageset/toolbar_back@3x.png",
   ]
@@ -108,7 +99,6 @@ imageset("toolbar_switcher") {
 imageset("toolbar_forward") {
   sources = [
     "toolbar_forward.imageset/Contents.json",
-    "toolbar_forward.imageset/toolbar_forward.png",
     "toolbar_forward.imageset/toolbar_forward@2x.png",
     "toolbar_forward.imageset/toolbar_forward@3x.png",
   ]

@@ -9,6 +9,7 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -42,6 +43,9 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state_manager_impl.h"
 #include "ios/chrome/browser/chrome_paths.h"
 #include "ios/chrome/browser/component_updater/ios_component_updater_configurator.h"
+#include "ios/chrome/browser/crash_report/breadcrumbs/application_breadcrumbs_logger.h"
+#include "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager.h"
+#include "ios/chrome/browser/crash_report/breadcrumbs/features.h"
 #include "ios/chrome/browser/gcm/ios_chrome_gcm_profile_service_factory.h"
 #include "ios/chrome/browser/history/history_service_factory.h"
 #include "ios/chrome/browser/ios_chrome_io_thread.h"
@@ -182,14 +186,21 @@ void ApplicationContextImpl::OnAppEnterForeground() {
   ukm::UkmService* ukm_service = GetMetricsServicesManager()->GetUkmService();
   if (ukm_service)
     ukm_service->OnAppEnterForeground();
+
+  if (base::FeatureList::IsEnabled(kLogBreadcrumbs) && !breadcrumb_manager_) {
+    breadcrumb_manager_ = std::make_unique<BreadcrumbManager>();
+    application_breadcrumbs_logger_ =
+        std::make_unique<ApplicationBreadcrumbsLogger>(
+            breadcrumb_manager_.get());
+  }
 }
 
 void ApplicationContextImpl::OnAppEnterBackground() {
   DCHECK(thread_checker_.CalledOnValidThread());
   // Mark all the ChromeBrowserStates as clean and persist history.
-  std::vector<ios::ChromeBrowserState*> loaded_browser_state =
+  std::vector<ChromeBrowserState*> loaded_browser_state =
       GetChromeBrowserStateManager()->GetLoadedBrowserStates();
-  for (ios::ChromeBrowserState* browser_state : loaded_browser_state) {
+  for (ChromeBrowserState* browser_state : loaded_browser_state) {
     if (history::HistoryService* history_service =
             ios::HistoryServiceFactory::GetForBrowserStateIfExists(
                 browser_state, ServiceAccessType::EXPLICIT_ACCESS)) {
@@ -412,6 +423,7 @@ void ApplicationContextImpl::CreateGCMDriver() {
 
   gcm_driver_ = gcm::CreateGCMDriverDesktop(
       base::WrapUnique(new gcm::GCMClientFactory), GetLocalState(), store_path,
+      /*remove_account_mappings_with_email_key=*/true,
       // Because ApplicationContextImpl is destroyed after all WebThreads have
       // been shut down, base::Unretained() is safe here.
       base::BindRepeating(&RequestProxyResolvingSocketFactory,

@@ -29,7 +29,7 @@
 #include "components/crash/core/common/crash_key.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/safe_browsing/buildflags.h"
-#include "components/translate/content/renderer/translate_helper.h"
+#include "components/translate/content/renderer/translate_agent.h"
 #include "components/web_cache/renderer/web_cache_impl.h"
 #include "content/public/common/bindings_policy.h"
 #include "content/public/renderer/render_frame.h"
@@ -67,11 +67,6 @@
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
 #include "chrome/common/mhtml_page_notifier.mojom.h"
-#endif
-
-#if BUILDFLAG(ENABLE_PRINTING)
-#include "components/printing/common/print_messages.h"
-#include "components/printing/renderer/print_render_frame_helper.h"
 #endif
 
 using blink::WebDocumentLoader;
@@ -142,7 +137,7 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
     content::RenderFrame* render_frame,
     web_cache::WebCacheImpl* web_cache_impl)
     : content::RenderFrameObserver(render_frame),
-      translate_helper_(nullptr),
+      translate_agent_(nullptr),
       phishing_classifier_(nullptr),
       web_cache_impl_(web_cache_impl) {
   render_frame->GetAssociatedInterfaceRegistry()->AddInterface(
@@ -159,7 +154,7 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
     SetClientSidePhishingDetection(true);
 #endif
 #if 0
-  translate_helper_ = new translate::TranslateHelper(
+  translate_agent_ = new translate::TranslateAgent(
       render_frame, ISOLATED_WORLD_ID_TRANSLATE, extensions::kExtensionScheme);
 #endif
 }
@@ -182,6 +177,8 @@ bool ChromeRenderFrameObserver::OnAssociatedInterfaceRequestForFrame(
 bool ChromeRenderFrameObserver::OnMessageReceived(const IPC::Message& message) {
   // Filter only.
   bool handled = true;
+  // Messages in this message map have multiple handlers. Please do not add more
+  // messages here.
   IPC_BEGIN_MESSAGE_MAP(ChromeRenderFrameObserver, message)
     IPC_MESSAGE_HANDLER(PrerenderMsg_SetIsPrerendering, OnSetIsPrerendering)
     IPC_MESSAGE_UNHANDLED(handled = false)
@@ -189,11 +186,10 @@ bool ChromeRenderFrameObserver::OnMessageReceived(const IPC::Message& message) {
   if (handled)
     return false;
 
+  // Normal message handlers. Legacy IPC is deprecated, but leaving this as a
+  // placeholder in case new messages are added before legacy IPC handling is
+  // wholly removed from this class.
   IPC_BEGIN_MESSAGE_MAP(ChromeRenderFrameObserver, message)
-#if BUILDFLAG(ENABLE_PRINTING)
-    IPC_MESSAGE_HANDLER(PrintMsg_PrintNodeUnderContextMenu,
-                        OnPrintNodeUnderContextMenu)
-#endif
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -270,15 +266,6 @@ void ChromeRenderFrameObserver::RequestThumbnailForContextNode(
       break;
   }
   std::move(callback).Run(thumbnail_data, original_size);
-}
-
-void ChromeRenderFrameObserver::OnPrintNodeUnderContextMenu() {
-#if BUILDFLAG(ENABLE_PRINTING)
-  printing::PrintRenderFrameHelper* helper =
-      printing::PrintRenderFrameHelper::Get(render_frame());
-  if (helper)
-    helper->PrintNode(render_frame()->GetWebFrame()->ContextMenuNode());
-#endif
 }
 
 void ChromeRenderFrameObserver::GetWebApplicationInfo(
@@ -391,11 +378,11 @@ void ChromeRenderFrameObserver::ReadyToCommitNavigation(
     web_cache_impl_->ExecutePendingClearCache();
 
 #if 0
-  // Let translate_helper do any preparatory work for loading a URL.
-  if (!translate_helper_)
+  // Let translate_agent do any preparatory work for loading a URL.
+  if (!translate_agent_)
     return;
 
-  translate_helper_->PrepareForUrl(
+  translate_agent_->PrepareForUrl(
       render_frame()->GetWebFrame()->GetDocument().Url());
 #endif
 }
@@ -471,8 +458,8 @@ void ChromeRenderFrameObserver::CapturePageText(TextCaptureType capture_type) {
 #if 0
   // We should run language detection only once. Parsing finishes before
   // the page loads, so let's pick that timing.
-  if (translate_helper_ && capture_type == PRELIMINARY_CAPTURE) {
-    translate_helper_->PageCaptured(contents);
+  if (translate_agent_ && capture_type == PRELIMINARY_CAPTURE) {
+    translate_agent_->PageCaptured(contents);
   }
 #endif
 

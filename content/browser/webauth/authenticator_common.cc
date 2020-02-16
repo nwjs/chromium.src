@@ -28,7 +28,6 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -55,7 +54,6 @@
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "url/url_constants.h"
 #include "url/url_util.h"
 
@@ -153,37 +151,46 @@ blink::mojom::AuthenticatorStatus ValidateEffectiveDomain(
   return blink::mojom::AuthenticatorStatus::SUCCESS;
 }
 
-// Ensure the relying party ID is a registrable domain suffix of or equal
-// to the origin's effective domain. Reference:
+// Return the relying party ID to use for a request given the requested RP ID
+// and the origin of the caller. It's valid for the requested RP ID to be a
+// registrable domain suffix of, or be equal to, the origin's effective domain.
+// Reference:
 // https://html.spec.whatwg.org/multipage/origin.html#is-a-registrable-domain-suffix-of-or-is-equal-to.
-bool IsRelyingPartyIdValid(const std::string& relying_party_id,
-                           url::Origin caller_origin) {
+base::Optional<std::string> GetRelyingPartyId(
+    std::string claimed_relying_party_id,
+    const url::Origin& caller_origin) {
   if (OriginIsCryptoTokenExtension(caller_origin)) {
-    return true;
+    // This code trusts cryptotoken to handle the validation itself.
+    return claimed_relying_party_id;
   }
 
-  if (relying_party_id.empty())
-    return false;
+  if (claimed_relying_party_id.empty()) {
+    return base::nullopt;
+  }
 
-  if (caller_origin.host() == relying_party_id)
-    return true;
+  if (caller_origin.host() == claimed_relying_party_id) {
+    return claimed_relying_party_id;
+  }
 
-  if (!caller_origin.DomainIs(relying_party_id))
-    return false;
+  if (!caller_origin.DomainIs(claimed_relying_party_id)) {
+    return base::nullopt;
+  }
+
   if (!net::registry_controlled_domains::HostHasRegistryControlledDomain(
           caller_origin.host(),
           net::registry_controlled_domains::INCLUDE_UNKNOWN_REGISTRIES,
-          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES))
-    return false;
-  if (!net::registry_controlled_domains::HostHasRegistryControlledDomain(
-          relying_party_id,
+          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES) ||
+      !net::registry_controlled_domains::HostHasRegistryControlledDomain(
+          claimed_relying_party_id,
           net::registry_controlled_domains::INCLUDE_UNKNOWN_REGISTRIES,
-          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES))
+          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
     // TODO(crbug.com/803414): Accept corner-case situations like the following
     // origin: "https://login.awesomecompany",
     // relying_party_id: "awesomecompany".
-    return false;
-  return true;
+    return base::nullopt;
+  }
+
+  return claimed_relying_party_id;
 }
 
 // Checks if the icon URL is an a-priori authenticated URL.
@@ -512,10 +519,6 @@ base::flat_set<device::FidoTransportProtocol> GetTransportsEnabledByFlags() {
   if (!device::BluetoothAdapterFactory::Get().IsLowEnergySupported())
     return transports;
 
-  if (base::FeatureList::IsEnabled(features::kWebAuthBle)) {
-    transports.insert(device::FidoTransportProtocol::kBluetoothLowEnergy);
-  }
-
   // caBLE is independent of the BLE transport.
   if (base::FeatureList::IsEnabled(features::kWebAuthCable) ||
       base::FeatureList::IsEnabled(device::kWebAuthPhoneSupport)) {
@@ -542,10 +545,8 @@ base::flat_set<device::FidoTransportProtocol> GetTransports(
 
 AuthenticatorCommon::AuthenticatorCommon(
     RenderFrameHost* render_frame_host,
-    service_manager::Connector* connector,
     std::unique_ptr<base::OneShotTimer> timer)
     : render_frame_host_(render_frame_host),
-      connector_(connector),
       transports_(GetTransportsEnabledByFlags()),
       timer_(std::move(timer)) {
   DCHECK(render_frame_host_);
@@ -564,8 +565,7 @@ AuthenticatorCommon::~AuthenticatorCommon() {
 }
 
 std::unique_ptr<AuthenticatorRequestClientDelegate>
-AuthenticatorCommon::CreateRequestDelegate(std::string relying_party_id) {
-  DCHECK(!relying_party_id.empty());
+AuthenticatorCommon::CreateRequestDelegate() {
   auto* frame_tree_node =
       static_cast<RenderFrameHostImpl*>(render_frame_host_)->frame_tree_node();
   if (AuthenticatorEnvironmentImpl::GetInstance()->GetVirtualFactoryFor(
@@ -574,7 +574,7 @@ AuthenticatorCommon::CreateRequestDelegate(std::string relying_party_id) {
         frame_tree_node);
   }
   return GetContentClient()->browser()->GetWebAuthenticationRequestDelegate(
-      render_frame_host_, relying_party_id_);
+      render_frame_host_);
 }
 
 void AuthenticatorCommon::StartMakeCredentialRequest(
@@ -603,8 +603,7 @@ void AuthenticatorCommon::StartMakeCredentialRequest(
   }
 
   request_ = std::make_unique<device::MakeCredentialRequestHandler>(
-      connector_, discovery_factory_,
-      GetTransports(caller_origin_, transports_),
+      discovery_factory_, GetTransports(caller_origin_, transports_),
       *ctap_make_credential_request_, *authenticator_selection_criteria_,
       allow_skipping_pin_touch,
       base::BindOnce(&AuthenticatorCommon::OnRegisterResponse,
@@ -669,9 +668,8 @@ void AuthenticatorCommon::StartGetAssertionRequest(
   }
 
   request_ = std::make_unique<device::GetAssertionRequestHandler>(
-      connector_, discovery_factory_,
-      GetTransports(caller_origin_, transports_), *ctap_get_assertion_request_,
-      allow_skipping_pin_touch,
+      discovery_factory_, GetTransports(caller_origin_, transports_),
+      *ctap_get_assertion_request_, allow_skipping_pin_touch,
       base::BindOnce(&AuthenticatorCommon::OnSignResponse,
                      weak_factory_.GetWeakPtr()));
 
@@ -771,25 +769,48 @@ void AuthenticatorCommon::MakeCredential(
     return;
   }
 
-  blink::mojom::AuthenticatorStatus domain_validation =
-      ValidateEffectiveDomain(caller_origin);
-  if (domain_validation != blink::mojom::AuthenticatorStatus::SUCCESS) {
-    ReportSecurityCheckFailure(
-        RelyingPartySecurityCheckFailure::kOpaqueOrNonSecureOrigin);
-    InvokeCallbackAndCleanup(std::move(callback), domain_validation, nullptr,
-                             Focus::kDontCheck);
+  request_delegate_ = CreateRequestDelegate();
+  if (!request_delegate_) {
+    InvokeCallbackAndCleanup(std::move(callback),
+                             blink::mojom::AuthenticatorStatus::PENDING_REQUEST,
+                             nullptr, Focus::kDontCheck);
     return;
   }
 
-  if (!IsRelyingPartyIdValid(options->relying_party.id, caller_origin)) {
-    ReportSecurityCheckFailure(
-        RelyingPartySecurityCheckFailure::kRelyingPartyIdInvalid);
-    InvokeCallbackAndCleanup(
-        std::move(callback),
-        blink::mojom::AuthenticatorStatus::BAD_RELYING_PARTY_ID, nullptr,
-        Focus::kDontCheck);
-    return;
+  base::Optional<std::string> rp_id =
+      request_delegate_->MaybeGetRelyingPartyIdOverride(
+          options->relying_party.id, caller_origin);
+
+  if (!rp_id) {
+    // If the delegate didn't override RP ID selection then apply standard
+    // rules.
+    blink::mojom::AuthenticatorStatus domain_validation =
+        ValidateEffectiveDomain(caller_origin);
+    if (domain_validation != blink::mojom::AuthenticatorStatus::SUCCESS) {
+      ReportSecurityCheckFailure(
+          RelyingPartySecurityCheckFailure::kOpaqueOrNonSecureOrigin);
+      InvokeCallbackAndCleanup(std::move(callback), domain_validation, nullptr,
+                               Focus::kDontCheck);
+      return;
+    }
+
+    rp_id =
+        GetRelyingPartyId(std::move(options->relying_party.id), caller_origin);
+    if (!rp_id) {
+      ReportSecurityCheckFailure(
+          RelyingPartySecurityCheckFailure::kRelyingPartyIdInvalid);
+      InvokeCallbackAndCleanup(
+          std::move(callback),
+          blink::mojom::AuthenticatorStatus::BAD_RELYING_PARTY_ID, nullptr,
+          Focus::kDontCheck);
+      return;
+    }
   }
+
+  caller_origin_ = caller_origin;
+  relying_party_id_ = *rp_id;
+  options->relying_party.id = std::move(*rp_id);
+  request_delegate_->SetRelyingPartyId(relying_party_id_);
 
   base::Optional<std::string> appid_exclude;
   if (options->appid_exclude) {
@@ -814,17 +835,6 @@ void AuthenticatorCommon::MakeCredential(
         std::move(callback),
         blink::mojom::AuthenticatorStatus::INVALID_ICON_URL, nullptr,
         Focus::kDontCheck);
-    return;
-  }
-
-  caller_origin_ = caller_origin;
-  relying_party_id_ = options->relying_party.id;
-
-  request_delegate_ = CreateRequestDelegate(relying_party_id_);
-  if (!request_delegate_) {
-    InvokeCallbackAndCleanup(std::move(callback),
-                             blink::mojom::AuthenticatorStatus::PENDING_REQUEST,
-                             nullptr, Focus::kDontCheck);
     return;
   }
 
@@ -886,15 +896,14 @@ void AuthenticatorCommon::MakeCredential(
   timer_->Start(
       FROM_HERE, options->adjusted_timeout,
       base::BindOnce(&AuthenticatorCommon::OnTimeout, base::Unretained(this)));
-  if (!connector_)
-    connector_ = GetSystemConnector();
+
+  const bool origin_is_crypto_token_extension =
+      OriginIsCryptoTokenExtension(caller_origin_);
 
   // Save client data to return with the authenticator response.
   // TODO(kpaulhamus): Fetch and add the Channel ID/Token Binding ID public key
   // used to communicate with the origin.
-  if (OriginIsCryptoTokenExtension(caller_origin_)) {
-    // Cryptotoken requests should be proxied without UI.
-    request_delegate_->DisableUI();
+  if (origin_is_crypto_token_extension) {
     // As Cryptotoken validates the origin, accept the relying party id as the
     // origin from requests originating from Cryptotoken. The origin is provided
     // in Cryptotoken requests as the relying party name, which should be used
@@ -908,6 +917,10 @@ void AuthenticatorCommon::MakeCredential(
         client_data::kCreateType, caller_origin_.Serialize(),
         std::move(options->challenge), is_cross_origin);
   }
+
+  // Cryptotoken requests should be proxied without UI.
+  if (origin_is_crypto_token_extension || disable_ui_)
+    request_delegate_->DisableUI();
 
   UMA_HISTOGRAM_COUNTS_100(
       "WebAuthentication.MakeCredentialExcludeCredentialsCount",
@@ -991,28 +1004,7 @@ void AuthenticatorCommon::GetAssertion(
     return;
   }
 
-  blink::mojom::AuthenticatorStatus domain_validation =
-      ValidateEffectiveDomain(caller_origin);
-  if (domain_validation != blink::mojom::AuthenticatorStatus::SUCCESS) {
-    ReportSecurityCheckFailure(
-        RelyingPartySecurityCheckFailure::kOpaqueOrNonSecureOrigin);
-    InvokeCallbackAndCleanup(std::move(callback), domain_validation, nullptr);
-    return;
-  }
-
-  if (!IsRelyingPartyIdValid(options->relying_party_id, caller_origin)) {
-    ReportSecurityCheckFailure(
-        RelyingPartySecurityCheckFailure::kRelyingPartyIdInvalid);
-    InvokeCallbackAndCleanup(
-        std::move(callback),
-        blink::mojom::AuthenticatorStatus::BAD_RELYING_PARTY_ID, nullptr);
-    return;
-  }
-
-  caller_origin_ = caller_origin;
-  relying_party_id_ = options->relying_party_id;
-
-  request_delegate_ = CreateRequestDelegate(relying_party_id_);
+  request_delegate_ = CreateRequestDelegate();
   if (!request_delegate_) {
     InvokeCallbackAndCleanup(std::move(callback),
                              blink::mojom::AuthenticatorStatus::PENDING_REQUEST,
@@ -1020,12 +1012,44 @@ void AuthenticatorCommon::GetAssertion(
     return;
   }
 
-  // Save client data to return with the authenticator response.
-  // TODO(kpaulhamus): Fetch and add the Channel ID/Token Binding ID public key
-  // used to communicate with the origin.
-  if (OriginIsCryptoTokenExtension(caller_origin)) {
-    request_delegate_->DisableUI();
+  base::Optional<std::string> rp_id =
+      request_delegate_->MaybeGetRelyingPartyIdOverride(
+          options->relying_party_id, caller_origin);
 
+  if (!rp_id) {
+    // If the delegate didn't override RP ID selection then apply standard
+    // rules.
+    blink::mojom::AuthenticatorStatus domain_validation =
+        ValidateEffectiveDomain(caller_origin);
+    if (domain_validation != blink::mojom::AuthenticatorStatus::SUCCESS) {
+      ReportSecurityCheckFailure(
+          RelyingPartySecurityCheckFailure::kOpaqueOrNonSecureOrigin);
+      InvokeCallbackAndCleanup(std::move(callback), domain_validation, nullptr);
+      return;
+    }
+
+    rp_id =
+        GetRelyingPartyId(std::move(options->relying_party_id), caller_origin);
+    if (!rp_id) {
+      ReportSecurityCheckFailure(
+          RelyingPartySecurityCheckFailure::kRelyingPartyIdInvalid);
+      InvokeCallbackAndCleanup(
+          std::move(callback),
+          blink::mojom::AuthenticatorStatus::BAD_RELYING_PARTY_ID, nullptr);
+      return;
+    }
+  }
+
+  caller_origin_ = caller_origin;
+  relying_party_id_ = *rp_id;
+  options->relying_party_id = std::move(*rp_id);
+  request_delegate_->SetRelyingPartyId(relying_party_id_);
+
+  const bool origin_is_crypto_token_extension =
+      OriginIsCryptoTokenExtension(caller_origin_);
+
+  // Save client data to return with the authenticator response.
+  if (origin_is_crypto_token_extension) {
     // As Cryptotoken validates the origin, accept the relying party id as the
     // origin from requests originating from Cryptotoken.
     client_data_json_ = SerializeCollectedClientDataToJson(
@@ -1037,6 +1061,10 @@ void AuthenticatorCommon::GetAssertion(
         client_data::kGetType, caller_origin_.Serialize(),
         std::move(options->challenge), is_cross_origin);
   }
+
+  // Cryptotoken requests should be proxied without UI.
+  if (origin_is_crypto_token_extension || disable_ui_)
+    request_delegate_->DisableUI();
 
   if (options->allow_credentials.empty()) {
     if (!request_delegate_->SupportsResidentKeys()) {
@@ -1068,9 +1096,6 @@ void AuthenticatorCommon::GetAssertion(
       FROM_HERE, options->adjusted_timeout,
       base::BindOnce(&AuthenticatorCommon::OnTimeout, base::Unretained(this)));
 
-  if (!connector_)
-    connector_ = GetSystemConnector();
-
   ctap_get_assertion_request_ = CreateCtapGetAssertionRequest(
       client_data_json_, std::move(options), app_id_,
       browser_context()->IsOffTheRecord());
@@ -1083,15 +1108,13 @@ void AuthenticatorCommon::GetAssertion(
 void AuthenticatorCommon::IsUserVerifyingPlatformAuthenticatorAvailable(
     blink::mojom::Authenticator::
         IsUserVerifyingPlatformAuthenticatorAvailableCallback callback) {
-  const std::string relying_party_id =
-      render_frame_host_->GetLastCommittedOrigin().host();
   // Use |request_delegate_| if a request is currently in progress; or create a
   // temporary request delegate otherwise.
   //
   // Note that |CreateRequestDelegate| may return nullptr if there is an active
   // |request_delegate_| already.
   std::unique_ptr<AuthenticatorRequestClientDelegate> maybe_request_delegate =
-      request_delegate_ ? nullptr : CreateRequestDelegate(relying_party_id);
+      request_delegate_ ? nullptr : CreateRequestDelegate();
   AuthenticatorRequestClientDelegate* request_delegate_ptr =
       request_delegate_ ? request_delegate_.get()
                         : maybe_request_delegate.get();
@@ -1548,6 +1571,10 @@ void AuthenticatorCommon::Cleanup() {
   empty_allow_list_ = false;
   error_awaiting_user_acknowledgement_ =
       blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR;
+}
+
+void AuthenticatorCommon::DisableUI() {
+  disable_ui_ = true;
 }
 
 BrowserContext* AuthenticatorCommon::browser_context() const {

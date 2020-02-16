@@ -63,7 +63,7 @@ Polymer({
     inProgress_: {
       type: Boolean,
       value: false,
-      observer: 'pinOrProgressChange_',
+      observer: 'updateSubmitButtonEnabled_',
     },
 
     /**
@@ -73,6 +73,7 @@ Polymer({
     error_: {
       type: Object,
       value: ErrorType.NONE,
+      observer: 'updateSubmitButtonEnabled_',
     },
 
     /**
@@ -81,7 +82,7 @@ Polymer({
      */
     enterPinEnabled_: Boolean,
     changePinEnabled_: Boolean,
-    changePukEnabled_: Boolean,
+    enterPukEnabled_: Boolean,
 
     /**
      * Properties reflecting pin/puk inputs.
@@ -118,23 +119,23 @@ Polymer({
   networkConfig_: null,
 
   /** @override */
-  created: function() {
+  created() {
     this.networkConfig_ = network_config.MojoInterfaceProviderImpl.getInstance()
                               .getMojoServiceRemote();
   },
 
   /** @override */
-  attached: function() {
+  attached() {
     this.simUnlockSent_ = false;
   },
 
   /** @override */
-  detached: function() {
+  detached() {
     this.closeDialogs_();
   },
 
   /** @private */
-  closeDialogs_: function() {
+  closeDialogs_() {
     if (this.$.enterPinDialog.open) {
       this.onEnterPinDialogCancel_();
       this.$.enterPinDialog.close();
@@ -151,7 +152,7 @@ Polymer({
   },
 
   /** @private */
-  focusDialogInput_: function() {
+  focusDialogInput_() {
     if (this.$.enterPinDialog.open) {
       this.$.enterPin.focus();
     } else if (this.$.changePinDialog.open) {
@@ -164,7 +165,7 @@ Polymer({
   },
 
   /** @private */
-  deviceStateChanged_: function() {
+  deviceStateChanged_() {
     if (!this.deviceState) {
       return;
     }
@@ -172,9 +173,9 @@ Polymer({
     if (!simLockStatus) {
       return;
     }
-    this.pukRequired_ = simLockStatus.lockType == 'sim-puk';
+    this.pukRequired_ = simLockStatus.lockType === 'sim-puk';
     const lockEnabled = simLockStatus.lockEnabled;
-    if (lockEnabled != this.lockEnabled_) {
+    if (lockEnabled !== this.lockEnabled_) {
       this.setLockEnabled_ = lockEnabled;
       this.updateLockEnabled_();
     } else {
@@ -189,7 +190,7 @@ Polymer({
    * correct state.
    * @private
    */
-  updateLockEnabled_: function() {
+  updateLockEnabled_() {
     if (this.setLockEnabled_ === undefined || this.$.enterPinDialog.open ||
         this.$.changePinDialog.open || this.$.unlockPinDialog.open ||
         this.$.unlockPukDialog.open) {
@@ -200,32 +201,33 @@ Polymer({
   },
 
   /** @private */
-  delayUpdateLockEnabled_: function() {
+  delayUpdateLockEnabled_() {
     setTimeout(() => {
       this.updateLockEnabled_();
     }, TOGGLE_DEBOUNCE_MS);
   },
 
   /** @private */
-  pinOrProgressChange_: function() {
-    this.enterPinEnabled_ = !this.inProgress_ && !!this.pin_;
+  updateSubmitButtonEnabled_() {
+    const hasError = this.error_ !== ErrorType.NONE;
+    this.enterPinEnabled_ = !this.inProgress_ && !!this.pin_ && !hasError;
     this.changePinEnabled_ = !this.inProgress_ && !!this.pin_ &&
-        !!this.pin_new1_ && !!this.pin_new2_;
-    this.changePukEnabled_ = !this.inProgress_ && !!this.puk_ &&
-        !!this.pin_new1_ && !!this.pin_new2_;
+        !!this.pin_new1_ && !!this.pin_new2_ && !hasError;
+    this.enterPukEnabled_ = !this.inProgress_ && !!this.puk_ &&
+        !!this.pin_new1_ && !!this.pin_new2_ && !hasError;
   },
 
   /**
    * Clears error message on user interacion.
    * @private
    */
-  pinOrPukChange_: function() {
+  pinOrPukChange_() {
     this.error_ = ErrorType.NONE;
-    this.pinOrProgressChange_();
+    this.updateSubmitButtonEnabled_();
   },
 
   /** @private */
-  pukRequiredChanged_: function() {
+  pukRequiredChanged_() {
     if (this.$.unlockPukDialog.open) {
       if (this.pukRequired_) {
         this.$.unlockPuk.focus();
@@ -267,7 +269,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  onSimLockEnabledChange_: function(event) {
+  onSimLockEnabledChange_(event) {
     if (!this.deviceState) {
       return;
     }
@@ -281,7 +283,7 @@ Polymer({
   },
 
   /** @private */
-  setInProgress_: function() {
+  setInProgress_() {
     this.error_ = ErrorType.NONE;
     this.inProgress_ = true;
     this.simUnlockSent_ = true;
@@ -291,7 +293,7 @@ Polymer({
    * @param {!chromeos.networkConfig.mojom.CellularSimState} cellularSimState
    * @private
    */
-  setCellularSimState_: function(cellularSimState) {
+  setCellularSimState_(cellularSimState) {
     this.setInProgress_();
     this.networkConfig_.setCellularSimState(cellularSimState).then(response => {
       this.inProgress_ = false;
@@ -311,7 +313,7 @@ Polymer({
    * @param {string|undefined} puk
    * @private
    */
-  unlockCellularSim_: function(pin, puk) {
+  unlockCellularSim_(pin, puk) {
     this.setInProgress_();
     const cellularSimState = {
       currentPinOrPuk: puk || pin,
@@ -338,7 +340,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  sendEnterPin_: function(event) {
+  sendEnterPin_(event) {
     event.stopPropagation();
     if (!this.enterPinEnabled_) {
       return;
@@ -359,7 +361,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  onChangePinTap_: function(event) {
+  onChangePinTap_(event) {
     event.stopPropagation();
     if (!this.deviceState) {
       return;
@@ -379,7 +381,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  sendChangePin_: function(event) {
+  sendChangePin_(event) {
     event.stopPropagation();
     const newPin = this.$.changePinNew1.value;
     if (!this.validatePin_(newPin, this.$.changePinNew2.value)) {
@@ -398,7 +400,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  onUnlockPinTap_: function(event) {
+  onUnlockPinTap_(event) {
     event.stopPropagation();
     if (this.pukRequired_) {
       this.showUnlockPukDialog_();
@@ -412,7 +414,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  sendUnlockPin_: function(event) {
+  sendUnlockPin_(event) {
     event.stopPropagation();
     const pin = this.$.unlockPin.value;
     if (!this.validatePin_(pin)) {
@@ -422,7 +424,7 @@ Polymer({
   },
 
   /** @private */
-  showUnlockPinDialog_: function() {
+  showUnlockPinDialog_() {
     this.error_ = ErrorType.NONE;
     this.$.unlockPin.value = '';
     this.$.unlockPinDialog.showModal();
@@ -432,7 +434,7 @@ Polymer({
   },
 
   /** @private */
-  showUnlockPukDialog_: function() {
+  showUnlockPukDialog_() {
     this.error_ = ErrorType.NONE;
     this.$.unlockPuk.value = '';
     this.$.unlockPin1.value = '';
@@ -448,7 +450,7 @@ Polymer({
    * @param {!Event} event
    * @private
    */
-  sendUnlockPuk_: function(event) {
+  sendUnlockPuk_(event) {
     event.stopPropagation();
     const puk = this.$.unlockPuk.value;
     if (!this.validatePuk_(puk)) {
@@ -465,7 +467,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  showSimMissing_: function() {
+  showSimMissing_() {
     return !!this.deviceState && !this.deviceState.simLockStatus;
   },
 
@@ -473,7 +475,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  showSimLocked_: function() {
+  showSimLocked_() {
     const simLockStatus = this.deviceState && this.deviceState.simLockStatus;
     if (!simLockStatus) {
       return false;
@@ -485,7 +487,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  showSimUnlocked_: function() {
+  showSimUnlocked_() {
     const simLockStatus = this.deviceState && this.deviceState.simLockStatus;
     if (!simLockStatus) {
       return false;
@@ -494,8 +496,8 @@ Polymer({
   },
 
   /** @private */
-  getErrorMsg_: function() {
-    if (this.error_ == ErrorType.NONE) {
+  getErrorMsg_() {
+    if (this.error_ === ErrorType.NONE) {
       return '';
     }
     const retriesLeft = (this.simUnlockSent_ && this.deviceState &&
@@ -503,19 +505,19 @@ Polymer({
         this.deviceState.simLockStatus.retriesLeft :
         0;
 
-    if (this.error_ == ErrorType.INCORRECT_PIN) {
+    if (this.error_ === ErrorType.INCORRECT_PIN) {
       return this.i18n('networkSimErrorIncorrectPin', retriesLeft);
     }
-    if (this.error_ == ErrorType.INCORRECT_PUK) {
+    if (this.error_ === ErrorType.INCORRECT_PUK) {
       return this.i18n('networkSimErrorIncorrectPuk', retriesLeft);
     }
-    if (this.error_ == ErrorType.MISMATCHED_PIN) {
+    if (this.error_ === ErrorType.MISMATCHED_PIN) {
       return this.i18n('networkSimErrorPinMismatch');
     }
-    if (this.error_ == ErrorType.INVALID_PIN) {
+    if (this.error_ === ErrorType.INVALID_PIN) {
       return this.i18n('networkSimErrorInvalidPin', retriesLeft);
     }
-    if (this.error_ == ErrorType.INVALID_PUK) {
+    if (this.error_ === ErrorType.INVALID_PUK) {
       return this.i18n('networkSimErrorInvalidPuk', retriesLeft);
     }
     assertNotReached();
@@ -532,7 +534,7 @@ Polymer({
    * @return {boolean} True if the pins match and are of minimum length.
    * @private
    */
-  validatePin_: function(pin1, opt_pin2) {
+  validatePin_(pin1, opt_pin2) {
     if (!pin1.length) {
       return false;
     }
@@ -541,7 +543,7 @@ Polymer({
       this.focusDialogInput_();
       return false;
     }
-    if (opt_pin2 != undefined && pin1 != opt_pin2) {
+    if (opt_pin2 !== undefined && pin1 !== opt_pin2) {
       this.error_ = ErrorType.MISMATCHED_PIN;
       this.focusDialogInput_();
       return false;
@@ -556,7 +558,7 @@ Polymer({
    * @return {boolean} True if the puk is of minimum length.
    * @private
    */
-  validatePuk_: function(puk) {
+  validatePuk_(puk) {
     if (puk.length < PUK_MIN_LENGTH || !DIGITS_ONLY_REGEX.test(puk)) {
       this.error_ = ErrorType.INVALID_PUK;
       return false;
@@ -565,24 +567,24 @@ Polymer({
   },
 
   /** @private */
-  onEnterPinDialogCancel_: function() {
+  onEnterPinDialogCancel_() {
     this.lockEnabled_ = !!this.deviceState &&
         !!this.deviceState.simLockStatus &&
         this.deviceState.simLockStatus.lockEnabled;
   },
 
   /** @private */
-  onEnterPinDialogClose_: function() {
+  onEnterPinDialogClose_() {
     cr.ui.focusWithoutInk(assert(this.$$('#simLockButton')));
   },
 
   /** @private */
-  onChangePinDialogClose_: function() {
+  onChangePinDialogClose_() {
     cr.ui.focusWithoutInk(assert(this.$$('#changePinButton')));
   },
 
   /** @private */
-  onUnlockPinDialogClose_: function() {
+  onUnlockPinDialogClose_() {
     cr.ui.focusWithoutInk(assert(this.$$('#unlockPinButton')));
   },
 });

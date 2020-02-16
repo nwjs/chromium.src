@@ -39,7 +39,7 @@
     border-radius: var(--cr-card-border-radius);
     display: flex;
     flex-direction: column;
-    height: 160px;
+    height: var(--extensions-card-height);
     /* Duration matches --drawer-transition from toolbar.html. */
     transition: height 300ms cubic-bezier(.25, .1, .25, 1);
   }
@@ -132,7 +132,7 @@
   .source-icon-wrapper {
     align-items: center;
     background: rgb(241, 89, 43);  /* Same in light & dark modes. */
-    border-radius: 50%;  /* 50% border radius == a circle */
+    border-radius: 50%;  /* 50% border radius === a circle */
     box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.22),
                 0 2px 2px 0 rgba(0, 0, 0, 0.12);
     display: flex;
@@ -299,27 +299,35 @@
           aria-label="$i18n{itemReload}" aria-describedby="a11yAssociation"
           on-click="onReloadTap_"></cr-icon-button>
     </template>
-    <template is="dom-if" if="[[data.disableReasons.corruptInstall]]">
+    <template is="dom-if"
+        if="[[showRepairButton_(data.disableReasons.corruptInstall)]]">
       <cr-button id="repair-button" class="action-button"
           aria-describedby="a11yAssociation" on-click="onRepairTap_">
         $i18n{itemRepair}
       </cr-button>
     </template>
-    <template is="dom-if" if="[[isTerminated_(data.state)]]">
+    <template is="dom-if" if="[[showReloadButton_(data.state)]]">
       <cr-button id="terminated-reload-button" on-click="onReloadTap_"
           aria-describedby="a11yAssociation" class="action-button">
         $i18n{itemReload}
       </cr-button>
     </template>
-    <cr-toggle id="enable-toggle"
+    <cr-toggle id="enableToggle"
         aria-label$="[[appOrExtension(
             data.type,
             '$i18nPolymer{appEnabled}',
             '$i18nPolymer{extensionEnabled}')]]"
         aria-describedby="a11yAssociation"
-        checked="[[isEnabled_(data.state)]]" on-change="onEnableChange_"
+        checked="[[isEnabled_(data.state)]]"
+        on-change="onEnableToggleChange_"
         disabled="[[!isEnableToggleEnabled_(data.*)]]"
         hidden$="[[!showEnableToggle_(data.*)]]">
     </cr-toggle>
+    <cr-button id="enableButton"
+        on-click="onEnableButtonClick_"
+        aria-describedby="a11yAssociation"
+        hidden$="[[!showEnableButton_(data.*)]]">
+      $i18n{enableButton}
+    </cr-button>
   </div>
 </div>

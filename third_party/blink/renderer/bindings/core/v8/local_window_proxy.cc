@@ -30,7 +30,7 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/local_window_proxy.h"
 
-#include "third_party/blink/public/common/features.h"
+#include "base/debug/dump_without_crashing.h"
 #include "third_party/blink/renderer/bindings/core/v8/isolated_world_csp.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_for_core.h"
@@ -79,29 +79,8 @@ void LocalWindowProxy::Trace(blink::Visitor* visitor) {
   WindowProxy::Trace(visitor);
 }
 
-bool LocalWindowProxy::IsSetDetachedWindowReasonEnabled(
-    v8::Context::DetachedWindowReason reason) {
-  switch (reason) {
-    case v8::Context::DetachedWindowReason::kWindowNotDetached:
-      // This shouldn't happen, but if it does, it's always safe to clear the
-      // reason.
-      return true;
-    case v8::Context::DetachedWindowReason::kDetachedWindowByNavigation:
-      return base::FeatureList::IsEnabled(
-          features::kSetDetachedWindowReasonByNavigation);
-    case v8::Context::DetachedWindowReason::kDetachedWindowByClosing:
-      return base::FeatureList::IsEnabled(
-          features::kSetDetachedWindowReasonByClosing);
-    case v8::Context::DetachedWindowReason::kDetachedWindowByOtherReason:
-      return base::FeatureList::IsEnabled(
-          features::kSetDetachedWindowReasonByOtherReason);
-  }
-}
-
-void LocalWindowProxy::DisposeContext(
-    Lifecycle next_status,
-    FrameReuseStatus frame_reuse_status,
-    v8::Context::DetachedWindowReason reason) {
+void LocalWindowProxy::DisposeContext(Lifecycle next_status,
+                                      FrameReuseStatus frame_reuse_status) {
   DCHECK(next_status == Lifecycle::kV8MemoryIsForciblyPurged ||
          next_status == Lifecycle::kGlobalObjectIsDetached ||
          next_status == Lifecycle::kFrameIsDetached ||
@@ -146,10 +125,6 @@ void LocalWindowProxy::DisposeContext(
 #if DCHECK_IS_ON()
     DidDetachGlobalObject();
 #endif
-  }
-
-  if (IsSetDetachedWindowReasonEnabled(reason)) {
-    context->SetDetachedWindowReason(reason);
   }
 
   script_state_->DisposePerContextData();
@@ -199,14 +174,23 @@ void LocalWindowProxy::Initialize() {
       (world_->IsIsolatedWorld() &&
        IsolatedWorldCSP::Get().HasContentSecurityPolicy(world_->GetWorldId()));
   if (evaluate_csp_for_eval) {
-    // Using 'false' here means V8 will always call back blink for every 'eval'
-    // call being made. Blink executes CSP checks and returns whether or not
-    // V8 can proceed. The callback is
-    // V8Initializer::CodeGenerationCheckCallbackInMainThread().
-    context->AllowCodeGenerationFromStrings(false);
+    // Check that there is a document that can be used to get the
+    // ContentSecurityPolicy;
+    // TODO(clamy): Remove this DumpWithoutCrashing once
+    // https://crbug.com/1037776 is fixed.
+    if (!GetFrame()->GetDocument())
+      base::debug::DumpWithoutCrashing();
 
     ContentSecurityPolicy* csp =
         GetFrame()->GetDocument()->GetContentSecurityPolicyForWorld();
+
+    // Check that the ContentSecurityPolicy returned is not null.
+    // TODO(clamy): Remove this DumpWithoutCrashing once
+    // https://crbug.com/1037776 is fixed.
+    if (!csp)
+      base::debug::DumpWithoutCrashing();
+
+    context->AllowCodeGenerationFromStrings(!csp->ShouldCheckEval());
     context->SetErrorMessageForCodeGenerationFromStrings(
         V8String(GetIsolate(), csp->EvalDisabledErrorMessage()));
   }

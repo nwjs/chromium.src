@@ -151,12 +151,8 @@ blink_modules_sources("peerconnection") {
     "webrtc_set_description_observer.h",
   ]
 
-  public_deps = [
-    "//third_party/webrtc_overrides:webrtc_component",
-  ]
-  deps = [
-    "//third_party/abseil-cpp/absl/types:optional",
-  ]
+  public_deps = [ "//third_party/webrtc_overrides:webrtc_component" ]
+  deps = [ "//third_party/abseil-cpp/absl/types:optional" ]
 }
 
 jumbo_source_set("test_support") {
@@ -171,10 +167,10 @@ jumbo_source_set("test_support") {
     "mock_peer_connection_dependency_factory.h",
     "mock_peer_connection_impl.cc",
     "mock_peer_connection_impl.h",
-    "mock_web_rtc_peer_connection_handler.cc",
-    "mock_web_rtc_peer_connection_handler.h",
-    "mock_web_rtc_peer_connection_handler_client.cc",
-    "mock_web_rtc_peer_connection_handler_client.h",
+    "mock_rtc_peer_connection_handler_client.cc",
+    "mock_rtc_peer_connection_handler_client.h",
+    "mock_rtc_peer_connection_handler_platform.cc",
+    "mock_rtc_peer_connection_handler_platform.h",
     "test_webrtc_stats_report_obtainer.cc",
     "test_webrtc_stats_report_obtainer.h",
   ]

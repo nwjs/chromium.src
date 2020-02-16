@@ -12,6 +12,7 @@
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/chromeos/accessibility/accessibility_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/app_list/extension_uninstaller.h"
 #include "chrome/browser/ui/app_list/internal_app/internal_app_metadata.h"
+#include "chrome/browser/ui/ash/launcher/app_service/app_service_shelf_context_menu.h"
 #include "chrome/browser/ui/ash/launcher/arc_shelf_context_menu.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller_util.h"
@@ -51,10 +53,15 @@ std::unique_ptr<ShelfContextMenu> ShelfContextMenu::Create(
   DCHECK(controller);
   DCHECK(item);
   DCHECK(!item->id.IsNull());
-  // Create an ArcShelfContextMenu if the item is an ARC app.
-  if (arc::IsArcItem(controller->profile(), item->id.app_id)) {
-    return std::make_unique<ArcShelfContextMenu>(controller, item, display_id);
+
+  if (base::FeatureList::IsEnabled(features::kAppServiceContextMenu)) {
+    return std::make_unique<AppServiceShelfContextMenu>(controller, item,
+                                                        display_id);
   }
+
+  // Create an ArcShelfContextMenu if the item is an ARC app.
+  if (arc::IsArcItem(controller->profile(), item->id.app_id))
+    return std::make_unique<ArcShelfContextMenu>(controller, item, display_id);
 
   // Use CrostiniShelfContextMenu for crostini apps and Terminal System App.
   crostini::CrostiniRegistryService* crostini_registry_service =
@@ -88,6 +95,18 @@ ShelfContextMenu::ShelfContextMenu(ChromeLauncherController* controller,
 
 ShelfContextMenu::~ShelfContextMenu() = default;
 
+std::unique_ptr<ui::SimpleMenuModel> ShelfContextMenu::GetBaseMenuModel() {
+  auto menu_model = std::make_unique<ui::SimpleMenuModel>(this);
+  // TODO(manucornet): Don't add 'swap with next' on the last item, or 'swap
+  // with previous' on the first one. For now, these options appear, but
+  // selecting them is a no-op.
+  AddContextMenuOption(menu_model.get(), ash::SWAP_WITH_NEXT,
+                       IDS_SHELF_CONTEXT_MENU_SWAP_WITH_NEXT);
+  AddContextMenuOption(menu_model.get(), ash::SWAP_WITH_PREVIOUS,
+                       IDS_SHELF_CONTEXT_MENU_SWAP_WITH_PREVIOUS);
+  return menu_model;
+}
+
 bool ShelfContextMenu::IsCommandIdChecked(int command_id) const {
   DCHECK(command_id < ash::COMMAND_ID_COUNT);
   return false;
@@ -100,6 +119,18 @@ bool ShelfContextMenu::IsCommandIdEnabled(int command_id) const {
            (item_.type == ash::TYPE_PINNED_APP || item_.type == ash::TYPE_APP);
   }
 
+  if (command_id == ash::SWAP_WITH_NEXT ||
+      command_id == ash::SWAP_WITH_PREVIOUS) {
+    // Only show commands to reorder shelf items when ChromeVox is enabled.
+    if (!chromeos::AccessibilityManager::Get() ||
+        !chromeos::AccessibilityManager::Get()->IsSpokenFeedbackEnabled()) {
+      return false;
+    }
+    const ash::ShelfModel* model = controller_->shelf_model();
+    return model->CanSwap(model->ItemIndexByID(item_.id),
+                          /*with_next=*/command_id == ash::SWAP_WITH_NEXT);
+  }
+
   DCHECK(command_id < ash::COMMAND_ID_COUNT);
   return true;
 }
@@ -107,7 +138,15 @@ bool ShelfContextMenu::IsCommandIdEnabled(int command_id) const {
 void ShelfContextMenu::ExecuteCommand(int command_id, int event_flags) {
   ash::ShelfModel::ScopedUserTriggeredMutation user_triggered(
       controller_->shelf_model());
+  ash::ShelfModel* model = controller_->shelf_model();
+  const int item_index = model->ItemIndexByID(item_.id);
   switch (static_cast<ash::CommandId>(command_id)) {
+    case ash::SWAP_WITH_NEXT:
+      model->Swap(item_index, /*with_next=*/true);
+      break;
+    case ash::SWAP_WITH_PREVIOUS:
+      model->Swap(item_index, /*with_next=*/false);
+      break;
     case ash::MENU_OPEN_NEW:
       // Use a copy of the id to avoid crashes, as this menu's owner will be
       // destroyed if LaunchApp replaces the ShelfItemDelegate instance.
@@ -117,7 +156,7 @@ void ShelfContextMenu::ExecuteCommand(int command_id, int event_flags) {
     case ash::MENU_CLOSE:
       if (item_.type == ash::TYPE_DIALOG) {
         ash::ShelfItemDelegate* item_delegate =
-            controller_->shelf_model()->GetShelfItemDelegate(item_.id);
+            model->GetShelfItemDelegate(item_.id);
         DCHECK(item_delegate);
         item_delegate->Close();
       } else {
@@ -144,71 +183,8 @@ void ShelfContextMenu::ExecuteCommand(int command_id, int event_flags) {
   }
 }
 
-void ShelfContextMenu::AddPinMenu(ui::SimpleMenuModel* menu_model) {
-  // Expect a valid ShelfID to add pin/unpin menu item.
-  DCHECK(!item_.id.IsNull());
-  int menu_pin_string_id;
-  switch (GetPinnableForAppID(item_.id.app_id, controller_->profile())) {
-    case AppListControllerDelegate::PIN_EDITABLE:
-      menu_pin_string_id = controller_->IsPinned(item_.id)
-                               ? IDS_SHELF_CONTEXT_MENU_UNPIN
-                               : IDS_SHELF_CONTEXT_MENU_PIN;
-      break;
-    case AppListControllerDelegate::PIN_FIXED:
-      menu_pin_string_id = IDS_SHELF_CONTEXT_MENU_PIN_ENFORCED_BY_POLICY;
-      break;
-    case AppListControllerDelegate::NO_PIN:
-      return;
-    default:
-      NOTREACHED();
-      return;
-  }
-  AddContextMenuOption(menu_model, ash::MENU_PIN, menu_pin_string_id);
-}
-
-bool ShelfContextMenu::ExecuteCommonCommand(int command_id, int event_flags) {
-  switch (command_id) {
-    case ash::MENU_OPEN_NEW:
-    case ash::MENU_CLOSE:
-    case ash::MENU_PIN:
-    case ash::UNINSTALL:
-      ShelfContextMenu::ExecuteCommand(command_id, event_flags);
-      return true;
-    default:
-      return false;
-  }
-}
-
-void ShelfContextMenu::AddContextMenuOption(ui::SimpleMenuModel* menu_model,
-                                            ash::CommandId type,
-                                            int string_id) {
-  // Do not include disabled items.
-  if (!IsCommandIdEnabled(type))
-    return;
-
-  const gfx::VectorIcon& icon = GetCommandIdVectorIcon(type, string_id);
-  if (!icon.is_empty()) {
-    menu_model->AddItemWithStringIdAndIcon(type, string_id, icon);
-    return;
-  }
-  // If the MenuType is a check item.
-  if (type == ash::LAUNCH_TYPE_REGULAR_TAB ||
-      type == ash::LAUNCH_TYPE_PINNED_TAB || type == ash::LAUNCH_TYPE_WINDOW ||
-      type == ash::LAUNCH_TYPE_FULLSCREEN) {
-    menu_model->AddCheckItemWithStringId(type, string_id);
-    return;
-  }
-  // NOTIFICATION_CONTAINER is added by NotificationMenuController.
-  if (type == ash::NOTIFICATION_CONTAINER) {
-    NOTREACHED()
-        << "NOTIFICATION_CONTAINER is added by NotificationMenuController.";
-    return;
-  }
-  menu_model->AddItemWithStringId(type, string_id);
-}
-
 const gfx::VectorIcon& ShelfContextMenu::GetCommandIdVectorIcon(
-    ash::CommandId type,
+    int type,
     int string_id) const {
   switch (type) {
     case ash::MENU_OPEN_NEW:
@@ -248,6 +224,9 @@ const gfx::VectorIcon& ShelfContextMenu::GetCommandIdVectorIcon(
       return views::kLinuxHighDensityIcon;
     case ash::CROSTINI_USE_LOW_DENSITY:
       return views::kLinuxLowDensityIcon;
+    case ash::SWAP_WITH_NEXT:
+    case ash::SWAP_WITH_PREVIOUS:
+      return gfx::kNoneIcon;
     case ash::LAUNCH_APP_SHORTCUT_FIRST:
     case ash::LAUNCH_APP_SHORTCUT_LAST:
     case ash::COMMAND_ID_COUNT:
@@ -257,4 +236,69 @@ const gfx::VectorIcon& ShelfContextMenu::GetCommandIdVectorIcon(
       NOTREACHED();
       return gfx::kNoneIcon;
   }
+}
+
+void ShelfContextMenu::AddPinMenu(ui::SimpleMenuModel* menu_model) {
+  // Expect a valid ShelfID to add pin/unpin menu item.
+  DCHECK(!item_.id.IsNull());
+  int menu_pin_string_id;
+  switch (GetPinnableForAppID(item_.id.app_id, controller_->profile())) {
+    case AppListControllerDelegate::PIN_EDITABLE:
+      menu_pin_string_id = controller_->IsPinned(item_.id)
+                               ? IDS_SHELF_CONTEXT_MENU_UNPIN
+                               : IDS_SHELF_CONTEXT_MENU_PIN;
+      break;
+    case AppListControllerDelegate::PIN_FIXED:
+      menu_pin_string_id = IDS_SHELF_CONTEXT_MENU_PIN_ENFORCED_BY_POLICY;
+      break;
+    case AppListControllerDelegate::NO_PIN:
+      return;
+    default:
+      NOTREACHED();
+      return;
+  }
+  AddContextMenuOption(menu_model, ash::MENU_PIN, menu_pin_string_id);
+}
+
+bool ShelfContextMenu::ExecuteCommonCommand(int command_id, int event_flags) {
+  switch (command_id) {
+    case ash::MENU_OPEN_NEW:
+    case ash::MENU_CLOSE:
+    case ash::MENU_PIN:
+    case ash::SWAP_WITH_NEXT:
+    case ash::SWAP_WITH_PREVIOUS:
+    case ash::UNINSTALL:
+      ShelfContextMenu::ExecuteCommand(command_id, event_flags);
+      return true;
+    default:
+      return false;
+  }
+}
+
+void ShelfContextMenu::AddContextMenuOption(ui::SimpleMenuModel* menu_model,
+                                            ash::CommandId type,
+                                            int string_id) {
+  // Do not include disabled items.
+  if (!IsCommandIdEnabled(type))
+    return;
+
+  const gfx::VectorIcon& icon = GetCommandIdVectorIcon(type, string_id);
+  if (!icon.is_empty()) {
+    menu_model->AddItemWithStringIdAndIcon(type, string_id, icon);
+    return;
+  }
+  // If the MenuType is a check item.
+  if (type == ash::LAUNCH_TYPE_REGULAR_TAB ||
+      type == ash::LAUNCH_TYPE_PINNED_TAB || type == ash::LAUNCH_TYPE_WINDOW ||
+      type == ash::LAUNCH_TYPE_FULLSCREEN) {
+    menu_model->AddCheckItemWithStringId(type, string_id);
+    return;
+  }
+  // NOTIFICATION_CONTAINER is added by NotificationMenuController.
+  if (type == ash::NOTIFICATION_CONTAINER) {
+    NOTREACHED()
+        << "NOTIFICATION_CONTAINER is added by NotificationMenuController.";
+    return;
+  }
+  menu_model->AddItemWithStringId(type, string_id);
 }

@@ -9,13 +9,13 @@
 #include "net/quic/quic_chromium_alarm_factory.h"
 #include "net/quic/test_task_runner.h"
 #include "net/test/gtest_util.h"
+#include "net/third_party/quiche/src/common/platform/api/quiche_string_piece.h"
 #include "net/third_party/quiche/src/quic/core/crypto/proof_verifier.h"
 #include "net/third_party/quiche/src/quic/core/crypto/quic_compressed_certs_cache.h"
 #include "net/third_party/quiche/src/quic/core/crypto/quic_crypto_server_config.h"
 #include "net/third_party/quiche/src/quic/core/quic_server_id.h"
 #include "net/third_party/quiche/src/quic/core/quic_session.h"
 #include "net/third_party/quiche/src/quic/platform/api/quic_mem_slice_span.h"
-#include "net/third_party/quiche/src/quic/platform/api/quic_string_piece.h"
 #include "net/third_party/quiche/src/quic/test_tools/mock_clock.h"
 #include "net/third_party/quiche/src/quic/test_tools/quic_test_utils.h"
 #include "third_party/blink/public/platform/web_vector.h"
@@ -352,7 +352,7 @@ class FailingProofVerifierStub : public quic::ProofVerifier {
       const uint16_t port,
       const std::string& server_config,
       quic::QuicTransportVersion transport_version,
-      quic::QuicStringPiece chlo_hash,
+      quiche::QuicheStringPiece chlo_hash,
       const std::vector<std::string>& certs,
       const std::string& cert_sct,
       const std::string& signature,
@@ -391,7 +391,7 @@ class ProofSourceStub : public quic::ProofSource {
                 const std::string& hostname,
                 const std::string& server_config,
                 quic::QuicTransportVersion transport_version,
-                quic::QuicStringPiece chlo_hash,
+                quiche::QuicheStringPiece chlo_hash,
                 std::unique_ptr<Callback> callback) override {
     quic::QuicCryptoProof proof;
     proof.signature = "Test signature";
@@ -412,7 +412,7 @@ class ProofSourceStub : public quic::ProofSource {
       const quic::QuicSocketAddress& server_address,
       const std::string& hostname,
       uint16_t signature_algorithm,
-      quic::QuicStringPiece in,
+      quiche::QuicheStringPiece in,
       std::unique_ptr<SignatureCallback> callback) override {
     callback->Run(true, "Test signature");
   }
@@ -470,9 +470,9 @@ class ConnectedCryptoClientStream final : public quic::QuicCryptoClientStream {
         quic::QuicTime::Delta::FromSeconds(2 * quic::kMaximumIdleTimeoutSecs),
         quic::QuicTime::Delta::FromSeconds(quic::kMaximumIdleTimeoutSecs));
     config.SetBytesForConnectionIdToSend(quic::PACKET_8BYTE_CONNECTION_ID);
-    config.SetMaxIncomingBidirectionalStreamsToSend(
+    config.SetMaxBidirectionalStreamsToSend(
         quic::kDefaultMaxStreamsPerConnection / 2);
-    config.SetMaxIncomingUnidirectionalStreamsToSend(
+    config.SetMaxUnidirectionalStreamsToSend(
         quic::kDefaultMaxStreamsPerConnection / 2);
     quic::CryptoHandshakeMessage message;
     config.ToHandshakeMessage(&message,
@@ -485,7 +485,8 @@ class ConnectedCryptoClientStream final : public quic::QuicCryptoClientStream {
       session()->SetDefaultEncryptionLevel(quic::ENCRYPTION_FORWARD_SECURE);
       session()->DiscardOldEncryptionKey(quic::ENCRYPTION_INITIAL);
     } else {
-      session()->OnCryptoHandshakeEvent(quic::QuicSession::HANDSHAKE_CONFIRMED);
+      session()->OnCryptoHandshakeEvent(
+          quic::QuicSession::EVENT_HANDSHAKE_CONFIRMED);
     }
     return true;
   }
@@ -496,7 +497,7 @@ class ConnectedCryptoClientStream final : public quic::QuicCryptoClientStream {
     return encryption_established_;
   }
 
-  bool handshake_confirmed() const override { return handshake_confirmed_; }
+  bool one_rtt_keys_available() const override { return handshake_confirmed_; }
 
  private:
   bool encryption_established_ = false;
@@ -524,13 +525,13 @@ class ConnectedCryptoClientStreamFactory final
   }
 
   // Creates a real quic::QuiCryptoServerStream.
-  std::unique_ptr<quic::QuicCryptoServerStream> CreateServerCryptoStream(
+  std::unique_ptr<quic::QuicCryptoServerStreamBase> CreateServerCryptoStream(
       const quic::QuicCryptoServerConfig* crypto_config,
       quic::QuicCompressedCertsCache* compressed_certs_cache,
       quic::QuicSession* session,
       quic::QuicCryptoServerStream::Helper* helper) override {
-    return std::make_unique<quic::QuicCryptoServerStream>(
-        crypto_config, compressed_certs_cache, session, helper);
+    return quic::CreateCryptoServerStream(crypto_config, compressed_certs_cache,
+                                          session, helper);
   }
 };
 
@@ -708,8 +709,8 @@ class P2PQuicTransportTest : public testing::Test {
 
   void ExpectConnectionNotEstablished() {
     EXPECT_FALSE(client_peer_->quic_transport()->IsEncryptionEstablished());
-    EXPECT_FALSE(client_peer_->quic_transport()->IsCryptoHandshakeConfirmed());
-    EXPECT_FALSE(server_peer_->quic_transport()->IsCryptoHandshakeConfirmed());
+    EXPECT_FALSE(client_peer_->quic_transport()->OneRttKeysAvailable());
+    EXPECT_FALSE(server_peer_->quic_transport()->OneRttKeysAvailable());
     EXPECT_FALSE(server_peer_->quic_transport()->IsEncryptionEstablished());
   }
 
@@ -785,8 +786,8 @@ TEST_F(P2PQuicTransportTest, HandshakeConnectsPeersWithPreSharedKeys) {
   run_loop.RunUntilCallbacksFired();
 
   EXPECT_TRUE(client_peer()->quic_transport()->IsEncryptionEstablished());
-  EXPECT_TRUE(client_peer()->quic_transport()->IsCryptoHandshakeConfirmed());
-  EXPECT_TRUE(server_peer()->quic_transport()->IsCryptoHandshakeConfirmed());
+  EXPECT_TRUE(client_peer()->quic_transport()->OneRttKeysAvailable());
+  EXPECT_TRUE(server_peer()->quic_transport()->OneRttKeysAvailable());
   EXPECT_TRUE(server_peer()->quic_transport()->IsEncryptionEstablished());
 }
 
@@ -823,8 +824,8 @@ TEST_F(P2PQuicTransportTest, HandshakeConnectsPeersWithRemoteCertificates) {
   run_loop.RunUntilCallbacksFired();
 
   EXPECT_TRUE(client_peer()->quic_transport()->IsEncryptionEstablished());
-  EXPECT_TRUE(client_peer()->quic_transport()->IsCryptoHandshakeConfirmed());
-  EXPECT_TRUE(server_peer()->quic_transport()->IsCryptoHandshakeConfirmed());
+  EXPECT_TRUE(client_peer()->quic_transport()->OneRttKeysAvailable());
+  EXPECT_TRUE(server_peer()->quic_transport()->OneRttKeysAvailable());
   EXPECT_TRUE(server_peer()->quic_transport()->IsEncryptionEstablished());
 }
 
@@ -1400,7 +1401,7 @@ class P2PQuicTransportMockConnectionTest : public testing::Test {
 TEST_F(P2PQuicTransportMockConnectionTest, OnDatagramReceived) {
   EXPECT_TRUE(transport()->CanSendDatagram());
   EXPECT_CALL(*delegate(), OnDatagramReceived(ElementsAreArray(kMessage)));
-  transport()->OnMessageReceived(quic::QuicStringPiece(
+  transport()->OnMessageReceived(quiche::QuicheStringPiece(
       reinterpret_cast<const char*>(kMessage), sizeof(kMessage)));
 }
 

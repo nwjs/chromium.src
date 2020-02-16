@@ -16,29 +16,6 @@ constexpr int kMaxCountOfMoreGpuThreadTimeAllowed = 4;
 #endif
 constexpr base::TimeDelta kMaxWaitTime = base::TimeDelta::FromSeconds(60);
 
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class GpuWatchdogTimeoutEvent {
-  // Recorded each time OnWatchdogTimeout() is called.
-  kTimeout,
-  // Recorded when a GPU main thread is killed for a detected hang.
-  kKill,
-  // Window only: Recorded when a hang is detected but we allow the GPU main
-  // thread to continue until it spent the full
-  // thread time doing the work.
-  kMoreThreadTime,
-  // Windows only: The GPU makes progress after givenmore thread time. The GPU
-  // main thread is not killed.
-  kProgressAfterMoreThreadTime,
-  // A gpu hang is detected but watchdog waits for 60 seconds before taking
-  // action.
-  kTimeoutWait,
-  // The GPU makes progress within 60 sec in OnWatchdogTimeout(). The GPU main
-  // thread is not killed.
-  kProgressAfterWait,
-  kMaxValue = kProgressAfterWait,
-};
-
 class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
     : public GpuWatchdogThread,
       public base::TaskObserver {
@@ -106,7 +83,7 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
 #if defined(OS_WIN)
   base::ThreadTicks GetWatchedThreadTime();
 #endif
-  bool GpuRespondsAfterWaiting();
+  bool GpuRespondsAfterWaiting(base::TimeTicks on_watchdog_timeout_start);
 
   // Do not change the function name. It is used for [GPU HANG] carsh reports.
   void DeliberatelyTerminateToRecoverFromHang();
@@ -126,6 +103,12 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
   // Used for metrics. It's 1 minute after the event.
   bool WithinOneMinFromPowerResumed();
   bool WithinOneMinFromForegrounded();
+
+#if defined(USE_X11)
+  void UpdateActiveTTY();
+#endif
+  // The watchdog continues when it's not on the TTY of our host X11 server.
+  bool ContinueOnNonHostX11ServerTty();
 
   // This counter is only written on the gpu thread, and read on both threads.
   base::subtle::Atomic32 arm_disarm_counter_ = 0;
@@ -174,6 +157,13 @@ class GPU_IPC_SERVICE_EXPORT GpuWatchdogThreadImplV2
 
   // The accumulated timeout time the GPU main thread was given.
   base::TimeDelta time_in_extra_timeouts_;
+#endif
+
+#if defined(USE_X11)
+  FILE* tty_file_ = nullptr;
+  int host_tty_ = -1;
+  int active_tty_ = -1;
+  int last_active_tty_ = -1;
 #endif
 
   // The system has entered the power suspension mode.

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/layout/scroll_anchor.h"
 
 #include "build/build_config.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/renderer/core/dom/static_node_list.h"
 #include "third_party/blink/renderer/core/frame/root_frame_viewport.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
@@ -28,6 +29,11 @@ class ScrollAnchorTest : public testing::WithParamInterface<bool>,
   ScrollAnchorTest() : ScopedLayoutNGForTest(GetParam()) {}
 
  protected:
+  void SetUp() override {
+    EnableCompositing();
+    RenderingTest::SetUp();
+  }
+
   void Update() {
     // TODO(skobes): Use SimTest instead of RenderingTest and move into
     // Source/web?
@@ -79,6 +85,52 @@ class ScrollAnchorTest : public testing::WithParamInterface<bool>,
         GetDocument().QuerySelectorAll(AtomicString(serialized.selector));
     EXPECT_EQ(ele_list->length(), 1u);
   }
+
+  Scrollbar* VerticalScrollbarForElement(Element* element) {
+    return ToLayoutBox(element->GetLayoutObject())
+        ->GetScrollableArea()
+        ->VerticalScrollbar();
+  }
+
+  void MouseDownOnVerticalScrollbar(Scrollbar* scrollbar) {
+    DCHECK_EQ(true, scrollbar->GetTheme().AllowsHitTest());
+    int thumb_center = scrollbar->GetTheme().ThumbPosition(*scrollbar) +
+                       scrollbar->GetTheme().ThumbLength(*scrollbar) / 2;
+    scrollbar_drag_point_ =
+        gfx::PointF(scrollbar->GetScrollableArea()
+                        ->ConvertFromScrollbarToContainingEmbeddedContentView(
+                            *scrollbar, IntPoint(0, thumb_center)));
+    scrollbar->MouseDown(blink::WebMouseEvent(
+        blink::WebInputEvent::kMouseDown, *scrollbar_drag_point_,
+        *scrollbar_drag_point_, blink::WebPointerProperties::Button::kLeft, 0,
+        blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
+  }
+
+  void MouseDragVerticalScrollbar(Scrollbar* scrollbar, float scroll_delta_y) {
+    DCHECK(scrollbar_drag_point_);
+    ScrollableArea* scroller = scrollbar->GetScrollableArea();
+    scrollbar_drag_point_->Offset(
+        0, scroll_delta_y *
+               (scrollbar->GetTheme().TrackLength(*scrollbar) -
+                scrollbar->GetTheme().ThumbLength(*scrollbar)) /
+               (scroller->MaximumScrollOffset().Height() -
+                scroller->MinimumScrollOffset().Height()));
+    scrollbar->MouseMoved(blink::WebMouseEvent(
+        blink::WebInputEvent::kMouseMove, *scrollbar_drag_point_,
+        *scrollbar_drag_point_, blink::WebPointerProperties::Button::kLeft, 0,
+        blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
+  }
+
+  void MouseUpOnVerticalScrollbar(Scrollbar* scrollbar) {
+    DCHECK(scrollbar_drag_point_);
+    scrollbar->MouseDown(blink::WebMouseEvent(
+        blink::WebInputEvent::kMouseUp, *scrollbar_drag_point_,
+        *scrollbar_drag_point_, blink::WebPointerProperties::Button::kLeft, 0,
+        blink::WebInputEvent::kNoModifiers, base::TimeTicks::Now()));
+    scrollbar_drag_point_.reset();
+  }
+
+  base::Optional<gfx::PointF> scrollbar_drag_point_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All, ScrollAnchorTest, testing::Bool());
@@ -213,7 +265,8 @@ TEST_P(ScrollAnchorTest, ClearScrollAnchorsOnAncestors) {
   // Scrolling the nested scroller should clear the anchor on the main frame.
   ScrollableArea* scroller =
       ScrollerForElement(GetDocument().getElementById("scroller"));
-  scroller->ScrollBy(ScrollOffset(0, 100), kUserScroll);
+  scroller->ScrollBy(ScrollOffset(0, 100),
+                     mojom::blink::ScrollIntoViewParams::Type::kUser);
   EXPECT_EQ(nullptr, GetScrollAnchor(viewport).AnchorObject());
 }
 
@@ -313,7 +366,8 @@ TEST_P(ScrollAnchorTest, AnchorWithLayerInScrollingDiv) {
   Element* block1 = GetDocument().getElementById("block1");
   Element* block2 = GetDocument().getElementById("block2");
 
-  scroller->ScrollBy(ScrollOffset(0, 150), kUserScroll);
+  scroller->ScrollBy(ScrollOffset(0, 150),
+                     mojom::blink::ScrollIntoViewParams::Type::kUser);
 
   // In this layout pass we will anchor to #block2 which has its own PaintLayer.
   SetHeight(block1, 200);
@@ -326,6 +380,51 @@ TEST_P(ScrollAnchorTest, AnchorWithLayerInScrollingDiv) {
   block2->remove();
   Update();
   EXPECT_EQ(250, scroller->ScrollOffsetInt().Height());
+}
+
+TEST_P(ScrollAnchorTest, AnchorWhileDraggingScrollbar) {
+  // Dragging the scrollbar is inherently inaccurate. Allow many pixels slop in
+  // the scroll position.
+  const int kScrollbarDragAccuracy = 10;
+  USE_NON_OVERLAY_SCROLLBARS();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+        #scroller { overflow: scroll; width: 500px; height: 400px; }
+        div { height: 100px }
+        #block2 { overflow: hidden }
+        #space { height: 1000px; }
+    </style>
+    <div id='scroller'><div id='space'>
+    <div id='block1'>abc</div>
+    <div id='block2'>def</div>
+    </div></div>
+  )HTML");
+  Element* scroller_element = GetDocument().getElementById("scroller");
+  ScrollableArea* scroller = ScrollerForElement(scroller_element);
+
+  Element* block1 = GetDocument().getElementById("block1");
+  Element* block2 = GetDocument().getElementById("block2");
+
+  Scrollbar* scrollbar = VerticalScrollbarForElement(scroller_element);
+  scroller->MouseEnteredScrollbar(*scrollbar);
+  MouseDownOnVerticalScrollbar(scrollbar);
+  MouseDragVerticalScrollbar(scrollbar, 150);
+  EXPECT_NEAR(150, scroller->GetScrollOffset().Height(),
+              kScrollbarDragAccuracy);
+
+  // In this layout pass we will anchor to #block2 which has its own PaintLayer.
+  SetHeight(block1, 200);
+  EXPECT_NEAR(250, scroller->ScrollOffsetInt().Height(),
+              kScrollbarDragAccuracy);
+  EXPECT_EQ(block2->GetLayoutObject(),
+            GetScrollAnchor(scroller).AnchorObject());
+
+  // If we continue dragging the scroller should scroll from the newly anchored
+  // position.
+  MouseDragVerticalScrollbar(scrollbar, 10);
+  EXPECT_NEAR(260, scroller->ScrollOffsetInt().Height(),
+              kScrollbarDragAccuracy);
+  MouseUpOnVerticalScrollbar(scrollbar);
 }
 
 // Verify that a nested scroller with a div that has its own PaintLayer can be
@@ -353,7 +452,8 @@ TEST_P(ScrollAnchorTest, RemoveScrollerWithLayerInScrollingDiv) {
   Element* changer2 = GetDocument().getElementById("changer2");
   Element* anchor = GetDocument().getElementById("anchor");
 
-  scroller->ScrollBy(ScrollOffset(0, 150), kUserScroll);
+  scroller->ScrollBy(ScrollOffset(0, 150),
+                     mojom::blink::ScrollIntoViewParams::Type::kUser);
   ScrollLayoutViewport(ScrollOffset(0, 50));
 
   // In this layout pass both the inner and outer scroller will anchor to
@@ -949,7 +1049,8 @@ TEST_P(ScrollAnchorTest, ClampAdjustsAnchorAnimation) {
     <div class="content" id=three></div>
     <div class="content" id=four></div>
   )HTML");
-  LayoutViewport()->SetScrollOffset(ScrollOffset(0, 2000), kUserScroll);
+  LayoutViewport()->SetScrollOffset(
+      ScrollOffset(0, 2000), mojom::blink::ScrollIntoViewParams::Type::kUser);
   Update();
   GetDocument().getElementById("hidden")->setAttribute(html_names::kStyleAttr,
                                                        "display:block");

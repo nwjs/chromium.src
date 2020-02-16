@@ -20,17 +20,29 @@
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/perfetto/producer_client.h"
 #include "services/tracing/public/cpp/perfetto/trace_event_data_source.h"
+#include "services/tracing/public/cpp/perfetto/trace_time.h"
 #include "services/tracing/public/cpp/perfetto/traced_value_proto_writer.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "third_party/perfetto/protos/perfetto/trace/clock_snapshot.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/trace_packet.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/trace_packet_defaults.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/debug_annotation.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/log_message.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/process_descriptor.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/source_location.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/task_execution.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/track_event/thread_descriptor.pbzero.h"
+#include "third_party/perfetto/protos/perfetto/trace/track_event/track_descriptor.pbzero.h"
 
 using TraceLog = base::trace_event::TraceLog;
-using TrackEvent = perfetto::protos::pbzero::TrackEvent;
+using perfetto::protos::pbzero::ChromeThreadDescriptor;
+using perfetto::protos::pbzero::ClockSnapshot;
 using perfetto::protos::pbzero::ThreadDescriptor;
+using perfetto::protos::pbzero::TracePacket;
+using perfetto::protos::pbzero::TracePacketDefaults;
+using perfetto::protos::pbzero::TrackDescriptor;
+using perfetto::protos::pbzero::TrackEvent;
+using perfetto::protos::pbzero::TrackEventDefaults;
 
 namespace tracing {
 
@@ -38,6 +50,11 @@ namespace {
 
 // Replacement string for names of events with TRACE_EVENT_FLAG_COPY.
 const char* const kPrivacyFiltered = "PRIVACY_FILTERED";
+
+// Packet-sequence-scoped clocks that encode timestamps in microseconds in
+// the kTraceClockId clock domain.
+constexpr uint32_t kClockIdAbsolute = 64;
+constexpr uint32_t kClockIdIncremental = 65;
 
 base::ThreadTicks ThreadNow() {
   return base::ThreadTicks::IsSupported()
@@ -59,7 +76,8 @@ void AddConvertableToTraceFormat(
     return;
   }
 
-  std::string json = value->ToString();
+  std::string json;
+  value->AppendAsTraceFormat(&json);
   annotation->set_legacy_json_value(json.c_str());
 }
 
@@ -110,38 +128,38 @@ void WriteDebugAnnotations(
   }
 }
 
-ThreadDescriptor::ChromeThreadType GetThreadType(
+ChromeThreadDescriptor::ThreadType GetThreadType(
     const char* const thread_name) {
   if (base::MatchPattern(thread_name, "Cr*Main")) {
-    return ThreadDescriptor::CHROME_THREAD_MAIN;
+    return ChromeThreadDescriptor::THREAD_MAIN;
   } else if (base::MatchPattern(thread_name, "Chrome*IOThread")) {
-    return ThreadDescriptor::CHROME_THREAD_IO;
+    return ChromeThreadDescriptor::THREAD_IO;
   } else if (base::MatchPattern(thread_name, "ThreadPoolForegroundWorker*")) {
-    return ThreadDescriptor::CHROME_THREAD_POOL_FG_WORKER;
+    return ChromeThreadDescriptor::THREAD_POOL_FG_WORKER;
   } else if (base::MatchPattern(thread_name, "ThreadPoolBackgroundWorker*")) {
-    return ThreadDescriptor::CHROME_THREAD_POOL_BG_WORKER;
+    return ChromeThreadDescriptor::THREAD_POOL_BG_WORKER;
   } else if (base::MatchPattern(thread_name,
                                 "ThreadPool*ForegroundBlocking*")) {
-    return ThreadDescriptor::CHROME_THREAD_POOL_FB_BLOCKING;
+    return ChromeThreadDescriptor::THREAD_POOL_FG_BLOCKING;
   } else if (base::MatchPattern(thread_name,
                                 "ThreadPool*BackgroundBlocking*")) {
-    return ThreadDescriptor::CHROME_THREAD_POOL_BG_BLOCKING;
+    return ChromeThreadDescriptor::THREAD_POOL_BG_BLOCKING;
   } else if (base::MatchPattern(thread_name, "ThreadPoolService*")) {
-    return ThreadDescriptor::CHROME_THREAD_POOL_SERVICE;
+    return ChromeThreadDescriptor::THREAD_POOL_SERVICE;
   } else if (base::MatchPattern(thread_name, "CompositorTileWorker*")) {
-    return ThreadDescriptor::CHROME_THREAD_COMPOSITOR_WORKER;
+    return ChromeThreadDescriptor::THREAD_COMPOSITOR_WORKER;
   } else if (base::MatchPattern(thread_name, "Compositor")) {
-    return ThreadDescriptor::CHROME_THREAD_COMPOSITOR;
+    return ChromeThreadDescriptor::THREAD_COMPOSITOR;
   } else if (base::MatchPattern(thread_name, "VizCompositor*")) {
-    return ThreadDescriptor::CHROME_THREAD_VIZ_COMPOSITOR;
+    return ChromeThreadDescriptor::THREAD_VIZ_COMPOSITOR;
   } else if (base::MatchPattern(thread_name, "ServiceWorker*")) {
-    return ThreadDescriptor::CHROME_THREAD_SERVICE_WORKER;
+    return ChromeThreadDescriptor::THREAD_SERVICE_WORKER;
   } else if (base::MatchPattern(thread_name, "MemoryInfra")) {
-    return ThreadDescriptor::CHROME_THREAD_MEMORY_INFRA;
+    return ChromeThreadDescriptor::THREAD_MEMORY_INFRA;
   } else if (base::MatchPattern(thread_name, "StackSamplingProfiler")) {
-    return ThreadDescriptor::CHROME_THREAD_SAMPLING_PROFILER;
+    return ChromeThreadDescriptor::THREAD_SAMPLING_PROFILER;
   }
-  return ThreadDescriptor::CHROME_THREAD_UNSPECIFIED;
+  return ChromeThreadDescriptor::THREAD_UNSPECIFIED;
 }
 
 // Lazily sets |legacy_event| on the |track_event|. Note that you should not set
@@ -229,10 +247,10 @@ void TrackEventThreadLocalEventSink::ResetIncrementalStateIfNeeded(
   }
 }
 
-void TrackEventThreadLocalEventSink::PrepareTrackEvent(
+TrackEvent* TrackEventThreadLocalEventSink::PrepareTrackEvent(
     base::trace_event::TraceEvent* trace_event,
     base::trace_event::TraceEventHandle* handle,
-    TrackEvent* track_event) {
+    protozero::MessageHandle<TracePacket>* trace_packet) {
   // Each event's updates to InternedData are flushed at the end of
   // AddTraceEvent().
   DCHECK(pending_interning_updates_.empty());
@@ -245,19 +263,38 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
     phase = TRACE_EVENT_PHASE_BEGIN;
   }
 
-  bool is_end_of_a_complete_event = !handle && phase == TRACE_EVENT_PHASE_END;
+  bool is_sync_end = phase == TRACE_EVENT_PHASE_END;
+  bool is_nestable_async_end = phase == TRACE_EVENT_PHASE_NESTABLE_ASYNC_END;
 
   uint32_t flags = trace_event->flags();
   bool copy_strings = flags & TRACE_EVENT_FLAG_COPY;
   bool is_java_event = flags & TRACE_EVENT_FLAG_JAVA_STRING_LITERALS;
   bool explicit_timestamp = flags & TRACE_EVENT_FLAG_EXPLICIT_TIMESTAMP;
 
+  // Delta encoded timestamps and interned data require incremental state.
+  (*trace_packet)->set_sequence_flags(TracePacket::SEQ_NEEDS_INCREMENTAL_STATE);
+
+  // Events for different processes/threads always use an absolute timestamp.
+  bool is_for_different_process =
+      (flags & TRACE_EVENT_FLAG_HAS_PROCESS_ID) &&
+      trace_event->process_id() != base::kNullProcessId;
+  bool is_for_different_thread = thread_id_ != trace_event->thread_id();
+  bool force_absolute_timestamp =
+      is_for_different_process || is_for_different_thread || explicit_timestamp;
+
+  SetPacketTimestamp(trace_packet, trace_event->timestamp(),
+                     force_absolute_timestamp);
+
+  TrackEvent* track_event = (*trace_packet)->set_track_event();
+
   const char* category_name =
       TraceLog::GetCategoryGroupName(trace_event->category_group_enabled());
   InterningIndexEntry interned_category{};
-  // Don't write the category for END events that were split from a COMPLETE
-  // event to save trace size.
-  if (!is_end_of_a_complete_event) {
+  // No need to write the category for sync end events. Trace processor will
+  // match them without, provided event nesting is correct. For async end
+  // events, event ID matching includes the category, so we have to emit the
+  // category for the time being.
+  if (!is_sync_end) {
     interned_category = interned_event_categories_.LookupOrAdd(category_name);
   }
 
@@ -273,10 +310,12 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
   const char* log_message_body = nullptr;
   int line_number = 0;
 
-  // Don't write the name or arguments for END events that were split from a
-  // COMPLETE event to save trace size.
+  // No need to write the event name for end events (sync or nestable async).
+  // Trace processor will match them without, provided event nesting is correct.
+  // Legacy async events (TRACE_EVENT_ASYNC*) are only pass-through in trace
+  // processor, so we still have to emit names for these.
   const char* trace_event_name = trace_event->name();
-  if (!is_end_of_a_complete_event) {
+  if (!is_sync_end && !is_nestable_async_end) {
     if (copy_strings) {
       if (!is_java_event && privacy_filtering_enabled_) {
         trace_event_name = kPrivacyFiltered;
@@ -284,82 +323,71 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
       } else {
         interned_name =
             interned_event_names_.LookupOrAdd(std::string(trace_event_name));
-        for (size_t i = 0;
-             i < trace_event->arg_size() && trace_event->arg_name(i); ++i) {
-          interned_annotation_names[i] = interned_annotation_names_.LookupOrAdd(
-              std::string(trace_event->arg_name(i)));
-        }
       }
     } else {
       interned_name = interned_event_names_.LookupOrAdd(trace_event->name());
+    }
+  }
 
-      // TODO(eseckler): Remove special handling of typed events here once we
-      // support them in TRACE_EVENT macros.
+  if (copy_strings) {
+    if (is_java_event || !privacy_filtering_enabled_) {
+      for (size_t i = 0;
+           i < trace_event->arg_size() && trace_event->arg_name(i); ++i) {
+        interned_annotation_names[i] = interned_annotation_names_.LookupOrAdd(
+            std::string(trace_event->arg_name(i)));
+      }
+    }
+  } else {
+    // TODO(eseckler): Remove special handling of typed events here once we
+    // support them in TRACE_EVENT macros.
 
-      if (flags & TRACE_EVENT_FLAG_TYPED_PROTO_ARGS) {
-        if (trace_event->arg_size() == 2u) {
+    if (flags & TRACE_EVENT_FLAG_TYPED_PROTO_ARGS) {
+      if (trace_event->arg_size() == 2u) {
+        DCHECK_EQ(strcmp(category_name, kTaskExecutionEventCategory), 0);
+        DCHECK(strcmp(trace_event->name(), kTaskExecutionEventNames[0]) == 0 ||
+               strcmp(trace_event->name(), kTaskExecutionEventNames[1]) == 0 ||
+               strcmp(trace_event->name(), kTaskExecutionEventNames[2]) == 0);
+        // Double argument task execution event (src_file, src_func).
+        DCHECK_EQ(trace_event->arg_type(0), TRACE_VALUE_TYPE_STRING);
+        DCHECK_EQ(trace_event->arg_type(1), TRACE_VALUE_TYPE_STRING);
+        src_file = trace_event->arg_value(0).as_string;
+        src_func = trace_event->arg_value(1).as_string;
+      } else {
+        // arg_size == 1 enforced by the maximum number of parameter == 2.
+        DCHECK_EQ(trace_event->arg_size(), 1u);
+
+        if (trace_event->arg_type(0) == TRACE_VALUE_TYPE_STRING) {
+          // Single argument task execution event (src_file).
           DCHECK_EQ(strcmp(category_name, kTaskExecutionEventCategory), 0);
           DCHECK(
               strcmp(trace_event->name(), kTaskExecutionEventNames[0]) == 0 ||
               strcmp(trace_event->name(), kTaskExecutionEventNames[1]) == 0 ||
               strcmp(trace_event->name(), kTaskExecutionEventNames[2]) == 0);
-          // Double argument task execution event (src_file, src_func).
-          DCHECK_EQ(trace_event->arg_type(0), TRACE_VALUE_TYPE_STRING);
-          DCHECK_EQ(trace_event->arg_type(1), TRACE_VALUE_TYPE_STRING);
           src_file = trace_event->arg_value(0).as_string;
-          src_func = trace_event->arg_value(1).as_string;
         } else {
-          // arg_size == 1 enforced by the maximum number of parameter == 2.
-          DCHECK_EQ(trace_event->arg_size(), 1u);
+          DCHECK_EQ(trace_event->arg_type(0), TRACE_VALUE_TYPE_CONVERTABLE);
+          DCHECK(strcmp(category_name, "log") == 0);
+          DCHECK(strcmp(trace_event->name(), "LogMessage") == 0);
+          const base::trace_event::LogMessage* value =
+              static_cast<base::trace_event::LogMessage*>(
+                  trace_event->arg_value(0).as_convertable);
+          src_file = value->file();
+          line_number = value->line_number();
+          log_message_body = value->message().c_str();
 
-          if (trace_event->arg_type(0) == TRACE_VALUE_TYPE_STRING) {
-            // Single argument task execution event (src_file).
-            DCHECK_EQ(strcmp(category_name, kTaskExecutionEventCategory), 0);
-            DCHECK(
-                strcmp(trace_event->name(), kTaskExecutionEventNames[0]) == 0 ||
-                strcmp(trace_event->name(), kTaskExecutionEventNames[1]) == 0 ||
-                strcmp(trace_event->name(), kTaskExecutionEventNames[2]) == 0);
-            src_file = trace_event->arg_value(0).as_string;
-          } else {
-            DCHECK_EQ(trace_event->arg_type(0), TRACE_VALUE_TYPE_CONVERTABLE);
-            DCHECK(strcmp(category_name, "log") == 0);
-            DCHECK(strcmp(trace_event->name(), "LogMessage") == 0);
-            const base::trace_event::LogMessage* value =
-                static_cast<base::trace_event::LogMessage*>(
-                    trace_event->arg_value(0).as_convertable);
-            src_file = value->file();
-            line_number = value->line_number();
-            log_message_body = value->message().c_str();
-
-            interned_log_message_body =
-                interned_log_message_bodies_.LookupOrAdd(value->message());
-          }  // else
-        }    // else
-        interned_source_location = interned_source_locations_.LookupOrAdd(
-            std::make_tuple(src_file, src_func, line_number));
-      } else if (!privacy_filtering_enabled_) {
-        for (size_t i = 0;
-             i < trace_event->arg_size() && trace_event->arg_name(i); ++i) {
-          interned_annotation_names[i] =
-              interned_annotation_names_.LookupOrAdd(trace_event->arg_name(i));
-        }
+          interned_log_message_body =
+              interned_log_message_bodies_.LookupOrAdd(value->message());
+        }  // else
+      }    // else
+      interned_source_location = interned_source_locations_.LookupOrAdd(
+          std::make_tuple(src_file, src_func, line_number));
+    } else if (!privacy_filtering_enabled_) {
+      for (size_t i = 0;
+           i < trace_event->arg_size() && trace_event->arg_name(i); ++i) {
+        interned_annotation_names[i] =
+            interned_annotation_names_.LookupOrAdd(trace_event->arg_name(i));
       }
     }
-  }
-
-  // Events for different processes/threads always use an absolute timestamp.
-  bool force_absolute_timestamp =
-      ((flags & TRACE_EVENT_FLAG_HAS_PROCESS_ID) &&
-       trace_event->process_id() != base::kNullProcessId) ||
-      thread_id_ != trace_event->thread_id() || explicit_timestamp;
-
-  if (force_absolute_timestamp || last_timestamp_ > trace_event->timestamp()) {
-    track_event->set_timestamp_absolute_us(
-        trace_event->timestamp().since_origin().InMicroseconds());
-  } else {
-    track_event->set_timestamp_delta_us(
-        (trace_event->timestamp() - last_timestamp_).InMicroseconds());
-    last_timestamp_ = trace_event->timestamp();
   }
 
   if (!trace_event->thread_timestamp().is_null()) {
@@ -420,10 +448,10 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
   // between calls to |legacy_event.GetOrCreate()|.
   LazyLegacyEventInitializer legacy_event(track_event);
 
-  // TODO(eseckler): Also convert instant / async / flow events to corresponding
-  // native TrackEvent types. Instants & asyncs require using track descriptors
-  // rather than instant event scopes / async event IDs.
-  TrackEvent::Type track_event_type;
+  // TODO(eseckler): Also convert async / flow events to corresponding native
+  // TrackEvent types. Instants & asyncs require using track descriptors rather
+  // than instant event scopes / async event IDs.
+  TrackEvent::Type track_event_type = TrackEvent::TYPE_UNSPECIFIED;
   switch (phase) {
     case TRACE_EVENT_PHASE_BEGIN:
       track_event_type = TrackEvent::TYPE_SLICE_BEGIN;
@@ -431,52 +459,91 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
     case TRACE_EVENT_PHASE_END:
       track_event_type = TrackEvent::TYPE_SLICE_END;
       break;
+    case TRACE_EVENT_PHASE_INSTANT:
+      track_event_type = TrackEvent::TYPE_INSTANT;
+      break;
     default:
-      track_event_type = TrackEvent::TYPE_UNSPECIFIED;
       break;
   }
 
   if (track_event_type != TrackEvent::TYPE_UNSPECIFIED) {
+    // We emit these events using TrackDescriptors, and we cannot emit events on
+    // behalf of other processes using the TrackDescriptor format. Chrome
+    // currently only emits PHASE_MEMORY_DUMP events with an explicit process
+    // id, so we should be fine here.
+    // TODO(eseckler): Get rid of events with explicit process ids entirely.
+    DCHECK(!(flags & TRACE_EVENT_FLAG_HAS_PROCESS_ID));
+
     track_event->set_type(track_event_type);
+
+    if (track_event_type == TrackEvent::TYPE_INSTANT) {
+      switch (flags & TRACE_EVENT_FLAG_SCOPE_MASK) {
+        case TRACE_EVENT_SCOPE_GLOBAL: {
+          track_event->set_track_uuid(0);  // Global track.
+          break;
+        }
+        case TRACE_EVENT_SCOPE_PROCESS: {
+          track_event->set_track_uuid(perfetto::ProcessTrack::Current().uuid);
+          break;
+        }
+        case TRACE_EVENT_SCOPE_THREAD: {
+          if (thread_id_ != trace_event->thread_id()) {
+            track_event->set_track_uuid(
+                perfetto::ThreadTrack::ForThread(trace_event->thread_id())
+                    .uuid);
+          } else {
+            // Default to the thread track.
+          }
+          break;
+        }
+      }
+    } else {
+      if (thread_id_ != trace_event->thread_id()) {
+        track_event->set_track_uuid(
+            perfetto::ThreadTrack::ForThread(trace_event->thread_id()).uuid);
+      } else {
+        // Default to the thread track.
+      }
+    }
   } else {
+    // Explicitly clear the track, so that the event is not associated with the
+    // default track, but instead uses the legacy mechanism based on the phase
+    // and pid/tid override.
+    track_event->set_track_uuid(0);
+
     legacy_event.GetOrCreate()->set_phase(phase);
-  }
 
-  // TODO(eseckler): Convert instant event scopes to tracks.
-  if (phase == TRACE_EVENT_PHASE_INSTANT) {
-    switch (flags & TRACE_EVENT_FLAG_SCOPE_MASK) {
-      case TRACE_EVENT_SCOPE_GLOBAL:
-        legacy_event.GetOrCreate()->set_instant_event_scope(
-            TrackEvent::LegacyEvent::SCOPE_GLOBAL);
-        break;
-
-      case TRACE_EVENT_SCOPE_PROCESS:
-        legacy_event.GetOrCreate()->set_instant_event_scope(
-            TrackEvent::LegacyEvent::SCOPE_PROCESS);
-        break;
-
-      case TRACE_EVENT_SCOPE_THREAD:
-        legacy_event.GetOrCreate()->set_instant_event_scope(
-            TrackEvent::LegacyEvent::SCOPE_THREAD);
-        break;
+    if ((flags & TRACE_EVENT_FLAG_HAS_PROCESS_ID) &&
+        trace_event->process_id() != base::kNullProcessId) {
+      legacy_event.GetOrCreate()->set_pid_override(trace_event->process_id());
+      legacy_event.GetOrCreate()->set_tid_override(-1);
+    } else if (thread_id_ != trace_event->thread_id()) {
+      legacy_event.GetOrCreate()->set_tid_override(trace_event->thread_id());
     }
   }
 
   uint32_t id_flags =
       flags & (TRACE_EVENT_FLAG_HAS_ID | TRACE_EVENT_FLAG_HAS_LOCAL_ID |
                TRACE_EVENT_FLAG_HAS_GLOBAL_ID);
-  switch (id_flags) {
-    case TRACE_EVENT_FLAG_HAS_ID:
-      legacy_event.GetOrCreate()->set_unscoped_id(trace_event->id());
-      break;
-    case TRACE_EVENT_FLAG_HAS_LOCAL_ID:
-      legacy_event.GetOrCreate()->set_local_id(trace_event->id());
-      break;
-    case TRACE_EVENT_FLAG_HAS_GLOBAL_ID:
-      legacy_event.GetOrCreate()->set_global_id(trace_event->id());
-      break;
-    default:
-      break;
+  uint32_t flow_flags =
+      flags & (TRACE_EVENT_FLAG_FLOW_OUT | TRACE_EVENT_FLAG_FLOW_IN);
+
+  // Legacy flow events use bind_id as their (unscoped) identifier. There's no
+  // need to also emit id in that case.
+  if (!flow_flags) {
+    switch (id_flags) {
+      case TRACE_EVENT_FLAG_HAS_ID:
+        legacy_event.GetOrCreate()->set_unscoped_id(trace_event->id());
+        break;
+      case TRACE_EVENT_FLAG_HAS_LOCAL_ID:
+        legacy_event.GetOrCreate()->set_local_id(trace_event->id());
+        break;
+      case TRACE_EVENT_FLAG_HAS_GLOBAL_ID:
+        legacy_event.GetOrCreate()->set_global_id(trace_event->id());
+        break;
+      default:
+        break;
+    }
   }
 
   // TODO(ssid): Add scope field as enum and do not filter this field.
@@ -491,8 +558,6 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
     legacy_event.GetOrCreate()->set_use_async_tts(true);
   }
 
-  uint32_t flow_flags =
-      flags & (TRACE_EVENT_FLAG_FLOW_OUT | TRACE_EVENT_FLAG_FLOW_IN);
   switch (flow_flags) {
     case TRACE_EVENT_FLAG_FLOW_OUT | TRACE_EVENT_FLAG_FLOW_IN:
       legacy_event.GetOrCreate()->set_flow_direction(
@@ -516,14 +581,6 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
 
   if (flags & TRACE_EVENT_FLAG_BIND_TO_ENCLOSING) {
     legacy_event.GetOrCreate()->set_bind_to_enclosing(true);
-  }
-
-  if ((flags & TRACE_EVENT_FLAG_HAS_PROCESS_ID) &&
-      trace_event->process_id() != base::kNullProcessId) {
-    legacy_event.GetOrCreate()->set_pid_override(trace_event->process_id());
-    legacy_event.GetOrCreate()->set_tid_override(-1);
-  } else if (thread_id_ != trace_event->thread_id()) {
-    legacy_event.GetOrCreate()->set_tid_override(trace_event->thread_id());
   }
 
   if (interned_category.id && !interned_category.was_emitted) {
@@ -566,6 +623,8 @@ void TrackEventThreadLocalEventSink::PrepareTrackEvent(
     interned_source_locations_.Clear();
     interned_log_message_bodies_.Clear();
   }
+
+  return track_event;
 }
 
 void TrackEventThreadLocalEventSink::EmitStoredInternedData(
@@ -637,18 +696,32 @@ void TrackEventThreadLocalEventSink::OnThreadNameChanged(const char* name) {
   if (thread_id_ != static_cast<int>(base::PlatformThread::CurrentId()))
     return;
   auto trace_packet = trace_writer_->NewTracePacket();
-  EmitThreadDescriptor(&trace_packet, nullptr, true, name);
+  EmitTrackDescriptor(&trace_packet, nullptr, TRACE_TIME_TICKS_NOW(), name);
 }
 
-void TrackEventThreadLocalEventSink::EmitThreadDescriptor(
-    protozero::MessageHandle<perfetto::protos::pbzero::TracePacket>*
-        trace_packet,
+void TrackEventThreadLocalEventSink::EmitTrackDescriptor(
+    protozero::MessageHandle<TracePacket>* trace_packet,
     base::trace_event::TraceEvent* trace_event,
-    bool explicit_timestamp,
+    base::TimeTicks timestamp,
     const char* maybe_new_name) {
-  auto* thread_descriptor = (*trace_packet)->set_thread_descriptor();
-  thread_descriptor->set_pid(process_id_);
-  thread_descriptor->set_tid(thread_id_);
+  SetPacketTimestamp(trace_packet, timestamp);
+
+  TrackDescriptor* track_descriptor = (*trace_packet)->set_track_descriptor();
+  // TODO(eseckler): Call ThreadTrack::Current() instead once the client lib
+  // supports Chrome's tids.
+  auto thread_track = perfetto::ThreadTrack::ForThread(thread_id_);
+
+  // TODO(eseckler): Call thread_track.Serialize() here instead once the client
+  // lib also fills in the ThreadDescriptor's thread_name, gets the correct pid
+  // from Chrome, and supports pivacy filtering, and we moved off reference_*
+  // fields in ThreadDescriptor.
+  track_descriptor->set_uuid(thread_track.uuid);
+  PERFETTO_DCHECK(thread_track.parent_uuid);
+  track_descriptor->set_parent_uuid(thread_track.parent_uuid);
+
+  ThreadDescriptor* thread = track_descriptor->set_thread();
+  thread->set_pid(process_id_);
+  thread->set_tid(thread_id_);
 
   if (!maybe_new_name) {
     maybe_new_name =
@@ -659,22 +732,12 @@ void TrackEventThreadLocalEventSink::EmitThreadDescriptor(
     thread_name_ = maybe_new_name;
     thread_type_ = GetThreadType(maybe_new_name);
   }
-  // TODO(ssid): Adding name and type to thread descriptor adds thread names
-  // from killed processes. The catapult trace importer can't handle different
-  // processes with same process ids. To workaround this issue, we do not emit
-  // name and type when filtering is enabled (when metadata is not emitted).
-  // Thread names will be emitted by trace log at metadata generation step when
-  // filtering is not enabled. See crbug/978093.
-  if (privacy_filtering_enabled_) {
-    thread_descriptor->set_chrome_thread_type(thread_type_);
+  if (!privacy_filtering_enabled_) {
+    thread->set_thread_name(thread_name_);
   }
 
-  if (explicit_timestamp || !trace_event) {
-    // Don't use a user-provided timestamp as a reference timestamp.
-    last_timestamp_ = TRACE_TIME_TICKS_NOW();
-  } else {
-    last_timestamp_ = trace_event->timestamp();
-  }
+  // TODO(eseckler): Switch to a more generic encoding format for counters and
+  // move them out of ThreadDescriptor.
   if (!trace_event || trace_event->thread_timestamp().is_null()) {
     last_thread_time_ = ThreadNow();
   } else {
@@ -682,9 +745,7 @@ void TrackEventThreadLocalEventSink::EmitThreadDescriptor(
     DCHECK_LE(trace_event->thread_timestamp(), ThreadNow());
     last_thread_time_ = trace_event->thread_timestamp();
   }
-  thread_descriptor->set_reference_timestamp_us(
-      last_timestamp_.since_origin().InMicroseconds());
-  thread_descriptor->set_reference_thread_time_us(
+  thread->set_reference_thread_time_us(
       last_thread_time_.since_origin().InMicroseconds());
 
   if (base::trace_event::ThreadInstructionCount::IsSupported()) {
@@ -698,11 +759,14 @@ void TrackEventThreadLocalEventSink::EmitThreadDescriptor(
           base::trace_event::ThreadInstructionCount::Now().ToInternalValue());
       last_thread_instruction_count_ = trace_event->thread_instruction_count();
     }
-    thread_descriptor->set_reference_thread_instruction_count(
+    thread->set_reference_thread_instruction_count(
         last_thread_instruction_count_.ToInternalValue());
   }
 
-  // TODO(eseckler): Fill in remaining fields in ThreadDescriptor.
+  ChromeThreadDescriptor* chrome_thread = track_descriptor->set_chrome_thread();
+  chrome_thread->set_thread_type(thread_type_);
+
+  // TODO(eseckler): Fill in remaining fields in ChromeThreadDescriptor.
 }
 
 void TrackEventThreadLocalEventSink::DoResetIncrementalState(
@@ -714,12 +778,78 @@ void TrackEventThreadLocalEventSink::DoResetIncrementalState(
   interned_source_locations_.ResetEmittedState();
   interned_log_message_bodies_.ResetEmittedState();
 
-  // Emit a new thread descriptor in a separate packet, where we also set
-  // the |incremental_state_cleared| flag.
-  auto trace_packet = trace_writer_->NewTracePacket();
-  trace_packet->set_incremental_state_cleared(true);
-  EmitThreadDescriptor(&trace_packet, trace_event, explicit_timestamp);
+  // Reset the reference timestamp.
+  base::TimeTicks timestamp;
+  if (explicit_timestamp || !trace_event) {
+    timestamp = TRACE_TIME_TICKS_NOW();
+  } else {
+    timestamp = trace_event->timestamp();
+  }
+  last_timestamp_ = timestamp;
+
+  {
+    // Emit a new clock snapshot with this timestamp, and also set the
+    // |incremental_state_cleared| flag and defaults.
+    auto packet = trace_writer_->NewTracePacket();
+    packet->set_sequence_flags(TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
+
+    TracePacketDefaults* tp_defaults = packet->set_trace_packet_defaults();
+    tp_defaults->set_timestamp_clock_id(kClockIdIncremental);
+    TrackEventDefaults* te_defaults = tp_defaults->set_track_event_defaults();
+    // TODO(eseckler): Call ThreadTrack::Current() instead once the client lib
+    // supports Chrome's tids.
+    te_defaults->set_track_uuid(
+        perfetto::ThreadTrack::ForThread(thread_id_).uuid);
+
+    ClockSnapshot* clocks = packet->set_clock_snapshot();
+    // Always reference the boottime timestamps to help trace processor
+    // translate the clocks to boottime more efficiently.
+    ClockSnapshot::Clock* clock_reference = clocks->add_clocks();
+    clock_reference->set_clock_id(ClockSnapshot::Clock::BOOTTIME);
+    if (kTraceClockId == ClockSnapshot::Clock::BOOTTIME) {
+      clock_reference->set_timestamp(timestamp.since_origin().InNanoseconds());
+    } else {
+      int64_t current_boot_nanos = TraceBootTicksNow();
+      int64_t current_monotonic_nanos =
+          TRACE_TIME_TICKS_NOW().since_origin().InNanoseconds();
+      int64_t diff = current_boot_nanos - current_monotonic_nanos;
+      clock_reference->set_timestamp(timestamp.since_origin().InNanoseconds() +
+                                     diff);
+    }
+    // Absolute clock in micros.
+    ClockSnapshot::Clock* clock_absolute = clocks->add_clocks();
+    clock_absolute->set_clock_id(kClockIdAbsolute);
+    clock_absolute->set_timestamp(timestamp.since_origin().InMicroseconds());
+    clock_absolute->set_unit_multiplier_ns(1000u);
+    // Delta-encoded incremental clock in micros.
+    ClockSnapshot::Clock* clock_incremental = clocks->add_clocks();
+    clock_incremental->set_clock_id(kClockIdIncremental);
+    clock_incremental->set_timestamp(timestamp.since_origin().InMicroseconds());
+    clock_incremental->set_unit_multiplier_ns(1000u);
+    clock_incremental->set_is_incremental(true);
+  }
+
+  // Emit a new track descriptor in another packet.
+  auto packet = trace_writer_->NewTracePacket();
+  EmitTrackDescriptor(&packet, trace_event, timestamp);
+
   reset_incremental_state_ = false;
+}
+
+void TrackEventThreadLocalEventSink::SetPacketTimestamp(
+    protozero::MessageHandle<TracePacket>* trace_packet,
+    base::TimeTicks timestamp,
+    bool force_absolute_timestamp) {
+  if (force_absolute_timestamp || last_timestamp_ > timestamp) {
+    (*trace_packet)->set_timestamp(timestamp.since_origin().InMicroseconds());
+    (*trace_packet)->set_timestamp_clock_id(kClockIdAbsolute);
+    return;
+  }
+
+  // Use default timestamp_clock_id (kClockIdIncremental).
+  (*trace_packet)
+      ->set_timestamp((timestamp - last_timestamp_).InMicroseconds());
+  last_timestamp_ = timestamp;
 }
 
 }  // namespace tracing

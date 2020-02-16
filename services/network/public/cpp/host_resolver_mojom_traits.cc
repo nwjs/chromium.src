@@ -143,7 +143,7 @@ base::Optional<net::DnsConfig::SecureDnsMode> FromOptionalSecureDnsMode(
 base::Optional<std::vector<DnsHostPtr>>
 StructTraits<DnsConfigOverridesDataView, net::DnsConfigOverrides>::hosts(
     const net::DnsConfigOverrides& overrides) {
-  if (!overrides.dns_over_https_servers)
+  if (!overrides.hosts)
     return base::nullopt;
 
   std::vector<DnsHostPtr> out_hosts;
@@ -422,11 +422,16 @@ bool EnumTraits<network::mojom::SecureDnsMode, net::DnsConfig::SecureDnsMode>::
   return false;
 }
 
+// static
 bool StructTraits<
     network::mojom::ResolveErrorInfoDataView,
     net::ResolveErrorInfo>::Read(network::mojom::ResolveErrorInfoDataView data,
                                  net::ResolveErrorInfo* out) {
-  *out = net::ResolveErrorInfo(data.error());
+  // There should not be a secure network error if the error code indicates no
+  // error.
+  if (data.error() == net::OK && data.is_secure_network_error())
+    return false;
+  *out = net::ResolveErrorInfo(data.error(), data.is_secure_network_error());
   return true;
 }
 

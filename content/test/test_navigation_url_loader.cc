@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "content/browser/loader/navigation_url_loader_delegate.h"
-#include "content/browser/loader/navigation_url_loader_impl.h"
 #include "content/browser/navigation_subresource_loader_params.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/render_frame_host.h"
@@ -45,7 +44,8 @@ void TestNavigationURLLoader::SimulateServerRedirect(const GURL& redirect_url) {
   redirect_info.status_code = 302;
   redirect_info.new_method = "GET";
   redirect_info.new_url = redirect_url;
-  redirect_info.new_site_for_cookies = redirect_url;
+  redirect_info.new_site_for_cookies =
+      net::SiteForCookies::FromUrl(redirect_url);
   auto response_head = network::mojom::URLResponseHead::New();
   CallOnRequestRedirected(redirect_info, std::move(response_head));
 }
@@ -81,11 +81,11 @@ void TestNavigationURLLoader::CallOnResponseStarted(
           std::move(url_loader_remote),
           url_loader_client_remote.InitWithNewPipeAndPassReceiver());
 
-  delegate_->OnResponseStarted(
-      std::move(url_loader_client_endpoints), std::move(response_head),
-      mojo::ScopedDataPipeConsumerHandle(),
-      NavigationURLLoaderImpl::MakeGlobalRequestID(), false,
-      NavigationDownloadPolicy(), base::nullopt);
+  delegate_->OnResponseStarted(std::move(url_loader_client_endpoints),
+                               std::move(response_head),
+                               mojo::ScopedDataPipeConsumerHandle(),
+                               GlobalRequestID::MakeBrowserInitiated(), false,
+                               NavigationDownloadPolicy(), base::nullopt);
 }
 
 TestNavigationURLLoader::~TestNavigationURLLoader() {}

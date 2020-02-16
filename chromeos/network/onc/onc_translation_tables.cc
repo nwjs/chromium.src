@@ -33,6 +33,9 @@ const FieldTranslationEntry eap_fields[] = {
     {::onc::eap::kSaveCredentials, shill::kSaveCredentialsProperty},
     {::onc::eap::kServerCAPEMs, shill::kEapCaCertPemProperty},
     {::onc::eap::kSubjectMatch, shill::kEapSubjectMatchProperty},
+    // This field is converted during translation, see onc_translator_*.
+    // {::onc::eap::kSubjectAlternativeNameMatch,
+    //  shill::kEapSubjectAlternativeNameMatchProperty},
     {::onc::eap::kTLSVersionMax, shill::kEapTLSVersionMaxProperty},
     {::onc::eap::kUseSystemCAs, shill::kEapUseSystemCasProperty},
     {::onc::eap::kUseProactiveKeyCaching,
@@ -146,7 +149,6 @@ const FieldTranslationEntry wifi_fields[] = {
     {::onc::wifi::kHexSSID, shill::kWifiHexSsid},
     {::onc::wifi::kHiddenSSID, shill::kWifiHiddenSsid},
     {::onc::wifi::kPassphrase, shill::kPassphraseProperty},
-    {::onc::wifi::kRoamThreshold, shill::kWifiRoamThresholdProperty},
     // This field is converted during translation, see onc_translator_*.
     // { ::onc::wifi::kSecurity, shill::kSecurityClassProperty },
     {::onc::wifi::kSignalStrength, shill::kSignalStrengthProperty},

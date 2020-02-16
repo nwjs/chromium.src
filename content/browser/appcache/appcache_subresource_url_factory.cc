@@ -14,7 +14,6 @@
 #include "content/browser/appcache/appcache_request.h"
 #include "content/browser/appcache/appcache_request_handler.h"
 #include "content/browser/appcache/appcache_url_loader_job.h"
-#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/loader/navigation_url_loader_impl.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/browser_thread.h"
@@ -233,17 +232,18 @@ class SubresourceLoader : public network::mojom::URLLoader,
     handler_->MaybeFallbackForSubresourceRedirect(
         redirect_info,
         base::BindOnce(&SubresourceLoader::ContinueOnReceiveRedirect,
-                       weak_factory_.GetWeakPtr(),
-                       network::ResourceResponseHead(response_head)));
+                       weak_factory_.GetWeakPtr(), std::move(response_head)));
   }
 
   void ContinueOnReceiveRedirect(
-      const network::ResourceResponseHead& response_head,
+      network::mojom::URLResponseHeadPtr response_head,
       SingleRequestURLLoaderFactory::RequestHandler handler) {
-    if (handler)
+    if (handler) {
       CreateAndStartAppCacheLoader(std::move(handler));
-    else
-      remote_client_->OnReceiveRedirect(redirect_info_, response_head);
+    } else {
+      remote_client_->OnReceiveRedirect(redirect_info_,
+                                        std::move(response_head));
+    }
   }
 
   void OnUploadProgress(int64_t current_position,
@@ -273,7 +273,7 @@ class SubresourceLoader : public network::mojom::URLLoader,
       return;
     }
     handler_->MaybeFallbackForSubresourceResponse(
-        network::ResourceResponseHead(),
+        network::mojom::URLResponseHead::New(),
         base::BindOnce(&SubresourceLoader::ContinueOnComplete,
                        weak_factory_.GetWeakPtr(), status));
   }
@@ -333,17 +333,18 @@ AppCacheSubresourceURLFactory::AppCacheSubresourceURLFactory(
                           base::Unretained(this)));
 }
 
-AppCacheSubresourceURLFactory::~AppCacheSubresourceURLFactory() {}
+AppCacheSubresourceURLFactory::~AppCacheSubresourceURLFactory() = default;
 
 // static
-void AppCacheSubresourceURLFactory::CreateURLLoaderFactory(
+bool AppCacheSubresourceURLFactory::CreateURLLoaderFactory(
     base::WeakPtr<AppCacheHost> host,
-    mojo::PendingRemote<network::mojom::URLLoaderFactory>* loader_factory) {
+    mojo::PendingReceiver<network::mojom::URLLoaderFactory>
+        loader_factory_receiver) {
   DCHECK(host.get());
   scoped_refptr<network::SharedURLLoaderFactory> network_loader_factory;
   // The partition has shutdown, return without binding |loader_factory|.
   if (!host->service()->partition())
-    return;
+    return false;
   network_loader_factory =
       host->service()
           ->partition()
@@ -353,11 +354,12 @@ void AppCacheSubresourceURLFactory::CreateURLLoaderFactory(
   // Please see OnMojoDisconnect() for details.
   auto* impl = new AppCacheSubresourceURLFactory(
       std::move(network_loader_factory), host);
-  impl->Clone(loader_factory->InitWithNewPipeAndPassReceiver());
+  impl->Clone(std::move(loader_factory_receiver));
 
   // Save the factory in the host to ensure that we don't create it again when
   // the cache is selected, etc.
   host->SetAppCacheSubresourceFactory(impl);
+  return true;
 }
 
 void AppCacheSubresourceURLFactory::CreateLoaderAndStart(
@@ -370,39 +372,22 @@ void AppCacheSubresourceURLFactory::CreateLoaderAndStart(
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  // TODO(943887): Replace HasSecurityState() call with something that can
-  // preserve security state after process shutdown. The security state check
-  // is a temporary solution to avoid crashes when this method is run after the
-  // process associated with |appcache_host_->process_id()| has been destroyed.
-  // It temporarily restores the old behavior of always allowing access if the
-  // process is gone.
-  // See https://crbug.com/910287 for details.
-  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
-  if (request.request_initiator.has_value() &&
-      !request.request_initiator.value().opaque() && appcache_host_ &&
-      !policy->CanAccessDataForOrigin(appcache_host_->process_id(),
-                                      request.request_initiator.value()) &&
-      policy->HasSecurityState(appcache_host_->process_id())) {
-    const char* scheme_exception =
-        GetContentClient()
-            ->browser()
-            ->GetInitiatorSchemeBypassingDocumentBlocking();
-    if (!scheme_exception ||
-        request.request_initiator.value().scheme() != scheme_exception) {
-      static auto* initiator_origin_key = base::debug::AllocateCrashKeyString(
-          "initiator_origin", base::debug::CrashKeySize::Size64);
-      base::debug::SetCrashKeyString(
-          initiator_origin_key, request.request_initiator.value().Serialize());
+  if (request.request_initiator.has_value() && appcache_host_ &&
+      !appcache_host_->security_policy_handle()->CanAccessDataForOrigin(
+          request.request_initiator.value())) {
+    static auto* initiator_origin_key = base::debug::AllocateCrashKeyString(
+        "initiator_origin", base::debug::CrashKeySize::Size64);
+    base::debug::SetCrashKeyString(
+        initiator_origin_key, request.request_initiator.value().Serialize());
 
-      mojo::ReportBadMessage(
-          "APPCACHE_SUBRESOURCE_URL_FACTORY_INVALID_INITIATOR");
-      return;
-    }
+    mojo::ReportBadMessage(
+        "APPCACHE_SUBRESOURCE_URL_FACTORY_INVALID_INITIATOR");
+    return;
   }
 
   // Subresource requests from renderer processes should not be allowed to use
   // network::mojom::FetchRequestMode::kNavigate.
-  if (network::IsNavigationRequestMode(request.mode)) {
+  if (request.mode == network::mojom::RequestMode::kNavigate) {
     mojo::ReportBadMessage("APPCACHE_SUBRESOURCE_URL_FACTORY_NAVIGATE");
     return;
   }

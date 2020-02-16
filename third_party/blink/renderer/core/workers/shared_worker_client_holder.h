@@ -41,6 +41,7 @@
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_client.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_connector.mojom-blink.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_info.mojom-blink.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
@@ -78,7 +79,7 @@ class CORE_EXPORT SharedWorkerClientHolder final
                MessagePortChannel,
                const KURL&,
                mojo::PendingRemote<mojom::blink::BlobURLToken>,
-               const String& name, bool);
+               mojom::blink::WorkerOptionsPtr options, bool);
 
   // Overrides ContextLifecycleObserver.
   void ContextDestroyed(ExecutionContext*) override;

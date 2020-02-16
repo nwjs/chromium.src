@@ -82,6 +82,7 @@
 #include "chrome/browser/chromeos/policy/tpm_auto_update_mode_policy_handler.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "chrome/browser/chromeos/sync/turn_sync_on_helper.h"
 #include "chrome/browser/chromeos/tether/tether_service.h"
 #include "chrome/browser/chromeos/tpm_firmware_update_notification.h"
 #include "chrome/browser/chromeos/u2f_notification.h"
@@ -100,6 +101,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
+#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -108,7 +110,6 @@
 #include "chrome/browser/ui/webui/chromeos/login/discover/modules/discover_module_pin_setup.h"
 #include "chrome/browser/ui/webui/chromeos/login/supervision_transition_screen_handler.h"
 #include "chrome/browser/ui/webui/chromeos/login/terms_of_service_screen_handler.h"
-#include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
@@ -162,7 +163,6 @@
 #include "content/public/common/content_switches.h"
 #include "extensions/common/features/feature_session_type.h"
 #include "rlz/buildflags/buildflags.h"
-#include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/cros_system_api/switches/chrome_switches.h"
 #include "ui/base/ime/chromeos/input_method_descriptor.h"
 #include "ui/base/ime/chromeos/input_method_manager.h"
@@ -652,7 +652,8 @@ void UserSessionManager::RestoreAuthenticationSession(Profile* user_profile) {
 
   auto* identity_manager = IdentityManagerFactory::GetForProfile(user_profile);
   const bool account_id_valid =
-      identity_manager && !identity_manager->GetPrimaryAccountId().empty();
+      identity_manager &&
+      !identity_manager->GetUnconsentedPrimaryAccountId().empty();
   if (!account_id_valid)
     LOG(ERROR) << "No account is associated with sign-in manager on restore.";
   UMA_HISTOGRAM_BOOLEAN("UserSessionManager.RestoreOnCrash.AccountIdValid",
@@ -709,8 +710,8 @@ void UserSessionManager::InitRlz(Profile* profile) {
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::Bind(&CollectRlzParams),
-      base::Bind(&UserSessionManager::InitRlzImpl, AsWeakPtr(), profile));
+      base::BindOnce(&CollectRlzParams),
+      base::BindOnce(&UserSessionManager::InitRlzImpl, AsWeakPtr(), profile));
 #endif
 }
 
@@ -965,7 +966,7 @@ void UserSessionManager::OnSessionRestoreStateChanged(
       user_status =
           (identity_manager &&
            identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-               identity_manager->GetPrimaryAccountInfo().account_id))
+               identity_manager->GetUnconsentedPrimaryAccountInfo().account_id))
               ? user_manager::User::OAUTH2_TOKEN_STATUS_INVALID
               : user_manager::User::OAUTH2_TOKEN_STATUS_VALID;
       break;
@@ -1086,7 +1087,7 @@ void UserSessionManager::ChildAccountStatusReceivedCallback(Profile* profile) {
 void UserSessionManager::StopChildStatusObserving(Profile* profile) {
   if (waiting_for_child_account_status_ &&
       !SessionStartupPref::TypeIsManaged(profile->GetPrefs())) {
-    InitializeStartUrls();
+    InitializeStartUrls(profile);
   }
   waiting_for_child_account_status_ = false;
 }
@@ -1301,7 +1302,9 @@ void UserSessionManager::InitProfilePreferences(
   // Set initial prefs if the user is new, or if the user was already present on
   // the device and the profile was re-created. This can happen e.g. in ext4
   // migration in wipe mode.
-  if (user_manager->IsCurrentUserNew() || profile->IsNewProfile()) {
+  const bool is_new_profile =
+      user_manager->IsCurrentUserNew() || profile->IsNewProfile();
+  if (is_new_profile) {
     SetFirstLoginPrefs(profile, user_context.GetPublicSessionLocale(),
                        user_context.GetPublicSessionInputMethod());
 
@@ -1413,16 +1416,32 @@ void UserSessionManager::InitProfilePreferences(
       // already present in |AccountManager|.
 
       // 2. Make sure that IdentityManager has been notified about it.
-      base::Optional<AccountInfo> maybe_account_info =
+      base::Optional<AccountInfo> account_info =
           identity_manager
               ->FindExtendedAccountInfoForAccountWithRefreshTokenByGaiaId(
                   gaia_id);
-      DCHECK(maybe_account_info.has_value());
-      // Make sure that the google service username is properly set (we do this
-      // on every sign in, not just the first login, to deal with existing
-      // profiles that might not have it set yet).
-      identity_manager->GetPrimaryAccountMutator()->SetPrimaryAccount(
-          maybe_account_info->account_id);
+      DCHECK(account_info.has_value());
+      // TODO(jamescook): Replace switch with IsSplitSettingsSyncEnabled().
+      if (switches::UseUnconsentedPrimaryAccount()) {
+        if (is_new_profile) {
+          if (!identity_manager->HasPrimaryAccount()) {
+            // Set the account without recording browser sync consent.
+            identity_manager->GetPrimaryAccountMutator()
+                ->SetUnconsentedPrimaryAccount(account_info->account_id);
+          }
+        }
+        CHECK(identity_manager->HasUnconsentedPrimaryAccount());
+        CHECK_EQ(identity_manager->GetUnconsentedPrimaryAccountInfo().gaia,
+                 gaia_id);
+      } else {
+        // Set a primary account here because the profile might have been
+        // created with switches::UseUnconsentedPrimaryAccount set. Then the
+        // profile might only have an unconsented primary account.
+        identity_manager->GetPrimaryAccountMutator()->SetPrimaryAccount(
+            account_info->account_id);
+        CHECK(identity_manager->HasPrimaryAccount());
+        CHECK_EQ(identity_manager->GetPrimaryAccountInfo().gaia, gaia_id);
+      }
     } else {
       // Make sure that the google service username is properly set (we do this
       // on every sign in, not just the first login, to deal with existing
@@ -1434,7 +1453,8 @@ void UserSessionManager::InitProfilePreferences(
               gaia_id, user_context.GetAccountId().GetUserEmail());
     }
 
-    CoreAccountId account_id = identity_manager->GetPrimaryAccountId();
+    CoreAccountId account_id =
+        identity_manager->GetUnconsentedPrimaryAccountId();
     VLOG(1) << "Seed IdentityManager with the authenticated account info, "
             << "success=" << !account_id.empty();
 
@@ -1636,14 +1656,6 @@ void UserSessionManager::OnCryptohomeOperationCompleted(Profile* profile,
 }
 
 void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
-  // Record each user's "Page zoom" setting for https://crbug.com/955071.
-  // This can be removed after M79.
-  double zoom_level = profile->GetZoomLevelPrefs()->GetDefaultZoomLevelPref();
-  double zoom_factor = blink::PageZoomLevelToZoomFactor(zoom_level);
-  int zoom_percent = std::floor(zoom_factor * 100);
-  // Zoom can be greater than 100%.
-  UMA_HISTOGRAM_COUNTS_1000("Login.DefaultPageZoom", zoom_percent);
-
   BootTimesRecorder::Get()->AddLoginTimeMarker("TPMOwn-End", false);
 
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
@@ -1768,6 +1780,11 @@ void UserSessionManager::InitializeBrowser(Profile* profile) {
   // If needed, create browser observer to display first run OOBE Goodies page.
   first_run::GoodiesDisplayer::Init();
 
+  if (chromeos::features::IsSplitSettingsSyncEnabled() &&
+      ProfileSyncServiceFactory::IsSyncAllowed(profile)) {
+    turn_sync_on_helper_ = std::make_unique<TurnSyncOnHelper>(profile);
+  }
+
   // Schedule a flush if profile is not ephemeral.
   if (!ProfileHelper::IsEphemeralUserProfile(profile))
     ProfileHelper::Get()->FlushProfile(profile);
@@ -1794,7 +1811,7 @@ void UserSessionManager::ActivateWizard(OobeScreenId screen) {
   host->StartWizard(screen);
 }
 
-void UserSessionManager::InitializeStartUrls() const {
+void UserSessionManager::InitializeStartUrls(Profile* profile) const {
   // Child account status should be known by the time of this call.
   std::vector<std::string> start_urls;
 
@@ -1812,7 +1829,7 @@ void UserSessionManager::InitializeStartUrls() const {
     // background.
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
         ::switches::kSilentLaunch);
-    first_run::MaybeLaunchDialogAfterSessionStart();
+    first_run::MaybeLaunchHelpApp(profile);
   } else {
     for (size_t i = 0; i < start_urls.size(); ++i) {
       base::CommandLine::ForCurrentProcess()->AppendArg(start_urls[i]);
@@ -1855,7 +1872,7 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
       // URLs via policy.
       if (!SessionStartupPref::TypeIsManaged(profile->GetPrefs())) {
         if (child_service->IsChildAccountStatusKnown())
-          InitializeStartUrls();
+          InitializeStartUrls(profile);
         else
           waiting_for_child_account_status_ = true;
       }
@@ -2435,6 +2452,7 @@ bool UserSessionManager::TokenHandlesEnabled() {
 }
 
 void UserSessionManager::Shutdown() {
+  turn_sync_on_helper_.reset();
   token_handle_fetcher_.reset();
   token_handle_util_.reset();
   first_run::GoodiesDisplayer::Delete();

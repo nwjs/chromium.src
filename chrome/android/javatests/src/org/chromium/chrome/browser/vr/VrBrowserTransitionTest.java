@@ -29,16 +29,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.StrictModeContext;
+import org.chromium.base.test.BundleTestRule;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.FlakyTest;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
 import org.chromium.chrome.browser.settings.SettingsActivity;
-import org.chromium.chrome.browser.settings.website.SingleWebsitePreferences;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
+import org.chromium.chrome.browser.settings.website.SingleWebsiteSettings;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.vr.mock.MockVrDaydreamApi;
 import org.chromium.chrome.browser.vr.rules.ChromeTabbedActivityVrTestRule;
@@ -70,6 +72,9 @@ public class VrBrowserTransitionTest {
     // only ever runs in ChromeTabbedActivity.
     @Rule
     public ChromeTabbedActivityVrTestRule mTestRule = new ChromeTabbedActivityVrTestRule();
+
+    @Rule
+    public BundleTestRule mBundleTestRule = new BundleTestRule();
 
     private WebXrVrTestFramework mWebXrVrTestFramework;
     private VrBrowserTestFramework mVrBrowserTestFramework;
@@ -372,7 +377,8 @@ public class VrBrowserTransitionTest {
         NativeUiUtils.enableMockedInput();
         NativeUiUtils.performActionAndWaitForUiQuiescence(() -> {
             TestThreadUtils.runOnUiThreadBlocking(() -> {
-                PreferencesLauncher.launchSettingsPage(context, SingleWebsitePreferences.class);
+                SettingsLauncher.getInstance().launchSettingsPage(
+                        context, SingleWebsiteSettings.class);
             });
         });
         TestThreadUtils.runOnUiThreadBlocking(
@@ -389,7 +395,7 @@ public class VrBrowserTransitionTest {
         VrShellDelegateUtils.getDelegateInstance().overrideDaydreamApiForTesting(mockApiWithDoff);
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            PreferencesLauncher.launchSettingsPage(context, null);
+            SettingsLauncher.getInstance().launchSettingsPage(context);
             VrShellDelegateUtils.getDelegateInstance().acceptDoffPromptForTesting();
         });
         CriteriaHelper.pollUiThread(() -> {
@@ -416,8 +422,8 @@ public class VrBrowserTransitionTest {
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            Intent preferencesIntent = PreferencesLauncher.createIntentForSettingsPage(
-                    context, SingleWebsitePreferences.class.getName());
+            Intent preferencesIntent = SettingsLauncher.getInstance().createIntentForSettingsPage(
+                    context, SingleWebsiteSettings.class.getName());
             Assert.assertFalse("Starting an activity did not trigger DOFF",
                     context.startActivityIfNeeded(preferencesIntent, 0));
         });
@@ -460,6 +466,7 @@ public class VrBrowserTransitionTest {
     @Test
     @Restriction(RESTRICTION_TYPE_VIEWER_DAYDREAM)
     @MediumTest
+    @FlakyTest(message = "crbug.com/1032769")
     public void testIncognitoLearnMoreTriggersDoff() {
         mTestRule.newIncognitoTabFromMenu();
         VrBrowserTransitionUtils.forceEnterVrBrowserOrFail(POLL_TIMEOUT_LONG_MS);

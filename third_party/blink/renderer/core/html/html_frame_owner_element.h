@@ -46,6 +46,7 @@ class WebPluginContainerImpl;
 class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
                                           public FrameOwner {
   USING_GARBAGE_COLLECTED_MIXIN(HTMLFrameOwnerElement);
+
  public:
   ~HTMLFrameOwnerElement() override;
 
@@ -72,6 +73,8 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   EmbeddedContentView* OwnedEmbeddedContentView() const {
     return embedded_content_view_;
   }
+
+  void FrameCrossOriginStatusChanged();
 
   class PluginDisposeSuspendScope {
     STACK_ALLOCATED();
@@ -134,6 +137,11 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
 
   void ParseAttribute(const AttributeModificationParams&) override;
 
+  void SetEmbeddingToken(const base::UnguessableToken& token);
+  const base::Optional<base::UnguessableToken>& GetEmbeddingToken() const {
+    return embedding_token_;
+  }
+
   void Trace(Visitor*) override;
 
  protected:
@@ -171,6 +179,16 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   // changes.
   void UpdateContainerPolicy(Vector<String>* messages = nullptr);
 
+  // Return a document policy required policy for this frame, based on the
+  // frame attributes.
+  virtual DocumentPolicy::FeatureState ConstructRequiredPolicy() const {
+    return DocumentPolicy::FeatureState{};
+  }
+
+  // Update the required policy and notify the frame loader client of any
+  // changes.
+  void UpdateRequiredPolicy();
+
  private:
   // Intentionally private to prevent redundant checks when the type is
   // already HTMLFrameOwnerElement.
@@ -190,6 +208,7 @@ class CORE_EXPORT HTMLFrameOwnerElement : public HTMLElement,
   Member<Frame> content_frame_;
   Member<EmbeddedContentView> embedded_content_view_;
   FramePolicy frame_policy_;
+  base::Optional<base::UnguessableToken> embedding_token_;
 
   Member<LazyLoadFrameObserver> lazy_load_frame_observer_;
   bool should_lazy_load_children_;
@@ -231,7 +250,7 @@ class SubframeLoadingDisabler {
 
   CORE_EXPORT static SubtreeRootSet& DisabledSubtreeRoots();
 
-  Member<Node> root_;
+  Node* root_;
 };
 
 template <>

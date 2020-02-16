@@ -127,11 +127,11 @@ void AssistantCollectUserDataDelegate::OnTermsAndConditionsChanged(
       static_cast<TermsAndConditionsState>(state));
 }
 
-void AssistantCollectUserDataDelegate::OnTermsAndConditionsLinkClicked(
+void AssistantCollectUserDataDelegate::OnTextLinkClicked(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller,
     jint link) {
-  ui_controller_->OnTermsAndConditionsLinkClicked(link);
+  ui_controller_->OnTextLinkClicked(link);
 }
 
 void AssistantCollectUserDataDelegate::OnLoginChoiceChanged(
@@ -142,30 +142,60 @@ void AssistantCollectUserDataDelegate::OnLoginChoiceChanged(
   ui_controller_->OnLoginChoiceChanged(identifier);
 }
 
-void AssistantCollectUserDataDelegate::OnDateTimeRangeStartChanged(
+void AssistantCollectUserDataDelegate::OnDateTimeRangeStartDateChanged(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller,
     jint year,
     jint month,
-    jint day,
-    jint hour,
-    jint minute,
-    jint second) {
-  ui_controller_->OnDateTimeRangeStartChanged(year, month, day, hour, minute,
-                                              second);
+    jint day) {
+  ui_controller_->OnDateTimeRangeStartDateChanged(year, month, day);
 }
 
-void AssistantCollectUserDataDelegate::OnDateTimeRangeEndChanged(
+void AssistantCollectUserDataDelegate::OnDateTimeRangeStartDateCleared(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller) {
+  ui_controller_->OnDateTimeRangeStartDateCleared();
+}
+
+void AssistantCollectUserDataDelegate::OnDateTimeRangeStartTimeSlotChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    jint index) {
+  ui_controller_->OnDateTimeRangeStartTimeSlotChanged(index);
+}
+
+void AssistantCollectUserDataDelegate::OnDateTimeRangeStartTimeSlotCleared(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller) {
+  ui_controller_->OnDateTimeRangeStartTimeSlotCleared();
+}
+
+void AssistantCollectUserDataDelegate::OnDateTimeRangeEndDateChanged(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller,
     jint year,
     jint month,
-    jint day,
-    jint hour,
-    jint minute,
-    jint second) {
-  ui_controller_->OnDateTimeRangeEndChanged(year, month, day, hour, minute,
-                                            second);
+    jint day) {
+  ui_controller_->OnDateTimeRangeEndDateChanged(year, month, day);
+}
+
+void AssistantCollectUserDataDelegate::OnDateTimeRangeEndDateCleared(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller) {
+  ui_controller_->OnDateTimeRangeEndDateCleared();
+}
+
+void AssistantCollectUserDataDelegate::OnDateTimeRangeEndTimeSlotChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    jint index) {
+  ui_controller_->OnDateTimeRangeEndTimeSlotChanged(index);
+}
+
+void AssistantCollectUserDataDelegate::OnDateTimeRangeEndTimeSlotCleared(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller) {
+  ui_controller_->OnDateTimeRangeEndTimeSlotCleared();
 }
 
 void AssistantCollectUserDataDelegate::OnKeyValueChanged(
@@ -175,6 +205,12 @@ void AssistantCollectUserDataDelegate::OnKeyValueChanged(
     const base::android::JavaParamRef<jstring>& jvalue) {
   ui_controller_->OnKeyValueChanged(SafeConvertJavaStringToNative(env, jkey),
                                     SafeConvertJavaStringToNative(env, jvalue));
+}
+
+void AssistantCollectUserDataDelegate::OnTextFocusLost(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller) {
+  ui_controller_->OnTextFocusLost();
 }
 
 base::android::ScopedJavaGlobalRef<jobject>

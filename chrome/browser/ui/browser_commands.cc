@@ -24,6 +24,7 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/media/router/media_router_dialog_controller.h"  // nogncheck
 #include "chrome/browser/media/router/media_router_feature.h"
+#include "chrome/browser/media/router/media_router_metrics.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
@@ -47,8 +48,6 @@
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
-#include "chrome/browser/ui/find_bar/find_tab_helper.h"
-#include "chrome/browser/ui/find_bar/find_types.h"
 #include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help.h"
 #include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help_factory.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
@@ -71,6 +70,8 @@
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/feature_engagement/buildflags.h"
+#include "components/find_in_page/find_tab_helper.h"
+#include "components/find_in_page/find_types.h"
 #include "components/google/core/common/google_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/live_tab_context.h"
@@ -108,7 +109,6 @@
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
-#include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/common/extensions/extension_metrics.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
@@ -166,6 +166,37 @@ translate::TranslateBubbleUiEvent TranslateBubbleResultToUiEvent(
   }
 }
 #endif
+
+// Creates a new tabbed browser window, with the same size, type and profile as
+// |original_browser|'s window, inserts |contents| into it, and shows it.
+void CreateAndShowNewWindowWithContents(
+    std::unique_ptr<content::WebContents> contents,
+    const Browser* original_browser) {
+  Browser* new_browser = nullptr;
+  if (original_browser->deprecated_is_app()) {
+    new_browser = new Browser(Browser::CreateParams::CreateForApp(
+        original_browser->app_name(), original_browser->is_trusted_source(),
+        gfx::Rect(), original_browser->profile(), true));
+  } else {
+    new_browser = new Browser(Browser::CreateParams(
+        original_browser->type(), original_browser->profile(), true));
+  }
+  // Preserve the size of the original window. The new window has already
+  // been given an offset by the OS, so we shouldn't copy the old bounds.
+  BrowserWindow* new_window = new_browser->window();
+  new_window->SetBounds(
+      gfx::Rect(new_window->GetRestoredBounds().origin(),
+                original_browser->window()->GetRestoredBounds().size()));
+
+  // We need to show the browser now.  Otherwise ContainerWin assumes the
+  // WebContents is invisible and won't size it.
+  new_browser->window()->Show();
+
+  // The page transition below is only for the purpose of inserting the tab.
+  new_browser->tab_strip_model()->AddWebContents(std::move(contents), -1,
+                                                 ui::PAGE_TRANSITION_LINK,
+                                                 TabStripModel::ADD_ACTIVE);
+}
 
 }  // namespace
 
@@ -640,10 +671,7 @@ void NewTab(Browser* browser) {
   reopen_tab_iph->NewTabOpened();
 
   if (browser->SupportsWindowFeature(Browser::FEATURE_TABSTRIP)) {
-    TabStripModel* const model = browser->tab_strip_model();
-    const auto group_id = model->GetTabGroupForTab(model->active_index());
-    AddTabAt(browser, GURL(), -1, true, group_id);
-    model->GetActiveWebContents()->RestoreFocus();
+    AddTabAt(browser, GURL(), -1, true);
   } else {
     ScopedTabbedBrowserDisplayer displayer(browser->profile());
     Browser* b = displayer.browser();
@@ -732,6 +760,43 @@ bool CanDuplicateKeyboardFocusedTab(const Browser* browser) {
   return CanDuplicateTabAt(browser, *GetKeyboardFocusedTabIndex(browser));
 }
 
+bool CanMoveActiveTabToNewWindow(Browser* browser) {
+  return CanMoveTabsToNewWindow(browser,
+                                {browser->tab_strip_model()->active_index()});
+}
+
+void MoveActiveTabToNewWindow(Browser* browser) {
+  MoveTabsToNewWindow(browser, {browser->tab_strip_model()->active_index()});
+}
+bool CanMoveTabsToNewWindow(Browser* browser,
+                            const std::vector<int>& tab_indices) {
+  return browser->tab_strip_model()->count() >
+         static_cast<int>(tab_indices.size());
+}
+
+void MoveTabsToNewWindow(Browser* browser,
+                         const std::vector<int>& tab_indices) {
+  if (tab_indices.empty())
+    return;
+
+  Browser* new_browser =
+      new Browser(Browser::CreateParams(browser->profile(), true));
+  int indices_size = tab_indices.size();
+  for (int i = 0; i < indices_size; i++) {
+    // Adjust tab index to account for tabs already moved.
+    int adjusted_index = tab_indices[i] - i;
+    bool pinned = browser->tab_strip_model()->IsTabPinned(adjusted_index);
+    std::unique_ptr<WebContents> contents_move =
+        browser->tab_strip_model()->DetachWebContentsAt(adjusted_index);
+    int add_types = TabStripModel::ADD_ACTIVE |
+                    TabStripModel::ADD_INHERIT_OPENER |
+                    (pinned ? TabStripModel::ADD_PINNED : 0);
+    new_browser->tab_strip_model()->AddWebContents(
+        std::move(contents_move), -1, ui::PAGE_TRANSITION_LINK, add_types);
+  }
+  new_browser->window()->Show();
+}
+
 bool CanCloseTabsToRight(const Browser* browser) {
   return browser->tab_strip_model()->IsContextMenuCommandEnabled(
       browser->tab_strip_model()->active_index(),
@@ -764,30 +829,7 @@ WebContents* DuplicateTabAt(Browser* browser, int index) {
     tab_strip_model->InsertWebContentsAt(index + 1, std::move(contents_dupe),
                                          add_types, old_group);
   } else {
-    Browser* new_browser = nullptr;
-    if (browser->deprecated_is_app()) {
-      new_browser = new Browser(Browser::CreateParams::CreateForApp(
-          browser->app_name(), browser->is_trusted_source(), gfx::Rect(),
-          browser->profile(), true));
-    } else {
-      new_browser = new Browser(
-          Browser::CreateParams(browser->type(), browser->profile(), true));
-    }
-    // Preserve the size of the original window. The new window has already
-    // been given an offset by the OS, so we shouldn't copy the old bounds.
-    BrowserWindow* new_window = new_browser->window();
-    new_window->SetBounds(
-        gfx::Rect(new_window->GetRestoredBounds().origin(),
-                  browser->window()->GetRestoredBounds().size()));
-
-    // We need to show the browser now.  Otherwise ContainerWin assumes the
-    // WebContents is invisible and won't size it.
-    new_browser->window()->Show();
-
-    // The page transition below is only for the purpose of inserting the tab.
-    new_browser->tab_strip_model()->AddWebContents(std::move(contents_dupe), -1,
-                                                   ui::PAGE_TRANSITION_LINK,
-                                                   TabStripModel::ADD_ACTIVE);
+    CreateAndShowNewWindowWithContents(std::move(contents_dupe), browser);
   }
 
   SessionService* session_service =
@@ -812,6 +854,12 @@ void PinTab(Browser* browser) {
       TabStripModel::ContextMenuCommand::CommandTogglePinned);
 }
 
+void GroupTab(Browser* browser) {
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::ContextMenuCommand::CommandToggleGrouped);
+}
+
 void MuteSite(Browser* browser) {
   browser->tab_strip_model()->ExecuteContextMenuCommand(
       browser->tab_strip_model()->active_index(),
@@ -832,6 +880,14 @@ void PinKeyboardFocusedTab(Browser* browser) {
   browser->tab_strip_model()->ExecuteContextMenuCommand(
       *GetKeyboardFocusedTabIndex(browser),
       TabStripModel::ContextMenuCommand::CommandTogglePinned);
+}
+
+void GroupKeyboardFocusedTab(Browser* browser) {
+  if (!HasKeyboardFocusedTab(browser))
+    return;
+  browser->tab_strip_model()->ExecuteContextMenuCommand(
+      *GetKeyboardFocusedTabIndex(browser),
+      TabStripModel::ContextMenuCommand::CommandToggleGrouped);
 }
 
 void DuplicateKeyboardFocusedTab(Browser* browser) {
@@ -1114,7 +1170,7 @@ bool CanRouteMedia(Browser* browser) {
          !IsShowingWebContentsModalDialog(browser);
 }
 
-void RouteMedia(Browser* browser) {
+void RouteMediaInvokedFromAppMenu(Browser* browser) {
   DCHECK(CanRouteMedia(browser));
 
   media_router::MediaRouterDialogController* dialog_controller =
@@ -1123,7 +1179,8 @@ void RouteMedia(Browser* browser) {
   if (!dialog_controller)
     return;
 
-  dialog_controller->ShowMediaRouterDialog();
+  dialog_controller->ShowMediaRouterDialog(
+      media_router::MediaRouterDialogOpenOrigin::APP_MENU);
 }
 
 void EmailPageLocation(Browser* browser) {
@@ -1181,13 +1238,14 @@ bool CanCloseFind(Browser* browser) {
   if (!current_tab)
     return false;
 
-  FindTabHelper* find_helper = FindTabHelper::FromWebContents(current_tab);
+  find_in_page::FindTabHelper* find_helper =
+      find_in_page::FindTabHelper::FromWebContents(current_tab);
   return find_helper ? find_helper->find_ui_active() : false;
 }
 
 void CloseFind(Browser* browser) {
   browser->GetFindBarController()->EndFindSession(
-      FindOnPageSelectionAction::kKeep, FindBoxResultAction::kKeep);
+      find_in_page::SelectionAction::kKeep, find_in_page::ResultAction::kKeep);
 }
 
 void Zoom(Browser* browser, content::PageZoom zoom) {
@@ -1406,20 +1464,6 @@ bool CanViewSource(const Browser* browser) {
                                              ->GetController()
                                              .CanViewSource();
 }
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-void CreateBookmarkAppFromCurrentWebContents(Browser* browser,
-                                             bool force_shortcut_app) {
-  // TODO(alancutter): Legacy metric to remove in ~M80.
-  base::RecordAction(UserMetricsAction("CreateHostedApp"));
-  web_app::CreateWebAppFromCurrentWebContents(browser, force_shortcut_app,
-                                              base::DoNothing());
-}
-
-bool CanCreateBookmarkApp(const Browser* browser) {
-  return web_app::CanCreateWebApp(browser);
-}
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if !defined(TOOLKIT_VIEWS)
 base::Optional<int> GetKeyboardFocusedTabIndex(const Browser* browser) {

@@ -61,12 +61,12 @@ const base::Feature kAutofillEnableVirtualCard{
 // When enabled, will remove the option to save unmasked server cards as
 // FULL_SERVER_CARDs upon successful unmask.
 const base::Feature kAutofillNoLocalSaveOnUnmaskSuccess{
-    "AutofillNoLocalSaveOnUnmaskSuccess", base::FEATURE_DISABLED_BY_DEFAULT};
+    "AutofillNoLocalSaveOnUnmaskSuccess", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled, no local copy of server card will be saved when upload
 // succeeds.
 const base::Feature kAutofillNoLocalSaveOnUploadSuccess{
-    "AutofillNoLocalSaveOnUploadSuccess", base::FEATURE_DISABLED_BY_DEFAULT};
+    "AutofillNoLocalSaveOnUploadSuccess", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled, the Save Card infobar will be dismissed by a user initiated
 // navigation other than one caused by submitted form.
@@ -97,14 +97,6 @@ const base::Feature kAutofillUpstreamAllowAllEmailDomains{
 // cardholder name, if one was found.
 const base::Feature kAutofillUpstreamAlwaysRequestCardholderName{
     "AutofillUpstreamAlwaysRequestCardholderName",
-    base::FEATURE_DISABLED_BY_DEFAULT};
-
-// For experimental purposes; not to be made available in chrome://flags. When
-// enabled and Chrome Upstream requests the cardholder name in the offer-to-save
-// dialog, the field will be blank instead of being prefilled with the name from
-// the user's Google Account.
-const base::Feature kAutofillUpstreamBlankCardholderNameField{
-    "AutofillUpstreamBlankCardholderNameField",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // If enabled, Chrome Upstream can request the user to enter/confirm cardholder

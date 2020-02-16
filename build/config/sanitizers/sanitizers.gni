@@ -16,10 +16,6 @@ declare_args() {
   # See http://clang.llvm.org/docs/HardwareAssistedAddressSanitizerDesign.html
   is_hwasan = false
 
-  # Specify whether to target the platform's copy of the HWASan runtime,
-  # rather than one bundled with the application.
-  hwasan_platform = false
-
   # Compile for Leak Sanitizer to find leaks.
   is_lsan = false
 
@@ -117,12 +113,11 @@ declare_args() {
   archive_seed_corpus = true
 }
 
-# Disable sanitizers for non-default toolchains.
-if (current_toolchain != default_toolchain) {
+# Disable sanitizers for non-target toolchains.
+if (!is_a_target_toolchain) {
   is_asan = false
   is_cfi = false
   is_hwasan = false
-  hwasan_platform = false
   is_lsan = false
   is_msan = false
   is_tsan = false
@@ -159,6 +154,13 @@ declare_args() {
   use_sanitizer_coverage =
       !use_clang_coverage &&
       (use_fuzzing_engine || sanitizer_coverage_flags != "")
+
+  # https://crbug.com/1002058: Code coverage works inside the sandbox via the
+  # help of several helper IPCs. Unfortunately, the sandbox-only path does not
+  # work well for fuzzing builds. Since fuzzing builds already disable the
+  # sandbox when dumping coverage, limit the sandbox-only path to non-fuzzing
+  # builds.
+  use_clang_coverage_inside_sandbox = use_clang_coverage && !use_fuzzing_engine
 
   # Detect overflow/underflow for global objects.
   #
@@ -246,9 +248,6 @@ assert(
     "crbug.com/753445: use_sanitizer_coverage=true is not supported by the " +
         "Chromium mac_clang_x64 toolchain on iOS distribution. Please set " +
         "the argument value to false.")
-
-assert(!hwasan_platform || is_hwasan,
-       "hwasan_platform requires is_hwasan to be set")
 
 # Use these lists of configs to disable instrumenting code that is part of a
 # fuzzer, but which isn't being targeted (such as libprotobuf-mutator, *.pb.cc

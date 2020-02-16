@@ -18,9 +18,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.chrome.browser.widget.selection.SelectableListLayout;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
+import org.chromium.chrome.browser.vr.VrModeProviderImpl;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectableListLayout;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 
 /**
  * This class is used to show the {@link SelectableListLayout} in a {@link PopupWindow}.
@@ -57,7 +58,7 @@ class TabSelectionEditorLayout extends SelectableListLayout<Integer> {
         initializeRecyclerView(adapter, recyclerView);
         mToolbar =
                 (TabSelectionEditorToolbar) initializeToolbar(R.layout.tab_selection_editor_toolbar,
-                        selectionDelegate, 0, 0, 0, null, false, true);
+                        selectionDelegate, 0, 0, 0, null, false, true, new VrModeProviderImpl());
         mParentView = parentView;
     }
 

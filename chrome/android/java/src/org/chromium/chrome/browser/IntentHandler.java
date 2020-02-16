@@ -38,14 +38,16 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
 import org.chromium.chrome.browser.externalnav.IntentWithGesturesHandler;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinatorFactory;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.chrome.browser.webapps.WebappActivity;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.ContentUrlConstants;
@@ -775,19 +777,32 @@ public class IntentHandler {
 
         // We do some logging to determine what kinds of headers developers are inserting.
         IntentHeadersRecorder recorder = shouldLogHeaders ? new IntentHeadersRecorder() : null;
+        boolean shouldBlockNonSafelistedHeaders = ChromeFeatureList.isEnabled(
+                ChromeFeatureList.ANDROID_BLOCK_INTENT_NON_SAFELISTED_HEADERS);
+        IntentHeadersRecorder.HeaderClassifier headerClassifier = shouldBlockNonSafelistedHeaders
+                ? new IntentHeadersRecorder.HeaderClassifier()
+                : null;
+        boolean fromChrome = IntentHandler.wasIntentSenderChrome(intent);
         boolean firstParty = shouldLogHeaders
-                ? IntentHandler.notSecureIsIntentChromeOrFirstParty(intent)
+                ? (IntentHandler.notSecureIsIntentChromeOrFirstParty(intent) && !fromChrome)
                 : false;
 
         for (String key : bundleExtraHeaders.keySet()) {
             String value = bundleExtraHeaders.getString(key);
 
+            if (!HttpUtil.isAllowedHeader(key, value)) continue;
+
             // Strip the custom header that can only be added by ourselves.
             if ("x-chrome-intent-type".equals(key.toLowerCase(Locale.US))) continue;
 
-            if (!HttpUtil.isAllowedHeader(key, value)) continue;
+            if (!fromChrome) {
+                if (shouldLogHeaders) recorder.recordHeader(key, value, firstParty);
 
-            if (shouldLogHeaders) recorder.recordHeader(key, value, firstParty);
+                if (shouldBlockNonSafelistedHeaders
+                        && !headerClassifier.isCorsSafelistedHeader(key, value, firstParty)) {
+                    continue;
+                }
+            }
 
             if (extraHeaders.length() != 0) extraHeaders.append("\n");
             extraHeaders.append(key);
@@ -1117,6 +1132,7 @@ public class IntentHandler {
         if (intent == null) return null;
         String url = getUrlFromVoiceSearchResult(intent);
         if (url == null) url = getUrlForCustomTab(intent);
+        if (url == null) url = getUrlForWebapp(intent);
         if (url == null) url = intent.getDataString();
         if (url == null) return null;
         url = url.trim();
@@ -1128,6 +1144,14 @@ public class IntentHandler {
         Uri data = intent.getData();
         return TextUtils.equals(data.getScheme(), UrlConstants.CUSTOM_TAB_SCHEME)
                 ? data.getQuery() : null;
+    }
+
+    private static String getUrlForWebapp(Intent intent) {
+        if (intent == null || intent.getData() == null) return null;
+        Uri data = intent.getData();
+        return TextUtils.equals(data.getScheme(), WebappActivity.WEBAPP_SCHEME)
+                ? IntentUtils.safeGetStringExtra(intent, ShortcutHelper.EXTRA_URL)
+                : null;
     }
 
     @VisibleForTesting

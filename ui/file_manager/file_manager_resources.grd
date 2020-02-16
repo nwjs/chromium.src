@@ -37,6 +37,7 @@
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_QUICK_PREVIEW_CSS" file="file_manager/foreground/elements/files_quick_view.css" flattenhtml="true" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_QUICK_PREVIEW_HTML" file="file_manager/foreground/elements/files_quick_view.html" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_QUICK_PREVIEW_JS" file="file_manager/foreground/elements/files_quick_view.js" type="BINDATA" />
+      <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_QUICK_COMMON_CSS" file="file_manager/foreground/css/common.css" flattenhtml="true" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_RIPPLE_HTML" file="file_manager/foreground/elements/files_ripple.html" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_RIPPLE_JS" file="file_manager/foreground/elements/files_ripple.js" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_SAFE_AUDIO_WEBVIEW_CONTENT_CSS" file="file_manager/foreground/elements/files_safe_audio_webview_content.css" flattenhtml="true" type="BINDATA" />
@@ -57,7 +58,6 @@
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_TOOLTIP_HTML" file="file_manager/foreground/elements/files_tooltip.html" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_FILES_TOOLTIP_JS" file="file_manager/foreground/elements/files_tooltip.js" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_ICONS_HTML" file="file_manager/foreground/elements/icons.html" type="BINDATA" />
-      <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_XF_ACTIVITY_COMPLETE_JS" file="file_manager/foreground/elements/xf_activity_complete.js" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_XF_BUTTON_JS" file="file_manager/foreground/elements/xf_button.js" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_XF_CIRCULAR_PROGRESS_JS" file="file_manager/foreground/elements/xf_circular_progress.js" type="BINDATA" />
       <include compress="gzip" name="IDR_FILE_MANAGER_ELEMENTS_XF_DISPLAY_PANEL_JS" file="file_manager/foreground/elements/xf_display_panel.js" type="BINDATA" />

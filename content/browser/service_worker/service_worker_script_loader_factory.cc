@@ -19,7 +19,6 @@
 #include "content/browser/service_worker/service_worker_version.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
-#include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 
@@ -34,7 +33,6 @@ ServiceWorkerScriptLoaderFactory::ServiceWorkerScriptLoaderFactory(
       provider_host_(provider_host),
       loader_factory_for_new_scripts_(
           std::move(loader_factory_for_new_scripts)) {
-  DCHECK(provider_host_->IsProviderForServiceWorker());
   DCHECK(loader_factory_for_new_scripts_ ||
          ServiceWorkerVersion::IsInstalled(
              provider_host_->running_hosted_version()->status()));

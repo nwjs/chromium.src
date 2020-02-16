@@ -88,7 +88,6 @@ class COMPONENT_EXPORT(UI_BASE_X) XWindow {
     std::string wm_class_name;
     std::string wm_class_class;
     std::string wm_role_name;
-    base::Optional<int> visual_id;
   };
 
   XWindow();
@@ -221,11 +220,12 @@ class COMPONENT_EXPORT(UI_BASE_X) XWindow {
 
   void UnconfineCursor();
 
-  void SetVisualId(base::Optional<int> visual_id);
-
   void UpdateWindowRegion(XRegion* xregion);
 
   void NotifyBoundsChanged(const gfx::Rect& new_bounds_in_px);
+
+  // Initializes as a status icon window.
+  bool InitializeAsStatusIcon();
 
   // Interface that must be used by a class that inherits the XWindow to receive
   // different messages from X Server.
@@ -235,8 +235,6 @@ class COMPONENT_EXPORT(UI_BASE_X) XWindow {
   virtual void OnXWindowBoundsChanged(const gfx::Rect& size) = 0;
   virtual void OnXWindowCloseRequested() = 0;
   virtual void OnXWindowIsActiveChanged(bool active) = 0;
-  virtual void OnXWindowMapped() = 0;
-  virtual void OnXWindowUnmapped() = 0;
   virtual void OnXWindowWorkspaceChanged() = 0;
   virtual void OnXWindowLostPointerGrab() = 0;
   virtual void OnXWindowLostCapture() = 0;

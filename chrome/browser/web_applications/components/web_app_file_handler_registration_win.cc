@@ -4,10 +4,62 @@
 
 #include "chrome/browser/web_applications/components/web_app_file_handler_registration_win.h"
 
+#include <algorithm>
+#include <iterator>
+#include <set>
+#include <string>
+
 #include "base/base_paths.h"
+#include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/task/post_task.h"
+#include "base/win/windows_version.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/web_applications/components/web_app_file_handler_registration.h"
+#include "chrome/browser/web_applications/components/web_app_shortcut.h"
+#include "chrome/browser/web_applications/components/web_app_shortcut_win.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/install_static/install_util.h"
+#include "chrome/installer/util/shell_util.h"
+#include "net/base/filename_util.h"
+
+namespace {
+
+// Returns the app-specific-launcher filename to be used for |app_name|.
+base::FilePath GetAppSpecificLauncherFilename(const base::string16& app_name) {
+  // Remove any characters that are illegal in Windows filenames.
+  base::string16 sanitized_app_name =
+      web_app::internals::GetSanitizedFileName(app_name).value();
+
+  // On Windows 7, where the launcher has no file extension, replace any '.'
+  // characters with '_' to prevent a portion of the filename from being
+  // interpreted as its extension.
+  const bool is_win_7 = base::win::GetVersion() == base::win::Version::WIN7;
+  if (is_win_7)
+    base::ReplaceChars(sanitized_app_name, L".", L"_", &sanitized_app_name);
+
+  // If |sanitized_app_name| is a reserved filename, prepend '_' to allow its
+  // use as the launcher filename (e.g. "nul" => "_nul"). Prepending is
+  // preferred over appending in order to handle filenames containing '.', as
+  // Windows' logic for checking reserved filenames views characters after '.'
+  // as file extensions, and only the pre-file-extension portion is checked for
+  // legitimacy (e.g. "nul_" is allowed, but "nul.a_" is not).
+  if (net::IsReservedNameOnWindows(sanitized_app_name))
+    sanitized_app_name = L"_" + sanitized_app_name;
+
+  // On Windows 8+, add .exe extension. On Windows 7, where an app's display
+  // name in the Open With menu can't be set programmatically, omit the
+  // extension to use the launcher filename as the app's display name.
+  if (!is_win_7)
+    return base::FilePath(sanitized_app_name).AddExtension(L"exe");
+  return base::FilePath(sanitized_app_name);
+}
+
+}  // namespace
 
 namespace web_app {
 
@@ -18,16 +70,97 @@ bool ShouldRegisterFileHandlersWithOs() {
   return true;
 }
 
+// See https://docs.microsoft.com/en-us/windows/win32/com/-progid--key for
+// the allowed characters in a prog_id. Since the prog_id is stored in the
+// Windows registry, the mapping between a given profile+app_id and a prog_id
+// can not be changed.
+base::string16 GetProgIdForApp(Profile* profile, const AppId& app_id) {
+  base::string16 prog_id = install_static::GetBaseAppId();
+  std::string app_specific_part(
+      base::UTF16ToUTF8(profile->GetPath().BaseName().value()));
+  app_specific_part.append(app_id);
+  uint32_t hash = base::PersistentHash(app_specific_part);
+  prog_id.push_back('.');
+  prog_id.append(base::ASCIIToUTF16(base::NumberToString(hash)));
+  return prog_id;
+}
+
+void RegisterFileHandlersWithOsTask(
+    const AppId& app_id,
+    const std::string& app_name,
+    const base::FilePath& profile_path,
+    const base::string16& app_prog_id,
+    const std::set<std::string>& file_extensions) {
+  base::FilePath web_app_path =
+      GetWebAppDataDirectory(profile_path, app_id, GURL());
+  base::string16 utf16_app_name = base::UTF8ToUTF16(app_name);
+  base::FilePath icon_path =
+      internals::GetIconFilePath(web_app_path, utf16_app_name);
+  base::FilePath pwa_launcher_path = GetChromePwaLauncherPath();
+  base::FilePath app_specific_launcher_path =
+      web_app_path.Append(GetAppSpecificLauncherFilename(utf16_app_name));
+
+  // Create a hard link to the chrome pwa launcher app. Delete any pre-existing
+  // version of the file first.
+  base::DeleteFile(app_specific_launcher_path, /*recursive=*/false);
+  if (!base::CreateWinHardLink(app_specific_launcher_path, pwa_launcher_path) &&
+      !base::CopyFile(pwa_launcher_path, app_specific_launcher_path)) {
+    DPLOG(ERROR) << "Unable to copy the generic PWA launcher";
+    return;
+  }
+  base::CommandLine app_specific_launcher_command(app_specific_launcher_path);
+  app_specific_launcher_command.AppendArg("%1");
+  app_specific_launcher_command.AppendSwitchPath(switches::kProfileDirectory,
+                                                 profile_path.BaseName());
+  app_specific_launcher_command.AppendSwitchASCII(switches::kAppId, app_id);
+  std::set<base::string16> file_exts;
+  // Copy |file_extensions| to a string16 set in O(n) time by hinting that
+  // the appended elements should go at the end of the set.
+  std::transform(file_extensions.begin(), file_extensions.end(),
+                 std::inserter(file_exts, file_exts.end()),
+                 [](const std::string& ext) { return base::UTF8ToUTF16(ext); });
+
+  ShellUtil::AddFileAssociations(
+      app_prog_id, app_specific_launcher_command, utf16_app_name,
+      utf16_app_name + STRING16_LITERAL(" File"), icon_path, file_exts);
+}
+
 void RegisterFileHandlersWithOs(const AppId& app_id,
                                 const std::string& app_name,
                                 Profile* profile,
                                 const std::set<std::string>& file_extensions,
                                 const std::set<std::string>& mime_types) {
-  // TODO(davidbienvenu): Setup shim app and windows registry for this |app_id|.
+  base::PostTask(
+      FROM_HERE,
+      {base::ThreadPool(), base::MayBlock(),
+       base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+      base::BindOnce(&RegisterFileHandlersWithOsTask, app_id, app_name,
+                     profile->GetPath(), GetProgIdForApp(profile, app_id),
+                     file_extensions));
 }
 
 void UnregisterFileHandlersWithOs(const AppId& app_id, Profile* profile) {
-  // TODO(davidbienvenu): Cleanup windows registry entries for this |app_id|.
+  // Need to delete the app-specific-launcher file, since uninstall may not
+  // remove the web application directory. This must be done before cleaning up
+  // the registry, since the app-specific-launcher path is retrieved from the
+  // registry.
+
+  base::string16 prog_id = GetProgIdForApp(profile, app_id);
+  base::FilePath app_specific_launcher_path =
+      ShellUtil::GetApplicationPathForProgId(prog_id);
+
+  ShellUtil::DeleteFileAssociations(prog_id);
+
+  // Need to delete the hardlink file as well, since extension uninstall
+  // by default doesn't remove the web application directory.
+  if (!app_specific_launcher_path.empty()) {
+    base::PostTask(
+        FROM_HERE,
+        {base::ThreadPool(), base::MayBlock(),
+         base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+        base::BindOnce(IgnoreResult(&base::DeleteFile),
+                       app_specific_launcher_path, /*recursively=*/false));
+  }
 }
 
 void UpdateChromeExePath(const base::FilePath& user_data_dir) {

@@ -18,6 +18,7 @@
 #include "extensions/browser/api/declarative_net_request/constants.h"
 #include "extensions/browser/api/declarative_net_request/test_utils.h"
 #include "extensions/common/api/declarative_net_request.h"
+#include "extensions/common/api/declarative_net_request/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/features/feature_channel.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -43,6 +44,7 @@ std::unique_ptr<dnr_api::Redirect> MakeRedirectUrl(const char* redirect_url) {
 
 dnr_api::Rule CreateGenericParsedRule() {
   dnr_api::Rule rule;
+  rule.priority = std::make_unique<int>(kMinValidPriority);
   rule.id = kMinValidID;
   rule.condition.url_filter = std::make_unique<std::string>("filter");
   rule.action.type = dnr_api::RULE_ACTION_TYPE_BLOCK;
@@ -93,23 +95,27 @@ TEST_F(IndexedRuleTest, PriorityParsing) {
   } cases[] = {
       {dnr_api::RULE_ACTION_TYPE_REDIRECT,
        std::make_unique<int>(kMinValidPriority - 1),
-       ParseResult::ERROR_INVALID_REDIRECT_RULE_PRIORITY, kDefaultPriority},
+       ParseResult::ERROR_INVALID_RULE_PRIORITY, kDefaultPriority},
       {dnr_api::RULE_ACTION_TYPE_REDIRECT,
        std::make_unique<int>(kMinValidPriority), ParseResult::SUCCESS,
        kMinValidPriority},
+      {dnr_api::RULE_ACTION_TYPE_REDIRECT, nullptr,
+       ParseResult::ERROR_EMPTY_RULE_PRIORITY, kDefaultPriority},
       {dnr_api::RULE_ACTION_TYPE_REDIRECT,
        std::make_unique<int>(kMinValidPriority + 1), ParseResult::SUCCESS,
        kMinValidPriority + 1},
-      {dnr_api::RULE_ACTION_TYPE_REDIRECT, nullptr,
-       ParseResult::ERROR_EMPTY_REDIRECT_RULE_PRIORITY, kDefaultPriority},
       {dnr_api::RULE_ACTION_TYPE_UPGRADESCHEME,
        std::make_unique<int>(kMinValidPriority - 1),
-       ParseResult::ERROR_INVALID_UPGRADE_RULE_PRIORITY, kDefaultPriority},
+       ParseResult::ERROR_INVALID_RULE_PRIORITY, kDefaultPriority},
       {dnr_api::RULE_ACTION_TYPE_UPGRADESCHEME,
        std::make_unique<int>(kMinValidPriority), ParseResult::SUCCESS,
        kMinValidPriority},
-      {dnr_api::RULE_ACTION_TYPE_UPGRADESCHEME, nullptr,
-       ParseResult::ERROR_EMPTY_UPGRADE_RULE_PRIORITY, kDefaultPriority},
+      {dnr_api::RULE_ACTION_TYPE_BLOCK,
+       std::make_unique<int>(kMinValidPriority - 1),
+       ParseResult::ERROR_INVALID_RULE_PRIORITY, kDefaultPriority},
+      {dnr_api::RULE_ACTION_TYPE_BLOCK,
+       std::make_unique<int>(kMinValidPriority), ParseResult::SUCCESS,
+       kMinValidPriority},
   };
 
   for (size_t i = 0; i < base::size(cases); ++i) {
@@ -128,13 +134,20 @@ TEST_F(IndexedRuleTest, PriorityParsing) {
 
     EXPECT_EQ(cases[i].expected_result, result);
     if (result == ParseResult::SUCCESS)
-      EXPECT_EQ(cases[i].expected_priority, indexed_rule.priority);
+      EXPECT_EQ(ComputeIndexedRulePriority(cases[i].expected_priority,
+                                           cases[i].action_type),
+                indexed_rule.priority);
   }
 
-  // Ensure priority is ignored for non-redirect rules.
+  // Ensure priority is ignored for non-before-request rules.
   {
     dnr_api::Rule rule = CreateGenericParsedRule();
+    rule.action.type = dnr_api::RULE_ACTION_TYPE_REMOVEHEADERS;
     rule.priority = std::make_unique<int>(5);
+    rule.action.remove_headers_list =
+        std::make_unique<std::vector<dnr_api::RemoveHeaderType>>(
+            std::vector<dnr_api::RemoveHeaderType>{
+                dnr_api::REMOVE_HEADER_TYPE_COOKIE});
     IndexedRule indexed_rule;
     ParseResult result = IndexedRule::CreateIndexedRule(
         std::move(rule), GetBaseURL(), &indexed_rule);
@@ -431,7 +444,6 @@ TEST_F(IndexedRuleTest, RedirectUrlParsing) {
     dnr_api::Rule rule = CreateGenericParsedRule();
     rule.action.redirect = MakeRedirectUrl(cases[i].redirect_url);
     rule.action.type = dnr_api::RULE_ACTION_TYPE_REDIRECT;
-    rule.priority = std::make_unique<int>(kMinValidPriority);
 
     IndexedRule indexed_rule;
     ParseResult result = IndexedRule::CreateIndexedRule(
@@ -613,7 +625,6 @@ TEST_F(IndexedRuleTest, RedirectParsing) {
     SCOPED_TRACE(base::StringPrintf("Testing case[%" PRIuS "]", i));
     dnr_api::Rule rule = CreateGenericParsedRule();
     rule.action.type = dnr_api::RULE_ACTION_TYPE_REDIRECT;
-    rule.priority = std::make_unique<int>(kMinValidPriority);
 
     base::Optional<base::Value> redirect_val =
         base::JSONReader::Read(cases[i].redirect_dictionary_json);
@@ -766,6 +777,59 @@ TEST_F(IndexedRuleTest, MultipleRedirectKeys) {
   EXPECT_FALSE(indexed_rule.url_transform);
   EXPECT_FALSE(indexed_rule.regex_substitution);
   EXPECT_EQ("http://google.com", indexed_rule.redirect_url);
+}
+
+TEST_F(IndexedRuleTest, InvalidAllowAllRequestsResourceType) {
+  using ResourceTypeVec = std::vector<dnr_api::ResourceType>;
+
+  struct {
+    ResourceTypeVec resource_types;
+    ResourceTypeVec excluded_resource_types;
+    const ParseResult expected_result;
+    // Only valid if |expected_result| is SUCCESS.
+    const uint16_t expected_element_types;
+  } cases[] = {
+      {{}, {}, ParseResult::ERROR_INVALID_ALLOW_ALL_REQUESTS_RESOURCE_TYPE, 0},
+      {{dnr_api::RESOURCE_TYPE_SUB_FRAME},
+       {dnr_api::RESOURCE_TYPE_SCRIPT},
+       ParseResult::SUCCESS,
+       flat_rule::ElementType_SUBDOCUMENT},
+      {{dnr_api::RESOURCE_TYPE_SCRIPT, dnr_api::RESOURCE_TYPE_MAIN_FRAME},
+       {},
+       ParseResult::ERROR_INVALID_ALLOW_ALL_REQUESTS_RESOURCE_TYPE,
+       0},
+      {{dnr_api::RESOURCE_TYPE_MAIN_FRAME, dnr_api::RESOURCE_TYPE_SUB_FRAME},
+       {},
+       ParseResult::SUCCESS,
+       flat_rule::ElementType_MAIN_FRAME | flat_rule::ElementType_SUBDOCUMENT},
+      {{dnr_api::RESOURCE_TYPE_MAIN_FRAME},
+       {},
+       ParseResult::SUCCESS,
+       flat_rule::ElementType_MAIN_FRAME},
+  };
+
+  for (size_t i = 0; i < base::size(cases); ++i) {
+    SCOPED_TRACE(base::StringPrintf("Testing case[%" PRIuS "]", i));
+    dnr_api::Rule rule = CreateGenericParsedRule();
+
+    if (cases[i].resource_types.empty())
+      rule.condition.resource_types = nullptr;
+    else
+      rule.condition.resource_types =
+          std::make_unique<ResourceTypeVec>(cases[i].resource_types);
+
+    rule.condition.excluded_resource_types =
+        std::make_unique<ResourceTypeVec>(cases[i].excluded_resource_types);
+    rule.action.type = dnr_api::RULE_ACTION_TYPE_ALLOWALLREQUESTS;
+
+    IndexedRule indexed_rule;
+    ParseResult result = IndexedRule::CreateIndexedRule(
+        std::move(rule), GetBaseURL(), &indexed_rule);
+
+    EXPECT_EQ(cases[i].expected_result, result);
+    if (result == ParseResult::SUCCESS)
+      EXPECT_EQ(cases[i].expected_element_types, indexed_rule.element_types);
+  }
 }
 
 }  // namespace

@@ -25,7 +25,7 @@ source_set("ssl") {
     "//base",
     "//base:i18n",
     "//components/autofill/ios/form_util",
-    "//components/captive_portal",
+    "//components/captive_portal/core",
     "//components/security_interstitials/core",
     "//components/security_state/core",
     "//components/security_state/ios",
@@ -40,6 +40,7 @@ source_set("ssl") {
     "//ios/web/common",
     "//ios/web/public",
     "//ios/web/public/security",
+    "//ios/web/public/session",
     "//net",
     "//ui/base",
     "//url",
@@ -52,9 +53,7 @@ source_set("feature_flags") {
     "captive_portal_features.cc",
     "captive_portal_features.h",
   ]
-  deps = [
-    "//base",
-  ]
+  deps = [ "//base" ]
 }
 
 source_set("unit_tests") {

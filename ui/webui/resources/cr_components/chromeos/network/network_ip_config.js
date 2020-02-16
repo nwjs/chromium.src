@@ -34,7 +34,7 @@ const getRoutingPrefixAsNetmask = function(prefixLength) {
       netmask += '.';
     }
     let value = 0;
-    if (remainder != 0) {
+    if (remainder !== 0) {
       value = ((2 << (remainder - 1)) - 1) << (8 - remainder);
     }
     netmask += value.toString();
@@ -51,34 +51,34 @@ const getRoutingPrefixAsLength = function(netmask) {
   'use strict';
   let prefixLength = 0;
   const tokens = netmask.split('.');
-  if (tokens.length != 4) {
+  if (tokens.length !== 4) {
     return -1;
   }
   for (let i = 0; i < tokens.length; ++i) {
     const token = tokens[i];
     // If we already found the last mask and the current one is not
     // '0' then the netmask is invalid. For example, 255.224.255.0
-    if (prefixLength / 8 != i) {
-      if (token != '0') {
+    if (prefixLength / 8 !== i) {
+      if (token !== '0') {
         return chromeos.networkConfig.mojom.NO_ROUTING_PREFIX;
       }
-    } else if (token == '255') {
+    } else if (token === '255') {
       prefixLength += 8;
-    } else if (token == '254') {
+    } else if (token === '254') {
       prefixLength += 7;
-    } else if (token == '252') {
+    } else if (token === '252') {
       prefixLength += 6;
-    } else if (token == '248') {
+    } else if (token === '248') {
       prefixLength += 5;
-    } else if (token == '240') {
+    } else if (token === '240') {
       prefixLength += 4;
-    } else if (token == '224') {
+    } else if (token === '224') {
       prefixLength += 3;
-    } else if (token == '192') {
+    } else if (token === '192') {
       prefixLength += 2;
-    } else if (token == '128') {
+    } else if (token === '128') {
       prefixLength += 1;
-    } else if (token == '0') {
+    } else if (token === '0') {
       prefixLength += 0;
     } else {
       // mask is not a valid number.
@@ -124,7 +124,7 @@ Polymer({
      */
     ipConfigFields_: {
       type: Array,
-      value: function() {
+      value() {
         return [
           'ipv4.ipAddress',
           'ipv4.routingPrefix',
@@ -143,13 +143,13 @@ Polymer({
   savedStaticIp_: undefined,
 
   /** @private */
-  managedPropertiesChanged_: function(newValue, oldValue) {
+  managedPropertiesChanged_(newValue, oldValue) {
     if (!this.managedProperties) {
       return;
     }
 
     const properties = this.managedProperties;
-    if (newValue.guid != (oldValue && oldValue.guid)) {
+    if (newValue.guid !== (oldValue && oldValue.guid)) {
       this.savedStaticIp_ = undefined;
     }
 
@@ -157,7 +157,7 @@ Polymer({
     if (properties.ipAddressConfigType) {
       const ipConfigType =
           OncMojo.getActiveValue(properties.ipAddressConfigType);
-      this.automatic_ = ipConfigType != 'Static';
+      this.automatic_ = ipConfigType !== 'Static';
     }
 
     if (properties.ipConfigs || properties.staticIpConfig) {
@@ -166,13 +166,15 @@ Polymer({
           OncMojo.getIPConfigForType(properties, 'IPv4'));
       let ipv6 = this.getIPConfigUIProperties_(
           OncMojo.getIPConfigForType(properties, 'IPv6'));
-      // If connected and the IP address is automatic and set, show 'Loading' if
+
+      // If connected and the IP address is automatic and set, show message if
       // the ipv6 address is not set.
       if (OncMojo.connectionStateIsConnected(properties.connectionState) &&
           this.automatic_ && ipv4 && ipv4.ipAddress) {
         ipv6 = ipv6 || {};
-        ipv6.ipAddress = ipv6.ipAddress || this.i18n('loading');
+        ipv6.ipAddress = ipv6.ipAddress || this.i18n('ipAddressNotAvailable');
       }
+
       this.ipConfig_ = {ipv4: ipv4, ipv6: ipv6};
     } else {
       this.ipConfig_ = undefined;
@@ -185,13 +187,13 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  canChangeIPConfigType_: function(managedProperties) {
+  canChangeIPConfigType_(managedProperties) {
     const ipConfigType = managedProperties.ipAddressConfigType;
     return !ipConfigType || !this.isNetworkPolicyEnforced(ipConfigType);
   },
 
   /** @private */
-  onAutomaticChange_: function() {
+  onAutomaticChange_() {
     if (!this.automatic_) {
       const defaultIpv4 = {
         gateway: '192.168.1.1',
@@ -229,14 +231,14 @@ Polymer({
    *     defined.
    * @private
    */
-  getIPConfigUIProperties_: function(ipconfig) {
+  getIPConfigUIProperties_(ipconfig) {
     if (!ipconfig) {
       return undefined;
     }
     const result = {};
     for (const key in ipconfig) {
       const value = ipconfig[key];
-      if (key == 'routingPrefix') {
+      if (key === 'routingPrefix') {
         const netmask = getRoutingPrefixAsNetmask(value);
         if (netmask !== undefined) {
           result.routingPrefix = netmask;
@@ -255,13 +257,13 @@ Polymer({
    *     length.
    * @private
    */
-  getIPConfigProperties_: function(ipconfig) {
+  getIPConfigProperties_(ipconfig) {
     const result = {};
     for (const key in ipconfig) {
       const value = ipconfig[key];
-      if (key == 'routingPrefix') {
+      if (key === 'routingPrefix') {
         const routingPrefix = getRoutingPrefixAsLength(value);
-        if (routingPrefix != chromeos.networkConfig.mojom.NO_ROUTING_PREFIX) {
+        if (routingPrefix !== chromeos.networkConfig.mojom.NO_ROUTING_PREFIX) {
           result.routingPrefix = routingPrefix;
         }
       } else {
@@ -275,12 +277,12 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  hasIpConfigFields_: function() {
+  hasIpConfigFields_() {
     if (!this.ipConfigFields_) {
       return false;
     }
     for (let i = 0; i < this.ipConfigFields_.length; ++i) {
-      if (this.get(this.ipConfigFields_[i], this.ipConfig_) != undefined) {
+      if (this.get(this.ipConfigFields_[i], this.ipConfig_) !== undefined) {
         return true;
       }
     }
@@ -293,7 +295,7 @@ Polymer({
    *     for the given path.
    * @private
    */
-  getIPFieldEditType_: function(path) {
+  getIPFieldEditType_(path) {
     if (!this.managedProperties) {
       return undefined;
     }
@@ -307,7 +309,7 @@ Polymer({
    * @return {Object} An object with the edit type for each editable field.
    * @private
    */
-  getIPEditFields_: function() {
+  getIPEditFields_() {
     if (this.automatic_ || !this.managedProperties) {
       return {};
     }
@@ -325,7 +327,7 @@ Polymer({
    *     network-property-list change event.
    * @private
    */
-  onIPChange_: function(event) {
+  onIPChange_(event) {
     if (!this.ipConfig_) {
       return;
     }
@@ -337,7 +339,7 @@ Polymer({
   },
 
   /** @private */
-  sendStaticIpConfig_: function() {
+  sendStaticIpConfig_() {
     // This will also set IPAddressConfigType to STATIC.
     this.fire('ip-change', {
       field: 'staticIpConfig',

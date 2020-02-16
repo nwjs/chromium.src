@@ -9,9 +9,10 @@
 
 #include "base/callback_forward.h"
 #include "chrome/browser/installable/installable_metrics.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 
 struct WebApplicationInfo;
+class GURL;
 
 namespace content {
 class WebContents;
@@ -56,12 +57,19 @@ class InstallFinalizer {
   virtual void FinalizeUpdate(const WebApplicationInfo& web_app_info,
                               InstallFinalizedCallback callback) = 0;
 
-  // Removes the external app for |app_url| from disk and registrar. Fails if
-  // there is no installed external app for |app_url|.
+  // Removes |external_install_source| from |app_id|. If no more interested
+  // sources left, deletes the app from disk and registrar.
   virtual void UninstallExternalWebApp(
+      const AppId& app_id,
+      ExternalInstallSource external_install_source,
+      UninstallWebAppCallback callback) = 0;
+
+  // Removes the external app for |app_url| from disk and registrar. Fails if
+  // there is no installed external app for |app_url|. Virtual for testing.
+  virtual void UninstallExternalWebAppByUrl(
       const GURL& app_url,
       ExternalInstallSource external_install_source,
-      UninstallWebAppCallback) = 0;
+      UninstallWebAppCallback callback);
 
   virtual bool CanUserUninstallFromSync(const AppId& app_id) const = 0;
   virtual void UninstallWebAppFromSyncByUser(const AppId& app_id,

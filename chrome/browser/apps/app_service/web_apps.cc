@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "ash/public/cpp/app_list/app_list_metrics.h"
+#include "ash/public/cpp/app_menu_constants.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/metrics/histogram_macros.h"
@@ -16,6 +17,7 @@
 #include "base/strings/string16.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/apps/app_service/app_icon_factory.h"
+#include "chrome/browser/apps/app_service/menu_util.h"
 #include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/extensions/gfx_utils.h"
@@ -31,13 +33,15 @@
 #include "chrome/browser/ui/web_applications/web_app_ui_manager_impl.h"
 #include "chrome/browser/web_applications/components/install_finalizer.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
+#include "chrome/browser/web_applications/components/web_app_utils.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/services/app_service/public/cpp/intent_filter_util.h"
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "components/arc/arc_service_manager.h"
@@ -100,7 +104,6 @@ namespace apps {
 WebApps::WebApps(const mojo::Remote<apps::mojom::AppService>& app_service,
                  Profile* profile)
     : profile_(profile),
-      provider_(web_app::WebAppProvider::Get(profile)),
       app_service_(nullptr) {
   Initialize(app_service);
 }
@@ -125,7 +128,8 @@ void WebApps::Shutdown() {
     arc_prefs_ = nullptr;
   }
 
-  if (profile_) {
+  if (provider_) {
+    registrar_observer_.Remove(&provider_->registrar());
     content_settings_observer_.RemoveAll();
   }
 }
@@ -145,13 +149,19 @@ void WebApps::ObserveArc() {
 void WebApps::Initialize(
     const mojo::Remote<apps::mojom::AppService>& app_service) {
   DCHECK(profile_);
+  if (!web_app::AreWebAppsEnabled(profile_)) {
+    return;
+  }
+
+  provider_ = web_app::WebAppProvider::Get(profile_);
   DCHECK(provider_);
-  app_service->RegisterPublisher(receiver_.BindNewPipeAndPassRemote(),
-                                 apps::mojom::AppType::kWeb);
 
   registrar_observer_.Add(&provider_->registrar());
   content_settings_observer_.Add(
       HostContentSettingsMapFactory::GetForProfile(profile_));
+
+  app_service->RegisterPublisher(receiver_.BindNewPipeAndPassRemote(),
+                                 apps::mojom::AppType::kWeb);
   app_service_ = app_service.get();
 }
 
@@ -215,30 +225,12 @@ void WebApps::Launch(const std::string& app_id,
 
   web_app::DisplayMode display_mode =
       GetRegistrar().GetAppEffectiveDisplayMode(app_id);
-  apps::mojom::LaunchContainer fallback_container =
-      apps::mojom::LaunchContainer::kLaunchContainerNone;
-
-  switch (display_mode) {
-    case web_app::DisplayMode::kBrowser:
-      fallback_container = apps::mojom::LaunchContainer::kLaunchContainerTab;
-      break;
-    case web_app::DisplayMode::kMinimalUi:
-      fallback_container = apps::mojom::LaunchContainer::kLaunchContainerWindow;
-      break;
-    case web_app::DisplayMode::kStandalone:
-      fallback_container = apps::mojom::LaunchContainer::kLaunchContainerWindow;
-      break;
-    case web_app::DisplayMode::kFullscreen:
-      fallback_container = apps::mojom::LaunchContainer::kLaunchContainerWindow;
-      break;
-    case web_app::DisplayMode::kUndefined:
-      break;
-  }
 
   AppLaunchParams params = CreateAppIdLaunchParamsWithEventFlags(
       web_app->app_id(), event_flags,
       apps::mojom::AppLaunchSource::kSourceAppLauncher, display_id,
-      fallback_container);
+      /*fallback_container=*/
+      web_app::ConvertDisplayModeToAppLaunchContainer(display_mode));
 
   // The app will be created for the currently active profile.
   apps::LaunchService::Get(profile_)->OpenApplication(params);
@@ -366,6 +358,40 @@ void WebApps::UnpauseApps(const std::string& app_id) {
   SetIconEffect(app_id);
 }
 
+void WebApps::GetMenuModel(const std::string& app_id,
+                           apps::mojom::MenuType menu_type,
+                           int64_t display_id,
+                           GetMenuModelCallback callback) {
+  const web_app::WebApp* web_app = GetWebApp(app_id);
+  if (!web_app) {
+    std::move(callback).Run(apps::mojom::MenuItems::New());
+    return;
+  }
+
+  const bool is_system_web_app = web_app->IsSystemApp();
+  apps::mojom::MenuItemsPtr menu_items = apps::mojom::MenuItems::New();
+
+  if (!is_system_web_app) {
+    CreateOpenNewSubmenu(
+        menu_type,
+        web_app->display_mode() == web_app::DisplayMode::kStandalone
+            ? IDS_APP_LIST_CONTEXT_MENU_NEW_WINDOW
+            : IDS_APP_LIST_CONTEXT_MENU_NEW_TAB,
+        &menu_items);
+  }
+
+  if (provider_->install_finalizer().CanUserUninstallExternalApp(app_id)) {
+    AddCommandItem(ash::UNINSTALL, IDS_APP_LIST_UNINSTALL_ITEM, &menu_items);
+  }
+
+  if (!is_system_web_app) {
+    AddCommandItem(ash::SHOW_APP_INFO, IDS_APP_CONTEXT_MENU_SHOW_INFO,
+                   &menu_items);
+  }
+
+  std::move(callback).Run(std::move(menu_items));
+}
+
 void WebApps::OpenNativeSettings(const std::string& app_id) {
   if (!profile_) {
     return;
@@ -422,7 +448,7 @@ void WebApps::OnWebAppInstalled(const web_app::AppId& app_id) {
   }
 }
 
-void WebApps::OnWebAppUninstalled(const web_app::AppId& app_id) {
+void WebApps::OnWebAppWillBeUninstalled(const web_app::AppId& app_id) {
   const web_app::WebApp* web_app = GetWebApp(app_id);
   if (!web_app) {
     return;
@@ -602,11 +628,13 @@ IconEffects WebApps::GetIconEffects(const web_app::WebApp* web_app) {
       static_cast<IconEffects>(icon_effects | IconEffects::kResizeAndPad);
   if (extensions::util::ShouldApplyChromeBadgeToWebApp(profile_,
                                                        web_app->app_id())) {
-    icon_effects = static_cast<IconEffects>(icon_effects | IconEffects::kBadge);
+    icon_effects =
+        static_cast<IconEffects>(icon_effects | IconEffects::kChromeBadge);
   }
 #endif
   if (!web_app->is_locally_installed()) {
-    icon_effects = static_cast<IconEffects>(icon_effects | IconEffects::kGray);
+    icon_effects =
+        static_cast<IconEffects>(icon_effects | IconEffects::kBlocked);
   }
   icon_effects =
       static_cast<IconEffects>(icon_effects | IconEffects::kRoundCorners);

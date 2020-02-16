@@ -53,10 +53,10 @@
 #include "third_party/skia/include/effects/SkGradientShader.h"
 #include "third_party/skia/include/effects/SkImageFilters.h"
 #include "third_party/skia/include/effects/SkOverdrawColorFilter.h"
+#include "third_party/skia/include/effects/SkRuntimeEffect.h"
 #include "third_party/skia/include/effects/SkShaderMaskFilter.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/third_party/skcms/skcms.h"
-#include "third_party/skia/src/core/SkColorFilterPriv.h"
 #include "ui/gfx/color_transform.h"
 #include "ui/gfx/geometry/axis_transform2d.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -649,9 +649,13 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
 SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
                            OutputSurface* output_surface,
                            DisplayResourceProvider* resource_provider,
+                           OverlayProcessorInterface* overlay_processor,
                            SkiaOutputSurface* skia_output_surface,
                            DrawMode mode)
-    : DirectRenderer(settings, output_surface, resource_provider),
+    : DirectRenderer(settings,
+                     output_surface,
+                     resource_provider,
+                     overlay_processor),
       draw_mode_(mode),
       skia_output_surface_(skia_output_surface) {
   switch (draw_mode_) {
@@ -792,7 +796,7 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
 
   switch (draw_mode_) {
     case DrawMode::DDL: {
-      skia_output_surface_->SkiaSwapBuffers(std::move(output_frame));
+      skia_output_surface_->SwapBuffers(std::move(output_frame));
       break;
     }
     case DrawMode::SKPRECORD: {
@@ -810,6 +814,10 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
   }
 
   swap_buffer_rect_ = gfx::Rect();
+}
+
+void SkiaRenderer::SwapBuffersSkipped() {
+  skia_output_surface_->SwapBuffersSkipped();
 }
 
 void SkiaRenderer::SwapBuffersComplete() {
@@ -838,7 +846,8 @@ void SkiaRenderer::BindFramebufferToOutputSurface() {
   switch (draw_mode_) {
     case DrawMode::DDL: {
       root_canvas_ = skia_output_surface_->BeginPaintCurrentFrame();
-      DCHECK(root_canvas_);
+      // TODO(https://crbug.com/1038107): Handle BeginPaintCurrentFrame() fail.
+      CHECK(root_canvas_);
       break;
     }
     case DrawMode::SKPRECORD: {
@@ -2184,20 +2193,15 @@ sk_sp<SkColorFilter> SkiaRenderer::GetColorFilter(const gfx::ColorSpace& src,
         sdr_white_level / gfx::ColorSpace::kDefaultSDRWhiteLevel);
   }
 
-  std::unique_ptr<SkRuntimeColorFilterFactory>& factory =
-      color_filter_cache_[dst][adjusted_src];
-  if (!factory) {
+  sk_sp<SkRuntimeEffect>& effect = color_filter_cache_[dst][adjusted_src];
+  if (!effect) {
     std::unique_ptr<gfx::ColorTransform> transform =
         gfx::ColorTransform::NewColorTransform(
             adjusted_src, dst, gfx::ColorTransform::Intent::INTENT_PERCEPTUAL);
-    // TODO(backer): Support lookup table transforms (e.g.
-    // COLOR_CONVERSION_MODE_LUT).
-    if (!transform->CanGetShaderSource())
-      return nullptr;
 
     const char* hdr = R"(
-layout(ctype=float) uniform half offset;
-layout(ctype=float) uniform half multiplier;
+uniform half offset;
+uniform half multiplier;
 
 void main(inout half4 color) {
   // un-premultiply alpha
@@ -2215,8 +2219,9 @@ void main(inout half4 color) {
 
     std::string shader = hdr + transform->GetSkShaderSource() + ftr;
 
-    factory.reset(new SkRuntimeColorFilterFactory(
-        SkString(shader.c_str(), shader.size())));
+    effect = std::get<0>(
+        SkRuntimeEffect::Make(SkString(shader.c_str(), shader.size())));
+    DCHECK(effect);
   }
 
   YUVInput input;
@@ -2224,7 +2229,7 @@ void main(inout half4 color) {
   input.multiplier = resource_multiplier;
   sk_sp<SkData> data = SkData::MakeWithCopy(&input, sizeof(input));
 
-  return factory->make(std::move(data));
+  return effect->makeColorFilter(std::move(data));
 }
 
 SkiaRenderer::DrawRPDQParams SkiaRenderer::CalculateRPDQParams(
@@ -2312,6 +2317,7 @@ SkiaRenderer::DrawRPDQParams SkiaRenderer::CalculateRPDQParams(
   }
 
   // Convert CC image filters for the backdrop into a SkImageFilter root node
+  // TODO(weiliangc): ChromeOS would need backdrop_filter_quality implemented
   if (backdrop_filters) {
     DCHECK(!backdrop_filters->IsEmpty());
 

@@ -6,6 +6,8 @@
 
 #include "base/strings/strcat.h"
 #include "components/url_pattern_index/flat/url_pattern_index_generated.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "extensions/browser/api/declarative_net_request/request_action.h"
 #include "extensions/browser/api/declarative_net_request/request_params.h"
 #include "net/base/url_util.h"
@@ -29,8 +31,13 @@ bool ShouldCollapseResourceType(flat_rule::ElementType type) {
          type == flat_rule::ElementType_SUBDOCUMENT;
 }
 
+bool IsUpgradeableUrl(const GURL& url) {
+  return url.SchemeIs(url::kHttpScheme) || url.SchemeIs(url::kFtpScheme);
+}
+
 // Upgrades the url's scheme to HTTPS.
 GURL GetUpgradedUrl(const GURL& url) {
+  DCHECK(IsUpgradeableUrl(url));
   GURL::Replacements replacements;
   replacements.SetSchemeStr(url::kHttpsScheme);
   return url.ReplaceComponents(replacements);
@@ -195,36 +202,87 @@ RulesetMatcherBase::RulesetMatcherBase(
     : extension_id_(extension_id), source_type_(source_type) {}
 RulesetMatcherBase::~RulesetMatcherBase() = default;
 
-// static
-bool RulesetMatcherBase::IsUpgradeableRequest(const RequestParams& params) {
-  return params.url->SchemeIs(url::kHttpScheme) ||
-         params.url->SchemeIs(url::kFtpScheme);
+base::Optional<RequestAction> RulesetMatcherBase::GetBeforeRequestAction(
+    const RequestParams& params) const {
+  base::Optional<RequestAction> action =
+      GetBeforeRequestActionIgnoringAncestors(params);
+  base::Optional<RequestAction> parent_action =
+      GetAllowlistedFrameAction(params.parent_routing_id);
+
+  return GetMaxPriorityAction(std::move(action), std::move(parent_action));
+}
+
+void RulesetMatcherBase::OnRenderFrameDeleted(content::RenderFrameHost* host) {
+  DCHECK(host);
+  allowlisted_frames_.erase(content::GlobalFrameRoutingId(
+      host->GetProcess()->GetID(), host->GetRoutingID()));
+}
+
+void RulesetMatcherBase::OnDidFinishNavigation(content::RenderFrameHost* host) {
+  // Note: we only start tracking frames on navigation, since a document only
+  // issues network requests after the corresponding navigation is committed.
+  // Hence we need not listen to OnRenderFrameCreated.
+  DCHECK(host);
+
+  RequestParams params(host);
+
+  // Find the highest priority allowAllRequests action corresponding to this
+  // frame.
+  base::Optional<RequestAction> parent_action =
+      GetAllowlistedFrameAction(params.parent_routing_id);
+  base::Optional<RequestAction> frame_action =
+      GetAllowAllRequestsAction(params);
+  base::Optional<RequestAction> action =
+      GetMaxPriorityAction(std::move(parent_action), std::move(frame_action));
+
+  content::GlobalFrameRoutingId frame_id(host->GetProcess()->GetID(),
+                                         host->GetRoutingID());
+  if (action)
+    allowlisted_frames_.insert(std::make_pair(frame_id, std::move(*action)));
+  else
+    allowlisted_frames_.erase(frame_id);
+}
+
+base::Optional<RequestAction>
+RulesetMatcherBase::GetAllowlistedFrameActionForTesting(
+    content::RenderFrameHost* host) const {
+  DCHECK(host);
+
+  content::GlobalFrameRoutingId frame_id(host->GetProcess()->GetID(),
+                                         host->GetRoutingID());
+  return GetAllowlistedFrameAction(frame_id);
 }
 
 RequestAction RulesetMatcherBase::CreateBlockOrCollapseRequestAction(
     const RequestParams& params,
     const flat_rule::UrlRule& rule) const {
-  return ShouldCollapseResourceType(params.element_type)
-             ? RequestAction(RequestAction::Type::COLLAPSE, rule.id(),
-                             rule.priority(), source_type(), extension_id())
-             : RequestAction(RequestAction::Type::BLOCK, rule.id(),
-                             rule.priority(), source_type(), extension_id());
+  return CreateRequestAction(ShouldCollapseResourceType(params.element_type)
+                                 ? RequestAction::Type::COLLAPSE
+                                 : RequestAction::Type::BLOCK,
+                             rule);
 }
 
 RequestAction RulesetMatcherBase::CreateAllowAction(
     const RequestParams& params,
-    const url_pattern_index::flat::UrlRule& rule) const {
-  return RequestAction(RequestAction::Type::ALLOW, rule.id(), rule.priority(),
-                       source_type(), extension_id());
+    const flat_rule::UrlRule& rule) const {
+  return CreateRequestAction(RequestAction::Type::ALLOW, rule);
 }
 
-RequestAction RulesetMatcherBase::CreateUpgradeAction(
+RequestAction RulesetMatcherBase::CreateAllowAllRequestsAction(
     const RequestParams& params,
     const url_pattern_index::flat::UrlRule& rule) const {
-  DCHECK(IsUpgradeableRequest(params));
+  return CreateRequestAction(RequestAction::Type::ALLOW_ALL_REQUESTS, rule);
+}
 
-  RequestAction upgrade_action(RequestAction::Type::REDIRECT, rule.id(),
-                               rule.priority(), source_type(), extension_id());
+base::Optional<RequestAction> RulesetMatcherBase::CreateUpgradeAction(
+    const RequestParams& params,
+    const url_pattern_index::flat::UrlRule& rule) const {
+  if (!IsUpgradeableUrl(*params.url)) {
+    // TODO(crbug.com/1033780): this results in counterintuitive behavior.
+    return base::nullopt;
+  }
+  RequestAction upgrade_action =
+      CreateRequestAction(RequestAction::Type::UPGRADE, rule);
   upgrade_action.redirect_url = GetUpgradedUrl(*params.url);
   return upgrade_action;
 }
@@ -234,8 +292,6 @@ RulesetMatcherBase::CreateRedirectActionFromMetadata(
     const RequestParams& params,
     const url_pattern_index::flat::UrlRule& rule,
     const ExtensionMetadataList& metadata_list) const {
-  DCHECK_NE(flat_rule::ElementType_WEBSOCKET, params.element_type);
-
   // Find the UrlRuleMetadata corresponding to |rule|. Since |metadata_list| is
   // sorted by rule id, use LookupByKey which binary searches for fast lookup.
   const flat::UrlRuleMetadata* metadata = metadata_list.LookupByKey(rule.id());
@@ -264,12 +320,17 @@ base::Optional<RequestAction> RulesetMatcherBase::CreateRedirectAction(
     const RequestParams& params,
     const url_pattern_index::flat::UrlRule& rule,
     GURL redirect_url) const {
+  // Redirecting WebSocket handshake request is prohibited.
+  // TODO(crbug.com/1033780): this results in counterintuitive behavior.
+  if (params.element_type == flat_rule::ElementType_WEBSOCKET)
+    return base::nullopt;
+
   // Prevent a redirect loop where a URL continuously redirects to itself.
   if (!redirect_url.is_valid() || *params.url == redirect_url)
     return base::nullopt;
 
-  RequestAction redirect_action(RequestAction::Type::REDIRECT, rule.id(),
-                                rule.priority(), source_type(), extension_id());
+  RequestAction redirect_action =
+      CreateRequestAction(RequestAction::Type::REDIRECT, rule);
   redirect_action.redirect_url = std::move(redirect_url);
   return redirect_action;
 }
@@ -278,8 +339,8 @@ RequestAction RulesetMatcherBase::GetRemoveHeadersActionForMask(
     const url_pattern_index::flat::UrlRule& rule,
     uint8_t mask) const {
   DCHECK(mask);
-  RequestAction action(RequestAction::Type::REMOVE_HEADERS, rule.id(),
-                       rule.priority(), source_type(), extension_id());
+  RequestAction action =
+      CreateRequestAction(RequestAction::Type::REMOVE_HEADERS, rule);
 
   for (int header = 0; header <= dnr_api::REMOVE_HEADER_TYPE_LAST; ++header) {
     switch (header) {
@@ -305,6 +366,22 @@ RequestAction RulesetMatcherBase::GetRemoveHeadersActionForMask(
   }
 
   return action;
+}
+
+RequestAction RulesetMatcherBase::CreateRequestAction(
+    RequestAction::Type type,
+    const flat_rule::UrlRule& rule) const {
+  return RequestAction(type, rule.id(), rule.priority(), source_type(),
+                       extension_id());
+}
+
+base::Optional<RequestAction> RulesetMatcherBase::GetAllowlistedFrameAction(
+    content::GlobalFrameRoutingId frame_id) const {
+  auto it = allowlisted_frames_.find(frame_id);
+  if (it == allowlisted_frames_.end())
+    return base::nullopt;
+
+  return it->second.Clone();
 }
 
 }  // namespace declarative_net_request

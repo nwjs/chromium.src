@@ -442,7 +442,6 @@ should be able to be added at any place in this file.
 <action name="AboutFlags_top-chrome-md@1">
   <obsolete>Deprecated in favor of Launch.FlagsAtStartup histogram.</obsolete>
   <owner>tbuckley@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
   <description>
     User enabled flag that sets Chrome's style to be non-material design. The
     action is emitted once per startup when the flag is active.
@@ -452,7 +451,6 @@ should be able to be added at any place in this file.
 <action name="AboutFlags_top-chrome-md@2">
   <obsolete>Deprecated in favor of Launch.FlagsAtStartup histogram.</obsolete>
   <owner>tbuckley@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
   <description>
     User enabled flag that sets Chrome's style to be material design. The action
     is emitted once per startup when the flag is active.
@@ -462,7 +460,6 @@ should be able to be added at any place in this file.
 <action name="AboutFlags_top-chrome-md@3">
   <obsolete>Deprecated in favor of Launch.FlagsAtStartup histogram.</obsolete>
   <owner>tbuckley@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
   <description>
     User enabled flag that sets Chrome's style to be hybrid material design. The
     action is emitted once per startup when the flag is active.
@@ -817,6 +814,15 @@ should be able to be added at any place in this file.
 <action name="Accel_NewTab_T">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="Accel_NewTabInGroup">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User added a new tab to the existing group by keyboard shortcut Ctrl-T.
+  </description>
 </action>
 
 <action name="Accel_Next_Ime">
@@ -2485,6 +2491,13 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="AppList_SearchQueryStarted">
+  <owner>jennyz@chromium.org</owner>
+  <description>
+    User starts a new search query in launcher search box.
+  </description>
+</action>
+
 <action name="AppList_ShowPlayStoreQueryResults">
   <owner>jennyz@chromium.org</owner>
   <owner>newcomer@chromium.org</owner>
@@ -2571,6 +2584,15 @@ should be able to be added at any place in this file.
   <owner>napper@chromium.org</owner>
   <description>
     A click on an app reinstall app candidate from Arc++.
+  </description>
+</action>
+
+<action name="Ash_Tablet_BackGesture">
+  <owner>minch@chromium.org</owner>
+  <owner>tclaiborne@chromium.org</owner>
+  <description>
+    User tried to swipe back from the left side of the window to go back in
+    tablet mode.
   </description>
 </action>
 
@@ -4147,11 +4169,13 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ChromeColors_ColorApplied">
+  <obsolete>Deprecated as of 12/2019.</obsolete>
   <owner>gayane@chromium.org</owner>
   <description>Chrome Colors was applied from Colors menu.</description>
 </action>
 
 <action name="ChromeColors_DefaultApplied">
+  <obsolete>Deprecated as of 12/2019.</obsolete>
   <owner>gayane@chromium.org</owner>
   <description>Default theme was applied from Colors menu.</description>
 </action>
@@ -4175,6 +4199,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ChromeColors_ThemeUninstalled">
+  <obsolete>Deprecated as of 7/2019.</obsolete>
   <owner>gayane@chromium.org</owner>
   <description>Webstore theme uninstalled from Colors menu.</description>
 </action>
@@ -4510,6 +4535,13 @@ should be able to be added at any place in this file.
 <action name="CloseFromContextMenu">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="CloseGroupedTab">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>User closed a tab that belongs to a group.</description>
 </action>
 
 <action name="CloseTab">
@@ -4951,6 +4983,14 @@ should be able to be added at any place in this file.
   <description>The cookie controls UI was opened.</description>
 </action>
 
+<action name="CookieControls.Bubble.TooltipShown">
+  <owner>dullweber@chromium.org</owner>
+  <owner>huanzhong@chromium.org</owner>
+  <description>
+    The user looked at the tooltip inside the cookie controls bubble.
+  </description>
+</action>
+
 <action name="CookieControls.Bubble.TurnOff">
   <owner>dullweber@chromium.org</owner>
   <owner>huanzhong@chromium.org</owner>
@@ -5339,8 +5379,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Desktop_SwitchTask">
-  <owner>bruthig@google.com</owner>
-  <owner>tdanderson@google.com</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user activates an existing task window by clicking or
     tapping on it. Recorded on ChromeOS only.
@@ -5666,6 +5705,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="DownloadNotification.Button_BypassDeepScanning">
+  <owner>drubery@chromium.org</owner>
+  <description>
+    User pushes &quot;Open now&quot; on the prompt for download deep scanning
+  </description>
+</action>
+
 <action name="DownloadNotification.Button_Cancel">
   <owner>yoshiki@chromium.org</owner>
   <description>
@@ -5677,6 +5723,13 @@ should be able to be added at any place in this file.
   <owner>yoshiki@chromium.org</owner>
   <description>
     User pushes &quot;Copy to clipboard&quot; button on download notification.
+  </description>
+</action>
+
+<action name="DownloadNotification.Button_DeepScan">
+  <owner>drubery@chromium.org</owner>
+  <description>
+    User pushes &quot;Scan&quot; on the prompt for download deep scanning
   </description>
 </action>
 
@@ -5699,6 +5752,14 @@ should be able to be added at any place in this file.
   <description>
     User pushes &quot;Learn More about Interrupted&quot; button on download
     notification.
+  </description>
+</action>
+
+<action name="DownloadNotification.Button_LearnMixedContent">
+  <owner>jdeblasio@chromium.org</owner>
+  <description>
+    User pushes &quot;Learn More&quot; button on a mixed-content download
+    notication.
   </description>
 </action>
 
@@ -5902,6 +5963,24 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Extensions.ExtensionDisabled">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    The user interacted with the toggle in the chrome://extensions page to
+    disable an extension from either the main page(card view) or detail page for
+    a specific extension.
+  </description>
+</action>
+
+<action name="Extensions.ExtensionEnabled">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    The user interacted with the toggle in the chrome://extensions page to
+    enable an extension from either the main page(card view) or detail page for
+    a specific extension.
+  </description>
+</action>
+
 <action name="Extensions.ExtensionInstalled">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -5915,6 +5994,48 @@ should be able to be added at any place in this file.
 <action name="Extensions.IDChangedError">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="Extensions.RemovedDefaultInstalledExtension">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    User clicked the &quot;Remove&quot; button in the extension uninstall dialog
+    which leads to the removal of a default installed extension.
+  </description>
+</action>
+
+<action name="Extensions.RemoveExtensionClick">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    User clicked the &quot;Remove&quot; button in the chrome://extensions page.
+    This triggers the uninstallation flow which prompts the user to cancel or
+    confirm the uninstallation.
+  </description>
+</action>
+
+<action name="Extensions.UninstallDialogCancelClick">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    User clicked the &quot;Cancel&quot; button in the extension uninstall
+    dialog. This cancels the uninstallation of an extension.
+  </description>
+</action>
+
+<action name="Extensions.UninstallDialogRemoveClick">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    User clicked the &quot;Remove&quot; button in the chrome://extensions page
+    uninstall dialog which leads to the removal of an extension.
+  </description>
+</action>
+
+<action name="Extensions.UninstallDialogReportAbuseChecked">
+  <owner>archanasimha@chromium.org</owner>
+  <description>
+    Used checked the &quot;Report Abuse&quot; box and the &quot;Remove&quot;
+    button in the extension uninstall dialog which leads to the removal of an
+    extension and reports the extension for abuse.
+  </description>
 </action>
 
 <action name="Extensions.WebStoreLaunch">
@@ -6648,8 +6769,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Home">
-  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
-  <description>Please enter the description of this user action.</description>
+  <owner>mpearson@chromium.org</owner>
+  <description>User pressed the Home button.</description>
 </action>
 
 <action name="HostedAppMenuButtonButton_Clicked">
@@ -8168,6 +8289,12 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user loads the chrome://inspect page on iOS.
   </description>
+</action>
+
+<action name="IOSLaunchedByOpenInChromeIntent">
+  <owner>justincohen@chromium.org</owner>
+  <owner>rohitrao@chromium.org</owner>
+  <description>User opened a URL in Chrome via Apple Shortcuts.</description>
 </action>
 
 <action name="IOSLaunchedBySearchInChromeIntent">
@@ -10555,16 +10682,14 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Launcher_ButtonPressed_Mouse" not_user_triggered="true">
-  <owner>bruthig@google.com</owner>
-  <owner>tdanderson@google.com</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user activates a shelf button using the mouse.
   </description>
 </action>
 
 <action name="Launcher_ButtonPressed_Touch" not_user_triggered="true">
-  <owner>bruthig@google.com</owner>
-  <owner>tdanderson@google.com</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user activates a shelf button using touch.
   </description>
@@ -10586,16 +10711,14 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Launcher_LaunchTask">
-  <owner>bruthig@google.com</owner>
-  <owner>tdanderson@google.com</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user launches a new task from the shelf.
   </description>
 </action>
 
 <action name="Launcher_MinimizeTask">
-  <owner>bruthig@google.com</owner>
-  <owner>tdanderson@google.com</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user minimizes an existing task by clicking an icon in the
     shelf.
@@ -10608,8 +10731,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Launcher_SwitchTask">
-  <owner>bruthig@google.com</owner>
-  <owner>tdanderson@google.com</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user activates an existing task from the shelf.
   </description>
@@ -10745,6 +10867,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ManagedUsers_Chromeos_Sync_Invalidated">
+  <obsolete>This metric hasn't triggered since M67</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
@@ -11711,11 +11834,13 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileBeamCallbackSuccess">
+  <obsolete>Deprecated as of 1/2020</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
 
 <action name="MobileBeamInvalidAppState">
+  <obsolete>Deprecated as of 1/2020</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
 </action>
@@ -12197,6 +12322,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileDownloadFileUIInstallGoogleDrive">
+  <obsolete>
+    Removed in 12/2019 after adds of IOSDownloadFileUIGoogleDrive's histogram.
+  </obsolete>
   <owner>eugenebut@chromium.org</owner>
   <description>
     User has requested installation of Google Drive app from the Download file
@@ -12205,8 +12333,27 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileDownloadFileUIShown">
+  <obsolete>
+    Removed as of 11/2019 after adds of DownloadFileUI's histogram.
+  </obsolete>
   <owner>eugenebut@chromium.org</owner>
   <description>User was presented with the Download file UI.</description>
+</action>
+
+<action name="MobileDownloadFolderUIShownFromDownloadManager">
+  <owner>ewannpv@chromium.org</owner>
+  <owner>gambard@chromium.org</owner>
+  <description>
+    User pressed &quot;Open in Downloads&quot; button from the download manager.
+  </description>
+</action>
+
+<action name="MobileDownloadFolderUIShownFromToolsMenu">
+  <owner>ewannpv@chromium.org</owner>
+  <owner>gambard@chromium.org</owner>
+  <description>
+    User pressed &quot;Downloads&quot; button from the tools menu.
+  </description>
 </action>
 
 <action name="MobileDownloadRetryDownload">
@@ -17789,6 +17936,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="ProfileChooser_SignInAgainDisplayed">
+  <obsolete>No longer recorded after the revamp of the profile menu</obsolete>
   <owner>vasilii@chromium.org</owner>
   <owner>ewald@chromium.org</owner>
   <description>
@@ -20740,8 +20888,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StackedTab_DragActiveTab">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the active tab is dragged while the tabstrip is using a
     stacked layout. The user performs this action in order to view tabs which
@@ -20751,8 +20898,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StackedTab_EnteredStackedLayout">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the tabstrip begins using a stacked layout for its tabs. This
     occurs when the user is interacting with the tabstrip using touch and there
@@ -21081,7 +21227,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_Display_Default_Selected">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the user selects the display row in the system
@@ -21093,7 +21238,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_Display_Default_ShowSettings">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the display settings are opened as a result of
@@ -21102,7 +21246,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_Display_Notification_Created">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times a new display notification is added to the
@@ -21111,7 +21254,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_Display_Notification_Selected">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the user selects the display notification. This
@@ -21124,7 +21266,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_Display_Notification_Show_Settings">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the display settings are opened as a result of
@@ -21343,7 +21484,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_OS_Update_Default_Selected">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the user selects the update row in the system
@@ -21378,7 +21518,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_ScreenCapture_Default_Stop">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the user stops screen capturing via the screen
@@ -21387,7 +21526,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_ScreenCapture_Notification_Stop">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the user stops screen capturing via the Screen
@@ -21417,7 +21555,6 @@ should be able to be added at any place in this file.
 
 <action name="StatusArea_SMS_Detailed">
   <owner>tbuckley@chromium.org</owner>
-  <owner>bruthig@chromium.org</owner>
   <description>
     Counts the number of times the user has opened the &quot;SMS messages &quot;
     detailed view in the system menu.
@@ -21426,7 +21563,6 @@ should be able to be added at any place in this file.
 
 <action name="StatusArea_SMS_Detailed_DismissMsg">
   <owner>tbuckley@chromium.org</owner>
-  <owner>bruthig@chromium.org</owner>
   <description>
     Counts the number of times the user has dismissed an SMS message from the
     SMS message detailed view in the system menu.
@@ -21435,7 +21571,6 @@ should be able to be added at any place in this file.
 
 <action name="StatusArea_SMS_Notification_DismissMsg">
   <owner>tbuckley@chromium.org</owner>
-  <owner>bruthig@chromium.org</owner>
   <description>
     Counts the number of times the user has dismissed an SMS message
     notification. Note these notifications are managed by the system menu and
@@ -21494,7 +21629,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="StatusArea_Tracing_Default_Selected">
-  <owner>bruthig@chromium.org</owner>
   <owner>tbuckley@chromium.org</owner>
   <description>
     Counts the number of times the user selects the tracing row in the system
@@ -21822,8 +21956,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="SwitchTab_Click">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user switches tabs with a mouse click. This user action is
     only recorded on platforms which use the Views toolkit.
@@ -21975,6 +22108,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="TabContextMenu_MoveTabToNewWindow">
+  <owner>lgrey@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User selected Move Tab to New Window from the tab context menu.
+  </description>
+</action>
+
 <action name="TabContextMenu_MuteTabs">
   <owner>miu@chromium.org</owner>
   <description>
@@ -21987,6 +22128,16 @@ should be able to be added at any place in this file.
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <description>
     User selected New Tab to the Right from the tabstrip context menu.
+  </description>
+</action>
+
+<action name="TabContextMenu_NewTabInGroup">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User added a tab to an existing group by choosing 'Add to existing group'
+    from the tabstrip context menu.
   </description>
 </action>
 
@@ -22157,6 +22308,63 @@ should be able to be added at any place in this file.
   <description>
     Users tapped &quot;v&quot; button on tab group bottom sheet toolbar, causing
     tab group bottom sheet to be hidden.
+  </description>
+</action>
+
+<action name="TabGroups_SwitchGroupedTab">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>User switched to a tab that belongs in a group.</description>
+</action>
+
+<action name="TabGroups_TabGroupBubble_CloseGroup">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User closed a group by choosing 'Close group' from the tab group editor
+    bubble.
+  </description>
+</action>
+
+<action name="TabGroups_TabGroupBubble_ColorChanged">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User changed the color of a group through the color picker in the tab group
+    editor bubble.
+  </description>
+</action>
+
+<action name="TabGroups_TabGroupBubble_NewTabInGroup">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User added a new tab to an existing group by choosing 'New tab in group'
+    from the tab group editor bubble.
+  </description>
+</action>
+
+<action name="TabGroups_TabGroupBubble_SendFeedback">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User opened the feedback app by choosing 'Send feedback' from the tab group
+    editor bubble.
+  </description>
+</action>
+
+<action name="TabGroups_TabGroupBubble_Ungroup">
+  <owner>connily@chromium.org</owner>
+  <owner>cyan@chromium.org</owner>
+  <owner>chrome-desktop-ui-sea@google.com</owner>
+  <description>
+    User removed all tabs in a group from that group by choosing 'Ungroup' from
+    the tab group editor bubble.
   </description>
 </action>
 
@@ -22641,20 +22849,17 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Touchview_Disabled">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>Recorded when a user exits TouchView mode.</description>
 </action>
 
 <action name="Touchview_Enabled">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>Recorded when a user enters TouchView mode.</description>
 </action>
 
 <action name="Touchview_Initially_Disabled">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the Touchview controller is initialized such that TouchView
     mode is disabled initially.
@@ -22709,8 +22914,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Tray_Overview">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Records when the user presses the overview mode button in the Ash system
     tray. Overview mode is a feature of Ash that shows thumbnails of all
@@ -22719,8 +22923,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Tray_Settings">
-  <owner>bruthig@chromium.org</owner>
-  <owner>tdanderson@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Records when the Settings button on the Ash system menu is clicked.
   </description>
@@ -23400,7 +23603,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="WindowCycleController_Cycle">
-  <owner>tdanderson@chromium.org</owner>
   <owner>flackr@chromium.org</owner>
   <description>
     Starting a window selection cycle by pressing alt-tab. Only counts the
@@ -23419,8 +23621,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="WindowSelector_ActiveWindowChanged">
-  <owner>tdanderson@chromium.org</owner>
-  <owner>bruthig@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Recorded when the user selects a window from Ash overview mode which is
     different from the window that was active prior to entering overview mode.
@@ -23428,29 +23629,25 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="WindowSelector_Overview">
-  <owner>tdanderson@chromium.org</owner>
   <owner>flackr@chromium.org</owner>
   <description>Starting the window overview mode.</description>
 </action>
 
 <action name="WindowSelector_OverviewCloseButton">
-  <owner>tdanderson@chromium.org</owner>
-  <owner>varkha@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Using the 'X' button to close a window in the overview.
   </description>
 </action>
 
 <action name="WindowSelector_OverviewCloseKey">
-  <owner>tdanderson@chromium.org</owner>
-  <owner>varkha@chromium.org</owner>
+  <owner>tbuckley@chromium.org</owner>
   <description>
     Using Ctrl+W shortcut to close a window in the overview.
   </description>
 </action>
 
 <action name="WindowSelector_OverviewEnterKey">
-  <owner>tdanderson@chromium.org</owner>
   <owner>flackr@chromium.org</owner>
   <description>
     Using the enter key to select a window in the overview.
@@ -23637,6 +23834,7 @@ should be able to be added at any place in this file.
   <suffix name="DownloadPage" label="For DownloadPage feature."/>
   <suffix name="DownloadPageScreenshot"
       label="For DownloadPageScreenshot feature."/>
+  <suffix name="EphemeralTab" label="For Ephemeral Tab."/>
   <suffix name="ExploreSitesTile" label="For Explore Sites feature."/>
   <suffix name="FeedCardMenu" label="For FeedCardMenu feature."/>
   <suffix name="GlobalMediaControls" label="For GlobalMediaControls feature."/>
@@ -23652,6 +23850,8 @@ should be able to be added at any place in this file.
   <suffix name="NewTabTip" label="For NewTabTip feature."/>
   <suffix name="PreviewsOmniboxUI"
       label="For the Previews UI in the Android Omnibox feature."/>
+  <suffix name="QuietNotificationPrompts"
+      label="For the quiet notification prompts feature."/>
   <suffix name="ReopenTab" label="For ReopenTab feature."/>
   <suffix name="TabGroupsDragAndDrop" label="For drop-to-merge in tab group."/>
   <suffix name="TabGroupsQuicklyComparePages"

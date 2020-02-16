@@ -11,7 +11,7 @@
 #include "base/memory/ref_counted.h"
 #include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "chrome/browser/safe_browsing/incident_reporting/delayed_analysis_callback.h"
-#include "components/safe_browsing/password_protection/password_protection_service.h"
+#include "components/safe_browsing/content/password_protection/password_protection_service.h"
 
 class Profile;
 
@@ -121,6 +121,8 @@ class ServicesDelegate {
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       const V4ProtocolConfig& v4_config) = 0;
   virtual void StopOnIOThread(bool shutdown) = 0;
+  virtual void OnProfileWillBeDestroyedOnIOThread(
+      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) = 0;
 
   void CreatePasswordProtectionService(Profile* profile);
   void RemovePasswordProtectionService(Profile* profile);

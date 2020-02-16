@@ -47,7 +47,7 @@ void FakeSyncEngine::SetEncryptionPassphrase(const std::string& passphrase) {}
 void FakeSyncEngine::SetDecryptionPassphrase(const std::string& passphrase) {}
 
 void FakeSyncEngine::AddTrustedVaultDecryptionKeys(
-    const std::vector<std::string>& keys,
+    const std::vector<std::vector<uint8_t>>& keys,
     base::OnceClosure done_cb) {
   std::move(done_cb).Run();
 }
@@ -106,9 +106,9 @@ void FakeSyncEngine::set_fail_initial_download(bool should_fail) {
 
 void FakeSyncEngine::OnCookieJarChanged(bool account_mismatch,
                                         bool empty_jar,
-                                        const base::Closure& callback) {
+                                        base::OnceClosure callback) {
   if (!callback.is_null()) {
-    callback.Run();
+    std::move(callback).Run();
   }
 }
 

@@ -12,6 +12,8 @@
 #include "third_party/blink/public/mojom/feature_policy/feature_policy_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_serial_port_filter.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_serial_port_request_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -63,9 +65,8 @@ ScriptPromise Serial::getPorts(ScriptState* script_state,
     return ScriptPromise();
   }
 
-  if (!context->GetSecurityContext().IsFeatureEnabled(
-          mojom::FeaturePolicyFeature::kSerial,
-          ReportOptions::kReportOnFailure)) {
+  if (!context->IsFeatureEnabled(mojom::blink::FeaturePolicyFeature::kSerial,
+                                 ReportOptions::kReportOnFailure)) {
     exception_state.ThrowSecurityError(kFeaturePolicyBlocked);
     return ScriptPromise();
   }
@@ -91,7 +92,7 @@ ScriptPromise Serial::requestPort(ScriptState* script_state,
   }
 
   if (!frame->GetDocument()->IsFeatureEnabled(
-          mojom::FeaturePolicyFeature::kSerial,
+          mojom::blink::FeaturePolicyFeature::kSerial,
           ReportOptions::kReportOnFailure)) {
     exception_state.ThrowSecurityError(kFeaturePolicyBlocked);
     return ScriptPromise();
@@ -103,11 +104,40 @@ ScriptPromise Serial::requestPort(ScriptState* script_state,
     return ScriptPromise();
   }
 
+  Vector<mojom::blink::SerialPortFilterPtr> filters;
+  if (options && options->hasFilters()) {
+    for (const auto& filter : options->filters()) {
+      auto mojo_filter = mojom::blink::SerialPortFilter::New();
+
+      mojo_filter->has_vendor_id = filter->hasUsbVendorId();
+      if (mojo_filter->has_vendor_id) {
+        mojo_filter->vendor_id = filter->usbVendorId();
+      } else {
+        exception_state.ThrowTypeError(
+            "A filter must provide a property to filter by.");
+        return ScriptPromise();
+      }
+
+      mojo_filter->has_product_id = filter->hasUsbProductId();
+      if (mojo_filter->has_product_id) {
+        if (!mojo_filter->has_vendor_id) {
+          exception_state.ThrowTypeError(
+              "A filter containing a usbProductId must also specify a "
+              "usbVendorId.");
+          return ScriptPromise();
+        }
+        mojo_filter->product_id = filter->usbProductId();
+      }
+
+      filters.push_back(std::move(mojo_filter));
+    }
+  }
+
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   request_port_promises_.insert(resolver);
 
   EnsureServiceConnection();
-  service_->RequestPort(Vector<mojom::blink::SerialPortFilterPtr>(),
+  service_->RequestPort(std::move(filters),
                         WTF::Bind(&Serial::OnRequestPort, WrapPersistent(this),
                                   WrapPersistent(resolver)));
 

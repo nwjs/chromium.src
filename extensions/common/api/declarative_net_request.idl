@@ -53,7 +53,10 @@ namespace declarativeNetRequest {
     // or ftp.
     upgradeScheme,
     // Remove request/response headers from the network request.
-    removeHeaders
+    removeHeaders,
+    // Allow all requests within a frame hierarchy, including the frame request
+    // itself.
+    allowAllRequests
   };
 
   // Represents a query key-value pair.
@@ -178,6 +181,10 @@ namespace declarativeNetRequest {
 
     // List of resource types which the rule can match. An empty list is not
     // allowed.
+    //
+    // Note: this must be specified for <code>allowAllRequests</code> rules and
+    // may only include the <code>sub_frame</code> and <code>main_frame</code>
+    // resource types.
     ResourceType[]? resourceTypes;
 
     // List of resource types which the rule won't match. Only one of
@@ -258,7 +265,7 @@ namespace declarativeNetRequest {
     long? tabId;
 
     // If specified, only matches rules after the given timestamp.
-    long? minTimeStamp;
+    double? minTimeStamp;
   };
 
   [nodoc]
@@ -343,39 +350,7 @@ namespace declarativeNetRequest {
     // raised in case of transient internal errors.
     static void getDynamicRules(GetRulesCallback callback);
 
-    // Adds <code>page_patterns</code> to the set of allowed pages. Requests
-    // from these pages are not intercepted by the extension. These are
-    // persisted across browser sessions.
-    // Note: <a href="#property-MAX_NUMBER_OF_ALLOWED_PAGES">
-    // MAX_NUMBER_OF_ALLOWED_PAGES</a> is the maximum number of
-    // allowed page an extension can add. Also, adding page patterns is
-    // atomic. In case of an error, no page pattern is added.
-    // |page_patterns| : Array of
-    // <a href="/extensions/match_patterns">match patterns</a> which are to be
-    // allowed.
-    // |callback|: Called after the <code>page_patterns</code> have been added.
-    // $(ref:runtime.lastError) will be set in case of an error, for example if
-    // an invalid page pattern is specified or the extension exceeded the
-    // maximum page patterns limit.
-    static void addAllowedPages(DOMString[] page_patterns,
-        optional EmptyCallback callback);
-
-    // Removes <code>page_patterns</code> from the set of allowed pages.
-    // Note: Removing page patterns is atomic. In case of an error, no page
-    // pattern is removed.
-    // |page_patterns| : Array of
-    // <a href="/extensions/match_patterns">match patterns</a> which are to be
-    // removed.
-    // |callback|: Called after the <code>page_patterns</code> have been
-    // removed. $(ref:runtime.lastError) will be set in case of an error.
-    static void removeAllowedPages(DOMString[] page_patterns,
-        optional EmptyCallback callback);
-
-    // Returns the current set of allowed pages.
-    // |callback|: Called with the set of currently allowed pages.
-    static void getAllowedPages(GetAllowedPagesCallback callback);
-
-    // TODO(crbug.com/967942): Add documentation once implementation is
+    // TODO(crbug.com/1044702): Add documentation once implementation is
     // complete.
     [nodoc]
     static void getMatchedRules(optional MatchedRulesFilter filter,
@@ -384,16 +359,10 @@ namespace declarativeNetRequest {
     // Sets whether to automatically badge extension's icon to the matched
     // action count for a tab. This preference is persisted across sessions and
     // is false by default.
-    // TODO(crbug.com/973211): Add documentation once implementation is
-    // complete.
-    [nodoc]
     static void setActionCountAsBadgeText(boolean enable);
   };
 
   interface Properties {
-    // The maximum number of allowed pages that an extension can add.
-    [value=100] static long MAX_NUMBER_OF_ALLOWED_PAGES();
-
     // The maximum number of rules that an extension can specify in the rule
     // resources file. Any excess rules will be ignored and an install warning
     // will be raised.
@@ -401,6 +370,15 @@ namespace declarativeNetRequest {
 
     // The maximum number of dynamic rules that an extension can add.
     [value=5000] static long MAX_NUMBER_OF_DYNAMIC_RULES();
+
+    // Time interval within which <code>MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL
+    // getMatchedRules</code> calls can be made, specified in minutes.
+    // Additional calls will fail immediately and set $(ref:runtime.lastError).
+    [value=10, nodoc] static long GETMATCHEDRULES_QUOTA_INTERVAL();
+
+    // The number of times <code>getMatchedRules</code> can be called within a
+    // period of <code>GETMATCHEDRULES_QUOTA_INTERVAL</code>.
+    [value=20, nodoc] static long MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL();
   };
 
   interface Events {

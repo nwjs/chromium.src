@@ -17,6 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/process/process_handle.h"
 #include "build/build_config.h"
+#include "components/services/storage/public/mojom/indexed_db_control.mojom.h"
 #include "content/browser/appcache/chrome_appcache_service.h"
 #include "content/browser/background_sync/background_sync_context_impl.h"
 #include "content/browser/bluetooth/bluetooth_allowed_devices_map.h"
@@ -33,6 +34,7 @@
 #include "content/browser/push_messaging/push_messaging_context.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/url_loader_factory_getter.h"
+#include "content/browser/worker_host/dedicated_worker_service_impl.h"
 #include "content/browser/worker_host/shared_worker_service_impl.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/storage_partition.h"
@@ -41,6 +43,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "mojo/public/cpp/bindings/shared_remote.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -58,6 +61,7 @@ class ProtoDatabaseProvider;
 namespace content {
 
 class BackgroundFetchContext;
+class ConversionManager;
 class CookieStoreContext;
 class BlobRegistryWrapper;
 class PrefetchURLLoaderService;
@@ -84,12 +88,12 @@ class CONTENT_EXPORT StoragePartitionImpl
   // Passing a null callback will restore the default behavior.
   // This method must be called either on the UI thread or before threads start.
   // This callback is run on the UI thread.
-  using CreateNetworkFactoryCallback =
-      base::Callback<mojo::PendingRemote<network::mojom::URLLoaderFactory>(
+  using CreateNetworkFactoryCallback = base::RepeatingCallback<
+      mojo::PendingRemote<network::mojom::URLLoaderFactory>(
           mojo::PendingRemote<network::mojom::URLLoaderFactory>
               original_factory)>;
   static void SetGetURLLoaderFactoryForBrowserProcessCallbackForTesting(
-      const CreateNetworkFactoryCallback& url_loader_factory_callback);
+      CreateNetworkFactoryCallback url_loader_factory_callback);
 
   void OverrideQuotaManagerForTesting(
       storage::QuotaManager* quota_manager);
@@ -114,7 +118,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   void CreateRestrictedCookieManager(
       network::mojom::RestrictedCookieManagerRole role,
       const url::Origin& origin,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const url::Origin& top_frame_origin,
       bool is_service_worker,
       int process_id,
@@ -129,10 +133,12 @@ class CONTENT_EXPORT StoragePartitionImpl
   DOMStorageContextWrapper* GetDOMStorageContext() override;
   IdleManager* GetIdleManager();
   LockManager* GetLockManager();  // override; TODO: Add to interface
+  storage::mojom::IndexedDBControl& GetIndexedDBControl() override;
   IndexedDBContextImpl* GetIndexedDBContext() override;
   NativeFileSystemEntryFactory* GetNativeFileSystemEntryFactory() override;
   CacheStorageContextImpl* GetCacheStorageContext() override;
   ServiceWorkerContextWrapper* GetServiceWorkerContext() override;
+  DedicatedWorkerServiceImpl* GetDedicatedWorkerService() override;
   SharedWorkerServiceImpl* GetSharedWorkerService() override;
   GeneratedCodeCacheContext* GetGeneratedCodeCacheContext() override;
   DevToolsBackgroundServicesContextImpl* GetDevToolsBackgroundServicesContext()
@@ -197,8 +203,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   // network::mojom::NetworkContextClient interface.
   void OnAuthRequired(
       const base::Optional<base::UnguessableToken>& window_id,
-      uint32_t process_id,
-      uint32_t routing_id,
+      int32_t process_id,
+      int32_t routing_id,
       uint32_t request_id,
       const GURL& url,
       bool first_auth_attempt,
@@ -208,20 +214,20 @@ class CONTENT_EXPORT StoragePartitionImpl
           auth_challenge_responder) override;
   void OnCertificateRequested(
       const base::Optional<base::UnguessableToken>& window_id,
-      uint32_t process_id,
-      uint32_t routing_id,
+      int32_t process_id,
+      int32_t routing_id,
       uint32_t request_id,
       const scoped_refptr<net::SSLCertRequestInfo>& cert_info,
       mojo::PendingRemote<network::mojom::ClientCertificateResponder>
           cert_responder) override;
-  void OnSSLCertificateError(uint32_t process_id,
-                             uint32_t routing_id,
+  void OnSSLCertificateError(int32_t process_id,
+                             int32_t routing_id,
                              const GURL& url,
                              int net_error,
                              const net::SSLInfo& ssl_info,
                              bool fatal,
                              OnSSLCertificateErrorCallback response) override;
-  void OnFileUploadRequested(uint32_t process_id,
+  void OnFileUploadRequested(int32_t process_id,
                              bool async,
                              const std::vector<base::FilePath>& file_paths,
                              OnFileUploadRequestedCallback callback) override;
@@ -231,7 +237,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   void OnCanSendDomainReliabilityUpload(
       const GURL& origin,
       OnCanSendDomainReliabilityUploadCallback callback) override;
-  void OnClearSiteData(uint32_t process_id,
+  void OnClearSiteData(int32_t process_id,
                        int32_t routing_id,
                        const GURL& url,
                        const std::string& header_value,
@@ -242,14 +248,14 @@ class CONTENT_EXPORT StoragePartitionImpl
       int32_t process_id,
       int32_t routing_id,
       const GURL& url,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const std::vector<net::CookieWithStatus>& cookie_list) override;
   void OnCookiesRead(
       bool is_service_worker,
       int32_t process_id,
       int32_t routing_id,
       const GURL& url,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const std::vector<net::CookieWithStatus>& cookie_list) override;
 #if defined(OS_ANDROID)
   void OnGenerateHttpNegotiateAuthToken(
@@ -285,14 +291,14 @@ class CONTENT_EXPORT StoragePartitionImpl
   // is the site URL to use when creating a SiteInstance for a service worker.
   // Typically one would use the script URL of the service worker (e.g.,
   // "https://example.com/sw.js"), but if this StoragePartition is for guests,
-  // one must use the "chrome-guest://blahblah" site URL to ensure that the
+  // one must use the <webview> guest site URL to ensure that the
   // service worker stays in this StoragePartition. This is an empty GURL if
   // this StoragePartition is not for guests.
-  void set_site_for_service_worker(const GURL& site_for_service_worker) {
-    site_for_service_worker_ = site_for_service_worker;
+  void set_site_for_guest_service_worker(const GURL& site_for_service_worker) {
+    site_for_guest_service_worker_ = site_for_service_worker;
   }
-  const GURL& site_for_service_worker() const {
-    return site_for_service_worker_;
+  const GURL& site_for_guest_service_worker() const {
+    return site_for_guest_service_worker_;
   }
 
   // Use the network context to retrieve the origin policy manager.
@@ -430,12 +436,14 @@ class CONTENT_EXPORT StoragePartitionImpl
   scoped_refptr<storage::DatabaseTracker> database_tracker_;
   scoped_refptr<DOMStorageContextWrapper> dom_storage_context_;
   std::unique_ptr<IdleManager> idle_manager_;
-  scoped_refptr<LockManager> lock_manager_;
+  std::unique_ptr<LockManager> lock_manager_;
+  mojo::Remote<storage::mojom::IndexedDBControl> indexed_db_control_;
   scoped_refptr<IndexedDBContextImpl> indexed_db_context_;
   scoped_refptr<CacheStorageContextImpl> cache_storage_context_;
   scoped_refptr<ServiceWorkerContextWrapper> service_worker_context_;
+  std::unique_ptr<DedicatedWorkerServiceImpl> dedicated_worker_service_;
   std::unique_ptr<SharedWorkerServiceImpl> shared_worker_service_;
-  scoped_refptr<PushMessagingContext> push_messaging_context_;
+  std::unique_ptr<PushMessagingContext> push_messaging_context_;
   scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
 #if !defined(OS_ANDROID)
   scoped_refptr<HostZoomLevelContext> host_zoom_level_context_;
@@ -444,8 +452,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   scoped_refptr<BackgroundFetchContext> background_fetch_context_;
   scoped_refptr<BackgroundSyncContextImpl> background_sync_context_;
   scoped_refptr<PaymentAppContextImpl> payment_app_context_;
-  scoped_refptr<BroadcastChannelProvider> broadcast_channel_provider_;
-  scoped_refptr<BluetoothAllowedDevicesMap> bluetooth_allowed_devices_map_;
+  std::unique_ptr<BroadcastChannelProvider> broadcast_channel_provider_;
+  std::unique_ptr<BluetoothAllowedDevicesMap> bluetooth_allowed_devices_map_;
   scoped_refptr<BlobRegistryWrapper> blob_registry_;
   scoped_refptr<PrefetchURLLoaderService> prefetch_url_loader_service_;
   scoped_refptr<CookieStoreContext> cookie_store_context_;
@@ -456,6 +464,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   std::unique_ptr<leveldb_proto::ProtoDatabaseProvider>
       proto_database_provider_;
   scoped_refptr<ContentIndexContextImpl> content_index_context_;
+  std::unique_ptr<ConversionManager> conversion_manager_;
 
   // ReceiverSet for StoragePartitionService, using the process id as the
   // binding context type. The process id can subsequently be used during
@@ -493,8 +502,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   mojo::Remote<network::mojom::OriginPolicyManager>
       origin_policy_manager_for_browser_process_;
 
-  // See comments for site_for_service_worker().
-  GURL site_for_service_worker_;
+  // See comments for site_for_guest_service_worker().
+  GURL site_for_guest_service_worker_;
 
   // Track number of running deletion. For test use only.
   int deletion_helpers_running_;

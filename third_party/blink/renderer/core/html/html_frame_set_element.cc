@@ -86,12 +86,12 @@ void HTMLFrameSetElement::ParseAttribute(
     }
   } else if (name == html_names::kFrameborderAttr) {
     if (!value.IsNull()) {
-      if (DeprecatedEqualIgnoringCase(value, "no") ||
-          DeprecatedEqualIgnoringCase(value, "0")) {
+      if (EqualIgnoringASCIICase(value, "no") ||
+          EqualIgnoringASCIICase(value, "0")) {
         frameborder_ = false;
         frameborder_set_ = true;
       } else if (DeprecatedEqualIgnoringCase(value, "yes") ||
-                 DeprecatedEqualIgnoringCase(value, "1")) {
+                 EqualIgnoringASCIICase(value, "1")) {
         frameborder_set_ = true;
       }
     } else {
@@ -221,9 +221,9 @@ bool HTMLFrameSetElement::LayoutObjectIsNeeded(
 LayoutObject* HTMLFrameSetElement::CreateLayoutObject(
     const ComputedStyle& style,
     LegacyLayout legacy) {
-  if (style.HasContent())
-    return LayoutObject::CreateObject(this, style, legacy);
-  return new LayoutFrameSet(this);
+  if (style.ContentBehavesAsNormal())
+    return new LayoutFrameSet(this);
+  return LayoutObject::CreateObject(this, style, legacy);
 }
 
 void HTMLFrameSetElement::AttachLayoutTree(AttachContext& context) {

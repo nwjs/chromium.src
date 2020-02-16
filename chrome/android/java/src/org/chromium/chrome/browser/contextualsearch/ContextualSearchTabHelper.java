@@ -21,9 +21,9 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabImpl;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 import org.chromium.content_public.browser.GestureListenerManager;
 import org.chromium.content_public.browser.GestureStateListener;
@@ -373,8 +373,8 @@ public class ContextualSearchTabHelper
                 && TemplateUrlServiceFactory.get().isDefaultSearchEngineGoogle()
                 && !LocaleManager.getInstance().needToCheckForSearchEnginePromo()
                 // Svelte and Accessibility devices are incompatible with the first-run flow and
-                // Talkback has poor interaction with tap to search (see http://crbug.com/399708 and
-                // http://crbug.com/396934).
+                // Talkback has poor interaction with Contextual Search (see http://crbug.com/399708
+                // and http://crbug.com/396934).
                 && !manager.isRunningInCompatibilityMode()
                 && !(mTab.isShowingErrorPage() || ((TabImpl) mTab).isShowingInterstitialPage())
                 && isDeviceOnline(manager) && mUnhookedTab == null;

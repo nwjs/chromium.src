@@ -10,14 +10,12 @@
 #include "components/autofill/core/browser/test_address_normalizer.h"
 #include "ios/chrome/browser/payments/payment_request.h"
 
+class ChromeBrowserState;
+
 namespace autofill {
 class PersonalDataManager;
 class RegionDataLoader;
 }  // namespace autofill
-
-namespace ios {
-class ChromeBrowserState;
-}  // namespace ios
 
 namespace payments {
 class PaymentShippingOption;
@@ -38,13 +36,13 @@ class TestPaymentRequest : public PaymentRequest {
   // |browser_state|, |web_state|, and |personal_data_manager| should not be
   // null and should outlive this object.
   TestPaymentRequest(const payments::WebPaymentRequest& web_payment_request,
-                     ios::ChromeBrowserState* browser_state,
+                     ChromeBrowserState* browser_state,
                      web::WebState* web_state,
                      autofill::PersonalDataManager* personal_data_manager,
                      id<PaymentRequestUIDelegate> payment_request_ui_delegate);
 
   TestPaymentRequest(const payments::WebPaymentRequest& web_payment_request,
-                     ios::ChromeBrowserState* browser_state,
+                     ChromeBrowserState* browser_state,
                      web::WebState* web_state,
                      autofill::PersonalDataManager* personal_data_manager);
 

@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.browserservices.OriginVerifier;
 import org.chromium.chrome.browser.browserservices.OriginVerifier.OriginVerificationListener;
 import org.chromium.chrome.browser.browserservices.PostMessageHandler;
 import org.chromium.chrome.browser.installedapp.InstalledAppProviderImpl;
+import org.chromium.chrome.browser.installedapp.PackageManagerDelegate;
 import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
@@ -187,6 +188,7 @@ class ClientManager {
         private boolean mAllowResourcePrefetch;
         private boolean mShouldGetPageLoadMetrics;
         private boolean mShouldHideTopBar;
+        private String mCustomTabsClientDataHeaderValue;
 
         public SessionParams(Context context, int uid, CustomTabsCallback customTabsCallback,
                 DisconnectCallback callback, PostMessageHandler postMessageHandler,
@@ -483,8 +485,8 @@ class ClientManager {
                 () -> { params.originVerifier.start(listener, origin); });
         if (relation == CustomTabsService.RELATION_HANDLE_ALL_URLS
                 && InstalledAppProviderImpl.isAppInstalledAndAssociatedWithOrigin(
-                           params.getPackageName(), URI.create(origin.toString()),
-                           ContextUtils.getApplicationContext().getPackageManager())) {
+                        params.getPackageName(), URI.create(origin.toString()),
+                        new PackageManagerDelegate())) {
             params.mLinkedOrigins.add(origin);
         }
         return true;
@@ -579,6 +581,25 @@ class ClientManager {
             CustomTabsSessionToken session, boolean send) {
         SessionParams params = mSessionParams.get(session);
         if (params != null) params.mShouldSendBottomBarScrollState = send;
+    }
+
+    /**
+     * Sets the value of the X-CCT-Client-Data header that will be sent on some Custom Tabs
+     * requests.
+     */
+    public synchronized void setClientDataHeaderValue(
+            CustomTabsSessionToken session, String headerValue) {
+        SessionParams params = mSessionParams.get(session);
+        if (params != null) params.mCustomTabsClientDataHeaderValue = headerValue;
+    }
+
+    /**
+     * Gets the value previously set by {@link #setClientDataHeaderValue}.
+     */
+    public synchronized String getClientDataHeaderValue(CustomTabsSessionToken session) {
+        SessionParams params = mSessionParams.get(session);
+        if (params == null) return null;
+        return params.mCustomTabsClientDataHeaderValue;
     }
 
     /**

@@ -43,9 +43,9 @@
 #include "chromecast/browser/devtools/remote_debugging_server.h"
 #include "chromecast/browser/media/media_caps_impl.h"
 #include "chromecast/browser/metrics/cast_browser_metrics.h"
+#include "chromecast/browser/service_connector.h"
 #include "chromecast/browser/tts/tts_controller_impl.h"
 #include "chromecast/browser/tts/tts_platform_stub.h"
-#include "chromecast/browser/url_request_context_factory.h"
 #include "chromecast/chromecast_buildflags.h"
 #include "chromecast/graphics/cast_window_manager.h"
 #include "chromecast/media/base/key_systems_common.h"
@@ -69,6 +69,7 @@
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "media/base/media.h"
 #include "media/base/media_switches.h"
+#include "net/base/network_change_notifier.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/gl_switches.h"
@@ -122,7 +123,7 @@
 #include "extensions/browser/extension_prefs.h"  // nogncheck
 #endif
 
-#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#if defined(OS_LINUX) && defined(USE_OZONE)
 #include "chromecast/browser/exo/wayland_server_controller.h"
 #endif
 
@@ -143,7 +144,7 @@ int kSignalsToRunClosure[] = {
     SIGTERM, SIGINT,
 };
 // Closure to run on SIGTERM and SIGINT.
-base::Closure* g_signal_closure = nullptr;
+base::OnceClosure* g_signal_closure = nullptr;
 base::PlatformThreadId g_main_thread_id;
 
 void RunClosureOnSignal(int signum) {
@@ -157,16 +158,18 @@ void RunClosureOnSignal(int signum) {
   RAW_LOG(INFO, message);
 
   DCHECK(g_signal_closure);
-  g_signal_closure->Run();
+  if (*g_signal_closure)
+    std::move(*g_signal_closure).Run();
 }
 
-void RegisterClosureOnSignal(const base::Closure& closure) {
+void RegisterClosureOnSignal(base::OnceClosure closure) {
   DCHECK(!g_signal_closure);
+  DCHECK(closure);
   DCHECK_GT(base::size(kSignalsToRunClosure), 0U);
 
   // Memory leak on purpose, since |g_signal_closure| should live until
   // process exit.
-  g_signal_closure = new base::Closure(closure);
+  g_signal_closure = new base::OnceClosure(std::move(closure));
   g_main_thread_id = base::PlatformThread::CurrentId();
 
   struct sigaction sa_new;
@@ -373,13 +376,12 @@ void AddDefaultCommandLineSwitches(base::CommandLine* command_line) {
 
 CastBrowserMainParts::CastBrowserMainParts(
     const content::MainFunctionParams& parameters,
-    URLRequestContextFactory* url_request_context_factory,
     CastContentBrowserClient* cast_content_browser_client)
     : BrowserMainParts(),
       cast_browser_process_(new CastBrowserProcess()),
       parameters_(parameters),
       cast_content_browser_client_(cast_content_browser_client),
-      url_request_context_factory_(url_request_context_factory),
+
       media_caps_(new media::MediaCapsImpl()),
       cast_system_memory_pressure_evaluator_adjuster_(nullptr) {
   DCHECK(cast_content_browser_client);
@@ -473,6 +475,8 @@ int CastBrowserMainParts::PreCreateThreads() {
       std::make_unique<crash_reporter::ChildProcessCrashObserver>());
 #endif
 
+  service_connector_ = cast_content_browser_client_->CreateServiceConnector();
+
   cast_browser_process_->SetPrefService(
       cast_content_browser_client_->GetCastFeatureListCreator()
           ->TakePrefService());
@@ -519,8 +523,6 @@ void CastBrowserMainParts::PreMainMessageLoopRun() {
       base::BindOnce(&CastBrowserMainParts::StartPeriodicCrashReportUpload,
                      base::Unretained(this)));
 #endif  // defined(OS_ANDROID)
-
-  url_request_context_factory_->InitializeOnUIThread(nullptr);
 
   cast_browser_process_->SetBrowserContext(
       std::make_unique<CastBrowserContext>());
@@ -624,7 +626,7 @@ void CastBrowserMainParts::PreMainMessageLoopRun() {
       cast_browser_process_->browser_context());
 #endif
 
-#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#if defined(OS_LINUX) && defined(USE_OZONE)
   wayland_server_controller_ =
       std::make_unique<WaylandServerController>(window_manager_.get());
 #endif
@@ -635,7 +637,6 @@ void CastBrowserMainParts::PreMainMessageLoopRun() {
   // initialized by cast service.
   cast_browser_process_->cast_browser_metrics()->Initialize();
   cast_content_browser_client_->InitializeURLLoaderThrottleDelegate();
-  url_request_context_factory_->InitializeNetworkDelegates();
 
   cast_content_browser_client_->CreateGeneralAudienceBrowsingService();
 
@@ -681,11 +682,10 @@ bool CastBrowserMainParts::MainMessageLoopRun(int* result_code) {
 #else
   if (run_message_loop_) {
     base::RunLoop run_loop;
-    base::Closure quit_closure(run_loop.QuitClosure());
 
 #if !defined(OS_FUCHSIA)
     // Fuchsia doesn't have signals.
-    RegisterClosureOnSignal(quit_closure);
+    RegisterClosureOnSignal(run_loop.QuitClosure());
 #endif  // !defined(OS_FUCHSIA)
 
     run_loop.Run();
@@ -708,7 +708,7 @@ bool CastBrowserMainParts::MainMessageLoopRun(int* result_code) {
 }
 
 void CastBrowserMainParts::PostMainMessageLoopRun() {
-#if BUILDFLAG(ENABLE_CAST_WAYLAND_SERVER)
+#if defined(OS_LINUX) && defined(USE_OZONE)
   wayland_server_controller_.reset();
 #endif
 #if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)

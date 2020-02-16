@@ -164,6 +164,9 @@ extern const char kLegacySupervisedUserManagementURL[];
 // The URL for the Learn More page about policies and enterprise enrollment.
 extern const char kManagedUiLearnMoreUrl[];
 
+// The URL for the "Learn more" page for mixed content download blocking.
+extern const char kMixedContentDownloadBlockingLearnMoreUrl[];
+
 // "myactivity.google.com" URL for the history checkbox in ClearBrowsingData.
 extern const char kMyActivityUrlInClearBrowsingData[];
 
@@ -306,6 +309,9 @@ extern const char kNaturalScrollHelpURL[];
 
 // The URL path to offline OEM EULA.
 extern const char kOemEulaURLPath[];
+
+// Help URL for the OS settings page's search feature.
+extern const char kOsSettingsSearchHelpURL[];
 
 // The URL path to offline ARC++ Terms of Service.
 extern const char kArcTermsURLPath[];

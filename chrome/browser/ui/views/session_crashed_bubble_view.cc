@@ -131,9 +131,9 @@ void SessionCrashedBubble::ShowIfNotOffTheRecordProfile(Browser* browser) {
   if (DoesSupportConsentCheck()) {
     base::PostTaskAndReplyWithResult(
         GoogleUpdateSettings::CollectStatsConsentTaskRunner(), FROM_HERE,
-        base::Bind(&GoogleUpdateSettings::GetCollectStatsConsent),
-        base::Bind(&SessionCrashedBubbleView::Show,
-                   base::Passed(&browser_observer)));
+        base::BindOnce(&GoogleUpdateSettings::GetCollectStatsConsent),
+        base::BindOnce(&SessionCrashedBubbleView::Show,
+                       base::Passed(&browser_observer)));
   } else {
     SessionCrashedBubbleView::Show(std::move(browser_observer), false);
   }
@@ -168,6 +168,10 @@ void SessionCrashedBubbleView::Show(
     RecordBubbleHistogramValue(SESSION_CRASHED_BUBBLE_ALREADY_UMA_OPTIN);
 }
 
+ax::mojom::Role SessionCrashedBubbleView::GetAccessibleWindowRole() {
+  return ax::mojom::Role::kAlert;
+}
+
 SessionCrashedBubbleView::SessionCrashedBubbleView(views::View* anchor_view,
                                                    const gfx::Rect& anchor_rect,
                                                    Browser* browser,
@@ -177,12 +181,28 @@ SessionCrashedBubbleView::SessionCrashedBubbleView(views::View* anchor_view,
       uma_option_(NULL),
       offer_uma_optin_(offer_uma_optin),
       ignored_(true) {
+  const SessionStartupPref session_startup_pref =
+      SessionStartupPref::GetStartupPref(browser_->profile());
+  // Offer the option to open the startup pages using the cancel button, but
+  // only when the user has selected the URLS option, and set at least one url.
+  DialogDelegate::set_buttons(
+      (session_startup_pref.type == SessionStartupPref::URLS &&
+       !session_startup_pref.urls.empty())
+          ? ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL
+          : ui::DIALOG_BUTTON_OK);
   DialogDelegate::set_button_label(
       ui::DIALOG_BUTTON_OK,
       l10n_util::GetStringUTF16(IDS_SESSION_CRASHED_VIEW_RESTORE_BUTTON));
   DialogDelegate::set_button_label(
       ui::DIALOG_BUTTON_CANCEL,
       l10n_util::GetStringUTF16(IDS_SESSION_CRASHED_VIEW_STARTUP_PAGES_BUTTON));
+
+  DialogDelegate::set_accept_callback(
+      base::BindOnce(&SessionCrashedBubbleView::RestorePreviousSession,
+                     base::Unretained(this)));
+  DialogDelegate::set_cancel_callback(base::BindOnce(
+      &SessionCrashedBubbleView::OpenStartupPages, base::Unretained(this)));
+
   set_close_on_deactivate(false);
   chrome::RecordDialogCreation(chrome::DialogIdentifier::SESSION_CRASHED);
 
@@ -287,37 +307,6 @@ std::unique_ptr<views::View> SessionCrashedBubbleView::CreateUmaOptInView() {
   uma_layout->AddView(std::move(uma_label));
 
   return uma_view;
-}
-
-bool SessionCrashedBubbleView::Accept() {
-  RestorePreviousSession();
-  return true;
-}
-
-// The cancel button is used as an option to open the startup pages instead of
-// restoring the previous session.
-bool SessionCrashedBubbleView::Cancel() {
-  OpenStartupPages();
-  return true;
-}
-
-bool SessionCrashedBubbleView::Close() {
-  // Don't default to Accept() just because that's the only choice. Instead, do
-  // nothing.
-  return true;
-}
-
-int SessionCrashedBubbleView::GetDialogButtons() const {
-  int buttons = ui::DIALOG_BUTTON_OK;
-  // Offer the option to open the startup pages using the cancel button, but
-  // only when the user has selected the URLS option, and set at least one url.
-  SessionStartupPref session_startup_pref =
-      SessionStartupPref::GetStartupPref(browser_->profile());
-  if (session_startup_pref.type == SessionStartupPref::URLS &&
-      !session_startup_pref.urls.empty()) {
-    buttons |= ui::DIALOG_BUTTON_CANCEL;
-  }
-  return buttons;
 }
 
 void SessionCrashedBubbleView::StyledLabelLinkClicked(views::StyledLabel* label,

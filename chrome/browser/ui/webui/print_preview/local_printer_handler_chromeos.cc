@@ -12,7 +12,7 @@
 #include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/post_task.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
@@ -26,7 +26,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_utils.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/webui_url_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/printing/printer_configuration.h"
@@ -73,9 +72,9 @@ void AddPrintersToList(const std::vector<chromeos::Printer>& printers,
 
 base::Value FetchCapabilitiesAsync(const std::string& device_name,
                                    const PrinterBasicInfo& basic_info,
-                                   bool has_secure_protocol) {
-  auto print_backend = PrintBackend::CreateInstance(
-      nullptr, g_browser_process->GetApplicationLocale());
+                                   bool has_secure_protocol,
+                                   const std::string& locale) {
+  auto print_backend = PrintBackend::CreateInstance(nullptr, locale);
   return GetSettingsOnBlockingTaskRunner(
       device_name, basic_info, PrinterSemanticCapsAndDefaults::Papers(),
       has_secure_protocol, print_backend);
@@ -94,15 +93,14 @@ void FetchCapabilities(const chromeos::Printer& printer,
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   PrinterBasicInfo basic_info = ToBasicInfo(printer);
-  bool has_secure_protocol = !printer.HasNetworkProtocol() ||
-                             printer.GetProtocol() == chromeos::Printer::kIpps;
 
   // USER_VISIBLE because the result is displayed in the print preview dialog.
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&FetchCapabilitiesAsync, printer.id(), basic_info,
-                     has_secure_protocol),
+                     printer.HasSecureProtocol(),
+                     g_browser_process->GetApplicationLocale()),
       base::BindOnce(&CapabilitiesFetched, std::move(policies), std::move(cb)));
 }
 
@@ -206,9 +204,9 @@ void LocalPrinterHandlerChromeos::StartGetCapability(
   }
 
   // Log printer configuration for selected printer.
-  UMA_HISTOGRAM_ENUMERATION("Printing.CUPS.ProtocolUsed",
-                            printer->GetProtocol(),
-                            chromeos::Printer::kProtocolMax);
+  base::UmaHistogramEnumeration("Printing.CUPS.ProtocolUsed",
+                                printer->GetProtocol(),
+                                chromeos::Printer::kProtocolMax);
 
   if (printers_manager_->IsPrinterInstalled(*printer)) {
     // Skip setup if the printer does not need to be installed.
@@ -268,7 +266,7 @@ void LocalPrinterHandlerChromeos::OnResolvedEulaUrl(
     return;
   }
 
-  GURL eula_url(chrome::kChromeUIOSCreditsURL + license);
+  GURL eula_url = chromeos::PrinterConfigurer::GeneratePrinterEulaUrl(license);
   std::move(cb).Run(eula_url.spec());
 }
 
@@ -330,7 +328,7 @@ void LocalPrinterHandlerChromeos::StartPrint(
     scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
   size_t size_in_kb = print_data->size() / 1024;
-  UMA_HISTOGRAM_MEMORY_KB("Printing.CUPS.PrintDocumentSize", size_in_kb);
+  base::UmaHistogramMemoryKB("Printing.CUPS.PrintDocumentSize", size_in_kb);
   if (profile_->GetPrefs()->GetBoolean(
           prefs::kPrintingSendUsernameAndFilenameEnabled)) {
     std::string username = chromeos::ProfileHelper::Get()

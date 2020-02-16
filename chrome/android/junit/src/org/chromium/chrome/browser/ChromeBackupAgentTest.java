@@ -25,7 +25,6 @@ import static org.mockito.Mockito.when;
 import android.app.backup.BackupDataInput;
 import android.app.backup.BackupDataOutput;
 import android.app.backup.BackupManager;
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.ParcelFileDescriptor;
 
@@ -43,13 +42,12 @@ import org.robolectric.annotation.Implements;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.PathUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.JniMocker;
-import org.chromium.chrome.browser.firstrun.FirstRunSignInProcessor;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.init.AsyncInitTaskRunner;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.content_public.common.ContentProcessInfo;
 
@@ -99,8 +97,8 @@ public class ChromeBackupAgentTest {
 
     private void setUpTestPrefs(SharedPreferences prefs) {
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putBoolean(FirstRunStatus.FIRST_RUN_FLOW_COMPLETE, true);
-        editor.putBoolean(FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_SETUP, false);
+        editor.putBoolean(ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE, true);
+        editor.putBoolean(ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_SETUP, false);
         editor.putString(ChromeSigninController.SIGNED_IN_ACCOUNT_KEY, "user1");
         editor.apply();
     }
@@ -126,7 +124,7 @@ public class ChromeBackupAgentTest {
                 .thenReturn(new boolean[] {true});
 
         // Mock initializing the browser
-        doReturn(true).when(mAgent).initializeBrowser(any(Context.class));
+        doReturn(true).when(mAgent).initializeBrowser();
 
         // Mock the AsyncTaskRunner.
         mTaskRunner = mock(AsyncInitTaskRunner.class);
@@ -159,11 +157,12 @@ public class ChromeBackupAgentTest {
         // Check that the right things were written to the backup
         verify(backupData).writeEntityHeader("native.pref1", 1);
         verify(backupData)
-                .writeEntityHeader("AndroidDefault." + FirstRunStatus.FIRST_RUN_FLOW_COMPLETE, 1);
+                .writeEntityHeader(
+                        "AndroidDefault." + ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE, 1);
         verify(backupData, times(2)).writeEntityData(new byte[] {1}, 1);
         verify(backupData)
                 .writeEntityHeader(
-                        "AndroidDefault." + FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_SETUP, 1);
+                        "AndroidDefault." + ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_SETUP, 1);
         verify(backupData).writeEntityData(new byte[] {0}, 1);
         byte[] unameBytes = ApiCompatibilityUtils.getBytesUtf8("user1");
         verify(backupData)
@@ -178,9 +177,10 @@ public class ChromeBackupAgentTest {
         ArrayList<String> names = (ArrayList<String>) newStateStream.readObject();
         assertThat(names.size(), equalTo(4));
         assertThat(names, hasItem("native.pref1"));
-        assertThat(names, hasItem("AndroidDefault." + FirstRunStatus.FIRST_RUN_FLOW_COMPLETE));
+        assertThat(
+                names, hasItem("AndroidDefault." + ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE));
         assertThat(names,
-                hasItem("AndroidDefault." + FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_SETUP));
+                hasItem("AndroidDefault." + ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_SETUP));
         assertThat(
                 names, hasItem("AndroidDefault." + ChromeSigninController.SIGNED_IN_ACCOUNT_KEY));
         ArrayList<byte[]> values = (ArrayList<byte[]>) newStateStream.readObject();
@@ -292,7 +292,7 @@ public class ChromeBackupAgentTest {
 
         // Change some data.
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putBoolean(FirstRunSignInProcessor.FIRST_RUN_FLOW_SIGNIN_SETUP, true);
+        editor.putBoolean(ChromePreferenceKeys.FIRST_RUN_FLOW_SIGNIN_SETUP, true);
         editor.apply();
 
         // Do a second backup.
@@ -331,7 +331,7 @@ public class ChromeBackupAgentTest {
         BackupDataOutput backupData = mock(BackupDataOutput.class);
         ParcelFileDescriptor mockState = mock(ParcelFileDescriptor.class);
 
-        doReturn(false).when(mAgent).initializeBrowser(any(Context.class));
+        doReturn(false).when(mAgent).initializeBrowser();
 
         BackupManagerShadow.clearDataChangedCalls();
         mAgent.onBackup(null, backupData, mockState);
@@ -350,7 +350,7 @@ public class ChromeBackupAgentTest {
         assertThat(BackupManagerShadow.getDataChangedCalls(), equalTo(1));
 
         // Check that a successful backup resets the failure count
-        doReturn(true).when(mAgent).initializeBrowser(any(Context.class));
+        doReturn(true).when(mAgent).initializeBrowser();
         // A successful backup needs a real state file, or lots more mocking.
         File stateFile = File.createTempFile("Test", "");
         ParcelFileDescriptor newState =
@@ -365,7 +365,8 @@ public class ChromeBackupAgentTest {
         BackupDataInput backupData = mock(BackupDataInput.class);
 
         final String[] keys = {"native.pref1", "native.pref2",
-                "AndroidDefault." + FirstRunStatus.FIRST_RUN_FLOW_COMPLETE, "AndroidDefault.junk",
+                "AndroidDefault." + ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE,
+                "AndroidDefault.junk",
                 "AndroidDefault." + ChromeSigninController.SIGNED_IN_ACCOUNT_KEY};
         byte[] unameBytes = ApiCompatibilityUtils.getBytesUtf8("user1");
         final byte[][] values = {{0}, {1}, {1}, {23, 42}, unameBytes};
@@ -430,7 +431,7 @@ public class ChromeBackupAgentTest {
         // Do a restore.
         mAgent.onRestore(backupData, 0, newState);
         SharedPreferences prefs = ContextUtils.getAppSharedPreferences();
-        assertTrue(prefs.getBoolean(FirstRunStatus.FIRST_RUN_FLOW_COMPLETE, false));
+        assertTrue(prefs.getBoolean(ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE, false));
         assertFalse(prefs.contains("junk"));
         verify(mChromeBackupAgentJniMock)
                 .setBoolBackupPrefs(
@@ -442,11 +443,6 @@ public class ChromeBackupAgentTest {
         // Test that the status of the restore has been recorded.
         assertThat(ChromeBackupAgent.getRestoreStatus(),
                 equalTo(ChromeBackupAgent.RestoreStatus.RESTORE_COMPLETED));
-
-        // The test mocks out everything that forces the AsyncTask used by PathUtils setup to
-        // complete. If it isn't completed before the test exits Robolectric crashes with a null
-        // pointer exception (although the test passes). Force it to complete by getting some data.
-        PathUtils.getDataDirectory();
     }
 
     /**
@@ -468,7 +464,7 @@ public class ChromeBackupAgentTest {
         // Do a restore.
         mAgent.onRestore(backupData, 0, newState);
         SharedPreferences prefs = ContextUtils.getAppSharedPreferences();
-        assertFalse(prefs.contains(FirstRunStatus.FIRST_RUN_FLOW_COMPLETE));
+        assertFalse(prefs.contains(ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE));
         verify(mChromeBackupAgentJniMock, never())
                 .setBoolBackupPrefs(eq(mAgent), any(String[].class), any(boolean[].class));
         verify(mTaskRunner)
@@ -478,11 +474,6 @@ public class ChromeBackupAgentTest {
         // Test that the status of the restore has been recorded.
         assertThat(ChromeBackupAgent.getRestoreStatus(),
                 equalTo(ChromeBackupAgent.RestoreStatus.NOT_SIGNED_IN));
-
-        // The test mocks out everything that forces the AsyncTask used by PathUtils setup to
-        // complete. If it isn't completed before the test exits Robolectric crashes with a null
-        // pointer exception (although the test passes). Force it to complete by getting some data.
-        PathUtils.getDataDirectory();
     }
 
     /**
@@ -498,21 +489,16 @@ public class ChromeBackupAgentTest {
                 ParcelFileDescriptor.open(stateFile, ParcelFileDescriptor.parseMode("w"));
 
         BackupDataInput backupData = createMockBackupData();
-        doReturn(false).when(mAgent).initializeBrowser(any(Context.class));
+        doReturn(false).when(mAgent).initializeBrowser();
 
         // Do a restore.
         mAgent.onRestore(backupData, 0, newState);
         SharedPreferences prefs = ContextUtils.getAppSharedPreferences();
-        assertFalse(prefs.contains(FirstRunStatus.FIRST_RUN_FLOW_COMPLETE));
+        assertFalse(prefs.contains(ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE));
 
         // Test that the status of the restore has been recorded.
         assertThat(ChromeBackupAgent.getRestoreStatus(),
                 equalTo(ChromeBackupAgent.RestoreStatus.BROWSER_STARTUP_FAILED));
-
-        // The test mocks out everything that forces the AsyncTask used by PathUtils setup to
-        // complete. If it isn't completed before the test exits Robolectric crashes with a null
-        // pointer exception (although the test passes). Force it to complete by getting some data.
-        PathUtils.getDataDirectory();
     }
 
     /**
@@ -533,16 +519,11 @@ public class ChromeBackupAgentTest {
         // Do a restore.
         mAgent.onRestore(backupData, 0, newState);
         SharedPreferences prefs = ContextUtils.getAppSharedPreferences();
-        assertTrue(prefs.contains(FirstRunStatus.FIRST_RUN_FLOW_COMPLETE));
+        assertTrue(prefs.contains(ChromePreferenceKeys.FIRST_RUN_FLOW_COMPLETE));
 
         // Test that the status of the restore has been recorded.
         assertThat(ChromeBackupAgent.getRestoreStatus(),
                 equalTo(ChromeBackupAgent.RestoreStatus.RESTORE_AFTER_FIRST_RUN));
-
-        // The test mocks out everything that forces the AsyncTask used by PathUtils setup to
-        // complete. If it isn't completed before the test exits Robolectric crashes with a null
-        // pointer exception (although the test passes). Force it to complete by getting some data.
-        PathUtils.getDataDirectory();
     }
 
     /**
@@ -593,7 +574,7 @@ public class ChromeBackupAgentTest {
         ChromeBackupAgent agent = new ChromeBackupAgent();
         ChromeBrowserInitializer initializer = mock(ChromeBrowserInitializer.class);
         ChromeBrowserInitializer.setForTesting(initializer);
-        assertTrue(agent.initializeBrowser(ContextUtils.getApplicationContext()));
+        assertTrue(agent.initializeBrowser());
     }
 
     /**
@@ -606,7 +587,7 @@ public class ChromeBackupAgentTest {
         ChromeBackupAgent agent = new ChromeBackupAgent();
         ChromeBrowserInitializer initializer = mock(ChromeBrowserInitializer.class);
         ChromeBrowserInitializer.setForTesting(initializer);
-        assertFalse(agent.initializeBrowser(ContextUtils.getApplicationContext()));
+        assertFalse(agent.initializeBrowser());
         verifyNoMoreInteractions(initializer);
     }
 }

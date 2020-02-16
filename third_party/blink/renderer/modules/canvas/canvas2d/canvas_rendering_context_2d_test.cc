@@ -16,6 +16,7 @@
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -26,7 +27,6 @@
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
-#include "third_party/blink/renderer/core/imagebitmap/image_bitmap_options.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
@@ -34,7 +34,6 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_pattern.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_rendering_context.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
 #include "third_party/blink/renderer/platform/graphics/color_correction_test_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
@@ -155,8 +154,7 @@ class CanvasRenderingContext2DTest : public ::testing::Test {
   }
 
   void UpdateAllLifecyclePhasesForTest() {
-    GetDocument().View()->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    GetDocument().View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
     GetDocument().View()->RunPostLifecycleSteps();
   }
 
@@ -586,13 +584,13 @@ TEST_F(CanvasRenderingContext2DTest, ImageResourceLifetime) {
     const ImageBitmapOptions* default_options = ImageBitmapOptions::Create();
     base::Optional<IntRect> crop_rect =
         IntRect(0, 0, canvas->width(), canvas->height());
-    ImageBitmap* image_bitmap_from_canvas =
-        ImageBitmap::Create(canvas, crop_rect, default_options);
+    auto* image_bitmap_from_canvas =
+        MakeGarbageCollected<ImageBitmap>(canvas, crop_rect, default_options);
     ASSERT_TRUE(image_bitmap_from_canvas);
 
     crop_rect = IntRect(0, 0, 20, 20);
-    image_bitmap_derived = ImageBitmap::Create(image_bitmap_from_canvas,
-                                               crop_rect, default_options);
+    image_bitmap_derived = MakeGarbageCollected<ImageBitmap>(
+        image_bitmap_from_canvas, crop_rect, default_options);
     ASSERT_TRUE(image_bitmap_derived);
   }
   CanvasContextCreationAttributesCore attributes;
@@ -895,7 +893,8 @@ TEST_F(CanvasRenderingContext2DTest, ImageBitmapColorSpaceConversion) {
     options->setColorSpaceConversion(
         ColorCorrectionTestUtils::ColorSpaceConversionToString(
             static_cast<ColorSpaceConversion>(conversion_iterator)));
-    ImageBitmap* image_bitmap = ImageBitmap::Create(canvas, crop_rect, options);
+    ImageBitmap* image_bitmap =
+        MakeGarbageCollected<ImageBitmap>(canvas, crop_rect, options);
     ASSERT_TRUE(image_bitmap);
     sk_sp<SkImage> converted_image =
         image_bitmap->BitmapImage()->PaintImageForCurrentFrame().GetSkImage();
@@ -995,14 +994,14 @@ void TestPutImageDataOnCanvasWithColorSpaceSettings(
                          0,   0,   0,   0,    // Transparent
                          255, 192, 128, 64,   // Decreasing values
                          93,  117, 205, 41};  // Random values
-  unsigned data_length = 16;
+  size_t data_length = 16;
 
   uint16_t* u16_pixels = new uint16_t[data_length];
-  for (unsigned i = 0; i < data_length; i++)
+  for (size_t i = 0; i < data_length; i++)
     u16_pixels[i] = u8_pixels[i] * 257;
 
   float* f32_pixels = new float[data_length];
-  for (unsigned i = 0; i < data_length; i++)
+  for (size_t i = 0; i < data_length; i++)
     f32_pixels[i] = u8_pixels[i] / 255.0;
 
   DOMArrayBufferView* data_array = nullptr;
@@ -1010,13 +1009,13 @@ void TestPutImageDataOnCanvasWithColorSpaceSettings(
   DOMUint8ClampedArray* data_u8 =
       DOMUint8ClampedArray::Create(u8_pixels, data_length);
   DCHECK(data_u8);
-  EXPECT_EQ(data_length, data_u8->deprecatedLengthAsUnsigned());
+  EXPECT_EQ(data_length, data_u8->lengthAsSizeT());
   DOMUint16Array* data_u16 = DOMUint16Array::Create(u16_pixels, data_length);
   DCHECK(data_u16);
-  EXPECT_EQ(data_length, data_u16->deprecatedLengthAsUnsigned());
+  EXPECT_EQ(data_length, data_u16->lengthAsSizeT());
   DOMFloat32Array* data_f32 = DOMFloat32Array::Create(f32_pixels, data_length);
   DCHECK(data_f32);
-  EXPECT_EQ(data_length, data_f32->deprecatedLengthAsUnsigned());
+  EXPECT_EQ(data_length, data_f32->lengthAsSizeT());
 
   ImageData* image_data = nullptr;
   ImageDataColorSettings* color_settings = ImageDataColorSettings::Create();

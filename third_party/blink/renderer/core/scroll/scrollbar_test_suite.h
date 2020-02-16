@@ -78,7 +78,8 @@ class MockScrollableArea : public GarbageCollected<MockScrollableArea>,
   bool UserInputScrollable(ScrollbarOrientation) const override { return true; }
   bool ScrollbarsCanBeActive() const override { return true; }
   bool ShouldPlaceVerticalScrollbarOnLeft() const override { return false; }
-  void UpdateScrollOffset(const ScrollOffset& offset, ScrollType) override {
+  void UpdateScrollOffset(const ScrollOffset& offset,
+                          mojom::blink::ScrollIntoViewParams::Type) override {
     scroll_offset_ = offset.ShrunkTo(maximum_scroll_offset_);
   }
   IntSize ScrollOffsetInt() const override {
@@ -93,9 +94,17 @@ class MockScrollableArea : public GarbageCollected<MockScrollableArea>,
   CompositorElementId GetScrollElementId() const override {
     return CompositorElementId();
   }
-  bool ScrollAnimatorEnabled() const override { return false; }
+  bool ScrollAnimatorEnabled() const override { return true; }
   int PageStep(ScrollbarOrientation) const override { return 0; }
   void ScrollControlWasSetNeedsPaintInvalidation() override {}
+  IntPoint ConvertFromRootFrame(const IntPoint& point_in_root_frame) const {
+    return point_in_root_frame;
+  }
+  IntPoint ConvertFromContainingEmbeddedContentViewToScrollbar(
+      const Scrollbar& scrollbar,
+      const IntPoint& parent_point) const {
+    return parent_point;
+  }
 
   scoped_refptr<base::SingleThreadTaskRunner> GetTimerTaskRunner() const final {
     return blink::scheduler::GetSingleThreadTaskRunnerForTesting();
@@ -121,11 +130,12 @@ class MockScrollableArea : public GarbageCollected<MockScrollableArea>,
     ScrollableArea::Trace(visitor);
   }
 
- private:
+ protected:
   void SetMaximumScrollOffset(const ScrollOffset& maximum_scroll_offset) {
     maximum_scroll_offset_ = maximum_scroll_offset;
   }
 
+ private:
   ScrollOffset scroll_offset_;
   ScrollOffset maximum_scroll_offset_;
   Member<MockPlatformChromeClient> chrome_client_;

@@ -22,6 +22,7 @@ component("common") {
   deps = [
     "//cc/ipc",
     "//third_party/blink/common",
+    "//ui/events/ipc",
   ]
 }
 
@@ -33,7 +34,9 @@ buildflag_header("buildflags") {
 source_set("headers") {
   visibility = [
     "//chrome/*",
+    "//chromecast/*",
     "//content/*",
+    "//fuchsia/*",
     "//third_party/blink/*",
     "//components/*",
     "//services/*",
@@ -60,20 +63,19 @@ source_set("headers") {
     "dom_storage/session_storage_namespace_id.h",
     "experiments/memory_ablation_experiment.h",
     "feature_policy/document_policy.h",
+    "feature_policy/document_policy_features.h",
     "feature_policy/feature_policy.h",
     "feature_policy/policy_value.h",
     "features.h",
     "fetch/fetch_api_request_headers_map.h",
     "fetch/fetch_api_request_headers_mojom_traits.h",
     "forcedark/forcedark_switches.h",
-    "frame/blocked_navigation_types.h",
     "frame/frame_owner_element_type.h",
     "frame/frame_policy.h",
     "frame/from_ad_state.h",
     "frame/sandbox_flags.h",
     "frame/user_activation_state.h",
     "frame/user_activation_update_source.h",
-    "frame/user_activation_update_type.h",
     "http/structured_header.h",
     "indexeddb/indexed_db_default_mojom_traits.h",
     "indexeddb/indexeddb_key.h",
@@ -81,10 +83,21 @@ source_set("headers") {
     "indexeddb/indexeddb_key_range.h",
     "indexeddb/indexeddb_metadata.h",
     "indexeddb/web_idb_types.h",
+    "input/pointer_id.h",
+    "input/web_gesture_device.h",
+    "input/web_gesture_event.h",
+    "input/web_input_event.h",
+    "input/web_keyboard_event.h",
+    "input/web_menu_source_type.h",
+    "input/web_mouse_event.h",
+    "input/web_mouse_wheel_event.h",
+    "input/web_pointer_event.h",
+    "input/web_pointer_properties.h",
+    "input/web_touch_event.h",
+    "input/web_touch_point.h",
     "loader/loading_behavior_flag.h",
     "loader/mime_sniffing_throttle.h",
     "loader/mime_sniffing_url_loader.h",
-    "loader/request_destination.h",
     "loader/url_loader_factory_bundle.h",
     "loader/url_loader_factory_bundle_mojom_traits.h",
     "loader/url_loader_throttle.h",
@@ -92,7 +105,6 @@ source_set("headers") {
     "manifest/manifest.h",
     "manifest/manifest_icon_selector.h",
     "manifest/manifest_util.h",
-    "media/media_player_action.h",
     "media/video_capture.h",
     "mediastream/media_devices.h",
     "mediastream/media_devices_mojom_traits.h",
@@ -107,6 +119,8 @@ source_set("headers") {
     "messaging/string_message_codec.h",
     "messaging/transferable_message.h",
     "messaging/transferable_message_mojom_traits.h",
+    "messaging/web_message_port.h",
+    "metrics/document_update_reason.h",
     "mime_util/mime_util.h",
     "navigation/triggering_event_info.h",
     "notifications/notification_constants.h",
@@ -122,6 +136,7 @@ source_set("headers") {
     "page/page_visibility_state.h",
     "page/page_zoom.h",
     "peerconnection/webrtc_ip_handling_policy.h",
+    "permissions/permission_utils.h",
     "plugin/plugin_action.h",
     "prerender/prerender_rel_type.h",
     "presentation/presentation_receiver_flags.h",
@@ -192,8 +207,6 @@ source_set("headers") {
 
 if (is_android || is_win) {
   proto_library("font_unique_name_table_proto") {
-    sources = [
-      "font_unique_name_lookup/font_unique_name_table.proto",
-    ]
+    sources = [ "font_unique_name_lookup/font_unique_name_table.proto" ]
   }
 }

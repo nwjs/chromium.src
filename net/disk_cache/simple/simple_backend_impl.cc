@@ -23,7 +23,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/sequenced_task_runner.h"
 #include "base/system/sys_info.h"
 #include "base/task/post_task.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
@@ -180,7 +179,7 @@ void RecordIndexLoad(net::CacheType cache_type,
 }  // namespace
 
 const base::Feature SimpleBackendImpl::kPrioritizedSimpleCacheTasks{
-    "PrioritizedSimpleCacheTasks", base::FEATURE_DISABLED_BY_DEFAULT};
+    "PrioritizedSimpleCacheTasks", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Static function which is called by base::trace_event::EstimateMemoryUsage()
 // to estimate the memory of SimpleEntryImpl* type.
@@ -253,8 +252,8 @@ SimpleBackendImpl::~SimpleBackendImpl() {
     index_->WriteToDisk(SimpleIndex::INDEX_WRITE_REASON_SHUTDOWN);
 }
 
-void SimpleBackendImpl::SetWorkerPoolForTesting(
-    scoped_refptr<base::TaskRunner> task_runner) {
+void SimpleBackendImpl::SetTaskRunnerForTesting(
+    scoped_refptr<base::SequencedTaskRunner> task_runner) {
   prioritized_task_runner_ =
       base::MakeRefCounted<net::PrioritizedTaskRunner>(std::move(task_runner));
 }

@@ -36,11 +36,13 @@
 #include "chrome/browser/bookmarks/startup_task_runner_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/chromeos/account_manager/child_account_type_changed_user_data.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings.h"
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
+#include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
@@ -400,13 +402,13 @@ Profile* ProfileManager::GetLastUsedProfileAllowedByPolicy() {
   Profile* profile = GetLastUsedProfile();
   if (!profile)
     return nullptr;
-  if (IncognitoModeForced(profile))
+  if (IsOffTheRecordModeForced(profile))
     return profile->GetOffTheRecordProfile();
   return profile;
 }
 
 // static
-bool ProfileManager::IncognitoModeForced(Profile* profile) {
+bool ProfileManager::IsOffTheRecordModeForced(Profile* profile) {
   return profile->IsGuestSession() ||
          profile->IsSystemProfile() ||
          IncognitoModePrefs::GetAvailability(profile->GetPrefs()) ==
@@ -986,7 +988,13 @@ void ProfileManager::InitProfileUserPrefs(Profile* profile) {
       }
       profile->GetPrefs()->SetInteger(arc::prefs::kArcSupervisionTransition,
                                       static_cast<int>(supervisionTransition));
+      chromeos::ChildAccountTypeChangedUserData::GetForProfile(profile)
+          ->SetValue(true);
+    } else {
+      chromeos::ChildAccountTypeChangedUserData::GetForProfile(profile)
+          ->SetValue(false);
     }
+
     if (user_is_child) {
       profile->GetPrefs()->SetString(prefs::kSupervisedUserId,
                                      supervised_users::kChildAccountSUID);
@@ -1273,6 +1281,9 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   PreviewsServiceFactory::GetForProfile(profile)->Initialize(
       base::CreateSingleThreadTaskRunner({BrowserThread::UI}),
       profile->GetPath());
+
+  // Ensure NavigationPredictorKeyedService is started.
+  NavigationPredictorKeyedServiceFactory::GetForProfile(profile);
 
   IdentityManagerFactory::GetForProfile(profile)->OnNetworkInitialized();
   AccountReconcilorFactory::GetForProfile(profile);

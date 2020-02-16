@@ -72,14 +72,16 @@ XRViewerPose* XRFrame::getViewerPose(XRReferenceSpace* reference_space,
 
   session_->LogGetPose();
 
-  std::unique_ptr<TransformationMatrix> pose =
-      reference_space->SpaceFromViewerWithDefaultAndOffset(
-          mojo_from_viewer_.get());
-  if (!pose) {
+  std::unique_ptr<TransformationMatrix> offset_space_from_viewer =
+      reference_space->OffsetFromViewer();
+
+  // Can only update an XRViewerPose's views with an invertible matrix.
+  if (!(offset_space_from_viewer && offset_space_from_viewer->IsInvertible())) {
     return nullptr;
   }
 
-  return MakeGarbageCollected<XRViewerPose>(session(), *pose);
+  return MakeGarbageCollected<XRViewerPose>(session(),
+                                            *offset_space_from_viewer);
 }
 
 XRAnchorSet* XRFrame::trackedAnchors() const {
@@ -121,13 +123,7 @@ XRPose* XRFrame::getPose(XRSpace* space,
     return nullptr;
   }
 
-  return space->getPose(basespace, mojo_from_viewer_.get());
-}
-
-void XRFrame::SetMojoFromViewer(const TransformationMatrix& mojo_from_viewer,
-                                bool emulated_position) {
-  mojo_from_viewer_ = std::make_unique<TransformationMatrix>(mojo_from_viewer);
-  emulated_position_ = emulated_position;
+  return space->getPose(basespace);
 }
 
 void XRFrame::Deactivate() {

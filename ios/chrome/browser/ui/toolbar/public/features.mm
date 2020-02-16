@@ -11,11 +11,14 @@
 #error "This file requires ARC support."
 #endif
 
+const base::Feature kChangeTabSwitcherPosition{
+    "kChangeTabSwitcherPosition", base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kToolbarNewTabButton{"ToolbarNewTabButton",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kIconForSearchButtonFeature{
-    "IconForSearchButtonFeature", base::FEATURE_DISABLED_BY_DEFAULT};
+    "IconForSearchButtonFeature", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const char kIconForSearchButtonFeatureParameterName[] = "icon";
 
@@ -34,6 +37,7 @@ ToolbarSearchButtonIcon IconForSearchButton() {
     } else if (parameter == kIconForSearchButtonParameterMagnifying) {
       return ToolbarSearchButtonIconMagnifying;
     }
+    return ToolbarSearchButtonIconColorful;
   }
   return ToolbarSearchButtonIconMagnifying;
 }

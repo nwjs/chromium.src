@@ -43,6 +43,7 @@ if (enable_vr) {
     deps = [
       "//base",
       "//components/ukm:ukm",
+      "//content/public/common",
       "//device/base",
       "//device/vr/buildflags",
       "//device/vr/public/mojom",
@@ -50,7 +51,6 @@ if (enable_vr) {
       "//mojo/public/cpp/bindings",
       "//services/device/public/cpp/generic_sensor",
       "//services/metrics/public/cpp:ukm_builders",
-      "//services/service_manager/public/cpp",
       "//ui/display",
       "//ui/gfx",
       "//ui/gfx/mojom",
@@ -88,6 +88,10 @@ if (enable_vr) {
     }
 
     if (enable_openvr) {
+      if (!is_component_build) {
+        defines += [ "OPENVR_BUILD_STATIC" ]
+      }
+
       deps += [ "//third_party/openvr:openvr" ]
       sources += [
         "openvr/openvr_api_wrapper.cc",
@@ -224,10 +228,14 @@ if (enable_vr) {
         "openxr/openxr_api_wrapper.h",
         "openxr/openxr_controller.cc",
         "openxr/openxr_controller.h",
+        "openxr/openxr_defs.h",
         "openxr/openxr_device.cc",
         "openxr/openxr_device.h",
         "openxr/openxr_input_helper.cc",
         "openxr/openxr_input_helper.h",
+        "openxr/openxr_interaction_profiles.h",
+        "openxr/openxr_path_helper.cc",
+        "openxr/openxr_path_helper.h",
         "openxr/openxr_render_loop.cc",
         "openxr/openxr_render_loop.h",
         "openxr/openxr_statics.cc",
@@ -279,18 +287,14 @@ if (enable_vr) {
         "DXGI.lib",
       ]
 
-      deps = [
-        "//base",
-      ]
+      deps = [ "//base" ]
     }
   }
 } else {
   source_set("vr") {
     # We need to include an empty .cc file so that mac and windows don't fall over when trying to
     # compile this when webvr is disabled.
-    sources = [
-      "empty.cc",
-    ]
+    sources = [ "empty.cc" ]
   }
 }
 
@@ -332,12 +336,8 @@ if (enable_openxr) {
   # json file instead of the registry key. This json file copied to the output
   # folder points to our mock OpenXR runtime.
   copy("json_mock") {
-    sources = [
-      "openxr/test/openxr.json",
-    ]
-    outputs = [
-      "$root_out_dir/mock_vr_clients/bin/openxr/openxr.json",
-    ]
+    sources = [ "openxr/test/openxr.json" ]
+    outputs = [ "$root_out_dir/mock_vr_clients/bin/openxr/openxr.json" ]
   }
 
   shared_library("openxr_mock") {
@@ -347,6 +347,7 @@ if (enable_openxr) {
     include_dirs = [ "//third_party/openxr/src/include" ]
 
     sources = [
+      "openxr/openxr_defs.h",
       "openxr/openxr_util.cc",
       "openxr/openxr_util.h",
       "openxr/test/fake_openxr_impl_api.cc",
@@ -369,9 +370,7 @@ if (enable_openxr) {
       "//third_party/openxr:openxr_headers",
     ]
 
-    data_deps = [
-      "//device/vr:json_mock",
-    ]
+    data_deps = [ "//device/vr:json_mock" ]
   }
 }
 
@@ -384,7 +383,7 @@ if (enable_gvr_services) {
   }
 
   android_library("java") {
-    java_files = java_sources_needing_jni
+    sources = java_sources_needing_jni
     deps = [
       "//base:base_java",
       "//base:jni_java",

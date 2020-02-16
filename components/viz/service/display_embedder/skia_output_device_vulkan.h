@@ -27,6 +27,7 @@ class SkiaOutputDeviceVulkan final : public SkiaOutputDevice {
   SkiaOutputDeviceVulkan(
       VulkanContextProvider* context_provider,
       gpu::SurfaceHandle surface_handle,
+      gpu::MemoryTracker* memory_tracker,
       DidSwapBufferCompleteCallback did_swap_buffer_complete_callback);
   ~SkiaOutputDeviceVulkan() override;
 
@@ -42,6 +43,15 @@ class SkiaOutputDeviceVulkan final : public SkiaOutputDevice {
   void EndPaint(const GrBackendSemaphore& semaphore) override;
 
  private:
+  struct SkSurfaceSizePair {
+   public:
+    SkSurfaceSizePair();
+    SkSurfaceSizePair(const SkSurfaceSizePair& other);
+    ~SkSurfaceSizePair();
+    sk_sp<SkSurface> sk_surface;
+    uint64_t bytes_allocated = 0u;
+  };
+
   bool CreateVulkanSurface();
   void CreateSkSurface();
 
@@ -53,7 +63,7 @@ class SkiaOutputDeviceVulkan final : public SkiaOutputDevice {
   base::Optional<gpu::VulkanSwapChain::ScopedWrite> scoped_write_;
 
   // SkSurfaces for swap chain images.
-  std::vector<sk_sp<SkSurface>> sk_surfaces_;
+  std::vector<SkSurfaceSizePair> sk_surface_size_pairs_;
 
   sk_sp<SkColorSpace> sk_color_space_;
 

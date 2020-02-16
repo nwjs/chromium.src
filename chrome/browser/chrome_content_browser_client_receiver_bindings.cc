@@ -6,9 +6,12 @@
 
 #include "chrome/browser/chrome_content_browser_client.h"
 
+#pragma clang diagnostic ignored "-Wunused-function"
+
 #include "base/bind.h"
 #include "base/task/post_task.h"
 #include "build/build_config.h"
+#include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/cache_stats_recorder.h"
 #include "chrome/browser/chrome_browser_interface_binders.h"
@@ -29,21 +32,18 @@
 #include "components/rappor/public/rappor_utils.h"
 #include "components/rappor/rappor_recorder_impl.h"
 #include "components/rappor/rappor_service_impl.h"
-#include "components/safe_browsing/browser/mojo_safe_browsing_impl.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/safe_browsing/content/browser/mojo_safe_browsing_impl.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
-#include "components/startup_metric_utils/browser/startup_metric_host_impl.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/resource_context.h"
 #include "media/mojo/buildflags.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/widevine/cdm/buildflags.h"
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/download/android/available_offline_content_provider.h"
-#elif defined(OS_CHROMEOS)
-#include "chrome/browser/ash_service_registry.h"
-#include "services/service_manager/public/cpp/service.h"
 #elif defined(OS_WIN)
 #include "chrome/browser/win/conflicts/module_database.h"
 #include "chrome/browser/win/conflicts/module_event_sink_impl.h"
@@ -92,6 +92,36 @@ void AddDataReductionProxyReceiver(
   drp_settings->data_reduction_proxy_service()->Clone(std::move(receiver));
 }
 
+// Helper method for ExposeInterfacesToRenderer() that checks the latest
+// SafeBrowsing pref value on the UI thread before hopping over to the IO
+// thread.
+void MaybeCreateSafeBrowsingForRenderer(
+    int process_id,
+    content::ResourceContext* resource_context,
+    base::RepeatingCallback<scoped_refptr<safe_browsing::UrlCheckerDelegate>(
+        bool safe_browsing_enabled)> get_checker_delegate,
+    mojo::PendingReceiver<safe_browsing::mojom::SafeBrowsing> receiver) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  content::RenderProcessHost* render_process_host =
+      content::RenderProcessHost::FromID(process_id);
+  if (!render_process_host)
+    return;
+
+  bool safe_browsing_enabled =
+      Profile::FromBrowserContext(render_process_host->GetBrowserContext())
+          ->GetPrefs()
+          ->GetBoolean(prefs::kSafeBrowsingEnabled);
+  base::CreateSingleThreadTaskRunner({content::BrowserThread::IO})
+      ->PostTask(
+          FROM_HERE,
+          base::BindOnce(
+              &safe_browsing::MojoSafeBrowsingImpl::MaybeCreate, process_id,
+              resource_context,
+              base::BindRepeating(get_checker_delegate, safe_browsing_enabled),
+              std::move(receiver)));
+}
+
 }  // namespace
 
 void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
@@ -134,13 +164,13 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
     content::ResourceContext* resource_context =
         render_process_host->GetBrowserContext()->GetResourceContext();
     registry->AddInterface(
-        base::Bind(
-            &safe_browsing::MojoSafeBrowsingImpl::MaybeCreate,
-            render_process_host->GetID(), resource_context,
-            base::Bind(
+        base::BindRepeating(
+            &MaybeCreateSafeBrowsingForRenderer, render_process_host->GetID(),
+            resource_context,
+            base::BindRepeating(
                 &ChromeContentBrowserClient::GetSafeBrowsingUrlCheckerDelegate,
-                base::Unretained(this), resource_context)),
-        base::CreateSingleThreadTaskRunner({content::BrowserThread::IO}));
+                base::Unretained(this))),
+        ui_task_runner);
   }
 #endif
 
@@ -205,6 +235,7 @@ void ChromeContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
     content::RenderFrameHost* render_frame_host,
     service_manager::BinderMapWithContext<content::RenderFrameHost*>* map) {
   chrome::internal::PopulateChromeFrameBinders(map);
+  chrome::internal::PopulateChromeWebUIFrameBinders(map);
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   content::WebContents* web_contents =
@@ -272,6 +303,16 @@ bool ChromeContentBrowserClient::BindAssociatedReceiverFromFrame(
   return false;
 }
 
+void ChromeContentBrowserClient::BindBadgeServiceReceiverFromServiceWorker(
+    content::RenderProcessHost* service_worker_process_host,
+    const GURL& service_worker_scope,
+    mojo::PendingReceiver<blink::mojom::BadgeService> receiver) {
+#if !defined(OS_ANDROID)
+  badging::BadgeManager::BindServiceWorkerReceiver(
+      service_worker_process_host, service_worker_scope, std::move(receiver));
+#endif
+}
+
 void ChromeContentBrowserClient::BindGpuHostReceiver(
     mojo::GenericPendingReceiver receiver) {
   if (auto r = receiver.As<metrics::mojom::CallStackProfileCollector>())
@@ -311,36 +352,4 @@ void ChromeContentBrowserClient::BindHostReceiverForRenderer(
         std::move(host_receiver));
   }
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
-}
-
-void ChromeContentBrowserClient::BindHostReceiverForRendererOnIOThread(
-    int render_process_id,
-    mojo::GenericPendingReceiver* receiver) {
-  if (auto host_receiver =
-          receiver->As<startup_metric_utils::mojom::StartupMetricHost>()) {
-    startup_metric_utils::StartupMetricHostImpl::Create(
-        std::move(host_receiver));
-    return;
-  }
-}
-
-void ChromeContentBrowserClient::RunServiceInstance(
-    const service_manager::Identity& identity,
-    mojo::PendingReceiver<service_manager::mojom::Service>* receiver) {
-  const std::string& service_name = identity.name();
-  ALLOW_UNUSED_LOCAL(service_name);
-#if BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS)
-  if (service_name == media::mojom::kMediaServiceName) {
-    service_manager::Service::RunAsyncUntilTermination(
-        media::CreateMediaService(std::move(*receiver)));
-    return;
-  }
-#endif
-
-#if defined(OS_CHROMEOS)
-  auto service = ash_service_registry::HandleServiceRequest(
-      service_name, std::move(*receiver));
-  if (service)
-    service_manager::Service::RunAsyncUntilTermination(std::move(service));
-#endif  // defined(OS_CHROMEOS)
 }

@@ -7,17 +7,18 @@
 #include <memory>
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_computed_effect_timing.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_optional_effect_timing.h"
 #include "third_party/blink/renderer/core/animation/animation.h"
 #include "third_party/blink/renderer/core/animation/animation_effect.h"
-#include "third_party/blink/renderer/core/animation/computed_effect_timing.h"
 #include "third_party/blink/renderer/core/animation/css/css_animation.h"
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/css/css_transition.h"
+#include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/animation/effect_model.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect_model.h"
-#include "third_party/blink/renderer/core/animation/optional_effect_timing.h"
 #include "third_party/blink/renderer/core/animation/string_keyframe.h"
 #include "third_party/blink/renderer/core/css/css_keyframe_rule.h"
 #include "third_party/blink/renderer/core/css/css_keyframes_rule.h"
@@ -41,10 +42,10 @@ namespace {
 String AnimationDisplayName(const Animation& animation) {
   if (!animation.id().IsEmpty())
     return animation.id();
-  else if (animation.IsCSSAnimation())
-    return ToCSSAnimation(animation).animationName();
-  else if (animation.IsCSSTransition())
-    return ToCSSTransition(animation).transitionProperty();
+  else if (auto* css_animation = DynamicTo<CSSAnimation>(animation))
+    return css_animation->animationName();
+  else if (auto* css_transition = DynamicTo<CSSTransition>(animation))
+    return css_transition->transitionProperty();
   else
     return animation.id();
 }
@@ -116,9 +117,9 @@ BuildObjectForAnimationEffect(KeyframeEffect* effect) {
           .setFill(computed_timing->fill())
           .setEasing(easing)
           .build();
-  if (effect->target()) {
+  if (effect->EffectTarget()) {
     animation_object->setBackendNodeId(
-        IdentifiersFactory::IntIdForNode(effect->target()));
+        IdentifiersFactory::IntIdForNode(effect->EffectTarget()));
   }
   return animation_object;
 }
@@ -151,7 +152,7 @@ BuildObjectForAnimationKeyframes(const KeyframeEffect* effect) {
     // Ignore CSS Transitions
     if (!keyframe->IsStringKeyframe())
       continue;
-    const StringKeyframe* string_keyframe = ToStringKeyframe(keyframe);
+    const auto* string_keyframe = To<StringKeyframe>(keyframe);
     keyframes->emplace_back(
         BuildObjectForStringKeyframe(string_keyframe, computed_offsets.at(i)));
   }
@@ -167,16 +168,16 @@ InspectorAnimationAgent::BuildObjectForAnimation(blink::Animation& animation) {
 
   if (animation.effect()) {
     animation_effect_object =
-        BuildObjectForAnimationEffect(ToKeyframeEffect(animation.effect()));
+        BuildObjectForAnimationEffect(To<KeyframeEffect>(animation.effect()));
 
-    if (animation.IsCSSTransition()) {
+    if (IsA<CSSTransition>(animation)) {
       animation_type = AnimationType::CSSTransition;
     } else {
       animation_effect_object->setKeyframesRule(
           BuildObjectForAnimationKeyframes(
-              ToKeyframeEffect(animation.effect())));
+              To<KeyframeEffect>(animation.effect())));
 
-      if (animation.IsCSSAnimation())
+      if (IsA<CSSAnimation>(animation))
         animation_type = AnimationType::CSSAnimation;
     }
   }
@@ -274,34 +275,34 @@ blink::Animation* InspectorAnimationAgent::AnimationClone(
     blink::Animation* animation) {
   const String id = String::Number(animation->SequenceNumber());
   if (!id_to_animation_clone_.at(id)) {
-    KeyframeEffect* old_effect = ToKeyframeEffect(animation->effect());
+    auto* old_effect = To<KeyframeEffect>(animation->effect());
     DCHECK(old_effect->Model()->IsKeyframeEffectModel());
     KeyframeEffectModelBase* old_model = old_effect->Model();
     KeyframeEffectModelBase* new_model = nullptr;
     // Clone EffectModel.
     // TODO(samli): Determine if this is an animations bug.
     if (old_model->IsStringKeyframeEffectModel()) {
-      StringKeyframeEffectModel* old_string_keyframe_model =
-          ToStringKeyframeEffectModel(old_model);
+      auto* old_string_keyframe_model =
+          To<StringKeyframeEffectModel>(old_model);
       KeyframeVector old_keyframes = old_string_keyframe_model->GetFrames();
       StringKeyframeVector new_keyframes;
       for (auto& old_keyframe : old_keyframes)
-        new_keyframes.push_back(ToStringKeyframe(old_keyframe));
+        new_keyframes.push_back(To<StringKeyframe>(*old_keyframe));
       new_model =
           MakeGarbageCollected<StringKeyframeEffectModel>(new_keyframes);
     } else if (old_model->IsTransitionKeyframeEffectModel()) {
-      TransitionKeyframeEffectModel* old_transition_keyframe_model =
-          ToTransitionKeyframeEffectModel(old_model);
+      auto* old_transition_keyframe_model =
+          To<TransitionKeyframeEffectModel>(old_model);
       KeyframeVector old_keyframes = old_transition_keyframe_model->GetFrames();
       TransitionKeyframeVector new_keyframes;
       for (auto& old_keyframe : old_keyframes)
-        new_keyframes.push_back(ToTransitionKeyframe(old_keyframe));
+        new_keyframes.push_back(To<TransitionKeyframe>(*old_keyframe));
       new_model =
           MakeGarbageCollected<TransitionKeyframeEffectModel>(new_keyframes);
     }
 
     auto* new_effect = MakeGarbageCollected<KeyframeEffect>(
-        old_effect->target(), new_model, old_effect->SpecifiedTiming());
+        old_effect->EffectTarget(), new_model, old_effect->SpecifiedTiming());
     is_cloning_ = true;
     blink::Animation* clone =
         blink::Animation::Create(new_effect, animation->timeline());
@@ -380,7 +381,8 @@ Response InspectorAnimationAgent::resolveAnimation(
     return response;
   if (id_to_animation_clone_.at(animation_id))
     animation = id_to_animation_clone_.at(animation_id);
-  const Element* element = ToKeyframeEffect(animation->effect())->target();
+  const Element* element =
+      To<KeyframeEffect>(animation->effect())->EffectTarget();
   Document* document = element->ownerDocument();
   LocalFrame* frame = document ? document->GetFrame() : nullptr;
   ScriptState* script_state =
@@ -419,25 +421,24 @@ String InspectorAnimationAgent::CreateCSSId(blink::Animation& animation) {
       &GetCSSPropertyTransitionTimingFunction(),
   };
 
-  KeyframeEffect* effect = ToKeyframeEffect(animation.effect());
+  auto* effect = To<KeyframeEffect>(animation.effect());
   Vector<const CSSProperty*> css_properties;
-  if (animation.IsCSSAnimation()) {
+  if (IsA<CSSAnimation>(animation)) {
     for (const CSSProperty* property : g_animation_properties)
       css_properties.push_back(property);
-  } else if (animation.IsCSSTransition()) {
+  } else if (auto* css_transition = DynamicTo<CSSTransition>(animation)) {
     for (const CSSProperty* property : g_transition_properties)
       css_properties.push_back(property);
-    css_properties.push_back(
-        &ToCSSTransition(animation).TransitionCSSProperty());
+    css_properties.push_back(&css_transition->TransitionCSSProperty());
   } else {
     NOTREACHED();
   }
 
-  Element* element = effect->target();
+  Element* element = effect->EffectTarget();
   HeapVector<Member<CSSStyleDeclaration>> styles =
       css_agent_->MatchingStyles(element);
   Digestor digestor(kHashAlgorithmSha1);
-  digestor.UpdateUtf8(animation.IsCSSTransition()
+  digestor.UpdateUtf8(IsA<CSSTransition>(animation)
                           ? AnimationType::CSSTransition
                           : AnimationType::CSSAnimation);
   digestor.UpdateUtf8(animation.id());
@@ -509,15 +510,16 @@ DocumentTimeline& InspectorAnimationAgent::ReferenceTimeline() {
 double InspectorAnimationAgent::NormalizedStartTime(
     blink::Animation& animation) {
   double time_ms = animation.startTime().value_or(NullValue());
-  if (animation.timeline()->IsDocumentTimeline()) {
+  auto* document_timeline = DynamicTo<DocumentTimeline>(animation.timeline());
+  if (document_timeline) {
     if (ReferenceTimeline().PlaybackRate() == 0) {
-      time_ms += ReferenceTimeline().currentTime() -
-                 ToDocumentTimeline(animation.timeline())->currentTime();
+      time_ms +=
+          ReferenceTimeline().currentTime() - document_timeline->currentTime();
     } else {
-      time_ms += (ToDocumentTimeline(animation.timeline())->ZeroTime() -
-                  ReferenceTimeline().ZeroTime())
-                     .InMillisecondsF() *
-                 ReferenceTimeline().PlaybackRate();
+      time_ms +=
+          (document_timeline->ZeroTime() - ReferenceTimeline().ZeroTime())
+              .InMillisecondsF() *
+          ReferenceTimeline().PlaybackRate();
     }
   }
   // Round to the closest microsecond.

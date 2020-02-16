@@ -31,8 +31,8 @@ import "url/mojom/url.mojom";
 import "mojo/public/mojom/base/application_state.mojom";
 
 struct LoadInfo {
-  uint32 process_id;
-  uint32 routing_id;
+  int32 process_id;
+  int32 routing_id;
   string host;
   uint32 load_state;  // net::LoadState enum
   mojo_base.mojom.String16 state_param;
@@ -249,7 +249,7 @@ interface NetworkService {
   // Granting a permission increases risks in case the child process becomes
   // compromised, so this should be done only in specific cases
   // (e.g. DevTools attached).
-  SetRawHeadersAccess(uint32 process_id, array<url.mojom.Origin> origins);
+  SetRawHeadersAccess(int32 process_id, array<url.mojom.Origin> origins);
 
   // Sets the maximum number of connections for a proxy server.
   //   * Negative values will set the default proxy connection limit (32)
@@ -282,7 +282,12 @@ interface NetworkService {
   // CRLSets (where older is determined by the sequence number). All Network
   // Contexts created by the Network Service, including those created after
   // this call, will use the same CRLSet.
-  UpdateCRLSet(mojo_base.mojom.ReadOnlyBuffer crl_set);
+  UpdateCRLSet(mojo_base.mojom.ReadOnlyBuffer crl_set) => ();
+
+  // Updates the configuration used for determining if a site should have legacy
+  // TLS warnings suppressed. Configs that cannot be parsed as a
+  // LegacyTLSExperimentConfig (protobuf) will be ignored.
+  UpdateLegacyTLSConfig(mojo_base.mojom.ReadOnlyBuffer config) => ();
 
   // Notification that the certificate database has been modified.
   OnCertDBChanged();
@@ -307,17 +312,10 @@ interface NetworkService {
   // TODO(lukasza, laforge): https://crbug.com/702995: Remove the ...ForPlugin
   // methods once Flash support is removed from Chromium (probably around 2020
   // - see https://www.chromium.org/flash-roadmap).
-  AddCorbExceptionForPlugin(uint32 process_id);
+  AddCorbExceptionForPlugin(int32 process_id);
 
   // Reverts AddCorbExceptionForPlugin.
-  RemoveCorbExceptionForPlugin(uint32 process_id);
-
-  // Registers additional MIME types that can be protected by CORB (without any
-  // confirmation sniffing).
-  //
-  // TODO(lukasza): https://crbug.com/944162: Remove the method below once
-  // kMimeHandlerViewInCrossProcessFrame feature ships.
-  AddExtraMimeTypesForCorb(array<string> mime_types);
+  RemoveCorbExceptionForPlugin(int32 process_id);
 
   // Called when the system is low on memory.
   OnMemoryPressure(mojo_base.mojom.MemoryPressureLevel memory_pressure_level);

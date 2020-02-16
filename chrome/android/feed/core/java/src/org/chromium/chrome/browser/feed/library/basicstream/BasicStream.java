@@ -21,6 +21,8 @@ import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.View.OnLayoutChangeListener;
 
+import androidx.annotation.Nullable;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.chromium.chrome.browser.feed.library.api.client.stream.Header;
@@ -78,6 +80,7 @@ import org.chromium.chrome.browser.feed.library.sharedstream.piet.PietStringForm
 import org.chromium.chrome.browser.feed.library.sharedstream.publicapi.menumeasurer.MenuMeasurer;
 import org.chromium.chrome.browser.feed.library.sharedstream.publicapi.scroll.ScrollObservable;
 import org.chromium.chrome.browser.feed.library.sharedstream.scroll.ScrollListenerNotifier;
+import org.chromium.chrome.feed.R;
 import org.chromium.components.feed.core.proto.libraries.api.internal.StreamDataProto.UiContext;
 import org.chromium.components.feed.core.proto.libraries.basicstream.internal.StreamSavedInstanceStateProto.StreamSavedInstanceState;
 import org.chromium.components.feed.core.proto.libraries.sharedstream.ScrollStateProto.ScrollState;
@@ -140,11 +143,13 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     @LoggingState
     private int mLoggingState = LoggingState.STARTING;
 
-    /*@MonotonicNonNull*/ private ModelProvider mModelProvider;
-    /*@MonotonicNonNull*/ private StreamDriver mStreamDriver;
+    private ModelProvider mModelProvider;
+    private StreamDriver mStreamDriver;
 
-    /*@Nullable*/ private String mSavedSessionId;
-    /*@Nullable*/ private CancelableTask mCancellableShowSpinnerRunnable;
+    @Nullable
+    private String mSavedSessionId;
+    @Nullable
+    private CancelableTask mCancellableShowSpinnerRunnable;
 
     // TODO: instead of using a nullable field, pipe UiContext through the creation of
     // ModelProviders to onSessionStart().
@@ -154,10 +159,10 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     public BasicStream(Context context, StreamConfiguration streamConfiguration,
             CardConfiguration cardConfiguration, ImageLoaderApi imageLoaderApi,
             ActionParserFactory actionParserFactory, ActionApi actionApi,
-            /*@Nullable*/ CustomElementProvider customElementProvider, DebugBehavior debugBehavior,
+            @Nullable CustomElementProvider customElementProvider, DebugBehavior debugBehavior,
             ThreadUtils threadUtils, List<Header> headers, Clock clock,
             ModelProviderFactory modelProviderFactory,
-            /*@Nullable*/ HostBindingProvider hostBindingProvider, ActionManager actionManager,
+            @Nullable HostBindingProvider hostBindingProvider, ActionManager actionManager,
             Configuration configuration, SnackbarApi snackbarApi, BasicLoggingApi basicLoggingApi,
             OfflineIndicatorApi offlineIndicatorApi, MainThreadRunner mainThreadRunner,
             FeedKnownContent feedKnownContent, TooltipApi tooltipApi, boolean isBackgroundDark) {
@@ -197,12 +202,10 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     }
 
     @VisibleForTesting
-    PietManager createPietManager(
-            /*@UnderInitialization*/ BasicStream this, Context context,
-            CardConfiguration cardConfiguration, ImageLoaderApi imageLoaderApi,
-            /*@Nullable*/ CustomElementProvider customElementProvider, DebugBehavior debugBehavior,
-            Clock clock,
-            /*@Nullable*/ HostBindingProvider hostBindingProvider,
+    PietManager createPietManager(Context context, CardConfiguration cardConfiguration,
+            ImageLoaderApi imageLoaderApi, @Nullable CustomElementProvider customElementProvider,
+            DebugBehavior debugBehavior, Clock clock,
+            @Nullable HostBindingProvider hostBindingProvider,
             StreamOfflineMonitor streamOfflineMonitor, Configuration configuration,
             boolean isBackgroundDark) {
         return PietManager.builder()
@@ -222,7 +225,7 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     }
 
     @Override
-    public void onCreate(/*@Nullable*/ Bundle savedInstanceState) {
+    public void onCreate(@Nullable Bundle savedInstanceState) {
         if (savedInstanceState == null) {
             onCreate((String) null);
             return;
@@ -232,7 +235,7 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     }
 
     @Override
-    public void onCreate(/*@Nullable*/ String savedInstanceState) {
+    public void onCreate(@Nullable String savedInstanceState) {
         checkState(mRecyclerView == null, "Can't call onCreate() multiple times.");
         setupRecyclerView();
 
@@ -758,15 +761,13 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     }
 
     @VisibleForTesting
-    StreamContentChangedListener createStreamContentChangedListener(
-            /*@UnderInitialization*/ BasicStream this) {
+    StreamContentChangedListener createStreamContentChangedListener() {
         return new StreamContentChangedListener();
     }
 
     @VisibleForTesting
     ScrollRestorer createScrollRestorer(Configuration configuration, RecyclerView recyclerView,
-            ScrollListenerNotifier scrollListenerNotifier,
-            /*@Nullable*/ ScrollState scrollState) {
+            ScrollListenerNotifier scrollListenerNotifier, @Nullable ScrollState scrollState) {
         return new ScrollRestorer(configuration, recyclerView, scrollListenerNotifier, scrollState);
     }
 
@@ -791,7 +792,7 @@ public class BasicStream implements Stream, ModelProviderObserver, OnLayoutChang
     }
 
     @VisibleForTesting
-    ViewLoggingUpdater createViewLoggingUpdater(/*@UnderInitialization*/ BasicStream this) {
+    ViewLoggingUpdater createViewLoggingUpdater() {
         return new ViewLoggingUpdater();
     }
 

@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/apps/launch_service/launch_service.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/extensions/default_web_app_ids.h"
 #include "chrome/browser/download/download_shelf.h"
 #include "chrome/browser/extensions/launch_util.h"
@@ -38,7 +39,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/bookmarks/bookmarks_ui.h"
 #include "chrome/browser/ui/webui/site_settings_helper.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -110,7 +111,7 @@ const std::string BuildQueryString(Profile* profile) {
   std::string region;
   chromeos::system::StatisticsProvider::GetInstance()->GetMachineStatistic(
       "region", &region);
-  const std::string language = l10n_util::GetApplicationLocale(std::string());
+  const std::string language = g_browser_process->GetApplicationLocale();
   const std::string version = version_info::GetVersionNumber();
   const std::string milestone = version_info::GetMajorVersionNumber();
   std::string channel_name =
@@ -208,10 +209,7 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
       break;
 #if defined(OS_CHROMEOS)
     case HELP_SOURCE_WEBUI:
-      if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings))
-        url = GURL(kChromeHelpViaWebUIURL);
-      else
-        url = GURL(kChromeOsHelpViaWebUIURL);
+      url = GURL(kChromeHelpViaWebUIURL);
       break;
     case HELP_SOURCE_WEBUI_CHROME_OS:
       url = GURL(kChromeOsHelpViaWebUIURL);
@@ -391,11 +389,6 @@ void ShowSettingsSubPageForProfile(Profile* profile,
                                    const std::string& sub_page) {
 #if defined(OS_CHROMEOS)
   SettingsWindowManager* settings = SettingsWindowManager::GetInstance();
-  if (!base::FeatureList::IsEnabled(chromeos::features::kSplitSettings)) {
-    base::RecordAction(base::UserMetricsAction("ShowOptions"));
-    settings->ShowChromePageForProfile(profile, GetSettingsUrl(sub_page));
-    return;
-  }
   // TODO(jamescook): When SplitSettings is close to shipping, change this to
   // a DCHECK that the |sub_page| is not an OS-specific setting.
   if (chrome::IsOSSettingsSubPage(sub_page)) {
@@ -474,13 +467,6 @@ void ShowImportDialog(Browser* browser) {
 
 void ShowAboutChrome(Browser* browser) {
   base::RecordAction(UserMetricsAction("AboutChrome"));
-#if defined(OS_CHROMEOS)
-  if (!base::FeatureList::IsEnabled(chromeos::features::kSplitSettings)) {
-    SettingsWindowManager::GetInstance()->ShowChromePageForProfile(
-        browser->profile(), GURL(kChromeUIHelpURL));
-    return;
-  }
-#endif
   ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIHelpURL));
 }
 
@@ -506,10 +492,7 @@ void ShowAppManagementPage(Profile* profile, const std::string& app_id) {
 
 GURL GetOSSettingsUrl(const std::string& sub_page) {
   DCHECK(sub_page.empty() || chrome::IsOSSettingsSubPage(sub_page)) << sub_page;
-  std::string url =
-      base::FeatureList::IsEnabled(chromeos::features::kSplitSettings)
-          ? kChromeUIOSSettingsURL
-          : kChromeUISettingsURL;
+  std::string url = kChromeUIOSSettingsURL;
   return GURL(url + sub_page);
 }
 #endif

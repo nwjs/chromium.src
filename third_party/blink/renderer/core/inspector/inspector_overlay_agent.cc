@@ -83,7 +83,11 @@
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record_builder.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
+#include "third_party/inspector_protocol/crdtp/json.h"
 #include "v8/include/v8.h"
+
+using crdtp::SpanFrom;
+using crdtp::json::ConvertCBORToJSON;
 
 namespace blink {
 
@@ -689,7 +693,8 @@ WebInputEventResult InspectorOverlayAgent::HandleInputEvent(
 
   if (input_event.GetType() == WebInputEvent::kKeyUp &&
       swallow_next_escape_up_) {
-    auto keyboard_event = static_cast<const WebKeyboardEvent&>(input_event);
+    const auto& keyboard_event =
+        static_cast<const WebKeyboardEvent&>(input_event);
     if (keyboard_event.windows_key_code == VKEY_ESCAPE) {
       swallow_next_escape_up_ = false;
       return WebInputEventResult::kHandledSuppressed;
@@ -814,7 +819,7 @@ void InspectorOverlayAgent::PaintOverlayPage() {
   inspect_tool_->Draw(WindowToViewportScale());
 
   OverlayMainFrame()->View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kOther);
+      DocumentUpdateReason::kOther);
 }
 
 static std::unique_ptr<protocol::DictionaryValue> BuildObjectForSize(
@@ -971,10 +976,15 @@ void InspectorOverlayAgent::EvaluateInOverlay(const String& method,
   std::unique_ptr<protocol::ListValue> command = protocol::ListValue::create();
   command->pushValue(protocol::StringValue::create(method));
   command->pushValue(protocol::StringValue::create(argument));
+  std::vector<uint8_t> cbor = std::move(*command).TakeSerialized();
+  std::vector<uint8_t> json;
+  ConvertCBORToJSON(SpanFrom(cbor), &json);
   To<LocalFrame>(OverlayMainFrame())
       ->GetScriptController()
       .ExecuteScriptInMainWorld(
-          "dispatch(" + command->toJSONString() + ")",
+          "dispatch(" +
+              String(reinterpret_cast<const char*>(json.data()), json.size()) +
+              ")",
           ScriptSourceLocationType::kInspector,
           ScriptController::kExecuteScriptWhenScriptsDisabled);
 }
@@ -986,10 +996,15 @@ void InspectorOverlayAgent::EvaluateInOverlay(
   std::unique_ptr<protocol::ListValue> command = protocol::ListValue::create();
   command->pushValue(protocol::StringValue::create(method));
   command->pushValue(std::move(argument));
+  std::vector<uint8_t> cbor = std::move(*command).TakeSerialized();
+  std::vector<uint8_t> json;
+  ConvertCBORToJSON(SpanFrom(cbor), &json);
   To<LocalFrame>(OverlayMainFrame())
       ->GetScriptController()
       .ExecuteScriptInMainWorld(
-          "dispatch(" + command->toJSONString() + ")",
+          "dispatch(" +
+              String(reinterpret_cast<const char*>(json.data()), json.size()) +
+              ")",
           ScriptSourceLocationType::kInspector,
           ScriptController::kExecuteScriptWhenScriptsDisabled);
 }

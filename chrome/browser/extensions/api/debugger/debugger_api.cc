@@ -111,6 +111,14 @@ bool ExtensionCanAttachToURL(const Extension& extension,
   return true;
 }
 
+constexpr char kBrowserTargetId[] = "browser";
+
+constexpr char kPerfettoUIExtensionId[] = "lfmkphfpdbjijhpomgecfikhfohaoine";
+
+bool ExtensionMayAttachToBrowser(const Extension& extension) {
+  return extension.id() == kPerfettoUIExtensionId;
+}
+
 }  // namespace
 
 // ExtensionDevToolsClientHost ------------------------------------------------
@@ -145,7 +153,7 @@ class ExtensionDevToolsClientHost : public content::DevToolsAgentHostClient,
   // DevToolsAgentHostClient interface.
   void AgentHostClosed(DevToolsAgentHost* agent_host) override;
   void DispatchProtocolMessage(DevToolsAgentHost* agent_host,
-                               const std::string& message) override;
+                               base::span<const uint8_t> message) override;
   bool MayAttachToURL(const GURL& url, bool is_webui) override;
   bool MayAttachToBrowser() override;
   bool MayReadLocalFiles() override;
@@ -268,9 +276,11 @@ void ExtensionDevToolsClientHost::SendMessageToBackend(
         "params", command_params->additional_properties.CreateDeepCopy());
   }
 
-  std::string json_args;
-  base::JSONWriter::Write(protocol_request, &json_args);
-  agent_host_->DispatchProtocolMessage(this, json_args);
+  std::string json;
+  base::JSONWriter::Write(protocol_request, &json);
+
+  agent_host_->DispatchProtocolMessage(this,
+                                       base::as_bytes(base::make_span(json)));
 }
 
 void ExtensionDevToolsClientHost::InfoBarDismissed() {
@@ -316,15 +326,18 @@ void ExtensionDevToolsClientHost::Observe(
 }
 
 void ExtensionDevToolsClientHost::DispatchProtocolMessage(
-    DevToolsAgentHost* agent_host, const std::string& message) {
+    DevToolsAgentHost* agent_host,
+    base::span<const uint8_t> message) {
   DCHECK(agent_host == agent_host_.get());
   if (!EventRouter::Get(profile_))
     return;
 
+  base::StringPiece message_str(reinterpret_cast<const char*>(message.data()),
+                                message.size());
   std::unique_ptr<base::Value> result = base::JSONReader::ReadDeprecated(
-      message, base::JSON_REPLACE_INVALID_CHARACTERS);
+      message_str, base::JSON_REPLACE_INVALID_CHARACTERS);
   if (!result || !result->is_dict()) {
-    LOG(ERROR) << "Tried to send invalid message to extension: " << message;
+    LOG(ERROR) << "Tried to send invalid message to extension: " << message_str;
     return;
   }
   base::DictionaryValue* dictionary =
@@ -370,7 +383,7 @@ bool ExtensionDevToolsClientHost::MayAttachToURL(const GURL& url,
 }
 
 bool ExtensionDevToolsClientHost::MayAttachToBrowser() {
-  return false;
+  return ExtensionMayAttachToBrowser(*extension_);
 }
 
 bool ExtensionDevToolsClientHost::MayReadLocalFiles() {
@@ -440,6 +453,26 @@ bool DebuggerFunction::InitAgentHost() {
         agent_host_ = nullptr;
         return false;
       }
+    } else if (*debuggee_.target_id == kBrowserTargetId &&
+               ExtensionMayAttachToBrowser(*extension())) {
+      // TODO(caseq): get rid of the below code, browser agent host should
+      // really be a singleton.
+      // Re-use existing browser agent hosts.
+      const std::string& extension_id = extension()->id();
+      AttachedClientHosts& hosts = g_attached_client_hosts.Get();
+      auto it = std::find_if(
+          hosts.begin(), hosts.end(),
+          [&extension_id](ExtensionDevToolsClientHost* client_host) {
+            return client_host->extension_id() == extension_id &&
+                   client_host->agent_host() &&
+                   client_host->agent_host()->GetType() ==
+                       DevToolsAgentHost::kTypeBrowser;
+          });
+      agent_host_ = it != hosts.end()
+                        ? (*it)->agent_host()
+                        : DevToolsAgentHost::CreateForBrowser(
+                              nullptr /* tethering_task_runner */,
+                              DevToolsAgentHost::CreateServerSocketCallback());
     }
   } else {
     error_ = debugger_api_constants::kInvalidTargetError;

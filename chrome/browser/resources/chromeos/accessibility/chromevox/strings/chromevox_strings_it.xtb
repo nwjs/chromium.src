@@ -384,7 +384,6 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="3646890046000188562">{COUNT,plural, =1{apice inverso}other{# apici inversi}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollaro}other{# simboli dollaro}}</translation>
-<translation id="3658742229777143148">Revisione</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, casella di riepilogo</translation>
 <translation id="3681531118904532409">Panna papaya</translation>
@@ -419,6 +418,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="3914732343065571127">Riferimenti per i comandi di ChromeVox</translation>
 <translation id="3930383913623796990">Verde primavera</translation>
 <translation id="3930498801443296724">Citazione</translation>
+<translation id="3935615366277838204"><ph name="LETTER" /> maiuscola</translation>
 <translation id="3936394396199829062">Sfumatura lavanda</translation>
 <translation id="3941269780691800708">Leggi il testo sotto il puntatore del mouse.</translation>
 <translation id="394953087167197343">Indica un errore ortografico:</translation>
@@ -792,7 +792,6 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="6459511626086141404">Mappa di chiavi di tipo "flat"</translation>
 <translation id="6468049171101508116">Pulsante Avanti</translation>
 <translation id="646954774886932461">Indice</translation>
-<translation id="6479792383819319132">Nessun paragrafo successivo.</translation>
 <translation id="6493991254603208962">Diminuisci luminosità</translation>
 <translation id="6501595918865591267">Turchese</translation>
 <translation id="6508059270146105198">Sposta display braille in fondo alla pagina</translation>
@@ -814,8 +813,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="6633350132811819843">Nessuna tabella successiva.</translation>
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">Barra di avanzamento</translation>
-<translation id="6659594942844771486">Scheda</translation>
-<translation id="6675661017770918201">Nessun paragrafo precedente.</translation>
+<translation id="6659594942844771486">TAB</translation>
 <translation id="667999046851023355">Documento</translation>
 <translation id="6688209025607531203">Un avviso non modale</translation>
 <translation id="6689672606256159458">Salmone scuro</translation>
@@ -844,6 +842,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="6865519907510167493">Errore ortografico</translation>
 <translation id="6871161210040114857">Le maiuscole/minuscole vengono ignorate.</translation>
 <translation id="6877435256196695200">Nessuna immagine successiva.</translation>
+<translation id="688976158310523235">Menu di ricerca</translation>
 <translation id="6897341342232909480">Sposta a sinistra</translation>
 <translation id="6901540140423170855">date</translation>
 <translation id="6910211073230771657">Eliminato</translation>
@@ -856,6 +855,7 @@ Se hai finito di seguire il tutorial, utilizza ChromeVox per arrivare al pulsant
 <translation id="699159175332639490">Cerca + O + W</translation>
 <translation id="6994042831499278539">Riferimento glossario</translation>
 <translation id="6996566555547746822">Casella combinata successiva</translation>
+<translation id="6997224546856374593">Durante la lettura delle lettere maiuscole:</translation>
 <translation id="700202842116345659">Voce bibliografica</translation>
 <translation id="7005146664810010831">Nessun URL trovato</translation>
 <translation id="7010712454773919705">Tasto di modifica di ChromeVox</translation>
@@ -936,6 +936,7 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">Tab</translation>
 <translation id="7492049978501397201">Finestra di dialogo compilata</translation>
+<translation id="7505149250476994901">Di' "maiuscola" dopo la lettera</translation>
 <translation id="7518543783849163354">Per interrompere temporaneamente le funzioni vocali di ChromeVox, premi il tasto CTRL.</translation>
 <translation id="7521682724501952239">Puoi usare ChromeVox con il touchscreen.</translation>
 <translation id="7532613204005497612">Giugno</translation>
@@ -1103,7 +1104,6 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="812886159861361726">Download di <ph name="FILE_NAME" /> interrotto</translation>
 <translation id="8138880386467279117">Touch</translation>
 <translation id="8153880621934657047">Non sei all'interno della tabella.</translation>
-<translation id="8161114871611868169">Sezione dei commenti</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{carattere di sottolineatura}other{# caratteri di sottolineatura}}</translation>
 <translation id="8179976553408161302">Invio</translation>
 <translation id="8184828902145951186">riga</translation>
@@ -1124,6 +1124,7 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Merletto antico</translation>
 <translation id="8326783648485765113">Verde prato</translation>
+<translation id="8328063869313048659">Attiva/disattiva schermo scuro</translation>
 <translation id="8344569602005188545">ore</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{cancelletto}other{# simboli cancelletto}}</translation>
 <translation id="8374154622594089836">mese</translation>
@@ -1208,6 +1209,7 @@ Per aprire il menu del browser Chrome premi ALT + F.</translation>
 <translation id="9065283790526219006">+popup</translation>
 <translation id="9066023754636984703">Premi tasto per la ricerca + A, J per passare ai dettagli.</translation>
 <translation id="9067522039955793016">Interruzione di pagina</translation>
+<translation id="9074824103975499138">Cerca nei menu ChromeVox</translation>
 <translation id="9077213568694924680">rimossi dalla selezione</translation>
 <translation id="9077305471618729969">Verde mare chiaro</translation>
 <translation id="9082874451376019682">Nessun dispositivo di scorrimento precedente.</translation>

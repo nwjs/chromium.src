@@ -18,7 +18,6 @@
 #include "base/observer_list.h"
 #include "base/tuple.h"
 #include "components/gcm_driver/crypto/gcm_decryption_result.h"
-#include "components/gcm_driver/gcm_channel_status_syncer.h"
 #include "components/gcm_driver/gcm_client.h"
 #include "components/gcm_driver/gcm_connection_observer.h"
 #include "components/gcm_driver/gcm_driver.h"
@@ -49,13 +48,16 @@ class GCMDelayedTaskController;
 class GCMDriverDesktop : public GCMDriver,
                          protected InstanceIDHandler {
  public:
+  // |remove_account_mappings_with_email_key| indicates whether account mappings
+  // having email as account key should be removed while loading. This is
+  // required during the migration of account identifier from email to Gaia ID.
   GCMDriverDesktop(
       std::unique_ptr<GCMClientFactory> gcm_client_factory,
       const GCMClient::ChromeBuildInfo& chrome_build_info,
-      const std::string& channel_status_request_url,
       const std::string& user_agent,
       PrefService* prefs,
       const base::FilePath& store_path,
+      bool remove_account_mappings_with_email_key,
       base::RepeatingCallback<void(
           mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>)>
           get_socket_factory_callback,
@@ -79,8 +81,6 @@ class GCMDriverDesktop : public GCMDriver,
   void RemoveAppHandler(const std::string& app_id) override;
   void AddConnectionObserver(GCMConnectionObserver* observer) override;
   void RemoveConnectionObserver(GCMConnectionObserver* observer) override;
-  void Enable() override;
-  void Disable() override;
   GCMClient* GetGCMClientForTesting() const override;
   bool IsStarted() const override;
   bool IsConnected() const override;
@@ -98,12 +98,6 @@ class GCMDriverDesktop : public GCMDriver,
   InstanceIDHandler* GetInstanceIDHandlerInternal() override;
   void AddHeartbeatInterval(const std::string& scope, int interval_ms) override;
   void RemoveHeartbeatInterval(const std::string& scope) override;
-
-  // Exposed for testing purpose.
-  bool gcm_enabled() const { return gcm_enabled_; }
-  GCMChannelStatusSyncer* gcm_channel_status_syncer_for_testing() {
-    return gcm_channel_status_syncer_.get();
-  }
 
  protected:
   // GCMDriver implementation:
@@ -204,16 +198,11 @@ class GCMDriverDesktop : public GCMDriver,
                            const std::string& scope,
                            GCMClient::Result result);
 
-  std::unique_ptr<GCMChannelStatusSyncer> gcm_channel_status_syncer_;
-
   // Flag to indicate whether the user is signed in to a GAIA account.
   bool signed_in_;
 
   // Flag to indicate if GCM is started.
   bool gcm_started_;
-
-  // Flag to indicate if GCM is enabled.
-  bool gcm_enabled_;
 
   // Flag to indicate the last known state of the GCM client. Because this
   // flag lives on the UI thread, while the GCM client lives on the IO thread,

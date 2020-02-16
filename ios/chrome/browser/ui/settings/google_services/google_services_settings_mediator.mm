@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/ui/settings/cells/settings_switch_item.h"
 #import "ios/chrome/browser/ui/settings/cells/sync_switch_item.h"
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_command_handler.h"
+#import "ios/chrome/browser/ui/settings/google_services/google_services_settings_constants.h"
 #import "ios/chrome/browser/ui/settings/sync/utils/sync_util.h"
 #import "ios/chrome/browser/ui/settings/utils/observable_boolean.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
@@ -43,9 +44,6 @@
 #endif
 
 using l10n_util::GetNSString;
-
-NSString* const kManageSyncCellAccessibilityIdentifier =
-    @"ManageSyncCellAccessibilityIdentifier";
 
 typedef NSArray<TableViewItem*>* ItemArray;
 
@@ -192,14 +190,11 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
           initWithPrefService:localPrefService
                      prefName:prefs::kMetricsReportingWifiOnly];
     }
-    if (base::FeatureList::IsEnabled(
-            password_manager::features::kLeakDetection)) {
-      _passwordLeakCheckEnabled = [[PrefBackedBoolean alloc]
-          initWithPrefService:userPrefService
-                     prefName:password_manager::prefs::
-                                  kPasswordLeakDetectionEnabled];
-      _passwordLeakCheckEnabled.observer = self;
-    }
+    _passwordLeakCheckEnabled = [[PrefBackedBoolean alloc]
+        initWithPrefService:userPrefService
+                   prefName:password_manager::prefs::
+                                kPasswordLeakDetectionEnabled];
+    _passwordLeakCheckEnabled.observer = self;
     _anonymizedDataCollectionPreference = [[PrefBackedBoolean alloc]
         initWithPrefService:userPrefService
                    prefName:unified_consent::prefs::
@@ -522,8 +517,6 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
         switchItem.on = self.anonymizedDataCollectionPreference.value;
         break;
       case ItemTypePasswordLeakCheckSwitch:
-        DCHECK(base::FeatureList::IsEnabled(
-            password_manager::features::kLeakDetection));
         [self updateLeakCheckItem];
         break;
       case IdentityItemType:
@@ -546,7 +539,8 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 #pragma mark - Properties
 
 - (BOOL)isAuthenticated {
-  return self.authService->IsAuthenticated();
+  return self.authService->IsAuthenticated() &&
+         self.authService->GetAuthenticatedIdentity();
 }
 
 - (BOOL)isSyncSettingsConfirmed {
@@ -555,13 +549,12 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 }
 
 - (BOOL)isSyncDisabledByAdministrator {
-  return (self.syncService->GetDisableReasons() &
-          syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY) != 0;
+  return self.syncService->GetDisableReasons().Has(
+      syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
 }
 
 - (BOOL)isSyncDisabled {
-  return self.syncService->GetDisableReasons() !=
-         syncer::SyncService::DISABLE_REASON_NONE;
+  return !self.syncService->GetDisableReasons().Empty();
 }
 
 - (BOOL)isSyncCanBeAvailable {
@@ -593,25 +586,15 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
                       dataType:0];
     betterSearchAndBrowsingItemType.accessibilityIdentifier =
         kBetterSearchAndBrowsingItemAccessibilityID;
-    if (base::FeatureList::IsEnabled(
-            password_manager::features::kLeakDetection)) {
-      _nonPersonalizedItems = @[
-        autocompleteSearchesAndURLsItem, self.passwordLeakCheckItem,
-        improveChromeItem, betterSearchAndBrowsingItemType
-      ];
-    } else {
-      _nonPersonalizedItems = @[
-        autocompleteSearchesAndURLsItem, improveChromeItem,
-        betterSearchAndBrowsingItemType
-      ];
-    }
+    _nonPersonalizedItems = @[
+      autocompleteSearchesAndURLsItem, self.passwordLeakCheckItem,
+      improveChromeItem, betterSearchAndBrowsingItemType
+    ];
   }
   return _nonPersonalizedItems;
 }
 
 - (SettingsSwitchItem*)passwordLeakCheckItem {
-  DCHECK(
-      base::FeatureList::IsEnabled(password_manager::features::kLeakDetection));
   if (!_passwordLeakCheckItem) {
     SettingsSwitchItem* passwordLeakCheckItem = [[SettingsSwitchItem alloc]
         initWithType:ItemTypePasswordLeakCheckSwitch];
@@ -705,11 +688,6 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 // Updates the detail text and on state of the leak check item based on the
 // state.
 - (void)updateLeakCheckItem {
-  if (!base::FeatureList::IsEnabled(
-          password_manager::features::kLeakDetection)) {
-    return;
-  }
-
   self.passwordLeakCheckItem.enabled = self.isAuthenticated;
   self.passwordLeakCheckItem.on = [self passwordLeakCheckItemOnState];
 
@@ -725,11 +703,8 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 
 // Updates leak item and asks the consumer to reload it.
 - (void)updateLeakCheckItemAndReload {
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kLeakDetection)) {
-    [self updateLeakCheckItem];
-    [self.consumer reloadItem:self.passwordLeakCheckItem];
-  }
+  [self updateLeakCheckItem];
+  [self.consumer reloadItem:self.passwordLeakCheckItem];
 }
 
 #pragma mark - GoogleServicesSettingsViewControllerModelDelegate
@@ -847,7 +822,9 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 
 - (void)onSyncStateChanged {
   [self updateSyncSection:YES];
-  if (self.accountItem) {
+  // It is possible for |onSyncStateChanged| to be called before
+  // |onPrimaryAccountCleared|, when the primary account is removed.
+  if (self.isAuthenticated && self.accountItem) {
     [self configureIdentityAccountItem];
     [self.consumer reloadItem:self.accountItem];
   }

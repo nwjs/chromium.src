@@ -451,8 +451,21 @@ void SearchBox::StopAutocomplete(bool clear_result) {
   embedded_search_service_->StopAutocomplete(clear_result);
 }
 
+void SearchBox::LogCharTypedToRepaintLatency(uint32_t latency_ms) {
+  embedded_search_service_->LogCharTypedToRepaintLatency(latency_ms);
+}
+
 void SearchBox::BlocklistPromo(const std::string& promo_id) {
   embedded_search_service_->BlocklistPromo(promo_id);
+}
+
+void SearchBox::OpenExtensionsPage(double button,
+                                   bool alt_key,
+                                   bool ctrl_key,
+                                   bool meta_key,
+                                   bool shift_key) {
+  embedded_search_service_->OpenExtensionsPage(button, alt_key, ctrl_key,
+                                               meta_key, shift_key);
 }
 
 void SearchBox::OpenAutocompleteMatch(uint8_t line,
@@ -529,6 +542,15 @@ void SearchBox::AutocompleteResultChanged(
   if (can_run_js_in_renderframe_) {
     SearchBoxExtension::DispatchAutocompleteResultChanged(
         render_frame()->GetWebFrame(), std::move(result));
+  }
+}
+
+void SearchBox::AutocompleteMatchImageAvailable(uint32_t match_index,
+                                                const std::string& image_url,
+                                                const std::string& data_url) {
+  if (can_run_js_in_renderframe_) {
+    SearchBoxExtension::DispatchAutocompleteMatchImageAvailable(
+        render_frame()->GetWebFrame(), match_index, image_url, data_url);
   }
 }
 

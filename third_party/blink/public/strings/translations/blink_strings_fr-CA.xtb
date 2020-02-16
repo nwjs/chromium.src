@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">curseur</translation>
 <translation id="1211441953136645838">note de fin</translation>
 <translation id="1281252709823657822">boîte de dialogue</translation>
+<translation id="1306460908038601864">Désactivé</translation>
 <translation id="1335095011850992622">crédits</translation>
 <translation id="1342835525016946179">article</translation>
 <translation id="1359897965706325498">bannière</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Veuillez allonger ce texte de manière à ce qu'il comporte au moins <ph name="MIN_CHARACTERS" /> caractères (votre texte compte actuellement <ph name="CURRENT_LENGTH" /> caractères).</translation>
 <translation id="383465348367842624">Le texte précédant « <ph name="ATSIGN" /> » ne doit pas contenir le symbole « <ph name="INVALIDCHARACTER" /> ».</translation>
 <translation id="3846214748874656680">Quitter le mode Plein écran</translation>
-<translation id="3889183436948184105">révision</translation>
 <translation id="3920932319529768807">conclusion</translation>
 <translation id="3924558731517983934">application</translation>
 <translation id="3944740393230681990">prologue</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Veuillez entrer un nombre.</translation>
 <translation id="4912536737030637138">entrée de bibliographie</translation>
 <translation id="492244087561876220">commentaire</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> est sélectionné</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> élément(s) sélectionné(s)</translation>
 <translation id="4992066212339426712">Réactiver le son</translation>
 <translation id="49969490063480558">Veuillez entrer la partie manquante après « <ph name="ATSIGN" /> ». « <ph name="INVALIDADDRESS" /> » est incomplète.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> Po</translation>
 <translation id="5307600278924710095">Veuillez entrer la partie manquante avant le caractère « <ph name="ATSIGN" /> ». L'adresse « <ph name="INVALIDADDRESS" /> » est incomplète.</translation>
 <translation id="5334352251556557839">Impossible de faire jouer le média.</translation>
+<translation id="537648784377940524">La date minimale (<ph name="MIN_DATE_OR_TIME" />) doit être antérieure à la date maximale (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">figure</translation>
 <translation id="5453733299334684579">élément d'arborescence</translation>
 <translation id="5466621249238537318">Veuillez sélectionner un ou plusieurs fichiers.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">autres options</translation>
 <translation id="576709008726043716">introduction</translation>
 <translation id="57838592816432529">Désactiver le son</translation>
-<translation id="5860033963881614850">Désactivé</translation>
 <translation id="588258955323874662">Plein écran</translation>
 <translation id="5888666972993069672">Diffusion sur <ph name="DEVICE_FRIENDLY_NAME" /> en cours…</translation>
 <translation id="591047860372322273">champ de recherche</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Veuillez ajouter « <ph name="ATSIGN" /> » dans l'adresse de courriel. Il manque un symbole « <ph name="ATSIGN" /> » dans « <ph name="INVALIDADDRESS" /> ».</translation>
 <translation id="7891486169920085145">séparateur</translation>
 <translation id="795667975304826397">Aucun fichier sélectionné</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> n'est pas sélectionné</translation>
 <translation id="8034303206267677282">important</translation>
 <translation id="8053789581856978548">champ de recherche textuelle</translation>
 <translation id="8057695513531652401">avis</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Mois</translation>
 <translation id="901493112792887934">Durée actuelle en secondes</translation>
 <translation id="901834265349196618">courriel</translation>
-<translation id="9023835124071926463">section des commentaires</translation>
 <translation id="9048119486235211610">navigation</translation>
 <translation id="9062295712474918030">document</translation>
 <translation id="9093215626363556771">quitter le mode d'incrustation d'image</translation>

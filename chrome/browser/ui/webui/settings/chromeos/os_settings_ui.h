@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "base/time/time.h"
 #include "chrome/browser/ui/webui/app_management/app_management.mojom-forward.h"
 #include "chrome/browser/ui/webui/settings/chromeos/app_management/app_management_page_handler_factory.h"
 #include "chrome/browser/ui/webui/webui_load_timer.h"
@@ -16,8 +17,13 @@
 #include "ui/webui/mojo_web_ui_controller.h"
 
 namespace content {
+class WebUIDataSource;
 class WebUIMessageHandler;
-}
+}  // namespace content
+
+namespace user_prefs {
+class PrefRegistrySyncable;
+}  // namespace user_prefs
 
 namespace chromeos {
 namespace settings {
@@ -25,22 +31,36 @@ namespace settings {
 // The WebUI handler for chrome://os-settings.
 class OSSettingsUI : public ui::MojoWebUIController {
  public:
+  static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
+
   explicit OSSettingsUI(content::WebUI* web_ui);
   ~OSSettingsUI() override;
+
+  // Initializes the WebUI message handlers for OS-specific settings.
+  void InitOSWebUIHandlers(content::WebUIDataSource* html_source);
+
+  // Instantiates implementor of the mojom::CrosNetworkConfig mojo interface
+  // passing the pending receiver that will be internally bound.
+  void BindInterface(
+      mojo::PendingReceiver<network_config::mojom::CrosNetworkConfig> receiver);
+  // Instantiates implementor of the mojom::PageHandlerFactory mojo interface
+  // passing the pending receiver that will be internally bound.
+  void BindInterface(
+      mojo::PendingReceiver<app_management::mojom::PageHandlerFactory>
+          receiver);
 
  private:
   void AddSettingsPageUIHandler(
       std::unique_ptr<content::WebUIMessageHandler> handler);
-  void BindCrosNetworkConfig(
-      mojo::PendingReceiver<network_config::mojom::CrosNetworkConfig> receiver);
-  void BindAppManagementPageHandlerFactory(
-      mojo::PendingReceiver<app_management::mojom::PageHandlerFactory>
-          receiver);
+
+  base::TimeTicks time_when_opened_;
 
   WebuiLoadTimer webui_load_timer_;
 
   std::unique_ptr<AppManagementPageHandlerFactory>
       app_management_page_handler_factory_;
+
+  WEB_UI_CONTROLLER_TYPE_DECL();
 
   DISALLOW_COPY_AND_ASSIGN(OSSettingsUI);
 };

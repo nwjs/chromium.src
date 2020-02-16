@@ -5,9 +5,7 @@
 import("//third_party/closure_compiler/compile_js.gni")
 
 js_type_check("closure_compile") {
-  deps = [
-    ":browser_proxy",
-  ]
+  deps = [ ":browser_proxy" ]
 }
 
 js_library("browser_proxy") {

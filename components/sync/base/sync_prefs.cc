@@ -132,8 +132,6 @@ const char* GetPrefNameForOsType(UserSelectableOsType type) {
       return prefs::kSyncOsApps;
     case UserSelectableOsType::kOsPreferences:
       return prefs::kSyncOsPreferences;
-    case UserSelectableOsType::kPrinters:
-      return prefs::kSyncOsPrinters;
     case UserSelectableOsType::kWifiConfigurations:
       return prefs::kSyncWifiConfigurations;
   }
@@ -532,7 +530,7 @@ void SyncPrefs::SetSelectedOsTypes(bool sync_all_os_types,
   }
 }
 
-bool SyncPrefs::GetOsSyncFeatureEnabled() const {
+bool SyncPrefs::IsOsSyncFeatureEnabled() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return pref_service_->GetBoolean(prefs::kOsSyncFeatureEnabled);
 }

@@ -68,11 +68,12 @@
 #include "chrome/browser/component_updater/mei_preload_component_installer.h"
 #include "chrome/browser/component_updater/optimization_hints_component_installer.h"
 #include "chrome/browser/component_updater/origin_trials_component_installer.h"
-#include "chrome/browser/component_updater/pepper_flash_component_installer.h"
 #include "chrome/browser/component_updater/safety_tips_component_installer.h"
+#include "chrome/browser/component_updater/soda_component_installer.h"
 #include "chrome/browser/component_updater/ssl_error_assistant_component_installer.h"
 #include "chrome/browser/component_updater/sth_set_component_remover.h"
 #include "chrome/browser/component_updater/subresource_filter_component_installer.h"
+#include "chrome/browser/component_updater/tls_deprecation_config_component_installer.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -89,7 +90,6 @@
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/performance_monitor/process_monitor.h"
 #include "chrome/browser/performance_monitor/system_monitor.h"
-#include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/prefs/chrome_command_line_pref_store.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
@@ -192,6 +192,7 @@
 #include "net/cookies/cookie_monster.h"
 #include "net/http/http_network_layer.h"
 #include "net/http/http_stream_factory.h"
+#include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "rlz/buildflags/buildflags.h"
 #include "services/service_manager/public/cpp/connector.h"
@@ -202,8 +203,8 @@
 #include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/metrics/uma_session_stats.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/metrics/thread_watcher_android.h"
 #include "ui/base/resource/resource_bundle_android.h"
 #else
@@ -304,6 +305,11 @@
 #include "chrome/browser/offline_pages/offline_page_info_handler.h"
 #endif
 
+#if BUILDFLAG(ENABLE_PLUGINS)
+#include "chrome/browser/component_updater/pepper_flash_component_installer.h"
+#include "chrome/browser/plugins/plugin_prefs.h"
+#endif
+
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) && !defined(OFFICIAL_BUILD)
 #include "printing/printed_document.h"
 #endif
@@ -341,7 +347,7 @@
 #endif
 
 #if !defined(OS_ANDROID)
-#include "chrome/browser/component_updater/tls_deprecation_config_component_installer.h"
+#include "chrome/browser/component_updater/intervention_policy_database_component_installer.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #endif
 
@@ -480,9 +486,9 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
 #endif
 #else
 
-#if !defined(OS_ANDROID)
+#if BUILDFLAG(ENABLE_PLUGINS)
   RegisterPepperFlashComponent(cus);
-#endif  // !defined(OS_ANDROID)
+#endif
 
 #if BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
   RegisterWidevineCdmComponent(cus);
@@ -552,7 +558,8 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
 #endif  // defined(OS_WIN)
 
 #if !defined(OS_ANDROID)
-  RegisterTLSDeprecationConfigComponent(cus, path);
+  RegisterInterventionPolicyDatabaseComponent(
+      cus, g_browser_process->GetTabManager()->intervention_policy_database());
 #endif
 
 #if BUILDFLAG(ENABLE_VR)
@@ -563,10 +570,15 @@ void RegisterComponentsForUpdate(bool is_off_the_record_profile,
 
   RegisterSafetyTipsComponent(cus, path);
   RegisterCrowdDenyComponent(cus, path);
+  RegisterTLSDeprecationConfigComponent(cus, path);
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && defined(OS_ANDROID)
   component_updater::RegisterGamesComponent(cus, profile_prefs);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING) && defined(OS_ANDROID)
+
+  if (profile_prefs->GetBoolean(prefs::kLiveCaptionEnabled))
+    component_updater::RegisterSODAComponent(cus, profile_prefs,
+                                             base::OnceClosure());
 }
 #endif // disable component updater
 }
@@ -581,23 +593,6 @@ void ProcessSingletonNotificationCallbackImpl(
 
   if (!nw::ProcessSingletonNotificationCallbackHook(command_line, current_directory))
     return;
-
-  if (command_line.HasSwitch(switches::kOriginalProcessStartTime)) {
-    std::string start_time_string =
-        command_line.GetSwitchValueASCII(switches::kOriginalProcessStartTime);
-    int64_t remote_start_time;
-    if (base::StringToInt64(start_time_string, &remote_start_time)) {
-      base::TimeDelta elapsed =
-          base::Time::Now() - base::Time::FromInternalValue(remote_start_time);
-      if (command_line.HasSwitch(switches::kFastStart)) {
-        UMA_HISTOGRAM_LONG_TIMES(
-            "Startup.WarmStartTimeFromRemoteProcessStartFast", elapsed);
-      } else {
-        UMA_HISTOGRAM_LONG_TIMES(
-            "Startup.WarmStartTimeFromRemoteProcessStart", elapsed);
-      }
-    }
-  }
 
   g_browser_process->platform_part()->PlatformSpecificCommandLineProcessing(
       command_line);
@@ -1571,7 +1566,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       language::GetOverrideLanguageModel() ==
           language::OverrideLanguageModel::GEO) {
     language::GeoLanguageProvider::GetInstance()->StartUp(
-        content::GetSystemConnector()->Clone(),
         browser_process_->local_state());
   }
 #endif
@@ -1581,8 +1575,10 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       ChromeWebUIControllerFactory::GetInstance());
 
 #if BUILDFLAG(ENABLE_KALEIDOSCOPE)
-  content::WebUIControllerFactory::RegisterFactory(
-      KaleidoscopeWebUIControllerFactory::GetInstance());
+  if (KaleidoscopeWebUIControllerFactory::IsEnabled()) {
+    content::WebUIControllerFactory::RegisterFactory(
+        KaleidoscopeWebUIControllerFactory::GetInstance());
+  }
 #endif  // BUILDFLAG(ENABLE_KALEIDOSCOPE)
 
 #if BUILDFLAG(ENABLE_NACL)

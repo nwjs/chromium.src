@@ -7,6 +7,7 @@
 #include <utility>
 #include "third_party/blink/renderer/core/inspector/protocol/Protocol.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
+#include "third_party/inspector_protocol/crdtp/cbor.h"
 
 namespace blink {
 
@@ -59,24 +60,6 @@ std::unique_ptr<protocol::Value> StringUtil::parseJSON(const String& string) {
 }
 
 // static
-void StringUtil::builderAppendQuotedString(StringBuilder& builder,
-                                           const String& str) {
-  builder.Append('"');
-  if (!str.IsEmpty()) {
-    if (str.Is8Bit()) {
-      escapeLatinStringForJSON(
-          reinterpret_cast<const uint8_t*>(str.Characters8()), str.length(),
-          &builder);
-    } else {
-      escapeWideStringForJSON(
-          reinterpret_cast<const uint16_t*>(str.Characters16()), str.length(),
-          &builder);
-    }
-  }
-  builder.Append('"');
-}
-
-// static
 String StringUtil::fromUTF16LE(const uint16_t* data, size_t length) {
   // Chromium doesn't support big endian architectures, so it's OK to cast here.
   return String(reinterpret_cast<const UChar*>(data), length);
@@ -124,6 +107,11 @@ class BinaryBasedOnCachedData : public Binary::Impl {
   std::unique_ptr<v8::ScriptCompiler::CachedData> data_;
 };
 }  // namespace
+
+// Implements Serializable.
+void Binary::AppendSerialized(std::vector<uint8_t>* out) const {
+  crdtp::cbor::EncodeBinary(crdtp::span<uint8_t>(data(), size()), out);
+}
 
 String Binary::toBase64() const {
   return impl_ ? Base64Encode(*impl_) : String();

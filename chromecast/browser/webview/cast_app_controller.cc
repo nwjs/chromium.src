@@ -10,6 +10,8 @@ namespace chromecast {
 CastAppController::CastAppController(Client* client,
                                      content::WebContents* contents)
     : WebContentController(client), contents_(contents) {
+  content::WebContentsObserver::Observe(contents_);
+
   std::unique_ptr<webview::WebviewResponse> response =
       std::make_unique<webview::WebviewResponse>();
 
@@ -30,6 +32,10 @@ void CastAppController::Destroy() {
 
 content::WebContents* CastAppController::GetWebContents() {
   return contents_;
+}
+
+void CastAppController::WebContentsDestroyed() {
+  contents_ = nullptr;
 }
 
 }  // namespace chromecast

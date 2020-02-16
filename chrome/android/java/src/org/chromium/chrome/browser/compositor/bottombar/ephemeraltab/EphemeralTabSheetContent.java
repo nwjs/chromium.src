@@ -22,11 +22,12 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.thinwebview.ThinWebView;
 import org.chromium.chrome.browser.thinwebview.ThinWebViewConstraints;
 import org.chromium.chrome.browser.thinwebview.ThinWebViewFactory;
-import org.chromium.chrome.browser.ui.widget.FadingShadow;
-import org.chromium.chrome.browser.ui.widget.FadingShadowView;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetContent;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.widget.FadingShadow;
+import org.chromium.components.browser_ui.widget.FadingShadowView;
 import org.chromium.components.embedder_support.view.ContentView;
+import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.RenderCoordinates;
 import org.chromium.content_public.browser.WebContents;
@@ -168,7 +169,8 @@ public class EphemeralTabSheetContent implements BottomSheetContent {
     /** Sets the ephemeral tab URL. */
     public void updateURL(String url) {
         TextView originView = mToolbarView.findViewById(R.id.origin);
-        originView.setText(UrlFormatter.formatUrlForSecurityDisplayOmitScheme(url));
+        originView.setText(
+                UrlFormatter.formatUrlForSecurityDisplay(url, SchemeDisplay.OMIT_HTTP_AND_HTTPS));
     }
 
     /** Sets the security icon. */

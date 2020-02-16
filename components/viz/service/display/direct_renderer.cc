@@ -26,7 +26,6 @@
 #include "components/viz/service/display/bsp_tree.h"
 #include "components/viz/service/display/bsp_walk_action.h"
 #include "components/viz/service/display/output_surface.h"
-#include "components/viz/service/display/overlay_candidate_validator.h"
 #include "components/viz/service/display/skia_output_surface.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -116,24 +115,18 @@ DirectRenderer::SwapFrameData& DirectRenderer::SwapFrameData::operator=(
 
 DirectRenderer::DirectRenderer(const RendererSettings* settings,
                                OutputSurface* output_surface,
-                               DisplayResourceProvider* resource_provider)
+                               DisplayResourceProvider* resource_provider,
+                               OverlayProcessorInterface* overlay_processor)
     : settings_(settings),
       output_surface_(output_surface),
-      resource_provider_(resource_provider) {
+      resource_provider_(resource_provider),
+      overlay_processor_(overlay_processor) {
   DCHECK(output_surface_);
 }
 
 DirectRenderer::~DirectRenderer() = default;
 
 void DirectRenderer::Initialize() {
-  // Create an overlay validator based on the platform and set it on the newly
-  // created processor. This would initialize the strategies on the validator as
-  // well.
-  overlay_processor_ = OverlayProcessor::CreateOverlayProcessor(
-      output_surface_->AsSkiaOutputSurface(),
-      output_surface_->GetSurfaceHandle(), output_surface_->capabilities(),
-      *settings_);
-
   auto* context_provider = output_surface_->context_provider();
 
   use_partial_swap_ = settings_->partial_swap_enabled && CanPartialSwap();
@@ -148,6 +141,13 @@ void DirectRenderer::Initialize() {
             .disable_non_empty_post_sub_buffers) {
       use_partial_swap_ = false;
     }
+#if DCHECK_IS_ON()
+    supports_occlusion_query_ =
+        context_provider->ContextCapabilities().occlusion_query;
+#endif
+  } else {
+    allow_empty_swap_ |=
+        output_surface_->capabilities().supports_commit_overlay_planes;
   }
 
   initialized_ = true;
@@ -260,11 +260,17 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
   RenderPass* root_render_pass = render_passes_in_draw_order->back().get();
   DCHECK(root_render_pass);
 
+#if DCHECK_IS_ON()
   bool overdraw_tracing_enabled;
   TRACE_EVENT_CATEGORY_GROUP_ENABLED(TRACE_DISABLED_BY_DEFAULT("viz.overdraw"),
                                      &overdraw_tracing_enabled);
-  bool overdraw_feedback =
-      settings_->show_overdraw_feedback || overdraw_tracing_enabled;
+  DLOG_IF(WARNING, !overdraw_tracing_support_missing_logged_once_ &&
+                       overdraw_tracing_enabled && !supports_occlusion_query_)
+      << "Overdraw tracing enabled on platform without support.";
+  overdraw_tracing_support_missing_logged_once_ = true;
+#endif
+
+  bool overdraw_feedback = settings_->show_overdraw_feedback;
   if (overdraw_feedback && !output_surface_->capabilities().supports_stencil) {
 #if DCHECK_IS_ON()
     DLOG_IF(WARNING, !overdraw_feedback_support_missing_logged_once_)
@@ -281,8 +287,10 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
   current_frame()->render_passes_in_draw_order = render_passes_in_draw_order;
   current_frame()->root_render_pass = root_render_pass;
   current_frame()->root_damage_rect = root_render_pass->damage_rect;
-  current_frame()->root_damage_rect.Union(
-      overlay_processor_->GetAndResetOverlayDamage());
+  if (overlay_processor_) {
+    current_frame()->root_damage_rect.Union(
+        overlay_processor_->GetAndResetOverlayDamage());
+  }
   current_frame()->root_damage_rect.Intersect(gfx::Rect(device_viewport_size));
   current_frame()->device_viewport_size = device_viewport_size;
   current_frame()->sdr_white_level = sdr_white_level;
@@ -293,7 +301,7 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
   bool frame_has_alpha =
       current_frame()->root_render_pass->has_transparent_background;
   bool use_stencil = overdraw_feedback_;
-  bool did_reshape = false;
+  bool needs_full_frame_redraw = false;
   if (device_viewport_size != reshape_surface_size_ ||
       device_scale_factor != reshape_device_scale_factor_ ||
       root_render_pass->color_space != reshape_device_color_space_ ||
@@ -308,8 +316,18 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     output_surface_->Reshape(
         reshape_surface_size_, reshape_device_scale_factor_,
         reshape_device_color_space_, reshape_has_alpha_, reshape_use_stencil_);
-    overlay_processor_->SetValidatorViewportSize(reshape_surface_size_);
-    did_reshape = true;
+    if (overlay_processor_)
+      overlay_processor_->SetViewportSize(reshape_surface_size_);
+#if defined(OS_MACOSX)
+    // For Mac, all render passes will be promoted to CALayer, the redraw full
+    // frame is for the main surface only.
+    // TODO(penghuang): verify this logic with SkiaRenderer.
+    if (!output_surface_->capabilities().supports_surfaceless)
+      needs_full_frame_redraw = true;
+#else
+    // The entire surface has to be redrawn if reshape is requested.
+    needs_full_frame_redraw = true;
+#endif
   }
 
   BeginDrawingFrame();
@@ -331,39 +349,36 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     }
   }
 
-  // Display transform is needed for overlay validator on Android
-  // SurfaceControl. This needs to called before ProcessForOverlays.
-  overlay_processor_->SetDisplayTransformHint(
-      output_surface_->GetDisplayTransform());
+  if (overlay_processor_) {
+    // Display transform is needed for overlay validator on Android
+    // SurfaceControl. This needs to called before ProcessForOverlays.
+    overlay_processor_->SetDisplayTransformHint(
+        output_surface_->GetDisplayTransform());
 
-  // Only used for pre-OOP-D code path.
-  // TODO(weiliangc): Remove once reflector code is removed.
-  overlay_processor_->SetSoftwareMirrorMode(
-      output_surface_->IsSoftwareMirrorMode());
+    // Before ProcessForOverlay calls into the hardware to ask about whether the
+    // overlay setup can be handled, we need to set up the primary plane.
+    OverlayProcessorInterface::OutputSurfaceOverlayPlane* primary_plane =
+        nullptr;
+    if (output_surface_->IsDisplayedAsOverlayPlane()) {
+      current_frame()->output_surface_plane =
+          overlay_processor_->ProcessOutputSurfaceAsOverlay(
+              device_viewport_size, output_surface_->GetOverlayBufferFormat(),
+              reshape_device_color_space_, reshape_has_alpha_);
+      primary_plane = &(current_frame()->output_surface_plane.value());
+    }
 
-  // Before ProcessForOverlay calls into the hardware to ask about whether the
-  // overlay setup can be handled, we need to set up the primary plane.
-  OverlayProcessor::OutputSurfaceOverlayPlane* primary_plane = nullptr;
-  if (output_surface_->IsDisplayedAsOverlayPlane()) {
-    current_frame()->output_surface_plane =
-        overlay_processor_->ProcessOutputSurfaceAsOverlay(
-            device_viewport_size, output_surface_->GetOverlayBufferFormat(),
-            reshape_device_color_space_, reshape_has_alpha_);
-    primary_plane = &(current_frame()->output_surface_plane.value());
+    // Attempt to replace some or all of the quads of the root render pass with
+    // overlays.
+    overlay_processor_->ProcessForOverlays(
+        resource_provider_, render_passes_in_draw_order,
+        output_surface_->color_matrix(), render_pass_filters_,
+        render_pass_backdrop_filters_, primary_plane,
+        &current_frame()->overlay_list, &current_frame()->root_damage_rect,
+        &current_frame()->root_content_bounds);
+
+    overlay_processor_->AdjustOutputSurfaceOverlay(
+        &(current_frame()->output_surface_plane));
   }
-
-  // Attempt to replace some or all of the quads of the root render pass with
-  // overlays.
-  overlay_processor_->ProcessForOverlays(
-      resource_provider_, render_passes_in_draw_order,
-      output_surface_->color_matrix(), render_pass_filters_,
-      render_pass_backdrop_filters_, primary_plane,
-      &current_frame()->overlay_list, &current_frame()->root_damage_rect,
-      &current_frame()->root_content_bounds);
-
-  overlay_processor_->AdjustOutputSurfaceOverlay(
-      &(current_frame()->output_surface_plane));
-
 #if defined(OS_WIN)
   bool was_using_dc_layers = using_dc_layers_;
   if (!current_frame()->overlay_list.empty()) {
@@ -375,8 +390,13 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     using_dc_layers_ = false;
   }
 
-  if (supports_dc_layers_ && (was_using_dc_layers != using_dc_layers_))
+  if (supports_dc_layers_ && (was_using_dc_layers != using_dc_layers_)) {
     SetEnableDCLayers(using_dc_layers_);
+    // The entire surface has to be redrawn if switching from or to
+    // DirectComposition layers, because the previous contents are discarded
+    // and some contents would otherwise be undefined.
+    needs_full_frame_redraw = true;
+  }
 #endif
 
   // Draw all non-root render passes except for the root render pass.
@@ -386,23 +406,18 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     DrawRenderPassAndExecuteCopyRequests(pass.get());
   }
 
-#if defined(OS_WIN)
-  if (supports_dc_layers_ &&
-      (did_reshape || (was_using_dc_layers != using_dc_layers_))) {
-    // The entire surface has to be redrawn if it was reshaped or if switching
-    // from or to DirectComposition layers, because the previous contents are
-    // discarded and some contents would otherwise be undefined.
-    current_frame()->root_damage_rect = gfx::Rect(device_viewport_size);
-  }
-#endif
-
-  // We can skip all drawing if the damage rect is now empty.
   bool skip_drawing_root_render_pass =
-      current_frame()->root_damage_rect.IsEmpty() && allow_empty_swap_;
+      current_frame()->root_damage_rect.IsEmpty() && allow_empty_swap_ &&
+      !needs_full_frame_redraw;
 
-  // If we have to draw but don't support partial swap, the whole output should
-  // be considered damaged.
-  if (!skip_drawing_root_render_pass && !use_partial_swap_)
+  // If partial swap is not used, and the frame can not be skipped, the whole
+  // frame has to be redrawn.
+  if (!use_partial_swap_ && !skip_drawing_root_render_pass)
+    needs_full_frame_redraw = true;
+
+  // If we need to redraw the frame, the whole output should be considered
+  // damaged.
+  if (needs_full_frame_redraw)
     current_frame()->root_damage_rect = gfx::Rect(device_viewport_size);
 
   if (!skip_drawing_root_render_pass)
@@ -418,7 +433,13 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     current_frame()->output_surface_plane->gpu_fence_id =
         output_surface_->UpdateGpuFence();
 
+  if (overlay_processor_)
+    overlay_processor_->TakeOverlayCandidates(&current_frame()->overlay_list);
+
   FinishDrawingFrame();
+
+  if (overlay_processor_)
+    overlay_processor_->ScheduleOverlays(resource_provider_);
 
   render_passes_in_draw_order->clear();
   render_pass_filters_.clear();
@@ -826,10 +847,6 @@ void DirectRenderer::SetCurrentFrameForTesting(const DrawingFrame& frame) {
 bool DirectRenderer::HasAllocatedResourcesForTesting(
     const RenderPassId& render_pass_id) const {
   return IsRenderPassResourceAllocated(render_pass_id);
-}
-
-bool DirectRenderer::OverlayNeedsSurfaceOccludingDamageRect() const {
-  return overlay_processor_->NeedsSurfaceOccludingDamageRect();
 }
 
 bool DirectRenderer::ShouldApplyRoundedCorner(const DrawQuad* quad) const {

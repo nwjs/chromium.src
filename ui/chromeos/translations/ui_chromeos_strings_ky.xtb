@@ -80,6 +80,7 @@
 <translation id="1847880352285315359">Сакталды</translation>
 <translation id="1864756863218646478">Бир да файл табылган жок.</translation>
 <translation id="1921986354447415460">Түркчө-F баскычтобу</translation>
+<translation id="1924372192547904021"><ph name="DRIVE_NAME" /> форматталды</translation>
 <translation id="1931134289871235022">Словакча</translation>
 <translation id="1933345018156373194">Жылбай калды, күтүүсүз ката кетти: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">Финче</translation>
@@ -163,6 +164,7 @@
 <translation id="2942290791863759244">Немисче NEO 2 баскычтобу</translation>
 <translation id="2943400156390503548">Слайддар</translation>
 <translation id="2943503720238418293">Кыскараак аталышты колдонуңуз</translation>
+<translation id="2949781154072577687"><ph name="DRIVE_NAME" /> форматталууда...</translation>
 <translation id="2951236788251446349">Медуза</translation>
 <translation id="2963783323012015985">Түркчө баскычтоп</translation>
 <translation id="2966459079597787514">Шведче баскычтоп</translation>
@@ -275,6 +277,7 @@
 <translation id="4336032328163998280">Көчүрүү аракети аткарылбай калды. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4364327530094270451">Коон</translation>
 <translation id="4372884569765913867">1x1</translation>
+<translation id="4394214039309501350">Тышкы шилтеме</translation>
 <translation id="4425149324548788773">Менин Drive'ым</translation>
 <translation id="4465830120256509958">Бразилче баскычтоп</translation>
 <translation id="4470564870223067757">Хангул 2 топтому</translation>
@@ -403,7 +406,7 @@
 <translation id="5678784840044122290">Linux колдонмосу Терминалыңызда жеткиликтүү болуп, Жүргүзгүчтө анын сүрөтчөсү көрүнүшү мүмкүн.</translation>
 <translation id="5686799162999241776"><ph name="BEGIN_BOLD" />Архивден же виртуалдуу дисктен ажыратуу мүмкүн эмес<ph name="END_BOLD" />
    <ph name="LINE_BREAKS" />
-   Архивдеги же виртуалдуу дисктеги бардык файлдарды жаап, кайталап көрүңүз.</translation>
+   Архивдеги же виртуалдуу дисктеги бардык файлдарды жаап, кайра аракет кылыңыз.</translation>
 <translation id="5691596662111998220">Оой, <ph name="FILE_NAME" /> эми жок.</translation>
 <translation id="5700087501958648444">Аудио файл тууралуу маалымат</translation>
 <translation id="5731409020711461763">1 жаңы сүрөт</translation>
@@ -567,6 +570,7 @@
 <translation id="7649070708921625228">Жардам</translation>
 <translation id="7654209398114106148"><ph name="NUMBER_OF_ITEMS" /> нерсе жылдырылууда…</translation>
 <translation id="7658239707568436148">Жокко чыгаруу</translation>
+<translation id="7695430100978772476"><ph name="DRIVE_NAME" /> форматталган жок</translation>
 <translation id="770015031906360009">Грекче</translation>
 <translation id="7706319470528945664">Португалча баскычтоп</translation>
 <translation id="7711920809702896782">Сүрөт тууралуу маалымат</translation>

@@ -131,8 +131,6 @@ bool CastMainDelegate::BasicStartupComplete(int* exit_code) {
     }
   }
 #endif  // defined(OS_ANDROID)
-
-  content::SetContentClient(&content_client_);
   return false;
 }
 
@@ -246,10 +244,12 @@ void CastMainDelegate::InitializeResourceBundle() {
   base::MemoryMappedFile::Region pak_region;
   if (pak_fd >= 0) {
     pak_region = global_descriptors->GetRegion(kAndroidPakDescriptor);
-    ui::ResourceBundle::InitSharedInstanceWithPakFileRegion(base::File(pak_fd),
-                                                            pak_region);
+
+    base::File android_pak_file(pak_fd);
+    ui::ResourceBundle::InitSharedInstanceWithPakFileRegion(
+        android_pak_file.Duplicate(), pak_region);
     ui::ResourceBundle::GetSharedInstance().AddDataPackFromFileRegion(
-        base::File(pak_fd), pak_region, ui::SCALE_FACTOR_100P);
+        std::move(android_pak_file), pak_region, ui::SCALE_FACTOR_100P);
     return;
   } else {
     pak_fd = base::android::OpenApkAsset("assets/cast_shell.pak", &pak_region);
@@ -280,6 +280,10 @@ void CastMainDelegate::InitializeResourceBundle() {
   ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
       pak_file, ui::SCALE_FACTOR_NONE);
 #endif  // defined(OS_ANDROID)
+}
+
+content::ContentClient* CastMainDelegate::CreateContentClient() {
+  return &content_client_;
 }
 
 content::ContentBrowserClient* CastMainDelegate::CreateContentBrowserClient() {

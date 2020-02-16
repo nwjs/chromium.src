@@ -15,12 +15,13 @@ import java.lang.annotation.RetentionPolicy;
  */
 @StringDef({FeatureConstants.DOWNLOAD_PAGE_FEATURE,
         FeatureConstants.DOWNLOAD_PAGE_SCREENSHOT_FEATURE, FeatureConstants.DOWNLOAD_HOME_FEATURE,
+        FeatureConstants.CHROME_DUET_HOME_BUTTON_FEATURE,
         FeatureConstants.CHROME_DUET_SEARCH_FEATURE,
         FeatureConstants.CHROME_DUET_TAB_SWITCHER_FEATURE,
         FeatureConstants.CHROME_HOME_EXPAND_FEATURE,
         FeatureConstants.CHROME_HOME_PULL_TO_REFRESH_FEATURE,
         FeatureConstants.DATA_SAVER_PREVIEW_FEATURE, FeatureConstants.DATA_SAVER_DETAIL_FEATURE,
-        FeatureConstants.PREVIEWS_OMNIBOX_UI_FEATURE,
+        FeatureConstants.EPHEMERAL_TAB_FEATURE, FeatureConstants.PREVIEWS_OMNIBOX_UI_FEATURE,
         FeatureConstants.TRANSLATE_MENU_BUTTON_FEATURE,
         FeatureConstants.CONTEXTUAL_SEARCH_WEB_SEARCH_FEATURE,
         FeatureConstants.CONTEXTUAL_SEARCH_PROMOTE_TAP_FEATURE,
@@ -51,6 +52,7 @@ public @interface FeatureConstants {
     String DATA_SAVER_PREVIEW_FEATURE = "IPH_DataSaverPreview";
     String DATA_SAVER_DETAIL_FEATURE = "IPH_DataSaverDetail";
     String DATA_SAVER_MILESTONE_PROMO_FEATURE = "IPH_DataSaverMilestonePromo";
+    String EPHEMERAL_TAB_FEATURE = "IPH_EphemeralTab";
     String KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE = "IPH_KeyboardAccessoryAddressFilling";
     String KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE = "IPH_KeyboardAccessoryPasswordFilling";
     String KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE = "IPH_KeyboardAccessoryPaymentFilling";

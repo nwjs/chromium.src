@@ -31,7 +31,6 @@
 
 namespace blink {
 
-class HTMLOptionElement;
 class HTMLSelectElement;
 class LayoutText;
 
@@ -41,8 +40,8 @@ class CORE_EXPORT LayoutMenuList final : public LayoutFlexibleBox {
   ~LayoutMenuList() override;
 
   HTMLSelectElement* SelectElement() const;
-  void DidSelectOption(HTMLOptionElement*);
   String GetText() const;
+  void SetText(const String&);
 
   const char* GetName() const override { return "LayoutMenuList"; }
 
@@ -74,50 +73,23 @@ class CORE_EXPORT LayoutMenuList final : public LayoutFlexibleBox {
 
   void StyleDidChange(StyleDifference, const ComputedStyle* old_style) override;
 
-  bool HasLineIfEmpty() const override { return true; }
-
-  // Flexbox defines baselines differently than regular blocks.
-  // For backwards compatibility, menulists need to do the regular block
-  // behavior.
-  LayoutUnit BaselinePosition(FontBaseline baseline,
-                              bool first_line,
-                              LineDirectionMode direction,
-                              LinePositionMode position) const override {
-    return LayoutBlock::BaselinePosition(baseline, first_line, direction,
-                                         position);
-  }
-  LayoutUnit FirstLineBoxBaseline() const override {
-    return LayoutBlock::FirstLineBoxBaseline();
-  }
-  LayoutUnit InlineBlockBaseline(LineDirectionMode direction) const override {
-    return LayoutBlock::InlineBlockBaseline(direction);
-  }
-
   void CreateInnerBlock();
   scoped_refptr<ComputedStyle> CreateInnerStyle();
   void UpdateInnerStyle();
-  void AdjustInnerStyle(ComputedStyle&) const;
+  void AdjustInnerStyle(const ComputedStyle& parent_style,
+                        ComputedStyle& inner_style) const;
   bool HasOptionStyleChanged(const ComputedStyle& inner_style) const;
-  void SetText(const String&);
   void UpdateInnerBlockHeight();
   void UpdateOptionsWidth() const;
   void SetIndexToSelectOnCancel(int list_index);
 
-  void DidUpdateActiveOption(HTMLOptionElement*);
-
   LayoutText* button_text_;
   LayoutBlock* inner_block_;
 
-  bool is_empty_ : 1;
-  bool has_updated_active_option_ : 1;
   LayoutUnit inner_block_height_;
   // m_optionsWidth is calculated and cached on demand.
   // updateOptionsWidth() should be called before reading them.
   mutable int options_width_;
-
-  int last_active_index_;
-
-  scoped_refptr<const ComputedStyle> option_style_;
 };
 
 DEFINE_LAYOUT_OBJECT_TYPE_CASTS(LayoutMenuList, IsMenuList());

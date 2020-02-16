@@ -6,6 +6,7 @@
 #define UI_VIEWS_WIDGET_NATIVE_WIDGET_MAC_H_
 
 #include "base/macros.h"
+#include "ui/base/ime/input_method_delegate.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/widget/native_widget_private.h"
@@ -34,7 +35,9 @@ class WidgetTest;
 }
 class NativeWidgetMacNSWindowHost;
 
-class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
+class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate,
+                                     public FocusChangeListener,
+                                     public ui::internal::InputMethodDelegate {
  public:
   explicit NativeWidgetMac(internal::NativeWidgetDelegate* delegate);
   ~NativeWidgetMac() override;
@@ -91,8 +94,6 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   bool ShouldUseNativeFrame() const override;
   bool ShouldWindowContentsBeTransparent() const override;
   void FrameTypeChanged() override;
-  Widget* GetWidget() override;
-  const Widget* GetWidget() const override;
   gfx::NativeView GetNativeView() const override;
   gfx::NativeWindow GetNativeWindow() const override;
   Widget* GetTopLevelWidget() override;
@@ -174,6 +175,8 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   bool IsTranslucentWindowOpacitySupported() const override;
   ui::GestureRecognizer* GetGestureRecognizer() override;
   void OnSizeConstraintsChanged() override;
+  void OnNativeViewHierarchyWillChange() override;
+  void OnNativeViewHierarchyChanged() override;
   std::string GetName() const override;
 
   // Calls |callback| with the newly created NativeWidget whenever a
@@ -182,6 +185,11 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
       base::RepeatingCallback<void(NativeWidgetMac*)> callback);
 
  protected:
+  // The argument to SetBounds is sometimes in screen coordinates and sometimes
+  // in parent window coordinates. This function will take that bounds argument
+  // and convert it to screen coordinates if needed.
+  gfx::Rect ConvertBoundsToScreenIfNeeded(const gfx::Rect& bounds) const;
+
   virtual void PopulateCreateWindowParams(
       const Widget::InitParams& widget_params,
       remote_cocoa::mojom::CreateWindowParams* params) {}
@@ -220,13 +228,25 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
     return ns_window_host_.get();
   }
 
+  // Unregister focus listeners from previous focus manager, and register them
+  // with the |new_focus_manager|. Updates |focus_manager_|.
+  void SetFocusManager(FocusManager* new_focus_manager);
+
+  // FocusChangeListener:
+  void OnWillChangeFocus(View* focused_before, View* focused_now) override;
+  void OnDidChangeFocus(View* focused_before, View* focused_now) override;
+
+  // ui::internal::InputMethodDelegate:
+  ui::EventDispatchDetails DispatchKeyEventPostIME(ui::KeyEvent* key) override;
+
  private:
   friend class test::MockNativeWidgetMac;
   friend class test::HitTestNativeWidgetMac;
   friend class views::test::WidgetTest;
-
   class ZoomFocusMonitor;
-  std::unique_ptr<ZoomFocusMonitor> zoom_focus_monitor_;
+
+  // internal::NativeWidgetPrivate:
+  const Widget* GetWidgetImpl() const override;
 
   internal::NativeWidgetDelegate* delegate_;
   std::unique_ptr<NativeWidgetMacNSWindowHost> ns_window_host_;
@@ -239,6 +259,12 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   ui::ZOrderLevel z_order_level_ = ui::ZOrderLevel::kNormal;
 
   Widget::InitParams::Type type_;
+
+  // Weak pointer to the FocusManager with with |zoom_focus_monitor_| and
+  // |ns_window_host_| are registered.
+  FocusManager* focus_manager_ = nullptr;
+  std::unique_ptr<ui::InputMethod> input_method_;
+  std::unique_ptr<ZoomFocusMonitor> zoom_focus_monitor_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeWidgetMac);
 };

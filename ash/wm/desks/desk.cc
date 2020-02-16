@@ -183,8 +183,9 @@ void Desk::AddWindowToDesk(aura::Window* window) {
   windows_.push_back(window);
   // No need to refresh the mini_views if the destroyed window doesn't show up
   // there in the first place.
+  // The WorkspaceLayoutManager updates the backdrop for us.
   if (!window->GetProperty(kHideInDeskMiniViewKey))
-    NotifyContentChanged();
+    NotifyContentChanged(/*update_backdrops=*/false);
 }
 
 void Desk::RemoveWindowFromDesk(aura::Window* window) {
@@ -192,18 +193,40 @@ void Desk::RemoveWindowFromDesk(aura::Window* window) {
   base::Erase(windows_, window);
   // No need to refresh the mini_views if the destroyed window doesn't show up
   // there in the first place.
+  // The WorkspaceLayoutManager updates the backdrop for us.
   if (!window->GetProperty(kHideInDeskMiniViewKey))
-    NotifyContentChanged();
+    NotifyContentChanged(/*update_backdrops=*/false);
 }
 
 base::AutoReset<bool> Desk::GetScopedNotifyContentChangedDisabler() {
   return base::AutoReset<bool>(&should_notify_content_changed_, false);
 }
 
+void Desk::SetName(base::string16 new_name) {
+  name_ = std::move(new_name);
+
+  for (auto& observer : observers_)
+    observer.OnDeskNameChanged(name_);
+}
+
+void Desk::PrepareForActivationAnimation() {
+  DCHECK(!is_active_);
+
+  for (aura::Window* root : Shell::GetAllRootWindows()) {
+    auto* container = root->GetChildById(container_id_);
+    container->layer()->SetOpacity(0);
+    container->Show();
+  }
+  started_activation_animation_ = true;
+}
+
 void Desk::Activate(bool update_window_activation) {
-  // Show the associated containers on all roots.
-  for (aura::Window* root : Shell::GetAllRootWindows())
-    root->GetChildById(container_id_)->Show();
+  DCHECK(!is_active_);
+
+  if (!MaybeResetContainersOpacities()) {
+    for (aura::Window* root : Shell::GetAllRootWindows())
+      root->GetChildById(container_id_)->Show();
+  }
 
   is_active_ = true;
 
@@ -227,6 +250,8 @@ void Desk::Activate(bool update_window_activation) {
 }
 
 void Desk::Deactivate(bool update_window_activation) {
+  DCHECK(is_active_);
+
   auto* active_window = window_util::GetActiveWindow();
 
   // Hide the associated containers on all roots.
@@ -278,8 +303,8 @@ void Desk::MoveWindowsToDesk(Desk* target_desk) {
     }
   }
 
-  NotifyContentChanged();
-  target_desk->NotifyContentChanged();
+  NotifyContentChanged(/*update_backdrops=*/true);
+  target_desk->NotifyContentChanged(/*update_backdrops=*/true);
 }
 
 void Desk::MoveWindowToDesk(aura::Window* window, Desk* target_desk) {
@@ -314,8 +339,8 @@ void Desk::MoveWindowToDesk(aura::Window* window, Desk* target_desk) {
       window_state->Unminimize();
   }
 
-  NotifyContentChanged();
-  target_desk->NotifyContentChanged();
+  NotifyContentChanged(/*update_backdrops=*/true);
+  target_desk->NotifyContentChanged(/*update_backdrops=*/true);
 }
 
 aura::Window* Desk::GetDeskContainerForRoot(aura::Window* root) const {
@@ -324,13 +349,15 @@ aura::Window* Desk::GetDeskContainerForRoot(aura::Window* root) const {
   return root->GetChildById(container_id_);
 }
 
-void Desk::NotifyContentChanged() {
+void Desk::NotifyContentChanged(bool update_backdrops) {
   if (!should_notify_content_changed_)
     return;
 
-  // Update the backdrop availability and visibility first before notifying
-  // observers.
-  UpdateDeskBackdrops();
+  // If requested, update the backdrop availability and visibility first before
+  // notifying observers, so that the mini_views update *after* the backdrops
+  // do.
+  if (update_backdrops)
+    UpdateDeskBackdrops();
 
   for (auto& observer : observers_)
     observer.OnContentChanged();
@@ -351,6 +378,18 @@ void Desk::MoveWindowToDeskInternal(aura::Window* window, Desk* target_desk) {
   aura::Window* target_container = target_desk->GetDeskContainerForRoot(root);
   DCHECK(window->parent() == source_container);
   target_container->AddChild(window);
+}
+
+bool Desk::MaybeResetContainersOpacities() {
+  if (!started_activation_animation_)
+    return false;
+
+  for (aura::Window* root : Shell::GetAllRootWindows()) {
+    auto* container = root->GetChildById(container_id_);
+    container->layer()->SetOpacity(1);
+  }
+  started_activation_animation_ = false;
+  return true;
 }
 
 }  // namespace ash

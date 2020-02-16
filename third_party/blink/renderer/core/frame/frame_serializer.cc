@@ -113,7 +113,7 @@ class SerializerMarkupAccumulator : public MarkupAccumulator {
 
   FrameSerializer::Delegate& delegate_;
   FrameSerializerResourceDelegate& resource_delegate_;
-  Member<Document> document_;
+  Document* document_;
 
   // Elements with links rewritten via appendAttribute method.
   HeapHashSet<Member<const Element>> elements_with_rewritten_links_;
@@ -124,8 +124,8 @@ SerializerMarkupAccumulator::SerializerMarkupAccumulator(
     FrameSerializerResourceDelegate& resource_delegate,
     Document& document)
     : MarkupAccumulator(kResolveAllURLs,
-                        document.IsHTMLDocument() ? SerializationType::kHTML
-                                                  : SerializationType::kXML),
+                        IsA<HTMLDocument>(document) ? SerializationType::kHTML
+                                                    : SerializationType::kXML),
       delegate_(delegate),
       resource_delegate_(resource_delegate),
       document_(&document) {}
@@ -238,7 +238,7 @@ void SerializerMarkupAccumulator::AppendAttribute(const Element& element,
                                                   const Attribute& attribute) {
   // Check if link rewriting can affect the attribute.
   bool is_link_attribute = element.HasLegalLinkAttribute(attribute.GetName());
-  bool is_src_doc_attribute = IsHTMLFrameElementBase(element) &&
+  bool is_src_doc_attribute = IsA<HTMLFrameElementBase>(element) &&
                               attribute.GetName() == html_names::kSrcdocAttr;
   if (is_link_attribute || is_src_doc_attribute) {
     // Check if the delegate wants to do link rewriting for the element.
@@ -273,7 +273,7 @@ std::pair<Node*, Element*> SerializerMarkupAccumulator::GetAuxiliaryDOMTree(
 void SerializerMarkupAccumulator::AppendAttributeValue(
     const String& attribute_value) {
   MarkupFormatter::AppendAttributeValue(markup_, attribute_value,
-                                        document_->IsHTMLDocument());
+                                        IsA<HTMLDocument>(document_));
 }
 
 void SerializerMarkupAccumulator::AppendRewrittenAttribute(
@@ -319,9 +319,8 @@ void FrameSerializer::SerializeFrame(const LocalFrame& frame) {
   KURL url = document.Url();
 
   // If frame is an image document, add the image and don't continue
-  if (document.IsImageDocument()) {
-    ImageDocument& image_document = ToImageDocument(document);
-    AddImageToResources(image_document.CachedImage(), url);
+  if (auto* image_document = DynamicTo<ImageDocument>(document)) {
+    AddImageToResources(image_document->CachedImage(), url);
     return;
   }
 
@@ -413,8 +412,7 @@ void FrameSerializer::AddResourceForElement(Document& document,
   } else if (const auto* style = DynamicTo<HTMLStyleElement>(element)) {
     if (CSSStyleSheet* sheet = style->sheet())
       SerializeCSSStyleSheet(*sheet, NullURL());
-  } else if (IsHTMLPlugInElement(element)) {
-    const auto* plugin = ToHTMLPlugInElement(&element);
+  } else if (const auto* plugin = DynamicTo<HTMLPlugInElement>(&element)) {
     if (plugin->IsImageType() && plugin->ImageLoader()) {
       KURL image_url = document.CompleteURL(plugin->Url());
       ImageResourceContent* cached_image = plugin->ImageLoader()->GetContent();

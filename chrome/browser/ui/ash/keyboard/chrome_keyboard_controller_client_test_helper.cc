@@ -9,12 +9,10 @@
 #include <vector>
 
 #include "ash/public/cpp/keyboard/keyboard_controller.h"
-#include "ash/public/mojom/constants.mojom.h"
 #include "ash/shell.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "chrome/browser/profiles/profile.h"
-#include "services/service_manager/public/cpp/connector.h"
 
 class ChromeKeyboardControllerClientTestHelper::FakeKeyboardController
     : public ash::KeyboardController {

@@ -1,3 +1,8 @@
+# tags: [ Android Fuchsia IOS IOS12.2 IOS13.0 Linux Mac Mac10.10 Mac10.11 Mac10.12 Retina
+#         Mac10.13 Win Win7 Win10 ]
+# tags: [ Release Debug ]
+# results: [ Timeout Crash Pass Failure Slow Skip ]
+
 # This file is used for tests that only need to be suppressed on
 # the Chromium WebKit ASAN bots.
 # Further documentation:
@@ -52,7 +57,7 @@ crbug.com/438499 [ Linux ] http/tests/devtools/profiler/heap-snapshot-containmen
 crbug.com/438499 [ Linux ] virtual/threaded-no-composited-antialiasing/animations/unanimated-style.html [ Timeout ]
 
 # Flakily timeout on Linux ASAN bots.
-crbug.com/243871 [ Linux ] virtual/threaded-prefer-compositing/fast/scroll-behavior/ [ Skip ]
+crbug.com/243871 [ Linux ] virtual/threaded-prefer-compositing/fast/scroll-behavior/* [ Skip ]
 crbug.com/464065 [ Linux ] media/track/css-cue-for-video-in-shadow.html [ Timeout ]
 crbug.com/464065 [ Linux ] media/track/css-cue-for-video-in-shadow-2.html [ Timeout ]
 crbug.com/572723 [ Linux ] http/tests/devtools/sources/debugger/debugger-completions-on-call-frame.js [ Timeout Pass ]

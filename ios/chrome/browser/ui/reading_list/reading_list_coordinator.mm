@@ -15,8 +15,8 @@
 #include "ios/chrome/browser/favicon/ios_chrome_favicon_loader_factory.h"
 #include "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
 #include "ios/chrome/browser/feature_engagement/tracker_factory.h"
+#include "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/metrics/new_tab_page_uma.h"
-#include "ios/chrome/browser/reading_list/features.h"
 #include "ios/chrome/browser/reading_list/offline_url_utils.h"
 #include "ios/chrome/browser/reading_list/reading_list_model_factory.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
@@ -37,6 +37,7 @@
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/url_loading/url_loading_service.h"
 #import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
+#include "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ios/web/public/navigation/referrer.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -74,14 +75,6 @@
 @synthesize navigationController = _navigationController;
 @synthesize tableViewController = _tableViewController;
 @synthesize contextMenuCoordinator = _contextMenuCoordinator;
-
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                              browserState:
-                                  (ios::ChromeBrowserState*)browserState {
-  self = [super initWithBaseViewController:viewController
-                              browserState:browserState];
-  return self;
-}
 
 #pragma mark - Accessors
 
@@ -361,8 +354,11 @@ animationControllerForDismissedController:(UIViewController*)dismissed {
            incognito:(BOOL)incognito {
   DCHECK(entryURL.is_valid());
   base::RecordAction(base::UserMetricsAction("MobileReadingListOpen"));
+  web::WebState* activeWebState =
+      self.browser->GetWebStateList()->GetActiveWebState();
   new_tab_page_uma::RecordAction(
-      self.browserState, new_tab_page_uma::ACTION_OPENED_READING_LIST_ENTRY);
+      self.browserState, activeWebState,
+      new_tab_page_uma::ACTION_OPENED_READING_LIST_ENTRY);
 
   // Load the offline URL if available.
   GURL loadURL = entryURL;
@@ -370,10 +366,6 @@ animationControllerForDismissedController:(UIViewController*)dismissed {
     loadURL = offlineURL;
     // Offline URLs should always be opened in new tabs.
     newTab = YES;
-    // Record the offline load and update the model.
-    if (!reading_list::IsOfflinePageWithoutNativeContentEnabled()) {
-      UMA_HISTOGRAM_BOOLEAN("ReadingList.OfflineVersionDisplayed", true);
-    }
     const GURL updateURL = entryURL;
     [self.mediator markEntryRead:updateURL];
   }

@@ -385,7 +385,6 @@ Ha végzett az útmutatóval, navigáljon a ChromeVox segítségével a Bezárá
 <translation id="3646890046000188562">{COUNT,plural, =1{egyszeres nyitó idézőjel}other{# egyszeres nyitó idézőjel}}</translation>
 <translation id="3650317109285159359">jelölőnégyzet menüelem</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollárjel}other{# dollárjel}}</translation>
-<translation id="3658742229777143148">Ellenőrzés</translation>
 <translation id="3659787053479271466">riaszt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, lista</translation>
 <translation id="3681531118904532409">Papajahab</translation>
@@ -420,6 +419,7 @@ Ha végzett az útmutatóval, navigáljon a ChromeVox segítségével a Bezárá
 <translation id="3914732343065571127">ChromeVox-parancsreferencia</translation>
 <translation id="3930383913623796990">Tavaszzöld</translation>
 <translation id="3930498801443296724">Kiemelt idézet</translation>
+<translation id="3935615366277838204">Nagy <ph name="LETTER" /> betű</translation>
 <translation id="3936394396199829062">Levendulapír</translation>
 <translation id="3941269780691800708">Kurzor alatti szöveg felolvasása.</translation>
 <translation id="394953087167197343">Elírás jelzése:</translation>
@@ -793,7 +793,6 @@ Ha végzett az útmutatóval, navigáljon a ChromeVox segítségével a Bezárá
 <translation id="6459511626086141404">Sima billentyűzetkiosztás</translation>
 <translation id="6468049171101508116">Tovább gomb</translation>
 <translation id="646954774886932461">Tárgymutató</translation>
-<translation id="6479792383819319132">Nincs következő fejezet.</translation>
 <translation id="6493991254603208962">fényerő csökkentése</translation>
 <translation id="6501595918865591267">Türkizkék</translation>
 <translation id="6508059270146105198">A Braille-kijelző áthelyezése az oldal aljára</translation>
@@ -816,7 +815,6 @@ Ha végzett az útmutatóval, navigáljon a ChromeVox segítségével a Bezárá
 <translation id="6637586476836377253">napló</translation>
 <translation id="6657128831881431364">Folyamatjelző</translation>
 <translation id="6659594942844771486">Lap</translation>
-<translation id="6675661017770918201">Nincs előző fejezet.</translation>
 <translation id="667999046851023355">Dokumentum</translation>
 <translation id="6688209025607531203">Nem modális riasztás</translation>
 <translation id="6689672606256159458">Sötét lazacrózsaszín</translation>
@@ -845,6 +843,7 @@ Ha végzett az útmutatóval, navigáljon a ChromeVox segítségével a Bezárá
 <translation id="6865519907510167493">Elgépelés</translation>
 <translation id="6871161210040114857">A kis- és nagybetűk nem különbözők.</translation>
 <translation id="6877435256196695200">Nincs következő ábra.</translation>
+<translation id="688976158310523235">Keresés menü</translation>
 <translation id="6897341342232909480">Mozgatás balra</translation>
 <translation id="6901540140423170855">dátum</translation>
 <translation id="6910211073230771657">Törölve</translation>
@@ -857,6 +856,7 @@ Ha végzett az útmutatóval, navigáljon a ChromeVox segítségével a Bezárá
 <translation id="699159175332639490">Keresés + O + W</translation>
 <translation id="6994042831499278539">Szószedet-hivatkozás</translation>
 <translation id="6996566555547746822">Következő legördülő lista</translation>
+<translation id="6997224546856374593">Nagy kezdőbetűk felolvasásakor:</translation>
 <translation id="700202842116345659">Bibliográfiai bejegyzés</translation>
 <translation id="7005146664810010831">Nem található URL</translation>
 <translation id="7010712454773919705">ChromeVox-módosítóbillentyű</translation>
@@ -937,6 +937,7 @@ A Chrome böngésző menüjének megnyitásához nyomja le az Alt + F billentyű
 <translation id="744163271241493234">jelszóbevitel</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">Belépett a párbeszédbe</translation>
+<translation id="7505149250476994901">A betű előtt mondja, hogy „nagy”</translation>
 <translation id="7518543783849163354">A ChromeVox beszédének átmeneti leállításához nyomja le a Control billentyűt.</translation>
 <translation id="7521682724501952239">A ChromeVox használható az érintőképernyővel.</translation>
 <translation id="7532613204005497612">június</translation>
@@ -1104,7 +1105,6 @@ A Chrome böngésző menüjének megnyitásához nyomja le az Alt + F billentyű
 <translation id="812886159861361726">A következő letöltése leállítva: <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">Érintés</translation>
 <translation id="8153880621934657047">Nem táblázatban van.</translation>
-<translation id="8161114871611868169">Megjegyzések szakasza</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{alulvonás}other{# alulvonás}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">sor</translation>
@@ -1125,6 +1125,7 @@ A Chrome böngésző menüjének megnyitásához nyomja le az Alt + F billentyű
 <translation id="8313653172105209786">könyvt</translation>
 <translation id="8316881042119029234">Csipkefehér</translation>
 <translation id="8326783648485765113">Fűzöld</translation>
+<translation id="8328063869313048659">Sötét képernyő be- vagy kikapcsolása</translation>
 <translation id="8344569602005188545">óra</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{kettős kereszt}other{# kettős kereszt jel}}</translation>
 <translation id="8374154622594089836">hónap</translation>
@@ -1209,6 +1210,7 @@ A Chrome böngésző menüjének megnyitásához nyomja le az Alt + F billentyű
 <translation id="9065283790526219006">+előugr</translation>
 <translation id="9066023754636984703">A Keresés+A, J billentyűkombinációkkal a részletekhez ugorhat.</translation>
 <translation id="9067522039955793016">Oldaltörés</translation>
+<translation id="9074824103975499138">Keresés a ChromeVox-menükben</translation>
 <translation id="9077213568694924680">eltávolítva a kiválasztottak közül</translation>
 <translation id="9077305471618729969">Világos tengerzöld</translation>
 <translation id="9082874451376019682">Nincs előző dia.</translation>

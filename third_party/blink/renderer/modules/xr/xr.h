@@ -11,12 +11,14 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_xr_dom_overlay_init.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_xr_session_init.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/page/focus_changed_observer.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
-#include "third_party/blink/renderer/modules/xr/xr_session_init.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
@@ -29,6 +31,33 @@ class ScriptPromiseResolver;
 class XRFrameProvider;
 class XRSessionInit;
 
+// Implementation of the XR interface according to
+// https://immersive-web.github.io/webxr/#xr-interface . This is created lazily
+// via the NavigatorXR class on first access to the navigator.xr attribute, and
+// disposed when the execution context is destroyed or on mojo communication
+// errors with the browser/device process.
+//
+// When the XR object is used for promises, it uses query objects to store state
+// including the associated ScriptPromiseResolver. These query objects are owned
+// by the XR object and remain alive until the promise is resolved or rejected.
+// (See comments below for PendingSupportsSessionQuery and
+// PendingRequestSessionQuery.) These query objects are destroyed and any
+// outstanding promises rejected when the XR object is disposed.
+//
+// The XR object owns mojo connections with the Browser process through
+// VRService, used for capability queries and session lifetime
+// management. The XR object is also the receiver for the VRServiceClient.
+//
+// The XR object owns mojo connections with the Device process (either a
+// separate utility process, or implemented as part of the Browser process,
+// depending on the runtime and options) through XRFrameProvider and
+// XREnvironmentIntegrationProvider. These are used to transport per-frame data
+// such as image data and input poses. These are lazily created when first
+// needed for a sensor-backed session (all except sensorless inline sessions),
+// and destroyed when the XR object is disposed.
+//
+// The XR object keeps weak references to XRSession objects after they were
+// returned through a successful requestSession promise, but does not own them.
 class XR final : public EventTargetWithInlineData,
                  public ContextLifecycleObserver,
                  public device::mojom::blink::VRServiceClient,
@@ -37,11 +66,6 @@ class XR final : public EventTargetWithInlineData,
   USING_GARBAGE_COLLECTED_MIXIN(XR);
 
  public:
-  // TODO(crbug.com/976796): Fix lint errors.
-  static XR* Create(LocalFrame& frame, int64_t source_id) {
-    return MakeGarbageCollected<XR>(frame, source_id);
-  }
-
   // TODO(crbug.com/976796): Fix lint errors.
   XR(LocalFrame& frame, int64_t ukm_source_id);
 
@@ -122,13 +146,14 @@ class XR final : public EventTargetWithInlineData,
 
   // Encapsulates blink-side `XR::requestSession()` call. It is a wrapper around
   // ScriptPromiseResolver that allows us to add additional logic as certain
-  // things related to promise's life cycle happen.
+  // things related to promise's life cycle happen. Instances are owned
+  // by the XR object, see outstanding_request_queries_ below.
   class PendingRequestSessionQuery final
       : public GarbageCollected<PendingRequestSessionQuery> {
    public:
     PendingRequestSessionQuery(int64_t ukm_source_id,
                                ScriptPromiseResolver* resolver,
-                               XRSession::SessionMode mode,
+                               device::mojom::blink::XRSessionMode mode,
                                RequestedXRSessionFeatureSet required_features,
                                RequestedXRSessionFeatureSet optional_features);
     virtual ~PendingRequestSessionQuery() = default;
@@ -162,7 +187,7 @@ class XR final : public EventTargetWithInlineData,
     void RejectWithTypeError(const String& message,
                              ExceptionState* exception_state);
 
-    XRSession::SessionMode mode() const;
+    device::mojom::blink::XRSessionMode mode() const;
     const XRSessionFeatureSet& RequiredFeatures() const;
     const XRSessionFeatureSet& OptionalFeatures() const;
     bool InvalidRequiredFeatures() const;
@@ -174,6 +199,11 @@ class XR final : public EventTargetWithInlineData,
 
     // Returns underlying resolver's script state.
     ScriptState* GetScriptState() const;
+
+    void SetDOMOverlayElement(Element* element) {
+      dom_overlay_element_ = element;
+    }
+    Element* DOMOverlayElement() { return dom_overlay_element_; }
 
     virtual void Trace(blink::Visitor*);
 
@@ -189,27 +219,29 @@ class XR final : public EventTargetWithInlineData,
             metrics_recorder = mojo::NullRemote());
 
     Member<ScriptPromiseResolver> resolver_;
-    const XRSession::SessionMode mode_;
+    const device::mojom::blink::XRSessionMode mode_;
     RequestedXRSessionFeatureSet required_features_;
     RequestedXRSessionFeatureSet optional_features_;
     SensorRequirement sensor_requirement_ = SensorRequirement::kNone;
 
     const int64_t ukm_source_id_;
 
+    Member<Element> dom_overlay_element_;
     DISALLOW_COPY_AND_ASSIGN(PendingRequestSessionQuery);
   };
 
   static device::mojom::blink::XRSessionOptionsPtr XRSessionOptionsFromQuery(
       const PendingRequestSessionQuery& query);
 
-  // Encapsulates blink-side `XR::supportsSession()` call.  It is a wrapper
+  // Encapsulates blink-side `XR::isSessionSupported()` call.  It is a wrapper
   // around ScriptPromiseResolver that allows us to add additional logic as
-  // certain things related to promise's life cycle happen.
+  // certain things related to promise's life cycle happen. Instances are owned
+  // by the XR object, see outstanding_support_queries_ below.
   class PendingSupportsSessionQuery final
       : public GarbageCollected<PendingSupportsSessionQuery> {
    public:
     PendingSupportsSessionQuery(ScriptPromiseResolver*,
-                                XRSession::SessionMode,
+                                device::mojom::blink::XRSessionMode,
                                 bool throw_on_unsupported);
     virtual ~PendingSupportsSessionQuery() = default;
 
@@ -239,18 +271,43 @@ class XR final : public EventTargetWithInlineData,
 
     bool ThrowOnUnsupported() const { return throw_on_unsupported_; }
 
-    XRSession::SessionMode mode() const;
+    device::mojom::blink::XRSessionMode mode() const;
 
     virtual void Trace(blink::Visitor*);
 
    private:
     Member<ScriptPromiseResolver> resolver_;
-    const XRSession::SessionMode mode_;
+    const device::mojom::blink::XRSessionMode mode_;
 
     // Only set when calling the deprecated supportsSession method.
     const bool throw_on_unsupported_ = false;
 
     DISALLOW_COPY_AND_ASSIGN(PendingSupportsSessionQuery);
+  };
+
+  // Native event listener for fullscreen change / error events when starting an
+  // immersive-ar session that uses DOM Overlay mode. See
+  // OnRequestSessionReturned().
+  class OverlayFullscreenEventManager : public NativeEventListener {
+   public:
+    OverlayFullscreenEventManager(
+        XR* xr,
+        XR::PendingRequestSessionQuery*,
+        device::mojom::blink::RequestSessionResultPtr);
+    ~OverlayFullscreenEventManager() override;
+
+    // NativeEventListener
+    void Invoke(ExecutionContext*, Event*) override;
+
+    void RequestFullscreen();
+
+    void Trace(blink::Visitor*) override;
+
+   private:
+    Member<XR> xr_;
+    Member<PendingRequestSessionQuery> query_;
+    device::mojom::blink::RequestSessionResultPtr result_;
+    DISALLOW_COPY_AND_ASSIGN(OverlayFullscreenEventManager);
   };
 
   ScriptPromise InternalIsSessionSupported(ScriptState*,
@@ -265,7 +322,8 @@ class XR final : public EventTargetWithInlineData,
   RequestedXRSessionFeatureSet ParseRequestedFeatures(
       Document* doc,
       const HeapVector<ScriptValue>& features,
-      const XRSession::SessionMode& session_mode,
+      const device::mojom::blink::XRSessionMode& session_mode,
+      XRSessionInit* session_init,
       mojom::ConsoleMessageLevel error_level);
 
   void RequestImmersiveSession(LocalFrame* frame,
@@ -277,11 +335,18 @@ class XR final : public EventTargetWithInlineData,
                             PendingRequestSessionQuery* query,
                             ExceptionState* exception_state);
 
+  void OnRequestSessionSetupForDomOverlay(
+      PendingRequestSessionQuery*,
+      device::mojom::blink::RequestSessionResultPtr result);
   void OnRequestSessionReturned(
       PendingRequestSessionQuery*,
       device::mojom::blink::RequestSessionResultPtr result);
   void OnSupportsSessionReturned(PendingSupportsSessionQuery*,
                                  bool supports_session);
+  void ResolveSessionRequest(
+      PendingRequestSessionQuery*,
+      device::mojom::blink::RequestSessionResultPtr result);
+  void RejectSessionRequest(PendingRequestSessionQuery*);
 
   void EnsureDevice();
   void ReportImmersiveSupported(bool supported);
@@ -290,7 +355,7 @@ class XR final : public EventTargetWithInlineData,
                           RegisteredEventListener&) override;
 
   XRSession* CreateSession(
-      XRSession::SessionMode mode,
+      device::mojom::blink::XRSessionMode mode,
       XRSession::EnvironmentBlendMode blend_mode,
       mojo::PendingReceiver<device::mojom::blink::XRSessionClient>
           client_receiver,
@@ -317,6 +382,8 @@ class XR final : public EventTargetWithInlineData,
 
   const int64_t ukm_source_id_;
 
+  // The XR object owns outstanding pending session queries, these live until
+  // the underlying promise is either resolved or rejected.
   HeapHashSet<Member<PendingSupportsSessionQuery>> outstanding_support_queries_;
   HeapHashSet<Member<PendingRequestSessionQuery>> outstanding_request_queries_;
   bool has_outstanding_immersive_request_ = false;
@@ -337,6 +404,11 @@ class XR final : public EventTargetWithInlineData,
 
   FrameOrWorkerScheduler::SchedulingAffectingFeatureHandle
       feature_handle_for_scheduler_;
+
+  // In DOM overlay mode, use a fullscreen event listener to detect when
+  // transition to fullscreen mode completes or fails, and reject/resolve
+  // the pending request session promise accordingly.
+  Member<OverlayFullscreenEventManager> fullscreen_event_manager_;
 
   // In DOM overlay mode, save and restore the FrameView background color.
   Color original_base_background_color_;

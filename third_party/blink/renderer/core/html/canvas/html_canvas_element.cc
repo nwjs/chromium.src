@@ -42,6 +42,8 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/resources/grit/blink_image_resources.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_encode_options.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -66,19 +68,16 @@
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
-#include "third_party/blink/renderer/core/imagebitmap/image_bitmap_options.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/hit_test_canvas_result.h"
 #include "third_party/blink/renderer/core/layout/layout_html_canvas.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
-#include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_timing.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_dispatcher.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
@@ -154,10 +153,6 @@ void HTMLCanvasElement::Dispose() {
   }
 
   if (surface_layer_bridge_) {
-    if (surface_layer_bridge_->GetCcLayer()) {
-      GraphicsLayer::UnregisterContentsLayer(
-          surface_layer_bridge_->GetCcLayer());
-    }
     // Observer has to be cleared out at this point. Otherwise the
     // SurfaceLayerBridge may call back into the observer which is undefined
     // behavior. In the worst case, the dead canvas element re-adds itself into
@@ -602,7 +597,7 @@ void HTMLCanvasElement::Reset() {
     if (layout_object->IsCanvas()) {
       if (old_size != Size()) {
         ToLayoutHTMLCanvas(layout_object)->CanvasSizeChanged();
-        if (GetLayoutBox() && GetLayoutBox()->HasAcceleratedCompositing())
+        if (GetDocument().GetSettings()->GetAcceleratedCompositingEnabled())
           GetLayoutBox()->ContentChanged(kCanvasChanged);
       }
       if (had_resource_provider)
@@ -617,7 +612,8 @@ bool HTMLCanvasElement::PaintsIntoCanvasBuffer() const {
   DCHECK(context_);
   if (!context_->IsComposited())
     return true;
-  if (GetLayoutBox() && GetLayoutBox()->HasAcceleratedCompositing())
+  auto* settings = GetDocument().GetSettings();
+  if (settings && settings->GetAcceleratedCompositingEnabled())
     return false;
 
   return true;
@@ -1050,7 +1046,8 @@ bool HTMLCanvasElement::ShouldAccelerate(AccelerationCriteria criteria) const {
   // The following is necessary for handling the special case of canvases in
   // the dev tools overlay, which run in a process that supports accelerated
   // 2d canvas but in a special compositing context that does not.
-  if (GetLayoutBox() && !GetLayoutBox()->HasAcceleratedCompositing())
+  auto* settings = GetDocument().GetSettings();
+  if (settings && !settings->GetAcceleratedCompositingEnabled())
     return false;
 
   // Avoid creating |contextProvider| until we're sure we want to try use it,
@@ -1209,8 +1206,7 @@ void HTMLCanvasElement::DidMoveToNewDocument(Document& old_document) {
 }
 
 void HTMLCanvasElement::WillDrawImageTo2DContext(CanvasImageSource* source) {
-  if (canvas_heuristic_parameters::kEnableAccelerationToAvoidReadbacks &&
-      SharedGpuContext::AllowSoftwareToAcceleratedCanvasUpgrade() &&
+  if (SharedGpuContext::AllowSoftwareToAcceleratedCanvasUpgrade() &&
       source->IsAccelerated() && GetOrCreateCanvas2DLayerBridge() &&
       !canvas2d_bridge_->IsAccelerated() &&
       ShouldAccelerate(kIgnoreResourceLimitCriteria)) {
@@ -1305,11 +1301,13 @@ ScriptPromise HTMLCanvasElement::CreateImageBitmap(
     ScriptState* script_state,
     EventTarget& event_target,
     base::Optional<IntRect> crop_rect,
-    const ImageBitmapOptions* options) {
+    const ImageBitmapOptions* options,
+    ExceptionState& exception_state) {
   DCHECK(event_target.ToLocalDOMWindow());
 
   return ImageBitmapSource::FulfillImageBitmap(
-      script_state, ImageBitmap::Create(this, crop_rect, options));
+      script_state, MakeGarbageCollected<ImageBitmap>(this, crop_rect, options),
+      exception_state);
 }
 
 void HTMLCanvasElement::SetOffscreenCanvasResource(
@@ -1425,12 +1423,10 @@ void HTMLCanvasElement::OnWebLayerUpdated() {
 }
 
 void HTMLCanvasElement::RegisterContentsLayer(cc::Layer* layer) {
-  GraphicsLayer::RegisterContentsLayer(layer);
   OnContentsCcLayerChanged();
 }
 
 void HTMLCanvasElement::UnregisterContentsLayer(cc::Layer* layer) {
-  GraphicsLayer::UnregisterContentsLayer(layer);
   OnContentsCcLayerChanged();
 }
 

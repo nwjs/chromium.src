@@ -16,6 +16,10 @@
 #include "services/service_manager/public/cpp/service.h"
 #include "services/service_manager/public/mojom/service.mojom.h"
 
+namespace IPC {
+class Message;
+}
+
 namespace mojo {
 class BinderMap;
 class ServiceFactory;
@@ -70,8 +74,6 @@ class CONTENT_EXPORT ContentUtilityClient {
 
   virtual void RegisterNetworkBinders(
       service_manager::BinderRegistry* registry) {}
-
-  virtual void RegisterAudioBinders(service_manager::BinderMap* binders) {}
 };
 
 }  // namespace content

@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/radio_node_list_or_element.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_submit_event_init.h"
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -51,6 +52,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_form_controls_collection.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/radio_node_list.h"
+#include "third_party/blink/renderer/core/html/forms/submit_event.h"
 #include "third_party/blink/renderer/core/html/html_collection.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
@@ -314,9 +316,14 @@ void HTMLFormElement::PrepareForSubmission(
       should_submit = false;
     } else {
       frame->Client()->DispatchWillSendSubmitEvent(this);
-      should_submit =
-          DispatchEvent(*Event::CreateCancelableBubble(
-              event_type_names::kSubmit)) == DispatchEventResult::kNotCanceled;
+      SubmitEventInit* submit_event_init = SubmitEventInit::Create();
+      submit_event_init->setBubbles(true);
+      submit_event_init->setCancelable(true);
+      submit_event_init->setSubmitter(
+          submit_button ? &submit_button->ToHTMLElement() : nullptr);
+      should_submit = DispatchEvent(*MakeGarbageCollected<SubmitEvent>(
+                          event_type_names::kSubmit, submit_event_init)) ==
+                      DispatchEventResult::kNotCanceled;
     }
   }
   if (should_submit) {
@@ -362,7 +369,7 @@ void HTMLFormElement::requestSubmit(HTMLElement* submitter,
   // 1. If submitter was given, then:
   if (submitter) {
     // 1.1. If submitter is not a submit button, then throw a TypeError.
-    control = ToHTMLFormControlElementOrNull(submitter);
+    control = DynamicTo<HTMLFormControlElement>(submitter);
     // button[type] is a subset of input[type]. So it's ok to compare button's
     // type and input_type_names.
     if (!control || (control->type() != input_type_names::kSubmit &&
@@ -573,7 +580,8 @@ void HTMLFormElement::ParseAttribute(
     // If we're not upgrading insecure requests, and the new action attribute is
     // pointing to an insecure "action" location from a secure page it is marked
     // as "passive" mixed content.
-    if (GetDocument().GetInsecureRequestPolicy() & kUpgradeInsecureRequests)
+    if (GetDocument().GetSecurityContext().GetInsecureRequestPolicy() &
+        kUpgradeInsecureRequests)
       return;
     KURL action_url = GetDocument().CompleteURL(
         attributes_.Action().IsEmpty() ? GetDocument().Url().GetString()
@@ -835,7 +843,7 @@ void HTMLFormElement::GetNamedElements(
 }
 
 bool HTMLFormElement::ShouldAutocomplete() const {
-  return !DeprecatedEqualIgnoringCase(
+  return !EqualIgnoringASCIICase(
       FastGetAttribute(html_names::kAutocompleteAttr), "off");
 }
 

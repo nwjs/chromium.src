@@ -31,7 +31,7 @@
 #include <utility>
 
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
-#include "third_party/blink/public/platform/web_menu_source_type.h"
+#include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/web/web_context_menu_data.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_plugin.h"
@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
+#include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
@@ -153,7 +154,7 @@ static int ComputeEditFlags(Document& selected_document, Editor& editor) {
     edit_flags |= ContextMenuDataEditFlags::kCanDelete;
   if (editor.CanEditRichly())
     edit_flags |= ContextMenuDataEditFlags::kCanEditRichly;
-  if (selected_document.IsHTMLDocument() ||
+  if (IsA<HTMLDocument>(selected_document) ||
       selected_document.IsXHTMLDocument()) {
     edit_flags |= ContextMenuDataEditFlags::kCanTranslate;
     if (selected_document.queryCommandEnabled("selectAll", ASSERT_NO_EXCEPTION))
@@ -278,7 +279,7 @@ bool ContextMenuController::ShowContextMenu(LocalFrame* frame,
 
     // We know that if absoluteMediaURL() is not empty or element has a media
     // stream descriptor, then this is a media element.
-    HTMLMediaElement* media_element = ToHTMLMediaElement(result.InnerNode());
+    auto* media_element = To<HTMLMediaElement>(result.InnerNode());
     if (IsA<HTMLVideoElement>(*media_element)) {
       // A video element should be presented as an audio element when it has an
       // audio track but no video track.
@@ -332,8 +333,7 @@ bool ContextMenuController::ShowContextMenu(LocalFrame* frame,
         WebPlugin* plugin = plugin_view->Plugin();
         data.link_url = plugin->LinkAtPosition(data.mouse_position);
 
-        HTMLPlugInElement* plugin_element =
-            ToHTMLPlugInElement(result.InnerNode());
+        auto* plugin_element = To<HTMLPlugInElement>(result.InnerNode());
         data.src_url =
             plugin_element->GetDocument().CompleteURL(plugin_element->Url());
 

@@ -32,12 +32,9 @@ cast_source_set("prefs") {
     "//base",
     "//chromecast:chromecast_buildflags",
     "//chromecast/base",
+    "//components/cdm/browser",
     "//components/prefs",
   ]
-
-  if (is_android) {
-    deps += [ "//components/cdm/browser" ]
-  }
 }
 
 cast_source_set("feature_list") {
@@ -65,6 +62,8 @@ cast_source_set("browser") {
     "bluetooth/cast_bluetooth_chooser.h",
     "cast_browser_context.cc",
     "cast_browser_context.h",
+    "cast_browser_interface_binders.cc",
+    "cast_browser_interface_binders.h",
     "cast_browser_main_parts.cc",
     "cast_browser_main_parts.h",
     "cast_browser_process.cc",
@@ -84,10 +83,6 @@ cast_source_set("browser") {
     "cast_navigation_ui_data.h",
     "cast_network_contexts.cc",
     "cast_network_contexts.h",
-    "cast_network_delegate.cc",
-    "cast_network_delegate.h",
-    "cast_network_request_interceptor.cc",
-    "cast_network_request_interceptor.h",
     "cast_overlay_manifests.cc",
     "cast_overlay_manifests.h",
     "cast_permission_manager.cc",
@@ -130,6 +125,8 @@ cast_source_set("browser") {
     "renderer_prelauncher.h",
     "service/cast_service_simple.cc",
     "service/cast_service_simple.h",
+    "service_connector.cc",
+    "service_connector.h",
     "tts/tts_controller.h",
     "tts/tts_controller_impl.cc",
     "tts/tts_controller_impl.h",
@@ -137,15 +134,12 @@ cast_source_set("browser") {
     "tts/tts_platform.h",
     "tts/tts_platform_stub.cc",
     "tts/tts_platform_stub.h",
-    "url_request_context_factory.cc",
-    "url_request_context_factory.h",
   ]
 
   if (chromecast_branding == "public") {
     sources += [
       "cast_browser_main_parts_simple.cc",
       "cast_content_browser_client_simple.cc",
-      "cast_network_request_interceptor_simple.cc",
     ]
   }
 
@@ -184,7 +178,9 @@ cast_source_set("browser") {
     "//chromecast/media/service",
     "//chromecast/media/service/mojom",
     "//chromecast/net",
+    "//chromecast/net:connectivity_checker",
     "//chromecast/service",
+    "//components/cdm/browser",
     "//components/download/public/common:public",
     "//components/metrics",
     "//components/metrics:gpu",
@@ -209,9 +205,9 @@ cast_source_set("browser") {
     "//gpu",
     "//ipc",
     "//media",
-    "//media/mojo/services:media_manifest",
     "//net",
     "//services/media_session/public/mojom",
+    "//services/network/public/mojom",
     "//services/service_manager/public/cpp",
     "//ui/base",
     "//ui/compositor",
@@ -230,7 +226,6 @@ cast_source_set("browser") {
     ]
     deps += [
       ":jni_headers",
-      "//components/cdm/browser",
       "//components/embedder_support/android:view",
     ]
   } else {
@@ -293,10 +288,7 @@ cast_source_set("browser") {
   }
 
   if (enable_mojo_media) {
-    deps += [
-      "//media/mojo/mojom:constants",
-      "//media/mojo/services",
-    ]
+    deps += [ "//media/mojo/services" ]
   }
 
   if (enable_external_mojo_services) {
@@ -397,7 +389,7 @@ cast_source_set("browser") {
     ]
   }
 
-  if (enable_cast_wayland_server) {
+  if (is_linux && use_ozone) {
     sources += [
       "exo/cast_wm_helper.cc",
       "exo/cast_wm_helper.h",
@@ -417,10 +409,6 @@ cast_source_set("browser") {
       "webview/web_content_controller.h",
       "webview/webview_controller.cc",
       "webview/webview_controller.h",
-      "webview/webview_grpc_service.cc",
-      "webview/webview_grpc_service.h",
-      "webview/webview_layout_manager.cc",
-      "webview/webview_layout_manager.h",
       "webview/webview_navigation_throttle.cc",
       "webview/webview_navigation_throttle.h",
       "webview/webview_rpc_instance.cc",
@@ -594,18 +582,12 @@ if (is_android) {
   }
 
   java_cpp_enum("java_enums") {
-    sources = [
-      "cast_content_window.h",
-    ]
+    sources = [ "cast_content_window.h" ]
   }
 }
 
 cast_source_set("web_contents_provider") {
-  sources = [
-    "webview/web_contents_provider.h",
-  ]
+  sources = [ "webview/web_contents_provider.h" ]
 
-  deps = [
-    "//content/public/browser",
-  ]
+  deps = [ "//content/public/browser" ]
 }

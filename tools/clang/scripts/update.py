@@ -39,13 +39,13 @@ import zipfile
 # Do NOT CHANGE this if you don't know what you're doing -- see
 # https://chromium.googlesource.com/chromium/src/+/master/docs/updating_clang.md
 # Reverting problematic clang rolls is safe, though.
-CLANG_REVISION = 'c2443155a0fb245c8f17f2c1c72b6ea391e86e81'
-CLANG_SVN_REVISION = 'n332890'
+CLANG_REVISION = 'eaabaf7e04fe98990a8177a3e053346395efde1c'
+CLANG_SVN_REVISION = 'n340759'
 CLANG_SUB_REVISION = 1
 
 PACKAGE_VERSION = '%s-%s-%s' % (CLANG_SVN_REVISION, CLANG_REVISION[:8],
                                 CLANG_SUB_REVISION)
-RELEASE_VERSION = '10.0.0'
+RELEASE_VERSION = '11.0.0'
 
 
 CDS_URL = os.environ.get('CDS_CLANG_BUCKET_OVERRIDE',
@@ -256,6 +256,8 @@ def UpdatePackage(package_name):
   if package_name == 'clang':
     stamp_file = STAMP_FILE
     package_file = 'clang'
+  elif package_name == 'clang-tidy':
+    package_file = 'clang-tidy'
   elif package_name == 'lld_mac':
     package_file = 'lld'
     if sys.platform != 'darwin':

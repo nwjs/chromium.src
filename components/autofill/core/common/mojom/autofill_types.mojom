@@ -218,7 +218,7 @@ struct PasswordGenerationUIData {
   uint32 generation_element_id;
   bool is_generation_element_password_type;
   mojo_base.mojom.TextDirection text_direction;
-  PasswordForm password_form;
+  FormData form_data;
 };
 
 // autofill::ValueElementPair
@@ -280,7 +280,6 @@ struct PasswordForm {
   mojo_base.mojom.String16 new_password_value;
   bool new_password_marked_by_site;
   mojo_base.mojom.String16 confirmation_password_element;
-  bool preferred;
   mojo_base.mojom.Time date_created;
   mojo_base.mojom.Time date_synced;
   bool blacklisted_by_user;

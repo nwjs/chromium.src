@@ -16,6 +16,7 @@
 #include "base/callback.h"
 #include "base/containers/queue.h"
 #include "base/macros.h"
+#include "base/memory/memory_pressure_listener.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
@@ -118,10 +119,11 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
 
   static bool ValidateHost(GpuProcessHost* host);
 
-  // Increments |crash_count| by one. Before incrementing |crash_count|, for
-  // each |forgive_minutes| that has passed since the previous crash remove one
-  // old crash.
-  static void IncrementCrashCount(int forgive_minutes, int* crash_count);
+  // Increments |recent_crash_count_| by one. Before incrementing, remove one
+  // old crash for each forgiveness interval that has passed since the previous
+  // crash. If |gpu_mode| doesn't match |last_crash_mode_|, first reset the
+  // crash count.
+  static void IncrementCrashCount(gpu::GpuMode gpu_mode);
 
   GpuProcessHost(int host_id, GpuProcessKind kind);
   ~GpuProcessHost() override;
@@ -169,9 +171,6 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   void SendGpuProcessMessage(IPC::Message* message) override;
 #endif
 
-  // Message handlers.
-  void OnFieldTrialActivated(const std::string& trial_name);
-
   bool LaunchGpuProcess();
 
   void SendOutstandingReplies();
@@ -180,6 +179,12 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
 
   // Update GPU crash counters.  Disable GPU if crash limit is reached.
   void RecordProcessCrash();
+
+#if !defined(OS_ANDROID)
+  // Memory pressure handler, called by |memory_pressure_listener_|.
+  void OnMemoryPressure(
+      base::MemoryPressureListener::MemoryPressureLevel level);
+#endif
 
   // The serial number of the GpuProcessHost.
   int host_id_;
@@ -218,9 +223,8 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // The total number of GPU process crashes.
   static base::subtle::Atomic32 gpu_crash_count_;
   static bool crashed_before_;
-  static int hardware_accelerated_recent_crash_count_;
-  static int swiftshader_recent_crash_count_;
-  static int display_compositor_recent_crash_count_;
+  static int recent_crash_count_;
+  static gpu::GpuMode last_crash_mode_;
 
   // Here the bottom-up destruction order matters:
   // The GPU thread depends on its host so stop the host last.
@@ -239,6 +243,12 @@ class GpuProcessHost : public BrowserChildProcessHostDelegate,
   // received, assume all of these URLs are guilty, and block
   // automatic execution of 3D content from those domains.
   std::multiset<GURL> urls_with_live_offscreen_contexts_;
+
+#if !defined(OS_ANDROID)
+  // Responsible for forwarding the memory pressure notifications from the
+  // browser process to the GPU process.
+  std::unique_ptr<base::MemoryPressureListener> memory_pressure_listener_;
+#endif
 
   std::unique_ptr<viz::GpuHostImpl> gpu_host_;
 

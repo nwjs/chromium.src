@@ -521,8 +521,6 @@ class BrowsingDataRemoverBrowserTest : public InProcessBrowserTest {
     Profile* profile = GetBrowser()->profile();
     content::StoragePartition* storage_partition =
         content::BrowserContext::GetDefaultStoragePartition(profile);
-    content::IndexedDBContext* indexed_db_context =
-        storage_partition->GetIndexedDBContext();
     content::ServiceWorkerContext* service_worker_context =
         storage_partition->GetServiceWorkerContext();
     content::CacheStorageContext* cache_storage_context =
@@ -535,7 +533,7 @@ class BrowsingDataRemoverBrowserTest : public InProcessBrowserTest {
         new BrowsingDataLocalStorageHelper(profile),
         /*session_storage_helper=*/nullptr,
         new BrowsingDataAppCacheHelper(storage_partition->GetAppCacheService()),
-        new BrowsingDataIndexedDBHelper(indexed_db_context),
+        new BrowsingDataIndexedDBHelper(storage_partition),
         BrowsingDataFileSystemHelper::Create(file_system_context),
         BrowsingDataQuotaHelper::Create(profile),
         new BrowsingDataServiceWorkerHelper(service_worker_context),
@@ -949,7 +947,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, HistoryDeletion) {
   // Create a new tab to avoid confusion from having a NTP navigation entry.
   ui_test_utils::NavigateToURLWithDisposition(
       GetBrowser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   EXPECT_FALSE(HasDataForType(kType));
   SetDataForType(kType);
   EXPECT_TRUE(HasDataForType(kType));
@@ -1385,6 +1383,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 
 // Some storage backend use a different code path for full deletions and
 // partial deletions, so we need to test both.
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          BrowsingDataRemoverBrowserTestP,
                          ::testing::Values(base::Time(), kLastHour));

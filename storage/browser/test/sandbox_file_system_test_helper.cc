@@ -30,12 +30,12 @@ using storage::FileSystemURL;
 namespace content {
 
 SandboxFileSystemTestHelper::SandboxFileSystemTestHelper(
-    const GURL& origin,
+    const url::Origin& origin,
     storage::FileSystemType type)
     : origin_(origin), type_(type), file_util_(nullptr) {}
 
 SandboxFileSystemTestHelper::SandboxFileSystemTestHelper()
-    : origin_(GURL("http://foo.com")),
+    : origin_(url::Origin::Create(GURL("http://foo.com"))),
       type_(storage::kFileSystemTypeTemporary),
       file_util_(nullptr) {}
 
@@ -67,8 +67,8 @@ void SandboxFileSystemTestHelper::TearDown() {
 }
 
 base::FilePath SandboxFileSystemTestHelper::GetOriginRootPath() {
-  return file_system_context_->sandbox_delegate()->
-      GetBaseDirectoryForOriginAndType(origin_, type_, false);
+  return file_system_context_->sandbox_delegate()
+      ->GetBaseDirectoryForOriginAndType(origin_.GetURL(), type_, false);
 }
 
 base::FilePath SandboxFileSystemTestHelper::GetLocalPath(
@@ -86,19 +86,20 @@ base::FilePath SandboxFileSystemTestHelper::GetLocalPathFromASCII(
 }
 
 base::FilePath SandboxFileSystemTestHelper::GetUsageCachePath() const {
-  return file_system_context_->sandbox_delegate()->
-      GetUsageCachePathForOriginAndType(origin_, type_);
+  return file_system_context_->sandbox_delegate()
+      ->GetUsageCachePathForOriginAndType(origin_, type_);
 }
 
 FileSystemURL SandboxFileSystemTestHelper::CreateURL(
     const base::FilePath& path) const {
-  return file_system_context_->CreateCrackedFileSystemURL(origin_, type_, path);
+  return file_system_context_->CreateCrackedFileSystemURL(origin_.GetURL(),
+                                                          type_, path);
 }
 
 int64_t SandboxFileSystemTestHelper::GetCachedOriginUsage() const {
   return file_system_context_->GetQuotaUtil(type_)
-      ->GetOriginUsageOnFileTaskRunner(
-          file_system_context_.get(), origin_, type_);
+      ->GetOriginUsageOnFileTaskRunner(file_system_context_.get(),
+                                       origin_.GetURL(), type_);
 }
 
 int64_t SandboxFileSystemTestHelper::ComputeCurrentOriginUsage() {
@@ -162,8 +163,8 @@ void SandboxFileSystemTestHelper::SetUpFileSystem() {
   DCHECK(file_util_);
 
   // Prepare the origin's root directory.
-  file_system_context_->sandbox_delegate()->
-      GetBaseDirectoryForOriginAndType(origin_, type_, true /* create */);
+  file_system_context_->sandbox_delegate()->GetBaseDirectoryForOriginAndType(
+      origin_.GetURL(), type_, true /* create */);
 
   base::FilePath usage_cache_path = GetUsageCachePath();
   if (!usage_cache_path.empty())

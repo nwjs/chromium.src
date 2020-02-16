@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{백틱 기호}other{백틱 기호 #개}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{달러 기호}other{달러 기호 #개}}</translation>
-<translation id="3658742229777143148">개정</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, 목록 상자</translation>
 <translation id="3681531118904532409">파파야 윕</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">ChromeVox 명령어 참조</translation>
 <translation id="3930383913623796990">스프링 그린</translation>
 <translation id="3930498801443296724">인용문</translation>
+<translation id="3935615366277838204">대문자 <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">라벤더 블러시</translation>
 <translation id="3941269780691800708">마우스 커서를 올린 텍스트를 음성으로 알려줍니다.</translation>
 <translation id="394953087167197343">맞춤법 오류 표시:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">플랫 키맵</translation>
 <translation id="6468049171101508116">다음 버튼</translation>
 <translation id="646954774886932461">색인</translation>
-<translation id="6479792383819319132">다음 단락이 없습니다.</translation>
 <translation id="6493991254603208962">어둡게</translation>
 <translation id="6501595918865591267">터코이즈</translation>
 <translation id="6508059270146105198">점자 디스플레이를 페이지 하단으로 이동합니다.</translation>
@@ -816,7 +815,6 @@
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">진행률 표시줄</translation>
 <translation id="6659594942844771486">탭</translation>
-<translation id="6675661017770918201">이전 단락이 없습니다.</translation>
 <translation id="667999046851023355">문서</translation>
 <translation id="6688209025607531203">비모달 알림</translation>
 <translation id="6689672606256159458">다크 살몬</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">맞춤법 오류</translation>
 <translation id="6871161210040114857">대소문자를 구분하지 않습니다.</translation>
 <translation id="6877435256196695200">다음 그래픽이 없습니다.</translation>
+<translation id="688976158310523235">검색 메뉴</translation>
 <translation id="6897341342232909480">왼쪽으로 이동</translation>
 <translation id="6901540140423170855">date</translation>
 <translation id="6910211073230771657">삭제됨</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">검색 + O + W</translation>
 <translation id="6994042831499278539">용어 참조</translation>
 <translation id="6996566555547746822">다음 콤보 상자</translation>
+<translation id="6997224546856374593">대문자를 읽을 방법을 선택하세요.</translation>
 <translation id="700202842116345659">참고문헌 항목</translation>
 <translation id="7005146664810010831">URL을 찾을 수 없음</translation>
 <translation id="7010712454773919705">ChromeVox 특수키</translation>
@@ -937,6 +937,7 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">대화상자 입력함</translation>
+<translation id="7505149250476994901">문자 전에 "대문자"라고 말하기</translation>
 <translation id="7518543783849163354">일시적으로 ChromeVox의 음성 안내를 중지하려면 Control 키를 누릅니다.</translation>
 <translation id="7521682724501952239">터치스크린으로 ChromeVox를 사용할 수 있습니다.</translation>
 <translation id="7532613204005497612">6월</translation>
@@ -1104,7 +1105,6 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="812886159861361726"><ph name="FILE_NAME" /> 다운로드가 중지되었습니다</translation>
 <translation id="8138880386467279117">터치</translation>
 <translation id="8153880621934657047">표 내부가 아닙니다.</translation>
-<translation id="8161114871611868169">댓글 섹션</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{밑줄}other{밑줄 기호 #개}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">행</translation>
@@ -1125,6 +1125,7 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">올드 레이스</translation>
 <translation id="8326783648485765113">잔디색</translation>
+<translation id="8328063869313048659">어두운 화면 전환</translation>
 <translation id="8344569602005188545">시간</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{파운드 기호}other{파운드 기호 #개}}</translation>
 <translation id="8374154622594089836">월</translation>
@@ -1209,6 +1210,7 @@ Chrome 브라우저 메뉴를 열려면 Alt+F를 누릅니다.</translation>
 <translation id="9065283790526219006">팝업있음</translation>
 <translation id="9066023754636984703">Search+A를 누른 다음 J를 눌러 세부정보로 이동하세요.</translation>
 <translation id="9067522039955793016">페이지 나누기</translation>
+<translation id="9074824103975499138">ChromeVox 메뉴 검색</translation>
 <translation id="9077213568694924680">선택 항목에서 삭제</translation>
 <translation id="9077305471618729969">라이트 씨 그린</translation>
 <translation id="9082874451376019682">이전 슬라이더가 없습니다.</translation>

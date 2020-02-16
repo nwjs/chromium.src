@@ -41,7 +41,7 @@ void SSLErrorControllerClient::GoBack() {
 
 void SSLErrorControllerClient::Proceed() {
   web_contents_->GetBrowserContext()->GetSSLHostStateDelegate()->AllowCert(
-      request_url_.host(), *ssl_info_.cert.get(), cert_error_);
+      request_url_.host(), *ssl_info_.cert.get(), cert_error_, web_contents_);
   Reload();
 }
 
@@ -49,6 +49,10 @@ void SSLErrorControllerClient::OpenUrlInNewForegroundTab(const GURL& url) {
   // For now WebLayer doesn't support multiple tabs, so just open the Learn
   // More link in the current tab.
   OpenUrlInCurrentTab(url);
+}
+
+bool SSLErrorControllerClient::CanLaunchDateAndTimeSettings() {
+  return true;
 }
 
 }  // namespace weblayer

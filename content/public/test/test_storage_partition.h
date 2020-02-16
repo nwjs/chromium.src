@@ -8,7 +8,9 @@
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
 #include "build/build_config.h"
+#include "components/services/storage/public/mojom/indexed_db_control.mojom.h"
 #include "content/public/browser/storage_partition.h"
+#include "mojo/public/cpp/bindings/remote.h"
 
 namespace leveldb_proto {
 class ProtoDatabaseProvider;
@@ -66,7 +68,7 @@ class TestStoragePartition : public StoragePartition {
   void CreateRestrictedCookieManager(
       network::mojom::RestrictedCookieManagerRole role,
       const url::Origin& origin,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const url::Origin& top_frame_origin,
       bool is_service_worker,
       int process_id,
@@ -104,6 +106,8 @@ class TestStoragePartition : public StoragePartition {
   }
   DOMStorageContext* GetDOMStorageContext() override;
 
+  storage::mojom::IndexedDBControl& GetIndexedDBControl() override;
+
   void set_indexed_db_context(IndexedDBContext* context) {
     indexed_db_context_ = context;
   }
@@ -114,6 +118,8 @@ class TestStoragePartition : public StoragePartition {
     service_worker_context_ = context;
   }
   ServiceWorkerContext* GetServiceWorkerContext() override;
+
+  DedicatedWorkerService* GetDedicatedWorkerService() override;
 
   void set_shared_worker_service(SharedWorkerService* service) {
     shared_worker_service_ = service;
@@ -212,8 +218,10 @@ class TestStoragePartition : public StoragePartition {
   storage::FileSystemContext* file_system_context_ = nullptr;
   storage::DatabaseTracker* database_tracker_ = nullptr;
   DOMStorageContext* dom_storage_context_ = nullptr;
+  mojo::Remote<storage::mojom::IndexedDBControl> indexed_db_control_;
   IndexedDBContext* indexed_db_context_ = nullptr;
   ServiceWorkerContext* service_worker_context_ = nullptr;
+  DedicatedWorkerService* dedicated_worker_service_ = nullptr;
   SharedWorkerService* shared_worker_service_ = nullptr;
   CacheStorageContext* cache_storage_context_ = nullptr;
   GeneratedCodeCacheContext* generated_code_cache_context_ = nullptr;

@@ -5,9 +5,12 @@
 #ifndef COMPONENTS_PDF_RENDERER_PDF_ACCESSIBILITY_TREE_H_
 #define COMPONENTS_PDF_RENDERER_PDF_ACCESSIBILITY_TREE_H_
 
+#include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "base/optional.h"
 #include "content/public/renderer/plugin_ax_tree_source.h"
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/private/ppb_pdf.h"
@@ -41,6 +44,16 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
       const std::vector<PP_PrivateAccessibilityCharInfo>& chars,
       const ppapi::PdfAccessibilityPageObjects& page_objects);
 
+  // Stores the page index and annotation index in the page.
+  struct AnnotationInfo {
+    AnnotationInfo(uint32_t page_index, uint32_t annotation_index);
+    AnnotationInfo(const AnnotationInfo& other);
+    ~AnnotationInfo();
+
+    uint32_t page_index;
+    uint32_t annotation_index;
+  };
+
   void SetAccessibilityViewportInfo(
       const PP_PrivateAccessibilityViewportInfo& viewport_info);
   void SetAccessibilityDocInfo(
@@ -51,9 +64,16 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
       const std::vector<PP_PrivateAccessibilityCharInfo>& chars,
       const ppapi::PdfAccessibilityPageObjects& page_objects);
   void HandleAction(const PP_PdfAccessibilityActionData& action_data);
-  bool GetPdfLinkInfoFromAXNode(int32_t ax_node_id,
-                                uint32_t* page_index,
-                                uint32_t* link_index_in_page) const;
+  base::Optional<AnnotationInfo> GetPdfAnnotationInfoFromAXNode(
+      int32_t ax_node_id) const;
+
+  // Given the AXNode and the character offset within the AXNode, finds the
+  // respective page index and character index within the page. Returns
+  // false if the |node| is not a valid static text or inline text box
+  // AXNode. Used to find the character offsets of selection.
+  bool FindCharacterOffset(const ui::AXNode& node,
+                           uint32_t char_offset_in_node,
+                           PP_PdfPageCharacterIndex* page_char_index) const;
 
   // PluginAXTreeSource implementation.
   bool GetTreeData(ui::AXTreeData* tree_data) const override;
@@ -105,10 +125,6 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
       base::span<const ppapi::PdfAccessibilityImageInfo> images,
       ui::AXNodeData* para_node);
 
-  void ComputeParagraphAndHeadingThresholds(
-      const std::vector<ppapi::PdfAccessibilityTextRunInfo>& text_runs,
-      double* out_heading_font_size_threshold,
-      double* out_paragraph_spacing_threshold);
   std::string GetTextRunCharsAsUTF8(
       const ppapi::PdfAccessibilityTextRunInfo& text_run,
       const std::vector<PP_PrivateAccessibilityCharInfo>& chars,
@@ -120,13 +136,14 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
   gfx::Vector2dF ToVector2dF(const PP_Point& p);
   gfx::RectF ToRectF(const PP_Rect& r);
   ui::AXNodeData* CreateNode(ax::mojom::Role role);
-  ui::AXNodeData* CreateParagraphNode(double font_size,
-                                      double heading_font_size_threshold);
-  ui::AXNodeData* CreateStaticTextNode(uint32_t char_index);
+  ui::AXNodeData* CreateParagraphNode(float font_size,
+                                      float heading_font_size_threshold);
+  ui::AXNodeData* CreateStaticTextNode(
+      const PP_PdfPageCharacterIndex& page_char_index);
   ui::AXNodeData* CreateInlineTextBoxNode(
       const ppapi::PdfAccessibilityTextRunInfo& text_run,
       const std::vector<PP_PrivateAccessibilityCharInfo>& chars,
-      uint32_t char_index,
+      const PP_PdfPageCharacterIndex& page_char_index,
       const gfx::RectF& page_bounds);
   ui::AXNodeData* CreateLinkNode(const ppapi::PdfAccessibilityLinkInfo& link,
                                  uint32_t page_index);
@@ -140,6 +157,7 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
       const std::vector<ppapi::PdfAccessibilityTextRunInfo>& text_runs,
       const std::vector<PP_PrivateAccessibilityCharInfo>& chars,
       const gfx::RectF& page_bounds,
+      uint32_t page_index,
       const std::vector<uint32_t>& text_run_start_indices,
       ui::AXNodeData* ax_node,
       ui::AXNodeData** previous_on_line_node);
@@ -147,16 +165,6 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
   content::RenderAccessibility* GetRenderAccessibility();
   gfx::Transform* MakeTransformFromViewInfo();
   void AddWordStartsAndEnds(ui::AXNodeData* inline_text_box);
-
-  // Stores the page index and link index in the page.
-  struct LinkInfo {
-    LinkInfo(uint32_t page_index, uint32_t link_index);
-    LinkInfo(const LinkInfo& other);
-    ~LinkInfo();
-
-    uint32_t page_index;
-    uint32_t link_index;
-  };
 
   ui::AXTreeData tree_data_;
   ui::AXTree tree_;
@@ -183,16 +191,19 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
   PP_PrivateAccessibilityDocInfo doc_info_;
   ui::AXNodeData* doc_node_;
   std::vector<std::unique_ptr<ui::AXNodeData>> nodes_;
-  // Map from the id of each static text AXNode to the index of the
-  // character within its page. Used to find the node associated with
-  // the start or end of a selection.
-  std::map<int32_t, uint32_t> node_id_to_char_index_in_page_;
-  // Map between AXNode id to link object. Used to find the link
+
+  // Map from the id of each static text AXNode and inline text box
+  // AXNode to the page index and index of the character within its
+  // page. Used to find the node associated with the start or end of
+  // a selection and vice-versa.
+  std::map<int32_t, PP_PdfPageCharacterIndex> node_id_to_page_char_index_;
+
+  // Map between AXNode id to annotation object. Used to find the annotation
   // object to which an action can be passed.
-  std::map<int32_t, LinkInfo> node_id_to_link_info_;
+  std::map<int32_t, AnnotationInfo> node_id_to_annotation_info_;
   bool invalid_plugin_message_received_ = false;
 };
 
-}  // namespace pdf;
+}  // namespace pdf
 
 #endif  // COMPONENTS_PDF_RENDERER_PDF_ACCESSIBILITY_TREE_H_

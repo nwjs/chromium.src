@@ -4,6 +4,15 @@
 
 suite('settings-animated-pages', function() {
   test('focuses subpage trigger when exiting subpage', function(done) {
+    const routes = {
+      BASIC: new settings.Route('/'),
+    };
+    routes.SEARCH = routes.BASIC.createSection('/search', 'search');
+    routes.SEARCH_ENGINES = routes.SEARCH.createChild('/searchEngines');
+    settings.Router.resetInstanceForTesting(new settings.Router(routes));
+    settings.routes = routes;
+    test_util.setupPopstateListener();
+
     document.body.innerHTML = `
       <settings-animated-pages
           section="${settings.routes.SEARCH_ENGINES.section}">
@@ -28,8 +37,8 @@ suite('settings-animated-pages', function() {
     });
 
     // Trigger subpage exit navigation.
-    settings.navigateTo(settings.routes.BASIC);
-    settings.navigateTo(settings.routes.SEARCH_ENGINES);
-    settings.navigateToPreviousRoute();
+    settings.Router.getInstance().navigateTo(settings.routes.BASIC);
+    settings.Router.getInstance().navigateTo(settings.routes.SEARCH_ENGINES);
+    settings.Router.getInstance().navigateToPreviousRoute();
   });
 });

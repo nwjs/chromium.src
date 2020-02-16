@@ -19,6 +19,7 @@
 class AppDistributionProvider;
 class BrandedImageProvider;
 class BrowserURLRewriterProvider;
+class ChromeBrowserState;
 class FullscreenProvider;
 class MailtoHandlerProvider;
 class OmahaServiceProvider;
@@ -38,14 +39,13 @@ class WebState;
 
 class GURL;
 @protocol LogoVendor;
-@class TabModel;
 @class UITextField;
 @class UIView;
+class Browser;
 
 namespace ios {
 
 class ChromeBrowserProvider;
-class ChromeBrowserState;
 class ChromeIdentityService;
 class GeolocationUpdaterProvider;
 class SigninErrorProvider;
@@ -118,12 +118,15 @@ class ChromeBrowserProvider {
   virtual bool ShouldBlockUrlDuringRestore(const GURL& url,
                                            web::WebState* web_state);
 
-  // Initializes the cast service.  Should be called soon after the given
-  // |main_tab_model| is created.
-  virtual void InitializeCastService(TabModel* main_tab_model) const;
-
   // Attaches any embedder-specific tab helpers to the given |web_state|.
   virtual void AttachTabHelpers(web::WebState* web_state) const;
+
+  // Attaches any embedder-specific browser agents to the given |browser|.
+  virtual void AttachBrowserAgents(Browser* browser) const;
+
+  // Schedule any embedder-specific startup tasks.
+  virtual void ScheduleDeferredStartupTasks(
+      ChromeBrowserState* browser_state) const;
 
   // Returns an instance of the voice search provider, if one exists.
   virtual VoiceSearchProvider* GetVoiceSearchProvider() const;
@@ -131,10 +134,9 @@ class ChromeBrowserProvider {
   // Returns an instance of the app distribution provider.
   virtual AppDistributionProvider* GetAppDistributionProvider() const;
 
-  // Creates and returns an object that can fetch and vend search engine logos.
-  // The caller assumes ownership of the returned object.
-  virtual id<LogoVendor> CreateLogoVendor(
-      ios::ChromeBrowserState* browser_state) const NS_RETURNS_RETAINED;
+  virtual id<LogoVendor> CreateLogoVendor(ChromeBrowserState* browser_state,
+                                          web::WebState* web_state) const
+      NS_RETURNS_RETAINED;
 
   // Returns an instance of the omaha service provider.
   virtual OmahaServiceProvider* GetOmahaServiceProvider() const;

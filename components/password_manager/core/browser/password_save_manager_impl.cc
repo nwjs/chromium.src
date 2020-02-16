@@ -106,8 +106,8 @@ PasswordSaveManagerImpl::PasswordSaveManagerImpl(
 
 PasswordSaveManagerImpl::~PasswordSaveManagerImpl() = default;
 
-const PasswordForm* PasswordSaveManagerImpl::GetPendingCredentials() const {
-  return &pending_credentials_;
+const PasswordForm& PasswordSaveManagerImpl::GetPendingCredentials() const {
+  return pending_credentials_;
 }
 
 const base::string16& PasswordSaveManagerImpl::GetGeneratedPassword() const {
@@ -138,9 +138,6 @@ void PasswordSaveManagerImpl::CreatePendingCredentials(
     bool is_credential_api_save) {
   DCHECK(votes_uploader_);
 
-  metrics_recorder_->CalculateUserAction(form_fetcher_->GetBestMatches(),
-                                         parsed_submitted_form);
-
   // This function might be called multiple times so set variables that are
   // changed in this function to initial states.
   pending_credentials_state_ = PendingCredentialsState::NONE;
@@ -154,6 +151,7 @@ void PasswordSaveManagerImpl::CreatePendingCredentials(
   if (saved_form) {
     // A similar credential exists in the store already.
     pending_credentials_ = *saved_form;
+    pending_credentials_state_ = PendingCredentialsState::EQUAL_TO_SAVED_MATCH;
     if (pending_credentials_.password_value != password_to_save.first) {
       pending_credentials_state_ = PendingCredentialsState::UPDATE;
       votes_uploader_->set_password_overridden(true);
@@ -197,7 +195,6 @@ void PasswordSaveManagerImpl::CreatePendingCredentials(
   pending_credentials_.password_value =
       HasGeneratedPassword() ? generation_manager_->generated_password()
                              : password_to_save.first;
-  pending_credentials_.preferred = true;
   pending_credentials_.date_last_used = base::Time::Now();
   pending_credentials_.form_has_autofilled_value =
       parsed_submitted_form.form_has_autofilled_value;
@@ -223,6 +220,11 @@ void PasswordSaveManagerImpl::CreatePendingCredentials(
 
   if (HasGeneratedPassword())
     pending_credentials_.type = PasswordForm::Type::kGenerated;
+}
+
+void PasswordSaveManagerImpl::ResetPendingCrednetials() {
+  pending_credentials_ = PasswordForm();
+  pending_credentials_state_ = PendingCredentialsState::NONE;
 }
 
 void PasswordSaveManagerImpl::Save(const FormData& observed_form,
@@ -269,7 +271,6 @@ void PasswordSaveManagerImpl::Update(
   pending_credentials_ = credentials_to_update;
   pending_credentials_.password_value = password_to_save;
   pending_credentials_.skip_zero_click = skip_zero_click;
-  pending_credentials_.preferred = true;
   pending_credentials_.date_last_used = base::Time::Now();
 
   pending_credentials_state_ = PendingCredentialsState::UPDATE;
@@ -336,6 +337,11 @@ void PasswordSaveManagerImpl::PasswordNoLongerGenerated() {
       PasswordFormMetricsRecorder::GeneratedPasswordStatus::kPasswordDeleted);
 }
 
+void PasswordSaveManagerImpl::MoveCredentialsToAccountStore() {
+  // Moving credentials is only supported in MultiStorePasswordSaveManager.
+  NOTREACHED();
+}
+
 bool PasswordSaveManagerImpl::IsNewLogin() const {
   return pending_credentials_state_ == PendingCredentialsState::NEW_LOGIN ||
          pending_credentials_state_ == PendingCredentialsState::AUTOMATIC_SAVE;
@@ -351,12 +357,7 @@ bool PasswordSaveManagerImpl::HasGeneratedPassword() const {
 
 std::unique_ptr<PasswordSaveManager> PasswordSaveManagerImpl::Clone() {
   auto result = std::make_unique<PasswordSaveManagerImpl>(form_saver_->Clone());
-
-  if (generation_manager_)
-    result->generation_manager_ = generation_manager_->Clone();
-
-  result->pending_credentials_ = pending_credentials_;
-  result->pending_credentials_state_ = pending_credentials_state_;
+  CloneInto(result.get());
   return result;
 }
 
@@ -412,9 +413,7 @@ void PasswordSaveManagerImpl::ProcessUpdate(
          pending_credentials_.IsFederatedCredential());
   // If we're doing an Update, we either autofilled correctly and need to
   // update the stats, or the user typed in a new password for autofilled
-  // username, or the user selected one of the non-preferred matches,
-  // thus requiring a swap of preferred bits.
-  DCHECK(pending_credentials_.preferred);
+  // username.
   DCHECK(!client_->IsIncognito());
 
   password_manager_util::UpdateMetadataForUsage(&pending_credentials_);
@@ -457,6 +456,15 @@ void PasswordSaveManagerImpl::UpdateInternal(
     const std::vector<const PasswordForm*>& matches,
     const base::string16& old_password) {
   form_saver_->Update(pending_credentials_, matches, old_password);
+}
+
+void PasswordSaveManagerImpl::CloneInto(PasswordSaveManagerImpl* clone) {
+  DCHECK(clone);
+  if (generation_manager_)
+    clone->generation_manager_ = generation_manager_->Clone();
+
+  clone->pending_credentials_ = pending_credentials_;
+  clone->pending_credentials_state_ = pending_credentials_state_;
 }
 
 }  // namespace password_manager

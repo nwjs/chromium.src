@@ -153,7 +153,7 @@ void LatencyInfo::TraceIntermediateFlowEvents(
     if (latency.trace_id() == -1)
       continue;
     TRACE_EVENT_WITH_FLOW1("input,benchmark", "LatencyInfo.Flow",
-                           TRACE_ID_DONT_MANGLE(latency.trace_id()),
+                           TRACE_ID_GLOBAL(latency.trace_id()),
                            TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
                            "step", event_name);
   }
@@ -259,18 +259,14 @@ void LatencyInfo::AddLatencyNumberWithTimestampImpl(
         trace_name_ = std::string("InputLatency::") + trace_name_str;
       }
 
-      TRACE_EVENT_COPY_ASYNC_BEGIN_WITH_TIMESTAMP0(
-          kTraceCategoriesForAsyncEvents,
-          trace_name_.c_str(),
-          TRACE_ID_DONT_MANGLE(trace_id_),
-          ts);
+      TRACE_EVENT_COPY_NESTABLE_ASYNC_BEGIN_WITH_TIMESTAMP0(
+          kTraceCategoriesForAsyncEvents, trace_name_.c_str(),
+          TRACE_ID_GLOBAL(trace_id_), ts);
     }
 
-    TRACE_EVENT_WITH_FLOW1("input,benchmark",
-                           "LatencyInfo.Flow",
-                           TRACE_ID_DONT_MANGLE(trace_id_),
-                           TRACE_EVENT_FLAG_FLOW_OUT,
-                           "trace_id", trace_id_);
+    TRACE_EVENT_WITH_FLOW1("input,benchmark", "LatencyInfo.Flow",
+                           TRACE_ID_GLOBAL(trace_id_),
+                           TRACE_EVENT_FLAG_FLOW_OUT, "trace_id", trace_id_);
   }
 
   auto it = latency_components_.find(component);
@@ -290,14 +286,13 @@ void LatencyInfo::Terminate() {
   terminated_ = true;
 
   if (*g_latency_info_enabled.Get().latency_info_enabled) {
-    TRACE_EVENT_COPY_ASYNC_END1(
+    TRACE_EVENT_COPY_NESTABLE_ASYNC_END1(
         kTraceCategoriesForAsyncEvents, trace_name_.c_str(),
-        TRACE_ID_DONT_MANGLE(trace_id_), "data", AsTraceableData());
+        TRACE_ID_GLOBAL(trace_id_), "data", AsTraceableData());
   }
 
   TRACE_EVENT_WITH_FLOW0("input,benchmark", "LatencyInfo.Flow",
-                         TRACE_ID_DONT_MANGLE(trace_id_),
-                         TRACE_EVENT_FLAG_FLOW_IN);
+                         TRACE_ID_GLOBAL(trace_id_), TRACE_EVENT_FLAG_FLOW_IN);
 }
 
 void LatencyInfo::CoalesceScrollUpdateWith(const LatencyInfo& other) {

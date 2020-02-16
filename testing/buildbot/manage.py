@@ -99,6 +99,7 @@ SKIP_GN_ISOLATE_MAP_TARGETS = {
   'ios_chrome_ui_egtests',
   'ios_chrome_unittests',
   'ios_chrome_web_egtests',
+  'ios_chrome_bookmarks_eg2tests_module',
   'ios_chrome_integration_eg2tests_module',
   'ios_chrome_settings_eg2tests_module',
   'ios_chrome_smoke_eg2tests_module',
@@ -148,7 +149,8 @@ SKIP_GN_ISOLATE_MAP_TARGETS = {
 
   # These tests are only run on WebRTC CI.
   'AppRTCMobileTest',
-  'android_junit_tests',
+  'android_examples_junit_tests',
+  'android_sdk_junit_tests',
   'audio_decoder_unittests',
   'common_audio_unittests',
   'common_video_unittests',

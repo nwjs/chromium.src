@@ -34,7 +34,6 @@
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "third_party/blink/public/web/web_plugin_params.h"
-#include "third_party/blink/public/web/web_user_gesture_indicator.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "url/gurl.h"
@@ -156,40 +155,6 @@ void WebFrameTestClient::PrintFrameDescription(WebTestDelegate* delegate,
     return;
   }
   delegate->PrintMessage(std::string("frame \"") + name + "\"");
-}
-
-void WebFrameTestClient::RunModalAlertDialog(const blink::WebString& message) {
-  if (!test_runner()->ShouldDumpJavaScriptDialogs())
-    return;
-  delegate_->PrintMessage(std::string("ALERT: ") + message.Utf8().data() +
-                          "\n");
-}
-
-bool WebFrameTestClient::RunModalConfirmDialog(
-    const blink::WebString& message) {
-  if (!test_runner()->ShouldDumpJavaScriptDialogs())
-    return true;
-  delegate_->PrintMessage(std::string("CONFIRM: ") + message.Utf8().data() +
-                          "\n");
-  return true;
-}
-
-bool WebFrameTestClient::RunModalPromptDialog(
-    const blink::WebString& message,
-    const blink::WebString& default_value,
-    blink::WebString* actual_value) {
-  if (!test_runner()->ShouldDumpJavaScriptDialogs())
-    return true;
-  delegate_->PrintMessage(std::string("PROMPT: ") + message.Utf8().data() +
-                          ", default text: " + default_value.Utf8().data() +
-                          "\n");
-  return true;
-}
-
-bool WebFrameTestClient::RunModalBeforeUnloadDialog(bool is_reload) {
-  if (test_runner()->ShouldDumpJavaScriptDialogs())
-    delegate_->PrintMessage(std::string("CONFIRM NAVIGATION\n"));
-  return !test_runner()->ShouldStayOnPageAfterHandlingBeforeUnload();
 }
 
 void WebFrameTestClient::PostAccessibilityEvent(
@@ -408,11 +373,20 @@ void WebFrameTestClient::DidDispatchPingLoader(const blink::WebURL& url) {
 void WebFrameTestClient::WillSendRequest(blink::WebURLRequest& request) {
   // Need to use GURL for host() and SchemeIs()
   GURL url = request.Url();
-  GURL main_document_url = request.SiteForCookies();
+
+  // Warning: this may be null in some cross-site cases.
+  net::SiteForCookies site_for_cookies = request.SiteForCookies();
 
   if (test_runner()->HttpHeadersToClear()) {
-    for (const std::string& header : *test_runner()->HttpHeadersToClear())
+    for (const std::string& header : *test_runner()->HttpHeadersToClear()) {
+      DCHECK(!base::EqualsCaseInsensitiveASCII(header, "referer"));
       request.ClearHttpHeaderField(blink::WebString::FromUTF8(header));
+    }
+  }
+
+  if (test_runner()->ClearReferrer()) {
+    request.SetReferrerString(blink::WebString());
+    request.SetReferrerPolicy(network::mojom::ReferrerPolicy::kDefault);
   }
 
   std::string host = url.host();
@@ -420,9 +394,9 @@ void WebFrameTestClient::WillSendRequest(blink::WebURLRequest& request) {
       (url.SchemeIs(url::kHttpScheme) || url.SchemeIs(url::kHttpsScheme))) {
     if (!IsLocalHost(host) && !IsTestHost(host) &&
         !HostIsUsedBySomeTestsToGenerateError(host) &&
-        ((!main_document_url.SchemeIs(url::kHttpScheme) &&
-          !main_document_url.SchemeIs(url::kHttpsScheme)) ||
-         IsLocalHost(main_document_url.host())) &&
+        ((site_for_cookies.scheme() != url::kHttpScheme &&
+          site_for_cookies.scheme() != url::kHttpsScheme) ||
+         IsLocalHost(site_for_cookies.registrable_domain())) &&
         !delegate_->AllowExternalPages()) {
       delegate_->PrintMessage(std::string("Blocked access to external URL ") +
                               url.possibly_invalid_spec() + "\n");
@@ -528,10 +502,18 @@ bool WebFrameTestClient::ShouldContinueNavigation(
 
   if (test_runner()->HttpHeadersToClear()) {
     for (const std::string& header : *test_runner()->HttpHeadersToClear()) {
+      DCHECK(!base::EqualsCaseInsensitiveASCII(header, "referer"));
       info->url_request.ClearHttpHeaderField(
           blink::WebString::FromUTF8(header));
     }
   }
+
+  if (test_runner()->ClearReferrer()) {
+    info->url_request.SetReferrerString(blink::WebString());
+    info->url_request.SetReferrerPolicy(
+        network::mojom::ReferrerPolicy::kDefault);
+  }
+
   info->url_request.SetUrl(delegate_->RewriteWebTestsURL(
       info->url_request.Url().GetString().Utf8(),
       test_runner()->is_web_platform_tests_mode()));

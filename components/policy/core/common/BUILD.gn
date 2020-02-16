@@ -8,13 +8,9 @@ import("//testing/libfuzzer/fuzzer_test.gni")
 
 group("common") {
   if (is_component_build) {
-    public_deps = [
-      "//components/policy",
-    ]
+    public_deps = [ "//components/policy" ]
   } else {
-    public_deps = [
-      ":internal",
-    ]
+    public_deps = [ ":internal" ]
   }
 }
 
@@ -323,9 +319,7 @@ jumbo_static_library("test_support") {
 
 source_set("common_constants") {
   configs += [ "//components/policy:component_implementation" ]
-  deps = [
-    "//base",
-  ]
+  deps = [ "//base" ]
   sources = [
     "../../policy_export.h",
     "cloud/cloud_policy_constants.cc",
@@ -394,6 +388,7 @@ source_set("unit_tests") {
       "cloud/component_cloud_policy_updater_unittest.cc",
       "cloud/external_policy_data_fetcher_unittest.cc",
       "cloud/external_policy_data_updater_unittest.cc",
+      "cloud/realtime_reporting_job_configuration_unittest.cc",
       "cloud/resource_cache_unittest.cc",
       "config_dir_policy_loader_unittest.cc",
     ]
@@ -403,9 +398,7 @@ source_set("unit_tests") {
   }
   if (is_win || is_linux) {
     # Needed by policy_loader_win_unittest.cc and preg_parser_unittest.cc
-    data = [
-      "//chrome/test/data/policy/",
-    ]
+    data = [ "//chrome/test/data/policy/" ]
   }
 
   deps = [
@@ -428,9 +421,7 @@ source_set("unit_tests") {
 
 if (is_win || is_linux) {
   fuzzer_test("preg_parser_fuzzer") {
-    sources = [
-      "preg_parser_fuzzer.cc",
-    ]
+    sources = [ "preg_parser_fuzzer.cc" ]
     seed_corpus = "//chrome/test/data/policy/gpo/fuzzer_corpus"
     dict = "//chrome/test/data/policy/gpo/fuzzer.dict"
     deps = [

@@ -10,11 +10,8 @@
 #import "base/ios/block_types.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 
-namespace ios {
-class ChromeBrowserState;
-}
-
 @protocol ApplicationCommands;
+class ChromeBrowserState;
 @class DeviceSharingManager;
 @class MainController;
 @class NewTabPageController;
@@ -29,10 +26,10 @@ MainController* GetMainController();
 DeviceSharingManager* GetDeviceSharingManager();
 
 // Returns the current, non-incognito ChromeBrowserState.
-ios::ChromeBrowserState* GetOriginalBrowserState();
+ChromeBrowserState* GetOriginalBrowserState();
 
 // Returns the current incognito ChromeBrowserState
-ios::ChromeBrowserState* GetCurrentIncognitoBrowserState();
+ChromeBrowserState* GetCurrentIncognitoBrowserState();
 
 // Returns the dispatcher for the main BVC.
 // TODO(crbug.com/738881): Use DispatcherForActiveBrowserViewController()
@@ -60,7 +57,7 @@ void ClearPresentedState();
 void SetBooleanLocalStatePref(const char* pref_name, bool value);
 
 // Sets the value of a boolean user pref in the given browser state.
-void SetBooleanUserPref(ios::ChromeBrowserState* browser_state,
+void SetBooleanUserPref(ChromeBrowserState* browser_state,
                         const char* pref_name,
                         bool value);
 

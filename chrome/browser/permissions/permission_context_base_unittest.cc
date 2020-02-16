@@ -20,12 +20,9 @@
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/permissions/permission_decision_auto_blocker.h"
 #include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_request_id.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/permissions/permission_uma_util.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/ui/permission_bubble/mock_permission_prompt_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -34,9 +31,12 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/permissions/features.h"
+#include "components/permissions/permission_decision_auto_blocker.h"
+#include "components/permissions/permission_request_id.h"
+#include "components/permissions/permission_util.h"
 #include "components/ukm/content/source_url_recorder.h"
 #include "components/ukm/test_ukm_recorder.h"
-#include "components/user_manager/scoped_user_manager.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_entry.h"
@@ -44,11 +44,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/app_mode/web_app/web_kiosk_app_manager.h"
-#include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
-#endif
 
 const char* const kPermissionsKillSwitchFieldStudy =
     PermissionContextBase::kPermissionsKillSwitchFieldStudy;
@@ -91,7 +86,7 @@ class TestPermissionContext : public PermissionContextBase {
   }
 
   void RequestPermission(content::WebContents* web_contents,
-                         const PermissionRequestID& id,
+                         const permissions::PermissionRequestID& id,
                          const GURL& requesting_frame,
                          bool user_gesture,
                          BrowserPermissionCallback callback) override {
@@ -104,7 +99,7 @@ class TestPermissionContext : public PermissionContextBase {
   }
 
   void DecidePermission(content::WebContents* web_contents,
-                        const PermissionRequestID& id,
+                        const permissions::PermissionRequestID& id,
                         const GURL& requesting_origin,
                         const GURL& embedding_origin,
                         bool user_gesture,
@@ -131,7 +126,7 @@ class TestPermissionContext : public PermissionContextBase {
   }
 
  protected:
-  void UpdateTabContext(const PermissionRequestID& id,
+  void UpdateTabContext(const permissions::PermissionRequestID& id,
                         const GURL& requesting_origin,
                         bool allowed) override {
     tab_context_updated_ = true;
@@ -192,7 +187,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
 
   // Accept or dismiss the permission prompt.
   void RespondToPermission(TestPermissionContext* context,
-                           const PermissionRequestID& id,
+                           const permissions::PermissionRequestID& id,
                            const GURL& url,
                            ContentSetting response) {
     DCHECK(response == CONTENT_SETTING_ALLOW ||
@@ -216,7 +211,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     SetUpUrl(url);
     base::HistogramTester histograms;
 
-    const PermissionRequestID id(
+    const permissions::PermissionRequestID id(
         web_contents()->GetMainFrame()->GetProcess()->GetID(),
         web_contents()->GetMainFrame()->GetRoutingID(), -1);
     permission_context.SetRespondPermissionCallback(base::Bind(
@@ -231,26 +226,28 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     EXPECT_TRUE(permission_context.tab_context_updated());
 
     std::string decision_string;
-    base::Optional<PermissionAction> action;
+    base::Optional<permissions::PermissionAction> action;
     if (decision == CONTENT_SETTING_ALLOW) {
       decision_string = "Accepted";
-      action = PermissionAction::GRANTED;
+      action = permissions::PermissionAction::GRANTED;
     } else if (decision == CONTENT_SETTING_BLOCK) {
       decision_string = "Denied";
-      action = PermissionAction::DENIED;
+      action = permissions::PermissionAction::DENIED;
     } else if (decision == CONTENT_SETTING_ASK) {
       decision_string = "Dismissed";
-      action = PermissionAction::DISMISSED;
+      action = permissions::PermissionAction::DISMISSED;
     }
 
     if (!decision_string.empty()) {
       histograms.ExpectUniqueSample(
           "Permissions.Prompt." + decision_string + ".PriorDismissCount." +
-              PermissionUtil::GetPermissionString(content_settings_type),
+              permissions::PermissionUtil::GetPermissionString(
+                  content_settings_type),
           0, 1);
       histograms.ExpectUniqueSample(
           "Permissions.Prompt." + decision_string + ".PriorIgnoreCount." +
-              PermissionUtil::GetPermissionString(content_settings_type),
+              permissions::PermissionUtil::GetPermissionString(
+                  content_settings_type),
           0, 1);
 #if defined(OS_ANDROID)
       histograms.ExpectUniqueSample(
@@ -278,10 +275,17 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
       auto* entry = entries.front();
       ukm_recorder.ExpectEntrySourceHasUrl(entry, url);
 
+      size_t num_values = 0;
+
+      EXPECT_NE(ContentSettingTypeToHistogramValue(content_settings_type,
+                                                   &num_values),
+                -1);
+
       EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "Source"),
                 static_cast<int64_t>(PermissionSourceUI::PROMPT));
       EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "PermissionType"),
-                static_cast<int64_t>(content_settings_type));
+                static_cast<int64_t>(ContentSettingTypeToHistogramValue(
+                    content_settings_type, &num_values)));
       EXPECT_EQ(*ukm_recorder.GetEntryMetric(entry, "Action"),
                 static_cast<int64_t>(action.value()));
 
@@ -308,7 +312,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     for (uint32_t i = 0; i < iterations; ++i) {
       TestPermissionContext permission_context(profile(),
                                                content_settings_type);
-      const PermissionRequestID id(
+      const permissions::PermissionRequestID id(
           web_contents()->GetMainFrame()->GetProcess()->GetID(),
           web_contents()->GetMainFrame()->GetRoutingID(), i);
 
@@ -323,30 +327,35 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
                      base::Unretained(&permission_context)));
       histograms.ExpectTotalCount(
           "Permissions.Prompt.Dismissed.PriorDismissCount." +
-              PermissionUtil::GetPermissionString(content_settings_type),
+              permissions::PermissionUtil::GetPermissionString(
+                  content_settings_type),
           i + 1);
       histograms.ExpectBucketCount(
           "Permissions.Prompt.Dismissed.PriorDismissCount." +
-              PermissionUtil::GetPermissionString(content_settings_type),
+              permissions::PermissionUtil::GetPermissionString(
+                  content_settings_type),
           i, 1);
 
       histograms.ExpectTotalCount("Permissions.AutoBlocker.EmbargoStatus",
                                   i + 1);
 
-      PermissionResult result = permission_context.GetPermissionStatus(
-          nullptr /* render_frame_host */, url, url);
+      permissions::PermissionResult result =
+          permission_context.GetPermissionStatus(
+              nullptr /* render_frame_host */, url, url);
 
       histograms.ExpectUniqueSample(
           "Permissions.AutoBlocker.EmbargoPromptSuppression",
           static_cast<int>(PermissionEmbargoStatus::NOT_EMBARGOED), i + 1);
       if (i < 2) {
-        EXPECT_EQ(PermissionStatusSource::UNSPECIFIED, result.source);
+        EXPECT_EQ(permissions::PermissionStatusSource::UNSPECIFIED,
+                  result.source);
         EXPECT_EQ(CONTENT_SETTING_ASK, result.content_setting);
         histograms.ExpectUniqueSample(
             "Permissions.AutoBlocker.EmbargoStatus",
             static_cast<int>(PermissionEmbargoStatus::NOT_EMBARGOED), i + 1);
       } else {
-        EXPECT_EQ(PermissionStatusSource::MULTIPLE_DISMISSALS, result.source);
+        EXPECT_EQ(permissions::PermissionStatusSource::MULTIPLE_DISMISSALS,
+                  result.source);
         EXPECT_EQ(CONTENT_SETTING_BLOCK, result.content_setting);
         histograms.ExpectBucketCount(
             "Permissions.AutoBlocker.EmbargoStatus",
@@ -359,7 +368,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     }
 
     TestPermissionContext permission_context(profile(), content_settings_type);
-    const PermissionRequestID id(
+    const permissions::PermissionRequestID id(
         web_contents()->GetMainFrame()->GetProcess()->GetID(),
         web_contents()->GetMainFrame()->GetRoutingID(), -1);
 
@@ -373,10 +382,12 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
         base::Bind(&TestPermissionContext::TrackPermissionDecision,
                    base::Unretained(&permission_context)));
 
-    PermissionResult result = permission_context.GetPermissionStatus(
-        nullptr /* render_frame_host */, url, url);
+    permissions::PermissionResult result =
+        permission_context.GetPermissionStatus(nullptr /* render_frame_host */,
+                                               url, url);
     EXPECT_EQ(CONTENT_SETTING_BLOCK, result.content_setting);
-    EXPECT_EQ(PermissionStatusSource::MULTIPLE_DISMISSALS, result.source);
+    EXPECT_EQ(permissions::PermissionStatusSource::MULTIPLE_DISMISSALS,
+              result.source);
     histograms.ExpectBucketCount(
         "Permissions.AutoBlocker.EmbargoPromptSuppression",
         static_cast<int>(PermissionEmbargoStatus::REPEATED_DISMISSALS), 1);
@@ -392,13 +403,13 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
       // BlockPromptsIfDismissedOften feature is off.
       base::test::ScopedFeatureList feature_list;
       feature_list.InitAndDisableFeature(
-          features::kBlockPromptsIfDismissedOften);
+          permissions::features::kBlockPromptsIfDismissedOften);
 
       for (uint32_t i = 0; i < 4; ++i) {
         TestPermissionContext permission_context(
             profile(), ContentSettingsType::GEOLOCATION);
 
-        const PermissionRequestID id(
+        const permissions::PermissionRequestID id(
             web_contents()->GetMainFrame()->GetProcess()->GetID(),
             web_contents()->GetMainFrame()->GetRoutingID(), i);
 
@@ -435,8 +446,8 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
           ContentSettingsType::PERMISSION_AUTOBLOCKER_DATA);
     }
 
-    EXPECT_TRUE(
-        base::FeatureList::IsEnabled(features::kBlockPromptsIfDismissedOften));
+    EXPECT_TRUE(base::FeatureList::IsEnabled(
+        permissions::features::kBlockPromptsIfDismissedOften));
 
     // Sanity check independence per permission type by checking two of them.
     DismissMultipleTimesAndExpectBlock(url, ContentSettingsType::GEOLOCATION,
@@ -451,20 +462,22 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     base::HistogramTester histograms;
 
     std::map<std::string, std::string> params;
-    params[PermissionDecisionAutoBlocker::kPromptDismissCountKey] = "5";
+    params[permissions::PermissionDecisionAutoBlocker::
+               GetPromptDismissCountKeyForTesting()] = "5";
     base::test::ScopedFeatureList scoped_feature_list;
     scoped_feature_list.InitAndEnableFeatureWithParameters(
-        features::kBlockPromptsIfDismissedOften, params);
+        permissions::features::kBlockPromptsIfDismissedOften, params);
 
     std::map<std::string, std::string> actual_params;
     EXPECT_TRUE(base::GetFieldTrialParamsByFeature(
-        features::kBlockPromptsIfDismissedOften, &actual_params));
+        permissions::features::kBlockPromptsIfDismissedOften, &actual_params));
     EXPECT_EQ(params, actual_params);
 
     {
       std::map<std::string, std::string> actual_params;
       EXPECT_TRUE(variations::GetVariationParamsByFeature(
-          features::kBlockPromptsIfDismissedOften, &actual_params));
+          permissions::features::kBlockPromptsIfDismissedOften,
+          &actual_params));
       EXPECT_EQ(params, actual_params);
     }
 
@@ -472,7 +485,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
       TestPermissionContext permission_context(profile(),
                                                ContentSettingsType::MIDI_SYSEX);
 
-      const PermissionRequestID id(
+      const permissions::PermissionRequestID id(
           web_contents()->GetMainFrame()->GetProcess()->GetID(),
           web_contents()->GetMainFrame()->GetRoutingID(), i);
       permission_context.SetRespondPermissionCallback(
@@ -487,8 +500,9 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
       EXPECT_EQ(1u, permission_context.decisions().size());
       ASSERT_EQ(CONTENT_SETTING_ASK, permission_context.decisions()[0]);
       EXPECT_TRUE(permission_context.tab_context_updated());
-      PermissionResult result = permission_context.GetPermissionStatus(
-          nullptr /* render_frame_host */, url, url);
+      permissions::PermissionResult result =
+          permission_context.GetPermissionStatus(
+              nullptr /* render_frame_host */, url, url);
 
       histograms.ExpectTotalCount(
           "Permissions.Prompt.Dismissed.PriorDismissCount.MidiSysEx", i + 1);
@@ -501,13 +515,15 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
                                   i + 1);
       if (i < 4) {
         EXPECT_EQ(CONTENT_SETTING_ASK, result.content_setting);
-        EXPECT_EQ(PermissionStatusSource::UNSPECIFIED, result.source);
+        EXPECT_EQ(permissions::PermissionStatusSource::UNSPECIFIED,
+                  result.source);
         histograms.ExpectUniqueSample(
             "Permissions.AutoBlocker.EmbargoStatus",
             static_cast<int>(PermissionEmbargoStatus::NOT_EMBARGOED), i + 1);
       } else {
         EXPECT_EQ(CONTENT_SETTING_BLOCK, result.content_setting);
-        EXPECT_EQ(PermissionStatusSource::MULTIPLE_DISMISSALS, result.source);
+        EXPECT_EQ(permissions::PermissionStatusSource::MULTIPLE_DISMISSALS,
+                  result.source);
         histograms.ExpectBucketCount(
             "Permissions.AutoBlocker.EmbargoStatus",
             static_cast<int>(PermissionEmbargoStatus::REPEATED_DISMISSALS), 1);
@@ -517,10 +533,12 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     // Ensure that we finish in the block state.
     TestPermissionContext permission_context(profile(),
                                              ContentSettingsType::MIDI_SYSEX);
-    PermissionResult result = permission_context.GetPermissionStatus(
-        nullptr /* render_frame_host */, url, url);
+    permissions::PermissionResult result =
+        permission_context.GetPermissionStatus(nullptr /* render_frame_host */,
+                                               url, url);
     EXPECT_EQ(CONTENT_SETTING_BLOCK, result.content_setting);
-    EXPECT_EQ(PermissionStatusSource::MULTIPLE_DISMISSALS, result.source);
+    EXPECT_EQ(permissions::PermissionStatusSource::MULTIPLE_DISMISSALS,
+              result.source);
     variations::testing::ClearAllVariationParams();
   }
 
@@ -533,7 +551,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     controller().LoadURL(url, content::Referrer(), ui::PAGE_TRANSITION_TYPED,
                          std::string());
 
-    const PermissionRequestID id(
+    const permissions::PermissionRequestID id(
         web_contents()->GetMainFrame()->GetProcess()->GetID(),
         web_contents()->GetMainFrame()->GetRoutingID(), -1);
     permission_context.RequestPermission(
@@ -556,7 +574,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     GURL url("https://www.google.com");
     SetUpUrl(url);
 
-    const PermissionRequestID id(
+    const permissions::PermissionRequestID id(
         web_contents()->GetMainFrame()->GetProcess()->GetID(),
         web_contents()->GetMainFrame()->GetRoutingID(), -1);
     permission_context.SetRespondPermissionCallback(
@@ -593,8 +611,8 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
 
     EXPECT_FALSE(permission_context.IsPermissionKillSwitchOn());
     std::map<std::string, std::string> params;
-    params[PermissionUtil::GetPermissionString(content_settings_type)] =
-        kPermissionsKillSwitchBlockedValue;
+    params[permissions::PermissionUtil::GetPermissionString(
+        content_settings_type)] = kPermissionsKillSwitchBlockedValue;
     variations::AssociateVariationParams(kPermissionsKillSwitchFieldStudy,
                                          kPermissionsKillSwitchTestGroup,
                                          params);
@@ -637,10 +655,10 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     GURL url("http://www.google.com");
     SetUpUrl(url);
 
-    const PermissionRequestID id0(
+    const permissions::PermissionRequestID id0(
         web_contents()->GetMainFrame()->GetProcess()->GetID(),
         web_contents()->GetMainFrame()->GetRoutingID(), 0);
-    const PermissionRequestID id1(
+    const permissions::PermissionRequestID id1(
         web_contents()->GetMainFrame()->GetProcess()->GetID(),
         web_contents()->GetMainFrame()->GetRoutingID(), 1);
 
@@ -672,7 +690,7 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
   void TestVirtualURL(const GURL& loaded_url,
                       const GURL& virtual_url,
                       const ContentSetting want_response,
-                      const PermissionStatusSource& want_source) {
+                      const permissions::PermissionStatusSource& want_source) {
     TestPermissionContext permission_context(profile(),
                                              ContentSettingsType::GEOLOCATION);
 
@@ -680,8 +698,9 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     web_contents()->GetController().GetVisibleEntry()->SetVirtualURL(
         virtual_url);
 
-    PermissionResult result = permission_context.GetPermissionStatus(
-        web_contents()->GetMainFrame(), virtual_url, virtual_url);
+    permissions::PermissionResult result =
+        permission_context.GetPermissionStatus(web_contents()->GetMainFrame(),
+                                               virtual_url, virtual_url);
     EXPECT_EQ(result.content_setting, want_response);
     EXPECT_EQ(result.source, want_source);
   }
@@ -690,35 +709,6 @@ class PermissionContextBaseTests : public ChromeRenderViewHostTestHarness {
     NavigateAndCommit(url);
     prompt_factory_->DocumentOnLoadCompletedInMainFrame();
   }
-
-#if defined(OS_CHROMEOS)
-  void TestWebKioskMode(const GURL& app_url,
-                        const GURL& request_url,
-                        ContentSetting response) {
-    const AccountId account_id = AccountId::FromUserEmail("lala@example.com");
-
-    auto fake_user_manager =
-        std::make_unique<chromeos::FakeChromeUserManager>();
-    // Stealing the pointer from unique ptr before it goes to the scoped user
-    // manager.
-    chromeos::FakeChromeUserManager* user_manager = fake_user_manager.get();
-    auto scoped_user_manager =
-        std::make_unique<user_manager::ScopedUserManager>(
-            std::move(fake_user_manager));
-    user_manager->AddWebKioskAppUser(account_id);
-    user_manager->LoginUser(account_id);
-
-    auto kiosk_app_manager = std::make_unique<chromeos::WebKioskAppManager>();
-    kiosk_app_manager->AddAppForTesting(account_id, app_url);
-
-    TestPermissionContext permission_context(profile(),
-                                             ContentSettingsType::GEOLOCATION);
-    PermissionResult result = permission_context.GetPermissionStatus(
-        nullptr, request_url, request_url);
-
-    EXPECT_EQ(result.content_setting, response);
-  }
-#endif  // defined(OS_CHROMEOS)
 
  private:
   // ChromeRenderViewHostTestHarness:
@@ -889,30 +879,20 @@ TEST_F(PermissionContextBaseTests, TestParallelRequestsDismissed) {
 }
 
 TEST_F(PermissionContextBaseTests, TestVirtualURLDifferentOrigin) {
-  TestVirtualURL(GURL("http://www.google.com"), GURL("http://foo.com"),
-                 CONTENT_SETTING_BLOCK,
-                 PermissionStatusSource::VIRTUAL_URL_DIFFERENT_ORIGIN);
+  TestVirtualURL(
+      GURL("http://www.google.com"), GURL("http://foo.com"),
+      CONTENT_SETTING_BLOCK,
+      permissions::PermissionStatusSource::VIRTUAL_URL_DIFFERENT_ORIGIN);
 }
 
 TEST_F(PermissionContextBaseTests, TestVirtualURLNotHTTP) {
   TestVirtualURL(GURL("chrome://foo"), GURL("chrome://newtab"),
-                 CONTENT_SETTING_ASK, PermissionStatusSource::UNSPECIFIED);
+                 CONTENT_SETTING_ASK,
+                 permissions::PermissionStatusSource::UNSPECIFIED);
 }
 
 TEST_F(PermissionContextBaseTests, TestVirtualURLSameOrigin) {
   TestVirtualURL(GURL("http://www.google.com"),
                  GURL("http://www.google.com/foo"), CONTENT_SETTING_ASK,
-                 PermissionStatusSource::UNSPECIFIED);
+                 permissions::PermissionStatusSource::UNSPECIFIED);
 }
-
-#if defined(OS_CHROMEOS)
-TEST_F(PermissionContextBaseTests, TestWebKioskModeSameOrigin) {
-  TestWebKioskMode(GURL("https://google.com/launch"),
-                   GURL("https://google.com/page"), CONTENT_SETTING_ALLOW);
-}
-
-TEST_F(PermissionContextBaseTests, TestWebKioskModeDifferentOrigin) {
-  TestWebKioskMode(GURL("https://google.com/launch"),
-                   GURL("https://notgoogle.com/page"), CONTENT_SETTING_ASK);
-}
-#endif  // defined(OS_CHROMEOS)

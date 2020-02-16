@@ -171,6 +171,9 @@ const char kManagedUiLearnMoreUrl[] =
     "https://support.google.com/chrome/?p=is_chrome_managed";
 #endif
 
+const char kMixedContentDownloadBlockingLearnMoreUrl[] =
+    "https://support.google.com/chrome/?p=mixed_content_downloads";
+
 const char kMyActivityUrlInClearBrowsingData[] =
     "https://myactivity.google.com/myactivity/?utm_source=chrome_cbd";
 
@@ -226,11 +229,7 @@ const char kSafetyTipHelpCenterURL[] =
     "https://support.google.com/chrome/?p=safety_tip";
 
 const char kSettingsSearchHelpURL[] =
-#if defined(OS_CHROMEOS)
-    "https://support.google.com/chromebook/?p=settings_search_help";
-#else
     "https://support.google.com/chrome/?p=settings_search_help";
-#endif
 
 const char kSymantecSupportUrl[] =
     "https://support.google.com/chrome?p=symantec#-202";
@@ -354,6 +353,9 @@ const char kOemEulaURLPath[] = "oem";
 
 const char kOnlineEulaURLPath[] =
     "https://www.google.com/intl/%s/chrome/eula_text.html";
+
+const char kOsSettingsSearchHelpURL[] =
+    "https://support.google.com/chromebook/?p=settings_search_help";
 
 const char kTPMFirmwareUpdateLearnMoreURL[] =
     "https://support.google.com/chromebook/?p=tpm_update";

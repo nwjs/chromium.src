@@ -119,10 +119,6 @@ void DesktopWindowTreeHostLinux::CleanUpWindowList(
   open_windows_ = nullptr;
 }
 
-void DesktopWindowTreeHostLinux::SetPendingXVisualId(int x_visual_id) {
-  pending_x_visual_id_ = x_visual_id;
-}
-
 gfx::Rect DesktopWindowTreeHostLinux::GetXRootWindowOuterBounds() const {
   // TODO(msisov): must be removed as soon as all X11 low-level bits are moved
   // to Ozone.
@@ -333,8 +329,6 @@ void DesktopWindowTreeHostLinux::AddAdditionalInitProperties(
   properties->wm_class_class = params.wm_class_class;
   properties->wm_role_name = params.wm_role_name;
 
-  properties->x_visual_id = pending_x_visual_id_;
-
   DCHECK(!properties->x11_extension_delegate);
   properties->x11_extension_delegate = this;
 }
@@ -354,10 +348,6 @@ void DesktopWindowTreeHostLinux::CreateNonClientEventFilter() {
 void DesktopWindowTreeHostLinux::DestroyNonClientEventFilter() {
   non_client_window_event_filter_.reset();
 }
-
-void DesktopWindowTreeHostLinux::OnXWindowMapped() {}
-
-void DesktopWindowTreeHostLinux::OnXWindowUnmapped() {}
 
 void DesktopWindowTreeHostLinux::GetWindowMask(const gfx::Size& size,
                                                SkPath* window_mask) {

@@ -33,14 +33,15 @@ class LoginTestWidgetDelegate : public views::WidgetDelegate {
   explicit LoginTestWidgetDelegate(views::Widget* widget) : widget_(widget) {}
   ~LoginTestWidgetDelegate() override = default;
 
-  // Overridden from WidgetDelegate:
+  // views::WidgetDelegate:
   void DeleteDelegate() override { delete this; }
-  views::Widget* GetWidget() override { return widget_; }
-  const views::Widget* GetWidget() const override { return widget_; }
   bool CanActivate() const override { return true; }
   bool ShouldAdvanceFocusToTopLevelWidget() const override { return true; }
 
  private:
+  // views::WidgetDelegate:
+  const views::Widget* GetWidgetImpl() const override { return widget_; }
+
   views::Widget* widget_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginTestWidgetDelegate);
@@ -65,7 +66,7 @@ class LockLayoutManagerTest : public AshTestBase {
                                       bool use_delegate) {
     aura::Window* parent =
         Shell::GetPrimaryRootWindowController()->GetContainer(
-            ash::kShellWindowId_LockScreenContainer);
+            kShellWindowId_LockScreenContainer);
     params.parent = parent;
     views::Widget* widget = new views::Widget;
     if (use_delegate)
@@ -177,7 +178,7 @@ TEST_F(LockLayoutManagerTest, MaximizedFullscreenWindowBoundsAreEqualToScreen) {
 }
 
 TEST_F(LockLayoutManagerTest, AccessibilityPanel) {
-  ash::ShelfLayoutManager* shelf_layout_manager =
+  ShelfLayoutManager* shelf_layout_manager =
       GetPrimaryShelf()->shelf_layout_manager();
   ASSERT_TRUE(shelf_layout_manager);
 
@@ -335,7 +336,7 @@ TEST_F(LockLayoutManagerTest, MultipleMonitors) {
 TEST_F(LockLayoutManagerTest, AccessibilityPanelWithMultipleMonitors) {
   UpdateDisplay("300x400,400x500");
 
-  ash::ShelfLayoutManager* shelf_layout_manager =
+  ShelfLayoutManager* shelf_layout_manager =
       GetPrimaryShelf()->shelf_layout_manager();
   ASSERT_TRUE(shelf_layout_manager);
 

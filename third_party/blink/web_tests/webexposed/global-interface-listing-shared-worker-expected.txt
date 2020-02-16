@@ -486,6 +486,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface FileSystemFileHandle : FileSystemHandle
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
+[Worker]     method createWritable
 [Worker]     method createWriter
 [Worker]     method getFile
 [Worker] interface FileSystemHandle
@@ -496,6 +497,13 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker]     method queryPermission
 [Worker]     method requestPermission
+[Worker] interface FileSystemWritableFileStream : WritableStream
+[Worker]     attribute @@toStringTag
+[Worker]     method close
+[Worker]     method constructor
+[Worker]     method seek
+[Worker]     method truncate
+[Worker]     method write
 [Worker] interface FileSystemWriter
 [Worker]     attribute @@toStringTag
 [Worker]     method close
@@ -1138,8 +1146,13 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method constructor
 [Worker] interface QuicTransport
 [Worker]     attribute @@toStringTag
+[Worker]     getter closed
+[Worker]     getter ready
 [Worker]     method close
 [Worker]     method constructor
+[Worker]     method createSendStream
+[Worker]     method receiveDatagrams
+[Worker]     method sendDatagrams
 [Worker] interface ReadableStream
 [Worker]     attribute @@toStringTag
 [Worker]     getter locked
@@ -1200,10 +1213,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method formData
 [Worker]     method json
 [Worker]     method text
-[Worker] interface ScreenManager
-[Worker]     attribute @@toStringTag
-[Worker]     method constructor
-[Worker]     method getScreens
 [Worker] interface SecurityPolicyViolationEvent : Event
 [Worker]     attribute @@toStringTag
 [Worker]     getter blockedURI
@@ -1218,6 +1227,12 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter sourceFile
 [Worker]     getter statusCode
 [Worker]     getter violatedDirective
+[Worker]     method constructor
+[Worker] interface SendStream
+[Worker]     attribute @@toStringTag
+[Worker]     getter writable
+[Worker]     getter writingAborted
+[Worker]     method abortWriting
 [Worker]     method constructor
 [Worker] interface ServiceWorkerRegistration : EventTarget
 [Worker]     attribute @@toStringTag
@@ -3643,7 +3658,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter permissions
 [Worker]     getter platform
 [Worker]     getter product
-[Worker]     getter screen
 [Worker]     getter serial
 [Worker]     getter storage
 [Worker]     getter usb
@@ -3654,6 +3668,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter locked
 [Worker]     method abort
+[Worker]     method close
 [Worker]     method constructor
 [Worker]     method getWriter
 [Worker] interface WritableStreamDefaultWriter

@@ -23,6 +23,7 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/text/bytes_formatting.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/chromeos/devicetype_utils.h"
 #include "ui/resources/grit/webui_resources.h"
 #include "ui/strings/grit/ui_strings.h"
@@ -32,6 +33,7 @@
 namespace {
 void AddStringResources(content::WebUIDataSource* source) {
   static constexpr webui::LocalizedString kStrings[] = {
+      {"next", IDS_CROSTINI_INSTALLER_NEXT_BUTTON},
       {"install", IDS_CROSTINI_INSTALLER_INSTALL_BUTTON},
       {"retry", IDS_CROSTINI_INSTALLER_RETRY_BUTTON},
       {"close", IDS_APP_CLOSE},
@@ -52,6 +54,7 @@ void AddStringResources(content::WebUIDataSource* source) {
       {"fetchSshKeysError", IDS_CROSTINI_INSTALLER_FETCH_SSH_KEYS_ERROR},
       {"mountContainerError", IDS_CROSTINI_INSTALLER_MOUNT_CONTAINER_ERROR},
       {"setupContainerError", IDS_CROSTINI_INSTALLER_SETUP_CONTAINER_ERROR},
+      {"unknownError", IDS_CROSTINI_INSTALLER_UNKNOWN_ERROR},
 
       {"loadTerminaMessage", IDS_CROSTINI_INSTALLER_LOAD_TERMINA_MESSAGE},
       {"startConciergeMessage", IDS_CROSTINI_INSTALLER_START_CONCIERGE_MESSAGE},
@@ -66,6 +69,10 @@ void AddStringResources(content::WebUIDataSource* source) {
       {"fetchSshKeysMessage", IDS_CROSTINI_INSTALLER_FETCH_SSH_KEYS_MESSAGE},
       {"mountContainerMessage", IDS_CROSTINI_INSTALLER_MOUNT_CONTAINER_MESSAGE},
       {"cancelingMessage", IDS_CROSTINI_INSTALLER_CANCELING},
+
+      {"configureMessage", IDS_CROSTINI_INSTALLER_CONFIGURE_MESSAGE},
+      {"diskSizeMessage", IDS_CROSTINI_INSTALLER_DISK_SIZE_MESSAGE},
+      {"usernameMessage", IDS_CROSTINI_INSTALLER_USERNAME_MESSAGE},
   };
   AddLocalizedStringsBulk(source, kStrings);
 
@@ -101,18 +108,22 @@ void AddStringResources(content::WebUIDataSource* source) {
 
 namespace chromeos {
 
-bool CrostiniInstallerUI::IsEnabled() {
-  return base::FeatureList::IsEnabled(
-      chromeos::features::kCrostiniWebUIInstaller);
-}
-
 CrostiniInstallerUI::CrostiniInstallerUI(content::WebUI* web_ui)
     : ui::MojoWebDialogUI{web_ui} {
   content::WebUIDataSource* source =
       content::WebUIDataSource::Create(chrome::kChromeUICrostiniInstallerHost);
+  auto* profile = Profile::FromWebUI(web_ui);
   source->OverrideContentSecurityPolicyScriptSrc(
       "script-src chrome://resources chrome://test 'self';");
   AddStringResources(source);
+  source->AddBoolean(
+      "diskResizingEnabled",
+      base::FeatureList::IsEnabled(chromeos::features::kCrostiniDiskResizing));
+  source->AddBoolean(
+      "crostiniCustomUsername",
+      base::FeatureList::IsEnabled(chromeos::features::kCrostiniUsername));
+  source->AddString("defaultContainerUsername",
+                    crostini::DefaultContainerUserNameForProfile(profile));
 
   source->AddResourcePath("app.js", IDR_CROSTINI_INSTALLER_APP_JS);
   source->AddResourcePath("browser_proxy.js",
@@ -129,10 +140,7 @@ CrostiniInstallerUI::CrostiniInstallerUI(content::WebUI* web_ui)
   source->UseStringsJs();
   source->EnableReplaceI18nInJS();
 
-  content::WebUIDataSource::Add(Profile::FromWebUI(web_ui), source);
-
-  AddHandlerToRegistry(base::BindRepeating(
-      &CrostiniInstallerUI::BindPageHandlerFactory, base::Unretained(this)));
+  content::WebUIDataSource::Add(profile, source);
 }
 
 CrostiniInstallerUI::~CrostiniInstallerUI() = default;
@@ -141,7 +149,14 @@ bool CrostiniInstallerUI::can_close() {
   return can_close_;
 }
 
-void CrostiniInstallerUI::BindPageHandlerFactory(
+void CrostiniInstallerUI::ClickInstallForTesting() {
+  web_ui()->GetWebContents()->GetMainFrame()->ExecuteJavaScriptForTests(
+      base::ASCIIToUTF16("document.querySelector('crostini-installer-app')"
+                         ".$$('.action-button').click()"),
+      base::NullCallback());
+}
+
+void CrostiniInstallerUI::BindInterface(
     mojo::PendingReceiver<
         chromeos::crostini_installer::mojom::PageHandlerFactory>
         pending_receiver) {
@@ -173,5 +188,7 @@ void CrostiniInstallerUI::OnWebUICloseDialog() {
   // access the page using the URL directly, which is not supported).
   ui::MojoWebDialogUI::CloseDialog(nullptr);
 }
+
+WEB_UI_CONTROLLER_TYPE_IMPL(CrostiniInstallerUI)
 
 }  // namespace chromeos

@@ -29,10 +29,10 @@
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 
 #include "base/sys_byteorder.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_bitmap_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_uint8_clamped_array.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
-#include "third_party/blink/renderer/core/imagebitmap/image_bitmap_options.h"
 #include "third_party/blink/renderer/platform/graphics/color_behavior.h"
 #include "third_party/skia/include/third_party/skcms/skcms.h"
 #include "v8/include/v8.h"
@@ -562,15 +562,16 @@ ImageData* ImageData::CropRect(const IntRect& crop_rect, bool flip_y) {
 ScriptPromise ImageData::CreateImageBitmap(ScriptState* script_state,
                                            EventTarget& event_target,
                                            base::Optional<IntRect> crop_rect,
-                                           const ImageBitmapOptions* options) {
+                                           const ImageBitmapOptions* options,
+                                           ExceptionState& exception_state) {
   if (BufferBase()->IsDetached()) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidStateError,
-                          "The source data has been detached."));
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The source data has been detached.");
+    return ScriptPromise();
   }
   return ImageBitmapSource::FulfillImageBitmap(
-      script_state, ImageBitmap::Create(this, crop_rect, options));
+      script_state, MakeGarbageCollected<ImageBitmap>(this, crop_rect, options),
+      exception_state);
 }
 
 v8::Local<v8::Object> ImageData::AssociateWithWrapper(
@@ -693,7 +694,7 @@ ImageData::ConvertPixelsFromCanvasPixelFormatToImageDataStorageFormat(
   if (!content.DataLength())
     return nullptr;
 
-  if (pixel_format == CanvasPixelFormat::kRGBA8 &&
+  if (pixel_format == CanvasColorParams::GetNativeCanvasPixelFormat() &&
       storage_format == kUint8ClampedArrayStorageFormat) {
     DOMArrayBuffer* array_buffer = DOMArrayBuffer::Create(content);
     return DOMUint8ClampedArray::Create(array_buffer, 0,
@@ -756,11 +757,12 @@ CanvasColorParams ImageData::GetCanvasColorParams() {
     return CanvasColorParams();
   CanvasColorSpace color_space =
       ImageData::GetCanvasColorSpace(color_settings_->colorSpace());
-  CanvasPixelFormat pixel_format = CanvasPixelFormat::kRGBA8;
-  if (color_settings_->storageFormat() != kUint8ClampedArrayStorageFormatName)
-    pixel_format = CanvasPixelFormat::kF16;
-  return CanvasColorParams(color_space, pixel_format, kNonOpaque,
-                           CanvasForceRGBA::kNotForced);
+  return CanvasColorParams(
+      color_space,
+      color_settings_->storageFormat() != kUint8ClampedArrayStorageFormatName
+          ? CanvasPixelFormat::kF16
+          : CanvasColorParams::GetNativeCanvasPixelFormat(),
+      kNonOpaque);
 }
 
 bool ImageData::ImageDataInCanvasColorSettings(
@@ -774,8 +776,7 @@ bool ImageData::ImageDataInCanvasColorSettings(
     return false;
 
   CanvasColorParams canvas_color_params =
-      CanvasColorParams(canvas_color_space, canvas_pixel_format, kNonOpaque,
-                        CanvasForceRGBA::kNotForced);
+      CanvasColorParams(canvas_color_space, canvas_pixel_format, kNonOpaque);
 
   unsigned char* src_data = static_cast<unsigned char*>(BufferBase()->Data());
 
@@ -788,7 +789,7 @@ bool ImageData::ImageDataInCanvasColorSettings(
     src_pixel_format = skcms_PixelFormat_RGBA_ffff;
 
   skcms_PixelFormat dst_pixel_format = skcms_PixelFormat_RGBA_8888;
-  if (canvas_pixel_format == CanvasPixelFormat::kRGBA8 &&
+  if (canvas_pixel_format == CanvasColorParams::GetNativeCanvasPixelFormat() &&
       u8_color_type == kN32ColorType &&
       kN32_SkColorType == kBGRA_8888_SkColorType) {
     dst_pixel_format = skcms_PixelFormat_BGRA_8888;

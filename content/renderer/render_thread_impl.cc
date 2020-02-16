@@ -75,7 +75,6 @@
 #include "content/public/renderer/render_thread_observer.h"
 #include "content/public/renderer/render_view_visitor.h"
 #include "content/renderer/browser_exposed_renderer_interfaces.h"
-#include "content/renderer/browser_plugin/browser_plugin_manager.h"
 #include "content/renderer/categorized_worker_pool.h"
 #include "content/renderer/effective_connection_type_helper.h"
 #include "content/renderer/frame_swap_message_queue.h"
@@ -606,9 +605,6 @@ void RenderThreadImpl::Init() {
 
   vc_manager_.reset(new blink::WebVideoCaptureImplManager());
 
-  browser_plugin_manager_.reset(new BrowserPluginManager());
-  AddObserver(browser_plugin_manager_.get());
-
   unfreezable_message_filter_ = new UnfreezableMessageFilter(this);
   AddFilter(unfreezable_message_filter_.get());
 
@@ -986,10 +982,14 @@ void RenderThreadImpl::InitializeWebKit(mojo::BinderMap* binders) {
 
   blink_platform_impl_.reset(
       new RendererBlinkPlatformImpl(main_thread_scheduler_.get()));
-  SetRuntimeFeaturesDefaultsAndUpdateFromArgs(command_line);
+  // This, among other things, enables any feature marked "test" in
+  // runtime_enabled_features. It is run before
+  // SetRuntimeFeaturesDefaultsAndUpdateFromArgs() so that command line
+  // arguments take precedence over (and can disable) "test" features.
   GetContentClient()
       ->renderer()
       ->SetRuntimeFeaturesDefaultsBeforeBlinkInitialization();
+  SetRuntimeFeaturesDefaultsAndUpdateFromArgs(command_line);
   blink::Initialize(blink_platform_impl_.get(), binders,
                     main_thread_scheduler_.get());
 
@@ -1033,6 +1033,14 @@ void RenderThreadImpl::RegisterSchemes() {
   WebSecurityPolicy::RegisterURLSchemeAsDisplayIsolated(chrome_scheme);
   WebSecurityPolicy::RegisterURLSchemeAsNotAllowingJavascriptURLs(
       chrome_scheme);
+
+  // chrome-untrusted:
+  WebString chrome_untrusted_scheme(
+      WebString::FromASCII(kChromeUIUntrustedScheme));
+  WebSecurityPolicy::RegisterURLSchemeAsDisplayIsolated(
+      chrome_untrusted_scheme);
+  WebSecurityPolicy::RegisterURLSchemeAsNotAllowingJavascriptURLs(
+      chrome_untrusted_scheme);
 
   // devtools:
   WebString devtools_scheme(WebString::FromASCII(kChromeDevToolsScheme));
@@ -1772,7 +1780,7 @@ void RenderThreadImpl::RequestNewLayerTreeFrameSink(
 #if defined(OS_ANDROID)
   if (GetContentClient()->UsingSynchronousCompositing()) {
     // TODO(ericrk): Collapse with non-webview registration below.
-    if (features::IsUsingVizForWebView()) {
+    if (features::IsUsingVizFrameSubmissionForWebView()) {
       frame_sink_provider_->CreateForWidget(
           render_widget->routing_id(),
           std::move(compositor_frame_sink_receiver),
@@ -1982,14 +1990,16 @@ void RenderThreadImpl::PurgePluginListCache(bool reload_pages) {
 
 void RenderThreadImpl::OnMemoryPressure(
     base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
-  TRACE_EVENT0("memory", "RenderThreadImpl::OnMemoryPressure");
+  TRACE_EVENT1("memory", "RenderThreadImpl::OnMemoryPressure", "Level",
+               memory_pressure_level);
   if (blink_platform_impl_) {
     blink::WebMemoryPressureListener::OnMemoryPressure(
         static_cast<blink::WebMemoryPressureLevel>(memory_pressure_level));
   }
   if (memory_pressure_level ==
-      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL)
+      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL) {
     ReleaseFreeMemory();
+  }
 }
 
 void RenderThreadImpl::RecordPurgeMemory(RendererMemoryMetrics before) {

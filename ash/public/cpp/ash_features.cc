@@ -18,6 +18,9 @@ const base::Feature kAllowAmbientEQ{"AllowAmbientEQ",
 const base::Feature kAutoNightLight{"AutoNightLight",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
+const base::Feature kDisplayChangeModal{"DisplayChangeModal",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 const base::Feature kDockedMagnifier{"DockedMagnifier",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -63,9 +66,6 @@ const base::Feature kNotificationExpansionAnimation{
 const base::Feature kNotificationScrollBar{"NotificationScrollBar",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kOverviewCrossFadeWallpaperBlur{
-    "OverviewCrossFadeWallpaperBlur", base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kPipRoundedCorners{"PipRoundedCorners",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -83,9 +83,6 @@ const base::Feature kUnlockWithExternalBinary{
 
 const base::Feature kViewsLogin{"ViewsLogin", base::FEATURE_ENABLED_BY_DEFAULT};
 
-const base::Feature kVirtualDesks{"VirtualDesks",
-                                  base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kUseBluetoothSystemInAsh{"UseBluetoothSystemInAsh",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -96,7 +93,7 @@ const base::Feature kSwapSideVolumeButtonsForOrientation{
     "SwapSideVolumeButtonsForOrientation", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kUnifiedMessageCenterRefactor{
-    "UnifiedMessageCenterRefactor", base::FEATURE_DISABLED_BY_DEFAULT};
+    "UnifiedMessageCenterRefactor", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kEnableBackgroundBlur{"EnableBackgroundBlur",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
@@ -106,6 +103,9 @@ const base::Feature kSwipingFromLeftEdgeToGoBack{
 
 const base::Feature kDragFromShelfToHomeOrOverview{
     "DragFromShelfToHomeOrOverview", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kHideShelfControlsInTabletMode{
+    "HideShelfControlsInTabletMode", base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsAllowAmbientEQEnabled() {
   return base::FeatureList::IsEnabled(kAllowAmbientEQ);
@@ -157,10 +157,6 @@ bool IsTrilinearFilteringEnabled() {
   static bool use_trilinear_filtering =
       base::FeatureList::IsEnabled(kTrilinearFiltering);
   return use_trilinear_filtering;
-}
-
-bool IsVirtualDesksEnabled() {
-  return base::FeatureList::IsEnabled(kVirtualDesks);
 }
 
 bool IsViewsLoginEnabled() {
@@ -217,6 +213,30 @@ bool IsDragFromShelfToHomeOrOverviewEnabled() {
 
 bool IsReduceDisplayNotificationsEnabled() {
   return base::FeatureList::IsEnabled(kReduceDisplayNotifications);
+}
+
+bool IsHideShelfControlsInTabletModeEnabled() {
+  return base::FeatureList::IsEnabled(kHideShelfControlsInTabletMode) &&
+         IsDragFromShelfToHomeOrOverviewEnabled();
+}
+
+bool IsDisplayChangeModalEnabled() {
+  return base::FeatureList::IsEnabled(kDisplayChangeModal);
+}
+
+namespace {
+
+// The boolean flag indicating if "WebUITabStrip" feature is enabled in Chrome.
+bool g_webui_tab_strip_enabled = false;
+
+}  // namespace
+
+void SetWebUITabStripEnabled(bool enabled) {
+  g_webui_tab_strip_enabled = enabled;
+}
+
+bool IsWebUITabStripEnabled() {
+  return g_webui_tab_strip_enabled;
 }
 
 }  // namespace features

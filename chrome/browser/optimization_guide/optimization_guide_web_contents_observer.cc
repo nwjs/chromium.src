@@ -100,7 +100,7 @@ void OptimizationGuideWebContentsObserver::DidStartNavigation(
   if (!optimization_guide_keyed_service_)
     return;
 
-  optimization_guide_keyed_service_->MaybeLoadHintForNavigation(
+  optimization_guide_keyed_service_->OnNavigationStartOrRedirect(
       navigation_handle);
   OptimizationGuideNavigationData* nav_data =
       GetOrCreateOptimizationGuideNavigationData(navigation_handle);
@@ -118,13 +118,18 @@ void OptimizationGuideWebContentsObserver::DidRedirectNavigation(
 
   // Record the HintsFetcher coverage for the navigation, regardless if the
   // keyed service is active or not.
-  RecordHintsFetcherCoverage(navigation_handle);
+  bool was_host_covered_by_fetch =
+      RecordHintsFetcherCoverage(navigation_handle);
 
   if (!optimization_guide_keyed_service_)
     return;
 
-  optimization_guide_keyed_service_->MaybeLoadHintForNavigation(
+  optimization_guide_keyed_service_->OnNavigationStartOrRedirect(
       navigation_handle);
+  OptimizationGuideNavigationData* nav_data =
+      GetOrCreateOptimizationGuideNavigationData(navigation_handle);
+  nav_data->set_was_host_covered_by_fetch_at_navigation_start(
+      was_host_covered_by_fetch);
 }
 
 void OptimizationGuideWebContentsObserver::DidFinishNavigation(
@@ -140,12 +145,12 @@ void OptimizationGuideWebContentsObserver::DidFinishNavigation(
   // etc.) might not have navigation data associated with them, but we reduce
   // likelihood of future leaks by always trying to remove the data.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&OptimizationGuideWebContentsObserver::
-                         FlushMetricsAndRemoveOptimizationGuideNavigationData,
-                     weak_factory_.GetWeakPtr(),
-                     navigation_handle->GetNavigationId(),
-                     navigation_handle->HasCommitted()));
+      FROM_HERE, base::BindOnce(&OptimizationGuideWebContentsObserver::
+                                    FlushMetricsAndNotifyNavigationFinish,
+                                weak_factory_.GetWeakPtr(),
+                                navigation_handle->GetNavigationId(),
+                                navigation_handle->GetURL(),
+                                navigation_handle->HasCommitted()));
 
   if (!optimization_guide_keyed_service_)
     return;
@@ -157,12 +162,18 @@ void OptimizationGuideWebContentsObserver::DidFinishNavigation(
 }
 
 void OptimizationGuideWebContentsObserver::
-    FlushMetricsAndRemoveOptimizationGuideNavigationData(int64_t navigation_id,
-                                                         bool has_committed) {
+    FlushMetricsAndNotifyNavigationFinish(int64_t navigation_id,
+                                          const GURL& navigation_url,
+                                          bool has_committed) {
   auto nav_data_iter =
       inflight_optimization_guide_navigation_datas_.find(navigation_id);
   if (nav_data_iter == inflight_optimization_guide_navigation_datas_.end())
     return;
+
+  // If we have a navigation data for it, it's probably safe to say that this
+  // URL is the main frame URL of the navigation.
+  if (optimization_guide_keyed_service_)
+    optimization_guide_keyed_service_->OnNavigationFinish(navigation_url);
 
   (nav_data_iter->second).RecordMetrics(has_committed);
 

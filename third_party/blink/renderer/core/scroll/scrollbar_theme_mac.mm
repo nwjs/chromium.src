@@ -29,9 +29,9 @@
 #include "base/mac/scoped_nsobject.h"
 #include "base/memory/scoped_policy.h"
 #include "skia/ext/skia_utils_mac.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/platform/mac/web_scrollbar_theme.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/renderer/core/scroll/ns_scroller_imp_details.h"
@@ -423,10 +423,6 @@ void ScrollbarThemeMac::UpdateScrollbarOverlayColorTheme(
   }
 }
 
-WebScrollbarButtonsPlacement ScrollbarThemeMac::ButtonsPlacement() const {
-  return kWebScrollbarButtonsPlacementNone;
-}
-
 bool ScrollbarThemeMac::HasThumb(const Scrollbar& scrollbar) {
   ScrollbarPainter painter = PainterForScrollbar(scrollbar);
   int min_length_for_thumb =
@@ -439,20 +435,15 @@ bool ScrollbarThemeMac::HasThumb(const Scrollbar& scrollbar) {
               : scrollbar.Height()) >= min_length_for_thumb;
 }
 
-IntRect ScrollbarThemeMac::BackButtonRect(const Scrollbar& scrollbar,
-                                          ScrollbarPart part) {
-  DCHECK_EQ(ButtonsPlacement(), kWebScrollbarButtonsPlacementNone);
+IntRect ScrollbarThemeMac::BackButtonRect(const Scrollbar& scrollbar) {
   return IntRect();
 }
 
-IntRect ScrollbarThemeMac::ForwardButtonRect(const Scrollbar& scrollbar,
-                                             ScrollbarPart part) {
-  DCHECK_EQ(ButtonsPlacement(), kWebScrollbarButtonsPlacementNone);
+IntRect ScrollbarThemeMac::ForwardButtonRect(const Scrollbar& scrollbar) {
   return IntRect();
 }
 
 IntRect ScrollbarThemeMac::TrackRect(const Scrollbar& scrollbar) {
-  DCHECK(!HasButtons(scrollbar));
   return scrollbar.FrameRect();
 }
 

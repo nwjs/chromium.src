@@ -17,6 +17,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
 #include "chrome/browser/android/vr/arcore_device/ar_image_transport.h"
@@ -427,7 +428,8 @@ void ArCoreGl::GetFrameData(
   gl_thread_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ArCoreGl::ProcessFrame, weak_ptr_factory_.GetWeakPtr(),
-                     base::Passed(&frame_data), base::Passed(&callback)));
+                     std::move(options), std::move(frame_data),
+                     std::move(callback)));
 }
 
 bool ArCoreGl::IsSubmitFrameExpected(int16_t frame_index) {
@@ -775,6 +777,7 @@ void ArCoreGl::SetFrameDataRestricted(bool frame_data_restricted) {
 }
 
 void ArCoreGl::ProcessFrame(
+    mojom::XRFrameDataRequestOptionsPtr options,
     mojom::XRFrameDataPtr frame_data,
     mojom::XRFrameDataProvider::GetFrameDataCallback callback) {
   DVLOG(3) << __func__ << " frame=" << frame_data->frame_id;
@@ -798,6 +801,11 @@ void ArCoreGl::ProcessFrame(
 
   // Get anchors data, including anchors created this frame.
   frame_data->anchors_data = arcore_->GetAnchorsData();
+
+  // Get lighting estimation data
+  if (options && options->include_lighting_estimation_data) {
+    frame_data->light_estimation_data = arcore_->GetLightEstimationData();
+  }
 
   // The timing requirements for hit-test are documented here:
   // https://github.com/immersive-web/hit-test/blob/master/explainer.md#timing
@@ -858,6 +866,10 @@ mojom::XRInputSourceStatePtr ArCoreGl::GetInputSourceState() {
     screen_touch_pending_ = false;
   }
 
+  // Save the touch point for use in Blink's XR input event deduplication.
+  state->overlay_pointer_position = base::make_optional<gfx::PointF>(
+      screen_last_touch_.x(), screen_last_touch_.y());
+
   state->description = device::mojom::XRInputSourceDescription::New();
 
   state->description->handedness = device::mojom::XRHandedness::NONE;
@@ -878,10 +890,11 @@ mojom::XRInputSourceStatePtr ArCoreGl::GetInputSourceState() {
   // inverse of the projection matrix. Z coordinate of -1 means the point will
   // be projected onto the projection matrix near plane. See also
   // third_party/blink/renderer/modules/xr/xr_view.cc's UnprojectPointer.
-  gfx::Point3F touch_point(
-      screen_last_touch_.x() / transfer_size_.width() * 2.f - 1.f,
-      (1.f - screen_last_touch_.y() / transfer_size_.height()) * 2.f - 1.f,
-      -1.f);
+  const float x_normalized =
+      screen_last_touch_.x() / transfer_size_.width() * 2.f - 1.f;
+  const float y_normalized =
+      (1.f - screen_last_touch_.y() / transfer_size_.height()) * 2.f - 1.f;
+  gfx::Point3F touch_point(x_normalized, y_normalized, -1.f);
   DVLOG(3) << __func__ << ": touch_point=" << touch_point.ToString();
   inverse_projection_.TransformPoint(&touch_point);
   DVLOG(3) << __func__ << ": unprojected=" << touch_point.ToString();
@@ -915,6 +928,25 @@ mojom::XRInputSourceStatePtr ArCoreGl::GetInputSourceState() {
            << viewer_from_pointer.ToString();
 
   state->description->input_from_pointer = viewer_from_pointer;
+
+  // Create the gamepad object and modify necessary fields.
+  state->gamepad = device::Gamepad{};
+  state->gamepad->connected = true;
+  state->gamepad->id[0] = '\0';
+  state->gamepad->timestamp =
+      base::TimeTicks::Now().since_origin().InMicroseconds();
+
+  state->gamepad->axes_length = 2;
+  state->gamepad->axes[0] = x_normalized;
+  state->gamepad->axes[1] = -y_normalized;  //  Gamepad's Y axis is actually
+                                            //  inverted (1.0 means "backward").
+
+  state->gamepad->buttons_length = 3;  // 2 placeholders + the real one
+  // Default-constructed buttons are already valid placeholders.
+  state->gamepad->buttons[2].touched = true;
+  state->gamepad->buttons[2].value = 1.0;
+  state->gamepad->mapping = device::GamepadMapping::kNone;
+  state->gamepad->hand = device::GamepadHand::kNone;
 
   return state;
 }

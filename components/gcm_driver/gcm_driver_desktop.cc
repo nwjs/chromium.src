@@ -20,7 +20,6 @@
 #include "build/build_config.h"
 #include "components/gcm_driver/gcm_account_mapper.h"
 #include "components/gcm_driver/gcm_app_handler.h"
-#include "components/gcm_driver/gcm_channel_status_syncer.h"
 #include "components/gcm_driver/gcm_client_factory.h"
 #include "components/gcm_driver/gcm_delayed_task_controller.h"
 #include "components/gcm_driver/instance_id/instance_id_impl.h"
@@ -74,6 +73,7 @@ class GCMDriverDesktop::IOWorker : public GCMClient::Delegate {
       std::unique_ptr<GCMClientFactory> gcm_client_factory,
       const GCMClient::ChromeBuildInfo& chrome_build_info,
       const base::FilePath& store_path,
+      bool remove_account_mappings_with_email_key,
       base::RepeatingCallback<void(
           mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>)>
           get_socket_factory_callback,
@@ -150,6 +150,7 @@ void GCMDriverDesktop::IOWorker::Initialize(
     std::unique_ptr<GCMClientFactory> gcm_client_factory,
     const GCMClient::ChromeBuildInfo& chrome_build_info,
     const base::FilePath& store_path,
+    bool remove_account_mappings_with_email_key,
     base::RepeatingCallback<void(
         mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>)>
         get_socket_factory_callback,
@@ -165,10 +166,11 @@ void GCMDriverDesktop::IOWorker::Initialize(
       network::SharedURLLoaderFactory::Create(
           std::move(pending_loader_factory));
 
-  gcm_client_->Initialize(chrome_build_info, store_path, blocking_task_runner,
-                          io_thread_, std::move(get_socket_factory_callback),
-                          url_loader_factory_for_io, network_connection_tracker,
-                          std::make_unique<SystemEncryptor>(), this);
+  gcm_client_->Initialize(
+      chrome_build_info, store_path, remove_account_mappings_with_email_key,
+      blocking_task_runner, io_thread_, std::move(get_socket_factory_callback),
+      url_loader_factory_for_io, network_connection_tracker,
+      std::make_unique<SystemEncryptor>(), this);
 }
 
 void GCMDriverDesktop::IOWorker::OnRegisterFinished(
@@ -513,10 +515,10 @@ void GCMDriverDesktop::IOWorker::RecordDecryptionFailure(
 GCMDriverDesktop::GCMDriverDesktop(
     std::unique_ptr<GCMClientFactory> gcm_client_factory,
     const GCMClient::ChromeBuildInfo& chrome_build_info,
-    const std::string& channel_status_request_url,
     const std::string& user_agent,
     PrefService* prefs,
     const base::FilePath& store_path,
+    bool remove_account_mappings_with_email_key,
     base::RepeatingCallback<void(
         mojo::PendingReceiver<network::mojom::ProxyResolvingSocketFactory>)>
         get_socket_factory_callback,
@@ -525,16 +527,9 @@ GCMDriverDesktop::GCMDriverDesktop(
     const scoped_refptr<base::SequencedTaskRunner>& ui_thread,
     const scoped_refptr<base::SequencedTaskRunner>& io_thread,
     const scoped_refptr<base::SequencedTaskRunner>& blocking_task_runner)
-    : GCMDriver(store_path, blocking_task_runner, url_loader_factory_for_ui),
-      gcm_channel_status_syncer_(
-          new GCMChannelStatusSyncer(this,
-                                     prefs,
-                                     channel_status_request_url,
-                                     user_agent,
-                                     url_loader_factory_for_ui)),
+    : GCMDriver(store_path, blocking_task_runner),
       signed_in_(false),
       gcm_started_(false),
-      gcm_enabled_(true),
       connected_(false),
       account_mapper_(new GCMAccountMapper(this)),
       // Setting to max, to make sure it does not prompt for token reporting
@@ -544,8 +539,6 @@ GCMDriverDesktop::GCMDriverDesktop(
       ui_thread_(ui_thread),
       io_thread_(io_thread),
       wake_from_suspend_enabled_(false) {
-  gcm_enabled_ = gcm_channel_status_syncer_->gcm_enabled();
-
   // Create and initialize the GCMClient. Note that this does not initiate the
   // GCM check-in.
   io_worker_.reset(new IOWorker(ui_thread, io_thread));
@@ -554,7 +547,8 @@ GCMDriverDesktop::GCMDriverDesktop(
       base::BindOnce(
           &GCMDriverDesktop::IOWorker::Initialize,
           base::Unretained(io_worker_.get()), std::move(gcm_client_factory),
-          chrome_build_info, store_path, std::move(get_socket_factory_callback),
+          chrome_build_info, store_path, remove_account_mappings_with_email_key,
+          std::move(get_socket_factory_callback),
           // ->Clone() permits creation of an equivalent
           // SharedURLLoaderFactory on IO thread.
           url_loader_factory_for_ui->Clone(),
@@ -620,11 +614,6 @@ void GCMDriverDesktop::Shutdown() {
   Stop();
   GCMDriver::Shutdown();
 
-  // Dispose the syncer in order to release the reference to
-  // URLRequestContextGetter that needs to be done before IOThread gets
-  // deleted.
-  gcm_channel_status_syncer_.reset();
-
   io_thread_->DeleteSoon(FROM_HERE, io_worker_.release());
 }
 
@@ -651,10 +640,8 @@ void GCMDriverDesktop::RemoveAppHandler(const std::string& app_id) {
 
   // Stops the GCM service when no app intends to consume it. Stop function will
   // remove the last app handler - account mapper.
-  if (app_handlers().size() == 1) {
+  if (app_handlers().size() == 1)
     Stop();
-    gcm_channel_status_syncer_->Stop();
-  }
 }
 
 void GCMDriverDesktop::AddConnectionObserver(GCMConnectionObserver* observer) {
@@ -664,26 +651,6 @@ void GCMDriverDesktop::AddConnectionObserver(GCMConnectionObserver* observer) {
 void GCMDriverDesktop::RemoveConnectionObserver(
     GCMConnectionObserver* observer) {
   connection_observer_list_.RemoveObserver(observer);
-}
-
-void GCMDriverDesktop::Enable() {
-  DCHECK(ui_thread_->RunsTasksInCurrentSequence());
-
-  if (gcm_enabled_)
-    return;
-  gcm_enabled_ = true;
-
-  EnsureStarted(GCMClient::DELAYED_START);
-}
-
-void GCMDriverDesktop::Disable() {
-  DCHECK(ui_thread_->RunsTasksInCurrentSequence());
-
-  if (!gcm_enabled_)
-    return;
-  gcm_enabled_ = false;
-
-  Stop();
 }
 
 void GCMDriverDesktop::Stop() {
@@ -1096,8 +1063,7 @@ void GCMDriverDesktop::GetInstanceIDData(
   // codes, the instance ID will assume no current ID and generate a new one
   // if the gcm client is not ready and we pass an empty string to the callback
   // below. We should fix this!
-  UMA_HISTOGRAM_ENUMERATION("GCM.GetInstanceIDData.ClientStarted", result,
-                            GCMClient::Result::LAST_RESULT + 1);
+  UMA_HISTOGRAM_ENUMERATION("GCM.GetInstanceIDData.ClientStarted", result);
   if (result != GCMClient::SUCCESS) {
     DLOG(ERROR)
         << "Unable to get the InstanceID data: cannot start the GCM Client";
@@ -1256,17 +1222,12 @@ GCMClient::Result GCMDriverDesktop::EnsureStarted(
   if (gcm_started_)
     return GCMClient::SUCCESS;
 
+  if (!nw::gcm_enabled())
+    return GCMClient::GCM_DISABLED;
+
   // Have any app requested the service?
   if (app_handlers().empty())
     return GCMClient::UNKNOWN_ERROR;
-
-  // Polling for channel status should be invoked when GCM is being requested,
-  // no matter whether GCM is enabled or nor.
-  if (nw::gcm_enabled())
-    gcm_channel_status_syncer_->EnsureStarted();
-
-  if (!gcm_enabled_)
-    return GCMClient::GCM_DISABLED;
 
   if (!delayed_task_controller_)
     delayed_task_controller_.reset(new GCMDelayedTaskController);

@@ -7,6 +7,7 @@
 #include <fuchsia/web/cpp/fidl.h>
 #include <lib/sys/cpp/component_context.h>
 #include <lib/ui/scenic/cpp/view_token_pair.h>
+#include <iostream>
 
 #include "base/base_paths_fuchsia.h"
 #include "base/command_line.h"
@@ -24,11 +25,17 @@
 
 constexpr char kRemoteDebuggingPortSwitch[] = "remote-debugging-port";
 constexpr char kEnableLoggingSwitch[] = "enable-logging";
+constexpr char kHeadlessSwitch[] = "headless";
 
 void PrintUsage() {
-  LOG(INFO) << "Usage: "
+  std::cerr << "Usage: "
             << base::CommandLine::ForCurrentProcess()->GetProgram().BaseName()
-            << " [--" << kRemoteDebuggingPortSwitch << "] URL";
+            << " [--" << kRemoteDebuggingPortSwitch << "] [--"
+            << kHeadlessSwitch << "] URL." << std::endl
+            << "Setting " << kRemoteDebuggingPortSwitch << " to 0 will "
+            << "automatically choose an available port." << std::endl
+            << "Setting " << kHeadlessSwitch << " will prevent creation of "
+            << "a view." << std::endl;
 }
 
 int main(int argc, char** argv) {
@@ -63,10 +70,10 @@ int main(int argc, char** argv) {
     std::string port_str =
         command_line->GetSwitchValueNative(kRemoteDebuggingPortSwitch);
     int port_parsed;
-    if (!base::StringToInt(port_str, &port_parsed) || port_parsed <= 0 ||
+    if (!base::StringToInt(port_str, &port_parsed) || port_parsed < 0 ||
         port_parsed > 65535) {
       LOG(ERROR) << "Invalid value for --remote-debugging-port (must be in the "
-                    "range 1-65535).";
+                    "range 0-65535).";
       PrintUsage();
       return 1;
     }
@@ -76,6 +83,8 @@ int main(int argc, char** argv) {
   auto web_context_provider = base::fuchsia::ComponentContextForCurrentProcess()
                                   ->svc()
                                   ->Connect<fuchsia::web::ContextProvider>();
+
+  bool is_headless = command_line->HasSwitch(kHeadlessSwitch);
 
   // Set up the content directory fuchsia-pkg://shell-data/, which will host
   // the files stored under //fuchsia/engine/test/shell_data.
@@ -99,11 +108,16 @@ int main(int argc, char** argv) {
       base::FilePath(base::fuchsia::kServiceDirectoryPath)));
 
   // Enable other WebEngine features.
-  create_context_params.set_features(
+  fuchsia::web::ContextFeatureFlags features =
       fuchsia::web::ContextFeatureFlags::AUDIO |
-      fuchsia::web::ContextFeatureFlags::VULKAN |
       fuchsia::web::ContextFeatureFlags::HARDWARE_VIDEO_DECODER |
-      fuchsia::web::ContextFeatureFlags::WIDEVINE_CDM);
+      fuchsia::web::ContextFeatureFlags::WIDEVINE_CDM;
+  if (is_headless)
+    features |= fuchsia::web::ContextFeatureFlags::HEADLESS;
+  else
+    features |= fuchsia::web::ContextFeatureFlags::VULKAN;
+
+  create_context_params.set_features(features);
   if (remote_debugging_port)
     create_context_params.set_remote_debugging_port(*remote_debugging_port);
 
@@ -132,6 +146,20 @@ int main(int argc, char** argv) {
         quit_run_loop.Run();
       });
 
+  // Log the debugging port, if debugging is requested.
+  if (remote_debugging_port) {
+    context->GetRemoteDebuggingPort(
+        [](fuchsia::web::Context_GetRemoteDebuggingPort_Result result) {
+          if (result.is_err()) {
+            LOG(ERROR) << "Remote debugging service was not opened.";
+            return;
+          }
+          // Telemetry expects this exact format of log line output to retrieve
+          // the remote debugging port.
+          LOG(INFO) << "Remote debugging port: " << result.response().port;
+        });
+  }
+
   // Navigate |frame| to |url|.
   fuchsia::web::LoadUrlParams load_params;
   load_params.set_type(fuchsia::web::LoadUrlReason::TYPED);
@@ -148,15 +176,19 @@ int main(int argc, char** argv) {
         }
       });
 
-  // Present a fullscreen view of |frame|.
-  fuchsia::ui::views::ViewToken view_token;
-  fuchsia::ui::views::ViewHolderToken view_holder_token;
-  std::tie(view_token, view_holder_token) = scenic::NewViewTokenPair();
-  frame->CreateView(std::move(view_token));
-  auto presenter = base::fuchsia::ComponentContextForCurrentProcess()
-                       ->svc()
-                       ->Connect<::fuchsia::ui::policy::Presenter>();
-  presenter->PresentView(std::move(view_holder_token), nullptr);
+  if (is_headless)
+    frame->EnableHeadlessRendering();
+  else {
+    // Present a fullscreen view of |frame|.
+    fuchsia::ui::views::ViewToken view_token;
+    fuchsia::ui::views::ViewHolderToken view_holder_token;
+    std::tie(view_token, view_holder_token) = scenic::NewViewTokenPair();
+    frame->CreateView(std::move(view_token));
+    auto presenter = base::fuchsia::ComponentContextForCurrentProcess()
+                         ->svc()
+                         ->Connect<::fuchsia::ui::policy::Presenter>();
+    presenter->PresentView(std::move(view_holder_token), nullptr);
+  }
 
   LOG(INFO) << "Launched browser at URL " << url.spec();
 

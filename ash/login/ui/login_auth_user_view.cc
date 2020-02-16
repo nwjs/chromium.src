@@ -20,6 +20,7 @@
 #include "ash/login/ui/non_accessible_view.h"
 #include "ash/login/ui/parent_access_view.h"
 #include "ash/login/ui/pin_keyboard_animation.h"
+#include "ash/login/ui/system_label_button.h"
 #include "ash/login/ui/views_utils.h"
 #include "ash/public/cpp/login_constants.h"
 #include "ash/resources/vector_icons/vector_icons.h"
@@ -41,15 +42,12 @@
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
-#include "ui/gfx/canvas.h"
 #include "ui/gfx/color_analysis.h"
-#include "ui/gfx/color_palette.h"
 #include "ui/gfx/interpolated_transform.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
-#include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/layout/box_layout.h"
@@ -79,13 +77,12 @@ constexpr int kDistanceFromTopOfBigUserViewToUserIconDp = 24;
 
 constexpr SkColor kChallengeResponseArrowBackgroundColor =
     SkColorSetARGB(0x2B, 0xFF, 0xFF, 0xFF);
-constexpr SkColor kChallengeResponseErrorColor =
-    SkColorSetRGB(0xEE, 0x67, 0x5C);
+constexpr SkColor kChallengeResponseErrorColor = gfx::kGoogleRed300;
 
 // Date time format containing only the day of the week, for example: "Tuesday".
 constexpr char kDayOfWeekOnlyTimeFormat[] = "EEEE";
 
-constexpr int kFingerprintIconSizeDp = 32;
+constexpr int kFingerprintIconSizeDp = 28;
 constexpr int kResetToDefaultIconDelayMs = 1300;
 constexpr int kFingerprintIconTopSpacingDp = 20;
 constexpr int kSpacingBetweenFingerprintIconAndLabelDp = 15;
@@ -114,24 +111,6 @@ constexpr int kDisabledAuthMessageRoundedCornerRadiusDp = 8;
 
 constexpr int kNonEmptyWidthDp = 1;
 
-// The color of the required online sign-in  message text.
-constexpr SkColor kSystemButtonMessageColor = SK_ColorBLACK;
-// The background color of the required online sign-in button.
-constexpr SkColor kSystemButtonBackgroundColor =
-    SkColorSetA(gfx::kGoogleRed300, SK_AlphaOPAQUE);
-
-constexpr int kUserInfoBubbleWidth = 192;
-constexpr int kUserInfoBubbleExternalPadding = 8;
-constexpr int kSystemButtonIconSize = 20;
-constexpr int kSystemButtonMarginTopBottomDp = 6;
-constexpr int kSystemButtonMarginLeftRightDp = 16;
-constexpr int kSystemButtonBorderRadius = 16;
-constexpr int kSystemButtonImageLabelSpacing = 8;
-constexpr int kSystemButtonMaxLabelWidthDp =
-    kUserInfoBubbleWidth - 2 * kUserInfoBubbleExternalPadding -
-    kSystemButtonIconSize - kSystemButtonImageLabelSpacing -
-    2 * kSystemButtonBorderRadius;
-
 // Returns an observer that will hide |view| when it fires. The observer will
 // delete itself after firing (by returning true). Make sure to call
 // |observer->SetActive()| after attaching it.
@@ -145,6 +124,29 @@ ui::CallbackLayerAnimationObserver* BuildObserverToHideView(views::View* view) {
           return true;
 
         view->SetVisible(false);
+        return true;
+      },
+      view));
+}
+
+ui::CallbackLayerAnimationObserver* BuildObserverToNotifyA11yLocationChanged(
+    views::View* view) {
+  return new ui::CallbackLayerAnimationObserver(base::BindRepeating(
+      [](views::View* view,
+         const ui::CallbackLayerAnimationObserver& observer) {
+        view->NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged,
+                                       false /*send_native_event*/);
+        return true;
+      },
+      view));
+}
+
+ui::CallbackLayerAnimationObserver* BuildObserverToNotifyA11yLocationChanged(
+    LoginPinView* view) {
+  return new ui::CallbackLayerAnimationObserver(base::BindRepeating(
+      [](LoginPinView* view,
+         const ui::CallbackLayerAnimationObserver& observer) {
+        view->NotifyAccessibilityLocationChanged();
         return true;
       },
       view));
@@ -170,69 +172,6 @@ class ClearPasswordAndHideAnimationObserver
   LoginPasswordView* const password_view_;
 
   DISALLOW_COPY_AND_ASSIGN(ClearPasswordAndHideAnimationObserver);
-};
-
-SkPath GetSystemButtonHighlightPath(const views::View* view) {
-  gfx::Rect rect(view->GetLocalBounds());
-  return SkPath().addRoundRect(gfx::RectToSkRect(rect),
-                               kSystemButtonBorderRadius,
-                               kSystemButtonBorderRadius);
-}
-
-class SystemButtonHighlightPathGenerator
-    : public views::HighlightPathGenerator {
- public:
-  SystemButtonHighlightPathGenerator() = default;
-  SystemButtonHighlightPathGenerator(
-      const SystemButtonHighlightPathGenerator&) = delete;
-  SystemButtonHighlightPathGenerator& operator=(
-      const SystemButtonHighlightPathGenerator&) = delete;
-
-  // views::HighlightPathGenerator:
-  SkPath GetHighlightPath(const views::View* view) override {
-    return GetSystemButtonHighlightPath(view);
-  }
-};
-
-class SystemButton : public views::LabelButton {
- public:
-  SystemButton(views::ButtonListener* listener, const base::string16& text)
-      : LabelButton(listener, text) {
-    SetImageLabelSpacing(kSystemButtonImageLabelSpacing);
-    label()->SetMultiLine(true);
-    label()->SetMaximumWidth(kSystemButtonMaxLabelWidthDp);
-    label()->SetFontList(
-        gfx::FontList().DeriveWithWeight(gfx::Font::Weight::MEDIUM));
-    SetPaintToLayer();
-    layer()->SetFillsBoundsOpaquely(false);
-    SetImage(views::Button::STATE_NORMAL,
-             CreateVectorIcon(kLockScreenAlertIcon, kSystemButtonMessageColor));
-    SetTextSubpixelRenderingEnabled(false);
-    SetTextColor(views::Button::STATE_NORMAL, kSystemButtonMessageColor);
-    SetTextColor(views::Button::STATE_HOVERED, kSystemButtonMessageColor);
-    SetTextColor(views::Button::STATE_PRESSED, kSystemButtonMessageColor);
-    views::HighlightPathGenerator::Install(
-        this, std::make_unique<SystemButtonHighlightPathGenerator>());
-  }
-
-  SystemButton(const SystemButton&) = delete;
-  SystemButton& operator=(const SystemButton&) = delete;
-  ~SystemButton() override = default;
-
-  // views::LabelButton:
-  void PaintButtonContents(gfx::Canvas* canvas) override {
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(kSystemButtonBackgroundColor);
-    flags.setStyle(cc::PaintFlags::kFill_Style);
-    canvas->DrawPath(GetSystemButtonHighlightPath(this), flags);
-  }
-
-  gfx::Insets GetInsets() const override {
-    return gfx::Insets(
-        kSystemButtonMarginTopBottomDp, kSystemButtonMarginLeftRightDp,
-        kSystemButtonMarginTopBottomDp, kSystemButtonMarginLeftRightDp);
-  }
 };
 
 // The label shown below the fingerprint icon.
@@ -443,7 +382,7 @@ class LoginAuthUserView::FingerprintView : public views::View {
     if (success) {
       icon_->SetImage(gfx::CreateVectorIcon(kLockScreenFingerprintSuccessIcon,
                                             kFingerprintIconSizeDp,
-                                            gfx::kGoogleGreenDark500));
+                                            gfx::kGoogleGreen300));
     } else {
       SetIcon(FingerprintState::DISABLED_FROM_ATTEMPTS);
       // base::Unretained is safe because reset_state_ is owned by |this|.
@@ -526,17 +465,20 @@ class LoginAuthUserView::ChallengeResponseView : public views::View,
         views::BoxLayout::Orientation::kVertical));
     layout->set_cross_axis_alignment(
         views::BoxLayout::CrossAxisAlignment::kCenter);
-
-    arrow_button_ = AddChildView(std::make_unique<ArrowButtonView>(
-        /*listener=*/this, kChallengeResponseArrowSizeDp));
+    auto arrow_button_view = std::make_unique<ArrowButtonView>(
+        /*listener=*/this, kChallengeResponseArrowSizeDp);
+    arrow_button_view->SetInstallFocusRingOnFocus(true);
+    views::HighlightPathGenerator::Install(
+        arrow_button_view.get(),
+        std::make_unique<views::CircleHighlightPathGenerator>());
+    arrow_button_ = AddChildView(std::move(arrow_button_view));
     arrow_button_->SetBackgroundColor(kChallengeResponseArrowBackgroundColor);
-    arrow_button_->SetFocusPainter(nullptr);
     arrow_button_->SetAccessibleName(l10n_util::GetStringUTF16(
         IDS_ASH_LOGIN_START_SMART_CARD_AUTH_BUTTON_ACCESSIBLE_NAME));
 
     arrow_to_icon_spacer_ = AddChildView(std::make_unique<NonAccessibleView>());
     arrow_to_icon_spacer_->SetPreferredSize(
-        gfx::Size(0, GetArrowToIconSpacerHeight()));
+        gfx::Size(0, kSpacingBetweenChallengeResponseArrowAndIconDp));
 
     icon_ = AddChildView(std::make_unique<views::ImageView>());
     icon_->SetImage(GetImageForIcon());
@@ -562,8 +504,9 @@ class LoginAuthUserView::ChallengeResponseView : public views::View,
   // views::ButtonListener:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override {
     if (sender == arrow_button_) {
-      DCHECK_NE(state_, State::kAuthenticating);
-      on_start_tap_.Run();
+      // Ignore further clicks while handling the previous one.
+      if (state_ != State::kAuthenticating)
+        on_start_tap_.Run();
     } else {
       NOTREACHED();
     }
@@ -578,29 +521,25 @@ class LoginAuthUserView::ChallengeResponseView : public views::View,
     if (state == State::kFailure) {
       reset_state_timer_.Start(
           FROM_HERE, kChallengeResponseResetAfterFailureDelay,
-          base::BindRepeating(&ChallengeResponseView::SetState,
-                              base::Unretained(this), State::kInitial));
+          base::BindOnce(&ChallengeResponseView::SetState,
+                         base::Unretained(this), State::kInitial));
     }
 
-    arrow_button_->SetVisible(state_ != State::kAuthenticating);
-    arrow_to_icon_spacer_->SetPreferredSize(
-        gfx::Size(0, GetArrowToIconSpacerHeight()));
+    arrow_button_->EnableLoadingAnimation(state == State::kAuthenticating);
     icon_->SetImage(GetImageForIcon());
     label_->SetText(GetTextForLabel());
+
+    if (state == State::kFailure) {
+      label_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert,
+                                       /*send_native_event=*/true);
+    }
 
     Layout();
   }
 
- private:
-  int GetArrowToIconSpacerHeight() const {
-    int spacer_height = kSpacingBetweenChallengeResponseArrowAndIconDp;
-    // During authentication, the arrow button is hidden, so the spacer should
-    // consume this space to avoid moving controls below it.
-    if (state_ == State::kAuthenticating)
-      spacer_height += kChallengeResponseArrowSizeDp;
-    return spacer_height;
-  }
+  void RequestFocus() override { arrow_button_->RequestFocus(); }
 
+ private:
   gfx::ImageSkia GetImageForIcon() const {
     switch (state_) {
       case State::kInitial:
@@ -830,8 +769,9 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
                       callbacks.on_easy_unlock_icon_hovered,
                       callbacks.on_easy_unlock_icon_tapped);
 
-  auto online_sign_in_message = std::make_unique<SystemButton>(
-      this, l10n_util::GetStringUTF16(IDS_ASH_LOGIN_SIGN_IN_REQUIRED_MESSAGE));
+  auto online_sign_in_message = std::make_unique<SystemLabelButton>(
+      this, l10n_util::GetStringUTF16(IDS_ASH_LOGIN_SIGN_IN_REQUIRED_MESSAGE),
+      SystemLabelButton::DisplayType::ALERT_WITH_ICON);
   online_sign_in_message_ = online_sign_in_message.get();
 
   auto disabled_auth_message = std::make_unique<DisabledAuthMessageView>();
@@ -1075,6 +1015,9 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
   if (force_online_sign_in)
     user_view_->RequestFocus();
 
+  if (has_challenge_response)
+    challenge_response_view_->RequestFocus();
+
   PreferredSizeChanged();
 }
 
@@ -1121,25 +1064,30 @@ void LoginAuthUserView::ApplyAnimationPostLayout() {
 
   ////////
   // Animate the user info (ie, icon, name) up or down the screen.
+  {
+    int non_pin_y_end_in_screen = GetBoundsInScreen().y();
 
-  int non_pin_y_end_in_screen = GetBoundsInScreen().y();
-
-  // Transform the layer so the user view renders where it used to be. This
-  // requires a y offset.
-  // Note: Doing this animation via ui::ScopedLayerAnimationSettings works, but
-  // it seems that the timing gets slightly out of sync with the PIN animation.
-  auto move_to_center = std::make_unique<ui::InterpolatedTranslation>(
-      gfx::PointF(0, cached_animation_state_->non_pin_y_start_in_screen -
-                         non_pin_y_end_in_screen),
-      gfx::PointF());
-  auto transition =
-      ui::LayerAnimationElement::CreateInterpolatedTransformElement(
-          std::move(move_to_center),
-          base::TimeDelta::FromMilliseconds(
-              login_constants::kChangeUserAnimationDurationMs));
-  transition->set_tween_type(gfx::Tween::Type::FAST_OUT_SLOW_IN);
-  layer()->GetAnimator()->StartAnimation(
-      new ui::LayerAnimationSequence(std::move(transition)));
+    // Transform the layer so the user view renders where it used to be. This
+    // requires a y offset.
+    // Note: Doing this animation via ui::ScopedLayerAnimationSettings works,
+    // but it seems that the timing gets slightly out of sync with the PIN
+    // animation.
+    auto move_to_center = std::make_unique<ui::InterpolatedTranslation>(
+        gfx::PointF(0, cached_animation_state_->non_pin_y_start_in_screen -
+                           non_pin_y_end_in_screen),
+        gfx::PointF());
+    auto transition =
+        ui::LayerAnimationElement::CreateInterpolatedTransformElement(
+            std::move(move_to_center),
+            base::TimeDelta::FromMilliseconds(
+                login_constants::kChangeUserAnimationDurationMs));
+    transition->set_tween_type(gfx::Tween::Type::FAST_OUT_SLOW_IN);
+    auto* sequence = new ui::LayerAnimationSequence(std::move(transition));
+    auto* observer = BuildObserverToNotifyA11yLocationChanged(this);
+    sequence->AddObserver(observer);
+    observer->SetActive();
+    layer()->GetAnimator()->StartAnimation(sequence);
+  }
 
   ////////
   // Fade the password view if it is being hidden or shown.
@@ -1201,7 +1149,9 @@ void LoginAuthUserView::ApplyAnimationPostLayout() {
       sequence->AddObserver(observer);
       observer->SetActive();
     }
-
+    auto* observer = BuildObserverToNotifyA11yLocationChanged(pin_view_);
+    sequence->AddObserver(observer);
+    observer->SetActive();
     pin_view_->layer()->GetAnimator()->ScheduleAnimation(sequence);
   }
 

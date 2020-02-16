@@ -9,8 +9,10 @@
 #include "third_party/blink/renderer/bindings/modules/v8/double_sequence_or_gpu_color_dict.h"
 #include "third_party/blink/renderer/bindings/modules/v8/unsigned_long_sequence_or_gpu_extent_3d_dict.h"
 #include "third_party/blink/renderer/bindings/modules/v8/unsigned_long_sequence_or_gpu_origin_3d_dict.h"
-#include "third_party/blink/renderer/modules/webgpu/gpu_programmable_stage_descriptor.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_programmable_stage_descriptor.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_texture_copy_view.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_shader_module.h"
+#include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
@@ -22,6 +24,9 @@ WGPUBindingType AsDawnEnum<WGPUBindingType>(const WTF::String& webgpu_enum) {
   }
   if (webgpu_enum == "storage-buffer") {
     return WGPUBindingType_StorageBuffer;
+  }
+  if (webgpu_enum == "readonly-storage-buffer") {
+    return WGPUBindingType_ReadonlyStorageBuffer;
   }
   if (webgpu_enum == "sampler") {
     return WGPUBindingType_Sampler;
@@ -216,6 +221,50 @@ WGPUTextureFormat AsDawnEnum<WGPUTextureFormat>(
   }
   if (webgpu_enum == "depth24plus-stencil8") {
     return WGPUTextureFormat_Depth24PlusStencil8;
+  }
+
+  // Block Compression (BC) formats
+  if (webgpu_enum == "bc1-rgba-unorm") {
+    return WGPUTextureFormat_BC1RGBAUnorm;
+  }
+  if (webgpu_enum == "bc1-rgba-unorm-srgb") {
+    return WGPUTextureFormat_BC1RGBAUnormSrgb;
+  }
+  if (webgpu_enum == "bc2-rgba-unorm") {
+    return WGPUTextureFormat_BC2RGBAUnorm;
+  }
+  if (webgpu_enum == "bc2-rgba-unorm-srgb") {
+    return WGPUTextureFormat_BC2RGBAUnormSrgb;
+  }
+  if (webgpu_enum == "bc3-rgba-unorm") {
+    return WGPUTextureFormat_BC3RGBAUnorm;
+  }
+  if (webgpu_enum == "bc3-rgba-unorm-srgb") {
+    return WGPUTextureFormat_BC3RGBAUnormSrgb;
+  }
+  if (webgpu_enum == "bc4-r-unorm") {
+    return WGPUTextureFormat_BC4RUnorm;
+  }
+  if (webgpu_enum == "bc4-r-snorm") {
+    return WGPUTextureFormat_BC4RSnorm;
+  }
+  if (webgpu_enum == "bc5-rg-unorm") {
+    return WGPUTextureFormat_BC5RGUnorm;
+  }
+  if (webgpu_enum == "bc5-rg-snorm") {
+    return WGPUTextureFormat_BC5RGSnorm;
+  }
+  if (webgpu_enum == "bc6h-rgb-ufloat") {
+    return WGPUTextureFormat_BC6HRGBUfloat;
+  }
+  if (webgpu_enum == "bc6h-rgb-sfloat") {
+    return WGPUTextureFormat_BC6HRGBSfloat;
+  }
+  if (webgpu_enum == "bc7-rgba-unorm") {
+    return WGPUTextureFormat_BC7RGBAUnorm;
+  }
+  if (webgpu_enum == "bc7-rgba-unorm-srgb") {
+    return WGPUTextureFormat_BC7RGBAUnormSrgb;
   }
 
   return WGPUTextureFormat_Force32;
@@ -693,6 +742,20 @@ WGPUOrigin3D AsDawnType(
   }
 
   return dawn_origin;
+}
+
+WGPUTextureCopyView AsDawnType(const GPUTextureCopyView* webgpu_view) {
+  DCHECK(webgpu_view);
+  DCHECK(webgpu_view->texture());
+
+  WGPUTextureCopyView dawn_view;
+  dawn_view.nextInChain = nullptr;
+  dawn_view.texture = webgpu_view->texture()->GetHandle();
+  dawn_view.mipLevel = webgpu_view->mipLevel();
+  dawn_view.arrayLayer = webgpu_view->arrayLayer();
+  dawn_view.origin = AsDawnType(&webgpu_view->origin());
+
+  return dawn_view;
 }
 
 OwnedProgrammableStageDescriptor AsDawnType(

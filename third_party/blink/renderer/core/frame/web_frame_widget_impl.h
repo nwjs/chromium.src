@@ -37,8 +37,8 @@
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/util/type_safety/pass_key.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/web_coalesced_input_event.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/web/web_input_method_controller.h"
 #include "third_party/blink/renderer/core/frame/web_frame_widget_base.h"
@@ -94,7 +94,7 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   std::unique_ptr<cc::BeginMainFrameMetrics> GetBeginMainFrameMetrics()
       override;
   void UpdateLifecycle(LifecycleUpdate requested_update,
-                       LifecycleUpdateReason reason) override;
+                       DocumentUpdateReason reason) override;
   void ThemeChanged() override;
   WebHitTestResult HitTestResultAt(const gfx::Point&) override;
   WebInputEventResult DispatchBufferedTouchEvents() override;
@@ -174,7 +174,7 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   void GetScrollParamsForFocusedEditableElement(
       const Element& element,
       PhysicalRect& rect_to_scroll,
-      WebScrollIntoViewParams& params);
+      mojom::blink::ScrollIntoViewParamsPtr& params);
 
   base::Optional<WebSize> size_;
 

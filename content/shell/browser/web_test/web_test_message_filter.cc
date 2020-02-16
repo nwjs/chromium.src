@@ -100,6 +100,8 @@ WebTestMessageFilter::OverrideTaskRunnerForMessage(
     case WebTestHostMsg_InitiateCaptureDump::ID:
     case WebTestHostMsg_InspectSecondaryWindow::ID:
     case WebTestHostMsg_DeleteAllCookies::ID:
+    case WebTestHostMsg_GetWritableDirectory::ID:
+    case WebTestHostMsg_SetFilePathForMockFileDialog::ID:
       return base::CreateSingleThreadTaskRunner({BrowserThread::UI});
   }
   return nullptr;
@@ -130,6 +132,10 @@ bool WebTestMessageFilter::OnMessageReceived(const IPC::Message& message) {
                         OnInitiateCaptureDump);
     IPC_MESSAGE_HANDLER(WebTestHostMsg_InspectSecondaryWindow,
                         OnInspectSecondaryWindow)
+    IPC_MESSAGE_HANDLER(WebTestHostMsg_GetWritableDirectory,
+                        OnGetWritableDirectory)
+    IPC_MESSAGE_HANDLER(WebTestHostMsg_SetFilePathForMockFileDialog,
+                        OnSetFilePathForMockFileDialog)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -235,10 +241,10 @@ void WebTestMessageFilter::OnSetPermission(
     type = PermissionType::BACKGROUND_SYNC;
   } else if (name == "accessibility-events") {
     type = PermissionType::ACCESSIBILITY_EVENTS;
-  } else if (name == "clipboard-read") {
-    type = PermissionType::CLIPBOARD_READ;
-  } else if (name == "clipboard-write") {
-    type = PermissionType::CLIPBOARD_WRITE;
+  } else if (name == "clipboard-read-write") {
+    type = PermissionType::CLIPBOARD_READ_WRITE;
+  } else if (name == "clipboard-sanitized-write") {
+    type = PermissionType::CLIPBOARD_SANITIZED_WRITE;
   } else if (name == "payment-handler") {
     type = PermissionType::PAYMENT_HANDLER;
   } else if (name == "accelerometer" || name == "gyroscope" ||
@@ -303,6 +309,18 @@ void WebTestMessageFilter::OnInspectSecondaryWindow() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (BlinkTestController::Get())
     BlinkTestController::Get()->OnInspectSecondaryWindow();
+}
+
+void WebTestMessageFilter::OnGetWritableDirectory(base::FilePath* path) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (BlinkTestController::Get())
+    *path = BlinkTestController::Get()->GetWritableDirectoryForTests();
+}
+void WebTestMessageFilter::OnSetFilePathForMockFileDialog(
+    const base::FilePath& path) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (BlinkTestController::Get())
+    BlinkTestController::Get()->SetFilePathForMockFileDialog(path);
 }
 
 }  // namespace content

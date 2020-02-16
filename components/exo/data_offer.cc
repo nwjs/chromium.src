@@ -22,7 +22,7 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/clipboard/clipboard_constants.h"
-#include "ui/base/dragdrop/file_info.h"
+#include "ui/base/dragdrop/file_info/file_info.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "url/gurl.h"
 
@@ -304,7 +304,7 @@ void DataOffer::SetDropData(FileHelper* file_helper,
 void DataOffer::SetClipboardData(FileHelper* file_helper,
                                  const ui::Clipboard& data) {
   DCHECK_EQ(0u, data_.size());
-  if (data.IsFormatAvailable(ui::ClipboardFormatType::GetPlainTextWType(),
+  if (data.IsFormatAvailable(ui::ClipboardFormatType::GetPlainTextType(),
                              ui::ClipboardBuffer::kCopyPaste)) {
     auto utf8_callback =
         base::BindRepeating(&ReadTextFromClipboard, std::string(kUTF8));

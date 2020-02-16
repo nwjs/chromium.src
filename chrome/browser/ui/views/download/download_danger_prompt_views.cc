@@ -220,7 +220,7 @@ base::string16 DownloadDangerPromptViews::GetMessageBody() const {
       case download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT: {
         if (safe_browsing::AdvancedProtectionStatusManagerFactory::
                 GetForProfile(profile_)
-                    ->RequestsAdvancedProtectionVerdicts()) {
+                    ->IsUnderAdvancedProtection()) {
           return l10n_util::GetStringFUTF16(
               IDS_PROMPT_UNCOMMON_DOWNLOAD_CONTENT_IN_ADVANCED_PROTECTION,
               download_->GetFileNameToReportUser().LossyDisplayName());
@@ -235,6 +235,7 @@ base::string16 DownloadDangerPromptViews::GetMessageBody() const {
             IDS_PROMPT_DOWNLOAD_CHANGES_SETTINGS,
             download_->GetFileNameToReportUser().LossyDisplayName());
       }
+      case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
       case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING:
       case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK:
       case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:
@@ -251,6 +252,12 @@ base::string16 DownloadDangerPromptViews::GetMessageBody() const {
       }
     }
   } else {
+    // If we're mixed content, we show that warning first.
+    if (download_->IsMixedContent()) {
+      return l10n_util::GetStringFUTF16(
+          IDS_PROMPT_CONFIRM_MIXED_CONTENT_DOWNLOAD,
+          download_->GetFileNameToReportUser().LossyDisplayName());
+    }
     switch (download_->GetDangerType()) {
       case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_URL:
       case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT:

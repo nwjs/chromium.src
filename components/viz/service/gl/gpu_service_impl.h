@@ -169,10 +169,16 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
                     const std::string& data) override;
   void WakeUpGpu() override;
   void GpuSwitched(gl::GpuPreference active_gpu_heuristic) override;
+  void DisplayAdded() override;
+  void DisplayRemoved() override;
   void DestroyAllChannels() override;
   void OnBackgroundCleanup() override;
   void OnBackgrounded() override;
   void OnForegrounded() override;
+#if !defined(OS_ANDROID)
+  void OnMemoryPressure(
+      base::MemoryPressureListener::MemoryPressureLevel level) override;
+#endif
 #if defined(OS_MACOSX)
   void BeginCATransaction() override;
   void CommitCATransaction(CommitCATransactionCallback callback) override;
@@ -240,7 +246,9 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
     return gpu_channel_manager_->sync_point_manager();
   }
 
-  base::TaskRunner* main_runner() { return main_runner_.get(); }
+  scoped_refptr<base::SingleThreadTaskRunner>& main_runner() {
+    return main_runner_;
+  }
 
   gpu::GpuWatchdogThread* watchdog_thread() { return watchdog_thread_.get(); }
 
@@ -279,8 +287,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   bool is_using_dawn() const { return false; }
   DawnContextProvider* dawn_context_provider() { return nullptr; }
 #endif
-
-  void set_oopd_enabled() { oopd_enabled_ = true; }
 
  private:
   void RecordLogMessage(int severity,
@@ -392,8 +398,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 #if defined(OS_CHROMEOS)
   scoped_refptr<arc::ProtectedBufferManager> protected_buffer_manager_;
 #endif  // defined(OS_CHROMEOS)
-
-  bool oopd_enabled_ = false;
 
   // Display compositor contexts that don't have a corresponding GPU channel.
   base::ObserverList<gpu::DisplayContext>::Unchecked display_contexts_;

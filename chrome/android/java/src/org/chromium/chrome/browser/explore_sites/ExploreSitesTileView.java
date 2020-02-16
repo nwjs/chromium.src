@@ -15,8 +15,8 @@ import android.util.AttributeSet;
 import android.view.View;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
-import org.chromium.chrome.browser.widget.tile.TileWithTextView;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
+import org.chromium.chrome.browser.suggestions.tile.TileWithTextView;
 
 /**
  * View for a category name and site tiles.

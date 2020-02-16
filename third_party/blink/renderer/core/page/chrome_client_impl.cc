@@ -39,6 +39,7 @@
 #include "build/build_config.h"
 #include "cc/animation/animation_host.h"
 #include "cc/layers/picture_layer.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/web_cursor_info.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_rect.h"
@@ -102,6 +103,7 @@
 #include "third_party/blink/renderer/platform/graphics/touch_action.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/histogram.h"
+#include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/document_resource_coordinator.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
@@ -146,6 +148,15 @@ const char* DismissalTypeToString(Document::PageDismissalType dismissal_type) {
   }
   NOTREACHED();
   return "";
+}
+
+String TruncateDialogMessage(const String& message) {
+  if (message.IsNull())
+    return g_empty_string;
+
+  // 10k ought to be enough for anyone.
+  const wtf_size_t kMaxMessageSize = 10 * 1024;
+  return message.Substring(0, kMaxMessageSize);
 }
 
 }  // namespace
@@ -199,16 +210,16 @@ void ChromeClientImpl::Focus(LocalFrame* calling_frame) {
   }
 }
 
-bool ChromeClientImpl::CanTakeFocus(WebFocusType) {
+bool ChromeClientImpl::CanTakeFocus(mojom::blink::FocusType) {
   // For now the browser can always take focus if we're not running layout
   // tests.
   return !WebTestSupport::IsRunningWebTest();
 }
 
-void ChromeClientImpl::TakeFocus(WebFocusType type) {
+void ChromeClientImpl::TakeFocus(mojom::blink::FocusType type) {
   if (!web_view_->Client())
     return;
-  if (type == kWebFocusTypeBackward)
+  if (type == mojom::blink::FocusType::kBackward)
     web_view_->Client()->FocusPrevious();
   else
     web_view_->Client()->FocusNext();
@@ -230,11 +241,6 @@ void ChromeClientImpl::FocusedElementChanged(Element* from_element,
       to_element->ShouldHaveFocusAppearance())
     focus_url = to_element->HrefURL();
   web_view_->Client()->SetKeyboardFocusURL(focus_url);
-}
-
-bool ChromeClientImpl::HadFormInteraction() const {
-  return web_view_->PageImportanceSignals() &&
-         web_view_->PageImportanceSignals()->HadFormInteraction();
 }
 
 void ChromeClientImpl::StartDragging(LocalFrame* frame,
@@ -282,10 +288,11 @@ Page* ChromeClientImpl::CreateWindowDelegate(
   return new_view->GetPage();
 }
 
-void ChromeClientImpl::DidOverscroll(const FloatSize& overscroll_delta,
-                                     const FloatSize& accumulated_overscroll,
-                                     const FloatPoint& position_in_viewport,
-                                     const FloatSize& velocity_in_viewport) {
+void ChromeClientImpl::DidOverscroll(
+    const gfx::Vector2dF& overscroll_delta,
+    const gfx::Vector2dF& accumulated_overscroll,
+    const gfx::PointF& position_in_viewport,
+    const gfx::Vector2dF& velocity_in_viewport) {
   if (!web_view_->does_composite())
     return;
 
@@ -299,7 +306,7 @@ void ChromeClientImpl::DidOverscroll(const FloatSize& overscroll_delta,
 void ChromeClientImpl::InjectGestureScrollEvent(
     LocalFrame& local_frame,
     WebGestureDevice device,
-    const WebFloatSize& delta,
+    const gfx::Vector2dF& delta,
     ScrollGranularity granularity,
     CompositorElementId scrollable_area_element_id,
     WebInputEvent::Type injected_type) {
@@ -359,9 +366,10 @@ bool ChromeClientImpl::CanOpenBeforeUnloadConfirmPanel() {
 bool ChromeClientImpl::OpenBeforeUnloadConfirmPanelDelegate(LocalFrame* frame,
                                                             bool is_reload) {
   NotifyPopupOpeningObservers();
-  WebLocalFrameImpl* webframe = WebLocalFrameImpl::FromFrame(frame);
-  return webframe->Client() &&
-         webframe->Client()->RunModalBeforeUnloadDialog(is_reload);
+  bool success = false;
+  // Synchronous mojo call.
+  frame->GetLocalFrameHostRemote().RunBeforeUnloadConfirm(is_reload, &success);
+  return success;
 }
 
 void ChromeClientImpl::CloseWindowSoon() {
@@ -372,22 +380,20 @@ void ChromeClientImpl::CloseWindowSoon() {
 bool ChromeClientImpl::OpenJavaScriptAlertDelegate(LocalFrame* frame,
                                                    const String& message) {
   NotifyPopupOpeningObservers();
-  WebLocalFrameImpl* webframe = WebLocalFrameImpl::FromFrame(frame);
-  if (webframe->Client()) {
-    webframe->Client()->RunModalAlertDialog(message);
-    return true;
-  }
-  return false;
+  // Synchronous mojo call.
+  frame->GetLocalFrameHostRemote().RunModalAlertDialog(
+      TruncateDialogMessage(message));
+  return true;
 }
 
 bool ChromeClientImpl::OpenJavaScriptConfirmDelegate(LocalFrame* frame,
                                                      const String& message) {
   NotifyPopupOpeningObservers();
-  WebLocalFrameImpl* webframe = WebLocalFrameImpl::FromFrame(frame);
-  if (webframe->Client()) {
-    return webframe->Client()->RunModalConfirmDialog(message);
-  }
-  return false;
+  bool success = false;
+  // Synchronous mojo call.
+  frame->GetLocalFrameHostRemote().RunModalConfirmDialog(
+      TruncateDialogMessage(message), &success);
+  return success;
 }
 
 bool ChromeClientImpl::OpenJavaScriptPromptDelegate(LocalFrame* frame,
@@ -395,16 +401,13 @@ bool ChromeClientImpl::OpenJavaScriptPromptDelegate(LocalFrame* frame,
                                                     const String& default_value,
                                                     String& result) {
   NotifyPopupOpeningObservers();
-  WebLocalFrameImpl* webframe = WebLocalFrameImpl::FromFrame(frame);
-  if (webframe->Client()) {
-    WebString actual_value;
-    bool ok = webframe->Client()->RunModalPromptDialog(message, default_value,
-                                                       &actual_value);
-    if (ok)
-      result = actual_value;
-    return ok;
-  }
-  return false;
+  bool success = false;
+  // Synchronous mojo call.
+  frame->GetLocalFrameHostRemote().RunModalPromptDialog(
+      TruncateDialogMessage(message),
+      default_value.IsNull() ? g_empty_string : default_value, &success,
+      &result);
+  return success;
 }
 bool ChromeClientImpl::TabsToLinks() {
   return web_view_->TabsToLinks();
@@ -475,6 +478,14 @@ float ChromeClientImpl::WindowToViewportScalar(LocalFrame* frame,
       ->Client()
       ->ConvertWindowToViewport(&viewport_rect);
   return viewport_rect.width;
+}
+
+void ChromeClientImpl::WindowToViewportRect(LocalFrame& frame,
+                                            WebFloatRect* viewport_rect) const {
+  WebLocalFrameImpl::FromFrame(frame)
+      ->LocalRootFrameWidget()
+      ->Client()
+      ->ConvertWindowToViewport(viewport_rect);
 }
 
 WebScreenInfo ChromeClientImpl::GetScreenInfo(LocalFrame& frame) const {
@@ -635,7 +646,8 @@ DateTimeChooser* ChromeClientImpl::OpenDateTimeChooser(
       external_date_time_chooser_->IsShowingDateTimeChooserUI())
     return nullptr;
 
-  external_date_time_chooser_ = ExternalDateTimeChooser::Create(picker_client);
+  external_date_time_chooser_ =
+      MakeGarbageCollected<ExternalDateTimeChooser>(picker_client);
   external_date_time_chooser_->OpenDateTimeChooser(frame, parameters);
   return external_date_time_chooser_;
 }
@@ -730,14 +742,14 @@ void ChromeClientImpl::SetCursorOverridden(bool overridden) {
   cursor_overridden_ = overridden;
 }
 
-void ChromeClientImpl::AutoscrollStart(WebFloatPoint viewport_point,
+void ChromeClientImpl::AutoscrollStart(const gfx::PointF& viewport_point,
                                        LocalFrame* local_frame) {
   if (WebFrameWidgetBase* widget =
           WebLocalFrameImpl::FromFrame(local_frame)->LocalRootFrameWidget())
     widget->Client()->AutoscrollStart(viewport_point);
 }
 
-void ChromeClientImpl::AutoscrollFling(WebFloatSize velocity,
+void ChromeClientImpl::AutoscrollFling(const gfx::Vector2dF& velocity,
                                        LocalFrame* local_frame) {
   if (WebFrameWidgetBase* widget =
           WebLocalFrameImpl::FromFrame(local_frame)->LocalRootFrameWidget())
@@ -797,8 +809,9 @@ void ChromeClientImpl::DetachCompositorAnimationTimeline(
 }
 
 void ChromeClientImpl::EnterFullscreen(LocalFrame& frame,
-                                       const FullscreenOptions* options) {
-  web_view_->EnterFullscreen(frame, options);
+                                       const FullscreenOptions* options,
+                                       bool for_cross_process_descendant) {
+  web_view_->EnterFullscreen(frame, options, for_cross_process_descendant);
 }
 
 void ChromeClientImpl::ExitFullscreen(LocalFrame& frame) {
@@ -878,7 +891,7 @@ bool ChromeClientImpl::ShouldOpenUIElementDuringPageDismissal(
     UIElementType ui_element_type,
     const String& dialog_message,
     Document::PageDismissalType dismissal_type) const {
-  // TODO(https://crbug.com/937569): Remove this in Chrome 82.
+  // TODO(https://crbug.com/937569): Remove this in Chrome 88.
   if (ui_element_type == ChromeClient::UIElementType::kPopup &&
       web_view_->Client() &&
       web_view_->Client()->AllowPopupsDuringPageUnload()) {
@@ -1183,7 +1196,9 @@ void ChromeClientImpl::DidChangeValueInTextField(
                                ? WebFeature::kFieldEditInSecureContext
                                : WebFeature::kFieldEditInNonSecureContext);
     doc.MaybeQueueSendDidEditFieldInInsecureContext();
-    web_view_->PageImportanceSignals()->SetHadFormInteraction();
+    // The resource coordinator is not available in some tests.
+    if (auto* rc = doc.GetResourceCoordinator())
+      rc->SetHadFormInteraction();
   }
 }
 
@@ -1281,6 +1296,12 @@ void ChromeClientImpl::DocumentDetached(Document& document) {
     if (it->FrameOrNull() == document.GetFrame())
       it->DisconnectClient();
   }
+}
+
+void ChromeClientImpl::SaveImageFromDataURL(LocalFrame& frame,
+                                            const String& data_url) {
+  WebLocalFrameImpl::FromFrame(frame)->Client()->SaveImageFromDataURL(
+      WebString(data_url));
 }
 
 }  // namespace blink

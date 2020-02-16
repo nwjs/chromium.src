@@ -27,8 +27,9 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.favicon.IconType;
 import org.chromium.chrome.browser.favicon.LargeIconBridge;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
 import org.chromium.ui.modelutil.PropertyModel;
 
 class RevampedContextMenuHeaderMediator implements View.OnClickListener {
@@ -51,6 +52,11 @@ class RevampedContextMenuHeaderMediator implements View.OnClickListener {
                     this::onFaviconAvailable);
         } else if (params.isVideo()) {
             setVideoIcon();
+        }
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_PERFORMANCE_INFO)
+                && params.isAnchor()) {
+            mModel.set(RevampedContextMenuHeaderProperties.URL_PERFORMANCE_CLASS,
+                    params.getPerformanceClass());
         }
     }
 

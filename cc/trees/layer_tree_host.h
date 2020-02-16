@@ -424,10 +424,6 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
     return painted_device_scale_factor_;
   }
 
-  // Clears image caches and resets the scheduling history for the content
-  // produced by this host so far.
-  void ClearCachesOnNextCommit();
-
   // If this LayerTreeHost needs a valid viz::LocalSurfaceId then commits will
   // be deferred until a valid viz::LocalSurfaceId is provided.
   void SetLocalSurfaceIdAllocationFromParent(
@@ -585,6 +581,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // Called when the compositor completed page scale animation.
   void DidCompletePageScaleAnimation();
   void ApplyScrollAndScale(ScrollAndScaleSet* info);
+  void ApplyMutatorEvents(std::unique_ptr<MutatorEvents> events);
   void RecordStartOfFrameMetrics();
   void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time);
 
@@ -602,8 +599,6 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   RenderingStatsInstrumentation* rendering_stats_instrumentation() const {
     return rendering_stats_instrumentation_.get();
   }
-
-  void SetAnimationEvents(std::unique_ptr<MutatorEvents> events);
 
   Proxy* proxy() const { return proxy_.get(); }
 

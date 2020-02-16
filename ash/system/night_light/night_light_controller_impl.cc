@@ -58,8 +58,8 @@ namespace {
 enum class AutoNightLightNotificationState {
   kClosedByUser = 0,
   kBodyClicked = 1,
-  kButtonClicked = 2,
-  kMaxValue = kButtonClicked,
+  kButtonClickedDeprecated = 2,
+  kMaxValue = kButtonClickedDeprecated,
 };
 
 // The name of the histogram reporting the state of the user's interaction with
@@ -92,14 +92,14 @@ constexpr base::TimeDelta kManualAnimationDuration =
 // The duration of the temperature change animation for
 // AnimationDurationType::kLong.
 constexpr base::TimeDelta kAutomaticAnimationDuration =
-    base::TimeDelta::FromSeconds(20);
+    base::TimeDelta::FromSeconds(60);
 
 // The color temperature animation frames per second.
-constexpr int kNightLightAnimationFrameRate = 30;
+constexpr int kNightLightAnimationFrameRate = 15;
 
 // The following are color temperatues in Kelvin.
 // The min/max are a reasonable range we can clamp the values to.
-constexpr float kMinColorTemperatureInKelvin = 5700;
+constexpr float kMinColorTemperatureInKelvin = 4500;
 constexpr float kNeutralColorTemperatureInKelvin = 6500;
 constexpr float kMaxColorTemperatureInKelvin = 7500;
 
@@ -455,8 +455,8 @@ float NightLightControllerImpl::GetNonLinearTemperature(float temperature) {
 float NightLightControllerImpl::RemapAmbientColorTemperature(
     float temperature_in_kelvin) {
   // This function maps sensor input temperatures to other values since we want
-  // to avoid extreme color temperatures (e.g: temperatures below 5700 and
-  // above 7450 are too extreme.)
+  // to avoid extreme color temperatures (e.g: temperatures below 4500 and
+  // above 7500 are too extreme.)
   // The following table was created with internal user studies.
   constexpr struct {
     int32_t input_temperature;
@@ -516,8 +516,8 @@ NightLightControllerImpl::ColorScalesFromRemappedTemperatureInKevin(
     float temperature_decrement =
         (kNeutralColorTemperatureInKelvin - temperature_in_kelvin) /
         (kNeutralColorTemperatureInKelvin - kMinColorTemperatureInKelvin);
-    green = 1.f - temperature_decrement * 0.0368f;
-    blue = 1.f - temperature_decrement * 0.0882f;
+    green = 1.f - temperature_decrement * 0.1211f;
+    blue = 1.f - temperature_decrement * 0.2749f;
   }
   return {red, green, blue};
 }
@@ -695,22 +695,15 @@ void NightLightControllerImpl::Click(
     const base::Optional<base::string16>& reply) {
   auto* shell = Shell::Get();
 
-  const bool body_clicked = !button_index.has_value();
-  if (body_clicked) {
-    // Body has been clicked.
-    SystemTrayClient* tray_client = shell->system_tray_model()->client();
-    auto* session_controller = shell->session_controller();
-    if (session_controller->ShouldEnableSettings() && tray_client)
-      tray_client->ShowDisplaySettings();
-  } else {
-    DCHECK_EQ(0, *button_index);
-    SetEnabled(false, AnimationDuration::kShort);
-  }
+  DCHECK(!button_index.has_value());
+  // Body has been clicked.
+  SystemTrayClient* tray_client = shell->system_tray_model()->client();
+  auto* session_controller = shell->session_controller();
+  if (session_controller->ShouldEnableSettings() && tray_client)
+    tray_client->ShowDisplaySettings();
 
-  UMA_HISTOGRAM_ENUMERATION(
-      kAutoNightLightNotificationStateHistogram,
-      body_clicked ? AutoNightLightNotificationState::kBodyClicked
-                   : AutoNightLightNotificationState::kButtonClicked);
+  UMA_HISTOGRAM_ENUMERATION(kAutoNightLightNotificationStateHistogram,
+                            AutoNightLightNotificationState::kBodyClicked);
 
   message_center::MessageCenter::Get()->RemoveNotification(kNotificationId,
                                                            /*by_user=*/false);
@@ -774,19 +767,15 @@ void NightLightControllerImpl::ShowAutoNightLightNotification() {
   DCHECK(!UserHasEverDismissedAutoNightLightNotification());
   DCHECK_EQ(ScheduleType::kSunsetToSunrise, GetScheduleType());
 
-  message_center::RichNotificationData data;
-  data.buttons.push_back(message_center::ButtonInfo(
-      l10n_util::GetStringUTF16(IDS_ASH_AUTO_NIGHT_LIGHT_NOTIFY_BUTTON_TEXT)));
-
   std::unique_ptr<message_center::Notification> notification =
-      ash::CreateSystemNotification(
+      CreateSystemNotification(
           message_center::NOTIFICATION_TYPE_SIMPLE, kNotificationId,
           l10n_util::GetStringUTF16(IDS_ASH_AUTO_NIGHT_LIGHT_NOTIFY_TITLE),
           l10n_util::GetStringUTF16(IDS_ASH_AUTO_NIGHT_LIGHT_NOTIFY_BODY),
           base::string16(), GURL(),
           message_center::NotifierId(
               message_center::NotifierType::SYSTEM_COMPONENT, kNotifierId),
-          data,
+          message_center::RichNotificationData{},
           base::MakeRefCounted<message_center::ThunkNotificationDelegate>(
               weak_ptr_factory_.GetWeakPtr()),
           kUnifiedMenuNightLightIcon,

@@ -28,11 +28,14 @@
 using content::WebContents;
 using security_state::SecurityLevel;
 
-LocationIconView::LocationIconView(const gfx::FontList& font_list,
-                                   Delegate* delegate)
-    : IconLabelBubbleView(font_list), delegate_(delegate) {
+LocationIconView::LocationIconView(
+    const gfx::FontList& font_list,
+    IconLabelBubbleView::Delegate* parent_delegate,
+    Delegate* delegate)
+    : IconLabelBubbleView(font_list, parent_delegate), delegate_(delegate) {
+  DCHECK(delegate_);
+
   SetID(VIEW_ID_LOCATION_ICON);
-  Update(true);
   SetUpForAnimation();
 
   // Readability is guaranteed by the omnibox theme.
@@ -45,19 +48,12 @@ gfx::Size LocationIconView::GetMinimumSize() const {
   return GetMinimumSizeForPreferredSize(GetPreferredSize());
 }
 
-bool LocationIconView::OnMousePressed(const ui::MouseEvent& event) {
-  delegate_->OnLocationIconPressed(event);
-
-  IconLabelBubbleView::OnMousePressed(event);
-  return true;
-}
-
 bool LocationIconView::OnMouseDragged(const ui::MouseEvent& event) {
   delegate_->OnLocationIconDragged(event);
   return IconLabelBubbleView::OnMouseDragged(event);
 }
 
-SkColor LocationIconView::GetTextColor() const {
+SkColor LocationIconView::GetForegroundColor() const {
   SecurityLevel security_level = SecurityLevel::NONE;
   if (!delegate_->IsEditingOrEmpty())
     security_level = delegate_->GetLocationBarModel()->GetSecurityLevel();
@@ -73,8 +69,16 @@ bool LocationIconView::ShowBubble(const ui::Event& event) {
   return delegate_->ShowPageInfoDialog();
 }
 
-SkColor LocationIconView::GetInkDropBaseColor() const {
-  return delegate_->GetLocationIconInkDropColor();
+bool LocationIconView::IsBubbleShowing() const {
+  return PageInfoBubbleView::GetShownBubbleType() !=
+         PageInfoBubbleView::BUBBLE_NONE;
+}
+
+bool LocationIconView::OnMousePressed(const ui::MouseEvent& event) {
+  delegate_->OnLocationIconPressed(event);
+
+  IconLabelBubbleView::OnMousePressed(event);
+  return true;
 }
 
 void LocationIconView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
@@ -96,9 +100,13 @@ void LocationIconView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kPopUpButton;
 }
 
-bool LocationIconView::IsBubbleShowing() const {
-  return PageInfoBubbleView::GetShownBubbleType() !=
-         PageInfoBubbleView::BUBBLE_NONE;
+void LocationIconView::AddedToWidget() {
+  Update(true);
+}
+
+void LocationIconView::OnThemeChanged() {
+  IconLabelBubbleView::OnThemeChanged();
+  UpdateIcon();
 }
 
 int LocationIconView::GetMinimumLabelTextWidth() const {
@@ -187,9 +195,6 @@ void LocationIconView::UpdateTextVisibility(bool suppress_animations) {
     AnimateIn(base::nullopt);
   else
     AnimateOut();
-
-  // The label text color may have changed.
-  OnThemeChanged();
 }
 
 void LocationIconView::UpdateIcon() {
@@ -199,17 +204,22 @@ void LocationIconView::UpdateIcon() {
   gfx::ImageSkia icon = delegate_->GetLocationIcon(
       base::BindOnce(&LocationIconView::OnIconFetched,
                      icon_fetch_weak_ptr_factory_.GetWeakPtr()));
-
-  SetImage(icon);
+  if (!icon.isNull())
+    SetImage(icon);
 }
 
 void LocationIconView::OnIconFetched(const gfx::Image& image) {
+  DCHECK(!image.IsEmpty());
   SetImage(image.AsImageSkia());
 }
 
 void LocationIconView::Update(bool suppress_animations) {
   UpdateTextVisibility(suppress_animations);
   UpdateIcon();
+
+  // The label text color may have changed in response to changes in security
+  // level.
+  UpdateLabelColors();
 
   bool is_editing_or_empty = delegate_->IsEditingOrEmpty();
   // The tooltip should be shown if we are not editing or empty.

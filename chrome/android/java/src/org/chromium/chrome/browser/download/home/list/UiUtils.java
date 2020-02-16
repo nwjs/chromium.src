@@ -12,18 +12,19 @@ import android.text.format.Formatter;
 import androidx.annotation.DrawableRes;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.MathUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.download.home.filter.Filters;
 import org.chromium.chrome.browser.download.home.list.view.CircularProgressView;
 import org.chromium.chrome.browser.download.home.list.view.CircularProgressView.UiState;
-import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.components.offline_items_collection.LegacyHelpers;
 import org.chromium.components.offline_items_collection.OfflineItem;
 import org.chromium.components.offline_items_collection.OfflineItem.Progress;
 import org.chromium.components.offline_items_collection.OfflineItemFilter;
 import org.chromium.components.offline_items_collection.OfflineItemProgressUnit;
 import org.chromium.components.offline_items_collection.OfflineItemState;
+import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 
 import java.util.Calendar;
@@ -132,7 +133,8 @@ public final class UiUtils {
     public static CharSequence generatePrefetchCaption(OfflineItem item) {
         Context context = ContextUtils.getApplicationContext();
         String displaySize = Formatter.formatFileSize(context, item.totalSizeBytes);
-        String displayUrl = UrlFormatter.formatUrlForSecurityDisplayOmitScheme(item.pageUrl);
+        String displayUrl = UrlFormatter.formatUrlForSecurityDisplay(
+                item.pageUrl, SchemeDisplay.OMIT_HTTP_AND_HTTPS);
         return context.getString(
                 R.string.download_manager_prefetch_caption, displayUrl, displaySize);
     }
@@ -144,7 +146,8 @@ public final class UiUtils {
      */
     public static CharSequence generateGenericCaption(OfflineItem item) {
         Context context = ContextUtils.getApplicationContext();
-        String displayUrl = UrlFormatter.formatUrlForSecurityDisplayOmitScheme(item.pageUrl);
+        String displayUrl = UrlFormatter.formatUrlForSecurityDisplay(
+                item.pageUrl, SchemeDisplay.OMIT_HTTP_AND_HTTPS);
 
         if (item.totalSizeBytes == 0) {
             return context.getString(
@@ -382,8 +385,8 @@ public final class UiUtils {
 
     /** @return The domain associated with the given {@link OfflineItem}. */
     public static String getDomainForItem(OfflineItem offlineItem) {
-        String formattedUrl =
-                UrlFormatter.formatUrlForSecurityDisplayOmitScheme(offlineItem.pageUrl);
+        String formattedUrl = UrlFormatter.formatUrlForSecurityDisplay(
+                offlineItem.pageUrl, SchemeDisplay.OMIT_HTTP_AND_HTTPS);
         return formattedUrl;
     }
 }

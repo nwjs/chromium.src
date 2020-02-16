@@ -211,14 +211,20 @@ Display CreateDisplayFromDisplayInfo(const DisplayInfo& display_info,
   display.set_display_frequency(display_info.display_frequency());
   if (!Display::HasForceDisplayColorProfile()) {
     if (hdr_enabled) {
-      // Using RGBA F16 backbuffers required by SCRGB linear causes stuttering
-      // on Windows RS3, but RGB10A2 with HDR10 color space works fine.
-      gfx::ColorSpace hdr_color_space =
-          base::win::GetVersion() > base::win::Version::WIN10_RS3
-              ? gfx::ColorSpace::CreateSCRGBLinear()
-              : gfx::ColorSpace::CreateHDR10();
-      display.SetColorSpaceAndDepth(hdr_color_space,
-                                    display_info.sdr_white_level());
+      gfx::DisplayColorSpaces color_spaces;
+      // This will map to DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, with
+      // sRGB's (1,1,1) mapping to the specified number of nits.
+      color_spaces.hdr_opaque =
+          gfx::ColorSpace::CreateHDR10(display_info.sdr_white_level());
+      // This will map to DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709. In that
+      // space, the brightness of (1,1,1) is 80 nits. That's where the magic
+      // constant of 80 comes in.
+      color_spaces.hdr_transparent = gfx::ColorSpace::CreateSCRGBLinear(
+          80.f / display_info.sdr_white_level());
+      color_spaces.sdr_white_level = display_info.sdr_white_level();
+      display.set_color_spaces(color_spaces);
+      display.set_color_depth(Display::kHDR10BitsPerPixel);
+      display.set_depth_per_component(Display::kHDR10BitsPerComponent);
     } else {
       display.SetColorSpaceAndDepth(
           color_profile_reader->GetDisplayColorSpace(display_info.id()));

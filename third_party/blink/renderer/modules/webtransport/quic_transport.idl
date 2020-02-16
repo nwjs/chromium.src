@@ -5,16 +5,27 @@
 // https://wicg.github.io/web-transport/#quic-transport
 [
     ActiveScriptWrappable,
-    Constructor(USVString url),
     Exposed=(Window,Worker),
-    RuntimeEnabled=QuicTransport,
-    ConstructorCallWith=ScriptState,
-    RaisesException=Constructor
+    RuntimeEnabled=QuicTransport
 ] interface QuicTransport {
+  [CallWith=ScriptState, RaisesException] constructor(USVString url);
   // QuicTransport is the first, and at this moment only, transport which is
   // implemented. In the (draft) spec there are many mix-in interfaces which
   // QuicTransport includes, but we define all their methods/attributes here
   // for simplicity.
 
-  void close(optional WebTransportCloseInfo closeInfo);
+  // From UnidirectionalStreamsTransport
+  // TODO(ricea): Change this to Promise<SendStream> once the IDL compiler is
+  // fixed. See https://crbug.com/1047113.
+  [CallWith=ScriptState, RaisesException] Promise<any>
+      createSendStream();
+
+  // From DatagramTransport mixin
+  WritableStream sendDatagrams();
+  ReadableStream receiveDatagrams();
+
+  // From WebTransport mixin
+  void close(optional WebTransportCloseInfo closeInfo = {});
+  readonly attribute Promise<void> ready;
+  readonly attribute Promise<WebTransportCloseInfo> closed;
 };

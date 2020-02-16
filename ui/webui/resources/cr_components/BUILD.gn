@@ -18,6 +18,10 @@ group("closure_compile") {
 
 group("polymer3_elements") {
   deps = [
+    "certificate_manager:polymer3_elements",
     "managed_footnote:managed_footnote_module",
   ]
+  if (is_chromeos) {
+    deps += [ "chromeos:polymer3_elements" ]
+  }
 }

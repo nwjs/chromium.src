@@ -738,7 +738,7 @@ bool XMLHttpRequest::InitSend(ExceptionState& exception_state) {
   if (!async_) {
     if (GetExecutionContext()->IsDocument() &&
         !GetDocument()->IsFeatureEnabled(
-            mojom::FeaturePolicyFeature::kSyncXHR,
+            mojom::blink::FeaturePolicyFeature::kSyncXHR,
             ReportOptions::kReportOnFailure,
             "Synchronous requests are disabled by Feature Policy.")) {
       HandleNetworkError();
@@ -818,9 +818,9 @@ void XMLHttpRequest::send(Document* document, ExceptionState& exception_state) {
   scoped_refptr<EncodedFormData> http_body;
 
   if (AreMethodAndURLValidForSend()) {
-    if (document->IsHTMLDocument())
+    if (IsA<HTMLDocument>(document))
       UpdateContentTypeAndCharset("text/html;charset=UTF-8", "UTF-8");
-    else if (document->IsXMLDocument())
+    else if (IsA<XMLDocument>(document))
       UpdateContentTypeAndCharset("application/xml;charset=UTF-8", "UTF-8");
 
     String body = CreateMarkup(document);
@@ -871,7 +871,7 @@ void XMLHttpRequest::send(Blob* body, ExceptionState& exception_state) {
     if (body->HasBackingFile()) {
       auto* file = To<File>(body);
       if (!file->GetPath().IsEmpty())
-        http_body->AppendFile(file->GetPath());
+        http_body->AppendFile(file->GetPath(), file->LastModifiedTime());
       else
         NOTREACHED();
     } else {
@@ -1481,7 +1481,7 @@ String XMLHttpRequest::getAllResponseHeaders() const {
 
   StringBuilder string_builder;
 
-  WebHTTPHeaderSet access_control_expose_header_set =
+  HTTPHeaderSet access_control_expose_header_set =
       cors::ExtractCorsExposedHeaderNamesList(
           with_credentials_ ? network::mojom::CredentialsMode::kInclude
                             : network::mojom::CredentialsMode::kSameOrigin,
@@ -1545,7 +1545,7 @@ const AtomicString& XMLHttpRequest::getResponseHeader(
     return g_null_atom;
   }
 
-  WebHTTPHeaderSet access_control_expose_header_set =
+  HTTPHeaderSet access_control_expose_header_set =
       cors::ExtractCorsExposedHeaderNamesList(
           with_credentials_ ? network::mojom::CredentialsMode::kInclude
                             : network::mojom::CredentialsMode::kSameOrigin,

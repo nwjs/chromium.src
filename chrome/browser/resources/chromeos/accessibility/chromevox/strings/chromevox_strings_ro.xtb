@@ -385,7 +385,6 @@ Dacă ai terminat tutorialul, folosește ChromeVox pentru a naviga la butonul Î
 <translation id="3646890046000188562">{COUNT,plural, =1{ghilimea simplă}few{# ghilimele simple}other{# de ghilimele simple}}</translation>
 <translation id="3650317109285159359">casetă de selectare element meniu</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dolar}few{# semne dolar}other{# de semne dolar}}</translation>
-<translation id="3658742229777143148">Versiune</translation>
 <translation id="3659787053479271466">alertă</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, casetă listă</translation>
 <translation id="3681531118904532409">Roz deschis</translation>
@@ -420,6 +419,7 @@ Dacă ai terminat tutorialul, folosește ChromeVox pentru a naviga la butonul Î
 <translation id="3914732343065571127">Referințe pentru comenzile ChromeVox</translation>
 <translation id="3930383913623796990">Verde primăvăratic</translation>
 <translation id="3930498801443296724">Citat</translation>
+<translation id="3935615366277838204">Majusculă <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Îmbujorare de lavandă</translation>
 <translation id="3941269780691800708">Rostește textul de sub cursor.</translation>
 <translation id="394953087167197343">Marchează ortografia greșită:</translation>
@@ -793,7 +793,6 @@ Dacă ai terminat tutorialul, folosește ChromeVox pentru a naviga la butonul Î
 <translation id="6459511626086141404">Hartă taste plată</translation>
 <translation id="6468049171101508116">Butonul următor</translation>
 <translation id="646954774886932461">Index</translation>
-<translation id="6479792383819319132">Nu există un paragraf următor.</translation>
 <translation id="6493991254603208962">reduce luminozitatea</translation>
 <translation id="6501595918865591267">Turcoaz</translation>
 <translation id="6508059270146105198">Deplasează afișajul Braille în partea de jos a paginii</translation>
@@ -816,7 +815,6 @@ Dacă ai terminat tutorialul, folosește ChromeVox pentru a naviga la butonul Î
 <translation id="6637586476836377253">jurnal</translation>
 <translation id="6657128831881431364">Bara de progres</translation>
 <translation id="6659594942844771486">Filă</translation>
-<translation id="6675661017770918201">Nu există un paragraf anterior.</translation>
 <translation id="667999046851023355">Document</translation>
 <translation id="6688209025607531203">O alertă în fereastră non-modală</translation>
 <translation id="6689672606256159458">Roz portocaliu închis</translation>
@@ -845,6 +843,7 @@ Dacă ai terminat tutorialul, folosește ChromeVox pentru a naviga la butonul Î
 <translation id="6865519907510167493">Scris greșit</translation>
 <translation id="6871161210040114857">Se ignoră scrierea cu minuscule/majuscule.</translation>
 <translation id="6877435256196695200">Nu există un grafic următor.</translation>
+<translation id="688976158310523235">Meniu de căutare</translation>
 <translation id="6897341342232909480">Deplasează spre stânga</translation>
 <translation id="6901540140423170855">dată</translation>
 <translation id="6910211073230771657">Șters</translation>
@@ -857,6 +856,7 @@ Dacă ai terminat tutorialul, folosește ChromeVox pentru a naviga la butonul Î
 <translation id="699159175332639490">Căutare + O + W</translation>
 <translation id="6994042831499278539">Trimitere la glosar</translation>
 <translation id="6996566555547746822">Caseta combo următoare</translation>
+<translation id="6997224546856374593">Când se citesc majuscule:</translation>
 <translation id="700202842116345659">Intrare bibliografică</translation>
 <translation id="7005146664810010831">Nu a fost găsită nicio adresă URL.</translation>
 <translation id="7010712454773919705">Tasta de modificare ChromeVox</translation>
@@ -937,6 +937,7 @@ Pentru a deschide meniul browserului Chrome, apasă pe Alt + F.</translation>
 <translation id="744163271241493234">parolă</translation>
 <translation id="7491962110804786152">filă</translation>
 <translation id="7492049978501397201">Ați intrat în caseta de dialog</translation>
+<translation id="7505149250476994901">Rostește „majusculă” înaintea literei</translation>
 <translation id="7518543783849163354">Pentru a opri temporar feedbackul rostit din ChromeVox, apasă pe tasta Ctrl.</translation>
 <translation id="7521682724501952239">Puteți folosi ChromeVox cu ecranul tactil.</translation>
 <translation id="7532613204005497612">Iunie</translation>
@@ -1104,7 +1105,6 @@ Pentru a deschide meniul browserului Chrome, apasă pe Alt + F.</translation>
 <translation id="812886159861361726">Descărcarea fișierului <ph name="FILE_NAME" /> s-a oprit</translation>
 <translation id="8138880386467279117">Tactil</translation>
 <translation id="8153880621934657047">Nu vă aflați în interiorul tabelului.</translation>
-<translation id="8161114871611868169">Secțiunea de comentarii</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{caracter de subliniere}few{# caractere de subliniere}other{# de caractere de subliniere}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">rând</translation>
@@ -1125,6 +1125,7 @@ Pentru a deschide meniul browserului Chrome, apasă pe Alt + F.</translation>
 <translation id="8313653172105209786">director</translation>
 <translation id="8316881042119029234">Dantelă veche</translation>
 <translation id="8326783648485765113">Verde gazon</translation>
+<translation id="8328063869313048659">Activează/dezactivează ecranul întunecat</translation>
 <translation id="8344569602005188545">ore</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{liră}few{# semne liră}other{# de semne de liră}}</translation>
 <translation id="8374154622594089836">lună</translation>
@@ -1209,6 +1210,7 @@ Pentru a deschide meniul browserului Chrome, apasă pe Alt + F.</translation>
 <translation id="9065283790526219006">+fereastră pop-up</translation>
 <translation id="9066023754636984703">Apasă tasta de căutare + A, J pentru a accesa detaliile.</translation>
 <translation id="9067522039955793016">Sfârșit de pagină</translation>
+<translation id="9074824103975499138">Caută în meniurile ChromeVox</translation>
 <translation id="9077213568694924680">eliminate din selecție</translation>
 <translation id="9077305471618729969">Verde ca marea deschis</translation>
 <translation id="9082874451376019682">Nu există un glisor anterior.</translation>

@@ -1045,7 +1045,9 @@ void RasterImplementation::CopySubTexture(const gpu::Mailbox& source_mailbox,
                                           GLint x,
                                           GLint y,
                                           GLsizei width,
-                                          GLsizei height) {
+                                          GLsizei height,
+                                          GLboolean unpack_flip_y,
+                                          GLboolean unpack_premultiply_alpha) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
   GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glCopySubTexture("
                      << source_mailbox.ToDebugString() << ", "
@@ -1065,7 +1067,8 @@ void RasterImplementation::CopySubTexture(const gpu::Mailbox& source_mailbox,
   memcpy(mailboxes + sizeof(source_mailbox.name), dest_mailbox.name,
          sizeof(dest_mailbox.name));
   helper_->CopySubTextureINTERNALImmediate(xoffset, yoffset, x, y, width,
-                                           height, mailboxes);
+                                           height, unpack_flip_y,
+                                           unpack_premultiply_alpha, mailboxes);
   CheckGLError();
 }
 
@@ -1142,8 +1145,7 @@ void RasterImplementation::RasterCHROMIUM(const cc::DisplayItemList* list,
       GetOrCreatePaintCache(), font_manager_.strike_server(),
       raster_properties_->color_space, raster_properties_->can_use_lcd_text,
       capabilities().context_supports_distance_field_text,
-      capabilities().max_texture_size,
-      capabilities().glyph_cache_max_texture_bytes);
+      capabilities().max_texture_size);
   serializer.Serialize(&list->paint_op_buffer_, &temp_raster_offsets_,
                        preamble);
   // TODO(piman): raise error if !serializer.valid()?

@@ -7,7 +7,7 @@
 
 #include "chrome/browser/chromeos/input_method/input_method_engine.h"
 
-#include "chromeos/services/ime/public/mojom/input_engine.mojom.h"
+#include "chromeos/services/ime/public/mojom/input_engine.mojom-forward.h"
 #include "mojo/public/cpp/bindings/remote.h"
 
 namespace chromeos {
@@ -99,7 +99,16 @@ class NativeInputMethodEngine : public InputMethodEngine {
    private:
     // Called when this is connected to the input engine. |bound| indicates
     // the success of the connection.
-    void OnConnected(bool bound);
+    void OnConnected(base::Time start, bool bound);
+
+    // Called when there's a connection error.
+    void OnError(base::Time start);
+
+    // Called when a key press is processed by Mojo.
+    void OnKeyEventResponse(
+        base::Time start,
+        ui::IMEEngineHandlerInterface::KeyEventDoneCallback callback,
+        ime::mojom::KeypressResponseForRulebasedPtr response);
 
     std::unique_ptr<InputMethodEngineBase::Observer> base_observer_;
     mojo::Remote<ime::mojom::InputEngineManager> remote_manager_;

@@ -88,6 +88,8 @@ jumbo_static_library("browser") {
     "data_model/contact_info.h",
     "data_model/credit_card.cc",
     "data_model/credit_card.h",
+    "data_model/credit_card_cloud_token_data.cc",
+    "data_model/credit_card_cloud_token_data.h",
     "data_model/data_model_utils.cc",
     "data_model/data_model_utils.h",
     "data_model/form_group.cc",
@@ -195,8 +197,6 @@ jumbo_static_library("browser") {
     "payments/strike_database_integrator_base.h",
     "payments/strike_database_integrator_test_strike_database.cc",
     "payments/strike_database_integrator_test_strike_database.h",
-    "payments/upi_vpa_save_manager.cc",
-    "payments/upi_vpa_save_manager.h",
     "payments/webauthn_callback_types.h",
     "personal_data_manager.cc",
     "personal_data_manager.h",
@@ -205,6 +205,7 @@ jumbo_static_library("browser") {
     "randomized_encoder.h",
     "rationalization_util.cc",
     "rationalization_util.h",
+    "sms_client.h",
     "sync_utils.h",
     "ui/accessory_sheet_data.cc",
     "ui/accessory_sheet_data.h",
@@ -391,6 +392,10 @@ jumbo_static_library("browser") {
   }
 
   if (!is_android && !is_ios) {
+    sources += [
+      "payments/upi_vpa_save_manager.cc",
+      "payments/upi_vpa_save_manager.h",
+    ]
     deps += [
       "//ui/native_theme",
       "//ui/native_theme:native_theme_browser",
@@ -413,6 +418,8 @@ jumbo_static_library("test_support") {
     "logging/stub_log_manager.h",
     "mock_autocomplete_history_manager.cc",
     "mock_autocomplete_history_manager.h",
+    "mock_sms_client.cc",
+    "mock_sms_client.h",
     "payments/test_authentication_requester.cc",
     "payments/test_authentication_requester.h",
     "payments/test_credit_card_save_manager.cc",
@@ -464,9 +471,7 @@ jumbo_static_library("test_support") {
     "webdata/mock_autofill_webdata_backend.h",
   ]
 
-  public_deps = [
-    ":browser",
-  ]
+  public_deps = [ ":browser" ]
 
   deps = [
     ":autofill_address_rewriter_resources",
@@ -523,10 +528,8 @@ bundle_data("unit_tests_bundle_data") {
     "//components/test/data/autofill/merge/output/singlemerge.out",
     "//components/test/data/autofill/merge/output/validation.out",
   ]
-  outputs = [
-    "{{bundle_resources_dir}}/" +
-        "{{source_root_relative_dir}}/{{source_file_part}}",
-  ]
+  outputs = [ "{{bundle_resources_dir}}/" +
+              "{{source_root_relative_dir}}/{{source_file_part}}" ]
 }
 
 source_set("unit_tests") {
@@ -692,9 +695,7 @@ source_set("unit_tests") {
 }
 
 fuzzer_test("form_structure_fuzzer") {
-  sources = [
-    "form_structure_fuzzer.cc",
-  ]
+  sources = [ "form_structure_fuzzer.cc" ]
   deps = [
     # TODO(crbug.com/896313): Reduce the dependency on "browser".
     ":browser",
@@ -707,9 +708,7 @@ fuzzer_test("form_structure_fuzzer") {
 
 if (use_libfuzzer) {
   fuzzer_test("form_structure_process_query_response_fuzzer") {
-    sources = [
-      "form_structure_process_query_response_fuzzer.cc",
-    ]
+    sources = [ "form_structure_process_query_response_fuzzer.cc" ]
     deps = [
       # TODO(crbug.com/896313): Reduce the dependency on "browser".
       ":browser",
@@ -722,9 +721,7 @@ if (use_libfuzzer) {
 }
 
 fuzzer_test("autofill_phone_number_i18n_fuzzer") {
-  sources = [
-    "geo/phone_number_i18n_fuzzer.cc",
-  ]
+  sources = [ "geo/phone_number_i18n_fuzzer.cc" ]
 
   deps = [
     # TODO(crbug.com/896313): Reduce the dependency on "browser".

@@ -136,7 +136,7 @@ void AutofillPopupBaseView::OnWidgetBoundsChanged(views::Widget* widget,
   if (widget != parent_widget_)
     return;
 
-  HideController();
+  HideController(PopupHidingReason::kWidgetChanged);
 }
 
 void AutofillPopupBaseView::OnWidgetDestroying(views::Widget* widget) {
@@ -154,7 +154,7 @@ void AutofillPopupBaseView::OnWidgetDestroying(views::Widget* widget) {
   // destruction (e.g., by attempting to remove observers).
   parent_widget_ = nullptr;
 
-  HideController();
+  HideController(PopupHidingReason::kWidgetChanged);
 }
 
 void AutofillPopupBaseView::RemoveWidgetObservers() {
@@ -194,7 +194,7 @@ void AutofillPopupBaseView::DoUpdateBoundsAndRedrawPopup() {
 
 void AutofillPopupBaseView::OnNativeFocusChanged(gfx::NativeView focused_now) {
   if (GetWidget() && GetWidget()->GetNativeView() != focused_now)
-    HideController();
+    HideController(PopupHidingReason::kFocusChanged);
 }
 
 void AutofillPopupBaseView::OnMouseCaptureLost() {
@@ -257,33 +257,6 @@ void AutofillPopupBaseView::OnMouseReleased(const ui::MouseEvent& event) {
     AcceptSelection(event.location());
 }
 
-void AutofillPopupBaseView::OnGestureEvent(ui::GestureEvent* event) {
-  switch (event->type()) {
-    case ui::ET_GESTURE_TAP_DOWN:
-    case ui::ET_GESTURE_SCROLL_BEGIN:
-    case ui::ET_GESTURE_SCROLL_UPDATE:
-      if (HitTestPoint(event->location()))
-        SetSelection(event->location());
-      else
-        ClearSelection();
-      break;
-    case ui::ET_GESTURE_TAP:
-    case ui::ET_GESTURE_SCROLL_END:
-      if (HitTestPoint(event->location()))
-        AcceptSelection(event->location());
-      else
-        ClearSelection();
-      break;
-    case ui::ET_GESTURE_TAP_CANCEL:
-    case ui::ET_SCROLL_FLING_START:
-      ClearSelection();
-      break;
-    default:
-      return;
-  }
-  event->SetHandled();
-}
-
 void AutofillPopupBaseView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // TODO(aleventhal) The correct role spec-wise to use here is kMenu, however
   // as of NVDA 2018.2.1, firing a menu event with kMenu breaks left/right
@@ -313,9 +286,9 @@ void AutofillPopupBaseView::ClearSelection() {
     delegate_->SelectionCleared();
 }
 
-void AutofillPopupBaseView::HideController() {
+void AutofillPopupBaseView::HideController(PopupHidingReason reason) {
   if (delegate_)
-    delegate_->Hide();
+    delegate_->Hide(reason);
   // This will eventually result in the deletion of |this|, as the delegate
   // will hide |this|. See |DoHide| above for an explanation on why the precise
   // timing of that deletion is tricky.

@@ -280,12 +280,11 @@ class WprUpdater(object):
 
 
     args.extend([
-      '--output-format=html', '--show-stdout',
-      '--reset-results', '--story-filter={story}',
-      '--browser-logging-verbosity=verbose',
-      '--pageset-repeat=%s' % self.repeat,
-      '--output-dir', self.output_dir,
-      '--also-run-disabled-tests'])
+        '--output-format=html', '--show-stdout', '--reset-results',
+        '--story-filter={story}', '--browser-logging-verbosity=verbose',
+        '--pageset-repeat=%s' % self.repeat, '--output-dir', self.output_dir,
+        '--also-run-disabled-tests', '--legacy-json-trace-format'
+    ])
     if live:
       args.append('--use-live-sites')
     out_file = self._CheckLog(args, log_name=log_name)
@@ -347,8 +346,7 @@ class WprUpdater(object):
     """Creates, starts a Pinpoint job and returns its URL."""
     try:
       resp = pinpoint_service.NewJob(
-          start_git_hash='HEAD',
-          end_git_hash='HEAD',
+          base_git_hash='HEAD',
           target='performance_test_suite',
           patch=self._GetBranchIssueUrl(),
           bug_id=self.bug_id or '',
@@ -453,7 +451,7 @@ class WprUpdater(object):
       if self._IsDesktop():
         configs = ['linux-perf', 'win-10-perf', 'mac-10_12_laptop_low_end-perf']
       else:
-        configs = ['android-nexus5x-perf']
+        configs = ['android-pixel2-perf']
     for config in configs:
       job_url = self._StartPinpointJob(config)
       if not job_url:

@@ -51,7 +51,7 @@ class KeyboardNode extends NodeWrapper {
     if (action !== SAConstants.MenuAction.SELECT) {
       return false;
     }
-    let keyLocation = this.location;
+    const keyLocation = this.location;
     if (!keyLocation) {
       return false;
     }
@@ -75,7 +75,7 @@ class KeyboardNode extends NodeWrapper {
     const childConstructor = (node) => new KeyboardNode(node, root);
 
     /** @type {!Array<!chrome.automation.AutomationNode>} */
-    let interestingChildren = RootNodeWrapper.getInterestingChildren(root);
+    const interestingChildren = RootNodeWrapper.getInterestingChildren(root);
     let children = interestingChildren.map(childConstructor);
     if (interestingChildren.length > SAConstants.KEYBOARD_MAX_ROW_LENGTH) {
       children = GroupNode.separateByRow(children);
@@ -106,15 +106,6 @@ class KeyboardRootNode extends RootNodeWrapper {
     chrome.accessibilityPrivate.setVirtualKeyboardVisible(false);
   }
 
-  // ================= Private methods =================
-
-  /**
-   * Custom logic when entering the node.
-   */
-  onEnter_() {
-    chrome.accessibilityPrivate.setVirtualKeyboardVisible(true);
-  }
-
   // ================= Static methods =================
 
   /**
@@ -123,6 +114,8 @@ class KeyboardRootNode extends RootNodeWrapper {
    * @return {!KeyboardRootNode}
    */
   static buildTree(desktop) {
+    KeyboardRootNode.loadKeyboard_();
+
     const keyboardContainer =
         desktop.find({role: chrome.automation.RoleType.KEYBOARD});
     const keyboard =
@@ -134,8 +127,15 @@ class KeyboardRootNode extends RootNodeWrapper {
             .node;
 
     const root = new KeyboardRootNode(keyboard);
-    root.onEnter_();
     KeyboardNode.findAndSetChildren(root);
     return root;
+  }
+
+  /**
+   * Loads the keyboard.
+   * @private
+   */
+  static loadKeyboard_() {
+    chrome.accessibilityPrivate.setVirtualKeyboardVisible(true);
   }
 }

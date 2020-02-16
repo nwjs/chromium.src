@@ -19,12 +19,12 @@
 #include "mojo/public/cpp/bindings/remote_set.h"
 #include "mojo/public/cpp/bindings/shared_remote.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
-#include "services/network/public/mojom/url_loader_factory.mojom.h"
-#include "third_party/blink/public/mojom/blob/blob_registry.mojom.h"
+#include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/mojom/blob/blob_registry.mojom-forward.h"
 #include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_container.mojom.h"
-#include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom-forward.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/mojom/timing/worker_timing_container.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/subresource_loader_updater.mojom.h"
@@ -116,7 +116,7 @@ class CONTENT_EXPORT WebWorkerFetchContextImpl
       const override;
   void SetIsOnSubframe(bool) override;
   bool IsOnSubframe() const override;
-  blink::WebURL SiteForCookies() const override;
+  net::SiteForCookies SiteForCookies() const override;
   base::Optional<blink::WebSecurityOrigin> TopFrameOrigin() const override;
   void DidRunContentWithCertificateErrors() override;
   void DidDisplayContentWithCertificateErrors() override;
@@ -131,6 +131,7 @@ class CONTENT_EXPORT WebWorkerFetchContextImpl
       scoped_refptr<base::SingleThreadTaskRunner> task_runner) override;
   mojo::ScopedMessagePipeHandle TakePendingWorkerTimingReceiver(
       int request_id) override;
+  void SetIsOfflineMode(bool is_offline_mode) override;
 
   // blink::mojom::ServiceWorkerWorkerClient implementation:
   void OnControllerChanged(blink::mojom::ControllerServiceWorkerMode) override;
@@ -158,7 +159,7 @@ class CONTENT_EXPORT WebWorkerFetchContextImpl
   void set_ancestor_frame_id(int id);
   void set_frame_request_blocker(
       scoped_refptr<FrameRequestBlocker> frame_request_blocker);
-  void set_site_for_cookies(const blink::WebURL& site_for_cookies);
+  void set_site_for_cookies(const net::SiteForCookies& site_for_cookies);
   void set_top_frame_origin(const blink::WebSecurityOrigin& top_frame_origin);
 
   // Sets whether the worker context is a secure context.
@@ -331,7 +332,7 @@ class CONTENT_EXPORT WebWorkerFetchContextImpl
   // which blocks requests from this worker too when the ancestor frame is
   // blocked.
   scoped_refptr<FrameRequestBlocker> frame_request_blocker_;
-  GURL site_for_cookies_;
+  net::SiteForCookies site_for_cookies_;
   base::Optional<url::Origin> top_frame_origin_;
   GURL origin_url_;
 

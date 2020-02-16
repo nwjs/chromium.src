@@ -25,13 +25,12 @@ class WebState;
     : ChromeCoordinator <LogoAnimationControllerOwnerOwner>
 
 // Initializes this Coordinator with its |browserState|.
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
     NS_UNAVAILABLE;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                              browserState:
-                                  (ios::ChromeBrowserState*)browserState
+                              browserState:(ChromeBrowserState*)browserState
     NS_UNAVAILABLE;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser NS_UNAVAILABLE;
@@ -59,7 +58,7 @@ class WebState;
 
 // Exposes content inset of contentSuggestions collectionView to ensure all of
 // content is visible under the bottom toolbar.
-@property(nonatomic) UIEdgeInsets contentInset;
+@property(nonatomic, readonly) UIEdgeInsets contentInset;
 
 // Animates the NTP fakebox to the focused position and focuses the real
 // omnibox.

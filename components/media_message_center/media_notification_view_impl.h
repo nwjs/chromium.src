@@ -85,6 +85,7 @@ class COMPONENT_EXPORT(MEDIA_MESSAGE_CENTER) MediaNotificationViewImpl
   const views::Label* artist_label_for_testing() const { return artist_label_; }
 
   views::Button* GetHeaderRowForTesting() const;
+  base::string16 GetSourceTitleForTesting() const;
 
  private:
   friend class MediaNotificationViewImplTest;
@@ -140,7 +141,9 @@ class COMPONENT_EXPORT(MEDIA_MESSAGE_CENTER) MediaNotificationViewImpl
   // Container views directly attached to this view.
   message_center::NotificationHeaderView* header_row_ = nullptr;
   views::View* button_row_ = nullptr;
+  views::View* pip_button_separator_view_ = nullptr;
   views::ToggleImageButton* play_pause_button_ = nullptr;
+  views::ToggleImageButton* picture_in_picture_button_ = nullptr;
   views::View* title_artist_row_ = nullptr;
   views::Label* title_label_ = nullptr;
   views::Label* artist_label_ = nullptr;

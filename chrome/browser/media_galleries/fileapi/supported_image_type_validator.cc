@@ -18,7 +18,7 @@
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
 #include "base/threading/scoped_blocking_call.h"
-#include "chrome/browser/image_decoder.h"
+#include "chrome/browser/image_decoder/image_decoder.h"
 #include "content/public/browser/browser_thread.h"
 
 using content::BrowserThread;
@@ -110,9 +110,9 @@ void SupportedImageTypeValidator::StartPreWriteValidation(
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE},
-      base::Bind(&ReadOnFileThread, path_),
-      base::Bind(&SupportedImageTypeValidator::OnFileOpen,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(&ReadOnFileThread, path_),
+      base::BindOnce(&SupportedImageTypeValidator::OnFileOpen,
+                     weak_factory_.GetWeakPtr()));
 }
 
 SupportedImageTypeValidator::SupportedImageTypeValidator(

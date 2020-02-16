@@ -84,6 +84,10 @@ class WebRuntimeFeatures {
   BLINK_PLATFORM_EXPORT static void EnableAutomaticLazyFrameLoading(bool);
   BLINK_PLATFORM_EXPORT static void EnableAutomaticLazyImageLoading(bool);
   BLINK_PLATFORM_EXPORT static void EnableBackgroundFetch(bool);
+  BLINK_PLATFORM_EXPORT static void EnableBrowserVerifiedUserActivationKeyboard(
+      bool);
+  BLINK_PLATFORM_EXPORT static void EnableBrowserVerifiedUserActivationMouse(
+      bool);
   BLINK_PLATFORM_EXPORT static void EnableBlockingFocusWithoutUserActivation(
       bool);
   BLINK_PLATFORM_EXPORT static void EnableCacheInlineScriptCode(bool);
@@ -107,7 +111,6 @@ class WebRuntimeFeatures {
   BLINK_PLATFORM_EXPORT static void EnableFileSystem(bool);
   BLINK_PLATFORM_EXPORT static void EnableForceSynchronousHTMLParsing(bool);
   BLINK_PLATFORM_EXPORT static void EnableForceTallerSelectPopup(bool);
-  BLINK_PLATFORM_EXPORT static void EnableFormControlsRefresh(bool);
   BLINK_PLATFORM_EXPORT static void EnableGenericSensorExtraClasses(bool);
   BLINK_PLATFORM_EXPORT static void EnableImplicitRootScroller(bool);
   BLINK_PLATFORM_EXPORT static void EnableCSSOMViewScrollCoordinates(bool);
@@ -189,11 +192,8 @@ class WebRuntimeFeatures {
   BLINK_PLATFORM_EXPORT static void EnableWebUsb(bool);
   BLINK_PLATFORM_EXPORT static void EnableWebXR(bool);
   BLINK_PLATFORM_EXPORT static void EnableWebXRARModule(bool);
-  BLINK_PLATFORM_EXPORT static void EnableWebXRARDOMOverlay(bool);
-  BLINK_PLATFORM_EXPORT static void EnableWebXRAnchors(bool);
-  BLINK_PLATFORM_EXPORT static void EnableWebXrGamepadModule(bool);
   BLINK_PLATFORM_EXPORT static void EnableWebXRHitTest(bool);
-  BLINK_PLATFORM_EXPORT static void EnableWebXRPlaneDetection(bool);
+  BLINK_PLATFORM_EXPORT static void EnableWebXRIncubations(bool);
   BLINK_PLATFORM_EXPORT static void EnableXSLT(bool);
   BLINK_PLATFORM_EXPORT static void ForceOverlayFullscreenVideo(bool);
   BLINK_PLATFORM_EXPORT static void EnableTimerThrottlingForBackgroundTabs(

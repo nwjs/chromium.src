@@ -81,7 +81,8 @@ NSSet* GaiaIdSetWithIdentities(NSArray* identities) {
 }
 
 - (instancetype)initWithBrowser:(Browser*)browser
-                     dispatcher:(id<ApplicationCommands>)dispatcher {
+                     dispatcher:(id<ApplicationCommands, BrowsingDataCommands>)
+                                    dispatcher {
   self = [super
       initWithBrowser:browser
           accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO
@@ -177,8 +178,7 @@ NSSet* GaiaIdSetWithIdentities(NSArray* identities) {
 
 #pragma mark - PromoViewController
 
-+ (BOOL)shouldBePresentedForBrowserState:
-    (ios::ChromeBrowserState*)browserState {
++ (BOOL)shouldBePresentedForBrowserState:(ChromeBrowserState*)browserState {
   if (signin::ForceStartupSigninPromo())
     return YES;
 
@@ -230,7 +230,6 @@ NSSet* GaiaIdSetWithIdentities(NSArray* identities) {
   return [lastKnownGaiaIdSet isSubsetOfSet:currentGaiaIdSet] &&
          ![lastKnownGaiaIdSet isEqualToSet:currentGaiaIdSet];
 }
-
 
 #pragma mark - ChromeSigninViewControllerDelegate
 

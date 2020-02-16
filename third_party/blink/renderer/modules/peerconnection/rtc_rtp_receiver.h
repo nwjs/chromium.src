@@ -8,11 +8,11 @@
 #include "base/optional.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_vector.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_contributing_source.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_receive_parameters.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_synchronization_source.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_contributing_source.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_receive_parameters.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_synchronization_source.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -70,7 +70,7 @@ class RTCRtpReceiver final : public ScriptWrappable {
 
   // The current SSRCs and CSRCs. getSynchronizationSources() returns the SSRCs
   // and getContributingSources() returns the CSRCs.
-  WebVector<std::unique_ptr<RTCRtpSource>> web_sources_;
+  Vector<std::unique_ptr<RTCRtpSource>> web_sources_;
   bool web_sources_needs_updating_ = true;
   Member<RTCRtpTransceiver> transceiver_;
 

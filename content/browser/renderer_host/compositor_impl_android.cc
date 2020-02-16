@@ -44,12 +44,6 @@
 #include "components/viz/common/surfaces/local_surface_id_allocation.h"
 #include "components/viz/common/viz_utils.h"
 #include "components/viz/host/host_display_client.h"
-#include "components/viz/service/display/display_scheduler.h"
-#include "components/viz/service/display/output_surface.h"
-#include "components/viz/service/display/output_surface_client.h"
-#include "components/viz/service/display/output_surface_frame.h"
-#include "components/viz/service/display_embedder/server_shared_bitmap_manager.h"
-#include "components/viz/service/frame_sinks/direct_layer_tree_frame_sink.h"
 #include "content/browser/browser_main_loop.h"
 #include "content/browser/compositor/surface_utils.h"
 #include "content/browser/gpu/compositor_util.h"
@@ -77,10 +71,10 @@
 #include "third_party/skia/include/core/SkMallocPixelRef.h"
 #include "ui/android/window_android.h"
 #include "ui/display/display.h"
+#include "ui/display/display_transform.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/ca_layer_params.h"
 #include "ui/gfx/swap_result.h"
-#include "ui/gl/color_space_utils.h"
 #include "ui/latency/latency_tracker.h"
 
 namespace content {
@@ -92,33 +86,6 @@ static const char* kBrowser = "Browser";
 // NOINLINE to make sure crashes use this for magic signature.
 NOINLINE void FatalSurfaceFailure() {
   LOG(FATAL) << "Fatal surface initialization failure";
-}
-
-gfx::OverlayTransform RotationToDisplayTransform(
-    display::Display::Rotation rotation) {
-  // Note that the angle provided by |rotation| here is the opposite direction
-  // of the physical rotation of the device, which is the space in which the UI
-  // prepares the scene (see
-  // https://developer.android.com/reference/android/view/Display#getRotation()
-  // for details).
-  //
-  // The rotation which needs to be applied by the display compositor to allow
-  // the buffers produced by it to be used directly by the system compositor
-  // needs to be the inverse of this rotation. Since display::Rotation is in
-  // clockwise direction while gfx::OverlayTransform is anti-clockwise, directly
-  // mapping them below performs this inversion.
-  switch (rotation) {
-    case display::Display::ROTATE_0:
-      return gfx::OVERLAY_TRANSFORM_NONE;
-    case display::Display::ROTATE_90:
-      return gfx::OVERLAY_TRANSFORM_ROTATE_90;
-    case display::Display::ROTATE_180:
-      return gfx::OVERLAY_TRANSFORM_ROTATE_180;
-    case display::Display::ROTATE_270:
-      return gfx::OVERLAY_TRANSFORM_ROTATE_270;
-  }
-  NOTREACHED();
-  return gfx::OVERLAY_TRANSFORM_NONE;
 }
 
 gpu::SharedMemoryLimits GetCompositorContextSharedMemoryLimits(
@@ -296,7 +263,6 @@ CompositorImpl::CompositorImpl(CompositorClient* client,
       needs_animate_(false),
       pending_frames_(0U),
       layer_tree_frame_sink_request_pending_(false) {
-  CHECK(features::IsVizDisplayCompositorEnabled());
   DCHECK(client);
 
   SetRootWindow(root_window);
@@ -449,7 +415,7 @@ void CompositorImpl::CreateLayerTreeHost() {
   const auto& display_props =
       display::Screen::GetScreen()->GetDisplayNearestWindow(root_window_);
   host_->set_display_transform_hint(
-      RotationToDisplayTransform(display_props.rotation()));
+      display::DisplayRotationToOverlayTransform(display_props.rotation()));
 
   if (needs_animate_)
     host_->SetNeedsAnimate();
@@ -466,7 +432,6 @@ void CompositorImpl::SetVisible(bool visible) {
     // Hide the LayerTreeHost and release its frame sink.
     host_->SetVisible(false);
     host_->ReleaseLayerTreeFrameSink();
-    has_layer_tree_frame_sink_ = false;
     pending_frames_ = 0;
 
     // Notify CompositorDependenciesAndroid of visibility changes last, to
@@ -511,6 +476,9 @@ void CompositorImpl::RegisterRootFrameSink() {
       frame_sink_id_, this, viz::ReportFirstSurfaceActivation::kNo);
   GetHostFrameSinkManager()->SetFrameSinkDebugLabel(frame_sink_id_,
                                                     "CompositorImpl");
+  for (auto& frame_sink_id : pending_child_frame_sink_ids_)
+    AddChildFrameSink(frame_sink_id);
+  pending_child_frame_sink_ids_.clear();
 }
 
 void CompositorImpl::SetWindowBounds(const gfx::Size& size) {
@@ -574,11 +542,6 @@ void CompositorImpl::RequestNewLayerTreeFrameSink() {
 
 void CompositorImpl::DidInitializeLayerTreeFrameSink() {
   layer_tree_frame_sink_request_pending_ = false;
-  has_layer_tree_frame_sink_ = true;
-  for (auto& frame_sink_id : pending_child_frame_sink_ids_)
-    AddChildFrameSink(frame_sink_id);
-
-  pending_child_frame_sink_ids_.clear();
 }
 
 void CompositorImpl::DidFailToInitializeLayerTreeFrameSink() {
@@ -637,9 +600,9 @@ void CompositorImpl::OnGpuChannelEstablished(
   constexpr bool support_locking = false;
   constexpr bool automatic_flushes = false;
   constexpr bool support_grcontext = true;
-  display_color_space_ = display::Screen::GetScreen()
-                             ->GetDisplayNearestWindow(root_window_)
-                             .color_space();
+  display_color_spaces_ = display::Screen::GetScreen()
+                              ->GetDisplayNearestWindow(root_window_)
+                              .color_spaces();
   auto context_provider =
       base::MakeRefCounted<viz::ContextProviderCommandBuffer>(
           std::move(gpu_channel_host), factory->GetGpuMemoryBufferManager(),
@@ -648,8 +611,9 @@ void CompositorImpl::OnGpuChannelEstablished(
                std::string("CompositorContextProvider")),
           automatic_flushes, support_locking, support_grcontext,
           GetCompositorContextSharedMemoryLimits(root_window_),
-          GetCompositorContextAttributes(display_color_space_,
-                                         requires_alpha_channel_),
+          GetCompositorContextAttributes(
+              display_color_spaces_.GetRasterColorSpace(),
+              requires_alpha_channel_),
           viz::command_buffer_metrics::ContextType::BROWSER_COMPOSITOR);
   auto result = context_provider->BindToCurrentThread();
 
@@ -702,7 +666,6 @@ void CompositorImpl::DidReceiveCompositorFrameAck() {
 
 void CompositorImpl::DidLoseLayerTreeFrameSink() {
   TRACE_EVENT0("compositor", "CompositorImpl::DidLoseLayerTreeFrameSink");
-  has_layer_tree_frame_sink_ = false;
   client_->DidSwapFrame(0);
 }
 
@@ -738,9 +701,10 @@ viz::FrameSinkId CompositorImpl::GetFrameSinkId() {
 }
 
 void CompositorImpl::AddChildFrameSink(const viz::FrameSinkId& frame_sink_id) {
-  if (has_layer_tree_frame_sink_) {
-    GetHostFrameSinkManager()->RegisterFrameSinkHierarchy(frame_sink_id_,
-                                                          frame_sink_id);
+  if (GetHostFrameSinkManager()->IsFrameSinkIdRegistered(frame_sink_id_)) {
+    bool result = GetHostFrameSinkManager()->RegisterFrameSinkHierarchy(
+        frame_sink_id_, frame_sink_id);
+    DCHECK(result);
   } else {
     pending_child_frame_sink_ids_.insert(frame_sink_id);
   }
@@ -777,7 +741,7 @@ void CompositorImpl::OnDisplayMetricsChanged(const display::Display& display,
   if (changed_metrics &
       display::DisplayObserver::DisplayMetric::DISPLAY_METRIC_ROTATION) {
     host_->set_display_transform_hint(
-        RotationToDisplayTransform(display.rotation()));
+        display::DisplayRotationToOverlayTransform(display.rotation()));
   }
 }
 
@@ -846,7 +810,8 @@ void CompositorImpl::InitializeVizLayerTreeFrameSink(
   renderer_settings.requires_alpha_channel = requires_alpha_channel_;
   renderer_settings.initial_screen_size = display_props.GetSizeInPixel();
   renderer_settings.use_skia_renderer = features::IsUsingSkiaRenderer();
-  renderer_settings.color_space = display_color_space_;
+  renderer_settings.color_space =
+      display_color_spaces_.GetOutputColorSpace(requires_alpha_channel_);
 
   root_params->frame_sink_id = frame_sink_id_;
   root_params->widget = surface_handle_;
@@ -872,8 +837,7 @@ void CompositorImpl::InitializeVizLayerTreeFrameSink(
   host_->SetLayerTreeFrameSink(std::move(layer_tree_frame_sink));
   display_private_->SetDisplayVisible(true);
   display_private_->Resize(size_);
-  display_private_->SetDisplayColorSpace(
-      display_color_space_, gfx::ColorSpace::kDefaultSDRWhiteLevel);
+  display_private_->SetDisplayColorSpaces(display_color_spaces_);
   display_private_->SetVSyncPaused(vsync_paused_);
   display_private_->SetSupportedRefreshRates(
       root_window_->GetSupportedRefreshRates());
@@ -923,6 +887,11 @@ void CompositorImpl::CacheBackBufferForCurrentSurface() {
 
 void CompositorImpl::EvictCachedBackBuffer() {
   cached_back_buffer_.reset();
+}
+
+void CompositorImpl::RequestPresentationTimeForNextFrame(
+    PresentationTimeCallback callback) {
+  host_->RequestPresentationTimeForNextFrame(std::move(callback));
 }
 
 }  // namespace content

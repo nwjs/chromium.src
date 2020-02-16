@@ -16,6 +16,7 @@ include_rules = [
   "+components/crash/content/browser",
   "+components/crash/core",
   "+components/download/public/common",
+  "+components/embedder_support/android/metrics",
   "+components/heap_profiling",
   "+components/keyed_service/core",
   "+components/minidump_uploader",
@@ -61,8 +62,12 @@ include_rules = [
   "+services/network/public",
   # This is needed for the CookieManager to configure the CookieStore directly.
   "+services/network/cookie_access_delegate_impl.h",
+  "+services/network/network_service.h",
   "+services/resource_coordinator/public/cpp",
   "+services/service_manager/public/cpp",
+
+  # This is needed for AwPacResolver
+  "+services/proxy_resolver",
 
   # network service related unit tests
   "+services/network/test",

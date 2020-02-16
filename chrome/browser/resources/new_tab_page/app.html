@@ -1,0 +1,90 @@
+<style include="cr-shared-style">
+  #background {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  #voiceSearchButton {
+    background: url(icons/googlemic_clr_24px.svg) no-repeat center;
+    background-size: 21px 21px;
+    border: none;
+    cursor: pointer;
+    height: 21px;
+    outline: none;
+    padding: 0;
+    width: 21px;
+  }
+
+  :host-context(.focus-outline-visible) #voiceSearchButton:focus {
+    box-shadow: 0 0 0 2px var(--ntp-focus-shadow-color);
+  }
+
+  #customizeButton {
+    border: none;
+    border-radius: calc(0.5 * var(--cr-button-height));
+    bottom: 16px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(0, 0, 0, 0.23);
+    font-weight: 400;
+    position: absolute;
+  }
+
+  #customizeButton:not(:hover) {
+    background-color: var(--ntp-background-override-color);
+  }
+
+  :host-context([dir='ltr']) #customizeButton {
+    right: 16px;
+  }
+
+  :host-context([dir='rtl']) #customizeButton {
+    left: 16px;
+  }
+
+  #customizeIcon {
+    -webkit-mask-image: url(icons/icon_pencil.svg);
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: 100%;
+    background-color: var(--text-color);
+    height: 16px;
+    margin-inline-end: 8px;
+    width: 16px;
+  }
+
+  ntp-most-visited[dark] {
+    --icon-button-color-active: var(--google-grey-refresh-300);
+    --icon-button-color: white;
+    --tile-hover-color: rgba(255, 255, 255, .1);
+  }
+</style>
+<div id="background"
+    style="background-color: [[rgbOrInherit_(theme_.backgroundColor)]];">
+  <button id="voiceSearchButton" on-click="onVoiceSearchClick_"
+      title="$i18n{voiceSearchButtonLabel}">
+  </button>
+  <ntp-most-visited dark$="[[theme_.isDark]]"
+      style="--icon-background-color:
+            [[rgbOrInherit_(theme_.shortcutBackgroundColor)]];
+          --tile-title-color:
+            [[rgbOrInherit_(theme_.shortcutTextColor)]];">
+  </ntp-most-visited>
+  <dom-if if="[[showCustomizeDialog_]]" restamp>
+    <template>
+      <ntp-customize-dialog on-close="onCustomizeDialogClose_"
+          theme="[[theme_]]">
+      </ntp-customize-dialog>
+    </template>
+  </dom-if>
+  <dom-if if="[[showVoiceSearchOverlay_]]" restamp>
+    <template>
+      <ntp-voice-search-overlay on-close="onVoiceSearchOverlayClose_">
+      </ntp-voice-search-overlay>
+    </template>
+  </dom-if>
+  <cr-button id="customizeButton" on-click="onCustomizeClick_">
+    <div id="customizeIcon"></div>
+    $i18n{customizeButton}
+  </cr-button>
+</div>

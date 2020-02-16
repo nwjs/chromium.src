@@ -28,6 +28,8 @@
 #include "components/download/public/common/download_url_parameters.h"
 #include "components/download/public/common/resume_mode.h"
 #include "components/download/public/common/url_loader_factory_provider.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "services/device/public/mojom/wake_lock_provider.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -224,6 +226,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   void RemoveObserver(DownloadItem::Observer* observer) override;
   void UpdateObservers() override;
   void ValidateDangerousDownload() override;
+  void ValidateMixedContentDownload() override;
   void StealDangerousDownload(bool need_removal,
                               const AcquireFileCallback& callback) override;
   void Pause() override;
@@ -278,7 +281,9 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
   void DeleteFile(base::OnceCallback<void(bool)> callback) override;
   DownloadFile* GetDownloadFile() override;
   bool IsDangerous() const override;
+  bool IsMixedContent() const override;
   DownloadDangerType GetDangerType() const override;
+  MixedContentStatus GetMixedContentStatus() const override;
   bool TimeRemaining(base::TimeDelta* remaining) const override;
   int64_t CurrentSpeed() const override;
   int PercentComplete() const override;
@@ -561,6 +566,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
       const base::FilePath& target_path,
       TargetDisposition disposition,
       DownloadDangerType danger_type,
+      MixedContentStatus mixed_content_status,
       const base::FilePath& intermediate_path,
       DownloadInterruptReason interrupt_reason);
 
@@ -656,6 +662,10 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
 
   // Whether strong validators are present.
   bool HasStrongValidators() const;
+
+  // Binds a device.mojom.WakeLockProvider receiver for any job that needs one.
+  void BindWakeLockProvider(
+      mojo::PendingReceiver<device::mojom::WakeLockProvider> receiver);
 
   DownloadItem::DownloadRenameResult RenameDownloadedFile(
       const std::string& name);
@@ -837,6 +847,9 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
 
   // Whether download has been resumed.
   bool has_resumed_ = false;
+
+  // The MixedContentStatus if determined.
+  MixedContentStatus mixed_content_status_ = MixedContentStatus::UNKNOWN;
 
   THREAD_CHECKER(thread_checker_);
 

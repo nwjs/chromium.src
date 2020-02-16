@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "content/common/cursors/webcursor.h"
 #include "content/common/input/input_event_ack.h"
@@ -17,11 +18,6 @@
 #include "ui/base/ui_base_types.h"
 #include "ui/events/blink/did_overscroll_params.h"
 #include "ui/events/types/scroll_types.h"
-
-namespace blink {
-struct WebFloatPoint;
-struct WebFloatSize;
-}  // namespace blink
 
 namespace cc {
 struct ElementId;
@@ -62,14 +58,14 @@ class CONTENT_EXPORT RenderWidgetInputHandler {
       HandledEventCallback callback);
 
   // Handle overscroll from Blink.
-  void DidOverscrollFromBlink(const blink::WebFloatSize& overscrollDelta,
-                              const blink::WebFloatSize& accumulatedOverscroll,
-                              const blink::WebFloatPoint& position,
-                              const blink::WebFloatSize& velocity,
+  void DidOverscrollFromBlink(const gfx::Vector2dF& overscrollDelta,
+                              const gfx::Vector2dF& accumulatedOverscroll,
+                              const gfx::PointF& position,
+                              const gfx::Vector2dF& velocity,
                               const cc::OverscrollBehavior& behavior);
 
   void InjectGestureScrollEvent(blink::WebGestureDevice device,
-                                const blink::WebFloatSize& delta,
+                                const gfx::Vector2dF& delta,
                                 ui::input_types::ScrollGranularity granularity,
                                 cc::ElementId scrollable_area_element_id,
                                 blink::WebInputEvent::Type injected_type);
@@ -88,6 +84,7 @@ class CONTENT_EXPORT RenderWidgetInputHandler {
   bool DidChangeCursor(const WebCursor& cursor);
 
  private:
+  class HandlingState;
   struct InjectScrollGestureParams {
     blink::WebGestureDevice device;
     gfx::Vector2dF scroll_delta;
@@ -109,36 +106,25 @@ class CONTENT_EXPORT RenderWidgetInputHandler {
   RenderWidget* const widget_;
 
   // Are we currently handling an input event?
-  bool handling_input_event_;
+  bool handling_input_event_ = false;
+
+  // Current state from HandleInputEvent. This variable is stack allocated
+  // and is not owned.
+  HandlingState* handling_input_state_ = nullptr;
 
   // We store the current cursor object so we can avoid spamming SetCursor
   // messages.
   base::Optional<WebCursor> current_cursor_;
 
-  // Used to intercept overscroll notifications while an event is being
-  // handled. If the event causes overscroll, the overscroll metadata can be
-  // bundled in the event ack, saving an IPC.  Note that we must continue
-  // supporting overscroll IPC notifications due to fling animation updates.
-  std::unique_ptr<ui::DidOverscrollParams>* handling_event_overscroll_;
-
-  base::Optional<cc::TouchAction> handling_touch_action_;
-
-  // Used to hold a sequence of parameters corresponding to scroll gesture
-  // events that should be injected once the current input event is done
-  // being processed.
-  std::unique_ptr<std::vector<InjectScrollGestureParams>>*
-      handling_injected_scroll_params_;
-
-  // Type of the input event we are currently handling.
-  blink::WebInputEvent::Type handling_event_type_;
-
   // Indicates if the next sequence of Char events should be suppressed or not.
-  bool suppress_next_char_events_;
+  bool suppress_next_char_events_ = false;
 
   // Whether the last injected scroll gesture was a GestureScrollBegin. Used to
   // determine which GestureScrollUpdate is the first in a gesture sequence for
   // latency classification.
-  bool last_injected_gesture_was_begin_;
+  bool last_injected_gesture_was_begin_ = false;
+
+  base::WeakPtrFactory<RenderWidgetInputHandler> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetInputHandler);
 };

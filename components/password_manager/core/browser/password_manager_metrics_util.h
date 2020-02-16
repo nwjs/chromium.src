@@ -253,12 +253,15 @@ enum AccessPasswordInSettingsEvent {
   ACCESS_PASSWORD_COUNT
 };
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused. Needs to stay in sync with
+// "PasswordManager.ReauthResult" in enums.xml.
 // Metrics: PasswordManager.ReauthToAccessPasswordInSettings
-enum ReauthToAccessPasswordInSettingsEvent {
-  REAUTH_SUCCESS = 0,
-  REAUTH_FAILURE = 1,
-  REAUTH_SKIPPED = 2,
-  REAUTH_COUNT
+enum class ReauthResult {
+  kSuccess = 0,
+  kFailure = 1,
+  kSkipped = 2,
+  kMaxValue = kSkipped,
 };
 
 // Specifies the type of PasswordFormManagers and derived classes to distinguish
@@ -330,16 +333,19 @@ enum class IsSyncPasswordHashSaved {
 // Metrics:
 // - PasswordManager.ShowAllSavedPasswordsAcceptedContext
 // - PasswordManager.ShowAllSavedPasswordsShownContext
-enum ShowAllSavedPasswordsContext {
-  SHOW_ALL_SAVED_PASSWORDS_CONTEXT_NONE,
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class ShowAllSavedPasswordsContext {
+  kNone = 0,
   // The "Show all saved passwords..." fallback is shown below a list of
   // available passwords.
-  SHOW_ALL_SAVED_PASSWORDS_CONTEXT_PASSWORD,
+  kPassword = 1,
   // Obsolete.
-  SHOW_ALL_SAVED_PASSWORDS_CONTEXT_MANUAL_FALLBACK_DEPRECATED,
+  kManualFallbackDeprecated = 2,
   // The "Show all saved  passwords..." fallback is shown in context menu.
-  SHOW_ALL_SAVED_PASSWORDS_CONTEXT_CONTEXT_MENU,
-  SHOW_ALL_SAVED_PASSWORDS_CONTEXT_COUNT
+  kContextMenu = 3,
+  kMaxValue = kContextMenu,
 };
 
 // Metrics: "PasswordManager.CertificateErrorsWhileSeeingForms"
@@ -549,6 +555,9 @@ void LogPasswordAcceptedSaveUpdateSubmissionIndicatorEvent(
 
 // Log a frame of a submitted password form.
 void LogSubmittedFormFrame(SubmittedFormFrame frame);
+
+// Logs the result of a re-auth challenge in the password settings.
+void LogPasswordSettingsReauthResult(ReauthResult result);
 
 // Log a return value of LoginDatabase::DeleteUndecryptableLogins method.
 void LogDeleteUndecryptableLoginsReturnValue(

@@ -42,12 +42,11 @@
 #include "cc/trees/layer_tree_host.h"
 #include "content/renderer/compositor/layer_tree_view.h"
 #include "content/test/stub_layer_tree_view_delegate.h"
-#include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/web_fake_thread_scheduler.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
@@ -199,7 +198,7 @@ class LayerTreeViewFactory {
 };
 
 struct InjectedScrollGestureData {
-  WebFloatSize delta;
+  gfx::Vector2dF delta;
   ScrollGranularity granularity;
   CompositorElementId scrollable_area_element_id;
   WebInputEvent::Type type;
@@ -221,7 +220,7 @@ class TestWebWidgetClient : public WebWidgetClient {
                                   float minimum,
                                   float maximum) override;
   void InjectGestureScrollEvent(WebGestureDevice device,
-                                const WebFloatSize& delta,
+                                const gfx::Vector2dF& delta,
                                 ScrollGranularity granularity,
                                 cc::ElementId scrollable_area_element_id,
                                 WebInputEvent::Type injected_type) override;
@@ -348,13 +347,21 @@ class WebViewHelper : public ScopedMockOverlayScrollbars {
       TestWebWidgetClient* = nullptr,
       void (*update_settings_func)(WebSettings*) = nullptr);
 
-  // Creates and initializes the WebView with a main WebRemoteFrame. Passing
-  // nullptr as the SecurityOrigin results in a frame with a unique security
-  // origin.
+  // Same as InitializeRemoteWithOpener(), but always sets the opener to null.
   WebViewImpl* InitializeRemote(TestWebRemoteFrameClient* = nullptr,
                                 scoped_refptr<SecurityOrigin> = nullptr,
                                 TestWebViewClient* = nullptr,
                                 TestWebWidgetClient* = nullptr);
+
+  // Creates and initializes the WebView with a main WebRemoteFrame. Passing
+  // nullptr as the SecurityOrigin results in a frame with a unique security
+  // origin.
+  WebViewImpl* InitializeRemoteWithOpener(
+      WebFrame* opener,
+      TestWebRemoteFrameClient* = nullptr,
+      scoped_refptr<SecurityOrigin> = nullptr,
+      TestWebViewClient* = nullptr,
+      TestWebWidgetClient* = nullptr);
 
   // Load the 'Ahem' font to this WebView.
   // The 'Ahem' font is the only font whose font metrics is consistent across
@@ -432,9 +439,6 @@ class TestWebFrameClient : public WebLocalFrameClient {
                                   FrameOwnerElementType) override;
   void DidStartLoading() override;
   void DidStopLoading() override;
-  service_manager::InterfaceProvider* GetInterfaceProvider() override {
-    return interface_provider_.get();
-  }
   std::unique_ptr<blink::WebURLLoaderFactory> CreateURLLoaderFactory()
       override {
     // TODO(kinuko,toyoshim): Stop using Platform's URLLoaderFactory, but create
@@ -460,10 +464,6 @@ class TestWebFrameClient : public WebLocalFrameClient {
 
   // If set to a non-null value, self-deletes on frame detach.
   std::unique_ptr<TestWebFrameClient> self_owned_;
-
-  // Use service_manager::InterfaceProvider::TestApi to provide test interfaces
-  // through this client.
-  std::unique_ptr<service_manager::InterfaceProvider> interface_provider_;
 
   std::unique_ptr<AssociatedInterfaceProvider> associated_interface_provider_;
 

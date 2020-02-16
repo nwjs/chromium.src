@@ -27,6 +27,42 @@
 namespace gpu {
 namespace gles2 {
 
+// Temporarily allows compilation of shaders that use the
+// ARB_texture_rectangle/ANGLE_texture_rectangle extension. We don't want to
+// expose the extension to WebGL user shaders but we still need to use it for
+// parts of the implementation on macOS. Note that the extension is always
+// enabled on macOS and this only controls shader compilation.
+class GLES2DecoderPassthroughImpl::
+    ScopedEnableTextureRectangleInShaderCompiler {
+ public:
+  ScopedEnableTextureRectangleInShaderCompiler(
+      const ScopedEnableTextureRectangleInShaderCompiler&) = delete;
+  ScopedEnableTextureRectangleInShaderCompiler& operator=(
+      const ScopedEnableTextureRectangleInShaderCompiler&) = delete;
+
+  // This class is a no-op except on macOS.
+#if !defined(OS_MACOSX)
+  explicit ScopedEnableTextureRectangleInShaderCompiler(
+      GLES2DecoderPassthroughImpl* decoder) {}
+
+ private:
+#else
+  explicit ScopedEnableTextureRectangleInShaderCompiler(
+      GLES2DecoderPassthroughImpl* decoder)
+      : decoder_(decoder) {
+    if (decoder_->feature_info_->IsWebGLContext())
+      decoder_->api_->glEnableFn(GL_TEXTURE_RECTANGLE_ANGLE);
+  }
+  ~ScopedEnableTextureRectangleInShaderCompiler() {
+    if (decoder_->feature_info_->IsWebGLContext())
+      decoder_->api_->glDisableFn(GL_TEXTURE_RECTANGLE_ANGLE);
+  }
+
+ private:
+  GLES2DecoderPassthroughImpl* decoder_;
+#endif
+};
+
 namespace {
 
 template <typename ClientType, typename ServiceType, typename GenFunction>
@@ -709,18 +745,7 @@ error::Error GLES2DecoderPassthroughImpl::DoColorMask(GLboolean red,
 }
 
 error::Error GLES2DecoderPassthroughImpl::DoCompileShader(GLuint shader) {
-#if defined(OS_MACOSX)
-  // On mac we need this extension to support IOSurface backbuffers, but we
-  // don't want it exposed to WebGL user shaders. Temporarily disable it during
-  // shader compilation.
-  if (feature_info_->IsWebGLContext())
-    api()->glDisableExtensionANGLEFn("GL_ANGLE_texture_rectangle");
-#endif
   api()->glCompileShaderFn(GetShaderServiceID(shader, resources_));
-#if defined(OS_MACOSX)
-  if (feature_info_->IsWebGLContext())
-    api()->glRequestExtensionANGLEFn("GL_ANGLE_texture_rectangle");
-#endif
   return error::kNoError;
 }
 
@@ -1655,10 +1680,11 @@ error::Error GLES2DecoderPassthroughImpl::DoGetFramebufferAttachmentParameteriv(
 
   CheckErrorCallbackState();
 
-  // Get a scratch buffer to hold the result of the query
-  GLint* scratch_params = GetTypedScratchMemory<GLint>(bufsize);
+  // Create a scratch buffer to hold the result of the query
+  std::vector<GLint> scratch_params(bufsize);
   api()->glGetFramebufferAttachmentParameterivRobustANGLEFn(
-      target, updated_attachment, pname, bufsize, length, scratch_params);
+      target, updated_attachment, pname, bufsize, length,
+      scratch_params.data());
 
   if (CheckErrorCallbackState()) {
     DCHECK(*length == 0);
@@ -1667,7 +1693,7 @@ error::Error GLES2DecoderPassthroughImpl::DoGetFramebufferAttachmentParameteriv(
 
   // Update the results of the query, if needed
   error::Error error = PatchGetFramebufferAttachmentParameter(
-      target, updated_attachment, pname, *length, scratch_params);
+      target, updated_attachment, pname, *length, scratch_params.data());
   if (error != error::kNoError) {
     *length = 0;
     return error;
@@ -1675,7 +1701,7 @@ error::Error GLES2DecoderPassthroughImpl::DoGetFramebufferAttachmentParameteriv(
 
   // Copy into the destination
   DCHECK(*length < bufsize);
-  std::copy(scratch_params, scratch_params + *length, params);
+  std::copy(scratch_params.data(), scratch_params.data() + *length, params);
 
   return error::kNoError;
 }
@@ -3892,11 +3918,12 @@ error::Error GLES2DecoderPassthroughImpl::DoUnmapBuffer(GLenum target) {
   return error::kNoError;
 }
 
-error::Error GLES2DecoderPassthroughImpl::DoResizeCHROMIUM(GLuint width,
-                                                           GLuint height,
-                                                           GLfloat scale_factor,
-                                                           GLenum color_space,
-                                                           GLboolean alpha) {
+error::Error GLES2DecoderPassthroughImpl::DoResizeCHROMIUM(
+    GLuint width,
+    GLuint height,
+    GLfloat scale_factor,
+    gfx::ColorSpace color_space,
+    GLboolean alpha) {
   // gfx::Size uses integers, make sure width and height do not overflow
   static_assert(sizeof(GLuint) >= sizeof(int), "Unexpected GLuint size.");
   static const GLuint kMaxDimension =
@@ -3910,31 +3937,7 @@ error::Error GLES2DecoderPassthroughImpl::DoResizeCHROMIUM(GLuint width,
       return error::kLostContext;
     }
   } else {
-    gl::GLSurface::ColorSpace surface_color_space =
-        gl::GLSurface::ColorSpace::UNSPECIFIED;
-    switch (color_space) {
-      case GL_COLOR_SPACE_UNSPECIFIED_CHROMIUM:
-        surface_color_space = gl::GLSurface::ColorSpace::UNSPECIFIED;
-        break;
-      case GL_COLOR_SPACE_SCRGB_LINEAR_CHROMIUM:
-        surface_color_space = gl::GLSurface::ColorSpace::SCRGB_LINEAR;
-        break;
-      case GL_COLOR_SPACE_HDR10_CHROMIUM:
-        surface_color_space = gl::GLSurface::ColorSpace::HDR10;
-        break;
-      case GL_COLOR_SPACE_SRGB_CHROMIUM:
-        surface_color_space = gl::GLSurface::ColorSpace::SRGB;
-        break;
-      case GL_COLOR_SPACE_DISPLAY_P3_CHROMIUM:
-        surface_color_space = gl::GLSurface::ColorSpace::DISPLAY_P3;
-        break;
-      default:
-        LOG(ERROR) << "GLES2DecoderPassthroughImpl: Context lost because "
-                      "specified color space was invalid.";
-        return error::kLostContext;
-    }
-    if (!surface_->Resize(safe_size, scale_factor, surface_color_space,
-                          !!alpha)) {
+    if (!surface_->Resize(safe_size, scale_factor, color_space, !!alpha)) {
       LOG(ERROR)
           << "GLES2DecoderPassthroughImpl: Context lost because resize failed.";
       return error::kLostContext;
@@ -4410,6 +4413,7 @@ error::Error GLES2DecoderPassthroughImpl::DoCopyTextureCHROMIUM(
     GLboolean unpack_flip_y,
     GLboolean unpack_premultiply_alpha,
     GLboolean unpack_unmultiply_alpha) {
+  ScopedEnableTextureRectangleInShaderCompiler enable(this);
   BindPendingImageForClientIDIfNeeded(source_id);
   api()->glCopyTextureCHROMIUMFn(
       GetTextureServiceID(api(), source_id, resources_, false), source_level,
@@ -4437,6 +4441,7 @@ error::Error GLES2DecoderPassthroughImpl::DoCopySubTextureCHROMIUM(
     GLboolean unpack_flip_y,
     GLboolean unpack_premultiply_alpha,
     GLboolean unpack_unmultiply_alpha) {
+  ScopedEnableTextureRectangleInShaderCompiler enable(this);
   BindPendingImageForClientIDIfNeeded(source_id);
   api()->glCopySubTextureCHROMIUMFn(
       GetTextureServiceID(api(), source_id, resources_, false), source_level,
@@ -5645,7 +5650,7 @@ GLES2DecoderPassthroughImpl::DoBeginSharedImageAccessDirectCHROMIUM(
     return error::kNoError;
   }
 
-  if (!found->second.BeginAccess(mode)) {
+  if (!found->second.BeginAccess(mode, api())) {
     InsertError(GL_INVALID_OPERATION, "unable to begin access");
     return error::kNoError;
   }
@@ -5665,6 +5670,20 @@ error::Error GLES2DecoderPassthroughImpl::DoEndSharedImageAccessDirectCHROMIUM(
     return error::kNoError;
   }
   found->second.EndAccess();
+  return error::kNoError;
+}
+
+error::Error
+GLES2DecoderPassthroughImpl::DoBeginBatchReadAccessSharedImageCHROMIUM() {
+  DCHECK(group_->shared_image_manager());
+  group_->shared_image_manager()->BeginBatchReadAccess();
+  return error::kNoError;
+}
+
+error::Error
+GLES2DecoderPassthroughImpl::DoEndBatchReadAccessSharedImageCHROMIUM() {
+  DCHECK(group_->shared_image_manager());
+  group_->shared_image_manager()->EndBatchReadAccess();
   return error::kNoError;
 }
 

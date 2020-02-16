@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{バッククォート}other{# 個のバッククォート}}</translation>
 <translation id="3650317109285159359">メニュー項目のチェックボックス</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{ドル}other{# 個のドル記号}}</translation>
-<translation id="3658742229777143148">変更履歴</translation>
 <translation id="3659787053479271466">アラート</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />、リスト ボックス</translation>
 <translation id="3681531118904532409">パパイヤ ウィップ</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">ChromeVox コマンド リファレンス</translation>
 <translation id="3930383913623796990">スプリング グリーン</translation>
 <translation id="3930498801443296724">引用</translation>
+<translation id="3935615366277838204">大文字の <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">ラベンダー ブラッシュ</translation>
 <translation id="3941269780691800708">カーソル部分のテキストを読み上げます。</translation>
 <translation id="394953087167197343">つづり間違いを表す:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">フラット キーマップ</translation>
 <translation id="6468049171101508116">次のボタン</translation>
 <translation id="646954774886932461">索引</translation>
-<translation id="6479792383819319132">次の段落はありません。</translation>
 <translation id="6493991254603208962">明るさを下げる</translation>
 <translation id="6501595918865591267">ターコイズ</translation>
 <translation id="6508059270146105198">ブライユ点字表示をページ下部に移動</translation>
@@ -815,8 +814,7 @@
 <translation id="6633350132811819843">次の表はありません。</translation>
 <translation id="6637586476836377253">ログ</translation>
 <translation id="6657128831881431364">プログレスバー</translation>
-<translation id="6659594942844771486">タブ</translation>
-<translation id="6675661017770918201">前の段落はありません。</translation>
+<translation id="6659594942844771486">Tab</translation>
 <translation id="667999046851023355">ドキュメント</translation>
 <translation id="6688209025607531203">非モーダル アラート</translation>
 <translation id="6689672606256159458">ダークサーモン</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">スペルミス</translation>
 <translation id="6871161210040114857">大文字と小文字を区別しません。</translation>
 <translation id="6877435256196695200">次の図はありません。</translation>
+<translation id="688976158310523235">検索メニュー</translation>
 <translation id="6897341342232909480">左へ移動</translation>
 <translation id="6901540140423170855">日付</translation>
 <translation id="6910211073230771657">削除済み</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">検索+O+W キー</translation>
 <translation id="6994042831499278539">用語参照</translation>
 <translation id="6996566555547746822">次のコンボ ボックス</translation>
+<translation id="6997224546856374593">大文字の読み上げ:</translation>
 <translation id="700202842116345659">文献情報</translation>
 <translation id="7005146664810010831">URL が見つかりません</translation>
 <translation id="7010712454773919705">ChromeVox 修飾キー</translation>
@@ -937,6 +937,7 @@ Chrome ブラウザのメニューを開くには、Alt+F キーを押します�
 <translation id="744163271241493234">パスワードを編集</translation>
 <translation id="7491962110804786152">タブ</translation>
 <translation id="7492049978501397201">ダイアログを入力しました</translation>
+<translation id="7505149250476994901">「大文字の」と言ってから文字を読み上げる</translation>
 <translation id="7518543783849163354">ChromeVox の読み上げを一時的に停止するには、Ctrl キーを押します。</translation>
 <translation id="7521682724501952239">タッチスクリーンで ChromeVox を使用できます。</translation>
 <translation id="7532613204005497612">6 月</translation>
@@ -1104,7 +1105,6 @@ Chrome ブラウザのメニューを開くには、Alt+F キーを押します�
 <translation id="812886159861361726"><ph name="FILE_NAME" /> のダウンロードを停止しました</translation>
 <translation id="8138880386467279117">タップ</translation>
 <translation id="8153880621934657047">表の中ではありません。</translation>
-<translation id="8161114871611868169">コメント セクション</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{アンダースコア}other{# 個のアンダースコア}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">行</translation>
@@ -1125,6 +1125,7 @@ Chrome ブラウザのメニューを開くには、Alt+F キーを押します�
 <translation id="8313653172105209786">ディレクトリ</translation>
 <translation id="8316881042119029234">オールドレース</translation>
 <translation id="8326783648485765113">ローングリーン</translation>
+<translation id="8328063869313048659">暗い画面を切り替えます</translation>
 <translation id="8344569602005188545">時間</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{ポンド}other{# 個のポンド記号}}</translation>
 <translation id="8374154622594089836">月</translation>
@@ -1209,6 +1210,7 @@ Chrome ブラウザのメニューを開くには、Alt+F キーを押します�
 <translation id="9065283790526219006">ポップアップあり</translation>
 <translation id="9066023754636984703">詳細に移動するには、検索キーを押しながら A、J キーを押します。</translation>
 <translation id="9067522039955793016">改ページ</translation>
+<translation id="9074824103975499138">ChromeVox メニューを検索します</translation>
 <translation id="9077213568694924680">選択範囲から削除されています</translation>
 <translation id="9077305471618729969">ライト シーグリーン</translation>
 <translation id="9082874451376019682">前のスライダはありません。</translation>

@@ -17,6 +17,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.Process;
 
+import org.chromium.android_webview.common.DeveloperModeUtils;
 import org.chromium.android_webview.common.services.IDeveloperUiService;
 
 import java.util.HashMap;
@@ -32,13 +33,11 @@ public final class DeveloperUiService extends Service {
     private static final String CHANNEL_ID = "DevUiChannel";
     private static final int FLAG_OVERRIDE_NOTIFICATION_ID = 1;
 
-    private final Object mLock = new Object();
-    // TODO(ntfschr): at the moment we're only writing to this map. When we implement the
-    // WebView-side implementation, we'll read the map to send the flag overrides.
-    @GuardedBy("mLock")
-    private Map<String, Boolean> mOverriddenFlags = new HashMap<>();
+    private static final Object sLock = new Object();
+    @GuardedBy("sLock")
+    private static Map<String, Boolean> sOverriddenFlags = new HashMap<>();
 
-    @GuardedBy("mLock")
+    @GuardedBy("sLock")
     private boolean mDeveloperModeEnabled;
 
     private final IDeveloperUiService.Stub mBinder = new IDeveloperUiService.Stub() {
@@ -48,9 +47,9 @@ public final class DeveloperUiService extends Service {
                 throw new SecurityException(
                         "setFlagOverrides() may only be called by the Developer UI app");
             }
-            synchronized (mLock) {
-                mOverriddenFlags = overriddenFlags;
-                if (mOverriddenFlags.isEmpty()) {
+            synchronized (sLock) {
+                sOverriddenFlags = overriddenFlags;
+                if (sOverriddenFlags.isEmpty()) {
                     disableDeveloperMode();
                 } else {
                     enableDeveloperMode();
@@ -58,6 +57,14 @@ public final class DeveloperUiService extends Service {
             }
         }
     };
+
+    public static Map<String, Boolean> getFlagOverrides() {
+        synchronized (sLock) {
+            // Create a copy so the caller can do what it wants with the Map without worrying about
+            // thread safety.
+            return new HashMap<>(sOverriddenFlags);
+        }
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -118,28 +125,34 @@ public final class DeveloperUiService extends Service {
     }
 
     private void enableDeveloperMode() {
-        synchronized (mLock) {
+        synchronized (sLock) {
             if (mDeveloperModeEnabled) return;
             // Keep this service alive as long as we're in developer mode.
             startService(new Intent(this, DeveloperUiService.class));
             markAsForegroundService();
+
+            ComponentName developerModeState =
+                    new ComponentName(this, DeveloperModeUtils.DEVELOPER_MODE_STATE_COMPONENT);
+            getPackageManager().setComponentEnabledSetting(developerModeState,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+
             mDeveloperModeEnabled = true;
         }
     }
 
     private void disableDeveloperMode() {
-        synchronized (mLock) {
+        synchronized (sLock) {
             if (!mDeveloperModeEnabled) return;
-            stopForeground(/* removeNotification */ true);
             mDeveloperModeEnabled = false;
 
-            ComponentName developerModeService =
-                    new ComponentName(this, DeveloperUiService.class.getName());
-            getPackageManager().setComponentEnabledSetting(developerModeService,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+            ComponentName developerModeState =
+                    new ComponentName(this, DeveloperModeUtils.DEVELOPER_MODE_STATE_COMPONENT);
+            getPackageManager().setComponentEnabledSetting(developerModeState,
+                    PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, PackageManager.DONT_KILL_APP);
 
             // Finally, stop the service explicitly. Do this last to make sure we do the other
             // necessary cleanup.
+            stopForeground(/* removeNotification */ true);
             stopSelf();
         }
     }

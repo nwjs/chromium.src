@@ -48,7 +48,8 @@ enum class InsecureDownloadSecurityStatus {
   kInitiatorInferredSecureFileInsecure = 7,
   kInitiatorInferredInsecureFileSecure = 8,
   kInitiatorInferredInsecureFileInsecure = 9,
-  kMaxValue = kInitiatorInferredInsecureFileInsecure,
+  kDownloadIgnored = 10,
+  kMaxValue = kDownloadIgnored,
 };
 
 // These values are logged to UMA. Entries should not be renumbered and numeric
@@ -77,7 +78,8 @@ enum class InsecureDownloadExtensions {
   kEPUB = 19,
   kICS = 20,
   kSVG = 21,
-  kMaxValue = kSVG,
+  kTest = 22,  // Test extensions, e.g. .silently_blocked.
+  kMaxValue = kTest,
 };
 
 struct ExtensionMapping {
@@ -98,6 +100,7 @@ static const ExtensionMapping kExtensionsToEnum[] = {
     {"webp", InsecureDownloadExtensions::kImage},
 
     {"gz", InsecureDownloadExtensions::kArchive},
+    {"gzip", InsecureDownloadExtensions::kArchive},
     {"zip", InsecureDownloadExtensions::kArchive},
     {"bz2", InsecureDownloadExtensions::kArchive},
     {"7z", InsecureDownloadExtensions::kArchive},
@@ -183,6 +186,10 @@ static const ExtensionMapping kExtensionsToEnum[] = {
     {"epub", InsecureDownloadExtensions::kEPUB},
     {"ics", InsecureDownloadExtensions::kICS},
     {"svg", InsecureDownloadExtensions::kSVG},
+
+    {"silently_blocked_for_testing", InsecureDownloadExtensions::kTest},
+    {"warn_for_testing", InsecureDownloadExtensions::kTest},
+    {"dont_warn_for_testing", InsecureDownloadExtensions::kTest},
 };
 
 // Convenience function to assemble a histogram name for download blocking.
@@ -197,9 +204,10 @@ inline std::string GetDLBlockingHistogramName(const std::string& initiator,
       .append(download);
 }
 
-// When enabled (via kTreatUnsafeDownloadsAsActive), block unsafe downloads
-// that are requested by secure sources but are served insecurely.
-bool ShouldBlockFileAsMixedContent(const base::FilePath& path,
-                                   const download::DownloadItem& item);
+// Returns the correct mixed content download blocking behavior for the given
+// |item| saved to |path|.  Controlled by kTreatUnsafeDownloadsAsActive.
+download::DownloadItem::MixedContentStatus GetMixedContentStatusForDownload(
+    const base::FilePath& path,
+    const download::DownloadItem* item);
 
 #endif  // CHROME_BROWSER_DOWNLOAD_MIXED_CONTENT_DOWNLOAD_BLOCKING_H_

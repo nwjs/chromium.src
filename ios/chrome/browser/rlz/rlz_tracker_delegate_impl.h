@@ -12,11 +12,8 @@
 #include "base/macros.h"
 #include "components/rlz/rlz_tracker_delegate.h"
 
-struct OmniboxLog;
-
-namespace ios {
 class ChromeBrowserState;
-}
+struct OmniboxLog;
 
 // RLZTrackerDelegateImpl implements RLZTrackerDelegate abstract interface
 // and provides access to Chrome on iOS features.
@@ -25,9 +22,9 @@ class RLZTrackerDelegateImpl : public rlz::RLZTrackerDelegate {
   RLZTrackerDelegateImpl();
   ~RLZTrackerDelegateImpl() override;
 
-  static bool IsGoogleDefaultSearch(ios::ChromeBrowserState* browser_state);
-  static bool IsGoogleHomepage(ios::ChromeBrowserState* browser_state);
-  static bool IsGoogleInStartpages(ios::ChromeBrowserState* browser_state);
+  static bool IsGoogleDefaultSearch(ChromeBrowserState* browser_state);
+  static bool IsGoogleHomepage(ChromeBrowserState* browser_state);
+  static bool IsGoogleInStartpages(ChromeBrowserState* browser_state);
 
  private:
   // RLZTrackerDelegate implementation.

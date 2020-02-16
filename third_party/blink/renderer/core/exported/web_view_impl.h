@@ -35,18 +35,16 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "build/build_config.h"
+#include "third_party/blink/public/common/input/web_gesture_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
-#include "third_party/blink/public/platform/web_float_size.h"
-#include "third_party/blink/public/platform/web_gesture_event.h"
-#include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_input_event_result.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
-#include "third_party/blink/public/web/web_page_importance_signals.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/public/web/web_widget.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -143,14 +141,17 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   WebLocalFrame* FocusedFrame() override;
   void SetFocusedFrame(WebFrame*) override;
   void SetInitialFocus(bool reverse) override;
-  void ClearFocusedElement() override;
   void SmoothScroll(int target_x,
                     int target_y,
                     base::TimeDelta duration) override;
   void AdvanceFocus(bool reverse) override;
-  void AdvanceFocusAcrossFrames(WebFocusType,
+  void AdvanceFocusAcrossFrames(mojom::blink::FocusType,
                                 WebRemoteFrame* from,
                                 WebLocalFrame* to) override;
+  void ZoomAndScrollToFocusedEditableElementRect(
+      const WebRect& element_bounds_in_document,
+      const WebRect& caret_bounds_in_document,
+      bool zoom_into_legible_scale) override;
   double ZoomLevel() override;
   double SetZoomLevel(double) override;
   float TextZoomFactor() override;
@@ -162,9 +163,9 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void SetInitialPageScaleOverride(float) override;
   void SetMaximumLegibleScale(float) override;
   void SetPageScaleFactor(float) override;
-  void SetVisualViewportOffset(const WebFloatPoint&) override;
-  WebFloatPoint VisualViewportOffset() const override;
-  WebFloatSize VisualViewportSize() const override;
+  void SetVisualViewportOffset(const gfx::PointF&) override;
+  gfx::PointF VisualViewportOffset() const override;
+  gfx::SizeF VisualViewportSize() const override;
   void ResizeVisualViewport(const WebSize&) override;
   void Resize(const WebSize&) override;
   WebSize GetSize() override;
@@ -196,7 +197,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void CancelPagePopup() override;
   WebPagePopupImpl* GetPagePopup() const override { return page_popup_.get(); }
   void SetMainFrameOverlayColor(SkColor) override;
-  WebPageImportanceSignals* PageImportanceSignals() override;
   void AcceptLanguagesChanged() override;
   void SetPageFrozen(bool frozen) override;
   void PutPageIntoBackForwardCache() override;
@@ -345,7 +345,9 @@ class CORE_EXPORT WebViewImpl final : public WebView,
     return fake_page_scale_animation_use_anchor_;
   }
 
-  void EnterFullscreen(LocalFrame&, const FullscreenOptions*);
+  void EnterFullscreen(LocalFrame&,
+                       const FullscreenOptions*,
+                       bool for_cross_process_descendant);
   void ExitFullscreen(LocalFrame&);
   void FullscreenElementChanged(Element* old_element, Element* new_element);
 
@@ -392,10 +394,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   WebInputMethodController* GetActiveWebInputMethodController() const;
 
   bool ShouldZoomToLegibleScale(const Element&);
-  void ZoomAndScrollToFocusedEditableElementRect(
-      const IntRect& element_bounds_in_document,
-      const IntRect& caret_bounds_in_document,
-      bool zoom_into_legible_scale);
 
   // Allows main frame updates to occur if they were previously blocked. They
   // are blocked during loading a navigation, to allow Blink to proceed without
@@ -456,7 +454,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time);
   std::unique_ptr<cc::BeginMainFrameMetrics> GetBeginMainFrameMetrics();
   void UpdateLifecycle(WebWidget::LifecycleUpdate requested_update,
-                       WebWidget::LifecycleUpdateReason reason);
+                       DocumentUpdateReason reason);
   void ThemeChanged();
   WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&);
   WebInputEventResult DispatchBufferedTouchEvents();
@@ -694,8 +692,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // WebWidget destroys itself.
   WebWidget* web_widget_ = nullptr;
 
-  WebPageImportanceSignals page_importance_signals_;
-
   // We defer commits when transitioning to a new page. ChromeClientImpl calls
   // StopDeferringCommits() to release this when a new page is loaded.
   std::unique_ptr<cc::ScopedDeferMainFrameUpdate>
@@ -708,10 +704,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   base::Optional<base::TimeTicks> update_layers_start_time_;
   base::Optional<base::TimeTicks> commit_compositor_frame_start_time_;
 };
-
-// We have no ways to check if the specified WebView is an instance of
-// WebViewImpl because WebViewImpl is the only implementation of WebView.
-DEFINE_TYPE_CASTS(WebViewImpl, WebView, webView, true, true);
 
 }  // namespace blink
 

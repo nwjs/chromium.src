@@ -3,7 +3,6 @@
 <translationbundle lang="uk">
 <translation id="1065672644894730302">Не вдається розпізнати налаштування. Деякі функції можуть бути не доступні, а зміни в налаштуваннях не зберігатимуться.</translation>
 <translation id="1104942323762546749">Chromium хоче експортувати ваші паролі. Щоб дозволити, введіть свій пароль Windows.</translation>
-<translation id="1115445892567829615">Chromium не вдалося синхронізувати ваші дані. Оновіть свою парольну фразу для синхронізації.</translation>
 <translation id="113122355610423240">Chromium – ваш веб-переглядач за умовчанням</translation>
 <translation id="1185134272377778587">Про Chromium</translation>
 <translation id="1396446129537741364">Chromium намагається показати паролі.</translation>
@@ -20,7 +19,7 @@
 <translation id="1929939181775079593">Chromium не відповідає. Перезапустити зараз?</translation>
 <translation id="1966382378801805537">Chromium не може визначити чи встановити веб-переглядач за умовчанням</translation>
 <translation id="2008474315282236005">1 елемент буде видалено з цього пристрою. Щоб відновити дані пізніше, увійдіть в обліковий запис Chromium як <ph name="USER_EMAIL" />.</translation>
-<translation id="2119636228670142020">Про &amp;ОС Chromium</translation>
+<translation id="2147976119693222405">ОС Chromium не вдалося синхронізувати ваші дані. Виправити.</translation>
 <translation id="2241627712206172106">Якщо вашим комп’ютером користуєтесь не лише ви, а й ваші друзі чи сім’я, вони можуть налаштувати Chromium на свій смак.</translation>
 <translation id="2347108572062610441">Це розширення змінило сторінку, яка відкривається під час запуску Chromium.</translation>
 <translation id="2396765026452590966">Розширення "<ph name="EXTENSION_NAME" />" змінило сторінку, яка відкривається під час запуску Chromium.</translation>
@@ -36,7 +35,7 @@
 <translation id="2718390899429598676">Задля підвищення безпеки Chromium шифруватиме ваші дані.</translation>
 <translation id="2770231113462710648">Змінити веб-переглядач за умовчанням на:</translation>
 <translation id="2799223571221894425">Перезапустити</translation>
-<translation id="2838154144102149890">Для оновлення потрібно припинити роботу Chromium. У результаті інші користувачі, що ввійшли в обліковий запис на цьому комп’ютері, можуть утратити незбережені зміни.</translation>
+<translation id="2805036593126168338">ОС Chromium не вдалося синхронізувати ваші паролі. Виправити.</translation>
 <translation id="2847479871509788944">Видалити з Chromium…</translation>
 <translation id="2886012850691518054">Додатково: допоможіть покращити Chromium,  автоматично надсилаючи статистику використання та звіти про аварійне завершення роботи в Google.</translation>
 <translation id="2910007522516064972">Про &amp;Chromium</translation>
@@ -55,7 +54,6 @@
 <translation id="328888136576916638">Ключі API Google відсутні. Деякі функції Chromium буде вимкнено.</translation>
 <translation id="3296368748942286671">Продовжувати роботу фонових програм, коли Chromium закрито</translation>
 <translation id="331951419404882060">ОС Chromium не вдалося синхронізувати ваші дані через помилку входу.</translation>
-<translation id="3340978935015468852">налаштування</translation>
 <translation id="3474745554856756813">З цього пристрою буде видалено стільки елементів: <ph name="ITEMS_COUNT" />. Щоб відновити дані пізніше, увійдіть в обліковий запис Chromium як <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Закрийте всі вікна Chromium і повторіть спробу.</translation>
 <translation id="3575459661164320785">Виявлено шкідливе програмне забезпечення на вашому комп’ютері. Chromium може видалити його, відновити налаштування та вимкнути розширення, щоб веб-переглядач знову працював належним чином.</translation>
@@ -146,7 +144,6 @@
 <translation id="6847869444787758381">Chromium повідомляє, коли ваші паролі зламують</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (скопійовано в Chromium)</translation>
-<translation id="6868056391275687737">Запущено інші копії Chromium. Щоб оновити, закрийте їх.</translation>
 <translation id="6893813176749746474">Chromium оновлено, проте ви не користувалися цим веб-переглядачем щонайменше 30 днів.</translation>
 <translation id="6964305034639999644">Відкрити посилання в аноні&amp;мному вікні Chromium</translation>
 <translation id="6990124437352146030">Chromium потрібен дозвіл на використання мікрофона, щоб надати цьому сайту доступ до нього</translation>
@@ -205,8 +202,6 @@ Chromium не може відновити ваші налаштування.</tr
       налаштуваннях веб-переглядача Chromium<ph name="LINK_END" /></translation>
 <translation id="8697124171261953979">Розширення також змінило сторінку, яка відкривається під час запуску Chromium або пошуку в універсальному вікні пошуку.</translation>
 <translation id="8704119203788522458">Це ваш Chromium</translation>
-<translation id="8739167630197873875">Файли cookie видаляються, коли ви закриваєте Chromium. Щоб продовжити синхронізацію, змініть ці <ph name="COOKIE_SETTINGS_LINK" />.</translation>
-<translation id="8748383401829947534">Закрийте всі копії Chromium.</translation>
 <translation id="8796602469536043152">Chromium потрібен дозвіл на використання камери й мікрофона, щоб надати цьому сайту доступ до них</translation>
 <translation id="8803635938069941624">Умови ОС Chromium</translation>
 <translation id="8821041990367117597">Chromium не вдалося синхронізувати ваші дані, оскільки дані для входу в обліковий запис застаріли.</translation>
@@ -216,7 +211,6 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="8941642502866065432">Не вдається оновити Chromium</translation>
 <translation id="8974095189086268230">ОС Chromium стала можливою завдяки додатковому <ph name="BEGIN_LINK_CROS_OSS" />програмному забезпеченню з відкритим кодом<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="9019929317751753759">Щоб зробити Chromium безпечнішим, ми вимкнули наведене нижче розширення, установлене не із сайту <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> і, можливо, додане без вашого відома.</translation>
-<translation id="9022552996538154597">Вхід у Chromium</translation>
 <translation id="9089354809943900324">Версія Chromium застаріла</translation>
 <translation id="9093206154853821181">{0,plural, =1{Chromium перезапуститься через годину}one{Chromium перезапуститься через # годину}few{Chromium перезапуститься через # години}many{Chromium перезапуститься через # годин}other{Chromium перезапуститься через # години}}</translation>
 <translation id="91086099826398415">Відкрити посилання в новій &amp;вкладці Chromium</translation>

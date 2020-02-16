@@ -78,8 +78,9 @@ void DeviceOrientationController::DidAddEventListener(
           WebURL(GetDocument().Url()));
     }
 
-    if (!CheckPolicyFeatures({mojom::FeaturePolicyFeature::kAccelerometer,
-                              mojom::FeaturePolicyFeature::kGyroscope})) {
+    if (!CheckPolicyFeatures(
+            {mojom::blink::FeaturePolicyFeature::kAccelerometer,
+             mojom::blink::FeaturePolicyFeature::kGyroscope})) {
       LogToConsolePolicyFeaturesDisabled(GetDocument().GetFrame(),
                                          EventTypeName());
       return;
@@ -115,7 +116,7 @@ Event* DeviceOrientationController::LastEvent() const {
 }
 
 bool DeviceOrientationController::IsNullEvent(Event* event) const {
-  DeviceOrientationEvent* orientation_event = ToDeviceOrientationEvent(event);
+  auto* orientation_event = To<DeviceOrientationEvent>(event);
   return !orientation_event->Orientation()->CanProvideEventData();
 }
 

@@ -22,12 +22,31 @@ void AppShortcutManager::SetSubsystems(AppRegistrar* registrar) {
   registrar_ = registrar;
 }
 
+void AppShortcutManager::Start() {
+  DCHECK(registrar_);
+  app_registrar_observer_.Add(registrar_);
+}
+
+void AppShortcutManager::Shutdown() {
+  app_registrar_observer_.RemoveAll();
+}
+
 void AppShortcutManager::AddObserver(AppShortcutObserver* observer) {
   observers_.AddObserver(observer);
 }
 
 void AppShortcutManager::RemoveObserver(AppShortcutObserver* observer) {
   observers_.RemoveObserver(observer);
+}
+
+void AppShortcutManager::OnWebAppWillBeUninstalled(const AppId& app_id) {
+  std::unique_ptr<ShortcutInfo> shortcut_info = BuildShortcutInfo(app_id);
+  base::FilePath shortcut_data_dir =
+      internals::GetShortcutDataDir(*shortcut_info);
+
+  internals::PostShortcutIOTask(
+      base::BindOnce(&internals::DeletePlatformShortcuts, shortcut_data_dir),
+      std::move(shortcut_info));
 }
 
 bool AppShortcutManager::CanCreateShortcuts() const {

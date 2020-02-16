@@ -22,7 +22,6 @@
 #include "components/password_manager/core/browser/form_parsing/password_field_prediction.h"
 #include "components/password_manager/core/browser/password_form_manager_for_ui.h"
 #include "components/password_manager/core/browser/password_form_metrics_recorder.h"
-#include "components/password_manager/core/browser/password_form_user_action.h"
 #include "components/password_manager/core/browser/password_save_manager.h"
 #include "components/password_manager/core/browser/password_store.h"
 #include "components/password_manager/core/browser/votes_uploader.h"
@@ -155,12 +154,14 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   void OnNoInteraction(bool is_update) override;
   void PermanentlyBlacklist() override;
   void OnPasswordsRevealed() override;
+  void MoveCredentialsToAccountStore() override;
 
   bool IsNewLogin() const;
   FormFetcher* GetFormFetcher();
   bool IsPendingCredentialsPublicSuffixMatch() const;
   bool IsPendingCredentialsOriginExtension() const;
-  void PresaveGeneratedPassword(const autofill::PasswordForm& form);
+  void PresaveGeneratedPassword(const autofill::FormData& form_data,
+                                const base::string16& generated_password);
   void PasswordNoLongerGenerated();
   bool HasGeneratedPassword() const;
   void SetGenerationPopupWasShown(bool is_manual_generation);
@@ -182,14 +183,13 @@ class PasswordFormManager : public PasswordFormManagerForUI,
                                 const base::string16& generated_password,
                                 const base::string16& generation_element);
 
-  // Updates the presaved credential with the generated password when the user
-  // types in field with |field_identifier|, which is in form with
-  // |form_identifier| and the field value is |field_value|. Return true if
-  // |*this| manages a form with name |form_identifier|.
-  bool UpdateGeneratedPasswordOnUserInput(
-      const base::string16& form_identifier,
-      const base::string16& field_identifier,
-      const base::string16& field_value);
+  // Return false and do nothing if |form_identifier| does not correspond to
+  // |observed_form_|. Otherwise set a value of the field with
+  // |field_identifier| of |observed_form_| to |field_value|. In case if there
+  // is a presaved credential this function updates the presaved credential.
+  bool UpdateStateOnUserInput(const base::string16& form_identifier,
+                              const base::string16& field_identifier,
+                              const base::string16& field_value);
 #endif  // defined(OS_IOS)
 
   // Create a copy of |*this| which can be passed to the code handling
@@ -199,13 +199,23 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   // another one.
   std::unique_ptr<PasswordFormManager> Clone();
 
+  // Because of the android integration tests, it can't be guarded by if
+  // defined(UNIT_TEST).
+  static void DisableFillingServerPredictionsForTesting() {
+    wait_for_server_predictions_for_filling_ = false;
+  }
+
 #if defined(UNIT_TEST)
   static void set_wait_for_server_predictions_for_filling(bool value) {
     wait_for_server_predictions_for_filling_ = value;
   }
+
   FormSaver* form_saver() const {
     return password_save_manager_->GetFormSaver();
   }
+
+  const autofill::FormData& observed_form() { return observed_form_; }
+
 #endif
 
  protected:
@@ -279,7 +289,7 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   base::WeakPtr<PasswordManagerDriver> driver_;
 
   // Id of |driver_|. Cached since |driver_| might become null when frame is
-  // close..
+  // close.
   int driver_id_ = 0;
 
   // TODO(https://crbug.com/943045): use std::variant for keeping
@@ -309,8 +319,8 @@ class PasswordFormManager : public PasswordFormManagerForUI,
 
   VotesUploader votes_uploader_;
 
-  // |is_submitted_| = true means that a submission of the managed form was seen
-  // and then |submitted_form_| contains the submitted form.
+  // |is_submitted_| = true means that |*this| is ready for saving.
+  // TODO(https://crubg.com/875768): Come up with a better name.
   bool is_submitted_ = false;
   autofill::FormData submitted_form_;
   std::unique_ptr<autofill::PasswordForm> parsed_submitted_form_;

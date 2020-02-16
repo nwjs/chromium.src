@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_views.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/material_design/material_design_controller_observer.h"
 #include "ui/gfx/color_palette.h"
@@ -47,7 +48,6 @@ class Browser;
 class NewTabButton;
 class StackedTabStripLayout;
 class Tab;
-class TabGroupId;
 class TabHoverCardBubbleView;
 class TabStripController;
 class TabStripObserver;
@@ -55,6 +55,10 @@ class TabStripLayoutHelper;
 
 namespace gfx {
 class Rect;
+}
+
+namespace tab_groups {
+class TabGroupId;
 }
 
 namespace ui {
@@ -164,23 +168,35 @@ class TabStrip : public views::AccessiblePaneView,
   void SetTabData(int model_index, TabRendererData data);
 
   // Sets the tab group at the specified model index.
-  void AddTabToGroup(base::Optional<TabGroupId> group, int model_index);
+  void AddTabToGroup(base::Optional<tab_groups::TabGroupId> group,
+                     int model_index);
 
   // Creates the views associated with a newly-created tab group.
-  void OnGroupCreated(TabGroupId group);
+  void OnGroupCreated(const tab_groups::TabGroupId& group);
 
   // Updates the group's contents and metadata when its tab membership changes.
   // This should be called when a tab is added to or removed from a group.
-  void OnGroupContentsChanged(TabGroupId group);
+  void OnGroupContentsChanged(const tab_groups::TabGroupId& group);
 
   // Updates the group's tabs and header when its associated TabGroupVisualData
   // changes. This should be called when the result of
-  // |TabStripController::GetVisualDataForGroup(group)| changes.
-  void OnGroupVisualsChanged(TabGroupId group);
+  // |TabStripController::GetGroupTitle(group)| or
+  // |TabStripController::GetGroupColorId(group)| changes.
+  void OnGroupVisualsChanged(const tab_groups::TabGroupId& group);
+
+  // Updates the ordering of the group header when the whole group is moved.
+  // Needed to ensure display and focus order of the group header view.
+  void OnGroupMoved(const tab_groups::TabGroupId& group);
 
   // Destroys the views associated with a recently deleted tab group. The
   // associated view mappings are erased in OnGroupCloseAnimationCompleted().
-  void OnGroupClosed(TabGroupId group);
+  void OnGroupClosed(const tab_groups::TabGroupId& group);
+
+  // Attempts to move the specified group to the left.
+  void ShiftGroupLeft(const tab_groups::TabGroupId& group);
+
+  // Attempts to move the specified group to the right.
+  void ShiftGroupRight(const tab_groups::TabGroupId& group);
 
   // Returns true if the tab is not partly or fully clipped (due to overflow),
   // and the tab couldn't become partly clipped due to changing the selected tab
@@ -209,8 +225,8 @@ class TabStrip : public views::AccessiblePaneView,
   Tab* tab_at(int index) const { return tabs_.view_at(index); }
 
   // Returns the TabGroupHeader with ID |id|.
-  TabGroupHeader* group_header(TabGroupId id) {
-    return group_views_[id].get()->header();
+  TabGroupHeader* group_header(const tab_groups::TabGroupId& id) const {
+    return group_views_.at(id).get()->header();
   }
 
   // Returns the NewTabButton.
@@ -256,8 +272,8 @@ class TabStrip : public views::AccessiblePaneView,
   void ToggleSelected(Tab* tab) override;
   void AddSelectionFromAnchorTo(Tab* tab) override;
   void CloseTab(Tab* tab, CloseTabSource source) override;
-  void MoveTabLeft(Tab* tab) override;
-  void MoveTabRight(Tab* tab) override;
+  void ShiftTabLeft(Tab* tab) override;
+  void ShiftTabRight(Tab* tab) override;
   void MoveTabFirst(Tab* tab) override;
   void MoveTabLast(Tab* tab) override;
   void ShowContextMenuForTab(Tab* tab,
@@ -299,13 +315,18 @@ class TabStrip : public views::AccessiblePaneView,
   gfx::Rect GetTabAnimationTargetBounds(const Tab* tab) override;
   float GetHoverOpacityForTab(float range_parameter) const override;
   float GetHoverOpacityForRadialHighlight() const override;
-  const TabGroupVisualData* GetVisualDataForGroup(
-      TabGroupId group) const override;
-  void SetVisualDataForGroup(TabGroupId group,
-                             TabGroupVisualData visual_data) override;
-  void CloseAllTabsInGroup(TabGroupId group) override;
-  void UngroupAllTabsInGroup(TabGroupId group) override;
-  void AddNewTabInGroup(TabGroupId group) override;
+  base::string16 GetGroupTitle(
+      const tab_groups::TabGroupId& group) const override;
+  tab_groups::TabGroupColorId GetGroupColorId(
+      const tab_groups::TabGroupId& group) const override;
+  SkColor GetPaintedGroupColor(
+      const tab_groups::TabGroupColorId& color_id) const override;
+  void SetVisualDataForGroup(
+      const tab_groups::TabGroupId& group,
+      const tab_groups::TabGroupVisualData& visual_data) override;
+  void CloseAllTabsInGroup(const tab_groups::TabGroupId& group) override;
+  void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) override;
+  void AddNewTabInGroup(const tab_groups::TabGroupId& group) override;
   const Browser* GetBrowser() override;
 
   // MouseWatcherListener:
@@ -406,7 +427,7 @@ class TabStrip : public views::AccessiblePaneView,
 
   views::ViewModelT<Tab>* tabs_view_model() { return &tabs_; }
 
-  std::map<TabGroupId, TabGroupHeader*> GetGroupHeaders();
+  std::map<tab_groups::TabGroupId, TabGroupHeader*> GetGroupHeaders();
 
   // Invoked from |AddTabAt| after the newly created tab has been inserted.
   void StartInsertTabAnimation(int model_index, TabPinned pinned);
@@ -480,6 +501,13 @@ class TabStrip : public views::AccessiblePaneView,
   // the actual last tab unless the strip is in the overflow node_data.
   const Tab* GetLastVisibleTab() const;
 
+  // Returns the view index (the order of ChildViews of the TabStrip) of the
+  // given |tab| based on its model index when it moves. Used to reorder the
+  // child views of the tabstrip so that focus order stays consistent.
+  int GetViewInsertionIndex(Tab* tab,
+                            base::Optional<int> from_model_index,
+                            int to_model_index) const;
+
   // Removes the tab at |index| from |tabs_|.
   void RemoveTabFromViewModel(int index);
 
@@ -489,7 +517,7 @@ class TabStrip : public views::AccessiblePaneView,
 
   // Cleans up the TabGroupHeader for |group| from the TabStrip. This is called
   // from the tab animation code and is not a general-purpose method.
-  void OnGroupCloseAnimationCompleted(TabGroupId group);
+  void OnGroupCloseAnimationCompleted(const tab_groups::TabGroupId& group);
 
   // Invoked from StoppedDraggingTabs to cleanup |view|. If |view| is known
   // |is_first_view| is set to true.
@@ -503,9 +531,13 @@ class TabStrip : public views::AccessiblePaneView,
   // Computes and stores values derived from contrast ratios.
   void UpdateContrastRatioValues();
 
-  // Determines whether a tab can be moved by |offset| positions and moves it if
-  // possible.
-  void MoveTabRelative(Tab* tab, int offset);
+  // Determines whether a tab can be shifted by one in the direction of |offset|
+  // and moves it if possible.
+  void ShiftTabRelative(Tab* tab, int offset);
+
+  // Determines whether a group can be shifted by one in the direction of
+  // |offset| and moves it if possible.
+  void ShiftGroupRelative(const tab_groups::TabGroupId& group, int offset);
 
   // -- Tab Resize Layout -----------------------------------------------------
 
@@ -640,7 +672,7 @@ class TabStrip : public views::AccessiblePaneView,
   // in |layout_helper_| until the remove animation completes.
   views::ViewModelT<Tab> tabs_;
 
-  std::map<TabGroupId, std::unique_ptr<TabGroupViews>> group_views_;
+  std::map<tab_groups::TabGroupId, std::unique_ptr<TabGroupViews>> group_views_;
 
   // The view tracker is used to keep track of if the hover card has been
   // destroyed by its widget.
@@ -706,6 +738,9 @@ class TabStrip : public views::AccessiblePaneView,
 
   // Time of the last mouse move event.
   base::TimeTicks last_mouse_move_time_;
+
+  // Used for seek time metrics from the time the mouse enters the tabstrip.
+  base::Optional<base::TimeTicks> mouse_entered_tabstrip_time_;
 
   // Number of mouse moves.
   int mouse_move_count_ = 0;

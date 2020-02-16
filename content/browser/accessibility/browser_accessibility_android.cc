@@ -200,8 +200,8 @@ bool BrowserAccessibilityAndroid::IsClickable() const {
   if (IsIframe() || (GetRole() == ax::mojom::Role::kRootWebArea))
     return false;
 
-  // Otherwise it's clickable if it's focusable.
-  return IsFocusable();
+  // Otherwise it's clickable if it's a control.
+  return ui::IsControlOnAndroid(GetRole(), IsFocusable());
 }
 
 bool BrowserAccessibilityAndroid::IsCollapsed() const {
@@ -348,7 +348,22 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   if (HasState(ax::mojom::State::kInvisible))
     return false;
 
-  // Focusable nodes are always interesting. Note that IsFocusable()
+  // Walk up the ancestry. A non-focusable child of a control is not
+  // interesting. A child of an invisible iframe is also not interesting.
+  const BrowserAccessibility* parent = PlatformGetParent();
+  while (parent != nullptr) {
+    if (ui::IsControl(parent->GetRole()) && !IsFocusable())
+      return false;
+
+    if (parent->GetRole() == ax::mojom::Role::kIframe &&
+        parent->GetData().HasState(ax::mojom::State::kInvisible)) {
+      return false;
+    }
+
+    parent = parent->PlatformGetParent();
+  }
+
+  // Otherwise, focusable nodes are always interesting. Note that IsFocusable()
   // already skips over things like iframes and child frames that are
   // technically focusable but shouldn't be exposed as focusable on Android.
   if (IsFocusable())
@@ -357,14 +372,6 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   // If it's not focusable but has a control role, then it's interesting.
   if (ui::IsControl(GetRole()))
     return true;
-
-  // A non focusable child of a control is not interesting
-  const BrowserAccessibility* parent = PlatformGetParent();
-  while (parent != nullptr) {
-    if (ui::IsControl(parent->GetRole()))
-      return false;
-    parent = parent->PlatformGetParent();
-  }
 
   // Otherwise, the interesting nodes are leaf nodes with non-whitespace text.
   return PlatformIsLeaf() &&
@@ -626,9 +633,6 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kComment:
       message_id = IDS_AX_ROLE_COMMENT;
-      break;
-    case ax::mojom::Role::kCommentSection:
-      message_id = IDS_AX_ROLE_COMMENT_SECTION;
       break;
     case ax::mojom::Role::kComplementary:
       message_id = IDS_AX_ROLE_COMPLEMENTARY;
@@ -962,8 +966,17 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
     case ax::mojom::Role::kParagraph:
       // No role description.
       break;
+    case ax::mojom::Role::kPdfActionableHighlight:
+      message_id = IDS_AX_ROLE_PDF_HIGHLIGHT;
+      break;
+    case ax::mojom::Role::kPluginObject:
+      message_id = IDS_AX_ROLE_EMBEDDED_OBJECT;
+      break;
     case ax::mojom::Role::kPopUpButton:
       message_id = IDS_AX_ROLE_POP_UP_BUTTON;
+      break;
+    case ax::mojom::Role::kPortal:
+      message_id = IDS_AX_ROLE_BUTTON;
       break;
     case ax::mojom::Role::kPre:
       // No role description.
@@ -982,9 +995,6 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kRegion:
       message_id = IDS_AX_ROLE_REGION;
-      break;
-    case ax::mojom::Role::kRevision:
-      message_id = IDS_AX_ROLE_REVISION;
       break;
     case ax::mojom::Role::kRootWebArea:
       // No role description.
@@ -1784,7 +1794,6 @@ bool BrowserAccessibilityAndroid::ShouldExposeValueAsName() const {
     case ax::mojom::Role::kDateTime:
     case ax::mojom::Role::kTextField:
     case ax::mojom::Role::kTextFieldWithComboBox:
-    case ax::mojom::Role::kTime:
       return true;
     default:
       break;

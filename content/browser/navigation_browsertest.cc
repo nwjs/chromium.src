@@ -22,6 +22,7 @@
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/frame_host/navigation_request.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/common/content_navigation_policy.h"
 #include "content/common/frame_messages.h"
 #include "content/common/navigation_params.h"
 #include "content/common/view_messages.h"
@@ -58,6 +59,7 @@
 #include "content/test/content_browser_test_utils_internal.h"
 #include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/fake_network_url_loader_factory.h"
+#include "content/test/test_render_frame_host_factory.h"
 #include "ipc/ipc_security_test_util.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -134,27 +136,42 @@ class InterceptAndCancelDidCommitProvisionalLoad
   std::unique_ptr<base::RunLoop> loop_;
 };
 
-// Used to wait for an observed IPC to be received.
-class BrowserMessageObserver : public content::BrowserMessageFilter {
+class RenderFrameHostImplForHistoryBackInterceptor
+    : public RenderFrameHostImpl {
  public:
-  BrowserMessageObserver(uint32_t observed_message_class,
-                         uint32_t observed_message_type)
-      : content::BrowserMessageFilter(observed_message_class),
-        observed_message_type_(observed_message_type) {}
+  using RenderFrameHostImpl::RenderFrameHostImpl;
 
-  bool OnMessageReceived(const IPC::Message& message) override {
-    if (message.type() == observed_message_type_)
-      loop.Quit();
-    return false;
+  void GoToEntryAtOffset(int32_t offset, bool has_user_gesture) override {
+    if (quit_handler_)
+      std::move(quit_handler_).Run();
   }
 
-  void Wait() { loop.Run(); }
+  void set_quit_handler(base::OnceClosure handler) {
+    quit_handler_ = std::move(handler);
+  }
 
  private:
-  ~BrowserMessageObserver() override {}
-  uint32_t observed_message_type_;
-  base::RunLoop loop;
-  DISALLOW_COPY_AND_ASSIGN(BrowserMessageObserver);
+  friend class RenderFrameHostFactoryForHistoryBackInterceptor;
+  base::OnceClosure quit_handler_;
+};
+
+class RenderFrameHostFactoryForHistoryBackInterceptor
+    : public TestRenderFrameHostFactory {
+ protected:
+  std::unique_ptr<RenderFrameHostImpl> CreateRenderFrameHost(
+      SiteInstance* site_instance,
+      scoped_refptr<RenderViewHostImpl> render_view_host,
+      RenderFrameHostDelegate* delegate,
+      FrameTree* frame_tree,
+      FrameTreeNode* frame_tree_node,
+      int32_t routing_id,
+      int32_t widget_routing_id,
+      bool renderer_initiated_creation) override {
+    return base::WrapUnique(new RenderFrameHostImplForHistoryBackInterceptor(
+        site_instance, std::move(render_view_host), delegate, frame_tree,
+        frame_tree_node, routing_id, widget_routing_id,
+        renderer_initiated_creation));
+  }
 };
 
 // Simulate embedders of content/ keeping track of the current visible URL using
@@ -213,6 +230,19 @@ class NavigationBrowserTest : public NavigationBaseBrowserTest {
     NavigationBaseBrowserTest::SetUpOnMainThread();
     ASSERT_TRUE(embedded_test_server()->Start());
   }
+};
+
+class NavigationGoToEntryAtOffsetBrowserTest : public NavigationBrowserTest {
+ public:
+  void SetQuitHandlerForGoToEntryAtOffset(base::OnceClosure handler) {
+    RenderFrameHostImplForHistoryBackInterceptor* render_frame_host =
+        static_cast<RenderFrameHostImplForHistoryBackInterceptor*>(
+            shell()->web_contents()->GetMainFrame());
+    render_frame_host->set_quit_handler(std::move(handler));
+  }
+
+ private:
+  RenderFrameHostFactoryForHistoryBackInterceptor render_frame_host_factory_;
 };
 
 class NetworkIsolationNavigationBrowserTest
@@ -281,7 +311,7 @@ class NetworkIsolationNavigationBrowserTest
   base::test::ScopedFeatureList feature_list_;
 };
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          NetworkIsolationNavigationBrowserTest,
                          ::testing::Bool());
 
@@ -300,7 +330,7 @@ class NavigationBrowserTestReferrerPolicy
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     NavigationBrowserTestReferrerPolicy,
     ::testing::Values(network::mojom::ReferrerPolicy::kAlways,
                       network::mojom::ReferrerPolicy::kDefault,
@@ -511,18 +541,16 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   EXPECT_EQ(kUrl, observer.last_navigation_url());
   EXPECT_TRUE(observer.last_navigation_succeeded());
 
-  std::unique_ptr<ConsoleObserverDelegate> console_delegate(
-      new ConsoleObserverDelegate(
-          shell()->web_contents(),
-          "Not allowed to load local resource: view-source:about:blank"));
-  shell()->web_contents()->SetDelegate(console_delegate.get());
+  WebContentsConsoleObserver console_observer(shell()->web_contents());
+  console_observer.SetPattern(
+      "Not allowed to load local resource: view-source:about:blank");
 
   bool success = false;
   EXPECT_TRUE(ExecuteScriptAndExtractBool(
       shell()->web_contents(),
       "window.domAutomationController.send(clickViewSourceLink());", &success));
   EXPECT_TRUE(success);
-  console_delegate->Wait();
+  console_observer.Wait();
   // Original page shouldn't navigate away.
   EXPECT_EQ(kUrl, shell()->web_contents()->GetURL());
   EXPECT_FALSE(shell()
@@ -541,11 +569,9 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   EXPECT_EQ(kUrl, observer.last_navigation_url());
   EXPECT_TRUE(observer.last_navigation_succeeded());
 
-  std::unique_ptr<ConsoleObserverDelegate> console_delegate(
-      new ConsoleObserverDelegate(
-          shell()->web_contents(),
-          "Not allowed to load local resource: googlechrome://"));
-  shell()->web_contents()->SetDelegate(console_delegate.get());
+  WebContentsConsoleObserver console_observer(shell()->web_contents());
+  console_observer.SetPattern(
+      "Not allowed to load local resource: googlechrome://");
 
   bool success = false;
   EXPECT_TRUE(ExecuteScriptAndExtractBool(
@@ -553,7 +579,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
       "window.domAutomationController.send(clickGoogleChromeLink());",
       &success));
   EXPECT_TRUE(success);
-  console_delegate->Wait();
+  console_observer.Wait();
   // Original page shouldn't navigate away.
   EXPECT_EQ(kUrl, shell()->web_contents()->GetURL());
 }
@@ -1328,7 +1354,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, HistoryBackInBeforeUnload) {
 // window.setTimeout(). Thus it is executed "outside" of its beforeunload
 // handler and thus avoid basic navigation circumventions.
 // Regression test for: https://crbug.com/879965.
-IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(NavigationGoToEntryAtOffsetBrowserTest,
                        HistoryBackInBeforeUnloadAfterSetTimeout) {
   GURL url_1(embedded_test_server()->GetURL("/title1.html"));
   GURL url_2(embedded_test_server()->GetURL("/title2.html"));
@@ -1341,14 +1367,12 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
                                       "  setTimeout(()=>history.back());"
                                       "};"));
   TestNavigationManager navigation(shell()->web_contents(), url_2);
-  auto ipc_observer = base::MakeRefCounted<BrowserMessageObserver>(
-      FrameMsgStart, FrameHostMsg_GoToEntryAtOffset::ID);
-  static_cast<RenderFrameHostImpl*>(shell()->web_contents()->GetMainFrame())
-      ->GetProcess()
-      ->AddFilter(ipc_observer.get());
 
+  base::RunLoop run_loop;
+  SetQuitHandlerForGoToEntryAtOffset(run_loop.QuitClosure());
   shell()->LoadURL(url_2);
-  ipc_observer->Wait();
+  run_loop.Run();
+
   navigation.WaitForNavigationFinished();
 
   EXPECT_TRUE(navigation.was_successful());
@@ -1511,14 +1535,12 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, IPCFlood_GoToEntryAtOffset) {
   GURL url(embedded_test_server()->GetURL("/title1.html"));
   EXPECT_TRUE(NavigateToURL(shell(), url));
 
-  std::unique_ptr<ConsoleObserverDelegate> console_delegate(
-      new ConsoleObserverDelegate(
-          shell()->web_contents(),
-          "Throttling navigation to prevent the browser from hanging. See "
-          "https://crbug.com/882238. Command line switch "
-          "--disable-ipc-flooding-protection can be used to bypass the "
-          "protection"));
-  shell()->web_contents()->SetDelegate(console_delegate.get());
+  WebContentsConsoleObserver console_observer(shell()->web_contents());
+  console_observer.SetPattern(
+      "Throttling navigation to prevent the browser from hanging. See "
+      "https://crbug.com/882238. Command line switch "
+      "--disable-ipc-flooding-protection can be used to bypass the "
+      "protection");
 
   EXPECT_TRUE(ExecuteScript(shell(), R"(
     for(let i = 0; i<1000; ++i) {
@@ -1527,7 +1549,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, IPCFlood_GoToEntryAtOffset) {
     }
   )"));
 
-  console_delegate->Wait();
+  console_observer.Wait();
 }
 
 // Ensure the renderer process doesn't send too many IPC to the browser process
@@ -1540,14 +1562,12 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, IPCFlood_Navigation) {
   GURL url(embedded_test_server()->GetURL("/title1.html"));
   EXPECT_TRUE(NavigateToURL(shell(), url));
 
-  std::unique_ptr<ConsoleObserverDelegate> console_delegate(
-      new ConsoleObserverDelegate(
-          shell()->web_contents(),
-          "Throttling navigation to prevent the browser from hanging. See "
-          "https://crbug.com/882238. Command line switch "
-          "--disable-ipc-flooding-protection can be used to bypass the "
-          "protection"));
-  shell()->web_contents()->SetDelegate(console_delegate.get());
+  WebContentsConsoleObserver console_observer(shell()->web_contents());
+  console_observer.SetPattern(
+      "Throttling navigation to prevent the browser from hanging. See "
+      "https://crbug.com/882238. Command line switch "
+      "--disable-ipc-flooding-protection can be used to bypass the "
+      "protection");
 
   EXPECT_TRUE(ExecuteScript(shell(), R"(
     for(let i = 0; i<1000; ++i) {
@@ -1556,7 +1576,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, IPCFlood_Navigation) {
     }
   )"));
 
-  console_delegate->Wait();
+  console_observer.Wait();
 }
 
 // TODO(http://crbug.com/632514): This test currently expects opener downloads
@@ -2435,46 +2455,48 @@ IN_PROC_BROWSER_TEST_F(NavigationBaseBrowserTest,
   GURL url_a = embedded_test_server()->GetURL("a.com", "/main_document");
   GURL url_b = embedded_test_server()->GetURL("a.com", "/title1.html");
 
-  auto console_delegate_1 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(), "Refused to execute inline script *");
-  shell()->web_contents()->SetDelegate(console_delegate_1.get());
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern("Refused to execute inline script *");
 
-  // 1) Load main document with CSP: script-src 'none'
-  // 2) Open an about:srcdoc iframe. It inherits the CSP from its parent.
-  shell()->LoadURL(url_a);
-  main_document_response.WaitForRequest();
-  main_document_response.Send(
-      "HTTP/1.1 200 OK\n"
-      "content-type: text/html; charset=UTF-8\n"
-      "Content-Security-Policy: script-src 'none'\n"
-      "\n"
-      "<iframe name='theiframe' srcdoc='"
-      "  <script>"
-      "    console.error(\"CSP failure\");"
-      "  </script>"
-      "'>"
-      "</iframe>");
-  main_document_response.Done();
-  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    // 1) Load main document with CSP: script-src 'none'
+    // 2) Open an about:srcdoc iframe. It inherits the CSP from its parent.
+    shell()->LoadURL(url_a);
+    main_document_response.WaitForRequest();
+    main_document_response.Send(
+        "HTTP/1.1 200 OK\n"
+        "content-type: text/html; charset=UTF-8\n"
+        "Content-Security-Policy: script-src 'none'\n"
+        "\n"
+        "<iframe name='theiframe' srcdoc='"
+        "  <script>"
+        "    console.error(\"CSP failure\");"
+        "  </script>"
+        "'>"
+        "</iframe>");
+    main_document_response.Done();
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
 
-  // Check Javascript was blocked the first time.
-  console_delegate_1->Wait();
+    // Check Javascript was blocked the first time.
+    console_observer.Wait();
+  }
 
   // 3) The iframe navigates elsewhere.
   shell()->LoadURLForFrame(url_b, "theiframe",
                            ui::PAGE_TRANSITION_MANUAL_SUBFRAME);
   EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
 
-  auto console_delegate_2 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(), "Refused to execute inline script *");
-  shell()->web_contents()->SetDelegate(console_delegate_2.get());
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern("Refused to execute inline script *");
 
-  // 4) The iframe navigates back to about:srcdoc.
-  shell()->web_contents()->GetController().GoBack();
-  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    // 4) The iframe navigates back to about:srcdoc.
+    shell()->web_contents()->GetController().GoBack();
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
 
-  // Check Javascript was blocked the second time.
-  console_delegate_2->Wait();
+    // Check Javascript was blocked the second time.
+    console_observer.Wait();
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBaseBrowserTest,
@@ -2487,46 +2509,48 @@ IN_PROC_BROWSER_TEST_F(NavigationBaseBrowserTest,
   GURL url_a = embedded_test_server()->GetURL("a.com", "/main_document");
   GURL url_b = embedded_test_server()->GetURL("b.com", "/title1.html");
 
-  auto console_delegate_1 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(), "Refused to execute inline script *");
-  shell()->web_contents()->SetDelegate(console_delegate_1.get());
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern("Refused to execute inline script *");
 
-  // 1) Load main document with CSP: script-src 'none'
-  // 2) Open an about:srcdoc iframe. It inherits the CSP from its parent.
-  shell()->LoadURL(url_a);
-  main_document_response.WaitForRequest();
-  main_document_response.Send(
-      "HTTP/1.1 200 OK\n"
-      "content-type: text/html; charset=UTF-8\n"
-      "Content-Security-Policy: script-src 'none'\n"
-      "\n"
-      "<iframe name='theiframe' srcdoc='"
-      "  <script>"
-      "    console.error(\"CSP failure\");"
-      "  </script>"
-      "'>"
-      "</iframe>");
-  main_document_response.Done();
-  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    // 1) Load main document with CSP: script-src 'none'
+    // 2) Open an about:srcdoc iframe. It inherits the CSP from its parent.
+    shell()->LoadURL(url_a);
+    main_document_response.WaitForRequest();
+    main_document_response.Send(
+        "HTTP/1.1 200 OK\n"
+        "content-type: text/html; charset=UTF-8\n"
+        "Content-Security-Policy: script-src 'none'\n"
+        "\n"
+        "<iframe name='theiframe' srcdoc='"
+        "  <script>"
+        "    console.error(\"CSP failure\");"
+        "  </script>"
+        "'>"
+        "</iframe>");
+    main_document_response.Done();
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
 
-  // Check Javascript was blocked the first time.
-  console_delegate_1->Wait();
+    // Check Javascript was blocked the first time.
+    console_observer.Wait();
+  }
 
   // 3) The iframe navigates elsewhere.
   shell()->LoadURLForFrame(url_b, "theiframe",
                            ui::PAGE_TRANSITION_MANUAL_SUBFRAME);
   EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
 
-  auto console_delegate_2 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(), "Refused to execute inline script *");
-  shell()->web_contents()->SetDelegate(console_delegate_2.get());
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern("Refused to execute inline script *");
 
-  // 4) The iframe navigates back to about:srcdoc.
-  shell()->web_contents()->GetController().GoBack();
-  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+    // 4) The iframe navigates back to about:srcdoc.
+    shell()->web_contents()->GetController().GoBack();
+    EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
 
-  // Check Javascript was blocked the second time.
-  console_delegate_2->Wait();
+    // Check Javascript was blocked the second time.
+    console_observer.Wait();
+  }
 }
 
 // Tests for cookies. Provides an HTTPS server.
@@ -2952,22 +2976,24 @@ IN_PROC_BROWSER_TEST_F(NavigationCookiesBrowserTest, CookiesInheritedDataUrl) {
             sub_document_1->GetSiteInstance());
 
   // 1. Writing a cookie inside a data-URL document is forbidden.
-  auto console_delegate_1 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(),
-      "*Failed to set the 'cookie' property on 'Document': Cookies are "
-      "disabled inside 'data:' URLs.*");
-  shell()->web_contents()->SetDelegate(console_delegate_1.get());
-  ExecuteScriptAsync(sub_document_1, "document.cookie = 'a=0';");
-  console_delegate_1->Wait();
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern(
+        "*Failed to set the 'cookie' property on 'Document': Cookies are "
+        "disabled inside 'data:' URLs.*");
+    ExecuteScriptAsync(sub_document_1, "document.cookie = 'a=0';");
+    console_observer.Wait();
+  }
 
   // 2. Reading a cookie inside a data-URL document is forbidden.
-  auto console_delegate_2 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(),
-      "*Failed to read the 'cookie' property from 'Document': Cookies are "
-      "disabled inside 'data:' URLs.*");
-  shell()->web_contents()->SetDelegate(console_delegate_2.get());
-  ExecuteScriptAsync(sub_document_1, "document.cookie");
-  console_delegate_2->Wait();
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern(
+        "*Failed to read the 'cookie' property from 'Document': Cookies are "
+        "disabled inside 'data:' URLs.*");
+    ExecuteScriptAsync(sub_document_1, "document.cookie");
+    console_observer.Wait();
+  }
 
   // 3. Set cookie in the main document. No cookies are sent when requested from
   // the data-URL.
@@ -2992,22 +3018,24 @@ IN_PROC_BROWSER_TEST_F(NavigationCookiesBrowserTest, CookiesInheritedDataUrl) {
             sub_document_2->GetSiteInstance());
 
   // 5. Writing a cookie inside a data-URL document is still forbidden.
-  auto console_delegate_3 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(),
-      "*Failed to set the 'cookie' property on 'Document': Cookies are "
-      "disabled inside 'data:' URLs.*");
-  shell()->web_contents()->SetDelegate(console_delegate_3.get());
-  ExecuteScriptAsync(sub_document_2, "document.cookie = 'c=0';");
-  console_delegate_3->Wait();
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern(
+        "*Failed to set the 'cookie' property on 'Document': Cookies are "
+        "disabled inside 'data:' URLs.*");
+    ExecuteScriptAsync(sub_document_2, "document.cookie = 'c=0';");
+    console_observer.Wait();
+  }
 
   // 6. Reading a cookie inside a data-URL document is still forbidden.
-  auto console_delegate_4 = std::make_unique<ConsoleObserverDelegate>(
-      shell()->web_contents(),
-      "*Failed to read the 'cookie' property from 'Document': Cookies are "
-      "disabled inside 'data:' URLs.*");
-  shell()->web_contents()->SetDelegate(console_delegate_4.get());
-  ExecuteScriptAsync(sub_document_2, "document.cookie");
-  console_delegate_4->Wait();
+  {
+    WebContentsConsoleObserver console_observer(shell()->web_contents());
+    console_observer.SetPattern(
+        "*Failed to read the 'cookie' property from 'Document': Cookies are "
+        "disabled inside 'data:' URLs.*");
+    ExecuteScriptAsync(sub_document_2, "document.cookie");
+    console_observer.Wait();
+  }
 
   // 7. No cookies are sent when requested from the data-URL.
   GURL url_response_2 = https_server()->GetURL("a.com", "/response_2");
@@ -3086,17 +3114,17 @@ class NavigationUrlRewriteBrowserTest : public NavigationBaseBrowserTest {
 
 // TODO(1021779): Figure out why this fails on the kitkat-dbg builder
 // and re-enable for all platforms.
-#if defined(OS_ANDROID) && !defined(NDEBUG)
-#define DISABLE_ON_ANDROID_DEBUG(x) DISABLED_##x
+#if defined(OS_ANDROID)
+#define DISABLE_ON_ANDROID(x) DISABLED_##x
 #else
-#define DISABLE_ON_ANDROID_DEBUG(x) x
+#define DISABLE_ON_ANDROID(x) x
 #endif
 
 // Tests navigating to a URL that gets rewritten to a "no access" URL. This
 // mimics the behavior of navigating to special URLs like chrome://newtab and
 // chrome://history which get rewritten to "no access" chrome-native:// URLs.
 IN_PROC_BROWSER_TEST_F(NavigationUrlRewriteBrowserTest,
-                       DISABLE_ON_ANDROID_DEBUG(RewriteToNoAccess)) {
+                       DISABLE_ON_ANDROID(RewriteToNoAccess)) {
   // Perform an initial navigation.
   {
     TestNavigationObserver observer(shell()->web_contents());

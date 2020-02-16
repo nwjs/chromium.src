@@ -16,8 +16,8 @@
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "components/safe_browsing/base_ui_manager.h"
-#include "components/security_interstitials/content/unsafe_resource.h"
+#include "components/safe_browsing/content/base_ui_manager.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 
 class GURL;
 
@@ -73,7 +73,8 @@ class SafeBrowsingUIManager : public BaseUIManager {
   void OnBlockingPageDone(const std::vector<UnsafeResource>& resources,
                           bool proceed,
                           content::WebContents* web_contents,
-                          const GURL& main_frame_url) override;
+                          const GURL& main_frame_url,
+                          bool showed_interstitial) override;
 
   // Report hits to unsafe contents (malware, phishing, unsafe download URL)
   // to the server. Can only be called on UI thread.  The hit report will

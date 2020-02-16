@@ -28,6 +28,7 @@
 #include "ash/system/tray/tray_event_filter.h"
 #include "ash/window_factory.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_element.h"
@@ -309,6 +310,13 @@ std::unique_ptr<views::InkDropRipple> TrayBackgroundView::CreateInkDropRipple()
       ripple_attributes.base_color, ripple_attributes.inkdrop_opacity);
 }
 
+std::unique_ptr<views::InkDropMask> TrayBackgroundView::CreateInkDropMask()
+    const {
+  return std::make_unique<views::RoundRectInkDropMask>(
+      size(), GetBackgroundInsets(),
+      ShelfConfig::Get()->control_border_radius());
+}
+
 std::unique_ptr<views::InkDropHighlight>
 TrayBackgroundView::CreateInkDropHighlight() const {
   gfx::Rect bounds = GetBackgroundBounds();
@@ -363,6 +371,11 @@ void TrayBackgroundView::UpdateAfterRootWindowBoundsChange(
 void TrayBackgroundView::UpdateAfterStatusAreaCollapseChange() {
   // We call the base class' SetVisible to skip animations.
   views::View::SetVisible(GetEffectiveVisibility());
+}
+
+void TrayBackgroundView::UpdateAfterColorModeChange() {
+  UpdateBackground();
+  SchedulePaint();
 }
 
 void TrayBackgroundView::BubbleResized(const TrayBubbleView* bubble_view) {}
@@ -478,6 +491,13 @@ gfx::Insets TrayBackgroundView::GetBackgroundInsets() const {
       GetLocalBounds().InsetsFrom(GetContentsBounds());
   MirrorInsetsIfNecessary(&local_contents_insets);
   insets += local_contents_insets;
+
+  if (chromeos::switches::ShouldShowShelfHotseat() &&
+      Shell::Get()->tablet_mode_controller()->InTabletMode() &&
+      ShelfConfig::Get()->is_in_app()) {
+    insets += gfx::Insets(
+        ShelfConfig::Get()->in_app_control_button_height_inset(), 0);
+  }
 
   return insets;
 }

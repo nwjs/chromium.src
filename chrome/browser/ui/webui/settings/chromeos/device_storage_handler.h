@@ -53,6 +53,27 @@ class StorageHandler
     STORAGE_SPACE_CRITICALLY_LOW = 2,
   };
 
+  // Class used by tests to interact with StorageHandler internals.
+  class TestAPI {
+   public:
+    explicit TestAPI(StorageHandler* handler) { handler_ = handler; }
+
+    TestAPI(const TestAPI&) = delete;
+    TestAPI& operator=(const TestAPI&) = delete;
+
+    // Simulate a request from WebUI to update global size statistics.
+    void UpdateSizeStat();
+
+    // Simulate a callback with controlled total and available size inputs.
+    void OnGetSizeStat(int64_t* total_size, int64_t* available_size);
+
+    // Simulate a request to update MyFiles size.
+    void UpdateMyFilesSize();
+
+   private:
+    StorageHandler* handler_;  // Not owned.
+  };
+
   StorageHandler(Profile* profile, content::WebUIDataSource* html_source);
   ~StorageHandler() override;
 
@@ -78,7 +99,7 @@ class StorageHandler
   // Handlers of JS messages.
   void HandleUpdateAndroidEnabled(const base::ListValue* unused_args);
   void HandleUpdateStorageInfo(const base::ListValue* unused_args);
-  void HandleOpenDownloads(const base::ListValue* unused_args);
+  void HandleOpenMyFiles(const base::ListValue* unused_args);
   void HandleOpenArcStorage(const base::ListValue* unused_args);
   void HandleUpdateExternalStorages(const base::ListValue* unused_args);
 
@@ -89,10 +110,14 @@ class StorageHandler
   void OnGetSizeStat(int64_t* total_size, int64_t* available_size);
 
   // Requests updating the size of Downloads directory.
-  void UpdateDownloadsSize();
+  void UpdateMyFilesSize();
+
+  // Computes the size of My Files and Play files.
+  int64_t ComputeLocalFilesSize(const base::FilePath& my_files_path,
+                                const base::FilePath& android_files_path);
 
   // Callback to update the UI about the size of Downloads directory.
-  void OnGetDownloadsSize(int64_t size);
+  void OnGetMyFilesSize(int64_t size);
 
   // Requests updating the size of browsing data.
   void UpdateBrowsingDataSize();
@@ -155,7 +180,7 @@ class StorageHandler
   std::vector<int64_t> user_sizes_;
 
   // Flags indicating fetch operations for storage sizes are ongoing.
-  bool updating_downloads_size_;
+  bool updating_my_files_size_;
   bool updating_browsing_data_size_;
   bool updating_android_size_;
   bool updating_crostini_size_;

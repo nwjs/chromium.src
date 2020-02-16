@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/perf/drag_event_generator.h"
 #include "chrome/test/base/perf/performance_test.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "ui/aura/window.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/display/display.h"
@@ -55,6 +56,13 @@ IN_PROC_BROWSER_TEST_F(HomescreenTest, ShowHideLauncher) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   aura::Window* browser_window = browser_view->GetWidget()->GetNativeWindow();
 
+  // Showing launcher might minimize the active window, which recreates the
+  // window layer (while the original layer continues animating) - set up
+  // animation waiter on the original window layer, before minimization starts.
+  base::OnceClosure waiter =
+      ash::ShellTestApi().CreateWaiterForFinishingWindowAnimation(
+          browser_window);
+
   // Shows launcher using accelerator.
   ui_controls::SendKeyPress(browser_window, ui::VKEY_BROWSER_SEARCH,
                             /*control=*/false,
@@ -62,7 +70,7 @@ IN_PROC_BROWSER_TEST_F(HomescreenTest, ShowHideLauncher) {
                             /*alt=*/false,
                             /*command=*/false);
   base::RunLoop().RunUntilIdle();
-  ash::ShellTestApi().WaitForWindowFinishAnimating(browser_window);
+  std::move(waiter).Run();
 
   // Hide the launcher by activating the browser window.
   ui_controls::SendKeyPress(browser_window, ui::VKEY_1,
@@ -79,8 +87,9 @@ class HomescreenDragTest : public HomescreenTest {
   HomescreenDragTest() {
     // Gesture tested by this test is only enabled if
     // kDragFromShelfToHomeOrOverview is disabled.
-    scoped_features_.InitAndDisableFeature(
-        ash::features::kDragFromShelfToHomeOrOverview);
+    scoped_features_.InitWithFeatures(
+        {}, {ash::features::kDragFromShelfToHomeOrOverview,
+             chromeos::features::kShelfHotseat});
   }
   ~HomescreenDragTest() override = default;
 

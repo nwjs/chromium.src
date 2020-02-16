@@ -14,12 +14,18 @@
 #include "base/strings/stringprintf.h"
 #include "components/url_pattern_index/flat/url_pattern_index_generated.h"
 #include "components/version_info/version_info.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/test/navigation_simulator.h"
+#include "content/public/test/test_renderer_host.h"
+#include "content/public/test/web_contents_tester.h"
 #include "extensions/browser/api/declarative_net_request/constants.h"
 #include "extensions/browser/api/declarative_net_request/request_action.h"
 #include "extensions/browser/api/declarative_net_request/request_params.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_source.h"
 #include "extensions/browser/api/declarative_net_request/test_utils.h"
 #include "extensions/browser/api/declarative_net_request/utils.h"
+#include "extensions/browser/extensions_test.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/api/declarative_net_request/constants.h"
 #include "extensions/common/api/declarative_net_request/test_utils.h"
@@ -34,15 +40,13 @@ namespace extensions {
 namespace declarative_net_request {
 namespace {
 
-class RulesetMatcherTest : public ::testing::Test {
+class RulesetMatcherTest : public ExtensionsTest {
  public:
   RulesetMatcherTest() : channel_(::version_info::Channel::UNKNOWN) {}
 
  private:
   // Run this on the trunk channel to ensure the API is available.
   ScopedCurrentChannel channel_;
-
-  DISALLOW_COPY_AND_ASSIGN(RulesetMatcherTest);
 };
 
 // Tests a simple blocking rule.
@@ -54,8 +58,8 @@ TEST_F(RulesetMatcherTest, BlockingRule) {
   ASSERT_TRUE(CreateVerifiedMatcher({rule}, CreateTemporarySource(), &matcher));
 
   auto should_block_request = [&matcher](const RequestParams& params) {
-    return !matcher->GetAllowAction(params) &&
-           matcher->GetBlockOrCollapseAction(params).has_value();
+    auto action = matcher->GetBeforeRequestAction(params);
+    return action.has_value() && action->IsBlockOrCollapse();
   };
 
   GURL google_url("http://google.com");
@@ -92,12 +96,13 @@ TEST_F(RulesetMatcherTest, RedirectRule) {
   params.is_third_party = true;
 
   base::Optional<RequestAction> redirect_action =
-      matcher->GetRedirectAction(params);
+      matcher->GetBeforeRequestAction(params);
   ASSERT_TRUE(redirect_action);
+  ASSERT_EQ(redirect_action->type, RequestAction::Type::REDIRECT);
   EXPECT_EQ(yahoo_url, redirect_action->redirect_url);
 
   params.url = &yahoo_url;
-  EXPECT_FALSE(matcher->GetRedirectAction(params));
+  EXPECT_FALSE(matcher->GetBeforeRequestAction(params));
 }
 
 // Test that a URL cannot redirect to itself, as filed in crbug.com/954646.
@@ -118,7 +123,7 @@ TEST_F(RulesetMatcherTest, PreventSelfRedirect) {
   params.element_type = url_pattern_index::flat::ElementType_SUBDOCUMENT;
   params.is_third_party = true;
 
-  EXPECT_FALSE(matcher->GetRedirectAction(params));
+  EXPECT_FALSE(matcher->GetBeforeRequestAction(params));
 }
 
 // Tests a simple upgrade scheme rule.
@@ -132,7 +137,8 @@ TEST_F(RulesetMatcherTest, UpgradeRule) {
   ASSERT_TRUE(CreateVerifiedMatcher({rule}, CreateTemporarySource(), &matcher));
 
   auto should_upgrade_request = [&matcher](const RequestParams& params) {
-    return matcher->GetUpgradeAction(params).has_value();
+    auto action = matcher->GetBeforeRequestAction(params);
+    return action.has_value() && action->type == RequestAction::Type::UPGRADE;
   };
 
   GURL google_url("http://google.com");
@@ -329,9 +335,10 @@ TEST_F(RulesetMatcherTest, RedirectToExtensionPath) {
   params.url = &example_url;
 
   base::Optional<RequestAction> redirect_action =
-      matcher->GetRedirectAction(params);
+      matcher->GetBeforeRequestAction(params);
 
   ASSERT_TRUE(redirect_action.has_value());
+  EXPECT_EQ(redirect_action->type, RequestAction::Type::REDIRECT);
   GURL expected_redirect_url(
       "chrome-extension://extensionid/path/newfile.js?query#fragment");
   EXPECT_EQ(expected_redirect_url, redirect_action->redirect_url);
@@ -354,9 +361,10 @@ TEST_F(RulesetMatcherTest, RedirectToStaticUrl) {
   params.url = &example_url;
 
   base::Optional<RequestAction> redirect_action =
-      matcher->GetRedirectAction(params);
+      matcher->GetBeforeRequestAction(params);
 
   ASSERT_TRUE(redirect_action.has_value());
+  EXPECT_EQ(redirect_action->type, RequestAction::Type::REDIRECT);
   GURL expected_redirect_url("https://google.com");
   EXPECT_EQ(expected_redirect_url, redirect_action->redirect_url);
 }
@@ -487,12 +495,15 @@ TEST_F(RulesetMatcherTest, UrlTransform) {
     params.url = &url;
 
     base::Optional<RequestAction> redirect_action =
-        matcher->GetRedirectAction(params);
+        matcher->GetBeforeRequestAction(params);
 
     if (!test_case.expected_redirect_url) {
       EXPECT_FALSE(redirect_action) << redirect_action->redirect_url->spec();
       continue;
     }
+
+    ASSERT_TRUE(redirect_action.has_value());
+    EXPECT_EQ(redirect_action->type, RequestAction::Type::REDIRECT);
 
     ASSERT_TRUE(GURL(*test_case.expected_redirect_url).is_valid())
         << *test_case.expected_redirect_url;
@@ -551,10 +562,7 @@ TEST_F(RulesetMatcherTest, RegexRules) {
 
   struct TestCase {
     const char* url = nullptr;
-    base::Optional<RequestAction> expected_block_or_collapse_action;
-    base::Optional<RequestAction> expected_allow_action;
-    base::Optional<RequestAction> expected_redirect_action;
-    base::Optional<RequestAction> expected_upgrade_action;
+    base::Optional<RequestAction> expected_action;
     uint8_t expected_remove_headers_mask = 0u;
     base::Optional<RequestAction> expected_remove_header_action;
   };
@@ -563,7 +571,7 @@ TEST_F(RulesetMatcherTest, RegexRules) {
 
   {
     TestCase test_case = {"http://www.block.com/path"};
-    test_case.expected_block_or_collapse_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::BLOCK, *block_rule.id);
     test_cases.push_back(std::move(test_case));
   }
@@ -577,7 +585,7 @@ TEST_F(RulesetMatcherTest, RegexRules) {
 
   {
     TestCase test_case = {"http://abc.xyz.allow.com/path"};
-    test_case.expected_allow_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::ALLOW, *allow_rule.id);
     test_cases.push_back(std::move(test_case));
   }
@@ -589,9 +597,9 @@ TEST_F(RulesetMatcherTest, RegexRules) {
 
   {
     TestCase test_case = {"http://redirect.com?path=abc"};
-    test_case.expected_redirect_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::REDIRECT, *redirect_rule.id);
-    test_case.expected_redirect_action->redirect_url =
+    test_case.expected_action->redirect_url =
         GURL(*redirect_rule.action->redirect->url);
     test_cases.push_back(std::move(test_case));
   }
@@ -603,9 +611,9 @@ TEST_F(RulesetMatcherTest, RegexRules) {
 
   {
     TestCase test_case = {"http://example.com/upgrade"};
-    test_case.expected_upgrade_action = CreateRequestActionForTesting(
-        RequestAction::Type::REDIRECT, *upgrade_rule.id);
-    test_case.expected_upgrade_action->redirect_url.emplace(
+    test_case.expected_action = CreateRequestActionForTesting(
+        RequestAction::Type::UPGRADE, *upgrade_rule.id);
+    test_case.expected_action->redirect_url.emplace(
         "https://example.com/upgrade");
     test_cases.push_back(std::move(test_case));
   }
@@ -638,14 +646,8 @@ TEST_F(RulesetMatcherTest, RegexRules) {
     RequestParams params;
     params.url = &url;
 
-    EXPECT_EQ(test_case.expected_block_or_collapse_action,
-              matcher->GetBlockOrCollapseAction(params));
-    EXPECT_EQ(test_case.expected_allow_action, matcher->GetAllowAction(params));
-    EXPECT_EQ(test_case.expected_redirect_action,
-              matcher->GetRedirectAction(params));
-    EXPECT_EQ(test_case.expected_upgrade_action,
-              matcher->GetUpgradeAction(params));
-
+    EXPECT_EQ(test_case.expected_action,
+              matcher->GetBeforeRequestAction(params));
     std::vector<RequestAction> remove_header_actions;
     EXPECT_EQ(test_case.expected_remove_headers_mask,
               matcher->GetRemoveHeadersMask(
@@ -711,7 +713,7 @@ TEST_F(RulesetMatcherTest, RegexRules_Metadata) {
     url_pattern_index::flat::ElementType element_type =
         url_pattern_index::flat::ElementType_OTHER;
     bool is_third_party = false;
-    base::Optional<RequestAction> expected_block_or_collapse_action;
+    base::Optional<RequestAction> expected_action;
   };
   std::vector<TestCase> test_cases;
 
@@ -722,21 +724,21 @@ TEST_F(RulesetMatcherTest, RegexRules_Metadata) {
 
   {
     TestCase test_case = {"http://example.com/PATH/abc"};
-    test_case.expected_block_or_collapse_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::BLOCK, *path_rule.id);
     test_cases.push_back(std::move(test_case));
   }
 
   {
     TestCase test_case = {"http://example.com/xyz/abc"};
-    test_case.expected_block_or_collapse_action =
+    test_case.expected_action =
         CreateRequestActionForTesting(RequestAction::Type::BLOCK, *xyz_rule.id);
     test_cases.push_back(std::move(test_case));
   }
 
   {
     TestCase test_case = {"http://example.com/XYZ/abc"};
-    test_case.expected_block_or_collapse_action =
+    test_case.expected_action =
         CreateRequestActionForTesting(RequestAction::Type::BLOCK, *xyz_rule.id);
     test_cases.push_back(std::move(test_case));
   }
@@ -746,7 +748,7 @@ TEST_F(RulesetMatcherTest, RegexRules_Metadata) {
     test_case.first_party_origin =
         url::Origin::Create(GURL("http://a.example.com"));
     test_case.is_third_party = true;
-    test_case.expected_block_or_collapse_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::BLOCK, *google_rule.id);
     test_cases.push_back(std::move(test_case));
   }
@@ -767,7 +769,7 @@ TEST_F(RulesetMatcherTest, RegexRules_Metadata) {
   {
     TestCase test_case = {"http://abc.com"};
     test_case.element_type = url_pattern_index::flat::ElementType_SUBDOCUMENT;
-    test_case.expected_block_or_collapse_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::COLLAPSE, *sub_frame_rule.id);
     test_cases.push_back(std::move(test_case));
   }
@@ -775,7 +777,7 @@ TEST_F(RulesetMatcherTest, RegexRules_Metadata) {
   {
     TestCase test_case = {"http://243.com"};
     test_case.is_third_party = true;
-    test_case.expected_block_or_collapse_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::BLOCK, *third_party_rule.id);
     test_cases.push_back(std::move(test_case));
   }
@@ -798,8 +800,8 @@ TEST_F(RulesetMatcherTest, RegexRules_Metadata) {
     params.element_type = test_cases[i].element_type;
     params.is_third_party = test_cases[i].is_third_party;
 
-    EXPECT_EQ(test_cases[i].expected_block_or_collapse_action,
-              matcher->GetBlockOrCollapseAction(params));
+    EXPECT_EQ(test_cases[i].expected_action,
+              matcher->GetBeforeRequestAction(params));
   }
 }
 
@@ -850,44 +852,40 @@ TEST_F(RulesetMatcherTest, RegexAndFilterListRules_RedirectPriority) {
 
   struct TestCase {
     const char* url = nullptr;
-    base::Optional<RequestAction> expected_redirect_action;
-    base::Optional<RequestAction> expected_upgrade_action;
+    base::Optional<RequestAction> expected_action;
   };
   std::vector<TestCase> test_cases;
 
   {
     TestCase test_case = {"http://filter.com"};
-    test_case.expected_redirect_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::REDIRECT, rule_info[0].id, rule_info[0].priority);
-    test_case.expected_redirect_action->redirect_url.emplace(
+    test_case.expected_action->redirect_url.emplace(
         "http://redirect_filter.com");
     test_cases.push_back(std::move(test_case));
   }
 
   {
     TestCase test_case = {"http://regex.com"};
-    test_case.expected_upgrade_action = CreateRequestActionForTesting(
-        RequestAction::Type::REDIRECT, rule_info[1].id, rule_info[1].priority);
-    test_case.expected_upgrade_action->redirect_url.emplace(
-        "https://regex.com");
+    test_case.expected_action = CreateRequestActionForTesting(
+        RequestAction::Type::UPGRADE, rule_info[1].id, rule_info[1].priority);
+    test_case.expected_action->redirect_url.emplace("https://regex.com");
     test_cases.push_back(std::move(test_case));
   }
 
   {
     TestCase test_case = {"http://common1.com"};
-    test_case.expected_redirect_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::REDIRECT, rule_info[3].id, rule_info[3].priority);
-    test_case.expected_redirect_action->redirect_url.emplace(
-        "http://common1_regex.com");
+    test_case.expected_action->redirect_url.emplace("http://common1_regex.com");
     test_cases.push_back(std::move(test_case));
   }
 
   {
     TestCase test_case = {"http://common2.com"};
-    test_case.expected_upgrade_action = CreateRequestActionForTesting(
-        RequestAction::Type::REDIRECT, rule_info[4].id, rule_info[4].priority);
-    test_case.expected_upgrade_action->redirect_url.emplace(
-        "https://common2.com");
+    test_case.expected_action = CreateRequestActionForTesting(
+        RequestAction::Type::UPGRADE, rule_info[4].id, rule_info[4].priority);
+    test_case.expected_action->redirect_url.emplace("https://common2.com");
     test_cases.push_back(std::move(test_case));
   }
 
@@ -904,19 +902,17 @@ TEST_F(RulesetMatcherTest, RegexAndFilterListRules_RedirectPriority) {
 
   {
     TestCase test_case = {"http://abc.com"};
-    test_case.expected_redirect_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::REDIRECT, rule_info[6].id, rule_info[6].priority);
-    test_case.expected_redirect_action->redirect_url.emplace(
-        "http://example1.com");
+    test_case.expected_action->redirect_url.emplace("http://example1.com");
     test_cases.push_back(std::move(test_case));
   }
 
   {
     TestCase test_case = {"http://xyz.com/abc"};
-    test_case.expected_redirect_action = CreateRequestActionForTesting(
+    test_case.expected_action = CreateRequestActionForTesting(
         RequestAction::Type::REDIRECT, rule_info[7].id, rule_info[7].priority);
-    test_case.expected_redirect_action->redirect_url.emplace(
-        "http://example2.com");
+    test_case.expected_action->redirect_url.emplace("http://example2.com");
     test_cases.push_back(std::move(test_case));
   }
 
@@ -927,10 +923,8 @@ TEST_F(RulesetMatcherTest, RegexAndFilterListRules_RedirectPriority) {
     RequestParams params;
     params.url = &url;
 
-    EXPECT_EQ(test_case.expected_redirect_action,
-              matcher->GetRedirectAction(params));
-    EXPECT_EQ(test_case.expected_upgrade_action,
-              matcher->GetUpgradeAction(params));
+    EXPECT_EQ(test_case.expected_action,
+              matcher->GetBeforeRequestAction(params));
   }
 }
 
@@ -1021,10 +1015,13 @@ TEST_F(RulesetMatcherTest, RegexSubstitution) {
   } rule_info[] = {
       // "\0" captures the complete matched string.
       {1, R"(^.*google\.com.*$)", R"(https://redirect.com?original=\0)"},
-      {2, R"(http://((?:abc|def)\.xyz.com.*))", R"(https://www.\1)"},
-      {3, R"((http|https)://example.com.*(\?|&)redirect=(.*?)(?:&|$))",
+      {2, R"(http://((?:abc|def)\.xyz.com.*)$)", R"(https://www.\1)"},
+      {3, R"(^(http|https)://example\.com.*(\?|&)redirect=(.*?)(?:&|$).*$)",
        R"(\1://\3)"},
-      {4, R"(reddit\.com)", "https://abc.com"}};
+      {4, R"(reddit\.com)", "abc.com"},
+      {5, R"(^http://www\.(pqr|rst)\.xyz\.com)", R"(https://\1.xyz.com)"},
+      {6, R"(\.in)", ".co.in"},
+  };
 
   std::vector<TestRule> rules;
   for (const auto& info : rule_info) {
@@ -1051,7 +1048,7 @@ TEST_F(RulesetMatcherTest, RegexSubstitution) {
 
   struct {
     std::string url;
-    base::Optional<RequestAction> expected_redirect_action;
+    base::Optional<RequestAction> expected_action;
   } test_cases[] = {
       {"http://google.com/path?query",
        create_redirect_action(
@@ -1063,6 +1060,10 @@ TEST_F(RulesetMatcherTest, RegexSubstitution) {
       // The redirect url here would have been "http://" which is invalid.
       {"http://example.com/path?q1=1&redirect=&q2=2", base::nullopt},
       {"https://reddit.com", create_redirect_action(4, "https://abc.com")},
+      {"http://www.rst.xyz.com/path",
+       create_redirect_action(5, "https://rst.xyz.com/path")},
+      {"http://yahoo.in/path",
+       create_redirect_action(6, "http://yahoo.co.in/path")},
       // No match.
       {"http://example.com", base::nullopt}};
 
@@ -1074,8 +1075,258 @@ TEST_F(RulesetMatcherTest, RegexSubstitution) {
     RequestParams params;
     params.url = &url;
 
-    ASSERT_EQ(test_case.expected_redirect_action,
-              matcher->GetRedirectAction(params));
+    ASSERT_EQ(test_case.expected_action,
+              matcher->GetBeforeRequestAction(params));
+  }
+}
+
+// Test that rules with the same priority will override each other correctly
+// based on action.
+TEST_F(RulesetMatcherTest, BreakTiesByActionPriority) {
+  struct {
+    int rule_id;
+    std::string rule_action;
+
+    // The expected action, assuming this rule and all previous rules match and
+    // have the same priority.
+    RequestAction::Type expected_action;
+    // The ID of the rule expected to match.
+    int expected_rule_id = 0;
+  } test_cases[] = {
+      {1, "redirect", RequestAction::Type::REDIRECT, 1},
+      {2, "upgradeScheme", RequestAction::Type::UPGRADE, 2},
+      {3, "block", RequestAction::Type::BLOCK, 3},
+      {4, "allowAllRequests", RequestAction::Type::ALLOW_ALL_REQUESTS, 4},
+      {5, "allow", RequestAction::Type::ALLOW, 5},
+      {6, "block", RequestAction::Type::ALLOW, 5},
+  };
+
+  std::vector<TestRule> rules;
+  for (const auto& test_case : test_cases) {
+    SCOPED_TRACE(test_case.rule_action);
+
+    TestRule rule = CreateGenericRule();
+    rule.id = test_case.rule_id;
+    rule.priority = kMinValidPriority;
+    rule.condition->url_filter = "http://example.com";
+    rule.action->type = test_case.rule_action;
+    rule.condition->resource_types = std::vector<std::string>{"main_frame"};
+    if (test_case.rule_action == "redirect") {
+      rule.action->redirect.emplace();
+      rule.action->redirect->url = "http://google.com";
+    }
+    rules.push_back(rule);
+
+    std::unique_ptr<RulesetMatcher> matcher;
+    ASSERT_TRUE(
+        CreateVerifiedMatcher(rules, CreateTemporarySource(), &matcher));
+
+    GURL url("http://example.com");
+    RequestParams params;
+    params.url = &url;
+    params.element_type = url_pattern_index::flat::ElementType_MAIN_FRAME;
+
+    int expected_rule_id = test_case.expected_rule_id;
+    if (expected_rule_id == 0)
+      expected_rule_id = *rule.id;
+    RequestAction expected_action = CreateRequestActionForTesting(
+        test_case.expected_action, expected_rule_id);
+    if (test_case.expected_action == RequestAction::Type::REDIRECT) {
+      expected_action.redirect_url = GURL("http://google.com");
+    } else if (test_case.expected_action == RequestAction::Type::UPGRADE) {
+      expected_action.redirect_url = GURL("https://example.com");
+    }
+
+    EXPECT_EQ(expected_action, matcher->GetBeforeRequestAction(params));
+  }
+}
+
+// Test fixture to test allowAllRequests rules. We inherit from ExtensionsTest
+// to ensure we can work with WebContentsTester and associated classes.
+class AllowAllRequestsTest : public ExtensionsTest {
+ public:
+  AllowAllRequestsTest() : channel_(::version_info::Channel::UNKNOWN) {}
+
+ private:
+  // Run this on the trunk channel to ensure the API is available.
+  ScopedCurrentChannel channel_;
+};
+
+// Tests that we track allowlisted frames (frames matching allowAllRequests
+// rules) correctly.
+TEST_F(AllowAllRequestsTest, AllowlistedFrameTracking) {
+  TestRule google_rule_1 = CreateGenericRule();
+  google_rule_1.id = kMinValidID;
+  google_rule_1.condition->url_filter = "google.com/xyz";
+  google_rule_1.condition->resource_types =
+      std::vector<std::string>({"main_frame"});
+  google_rule_1.action->type = std::string("allowAllRequests");
+  google_rule_1.priority = 2;
+
+  TestRule google_rule_2 = CreateGenericRule();
+  google_rule_2.id = kMinValidID + 1;
+  google_rule_2.condition->url_filter.reset();
+  google_rule_2.condition->regex_filter = "xyz";
+  google_rule_2.condition->resource_types =
+      std::vector<std::string>({"main_frame"});
+  google_rule_2.action->type = std::string("allowAllRequests");
+  google_rule_2.priority = 3;
+
+  TestRule example_rule = CreateGenericRule();
+  example_rule.id = kMinValidID + 2;
+  example_rule.condition->url_filter.reset();
+  example_rule.condition->regex_filter = std::string("example");
+  example_rule.condition->resource_types =
+      std::vector<std::string>({"sub_frame"});
+  example_rule.action->type = std::string("allowAllRequests");
+  example_rule.priority = 4;
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(
+      CreateVerifiedMatcher({google_rule_1, google_rule_2, example_rule},
+                            CreateTemporarySource(), &matcher));
+
+  auto simulate_navigation = [&matcher](content::RenderFrameHost* host,
+                                        const GURL& url) {
+    content::RenderFrameHost* new_host =
+        content::NavigationSimulator::NavigateAndCommitFromDocument(url, host);
+    EXPECT_TRUE(new_host);
+
+    // Note |host| might have been freed by now.
+    matcher->OnDidFinishNavigation(new_host);
+    return new_host;
+  };
+  auto simulate_frame_destroyed = [&matcher](content::RenderFrameHost* host) {
+    matcher->OnRenderFrameDeleted(host);
+  };
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(
+          browser_context(), content::SiteInstance::Create(browser_context()));
+  ASSERT_TRUE(web_contents);
+
+  GURL example_url("http://example.com");
+  simulate_navigation(web_contents->GetMainFrame(), example_url);
+  base::Optional<RequestAction> action =
+      matcher->GetAllowlistedFrameActionForTesting(
+          web_contents->GetMainFrame());
+  EXPECT_FALSE(action);
+
+  GURL google_url_1("http://google.com/xyz");
+  simulate_navigation(web_contents->GetMainFrame(), google_url_1);
+  action = matcher->GetAllowlistedFrameActionForTesting(
+      web_contents->GetMainFrame());
+  RequestAction google_rule_2_action =
+      CreateRequestActionForTesting(RequestAction::Type::ALLOW_ALL_REQUESTS,
+                                    *google_rule_2.id, *google_rule_2.priority);
+  EXPECT_EQ(google_rule_2_action, action);
+
+  auto* rfh_tester =
+      content::RenderFrameHostTester::For(web_contents->GetMainFrame());
+  content::RenderFrameHost* child = rfh_tester->AppendChild("sub_frame");
+  ASSERT_TRUE(child);
+
+  child = simulate_navigation(child, example_url);
+  action = matcher->GetAllowlistedFrameActionForTesting(child);
+  RequestAction example_rule_action =
+      CreateRequestActionForTesting(RequestAction::Type::ALLOW_ALL_REQUESTS,
+                                    *example_rule.id, *example_rule.priority);
+  EXPECT_EQ(example_rule_action, action);
+
+  GURL yahoo_url("http://yahoo.com");
+  child = simulate_navigation(child, yahoo_url);
+  action = matcher->GetAllowlistedFrameActionForTesting(child);
+  EXPECT_EQ(google_rule_2_action, action);
+
+  simulate_frame_destroyed(child);
+  action = matcher->GetAllowlistedFrameActionForTesting(child);
+  EXPECT_FALSE(action);
+
+  simulate_frame_destroyed(web_contents->GetMainFrame());
+  action = matcher->GetAllowlistedFrameActionForTesting(
+      web_contents->GetMainFrame());
+  EXPECT_FALSE(action);
+}
+
+// Ensures that GetBeforeRequestAction correctly incorporates allowAllRequests
+// rules.
+TEST_F(AllowAllRequestsTest, GetBeforeRequestAction) {
+  struct {
+    int id;
+    int priority;
+    std::string action_type;
+    std::string url_filter;
+    bool is_regex_rule;
+  } rule_data[] = {{1, 1, "allowAllRequests", "google", true},
+                   {2, 3, "block", "||match", false},
+                   {3, 2, "allowAllRequests", "match1", true},
+                   {4, 4, "allowAllRequests", "match2", false}};
+
+  std::vector<TestRule> test_rules;
+  for (const auto& rule : rule_data) {
+    TestRule test_rule = CreateGenericRule();
+    test_rule.id = rule.id;
+    test_rule.priority = rule.priority;
+    test_rule.action->type = rule.action_type;
+    test_rule.condition->url_filter.reset();
+    if (rule.is_regex_rule)
+      test_rule.condition->regex_filter = rule.url_filter;
+    else
+      test_rule.condition->url_filter = rule.url_filter;
+    if (rule.action_type == "allowAllRequests") {
+      test_rule.condition->resource_types =
+          std::vector<std::string>({"main_frame", "sub_frame"});
+    }
+
+    test_rules.push_back(test_rule);
+  }
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(
+      CreateVerifiedMatcher(test_rules, CreateTemporarySource(), &matcher));
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(
+          browser_context(), content::SiteInstance::Create(browser_context()));
+  ASSERT_TRUE(web_contents);
+
+  GURL google_url("http://google.com");
+  content::WebContentsTester::For(web_contents.get())
+      ->NavigateAndCommit(google_url);
+  matcher->OnDidFinishNavigation(web_contents->GetMainFrame());
+
+  struct {
+    std::string url;
+    RequestAction expected_action;
+  } cases[] = {
+      {"http://nomatch.com",
+       CreateRequestActionForTesting(RequestAction::Type::ALLOW_ALL_REQUESTS,
+                                     rule_data[0].id, rule_data[0].priority)},
+      {"http://match1.com",
+       CreateRequestActionForTesting(RequestAction::Type::COLLAPSE,
+                                     rule_data[1].id, rule_data[1].priority)},
+      {"http://match2.com",
+       CreateRequestActionForTesting(RequestAction::Type::ALLOW_ALL_REQUESTS,
+                                     rule_data[3].id, rule_data[3].priority)},
+  };
+
+  // Simulate sub-frame requests.
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(test_case.url);
+    RequestParams params;
+
+    GURL url(test_case.url);
+    ASSERT_TRUE(url.is_valid());
+    params.url = &url;
+    params.first_party_origin = url::Origin::Create(google_url);
+    params.is_third_party = true;
+    params.element_type = url_pattern_index::flat::ElementType_SUBDOCUMENT;
+    params.parent_routing_id = content::GlobalFrameRoutingId(
+        web_contents->GetMainFrame()->GetProcess()->GetID(),
+        web_contents->GetMainFrame()->GetRoutingID());
+
+    EXPECT_EQ(test_case.expected_action,
+              matcher->GetBeforeRequestAction(params));
   }
 }
 

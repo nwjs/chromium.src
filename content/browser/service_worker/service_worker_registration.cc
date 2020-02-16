@@ -17,8 +17,8 @@
 #include "content/browser/service_worker/service_worker_job_coordinator.h"
 #include "content/browser/service_worker/service_worker_metrics.h"
 #include "content/browser/service_worker/service_worker_register_job.h"
+#include "content/common/content_navigation_policy.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/navigation_policy.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 
 namespace content {
@@ -49,6 +49,7 @@ ServiceWorkerRegistration::ServiceWorkerRegistration(
       update_via_cache_(options.update_via_cache),
       registration_id_(registration_id),
       status_(Status::kIntact),
+      store_state_(StoreState::kNotStored),
       should_activate_when_ready_(false),
       resources_total_size_bytes_(0),
       context_(context),
@@ -88,6 +89,18 @@ void ServiceWorkerRegistration::SetStatus(Status status) {
 #endif  // DCHECK_IS_ON()
 
   status_ = status;
+}
+
+bool ServiceWorkerRegistration::IsStored() const {
+  return context_ && store_state_ == StoreState::kStored;
+}
+
+void ServiceWorkerRegistration::SetStored() {
+  store_state_ = StoreState::kStored;
+}
+
+void ServiceWorkerRegistration::UnsetStored() {
+  store_state_ = StoreState::kNotStored;
 }
 
 ServiceWorkerVersion* ServiceWorkerRegistration::GetNewestVersion() const {
@@ -257,9 +270,12 @@ void ServiceWorkerRegistration::ClaimClients() {
   // "For each service worker client client whose origin is the same as the
   //  service worker's origin:
   const bool include_reserved_clients = false;
+  // Include clients in BackForwardCache in order to evict them if needed.
+  const bool include_back_forward_cached_clients = true;
   for (std::unique_ptr<ServiceWorkerContextCore::ContainerHostIterator> it =
-           context_->GetClientContainerHostIterator(scope_.GetOrigin(),
-                                                    include_reserved_clients);
+           context_->GetClientContainerHostIterator(
+               scope_.GetOrigin(), include_reserved_clients,
+               include_back_forward_cached_clients);
        !it->IsAtEnd(); it->Advance()) {
     ServiceWorkerContainerHost* container_host = it->GetContainerHost();
     // "1. If client’s execution ready flag is unset or client’s discarded flag
@@ -284,6 +300,11 @@ void ServiceWorkerRegistration::ClaimClients() {
     if (container_host->MatchRegistration() != this)
       continue;
 
+    // Evict the client in BackForwardCache.
+    if (container_host->IsInBackForwardCache())
+      container_host->EvictFromBackForwardCache(
+          BackForwardCacheMetrics::NotRestoredReason::kServiceWorkerClaim);
+
     // The remaining steps are performed here:
     container_host->ClaimedByRegistration(this);
   }
@@ -296,7 +317,7 @@ void ServiceWorkerRegistration::ClearWhenReady() {
     // already cleared.
     return;
   }
-  context_->storage()->DeleteRegistration(
+  context_->registry()->DeleteRegistration(
       this, scope().GetOrigin(),
       AdaptCallbackForRepeating(
           base::BindOnce(&ServiceWorkerRegistration::OnDeleteFinished, this)));
@@ -320,14 +341,14 @@ void ServiceWorkerRegistration::AbortPendingClear(StatusCallback callback) {
       break;
   }
 
-  context_->storage()->NotifyDoneUninstallingRegistration(this,
-                                                          Status::kIntact);
+  context_->registry()->NotifyDoneUninstallingRegistration(this,
+                                                           Status::kIntact);
 
   scoped_refptr<ServiceWorkerVersion> most_recent_version =
       waiting_version() ? waiting_version() : active_version();
   DCHECK(most_recent_version.get());
-  context_->storage()->NotifyInstallingRegistration(this);
-  context_->storage()->StoreRegistration(
+  context_->registry()->NotifyInstallingRegistration(this);
+  context_->registry()->StoreRegistration(
       this, most_recent_version.get(),
       base::BindOnce(&ServiceWorkerRegistration::OnRestoreFinished, this,
                      std::move(callback), most_recent_version));
@@ -535,13 +556,13 @@ void ServiceWorkerRegistration::ForceDelete() {
 
   // Delete the registration and its state from storage.
   if (status() == Status::kIntact) {
-    context_->storage()->DeleteRegistration(
+    context_->registry()->DeleteRegistration(
         this, scope().GetOrigin(),
         base::BindOnce(&ServiceWorkerRegistration::OnDeleteFinished, protect));
   }
   DCHECK(is_uninstalling());
-  context_->storage()->NotifyDoneUninstallingRegistration(this,
-                                                          Status::kUninstalled);
+  context_->registry()->NotifyDoneUninstallingRegistration(
+      this, Status::kUninstalled);
 
   // Tell observers that this registration is gone.
   NotifyRegistrationFailed();
@@ -629,7 +650,8 @@ void ServiceWorkerRegistration::OnActivateEventFinished(
   // "Run the Update State algorithm passing registration's active worker and
   // 'activated' as the arguments."
   activating_version->SetStatus(ServiceWorkerVersion::ACTIVATED);
-  context_->storage()->UpdateToActiveState(this, base::DoNothing());
+  context_->registry()->UpdateToActiveState(id(), scope().GetOrigin(),
+                                            base::DoNothing());
 }
 
 void ServiceWorkerRegistration::OnDeleteFinished(
@@ -651,7 +673,7 @@ void ServiceWorkerRegistration::Clear() {
   auto protect = base::WrapRefCounted(this);
 
   if (context_) {
-    context_->storage()->NotifyDoneUninstallingRegistration(
+    context_->registry()->NotifyDoneUninstallingRegistration(
         this, Status::kUninstalled);
   }
 
@@ -697,8 +719,8 @@ void ServiceWorkerRegistration::OnRestoreFinished(
     std::move(callback).Run(blink::ServiceWorkerStatusCode::kErrorAbort);
     return;
   }
-  context_->storage()->NotifyDoneInstallingRegistration(
-      this, version.get(), status);
+  context_->registry()->NotifyDoneInstallingRegistration(this, version.get(),
+                                                         status);
   std::move(callback).Run(status);
 }
 

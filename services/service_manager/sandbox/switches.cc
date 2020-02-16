@@ -26,10 +26,14 @@ const char kNetworkSandbox[] = "network";
 const char kPpapiSandbox[] = "ppapi";
 const char kUtilitySandbox[] = "utility";
 const char kCdmSandbox[] = "cdm";
-const char kXrCompositingSandbox[] = "xr_compositing";
-const char kPdfCompositorSandbox[] = "pdf_compositor";
-const char kProfilingSandbox[] = "profiling";
+const char kPrintCompositorSandbox[] = "print_compositor";
 const char kAudioSandbox[] = "audio";
+const char kSodaSandbox[] = "soda";
+
+#if defined(OS_WIN)
+const char kXrCompositingSandbox[] = "xr_compositing";
+#endif  // OS_WIN
+
 #if defined(OS_CHROMEOS)
 const char kImeSandbox[] = "ime";
 #endif  // OS_CHROMEOS
@@ -81,15 +85,6 @@ const char kAllowThirdPartyModules[] = "allow-third-party-modules";
 
 // Add additional capabilities to the AppContainer sandbox on the GPU process.
 const char kAddGpuAppContainerCaps[] = "add-gpu-appcontainer-caps";
-
-// Disables AppContainer sandbox on the GPU process.
-const char kDisableGpuAppContainer[] = "disable-gpu-appcontainer";
-
-// Disables low-privilege AppContainer sandbox on the GPU process.
-const char kDisableGpuLpac[] = "disable-gpu-lpac";
-
-// Enables AppContainer sandbox on the GPU process.
-const char kEnableGpuAppContainer[] = "enable-gpu-appcontainer";
 
 // Disables the sandbox and gives the process elevated privileges.
 const char kNoSandboxAndElevatedPrivileges[] = "no-sandbox-and-elevated";

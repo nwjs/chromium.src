@@ -114,16 +114,28 @@ FYI_BUILDERS = {
     'tests': [
       {
         'isolate': 'performance_test_suite',
-        'extra_args': [
-          # TODO(crbug.com/612455): Enable ref builds once can pass both
-          # --browser=exact (used by this bot to have it run Monochrome6432)
-          # and --browser=reference together.
-          #'--run-ref-build',
-        ],
       }
     ],
     'platform': 'android-chrome',
     'browser': 'bin/monochrome_64_32_bundle',
+    'dimension': {
+      'pool': 'chrome.tests.perf-fyi',
+      'os': 'Android',
+      'device_type': 'walleye',
+      'device_os': 'O',
+      'device_os_flavor': 'google',
+    },
+  },
+  'android-pixel2-perf-aab-fyi': {
+    'tests': [
+      {
+        'isolate': 'performance_test_suite',
+        'extra_args': [
+           '--run-ref-build',
+        ],
+      }
+    ],
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf-fyi',
       'os': 'Android',
@@ -138,7 +150,7 @@ FYI_BUILDERS = {
         'isolate': 'performance_test_suite',
         'extra_args': [
             '--output-format=histograms',
-            '--experimental-proto-trace-format',
+            '--experimental-tbmv3-metrics',
         ],
       }
     ],
@@ -154,9 +166,6 @@ FYI_BUILDERS = {
     'tests': [
       {
         'isolate': 'performance_test_suite',
-        'extra_args': [
-            '--run-ref-build',
-        ],
       },
     ],
     'platform': 'win',
@@ -326,9 +335,6 @@ BUILDERS = {
       {
         'name': 'performance_test_suite',
         'isolate': 'performance_test_suite',
-        'extra_args': [
-          '--run-ref-build',
-        ],
       }
     ],
     'platform': 'android-chrome',
@@ -355,81 +361,13 @@ BUILDERS = {
       'device_os_flavor': 'google',
     },
   },
-  'android-nexus5x-perf': {
-    'tests': [
-      {
-        'isolate': 'performance_test_suite',
-        'extra_args': [
-            '--run-ref-build',
-            '--assert-gpu-compositing',
-        ],
-      },
-      {
-        'isolate': 'media_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'components_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'tracing_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'gpu_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'angle_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-        'extra_args': [
-            '--shard-timeout=300'
-        ],
-      },
-      {
-        'isolate': 'base_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      }
-    ],
-    'platform': 'android',
-    'dimension': {
-      'pool': 'chrome.tests.perf',
-      'os': 'Android',
-      'device_type': 'bullhead',
-      'device_os': 'MMB29Q',
-      'device_os_flavor': 'google',
-    },
-  },
   'Android Nexus5 Perf': {
     'tests': [
       {
         'isolate': 'performance_test_suite',
         'extra_args': [
-            '--run-ref-build',
             '--assert-gpu-compositing',
         ],
-      },
-      {
-        'isolate': 'tracing_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'components_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'gpu_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
       },
     ],
     'platform': 'android',
@@ -459,30 +397,10 @@ BUILDERS = {
       'device_os_flavor': 'aosp',
     },
   },
-  'Android Nexus6 WebView Perf': {
-    'tests': [
-      {
-        'isolate': 'performance_webview_test_suite',
-        'extra_args': [
-            '--assert-gpu-compositing',
-        ],
-      }
-    ],
-    'platform': 'android-webview',
-    'dimension': {
-      'pool': 'chrome.tests.perf-webview',
-      'os': 'Android',
-      'device_type': 'shamu',
-      'device_os': 'MOB30K',
-      'device_os_flavor': 'aosp',
-    },
-  },
   'android-pixel2_webview-perf': {
     'tests': [
       {
         'isolate': 'performance_webview_test_suite',
-        'extra_args': [
-        ],
       }
     ],
     'platform': 'android-webview-google',
@@ -498,8 +416,6 @@ BUILDERS = {
     'tests': [
       {
         'isolate': 'performance_weblayer_test_suite',
-        'extra_args': [
-        ],
       }
     ],
     'platform': 'android-weblayer',
@@ -515,9 +431,6 @@ BUILDERS = {
     'tests': [
       {
         'isolate': 'performance_test_suite',
-        'extra_args': [
-          '--run-ref-build',
-        ],
       }
     ],
     'platform': 'android-chrome',
@@ -529,49 +442,36 @@ BUILDERS = {
       'device_os_flavor': 'google',
     },
   },
+  'win-10_laptop_low_end-perf': {
+    'tests': [
+      {
+        'isolate': 'performance_test_suite',
+        'extra_args': [
+            '--assert-gpu-compositing',
+        ],
+      },
+    ],
+    'platform': 'win',
+    'target_bits': 64,
+    'dimension': {
+      'pool': 'chrome.tests.perf',
+      # Explicitly set GPU driver version and Windows OS version such
+      # that we can be informed if this
+      # version ever changes or becomes inconsistent. It is important
+      # that bots are homogeneous. See crbug.com/988045 for history.
+      'os': 'Windows-10-18363.476',
+      'gpu': '8086:1616-20.19.15.5070',
+      # TODO(crbug.com/998161): Add synthetic product name for these.
+      # They don't have this dimension yet as I am writing this CL since
+      # they are since in pool 'unassigned'.
+    },
+  },
   'win-10-perf': {
     'tests': [
       {
         'isolate': 'performance_test_suite',
         'extra_args': [
-            '--run-ref-build',
             '--assert-gpu-compositing',
-        ],
-      },
-      {
-        'isolate': 'angle_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-        'extra_args': [
-            '--shard-timeout=300'
-        ],
-      },
-      {
-        'isolate': 'media_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'components_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'views_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'base_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'dawn_perf_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-        'extra_args': [
-            '--shard-timeout=300'
         ],
       },
     ],
@@ -592,25 +492,7 @@ BUILDERS = {
     'tests': [
       {
         'isolate': 'performance_test_suite',
-        'extra_args': [
-            '--run-ref-build',
-        ],
       },
-      {
-        'isolate': 'load_library_perf_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'components_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'media_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      }
     ],
     'platform': 'win',
     'target_bits': 32,
@@ -626,43 +508,7 @@ BUILDERS = {
       {
         'isolate': 'performance_test_suite',
         'extra_args': [
-            '--run-ref-build',
             '--assert-gpu-compositing',
-        ],
-      },
-      {
-        'isolate': 'load_library_perf_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'angle_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'media_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'name': 'passthrough_command_buffer_perftests',
-        'isolate': 'command_buffer_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-        'extra_args': [
-            '--use-cmd-decoder=passthrough',
-            '--use-angle=gl-null',
-        ],
-      },
-      {
-        'name': 'validating_command_buffer_perftests',
-        'isolate': 'command_buffer_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-        'extra_args': [
-            '--use-cmd-decoder=validating',
-            '--use-stub',
         ],
       },
     ],
@@ -680,20 +526,9 @@ BUILDERS = {
       {
         'isolate': 'performance_test_suite',
         'extra_args': [
-            '--run-ref-build',
             '--assert-gpu-compositing',
         ],
       },
-      {
-        'isolate': 'performance_browser_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'load_library_perf_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      }
     ],
     'platform': 'mac',
     'dimension': {
@@ -705,43 +540,11 @@ BUILDERS = {
   },
   'linux-perf': {
     'tests': [
-      # Add views_perftests, crbug.com/811766
       {
         'isolate': 'performance_test_suite',
         'extra_args': [
-            '--run-ref-build',
             '--assert-gpu-compositing',
         ],
-      },
-      {
-        'isolate': 'performance_browser_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'load_library_perf_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'net_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'tracing_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'media_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'base_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
       },
     ],
     'platform': 'linux',
@@ -757,39 +560,8 @@ BUILDERS = {
       {
         'isolate': 'performance_test_suite',
         'extra_args': [
-          '--run-ref-build',
           '--assert-gpu-compositing',
         ],
-      },
-      {
-        'isolate': 'performance_browser_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'net_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'views_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'media_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'base_perftests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
-      },
-      {
-        'isolate': 'dawn_perf_tests',
-        'num_shards': 1,
-        'type': TEST_TYPES.GTEST,
       },
     ],
     'platform': 'mac',
@@ -975,6 +747,10 @@ def get_scheduled_non_telemetry_benchmarks(perf_waterfall_file):
                     'performance_webview_test_suite',
                     'performance_weblayer_test_suite'):
       test_names.add(name)
+
+  for platform in bot_platforms.ALL_PLATFORMS:
+    for executable in platform.executables:
+      test_names.add(executable.name)
 
   return test_names
 
@@ -1172,20 +948,13 @@ def generate_telemetry_args(tester_config, platform):
     '--upload-results',
     '--test-shard-map-filename=%s' % platform.shards_map_file_name,
   ]
+  if platform.run_reference_build:
+    test_args.append('--run-ref-build')
   if 'browser' in tester_config:
     test_args.append('--browser-executable=../../out/Release/%s' %
                      tester_config['browser'])
     if tester_config['platform'].startswith('android'):
       test_args.append('--device=android')
-
-  if tester_config['platform'].startswith('android-webview'):
-    test_args.append(
-        '--webview-embedder-apk=../../out/Release/apks/SystemWebViewShell.apk')
-  if tester_config['platform'] == 'android-weblayer':
-    test_args.append(
-        '--webview-embedder-apk=../../out/Release/apks/WebLayerShell.apk')
-    test_args.append(
-        '--webview-embedder-apk=../../out/Release/apks/WebLayerSupport.apk')
   return test_args
 
 
@@ -1253,13 +1022,17 @@ def generate_performance_test(tester_config, test, builder_name):
     # TODO(crbug.com/865538): once we have plenty of windows hardwares,
     # to shards perf benchmarks on Win builders, reduce this hard timeout limit
     # to ~2 hrs.
-    'hard_timeout': 12 * 60 * 60, # 12 hours timeout for full suite
+    # Note that the builder seems to time out after 7 hours (crbug.com/1036447),
+    # so we must timeout the shards within ~6 hours to allow for other
+    # overhead. If the overall builder times out then we
+    # don't get data even from the passing shards.
+    'hard_timeout': int(6 * 60 * 60), # 6 hours timeout for full suite
     'ignore_task_failure': False,
-    # 6 hour timeout. Note that this is effectively the timeout for a
+    # 5.5 hour timeout. Note that this is effectively the timeout for a
     # benchmarking subprocess to run since we intentionally do not stream
     # subprocess output to the task stdout.
     # TODO(crbug.com/865538): Reduce this once we can reduce hard_timeout.
-    'io_timeout': 6 * 60 * 60,
+    'io_timeout': int(6 * 60 * 60),
     'dimension_sets': [
       tester_config['dimension']
     ],

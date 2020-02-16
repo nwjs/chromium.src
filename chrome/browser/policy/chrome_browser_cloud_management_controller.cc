@@ -19,7 +19,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise_reporting/report_generator.h"
 #include "chrome/browser/enterprise_reporting/report_scheduler.h"
-#include "chrome/browser/enterprise_reporting/request_timer.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/policy/browser_dm_token_storage.h"
@@ -314,12 +313,16 @@ void ChromeBrowserCloudManagementController::InvalidatePolicies() {
 
 void ChromeBrowserCloudManagementController::InvalidateDMTokenCallback(
     bool success) {
+  UMA_HISTOGRAM_BOOLEAN(
+      "Enterprise.MachineLevelUserCloudPolicyEnrollment.UnenrollSuccess",
+      success);
   if (success) {
     DVLOG(1) << "Successfully invalidated the DM token";
     InvalidatePolicies();
   } else {
     DVLOG(1) << "Failed to invalidate the DM token";
   }
+  NotifyBrowserUnenrolled(success);
 }
 
 void ChromeBrowserCloudManagementController::OnPolicyFetched(
@@ -340,10 +343,27 @@ void ChromeBrowserCloudManagementController::OnClientError(
     UnenrollBrowser();
 }
 
+void ChromeBrowserCloudManagementController::ShutDown() {
+  if (report_scheduler_)
+    report_scheduler_.reset();
+}
+
 void ChromeBrowserCloudManagementController::NotifyPolicyRegisterFinished(
     bool succeeded) {
   for (auto& observer : observers_) {
     observer.OnPolicyRegisterFinished(succeeded);
+  }
+}
+
+void ChromeBrowserCloudManagementController::NotifyBrowserUnenrolled(
+    bool succeeded) {
+  for (auto& observer : observers_)
+    observer.OnBrowserUnenrolled(succeeded);
+}
+
+void ChromeBrowserCloudManagementController::NotifyCloudReportingLaunched() {
+  for (auto& observer : observers_) {
+    observer.OnCloudReportingLaunched();
   }
 }
 
@@ -435,10 +455,11 @@ void ChromeBrowserCloudManagementController::CreateReportScheduler() {
           ->GetSharedURLLoaderFactory(),
       nullptr, CloudPolicyClient::DeviceDMTokenCallback());
   cloud_policy_client_->AddObserver(this);
-  auto timer = std::make_unique<enterprise_reporting::RequestTimer>();
   auto generator = std::make_unique<enterprise_reporting::ReportGenerator>();
   report_scheduler_ = std::make_unique<enterprise_reporting::ReportScheduler>(
-      cloud_policy_client_.get(), std::move(timer), std::move(generator));
+      cloud_policy_client_.get(), std::move(generator));
+
+  NotifyCloudReportingLaunched();
 }
 
 }  // namespace policy

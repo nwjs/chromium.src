@@ -6,6 +6,7 @@
 
 // Polymer BrowserTest fixture.
 GEN_INCLUDE(['//chrome/test/data/webui/polymer_browser_test_base.js']);
+GEN('#include "services/network/public/cpp/features.h"');
 
 /** Test fixture for shared Polymer 3 components. */
 // eslint-disable-next-line no-var
@@ -41,3 +42,29 @@ var CrComponentsManagedFootnoteV3Test =
 TEST_F('CrComponentsManagedFootnoteV3Test', 'All', function() {
   mocha.run();
 });
+
+GEN('#if defined(USE_NSS_CERTS)');
+
+/**
+ * Test fixture for chrome://settings/certificates. This tests the
+ * certificate-manager component in the context of the Settings privacy page.
+ */
+// eslint-disable-next-line no-var
+var CrComponentsCertificateManagerV3Test =
+    class extends CrComponentsV3BrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://settings/test_loader.html?module=cr_components/certificate_manager_test.m.js';
+  }
+
+  /** @override */
+  get featureList() {
+    return {enabled: ['network::features::kOutOfBlinkCors']};
+  }
+};
+
+TEST_F('CrComponentsCertificateManagerV3Test', 'All', function() {
+  mocha.run();
+});
+
+GEN('#endif  // defined(USE_NSS_CERTS)');

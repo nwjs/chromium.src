@@ -39,14 +39,15 @@
 #include "skia/public/mojom/skcolor.mojom-blink.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
-#include "third_party/blink/public/common/frame/blocked_navigation_types.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-blink.h"
+#include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink.h"
-#include "third_party/blink/public/platform/interface_provider.h"
+#include "third_party/blink/public/mojom/frame/media_player_action.mojom-blink.h"
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/platform/scheduler/web_resource_loading_task_runner_handle.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
+#include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_content_capture_client.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
@@ -82,12 +83,17 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/performance_monitor.h"
+#include "third_party/blink/renderer/core/frame/picture_in_picture_controller.h"
 #include "third_party/blink/renderer/core/frame/report.h"
 #include "third_party/blink/renderer/core/frame/reporting_context.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/frame/web_frame_widget_base.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
+#include "third_party/blink/renderer/core/html/media/html_media_element.h"
+#include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/plugin_document.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -101,6 +107,7 @@
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/idleness_detector.h"
+#include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/drag_controller.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/plugin_data.h"
@@ -131,6 +138,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
+#include "ui/gfx/geometry/point.h"
 
 namespace blink {
 
@@ -244,6 +252,7 @@ void LocalFrame::Trace(blink::Visitor* visitor) {
   visitor->Trace(text_suggestion_controller_);
   visitor->Trace(smooth_scroll_sequencer_);
   visitor->Trace(content_capture_manager_);
+  visitor->Trace(system_clipboard_);
   Frame::Trace(visitor);
   Supplementable<LocalFrame>::Trace(visitor);
 }
@@ -255,7 +264,7 @@ bool LocalFrame::IsLocalRoot() const {
   return Tree().Parent()->IsRemoteFrame();
 }
 
-void LocalFrame::Navigate(const FrameLoadRequest& request,
+void LocalFrame::Navigate(FrameLoadRequest& request,
                           WebFrameLoadType frame_load_type) {
   if (!navigation_rate_limiter().CanProceed())
     return;
@@ -267,13 +276,25 @@ void LocalFrame::Navigate(const FrameLoadRequest& request,
     // create a new back/forward item. The spec only explicitly mentions this in
     // the context of navigating an iframe.
     if (!GetDocument()->LoadEventFinished() &&
-        !HasTransientUserActivation(this)) {
+        !HasTransientUserActivation(this) &&
+        request.ClientRedirectReason() !=
+            ClientNavigationReason::kAnchorClick) {
       frame_load_type = WebFrameLoadType::kReplaceCurrentItem;
     }
   }
+
+  // Navigations in portal contexts do not create back/forward entries.
+  // TODO(mcnee): Similarly, we need to restrict orphaned contexts.
+  if (GetPage()->InsidePortal() &&
+      frame_load_type == WebFrameLoadType::kStandard) {
+    frame_load_type = WebFrameLoadType::kReplaceCurrentItem;
+  }
+
+  const ClientNavigationReason client_redirect_reason =
+      request.ClientRedirectReason();
   loader_.StartNavigation(request, frame_load_type);
 
-  if (request.ClientRedirectReason() != ClientNavigationReason::kNone)
+  if (client_redirect_reason != ClientNavigationReason::kNone)
     probe::FrameClearedScheduledNavigation(this);
 }
 
@@ -382,8 +403,8 @@ void LocalFrame::CheckCompleted() {
   GetDocument()->CheckCompleted();
 }
 
-SecurityContext* LocalFrame::GetSecurityContext() const {
-  return GetDocument();
+const SecurityContext* LocalFrame::GetSecurityContext() const {
+  return GetDocument() ? &GetDocument()->GetSecurityContext() : nullptr;
 }
 
 void LocalFrame::PrintNavigationErrorMessage(const Frame& target_frame,
@@ -447,7 +468,7 @@ void LocalFrame::Reload(WebFrameLoadType load_type) {
   DCHECK(IsReloadLoadType(load_type));
   if (!loader_.GetDocumentLoader()->GetHistoryItem())
     return;
-  FrameLoadRequest request = FrameLoadRequest(
+  FrameLoadRequest request(
       nullptr, loader_.ResourceRequestForReload(
                    load_type, ClientRedirectPolicy::kClientRedirect));
   request.SetClientRedirectReason(ClientNavigationReason::kReload);
@@ -459,7 +480,7 @@ void LocalFrame::Reload(WebFrameLoadType load_type) {
 }
 
 LocalWindowProxy* LocalFrame::WindowProxy(DOMWrapperWorld& world) {
-  return ToLocalWindowProxy(Frame::GetWindowProxy(world));
+  return To<LocalWindowProxy>(Frame::GetWindowProxy(world));
 }
 
 LocalDOMWindow* LocalFrame::DomWindow() const {
@@ -558,7 +579,7 @@ void LocalFrame::SetInheritedEffectiveTouchAction(TouchAction touch_action) {
 }
 
 bool LocalFrame::BubbleLogicalScrollFromChildFrame(
-    ScrollDirection direction,
+    mojom::blink::ScrollDirection direction,
     ScrollGranularity granularity,
     Frame* child) {
   FrameOwner* owner = child->Owner();
@@ -874,7 +895,6 @@ LocalFrame::LocalFrame(LocalFrameClient* client,
       page_zoom_factor_(ParentPageZoomFactor(this)),
       text_zoom_factor_(ParentTextZoomFactor(this)),
       in_view_source_mode_(false),
-      ad_frame_type_(mojom::AdFrameType::kNonAd),
       inspector_task_runner_(InspectorTaskRunner::Create(
           GetTaskRunner(TaskType::kInternalInspector))),
       interface_registry_(interface_registry
@@ -1030,9 +1050,9 @@ bool LocalFrame::CanNavigate(const Frame& target_frame,
           !LocalFrame::HasTransientUserActivation(this)) {
         // With only 'allow-top-navigation-by-user-activation' (but not
         // 'allow-top-navigation'), top navigation requires a user gesture.
-        Client()->DidBlockNavigation(
+        GetLocalFrameHostRemote().DidBlockNavigation(
             destination_url, GetDocument()->Url(),
-            blink::NavigationBlockedReason::kRedirectWithNoUserGestureSandbox);
+            mojom::NavigationBlockedReason::kRedirectWithNoUserGestureSandbox);
         PrintNavigationErrorMessage(
             target_frame,
             "The frame attempting navigation of the top-level window is "
@@ -1080,7 +1100,7 @@ bool LocalFrame::CanNavigate(const Frame& target_frame,
     // A frame navigating its top may blocked if the document initiating
     // the navigation has never received a user gesture and the navigation
     // isn't same-origin with the target.
-    if (HasBeenActivated() ||
+    if (HasStickyUserActivation() ||
         target_frame.GetSecurityContext()->GetSecurityOrigin()->CanAccess(
             SecurityOrigin::Create(destination_url).get())) {
       return true;
@@ -1105,9 +1125,10 @@ bool LocalFrame::CanNavigate(const Frame& target_frame,
         "but is neither same-origin with its target nor has it received a "
         "user gesture. See "
         "https://www.chromestatus.com/features/5851021045661696.");
-    Client()->DidBlockNavigation(
+    GetLocalFrameHostRemote().DidBlockNavigation(
         destination_url, GetDocument()->Url(),
-        blink::NavigationBlockedReason::kRedirectWithNoUserGesture);
+        mojom::NavigationBlockedReason::kRedirectWithNoUserGesture);
+
   } else {
     PrintNavigationErrorMessage(target_frame,
                                 "The frame attempting navigation is neither "
@@ -1119,15 +1140,14 @@ bool LocalFrame::CanNavigate(const Frame& target_frame,
 
 void LocalFrame::SetIsAdSubframeIfNecessary() {
   DCHECK(ad_tracker_);
+  if (IsAdSubframe())
+    return;
+
   Frame* parent = Tree().Parent();
   if (!parent)
     return;
 
-  // If the parent frame is local, directly determine if it's an ad. If it's
-  // remote, then it is up to the embedder that moved this frame out-of-
-  // process to set this frame as an ad via SetIsAdSubframe before commit.
-  auto* parent_local_frame = DynamicTo<LocalFrame>(parent);
-  bool parent_is_ad = parent_local_frame && parent_local_frame->IsAdSubframe();
+  bool parent_is_ad = parent->IsAdSubframe();
 
   if (parent_is_ad || ad_tracker_->IsAdScriptInStack()) {
     SetIsAdSubframe(parent_is_ad ? blink::mojom::AdFrameType::kChildAd
@@ -1278,8 +1298,8 @@ WebURLLoaderFactory* LocalFrame::GetURLLoaderFactory() {
 }
 
 WebPluginContainerImpl* LocalFrame::GetWebPluginContainer(Node* node) const {
-  if (GetDocument() && GetDocument()->IsPluginDocument()) {
-    return ToPluginDocument(GetDocument())->GetPluginView();
+  if (auto* plugin_document = DynamicTo<PluginDocument>(GetDocument())) {
+    return plugin_document->GetPluginView();
   }
   if (!node) {
     DCHECK(GetDocument());
@@ -1329,6 +1349,12 @@ bool LocalFrame::ClipsContent() const {
 void LocalFrame::SetViewportIntersectionFromParent(
     const ViewportIntersectionState& intersection_state) {
   DCHECK(IsLocalRoot());
+  // Notify the render frame observers when the main frame intersection changes.
+  if (intersection_state_.main_frame_document_intersection !=
+      intersection_state.main_frame_document_intersection) {
+    Client()->OnMainFrameDocumentIntersectionChanged(
+        intersection_state.main_frame_document_intersection);
+  }
   // We only schedule an update if the viewport intersection or occlusion state
   // has changed; neither the viewport offset nor the compositing bounds will
   // affect IntersectionObserver.
@@ -1375,8 +1401,9 @@ void LocalFrame::ForceSynchronousDocumentInstall(
   GetDocument()->Shutdown();
 
   DomWindow()->InstallNewDocument(
-      mime_type,
-      DocumentInit::Create().WithDocumentLoader(loader_.GetDocumentLoader()),
+      DocumentInit::Create()
+          .WithDocumentLoader(loader_.GetDocumentLoader())
+          .WithTypeFrom(mime_type),
       false);
   loader_.StateMachine()->AdvanceTo(
       FrameLoaderStateMachine::kCommittedFirstRealLoad);
@@ -1405,14 +1432,6 @@ bool LocalFrame::IsProvisional() const {
 
   DCHECK(Owner());
   return Owner()->ContentFrame() != this;
-}
-
-bool LocalFrame::IsAdSubframe() const {
-  return ad_frame_type_ != blink::mojom::AdFrameType::kNonAd;
-}
-
-bool LocalFrame::IsAdRoot() const {
-  return ad_frame_type_ == blink::mojom::AdFrameType::kRootAd;
 }
 
 void LocalFrame::SetIsAdSubframe(blink::mojom::AdFrameType ad_frame_type) {
@@ -1523,7 +1542,7 @@ void LocalFrame::NotifyUserActivation(LocalFrame* frame,
 bool LocalFrame::HasTransientUserActivation(LocalFrame* frame) {
   if (frame && frame->isNodeJS())
     return true;
-  return frame ? frame->HasTransientUserActivation() : false;
+  return frame ? frame->Frame::HasTransientUserActivation() : false;
 }
 
 // static
@@ -1538,16 +1557,10 @@ void LocalFrame::NotifyUserActivation(bool need_browser_verification) {
   NotifyUserActivationInLocalTree();
 }
 
-bool LocalFrame::HasTransientUserActivation() {
-  if (isNodeJS())
-    return true;
-  return user_activation_state_.IsActive();
-}
-
 bool LocalFrame::ConsumeTransientUserActivation(
     UserActivationUpdateSource update_source) {
   if (update_source == UserActivationUpdateSource::kRenderer)
-    Client()->ConsumeUserActivation();
+    Client()->ConsumeTransientUserActivation();
   return ConsumeTransientUserActivationInLocalTree();
 }
 
@@ -1748,7 +1761,7 @@ void LocalFrame::SetLifecycleState(mojom::FrameLifecycleState state) {
 }
 
 void LocalFrame::MaybeLogAdClickNavigation() {
-  if (HasTransientUserActivation() && IsAdSubframe())
+  if (HasTransientUserActivation(this) && IsAdSubframe())
     UseCounter::Count(GetDocument(), WebFeature::kAdClickNavigation);
 }
 
@@ -1799,8 +1812,26 @@ bool LocalFrame::IsCapturingMedia() const {
                                       : false;
 }
 
+SystemClipboard* LocalFrame::GetSystemClipboard() {
+  if (!system_clipboard_)
+    system_clipboard_ = MakeGarbageCollected<SystemClipboard>(this);
+
+  return system_clipboard_.Get();
+}
+
 void LocalFrame::EvictFromBackForwardCache() {
   GetLocalFrameHostRemote().EvictFromBackForwardCache();
+}
+
+HitTestResult LocalFrame::HitTestResultForVisualViewportPos(
+    const IntPoint& pos_in_viewport) {
+  IntPoint root_frame_point(
+      GetPage()->GetVisualViewport().ViewportToRootFrame(pos_in_viewport));
+  HitTestLocation location(View()->ConvertFromRootFrame(root_frame_point));
+  HitTestResult result = GetEventHandler().HitTestResultAtLocation(
+      location, HitTestRequest::kReadOnly | HitTestRequest::kActive);
+  result.SetToShadowHostIfInRestrictedShadowRoot();
+  return result;
 }
 
 void LocalFrame::DidChangeVisibleToHitTesting() {
@@ -1828,6 +1859,18 @@ void LocalFrame::SetPrescientNetworkingForTesting(
 
 mojom::blink::LocalFrameHost& LocalFrame::GetLocalFrameHostRemote() {
   return *local_frame_host_remote_.get();
+}
+
+void LocalFrame::SetEmbeddingToken(
+    const base::UnguessableToken& embedding_token) {
+  DCHECK(Tree().Parent());
+  DCHECK(Tree().Parent()->IsRemoteFrame());
+  embedding_token_ = embedding_token;
+}
+
+const base::Optional<base::UnguessableToken>& LocalFrame::GetEmbeddingToken()
+    const {
+  return embedding_token_;
 }
 
 void LocalFrame::GetTextSurroundingSelection(
@@ -1880,6 +1923,176 @@ void LocalFrame::EnableViewSourceMode() {
 
 void LocalFrame::Focus() {
   FocusImpl();
+}
+
+void LocalFrame::ClearFocusedElement() {
+  Document* document = GetDocument();
+  Element* old_focused_element = document->FocusedElement();
+  document->ClearFocusedElement();
+  if (!old_focused_element)
+    return;
+
+  // If a text field has focus, we need to make sure the selection controller
+  // knows to remove selection from it. Otherwise, the text field is still
+  // processing keyboard events even though focus has been moved to the page and
+  // keystrokes get eaten as a result.
+  document->UpdateStyleAndLayoutTree();
+  if (HasEditableStyle(*old_focused_element) ||
+      old_focused_element->IsTextControl())
+    Selection().Clear();
+}
+
+void LocalFrame::CopyImageAtViewportPoint(const IntPoint& viewport_point) {
+  HitTestResult result = HitTestResultForVisualViewportPos(viewport_point);
+  if (!IsA<HTMLCanvasElement>(result.InnerNodeOrImageMapImage()) &&
+      result.AbsoluteImageURL().IsEmpty()) {
+    // There isn't actually an image at these coordinates.  Might be because
+    // the window scrolled while the context menu was open or because the page
+    // changed itself between when we thought there was an image here and when
+    // we actually tried to retrieve the image.
+    //
+    // FIXME: implement a cache of the most recent HitTestResult to avoid having
+    //        to do two hit tests.
+    return;
+  }
+
+  // TODO(editing-dev): The use of UpdateStyleAndLayout
+  // needs to be audited.  See http://crbug.com/590369 for more details.
+  GetDocument()->UpdateStyleAndLayout();
+
+  GetEditor().CopyImage(result);
+}
+
+void LocalFrame::CopyImageAt(const gfx::Point& window_point) {
+  blink::WebFloatRect viewport_position(window_point.x(), window_point.y(), 0,
+                                        0);
+  GetPage()->GetChromeClient().WindowToViewportRect(*this, &viewport_position);
+  CopyImageAtViewportPoint(IntPoint(viewport_position.x, viewport_position.y));
+}
+
+void LocalFrame::SaveImageAt(const gfx::Point& window_point) {
+  blink::WebFloatRect viewport_position(window_point.x(), window_point.y(), 0,
+                                        0);
+  GetPage()->GetChromeClient().WindowToViewportRect(*this, &viewport_position);
+
+  IntPoint location(viewport_position.x, viewport_position.y);
+  Node* node =
+      HitTestResultForVisualViewportPos(location).InnerNodeOrImageMapImage();
+  if (!node || !(IsA<HTMLCanvasElement>(*node) || IsA<HTMLImageElement>(*node)))
+    return;
+
+  String url = To<Element>(*node).ImageSourceURL();
+  if (!KURL(NullURL(), url).ProtocolIsData())
+    return;
+
+  GetPage()->GetChromeClient().SaveImageFromDataURL(*this, url);
+}
+
+void LocalFrame::ReportBlinkFeatureUsage(
+    const Vector<mojom::blink::WebFeature>& features) {
+  DCHECK(!features.IsEmpty());
+
+  // Assimilate all features used/performed by the browser into UseCounter.
+  auto* document = GetDocument();
+  DCHECK(document);
+  for (const auto& feature : features)
+    document->CountUse(feature);
+}
+
+void LocalFrame::RenderFallbackContent() {
+  // TODO(ekaramad): If the owner renders its own content, then the current
+  // ContentFrame() should detach (see https://crbug.com/850223).
+  auto* owner = DeprecatedLocalOwner();
+  DCHECK(IsA<HTMLObjectElement>(owner));
+  owner->RenderFallbackContent(this);
+}
+
+void LocalFrame::BeforeUnload(bool is_reload, BeforeUnloadCallback callback) {
+  base::TimeTicks before_unload_start_time = base::TimeTicks::Now();
+
+  // This will execute the BeforeUnload event in this frame and all of its
+  // local descendant frames, including children of remote frames.  The browser
+  // process will send separate IPCs to dispatch beforeunload in any
+  // out-of-process child frames.
+  bool proceed = Loader().ShouldClose(is_reload);
+
+  DCHECK(!callback.is_null());
+  base::TimeTicks before_unload_end_time = base::TimeTicks::Now();
+  std::move(callback).Run(proceed, before_unload_start_time,
+                          before_unload_end_time);
+}
+
+void LocalFrame::MediaPlayerActionAtViewportPoint(
+    const IntPoint& viewport_position,
+    const blink::mojom::blink::MediaPlayerActionType type,
+    bool enable) {
+  HitTestResult result = HitTestResultForVisualViewportPos(viewport_position);
+  Node* node = result.InnerNode();
+  if (!IsA<HTMLVideoElement>(*node) && !IsA<HTMLAudioElement>(*node))
+    return;
+
+  auto* media_element = To<HTMLMediaElement>(node);
+  switch (type) {
+    case blink::mojom::blink::MediaPlayerActionType::kPlay:
+      if (enable)
+        media_element->Play();
+      else
+        media_element->pause();
+      break;
+    case blink::mojom::blink::MediaPlayerActionType::kMute:
+      media_element->setMuted(enable);
+      break;
+    case blink::mojom::blink::MediaPlayerActionType::kLoop:
+      media_element->SetLoop(enable);
+      break;
+    case blink::mojom::blink::MediaPlayerActionType::kControls:
+      media_element->SetBooleanAttribute(html_names::kControlsAttr, enable);
+      break;
+    case blink::mojom::blink::MediaPlayerActionType::kPictureInPicture:
+      DCHECK(IsA<HTMLVideoElement>(media_element));
+      if (enable) {
+        PictureInPictureController::From(node->GetDocument())
+            .EnterPictureInPicture(To<HTMLVideoElement>(media_element),
+                                   nullptr /* promise */,
+                                   nullptr /* options */);
+      } else {
+        PictureInPictureController::From(node->GetDocument())
+            .ExitPictureInPicture(To<HTMLVideoElement>(media_element), nullptr);
+      }
+
+      break;
+  }
+}
+
+void LocalFrame::MediaPlayerActionAt(
+    const gfx::Point& window_point,
+    blink::mojom::blink::MediaPlayerActionPtr action) {
+  blink::WebFloatRect viewport_position(window_point.x(), window_point.y(), 0,
+                                        0);
+  GetPage()->GetChromeClient().WindowToViewportRect(*this, &viewport_position);
+  IntPoint location(viewport_position.x, viewport_position.y);
+
+  MediaPlayerActionAtViewportPoint(location, action->type, action->enable);
+}
+
+void LocalFrame::AdvanceFocusInForm(mojom::blink::FocusType focus_type) {
+  auto* focused_frame = GetPage()->GetFocusController().FocusedFrame();
+  if (focused_frame != this)
+    return;
+
+  DCHECK(GetDocument());
+  Element* element = GetDocument()->FocusedElement();
+  if (!element)
+    return;
+
+  Element* next_element =
+      GetPage()->GetFocusController().NextFocusableElementInForm(element,
+                                                                 focus_type);
+  if (!next_element)
+    return;
+
+  next_element->scrollIntoViewIfNeeded(true /*centerIfNeeded*/);
+  next_element->focus();
 }
 
 void LocalFrame::BindToReceiver(

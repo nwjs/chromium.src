@@ -98,12 +98,11 @@ void CopyLockResult(base::RunLoop* loop,
 }
 
 void CertCallbackSuccess(
-    const chromeos::attestation::AttestationFlow::CertificateCallback&
-        callback) {
+    chromeos::attestation::AttestationFlow::CertificateCallback callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::BindOnce(callback, chromeos::attestation::ATTESTATION_SUCCESS,
-                     "fake_cert"));
+      base::BindOnce(std::move(callback),
+                     chromeos::attestation::ATTESTATION_SUCCESS, "fake_cert"));
 }
 
 class TestingDeviceCloudPolicyManagerChromeOS
@@ -126,7 +125,6 @@ class TestingDeviceCloudPolicyManagerChromeOS
 
 class DeviceCloudPolicyManagerChromeOSTest
     : public chromeos::DeviceSettingsTestBase,
-      public DeviceCloudPolicyManagerChromeOS::Observer,
       public chromeos::SessionManagerClient::Observer {
  protected:
   DeviceCloudPolicyManagerChromeOSTest()
@@ -200,7 +198,6 @@ class DeviceCloudPolicyManagerChromeOSTest
 
     if (initializer_)
       initializer_->Shutdown();
-    manager_->RemoveDeviceCloudPolicyManagerObserver(this);
     manager_->Shutdown();
     manager_.reset();
     install_attributes_.reset();
@@ -238,7 +235,6 @@ class DeviceCloudPolicyManagerChromeOSTest
     std::unique_ptr<chromeos::attestation::AttestationFlow> unique_flow(
         CreateAttestationFlow());
     manager_->Initialize(&local_state_);
-    manager_->AddDeviceCloudPolicyManagerObserver(this);
     initializer_ = std::make_unique<DeviceCloudPolicyInitializer>(
         &local_state_, &device_management_service_,
         base::ThreadTaskRunnerHandle::Get(), install_attributes_.get(),
@@ -275,10 +271,6 @@ class DeviceCloudPolicyManagerChromeOSTest
             net::OK, DeviceManagementService::kServiceUnavailable,
             em::DeviceManagementResponse()));
   }
-
-  // DeviceCloudPolicyManagerChromeOS::Observer:
-  MOCK_METHOD0(OnDeviceCloudPolicyManagerConnected, void());
-  MOCK_METHOD0(OnDeviceCloudPolicyManagerDisconnected, void());
 
   // SessionManagerClient::Observer:
   void OwnerKeySet(bool success) override {
@@ -425,7 +417,28 @@ TEST_F(DeviceCloudPolicyManagerChromeOSTest, ConsumerDevice) {
   EXPECT_TRUE(manager_->policies().Equals(bundle));
 }
 
-TEST_F(DeviceCloudPolicyManagerChromeOSTest, ConnectAndDisconnect) {
+class DeviceCloudPolicyManagerChromeOSObserverTest
+    : public DeviceCloudPolicyManagerChromeOSTest,
+      public DeviceCloudPolicyManagerChromeOS::Observer {
+ protected:
+  DeviceCloudPolicyManagerChromeOSObserverTest() {}
+
+  void SetUp() override {
+    DeviceCloudPolicyManagerChromeOSTest::SetUp();
+    manager_->AddDeviceCloudPolicyManagerObserver(this);
+  }
+
+  void TearDown() override {
+    manager_->RemoveDeviceCloudPolicyManagerObserver(this);
+    DeviceCloudPolicyManagerChromeOSTest::TearDown();
+  }
+
+  // DeviceCloudPolicyManagerChromeOS::Observer:
+  MOCK_METHOD0(OnDeviceCloudPolicyManagerConnected, void());
+  MOCK_METHOD0(OnDeviceCloudPolicyManagerDisconnected, void());
+};
+
+TEST_F(DeviceCloudPolicyManagerChromeOSObserverTest, ConnectAndDisconnect) {
   LockDevice();
   FlushDeviceSettings();
   EXPECT_FALSE(manager_->core()->service());  // Not connected.

@@ -18,8 +18,8 @@
 #include "chrome/browser/chromeos/printing/cups_printers_manager.h"
 #include "chrome/browser/chromeos/settings/stats_reporting_controller.h"
 #include "chrome/browser/extensions/chrome_extension_function.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
-#include "chromeos/services/machine_learning/public/mojom/machine_learning_service.mojom.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
+#include "chromeos/services/machine_learning/public/mojom/machine_learning_service.mojom-forward.h"
 #include "chromeos/services/machine_learning/public/mojom/model.mojom.h"
 #include "extensions/browser/browser_context_keyed_api_factory.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -643,6 +643,18 @@ class AutotestPrivateWaitForAssistantQueryStatusFunction
   base::OneShotTimer timeout_timer_;
 };
 
+class AutotestPrivateIsArcPackageListInitialRefreshedFunction
+    : public ExtensionFunction {
+ public:
+  AutotestPrivateIsArcPackageListInitialRefreshedFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.isArcPackageListInitialRefreshed",
+                             AUTOTESTPRIVATE_ISARCPACKAGELISTINITIALREFRESHED)
+
+ private:
+  ~AutotestPrivateIsArcPackageListInitialRefreshedFunction() override;
+  ResponseAction Run() override;
+};
+
 // Set user pref value in the pref tree.
 class AutotestPrivateSetWhitelistedPrefFunction : public ExtensionFunction {
  public:
@@ -1097,6 +1109,43 @@ class AutotestPrivateSetMetricsEnabledFunction : public ExtensionFunction {
   std::unique_ptr<chromeos::StatsReportingController::ObserverSubscription>
       stats_reporting_observer_subscription_;
   bool target_value_ = false;
+};
+
+class AutotestPrivateStartTracingFunction : public ExtensionFunction {
+ public:
+  AutotestPrivateStartTracingFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.startTracing",
+                             AUTOTESTPRIVATE_STARTTRACING)
+
+ private:
+  ~AutotestPrivateStartTracingFunction() override;
+  ResponseAction Run() override;
+
+  void OnStartTracing();
+};
+
+class AutotestPrivateStopTracingFunction : public ExtensionFunction {
+ public:
+  AutotestPrivateStopTracingFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.stopTracing",
+                             AUTOTESTPRIVATE_STOPTRACING)
+
+ private:
+  ~AutotestPrivateStopTracingFunction() override;
+  ResponseAction Run() override;
+
+  void OnTracingComplete(std::unique_ptr<std::string> trace);
+};
+
+class AutotestPrivateSetArcTouchModeFunction : public ExtensionFunction {
+ public:
+  AutotestPrivateSetArcTouchModeFunction();
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.setArcTouchMode",
+                             AUTOTESTPRIVATE_SETARCTOUCHMODE)
+
+ private:
+  ~AutotestPrivateSetArcTouchModeFunction() override;
+  ResponseAction Run() override;
 };
 
 template <>

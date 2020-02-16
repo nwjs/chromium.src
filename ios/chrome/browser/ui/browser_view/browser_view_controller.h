@@ -14,8 +14,10 @@
 #import "ios/public/provider/chrome/browser/voice/logo_animation_controller.h"
 
 class Browser;
+class ChromeBrowserState;
 @protocol ApplicationCommands;
 @protocol BrowserCommands;
+@protocol BrowsingDataCommands;
 @class BrowserContainerViewController;
 @class BrowserViewControllerDependencyFactory;
 @class CommandDispatcher;
@@ -26,10 +28,6 @@ class Browser;
 @protocol SnackbarCommands;
 @class TabModel;
 @protocol ToolbarCommands;
-
-namespace ios {
-class ChromeBrowserState;
-}
 
 // The top-level view controller for the browser UI. Manages other controllers
 // which implement the interface.
@@ -49,6 +47,8 @@ class ChromeBrowserState;
                      (BrowserViewControllerDependencyFactory*)factory
         applicationCommandEndpoint:
             (id<ApplicationCommands>)applicationCommandEndpoint
+       browsingDataCommandEndpoint:
+           (id<BrowsingDataCommands>)browsingDataCommandEndpoint
                  commandDispatcher:(CommandDispatcher*)commandDispatcher
     browserContainerViewController:
         (BrowserContainerViewController*)browserContainerViewController
@@ -61,6 +61,7 @@ class ChromeBrowserState;
 
 @property(nonatomic, readonly) id<ApplicationCommands,
                                   BrowserCommands,
+                                  BrowsingDataCommands,
                                   OmniboxFocuser,
                                   PasswordBreachCommands,
                                   PopupMenuCommands,
@@ -82,7 +83,7 @@ class ChromeBrowserState;
 @property(nonatomic, weak, readonly) TabModel* tabModel;
 
 // The Browser's ChromeBrowserState.
-@property(nonatomic, assign, readonly) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign, readonly) ChromeBrowserState* browserState;
 
 // Whether the receiver is currently the primary BVC.
 - (void)setPrimary:(BOOL)primary;

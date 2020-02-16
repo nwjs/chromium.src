@@ -78,11 +78,17 @@ _NEGATIVE_FILTER = [
     'ChromeDriverTest.testAlertOnNewWindow',
     # https://bugs.chromium.org/p/chromedriver/issues/detail?id=2532
     'ChromeDriverPageLoadTimeoutTest.testRefreshWithPageLoadTimeout',
+    # testFocus is failing
+    'JavaScriptTests.testFocus',
 ]
 
 
 _OS_SPECIFIC_FILTER = {}
 _OS_SPECIFIC_FILTER['win'] = [
+    # https://crbug.com/1036055
+    'MobileEmulationCapabilityTest.testClickElement',
+    # https://crbug.com/1036636
+    'MobileEmulationCapabilityTest.testTapElement',
     # https://bugs.chromium.org/p/chromedriver/issues/detail?id=299
     'ChromeLogPathCapabilityTest.testChromeLogPath',
     # https://bugs.chromium.org/p/chromium/issues/detail?id=1011095
@@ -91,12 +97,19 @@ _OS_SPECIFIC_FILTER['win'] = [
     'ChromeDownloadDirTest.testFileDownloadWithGetHeadless',
 ]
 _OS_SPECIFIC_FILTER['linux'] = [
+    # https://crbug.com/1036055
+    'MobileEmulationCapabilityTest.testClickElement',
+    # https://crbug.com/1036636
+    'MobileEmulationCapabilityTest.testTapElement',
 ]
 _OS_SPECIFIC_FILTER['mac'] = [
+    # https://crbug.com/1036055
+    'MobileEmulationCapabilityTest.testClickElement',
     # https://bugs.chromium.org/p/chromedriver/issues/detail?id=1927
+    # https://crbug.com/1036636
     'MobileEmulationCapabilityTest.testTapElement',
-    # https://bugs.chromium.org/p/chromium/issues/detail?id=946023
-    'ChromeDriverTest.testWindowFullScreen',
+    # https://bugs.chromium.org/p/chromium/issues/detail?id=1011225
+    'ChromeDriverTest.testActionsMultiTouchPoint',
 ]
 
 _DESKTOP_NEGATIVE_FILTER = [
@@ -220,6 +233,8 @@ _ANDROID_NEGATIVE_FILTER['chrome'] = (
         'ChromeDriverTest.testPushAndNotificationsPermissions',
         'ChromeDriverTest.testSensorPermissions',
         'ChromeDriverTest.testSettingPermissionDoesNotAffectOthers',
+        # Android does not allow changing window size
+        'JavaScriptTests.*',
     ]
 )
 _ANDROID_NEGATIVE_FILTER['chrome_stable'] = (
@@ -880,6 +895,7 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       ],
       'parameters': {'pointerType': 'mouse'},
       'id': 'pointer1'}]})
+    time.sleep(1)
     self._driver.PerformActions(actions)
     rect = target.GetRect()
     self.assertEquals(150, rect['x'])
@@ -897,6 +913,7 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       ],
       'parameters': {'pointerType': 'mouse'},
       'id': 'pointer1'}]})
+    time.sleep(1)
     self._driver.PerformActions(actions)
     rect = target.GetRect()
     self.assertEquals(180, rect['x'])
@@ -916,6 +933,7 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
       ],
       'parameters': {'pointerType': 'mouse'},
       'id': 'pointer1'}]})
+    time.sleep(1)
     self._driver.PerformActions(actions)
     rect = target.GetRect()
     self.assertEquals(180, rect['x'])
@@ -1892,6 +1910,29 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     self._driver.DeleteAllCookies()
     self.assertEquals(0, len(self._driver.GetCookies()))
 
+  def testCookieForFrame(self):
+    # Frame must have separate url than outer context for Cookies to be distinct
+    # the cross_domain_iframe with site-per-process fakes the needed setup
+    self._driver = self.CreateDriver(chrome_switches=['--site-per-process'])
+    self._driver.Load(self.GetHttpUrlForFile(
+        '/chromedriver/cross_domain_iframe.html'))
+    self._driver.AddCookie({'name': 'outer', 'value': 'main context'})
+
+    frame = self._driver.FindElement('tag name', 'iframe')
+    self._driver.SwitchToFrame(frame)
+    self.assertTrue(self.WaitForCondition(
+        lambda: 'outer.html' in
+                self._driver.ExecuteScript('return window.location.href')))
+    self._driver.AddCookie({'name': 'inner', 'value': 'frame context'})
+    cookies = self._driver.GetCookies()
+    self.assertEquals(1, len(cookies))
+    self.assertEquals('inner', cookies[0]['name'])
+
+    self._driver.SwitchToMainFrame()
+    cookies = self._driver.GetCookies()
+    self.assertEquals(1, len(cookies))
+    self.assertEquals('outer', cookies[0]['name'])
+
   def testGetUrlOnInvalidUrl(self):
     # Make sure we don't return 'chrome-error://chromewebdata/' (see
     # https://bugs.chromium.org/p/chromedriver/issues/detail?id=1272). RFC 6761
@@ -2316,14 +2357,45 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     # parameters['descriptor']['sysex'] = True should be denied.
 
   def testClipboardPermissions(self):
-    """ Assures both clipboard permissions are set simultaneously. """
+    """ Tests clipboard permission requirements.
+
+    clipboard-read with allowWithoutSanitization: true or false, and
+    clipboard-write with allowWithoutSanitization: true are bundled together
+    into one CLIPBOARD_READ_WRITE permission.
+
+    clipboard write with allowWithoutSanitization: false is an auto-granted
+    permission.
+    """
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
     parameters = {
-      'descriptor': { 'name': 'clipboard-read' },
+      'descriptor': {
+        'name': 'clipboard-read' ,
+        'allowWithoutSanitization': False
+      },
       'state': 'granted'
     }
+    raw_write_parameters = {
+      'descriptor': {
+        'name': 'clipboard-write',
+        'allowWithoutSanitization': True
+      }
+    }
+
+    self.CheckPermission(self.GetPermissionWithQuery(parameters['descriptor']),
+                        'prompt')
+    self.CheckPermission(self.GetPermissionWithQuery(
+                          raw_write_parameters['descriptor']), 'prompt')
+
     self._driver.SetPermission(parameters)
-    self.CheckPermission(self.GetPermission('clipboard-read'), 'granted')
+    self.CheckPermission(self.GetPermissionWithQuery(parameters['descriptor']),
+                        'granted')
+    parameters['descriptor']['allowWithoutSanitization'] = True
+    self.CheckPermission(self.GetPermissionWithQuery(parameters['descriptor']),
+                        'granted')
+    parameters['descriptor']['name'] = 'clipboard-write'
+    self.CheckPermission(self.GetPermissionWithQuery(parameters['descriptor']),
+                        'granted')
+
     parameters = {
       'descriptor': { 'name': 'clipboard-write' },
       'state': 'prompt'
@@ -2433,6 +2505,14 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
     # Assert different domain is not the same.
     self._driver.SwitchToWindow(different_domain)
     self.CheckPermission(self.GetPermission('geolocation'), 'denied')
+
+  # Tests that the webauthn:virtualAuthenticators capability is true on desktop
+  # and false on android.
+  def testWebauthnVirtualAuthenticatorsCapability(self):
+    is_desktop = _ANDROID_PACKAGE_KEY is None
+    self.assertEqual(
+        is_desktop,
+        self._driver.capabilities['webauthn:virtualAuthenticators'])
 
 # Tests that require a secure context.
 class ChromeDriverSecureContextTest(ChromeDriverBaseTestWithWebServer):
@@ -4154,6 +4234,47 @@ class SupportIPv4AndIPv6(ChromeDriverBaseTest):
       self.CreateDriver('http://[::1]:' +
                                  str(chromedriver_server.GetPort()))
 
+class JavaScriptTests(ChromeDriverBaseTestWithWebServer):
+  def GetFileUrl(self, filename):
+    return 'file://' + self.js_root + filename
+
+  def setUp(self):
+    self._driver = self.CreateDriver()
+    self.js_root = os.path.dirname(os.path.realpath(__file__)) + '/../js/'
+    self._driver.SetWindowRect(1000, 1000, 0, 0)
+
+  def checkTestResult(self):
+    def getStatus():
+      return self._driver.ExecuteScript('return window.CDCJStestRunStatus')
+
+    self.WaitForCondition(getStatus)
+    self.assertEquals('PASS', getStatus())
+
+  def testAllJS(self):
+    self._driver.Load(self.GetFileUrl('call_function_test.html'))
+    self.checkTestResult()
+
+    self._driver.Load(self.GetFileUrl('dispatch_touch_event_test.html'))
+    self.checkTestResult()
+
+    self._driver.Load(self.GetFileUrl('execute_async_script_test.html'))
+    self.checkTestResult()
+
+    self._driver.Load(self.GetFileUrl('execute_script_test.html'))
+    self.checkTestResult()
+
+    self._driver.Load(self.GetFileUrl('get_element_location_test.html'))
+    self.checkTestResult()
+
+    self._driver.Load(self.GetFileUrl('get_element_region_test.html'))
+    self.checkTestResult()
+
+    self._driver.Load(self.GetFileUrl('is_option_element_toggleable_test.html'))
+    self.checkTestResult()
+
+  def testFocus(self):
+    self._driver.Load(self.GetFileUrl('focus_test.html'))
+    self.checkTestResult()
 
 # 'Z' in the beginning is to make test executed in the end of suite.
 class ZChromeStartRetryCountTest(unittest.TestCase):

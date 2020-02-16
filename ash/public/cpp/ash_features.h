@@ -21,6 +21,9 @@ ASH_PUBLIC_EXPORT extern const base::Feature kAllowAmbientEQ;
 // certain devices.
 ASH_PUBLIC_EXPORT extern const base::Feature kAutoNightLight;
 
+// Enables a modal dialog when resolution or refresh rate change.
+ASH_PUBLIC_EXPORT extern const base::Feature kDisplayChangeModal;
+
 // Enables the docked (a.k.a. picture-in-picture) magnifier.
 // TODO(afakhry): Remove this after the feature is fully launched.
 // https://crbug.com/709824.
@@ -82,10 +85,6 @@ ASH_PUBLIC_EXPORT extern const base::Feature kNotificationExpansionAnimation;
 // Enables notification scroll bar in UnifiedSystemTray.
 ASH_PUBLIC_EXPORT extern const base::Feature kNotificationScrollBar;
 
-// Enables using a cross fade animation for the wallpaper blur for overview
-// mode.
-ASH_PUBLIC_EXPORT extern const base::Feature kOverviewCrossFadeWallpaperBlur;
-
 // Enables rounded corners for the Picture-in-picture window.
 ASH_PUBLIC_EXPORT extern const base::Feature kPipRoundedCorners;
 
@@ -104,9 +103,6 @@ ASH_PUBLIC_EXPORT extern const base::Feature kUnlockWithExternalBinary;
 
 // Enables views login.
 ASH_PUBLIC_EXPORT extern const base::Feature kViewsLogin;
-
-// Enables the Virtual Desks feature.
-ASH_PUBLIC_EXPORT extern const base::Feature kVirtualDesks;
 
 // Enables using the BluetoothSystem Mojo interface for Bluetooth operations.
 ASH_PUBLIC_EXPORT extern const base::Feature kUseBluetoothSystemInAsh;
@@ -139,6 +135,11 @@ ASH_PUBLIC_EXPORT extern const base::Feature kSwipingFromLeftEdgeToGoBack;
 // launched.
 ASH_PUBLIC_EXPORT extern const base::Feature kDragFromShelfToHomeOrOverview;
 
+// When enabled, shelf navigation controls and the overview tray item will be
+// removed from the shelf in tablet mode (unless otherwise specified by user
+// preferences, or policy).
+ASH_PUBLIC_EXPORT extern const base::Feature kHideShelfControlsInTabletMode;
+
 ASH_PUBLIC_EXPORT bool IsAllowAmbientEQEnabled();
 
 ASH_PUBLIC_EXPORT bool IsAutoNightLightEnabled();
@@ -167,8 +168,6 @@ ASH_PUBLIC_EXPORT bool IsTrilinearFilteringEnabled();
 
 ASH_PUBLIC_EXPORT bool IsViewsLoginEnabled();
 
-ASH_PUBLIC_EXPORT bool IsVirtualDesksEnabled();
-
 ASH_PUBLIC_EXPORT bool IsSupervisedUserDeprecationNoticeEnabled();
 
 ASH_PUBLIC_EXPORT bool IsSwapSideVolumeButtonsForOrientationEnabled();
@@ -182,6 +181,15 @@ ASH_PUBLIC_EXPORT bool IsSwipingFromLeftEdgeToGoBackEnabled();
 ASH_PUBLIC_EXPORT bool IsDragFromShelfToHomeOrOverviewEnabled();
 
 ASH_PUBLIC_EXPORT bool IsReduceDisplayNotificationsEnabled();
+
+ASH_PUBLIC_EXPORT bool IsHideShelfControlsInTabletModeEnabled();
+
+ASH_PUBLIC_EXPORT bool IsDisplayChangeModalEnabled();
+
+// These two functions are supposed to be temporary functions to set or get
+// whether "WebUITabStrip" feature is enabled from Chrome.
+ASH_PUBLIC_EXPORT void SetWebUITabStripEnabled(bool enabled);
+ASH_PUBLIC_EXPORT bool IsWebUITabStripEnabled();
 
 }  // namespace features
 }  // namespace ash

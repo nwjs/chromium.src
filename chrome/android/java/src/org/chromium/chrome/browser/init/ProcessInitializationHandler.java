@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.init;
 
 import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.SystemClock;
 import android.text.format.DateUtils;
@@ -36,7 +35,6 @@ import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivitySessionTracker;
 import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ChromeBackupAgent;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.DefaultBrowserInfo;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.DevToolsServer;
@@ -44,12 +42,14 @@ import org.chromium.chrome.browser.banners.AppBannerManager;
 import org.chromium.chrome.browser.bookmarkswidget.BookmarkWidgetProvider;
 import org.chromium.chrome.browser.contacts_picker.ContactsPickerDialog;
 import org.chromium.chrome.browser.content_capture.ContentCaptureHistoryDeletionObserver;
+import org.chromium.chrome.browser.crash.CrashUploadCountStore;
 import org.chromium.chrome.browser.crash.LogcatExtractionRunnable;
 import org.chromium.chrome.browser.crash.MinidumpUploadService;
 import org.chromium.chrome.browser.download.DownloadController;
 import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.download.ExploreOfflineStatusProvider;
 import org.chromium.chrome.browser.firstrun.ForcedSigninProcessor;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.history.HistoryDeletionBridge;
 import org.chromium.chrome.browser.identity.UniqueIdentificationGeneratorFactory;
@@ -68,7 +68,8 @@ import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
 import org.chromium.chrome.browser.photo_picker.PhotoPickerDialog;
-import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.ProfileManagerUtils;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.searchwidget.SearchWidgetProvider;
@@ -109,12 +110,10 @@ import java.util.Locale;
 public class ProcessInitializationHandler {
     private static final String TAG = "ProcessInitHandler";
 
-    private static final String SESSIONS_UUID_PREF_KEY = "chromium.sync.sessions.id";
     private static final String DEV_TOOLS_SERVER_SOCKET_PREFIX = "chrome";
 
     /** Prevents race conditions when deleting snapshot database. */
     private static final Object SNAPSHOT_DATABASE_LOCK = new Object();
-    private static final String SNAPSHOT_DATABASE_REMOVED = "snapshot_database_removed";
     private static final String SNAPSHOT_DATABASE_NAME = "snapshots.db";
 
     private static ProcessInitializationHandler sInstance;
@@ -183,7 +182,8 @@ public class ProcessInitializationHandler {
         // in the SyncController constructor.
         UniqueIdentificationGeneratorFactory.registerGenerator(SyncController.GENERATOR_ID,
                 new UuidBasedUniqueIdentificationGenerator(
-                        application, SESSIONS_UUID_PREF_KEY), false);
+                        application, ChromePreferenceKeys.SYNC_SESSIONS_UUID),
+                false);
 
         // Set up the DownloadCollectionBridge early as display names may be immediately retrieved
         // after native is loaded.
@@ -353,10 +353,8 @@ public class ProcessInitializationHandler {
         deferredStartupHandler.addDeferredTask(new Runnable() {
             @Override
             public void run() {
-                RecordHistogram.recordBooleanHistogram("Settings.ShowHomeButtonPreferenceState",
-                        HomepageManager.isHomepageEnabled());
-                RecordHistogram.recordBooleanHistogram("Settings.HomePageIsCustomized",
-                        !HomepageManager.getInstance().getPrefHomepageUseDefaultUri());
+                HomepageManager.recordHomeButtonPreferenceState();
+                HomepageManager.recordHomepageIsCustomized(HomepageManager.isHomepageCustomized());
             }
         });
 
@@ -526,7 +524,7 @@ public class ProcessInitializationHandler {
                 // possible. Instead, metrics are temporarily written to prefs; export those prefs
                 // to UMA metrics here.
                 MinidumpUploadService.storeBreakpadUploadStatsInUma(
-                        ChromePreferenceManager.getInstance());
+                        CrashUploadCountStore.getInstance());
 
                 // Likewise, this is a good time to process and clean up any pending or stale crash
                 // reports left behind by previous runs.
@@ -640,10 +638,10 @@ public class ProcessInitializationHandler {
     @WorkerThread
     private void removeSnapshotDatabase() {
         synchronized (SNAPSHOT_DATABASE_LOCK) {
-            SharedPreferences prefs = ContextUtils.getAppSharedPreferences();
-            if (!prefs.getBoolean(SNAPSHOT_DATABASE_REMOVED, false)) {
+            SharedPreferencesManager prefs = SharedPreferencesManager.getInstance();
+            if (!prefs.readBoolean(ChromePreferenceKeys.SNAPSHOT_DATABASE_REMOVED, false)) {
                 ContextUtils.getApplicationContext().deleteDatabase(SNAPSHOT_DATABASE_NAME);
-                prefs.edit().putBoolean(SNAPSHOT_DATABASE_REMOVED, true).apply();
+                prefs.writeBoolean(ChromePreferenceKeys.SNAPSHOT_DATABASE_REMOVED, true);
             }
         }
     }

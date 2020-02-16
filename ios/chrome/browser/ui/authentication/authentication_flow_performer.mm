@@ -102,7 +102,7 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
   [self stopWatchdogTimer];
 }
 
-- (void)commitSyncForBrowserState:(ios::ChromeBrowserState*)browserState {
+- (void)commitSyncForBrowserState:(ChromeBrowserState*)browserState {
   SyncSetupServiceFactory::GetForBrowserState(browserState)
       ->CommitSyncChanges();
 }
@@ -135,7 +135,7 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
   return NO;
 }
 
-- (void)fetchManagedStatus:(ios::ChromeBrowserState*)browserState
+- (void)fetchManagedStatus:(ChromeBrowserState*)browserState
                forIdentity:(ChromeIdentity*)identity {
   ios::ChromeIdentityService* identityService =
       ios::GetChromeBrowserProvider()->GetChromeIdentityService();
@@ -160,7 +160,7 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
 
 - (void)handleGetHostedDomain:(NSString*)hostedDomain
                         error:(NSError*)error
-                 browserState:(ios::ChromeBrowserState*)browserState {
+                 browserState:(ChromeBrowserState*)browserState {
   if (![self stopWatchdogTimer]) {
     // Watchdog timer has already fired, don't notify the delegate.
     return;
@@ -174,22 +174,23 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
 
 - (void)signInIdentity:(ChromeIdentity*)identity
       withHostedDomain:(NSString*)hostedDomain
-        toBrowserState:(ios::ChromeBrowserState*)browserState {
+        toBrowserState:(ChromeBrowserState*)browserState {
   AuthenticationServiceFactory::GetForBrowserState(browserState)
       ->SignIn(identity);
 }
 
-- (void)signOutBrowserState:(ios::ChromeBrowserState*)browserState {
+- (void)signOutBrowserState:(ChromeBrowserState*)browserState {
   AuthenticationServiceFactory::GetForBrowserState(browserState)
-      ->SignOut(signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS, ^{
-        [_delegate didSignOut];
-      });
+      ->SignOut(signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS,
+                /*force_clear_browsing_data=*/false, ^{
+                  [_delegate didSignOut];
+                });
 }
 
-- (void)signOutImmediatelyFromBrowserState:
-    (ios::ChromeBrowserState*)browserState {
+- (void)signOutImmediatelyFromBrowserState:(ChromeBrowserState*)browserState {
   AuthenticationServiceFactory::GetForBrowserState(browserState)
-      ->SignOut(signin_metrics::ABORT_SIGNIN, nil);
+      ->SignOut(signin_metrics::ABORT_SIGNIN,
+                /*force_clear_browsing_data=*/false, nil);
 }
 
 - (void)promptSwitchFromManagedEmail:(NSString*)managedEmail
@@ -243,7 +244,7 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
                            browser:(Browser*)browser
                     viewController:(UIViewController*)viewController {
   DCHECK(browser);
-  ios::ChromeBrowserState* browserState = browser->GetBrowserState();
+  ChromeBrowserState* browserState = browser->GetBrowserState();
   BOOL isSignedIn = YES;
   NSString* lastSignedInEmail =
       [AuthenticationServiceFactory::GetForBrowserState(browserState)
@@ -287,7 +288,7 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
 - (void)clearDataFromBrowser:(Browser*)browser
               commandHandler:(id<BrowsingDataCommands>)handler {
   DCHECK(browser);
-  ios::ChromeBrowserState* browserState = browser->GetBrowserState();
+  ChromeBrowserState* browserState = browser->GetBrowserState();
 
   DCHECK(!AuthenticationServiceFactory::GetForBrowserState(browserState)
               ->IsAuthenticated());
@@ -334,8 +335,7 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
 }
 
 - (BOOL)shouldHandleMergeCaseForIdentity:(ChromeIdentity*)identity
-                            browserState:
-                                (ios::ChromeBrowserState*)browserState {
+                            browserState:(ChromeBrowserState*)browserState {
   CoreAccountId lastSignedInAccountId = CoreAccountId::FromString(
       browserState->GetPrefs()->GetString(prefs::kGoogleServicesLastAccountId));
   CoreAccountId currentSignedInAccountId =
@@ -489,7 +489,8 @@ const int64_t kAuthenticationFlowTimeoutSeconds = 10;
   _navigationController = nil;
 }
 
-- (id<ApplicationCommands, BrowserCommands>)dispatcherForSettings {
+- (id<ApplicationCommands, BrowserCommands, BrowsingDataCommands>)
+    dispatcherForSettings {
   NOTREACHED();
   return nil;
 }

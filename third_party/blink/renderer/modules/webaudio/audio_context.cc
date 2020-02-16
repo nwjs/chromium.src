@@ -10,6 +10,8 @@
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_audio_context_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_audio_timestamp.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -19,9 +21,7 @@
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/window_performance.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
-#include "third_party/blink/renderer/modules/webaudio/audio_context_options.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_listener.h"
-#include "third_party/blink/renderer/modules/webaudio/audio_timestamp.h"
 #include "third_party/blink/renderer/modules/webaudio/media_element_audio_source_node.h"
 #include "third_party/blink/renderer/modules/webaudio/media_stream_audio_destination_node.h"
 #include "third_party/blink/renderer/modules/webaudio/media_stream_audio_source_node.h"
@@ -214,7 +214,7 @@ ScriptPromise AudioContext::suspendContext(ScriptState* script_state) {
 
     // Stop rendering now.
     if (destination())
-      StopRendering();
+      SuspendRendering();
 
     // Since we don't have any way of knowing when the hardware actually stops,
     // we'll just resolve the promise now.
@@ -227,14 +227,14 @@ ScriptPromise AudioContext::suspendContext(ScriptState* script_state) {
   return promise;
 }
 
-ScriptPromise AudioContext::resumeContext(ScriptState* script_state) {
+ScriptPromise AudioContext::resumeContext(ScriptState* script_state,
+                                          ExceptionState& exception_state) {
   DCHECK(IsMainThread());
 
   if (IsContextClosed()) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidAccessError,
-                          "cannot resume a closed AudioContext"));
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
+                                      "cannot resume a closed AudioContext");
+    return ScriptPromise();
   }
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
@@ -322,15 +322,17 @@ AudioTimestamp* AudioContext::getOutputTimestamp(
   return result;
 }
 
-ScriptPromise AudioContext::closeContext(ScriptState* script_state) {
+ScriptPromise AudioContext::closeContext(ScriptState* script_state,
+                                         ExceptionState& exception_state) {
   if (IsContextClosed()) {
     // We've already closed the context previously, but it hasn't yet been
-    // resolved, so just create a new promise and reject it.
-    return ScriptPromise::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidStateError,
-                          "Cannot close a context that is being closed or "
-                          "has already been closed."));
+    // resolved, so just throw a DOM exception to trigger a promise rejection
+    // and return an empty promise.
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "Cannot close a context that is being closed or has already been "
+        "closed.");
+    return ScriptPromise();
   }
 
   close_resolver_ = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
@@ -364,8 +366,18 @@ void AudioContext::StopRendering() {
 
   if (ContextState() == kRunning) {
     destination()->GetAudioDestinationHandler().StopRendering();
-    SetContextState(kSuspended);
+    SetContextState(kClosed);
     GetDeferredTaskHandler().ClearHandlersToBeDeleted();
+  }
+}
+
+void AudioContext::SuspendRendering() {
+  DCHECK(IsMainThread());
+  DCHECK(destination());
+
+  if (ContextState() == kRunning) {
+    destination()->GetAudioDestinationHandler().StopRendering();
+    SetContextState(kSuspended);
   }
 }
 

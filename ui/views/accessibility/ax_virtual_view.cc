@@ -16,6 +16,7 @@
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view.h"
@@ -66,13 +67,8 @@ AXVirtualView::~AXVirtualView() {
 void AXVirtualView::AddChildView(std::unique_ptr<AXVirtualView> view) {
   DCHECK(view);
   if (view->virtual_parent_view_ == this)
-    return;
+    return;  // Already a child of this virtual view.
   AddChildViewAt(std::move(view), GetChildCount());
-
-  if (GetOwnerView()) {
-    GetOwnerView()->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                             false);
-  }
 }
 
 void AXVirtualView::AddChildViewAt(std::unique_ptr<AXVirtualView> view,
@@ -92,7 +88,7 @@ void AXVirtualView::AddChildViewAt(std::unique_ptr<AXVirtualView> view,
   children_.insert(children_.begin() + index, std::move(view));
   if (GetOwnerView()) {
     GetOwnerView()->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                             false);
+                                             true);
   }
 }
 
@@ -116,7 +112,19 @@ void AXVirtualView::ReorderChildView(AXVirtualView* view, int index) {
   children_.insert(children_.begin() + index, std::move(child));
 
   GetOwnerView()->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                           false);
+                                           true);
+}
+
+std::unique_ptr<AXVirtualView> AXVirtualView::RemoveFromParentView() {
+  if (parent_view_)
+    return parent_view_->RemoveVirtualChildView(this);
+
+  if (virtual_parent_view_)
+    return virtual_parent_view_->RemoveChildView(this);
+
+  // This virtual view hasn't been added to a parent view yet.
+  NOTREACHED() << "Cannot remove from parent view if there is no parent.";
+  return {};
 }
 
 std::unique_ptr<AXVirtualView> AXVirtualView::RemoveChildView(
@@ -126,12 +134,13 @@ std::unique_ptr<AXVirtualView> AXVirtualView::RemoveChildView(
   if (cur_index < 0)
     return {};
 
+  bool focus_changed = false;
   if (GetOwnerView()) {
     ViewAccessibility& view_accessibility =
         GetOwnerView()->GetViewAccessibility();
     if (view_accessibility.FocusedVirtualChild() &&
         Contains(view_accessibility.FocusedVirtualChild())) {
-      view_accessibility.OverrideFocus(nullptr);
+      focus_changed = true;
     }
   }
 
@@ -141,8 +150,10 @@ std::unique_ptr<AXVirtualView> AXVirtualView::RemoveChildView(
   child->populate_data_callback_.Reset();
 
   if (GetOwnerView()) {
+    if (focus_changed)
+      GetOwnerView()->GetViewAccessibility().OverrideFocus(nullptr);
     GetOwnerView()->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                             false);
+                                             true);
   }
 
   return child;
@@ -151,11 +162,6 @@ std::unique_ptr<AXVirtualView> AXVirtualView::RemoveChildView(
 void AXVirtualView::RemoveAllChildViews() {
   while (!children_.empty())
     RemoveChildView(children_.back().get());
-
-  if (GetOwnerView()) {
-    GetOwnerView()->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                             false);
-  }
 }
 
 bool AXVirtualView::Contains(const AXVirtualView* view) const {
@@ -187,6 +193,12 @@ gfx::NativeViewAccessible AXVirtualView::GetNativeObject() const {
 
 void AXVirtualView::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
   DCHECK(ax_platform_node_);
+  if (GetOwnerView()) {
+    const ViewAccessibility::AccessibilityEventsCallback& events_callback =
+        GetOwnerView()->GetViewAccessibility().accessibility_events_callback();
+    if (events_callback)
+      events_callback.Run(this, event_type);
+  }
   ax_platform_node_->NotifyAccessibilityEvent(event_type);
 }
 
@@ -195,7 +207,7 @@ ui::AXNodeData& AXVirtualView::GetCustomData() {
 }
 
 void AXVirtualView::SetPopulateDataCallback(
-    base::RepeatingCallback<void(const View&, ui::AXNodeData*)> callback) {
+    base::RepeatingCallback<void(ui::AXNodeData*)> callback) {
   populate_data_callback_ = std::move(callback);
 }
 
@@ -223,7 +235,7 @@ const ui::AXNodeData& AXVirtualView::GetData() const {
     node_data.AddAction(ax::mojom::Action::kShowContextMenu);
 
   if (populate_data_callback_ && GetOwnerView())
-    populate_data_callback_.Run(*GetOwnerView(), &node_data);
+    populate_data_callback_.Run(&node_data);
   return node_data;
 }
 
@@ -334,7 +346,27 @@ gfx::AcceleratedWidget AXVirtualView::GetTargetForNativeAccessibilityEvent() {
 
 bool AXVirtualView::HandleAccessibleAction(
     const ui::AXActionData& action_data) {
-  return false;
+  if (!GetOwnerView())
+    return false;
+
+  switch (action_data.action) {
+    case ax::mojom::Action::kShowContextMenu: {
+      const gfx::Rect screen_bounds = GetBoundsRect(
+          ui::AXCoordinateSystem::kScreen, ui::AXClippingBehavior::kClipped,
+          nullptr /* offscreen_result */);
+      if (!screen_bounds.IsEmpty()) {
+        GetOwnerView()->ShowContextMenu(screen_bounds.CenterPoint(),
+                                        ui::MENU_SOURCE_KEYBOARD);
+        return true;
+      }
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  return GetOwnerView()->HandleAccessibleAction(action_data);
 }
 
 View* AXVirtualView::GetOwnerView() const {

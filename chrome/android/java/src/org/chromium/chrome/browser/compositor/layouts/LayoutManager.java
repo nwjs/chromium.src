@@ -38,21 +38,20 @@ import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.TabThemeColorHelper;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.toolbar.ToolbarColors;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.ui.base.LocalizationUtils;
@@ -650,7 +649,7 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         int themeColor = TabThemeColorHelper.getColor(tab);
 
         boolean canUseLiveTexture = tab.getWebContents() != null && !SadTab.isShowing(tab)
-                && !isNativePage && !((TabImpl) tab).isHidden();
+                && !isNativePage && !tab.isHidden();
 
         layoutTab.initFromHost(TabThemeColorHelper.getBackgroundColor(tab), shouldStall(tab),
                 canUseLiveTexture, ToolbarColors.getToolbarSceneLayerBackground(tab),
@@ -851,15 +850,6 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
      */
     public void getVirtualViews(List<VirtualView> views) {
         // Nothing to do here yet.
-    }
-
-    // TODO(crbug.com/1002519): This should be a temporary solution until the scene layer ownership
-    // is redone and the toolbar component owns its scene layer.
-    /**
-     * @return The {@link ToolbarSceneLayer}.
-     */
-    public ToolbarSceneLayer getToolbarSceneLayer() {
-        return mToolbarOverlay;
     }
 
     /**

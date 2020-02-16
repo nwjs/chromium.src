@@ -13,7 +13,6 @@
 #include "third_party/blink/renderer/core/layout/ng/exclusions/ng_exclusion_space.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_bfc_offset.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_margin_strut.h"
-#include "third_party/blink/renderer/core/layout/ng/inline/ng_baseline.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_break_appeal.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_floats_utils.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
@@ -66,6 +65,19 @@ enum NGPercentageStorage {
   kZero,
   kIndefinite,
   kRareDataPercentage
+};
+
+// Some layout algorithms (flow, tables) calculate their alignment baseline
+// differently if they are within an atomic-inline context.
+//
+// Other more modern layout algorithms (flex, grid) however ignore this flag
+// and always calculate the alignment baseline in the same way (returning the
+// "first-line").
+enum class NGBaselineAlgorithmType {
+  // Compute the baseline of the first line box.
+  kFirstLine,
+  // Compute the baseline for when we are within an inline-block context.
+  kInlineBlock
 };
 
 // The NGConstraintSpace represents a set of constraints and available space
@@ -134,8 +146,7 @@ class CORE_EXPORT NGConstraintSpace final {
   // Creates NGConstraintSpace representing LayoutObject's containing block.
   // This should live on NGBlockNode or another layout bridge and probably take
   // a root NGConstraintSpace.
-  static NGConstraintSpace CreateFromLayoutObject(const LayoutBlock&,
-                                                  bool is_layout_root);
+  static NGConstraintSpace CreateFromLayoutObject(const LayoutBlock&);
 
   const NGExclusionSpace& ExclusionSpace() const { return exclusion_space_; }
 
@@ -239,6 +250,36 @@ class CORE_EXPORT NGConstraintSpace final {
     return LayoutUnit();
   }
 
+  // Inline/block target stretch size constraints.
+  // See:
+  // https://mathml-refresh.github.io/mathml-core/#dfn-inline-stretch-size-constraint
+  LayoutUnit TargetStretchInlineSize() const {
+    return HasRareData() ? rare_data_->TargetStretchInlineSize()
+                         : kIndefiniteSize;
+  }
+
+  bool HasTargetStretchInlineSize() const {
+    return TargetStretchInlineSize() != kIndefiniteSize;
+  }
+
+  LayoutUnit TargetStretchAscentSize() const {
+    return HasRareData() ? rare_data_->TargetStretchAscentSize()
+                         : kIndefiniteSize;
+  }
+
+  bool HasTargetStretchAscentSize() const {
+    return TargetStretchAscentSize() != kIndefiniteSize;
+  }
+
+  LayoutUnit TargetStretchDescentSize() const {
+    return HasRareData() ? rare_data_->TargetStretchDescentSize()
+                         : kIndefiniteSize;
+  }
+
+  bool HasTargetStretchDescentSize() const {
+    return TargetStretchDescentSize() != kIndefiniteSize;
+  }
+
   // Return the borders which should be used for a table-cell.
   NGBoxStrut TableCellBorders() const {
     return HasRareData() ? rare_data_->TableCellBorders() : NGBoxStrut();
@@ -322,6 +363,19 @@ class CORE_EXPORT NGConstraintSpace final {
     return bitfields_.ancestor_has_clearance_past_adjoining_floats;
   }
 
+  // Returns if the parent layout needs the baseline from this layout.
+  //
+  // This bit is only used for skipping querying baseline information from
+  // legacy layout.
+  bool NeedsBaseline() const { return bitfields_.needs_baseline; }
+
+  // How the baseline for the fragment should be calculated, see documentation
+  // for |NGBaselineAlgorithmType|.
+  NGBaselineAlgorithmType BaselineAlgorithmType() const {
+    return static_cast<NGBaselineAlgorithmType>(
+        bitfields_.baseline_algorithm_type);
+  }
+
   // Some layout modes “stretch” their children to a fixed size (e.g. flex,
   // grid). These flags represented whether a layout needs to produce a
   // fragment that satisfies a fixed constraint in the inline and block
@@ -341,6 +395,8 @@ class CORE_EXPORT NGConstraintSpace final {
   // Whether an auto inline-size should be interpreted as shrink-to-fit
   // (ie. fit-content). This is used for inline-block, floats, etc.
   bool IsShrinkToFit() const { return bitfields_.is_shrink_to_fit; }
+
+  bool IsPaintedAtomically() const { return bitfields_.is_painted_atomically; }
 
   // If specified a layout should produce a Fragment which fragments at the
   // blockSize if possible.
@@ -387,7 +443,7 @@ class CORE_EXPORT NGConstraintSpace final {
   // Return true if the block size of the table-cell should be considered
   // restricted (e.g. height of the cell or its table is non-auto).
   bool IsRestrictedBlockSizeTableCell() const {
-    return bitfields_.is_restricted_block_size_table_cell;
+    return HasRareData() && rare_data_->is_restricted_block_size_table_cell;
   }
 
   NGMarginStrut MarginStrut() const {
@@ -488,10 +544,6 @@ class CORE_EXPORT NGConstraintSpace final {
     return HasRareData() ? rare_data_->ClearanceOffset() : LayoutUnit::Min();
   }
 
-  const NGBaselineRequestList BaselineRequests() const {
-    return NGBaselineRequestList(bitfields_.baseline_requests);
-  }
-
   // Return true if the two constraint spaces are similar enough that it *may*
   // be possible to skip re-layout. If true is returned, the caller is expected
   // to verify that any constraint space size (available size, percentage size,
@@ -577,6 +629,7 @@ class CORE_EXPORT NGConstraintSpace final {
   //  - The margin strut.
   //  - Anything to do with floats (the exclusion space, clearance offset, etc).
   //  - Anything to do with fragmentation.
+  //  - Anything to do with stretching of math operators.
   //
   // This information is kept in a separate in this heap-allocated struct to
   // reduce memory usage. Over time this may have to change based on usage data.
@@ -587,6 +640,7 @@ class CORE_EXPORT NGConstraintSpace final {
     explicit RareData(const NGBfcOffset bfc_offset)
         : bfc_offset(bfc_offset),
           data_union_type(static_cast<unsigned>(kNone)),
+          is_restricted_block_size_table_cell(false),
           hide_table_cell_if_empty(false),
           block_direction_fragmentation_type(
               static_cast<unsigned>(kFragmentNone)),
@@ -601,6 +655,8 @@ class CORE_EXPORT NGConstraintSpace final {
           fragmentainer_block_size(other.fragmentainer_block_size),
           fragmentainer_offset_at_bfc(other.fragmentainer_offset_at_bfc),
           data_union_type(other.data_union_type),
+          is_restricted_block_size_table_cell(
+              other.is_restricted_block_size_table_cell),
           hide_table_cell_if_empty(other.hide_table_cell_if_empty),
           block_direction_fragmentation_type(
               other.block_direction_fragmentation_type),
@@ -619,6 +675,9 @@ class CORE_EXPORT NGConstraintSpace final {
         case kCustomData:
           new (&custom_data_) CustomData(other.custom_data_);
           break;
+        case kStretchData:
+          new (&stretch_data_) StretchData(other.stretch_data_);
+          break;
         default:
           NOTREACHED();
       }
@@ -636,6 +695,9 @@ class CORE_EXPORT NGConstraintSpace final {
         case kCustomData:
           custom_data_.~CustomData();
           break;
+        case kStretchData:
+          stretch_data_.~StretchData();
+          break;
         default:
           NOTREACHED();
       }
@@ -647,7 +709,8 @@ class CORE_EXPORT NGConstraintSpace final {
       kNone,
       kBlockData,      // An inflow block which doesn't establish a new FC.
       kTableCellData,  // A table-cell (display: table-cell).
-      kCustomData      // A custom layout (display: layout(foo)).
+      kCustomData,     // A custom layout (display: layout(foo)).
+      kStretchData     // The target inline/block stretch sizes for MathML.
     };
 
     LogicalSize percentage_resolution_size;
@@ -657,8 +720,11 @@ class CORE_EXPORT NGConstraintSpace final {
     LayoutUnit fragmentainer_block_size = kIndefiniteSize;
     LayoutUnit fragmentainer_offset_at_bfc;
 
-    unsigned data_union_type : 2;
+    unsigned data_union_type : 3;
+
+    unsigned is_restricted_block_size_table_cell : 1;
     unsigned hide_table_cell_if_empty : 1;
+
     unsigned block_direction_fragmentation_type : 2;
     unsigned is_inside_balanced_columns : 1;
     unsigned is_in_column_bfc : 1;
@@ -668,6 +734,8 @@ class CORE_EXPORT NGConstraintSpace final {
       if (fragmentainer_block_size != other.fragmentainer_block_size ||
           fragmentainer_offset_at_bfc != other.fragmentainer_offset_at_bfc ||
           data_union_type != other.data_union_type ||
+          is_restricted_block_size_table_cell !=
+              other.is_restricted_block_size_table_cell ||
           hide_table_cell_if_empty != other.hide_table_cell_if_empty ||
           block_direction_fragmentation_type !=
               other.block_direction_fragmentation_type ||
@@ -685,14 +753,18 @@ class CORE_EXPORT NGConstraintSpace final {
       if (data_union_type == kTableCellData)
         return table_cell_data_.MaySkipLayout(other.table_cell_data_);
 
-      DCHECK_EQ(data_union_type, kCustomData);
-      return custom_data_.MaySkipLayout(other.custom_data_);
+      if (data_union_type == kCustomData)
+        return custom_data_.MaySkipLayout(other.custom_data_);
+
+      DCHECK_EQ(data_union_type, kStretchData);
+      return stretch_data_.MaySkipLayout(other.stretch_data_);
     }
 
     // Must be kept in sync with members checked within |MaySkipLayout|.
     bool IsInitialForMaySkipLayout() const {
       if (fragmentainer_block_size != kIndefiniteSize ||
-          fragmentainer_offset_at_bfc || hide_table_cell_if_empty ||
+          fragmentainer_offset_at_bfc || is_restricted_block_size_table_cell ||
+          hide_table_cell_if_empty ||
           block_direction_fragmentation_type != kFragmentNone ||
           is_inside_balanced_columns || is_in_column_bfc ||
           early_break_appeal != kBreakAppealLastResort)
@@ -707,8 +779,11 @@ class CORE_EXPORT NGConstraintSpace final {
       if (data_union_type == kTableCellData)
         return table_cell_data_.IsInitialForMaySkipLayout();
 
-      DCHECK_EQ(data_union_type, kCustomData);
-      return custom_data_.IsInitialForMaySkipLayout();
+      if (data_union_type == kCustomData)
+        return custom_data_.IsInitialForMaySkipLayout();
+
+      DCHECK_EQ(data_union_type, kStretchData);
+      return stretch_data_.IsInitialForMaySkipLayout();
     }
 
     NGMarginStrut MarginStrut() const {
@@ -786,6 +861,39 @@ class CORE_EXPORT NGConstraintSpace final {
       EnsureCustomData()->data = std::move(custom_layout_data);
     }
 
+    LayoutUnit TargetStretchInlineSize() const {
+      return data_union_type == kStretchData
+                 ? stretch_data_.target_stretch_inline_size
+                 : kIndefiniteSize;
+    }
+
+    void SetTargetStretchInlineSize(LayoutUnit target_stretch_inline_size) {
+      EnsureStretchData()->target_stretch_inline_size =
+          target_stretch_inline_size;
+    }
+
+    LayoutUnit TargetStretchAscentSize() const {
+      return data_union_type == kStretchData
+                 ? stretch_data_.target_stretch_ascent_size
+                 : kIndefiniteSize;
+    }
+
+    void SetTargetStretchAscentSize(LayoutUnit target_stretch_ascent_size) {
+      EnsureStretchData()->target_stretch_ascent_size =
+          target_stretch_ascent_size;
+    }
+
+    LayoutUnit TargetStretchDescentSize() const {
+      return data_union_type == kStretchData
+                 ? stretch_data_.target_stretch_descent_size
+                 : kIndefiniteSize;
+    }
+
+    void SetTargetStretchDescentSize(LayoutUnit target_stretch_descent_size) {
+      EnsureStretchData()->target_stretch_descent_size =
+          target_stretch_descent_size;
+    }
+
    private:
     struct BlockData {
       NGMarginStrut margin_strut;
@@ -851,10 +959,38 @@ class CORE_EXPORT NGConstraintSpace final {
       return &custom_data_;
     }
 
+    struct StretchData {
+      LayoutUnit target_stretch_inline_size = kIndefiniteSize;
+      LayoutUnit target_stretch_ascent_size = kIndefiniteSize;
+      LayoutUnit target_stretch_descent_size = kIndefiniteSize;
+
+      bool MaySkipLayout(const StretchData& other) const {
+        return target_stretch_inline_size == other.target_stretch_inline_size &&
+               target_stretch_ascent_size == other.target_stretch_ascent_size &&
+               target_stretch_descent_size == other.target_stretch_descent_size;
+      }
+
+      bool IsInitialForMaySkipLayout() const {
+        return target_stretch_inline_size == kIndefiniteSize &&
+               target_stretch_ascent_size == kIndefiniteSize &&
+               target_stretch_descent_size == kIndefiniteSize;
+      }
+    };
+
+    StretchData* EnsureStretchData() {
+      DCHECK(data_union_type == kNone || data_union_type == kStretchData);
+      if (data_union_type != kStretchData) {
+        data_union_type = kStretchData;
+        new (&stretch_data_) StretchData();
+      }
+      return &stretch_data_;
+    }
+
     union {
       BlockData block_data_;
       TableCellData table_cell_data_;
       CustomData custom_data_;
+      StretchData stretch_data_;
     };
   };
 
@@ -876,13 +1012,16 @@ class CORE_EXPORT NGConstraintSpace final {
           is_anonymous(false),
           is_new_formatting_context(false),
           is_orthogonal_writing_mode_root(false),
-          is_fixed_block_size_indefinite(false),
-          is_restricted_block_size_table_cell(false),
+          is_painted_atomically(false),
           use_first_line_style(false),
           ancestor_has_clearance_past_adjoining_floats(false),
+          needs_baseline(false),
+          baseline_algorithm_type(
+              static_cast<unsigned>(NGBaselineAlgorithmType::kFirstLine)),
           is_shrink_to_fit(false),
           is_fixed_inline_size(false),
           is_fixed_block_size(false),
+          is_fixed_block_size_indefinite(false),
           table_cell_child_layout_mode(static_cast<unsigned>(
               NGTableCellChildLayoutMode::kNotTableCellChild)),
           percentage_inline_storage(kSameAsAvailable),
@@ -898,20 +1037,20 @@ class CORE_EXPORT NGConstraintSpace final {
              is_new_formatting_context == other.is_new_formatting_context &&
              is_orthogonal_writing_mode_root ==
                  other.is_orthogonal_writing_mode_root &&
-             is_fixed_block_size_indefinite ==
-                 other.is_fixed_block_size_indefinite &&
-             is_restricted_block_size_table_cell ==
-                 other.is_restricted_block_size_table_cell &&
+             is_painted_atomically == other.is_painted_atomically &&
              use_first_line_style == other.use_first_line_style &&
              ancestor_has_clearance_past_adjoining_floats ==
                  other.ancestor_has_clearance_past_adjoining_floats &&
-             baseline_requests == other.baseline_requests;
+             needs_baseline == other.needs_baseline &&
+             baseline_algorithm_type == other.baseline_algorithm_type;
     }
 
     bool AreSizeConstraintsEqual(const Bitfields& other) const {
       return is_shrink_to_fit == other.is_shrink_to_fit &&
              is_fixed_inline_size == other.is_fixed_inline_size &&
              is_fixed_block_size == other.is_fixed_block_size &&
+             is_fixed_block_size_indefinite ==
+                 other.is_fixed_block_size_indefinite &&
              table_cell_child_layout_mode == other.table_cell_child_layout_mode;
     }
 
@@ -925,17 +1064,18 @@ class CORE_EXPORT NGConstraintSpace final {
     unsigned is_new_formatting_context : 1;
     unsigned is_orthogonal_writing_mode_root : 1;
 
-    unsigned is_fixed_block_size_indefinite : 1;
-    unsigned is_restricted_block_size_table_cell : 1;
+    unsigned is_painted_atomically : 1;
     unsigned use_first_line_style : 1;
     unsigned ancestor_has_clearance_past_adjoining_floats : 1;
 
-    unsigned baseline_requests : NGBaselineRequestList::kSerializedBits;
+    unsigned needs_baseline : 1;
+    unsigned baseline_algorithm_type : 1;
 
     // Size constraints.
     unsigned is_shrink_to_fit : 1;
     unsigned is_fixed_inline_size : 1;
     unsigned is_fixed_block_size : 1;
+    unsigned is_fixed_block_size_indefinite : 1;
     unsigned table_cell_child_layout_mode : 2;  // NGTableCellChildLayoutMode
 
     unsigned percentage_inline_storage : 2;           // NGPercentageStorage

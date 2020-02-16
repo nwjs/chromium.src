@@ -323,7 +323,6 @@ class CORE_EXPORT CompositedLayerMapping final : public GraphicsLayerClient {
   void UpdateScrollingLayerGeometry();
 
   void CreatePrimaryGraphicsLayer();
-  void DestroyGraphicsLayers();
 
   std::unique_ptr<GraphicsLayer> CreateGraphicsLayer(
       CompositingReasons,
@@ -483,7 +482,6 @@ class CORE_EXPORT CompositedLayerMapping final : public GraphicsLayerClient {
   PhysicalRect composited_bounds_;
 
   unsigned pending_update_scope_ : 2;
-  unsigned is_main_frame_layout_view_layer_ : 1;
 
   unsigned scrolling_contents_are_empty_ : 1;
 

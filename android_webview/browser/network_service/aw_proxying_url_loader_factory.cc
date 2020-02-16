@@ -26,7 +26,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
-#include "components/safe_browsing/common/safebrowsing_constants.h"
+#include "components/safe_browsing/core/common/safebrowsing_constants.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/global_request_id.h"
@@ -480,7 +480,7 @@ void OnReceivedErrorOnUiThread(int process_id,
                   << request.url;
     return;
   }
-  client->OnReceivedError(request, error_code, safebrowsing_hit);
+  client->OnReceivedError(request, error_code, safebrowsing_hit, true);
 }
 
 void OnNewLoginRequestOnUiThread(int process_id,

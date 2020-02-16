@@ -16,8 +16,8 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
-import org.chromium.chrome.browser.settings.sync.SyncAndServicesPreferences;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
+import org.chromium.chrome.browser.settings.sync.SyncAndServicesSettings;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.ProfileDataCache;
 import org.chromium.chrome.browser.signin.SigninManager;
@@ -53,7 +53,7 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
 
     // Context is used for fetching resources and launching preferences page.
     private final Context mContext;
-    // Toolbar manager exposes APIs for manipulating experimental button.
+    // Toolbar manager exposes APIs for manipulating identity disc button.
     private final ToolbarManager mToolbarManager;
     private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
 
@@ -70,7 +70,7 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
     @IdentityDiscState
     private int mState = IdentityDiscState.NONE;
 
-    private boolean mIsNTPVisible;
+    private boolean mShouldShowButton;
 
     /**
      * Creates IdentityDiscController object.
@@ -93,28 +93,28 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
         mActivityLifecycleDispatcher.unregister(this);
         mActivityLifecycleDispatcher = null;
 
-        mSigninManager = IdentityServicesProvider.getSigninManager();
+        mSigninManager = IdentityServicesProvider.get().getSigninManager();
         mSigninManager.addSignInStateObserver(this);
     }
 
     /**
-     * Shows/hides Identity Disc depending on whether NTP is visible.
+     * Shows/hides Identity Disc.
      */
     void updateButtonState() {
-        updateButtonState(mIsNTPVisible);
+        updateButtonState(mShouldShowButton);
     }
 
     /**
-     * Shows/hides Identity Disc depending on whether NTP is visible.
+     * @param shouldShowButton Whether to show the Identity Disc.
      */
-    void updateButtonState(boolean isNTPVisible) {
-        mIsNTPVisible = isNTPVisible;
+    void updateButtonState(boolean shouldShowButton) {
+        mShouldShowButton = shouldShowButton;
         String accountName = ChromeSigninController.get().getSignedInAccountName();
-        boolean shouldShowIdentityDisc = isNTPVisible && accountName != null;
+        boolean canShowIdentityDisc = mShouldShowButton && accountName != null;
         @IdentityDiscState
         int oldState = mState;
 
-        mState = !shouldShowIdentityDisc
+        mState = !canShowIdentityDisc
                 ? IdentityDiscState.NONE
                 : mToolbarManager.isBottomToolbarVisible() ? IdentityDiscState.LARGE
                                                            : IdentityDiscState.SMALL;
@@ -129,10 +129,10 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
                 showIdentityDisc(accountName);
                 maybeShowIPH();
             } else if (mState != oldState) {
-                mToolbarManager.updateExperimentalButtonImage(getProfileImage(accountName));
+                mToolbarManager.updateIdentityDiscButtonImage(getProfileImage(accountName));
             }
         } else if (oldState != IdentityDiscState.NONE) {
-            mToolbarManager.disableExperimentalButton();
+            mToolbarManager.hideIdentityDiscButton();
         }
     }
 
@@ -167,9 +167,10 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
      * Triggers profile image fetch and displays Identity Disc on top toolbar.
      */
     private void showIdentityDisc(String accountName) {
-        mToolbarManager.enableExperimentalButton(view -> {
+        mToolbarManager.showIdentityDiscButton(view -> {
             recordIdentityDiscUsed();
-            PreferencesLauncher.launchSettingsPage(mContext, SyncAndServicesPreferences.class);
+            SettingsLauncher.getInstance().launchSettingsPage(
+                    mContext, SyncAndServicesSettings.class);
         }, getProfileImage(accountName), R.string.accessibility_toolbar_btn_identity_disc);
     }
 
@@ -187,7 +188,7 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
         }
         if (mState != IdentityDiscState.NONE) {
             mState = IdentityDiscState.NONE;
-            mToolbarManager.disableExperimentalButton();
+            mToolbarManager.hideIdentityDiscButton();
         }
     }
 
@@ -201,7 +202,7 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
 
         String accountName = ChromeSigninController.get().getSignedInAccountName();
         if (accountId.equals(accountName)) {
-            mToolbarManager.updateExperimentalButtonImage(getProfileImage(accountName));
+            mToolbarManager.updateIdentityDiscButtonImage(getProfileImage(accountName));
         }
     }
 
@@ -246,7 +247,7 @@ class IdentityDiscController implements NativeInitObserver, ProfileDataCache.Obs
         Tracker tracker = TrackerFactory.getTrackerForProfile(profile);
         if (!tracker.shouldTriggerHelpUI(FeatureConstants.IDENTITY_DISC_FEATURE)) return;
 
-        mToolbarManager.showIPHOnExperimentalButton(R.string.iph_identity_disc_text,
+        mToolbarManager.showIPHOnIdentityDiscButton(R.string.iph_identity_disc_text,
                 R.string.iph_identity_disc_accessibility_text,
                 () -> { tracker.dismissed(FeatureConstants.IDENTITY_DISC_FEATURE); });
     }

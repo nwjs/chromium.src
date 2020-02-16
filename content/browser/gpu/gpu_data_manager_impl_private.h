@@ -24,6 +24,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
+#include "ui/display/display_observer.h"
 #include "ui/gl/gpu_preference.h"
 
 namespace base {
@@ -122,6 +123,9 @@ class CONTENT_EXPORT GpuDataManagerImplPrivate {
 
   void SetApplicationVisible(bool is_visible);
 
+  void OnDisplayAdded(const display::Display& new_display);
+  void OnDisplayRemoved(const display::Display& old_display);
+
  private:
   friend class GpuDataManagerImplPrivateTest;
 
@@ -164,6 +168,10 @@ class CONTENT_EXPORT GpuDataManagerImplPrivate {
           header(_header),
           message(_message) { }
   };
+
+  // Decide the order of GPU process states, and go to the first one. This
+  // should only be called once, during initialization.
+  void InitializeGpuModes();
 
   // Called when GPU access (hardware acceleration and swiftshader) becomes
   // blocked.
@@ -218,10 +226,14 @@ class CONTENT_EXPORT GpuDataManagerImplPrivate {
   std::vector<LogMessage> log_messages_;
 
   // What the gpu process is being run for.
-  gpu::GpuMode gpu_mode_ = gpu::GpuMode::HARDWARE_ACCELERATED;
+  gpu::GpuMode gpu_mode_ = gpu::GpuMode::UNKNOWN;
 
-  // Used to tell if the gpu was disabled due to process crashes.
-  bool hardware_disabled_by_fallback_ = false;
+  // Order of gpu process fallback states, used as a stack.
+  std::vector<gpu::GpuMode> fallback_modes_;
+
+  // Used to tell if the gpu was disabled by an explicit call to
+  // DisableHardwareAcceleration(), rather than by fallback.
+  bool hardware_disabled_explicitly_ = false;
 
   // We disable histogram stuff in testing, especially in unit tests because
   // they cause random failures.

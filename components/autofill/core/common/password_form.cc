@@ -73,7 +73,6 @@ void PasswordFormToJSON(const PasswordForm& form,
   target->SetString("all_possible_passwords",
                     ValueElementVectorToString(form.all_possible_passwords));
   target->SetBoolean("blacklisted", form.blacklisted_by_user);
-  target->SetBoolean("preferred", form.preferred);
   target->SetDouble("date_last_used", form.date_last_used.ToDoubleT());
   target->SetDouble("date_created", form.date_created.ToDoubleT());
   target->SetDouble("date_synced", form.date_synced.ToDoubleT());
@@ -122,21 +121,21 @@ bool PasswordForm::IsPossibleChangePasswordFormWithoutUsername() const {
 }
 
 bool PasswordForm::HasUsernameElement() const {
-  return has_renderer_ids ? username_element_renderer_id !=
-                                FormFieldData::kNotSetFormControlRendererId
-                          : !username_element.empty();
+  return has_renderer_ids
+             ? username_element_renderer_id != FormData::kNotSetRendererId
+             : !username_element.empty();
 }
 
 bool PasswordForm::HasPasswordElement() const {
-  return has_renderer_ids ? password_element_renderer_id !=
-                                FormFieldData::kNotSetFormControlRendererId
-                          : !password_element.empty();
+  return has_renderer_ids
+             ? password_element_renderer_id != FormData::kNotSetRendererId
+             : !password_element.empty();
 }
 
 bool PasswordForm::HasNewPasswordElement() const {
-  return has_renderer_ids ? new_password_element_renderer_id !=
-                                FormFieldData::kNotSetFormControlRendererId
-                          : !new_password_element.empty();
+  return has_renderer_ids
+             ? new_password_element_renderer_id != FormData::kNotSetRendererId
+             : !new_password_element.empty();
 }
 
 bool PasswordForm::IsFederatedCredential() const {
@@ -179,8 +178,7 @@ bool PasswordForm::operator==(const PasswordForm& form) const {
          confirmation_password_element_renderer_id ==
              form.confirmation_password_element_renderer_id &&
          new_password_value == form.new_password_value &&
-         preferred == form.preferred && date_created == form.date_created &&
-         date_synced == form.date_synced &&
+         date_created == form.date_created && date_synced == form.date_synced &&
          date_last_used == form.date_last_used &&
          blacklisted_by_user == form.blacklisted_by_user && type == form.type &&
          times_used == form.times_used &&

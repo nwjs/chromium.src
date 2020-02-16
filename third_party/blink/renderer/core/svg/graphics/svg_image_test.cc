@@ -15,7 +15,9 @@
 #include "third_party/blink/renderer/core/layout/layout_shift_tracker.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/svg/animation/smil_time_container.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image_chrome_client.h"
+#include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
@@ -44,6 +46,7 @@ class SVGImageTest : public testing::Test {
     observer_ = MakeGarbageCollected<PauseControlImageObserver>(should_pause);
     image_ = SVGImage::Create(observer_);
     image_->SetData(SharedBuffer::Create(data, strlen(data)), true);
+    test::RunPendingTasks();
   }
 
   void LoadUsingFileName(const String& file_name) {
@@ -54,6 +57,7 @@ class SVGImageTest : public testing::Test {
     observer_ = MakeGarbageCollected<PauseControlImageObserver>(true);
     image_ = SVGImage::Create(observer_);
     image_->SetData(image_data, true);
+    test::RunPendingTasks();
   }
 
   void PumpFrame() {
@@ -63,8 +67,8 @@ class SVGImageTest : public testing::Test {
     PaintFlags flags;
     FloatRect dummy_rect(0, 0, 100, 100);
     image->Draw(&canvas, flags, dummy_rect, dummy_rect,
-                kDoNotRespectImageOrientation,
-                Image::kDoNotClampImageToSourceRect, Image::kSyncDecode);
+                kRespectImageOrientation, Image::kDoNotClampImageToSourceRect,
+                Image::kSyncDecode);
   }
 
   // Loads the image from |file_name|, computes features into |features|,
@@ -250,6 +254,18 @@ TEST_F(SVGImageTest, IsSizeAvailable) {
 
   Load("<notsvg xmlns='http://www.w3.org/2000/svg'></notsvg>", kShouldPause);
   EXPECT_FALSE(GetImage().IsSizeAvailable());
+}
+
+TEST_F(SVGImageTest, DisablesSMILEvents) {
+  const bool kShouldPause = true;
+  Load(kAnimatedDocument, kShouldPause);
+  LocalFrame* local_frame =
+      To<LocalFrame>(GetImage().GetPageForTesting()->MainFrame());
+  EXPECT_TRUE(local_frame->GetDocument()->IsSVGDocument());
+  SMILTimeContainer* time_container =
+      To<SVGSVGElement>(local_frame->GetDocument()->documentElement())
+          ->TimeContainer();
+  EXPECT_TRUE(time_container->EventsDisabled());
 }
 
 TEST_F(SVGImageTest, DarkModeClassification) {

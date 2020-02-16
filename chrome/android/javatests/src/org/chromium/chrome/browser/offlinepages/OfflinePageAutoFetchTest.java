@@ -30,7 +30,7 @@ import org.chromium.chrome.browser.offlinepages.AutoFetchNotifier.NotificationAc
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.util.UrlConstants;
@@ -243,6 +243,7 @@ public class OfflinePageAutoFetchTest {
     @Test
     @MediumTest
     @Feature({"OfflineAutoFetch"})
+    @DisabledTest(message = "https://crbug.com/1042215")
     public void testAutoFetchWithRedirect() throws Exception {
         startWebServer();
         useRedirectWebServerResponse();

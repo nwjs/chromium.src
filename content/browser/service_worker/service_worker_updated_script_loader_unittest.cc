@@ -73,10 +73,7 @@ class ServiceWorkerUpdatedScriptLoaderTest : public testing::Test {
  public:
   ServiceWorkerUpdatedScriptLoaderTest()
       : task_environment_(BrowserTaskEnvironment::IO_MAINLOOP),
-        kScriptURL(kNormalScriptURL) {
-    feature_list_.InitAndEnableFeature(
-        blink::features::kServiceWorkerImportedScriptUpdateCheck);
-  }
+        kScriptURL(kNormalScriptURL) {}
   ~ServiceWorkerUpdatedScriptLoaderTest() override = default;
 
   ServiceWorkerContextCore* context() { return helper_->context(); }
@@ -101,9 +98,7 @@ class ServiceWorkerUpdatedScriptLoaderTest : public testing::Test {
   void SetUpRegistrationWithOptions(
       const GURL& script_url,
       blink::mojom::ServiceWorkerRegistrationOptions options) {
-    registration_ = base::MakeRefCounted<ServiceWorkerRegistration>(
-        options, context()->storage()->NewRegistrationId(),
-        context()->AsWeakPtr());
+    registration_ = context()->registry()->CreateNewRegistration(options);
     SetUpVersion(script_url);
   }
 
@@ -111,9 +106,8 @@ class ServiceWorkerUpdatedScriptLoaderTest : public testing::Test {
   // next time DoRequest() is called, |version_| will attempt to install,
   // possibly updating if registration has an installed worker.
   void SetUpVersion(const GURL& script_url) {
-    version_ = base::MakeRefCounted<ServiceWorkerVersion>(
-        registration_.get(), script_url, blink::mojom::ScriptType::kClassic,
-        context()->storage()->NewVersionId(), context()->AsWeakPtr());
+    version_ = context()->registry()->CreateNewVersion(
+        registration_.get(), script_url, blink::mojom::ScriptType::kClassic);
     version_->SetStatus(ServiceWorkerVersion::NEW);
   }
 
@@ -180,8 +174,6 @@ class ServiceWorkerUpdatedScriptLoaderTest : public testing::Test {
 
  protected:
   BrowserTaskEnvironment task_environment_;
-  base::test::ScopedFeatureList feature_list_;
-
   std::unique_ptr<EmbeddedWorkerTestHelper> helper_;
 
   scoped_refptr<ServiceWorkerRegistration> registration_;

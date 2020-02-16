@@ -10,10 +10,10 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/permissions/grouped_permission_infobar_delegate_android.h"
 #include "chrome/browser/permissions/permission_dialog_delegate.h"
-#include "chrome/browser/permissions/permission_request.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/infobars/core/infobar.h"
+#include "components/permissions/permission_request.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/elide_url.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -23,7 +23,6 @@ PermissionPromptAndroid::PermissionPromptAndroid(
     Delegate* delegate)
     : web_contents_(web_contents),
       delegate_(delegate),
-      permission_request_notification_(nullptr),
       permission_infobar_(nullptr),
       weak_factory_(this) {
   DCHECK(web_contents);
@@ -59,15 +58,8 @@ void PermissionPromptAndroid::UpdateAnchorPosition() {
   NOTREACHED() << "UpdateAnchorPosition is not implemented";
 }
 
-gfx::NativeWindow PermissionPromptAndroid::GetNativeWindow() {
-  NOTREACHED() << "GetNativeWindow is not implemented";
-  return nullptr;
-}
-
 PermissionPrompt::TabSwitchingBehavior
 PermissionPromptAndroid::GetTabSwitchingBehavior() {
-  if (permission_request_notification_)
-    return permission_request_notification_->GetTabSwitchingBehavior();
   return TabSwitchingBehavior::kKeepPromptAlive;
 }
 
@@ -89,28 +81,31 @@ size_t PermissionPromptAndroid::PermissionCount() const {
 
 ContentSettingsType PermissionPromptAndroid::GetContentSettingType(
     size_t position) const {
-  const std::vector<PermissionRequest*>& requests = delegate_->Requests();
+  const std::vector<permissions::PermissionRequest*>& requests =
+      delegate_->Requests();
   CHECK_LT(position, requests.size());
   return requests[position]->GetContentSettingsType();
 }
 
 // Grouped permission requests can only be Mic+Camera or Camera+Mic
 static void CheckValidRequestGroup(
-    const std::vector<PermissionRequest*>& requests) {
+    const std::vector<permissions::PermissionRequest*>& requests) {
   DCHECK_EQ(static_cast<size_t>(2), requests.size());
   DCHECK_EQ(requests[0]->GetOrigin(), requests[1]->GetOrigin());
-  DCHECK((requests[0]->GetPermissionRequestType() ==
-              PermissionRequestType::PERMISSION_MEDIASTREAM_MIC &&
-          requests[1]->GetPermissionRequestType() ==
-              PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA) ||
-         (requests[0]->GetPermissionRequestType() ==
-              PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA &&
-          requests[1]->GetPermissionRequestType() ==
-              PermissionRequestType::PERMISSION_MEDIASTREAM_MIC));
+  DCHECK(
+      (requests[0]->GetPermissionRequestType() ==
+           permissions::PermissionRequestType::PERMISSION_MEDIASTREAM_MIC &&
+       requests[1]->GetPermissionRequestType() ==
+           permissions::PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA) ||
+      (requests[0]->GetPermissionRequestType() ==
+           permissions::PermissionRequestType::PERMISSION_MEDIASTREAM_CAMERA &&
+       requests[1]->GetPermissionRequestType() ==
+           permissions::PermissionRequestType::PERMISSION_MEDIASTREAM_MIC));
 }
 
 int PermissionPromptAndroid::GetIconId() const {
-  const std::vector<PermissionRequest*>& requests = delegate_->Requests();
+  const std::vector<permissions::PermissionRequest*>& requests =
+      delegate_->Requests();
   if (requests.size() == 1)
     return requests[0]->GetIconId();
   CheckValidRequestGroup(requests);
@@ -118,7 +113,8 @@ int PermissionPromptAndroid::GetIconId() const {
 }
 
 base::string16 PermissionPromptAndroid::GetTitleText() const {
-  const std::vector<PermissionRequest*>& requests = delegate_->Requests();
+  const std::vector<permissions::PermissionRequest*>& requests =
+      delegate_->Requests();
   if (requests.size() == 1)
     return requests[0]->GetTitleText();
   CheckValidRequestGroup(requests);
@@ -127,7 +123,8 @@ base::string16 PermissionPromptAndroid::GetTitleText() const {
 }
 
 base::string16 PermissionPromptAndroid::GetMessageText() const {
-  const std::vector<PermissionRequest*>& requests = delegate_->Requests();
+  const std::vector<permissions::PermissionRequest*>& requests =
+      delegate_->Requests();
   if (requests.size() == 1)
     return requests[0]->GetMessageText();
   CheckValidRequestGroup(requests);

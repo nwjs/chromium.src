@@ -23,7 +23,11 @@ class LayoutNGMixin : public Base {
   explicit LayoutNGMixin(Element* element);
   ~LayoutNGMixin() override;
 
+  void Paint(const PaintInfo&) const override;
+
   bool IsLayoutNGObject() const final { return true; }
+
+  const NGPhysicalBoxFragment* CurrentFragment() const final;
 
  protected:
   bool IsOfType(LayoutObject::LayoutObjectType) const override;
@@ -33,6 +37,7 @@ class LayoutNGMixin : public Base {
       LayoutUnit& max_logical_width) const override;
 
   void UpdateOutOfFlowBlockLayout();
+  scoped_refptr<const NGLayoutResult> UpdateInFlowBlockLayout();
 };
 
 extern template class CORE_EXTERN_TEMPLATE_EXPORT LayoutNGMixin<LayoutBlock>;

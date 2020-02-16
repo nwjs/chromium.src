@@ -20,8 +20,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.MockitoAnnotations.initMocks;
 
-import android.accounts.Account;
-
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -30,12 +28,12 @@ import org.mockito.Mock;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.DisableNativeTestRule;
 import org.chromium.base.test.util.JniMocker;
-import org.chromium.chrome.test.DisableNativeTestRule;
-import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.chrome.browser.externalauth.ExternalAuthUtils;
 import org.chromium.components.signin.AccountTrackerService;
-import org.chromium.components.signin.identitymanager.CoreAccountId;
-import org.chromium.components.signin.identitymanager.CoreAccountInfo;
+import org.chromium.components.signin.base.CoreAccountId;
+import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.IdentityMutator;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -80,12 +78,17 @@ public class SigninManagerTest {
 
         AndroidSyncSettings androidSyncSettings = mock(AndroidSyncSettings.class);
 
-        doReturn(null).when(mIdentityManager).getPrimaryAccountId();
-        mSigninManager = new SigninManager(0 /* nativeSigninManagerAndroid */,
-                mAccountTrackerService, mIdentityManager, mIdentityMutator, androidSyncSettings);
+        ExternalAuthUtils externalAuthUtils = mock(ExternalAuthUtils.class);
+        // Pretend Google Play services are available as it is required for the sign-in
+        doReturn(false).when(externalAuthUtils).isGooglePlayServicesMissing(any());
 
-        mAccount = new CoreAccountInfo(new CoreAccountId("gaia-id-user"),
-                AccountManagerFacade.createAccountFromName("user@domain.com"), "gaia-id-user");
+        doReturn(null).when(mIdentityManager).getPrimaryAccountId();
+        mSigninManager =
+                new SigninManager(0 /* nativeSigninManagerAndroid */, mAccountTrackerService,
+                        mIdentityManager, mIdentityMutator, androidSyncSettings, externalAuthUtils);
+
+        mAccount = new CoreAccountInfo(
+                new CoreAccountId("gaia-id-user"), "user@domain.com", "gaia-id-user");
     }
 
     @Test
@@ -212,9 +215,8 @@ public class SigninManagerTest {
 
     @Test
     public void callbackNotifiedOnSignin() {
-        CoreAccountInfo account = new CoreAccountInfo(new CoreAccountId("test_at_gmail.com"),
-                new Account("test@gmail.com", AccountManagerFacade.GOOGLE_ACCOUNT_TYPE),
-                "test_at_gmail.com");
+        CoreAccountInfo account = new CoreAccountInfo(
+                new CoreAccountId("test_at_gmail.com"), "test@gmail.com", "test_at_gmail.com");
 
         // No need to seed accounts to the native code.
         doReturn(true).when(mAccountTrackerService).checkAndSeedSystemAccounts();
@@ -232,7 +234,7 @@ public class SigninManagerTest {
 
         mSigninManager.onFirstRunCheckDone(); // Allow sign-in.
 
-        mSigninManager.signIn(SigninAccessPoint.UNKNOWN, account.getAccount(), null);
+        mSigninManager.signIn(SigninAccessPoint.UNKNOWN, account, null);
         assertTrue(mSigninManager.isOperationInProgress());
         AtomicInteger callCount = new AtomicInteger(0);
         mSigninManager.runAfterOperationInProgress(callCount::incrementAndGet);
@@ -245,9 +247,8 @@ public class SigninManagerTest {
 
     @Test(expected = AssertionError.class)
     public void failIfAlreadySignedin() {
-        CoreAccountInfo account = new CoreAccountInfo(new CoreAccountId("test_at_gmail.com"),
-                new Account("test@gmail.com", AccountManagerFacade.GOOGLE_ACCOUNT_TYPE),
-                "test_at_gmail.com");
+        CoreAccountInfo account = new CoreAccountInfo(
+                new CoreAccountId("test_at_gmail.com"), "test@gmail.com", "test_at_gmail.com");
 
         // No need to seed accounts to the native code.
         doReturn(true).when(mAccountTrackerService).checkAndSeedSystemAccounts();
@@ -262,7 +263,7 @@ public class SigninManagerTest {
 
         mSigninManager.onFirstRunCheckDone(); // Allow sign-in.
 
-        mSigninManager.signIn(SigninAccessPoint.UNKNOWN, account.getAccount(), null);
+        mSigninManager.signIn(SigninAccessPoint.UNKNOWN, account, null);
         assertTrue(mSigninManager.isOperationInProgress());
 
         // The following should throw an assertion error

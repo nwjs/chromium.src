@@ -48,18 +48,18 @@ const base::Feature kFreezePurgeMemoryAllPagesFrozen{
 const base::Feature kFreezeUserAgent{"FreezeUserAgent",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
-// When enabled, the compositing of trivial 3D transforms is disabled.
-const base::Feature kDoNotCompositeTrivial3D{"DoNotCompositeTrivial3D",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+// When enabled, enter assumed-overlap mode in compositing overlap testing
+// anytime a fixed or sticky position element is encountered.
+const base::Feature kAssumeOverlapAfterFixedOrStickyPosition{
+    "AssumeOverlapAfterFixedOrStickyPosition",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable Display Locking JavaScript APIs.
 const base::Feature kDisplayLocking{"DisplayLocking",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enable applying rounded corner masks via a GL shader rather than
-// a mask layer.
-const base::Feature kFastBorderRadius{"FastBorderRadius",
-                                      base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kJSONModules{"JSONModules",
+                                 base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable LayoutNG.
 const base::Feature kLayoutNG{"LayoutNG", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -141,6 +141,10 @@ const base::Feature kImplicitRootScroller {
 const base::Feature kCSSOMViewScrollCoordinates{
     "CSSOMViewScrollCoordinates", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables Raw Clipboard. https://crbug.com/897289.
+const base::Feature kRawClipboard{"RawClipboard",
+                                  base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables usage of getDisplayMedia() that allows capture of web content, see
 // https://crbug.com/865060.
 const base::Feature kRTCGetDisplayMedia{"RTCGetDisplayMedia",
@@ -176,9 +180,6 @@ const base::Feature kWebRtcH264WithOpenH264FFmpeg{
     "WebRTC-H264WithOpenH264FFmpeg", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // BUILDFLAG(RTC_USE_H264) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
 
-const base::Feature kServiceWorkerImportedScriptUpdateCheck{
-    "ServiceWorkerImportedScriptUpdateCheck", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Experiment of the delay from navigation to starting an update of a service
 // worker's script.
 const base::Feature kServiceWorkerUpdateDelay{
@@ -211,13 +212,13 @@ const base::Feature kStorageAccessAPI{"StorageAccessAPI",
 
 // Enable text snippets in URL fragments. https://crbug.com/919204.
 const base::Feature kTextFragmentAnchor{"TextFragmentAnchor",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
+                                        base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables the site isolated Wasm code cache that is keyed on the resource URL
 // and the origin lock of the renderer that is requesting the resource. When
 // this flag is enabled, content/GeneratedCodeCache handles code cache requests.
 const base::Feature kWasmCodeCache = {"WasmCodeCache",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Writable files and native file system access. https://crbug.com/853326
 const base::Feature kNativeFileSystemAPI{"NativeFileSystemAPI",
@@ -230,6 +231,11 @@ const base::Feature kFileHandlingAPI{"FileHandlingAPI",
 // Allows for synchronous XHR requests during page dismissal
 const base::Feature kAllowSyncXHRInPageDismissal{
     "AllowSyncXHRInPageDismissal", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Font enumeration and table access. https://crbug.com/535764 and
+// https://crbug.com/982054.
+const base::Feature kFontAccess{"FontAccess",
+                                base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Allows Web Components v0 to be re-enabled.
 const base::Feature kWebComponentsV0Enabled{"WebComponentsV0Enabled",
@@ -252,7 +258,7 @@ const base::Feature kDecodeJpeg420ImagesToYUV{
 // Decodes lossy WebP images to YUV instead of RGBX and stores in this format
 // in the image decode cache. See crbug.com/900264 for details on the feature.
 const base::Feature kDecodeLossyWebPImagesToYUV{
-    "DecodeLossyWebPImagesToYUV", base::FEATURE_DISABLED_BY_DEFAULT};
+    "DecodeLossyWebPImagesToYUV", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables cache-aware WebFonts loading. See https://crbug.com/570205.
 // The feature is disabled on Android for WebView API issue discussed at
@@ -354,13 +360,6 @@ const base::Feature kBlinkHeapIncrementalMarking{
 const base::Feature kBlinkHeapIncrementalMarkingStress{
     "BlinkHeapIncrementalMarkingStress", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables a delay before BufferingBytesConsumer begins reading from its
-// underlying consumer when instantiated with CreateWithDelay().
-const base::Feature kBufferingBytesConsumerDelay{
-    "BufferingBytesConsumerDelay", base::FEATURE_ENABLED_BY_DEFAULT};
-const base::FeatureParam<int> kBufferingBytesConsumerDelayMilliseconds{
-    &kBufferingBytesConsumerDelay, "milliseconds", 50};
-
 // Enables removing AppCache delays when triggering requests when the HTML was
 // not fetched from AppCache.
 const base::Feature kVerifyHTMLFetchedFromAppCacheBeforeDelay{
@@ -393,10 +392,6 @@ const base::Feature kLowerJavaScriptPriorityWhenForceDeferred{
 const base::Feature kHtmlImportsRequestInitiatorLock{
     "HtmlImportsRequestInitiatorLock", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// When 'enabled', directly compositing images is turned off.
-const base::Feature kDisableDirectlyCompositedImages{
-    "DisableDirectlyCompositedImages", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Enables redirecting subresources in the page to better compressed and
 // optimized versions to provide data savings.
 const base::Feature kSubresourceRedirect{"SubresourceRedirect",
@@ -406,20 +401,15 @@ const base::Feature kSubresourceRedirect{"SubresourceRedirect",
 const base::Feature kCompositeCrossOriginIframes{
     "CompositeCrossOriginIframes", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// When 'enabled', an accurate occlusion test will be performed to improve the
+// quality of viz hit test data.
+const base::Feature kVizHitTestOcclusionCheck{
+    "VizHitTestOcclusionCheck", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // When enabled, beacons (and friends) have ResourceLoadPriority::kLow,
 // not ResourceLoadPriority::kVeryLow.
 const base::Feature kSetLowPriorityForBeacon{"SetLowPriorityForBeacon",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
-
-// When enabled, JS function calls in a detached window will be reported.
-// Reporting has a non-zero probability of a performance impact, hence an easy
-// way to disable it may come in handy.
-const base::Feature kSetDetachedWindowReasonByNavigation{
-    "SetDetachedWindowReasonByNavigation", base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kSetDetachedWindowReasonByClosing{
-    "SetDetachedWindowReasonByClosing", base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kSetDetachedWindowReasonByOtherReason{
-    "SetDetachedWindowReasonByOtherReason", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // When enabled allows the header name used in the blink
 // CacheStorageCodeCacheHint runtime feature to be modified.  This runtime
@@ -452,11 +442,11 @@ const base::Feature kLowLatencyCanvas2dImageChromium {
 
 // Enables the use of shared image swap chains for low latency 2d canvas.
 const base::Feature kLowLatencyCanvas2dSwapChain{
-    "LowLatencyCanvas2dSwapChain", base::FEATURE_DISABLED_BY_DEFAULT};
+    "LowLatencyCanvas2dSwapChain", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables the use of shared image swap chains for low latency webgl canvas.
-const base::Feature kLowLatencyWebGLSwapChain{
-    "LowLatencyWebGLSwapChain", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kLowLatencyWebGLSwapChain{"LowLatencyWebGLSwapChain",
+                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace blink

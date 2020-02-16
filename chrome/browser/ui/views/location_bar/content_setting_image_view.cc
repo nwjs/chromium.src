@@ -51,7 +51,7 @@ base::Optional<ViewID> GetViewID(
     case ImageType::MIDI_SYSEX:
     case ImageType::SOUND:
     case ImageType::FRAMEBUST:
-    case ImageType::CLIPBOARD_READ:
+    case ImageType::CLIPBOARD_READ_WRITE:
     case ImageType::SENSORS:
     case ImageType::NOTIFICATIONS_QUIET_PROMPT:
       return base::nullopt;
@@ -70,9 +70,10 @@ const unsigned int promo_width = 240;
 
 ContentSettingImageView::ContentSettingImageView(
     std::unique_ptr<ContentSettingImageModel> image_model,
+    IconLabelBubbleView::Delegate* parent_delegate,
     Delegate* delegate,
     const gfx::FontList& font_list)
-    : IconLabelBubbleView(font_list),
+    : IconLabelBubbleView(font_list, parent_delegate),
       delegate_(delegate),
       content_setting_image_model_(std::move(image_model)),
       bubble_view_(nullptr) {
@@ -144,17 +145,6 @@ const char* ContentSettingImageView::GetClassName() const {
   return "ContentSettingsImageView";
 }
 
-void ContentSettingImageView::OnBoundsChanged(
-    const gfx::Rect& previous_bounds) {
-  if (indicator_promo_)
-    indicator_promo_->OnAnchorBoundsChanged();
-
-  if (bubble_view_)
-    bubble_view_->OnAnchorBoundsChanged();
-
-  IconLabelBubbleView::OnBoundsChanged(previous_bounds);
-}
-
 bool ContentSettingImageView::OnMousePressed(const ui::MouseEvent& event) {
   // Pause animation so that the icon does not shrink and deselect while the
   // user is attempting to press it.
@@ -174,11 +164,6 @@ bool ContentSettingImageView::OnKeyPressed(const ui::KeyEvent& event) {
 void ContentSettingImageView::OnThemeChanged() {
   UpdateImage();
   IconLabelBubbleView::OnThemeChanged();
-}
-
-SkColor ContentSettingImageView::GetTextColor() const {
-  return GetNativeTheme()->GetSystemColor(
-      ui::NativeTheme::kColorId_TextfieldDefaultColor);
 }
 
 bool ContentSettingImageView::ShouldShowSeparator() const {
@@ -215,10 +200,6 @@ bool ContentSettingImageView::IsBubbleShowing() const {
   return bubble_view_ != nullptr;
 }
 
-SkColor ContentSettingImageView::GetInkDropBaseColor() const {
-  return delegate_->GetContentSettingInkDropColor();
-}
-
 ContentSettingImageModel::ImageType ContentSettingImageView::GetTypeForTesting()
     const {
   return content_setting_image_model_->image_type();
@@ -239,11 +220,10 @@ void ContentSettingImageView::OnWidgetDestroying(views::Widget* widget) {
 }
 
 void ContentSettingImageView::UpdateImage() {
-  SetImage(content_setting_image_model_
-               ->GetIcon(icon_color_ ? icon_color_.value()
-                                     : color_utils::DeriveDefaultIconColor(
-                                           GetTextColor()))
-               .AsImageSkia());
+  gfx::Image icon = content_setting_image_model_->GetIcon(icon_color_.value_or(
+      color_utils::DeriveDefaultIconColor(GetForegroundColor())));
+  if (!icon.IsEmpty())
+    SetImage(icon.AsImageSkia());
 }
 
 void ContentSettingImageView::AnimationEnded(const gfx::Animation* animation) {

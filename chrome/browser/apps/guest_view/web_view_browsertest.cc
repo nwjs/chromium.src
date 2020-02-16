@@ -46,7 +46,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_dialogs.h"
-#include "chrome/browser/ui/find_bar/find_tab_helper.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
@@ -54,6 +53,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/download/public/common/download_task_runner.h"
+#include "components/find_in_page/find_tab_helper.h"
 #include "components/guest_view/browser/guest_view_manager.h"
 #include "components/guest_view/browser/guest_view_manager_delegate.h"
 #include "components/guest_view/browser/guest_view_manager_factory.h"
@@ -107,7 +107,7 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/cpp/test/scoped_geolocation_overrider.h"
 #include "services/network/public/cpp/features.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/compositor_observer.h"
 #include "ui/display/display_switches.h"
@@ -529,7 +529,6 @@ class WebViewTest : public extensions::PlatformAppBrowserTest {
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
     command_line->AppendSwitchASCII(switches::kJavaScriptFlags, "--expose-gc");
 
     extensions::PlatformAppBrowserTest::SetUpCommandLine(command_line);
@@ -2007,7 +2006,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, PRE_StoragePersistence) {
   // Since this test is PRE_ step, we need file access.
   ASSERT_TRUE(RunPlatformAppTestWithFlags(
       "platform_apps/web_view/storage_persistence", "PRE_StoragePersistence",
-      kFlagEnableFileAccess))
+      kFlagEnableFileAccess, kFlagNone))
       << message_;
   content::EnsureCookiesFlushed(profile());
 }
@@ -2023,7 +2022,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, StoragePersistence) {
   // need to access previous profile).
   ASSERT_TRUE(RunPlatformAppTestWithFlags(
       "platform_apps/web_view/storage_persistence", "StoragePersistence",
-      kFlagEnableFileAccess))
+      kFlagEnableFileAccess, kFlagNone))
       << message_;
 }
 
@@ -4122,7 +4121,8 @@ IN_PROC_BROWSER_TEST_F(ChromeSignInWebViewTest,
   // which is before attaching begins).
   auto* unattached_guest = GetGuestViewManager()->GetLastGuestCreated();
   EXPECT_NE(unattached_guest, attached_guest);
-  auto* find_helper = FindTabHelper::FromWebContents(embedder_web_contents);
+  auto* find_helper =
+      find_in_page::FindTabHelper::FromWebContents(embedder_web_contents);
   find_helper->StartFinding(base::ASCIIToUTF16("doesn't matter"), true, true,
                             false);
   auto pending =

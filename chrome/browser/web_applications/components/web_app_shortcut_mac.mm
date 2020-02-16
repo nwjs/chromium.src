@@ -69,8 +69,8 @@
 // terminates. On termination, it will run the specified callback on the UI
 // thread and release itself.
 @interface TerminationObserver : NSObject {
-  base::scoped_nsobject<NSRunningApplication> app_;
-  base::OnceClosure callback_;
+  base::scoped_nsobject<NSRunningApplication> _app;
+  base::OnceClosure _callback;
 }
 - (id)initWithRunningApplication:(NSRunningApplication*)app
                         callback:(base::OnceClosure)callback;
@@ -81,11 +81,11 @@
                         callback:(base::OnceClosure)callback {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (self = [super init]) {
-    callback_ = std::move(callback);
-    app_.reset(app, base::scoped_policy::RETAIN);
+    _callback = std::move(callback);
+    _app.reset(app, base::scoped_policy::RETAIN);
     // Note that |observeValueForKeyPath| will be called with the initial value
     // within the |addObserver| call.
-    [app_ addObserver:self
+    [_app addObserver:self
            forKeyPath:@"isTerminated"
               options:NSKeyValueObservingOptionNew |
                       NSKeyValueObservingOptionInitial
@@ -117,11 +117,11 @@
   // If |onTerminated| is called repeatedly (which in theory it should not),
   // then ensure that we only call removeObserver and release once by doing an
   // early-out if |callback_| has already been made.
-  if (!callback_)
+  if (!_callback)
     return;
-  std::move(callback_).Run();
-  DCHECK(!callback_);
-  [app_ removeObserver:self forKeyPath:@"isTerminated" context:nullptr];
+  std::move(_callback).Run();
+  DCHECK(!_callback);
+  [_app removeObserver:self forKeyPath:@"isTerminated" context:nullptr];
   [self release];
 }
 @end
@@ -1023,6 +1023,34 @@ bool WebAppShortcutCreator::UpdatePlist(const base::FilePath& app_path) const {
             forKey:app_mode::kLSHasLocalizedDisplayNameKey];
   [plist setObject:[NSNumber numberWithBool:YES]
             forKey:app_mode::kNSHighResolutionCapableKey];
+
+  // 3. Fill in file handlers.
+  if (!info_->file_handler_extensions.empty() ||
+      !info_->file_handler_mime_types.empty()) {
+    base::scoped_nsobject<NSMutableArray> doc_types_value(
+        [[NSMutableArray alloc] init]);
+    base::scoped_nsobject<NSMutableDictionary> doc_types_dict(
+        [[NSMutableDictionary alloc] init]);
+    if (!info_->file_handler_extensions.empty()) {
+      base::scoped_nsobject<NSMutableArray> extensions(
+          [[NSMutableArray alloc] init]);
+      for (const auto& extension : info_->file_handler_extensions)
+        [extensions addObject:base::SysUTF8ToNSString(extension)];
+      [doc_types_dict setObject:extensions
+                         forKey:app_mode::kCFBundleTypeExtensionsKey];
+    }
+    if (!info_->file_handler_mime_types.empty()) {
+      base::scoped_nsobject<NSMutableArray> mime_types(
+          [[NSMutableArray alloc] init]);
+      for (const auto& mime_type : info_->file_handler_mime_types)
+        [mime_types addObject:base::SysUTF8ToNSString(mime_type)];
+      [doc_types_dict setObject:mime_types
+                         forKey:app_mode::kCFBundleTypeMIMETypesKey];
+    }
+    [doc_types_value addObject:doc_types_dict];
+    [plist setObject:doc_types_value
+              forKey:app_mode::kCFBundleDocumentTypesKey];
+  }
 
   base::FilePath app_name = app_path.BaseName().RemoveFinalExtension();
   [plist setObject:base::mac::FilePathToNSString(app_name)

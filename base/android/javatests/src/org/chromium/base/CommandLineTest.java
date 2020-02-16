@@ -69,7 +69,7 @@ public class CommandLineTest {
         Assert.assertFalse(cl.hasSwitch(CL_ADDED_SWITCH_2));
         Assert.assertNull(cl.getSwitchValue(CL_ADDED_SWITCH_2));
         cl.appendSwitchWithValue(CL_ADDED_SWITCH_2, CL_ADDED_VALUE_2);
-        Assert.assertTrue(CL_ADDED_VALUE_2.equals(cl.getSwitchValue(CL_ADDED_SWITCH_2)));
+        Assert.assertEquals(CL_ADDED_VALUE_2, cl.getSwitchValue(CL_ADDED_SWITCH_2));
 
         // Update a switch's value.
         cl.appendSwitchWithValue(CL_ADDED_SWITCH_2, "updatedValue");
@@ -84,7 +84,7 @@ public class CommandLineTest {
         Assert.assertFalse(cl.hasSwitch("dummy"));
         Assert.assertFalse(cl.hasSwitch("command"));
         Assert.assertTrue(cl.hasSwitch("superfast"));
-        Assert.assertTrue("turbo".equals(cl.getSwitchValue("speed")));
+        Assert.assertEquals("turbo", cl.getSwitchValue("speed"));
 
         // Remove a plain switch.
         cl.removeSwitch(CL_ADDED_SWITCH);

@@ -49,7 +49,9 @@ void WebKioskAppLauncher::ContinueWithNetworkReady() {
   delegate_->OnAppStartedInstalling();
   DCHECK(!is_installed_);
   install_task_.reset(new web_app::WebAppInstallTask(
-      profile_, /*shortcut_manager=*/nullptr, /*install_finalizer=*/nullptr,
+      profile_, /*registrar=*/nullptr, /*shortcut_manager=*/nullptr,
+      /*file_handler_manager=*/nullptr,
+      /*install_finalizer=*/nullptr,
       std::make_unique<web_app::WebAppDataRetriever>()));
   install_task_->LoadAndRetrieveWebApplicationInfoWithIcons(
       WebKioskAppManager::Get()->GetAppByAccountId(account_id_)->install_url(),
@@ -60,12 +62,14 @@ void WebKioskAppLauncher::ContinueWithNetworkReady() {
 
 void WebKioskAppLauncher::OnAppDataObtained(
     std::unique_ptr<WebApplicationInfo> app_info) {
-  if (app_info) {
-    WebKioskAppManager::Get()->UpdateAppByAccountId(account_id_,
-                                                    std::move(app_info));
+  if (!app_info) {
+    // Notify about failed installation, let the controller decide what to do.
+    delegate_->OnAppInstallFailed();
+    return;
   }
-  // If we could not update the app data, we should still launch the app(we may
-  // be under captive portal, there can be redirect, etc).
+
+  WebKioskAppManager::Get()->UpdateAppByAccountId(account_id_,
+                                                  std::move(app_info));
   delegate_->OnAppPrepared();
 }
 
@@ -91,6 +95,8 @@ void WebKioskAppLauncher::LaunchApp() {
   browser_->window()->GetNativeWindow()->SetProperty(
       ash::kWindowPinTypeKey, ash::WindowPinType::kTrustedPinned);
   browser_->window()->Show();
+
+  WebKioskAppManager::Get()->InitSession(browser_);
   delegate_->OnAppLaunched();
 }
 

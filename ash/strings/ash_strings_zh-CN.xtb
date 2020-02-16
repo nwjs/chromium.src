@@ -15,10 +15,10 @@
 <translation id="1153356358378277386">已配对的设备</translation>
 <translation id="1175572348579024023">滚动</translation>
 <translation id="1178581264944972037">暂停</translation>
+<translation id="1190609913194133056">通知中心</translation>
 <translation id="1195412055398077112">过扫描</translation>
 <translation id="119944043368869598">全部清除</translation>
 <translation id="1247372569136754018">麦克风（内部）</translation>
-<translation id="1249456112629248620">“<ph name="FEATURE_NAME" />”这项设置是您的管理员强制执行的。</translation>
 <translation id="1252999807265626933">正在通过“<ph name="POWER_SOURCE" />”充电</translation>
 <translation id="1255033239764210633">天气怎么样？</translation>
 <translation id="1267032506238418139">该快捷键发生了变化</translation>
@@ -45,6 +45,7 @@
 <translation id="1460620680449458626">当前处于静音状态。</translation>
 <translation id="1467432559032391204">向左</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
+<translation id="1508507608940204251">已开启</translation>
 <translation id="1516740043221086139">“勿扰”模式已开启。</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{显示通知设置。针对 1 个应用关闭通知}other{显示通知设置。针对 # 个应用关闭通知}}</translation>
 <translation id="1525508553941733066">关闭</translation>
@@ -69,6 +70,7 @@
 <translation id="1836215606488044471">智能助理（正在加载中…）</translation>
 <translation id="1838895407229022812">当前已关闭护眼模式。</translation>
 <translation id="1850504506766569011">Wi-Fi 已关闭。</translation>
+<translation id="1859889070386344428">已关闭</translation>
 <translation id="1864454756846565995">USB-C 设备（背面端口）</translation>
 <translation id="1882897271359938046">正在镜像到<ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">使用指纹解锁</translation>
@@ -110,17 +112,19 @@
 <translation id="2352467521400612932">触控笔设置</translation>
 <translation id="2354174487190027830">正在激活“<ph name="NAME" />”</translation>
 <translation id="2359808026110333948">继续</translation>
+<translation id="2364154243880592194">状态栏，时间 <ph name="TIME" />，<ph name="BATTERY" />按搜索键 + 向左箭头键可访问通知中心。</translation>
 <translation id="2365393535144473978">如果您启用移动数据网络，蓝牙亦会随之开启。</translation>
 <translation id="2391579633712104609">180°</translation>
 <translation id="2412593942846481727">有可用的更新</translation>
 <translation id="2413728805700750528">“<ph name="DISPLAY_NAME" />”是一个由 <ph name="DOMAIN" /> 管理的受管理自助服务终端</translation>
 <translation id="2427507373259914951">点击鼠标左键</translation>
 <translation id="2429753432712299108">蓝牙设备“<ph name="DEVICE_NAME" />”需要配对许可。在接受之前，请确保该设备上显示以下配对密钥：<ph name="PASSKEY" /></translation>
+<translation id="2473177541599297363">确认分辨率</translation>
 <translation id="2482878487686419369">通知</translation>
 <translation id="2484513351006226581">按 <ph name="KEYBOARD_SHORTCUT" />键可切换键盘布局。</translation>
 <translation id="2501920221385095727">粘滞键</translation>
 <translation id="2509468283778169019">CAPS LOCK 已打开</translation>
-<translation id="2517825809102302935">今晚暂且关闭</translation>
+<translation id="2519465031217098801">已开启</translation>
 <translation id="2542089167727451762">请点按您的个人资料图片</translation>
 <translation id="255671100581129685">无法在公用自助终端使用 Google 助理。</translation>
 <translation id="256712445991462162">停靠的放大镜</translation>
@@ -134,10 +138,10 @@
 <translation id="2704781753052663061">连接到其他 Wi-Fi 网络</translation>
 <translation id="2718395828230677721">夜间模式</translation>
 <translation id="2727977024730340865">已插入低功率充电器；可能无法保证充电成功。</translation>
-<translation id="2761704814324807722">状态栏，时间为<ph name="TIME" />，<ph name="BATTERY" /></translation>
 <translation id="2792498699870441125">Alt + 搜索键</translation>
 <translation id="2803734122639935495">要解锁此设备，请输入您的密码</translation>
 <translation id="2819276065543622893">您将立即退出。</translation>
+<translation id="2825224105325558319">“<ph name="DISPLAY_NAME" />”不支持 <ph name="SPECIFIED_RESOLUTION" />。分辨率已改为 <ph name="FALLBACK_RESOLUTION" />。</translation>
 <translation id="2825619548187458965">任务栏</translation>
 <translation id="2844169650293029770">USB-C 设备（左侧前端端口）</translation>
 <translation id="2865888419503095837">网络信息</translation>
@@ -167,6 +171,7 @@
 <translation id="3151786313568798007">方向</translation>
 <translation id="3153444934357957346">使用多帐号登录时，一次最多只能登入 <ph name="MULTI_PROFILE_USER_LIMIT" /> 个帐号。</translation>
 <translation id="3154351730702813399">此设备的管理员可能会监控您的浏览活动。</translation>
+<translation id="3181441307743005334">重启可能需要一点时间</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{已连接到 1 台设备}other{已连接到 # 台设备}}</translation>
 <translation id="3217205077783620295">已开启声音，使用切换开关可将音频静音。</translation>
 <translation id="3226991577105957773">+另外 <ph name="COUNT" /> 条</translation>
@@ -224,6 +229,7 @@
 <translation id="3901991538546252627">正在连接：<ph name="NAME" /></translation>
 <translation id="394485226368336402">音频设置</translation>
 <translation id="3962859241508114581">上一曲</translation>
+<translation id="3965097803111112935">已关闭</translation>
 <translation id="397105322502079400">正在计算...</translation>
 <translation id="3977512764614765090">当前的电池电量为 <ph name="PERCENTAGE" />%，正在充电。</translation>
 <translation id="3995138139523574647">USB-C 设备（右侧后端端口）</translation>
@@ -235,6 +241,7 @@
 <translation id="4112140312785995938">快退</translation>
 <translation id="4129129681837227511">要想在锁定屏幕上看到通知，请解锁设备以更改设置</translation>
 <translation id="4146833061457621061">播放音乐</translation>
+<translation id="4149156641122542261">此 <ph name="DEVICE_TYPE" /> 由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="4181841719683918333">语言</translation>
 <translation id="4195877955194704651">“自动点击”按钮</translation>
 <translation id="4217571870635786043">语音输入</translation>
@@ -297,7 +304,6 @@
 <translation id="4924411785043111640">重启并重置</translation>
 <translation id="495046168593986294">向上滚动</translation>
 <translation id="4961318399572185831">投射屏幕</translation>
-<translation id="5018302031617932556">护眼模式可让您更舒适地在黯淡的光线下查看屏幕或阅读文字。点按即可更改。</translation>
 <translation id="5030687792513154421">时间到</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" />已连接到新手机</translation>
 <translation id="5083553833479578423">启用更多 Google 助理功能。</translation>
@@ -306,6 +312,7 @@
 <translation id="5207949376430453814">突出显示文本插入符号</translation>
 <translation id="5222676887888702881">退出</translation>
 <translation id="523505283826916779">无障碍设置</translation>
+<translation id="5250225880026334010">已关闭</translation>
 <translation id="5260676007519551770">桌面 4</translation>
 <translation id="5283198616748585639">加 1 分钟</translation>
 <translation id="5286194356314741248">正在扫描</translation>
@@ -333,6 +340,7 @@
 <translation id="5669267381087807207">正在激活</translation>
 <translation id="5673434351075758678">当系统同步完您的设置后，“<ph name="FROM_LOCALE" />”即会改为“<ph name="TO_LOCALE" />”。</translation>
 <translation id="5682642926269496722">当前用户帐号无法使用 Google 助理。</translation>
+<translation id="5689633613396158040">护眼模式可让您更舒适地在黯淡的光线下查看屏幕或阅读文字。点按即可更改护眼模式的开启时间或彻底关闭护眼模式。</translation>
 <translation id="5691772641933328258">无法识别指纹</translation>
 <translation id="5710450975648804523">“请勿打扰”模式已开启</translation>
 <translation id="573413375004481890">此设备无法支持您的所有显示屏，因此断开了与其中一个显示屏的连接</translation>
@@ -344,7 +352,6 @@
 <translation id="5777841717266010279">要停止屏幕共享吗？</translation>
 <translation id="5820394555380036790">Chromium 操作系统</translation>
 <translation id="5837036133683224804">停止将“<ph name="ROUTE_TITLE" />”投射至“<ph name="RECEIVER_NAME" />”</translation>
-<translation id="5860033963881614850">关闭</translation>
 <translation id="5895138241574237353">重新启动</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
@@ -395,6 +402,7 @@
 <translation id="6490471652906364588">USB-C 设备（右侧端口）</translation>
 <translation id="649452524636452238">智能卡 PIN 码</translation>
 <translation id="6501401484702599040">正在将屏幕投射到“<ph name="RECEIVER_NAME" />”</translation>
+<translation id="652139407789908527">在此次更新期间，您的屏幕变为空白的时间会比平时长（可长达 1 分钟）。在更新过程中，请不要按电源按钮。</translation>
 <translation id="6521655319214113338">手写输入</translation>
 <translation id="6528179044667508675">请勿打扰</translation>
 <translation id="6537270692134705506">获取屏幕截图</translation>
@@ -408,6 +416,7 @@
 <translation id="6650933572246256093">蓝牙设备“<ph name="DEVICE_NAME" />”需要配对许可。请在该设备上输入以下配对密钥：<ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">密码</translation>
 <translation id="6665545700722362599">授权网站、应用和扩展程序使用位置信息服务或使用此设备的麦克风/摄像头/其他功能</translation>
+<translation id="6669268301501499730">已开启</translation>
 <translation id="6670153871843998651">桌面 3</translation>
 <translation id="6691659475504239918">搜索键+Shift+H</translation>
 <translation id="6696025732084565524">您的可拆卸式键盘需要安装一项重要更新</translation>
@@ -446,6 +455,7 @@
 <translation id="7143207342074048698">正在连接</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358"><ph name="TIMEOUT_SECONDS" />秒后恢复到原分辨率</translation>
+<translation id="7246071203293827765"><ph name="UPDATE_TEXT" />。此 Chromebook 需要重新启动才能让更新生效。此过程最多可能需要 1 分钟的时间。</translation>
 <translation id="7256634071279256947">后置麦克风</translation>
 <translation id="726276584504105859">拖到此处即可使用分屏模式</translation>
 <translation id="7262906531272962081">创建提醒</translation>
@@ -464,7 +474,6 @@
 <translation id="7526573455193969409">网络可能受到了监控</translation>
 <translation id="7536035074519304529">IP 地址：<ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">该睡觉了</translation>
-<translation id="7561014039265304140"><ph name="DISPLAY_NAME" />不支持<ph name="SPECIFIED_RESOLUTION" />。分辨率已改为<ph name="FALLBACK_RESOLUTION" /></translation>
 <translation id="7562368315689366235">表情符号面板</translation>
 <translation id="7564874036684306347">将窗口移至另一桌面可能会导致出现意外行为 - 后续的通知、窗口和对话框可能会被拆分到不同的桌面中。</translation>
 <translation id="7568294522609223312">关闭自动点击</translation>
@@ -507,11 +516,13 @@
 <translation id="8061464966246066292">高对比度</translation>
 <translation id="8098591350844501178">停止将屏幕投射到“<ph name="RECEIVER_NAME" />”</translation>
 <translation id="8113423164597455979">开启，所有应用</translation>
+<translation id="8131740175452115882">确认</translation>
 <translation id="8132793192354020517">已连接到 <ph name="NAME" /></translation>
 <translation id="813913629614996137">正在初始化…</translation>
 <translation id="8142441511840089262">双击</translation>
 <translation id="8142699993796781067">专用网络</translation>
 <translation id="8152092012181020186">按 Ctrl + W 即可关闭。</translation>
+<translation id="8155007568264258537"><ph name="FEATURE_NAME" />：此设置由您的管理员管理。</translation>
 <translation id="8167567890448493835">目前使用的是“<ph name="LOCALE_NAME" />”</translation>
 <translation id="8190698733819146287">自定义语言和输入法...</translation>
 <translation id="8192202700944119416">已隐藏通知。</translation>
@@ -539,6 +550,7 @@
 <translation id="847056008324733326">显示比例设置</translation>
 <translation id="8473301994082929012"><ph name="ORGANIZATION_NAME" />已<ph name="FEATURE_STATE" /><ph name="FEATURE_NAME" />。</translation>
 <translation id="8477270416194247200">按 Alt+搜索键或按 Shift 键可取消。</translation>
+<translation id="8492573885090281069">“<ph name="DISPLAY_NAME" />”不支持 <ph name="SPECIFIED_RESOLUTION" />。分辨率已改为 <ph name="FALLBACK_RESOLUTION" />。点击“确认”即可保留更改。将在 <ph name="TIMEOUT_SECONDS" />后恢复以前的设置。</translation>
 <translation id="8513108775083588393">自动旋转屏幕</translation>
 <translation id="8517041960877371778">您的 <ph name="DEVICE_TYPE" /> 在开启时可能无法充电。</translation>
 <translation id="8627191004499078455">已连接到<ph name="DEVICE_NAME" /></translation>
@@ -588,12 +600,13 @@
 <translation id="9089416786594320554">输入法</translation>
 <translation id="9091626656156419976">已移除显示器“<ph name="DISPLAY_NAME" />”</translation>
 <translation id="9151726767154816831">重新启动并通过 Powerwash 来进行更新</translation>
+<translation id="9168436347345867845">以后再说</translation>
 <translation id="9179259655489829027">借助此功能，您无需使用密码即可快速访问任何已登录的用户。请仅对您信任的帐号使用此功能。</translation>
 <translation id="9183456764293710005">全屏放大镜</translation>
 <translation id="9193626018745640770">正在投射至不明接收器</translation>
 <translation id="9194617393863864469">登录其他用户帐号…</translation>
+<translation id="9198992156681343238">“<ph name="DISPLAY_NAME" />”的分辨率已改为 <ph name="RESOLUTION" />。点击“确认”即可保留更改。将在 <ph name="TIMEOUT_SECONDS" />后恢复以前的设置。</translation>
 <translation id="9201374708878217446"><ph name="CONNECTION_STATUS" />，由您的管理员管理</translation>
-<translation id="9205817095063786319">设备由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="9210037371811586452">正在退出统一桌面模式</translation>
 <translation id="9211681782751733685">电池电量将在 <ph name="TIME_REMAINING" />后充满。</translation>
 <translation id="9215934040295798075">设置壁纸</translation>

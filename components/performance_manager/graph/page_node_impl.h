@@ -51,7 +51,8 @@ class PageNodeImpl
   void OnMainFrameNavigationCommitted(bool same_document,
                                       base::TimeTicks navigation_committed_time,
                                       int64_t navigation_id,
-                                      const GURL& url);
+                                      const GURL& url,
+                                      const std::string& contents_mime_type);
 
   // Returns the average CPU usage that can be attributed to this page over the
   // last measurement period. CPU usage is expressed as the average percentage
@@ -91,6 +92,8 @@ class PageNodeImpl
   bool page_almost_idle() const;
   const GURL& main_frame_url() const;
   int64_t navigation_id() const;
+  const std::string& contents_mime_type() const;
+  bool had_form_interaction() const;
 
   void set_usage_estimate_time(base::TimeTicks usage_estimate_time);
   void set_cumulative_cpu_usage_estimate(
@@ -109,6 +112,10 @@ class PageNodeImpl
 
   void SetIsHoldingWebLockForTesting(bool is_holding_weblock) {
     SetIsHoldingWebLock(is_holding_weblock);
+  }
+
+  void SetHadFormInteractionForTesting(bool had_form_interaction) {
+    SetHadFormInteraction(had_form_interaction);
   }
 
   base::WeakPtr<PageNodeImpl> GetWeakPtr() {
@@ -134,10 +141,12 @@ class PageNodeImpl
   bool IsHoldingWebLock() const override;
   bool IsHoldingIndexedDBLock() const override;
   int64_t GetNavigationID() const override;
+  const std::string& GetContentsMimeType() const override;
   base::TimeDelta GetTimeSinceLastNavigation() const override;
   const FrameNode* GetMainFrameNode() const override;
   const base::flat_set<const FrameNode*> GetMainFrameNodes() const override;
   const GURL& GetMainFrameUrl() const override;
+  bool HadFormInteraction() const override;
   const WebContentsProxy& GetContentsProxy() const override;
 
   void AddFrame(FrameNodeImpl* frame_node);
@@ -150,6 +159,7 @@ class PageNodeImpl
   void SetOriginTrialFreezePolicy(InterventionPolicy policy);
   void SetIsHoldingWebLock(bool is_holding_weblock);
   void SetIsHoldingIndexedDBLock(bool is_holding_indexeddb_lock);
+  void SetHadFormInteraction(bool had_form_interaction);
 
   // The WebContentsProxy associated with this page.
   const WebContentsProxy contents_proxy_;
@@ -198,6 +208,11 @@ class PageNodeImpl
   // The unique ID of the navigation handle the main frame last committed, or
   // zero if the page has never committed a navigation.
   int64_t navigation_id_ = 0;
+
+  // The MIME type of the content associated with the last committed navigation
+  // event for the main frame of this page or an empty string if the page has
+  // never committed a navigation
+  std::string contents_mime_type_;
 
   // The unique ID of the browser context that this page belongs to.
   const std::string browser_context_id_;
@@ -250,6 +265,12 @@ class PageNodeImpl
       bool,
       &PageNodeObserver::OnPageIsHoldingIndexedDBLockChanged>
       is_holding_indexeddb_lock_{false};
+  // Indicates if at least one frame of the page has received some form
+  // interactions.
+  ObservedProperty::NotifiesOnlyOnChanges<
+      bool,
+      &PageNodeObserver::OnHadFormInteractionChanged>
+      had_form_interaction_{false};
 
   // Storage for PageAlmostIdle user data.
   std::unique_ptr<NodeAttachedData> page_almost_idle_data_;
@@ -258,7 +279,7 @@ class PageNodeImpl
   InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 8> frozen_frame_data_;
 
   // Inline storage for PageAggregatorAccess user data.
-  InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 20> page_aggregator_data_;
+  InternalNodeAttachedDataStorage<sizeof(uintptr_t) + 24> page_aggregator_data_;
 
   base::WeakPtrFactory<PageNodeImpl> weak_factory_{this};
 

@@ -229,6 +229,7 @@ class SimpleURLLoaderImpl : public SimpleURLLoader,
       uint64_t length = std::numeric_limits<uint64_t>::max()) override;
   void SetRetryOptions(int max_retries, int retry_mode) override;
   void SetURLLoaderFactoryOptions(uint32_t options) override;
+  void SetRequestID(int32_t request_id) override;
   void SetTimeoutDuration(base::TimeDelta timeout_duration) override;
 
   int NetError() const override;
@@ -344,6 +345,7 @@ class SimpleURLLoaderImpl : public SimpleURLLoader,
   int remaining_retries_ = 0;
   int retry_mode_ = RETRY_NEVER;
   uint32_t url_loader_factory_options_ = 0;
+  int32_t request_id_ = 0;
 
   // The next values contain all the information required to restart the
   // request.
@@ -1290,8 +1292,8 @@ void SimpleURLLoaderImpl::AttachStringForUpload(
     const std::string& upload_content_type) {
   // Currently only allow a single string to be attached.
   DCHECK(!resource_request_->request_body);
-  DCHECK(resource_request_->method != "GET" &&
-         resource_request_->method != "HEAD");
+  DCHECK(resource_request_->method != net::HttpRequestHeaders::kGetMethod &&
+         resource_request_->method != net::HttpRequestHeaders::kHeadMethod);
 
   resource_request_->request_body = new ResourceRequestBody();
 
@@ -1320,8 +1322,8 @@ void SimpleURLLoaderImpl::AttachFileForUpload(
 
   // Currently only allow a single file to be attached.
   DCHECK(!resource_request_->request_body);
-  DCHECK(resource_request_->method != "GET" &&
-         resource_request_->method != "HEAD");
+  DCHECK(resource_request_->method != net::HttpRequestHeaders::kGetMethod &&
+         resource_request_->method != net::HttpRequestHeaders::kHeadMethod);
 
   // Create an empty body to make DCHECKing that there's no upload body yet
   // simpler.
@@ -1363,6 +1365,12 @@ void SimpleURLLoaderImpl::SetURLLoaderFactoryOptions(uint32_t options) {
   // Check if a request has not yet been started.
   DCHECK(!body_handler_);
   url_loader_factory_options_ = options;
+}
+
+void SimpleURLLoaderImpl::SetRequestID(int32_t request_id) {
+  // Check if a request has not yet been started.
+  DCHECK(!body_handler_);
+  request_id_ = request_id;
 }
 
 void SimpleURLLoaderImpl::SetTimeoutDuration(base::TimeDelta timeout_duration) {
@@ -1515,8 +1523,8 @@ void SimpleURLLoaderImpl::StartRequest(
         string_upload_data_pipe_getter_->GetRemoteForNewUpload());
   }
   url_loader_factory->CreateLoaderAndStart(
-      url_loader_.BindNewPipeAndPassReceiver(), 0 /* routing_id */,
-      0 /* request_id */, url_loader_factory_options_, *resource_request_,
+      url_loader_.BindNewPipeAndPassReceiver(), 0 /* routing_id */, request_id_,
+      url_loader_factory_options_, *resource_request_,
       client_receiver_.BindNewPipeAndPassRemote(),
       net::MutableNetworkTrafficAnnotationTag(annotation_tag_));
   client_receiver_.set_disconnect_handler(base::BindOnce(

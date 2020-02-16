@@ -54,15 +54,18 @@
 #include "chromeos/dbus/power_manager/suspend.pb.h"
 #include "components/prefs/pref_service.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/test/display_manager_test_api.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/textfield/textfield.h"
+#include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
 using ::testing::_;
+using ::testing::IsNull;
 using ::testing::Mock;
 
 namespace ash {
@@ -808,6 +811,13 @@ TEST_F(LockContentsViewUnitTest, ShowStatusIndicatorIfAdbSideloadingEnabled) {
       false /*show*/, false /*enforced*/, "Best version ever", "Asset ID: 6666",
       "Bluetooth adapter", true /*adb_sideloading_enabled*/);
   EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
+
+  // bottom_status_indicator should always be visible when displaying ADB
+  // sideloading warning.
+  DataDispatcher()->NotifyOobeDialogState(OobeDialogState::EXTENSION_LOGIN);
+  EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
+  DataDispatcher()->NotifyOobeDialogState(OobeDialogState::HIDDEN);
+  EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
 }
 
 // Show bottom status indicator if device is enrolled
@@ -825,6 +835,13 @@ TEST_F(LockContentsViewUnitTest, ShowStatusIndicatorIfEnrolledDevice) {
   std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
   LockContentsView::TestApi test_api(contents);
 
+  EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
+
+  // bottom_status_indicator should not be visible when displaying enterprise
+  // domain and extension UI is visible.
+  DataDispatcher()->NotifyOobeDialogState(OobeDialogState::EXTENSION_LOGIN);
+  EXPECT_FALSE(test_api.bottom_status_indicator()->GetVisible());
+  DataDispatcher()->NotifyOobeDialogState(OobeDialogState::HIDDEN);
   EXPECT_TRUE(test_api.bottom_status_indicator()->GetVisible());
 }
 
@@ -988,6 +1005,7 @@ TEST_F(LockContentsViewUnitTest, AuthErrorButtonClickable) {
       DataDispatcher(),
       std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
   SetUserCount(1);
+
   SetWidget(CreateWidgetWithContent(contents));
 
   LockContentsView::TestApi test_api(contents);
@@ -1015,7 +1033,8 @@ TEST_F(LockContentsViewUnitTest, AuthErrorButtonClickable) {
   ASSERT_TRUE(button);
 
   // Expect ShowAccountAccessHelp() to be called due to button click.
-  EXPECT_CALL(*client, ShowAccountAccessHelpApp()).Times(1);
+  EXPECT_CALL(*client, ShowAccountAccessHelpApp(widget()->GetNativeWindow()))
+      .Times(1);
 
   // Move mouse to AuthError's ShowAccountAccessHelp button and click it.
   // Should result in ShowAccountAccessHelpApp().
@@ -2047,7 +2066,7 @@ TEST_F(LockContentsViewUnitTest, DisableAuthAfterMediaSessionChanged) {
   // Disable auth and media.
   DataDispatcher()->DisableAuthForUser(
       kFirstUserAccountId,
-      AuthDisabledData(ash::AuthDisabledReason::kTimeWindowLimit,
+      AuthDisabledData(AuthDisabledReason::kTimeWindowLimit,
                        base::Time::Now() + base::TimeDelta::FromHours(8),
                        base::TimeDelta::FromHours(1),
                        true /*disable_lock_screen_media*/));
@@ -2073,7 +2092,7 @@ TEST_F(LockContentsViewUnitTest, DisableAuthBeforeMediaSessionChanged) {
   // Disable auth and media.
   DataDispatcher()->DisableAuthForUser(
       kFirstUserAccountId,
-      AuthDisabledData(ash::AuthDisabledReason::kTimeWindowLimit,
+      AuthDisabledData(AuthDisabledReason::kTimeWindowLimit,
                        base::Time::Now() + base::TimeDelta::FromHours(8),
                        base::TimeDelta::FromHours(1),
                        true /*disable_lock_screen_media*/));
@@ -2109,7 +2128,7 @@ TEST_F(LockContentsViewUnitTest, DisableAuthAllowMediaControls) {
   // Disable auth, but allow media.
   DataDispatcher()->DisableAuthForUser(
       kFirstUserAccountId,
-      AuthDisabledData(ash::AuthDisabledReason::kTimeWindowLimit,
+      AuthDisabledData(AuthDisabledReason::kTimeWindowLimit,
                        base::Time::Now() + base::TimeDelta::FromHours(8),
                        base::TimeDelta::FromHours(1),
                        false /*disable_lock_screen_media*/));
@@ -2175,30 +2194,30 @@ TEST_F(LockContentsViewUnitTest, ParentAccessButton) {
   // Simulate initial state - user auth disabled and button shown.
   DataDispatcher()->DisableAuthForUser(child_id, GetTestDisabledAuthData());
   Shell::Get()->login_screen_controller()->ShowParentAccessButton(true);
-  EXPECT_TRUE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_TRUE(LoginScreenTestApi::IsParentAccessButtonShown());
 
   // Validation failed - show the button.
   contents->ShowParentAccessDialog();
-  EXPECT_FALSE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
   ParentAccessWidget::TestApi(ParentAccessWidget::Get())
       .SimulateValidationFinished(false);
-  EXPECT_TRUE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_TRUE(LoginScreenTestApi::IsParentAccessButtonShown());
 
   // Validation succeeded - hide the button.
   contents->ShowParentAccessDialog();
-  EXPECT_FALSE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
   ParentAccessWidget::TestApi(ParentAccessWidget::Get())
       .SimulateValidationFinished(true);
-  EXPECT_FALSE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
 
   // Validation failed but user auth got enabled - hide button.
   // (Device got unlocked when parent access dialog was shown)
   contents->ShowParentAccessDialog();
-  EXPECT_FALSE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
   DataDispatcher()->EnableAuthForUser(child_id);
   ParentAccessWidget::TestApi(ParentAccessWidget::Get())
       .SimulateValidationFinished(false);
-  EXPECT_FALSE(ash::LoginScreenTestApi::IsParentAccessButtonShown());
+  EXPECT_FALSE(LoginScreenTestApi::IsParentAccessButtonShown());
 }
 
 using LockContentsViewPowerManagerUnitTest = LockContentsViewUnitTest;
@@ -2865,6 +2884,21 @@ TEST_F(LockContentsViewUnitTest, NoNavigationOrHotseatOnLockScreen) {
       << "The navigation widget should not appear on the lock screen.";
   EXPECT_FALSE(shelf_widget->hotseat_widget()->IsVisible())
       << "The hotseat widget should not appear on the lock screen.";
+}
+
+TEST_F(LockContentsViewUnitTest, NoUsersToShow) {
+  // Build lock screen with 0 users.
+  auto* contents = new LockContentsView(
+      mojom::TrayActionState::kNotAvailable, LockScreen::ScreenType::kLock,
+      DataDispatcher(),
+      std::make_unique<FakeLoginDetachableBaseModel>(DataDispatcher()));
+  std::unique_ptr<views::Widget> widget = CreateWidgetWithContent(contents);
+  LockContentsView::TestApi test_api(contents);
+
+  // Verify that primary big view is null.
+  EXPECT_THAT(test_api.primary_big_view(), IsNull());
+  // Verify that the main view has no children.
+  EXPECT_TRUE(test_api.main_view()->children().empty());
 }
 
 }  // namespace ash

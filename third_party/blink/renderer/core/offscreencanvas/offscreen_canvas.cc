@@ -220,12 +220,16 @@ ScriptPromise OffscreenCanvas::CreateImageBitmap(
     ScriptState* script_state,
     EventTarget&,
     base::Optional<IntRect> crop_rect,
-    const ImageBitmapOptions* options) {
+    const ImageBitmapOptions* options,
+    ExceptionState& exception_state) {
   if (context_)
     context_->FinalizeFrame();
   return ImageBitmapSource::FulfillImageBitmap(
       script_state,
-      IsPaintable() ? ImageBitmap::Create(this, crop_rect, options) : nullptr);
+      IsPaintable()
+          ? MakeGarbageCollected<ImageBitmap>(this, crop_rect, options)
+          : nullptr,
+      exception_state);
 }
 
 bool OffscreenCanvas::IsOpaque() const {
@@ -378,9 +382,6 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
 
     if (ResourceProvider() && ResourceProvider()->IsValid()) {
       ResourceProvider()->Clear();
-      // Always save an initial frame, to support resetting the top level matrix
-      // and clip.
-      ResourceProvider()->Canvas()->save();
 
       if (needs_matrix_clip_restore_) {
         needs_matrix_clip_restore_ = false;

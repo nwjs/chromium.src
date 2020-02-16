@@ -155,7 +155,6 @@ class CC_PAINT_EXPORT PaintOp {
                      bool can_use_lcd_text,
                      bool context_supports_distance_field_text,
                      int max_texture_size,
-                     size_t max_texture_bytes,
                      const SkMatrix& original_ctm);
     SerializeOptions(const SerializeOptions&);
     SerializeOptions& operator=(const SerializeOptions&);
@@ -171,7 +170,6 @@ class CC_PAINT_EXPORT PaintOp {
     bool can_use_lcd_text = false;
     bool context_supports_distance_field_text = true;
     int max_texture_size = 0;
-    size_t max_texture_bytes = 0.f;
     SkMatrix original_ctm = SkMatrix::I();
 
     // Optional.
@@ -184,7 +182,8 @@ class CC_PAINT_EXPORT PaintOp {
     DeserializeOptions(TransferCacheDeserializeHelper* transfer_cache,
                        ServicePaintCache* paint_cache,
                        SkStrikeClient* strike_client,
-                       std::vector<uint8_t>* scratch_buffer);
+                       std::vector<uint8_t>* scratch_buffer,
+                       bool is_privileged);
     TransferCacheDeserializeHelper* transfer_cache = nullptr;
     ServicePaintCache* paint_cache = nullptr;
     SkStrikeClient* strike_client = nullptr;
@@ -192,6 +191,9 @@ class CC_PAINT_EXPORT PaintOp {
     bool crash_dump_on_failure = false;
     // Used to memcpy Skia flattenables into to avoid TOCTOU issues.
     std::vector<uint8_t>* scratch_buffer = nullptr;
+    // True if the deserialization is happening on a privileged gpu channel.
+    // e.g. in the case of UI.
+    bool is_privileged = false;
   };
 
   // Indicates how PaintImages are serialized.
@@ -226,6 +228,13 @@ class CC_PAINT_EXPORT PaintOp {
   // For draw ops, returns true if a conservative bounding rect can be provided
   // for the op.
   static bool GetBounds(const PaintOp* op, SkRect* rect);
+
+  // Returns the minimum conservative bounding rect that |op| draws to on a
+  // canvas. |clip_rect| and |ctm| are the current clip rect and transform on
+  // this canvas.
+  static gfx::Rect ComputePaintRect(const PaintOp* op,
+                                    const SkRect& clip_rect,
+                                    const SkMatrix& ctm);
 
   // Returns true if the op lies outside the current clip and should be skipped.
   // Should only be used with draw ops.
@@ -979,7 +988,7 @@ class CC_PAINT_EXPORT PaintOpBuffer : public SkRefCnt {
   }
 
   template <typename T, typename... Args>
-  void push(Args&&... args) {
+  const T* push(Args&&... args) {
     static_assert(std::is_convertible<T, PaintOp>::value, "T not a PaintOp.");
     static_assert(alignof(T) <= PaintOpAlign, "");
     static_assert(sizeof(T) < std::numeric_limits<uint16_t>::max(),
@@ -991,6 +1000,7 @@ class CC_PAINT_EXPORT PaintOpBuffer : public SkRefCnt {
     DCHECK_EQ(op->type, static_cast<uint32_t>(T::kType));
     op->skip = skip;
     AnalyzeAddedOp(op);
+    return op;
   }
 
   void UpdateSaveLayerBounds(size_t offset, const SkRect& bounds) {

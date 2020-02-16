@@ -36,7 +36,6 @@
 #include "content/browser/web_contents/aura/gesture_nav_simple.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/content_browser_client.h"
-#include "content/public/browser/guest_mode.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
@@ -54,7 +53,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "net/base/filename_util.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/client/drag_drop_delegate.h"
@@ -102,16 +101,13 @@ WebContentsViewAura::RenderWidgetHostViewCreateFunction
 
 RenderWidgetHostViewAura* ToRenderWidgetHostViewAura(
     RenderWidgetHostView* view) {
-  if (!view || (RenderViewHostFactory::has_factory() &&
-      !RenderViewHostFactory::is_real_render_view_host())) {
+  if (RenderViewHostFactory::has_factory() &&
+      !RenderViewHostFactory::is_real_render_view_host()) {
     return nullptr;  // Can't cast to RenderWidgetHostViewAura in unit tests.
   }
 
-  RenderViewHost* rvh = RenderViewHost::From(view->GetRenderWidgetHost());
-  WebContentsImpl* web_contents = static_cast<WebContentsImpl*>(
-      rvh ? WebContents::FromRenderViewHost(rvh) : nullptr);
-  if (BrowserPluginGuest::IsGuest(web_contents))
-    return nullptr;
+  DCHECK(!view || !static_cast<RenderWidgetHostViewBase*>(view)
+                       ->IsRenderWidgetHostViewChildFrame());
   return static_cast<RenderWidgetHostViewAura*>(view);
 }
 
@@ -1241,7 +1237,13 @@ void WebContentsViewAura::OnMouseEvent(ui::MouseEvent* event) {
     // raise-on-click manually, this may override user settings that prevent
     // focus-stealing.
 #if !defined(USE_X11)
+    // It is possible for the web-contents to be destroyed while it is being
+    // activated. Use a weak-ptr to track whether that happened or not.
+    // More in https://crbug.com/1040725
+    auto weak_this = weak_ptr_factory_.GetWeakPtr();
     web_contents_->GetDelegate()->ActivateContents(web_contents_);
+    if (!weak_this)
+      return;
 #endif
   }
 
@@ -1469,6 +1471,10 @@ void WebContentsViewAura::FinishOnPerformDropCallback(
                context.transformed_pt.value(), context.screen_pt, key_modifiers,
                /*drop_allowed=*/false);
     }
+
+    // The drop not being continued requires this to cleanup the drag data.
+    OnDragExited();
+
     return;
   }
 
@@ -1526,6 +1532,8 @@ void WebContentsViewAura::CompleteDrop(RenderWidgetHostImpl* target_rwh,
                                        const gfx::PointF& client_pt,
                                        const gfx::PointF& screen_pt,
                                        int key_modifiers) {
+  web_contents_->Focus();
+
   target_rwh->DragTargetDrop(drop_data, client_pt, screen_pt, key_modifiers);
   if (drag_dest_delegate_)
     drag_dest_delegate_->OnDrop();

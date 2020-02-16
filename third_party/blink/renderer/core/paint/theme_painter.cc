@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_context_state_saver.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/native_theme/native_theme.h"
 
 // The methods in this file are shared by all themes on every platform.
@@ -192,6 +193,10 @@ bool ThemePainter::Paint(const LayoutObject& o,
       auto* input = DynamicTo<HTMLInputElement>(node);
       if (!input || input->type() != input_type_names::kCheckbox)
         DEPRECATE_APPEARANCE(doc, CheckboxForOthers);
+      // Count usage of non-rectangular checkbox and radio buttons.
+      if (r.Width() != r.Height()) {
+        UseCounter::Count(doc, WebFeature::kInputTypeCheckboxRenderedNonSquare);
+      }
       return PaintCheckbox(node, o.GetDocument(), style, paint_info, r);
     }
     case kRadioPart: {
@@ -199,6 +204,10 @@ bool ThemePainter::Paint(const LayoutObject& o,
       auto* input = DynamicTo<HTMLInputElement>(node);
       if (!input || input->type() != input_type_names::kRadio)
         DEPRECATE_APPEARANCE(doc, RadioForOthers);
+      // Count usage of non-rectangular checkbox and radio buttons.
+      if (r.Width() != r.Height()) {
+        UseCounter::Count(doc, WebFeature::kInputTypeRadioRenderedNonSquare);
+      }
       return PaintRadio(node, o.GetDocument(), style, paint_info, r);
     }
     case kPushButtonPart: {
@@ -278,13 +287,13 @@ bool ThemePainter::Paint(const LayoutObject& o,
     case kMenulistButtonPart:
       return true;
     case kTextFieldPart:
-      if (!RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
+      if (!features::IsFormControlsRefreshEnabled()) {
         return true;
       }
       CountAppearanceTextFieldPart(node);
       return PaintTextField(node, style, paint_info, r);
     case kTextAreaPart:
-      if (!RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
+      if (!features::IsFormControlsRefreshEnabled()) {
         return true;
       }
       if (node) {
@@ -342,13 +351,13 @@ bool ThemePainter::PaintBorderOnly(const Node* node,
   // Call the appropriate paint method based off the appearance value.
   switch (style.EffectiveAppearance()) {
     case kTextFieldPart:
-      if (RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
+      if (features::IsFormControlsRefreshEnabled()) {
         return false;
       }
       CountAppearanceTextFieldPart(node);
       return PaintTextField(node, style, paint_info, r);
     case kTextAreaPart:
-      if (RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
+      if (features::IsFormControlsRefreshEnabled()) {
         return false;
       }
       if (node) {

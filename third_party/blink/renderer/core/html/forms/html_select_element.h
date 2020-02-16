@@ -28,6 +28,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_HTML_SELECT_ELEMENT_H_
 
 #include "base/gtest_prod_util.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element_with_state.h"
 #include "third_party/blink/renderer/core/html/forms/html_options_collection.h"
@@ -161,6 +162,9 @@ class CORE_EXPORT HTMLSelectElement final
   void PopupDidHide();
   bool PopupIsVisible() const { return popup_is_visible_; }
   HTMLOptionElement* OptionToBeShown() const;
+  // Style of the selected OPTION. This is nullable, and only for
+  // the menulist mode.
+  const ComputedStyle* OptionStyle() const;
   void ShowPopup();
   void HidePopup();
   PopupMenu* Popup() const { return popup_.Get(); }
@@ -179,15 +183,18 @@ class CORE_EXPORT HTMLSelectElement final
 
  private:
   const AtomicString& FormControlType() const override;
+  void UpdateFromElement();
 
   bool MayTriggerVirtualKeyboard() const override;
 
+  bool ShouldHaveFocusAppearance() const final;
+
   void DispatchFocusEvent(
       Element* old_focused_element,
-      WebFocusType,
+      mojom::blink::FocusType,
       InputDeviceCapabilities* source_capabilities) override;
   void DispatchBlurEvent(Element* new_focused_element,
-                         WebFocusType,
+                         mojom::blink::FocusType,
                          InputDeviceCapabilities* source_capabilities) override;
 
   bool CanStartSelection() const override { return false; }
@@ -242,10 +249,12 @@ class CORE_EXPORT HTMLSelectElement final
   void ParseMultipleAttribute(const AtomicString&);
   HTMLOptionElement* LastSelectedOption() const;
   void UpdateSelectedState(HTMLOptionElement*, bool multi, bool shift);
+  void DidUpdateMenuListActiveOption(HTMLOptionElement*);
   void MenuListDefaultEventHandler(Event&);
   void HandlePopupOpenKeyboardEvent(Event&);
   bool ShouldOpenPopupForKeyDownEvent(const KeyboardEvent&);
   bool ShouldOpenPopupForKeyPressEvent(const KeyboardEvent&);
+  void SetPopupIsVisible(bool);
   void ListBoxDefaultEventHandler(Event&);
   void SetOptionsChangedOnLayoutObject();
   wtf_size_t SearchOptionsForValue(const String&,
@@ -272,6 +281,8 @@ class CORE_EXPORT HTMLSelectElement final
                                                   SkipDirection) const;
   HTMLOptionElement* EventTargetOption(const Event&);
   AutoscrollController* GetAutoscrollController() const;
+  LayoutBox* AutoscrollBox() override;
+  void StopAutoscroll() override;
   void ScrollToOptionTask();
 
   bool AreAuthorShadowsAllowed() const override { return false; }
@@ -301,6 +312,9 @@ class CORE_EXPORT HTMLSelectElement final
   Member<HTMLOptionElement> active_selection_end_;
   Member<HTMLOptionElement> option_to_scroll_to_;
   Member<HTMLOptionElement> suggested_option_;
+  scoped_refptr<const ComputedStyle> option_style_;
+  int ax_menulist_last_active_index_ = -1;
+  bool has_updated_menulist_active_option_ = false;
   bool is_multiple_;
   bool is_in_non_contiguous_selection_;
   bool active_selection_state_;

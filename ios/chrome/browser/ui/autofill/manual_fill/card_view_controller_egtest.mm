@@ -107,8 +107,7 @@ BOOL WaitForKeyboardToAppear() {
 
 - (void)launchAppForTestMethod {
   [[AppLaunchManager sharedManager]
-      ensureAppLaunchedWithFeaturesEnabled:{kSettingsAddPaymentMethod,
-                                            kCreditCardScanner}
+      ensureAppLaunchedWithFeaturesEnabled:{kCreditCardScanner}
                                   disabled:{}
                             relaunchPolicy:NoForceRelaunchAndResetState];
 }

@@ -11,7 +11,6 @@ import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceFragmentCompat;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.accessibility.FontSizePrefs;
 import org.chromium.chrome.browser.accessibility.FontSizePrefs.FontSizePrefsObserver;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -21,8 +20,6 @@ import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.settings.ChromeBaseCheckBoxPreference;
 import org.chromium.chrome.browser.settings.SettingsUtils;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
-
-import java.text.NumberFormat;
 
 /**
  * Fragment to keep track of all the accessibility related preferences.
@@ -34,16 +31,14 @@ public class AccessibilitySettings
     static final String PREF_READER_FOR_ACCESSIBILITY = "reader_for_accessibility";
     static final String PREF_CAPTIONS = "captions";
 
-    private NumberFormat mFormat;
-    private FontSizePrefs mFontSizePrefs;
-
     private TextScalePreference mTextScalePref;
     private ChromeBaseCheckBoxPreference mForceEnableZoomPref;
 
+    private FontSizePrefs mFontSizePrefs = FontSizePrefs.getInstance();
     private FontSizePrefsObserver mFontSizePrefsObserver = new FontSizePrefsObserver() {
         @Override
         public void onFontScaleFactorChanged(float fontScaleFactor, float userFontScaleFactor) {
-            updateTextScaleSummary(userFontScaleFactor);
+            mTextScalePref.updateFontScaleFactors(fontScaleFactor, userFontScaleFactor, true);
         }
 
         @Override
@@ -53,19 +48,26 @@ public class AccessibilitySettings
     };
 
     @Override
-    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        getActivity().setTitle(R.string.prefs_accessibility);
-        SettingsUtils.addPreferencesFromResource(this, R.xml.accessibility_preferences);
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
 
-        mFormat = NumberFormat.getPercentInstance();
-        mFontSizePrefs = FontSizePrefs.getInstance();
+        getActivity().setTitle(R.string.prefs_accessibility);
+        setDivider(null);
+    }
+
+    @Override
+    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+        SettingsUtils.addPreferencesFromResource(this, R.xml.accessibility_preferences);
 
         mTextScalePref = (TextScalePreference) findPreference(PREF_TEXT_SCALE);
         mTextScalePref.setOnPreferenceChangeListener(this);
+        mTextScalePref.updateFontScaleFactors(mFontSizePrefs.getFontScaleFactor(),
+                mFontSizePrefs.getUserFontScaleFactor(), false);
 
         mForceEnableZoomPref =
                 (ChromeBaseCheckBoxPreference) findPreference(PREF_FORCE_ENABLE_ZOOM);
         mForceEnableZoomPref.setOnPreferenceChangeListener(this);
+        mForceEnableZoomPref.setChecked(mFontSizePrefs.getForceEnableZoom());
 
         ChromeBaseCheckBoxPreference readerForAccessibilityPref =
                 (ChromeBaseCheckBoxPreference) findPreference(PREF_READER_FOR_ACCESSIBILITY);
@@ -85,56 +87,28 @@ public class AccessibilitySettings
         }
 
         Preference captions = findPreference(PREF_CAPTIONS);
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CAPTION_SETTINGS)) {
-            captions.setOnPreferenceClickListener(preference -> {
-                Intent intent = new Intent(Settings.ACTION_CAPTIONING_SETTINGS);
+        captions.setOnPreferenceClickListener(preference -> {
+            Intent intent = new Intent(Settings.ACTION_CAPTIONING_SETTINGS);
 
-                // Open the activity in a new task because the back button on the caption
-                // settings page navigates to the previous settings page instead of Chrome.
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
+            // Open the activity in a new task because the back button on the caption
+            // settings page navigates to the previous settings page instead of Chrome.
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
 
-                return true;
-            });
-        } else {
-            getPreferenceScreen().removePreference(captions);
-        }
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        setDivider(null);
+            return true;
+        });
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        updateValues();
-        // TODO(crbug.com/977206): Move this call to make TextScalePreference self-contained
-        mTextScalePref.startObservingFontPrefs();
         mFontSizePrefs.addObserver(mFontSizePrefsObserver);
     }
 
     @Override
     public void onStop() {
-        // TODO(crbug.com/977206): Move this call to make TextScalePreference self-contained
-        mTextScalePref.stopObservingFontPrefs();
         mFontSizePrefs.removeObserver(mFontSizePrefsObserver);
         super.onStop();
-    }
-
-    private void updateValues() {
-        float userFontScaleFactor = mFontSizePrefs.getUserFontScaleFactor();
-        mTextScalePref.setValue(userFontScaleFactor);
-        updateTextScaleSummary(userFontScaleFactor);
-
-        mForceEnableZoomPref.setChecked(mFontSizePrefs.getForceEnableZoom());
-    }
-
-    // TODO(crbug.com/977206): Move this to within TextScalePreference
-    private void updateTextScaleSummary(float userFontScaleFactor) {
-        mTextScalePref.setSummary(mFormat.format(userFontScaleFactor));
     }
 
     @Override

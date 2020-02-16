@@ -101,6 +101,22 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItem : public base::SupportsUserData {
     RESULT_MAX = FAILURE_UNKNOWN
   };
 
+  // The mixed content status for a download item.
+  enum MixedContentStatus {
+    // Target not yet determined, so status not yet available.
+    UNKNOWN = 0,
+    // Download is not mixed content.
+    SAFE = 1,
+    // Download has been explicitly OK'd by the user.
+    VALIDATED = 2,
+    // Download is mixed content, and the user should be warned.
+    WARN = 3,
+    // Download is mixed content, and the user should see an error.
+    BLOCK = 4,
+    // Download is mixed content, and it should be silently dropped.
+    SILENT_BLOCK = 5,
+  };
+
   // Callback used with AcquireFileAndDeleteDownload().
   typedef base::Callback<void(const base::FilePath&)> AcquireFileCallback;
   using RenameDownloadCallback = base::OnceCallback<void(DownloadRenameResult)>;
@@ -158,6 +174,9 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItem : public base::SupportsUserData {
 
   // Called when the user has validated the download of a dangerous file.
   virtual void ValidateDangerousDownload() = 0;
+
+  // Called when the user has validated the download of a mixed content file.
+  virtual void ValidateMixedContentDownload() = 0;
 
   // Called to acquire a dangerous download. If |delete_file_afterward| is true,
   // invokes |callback| on the UI thread with the path to the downloaded file,
@@ -401,8 +420,18 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItem : public base::SupportsUserData {
   // False if the download is safe or that function has been called.
   virtual bool IsDangerous() const = 0;
 
+  // True if the file that will be written by the download is mixed content
+  // and we will require a call to ValidateMixedContentDownload() to complete.
+  // False if not mixed content or that function has been called.
+  virtual bool IsMixedContent() const = 0;
+
   // Why |safety_state_| is not SAFE.
   virtual DownloadDangerType GetDangerType() const = 0;
+
+  // Returns the mixed content status of the download, indicating whether the
+  // download should be blocked or the user warned. This may be UNKNOWN if the
+  // download target hasn't been determined.
+  virtual MixedContentStatus GetMixedContentStatus() const = 0;
 
   // Gets the pointer to the DownloadFile owned by this object.
   virtual DownloadFile* GetDownloadFile() = 0;

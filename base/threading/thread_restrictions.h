@@ -152,15 +152,14 @@ class BrowserShutdownProfileDumper;
 class BrowserTestBase;
 class CategorizedWorkerPool;
 class DesktopCaptureDevice;
-class GpuProcessTransportFactory;
 class InProcessUtilityThread;
 class NestedMessagePumpAndroid;
+class RenderProcessHostImpl;
 class RenderWidgetHostViewMac;
 class RTCVideoDecoder;
 class SandboxHostLinux;
 class ScopedAllowWaitForDebugURL;
 class ServiceWorkerContextClient;
-class SessionStorageDatabase;
 class SoftwareOutputDeviceMus;
 class SynchronousCompositor;
 class SynchronousCompositorHost;
@@ -230,6 +229,9 @@ class CommandBufferClientImpl;
 class CommandBufferLocal;
 class GpuState;
 class MaterialDesignController;
+}
+namespace weblayer {
+class WebLayerPathProvider;
 }
 namespace net {
 class MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives;
@@ -309,7 +311,6 @@ class TaskTracker;
 class AdjustOOMScoreHelper;
 class FileDescriptorWatcher;
 class GetAppOutputScopedAllowBaseSyncPrimitives;
-class MessageLoopImpl;
 class ScopedAllowThreadRecallForStackSamplingProfiler;
 class SimpleThread;
 class StackSamplingProfiler;
@@ -366,7 +367,6 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend class AdjustOOMScoreHelper;
   friend class android_webview::ScopedAllowInitGLBindings;
   friend class content::BrowserProcessSubThread;
-  friend class content::GpuProcessTransportFactory;
   friend class content::RenderWidgetHostViewMac;  // http://crbug.com/121917
   friend class content::WebContentsViewMac;
   friend class cronet::CronetPrefsManager;
@@ -380,6 +380,8 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend class web::WebSubThread;
   friend class StackSamplingProfiler;
   friend class weblayer::ProfileImpl;
+  friend class content::RenderProcessHostImpl;
+  friend class weblayer::WebLayerPathProvider;
 
   ScopedAllowBlocking() EMPTY_BODY_IF_DCHECK_IS_OFF;
   ~ScopedAllowBlocking() EMPTY_BODY_IF_DCHECK_IS_OFF;
@@ -429,7 +431,6 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class content::BrowserMainLoop;
   friend class content::BrowserProcessSubThread;
   friend class content::ServiceWorkerContextClient;
-  friend class content::SessionStorageDatabase;
   friend class functions::ExecScriptScopedAllowBaseSyncPrimitives;
   friend class history_report::HistoryReportJniBridge;
   friend class internal::TaskTracker;
@@ -487,7 +488,6 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
   friend class base::sequence_manager::internal::TaskQueueImpl;
   friend class base::FileDescriptorWatcher;
   friend class base::internal::JobTaskSource;
-  friend class base::MessageLoopImpl;
   friend class base::ScopedAllowThreadRecallForStackSamplingProfiler;
   friend class base::StackSamplingProfiler;
   friend class blink::RTCVideoDecoderAdapter;

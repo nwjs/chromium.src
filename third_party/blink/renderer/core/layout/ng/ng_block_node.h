@@ -14,10 +14,8 @@
 namespace blink {
 
 class LayoutBox;
-class NGBaselineRequest;
 class NGBlockBreakToken;
 class NGBoxFragmentBuilder;
-class NGBreakToken;
 class NGConstraintSpace;
 class NGEarlyBreak;
 class NGLayoutResult;
@@ -37,7 +35,7 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
 
   scoped_refptr<const NGLayoutResult> Layout(
       const NGConstraintSpace& constraint_space,
-      const NGBreakToken* break_token = nullptr,
+      const NGBlockBreakToken* break_token = nullptr,
       const NGEarlyBreak* = nullptr);
 
   // This method is just for use within the |NGSimplifiedLayoutAlgorithm|.
@@ -127,8 +125,9 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
   scoped_refptr<const NGLayoutResult> LayoutAtomicInline(
       const NGConstraintSpace& parent_constraint_space,
       const ComputedStyle& parent_style,
-      FontBaseline,
-      bool use_first_line_style);
+      bool use_first_line_style,
+      NGBaselineAlgorithmType baseline_algorithm_type =
+          NGBaselineAlgorithmType::kInlineBlock);
 
   // Called if this is an out-of-flow block which needs to be
   // positioned with legacy layout.
@@ -136,6 +135,7 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
 
   // Write back resolved margins to legacy.
   void StoreMargins(const NGConstraintSpace&, const NGBoxStrut& margins);
+  void StoreMargins(const NGPhysicalBoxStrut& margins);
 
   static bool CanUseNewLayout(const LayoutBox&);
   bool CanUseNewLayout() const;
@@ -156,7 +156,7 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
   // this node cast to a LayoutBlockFlow as the first argument.
   void FinishLayout(LayoutBlockFlow*,
                     const NGConstraintSpace&,
-                    const NGBreakToken*,
+                    const NGBlockBreakToken*,
                     scoped_refptr<const NGLayoutResult>);
 
   // After we run the layout algorithm, this function copies back the geometry
@@ -183,8 +183,7 @@ class CORE_EXPORT NGBlockNode final : public NGLayoutInputNode {
 
   void CopyBaselinesFromLegacyLayout(const NGConstraintSpace&,
                                      NGBoxFragmentBuilder*);
-  LayoutUnit AtomicInlineBaselineFromLegacyLayout(const NGBaselineRequest&,
-                                                  const NGConstraintSpace&);
+  LayoutUnit AtomicInlineBaselineFromLegacyLayout(const NGConstraintSpace&);
 
   void UpdateShapeOutsideInfoIfNeeded(
       const NGLayoutResult&,

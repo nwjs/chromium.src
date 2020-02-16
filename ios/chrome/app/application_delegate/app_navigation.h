@@ -9,23 +9,20 @@
 
 #include "base/ios/block_types.h"
 
-namespace ios {
 class ChromeBrowserState;
-}  // namespace ios
-
 @class SettingsNavigationController;
 
 // Handles the navigation through the application.
 @protocol AppNavigation<NSObject>
 
 // Navigation View controller for the settings.
-@property(nonatomic, retain)
+@property(nonatomic, strong)
     SettingsNavigationController* settingsNavigationController;
 
 // Presents a SignedInAccountsViewController for |browserState| on the top view
 // controller.
 - (void)presentSignedInAccountsViewControllerForBrowserState:
-    (ios::ChromeBrowserState*)browserState;
+    (ChromeBrowserState*)browserState;
 
 // Closes the settings UI with or without animation, with an optional
 // completion block.

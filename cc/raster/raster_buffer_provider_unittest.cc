@@ -382,7 +382,7 @@ class RasterBufferProviderTest
       worker_context_provider_ = base::MakeRefCounted<viz::TestContextProvider>(
           std::make_unique<viz::TestContextSupport>(),
           std::move(worker_gl_owned), std::move(worker_ri_owned),
-          true /* support_locking */);
+          nullptr /* sii */, true /* support_locking */);
       worker_context_provider_->BindToCurrentThread();
     } else {
       worker_context_provider_ = viz::TestContextProvider::CreateWorker();
@@ -390,12 +390,12 @@ class RasterBufferProviderTest
     }
 
     layer_tree_frame_sink_ = FakeLayerTreeFrameSink::Create3d();
-    resource_provider_ = std::make_unique<viz::ClientResourceProvider>(true);
+    resource_provider_ = std::make_unique<viz::ClientResourceProvider>();
   }
 
   void CreateSoftwareResourceProvider() {
     layer_tree_frame_sink_ = FakeLayerTreeFrameSink::CreateSoftware();
-    resource_provider_ = std::make_unique<viz::ClientResourceProvider>(true);
+    resource_provider_ = std::make_unique<viz::ClientResourceProvider>();
   }
 
   void OnTimeout() {

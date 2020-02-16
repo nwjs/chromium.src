@@ -120,7 +120,6 @@ class MultiStorePasswordSaveManagerTest : public testing::Test {
     saved_match_.origin = origin;
     saved_match_.action = action;
     saved_match_.signon_realm = "https://accounts.google.com/";
-    saved_match_.preferred = true;
     saved_match_.username_value = ASCIIToUTF16("test@gmail.com");
     saved_match_.username_element = ASCIIToUTF16("field1");
     saved_match_.password_value = ASCIIToUTF16("test1");
@@ -500,6 +499,47 @@ TEST_F(MultiStorePasswordSaveManagerTest,
   EXPECT_CALL(*mock_account_form_saver(), PermanentlyBlacklist(form_digest))
       .Times(0);
   password_save_manager()->PermanentlyBlacklist(form_digest);
+}
+
+TEST_F(MultiStorePasswordSaveManagerTest,
+       MoveCredentialsFromProfileToAccountStoreWhenExistsOnlyInProfileStore) {
+  PasswordForm saved_match_in_profile_store(saved_match_);
+  saved_match_in_profile_store.in_store = PasswordForm::Store::kProfileStore;
+  SetNonFederatedAndNotifyFetchCompleted({&saved_match_in_profile_store});
+
+  password_save_manager()->CreatePendingCredentials(
+      saved_match_in_profile_store, observed_form_, submitted_form_,
+      /*is_http_auth=*/false,
+      /*is_credential_api_save=*/false);
+
+  EXPECT_CALL(*mock_profile_form_saver(), Remove(saved_match_in_profile_store));
+  EXPECT_CALL(*mock_account_form_saver(),
+              Save(saved_match_in_profile_store, _, _));
+
+  password_save_manager()->MoveCredentialsToAccountStore();
+}
+
+TEST_F(
+    MultiStorePasswordSaveManagerTest,
+    DoNotMoveCredentialsFromProfileToAccountStoreWhenExistsOnlyInProfileStoreWithDifferentUserName) {
+  PasswordForm saved_match_in_profile_store(saved_match_);
+  saved_match_in_profile_store.in_store = PasswordForm::Store::kProfileStore;
+  SetNonFederatedAndNotifyFetchCompleted({&saved_match_in_profile_store});
+  PasswordForm credentials_with_diffrent_username(saved_match_in_profile_store);
+  credentials_with_diffrent_username.username_value =
+      ASCIIToUTF16("different_username");
+  password_save_manager()->CreatePendingCredentials(
+      credentials_with_diffrent_username, observed_form_, submitted_form_,
+      /*is_http_auth=*/false,
+      /*is_credential_api_save=*/false);
+
+  EXPECT_CALL(*mock_profile_form_saver(), Remove(saved_match_in_profile_store))
+      .Times(0);
+  EXPECT_CALL(*mock_account_form_saver(),
+              Save(saved_match_in_profile_store, _, _))
+      .Times(0);
+
+  password_save_manager()->MoveCredentialsToAccountStore();
 }
 
 }  // namespace password_manager

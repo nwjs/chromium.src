@@ -33,33 +33,6 @@ bool StructTraits<gfx::mojom::RectDataView, ::blink::WebRect>::Read(
 }
 
 // static
-bool StructTraits<gfx::mojom::PointDataView, ::blink::WebPoint>::Read(
-    gfx::mojom::PointDataView data,
-    ::blink::WebPoint* out) {
-  out->x = data.x();
-  out->y = data.y();
-  return true;
-}
-
-// static
-bool StructTraits<gfx::mojom::PointFDataView, ::blink::WebFloatPoint>::Read(
-    gfx::mojom::PointFDataView data,
-    ::blink::WebFloatPoint* out) {
-  out->x = data.x();
-  out->y = data.y();
-  return true;
-}
-
-bool StructTraits<gfx::mojom::Point3FDataView, ::blink::FloatPoint3D>::Read(
-    gfx::mojom::Point3FDataView data,
-    ::blink::FloatPoint3D* out) {
-  out->SetX(data.x());
-  out->SetY(data.y());
-  out->SetZ(data.z());
-  return true;
-}
-
-// static
 bool StructTraits<gfx::mojom::SizeDataView, ::blink::WebSize>::Read(
     gfx::mojom::SizeDataView data,
     ::blink::WebSize* out) {

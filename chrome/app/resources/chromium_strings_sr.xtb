@@ -5,7 +5,6 @@
 
 Неке функције су можда недоступне и промене подешавања неће бити сачуване.</translation>
 <translation id="1104942323762546749">Chromium жели да извезе лозинке. Унесите лозинку за Windows да бисте то омогућили.</translation>
-<translation id="1115445892567829615">Chromium не може да синхронизује податке. Ажурирајте приступну фразу за Синхронизацију.</translation>
 <translation id="113122355610423240">Chromium је подразумевани прегледач</translation>
 <translation id="1185134272377778587">О Chromium-у</translation>
 <translation id="1396446129537741364">Chromium покушава да прикаже лозинке.</translation>
@@ -22,7 +21,7 @@
 <translation id="1929939181775079593">Chromium не реагује. Желите ли да га одмах поново покренете?</translation>
 <translation id="1966382378801805537">Chromium не може да одреди ни да подеси подразумевани прегледач</translation>
 <translation id="2008474315282236005">Овим ћете избрисати 1 ставку са овог уређаја. Да бисте касније вратили податке, пријавите се у Chromium као <ph name="USER_EMAIL" />.</translation>
-<translation id="2119636228670142020">О &amp;Chromium ОС-у</translation>
+<translation id="2147976119693222405">Chromium ОС није успео да синхронизује податке. Решите проблем.</translation>
 <translation id="2241627712206172106">Ако делите рачунар, пријатељи и породица могу засебно да прегледају и да подесе Chromium баш онако како желе.</translation>
 <translation id="2347108572062610441">Овај додатак је променио страницу која се приказује када покренете Chromium.</translation>
 <translation id="2396765026452590966">Додатак „<ph name="EXTENSION_NAME" />“ је променио страницу која се приказује када покренете Chromium.</translation>
@@ -38,7 +37,7 @@
 <translation id="2718390899429598676">Chromium ће шифровати податке ради додатне сигурности.</translation>
 <translation id="2770231113462710648">Промени подразумевани прегледач у:</translation>
 <translation id="2799223571221894425">Поново покрени</translation>
-<translation id="2838154144102149890">Chromium треба да престане са радом на овом рачунару да бисте га ажурирали. Због тога ће други корисници пријављени на овом рачунару можда изгубити несачуване промене.</translation>
+<translation id="2805036593126168338">Chromium ОС није успео да синхронизује лозинке. Решите проблем.</translation>
 <translation id="2847479871509788944">Уклони из Chromium-а...</translation>
 <translation id="2886012850691518054">Опционално: Помозите да побољшамо Chromium тако што ћете Google-у аутоматски слати статистику коришћења и извештаје о отказивању.</translation>
 <translation id="2910007522516064972">О &amp;Chromium-у</translation>
@@ -57,7 +56,6 @@
 <translation id="328888136576916638">Недостају шифре за Google API. Неке функције Chromium-а ће бити онемогућене.</translation>
 <translation id="3296368748942286671">Настави са покретањем апликација у позадини када се Chromium затвори</translation>
 <translation id="331951419404882060">Chromium ОС не може да синхронизује податке због грешке при пријављивању.</translation>
-<translation id="3340978935015468852">подешавања</translation>
 <translation id="3474745554856756813">Овим ћете избрисати <ph name="ITEMS_COUNT" /> ставке(и) са овог уређаја. Да бисте касније вратили податке, пријавите се у Chromium као <ph name="USER_EMAIL" />.</translation>
 <translation id="3509308970982693815">Затворите све Chromium прозоре и покушајте поново.</translation>
 <translation id="3575459661164320785">На рачунару постоји штетан софтвер. Chromium може да га уклони, врати подешавања и онемогући додатке да би прегледач могао поново да ради уобичајено.</translation>
@@ -148,7 +146,6 @@
 <translation id="6847869444787758381">Chromium вас обавештава ако су лозинке угрожене</translation>
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (копирано у Chromium)</translation>
-<translation id="6868056391275687737">Друге копије Chromium-а су активне. Да бисте обавили ажурирање, затворите их.</translation>
 <translation id="6893813176749746474">Chromium је ажуриран, али га нисте користили најмање 30 дана.</translation>
 <translation id="6964305034639999644">Отвори линк у Chromium прозору без архи&amp;вирања</translation>
 <translation id="6990124437352146030">Chromium тражи дозволу да приступи микрофону за овај сајт</translation>
@@ -207,8 +204,6 @@ Chromium не може да врати подешавања.</translation>
       подешавањима Chromium прегледача<ph name="LINK_END" /></translation>
 <translation id="8697124171261953979">Контролише и страницу која се приказује када покренете Chromium или претражујете из омнибокса.</translation>
 <translation id="8704119203788522458">Ово је ваш Chromium</translation>
-<translation id="8739167630197873875">Када изађете из Chromium-а, колачићи се бришу. Да бисте наставили са синхронизацијом, промените подешавање <ph name="COOKIE_SETTINGS_LINK" />.</translation>
-<translation id="8748383401829947534">Затворите све копије Chromium-а.</translation>
 <translation id="8796602469536043152">Chromium тражи дозволу да приступи камери и микрофону за овај сајт</translation>
 <translation id="8803635938069941624">Chromium ОС услови</translation>
 <translation id="8821041990367117597">Chromium не може да синхронизује податке зато што су подаци за пријављивање на налог застарели.</translation>
@@ -218,7 +213,6 @@ Chromium не може да врати подешавања.</translation>
 <translation id="8941642502866065432">Не можете да ажурирате Chromium</translation>
 <translation id="8974095189086268230">Chromium ОС омогућава додатни <ph name="BEGIN_LINK_CROS_OSS" />софтвер отвореног кода<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="9019929317751753759">Да бисмо учинили Chromium безбеднијим, онемогућили смо следећи додатак који <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> не наводи и који је можда додат без вашег знања.</translation>
-<translation id="9022552996538154597">Пријављивање на Chromium</translation>
 <translation id="9089354809943900324">Chromium је застарео</translation>
 <translation id="9093206154853821181">{0,plural, =1{Поново ћемо покренути Chromium за један сат}one{Поново ћемо покренути Chromium за # сат}few{Поново ћемо покренути Chromium за # сата}other{Поново ћемо покренути Chromium за # сати}}</translation>
 <translation id="91086099826398415">Отвори линк у новој Chromium &amp;картици</translation>

@@ -11,6 +11,7 @@
 #include "base/one_shot_event.h"
 #include "build/build_config.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/unloaded_extension_reason.h"
 
 class Profile;
 
@@ -62,7 +63,7 @@ class ExtensionSystemImpl : public ExtensionSystem {
 
   void RegisterExtensionWithRequestContexts(
       const Extension* extension,
-      const base::Closure& callback) override;
+      base::OnceClosure callback) override;
 
   void UnregisterExtensionWithRequestContexts(
       const std::string& extension_id,

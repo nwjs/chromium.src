@@ -190,15 +190,13 @@ void LogPasswordReuse(int password_length,
 void LogContextOfShowAllSavedPasswordsShown(
     ShowAllSavedPasswordsContext context) {
   base::UmaHistogramEnumeration(
-      "PasswordManager.ShowAllSavedPasswordsShownContext", context,
-      SHOW_ALL_SAVED_PASSWORDS_CONTEXT_COUNT);
+      "PasswordManager.ShowAllSavedPasswordsShownContext", context);
 }
 
 void LogContextOfShowAllSavedPasswordsAccepted(
     ShowAllSavedPasswordsContext context) {
   base::UmaHistogramEnumeration(
-      "PasswordManager.ShowAllSavedPasswordsAcceptedContext", context,
-      SHOW_ALL_SAVED_PASSWORDS_CONTEXT_COUNT);
+      "PasswordManager.ShowAllSavedPasswordsAcceptedContext", context);
 }
 
 void LogPasswordDropdownShown(PasswordDropdownState state,
@@ -232,6 +230,11 @@ void LogPasswordAcceptedSaveUpdateSubmissionIndicatorEvent(
 void LogSubmittedFormFrame(SubmittedFormFrame frame) {
   base::UmaHistogramEnumeration("PasswordManager.SubmittedFormFrame", frame,
                                 SubmittedFormFrame::SUBMITTED_FORM_FRAME_COUNT);
+}
+
+void LogPasswordSettingsReauthResult(ReauthResult result) {
+  base::UmaHistogramEnumeration(
+      "PasswordManager.ReauthToAccessPasswordInSettings", result);
 }
 
 void LogDeleteUndecryptableLoginsReturnValue(

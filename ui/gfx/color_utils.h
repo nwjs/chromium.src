@@ -127,6 +127,10 @@ GFX_EXPORT bool IsDark(SkColor color);
 // |color|.
 GFX_EXPORT SkColor GetColorWithMaxContrast(SkColor color);
 
+// Returns whichever of white or the darkest available color contrasts less with
+// |color|.
+GFX_EXPORT SkColor GetEndpointColorWithMinContrast(SkColor color);
+
 // Blends towards the color with max contrast by |alpha|. The alpha of
 // the original color is preserved.
 GFX_EXPORT SkColor BlendTowardMaxContrast(SkColor color, SkAlpha alpha);

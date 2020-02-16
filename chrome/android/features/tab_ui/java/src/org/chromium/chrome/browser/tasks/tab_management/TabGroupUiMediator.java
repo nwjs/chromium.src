@@ -9,7 +9,6 @@ import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.annotations.CheckDiscard;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.ThemeColorProvider;
@@ -17,16 +16,16 @@ import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.EmptyTabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
@@ -44,7 +43,6 @@ public class TabGroupUiMediator {
     /**
      * An interface to control the TabGroupUi component.
      */
-    @CheckDiscard("crbug.com/1022827")
     interface TabGroupUiController {
         /**
          * Setup the drawable in TabGroupUi left button with a drawable ID.
@@ -237,13 +235,11 @@ public class TabGroupUiMediator {
         }
     }
 
-    @CheckDiscard("crbug.com/1022827")
     void setupLeftButtonDrawable(int drawableId) {
         mToolbarPropertyModel.set(
                 TabStripToolbarViewProperties.LEFT_BUTTON_DRAWABLE_ID, drawableId);
     }
 
-    @CheckDiscard("crbug.com/1022827")
     void setupLeftButtonOnClickListener(View.OnClickListener listener) {
         mToolbarPropertyModel.set(
                 TabStripToolbarViewProperties.LEFT_BUTTON_ON_CLICK_LISTENER, listener);
@@ -288,6 +284,11 @@ public class TabGroupUiMediator {
             mResetHandler.resetStripWithListOfTabs(listOfTabs);
             mIsTabGroupUiVisible = true;
         }
+        boolean isDuetTabStripIntegrationEnabled =
+                FeatureUtilities.isDuetTabStripIntegrationAndroidEnabled()
+                && FeatureUtilities.isBottomToolbarEnabled();
+        assert (mVisibilityController == null) == isDuetTabStripIntegrationEnabled;
+        if (isDuetTabStripIntegrationEnabled) return;
         mVisibilityController.setBottomControlsVisible(mIsTabGroupUiVisible);
     }
 

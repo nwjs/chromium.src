@@ -59,10 +59,6 @@
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #endif
 
-#if defined(OS_CHROMEOS)
-#include "chromeos/constants/chromeos_features.h"
-#endif
-
 namespace {
 
 #if !defined(OS_ANDROID)
@@ -80,16 +76,6 @@ const char* const kChromeSettingsSubPages[] = {
 #endif
 };
 #endif  // !defined(OS_ANDROID)
-
-#if defined(OS_CHROMEOS)
-const char* const kChromeOSSettingsSubPages[] = {
-    chrome::kAccessibilitySubPage, chrome::kBluetoothSubPage,
-    chrome::kDateTimeSubPage,      chrome::kDisplaySubPage,
-    chrome::kInternetSubPage,      chrome::kNativePrintingSettingsSubPage,
-    chrome::kPowerSubPage,         chrome::kStylusSubPage,
-    chrome::kWiFiSettingsSubPage,
-};
-#endif  // defined(OS_CHROMEOS)
 
 }  // namespace
 
@@ -237,18 +223,6 @@ std::vector<base::string16> ChromeAutocompleteProviderClient::GetBuiltinURLs() {
   }
 #endif
 
-#if defined(OS_CHROMEOS)
-  // TODO(crbug/950007): Delete this after the settings split is complete since
-  // the OS setting routes should not show up as an autocomplete suggestion in
-  // browser.
-  if (!base::FeatureList::IsEnabled(chromeos::features::kSplitSettings)) {
-    for (size_t i = 0; i < base::size(kChromeOSSettingsSubPages); i++) {
-      builtins.push_back(settings +
-                         base::ASCIIToUTF16(kChromeOSSettingsSubPages[i]));
-    }
-  }
-#endif
-
   return builtins;
 }
 
@@ -323,51 +297,9 @@ void ChromeAutocompleteProviderClient::PrefetchImage(const GURL& url) {
   // Note: Android uses different image fetching mechanism to avoid
   // penalty of copying byte buffers from C++ to Java.
 #if !defined(OS_ANDROID)
-  BitmapFetcherService* image_service =
+  BitmapFetcherService* bitmap_fetcher_service =
       BitmapFetcherServiceFactory::GetForBrowserContext(profile_);
-  DCHECK(image_service);
-
-  // TODO(jdonnelly, rhalavati): Create a helper function with Callback to
-  // create annotation and pass it to image_service, merging the annotations
-  // in omnibox_page_handler.cc, chrome_omnibox_client.cc,
-  // and chrome_autocomplete_provider_client.cc.
-  net::NetworkTrafficAnnotationTag traffic_annotation =
-      net::DefineNetworkTrafficAnnotation("omnibox_prefetch_image", R"(
-        semantics {
-          sender: "Omnibox"
-          description:
-            "Chromium provides answers in the suggestion list for certain "
-            "queries that the user types in the omnibox. This request "
-            "retrieves a small image (for example, an icon illustrating the "
-            "current weather conditions) when this can add information to an "
-            "answer."
-          trigger:
-            "Change of results for the query typed by the user in the "
-            "omnibox."
-          data:
-            "The only data sent is the path to an image. No user data is "
-            "included, although some might be inferrable (e.g. whether the "
-            "weather is sunny or rainy in the user's current location) from "
-            "the name of the image in the path."
-          destination: WEBSITE
-        }
-        policy {
-          cookies_allowed: YES
-          cookies_store: "user"
-          setting:
-            "You can enable or disable this feature via 'Use a prediction "
-            "service to help complete searches and URLs typed in the "
-            "address bar.' in Chromium's settings under Advanced. The "
-            "feature is enabled by default."
-          chrome_policy {
-            SearchSuggestEnabled {
-                policy_options {mode: MANDATORY}
-                SearchSuggestEnabled: false
-            }
-          }
-        })");
-
-  image_service->Prefetch(url, traffic_annotation);
+  bitmap_fetcher_service->Prefetch(url);
 #endif  // !defined(OS_ANDROID)
 }
 

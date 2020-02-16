@@ -25,14 +25,12 @@ class FocusManagerTest : public ViewsTestBase, public WidgetDelegate {
   // Convenience to obtain the focus manager for the test's hosting widget.
   FocusManager* GetFocusManager();
 
-  // Overridden from ViewsTestBase:
+  // ViewsTestBase:
   void SetUp() override;
   void TearDown() override;
 
-  // Overridden from WidgetDelegate:
+  // WidgetDelegate:
   View* GetContentsView() override;
-  Widget* GetWidget() override;
-  const Widget* GetWidget() const override;
   void GetAccessiblePanes(std::vector<View*>* panes) override;
 
  protected:
@@ -47,6 +45,9 @@ class FocusManagerTest : public ViewsTestBase, public WidgetDelegate {
   void SetAccessiblePanes(const std::vector<View*>& panes);
 
  private:
+  // WidgetDelegate:
+  const Widget* GetWidgetImpl() const override;
+
   View* contents_view_;
   FocusChangeListener* focus_change_listener_ = nullptr;
   WidgetFocusChangeListener* widget_focus_change_listener_ = nullptr;
@@ -55,7 +56,7 @@ class FocusManagerTest : public ViewsTestBase, public WidgetDelegate {
   DISALLOW_COPY_AND_ASSIGN(FocusManagerTest);
 };
 
-typedef std::pair<View*, View*> ViewPair;
+using ViewPair = std::pair<View*, View*>;
 
 // Use to record focus change notifications.
 class TestFocusChangeListener : public FocusChangeListener {

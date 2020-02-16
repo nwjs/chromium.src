@@ -20,7 +20,7 @@ WorkletAnimation::WorkletAnimation(
     WorkletAnimationId worklet_animation_id,
     const std::string& name,
     double playback_rate,
-    std::unique_ptr<ScrollTimeline> scroll_timeline,
+    scoped_refptr<ScrollTimeline> scroll_timeline,
     std::unique_ptr<AnimationOptions> options,
     std::unique_ptr<AnimationEffectTimings> effect_timings,
     bool is_controlling_instance)
@@ -39,12 +39,12 @@ WorkletAnimation::WorkletAnimation(
     WorkletAnimationId worklet_animation_id,
     const std::string& name,
     double playback_rate,
-    std::unique_ptr<ScrollTimeline> scroll_timeline,
+    scoped_refptr<ScrollTimeline> scroll_timeline,
     std::unique_ptr<AnimationOptions> options,
     std::unique_ptr<AnimationEffectTimings> effect_timings,
     bool is_controlling_instance,
     std::unique_ptr<KeyframeEffect> effect)
-    : SingleKeyframeEffectAnimation(cc_animation_id, std::move(effect)),
+    : Animation(cc_animation_id, std::move(effect)),
       worklet_animation_id_(worklet_animation_id),
       name_(name),
       scroll_timeline_(std::move(scroll_timeline)),
@@ -65,7 +65,7 @@ scoped_refptr<WorkletAnimation> WorkletAnimation::Create(
     WorkletAnimationId worklet_animation_id,
     const std::string& name,
     double playback_rate,
-    std::unique_ptr<ScrollTimeline> scroll_timeline,
+    scoped_refptr<ScrollTimeline> scroll_timeline,
     std::unique_ptr<AnimationOptions> options,
     std::unique_ptr<AnimationEffectTimings> effect_timings) {
   return WrapRefCounted(new WorkletAnimation(
@@ -75,7 +75,7 @@ scoped_refptr<WorkletAnimation> WorkletAnimation::Create(
 }
 
 scoped_refptr<Animation> WorkletAnimation::CreateImplInstance() const {
-  std::unique_ptr<ScrollTimeline> impl_timeline;
+  scoped_refptr<ScrollTimeline> impl_timeline;
   if (scroll_timeline_)
     impl_timeline = scroll_timeline_->CreateImplInstance();
 
@@ -106,18 +106,21 @@ void WorkletAnimation::Tick(base::TimeTicks monotonic_time) {
   // animations lifecycle. To avoid this we pause the underlying keyframe effect
   // at the local time obtained from the user script - essentially turning each
   // call to |WorkletAnimation::Tick| into a seek in the effect.
-  keyframe_effect()->Pause(local_time_.value());
-  keyframe_effect()->Tick(monotonic_time);
+  keyframe_effect_->Pause(local_time_.value());
+  keyframe_effect_->Tick(monotonic_time);
 }
 
 void WorkletAnimation::UpdateState(bool start_ready_animations,
                                    AnimationEvents* events) {
   Animation::UpdateState(start_ready_animations, events);
+  if (last_synced_local_time_ != local_time_)
+    events->set_needs_time_updated_events(true);
+}
+
+void WorkletAnimation::TakeTimeUpdatedEvent(AnimationEvents* events) {
+  DCHECK(events->needs_time_updated_events());
   if (last_synced_local_time_ != local_time_) {
     AnimationEvent event(animation_timeline()->id(), id_, local_time_);
-    // TODO(http://crbug.com/1013654): Instead of pushing multiple events per
-    // single main frame, push just the recent one to be handled by next main
-    // frame.
     events->events_.push_back(event);
     last_synced_local_time_ = local_time_;
   }
@@ -268,27 +271,22 @@ bool WorkletAnimation::IsTimelineActive(const ScrollTree& scroll_tree,
          scroll_timeline_->IsActive(scroll_tree, is_active_tree);
 }
 
+void WorkletAnimation::PromoteScrollTimelinePendingToActive() {
+  Animation::PromoteScrollTimelinePendingToActive();
+  ReleasePendingTreeLock();
+}
+
 void WorkletAnimation::UpdateScrollTimeline(
     base::Optional<ElementId> scroller_id,
     base::Optional<double> start_scroll_offset,
     base::Optional<double> end_scroll_offset) {
-  // Calling this method implies that we are a ScrollTimeline based animation,
-  // so the below call is done unchecked.
-  scroll_timeline_->SetScrollerId(scroller_id);
-  scroll_timeline_->UpdateStartAndEndScrollOffsets(start_scroll_offset,
-                                                   end_scroll_offset);
-  SetNeedsPushProperties();
-}
-
-void WorkletAnimation::PromoteScrollTimelinePendingToActive() {
-  if (scroll_timeline_)
-    scroll_timeline_->PromoteScrollTimelinePendingToActive();
-  ReleasePendingTreeLock();
+  scroll_timeline_->UpdateScrollerIdAndScrollOffsets(
+      scroller_id, start_scroll_offset, end_scroll_offset);
 }
 
 void WorkletAnimation::RemoveKeyframeModel(int keyframe_model_id) {
   state_ = State::REMOVED;
-  SingleKeyframeEffectAnimation::RemoveKeyframeModel(keyframe_model_id);
+  Animation::RemoveKeyframeModel(keyframe_model_id);
 }
 
 bool WorkletAnimation::IsWorkletAnimation() const {

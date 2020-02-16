@@ -13,8 +13,10 @@ import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -332,16 +334,15 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
             TabModelImpl.startTabSwitchLatencyTiming(type);
         }
         if (mVisibleTab != null && mVisibleTab != tab && !mVisibleTab.needsReload()) {
-            TabImpl visibleTab = (TabImpl) mVisibleTab;
-            if (visibleTab.isInitialized() && !TabImpl.isDetached(visibleTab)) {
+            if (mVisibleTab.isInitialized() && !TabImpl.isDetached(mVisibleTab)) {
                 // TODO(dtrainor): Once we figure out why we can't grab a snapshot from the current
                 // tab when we have other tabs loading from external apps remove the checks for
                 // FROM_EXTERNAL_APP/FROM_NEW.
-                if (!visibleTab.isClosing()
+                if (!mVisibleTab.isClosing()
                         && (!isFromExternalApp || type != TabSelectionType.FROM_NEW)) {
                     cacheTabBitmap(mVisibleTab);
                 }
-                visibleTab.hide(TabHidingType.CHANGED_TABS);
+                mVisibleTab.hide(TabHidingType.CHANGED_TABS);
                 mTabSaver.addTabToSaveQueue(mVisibleTab);
             }
             mVisibleTab = null;
@@ -354,7 +355,7 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
 
         // We hit this case when the user enters tab switcher and comes back to the current tab
         // without actual tab switch.
-        if (mVisibleTab == tab && !((TabImpl) mVisibleTab).isHidden()) {
+        if (mVisibleTab == tab && !mVisibleTab.isHidden()) {
             // The current tab might have been killed by the os while in tab switcher.
             tab.loadIfNeeded();
             // |tabToDropImportance| must be null, so no need to drop importance.
@@ -366,7 +367,7 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
         // avoids uneccessary work (tab restore) and prevents pollution of tab display metrics - see
         // http://crbug.com/316166.
         if (type != TabSelectionType.FROM_EXIT) {
-            ((TabImpl) tab).show(type);
+            tab.show(type);
             mUma.onShowTab(tab.getId(), tab.isBeingRestored());
         }
     }

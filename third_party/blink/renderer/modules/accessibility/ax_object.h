@@ -409,7 +409,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   }
   virtual bool IsControl() const { return false; }
   virtual bool IsDefault() const { return false; }
-  virtual bool IsEmbeddedObject() const { return false; }
   virtual bool IsFieldset() const { return false; }
   virtual bool IsHeading() const { return false; }
   virtual bool IsImage() const { return false; }
@@ -716,6 +715,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual ax::mojom::Role DetermineAccessibilityRole();
   ax::mojom::Role DetermineAriaRoleAttribute() const;
   virtual ax::mojom::Role AriaRoleAttribute() const;
+  virtual bool HasAriaAttribute() const { return false; }
   virtual AXObject* ActiveDescendant() { return nullptr; }
   virtual String AutoComplete() const { return String(); }
   virtual void AriaOwnsElements(AXObjectVector& owns) const {}
@@ -735,7 +735,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool SupportsARIAExpanded() const;
   virtual bool SupportsARIADragging() const { return false; }
   virtual void Dropeffects(Vector<ax::mojom::Dropeffect>& dropeffects) const {}
-  virtual bool SupportsARIAFlowTo() const { return false; }
   virtual bool SupportsARIAOwns() const { return false; }
   bool SupportsRangeValue() const;
   bool SupportsARIAReadOnly() const;
@@ -1030,6 +1029,9 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
                                               const AXObject& second,
                                               int* index_in_ancestor1,
                                               int* index_in_ancestor2);
+
+  // Blink-internal DOM Node ID. Currently used for PDF exporting.
+  int GetDOMNodeId() const;
 
   // Returns a string representation of this object.
   String ToString() const;

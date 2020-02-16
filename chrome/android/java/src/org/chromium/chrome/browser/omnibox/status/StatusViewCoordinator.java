@@ -5,16 +5,17 @@
 package org.chromium.chrome.browser.omnibox.status;
 
 import android.content.res.Resources;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
+import org.chromium.chrome.browser.omnibox.UrlBar.UrlTextChangeListener;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.page_info.PageInfoController;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -24,7 +25,7 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
  * A component for displaying a status icon (e.g. security icon or navigation icon) and optional
  * verbose status text.
  */
-public class StatusViewCoordinator implements View.OnClickListener, TextWatcher {
+public class StatusViewCoordinator implements View.OnClickListener, UrlTextChangeListener {
     private final StatusView mStatusView;
     private final StatusMediator mMediator;
     private final PropertyModel mModel;
@@ -43,13 +44,11 @@ public class StatusViewCoordinator implements View.OnClickListener, TextWatcher 
         mIsTablet = isTablet;
         mStatusView = statusView;
 
-        mModel = new PropertyModel.Builder(StatusProperties.ALL_KEYS)
-                         .with(StatusProperties.STATUS_ICON_TINT_RES, R.color.divider_bg_color)
-                         .build();
+        mModel = new PropertyModel(StatusProperties.ALL_KEYS);
 
         PropertyModelChangeProcessor.create(mModel, mStatusView, new StatusViewBinder());
-        mMediator = new StatusMediator(
-                mModel, mStatusView.getResources(), urlBarEditingTextStateProvider);
+        mMediator = new StatusMediator(mModel, mStatusView.getResources(), mStatusView.getContext(),
+                urlBarEditingTextStateProvider);
 
         Resources res = mStatusView.getResources();
         mMediator.setUrlMinWidth(res.getDimensionPixelSize(R.dimen.location_bar_min_url_width)
@@ -158,13 +157,19 @@ public class StatusViewCoordinator implements View.OnClickListener, TextWatcher 
         return mMediator.isSecurityButtonShown();
     }
 
-    /**
-     * @return The ID of the drawable currently shown in the security icon.
-     */
-    @VisibleForTesting
+    /** @return The ID of the drawable currently shown in the security icon. */
     @DrawableRes
-    public int getSecurityIconResourceId() {
-        return mModel.get(StatusProperties.STATUS_ICON_RES);
+    public int getSecurityIconResourceIdForTesting() {
+        return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
+                ? 0
+                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconResForTesting();
+    }
+
+    /** @return The icon identifier used for custom resources. */
+    public String getSecurityIconIdentifierForTesting() {
+        return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
+                ? null
+                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconIdentifierForTesting();
     }
 
     /**
@@ -188,8 +193,11 @@ public class StatusViewCoordinator implements View.OnClickListener, TextWatcher 
             return;
         }
 
-        PageInfoController.show(((TabImpl) mToolbarDataProvider.getTab()).getActivity(),
-                mToolbarDataProvider.getTab(), null, PageInfoController.OpenedFromSource.TOOLBAR);
+        Tab tab = mToolbarDataProvider.getTab();
+        PageInfoController.show(((TabImpl) tab).getActivity(), tab.getWebContents(), null,
+                PageInfoController.OpenedFromSource.TOOLBAR,
+                /*offlinePageLoadUrlDelegate=*/
+                new OfflinePageUtils.TabOfflinePageLoadUrlDelegate(tab));
     }
 
     /**
@@ -239,13 +247,7 @@ public class StatusViewCoordinator implements View.OnClickListener, TextWatcher 
     }
 
     @Override
-    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-    @Override
-    public void onTextChanged(CharSequence charSequence, int start, int before, int count) {
-        mMediator.onTextChanged(charSequence);
+    public void onTextChanged(String textWithoutAutocomplete, String textWithAutocomplete) {
+        mMediator.onTextChanged(textWithoutAutocomplete);
     }
-
-    @Override
-    public void afterTextChanged(Editable editable) {}
 }

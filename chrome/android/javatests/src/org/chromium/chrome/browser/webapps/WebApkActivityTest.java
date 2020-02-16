@@ -11,33 +11,27 @@ import android.os.Build;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.LargeTest;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ActivityState;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
-import org.chromium.chrome.browser.DeferredStartupHandler;
-import org.chromium.chrome.browser.customtabs.CustomTabActivity;
-import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.tab.TabTestUtils;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
-import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.util.ApplicationTestUtils;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.browser.webapps.WebApkInfoBuilder;
 import org.chromium.content_public.browser.test.NativeLibraryTestRule;
-import org.chromium.content_public.browser.test.util.Criteria;
-import org.chromium.content_public.browser.test.util.CriteriaHelper;
-import org.chromium.content_public.browser.test.util.JavaScriptUtils;
+import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
 /** Tests for WebApkActivity. */
@@ -87,119 +81,12 @@ public final class WebApkActivityTest {
     }
 
     /**
-     * Test launching a WebAPK. Test that opening a url within scope through window.open() will open
-     * a CCT.
-     */
-    @Test
-    @LargeTest
-    @Feature({"WebApk"})
-    public void testLaunchAndOpenNewWindowInScope() throws Exception {
-        String scopeUrl = getTestServerUrl("scope_a/");
-        String inScopeUrl = getTestServerUrl("scope_a/page_1.html");
-        WebApkActivity webApkActivity =
-                mActivityTestRule.startWebApkActivity(createWebApkInfo(inScopeUrl, scopeUrl));
-
-        WebappActivityTestRule.jsWindowOpen(mActivityTestRule.getActivity(), inScopeUrl);
-
-        CustomTabActivity customTabActivity =
-                ChromeActivityTestRule.waitFor(CustomTabActivity.class);
-        ChromeTabUtils.waitForTabPageLoaded(customTabActivity.getActivityTab(), inScopeUrl);
-        Assert.assertTrue(
-                "Sending to external handlers needs to be enabled for redirect back (e.g. OAuth).",
-                IntentUtils.safeGetBooleanExtra(customTabActivity.getIntent(),
-                        CustomTabIntentDataProvider.EXTRA_SEND_TO_EXTERNAL_DEFAULT_HANDLER, false));
-    }
-
-    /**
-     * Test launching a WebAPK. Test that opening a url off scope through window.open() will open a
-     * CCT, and in scope urls will stay in the CCT.
-     */
-    @Test
-    @LargeTest
-    @Feature({"WebApk"})
-    public void testLaunchAndNavigationInNewWindowOffandInScope() throws Exception {
-        String scopeUrl = getTestServerUrl("scope_a/");
-        String inScopeUrl = getTestServerUrl("scope_a/page_1.html");
-        String offScopeUrl = getTestServerUrl("scope_b/scope_b.html");
-        WebApkActivity webApkActivity =
-                mActivityTestRule.startWebApkActivity(createWebApkInfo(inScopeUrl, scopeUrl));
-
-        WebappActivityTestRule.jsWindowOpen(mActivityTestRule.getActivity(), offScopeUrl);
-        CustomTabActivity customTabActivity =
-                ChromeActivityTestRule.waitFor(CustomTabActivity.class);
-        ChromeTabUtils.waitForTabPageLoaded(customTabActivity.getActivityTab(), offScopeUrl);
-
-        JavaScriptUtils.executeJavaScriptAndWaitForResult(
-                customTabActivity.getActivityTab().getWebContents(),
-                String.format("window.location.href='%s'", inScopeUrl));
-        ChromeTabUtils.waitForTabPageLoaded(customTabActivity.getActivityTab(), inScopeUrl);
-    }
-
-    /**
-     * Test that on first launch:
-     * - the "WebApk.LaunchInterval" histogram is not recorded (because there is no previous launch
-     *   to compute the interval from).
-     * - the "last used" time is updated (to compute future "launch intervals").
-     */
-    @Test
-    @LargeTest
-    @Feature({"WebApk"})
-    public void testLaunchIntervalHistogramNotRecordedOnFirstLaunch() {
-        android.util.Log.e("ABCD", "Start");
-        final String histogramName = "WebApk.LaunchInterval";
-        WebApkActivity webApkActivity = mActivityTestRule.startWebApkActivity(createWebApkInfo(
-                getTestServerUrl("manifest_test_page.html"), getTestServerUrl("/")));
-
-        CriteriaHelper.pollUiThread(new Criteria("Deferred startup never completed") {
-            @Override
-            public boolean isSatisfied() {
-                return DeferredStartupHandler.getInstance().isDeferredStartupCompleteForApp()
-                        && WebappRegistry.getInstance().getWebappDataStorage(TEST_WEBAPK_ID)
-                        != null;
-            }
-        });
-        Assert.assertEquals(0, RecordHistogram.getHistogramTotalCountForTesting(histogramName));
-        WebappDataStorage storage =
-                WebappRegistry.getInstance().getWebappDataStorage(TEST_WEBAPK_ID);
-        Assert.assertNotEquals(WebappDataStorage.TIMESTAMP_INVALID, storage.getLastUsedTimeMs());
-        android.util.Log.e("ABCD", "Start2");
-    }
-
-    /** Test that the "WebApk.LaunchInterval" histogram is recorded on susbequent launches. */
-    @Test
-    @LargeTest
-    @Feature({"WebApk"})
-    public void testLaunchIntervalHistogramRecordedOnSecondLaunch() throws Exception {
-        mNativeLibraryTestRule.loadNativeLibraryNoBrowserProcess();
-
-        final String histogramName = "WebApk.LaunchInterval2";
-        final String packageName = "org.chromium.webapk.test";
-
-        WebappDataStorage storage = registerWithStorage(TEST_WEBAPK_ID);
-        storage.setHasBeenLaunched();
-        storage.updateLastUsedTime();
-        Assert.assertEquals(0, RecordHistogram.getHistogramTotalCountForTesting(histogramName));
-
-        WebApkActivity webApkActivity = mActivityTestRule.startWebApkActivity(createWebApkInfo(
-                getTestServerUrl("manifest_test_page.html"), getTestServerUrl("/")));
-
-        CriteriaHelper.pollUiThread(new Criteria("Deferred startup never completed") {
-            @Override
-            public boolean isSatisfied() {
-                return DeferredStartupHandler.getInstance().isDeferredStartupCompleteForApp();
-            }
-        });
-
-        Assert.assertEquals(1, RecordHistogram.getHistogramTotalCountForTesting(histogramName));
-    }
-
-    /**
      * Test the L+ logic in {@link TabWebContentsDelegateAndroid#activateContents} for bringing
      * WebAPK to the foreground.
      */
     @LargeTest
     @Test
-    public void testActivateWebApkLPlus() {
+    public void testActivateWebApkLPlus() throws Exception {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return;
 
         // Launch WebAPK.
@@ -215,9 +102,13 @@ public final class WebApkActivityTest {
         InstrumentationRegistry.getTargetContext().startActivity(intent);
         ChromeActivityTestRule.waitFor(mainClass);
 
-        TabWebContentsDelegateAndroid tabDelegate =
-                TabTestUtils.getTabWebContentsDelegate(webApkActivity.getActivityTab());
-        tabDelegate.activateContents();
+        ApplicationTestUtils.waitForActivityState(webApkActivity, ActivityState.STOPPED);
+
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            TabWebContentsDelegateAndroid tabDelegate =
+                    TabTestUtils.getTabWebContentsDelegate(webApkActivity.getActivityTab());
+            tabDelegate.activateContents();
+        });
 
         // WebApkActivity should have been brought back to the foreground.
         ChromeActivityTestRule.waitFor(WebApkActivity.class);

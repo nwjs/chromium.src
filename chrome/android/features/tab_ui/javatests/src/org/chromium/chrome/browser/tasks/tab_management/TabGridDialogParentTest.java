@@ -23,12 +23,11 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.chrome.browser.tab.TabFeatureUtilities;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ui.DummyUiActivityTestCase;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
+import org.chromium.ui.test.util.DummyUiActivityTestCase;
 
 /**
  * DummyUiActivity Tests for the {@link TabGridDialogParent}.
@@ -51,27 +50,29 @@ public class TabGridDialogParentTest extends DummyUiActivityTestCase {
     @Override
     public void setUpTest() throws Exception {
         super.setUpTest();
-        TabFeatureUtilities.setIsTabToGtsAnimationEnabledForTesting(true);
 
-        mDummyParent = new FrameLayout(getActivity());
-        mTabGridDialogParent = new TabGridDialogParent(getActivity(), mDummyParent);
-        mPopoupWindow = mTabGridDialogParent.getPopupWindowForTesting();
-        FrameLayout tabGridDialogParentView =
-                mTabGridDialogParent.getTabGridDialogParentViewForTesting();
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            mDummyParent = new FrameLayout(getActivity());
+            mTabGridDialogParent = new TabGridDialogParent(getActivity(), mDummyParent);
+            mPopoupWindow = mTabGridDialogParent.getPopupWindowForTesting();
+            FrameLayout tabGridDialogParentView =
+                    mTabGridDialogParent.getTabGridDialogParentViewForTesting();
 
-        mTabGridDialogContainer = tabGridDialogParentView.findViewById(R.id.dialog_container_view);
-        mUngroupBar = mTabGridDialogContainer.findViewById(R.id.dialog_ungroup_bar);
-        mUngroupBarTextView = mUngroupBar.findViewById(R.id.dialog_ungroup_bar_text);
-        mContainerParams = (FrameLayout.LayoutParams) mTabGridDialogContainer.getLayoutParams();
-        mAnimationCardView = mTabGridDialogParent.getAnimationCardViewForTesting();
-        mBackgroundFrameView = tabGridDialogParentView.findViewById(R.id.dialog_frame);
+            mTabGridDialogContainer =
+                    tabGridDialogParentView.findViewById(R.id.dialog_container_view);
+            mUngroupBar = mTabGridDialogContainer.findViewById(R.id.dialog_ungroup_bar);
+            mUngroupBarTextView = mUngroupBar.findViewById(R.id.dialog_ungroup_bar_text);
+            mContainerParams = (FrameLayout.LayoutParams) mTabGridDialogContainer.getLayoutParams();
+            mAnimationCardView = mTabGridDialogParent.getAnimationCardViewForTesting();
+            mBackgroundFrameView = tabGridDialogParentView.findViewById(R.id.dialog_frame);
 
-        mToolbarHeight =
-                (int) getActivity().getResources().getDimension(R.dimen.tab_group_toolbar_height);
-        mTopMargin =
-                (int) getActivity().getResources().getDimension(R.dimen.tab_grid_dialog_top_margin);
-        mSideMargin = (int) getActivity().getResources().getDimension(
-                R.dimen.tab_grid_dialog_side_margin);
+            mToolbarHeight = (int) getActivity().getResources().getDimension(
+                    R.dimen.tab_group_toolbar_height);
+            mTopMargin = (int) getActivity().getResources().getDimension(
+                    R.dimen.tab_grid_dialog_top_margin);
+            mSideMargin = (int) getActivity().getResources().getDimension(
+                    R.dimen.tab_grid_dialog_side_margin);
+        });
     }
 
     @Test

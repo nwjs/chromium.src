@@ -6,6 +6,7 @@
 #define WEBLAYER_PUBLIC_NAVIGATION_CONTROLLER_H_
 
 #include <algorithm>
+#include <string>
 
 class GURL;
 
@@ -30,6 +31,9 @@ class NavigationController {
 
   virtual bool CanGoForward() = 0;
 
+  // Navigates to the specified absolute index.
+  virtual void GoToIndex(int index) = 0;
+
   virtual void Reload() = 0;
 
   virtual void Stop() = 0;
@@ -44,6 +48,10 @@ class NavigationController {
   // Gets the URL of the given entry in the back/forward list, or an empty GURL
   // if there is no navigation entry at that index.
   virtual GURL GetNavigationEntryDisplayURL(int index) = 0;
+
+  // Gets the page title of the given entry in the back/forward list, or an
+  // empty string if there is no navigation entry at that index.
+  virtual std::string GetNavigationEntryTitle(int index) = 0;
 };
 
 }  // namespace weblayer

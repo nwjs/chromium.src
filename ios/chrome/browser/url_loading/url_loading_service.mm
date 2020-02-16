@@ -10,7 +10,6 @@
 #import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/prerender/prerender_service.h"
 #import "ios/chrome/browser/prerender/prerender_service_factory.h"
-#import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/ntp/ntp_util.h"
 #import "ios/chrome/browser/url_loading/app_url_loading_service.h"
@@ -19,6 +18,7 @@
 #import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/url_loading/url_loading_util.h"
 #import "ios/chrome/browser/web/load_timing_tab_helper.h"
+#import "ios/chrome/browser/web_state_list/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "net/base/url_util.h"
 
@@ -85,7 +85,7 @@ void UrlLoadingService::Load(const UrlLoadParams& params) {
       break;
     }
     case UrlLoadStrategy::ALWAYS_IN_INCOGNITO: {
-      ios::ChromeBrowserState* browser_state = browser_->GetBrowserState();
+      ChromeBrowserState* browser_state = browser_->GetBrowserState();
       if (params.disposition == WindowOpenDisposition::CURRENT_TAB &&
           !browser_state->IsOffTheRecord()) {
         UrlLoadingServiceFactory::GetForBrowserState(
@@ -127,7 +127,7 @@ void UrlLoadingService::Dispatch(const UrlLoadParams& params) {
 void UrlLoadingService::LoadUrlInCurrentTab(const UrlLoadParams& params) {
   web::NavigationManager::WebLoadParams web_params = params.web_params;
 
-  ios::ChromeBrowserState* browser_state = browser_->GetBrowserState();
+  ChromeBrowserState* browser_state = browser_->GetBrowserState();
 
   notifier_->TabWillLoadUrl(web_params.url, web_params.transition_type);
 
@@ -174,11 +174,9 @@ void UrlLoadingService::LoadUrlInCurrentTab(const UrlLoadParams& params) {
 
   // Ask the prerender service to load this URL if it can, and return if it does
   // so.
-  id<SessionWindowRestoring> restorer =
-      (id<SessionWindowRestoring>)browser_->GetTabModel();
-  if (prerenderService && prerenderService->MaybeLoadPrerenderedURL(
-                              web_params.url, web_params.transition_type,
-                              web_state_list, restorer)) {
+  if (prerenderService &&
+      prerenderService->MaybeLoadPrerenderedURL(
+          web_params.url, web_params.transition_type, browser_)) {
     notifier_->TabDidPrerenderUrl(web_params.url, web_params.transition_type);
     return;
   }
@@ -226,7 +224,7 @@ void UrlLoadingService::SwitchToTab(const UrlLoadParams& params) {
       Load(UrlLoadParams::InCurrentTab(web_params));
     } else {
       // Load the URL in foreground.
-      ios::ChromeBrowserState* browser_state = browser_->GetBrowserState();
+      ChromeBrowserState* browser_state = browser_->GetBrowserState();
       UrlLoadParams new_tab_params =
           UrlLoadParams::InNewTab(web_params.url, web_params.virtual_url);
       new_tab_params.web_params.referrer = web::Referrer();
@@ -256,7 +254,7 @@ void UrlLoadingService::LoadUrlInNewTab(const UrlLoadParams& params) {
   DCHECK(app_service_);
   DCHECK(delegate_);
   DCHECK(browser_);
-  ios::ChromeBrowserState* browser_state = browser_->GetBrowserState();
+  ChromeBrowserState* browser_state = browser_->GetBrowserState();
 
   // Two UrlLoadingServices exist, normal and incognito.  Handle two special
   // cases that need to be sent up to the AppUrlLoadingService:
@@ -283,21 +281,17 @@ void UrlLoadingService::LoadUrlInNewTab(const UrlLoadParams& params) {
   // lead to be calling it twice, and calling 'did' below once.
   notifier_->NewTabWillLoadUrl(params.web_params.url, params.user_initiated);
 
-  TabModel* tab_model = browser_->GetTabModel();
-
   web::WebState* adjacent_web_state = nil;
   if (params.append_to == kCurrentTab)
-    adjacent_web_state = tab_model.webStateList->GetActiveWebState();
+    adjacent_web_state = browser_->GetWebStateList()->GetActiveWebState();
 
   UrlLoadParams saved_params = params;
   auto openTab = ^{
-    [tab_model insertWebStateWithLoadParams:saved_params.web_params
-                                     opener:adjacent_web_state
-                                openedByDOM:NO
-                                    atIndex:TabModelConstants::
-                                                kTabPositionAutomatically
-                               inBackground:saved_params.in_background()];
-
+    TabInsertionBrowserAgent* insertionAgent =
+        TabInsertionBrowserAgent::FromBrowser(browser_);
+    insertionAgent->InsertWebState(saved_params.web_params, adjacent_web_state,
+                                   false, TabInsertion::kPositionAutomatically,
+                                   saved_params.in_background());
     notifier_->NewTabDidLoadUrl(saved_params.web_params.url,
                                 saved_params.user_initiated);
   };

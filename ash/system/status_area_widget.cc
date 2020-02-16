@@ -9,6 +9,7 @@
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/accessibility/dictation_button_tray.h"
@@ -28,6 +29,7 @@
 #include "base/containers/adapters.h"
 #include "base/i18n/time_formatting.h"
 #include "chromeos/constants/chromeos_switches.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/display/display.h"
 #include "ui/native_theme/native_theme_dark_aura.h"
 
@@ -96,6 +98,7 @@ void StatusAreaWidget::Initialize() {
       Shell::Get()->session_controller()->login_status());
 
   ShelfConfig::Get()->AddObserver(this);
+  Shell::Get()->session_controller()->AddObserver(this);
 
   // NOTE: Container may be hidden depending on login/display state.
   Show();
@@ -105,6 +108,7 @@ void StatusAreaWidget::Initialize() {
 
 StatusAreaWidget::~StatusAreaWidget() {
   ShelfConfig::Get()->RemoveObserver(this);
+  Shell::Get()->session_controller()->RemoveObserver(this);
 }
 
 void StatusAreaWidget::UpdateAfterShelfAlignmentChange() {
@@ -134,6 +138,11 @@ void StatusAreaWidget::SetSystemTrayVisibility(bool visible) {
     tray->CloseBubble();
     Hide();
   }
+}
+
+void StatusAreaWidget::OnSessionStateChanged(
+    session_manager::SessionState state) {
+  UpdateAfterColorModeChange();
 }
 
 void StatusAreaWidget::UpdateCollapseState() {
@@ -178,6 +187,29 @@ void StatusAreaWidget::UpdateCollapseState() {
       tray_button->UpdateAfterStatusAreaCollapseChange();
     }
   }
+
+  status_area_widget_delegate_->OnStatusAreaCollapseStateChanged(
+      collapse_state_);
+}
+
+void StatusAreaWidget::CalculateTargetBounds() {
+  // TODO(manucornet): Move target bounds calculations from the shelf layout
+  // manager.
+}
+
+void StatusAreaWidget::UpdateLayout(bool animate) {
+  const ShelfLayoutManager* layout_manager = shelf_->shelf_layout_manager();
+  ui::Layer* layer = GetNativeView()->layer();
+  ui::ScopedLayerAnimationSettings animation_setter(layer->GetAnimator());
+  layer->SetOpacity(layout_manager->GetOpacity());
+
+  animation_setter.SetTransitionDuration(
+      animate ? ShelfConfig::Get()->shelf_animation_duration()
+              : base::TimeDelta::FromMilliseconds(0));
+  animation_setter.SetTweenType(gfx::Tween::EASE_OUT);
+  animation_setter.SetPreemptionStrategy(
+      ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
+  SetBounds(layout_manager->GetStatusAreaBoundsInScreen());
 }
 
 void StatusAreaWidget::CalculateButtonVisibilityForCollapsedState() {
@@ -317,6 +349,11 @@ void StatusAreaWidget::OnShelfConfigUpdated() {
   for (TrayBackgroundView* tray_button : tray_buttons_)
     tray_button->UpdateAfterShelfChange();
   UpdateCollapseState();
+}
+
+void StatusAreaWidget::UpdateAfterColorModeChange() {
+  for (TrayBackgroundView* tray_button : tray_buttons_)
+    tray_button->UpdateAfterColorModeChange();
 }
 
 void StatusAreaWidget::AddTrayButton(TrayBackgroundView* tray_button) {

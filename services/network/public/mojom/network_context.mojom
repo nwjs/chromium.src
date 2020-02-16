@@ -33,6 +33,7 @@ import "services/network/public/mojom/proxy_lookup_client.mojom";
 import "services/network/public/mojom/proxy_resolving_socket.mojom";
 import "services/network/public/mojom/quic_transport.mojom";
 import "services/network/public/mojom/restricted_cookie_manager.mojom";
+import "services/network/public/mojom/site_for_cookies.mojom";
 import "services/network/public/mojom/ssl_config.mojom";
 import "services/network/public/mojom/tcp_socket.mojom";
 import "services/network/public/mojom/udp_socket.mojom";
@@ -449,6 +450,12 @@ struct NetworkContextParams {
   // the dynamic preference from NetworkService side, to populate
   // HttpAuthPreference.
   HttpAuthStaticNetworkContextParams? http_auth_static_network_context_params;
+
+  // Indicates that the HttpCache back-end should be reset (e.g. when a Finch
+  // experiment changes the cache key representation via NetworkIsolationKey).
+  // A reset throws out all existing cache content when loading the cache,
+  // effectively starting with an empty cache.
+  bool reset_http_cache_backend = false;
 };
 
 struct NetworkConditions {
@@ -490,11 +497,11 @@ struct ClearDataFilter {
 struct NetworkUsage {
   // |process_id| is 0 for the browser process, otherwise it's the child process
   // ID.
-  uint32 process_id;
+  int32 process_id;
 
   // The ID of the IPC route for the consumer, which identifies the RenderFrame
   // or like-thing.
-  uint32 routing_id;
+  int32 routing_id;
 
   // Raw bytes received from the network since the start/restart of the service.
   int64 total_bytes_received;
@@ -519,8 +526,8 @@ struct SignedExchangeReport {
   mojo_base.mojom.TimeDelta elapsed_time;
 };
 
-const uint32 kBrowserProcessId = 0;
-const uint32 kInvalidProcessId = 0xffffffff;
+const int32 kBrowserProcessId = 0;
+const int32 kInvalidProcessId = -1;
 
 // URLLoaderFactory made by the network service consists of two layers of
 // factories, the "internal" one that directly talks to the //net layer, and
@@ -547,17 +554,21 @@ struct URLLoaderFactoryOverride {
 struct URLLoaderFactoryParams {
   // Process requesting the URLLoaderFactory.
   // Set to kBrowserProcessId to indicate the browser process.
-  uint32 process_id = kInvalidProcessId;
+  int32 process_id = kInvalidProcessId;
 
   // If specified, then |request_initiator_site_lock| locks
   // |ResourceRequest::request_initiator| to the specified origin.
-  // TODO(lukasza): https://crbug.com/891872: Make this non-optional.
-  // TODO(lukasza, nasko): https://crbug.com/888079: Make this an *origin* lock
-  // (rather than just a site lock).
+  // TODO(lukasza): https://crbug.com/891872: 1) Make this non-optional,
+  // 2) Make this an *origin* lock (rather than a *site* lock).
   url.mojom.Origin? request_initiator_site_lock;
 
   // Cross-origin read blocking (CORB) configuration.
   bool is_corb_enabled = true;
+
+  // Whether |isolated_world_origin| from network::ResourceRequest should be
+  // ignored.  Set |ignore_isolated_world_origin| to |false| to allow isolated
+  // worlds to bypass CORS security checks via OriginAccessList.
+  bool ignore_isolated_world_origin = true;
 
   // Indicate whether a request is not from web page ( probably from chrome
   // extension background page ).
@@ -588,6 +599,9 @@ struct URLLoaderFactoryParams {
 
   // Key used to isolate shared network resources like the cache.
   NetworkIsolationKey? network_isolation_key;
+
+  // Whether secure DNS should be disabled for requests.
+  bool disable_secure_dns = false;
 
   // True if this is for exclusive use by a trusted consumer. Only trusted
   // consumers can issue requests with ResourceRequest::trusted_params
@@ -671,8 +685,8 @@ interface NetworkContextClient {
   // network::ResourceRequest::fetch_window_id.
   OnAuthRequired(
       mojo_base.mojom.UnguessableToken? window_id,
-      uint32 process_id,
-      uint32 routing_id,
+      int32 process_id,
+      int32 routing_id,
       uint32 request_id,
       url.mojom.Url url,
       bool first_auth_attempt,
@@ -690,8 +704,8 @@ interface NetworkContextClient {
   // making the request, see network::ResourceRequest::fetch_window_id.
   OnCertificateRequested(
       mojo_base.mojom.UnguessableToken? window_id,
-      uint32 process_id,
-      uint32 routing_id,
+      int32 process_id,
+      int32 routing_id,
       uint32 request_id,
       network.mojom.SSLCertRequestInfo cert_info,
       pending_remote<ClientCertificateResponder> cert_responder);
@@ -699,8 +713,8 @@ interface NetworkContextClient {
   // Called when an SSL certificate is encountered.
   // The callback argument is a net::ERROR value. If it's net::OK, then the
   // request is resumed. Otherwise it's cancelled with the given error.
-  OnSSLCertificateError(uint32 process_id,
-                        uint32 routing_id,
+  OnSSLCertificateError(int32 process_id,
+                        int32 routing_id,
                         url.mojom.Url url,
                         int32 net_error,
                         SSLInfo ssl_info,
@@ -714,7 +728,7 @@ interface NetworkContextClient {
   // If any files referenced by |file_paths| cannot be read, a net::ERROR will
   // be returned, and |files| will be an empty list. If the |async| parameter
   // is true, the files will be opened with FLAG_ASYNC.
-  OnFileUploadRequested(uint32 process_id,
+  OnFileUploadRequested(int32 process_id,
                         bool async,
                         array<mojo_base.mojom.FilePath> file_paths) =>
                         (int32 net_error, array<mojo_base.mojom.File> files);
@@ -732,7 +746,7 @@ interface NetworkContextClient {
   // https://www.w3.org/TR/clear-site-data/
   // TODO(crbug.com/876931): We might want to move header parsing work to
   // Network Service for security concerns (e.g. |header_value| => booleans).
-  OnClearSiteData(uint32 process_id,
+  OnClearSiteData(int32 process_id,
                   int32 routing_id,
                   url.mojom.Url url,
                   string header_value,
@@ -756,7 +770,7 @@ interface NetworkContextClient {
   // the relevant frame.
   OnCookiesChanged(
       bool is_service_worker, int32 process_id, int32 routing_id,
-      url.mojom.Url url, url.mojom.Url site_for_cookies,
+      url.mojom.Url url, SiteForCookies site_for_cookies,
       array<CookieWithStatus> cookie_list);
 
   // Called when an attempt has been made to read the cookies in |cookie_list|,
@@ -778,7 +792,7 @@ interface NetworkContextClient {
   // the relevant frame.
   OnCookiesRead(
       bool is_service_worker, int32 process_id, int32 routing_id,
-      url.mojom.Url url, url.mojom.Url site_for_cookies,
+      url.mojom.Url url, SiteForCookies site_for_cookies,
       array<CookieWithStatus> cookie_list);
 
   // Called to generate an auth token for SPNEGO authentication on Android.
@@ -817,10 +831,9 @@ interface NetworkContext {
   // Gets a RestrictedCookieManager scoped to a given origin, and applying
   // settings configured on the CookieManager associated with this domain.
   //
-  // |site_for_cookies| represents which domains the cookie manager should
-  // consider to be first-party, for purposes of SameSite cookies and any
-  // third-party cookie blocking the embedder may implement. Empty
-  // |site_for_cookies| denotes that no domains are first-party.
+  // |site_for_cookies| represents which domains (perhaps none) the cookie
+  // manager should consider to be first-party, for purposes of SameSite cookies
+  // and any third-party cookie blocking the embedder may implement.
   //
   // |top_frame_origin| represents the domain for top-level frame, and can be
   // used to look up preferences that are dependent on that.
@@ -834,7 +847,7 @@ interface NetworkContext {
       pending_receiver<RestrictedCookieManager> restricted_cookie_manager,
       RestrictedCookieManagerRole role,
       url.mojom.Origin origin,
-      url.mojom.Url site_for_cookies,
+      SiteForCookies site_for_cookies,
       url.mojom.Origin top_frame_origin,
       bool is_service_worker,
       int32 process_id, int32 routing_id);
@@ -1112,7 +1125,7 @@ interface NetworkContext {
   CreateWebSocket(
         url.mojom.Url url,
         array<string> requested_protocols,
-        url.mojom.Url site_for_cookies,
+        SiteForCookies site_for_cookies,
         NetworkIsolationKey network_isolation_key,
         array<HttpHeader> additional_headers,
         int32 process_id,
@@ -1123,7 +1136,9 @@ interface NetworkContext {
         pending_remote<AuthenticationHandler>? auth_handler,
         pending_remote<TrustedHeaderClient>? header_client);
 
-  // Creates a QuicTransport connection to |url|.
+  // Creates a QuicTransport connection to |url|. |origin| is used for the
+  // client indication - see
+  // https://tools.ietf.org/html/draft-vvv-webtransport-quic-01#section-3.2 .
   //
   // It is recommended to detect mojo connection errors on |handshake_client|.
   CreateQuicTransport(

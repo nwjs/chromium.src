@@ -28,16 +28,8 @@ cr.define('settings_sync_account_control', function() {
       testElement.syncStatus = {signedIn: signedIn};
     }
 
-    suiteSetup(function() {
-      // Force UIs to think DICE is enabled for this profile.
-      loadTimeData.overrideValues({
-        diceEnabled: true,
-      });
-    });
-
     setup(function() {
-      assertFalse(loadTimeData.getBoolean('privacySettingsRedesignEnabled'));
-
+      sync_test_util.setupRouterWithSyncRoutes();
       browserProxy = new TestSyncBrowserProxy();
       settings.SyncBrowserProxyImpl.instance_ = browserProxy;
 
@@ -130,7 +122,10 @@ cr.define('settings_sync_account_control', function() {
 
       assertVisible(testElement.$$('#promo-header'), true);
       assertVisible(testElement.$$('#avatar-row'), false);
-      assertVisible(testElement.$$('#menu'), false);
+      // Chrome OS does not use the account switch menu.
+      if (!cr.isChromeOS) {
+        assertVisible(testElement.$$('#menu'), false);
+      }
       assertVisible(testElement.$$('#sign-in'), true);
 
       testElement.$$('#sign-in').click();
@@ -138,6 +133,10 @@ cr.define('settings_sync_account_control', function() {
     });
 
     test('not signed in but has stored accounts', function() {
+      // Chrome OS users are always signed in.
+      if (cr.isChromeOS) {
+        return;
+      }
       testElement.syncStatus = {
         firstSetupInProgress: false,
         signedIn: false,
@@ -243,11 +242,14 @@ cr.define('settings_sync_account_control', function() {
       Polymer.dom.flush();
 
       assertVisible(testElement.$$('#avatar-row'), true);
-      assertVisible(testElement.$$('cr-icon-button'), false);
       assertVisible(testElement.$$('#promo-header'), false);
       assertFalse(testElement.$$('#sync-icon-container').hidden);
 
-      assertFalse(!!testElement.$$('#menu'));
+      // Chrome OS does not use the account switch menu.
+      if (!cr.isChromeOS) {
+        assertVisible(testElement.$$('cr-icon-button'), false);
+        assertFalse(!!testElement.$$('#menu'));
+      }
 
       const userInfo = testElement.$$('#user-info');
       assertTrue(userInfo.textContent.includes('barName'));
@@ -262,7 +264,9 @@ cr.define('settings_sync_account_control', function() {
       testElement.$$('#avatar-row #turn-off').click();
       Polymer.dom.flush();
 
-      assertEquals(settings.getCurrentRoute(), settings.routes.SIGN_OUT);
+      assertEquals(
+          settings.Router.getInstance().getCurrentRoute(),
+          settings.routes.SIGN_OUT);
     });
 
     test('signed in, has error', function() {
@@ -498,51 +502,6 @@ cr.define('settings_sync_account_control', function() {
       };
       assertVisible(testElement.$$('#turn-off'), false);
       assertVisible(testElement.$$('#sync-error-button'), false);
-    });
-
-    test('PrivacySettingsRedesignEnabled_False', function() {
-      // Ensure that the sync button is enabled regardless of signin pref.
-      assertTrue(testElement.getPref('signin.allowed_on_next_startup').value);
-      assertFalse(testElement.$$('#sign-in').disabled);
-      testElement.setPrefValue('signin.allowed_on_next_startup', false);
-      Polymer.dom.flush();
-      assertFalse(testElement.$$('#sign-in').disabled);
-    });
-  });
-
-  suite('PrivacySettingsRedesignTests', function() {
-    const peoplePage = null;
-    let browserProxy = null;
-    let testElement = null;
-
-    suiteSetup(function() {
-      loadTimeData.overrideValues({
-        privacySettingsRedesignEnabled: true,
-      });
-    });
-
-    setup(function() {
-      browserProxy = new TestSyncBrowserProxy();
-      settings.SyncBrowserProxyImpl.instance_ = browserProxy;
-
-      PolymerTest.clearBody();
-      testElement = document.createElement('settings-sync-account-control');
-      testElement.syncStatus = {
-        signedIn: true,
-        signedInUsername: 'foo@foo.com'
-      };
-      testElement.prefs = {
-        signin: {
-          allowed_on_next_startup:
-              {type: chrome.settingsPrivate.PrefType.BOOLEAN, value: true},
-        },
-      };
-      document.body.appendChild(testElement);
-      Polymer.dom.flush();
-    });
-
-    teardown(function() {
-      testElement.remove();
     });
 
     test('signinButtonDisabled', function() {

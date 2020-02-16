@@ -15,12 +15,16 @@
 #include "base/task/post_task.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/crostini/ansible/ansible_management_service_factory.h"
+#include "chrome/browser/chromeos/crostini/crostini_features.h"
+#include "chrome/browser/chromeos/crostini/crostini_installer_types.mojom.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/chromeos/crostini/crostini_terminal.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/webui/chromeos/crostini_installer/crostini_installer_dialog.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -37,6 +41,7 @@ namespace crostini {
 
 namespace {
 using SetupResult = CrostiniInstaller::SetupResult;
+constexpr char kCrostiniSetupSourceHistogram[] = "Crostini.SetupSource";
 
 class CrostiniInstallerFactory : public BrowserContextKeyedServiceFactory {
  public:
@@ -126,6 +131,10 @@ SetupResult ErrorToSetupResult(InstallerError error) {
       return SetupResult::kErrorSettingUpContainer;
     case InstallerError::kErrorInsufficientDiskSpace:
       return SetupResult::kErrorInsufficientDiskSpace;
+    case InstallerError::kErrorCreateContainer:
+      return SetupResult::kErrorCreateContainer;
+    case InstallerError::kErrorUnknown:
+      return SetupResult::kErrorUnknown;
   }
 
   NOTREACHED();
@@ -180,6 +189,20 @@ void CrostiniInstaller::Shutdown() {
         restart_id_, base::DoNothing());
     restart_id_ = CrostiniManager::kUninitializedRestartId;
   }
+}
+
+void CrostiniInstaller::ShowDialog(CrostiniUISurface ui_surface) {
+  // Defensive check to prevent showing the installer when crostini is not
+  // allowed.
+  if (!CrostiniFeatures::Get()->IsUIAllowed(profile_)) {
+    return;
+  }
+  base::UmaHistogramEnumeration(kCrostiniSetupSourceHistogram, ui_surface,
+                                crostini::CrostiniUISurface::kCount);
+
+  // TODO(lxj): We should pass the dialog |this| here instead of letting the
+  // webui to call |GetForProfile()| later.
+  chromeos::CrostiniInstallerDialog::Show(profile_);
 }
 
 void CrostiniInstaller::Install(CrostiniManager::RestartOptions options,
@@ -345,6 +368,15 @@ void CrostiniInstaller::OnContainerDownloading(int32_t download_percent) {
 
 void CrostiniInstaller::OnContainerCreated(CrostiniResult result) {
   DCHECK_EQ(installing_state_, InstallerState::kCreateContainer);
+  if (result != CrostiniResult::SUCCESS) {
+    if (content::GetNetworkConnectionTracker()->IsOffline()) {
+      LOG(ERROR) << "Network connection dropped while creating container";
+      HandleError(InstallerError::kErrorOffline);
+    } else {
+      HandleError(InstallerError::kErrorCreateContainer);
+    }
+    return;
+  }
   UpdateInstallingState(InstallerState::kSetupContainer);
 }
 
@@ -600,13 +632,7 @@ void CrostiniInstaller::OnCrostiniRestartFinished(CrostiniResult result) {
       DCHECK_EQ(state_, State::INSTALLING);
       LOG(ERROR) << "Failed to restart Crostini with error code: "
                  << static_cast<int>(result);
-      // TODO(lxj): The error code here is probably incorrect. If
-      // |CrostiniManager::CrostiniRestarter| failed to mount the container, it
-      // still calls this function with |SUCCESS| (see
-      // |CrostiniRestarter::OnMountEvent()|), so if we reach here (i.e.
-      // |state_| has not been set to |ERROR| but this function receives a
-      // failure result), something else is probably wrong.
-      HandleError(InstallerError::kErrorMountingContainer);
+      HandleError(InstallerError::kErrorUnknown);
     }
     return;
   }

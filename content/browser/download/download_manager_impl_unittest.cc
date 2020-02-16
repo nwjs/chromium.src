@@ -25,6 +25,7 @@
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "components/download/public/common/download_create_info.h"
@@ -47,6 +48,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
 
+using base::test::RunOnceCallback;
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::DoAll;
 using ::testing::Eq;
@@ -56,13 +59,6 @@ using ::testing::ReturnRef;
 using ::testing::ReturnRefOfCopy;
 using ::testing::SetArgPointee;
 using ::testing::StrictMock;
-using ::testing::_;
-
-ACTION_TEMPLATE(RunCallback,
-                HAS_1_TEMPLATE_PARAMS(int, k),
-                AND_1_VALUE_PARAMS(p0)) {
-  return std::get<k>(args).Run(p0);
-}
 
 namespace content {
 
@@ -80,16 +76,23 @@ class MockDownloadManagerDelegate : public DownloadManagerDelegate {
   ~MockDownloadManagerDelegate() override;
 
   MOCK_METHOD0(Shutdown, void());
-  MOCK_METHOD1(GetNextId, void(const DownloadIdCallback&));
+  void GetNextId(DownloadIdCallback cb) override { GetNextId_(cb); }
+  MOCK_METHOD1(GetNextId_, void(DownloadIdCallback&));
   MOCK_METHOD2(DetermineDownloadTarget,
-               bool(download::DownloadItem* item,
-                    const DownloadTargetCallback&));
+               bool(download::DownloadItem*, DownloadTargetCallback*));
   MOCK_METHOD1(ShouldOpenFileBasedOnExtension, bool(const base::FilePath&));
-  MOCK_METHOD2(ShouldCompleteDownload,
-               bool(download::DownloadItem*, base::OnceClosure));
-  MOCK_METHOD2(ShouldOpenDownload,
-               bool(download::DownloadItem*,
-                    const DownloadOpenDelayedCallback&));
+  bool ShouldCompleteDownload(download::DownloadItem* item,
+                              base::OnceClosure cb) override {
+    return ShouldCompleteDownload_(item, cb);
+  }
+  MOCK_METHOD2(ShouldCompleteDownload_,
+               bool(download::DownloadItem*, base::OnceClosure&));
+  bool ShouldOpenDownload(download::DownloadItem* item,
+                          DownloadOpenDelayedCallback cb) override {
+    return ShouldOpenDownload_(item, cb);
+  }
+  MOCK_METHOD2(ShouldOpenDownload_,
+               bool(download::DownloadItem*, DownloadOpenDelayedCallback&));
   MOCK_METHOD3(GetSaveDir,
                void(BrowserContext*, base::FilePath*, base::FilePath*));
   MOCK_METHOD5(ChooseSavePath,
@@ -382,7 +385,7 @@ TestInProgressManager::TestInProgressManager()
           nullptr,
           download::InProgressDownloadManager::IsOriginSecureCallback(),
           base::BindRepeating(&URLAlwaysSafe),
-          nullptr) {}
+          /*wake_lock_provider_binder*/ base::NullCallback()) {}
 
 void TestInProgressManager::AddDownloadItem(
     std::unique_ptr<download::DownloadItemImpl> item) {
@@ -527,6 +530,7 @@ class DownloadManagerTest : public testing::Test {
       const base::FilePath& target_path,
       download::DownloadItem::TargetDisposition disposition,
       download::DownloadDangerType danger_type,
+      download::DownloadItem::MixedContentStatus mixed_content_status,
       const base::FilePath& intermediate_path,
       download::DownloadInterruptReason interrupt_reason) {
     callback_called_ = true;
@@ -539,9 +543,9 @@ class DownloadManagerTest : public testing::Test {
 
   void DetermineDownloadTarget(download::DownloadItemImpl* item) {
     download_manager_->DetermineDownloadTarget(
-        item, base::Bind(
-            &DownloadManagerTest::DownloadTargetDeterminedCallback,
-            base::Unretained(this)));
+        item,
+        base::BindOnce(&DownloadManagerTest::DownloadTargetDeterminedCallback,
+                       base::Unretained(this)));
   }
 
   void OnInProgressDownloadManagerInitialized() {
@@ -598,8 +602,8 @@ TEST_F(DownloadManagerTest, StartDownload) {
 
   EXPECT_CALL(GetMockObserver(), OnDownloadCreated(download_manager_.get(), _))
       .WillOnce(Return());
-  EXPECT_CALL(GetMockDownloadManagerDelegate(), GetNextId(_))
-      .WillOnce(RunCallback<0>(local_id));
+  EXPECT_CALL(GetMockDownloadManagerDelegate(), GetNextId_(_))
+      .WillOnce(RunOnceCallback<0>(local_id));
 
 #if !defined(USE_X11)
   // Doing nothing will set the default download directory to null.
@@ -634,8 +638,8 @@ TEST_F(DownloadManagerTest, StartDownloadWithoutHistoryDB) {
   EXPECT_CALL(GetMockObserver(), OnDownloadCreated(download_manager_.get(), _))
       .WillOnce(Return());
   // Returning kInvalidId to indicate that the history db failed.
-  EXPECT_CALL(GetMockDownloadManagerDelegate(), GetNextId(_))
-      .WillOnce(RunCallback<0>(download::DownloadItem::kInvalidId));
+  EXPECT_CALL(GetMockDownloadManagerDelegate(), GetNextId_(_))
+      .WillOnce(RunOnceCallback<0>(download::DownloadItem::kInvalidId));
 
 #if !defined(USE_X11)
   // Doing nothing will set the default download directory to null.
@@ -718,9 +722,9 @@ TEST_F(DownloadManagerTest, GetDownloadByGuid) {
 
 namespace {
 
-base::Callback<bool(const GURL&)> GetSingleURLFilter(const GURL& url) {
-  return base::Bind(static_cast<bool (*)(const GURL&, const GURL&)>(operator==),
-                    GURL(url));
+base::RepeatingCallback<bool(const GURL&)> GetSingleURLFilter(const GURL& url) {
+  return base::BindRepeating(
+      [](const GURL& a, const GURL& b) { return a == b; }, url);
 }
 
 }  // namespace
@@ -738,7 +742,7 @@ TEST_F(DownloadManagerTest, RemoveDownloadsByURL) {
   EXPECT_CALL(GetMockDownloadItem(0), Remove());
   EXPECT_CALL(GetMockDownloadItem(1), Remove()).Times(0);
 
-  base::Callback<bool(const GURL&)> url_filter =
+  base::RepeatingCallback<bool(const GURL&)> url_filter =
       GetSingleURLFilter(download_urls_[0]);
   int remove_count = download_manager_->RemoveDownloadsByURLAndTime(
       std::move(url_filter), base::Time(), base::Time::Max());
@@ -774,8 +778,8 @@ TEST_F(DownloadManagerTest, OnInProgressDownloadsLoaded) {
   download_manager_->GetAllDownloads(&vector);
   ASSERT_EQ(0u, vector.size());
 
-  EXPECT_CALL(GetMockDownloadManagerDelegate(), GetNextId(_))
-      .WillOnce(RunCallback<0>(1));
+  EXPECT_CALL(GetMockDownloadManagerDelegate(), GetNextId_(_))
+      .WillOnce(RunOnceCallback<0>(1));
   OnHistoryDBInitialized();
   ASSERT_TRUE(download_manager_->GetDownloadByGuid(kGuid));
   download::DownloadItem* download =

@@ -438,8 +438,8 @@ class AppMenu::ZoomView : public AppMenuView {
     browser_zoom_subscription_ =
         zoom::ZoomEventManager::GetForBrowserContext(menu->browser_->profile())
             ->AddZoomLevelChangedCallback(
-                base::Bind(&AppMenu::ZoomView::OnZoomLevelChanged,
-                           base::Unretained(this)));
+                base::BindRepeating(&AppMenu::ZoomView::OnZoomLevelChanged,
+                                    base::Unretained(this)));
 
     decrement_button_ = CreateButtonWithAccName(
         IDS_ZOOM_MINUS2, InMenuButtonBackground::LEADING_BORDER,
@@ -1000,12 +1000,9 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
 
 bool AppMenu::ShouldExecuteCommandWithoutClosingMenu(int command_id,
                                                      const ui::Event& event) {
-  if (IsRecentTabsCommand(command_id) && event.IsMouseEvent()) {
-    const auto disposition = ui::DispositionFromEventFlags(event.flags());
-    if (disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB)
-      return true;
-  }
-  return false;
+  return IsRecentTabsCommand(command_id) && event.IsMouseEvent() &&
+         (ui::DispositionFromEventFlags(event.flags()) ==
+          WindowOpenDisposition::NEW_BACKGROUND_TAB);
 }
 
 void AppMenu::BookmarkModelChanged() {

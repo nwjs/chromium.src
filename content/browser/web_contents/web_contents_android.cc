@@ -353,6 +353,23 @@ ScopedJavaLocalRef<jobject> WebContentsAndroid::GetRenderWidgetHostView(
   return rwhva->GetJavaObject();
 }
 
+ScopedJavaLocalRef<jobjectArray> WebContentsAndroid::GetInnerWebContents(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj) {
+  std::vector<WebContents*> inner_web_contents =
+      web_contents_->GetInnerWebContents();
+  jclass clazz =
+      org_chromium_content_browser_webcontents_WebContentsImpl_clazz(env);
+  jobjectArray array =
+      env->NewObjectArray(inner_web_contents.size(), clazz, nullptr);
+  for (size_t i = 0; i < inner_web_contents.size(); i++) {
+    ScopedJavaLocalRef<jobject> contents_java =
+        inner_web_contents[i]->GetJavaWebContents();
+    env->SetObjectArrayElement(array, i, contents_java.obj());
+  }
+  return ScopedJavaLocalRef<jobjectArray>(env, array);
+}
+
 RenderWidgetHostViewAndroid*
     WebContentsAndroid::GetRenderWidgetHostViewAndroid() {
   RenderWidgetHostView* rwhv = NULL;
@@ -814,6 +831,12 @@ void WebContentsAndroid::NotifyRendererPreferenceUpdate(
   RenderViewHost* rvh = web_contents_->GetRenderViewHost();
   DCHECK(rvh);
   rvh->OnWebkitPreferencesChanged();
+}
+
+void WebContentsAndroid::NotifyBrowserControlsHeightChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& obj) {
+  web_contents_->GetNativeView()->OnBrowserControlsHeightChanged();
 }
 
 }  // namespace content

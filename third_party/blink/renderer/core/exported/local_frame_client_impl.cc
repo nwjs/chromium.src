@@ -38,12 +38,11 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
-#include "third_party/blink/public/common/frame/user_activation_update_type.h"
+#include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_provider.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_provider_client.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_media_player_source.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_error.h"
@@ -471,7 +470,7 @@ void LocalFrameClientImpl::DispatchDidFinishLoad() {
 
 void LocalFrameClientImpl::BeginNavigation(
     const ResourceRequest& request,
-    network::mojom::RequestContextFrameType frame_type,
+    mojom::RequestContextFrameType frame_type,
     Document* origin_document,
     DocumentLoader* document_loader,
     WebNavigationType type,
@@ -481,7 +480,7 @@ void LocalFrameClientImpl::BeginNavigation(
     bool is_client_redirect,
     TriggeringEventInfo triggering_event_info,
     HTMLFormElement* form,
-    ContentSecurityPolicyDisposition
+    network::mojom::CSPDisposition
         should_check_main_world_content_security_policy,
     mojo::PendingRemote<mojom::blink::BlobURLToken> blob_url_token,
     base::TimeTicks input_start_time,
@@ -494,7 +493,7 @@ void LocalFrameClientImpl::BeginNavigation(
     return;
 
   auto navigation_info = std::make_unique<WebNavigationInfo>();
-  navigation_info->url_request = WrappedResourceRequest(request);
+  navigation_info->url_request.CopyFrom(WrappedResourceRequest(request));
   navigation_info->frame_type = frame_type;
   navigation_info->navigation_type = type;
   navigation_info->navigation_policy = static_cast<WebNavigationPolicy>(policy);
@@ -503,10 +502,7 @@ void LocalFrameClientImpl::BeginNavigation(
   navigation_info->is_client_redirect = is_client_redirect;
   navigation_info->triggering_event_info = triggering_event_info;
   navigation_info->should_check_main_world_content_security_policy =
-      should_check_main_world_content_security_policy ==
-              kCheckContentSecurityPolicy
-          ? kWebContentSecurityPolicyDispositionCheck
-          : kWebContentSecurityPolicyDispositionDoNotCheck;
+      should_check_main_world_content_security_policy;
   navigation_info->blob_url_token = blob_url_token.PassPipe();
   navigation_info->input_start = input_start_time;
   navigation_info->initiator_csp = std::move(initiator_csp);
@@ -611,19 +607,9 @@ void LocalFrameClientImpl::DidStartLoading() {
   }
 }
 
-void LocalFrameClientImpl::ProgressEstimateChanged(double progress_estimate) {
-  if (web_frame_->Client())
-    web_frame_->Client()->DidChangeLoadProgress(progress_estimate);
-}
-
 void LocalFrameClientImpl::DidStopLoading() {
   if (web_frame_->Client())
     web_frame_->Client()->DidStopLoading();
-}
-
-void LocalFrameClientImpl::ForwardResourceTimingToParent(
-    const WebResourceTimingInfo& info) {
-  web_frame_->Client()->ForwardResourceTimingToParent(info);
 }
 
 void LocalFrameClientImpl::DownloadURL(
@@ -655,13 +641,9 @@ bool LocalFrameClientImpl::NavigateBackForward(int offset) const {
 
   bool has_user_gesture =
       LocalFrame::HasTransientUserActivation(web_frame_->GetFrame());
-  web_frame_->Client()->NavigateBackForwardSoon2(offset, has_user_gesture, web_frame_);
+  web_frame_->GetFrame()->GetLocalFrameHostRemote().GoToEntryAtOffset(
+      offset, has_user_gesture);
   return true;
-}
-
-void LocalFrameClientImpl::DidAccessInitialDocument() {
-  if (web_frame_->Client())
-    web_frame_->Client()->DidAccessInitialDocument();
 }
 
 void LocalFrameClientImpl::DidRunInsecureContent(const SecurityOrigin* origin,
@@ -748,11 +730,13 @@ void LocalFrameClientImpl::SelectorMatchChanged(
 DocumentLoader* LocalFrameClientImpl::CreateDocumentLoader(
     LocalFrame* frame,
     WebNavigationType navigation_type,
+    ContentSecurityPolicy* content_security_policy,
     std::unique_ptr<WebNavigationParams> navigation_params,
     std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) {
   DCHECK(frame);
   WebDocumentLoaderImpl* document_loader =
       MakeGarbageCollected<WebDocumentLoaderImpl>(frame, navigation_type,
+                                                  content_security_policy,
                                                   std::move(navigation_params));
   document_loader->SetExtraData(std::move(extra_data));
   if (web_frame_->Client())
@@ -888,10 +872,12 @@ void LocalFrameClientImpl::DidChangeFramePolicy(
 
 void LocalFrameClientImpl::DidSetFramePolicyHeaders(
     WebSandboxFlags sandbox_flags,
-    const ParsedFeaturePolicy& parsed_header) {
+    const ParsedFeaturePolicy& feature_policy_header,
+    const DocumentPolicy::FeatureState& document_policy_header) {
   if (web_frame_->Client()) {
     web_frame_->Client()->DidSetFramePolicyHeaders(
-        static_cast<WebSandboxFlags>(sandbox_flags), parsed_header);
+        static_cast<WebSandboxFlags>(sandbox_flags), feature_policy_header,
+        document_policy_header);
   }
 }
 
@@ -964,25 +950,20 @@ KURL LocalFrameClientImpl::OverrideFlashEmbedWithHTML(const KURL& url) {
 void LocalFrameClientImpl::NotifyUserActivation(
     bool need_browser_verification) {
   DCHECK(web_frame_->Client());
-  UserActivationUpdateType update_type =
+  mojom::blink::UserActivationUpdateType update_type =
       need_browser_verification
-          ? UserActivationUpdateType::
+          ? mojom::blink::UserActivationUpdateType::
                 kNotifyActivationPendingBrowserVerification
-          : UserActivationUpdateType::kNotifyActivation;
+          : mojom::blink::UserActivationUpdateType::kNotifyActivation;
   web_frame_->Client()->UpdateUserActivationState(update_type);
   if (WebAutofillClient* autofill_client = web_frame_->AutofillClient())
     autofill_client->UserGestureObserved();
 }
 
-void LocalFrameClientImpl::ConsumeUserActivation() {
+void LocalFrameClientImpl::ConsumeTransientUserActivation() {
   DCHECK(web_frame_->Client());
   web_frame_->Client()->UpdateUserActivationState(
-      UserActivationUpdateType::kConsumeTransientActivation);
-}
-
-void LocalFrameClientImpl::SetHasReceivedUserGestureBeforeNavigation(
-    bool value) {
-  web_frame_->Client()->SetHasReceivedUserGestureBeforeNavigation(value);
+      mojom::blink::UserActivationUpdateType::kConsumeTransientActivation);
 }
 
 void LocalFrameClientImpl::AbortClientNavigation() {
@@ -1023,29 +1004,8 @@ void LocalFrameClientImpl::AnnotatedRegionsChanged() {
   web_frame_->Client()->DraggableRegionsChanged();
 }
 
-void LocalFrameClientImpl::DidBlockNavigation(
-    const KURL& blocked_url,
-    const KURL& initiator_url,
-    blink::NavigationBlockedReason reason) {
-  web_frame_->Client()->DidBlockNavigation(blocked_url, initiator_url, reason);
-}
-
 base::UnguessableToken LocalFrameClientImpl::GetDevToolsFrameToken() const {
   return web_frame_->Client()->GetDevToolsFrameToken();
-}
-
-void LocalFrameClientImpl::ScrollRectToVisibleInParentFrame(
-    const WebRect& rect_to_scroll,
-    const WebScrollIntoViewParams& params) {
-  web_frame_->Client()->ScrollRectToVisibleInParentFrame(rect_to_scroll,
-                                                         params);
-}
-
-void LocalFrameClientImpl::BubbleLogicalScrollInParentFrame(
-    ScrollDirection direction,
-    ScrollGranularity granularity) {
-  web_frame_->Client()->BubbleLogicalScrollInParentFrame(direction,
-                                                         granularity);
 }
 
 String LocalFrameClientImpl::evaluateInInspectorOverlayForTesting(
@@ -1079,6 +1039,13 @@ Frame* LocalFrameClientImpl::FindFrame(const AtomicString& name) const {
 void LocalFrameClientImpl::FrameRectsChanged(const IntRect& frame_rect) {
   DCHECK(web_frame_->Client());
   web_frame_->Client()->FrameRectsChanged(frame_rect);
+}
+
+void LocalFrameClientImpl::OnMainFrameDocumentIntersectionChanged(
+    const IntRect& intersection_rect) {
+  DCHECK(web_frame_->Client());
+  web_frame_->Client()->OnMainFrameDocumentIntersectionChanged(
+      intersection_rect);
 }
 
 bool LocalFrameClientImpl::IsPluginHandledExternally(

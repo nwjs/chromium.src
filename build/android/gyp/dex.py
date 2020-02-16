@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 
 from util import build_utils
+from util import md5_check
 from util import zipalign
 
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), os.path.pardir))
@@ -272,9 +273,15 @@ def _CreateFinalDex(d8_inputs, output, tmp_dir, dex_cmd, options=None):
   tmp_dex_output = os.path.join(tmp_dir, 'tmp_dex_output.zip')
   if (output.endswith('.dex')
       or not all(f.endswith('.dex') for f in d8_inputs)):
-    if options and options.main_dex_list_path:
-      # Provides a list of classes that should be included in the main dex file.
-      dex_cmd = dex_cmd + ['--main-dex-list', options.main_dex_list_path]
+    if options:
+      if options.main_dex_list_path:
+        dex_cmd = dex_cmd + ['--main-dex-list', options.main_dex_list_path]
+      elif options.multi_dex and int(options.min_api or 1) < 21:
+        # When dexing library targets, it doesn't matter what's in the main dex.
+        tmp_main_dex_list_path = os.path.join(tmp_dir, 'main_list.txt')
+        with open(tmp_main_dex_list_path, 'w') as f:
+          f.write('Foo.class\n')
+        dex_cmd = dex_cmd + ['--main-dex-list', tmp_main_dex_list_path]
 
     tmp_dex_dir = os.path.join(tmp_dir, 'tmp_dex_dir')
     os.mkdir(tmp_dex_dir)
@@ -374,7 +381,6 @@ def _OnStaleMd5(changes, options, final_dex_inputs, dex_cmd):
 
     _CreateFinalDex(
         final_dex_inputs, options.output, tmp_dir, dex_cmd, options=options)
-  logging.debug('Dex finished for: %s', options.output)
 
 
 def MergeDexForIncrementalInstall(r8_jar_path, src_paths, dest_dex_jar):
@@ -389,9 +395,7 @@ def MergeDexForIncrementalInstall(r8_jar_path, src_paths, dest_dex_jar):
 
 
 def main(args):
-  logging.basicConfig(
-      level=logging.INFO if os.environ.get('DEX_DEBUG') else logging.WARNING,
-      format='%(levelname).1s %(relativeCreated)6d %(message)s')
+  build_utils.InitLogging('DEX_DEBUG')
   options = _ParseArgs(args)
 
   options.class_inputs += options.class_inputs_filearg
@@ -423,7 +427,7 @@ def main(args):
   if options.min_api:
     dex_cmd += ['--min-api', options.min_api]
 
-  build_utils.CallAndWriteDepfileIfStale(
+  md5_check.CallAndWriteDepfileIfStale(
       lambda changes: _OnStaleMd5(changes, options, final_dex_inputs, dex_cmd),
       options,
       depfile_deps=options.class_inputs_filearg + options.dex_inputs_filearg,

@@ -39,10 +39,8 @@
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/webui_url_constants.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/debug_daemon/debug_daemon_client.h"
-#include "chromeos/printing/ppd_cache.h"
 #include "chromeos/printing/ppd_line_reader.h"
 #include "chromeos/printing/printer_configuration.h"
 #include "chromeos/printing/printer_translator.h"
@@ -168,6 +166,7 @@ std::unique_ptr<chromeos::Printer> DictToPrinter(
   std::string printer_make_and_model;
   std::string printer_address;
   std::string printer_protocol;
+  std::string print_server_uri;
 
   if (!printer_dict.GetString("printerId", &printer_id) ||
       !printer_dict.GetString("printerName", &printer_name) ||
@@ -176,7 +175,8 @@ std::unique_ptr<chromeos::Printer> DictToPrinter(
       !printer_dict.GetString("printerModel", &printer_model) ||
       !printer_dict.GetString("printerMakeAndModel", &printer_make_and_model) ||
       !printer_dict.GetString("printerAddress", &printer_address) ||
-      !printer_dict.GetString("printerProtocol", &printer_protocol)) {
+      !printer_dict.GetString("printerProtocol", &printer_protocol) ||
+      !printer_dict.GetString("printServerUri", &print_server_uri)) {
     return nullptr;
   }
 
@@ -195,6 +195,7 @@ std::unique_ptr<chromeos::Printer> DictToPrinter(
   printer->set_model(printer_model);
   printer->set_make_and_model(printer_make_and_model);
   printer->set_uri(printer_uri);
+  printer->set_print_server_uri(print_server_uri);
 
   return printer;
 }
@@ -235,11 +236,6 @@ void SetPpdReference(const Printer::PpdReference& ppd_ref, base::Value* info) {
   } else {  // Must be autoconf, shouldn't be possible
     NOTREACHED() << "Succeeded in PPD matching without emm";
   }
-}
-
-bool IsFilledPpdReference(const Printer::PpdReference& ppd_ref) {
-  return ppd_ref.autoconf || !ppd_ref.user_supplied_ppd_url.empty() ||
-         !ppd_ref.effective_make_and_model.empty();
 }
 
 Printer::PpdReference GetPpdReference(const base::Value* info) {
@@ -405,6 +401,10 @@ void CupsPrintersHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "getEulaUrl", base::BindRepeating(&CupsPrintersHandler::HandleGetEulaUrl,
                                         base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "queryPrintServer",
+      base::BindRepeating(&CupsPrintersHandler::HandleQueryPrintServer,
+                          base::Unretained(this)));
 }
 
 void CupsPrintersHandler::OnJavascriptAllowed() {
@@ -736,7 +736,7 @@ void CupsPrintersHandler::AddOrReconfigurePrinter(const base::ListValue* args,
 
   // Check if the printer already has a valid ppd_reference.
   Printer::PpdReference ppd_ref = GetPpdReference(printer_dict);
-  if (IsFilledPpdReference(ppd_ref)) {
+  if (ppd_ref.IsFilled()) {
     *printer->mutable_ppd_reference() = ppd_ref;
   } else if (!printer_ppd_path.empty()) {
     GURL tmp = net::FilePathToFileURL(base::FilePath(printer_ppd_path));
@@ -1239,7 +1239,7 @@ void CupsPrintersHandler::OnGetEulaUrl(const std::string& callback_id,
     return;
   }
 
-  GURL eula_url(chrome::kChromeUIOSCreditsURL + license);
+  GURL eula_url = PrinterConfigurer::GeneratePrinterEulaUrl(license);
   ResolveJavascriptCallback(
       base::Value(callback_id),
       eula_url.is_valid() ? base::Value(eula_url.spec()) : base::Value());

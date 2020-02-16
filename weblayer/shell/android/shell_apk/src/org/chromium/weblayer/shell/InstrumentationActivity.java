@@ -25,6 +25,7 @@ import org.chromium.weblayer.Browser;
 import org.chromium.weblayer.Profile;
 import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.TabCallback;
+import org.chromium.weblayer.TabListCallback;
 import org.chromium.weblayer.UnsupportedVersionException;
 import org.chromium.weblayer.WebLayer;
 
@@ -35,7 +36,9 @@ import java.util.List;
  */
 public class InstrumentationActivity extends FragmentActivity {
     private static final String TAG = "WLInstrumentation";
+    private static final String KEY_MAIN_VIEW_ID = "mainViewId";
 
+    public static final String EXTRA_PERSISTENCE_ID = "EXTRA_PERSISTENCE_ID";
     public static final String EXTRA_PROFILE_NAME = "EXTRA_PROFILE_NAME";
 
     // Used in tests to specify whether WebLayer should be created automatically on launch.
@@ -43,6 +46,7 @@ public class InstrumentationActivity extends FragmentActivity {
     public static final String EXTRA_CREATE_WEBLAYER = "EXTRA_CREATE_WEBLAYER";
 
     private Profile mProfile;
+    private Fragment mFragment;
     private Browser mBrowser;
     private Tab mTab;
     private EditText mUrlView;
@@ -51,9 +55,14 @@ public class InstrumentationActivity extends FragmentActivity {
     private ViewGroup mTopContentsContainer;
     private IntentInterceptor mIntentInterceptor;
     private Bundle mSavedInstanceState;
+    private TabCallback mTabCallback;
 
     public Tab getTab() {
         return mTab;
+    }
+
+    public Fragment getFragment() {
+        return mFragment;
     }
 
     public Browser getBrowser() {
@@ -88,7 +97,11 @@ public class InstrumentationActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         mSavedInstanceState = savedInstanceState;
         LinearLayout mainView = new LinearLayout(this);
-        mMainViewId = View.generateViewId();
+        if (savedInstanceState == null) {
+            mMainViewId = View.generateViewId();
+        } else {
+            mMainViewId = savedInstanceState.getInt(KEY_MAIN_VIEW_ID);
+        }
         mainView.setId(mMainViewId);
         mMainView = mainView;
         setContentView(mainView);
@@ -117,6 +130,23 @@ public class InstrumentationActivity extends FragmentActivity {
         }
     }
 
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // When restoring Fragments, FragmentManager tries to put them in the containers with same
+        // ids as before.
+        outState.putInt(KEY_MAIN_VIEW_ID, mMainViewId);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mTabCallback != null) {
+            mTab.unregisterTabCallback(mTabCallback);
+            mTabCallback = null;
+        }
+    }
+
     private void createWebLayerAsync() {
         try {
             WebLayer.loadAsync(getApplicationContext(), webLayer -> onWebLayerReady());
@@ -138,19 +168,39 @@ public class InstrumentationActivity extends FragmentActivity {
     private void onWebLayerReady() {
         if (mBrowser != null || isFinishing() || isDestroyed()) return;
 
-        Fragment fragment = getOrCreateBrowserFragment();
-        mBrowser = Browser.fromFragment(fragment);
+        mFragment = getOrCreateBrowserFragment();
+        mBrowser = Browser.fromFragment(mFragment);
         mProfile = mBrowser.getProfile();
 
         mBrowser.setTopView(mTopContentsContainer);
 
-        mTab = mBrowser.getActiveTab();
-        mTab.registerTabCallback(new TabCallback() {
+        if (mBrowser.getActiveTab() == null) {
+            assert mBrowser.getTabs().size() == 0;
+            // This happens with session restore enabled.
+            mBrowser.registerTabListCallback(new TabListCallback() {
+                @Override
+                public void onTabAdded(Tab tab) {
+                    if (mTab == null) {
+                        mBrowser.unregisterTabListCallback(this);
+                        setTab(tab);
+                    }
+                }
+            });
+        } else {
+            setTab(mBrowser.getActiveTab());
+        }
+    }
+
+    private void setTab(Tab tab) {
+        assert mTab == null;
+        mTab = tab;
+        mTabCallback = new TabCallback() {
             @Override
             public void onVisibleUriChanged(Uri uri) {
                 mUrlView.setText(uri.toString());
             }
-        });
+        };
+        mTab.registerTabCallback(mTabCallback);
     }
 
     private Fragment getOrCreateBrowserFragment() {
@@ -173,7 +223,10 @@ public class InstrumentationActivity extends FragmentActivity {
         String profileName = getIntent().hasExtra(EXTRA_PROFILE_NAME)
                 ? getIntent().getStringExtra(EXTRA_PROFILE_NAME)
                 : "DefaultProfile";
-        Fragment fragment = WebLayer.createBrowserFragment(profileName);
+        String persistenceId = getIntent().hasExtra(EXTRA_PERSISTENCE_ID)
+                ? getIntent().getStringExtra(EXTRA_PERSISTENCE_ID)
+                : null;
+        Fragment fragment = WebLayer.createBrowserFragment(profileName, persistenceId);
         FragmentTransaction transaction = fragmentManager.beginTransaction();
         transaction.add(viewId, fragment);
 
@@ -187,6 +240,10 @@ public class InstrumentationActivity extends FragmentActivity {
     public void loadUrl(String url) {
         mTab.getNavigationController().navigate(Uri.parse(url));
         mUrlView.clearFocus();
+    }
+
+    public void setRetainInstance(boolean retain) {
+        mFragment.setRetainInstance(retain);
     }
 
     private static String getUrlFromIntent(Intent intent) {

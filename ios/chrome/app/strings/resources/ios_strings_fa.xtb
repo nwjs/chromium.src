@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">جستجوی ناشناس</translation>
 <translation id="277771892408211951">انتخاب زبان</translation>
 <translation id="2780046210906776326">حساب ایمیلی وجود ندارد</translation>
+<translation id="2781331604911854368">روشن</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">از تعویض‌کننده برگه خارج شوید</translation>
 <translation id="2830972654601096923">مدیریت نشانی‌ها…</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">برگه‌های باز</translation>
 <translation id="3277021493514034324">نشانی سایت کپی شد</translation>
 <translation id="3290875554372353449">انتخاب حساب</translation>
+<translation id="3311748811247479259">خاموش</translation>
 <translation id="3324193307694657476">آدرس ۲</translation>
 <translation id="3329904751041170572">اتصال به سرور امکان‌پذیر نیست.</translation>
 <translation id="3335947283844343239">باز کردن مجدد برگه بسته شده</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">فرم‌ها پر شد.</translation>
 <translation id="3478058380795961209">ماه انقضا</translation>
 <translation id="3482959374254649722">درحال همگام‌سازی برگه‌های شما...</translation>
+<translation id="3484946776651937681">باز کردن در بارگیری‌ها</translation>
 <translation id="3493531032208478708">درباره محتوای پیشنهادی <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="3494788280727468875">تأیید پاک کردن داده‌های مرور</translation>
+<translation id="35083190962747987">‏باز کردن {url}$</translation>
 <translation id="3519193562722059437">برگه‌ای برای مرور وب باز کنید.</translation>
 <translation id="3527085408025491307">پوشه</translation>
 <translation id="3529024052484145543">ناامن</translation>
@@ -301,6 +305,7 @@
 <translation id="5062321486222145940">‏نصب Google Drive</translation>
 <translation id="5083464117946352670">تعیین اندازه فایل ممکن نیست.</translation>
 <translation id="5094827893301452931">‏Tweet انجام شد.</translation>
+<translation id="5118764316110575523">خاموش</translation>
 <translation id="5127805178023152808">همگام‌سازی خاموش است</translation>
 <translation id="5132942445612118989">همگام‌سازی گذرواژه‌ها، سابقه و موارد دیگر در همه دستگاه‌ها</translation>
 <translation id="5140288047769711648">‏Chrome به جای شما گذرواژه‌تان را به‌خاطر می‌سپارد. لازم نیست آن را به‌خاطر بسپارید.</translation>
@@ -349,13 +354,11 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="5854790677617711513">قدیمی‌تر از ۳۰ روز</translation>
 <translation id="5857090052475505287">پوشهٔ جدید</translation>
 <translation id="5857770089550859117">برای شروع همگام‌سازی به عبارت عبور نیاز است.</translation>
-<translation id="5860033963881614850">خاموش</translation>
 <translation id="5869029295770560994">بله متوجه شدم</translation>
 <translation id="5871497086027727873">۱ مورد منتقل شد</translation>
 <translation id="5897956970858271241">به پیوندی که کپی کرده‌اید بروید</translation>
 <translation id="5911030830365207728">‏‫مترجم Google‬</translation>
 <translation id="5913600720976431809">گزینه‌های ترجمه صفحه</translation>
-<translation id="5916664084637901428">روشن</translation>
 <translation id="5938160824633642847">دستگاهتان تقریباً پر است. فضا آزاد کنید و دوباره امتحان کنید.</translation>
 <translation id="5948291296578561264">با این کار می‌توانید عکس‌ها را در کتابخانه عکستان ذخیره کنید.</translation>
 <translation id="5955891643922670672">درحال مشاهده نسخه آفلاین</translation>
@@ -365,6 +368,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="5979837087407522202">جستجوی گذرواژه‌ها</translation>
 <translation id="5982717868370722439">افزودن داده‌های موجود به <ph name="USER_EMAIL" />.</translation>
 <translation id="5984222099446776634">به‌تازگی بازدیدشده</translation>
+<translation id="5988851877894965432">‏باز کردن نشانی‌های وب در Chrome</translation>
 <translation id="6012140227487808125">در حال رمزگذاری…</translation>
 <translation id="6021332621416007159">بازکردن در...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />، <ph name="PUBLISHER_INFORMATION" />، <ph name="PUBLICATION_DATE" /></translation>
@@ -475,6 +479,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="734758817008927353">گزینه‌های ذخیره کارت</translation>
 <translation id="7348502496356775519">نشانک</translation>
 <translation id="7383797227493018512">فهرست خواندن</translation>
+<translation id="7392048574806661116">خارج شدن از سیستم و پاک کردن داده‌های همگام‌سازی‌شده</translation>
 <translation id="7400418766976504921">نشانی وب</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> مقاله خوانده‌نشده.</translation>
 <translation id="7425346204213733349">‏تغییرات در نشانک‌ها، سابقه، گذرواژه و سایر تنظیمات دیگر با حساب Google شما همگام‌سازی نخواهند شد. با این حال، داده‌های موجودتان در حساب Google شما باقی خواهند ماند.</translation>
@@ -514,6 +519,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="7961015016161918242">هرگز</translation>
 <translation id="7971521879845308059">انسداد پنجره‌های بازشو</translation>
 <translation id="7982789257301363584">شبکه</translation>
+<translation id="800361585186029508">‏نشانی‌های وب وارد‌شده در Google Chrome را باز می‌کند.</translation>
 <translation id="8007420562015504427">جستجوی ناشناس</translation>
 <translation id="8019783059653722575">این کار به شما اجازه می‌دهد عکس‌ها را ذخیره و بارگذاری کنید.</translation>
 <translation id="802154636333426148">بارگیری نشد</translation>
@@ -533,6 +539,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="8319076807703933069">جستجوی جدید</translation>
 <translation id="8323906514956095947">برای دیدن گزینه‌های بیشتر برگه، لمس کنید و نگه دارید</translation>
 <translation id="8328777765163860529">بستن همه</translation>
+<translation id="8386068868580335421">بازنشانی</translation>
 <translation id="8407669440184693619">هیچ گذرواژه‌ای برای این سایت پیدا نشد</translation>
 <translation id="842017693807136194">ورود به سیستم با</translation>
 <translation id="8428045167754449968">شهر / شهرک</translation>

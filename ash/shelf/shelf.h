@@ -27,6 +27,10 @@ class MouseWheelEvent;
 class MouseEvent;
 }
 
+namespace views {
+class View;
+}
+
 namespace ash {
 
 enum class AnimationChangeType;
@@ -100,10 +104,26 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   bool IsHorizontalAlignment() const;
 
   // Returns a value based on shelf alignment.
-  int SelectValueForShelfAlignment(int bottom, int left, int right) const;
+  template <typename T>
+  T SelectValueForShelfAlignment(T bottom, T left, T right) const {
+    switch (alignment_) {
+      case ShelfAlignment::kBottom:
+      case ShelfAlignment::kBottomLocked:
+        return bottom;
+      case ShelfAlignment::kLeft:
+        return left;
+      case ShelfAlignment::kRight:
+        return right;
+    }
+    NOTREACHED();
+    return bottom;
+  }
 
   // Returns |horizontal| if shelf is horizontal, otherwise |vertical|.
-  int PrimaryAxisValue(int horizontal, int vertical) const;
+  template <typename T>
+  T PrimaryAxisValue(T horizontal, T vertical) const {
+    return IsHorizontalAlignment() ? horizontal : vertical;
+  }
 
   void SetAutoHideBehavior(ShelfAutoHideBehavior behavior);
 
@@ -120,6 +140,8 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   void MaybeUpdateShelfBackground();
 
   ShelfVisibilityState GetVisibilityState() const;
+
+  gfx::Rect GetShelfBoundsInScreen() const;
 
   // Returns the ideal bounds of the shelf assuming it is visible.
   gfx::Rect GetIdealBounds() const;
@@ -165,6 +187,7 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   bool ShouldHideOnSecondaryDisplay(session_manager::SessionState state);
 
   void SetVirtualKeyboardBoundsForTesting(const gfx::Rect& bounds);
+  void SetRoundedCornersForInkDrop(bool show, views::View* ink_drop_host);
   ShelfLockingManager* GetShelfLockingManagerForTesting();
   ShelfView* GetShelfViewForTesting();
 
@@ -196,12 +219,19 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
   void OnAutoHideStateChanged(ShelfAutoHideState new_state) override;
   void OnBackgroundUpdated(ShelfBackgroundType background_type,
                            AnimationChangeType change_type) override;
+  void OnHotseatStateChanged(HotseatState old_state,
+                             HotseatState new_state) override;
   void OnWorkAreaInsetsChanged() override;
 
  private:
-  class AutoHideEventHandler;
   class AutoDimEventHandler;
+  class AutoHideEventHandler;
+  friend class DimShelfLayoutManagerTestBase;
   friend class ShelfLayoutManagerTest;
+
+  // Uses Auto Dim Event Handler to update the shelf dim state.
+  void DimShelf();
+  void UndimShelf();
 
   // Returns work area insets object for the window with this shelf.
   WorkAreaInsets* GetWorkAreaInsets() const;
@@ -216,7 +246,8 @@ class ASH_EXPORT Shelf : public ShelfLayoutManagerObserver {
 
   // These initial values hide the shelf until user preferences are available.
   ShelfAlignment alignment_ = ShelfAlignment::kBottomLocked;
-  ShelfAutoHideBehavior auto_hide_behavior_ = SHELF_AUTO_HIDE_ALWAYS_HIDDEN;
+  ShelfAutoHideBehavior auto_hide_behavior_ =
+      ShelfAutoHideBehavior::kAlwaysHidden;
 
   // Sets shelf alignment to bottom during login and screen lock.
   ShelfLockingManager shelf_locking_manager_;

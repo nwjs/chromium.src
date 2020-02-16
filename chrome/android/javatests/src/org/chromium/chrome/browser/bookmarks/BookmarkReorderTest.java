@@ -9,8 +9,8 @@ import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static android.support.test.espresso.matcher.ViewMatchers.withText;
 
-import static org.chromium.chrome.browser.ui.widget.highlight.ViewHighlighterTestUtils.checkHighlightOff;
-import static org.chromium.chrome.browser.ui.widget.highlight.ViewHighlighterTestUtils.checkHighlightPulse;
+import static org.chromium.components.browser_ui.widget.highlight.ViewHighlighterTestUtils.checkHighlightOff;
+import static org.chromium.components.browser_ui.widget.highlight.ViewHighlighterTestUtils.checkHighlightPulse;
 
 import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
@@ -26,25 +26,27 @@ import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.bookmarks.BookmarkBridge.BookmarkModelObserver;
 import org.chromium.chrome.browser.bookmarks.BookmarkPromoHeader.PromoState;
-import org.chromium.chrome.browser.night_mode.NightModeTestUtils;
-import org.chromium.chrome.browser.ui.widget.listmenu.ListMenuButton;
-import org.chromium.chrome.browser.widget.selection.SelectableListToolbar.ViewType;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.RecyclerViewTestUtils;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkType;
+import org.chromium.components.browser_ui.widget.listmenu.ListMenuButton;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectableListToolbar.ViewType;
 import org.chromium.components.sync.AndroidSyncSettings;
 import org.chromium.components.sync.test.util.MockSyncContentResolverDelegate;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
+import org.chromium.ui.test.util.NightModeTestUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,7 +76,7 @@ public class BookmarkReorderTest extends BookmarkTest {
     @Override
     @ParameterAnnotations.UseMethodParameterBefore(NightModeTestUtils.NightModeParams.class)
     public void setupNightMode(boolean nightModeEnabled) {
-        NightModeTestUtils.setUpNightModeForChromeActivity(nightModeEnabled);
+        ChromeNightModeTestUtils.setUpNightModeForChromeActivity(nightModeEnabled);
         mRenderTestRule.setNightModeEnabled(nightModeEnabled);
     }
 
@@ -90,11 +92,12 @@ public class BookmarkReorderTest extends BookmarkTest {
         BookmarkRow test =
                 (BookmarkRow) mItemsContainer.findViewHolderForAdapterPosition(2).itemView;
         View testMoreButton = test.findViewById(R.id.more);
-        View testDragHandle = test.findViewById(R.id.drag_handle);
+        View testDragHandle = test.getDragHandleViewForTests();
 
-        View testFolderA = mItemsContainer.findViewHolderForAdapterPosition(1).itemView;
+        BookmarkRow testFolderA =
+                (BookmarkRow) mItemsContainer.findViewHolderForAdapterPosition(1).itemView;
         View aMoreButton = testFolderA.findViewById(R.id.more);
-        View aDragHandle = testFolderA.findViewById(R.id.drag_handle);
+        View aDragHandle = testFolderA.getDragHandleViewForTests();
 
         toggleSelectionAndEndAnimation(testId, test);
 
@@ -136,11 +139,11 @@ public class BookmarkReorderTest extends BookmarkTest {
         BookmarkRow test =
                 (BookmarkRow) mItemsContainer.findViewHolderForAdapterPosition(2).itemView;
         View testMoreButton = test.findViewById(R.id.more);
-        View testDragHandle = test.findViewById(R.id.drag_handle);
+        View testDragHandle = test.getDragHandleViewForTests();
 
-        View a = mItemsContainer.findViewHolderForAdapterPosition(1).itemView;
+        BookmarkRow a = (BookmarkRow) mItemsContainer.findViewHolderForAdapterPosition(1).itemView;
         View aMoreButton = a.findViewById(R.id.more);
-        View aDragHandle = a.findViewById(R.id.drag_handle);
+        View aDragHandle = a.getDragHandleViewForTests();
 
         TestThreadUtils.runOnUiThreadBlocking(searchButton::performClick);
 
@@ -551,6 +554,7 @@ public class BookmarkReorderTest extends BookmarkTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/1046653")
     public void testMoveButtonsGoneInSearchMode() throws Exception {
         addFolder(TEST_FOLDER_TITLE);
         openBookmarkManager();

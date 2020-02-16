@@ -32,7 +32,8 @@
 #include "chrome/browser/ui/views/autofill/payments/save_card_icon_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_container_view.h"
+#include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
+#include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_loading_indicator_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_account_icon_container_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -79,6 +80,7 @@
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/layout/animating_layout_manager.h"
+#include "ui/views/layout/animating_layout_manager_test_util.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
@@ -123,36 +125,6 @@ const char kResponsePaymentsFailure[] =
 const double kFakeGeolocationLatitude = 1.23;
 const double kFakeGeolocationLongitude = 4.56;
 }  // namespace
-
-// Helper to wait until the hover card widget is visible.
-class AnimatingLayoutWaiter : public views::AnimatingLayoutManager::Observer {
- public:
-  explicit AnimatingLayoutWaiter(
-      views::AnimatingLayoutManager* animating_layout)
-      : animating_layout_(animating_layout) {
-    observer_.Add(animating_layout_);
-  }
-
-  void Wait() {
-    if (!animating_layout_->is_animating())
-      return;
-    run_loop_.Run();
-  }
-
-  // views::AnimatingLayoutManager overrides:
-  void OnLayoutIsAnimatingChanged(views::AnimatingLayoutManager* source,
-                                  bool is_animating) override {
-    if (!is_animating)
-      run_loop_.Quit();
-  }
-
- private:
-  views::AnimatingLayoutManager* const animating_layout_;
-  ScopedObserver<views::AnimatingLayoutManager,
-                 views::AnimatingLayoutManager::Observer>
-      observer_{this};
-  base::RunLoop run_loop_;
-};
 
 namespace autofill {
 
@@ -792,6 +764,11 @@ class SaveCardBubbleViewsFullFormBrowserTest
 
   void ReduceAnimationTime() {
     GetSaveCardIconView()->ReduceAnimationTimeForTesting();
+    auto* const animating_layout = GetAnimatingLayoutManager();
+    if (animating_layout) {
+      animating_layout->SetAnimationDuration(
+          base::TimeDelta::FromMilliseconds(1));
+    }
   }
 
   void ResetEventWaiterForSequence(std::list<DialogEvent> event_sequence) {
@@ -802,15 +779,9 @@ class SaveCardBubbleViewsFullFormBrowserTest
   void WaitForObservedEvent() { event_waiter_->Wait(); }
 
   void WaitForAnimationToEnd() {
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillEnableToolbarStatusChip)) {
-      AnimatingLayoutWaiter waiter(static_cast<views::AnimatingLayoutManager*>(
-          BrowserView::GetBrowserViewForBrowser(browser())
-              ->toolbar()
-              ->toolbar_account_icon_container()
-              ->GetLayoutManager()));
-      waiter.Wait();
-    }
+    auto* const animating_layout = GetAnimatingLayoutManager();
+    if (animating_layout)
+      views::test::WaitForAnimatingLayoutManager(animating_layout);
   }
 
   network::TestURLLoaderFactory* test_url_loader_factory() {
@@ -826,6 +797,18 @@ class SaveCardBubbleViewsFullFormBrowserTest
   CreditCardSaveManager* credit_card_save_manager_ = nullptr;
 
  private:
+  views::AnimatingLayoutManager* GetAnimatingLayoutManager() {
+    if (!base::FeatureList::IsEnabled(
+            autofill::features::kAutofillEnableToolbarStatusChip)) {
+      return nullptr;
+    }
+
+    return views::test::GetAnimatingLayoutManager(
+        BrowserView::GetBrowserViewForBrowser(browser())
+            ->toolbar()
+            ->toolbar_account_icon_container());
+  }
+
   std::unique_ptr<autofill::EventWaiter<DialogEvent>> event_waiter_;
   std::unique_ptr<net::FakeURLFetcherFactory> url_fetcher_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> test_shared_loader_factory_;
@@ -1029,57 +1012,11 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTest,
 }
 #endif
 
-class SaveCardBubbleViewsFullFormBrowserTestWithoutSplitSettings
+class SaveCardBubbleViewsFullFormBrowserTestSettings
     : public SaveCardBubbleViewsFullFormBrowserTest {
  public:
-  SaveCardBubbleViewsFullFormBrowserTestWithoutSplitSettings() {
-#if defined(OS_CHROMEOS)
-    feature_list_.InitAndDisableFeature(chromeos::features::kSplitSettings);
-#else
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        /*disabled_features=*/{features::kAutofillCreditCardUploadFeedback,
-                               features::kAutofillEnableToolbarStatusChip});
-#endif
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// TODO(crbug/950007): Remove this test when kSplitSettings is on by default
-// Tests the manage cards bubble. Ensures that clicking the [Manage cards]
-// button redirects properly.
-IN_PROC_BROWSER_TEST_F(
-    SaveCardBubbleViewsFullFormBrowserTestWithoutSplitSettings,
-    Local_ManageCardsButtonRedirects) {
-  base::HistogramTester histogram_tester;
-  OpenSettingsFromManageCardsPrompt();
-
-#if defined(OS_CHROMEOS)
-  // ChromeOS should have opened up the settings window.
-  EXPECT_TRUE(
-      chrome::SettingsWindowManager::GetInstance()->FindBrowserForProfile(
-          browser()->profile()));
-#else
-  // Otherwise, another tab should have opened.
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
-#endif
-
-  // Metrics should have been recorded correctly.
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples("Autofill.ManageCardsPrompt.Local"),
-      ElementsAre(Bucket(AutofillMetrics::MANAGE_CARDS_SHOWN, 1),
-                  Bucket(AutofillMetrics::MANAGE_CARDS_MANAGE_CARDS, 1)));
-}
-
-class SaveCardBubbleViewsFullFormBrowserTestWithSplitSettings
-    : public SaveCardBubbleViewsFullFormBrowserTest {
- public:
-  SaveCardBubbleViewsFullFormBrowserTestWithSplitSettings() {
-#if defined(OS_CHROMEOS)
-    feature_list_.InitAndEnableFeature(chromeos::features::kSplitSettings);
-#else
+  SaveCardBubbleViewsFullFormBrowserTestSettings() {
+#if !defined(OS_CHROMEOS)
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
         /*disabled_features=*/{features::kAutofillCreditCardUploadFeedback,
@@ -1093,8 +1030,8 @@ class SaveCardBubbleViewsFullFormBrowserTestWithSplitSettings
 
 // Tests the manage cards bubble. Ensures that clicking the [Manage cards]
 // button redirects properly.
-IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestWithSplitSettings,
-                       Local_ManageCardsButtonRedirects_WithSplitSettings) {
+IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestSettings,
+                       Local_ManageCardsButtonRedirects) {
   base::HistogramTester histogram_tester;
   OpenSettingsFromManageCardsPrompt();
 
@@ -1629,55 +1566,6 @@ IN_PROC_BROWSER_TEST_F(
   ClickOnDialogViewWithIdAndWait(DialogViewId::OK_BUTTON);
   histogram_tester.ExpectUniqueSample(
       "Autofill.SaveCardCardholderNameWasEdited", true, 1);
-}
-
-class SaveCardBubbleViewsFullFormBrowserTestWithBlankEditableCardholderName
-    : public SaveCardBubbleViewsFullFormBrowserTest {
- public:
-  SaveCardBubbleViewsFullFormBrowserTestWithBlankEditableCardholderName() {
-    // Enable the EditableCardholderName and BlankCardholderNameField
-    // experiments.
-    feature_list_.InitWithFeatures(
-        {features::kAutofillUpstream,
-         features::kAutofillUpstreamEditableCardholderName,
-         features::kAutofillUpstreamBlankCardholderNameField},
-        // Disabled
-        {});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Tests the upload save bubble. Ensures that if cardholder name is explicitly
-// requested but the AutofillUpstreamBlankCardholderNameField experiment is
-// active, the textfield is NOT prefilled even though the user's Google Account
-// name is available.
-IN_PROC_BROWSER_TEST_F(
-    SaveCardBubbleViewsFullFormBrowserTestWithBlankEditableCardholderName,
-    Upload_CardholderNameNotPrefilledIfBlankNameExperimentEnabled) {
-  base::HistogramTester histogram_tester;
-
-  // Start sync.
-  harness_->SetupSync();
-  // Set the user's full name.
-  SetAccountFullName("John Smith");
-
-  // Submitting the form should still show the upload save bubble and legal
-  // footer, along with a textfield specifically requesting the cardholder name.
-  FillFormWithoutName();
-  SubmitFormAndWaitForCardUploadSaveBubble();
-  EXPECT_TRUE(FindViewInBubbleById(DialogViewId::CARDHOLDER_NAME_TEXTFIELD));
-
-  // The textfield should be blank, and UMA should have logged its value's
-  // absence. Because the textfield is blank, the tooltip explaining that the
-  // name came from the user's Google Account should NOT be visible.
-  views::Textfield* cardholder_name_textfield = static_cast<views::Textfield*>(
-      FindViewInBubbleById(DialogViewId::CARDHOLDER_NAME_TEXTFIELD));
-  EXPECT_TRUE(cardholder_name_textfield->GetText().empty());
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.SaveCardCardholderNamePrefilled", false, 1);
-  EXPECT_FALSE(FindViewInBubbleById(DialogViewId::CARDHOLDER_NAME_TOOLTIP));
 }
 
 // TODO(jsaul): Only *part* of the legal message StyledLabel is clickable, and
@@ -2324,6 +2212,7 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTest,
   FillForm();
   SubmitForm();
   WaitForObservedEvent();
+  WaitForAnimationToEnd();
   EXPECT_TRUE(GetSaveCardIconView()->GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
@@ -2401,6 +2290,7 @@ IN_PROC_BROWSER_TEST_F(
   FillForm();
   SubmitForm();
   WaitForObservedEvent();
+  WaitForAnimationToEnd();
   EXPECT_TRUE(GetSaveCardIconView()->GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
@@ -2469,7 +2359,7 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestForStatusChip,
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   ToolbarView* toolbar_view = browser_view->toolbar();
   EXPECT_FALSE(toolbar_view->toolbar_account_icon_container()
-                   ->page_action_icon_container()
+                   ->page_action_icon_controller()
                    ->ActivateFirstInactiveBubbleForAccessibility());
 
   FillForm();
@@ -2484,7 +2374,7 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestForStatusChip,
   EXPECT_FALSE(widget->IsActive());
 
   EXPECT_TRUE(toolbar_view->toolbar_account_icon_container()
-                  ->page_action_icon_container()
+                  ->page_action_icon_controller()
                   ->ActivateFirstInactiveBubbleForAccessibility());
 
   // Ensure the bubble's widget refreshed appropriately.
@@ -2507,12 +2397,14 @@ IN_PROC_BROWSER_TEST_F(SaveCardBubbleViewsFullFormBrowserTestForStatusChip,
   AddTabAtIndex(1, GURL("http://example.com/"), ui::PAGE_TRANSITION_TYPED);
   TabStripModel* tab_model = browser()->tab_strip_model();
   tab_model->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
+  WaitForAnimationToEnd();
 
   // Ensures bubble and icon go away if user navigates to another tab.
   EXPECT_FALSE(GetSaveCardIconView()->GetVisible());
   EXPECT_FALSE(GetSaveCardBubbleViews());
 
   tab_model->ActivateTabAt(0, {TabStripModel::GestureType::kOther});
+  WaitForAnimationToEnd();
 
   // If the user navigates back, shows only the icon not the bubble.
   EXPECT_TRUE(GetSaveCardIconView()->GetVisible());

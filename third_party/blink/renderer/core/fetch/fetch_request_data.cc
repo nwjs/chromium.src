@@ -78,7 +78,7 @@ FetchRequestData* FetchRequestData::Create(
   for (const auto& pair : fetch_api_request.headers) {
     // TODO(leonhsl): Check sources of |fetch_api_request.headers| to make clear
     // whether we really need this filter.
-    if (DeprecatedEqualIgnoringCase(pair.key, "referer"))
+    if (EqualIgnoringASCIICase(pair.key, "referer"))
       continue;
     if (for_service_worker_fetch_event == ForServiceWorkerFetchEvent::kTrue &&
         IsExcludedHeaderForServiceWorkerFetchEvent(pair.key)) {
@@ -89,13 +89,13 @@ FetchRequestData* FetchRequestData::Create(
 
   if (fetch_api_request.blob) {
     DCHECK(!fetch_api_request.body);
-    request->SetBuffer(MakeGarbageCollected<BodyStreamBuffer>(
+    request->SetBuffer(BodyStreamBuffer::Create(
         script_state,
         MakeGarbageCollected<BlobBytesConsumer>(
             ExecutionContext::From(script_state), fetch_api_request.blob),
         nullptr /* AbortSignal */));
   } else if (fetch_api_request.body) {
-    request->SetBuffer(MakeGarbageCollected<BodyStreamBuffer>(
+    request->SetBuffer(BodyStreamBuffer::Create(
         script_state,
         MakeGarbageCollected<FormDataBytesConsumer>(
             ExecutionContext::From(script_state), fetch_api_request.body),
@@ -103,6 +103,7 @@ FetchRequestData* FetchRequestData::Create(
   }
 
   request->SetContext(fetch_api_request.request_context_type);
+  request->SetDestination(fetch_api_request.destination);
   request->SetReferrerString(AtomicString(Referrer::NoReferrer()));
   if (fetch_api_request.referrer) {
     if (!fetch_api_request.referrer->url.IsEmpty())
@@ -132,6 +133,7 @@ FetchRequestData* FetchRequestData::CloneExceptBody() {
   request->origin_ = origin_;
   request->isolated_world_origin_ = isolated_world_origin_;
   request->context_ = context_;
+  request->destination_ = destination_;
   request->referrer_string_ = referrer_string_;
   request->referrer_policy_ = referrer_policy_;
   request->mode_ = mode_;
@@ -173,7 +175,7 @@ FetchRequestData* FetchRequestData::Pass(ScriptState* script_state,
   FetchRequestData* request = FetchRequestData::CloneExceptBody();
   if (buffer_) {
     request->buffer_ = buffer_;
-    buffer_ = MakeGarbageCollected<BodyStreamBuffer>(
+    buffer_ = BodyStreamBuffer::Create(
         script_state, BytesConsumer::CreateClosed(), nullptr /* AbortSignal */);
     buffer_->CloseAndLockAndDisturb(exception_state);
     if (exception_state.HadException())
@@ -189,6 +191,7 @@ FetchRequestData::FetchRequestData()
     : method_(http_names::kGET),
       header_list_(MakeGarbageCollected<FetchHeaderList>()),
       context_(mojom::RequestContextType::UNSPECIFIED),
+      destination_(network::mojom::RequestDestination::kEmpty),
       referrer_string_(Referrer::ClientReferrerString()),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault),
       mode_(network::mojom::RequestMode::kNoCors),

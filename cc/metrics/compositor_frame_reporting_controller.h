@@ -49,21 +49,28 @@ class CC_EXPORT CompositorFrameReportingController {
       const CompositorFrameReportingController&) = delete;
 
   // Events to signal Beginning/Ending of phases.
-  virtual void WillBeginImplFrame();
-  virtual void WillBeginMainFrame();
-  virtual void BeginMainFrameAborted();
+  virtual void WillBeginImplFrame(const viz::BeginFrameId& id);
+  virtual void WillBeginMainFrame(const viz::BeginFrameId& id);
+  virtual void BeginMainFrameAborted(const viz::BeginFrameId& id);
   virtual void WillInvalidateOnImplSide();
   virtual void WillCommit();
   virtual void DidCommit();
   virtual void WillActivate();
   virtual void DidActivate();
-  virtual void DidSubmitCompositorFrame(uint32_t frame_token);
-  virtual void OnFinishImplFrame();
+  virtual void DidSubmitCompositorFrame(
+      uint32_t frame_token,
+      const viz::BeginFrameId& current_frame_id,
+      const viz::BeginFrameId& last_activated_frame_id);
+  virtual void DidNotProduceFrame(const viz::BeginFrameId& id);
+  virtual void OnFinishImplFrame(const viz::BeginFrameId& id);
   virtual void DidPresentCompositorFrame(
       uint32_t frame_token,
       const viz::FrameTimingDetails& details);
 
-  void SetBlinkBreakdown(std::unique_ptr<BeginMainFrameMetrics> details);
+  void SetBlinkBreakdown(std::unique_ptr<BeginMainFrameMetrics> details,
+                         base::TimeTicks main_thread_start_time);
+
+  void SetUkmManager(UkmManager* manager);
 
   virtual void AddActiveTracker(FrameSequenceTrackerType type);
   virtual void RemoveActiveTracker(FrameSequenceTrackerType type);
@@ -86,19 +93,33 @@ class CC_EXPORT CompositorFrameReportingController {
 
  private:
   void AdvanceReporterStage(PipelineStage start, PipelineStage target);
+  bool CanSubmitImplFrame(const viz::BeginFrameId& id) const;
+  bool CanSubmitMainFrame(const viz::BeginFrameId& id) const;
+
+  viz::BeginFrameId last_submitted_frame_id_;
 
   // Used by the managed reporters to differentiate the histogram names when
   // reporting to UMA.
   const bool is_single_threaded_;
   bool next_activate_has_invalidation_ = false;
 
+  // The latency reporter passed to each CompositorFrameReporter. Owned here
+  // because it must be common among all reporters.
+  // DO NOT reorder this line and the ones below. The latency_ukm_reporter_ must
+  // outlive the objects in stage_history_ and submitted_compositor_frames_.
+  std::unique_ptr<LatencyUkmReporter> latency_ukm_reporter_;
+
   // Mapping of frame token to pipeline reporter for submitted compositor
   // frames.
+  // DO NOT reorder this line and the one above. The latency_ukm_reporter_ must
+  // outlive the objects in stage_history_ and submitted_compositor_frames_.
   base::circular_deque<SubmittedCompositorFrame> submitted_compositor_frames_;
 
   // These keep track of stage durations for when a frame did not miss a
   // deadline. The history is used by reporter instances to determine if a
   // missed frame had a stage duration that was abnormally large.
+  // DO NOT reorder this line and the ones above. The latency_ukm_reporter_ must
+  // outlive the objects in stage_history_ and submitted_compositor_frames_.
   std::unique_ptr<RollingTimeDeltaHistory> stage_history_[static_cast<size_t>(
       CompositorFrameReporter::StageType::kStageTypeCount)];
 };

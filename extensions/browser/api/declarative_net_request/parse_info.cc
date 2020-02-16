@@ -46,22 +46,16 @@ std::string ParseInfo::GetErrorDescription() const {
       error = ErrorUtils::FormatErrorMessage(kErrorResourceTypeDuplicated,
                                              base::NumberToString(*rule_id_));
       break;
-    case ParseResult::ERROR_EMPTY_REDIRECT_RULE_PRIORITY:
-      error = ErrorUtils::FormatErrorMessage(kErrorEmptyRedirectRuleKey,
-                                             base::NumberToString(*rule_id_),
-                                             kPriorityKey);
-      break;
-    case ParseResult::ERROR_EMPTY_UPGRADE_RULE_PRIORITY:
-      error = ErrorUtils::FormatErrorMessage(kErrorEmptyUpgradeRulePriority,
-                                             base::NumberToString(*rule_id_));
-      break;
     case ParseResult::ERROR_INVALID_RULE_ID:
       error = ErrorUtils::FormatErrorMessage(
           kErrorInvalidRuleKey, base::NumberToString(*rule_id_), kIDKey,
           base::NumberToString(kMinValidID));
       break;
-    case ParseResult::ERROR_INVALID_REDIRECT_RULE_PRIORITY:
-    case ParseResult::ERROR_INVALID_UPGRADE_RULE_PRIORITY:
+    case ParseResult::ERROR_EMPTY_RULE_PRIORITY:
+      error = ErrorUtils::FormatErrorMessage(kErrorEmptyRulePriority,
+                                             base::NumberToString(*rule_id_));
+      break;
+    case ParseResult::ERROR_INVALID_RULE_PRIORITY:
       error = ErrorUtils::FormatErrorMessage(
           kErrorInvalidRuleKey, base::NumberToString(*rule_id_), kPriorityKey,
           base::NumberToString(kMinValidPriority));
@@ -182,6 +176,11 @@ std::string ParseInfo::GetErrorDescription() const {
       error = ErrorUtils::FormatErrorMessage(kErrorInvalidKey,
                                              base::NumberToString(*rule_id_),
                                              kRegexSubstitutionPath);
+      break;
+    case ParseResult::ERROR_INVALID_ALLOW_ALL_REQUESTS_RESOURCE_TYPE:
+      error = ErrorUtils::FormatErrorMessage(
+          kErrorInvalidAllowAllRequestsResourceType,
+          base::NumberToString(*rule_id_));
       break;
   }
   return error;

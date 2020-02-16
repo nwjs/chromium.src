@@ -11,14 +11,14 @@ namespace {
 
 // Helper function that returns true if |policy| should be checked under
 // |check_csp_disposition|.
-bool ShouldCheckPolicy(const ContentSecurityPolicy& policy,
+bool ShouldCheckPolicy(const network::mojom::ContentSecurityPolicyPtr& policy,
                        CSPContext::CheckCSPDisposition check_csp_disposition) {
   switch (check_csp_disposition) {
     case CSPContext::CHECK_REPORT_ONLY_CSP:
-      return policy.header.type ==
+      return policy->header->type ==
              network::mojom::ContentSecurityPolicyType::kReport;
     case CSPContext::CHECK_ENFORCED_CSP:
-      return policy.header.type ==
+      return policy->header->type ==
              network::mojom::ContentSecurityPolicyType::kEnforce;
     case CSPContext::CHECK_ALL_CSP:
       return true;
@@ -32,7 +32,7 @@ bool ShouldCheckPolicy(const ContentSecurityPolicy& policy,
 CSPContext::CSPContext() {}
 CSPContext::~CSPContext() {}
 
-bool CSPContext::IsAllowedByCsp(CSPDirective::Name directive_name,
+bool CSPContext::IsAllowedByCsp(network::mojom::CSPDirectiveName directive_name,
                                 const GURL& url,
                                 bool has_followed_redirect,
                                 bool is_response_check,
@@ -45,7 +45,7 @@ bool CSPContext::IsAllowedByCsp(CSPDirective::Name directive_name,
   bool allow = true;
   for (const auto& policy : policies_) {
     if (ShouldCheckPolicy(policy, check_csp_disposition)) {
-      allow &= ContentSecurityPolicy::Allow(
+      allow &= CheckContentSecurityPolicy(
           policy, directive_name, url, has_followed_redirect, is_response_check,
           this, source_location, is_form_submission);
     }
@@ -59,7 +59,7 @@ bool CSPContext::IsAllowedByCsp(CSPDirective::Name directive_name,
 bool CSPContext::ShouldModifyRequestUrlForCsp(
     bool is_subresource_or_form_submission) {
   for (const auto& policy : policies_) {
-    if (ContentSecurityPolicy::ShouldUpgradeInsecureRequest(policy) &&
+    if (ShouldUpgradeInsecureRequest(policy) &&
         is_subresource_or_form_submission) {
       return true;
     }
@@ -86,20 +86,21 @@ void CSPContext::SetSelf(const url::Origin origin) {
     return;
 
   if (origin.scheme() == url::kFileScheme) {
-    self_source_ = CSPSource(url::kFileScheme, "", false, url::PORT_UNSPECIFIED,
-                             false, "");
+    self_source_ = network::mojom::CSPSource::New(
+        url::kFileScheme, "", url::PORT_UNSPECIFIED, "", false, false);
     return;
   }
 
-  self_source_ = CSPSource(
-      origin.scheme(), origin.host(), false,
-      origin.port() == 0 ? url::PORT_UNSPECIFIED : origin.port(), false, "");
+  self_source_ = network::mojom::CSPSource::New(
+      origin.scheme(), origin.host(),
+      origin.port() == 0 ? url::PORT_UNSPECIFIED : origin.port(), "", false,
+      false);
 
   DCHECK_NE("", self_source_->scheme);
 }
 
-void CSPContext::SetSelf(const CSPSource& self_source) {
-  self_source_ = self_source;
+void CSPContext::SetSelf(network::mojom::CSPSourcePtr self_source) {
+  self_source_ = std::move(self_source);
 }
 
 bool CSPContext::SchemeShouldBypassCSP(const base::StringPiece& scheme) {
@@ -108,7 +109,7 @@ bool CSPContext::SchemeShouldBypassCSP(const base::StringPiece& scheme) {
 
 void CSPContext::SanitizeDataForUseInCspViolation(
     bool has_followed_redirect,
-    CSPDirective::Name directive,
+    network::mojom::CSPDirectiveName directive,
     GURL* blocked_url,
     SourceLocation* source_location) const {
   return;

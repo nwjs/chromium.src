@@ -85,14 +85,6 @@ std::string PreviousSaveCreditCardPromptUserDecisionToString(
 
 }  // namespace
 
-int64_t HashFormSignature(autofill::FormSignature form_signature) {
-  return static_cast<uint64_t>(form_signature) % 1021;
-}
-
-int64_t HashFieldSignature(autofill::FieldSignature field_signature) {
-  return static_cast<uint64_t>(field_signature) % 1021;
-}
-
 // First, translates |field_type| to the corresponding logical |group| from
 // |FieldTypeGroupForMetrics|.  Then, interpolates this with the given |metric|,
 // which should be in the range [0, |num_possible_metrics|).
@@ -587,11 +579,6 @@ void AutofillMetrics::LogSubmittedServerCardExpirationStatusMetric(
 }
 
 // static
-void AutofillMetrics::LogMaskedCardComparisonNetworksMatch(bool matches) {
-  UMA_HISTOGRAM_BOOLEAN("Autofill.MaskedCardComparisonNetworksMatch", matches);
-}
-
-// static
 void AutofillMetrics::LogCreditCardSaveNotOfferedDueToMaxStrikesMetric(
     SaveTypeMetric metric) {
   UMA_HISTOGRAM_ENUMERATION(
@@ -1017,6 +1004,30 @@ void AutofillMetrics::LogUserPerceivedLatencyOnCardSelection(
       "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.";
   histogram_name += fido_auth_enabled ? "OptedIn" : "OptedOut";
   base::UmaHistogramEnumeration(histogram_name, event);
+}
+
+// static
+void AutofillMetrics::LogUserPerceivedLatencyOnCardSelectionDuration(
+    const base::TimeDelta duration) {
+  base::UmaHistogramLongTimes(
+      "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.OptedIn."
+      "Duration",
+      duration);
+}
+
+// static
+void AutofillMetrics::LogUserPerceivedLatencyOnCardSelectionTimedOut(
+    bool did_time_out) {
+  base::UmaHistogramBoolean(
+      "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.OptedIn."
+      "TimedOutCvcFallback",
+      did_time_out);
+}
+
+void AutofillMetrics::LogUserVerifiabilityCheckDuration(
+    const base::TimeDelta& duration) {
+  base::UmaHistogramLongTimes(
+      "Autofill.BetterAuth.UserVerifiabilityCheckDuration", duration);
 }
 
 // static

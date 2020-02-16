@@ -6,15 +6,20 @@
 
 #include <memory>
 
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/shelf/shelf.h"
+#include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/default_color_constants.h"
 #include "ash/system/message_center/unified_message_center_view.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_event_filter.h"
+#include "ash/system/tray/tray_utils.h"
 #include "ash/system/unified/unified_system_tray.h"
 #include "ash/system/unified/unified_system_tray_bubble.h"
 #include "ash/system/unified/unified_system_tray_view.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/views/focus/focus_search.h"
 #include "ui/views/widget/widget.h"
@@ -71,7 +76,6 @@ UnifiedMessageCenterBubble::UnifiedMessageCenterBubble(UnifiedSystemTray* tray)
   init_params.anchor_mode = TrayBubbleView::AnchorMode::kRect;
   init_params.min_width = kTrayMenuWidth;
   init_params.max_width = kTrayMenuWidth;
-  init_params.corner_radius = kUnifiedTrayCornerRadius;
   init_params.has_shadow = false;
   init_params.close_on_deactivate = false;
 
@@ -81,10 +85,17 @@ UnifiedMessageCenterBubble::UnifiedMessageCenterBubble(UnifiedSystemTray* tray)
       bubble_view_->AddChildView(std::make_unique<UnifiedMessageCenterView>(
           nullptr /* parent */, tray->model(), this));
 
-  // Check if the message center bubble should be collapsed when it is initially
-  // opened.
-  if (CalculateAvailableHeight() < kMessageCenterCollapseThreshold)
-    message_center_view_->SetCollapsed(false /*animate*/);
+  // Check if the message center bubble should be collapsed or expanded
+  // when it is initially opened.
+  if (CalculateAvailableHeight() < kMessageCenterCollapseThreshold &&
+      message_center_view_->GetPreferredSize().height()) {
+    if (tray_->IsQuickSettingsExplicitlyExpanded()) {
+      message_center_view_->SetCollapsed(false /*animate*/);
+    } else {
+      message_center_view_->SetExpanded();
+      tray_->EnsureQuickSettingsCollapsed(false /*animate*/);
+    }
+  }
 
   message_center_view_->AddObserver(this);
 }
@@ -140,7 +151,7 @@ void UnifiedMessageCenterBubble::ExpandMessageCenter() {
 
   message_center_view_->SetExpanded();
   UpdatePosition();
-  tray_->EnsureQuickSettingsCollapsed();
+  tray_->EnsureQuickSettingsCollapsed(true /*animate*/);
 }
 
 void UnifiedMessageCenterBubble::UpdatePosition() {
@@ -155,13 +166,15 @@ void UnifiedMessageCenterBubble::UpdatePosition() {
   // position of the layer.
   gfx::Rect anchor_rect = tray_->shelf()->GetSystemTrayAnchorRect();
 
-  int left_offset =
-      tray_->shelf()->alignment() == ShelfAlignment::kLeft
-          ? kUnifiedMenuPadding
-          : -(kUnifiedMenuPadding - (base::i18n::IsRTL() ? 0 : 1));
+  gfx::Insets tray_bubble_insets = GetTrayBubbleInsets();
+  int left_offset = tray_->shelf()->alignment() == ShelfAlignment::kLeft
+                        ? tray_bubble_insets.left()
+                        : -tray_bubble_insets.right();
+
   anchor_rect.set_x(anchor_rect.x() + left_offset);
   anchor_rect.set_y(anchor_rect.y() - tray_->bubble()->GetCurrentTrayHeight() -
-                    kUnifiedMenuPadding - kUnifiedMessageCenterBubbleSpacing);
+                    tray_bubble_insets.bottom() -
+                    kUnifiedMessageCenterBubbleSpacing);
   bubble_view_->ChangeAnchorRect(anchor_rect);
 
   bubble_widget_->GetLayer()->StackAtTop(border_->layer());
@@ -177,7 +190,9 @@ bool UnifiedMessageCenterBubble::FocusOut(bool reverse) {
 }
 
 void UnifiedMessageCenterBubble::FocusFirstNotification() {
-  message_center_view_->GetFocusManager()->AdvanceFocus(false /*reverse*/);
+  // Move focus to first notification from notification bar if it is visible.
+  if (message_center_view_->IsNotificationBarVisible())
+    message_center_view_->GetFocusManager()->AdvanceFocus(false /*reverse*/);
 }
 
 bool UnifiedMessageCenterBubble::IsMessageCenterVisible() {
@@ -194,6 +209,14 @@ TrayBubbleView* UnifiedMessageCenterBubble::GetBubbleView() const {
 
 views::Widget* UnifiedMessageCenterBubble::GetBubbleWidget() const {
   return bubble_widget_;
+}
+
+base::string16 UnifiedMessageCenterBubble::GetAccessibleNameForBubble() {
+  return l10n_util::GetStringUTF16(IDS_ASH_MESSAGE_CENTER_ACCESSIBLE_NAME);
+}
+
+bool UnifiedMessageCenterBubble::ShouldEnableExtraKeyboardAccessibility() {
+  return Shell::Get()->accessibility_controller()->spoken_feedback_enabled();
 }
 
 void UnifiedMessageCenterBubble::OnViewPreferredSizeChanged(

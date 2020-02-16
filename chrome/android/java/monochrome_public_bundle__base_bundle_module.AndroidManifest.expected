@@ -90,7 +90,8 @@
       android:networkSecurityConfig="@xml/network_security_config"
       android:roundIcon="@drawable/ic_launcher_round"
       android:supportsRtl="true"
-      android:use32bitAbi="true">
+      android:use32bitAbi="true"
+      android:zygotePreloadName="org.chromium.content.app.ZygotePreload">
     <activity
         android:autoRemoveFromRecents="false"
         android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode|density"
@@ -269,15 +270,15 @@
     <activity
         android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
         android:exported="false"
-        android:label="@string/preferences"
+        android:label="@string/settings"
         android:name="org.chromium.chrome.browser.settings.SettingsActivity"
-        android:theme="@style/Theme.Chromium.Preferences"/>
+        android:theme="@style/Theme.Chromium.Settings"/>
     <activity
         android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
         android:exported="false"
         android:label="@string/storage_management_activity_label"
         android:name="org.chromium.chrome.browser.settings.website.ManageSpaceActivity"
-        android:theme="@style/Theme.Chromium.Preferences.ManageSpace"/>
+        android:theme="@style/Theme.Chromium.Settings.ManageSpace"/>
     <activity
         android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
         android:exported="false"
@@ -995,6 +996,20 @@
       </intent-filter>
     </activity>
     <activity
+        android:icon="@drawable/icon_webview"
+        android:label="WebView
+        DevTools"
+        android:launchMode="singleTask"
+        android:name="org.chromium.android_webview.devui.MainActivity"
+        android:process=":webview_apk"
+        android:taskAffinity="org.chromium.android_webview.devui"
+        android:theme="@style/Theme.DevUi.DayNight">
+      <intent-filter>
+        <action android:name="com.android.webview.SHOW_DEV_UI"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
+    <activity
         android:label="@string/license_activity_title"
         android:name="org.chromium.android_webview.nonembedded.LicenseActivity"
         android:process=":webview_apk">
@@ -1012,25 +1027,15 @@
         android:launchMode="singleTop"
         android:name="org.chromium.android_webview.devui.CrashesListActivity"
         android:process=":webview_apk"
+        android:taskAffinity="org.chromium.android_webview.devui"
         android:theme="@style/Theme.DevUi.DayNight"/>
-    <activity
-        android:label="WebView
-        DevTools"
-        android:launchMode="singleTask"
-        android:name="org.chromium.android_webview.devui.MainActivity"
-        android:process=":webview_apk"
-        android:theme="@style/Theme.DevUi.DayNight">
-      <intent-filter>
-        <action android:name="com.android.webview.SHOW_DEV_UI"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-      </intent-filter>
-    </activity>
     <activity
         android:label="WebView
         Flags"
         android:launchMode="singleTop"
         android:name="org.chromium.android_webview.devui.FlagsActivity"
         android:process=":webview_apk"
+        android:taskAffinity="org.chromium.android_webview.devui"
         android:theme="@style/Theme.DevUi.DayNight"/>
     <activity
         android:enabled="false"
@@ -1047,6 +1052,23 @@
         <data android:scheme="file"/>
       </intent-filter>
     </activity>
+    <activity-alias
+        android:enabled="false"
+        android:exported="true"
+        android:label="WebView
+        DevTools"
+        android:name="org.chromium.android_webview.devui.MonochromeLauncherActivity"
+        android:targetActivity="org.chromium.android_webview.devui.MainActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias
+        android:enabled="false"
+        android:name="org.chromium.android_webview.devui.DeveloperModeState"
+        android:process=":webview_apk"
+        android:targetActivity="org.chromium.android_webview.devui.MainActivity"/>
     <activity-alias
         android:exported="false"
         android:name="org.chromium.chrome.browser.webapps.SecureWebAppLauncher"
@@ -1305,6 +1327,11 @@
           android:readPermission="android.permission.GLOBAL_SEARCH"/>
     </provider>
     <provider
+        android:authorities="org.chromium.chrome.DeveloperModeContentProvider"
+        android:exported="true"
+        android:name="org.chromium.android_webview.services.DeveloperModeContentProvider"
+        android:process=":webview_service"/>
+    <provider
         android:authorities="org.chromium.chrome.DownloadFileProvider"
         android:exported="false"
         android:grantUriPermissions="true"
@@ -1404,6 +1431,9 @@
       </intent-filter>
     </receiver>
     <receiver
+        android:exported="false"
+        android:name="org.chromium.components.background_task_scheduler.BackgroundTaskBroadcastReceiver"/>
+    <receiver
         android:exported="true"
         android:name="com.google.android.gms.gcm.GcmReceiver"
         android:permission="com.google.android.c2dm.permission.SEND">
@@ -1489,11 +1519,6 @@
         android:name="org.chromium.chrome.browser.photo_picker.DecoderService"
         android:process=":decoder_service"/>
     <service
-        android:enabled="false"
-        android:exported="true"
-        android:name="org.chromium.android_webview.services.DeveloperUiService"
-        android:process=":webview_service"/>
-    <service
         android:exported="false"
         android:isolatedProcess="false"
         android:name="org.chromium.content.app.PrivilegedProcessService0"
@@ -1546,6 +1571,10 @@
         android:exported="false"
         android:name="org.chromium.android_webview.services.AwVariationsSeedFetcher"
         android:permission="android.permission.BIND_JOB_SERVICE"
+        android:process=":webview_service"/>
+    <service
+        android:exported="false"
+        android:name="org.chromium.android_webview.services.DeveloperUiService"
         android:process=":webview_service"/>
     <service
         android:exported="false"
@@ -1672,6 +1701,7 @@
         android:name="org.chromium.content.app.SandboxedProcessService0"
         android:permission="org.chromium.chrome.permission.CHILD_SERVICE"
         android:process=":sandboxed_process0"
+        android:useAppZygote="true"
         android:visibleToInstantApps="true"
         tools:ignore="ExportedService"/>
     <service

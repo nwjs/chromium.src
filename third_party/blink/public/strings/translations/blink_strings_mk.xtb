@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">лизгач</translation>
 <translation id="1211441953136645838">референца</translation>
 <translation id="1281252709823657822">дијалог</translation>
+<translation id="1306460908038601864">Исклучени</translation>
 <translation id="1335095011850992622">благодарност</translation>
 <translation id="1342835525016946179">статија</translation>
 <translation id="1359897965706325498">банер</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Продолжете го текстот на <ph name="MIN_CHARACTERS" /> знаци или повеќе (во моментов користите <ph name="CURRENT_LENGTH" /> знаци).</translation>
 <translation id="383465348367842624">Дел по кој следува „<ph name="ATSIGN" />“ не треба да го содржи симболот „<ph name="INVALIDCHARACTER" />“.</translation>
 <translation id="3846214748874656680">Излези од цел екран</translation>
-<translation id="3889183436948184105">ревизија</translation>
 <translation id="3920932319529768807">заклучок</translation>
 <translation id="3924558731517983934">апликација</translation>
 <translation id="3944740393230681990">пролог</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Внесете број.</translation>
 <translation id="4912536737030637138">библиографски запис</translation>
 <translation id="492244087561876220">коментар</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" />, избрано</translation>
 <translation id="4975562563186953947">Избрани: <ph name="SELECTED_COUNT" /></translation>
 <translation id="4992066212339426712">Вклучи звук</translation>
 <translation id="49969490063480558">Внесете дел по „<ph name="ATSIGN" />“. Адресата „<ph name="INVALIDADDRESS" />“ е некомплетна.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> ПБ</translation>
 <translation id="5307600278924710095">Внесете дел проследен со „<ph name="ATSIGN" />“. „<ph name="INVALIDADDRESS" />“ е нецелосна.</translation>
 <translation id="5334352251556557839">Не може да пушта аудиовизуелни содржини.</translation>
+<translation id="537648784377940524">Најраниот датум (<ph name="MIN_DATE_OR_TIME" />) мора да биде пред најдоцниот датум (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">слика</translation>
 <translation id="5453733299334684579">ставка на дрво</translation>
 <translation id="5466621249238537318">Изберете една или повеќе датотеки.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">повеќе опции</translation>
 <translation id="576709008726043716">вовед</translation>
 <translation id="57838592816432529">Исклучи звук</translation>
-<translation id="5860033963881614850">Исклучено</translation>
 <translation id="588258955323874662">Цел екран</translation>
 <translation id="5888666972993069672">Сега се емитува на <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">поле за пребарување</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Опфатете „<ph name="ATSIGN" />“ во адресата на е-пошта. Во „<ph name="INVALIDADDRESS" />“ недостига „<ph name="ATSIGN" />“.</translation>
 <translation id="7891486169920085145">разделница</translation>
 <translation id="795667975304826397">Нема избрана датотека</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" />, не е избрано</translation>
 <translation id="8034303206267677282">силно</translation>
 <translation id="8053789581856978548">пребарај текстуално поле</translation>
 <translation id="8057695513531652401">напомена</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Месец</translation>
 <translation id="901493112792887934">тековно време во секунди</translation>
 <translation id="901834265349196618">е-пошта</translation>
-<translation id="9023835124071926463">дел со коментари</translation>
 <translation id="9048119486235211610">навигација</translation>
 <translation id="9062295712474918030">документ</translation>
 <translation id="9093215626363556771">излези од „слика во слика“</translation>

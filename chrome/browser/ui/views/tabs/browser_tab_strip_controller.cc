@@ -46,6 +46,9 @@
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/prefs/pref_service.h"
+#include "components/tab_groups/tab_group_color.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -55,6 +58,7 @@
 #include "ipc/ipc_message.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/models/list_selection_model.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/widget/widget.h"
@@ -316,17 +320,34 @@ void BrowserTabStripController::CloseTab(int model_index,
                              TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
 }
 
-void BrowserTabStripController::UngroupAllTabsInGroup(TabGroupId group) {
+void BrowserTabStripController::UngroupAllTabsInGroup(
+    const tab_groups::TabGroupId& group) {
   model_->RemoveFromGroup(ListTabsInGroup(group));
 }
 
-void BrowserTabStripController::AddNewTabInGroup(TabGroupId group) {
+void BrowserTabStripController::AddNewTabInGroup(
+    const tab_groups::TabGroupId& group) {
   const std::vector<int> tabs = ListTabsInGroup(group);
   model_->delegate()->AddTabAt(GURL(), tabs.back() + 1, true, group);
 }
 
+void BrowserTabStripController::AddTabToGroup(
+    int model_index,
+    const tab_groups::TabGroupId& group) {
+  model_->AddToExistingGroup({model_index}, group);
+}
+
+void BrowserTabStripController::RemoveTabFromGroup(int model_index) {
+  model_->RemoveFromGroup({model_index});
+}
+
 void BrowserTabStripController::MoveTab(int start_index, int final_index) {
   model_->MoveWebContentsAt(start_index, final_index, false);
+}
+
+void BrowserTabStripController::MoveGroup(const tab_groups::TabGroupId& group,
+                                          int final_index) {
+  model_->MoveGroupTo(group, final_index);
 }
 
 void BrowserTabStripController::ShowContextMenuForTab(
@@ -432,19 +453,29 @@ void BrowserTabStripController::OnKeyboardFocusedTabChanged(
       index);
 }
 
-const TabGroupVisualData* BrowserTabStripController::GetVisualDataForGroup(
-    TabGroupId group) const {
-  return model_->group_model()->GetTabGroup(group)->visual_data();
+base::string16 BrowserTabStripController::GetGroupTitle(
+    const tab_groups::TabGroupId& group) const {
+  return model_->group_model()->GetTabGroup(group)->visual_data()->title();
+}
+
+base::string16 BrowserTabStripController::GetGroupContentString(
+    const tab_groups::TabGroupId& group) const {
+  return model_->group_model()->GetTabGroup(group)->GetContentString();
+}
+
+tab_groups::TabGroupColorId BrowserTabStripController::GetGroupColorId(
+    const tab_groups::TabGroupId& group) const {
+  return model_->group_model()->GetTabGroup(group)->visual_data()->color();
 }
 
 void BrowserTabStripController::SetVisualDataForGroup(
-    TabGroupId group,
-    TabGroupVisualData visual_data) {
+    const tab_groups::TabGroupId& group,
+    const tab_groups::TabGroupVisualData& visual_data) {
   model_->group_model()->GetTabGroup(group)->SetVisualData(visual_data);
 }
 
 std::vector<int> BrowserTabStripController::ListTabsInGroup(
-    TabGroupId group) const {
+    const tab_groups::TabGroupId& group) const {
   return model_->group_model()->GetTabGroup(group)->ListTabs();
 }
 
@@ -575,6 +606,10 @@ void BrowserTabStripController::OnTabGroupChanged(
       tabstrip_->OnGroupVisualsChanged(change.group);
       break;
     }
+    case TabGroupChange::kMoved: {
+      tabstrip_->OnGroupMoved(change.group);
+      break;
+    }
     case TabGroupChange::kClosed: {
       tabstrip_->OnGroupClosed(change.group);
       break;
@@ -601,9 +636,9 @@ void BrowserTabStripController::TabBlockedStateChanged(WebContents* contents,
 }
 
 void BrowserTabStripController::TabGroupedStateChanged(
-    base::Optional<TabGroupId> group,
+    base::Optional<tab_groups::TabGroupId> group,
     int index) {
-  tabstrip_->AddTabToGroup(group, index);
+  tabstrip_->AddTabToGroup(std::move(group), index);
 }
 
 void BrowserTabStripController::SetTabNeedsAttentionAt(int index,

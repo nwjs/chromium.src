@@ -40,6 +40,12 @@ AnsibleManagementService::~AnsibleManagementService() = default;
 
 void AnsibleManagementService::ConfigureDefaultContainer(
     base::OnceCallback<void(bool success)> callback) {
+  if (!ShouldConfigureDefaultContainer(profile_)) {
+    LOG(ERROR) << "Trying to configure default Crostini container when it "
+               << "should not be configured";
+    std::move(callback).Run(false);
+    return;
+  }
   DCHECK(!configuration_finished_callback_);
   configuration_finished_callback_ = std::move(callback);
 
@@ -79,21 +85,18 @@ void AnsibleManagementService::OnInstallAnsibleInDefaultContainer(
 void AnsibleManagementService::OnInstallLinuxPackageProgress(
     const ContainerId& container_id,
     InstallLinuxPackageProgressStatus status,
-    int progress_percent) {
+    int progress_percent,
+    const std::string& error_message) {
   DCHECK_EQ(container_id.vm_name, kCrostiniDefaultVmName);
   DCHECK_EQ(container_id.container_name, kCrostiniDefaultContainerName);
 
   switch (status) {
     case InstallLinuxPackageProgressStatus::SUCCEEDED: {
-      CrostiniManager::GetForProfile(profile_)
-          ->RemoveLinuxPackageOperationProgressObserver(this);
       GetAnsiblePlaybookToApply();
       return;
     }
     case InstallLinuxPackageProgressStatus::FAILED:
       LOG(ERROR) << "Ansible installation failed";
-      CrostiniManager::GetForProfile(profile_)
-          ->RemoveLinuxPackageOperationProgressObserver(this);
       OnConfigurationFinished(false);
       return;
     // TODO(okalitova): Report Ansible downloading/installation progress.
@@ -175,16 +178,19 @@ void AnsibleManagementService::OnApplyAnsiblePlaybook(
 
   VLOG(1) << "Ansible playbook application has been started successfully";
   // Waiting for Ansible playbook application progress being reported.
+  // TODO(https://crbug.com/1043060): Add a timeout after which we stop waiting.
 }
 
 void AnsibleManagementService::OnApplyAnsiblePlaybookProgress(
-    vm_tools::cicerone::ApplyAnsiblePlaybookProgressSignal::Status status) {
+    vm_tools::cicerone::ApplyAnsiblePlaybookProgressSignal::Status status,
+    const std::string& failure_details) {
   switch (status) {
     case vm_tools::cicerone::ApplyAnsiblePlaybookProgressSignal::SUCCEEDED:
       OnConfigurationFinished(true);
       break;
     case vm_tools::cicerone::ApplyAnsiblePlaybookProgressSignal::FAILED:
-      LOG(ERROR) << "Ansible playbook application has failed";
+      LOG(ERROR) << "Ansible playbook application has failed with reason:\n"
+                 << failure_details;
       OnConfigurationFinished(false);
       break;
     case vm_tools::cicerone::ApplyAnsiblePlaybookProgressSignal::IN_PROGRESS:
@@ -213,6 +219,12 @@ void AnsibleManagementService::OnUninstallPackageProgress(
 
 void AnsibleManagementService::OnConfigurationFinished(bool success) {
   DCHECK(configuration_finished_callback_);
+  if (success) {
+    profile_->GetPrefs()->SetBoolean(prefs::kCrostiniDefaultContainerConfigured,
+                                     true);
+  }
+  CrostiniManager::GetForProfile(profile_)
+      ->RemoveLinuxPackageOperationProgressObserver(this);
   for (auto& observer : observers_) {
     observer.OnAnsibleSoftwareConfigurationFinished(success);
   }

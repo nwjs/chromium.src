@@ -47,12 +47,12 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -77,9 +77,9 @@ import java.util.regex.Pattern;
  * Manager for the Contextual Search feature. This class keeps track of the status of Contextual
  * Search and coordinates the control with the layout.
  */
-public class ContextualSearchManager
-        implements ContextualSearchManagementDelegate, ContextualSearchTranslateInterface,
-                   ContextualSearchNetworkCommunicator, ContextualSearchSelectionHandler {
+public class ContextualSearchManager implements ContextualSearchManagementDelegate,
+                                                ContextualSearchNetworkCommunicator,
+                                                ContextualSearchSelectionHandler {
     /** A delegate for reporting selected context to GSA for search quality. */
     public interface ContextReporterDelegate {
         /**
@@ -89,9 +89,9 @@ public class ContextualSearchManager
         void reportDisplaySelection(@Nullable GSAContextDisplaySelection displaySelection);
     }
 
-    // TODO(donnd): provide an inner class that implements some of these interfaces (like the
-    // ContextualSearchTranslateInterface) rather than having the manager itself implement the
-    // interface because that exposes all the public methods of that interface at the manager level.
+    // TODO(donnd): provide an inner class that implements some of these interfaces rather than
+    // having the manager itself implement the interface because that exposes all the public methods
+    // of that interface at the manager level.
 
     private static final String TAG = "ContextualSearch";
 
@@ -106,9 +106,6 @@ public class ContextualSearchManager
     private static final String BLACKLISTED_URL = ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL;
 
     private static final Pattern CONTAINS_WHITESPACE_PATTERN = Pattern.compile("\\s");
-
-    // When we don't need to send any "home country" code we can just pass the empty string.
-    private static final String NO_HOME_COUNTRY = "";
 
     // How long to wait for a tap near a previous tap before hiding the UI or showing a re-Tap.
     // This setting is not critical: in practice it determines how long to wait after an invalid
@@ -259,8 +256,7 @@ public class ContextualSearchManager
         mSelectionController = new ContextualSearchSelectionController(activity, this);
         mNetworkCommunicator = this;
         mPolicy = new ContextualSearchPolicy(mSelectionController, mNetworkCommunicator);
-        mTranslateController =
-                ContextualSearchTranslateController.getContextualSearchTranslation(mPolicy, this);
+        mTranslateController = new ContextualSearchTranslationImpl();
         mInternalStateController = new ContextualSearchInternalStateController(
                 mPolicy, getContextualSearchInternalStateHandler());
         mInteractionRecorder = new ContextualSearchRankerLoggerImpl();
@@ -508,10 +504,10 @@ public class ContextualSearchManager
     }
 
     @Override
-    public void startSearchTermResolutionRequest(String selection, boolean isRestrictedResolve) {
+    public void startSearchTermResolutionRequest(String selection, boolean isExactResolve) {
         WebContents baseWebContents = getBaseWebContents();
         if (baseWebContents != null && mContext != null && mContext.canResolve()) {
-            if (isRestrictedResolve) mContext.setRestrictedResolve();
+            if (isExactResolve) mContext.setExactResolve();
             ContextualSearchManagerJni.get().startSearchTermResolutionRequest(
                     mNativeContextualSearchManagerPtr, this, mContext, getBaseWebContents());
         } else {
@@ -964,22 +960,6 @@ public class ContextualSearchManager
         for (ContextualSearchObserver observer : mObservers) {
             observer.onHideContextualSearch();
         }
-    }
-
-    // ============================================================================================
-    // ContextualSearchTranslateInterface
-    // ============================================================================================
-
-    @Override
-    public String getAcceptLanguages() {
-        return ContextualSearchManagerJni.get().getAcceptLanguages(
-                mNativeContextualSearchManagerPtr, this);
-    }
-
-    @Override
-    public String getTranslateServiceTargetLanguage() {
-        return ContextualSearchManagerJni.get().getTargetLanguage(
-                mNativeContextualSearchManagerPtr, this);
     }
 
     // ============================================================================================
@@ -1875,7 +1855,6 @@ public class ContextualSearchManager
     @NativeMethods
     interface Natives {
         long init(ContextualSearchManager caller);
-
         void destroy(long nativeContextualSearchManager, ContextualSearchManager caller);
         void startSearchTermResolutionRequest(long nativeContextualSearchManager,
                 ContextualSearchManager caller, ContextualSearchContext contextualSearchContext,
@@ -1887,11 +1866,5 @@ public class ContextualSearchManager
                 long nativeContextualSearchManager, ContextualSearchManager caller, String url);
         void enableContextualSearchJsApiForWebContents(long nativeContextualSearchManager,
                 ContextualSearchManager caller, WebContents overlayWebContents);
-        // Don't call these directly, instead call the private methods that cache the results.
-        String getTargetLanguage(
-                long nativeContextualSearchManager, ContextualSearchManager caller);
-
-        String getAcceptLanguages(
-                long nativeContextualSearchManager, ContextualSearchManager caller);
     }
 }

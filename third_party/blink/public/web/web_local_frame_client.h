@@ -36,26 +36,24 @@
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/scoped_interface_endpoint_handle.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
-#include "third_party/blink/public/common/frame/blocked_navigation_types.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
-#include "third_party/blink/public/common/frame/user_activation_update_type.h"
 #include "third_party/blink/public/common/loader/loading_behavior_flag.h"
 #include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
 #include "third_party/blink/public/common/navigation/triggering_event_info.h"
+#include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
+#include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom-shared.h"
 #include "third_party/blink/public/mojom/use_counter/css_property_id.mojom-shared.h"
 #include "third_party/blink/public/platform/blame_context.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_provider.h"
 #include "third_party/blink/public/platform/web_common.h"
-#include "third_party/blink/public/platform/web_content_security_policy.h"
 #include "third_party/blink/public/platform/web_content_security_policy_struct.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/public/platform/web_effective_connection_type.h"
 #include "third_party/blink/public/platform/web_file_system_type.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_prescient_networking.h"
-#include "third_party/blink/public/platform/web_scroll_types.h"
 #include "third_party/blink/public/platform/web_set_sink_id_callbacks.h"
 #include "third_party/blink/public/platform/web_source_location.h"
 #include "third_party/blink/public/platform/web_url_error.h"
@@ -95,7 +93,6 @@ class AssociatedInterfaceProvider;
 class BrowserInterfaceBrokerProxy;
 class WebComputedAXTree;
 class WebContentDecryptionModule;
-class WebCookieJar;
 class WebDedicatedWorkerHostFactoryClient;
 class WebDocumentLoader;
 class WebEncryptedMediaClient;
@@ -110,7 +107,6 @@ class WebMediaStreamDeviceObserver;
 class WebNavigationControl;
 class WebPlugin;
 class WebPrescientNetworking;
-class WebRTCPeerConnectionHandler;
 class WebRelatedAppsFetcher;
 class WebServiceWorkerProvider;
 class WebSocketHandshakeThrottle;
@@ -123,8 +119,6 @@ struct WebContextMenuData;
 struct WebPluginParams;
 struct WebPopupMenuInfo;
 struct WebRect;
-struct WebResourceTimingInfo;
-struct WebScrollIntoViewParams;
 struct WebURLError;
 
 class BLINK_EXPORT WebLocalFrameClient {
@@ -197,12 +191,10 @@ class BLINK_EXPORT WebLocalFrameClient {
 
   // Services ------------------------------------------------------------
 
-  // A frame specific cookie jar.  May return null.
-  virtual WebCookieJar* CookieJar() { return nullptr; }
-
   // Returns a blame context for attributing work belonging to this frame.
   virtual BlameContext* GetFrameBlameContext() { return nullptr; }
 
+  // DEPRECATED. Please use GetBrowserInterfaceBroker() instead.
   // Returns an InterfaceProvider the frame can use to request interfaces from
   // the browser. This method may not return nullptr.
   virtual service_manager::InterfaceProvider* GetInterfaceProvider();
@@ -218,11 +210,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   GetRemoteNavigationAssociatedInterfaces();
 
   // General notifications -----------------------------------------------
-
-  // Indicates that another page has accessed the DOM of the initial empty
-  // document of a main frame. After this, it is no longer safe to show a
-  // pending navigation's URL, because a URL spoof is possible.
-  virtual void DidAccessInitialDocument() {}
 
   // Request the creation of a new child frame. Embedders may return nullptr
   // to prevent the new child frame from being attached. Otherwise, embedders
@@ -281,11 +268,13 @@ class BLINK_EXPORT WebLocalFrameClient {
   virtual void DidChangeFramePolicy(WebFrame* child_frame, const FramePolicy&) {
   }
 
-  // Called when a Feature-Policy or Content-Security-Policy HTTP header (for
-  // sandbox flags) is encountered while loading the frame's document.
+  // Called when a Feature-Policy or Document-Policy or Content-Security-Policy
+  // HTTP header (for sandbox flags) is encountered while loading the frame's
+  // document.
   virtual void DidSetFramePolicyHeaders(
       WebSandboxFlags flags,
-      const ParsedFeaturePolicy& parsed_header) {}
+      const ParsedFeaturePolicy& feature_policy_header,
+      const DocumentPolicy::FeatureState& document_policy_header) {}
 
   // Called when a new Content Security Policy is added to the frame's
   // document.  This can be triggered by handling of HTTP headers, handling
@@ -306,12 +295,8 @@ class BLINK_EXPORT WebLocalFrameClient {
       const WebVector<WebString>& stopped_matching_selectors) {}
 
   // Replicate user activation state updates for this frame to the embedder.
-  virtual void UpdateUserActivationState(UserActivationUpdateType update_type) {
-  }
-
-  // Called if the previous document had a user gesture and is on the same
-  // eTLD+1 as the current document.
-  virtual void SetHasReceivedUserGestureBeforeNavigation(bool value) {}
+  virtual void UpdateUserActivationState(
+      mojom::UserActivationUpdateType update_type) {}
 
   // Called when a frame is capturing mouse input, such as when a scrollbar
   // is being dragged.
@@ -375,11 +360,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   // These notifications bracket any loading that occurs in the WebFrame.
   virtual void DidStartLoading() {}
   virtual void DidStopLoading() {}
-
-  // Notification that some progress was made loading the current frame.
-  // loadProgress is a value between 0 (nothing loaded) and 1.0 (frame fully
-  // loaded).
-  virtual void DidChangeLoadProgress(double load_progress) {}
 
   // A form submission has been requested, but the page's submit event handler
   // hasn't yet had a chance to run (and possibly alter/interrupt the submit.)
@@ -467,14 +447,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   // WARNING: This method may be called very frequently.
   virtual void DidUpdateCurrentHistoryItem() {}
 
-  // Called to report resource timing information for this frame to the parent.
-  // Only used when the parent frame is remote.
-  virtual void ForwardResourceTimingToParent(const WebResourceTimingInfo&) {}
-
-  // Called to dispatch a load event for this frame in the FrameOwner of an
-  // out-of-process parent frame.
-  virtual void DispatchLoad() {}
-
   // Returns the effective connection type when the frame was fetched.
   virtual WebEffectiveConnectionType GetEffectiveConnectionType() {
     return WebEffectiveConnectionType::kTypeUnknown;
@@ -484,31 +456,12 @@ class BLINK_EXPORT WebLocalFrameClient {
   virtual void SetEffectiveConnectionTypeForTesting(
       WebEffectiveConnectionType) {}
 
-  // This frame tried to perform a navigation from |initiator_url| to
-  // |blocked_url| but was blocked because of |reason|.
-  virtual void DidBlockNavigation(const WebURL& blocked_url,
-                                  const WebURL& initiator_url,
-                                  blink::NavigationBlockedReason reason) {}
-
-  // Tells the embedder to navigate back or forward in session history by
-  // the given offset (relative to the current position in session
-  // history). |has_user_gesture| tells whether or not this is the consequence
-  // of a user action.
-  virtual void NavigateBackForwardSoon(int offset, bool has_user_gesture) {}
-
-  virtual void NavigateBackForwardSoon2(int offset, bool has_user_gesture, WebLocalFrame* initiator = nullptr) {}
-
   // Returns token to be used as a frame id in the devtools protocol.
   // It is derived from the content's devtools_frame_token, is
   // defined by the browser and passed into Blink upon frame creation.
   virtual base::UnguessableToken GetDevToolsFrameToken() {
     return base::UnguessableToken::Create();
   }
-
-  // When a same-site load fails and the original frame in parent process is
-  // owned by an <object> element, this call notifies the owner element that it
-  // should render fallback content of its own.
-  virtual void RenderFallbackContentInParentProcess() {}
 
   // PlzNavigate
   // Called to abort a navigation that is being handled by the browser process.
@@ -535,33 +488,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   // indicating that the default action should be suppressed.
   virtual bool HandleCurrentKeyboardEvent() { return false; }
 
-  // Dialogs -------------------------------------------------------------
-
-  // Displays a modal alert dialog containing the given message. Returns
-  // once the user dismisses the dialog.
-  virtual void RunModalAlertDialog(const WebString& message) {}
-
-  // Displays a modal confirmation dialog with the given message as
-  // description and OK/Cancel choices. Returns true if the user selects
-  // 'OK' or false otherwise.
-  virtual bool RunModalConfirmDialog(const WebString& message) { return false; }
-
-  // Displays a modal input dialog with the given message as description
-  // and OK/Cancel choices. The input field is pre-filled with
-  // defaultValue. Returns true if the user selects 'OK' or false
-  // otherwise. Upon returning true, actualValue contains the value of
-  // the input field.
-  virtual bool RunModalPromptDialog(const WebString& message,
-                                    const WebString& default_value,
-                                    WebString* actual_value) {
-    return false;
-  }
-
-  // Displays a modal confirmation dialog with OK/Cancel choices, where 'OK'
-  // means that it is okay to proceed with closing the view. Returns true if
-  // the user selects 'OK' or false otherwise.
-  virtual bool RunModalBeforeUnloadDialog(bool is_reload) { return true; }
-
   // UI ------------------------------------------------------------------
 
   // Shows a context menu with commands relevant to a specific element on
@@ -574,6 +500,11 @@ class BLINK_EXPORT WebLocalFrameClient {
 
   // Called when the frame rects changed.
   virtual void FrameRectsChanged(const WebRect&) {}
+
+  // Called when a frame's intersection with the main frame's document has
+  // changed.
+  virtual void OnMainFrameDocumentIntersectionChanged(
+      const WebRect& intersection_rect) {}
 
   // Low-level resource notifications ------------------------------------
 
@@ -672,23 +603,7 @@ class BLINK_EXPORT WebLocalFrameClient {
   // Informs the browser that the draggable regions have been updated.
   virtual void DraggableRegionsChanged() {}
 
-  // Scrolls a local frame in its remote process. Called on the
-  // WebLocalFrameClient of a local frame only.
-  virtual void ScrollRectToVisibleInParentFrame(
-      const WebRect&,
-      const WebScrollIntoViewParams&) {}
-
-  // When the bubbling of a logical scroll reaches a local root, bubbling
-  // will be continued in the parent process.
-  virtual void BubbleLogicalScrollInParentFrame(
-      WebScrollDirection direction,
-      ui::input_types::ScrollGranularity granularity) {}
-
   // MediaStream -----------------------------------------------------
-
-  // A new WebRTCPeerConnectionHandler is created.
-  virtual void WillStartUsingPeerConnectionHandler(
-      WebRTCPeerConnectionHandler*) {}
 
   virtual WebMediaStreamDeviceObserver* MediaStreamDeviceObserver() {
     return nullptr;
@@ -731,18 +646,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   // to be serialized again. If |subtree| is true, the entire subtree is
   // dirty.
   virtual void MarkWebAXObjectDirty(const WebAXObject&, bool subtree) {}
-
-  // Provides accessibility information about a find in page result.
-  virtual void HandleAccessibilityFindInPageResult(int identifier,
-                                                   int match_index,
-                                                   const WebNode& start_node,
-                                                   int start_offset,
-                                                   const WebNode& end_node,
-                                                   int end_offset) {}
-
-  // Provides accessibility information about the termination of a find
-  // in page operation.
-  virtual void HandleAccessibilityFindInPageTermination() {}
 
   // Audio Output Devices API --------------------------------------------
 

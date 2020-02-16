@@ -361,6 +361,12 @@ cr.define('settings', function() {
     clearEtldPlus1DataAndCookies(etldPlus1) {}
 
     /**
+     * Clears all the web storage data and cookies for a given origin.
+     * @param {string} origin The origin to clear data from.
+     */
+    clearOriginDataAndCookies(origin) {}
+
+    /**
      * Record All Sites Page action for metrics.
      *  @param {number} action number.
      */
@@ -519,6 +525,11 @@ cr.define('settings', function() {
     }
 
     /** @override */
+    clearOriginDataAndCookies(origin) {
+      chrome.send('clearUsage', [origin]);
+    }
+
+    /** @override */
     recordAction(action) {
       chrome.send('recordAction', [action]);
     }
@@ -528,6 +539,7 @@ cr.define('settings', function() {
   // during testing.
   cr.addSingletonGetter(SiteSettingsPrefsBrowserProxyImpl);
 
+  // #cr_define_end
   return {
     SiteSettingsPrefsBrowserProxy: SiteSettingsPrefsBrowserProxy,
     SiteSettingsPrefsBrowserProxyImpl: SiteSettingsPrefsBrowserProxyImpl,

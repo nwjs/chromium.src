@@ -4,6 +4,7 @@
 
 #include "ash/shelf/scrollable_shelf_view.h"
 
+#include "ash/drag_drop/drag_image_view.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/root_window_controller.h"
 #include "ash/shelf/shelf_test_util.h"
@@ -52,7 +53,7 @@ class TestShelfItemDelegate : public ShelfItemDelegate {
   // ShelfItemDelegate:
   void ItemSelected(std::unique_ptr<ui::Event> event,
                     int64_t display_id,
-                    ash::ShelfLaunchSource source,
+                    ShelfLaunchSource source,
                     ItemSelectedCallback callback) override {
     std::move(callback).Run(SHELF_ACTION_WINDOW_ACTIVATED, {});
   }
@@ -385,7 +386,9 @@ TEST_F(ScrollableShelfViewTest, ShowTooltipForArrowButtons) {
   EXPECT_TRUE(tooltip_manager->IsVisible());
 }
 
-// Verifies that dragging an app icon to a new shelf page works well.
+// Verifies that dragging an app icon to a new shelf page works well. In
+// addition, the dragged icon moves with mouse before mouse release (see
+// https://crbug.com/1031367).
 TEST_F(ScrollableShelfViewTest, DragIconToNewPage) {
   scrollable_shelf_view_->set_page_flip_time_threshold(
       base::TimeDelta::FromMilliseconds(10));
@@ -401,8 +404,13 @@ TEST_F(ScrollableShelfViewTest, DragIconToNewPage) {
       view_model->view_at(scrollable_shelf_view_->last_tappable_app_index());
   const gfx::Point drag_start_point =
       dragged_view->GetBoundsInScreen().CenterPoint();
+
+  // Ensures that the app icon is not dragged to the ideal bounds directly.
+  // It helps to construct a more complex scenario that the animation
+  // is created to move the dropped icon to the target place after drag release.
   const gfx::Point drag_end_point =
-      scrollable_shelf_view_->left_arrow()->GetBoundsInScreen().CenterPoint();
+      scrollable_shelf_view_->left_arrow()->GetBoundsInScreen().origin() -
+      gfx::Vector2d(10, 0);
 
   ASSERT_NE(0, view_model->GetIndexOfView(dragged_view));
 
@@ -415,7 +423,18 @@ TEST_F(ScrollableShelfViewTest, DragIconToNewPage) {
     PageFlipWaiter waiter(scrollable_shelf_view_);
     waiter.Wait();
   }
+
+  // Expects that the drag icon moves with drag pointer before mouse release.
+  const gfx::Rect intermediate_bounds =
+      scrollable_shelf_view_->drag_icon_for_test()->GetBoundsInScreen();
+  EXPECT_EQ(drag_end_point, intermediate_bounds.CenterPoint());
+
   GetEventGenerator()->ReleaseLeftButton();
+  ASSERT_NE(intermediate_bounds.CenterPoint(),
+            dragged_view->GetBoundsInScreen().CenterPoint());
+
+  // Expects that the proxy icon is deleted after mouse release.
+  EXPECT_EQ(nullptr, scrollable_shelf_view_->drag_icon_for_test());
 
   // Verifies that:
   // (1) Scrollable shelf view has the expected layout strategy.
@@ -441,6 +460,20 @@ class HotseatScrollableShelfViewTest : public ScrollableShelfViewTest {
   void TearDown() override {
     ScrollableShelfViewTest::TearDown();
     scoped_feature_list_.Reset();
+  }
+
+  bool HasRoundedCornersOnLongTapAtLocation(gfx::Point location) {
+    GetEventGenerator()->MoveTouch(location);
+    GetEventGenerator()->PressTouch();
+
+    // The gfx::RoundedCornersF object is considered empty when all of the
+    // corners are squared (no effective radius).
+    bool has_rounded_corners = !(scrollable_shelf_view_->shelf_container_view()
+                                     ->layer()
+                                     ->rounded_corner_radii()
+                                     .IsEmpty());
+    GetEventGenerator()->ReleaseTouch();
+    return has_rounded_corners;
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -523,6 +556,74 @@ TEST_F(HotseatScrollableShelfViewTest, CorrectUIInTabletWithoutOverflow) {
 
   EXPECT_EQ(hotseat_background.x() + 4, first_tappable_view_bounds.x());
   EXPECT_EQ(hotseat_background.right() - 4, last_tappable_view_bounds.right());
+}
+
+// Verifies that the scrollable shelf without overflow has the correct layout in
+// tablet mode.
+TEST_F(HotseatScrollableShelfViewTest, CheckRoundedCornersSetForInkDrop) {
+  Shell::Get()->tablet_mode_controller()->SetEnabledForTest(true);
+  AddAppShortcutsUntilOverflow();
+  ASSERT_EQ(ScrollableShelfView::kShowRightArrowButton,
+            scrollable_shelf_view_->layout_strategy_for_test());
+  ASSERT_TRUE(scrollable_shelf_view_->shelf_container_view()
+                  ->layer()
+                  ->rounded_corner_radii()
+                  .IsEmpty());
+
+  views::ViewModel* view_model = shelf_view_->view_model();
+  gfx::Rect first_tappable_view_bounds =
+      view_model->view_at(scrollable_shelf_view_->first_tappable_app_index())
+          ->GetBoundsInScreen();
+  gfx::Rect last_tappable_view_bounds =
+      view_model->view_at(scrollable_shelf_view_->last_tappable_app_index())
+          ->GetBoundsInScreen();
+
+  // When the right arrow is showing, check rounded corners are set if the ink
+  // drop is visible for the first visible app.
+  EXPECT_TRUE(HasRoundedCornersOnLongTapAtLocation(
+      first_tappable_view_bounds.CenterPoint()));
+  // Tap outside the app and verify that rounded corners are not set if the ink
+  // drop is hidden.
+  GetEventGenerator()->GestureTapAt(first_tappable_view_bounds.bottom_center());
+  EXPECT_TRUE(scrollable_shelf_view_->shelf_container_view()
+                  ->layer()
+                  ->rounded_corner_radii()
+                  .IsEmpty());
+  // When the right arrow is showing, check rounded corners are not set if the
+  // ink drop is visible for the last visible app
+  EXPECT_FALSE(HasRoundedCornersOnLongTapAtLocation(
+      last_tappable_view_bounds.CenterPoint()));
+
+  // Tap right arrow. Hotseat layout must now show left arrow.
+  gfx::Rect right_arrow =
+      scrollable_shelf_view_->right_arrow()->GetBoundsInScreen();
+  GetEventGenerator()->GestureTapAt(right_arrow.CenterPoint());
+  ASSERT_EQ(ScrollableShelfView::kShowLeftArrowButton,
+            scrollable_shelf_view_->layout_strategy_for_test());
+
+  // Recalculate first and last view bounds.
+  first_tappable_view_bounds =
+      view_model->view_at(scrollable_shelf_view_->first_tappable_app_index())
+          ->GetBoundsInScreen();
+  last_tappable_view_bounds =
+      view_model->view_at(scrollable_shelf_view_->last_tappable_app_index())
+          ->GetBoundsInScreen();
+
+  // When the left arrow is showing, check rounded corners are set if the ink
+  // drop is visible for the last visible app.
+  EXPECT_TRUE(HasRoundedCornersOnLongTapAtLocation(
+      last_tappable_view_bounds.CenterPoint()));
+  // Tap outside the app and verify that rounded corners are not set if the ink
+  // drop is hidden.
+  GetEventGenerator()->GestureTapAt(last_tappable_view_bounds.bottom_center());
+  EXPECT_TRUE(scrollable_shelf_view_->shelf_container_view()
+                  ->layer()
+                  ->rounded_corner_radii()
+                  .IsEmpty());
+  // When the left arrow is showing, check rounded corners are not set if the
+  // ink drop is visible for the first visible app
+  EXPECT_FALSE(HasRoundedCornersOnLongTapAtLocation(
+      first_tappable_view_bounds.CenterPoint()));
 }
 
 // Verifies that doing a mousewheel scroll on the scrollable shelf does scroll

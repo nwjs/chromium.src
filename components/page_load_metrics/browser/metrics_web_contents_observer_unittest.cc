@@ -44,7 +44,6 @@ void PopulatePageLoadTiming(mojom::PageLoadTiming* timing) {
   timing->navigation_start = base::Time::FromDoubleT(1);
   timing->response_start = base::TimeDelta::FromMilliseconds(10);
   timing->parse_timing->parse_start = base::TimeDelta::FromMilliseconds(20);
-  timing->document_timing->first_layout = base::TimeDelta::FromMilliseconds(30);
 }
 
 content::mojom::ResourceLoadInfoPtr CreateResourceLoadInfo(
@@ -52,7 +51,8 @@ content::mojom::ResourceLoadInfoPtr CreateResourceLoadInfo(
     content::ResourceType resource_type) {
   content::mojom::ResourceLoadInfoPtr resource_load_info =
       content::mojom::ResourceLoadInfo::New();
-  resource_load_info->url = url;
+  resource_load_info->final_url = url;
+  resource_load_info->original_url = url;
   resource_load_info->resource_type = resource_type;
   resource_load_info->was_cached = false;
   resource_load_info->raw_body_bytes = 0;
@@ -284,7 +284,6 @@ TEST_F(MetricsWebContentsObserverTest, SubFrame) {
   timing.navigation_start = base::Time::FromDoubleT(1);
   timing.response_start = base::TimeDelta::FromMilliseconds(10);
   timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(20);
-  timing.document_timing->first_layout = base::TimeDelta::FromMilliseconds(30);
 
   content::WebContentsTester* web_contents_tester =
       content::WebContentsTester::For(web_contents());
@@ -305,8 +304,6 @@ TEST_F(MetricsWebContentsObserverTest, SubFrame) {
   subframe_timing.response_start = base::TimeDelta::FromMilliseconds(10);
   subframe_timing.parse_timing->parse_start =
       base::TimeDelta::FromMilliseconds(20);
-  subframe_timing.document_timing->first_layout =
-      base::TimeDelta::FromMilliseconds(30);
   subframe_timing.paint_timing->first_paint =
       base::TimeDelta::FromMilliseconds(40);
   subframe = content::NavigationSimulator::NavigateAndCommitFromDocument(
@@ -729,26 +726,16 @@ TEST_F(MetricsWebContentsObserverTest, OutOfOrderCrossFrameTiming) {
 
   // Though a first paint was dispatched in the child, it should not yet be
   // reflected as an updated timing in the main frame, since the main frame
-  // hasn't received updates for required earlier events such as parse_start and
-  // first_layout.
+  // hasn't received updates for required earlier events such as parse_start.
   ASSERT_EQ(1, CountUpdatedSubFrameTimingReported());
   EXPECT_TRUE(subframe_timing.Equals(*updated_subframe_timings().back()));
   ASSERT_EQ(1, CountUpdatedTimingReported());
   EXPECT_TRUE(timing.Equals(*updated_timings().back()));
 
-  // Dispatch the parse_start event in the parent. We should still not observe
-  // a first paint main frame update, since we don't yet have a first_layout.
+  // Dispatch the parse_start event in the parent. We should now unbuffer the
+  // first paint main frame update and receive a main frame update with a first
+  // paint value.
   timing.parse_timing->parse_start = base::TimeDelta::FromMilliseconds(20);
-  SimulateTimingUpdate(timing);
-  ASSERT_EQ(1, CountUpdatedTimingReported());
-  EXPECT_FALSE(timing.Equals(*updated_timings().back()));
-  EXPECT_FALSE(updated_timings().back()->parse_timing->parse_start);
-  EXPECT_FALSE(updated_timings().back()->paint_timing->first_paint);
-
-  // Dispatch a first_layout in the parent. We should now unbuffer the first
-  // paint main frame update and receive a main frame update with a first paint
-  // value.
-  timing.document_timing->first_layout = base::TimeDelta::FromMilliseconds(30);
   SimulateTimingUpdate(timing);
   ASSERT_EQ(2, CountUpdatedTimingReported());
   EXPECT_FALSE(timing.Equals(*updated_timings().back()));

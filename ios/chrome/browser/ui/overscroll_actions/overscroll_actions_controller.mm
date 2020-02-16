@@ -12,13 +12,12 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_controller.h"
-#import "ios/chrome/browser/ui/fullscreen/fullscreen_controller_factory.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_features.h"
 #import "ios/chrome/browser/ui/fullscreen/scoped_fullscreen_disabler.h"
 #import "ios/chrome/browser/ui/location_bar/location_bar_notification_names.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_gesture_recognizer.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_view.h"
-#import "ios/chrome/browser/ui/page_info/page_info_legacy_coordinator.h"
+#import "ios/chrome/browser/ui/page_info/page_info_constants.h"
 #import "ios/chrome/browser/ui/side_swipe/side_swipe_controller.h"
 #include "ios/chrome/browser/ui/util/rtl_geometry.h"
 #include "ios/chrome/browser/ui/util/uikit_ui_util.h"
@@ -881,8 +880,7 @@ NSString* const kOverscrollActionsDidEnd = @"OverscrollActionsDidStop";
   if (!disablingFullscreen || !self.browserState)
     return;
   FullscreenController* fullscreenController =
-      FullscreenControllerFactory::GetInstance()->GetForBrowserState(
-          self.browserState);
+      FullscreenController::FromBrowserState(self.browserState);
   // Disabling fullscreen will show the toolbars, which may potentially produce
   // a |-scrollViewDidScroll| event if the browser viewport insets need to be
   // updated.  |_ignoreScrollForDisabledFullscreen| is set to YES while the

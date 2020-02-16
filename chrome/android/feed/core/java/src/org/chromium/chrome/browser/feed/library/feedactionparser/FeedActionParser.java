@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.feed.library.feedactionparser;
 import static org.chromium.chrome.browser.feed.library.common.Validators.checkState;
 import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.FeedActionMetadata.Type.DOWNLOAD;
 import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.FeedActionMetadata.Type.LEARN_MORE;
+import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.FeedActionMetadata.Type.MANAGE_INTERESTS;
 import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.FeedActionMetadata.Type.OPEN_URL;
 import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.FeedActionMetadata.Type.OPEN_URL_INCOGNITO;
 import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.FeedActionMetadata.Type.OPEN_URL_NEW_TAB;
@@ -14,7 +15,8 @@ import static org.chromium.components.feed.core.proto.ui.action.FeedActionProto.
 
 import android.view.View;
 
-import org.chromium.base.Supplier;
+import org.chromium.base.Log;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.feed.library.api.client.knowncontent.ContentMetadata;
 import org.chromium.chrome.browser.feed.library.api.host.action.StreamActionApi;
 import org.chromium.chrome.browser.feed.library.api.host.logging.BasicLoggingApi;
@@ -44,16 +46,17 @@ import java.util.List;
  */
 public final class FeedActionParser implements ActionParser {
     private static final String TAG = "FeedActionParser";
+    static final String EXPECTED_MANAGE_INTERESTS_URL =
+            "https://www.google.com/preferences/interests";
 
     private final PietFeedActionPayloadRetriever mPietFeedActionPayloadRetriever;
     private final ProtocolAdapter mProtocolAdapter;
-    private final Supplier</*@Nullable*/ ContentMetadata> mContentMetadata;
+    private final Supplier<ContentMetadata> mContentMetadata;
     private final BasicLoggingApi mBasicLoggingApi;
 
     FeedActionParser(ProtocolAdapter protocolAdapter,
             PietFeedActionPayloadRetriever pietFeedActionPayloadRetriever,
-            Supplier</*@Nullable*/ ContentMetadata> contentMetadata,
-            BasicLoggingApi basicLoggingApi) {
+            Supplier<ContentMetadata> contentMetadata, BasicLoggingApi basicLoggingApi) {
         this.mProtocolAdapter = protocolAdapter;
         this.mPietFeedActionPayloadRetriever = pietFeedActionPayloadRetriever;
         this.mContentMetadata = contentMetadata;
@@ -82,6 +85,13 @@ public final class FeedActionParser implements ActionParser {
             case OPEN_URL_NEW_WINDOW:
             case OPEN_URL_INCOGNITO:
             case OPEN_URL_NEW_TAB:
+                // TODO(freedjm): Use a different action type for Manage Interests to handle it
+                // separately from a simple OPEN_URL action.
+                if (feedActionMetadata.getOpenUrlData().hasUrl()
+                        && feedActionMetadata.getOpenUrlData().getUrl().equals(
+                                EXPECTED_MANAGE_INTERESTS_URL)) {
+                    streamActionApi.onClientAction(ActionTypesConverter.convert(MANAGE_INTERESTS));
+                }
                 handleOpenUrl(feedActionMetadata.getType(), feedActionMetadata.getOpenUrlData(),
                         streamActionApi);
                 break;
@@ -204,6 +214,14 @@ public final class FeedActionParser implements ActionParser {
                 streamActionApi.maybeShowTooltip(
                         new TooltipInfoImpl(feedActionMetadata.getTooltipData()), view);
                 break;
+            case SEND_FEEDBACK:
+                Log.d(TAG, "SendFeedback menu item clicked.");
+                // TODO(petewil):
+                // Marshall feed specific args.
+                // Get a Feedback object.
+                // Dismiss menu.
+                // Call the feedback object to send feedback async.  Don't wait for it.
+                break;
             default:
                 Logger.wtf(TAG, "Haven't implemented host handling of %s",
                         feedActionMetadata.getType());
@@ -306,6 +324,9 @@ public final class FeedActionParser implements ActionParser {
                 return streamActionApi.canLearnMore();
             case NOT_INTERESTED_IN:
                 return streamActionApi.canHandleNotInterestedIn();
+            // Send Feedback for the feed is available in M81 and later.
+            case SEND_FEEDBACK:
+                return true;
             case UNKNOWN:
             default:
                 // TODO : Handle the action types introduced in [INTERNAL LINK]

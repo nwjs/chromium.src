@@ -9,7 +9,7 @@ import android.graphics.drawable.Drawable;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.task.PostTask;
-import org.chromium.chrome.browser.widget.prefeditor.EditableOption;
+import org.chromium.chrome.browser.autofill.prefeditor.EditableOption;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
 import org.chromium.payments.mojom.PaymentItem;
@@ -123,15 +123,6 @@ public abstract class PaymentInstrument extends EditableOption {
      */
     public boolean isServerAutofillInstrumentReplacement() {
         return false;
-    }
-
-    /**
-     * @return Whether the instrument is exactly matching all filters provided by the merchant. For
-     *         example, this can return false for unknown card types, if the merchant requested only
-     *         debit cards.
-     */
-    public boolean isExactlyMatchingMerchantRequest() {
-        return true;
     }
 
     /**
@@ -289,5 +280,23 @@ public abstract class PaymentInstrument extends EditableOption {
     /** Switch the instrument into the microtransaction mode. */
     public void setMicrontransactionMode() {
         mIsMicrotransaction = true;
+    }
+
+    /**
+     * @return The identifier for another payment app that should be hidden when this payment app is
+     * present.
+     */
+    @Nullable
+    public String getApplicationIdentifierToHide() {
+        return null;
+    }
+
+    /**
+     * @return The set of identifier of other apps that would cause this app to be hidden, if any of
+     * them are present, e.g., ["com.bobpay.production", "com.bobpay.beta"].
+     */
+    @Nullable
+    public Set<String> getApplicationIdentifiersThatHideThisApp() {
+        return null;
     }
 }

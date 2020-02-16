@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">плъзгач</translation>
 <translation id="1211441953136645838">бележка в края</translation>
 <translation id="1281252709823657822">диалогов прозорец</translation>
+<translation id="1306460908038601864">Изключване</translation>
 <translation id="1335095011850992622">признания за източника</translation>
 <translation id="1342835525016946179">статия</translation>
 <translation id="1359897965706325498">банер</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Моля, удължете този текст поне до <ph name="MIN_CHARACTERS" /> знака (понастоящем използвате <ph name="CURRENT_LENGTH" />).</translation>
 <translation id="383465348367842624">Текстът преди „<ph name="ATSIGN" />“ не бива да съдържа символа „<ph name="INVALIDCHARACTER" />“.</translation>
 <translation id="3846214748874656680">Изход от цял екран</translation>
-<translation id="3889183436948184105">корекция</translation>
 <translation id="3920932319529768807">заключение</translation>
 <translation id="3924558731517983934">приложение</translation>
 <translation id="3944740393230681990">пролог</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Моля, въведете номер.</translation>
 <translation id="4912536737030637138">библиографски запис</translation>
 <translation id="492244087561876220">коментар</translation>
+<translation id="4971739861736909480">Избрано е „<ph name="ACCNAME" />“</translation>
 <translation id="4975562563186953947">Избрани: <ph name="SELECTED_COUNT" /></translation>
 <translation id="4992066212339426712">Включване на звука</translation>
 <translation id="49969490063480558">Моля, въведете текст след „<ph name="ATSIGN" />“. „<ph name="INVALIDADDRESS" />“ е непълно.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> ПБ</translation>
 <translation id="5307600278924710095">Моля, въведете текст преди „<ph name="ATSIGN" />“. „<ph name="INVALIDADDRESS" />“ е непълно.</translation>
 <translation id="5334352251556557839">Мултимедийното съдържание не може да бъде възпроизведено.</translation>
+<translation id="537648784377940524">Най-ранната дата (<ph name="MIN_DATE_OR_TIME" />) трябва да е преди най-късната (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">фигура</translation>
 <translation id="5453733299334684579">елемент от дърво</translation>
 <translation id="5466621249238537318">Моля, изберете един или повече файлове.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">още опции</translation>
 <translation id="576709008726043716">въведение</translation>
 <translation id="57838592816432529">Заглушаване</translation>
-<translation id="5860033963881614850">Изключено</translation>
 <translation id="588258955323874662">Цял екран</translation>
 <translation id="5888666972993069672">В момента се предава към „<ph name="DEVICE_FRIENDLY_NAME" />“</translation>
 <translation id="591047860372322273">поле за търсене</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Моля, включете „<ph name="ATSIGN" />“ в имейл адреса. В/ъв „<ph name="INVALIDADDRESS" />“ липсва „<ph name="ATSIGN" />“.</translation>
 <translation id="7891486169920085145">разделител</translation>
 <translation id="795667975304826397">Няма избран файл</translation>
+<translation id="7962328325860248200">„<ph name="ACCNAME" />“ не е избрано</translation>
 <translation id="8034303206267677282">удебеляване</translation>
 <translation id="8053789581856978548">текстово поле за търсене</translation>
 <translation id="8057695513531652401">известие</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Месец</translation>
 <translation id="901493112792887934">текущо време в секунди</translation>
 <translation id="901834265349196618">имейл</translation>
-<translation id="9023835124071926463">секция за коментари</translation>
 <translation id="9048119486235211610">навигация</translation>
 <translation id="9062295712474918030">документ</translation>
 <translation id="9093215626363556771">изход от режима „Картина в картината“</translation>

@@ -19,7 +19,7 @@ EventWithCallback::EventWithCallback(
     const LatencyInfo& latency,
     base::TimeTicks timestamp_now,
     InputHandlerProxy::EventDispositionCallback callback)
-    : event_(WebInputEventTraits::Clone(*event)),
+    : event_(event->Clone()),
       latency_(latency),
       creation_timestamp_(timestamp_now),
       last_coalesced_timestamp_(timestamp_now) {
@@ -44,6 +44,11 @@ EventWithCallback::~EventWithCallback() {}
 
 bool EventWithCallback::CanCoalesceWith(const EventWithCallback& other) const {
   return CanCoalesce(other.event(), event());
+}
+
+void EventWithCallback::SetScrollbarManipulationHandledOnCompositorThread() {
+  for (auto& original_event : original_events_)
+    original_event.event_->SetScrollbarManipulationHandledOnCompositorThread();
 }
 
 void EventWithCallback::CoalesceWith(EventWithCallback* other,

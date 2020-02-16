@@ -13,6 +13,7 @@
 
 namespace blink {
 
+class NGFragmentItem;
 class NGLineBoxFragmentBuilder;
 
 class CORE_EXPORT NGPhysicalLineBoxFragment final
@@ -30,6 +31,9 @@ class CORE_EXPORT NGPhysicalLineBoxFragment final
 
   static scoped_refptr<const NGPhysicalLineBoxFragment> Create(
       NGLineBoxFragmentBuilder* builder);
+
+  using PassKey = util::PassKey<NGPhysicalLineBoxFragment>;
+  NGPhysicalLineBoxFragment(PassKey, NGLineBoxFragmentBuilder* builder);
 
   ~NGPhysicalLineBoxFragment() {
     for (const NGLink& child : Children())
@@ -53,16 +57,19 @@ class CORE_EXPORT NGPhysicalLineBoxFragment final
     return static_cast<TextDirection>(base_direction_);
   }
 
-  // Compute baseline for the specified baseline type.
-  NGLineHeightMetrics BaselineMetrics(FontBaseline) const;
+  // Compute the baseline metrics for this linebox.
+  NGLineHeightMetrics BaselineMetrics() const;
 
   // Scrollable overflow. including contents, in the local coordinate.
   // |ScrollableOverflow| is not precomputed/cached because it cannot be
   // computed when LineBox is generated because it needs container dimensions
   // to resolve relative position of its children.
-  PhysicalRect ScrollableOverflow(const LayoutObject* container,
-                                  const ComputedStyle* container_style,
-                                  PhysicalSize container_physical_size) const;
+  PhysicalRect ScrollableOverflow(const NGPhysicalBoxFragment& container,
+                                  const ComputedStyle& container_style) const;
+  PhysicalRect ScrollableOverflow(const NGPhysicalBoxFragment& container,
+                                  const ComputedStyle& container_style,
+                                  const NGFragmentItem& child,
+                                  const NGInlineCursor& cursor) const;
 
   // Whether the content soft-wraps to the next line.
   bool HasSoftWrapToNextLine() const;
@@ -72,8 +79,6 @@ class CORE_EXPORT NGPhysicalLineBoxFragment final
   const LayoutObject* ContainerLayoutObject() const { return layout_object_; }
 
  private:
-  NGPhysicalLineBoxFragment(NGLineBoxFragmentBuilder* builder);
-
   NGLineHeightMetrics metrics_;
   NGLink children_[];
 };

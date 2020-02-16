@@ -19,11 +19,14 @@ namespace blink {
 
 class ComputedStyle;
 class CrossThreadStyleValue;
+class ExecutionContext;
 class LayoutObject;
 class SVGComputedStyle;
 
 class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
  public:
+  using Flags = uint16_t;
+
   static const CSSProperty& Get(CSSPropertyID);
 
   // For backwards compatibility when passing around CSSUnresolvedProperty
@@ -37,6 +40,7 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
   bool IDEquals(CSSPropertyID id) const { return PropertyID() == id; }
   bool IsResolvedProperty() const override { return true; }
 
+  Flags GetFlags() const { return flags_; }
   bool IsInterpolable() const { return flags_ & kInterpolable; }
   bool IsCompositableProperty() const { return flags_ & kCompositableProperty; }
   bool IsDescriptor() const { return flags_ & kDescriptor; }
@@ -49,6 +53,9 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
   bool IsAffectedByForcedColors() const {
     return flags_ & kIsAffectedByForcedColors;
   }
+  bool IsValidForFirstLetter() const { return flags_ & kValidForFirstLetter; }
+  bool IsValidForCue() const { return flags_ & kValidForCue; }
+  bool IsValidForMarker() const { return flags_ & kValidForMarker; }
 
   bool IsRepeated() const { return repetition_separator_ != '\0'; }
   char RepetitionSeparator() const { return repetition_separator_; }
@@ -82,13 +89,16 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
   }
   virtual const CSSProperty* GetVisitedProperty() const { return nullptr; }
   virtual const CSSProperty* GetUnvisitedProperty() const { return nullptr; }
+
+  virtual const CSSProperty* GetUAProperty() const { return nullptr; }
+
   static void FilterWebExposedCSSPropertiesIntoVector(
+      const ExecutionContext*,
       const CSSPropertyID*,
       size_t length,
       Vector<const CSSProperty*>&);
 
- protected:
-  enum Flag : uint16_t {
+  enum Flag : Flags {
     kInterpolable = 1 << 0,
     kCompositableProperty = 1 << 1,
     kDescriptor = 1 << 2,
@@ -102,11 +112,25 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
     // seen by CSSOM, which is represented by the unvisited property).
     kVisited = 1 << 7,
     kInternal = 1 << 8,
-    kIsAffectedByForcedColors = 1 << 9
+    kIsAffectedByForcedColors = 1 << 9,
+    // A UA property represents a property as styled by the user-agent.
+    // For example, -internal-ua-background-color contains the value
+    // 'background-color' would have had without any user or author
+    // declarations.
+    kUA = 1 << 10,
+    // Animation properties have this flag set. (I.e. longhands of the
+    // 'animation' and 'transition' shorthands).
+    kAnimation = 1 << 11,
+    // https://drafts.csswg.org/css-pseudo-4/#first-letter-styling
+    kValidForFirstLetter = 1 << 12,
+    // https://w3c.github.io/webvtt/#the-cue-pseudo-element
+    kValidForCue = 1 << 13,
+    // https://drafts.csswg.org/css-pseudo-4/#marker-pseudo
+    kValidForMarker = 1 << 14,
   };
 
   constexpr CSSProperty(CSSPropertyID property_id,
-                        uint16_t flags,
+                        Flags flags,
                         char repetition_separator)
       : CSSUnresolvedProperty(),
         property_id_(property_id),
@@ -115,7 +139,7 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
 
  private:
   CSSPropertyID property_id_;
-  uint16_t flags_;
+  Flags flags_;
   char repetition_separator_;
 };
 

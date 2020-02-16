@@ -175,6 +175,7 @@ TestRule CreateGenericRule() {
   action.type = std::string("block");
   TestRule rule;
   rule.id = kMinValidID;
+  rule.priority = kMinValidPriority;
   rule.action = action;
   rule.condition = condition;
   return rule;
@@ -183,12 +184,19 @@ TestRule CreateGenericRule() {
 std::unique_ptr<base::DictionaryValue> CreateManifest(
     const std::string& json_rules_filename,
     const std::vector<std::string>& hosts,
-    bool has_background_script) {
+    bool has_background_script,
+    bool has_feedback_permission,
+    bool has_active_tab_permission) {
   std::vector<std::string> permissions = hosts;
   permissions.push_back(kAPIPermission);
-  permissions.push_back(kFeedbackAPIPermission);
   permissions.push_back("webRequest");
   permissions.push_back("webRequestBlocking");
+
+  if (has_feedback_permission)
+    permissions.push_back(kFeedbackAPIPermission);
+
+  if (has_active_tab_permission)
+    permissions.push_back("activeTab");
 
   std::vector<std::string> background_scripts;
   if (has_background_script)
@@ -225,13 +233,16 @@ void WriteManifestAndRuleset(
     const std::string& json_rules_filename,
     const std::vector<TestRule>& rules,
     const std::vector<std::string>& hosts,
-    bool has_background_script) {
+    bool has_background_script,
+    bool has_feedback_permission,
+    bool has_active_tab_permission) {
   ListBuilder builder;
   for (const auto& rule : rules)
     builder.Append(rule.ToValue());
   WriteManifestAndRuleset(extension_dir, json_rules_filepath,
                           json_rules_filename, *builder.Build(), hosts,
-                          has_background_script);
+                          has_background_script, has_feedback_permission,
+                          has_active_tab_permission);
 }
 
 void WriteManifestAndRuleset(
@@ -240,7 +251,9 @@ void WriteManifestAndRuleset(
     const std::string& json_rules_filename,
     const base::Value& rules,
     const std::vector<std::string>& hosts,
-    bool has_background_script) {
+    bool has_background_script,
+    bool has_feedback_permission,
+    bool has_active_tab_permission) {
   // Persist JSON rules file.
   JSONFileValueSerializer(extension_dir.Append(json_rules_filepath))
       .Serialize(rules);
@@ -255,8 +268,9 @@ void WriteManifestAndRuleset(
 
   // Persist manifest file.
   JSONFileValueSerializer(extension_dir.Append(kManifestFilename))
-      .Serialize(
-          *CreateManifest(json_rules_filename, hosts, has_background_script));
+      .Serialize(*CreateManifest(json_rules_filename, hosts,
+                                 has_background_script, has_feedback_permission,
+                                 has_active_tab_permission));
 }
 
 }  // namespace declarative_net_request

@@ -10,9 +10,9 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/payments/payment_handler_host.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_payment_address_init.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_payment_request_event_init.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
-#include "third_party/blink/renderer/modules/payments/payment_address_init.h"
-#include "third_party/blink/renderer/modules/payments/payment_request_event_init.h"
 #include "third_party/blink/renderer/modules/service_worker/extendable_event.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 
@@ -22,6 +22,7 @@ class AtomicString;
 
 namespace blink {
 
+class ExceptionState;
 class RespondWithObserver;
 class ScriptPromiseResolver;
 class ScriptState;
@@ -70,9 +71,11 @@ class MODULES_EXPORT PaymentRequestEvent final : public ExtendableEvent {
                                     const ScriptValue& method_details,
                                     ExceptionState& exception_state);
   ScriptPromise changeShippingAddress(ScriptState*,
-                                      PaymentAddressInit* shippingAddress);
+                                      PaymentAddressInit* shippingAddress,
+                                      ExceptionState&);
   ScriptPromise changeShippingOption(ScriptState*,
-                                     const String& shipping_option_id);
+                                     const String& shipping_option_id,
+                                     ExceptionState&);
   void respondWith(ScriptState*, ScriptPromise, ExceptionState&);
 
   void Trace(blink::Visitor*) override;

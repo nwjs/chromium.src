@@ -27,6 +27,7 @@
     endOfTest,
     expandedChanged,
     focus,
+    focusAfterMenuClose,
     focusContext,
     hide,
     hitTestResult,
@@ -100,7 +101,6 @@
     comboBoxGrouping,
     comboBoxMenuButton,
     comment,
-    commentSection,
     complementary,
     contentDeletion,
     contentInsertion,
@@ -223,14 +223,16 @@
     note,
     pane,
     paragraph,
+    pdfActionableHighlight, // PDF specific highlight role.
+    pluginObject,
     popUpButton,
+    portal,
     pre,
     presentational,
     progressIndicator,
     radioButton,
     radioGroup,
     region,
-    revision,
     rootWebArea,
     row,
     rowGroup,
@@ -676,7 +678,7 @@ enum MarkerType {
     AutomationNode? inPageLinkTarget;
 
     // A node that provides more details about the current node.
-    AutomationNode? details;
+    AutomationNode[]? details;
 
     // A node that provides an error message for a current node.
     AutomationNode? errorMessage;

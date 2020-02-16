@@ -2,22 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
+// eslint-disable-next-line no-unused-vars
+import {BrowserProxy} from './browser_proxy_interface.js';
 
-/**
- * Namespace for the Camera app.
- */
-var cca = cca || {};
-
-/**
- * Namespace for proxy.
- */
-cca.proxy = cca.proxy || {};
-
-(function() {
 /**
  * The Chrome App implementation of the CCA's interaction with the browser.
- * @implements {cca.proxy.BrowserProxy}
+ * @implements {BrowserProxy}
  */
 class ChromeAppBrowserProxy {
   /** @override */
@@ -46,9 +36,4 @@ class ChromeAppBrowserProxy {
   }
 }
 
-/**
- * Namespace for browser functions.
- * @type {cca.proxy.BrowserProxy}
- */
-cca.proxy.browserProxy = new ChromeAppBrowserProxy();
-})();
+export const browserProxy = new ChromeAppBrowserProxy();

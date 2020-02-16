@@ -37,6 +37,7 @@
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/optional.h"
+#include "services/network/public/cpp/request_destination.h"
 #include "services/network/public/cpp/request_mode.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -61,6 +62,7 @@
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/timer.h"
+#include "third_party/blink/renderer/platform/weborigin/referrer.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -214,9 +216,9 @@ void WebAssociatedURLLoaderImpl::ClientAdapter::DidReceiveResponse(
     return;
   }
 
-  WebHTTPHeaderSet exposed_headers =
+  HTTPHeaderSet exposed_headers =
       cors::ExtractCorsExposedHeaderNamesList(credentials_mode_, response);
-  WebHTTPHeaderSet blocked_headers;
+  HTTPHeaderSet blocked_headers;
   for (const auto& header : response.HttpHeaderFields()) {
     if (FetchUtils::IsForbiddenResponseHeaderName(header.key) ||
         (!cors::IsCorsSafelistedResponseHeader(header.key) &&
@@ -359,7 +361,8 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
   DCHECK(client);
 
   bool allow_load = true;
-  WebURLRequest new_request(request);
+  WebURLRequest new_request;
+  new_request.CopyFrom(request);
   if (options_.untrusted_http) {
     WebString method = new_request.HttpMethod();
     allow_load = observer_ && IsValidHTTPToken(method) &&
@@ -368,7 +371,18 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
       new_request.SetHttpMethod(FetchUtils::NormalizeMethod(method));
       HTTPRequestHeaderValidator validator;
       new_request.VisitHttpHeaderFields(&validator);
-      allow_load = validator.IsSafe();
+
+      // The request's referrer string is not stored as a header, so we must
+      // consult it separately, if set.
+      if (request.ReferrerString() !=
+          blink::WebString(Referrer::ClientReferrerString())) {
+        DCHECK(cors::IsForbiddenHeaderName("Referer"));
+        // `Referer` is a forbidden header name, so we must disallow this to
+        // load.
+        allow_load = false;
+      }
+
+      allow_load = allow_load && validator.IsSafe();
     }
   }
   new_request.ToMutableResourceRequest().SetCorsPreflightPolicy(
@@ -396,7 +410,7 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
     if (options_.grant_universal_access) {
       const auto request_mode = new_request.GetMode();
       DCHECK(request_mode == network::mojom::RequestMode::kNoCors ||
-             network::IsNavigationRequestMode(request_mode));
+             request_mode == network::mojom::RequestMode::kNavigate);
       // Some callers, notablly flash, with |grant_universal_access| want to
       // have an origin matching with referrer.
       KURL referrer(request.ToResourceRequest().ReferrerString());
@@ -413,6 +427,8 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
       // (P2PPortAllocatorSession::AllocateLegacyRelaySession, for example).
       // Remove this once those places are patched up.
       new_request.SetRequestContext(mojom::RequestContextType::INTERNAL);
+      new_request.SetRequestDestination(
+          network::mojom::RequestDestination::kEmpty);
     } else if (context == mojom::RequestContextType::VIDEO) {
       resource_loader_options.initiator_info.name =
           fetch_initiator_type_names::kVideo;

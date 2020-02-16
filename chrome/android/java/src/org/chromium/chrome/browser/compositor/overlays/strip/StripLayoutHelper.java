@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.MathUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimator;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
@@ -36,11 +37,9 @@ import org.chromium.chrome.browser.compositor.layouts.components.VirtualView;
 import org.chromium.chrome.browser.compositor.layouts.phone.stack.StackScroller;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.LocalizationUtils;
 
@@ -417,7 +416,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
      * @param title     The new title.
      */
     public void tabTitleChanged(int tabId, String title) {
-        TabImpl tab = (TabImpl) TabModelUtils.getTabById(mModel, tabId);
+        Tab tab = TabModelUtils.getTabById(mModel, tabId);
         if (tab != null) setAccessibilityDescription(findTabById(tabId), title, tab.isHidden());
     }
 
@@ -1742,9 +1741,7 @@ public class StripLayoutHelper implements StripLayoutTab.StripLayoutTabDelegate 
     }
 
     private void setAccessibilityDescription(StripLayoutTab stripTab, Tab tab) {
-        if (tab != null) {
-            setAccessibilityDescription(stripTab, tab.getTitle(), ((TabImpl) tab).isHidden());
-        }
+        if (tab != null) setAccessibilityDescription(stripTab, tab.getTitle(), tab.isHidden());
     }
 
     /**

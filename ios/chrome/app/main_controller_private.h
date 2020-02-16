@@ -24,11 +24,6 @@ class GURL;
 // Presents a promo's navigation controller.
 - (void)showPromo:(UIViewController*)promo;
 
-// Dismisses all modal dialogs, excluding the omnibox if |dismissOmnibox| is
-// NO, then call |completion|.
-- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
-                           dismissOmnibox:(BOOL)dismissOmnibox;
-
 @end
 
 // Methods that only exist for tests.
@@ -37,16 +32,17 @@ class GURL;
 @property(nonatomic, readonly) DeviceSharingManager* deviceSharingManager;
 @property(nonatomic, retain) id<TabSwitcher> tabSwitcher;
 
-// The top presented view controller that is not currently being dismissed.
-@property(nonatomic, readonly) UIViewController* topPresentedViewController;
-
 // Tab switcher state.
 @property(nonatomic, getter=isTabSwitcherActive) BOOL tabSwitcherActive;
-@property(nonatomic, readonly) BOOL dismissingTabSwitcher;
 
 // Sets the internal startup state to indicate that the launch was triggered
 // by an external app opening the given URL.
 - (void)setStartupParametersWithURL:(const GURL&)launchURL;
+
+// Dismisses all modal dialogs, excluding the omnibox if |dismissOmnibox| is
+// NO, then call |completion|.
+- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
+                           dismissOmnibox:(BOOL)dismissOmnibox;
 
 @end
 

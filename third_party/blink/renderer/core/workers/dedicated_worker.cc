@@ -5,7 +5,9 @@
 #include "third_party/blink/renderer/core/workers/dedicated_worker.h"
 
 #include <utility>
+
 #include "base/feature_list.h"
+#include "base/optional.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 
 #include "third_party/node-nw/src/node_webkit.h"
@@ -29,6 +31,7 @@
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/public/platform/web_fetch_client_settings_object.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/post_message_helper.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_post_message_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -43,7 +46,6 @@
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/worker_fetch_context.h"
-#include "third_party/blink/renderer/core/messaging/post_message_options.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
@@ -54,57 +56,12 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
-#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
 namespace blink {
-
-namespace {
-
-// Indicates whether the origin of worker top-level script's request URL is
-// same-origin as the parent execution context's origin or not.
-// This is used for UMA and thus the existing values should not be changed.
-enum class WorkerTopLevelScriptOriginType {
-  kSameOrigin = 0,
-  kDataUrl = 1,
-
-  // Cross-origin worker request URL (e.g. https://example.com/worker.js)
-  // from an chrome-extension: page.
-  kCrossOriginFromExtension = 2,
-
-  // Cross-origin worker request URL from a non chrome-extension: page.
-  // There are no known cases for this, and we investigate whether there are
-  // really no occurrences.
-  kCrossOriginOthers = 3,
-
-  kMaxValue = kCrossOriginOthers
-};
-
-void CountTopLevelScriptRequestUrlOriginType(
-    const SecurityOrigin& context_origin,
-    const KURL& request_url) {
-  WorkerTopLevelScriptOriginType origin_type;
-  if (request_url.ProtocolIsData()) {
-    origin_type = WorkerTopLevelScriptOriginType::kDataUrl;
-  } else if (context_origin.IsSameOriginWith(
-                 SecurityOrigin::Create(request_url).get())) {
-    origin_type = WorkerTopLevelScriptOriginType::kSameOrigin;
-  } else if (context_origin.Protocol() == "chrome-extension") {
-    // Note: using "chrome-extension" scheme check here is a layering
-    // violation. Do not use this except for UMA purpose.
-    origin_type = WorkerTopLevelScriptOriginType::kCrossOriginFromExtension;
-  } else {
-    origin_type = WorkerTopLevelScriptOriginType::kCrossOriginOthers;
-  }
-  UMA_HISTOGRAM_ENUMERATION(
-      "Worker.TopLevelScript.OriginType.RequestUrl.DedicatedWorker",
-      origin_type);
-}
-
-}  // namespace
 
 DedicatedWorker* DedicatedWorker::Create(ExecutionContext* context,
                                          const String& url,
@@ -246,9 +203,10 @@ void DedicatedWorker::Start() {
     // https://html.spec.whatwg.org/C/#workeroptions
     auto credentials_mode = network::mojom::CredentialsMode::kSameOrigin;
     if (options_->type() == "module") {
-      bool result = Request::ParseCredentialsMode(options_->credentials(),
-                                                  &credentials_mode);
+      base::Optional<network::mojom::CredentialsMode> result =
+          Request::ParseCredentialsMode(options_->credentials());
       DCHECK(result);
+      credentials_mode = result.value();
     }
 
     mojo::PendingRemote<mojom::blink::BlobURLToken> blob_url_token;
@@ -280,6 +238,7 @@ void DedicatedWorker::Start() {
     classic_script_loader_->LoadTopLevelScriptAsynchronously(
         *GetExecutionContext(), GetExecutionContext()->Fetcher(),
         script_request_url_, mojom::RequestContextType::WORKER,
+        network::mojom::RequestDestination::kWorker,
         network::mojom::RequestMode::kSameOrigin,
         network::mojom::CredentialsMode::kSameOrigin,
         WTF::Bind(&DedicatedWorker::OnResponse, WrapPersistent(this)),
@@ -398,9 +357,6 @@ void DedicatedWorker::OnFinished() {
   } else if (classic_script_loader_->Failed()) {
     context_proxy_->DidFailToFetchScript();
   } else {
-    CountTopLevelScriptRequestUrlOriginType(
-        *GetExecutionContext()->GetSecurityOrigin(), script_request_url_);
-
     network::mojom::ReferrerPolicy referrer_policy =
         network::mojom::ReferrerPolicy::kDefault;
     if (!classic_script_loader_->GetReferrerPolicy().IsNull()) {

@@ -7,14 +7,12 @@
 
 #import <Cocoa/Cocoa.h>
 
-#import "ui/base/cocoa/touch_bar_forward_declarations.h"
-
 namespace autofill {
 class AutofillPopupController;
 }
 
 @interface CreditCardAutofillTouchBarController : NSObject<NSTouchBarDelegate> {
-  autofill::AutofillPopupController* controller_;  // weak
+  autofill::AutofillPopupController* _controller;  // weak
 }
 
 - (instancetype)initWithController:

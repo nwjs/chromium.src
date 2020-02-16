@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">schuifregelaar</translation>
 <translation id="1211441953136645838">eindnoot</translation>
 <translation id="1281252709823657822">dialoogvenster</translation>
+<translation id="1306460908038601864">Uit</translation>
 <translation id="1335095011850992622">bronvermelding</translation>
 <translation id="1342835525016946179">artikel</translation>
 <translation id="1359897965706325498">banner</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Breid deze tekst uit tot <ph name="MIN_CHARACTERS" /> tekens of meer (je gebruikt momenteel <ph name="CURRENT_LENGTH" /> tekens).</translation>
 <translation id="383465348367842624">Het naamgedeelte vóór '<ph name="ATSIGN" />' mag niet het teken '<ph name="INVALIDCHARACTER" />' bevatten.</translation>
 <translation id="3846214748874656680">Volledig scherm sluiten</translation>
-<translation id="3889183436948184105">revisie</translation>
 <translation id="3920932319529768807">conclusie</translation>
 <translation id="3924558731517983934">app</translation>
 <translation id="3944740393230681990">proloog</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Voer een getal in.</translation>
 <translation id="4912536737030637138">bibliografievermelding</translation>
 <translation id="492244087561876220">reactie</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> geselecteerd</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> geselecteerd</translation>
 <translation id="4992066212339426712">Dempen opheffen</translation>
 <translation id="49969490063480558">Geef een adresgedeelte op na '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' is onvolledig.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">Geef een naamgedeelte op, gevolgd door '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' is onvolledig.</translation>
 <translation id="5334352251556557839">Kan media niet afspelen.</translation>
+<translation id="537648784377940524">De minimum datum (<ph name="MIN_DATE_OR_TIME" />) moet voor de maximum datum (<ph name="MAX_DATE_OR_TIME" />) liggen.</translation>
 <translation id="5406322316791861025">figuur</translation>
 <translation id="5453733299334684579">item in boomstructuur</translation>
 <translation id="5466621249238537318">Selecteer een of meer bestanden.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">meer opties</translation>
 <translation id="576709008726043716">inleiding</translation>
 <translation id="57838592816432529">Dempen</translation>
-<translation id="5860033963881614850">Uit</translation>
 <translation id="588258955323874662">Volledig scherm</translation>
 <translation id="5888666972993069672">Wordt nu gecast naar <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">zoekvak</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Gebruik een '<ph name="ATSIGN" />' in het e-mailadres. In '<ph name="INVALIDADDRESS" />' ontbreekt een '<ph name="ATSIGN" />'.</translation>
 <translation id="7891486169920085145">splitser</translation>
 <translation id="795667975304826397">Geen bestand gekozen</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> niet geselecteerd</translation>
 <translation id="8034303206267677282">sterk</translation>
 <translation id="8053789581856978548">zoektekstveld</translation>
 <translation id="8057695513531652401">kennisgeving</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Maand</translation>
 <translation id="901493112792887934">huidige tijd in seconden</translation>
 <translation id="901834265349196618">e-mail</translation>
-<translation id="9023835124071926463">reactiegedeelte</translation>
 <translation id="9048119486235211610">navigatie</translation>
 <translation id="9062295712474918030">document</translation>
 <translation id="9093215626363556771">scherm-in-scherm afsluiten</translation>

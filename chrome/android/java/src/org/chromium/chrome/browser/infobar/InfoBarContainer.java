@@ -17,11 +17,11 @@ import org.chromium.base.annotations.NativeMethods;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.infobar.InfoBarContainerLayout.Item;
-import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetObserver;
 import org.chromium.chrome.browser.widget.bottomsheet.EmptyBottomSheetObserver;
@@ -481,7 +481,7 @@ public class InfoBarContainer implements UserData, KeyboardVisibilityListener {
                             mBottomSheetObserver = new EmptyBottomSheetObserver() {
                                 @Override
                                 public void onSheetStateChanged(int sheetState) {
-                                    if (((TabImpl) mTab).isHidden()) return;
+                                    if (mTab.isHidden()) return;
                                     mInfoBarContainerView.setVisibility(
                                             sheetState == BottomSheetController.SheetState.FULL
                                                     ? View.INVISIBLE

@@ -5,10 +5,10 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_EXTENDABLE_MESSAGE_EVENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_EXTENDABLE_MESSAGE_EVENT_H_
 
+#include "third_party/blink/renderer/bindings/modules/v8/v8_extendable_message_event_init.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/service_worker/extendable_event.h"
-#include "third_party/blink/renderer/modules/service_worker/extendable_message_event_init.h"
 
 namespace blink {
 
@@ -40,6 +40,14 @@ class MODULES_EXPORT ExtendableMessageEvent final : public ExtendableEvent {
       MessagePortArray* ports,
       ServiceWorker* source,
       WaitUntilObserver*);
+  static ExtendableMessageEvent* CreateError(const String& origin,
+                                             MessagePortArray* ports,
+                                             ServiceWorkerClient* source,
+                                             WaitUntilObserver*);
+  static ExtendableMessageEvent* CreateError(const String& origin,
+                                             MessagePortArray* ports,
+                                             ServiceWorker* source,
+                                             WaitUntilObserver*);
 
   ExtendableMessageEvent(const AtomicString& type,
                          const ExtendableMessageEventInit* initializer);
@@ -48,6 +56,10 @@ class MODULES_EXPORT ExtendableMessageEvent final : public ExtendableEvent {
                          WaitUntilObserver*);
   ExtendableMessageEvent(scoped_refptr<SerializedScriptValue> data,
                          const String& origin,
+                         MessagePortArray* ports,
+                         WaitUntilObserver*);
+  // Creates a 'messageerror' event.
+  ExtendableMessageEvent(const String& origin,
                          MessagePortArray* ports,
                          WaitUntilObserver*);
 

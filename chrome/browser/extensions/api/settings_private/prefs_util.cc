@@ -22,13 +22,14 @@
 #include "components/component_updater/pref_names.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/drive/drive_pref_names.h"
+#include "components/embedder_support/pref_names.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/search_engines/default_search_manager.h"
 #include "components/spellcheck/browser/pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
@@ -48,6 +49,7 @@
 #include "chrome/browser/chromeos/guest_os/guest_os_pref_names.h"
 #include "chrome/browser/chromeos/ownership/owner_settings_service_chromeos.h"
 #include "chrome/browser/chromeos/ownership/owner_settings_service_chromeos_factory.h"
+#include "chrome/browser/chromeos/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
@@ -145,7 +147,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   s_whitelist = new PrefsUtil::TypedPrefMap();
 
   // Miscellaneous
-  (*s_whitelist)[::prefs::kAlternateErrorPagesEnabled] =
+  (*s_whitelist)[::embedder_support::kAlternateErrorPagesEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[autofill::prefs::kAutofillProfileEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
@@ -336,6 +338,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
       settings_api::PrefType::PREF_TYPE_STRING;
   (*s_whitelist)[::prefs::kAccessibilityCaptionsBackgroundOpacity] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
+  (*s_whitelist)[::prefs::kLiveCaptionEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
 #if defined(OS_CHROMEOS)
   // Accounts / Users / People.
@@ -441,6 +445,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
       settings_api::PrefType::PREF_TYPE_LIST;
   (*s_whitelist)[guest_os::prefs::kGuestOSPathsSharedToVms] =
       settings_api::PrefType::PREF_TYPE_DICTIONARY;
+
+  // Plugin Vm
+  (*s_whitelist)[plugin_vm::prefs::kPluginVmImageExists] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
   // Android Apps.
   (*s_whitelist)[arc::prefs::kArcEnabled] =

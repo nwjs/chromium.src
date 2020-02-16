@@ -22,8 +22,8 @@
 #include "components/data_reduction_proxy/content/common/data_reduction_proxy_url_loader_throttle.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_params.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_throttle_manager.h"
-#include "components/safe_browsing/features.h"
-#include "components/safe_browsing/renderer/renderer_url_loader_throttle.h"
+#include "components/safe_browsing/content/renderer/renderer_url_loader_throttle.h"
+#include "components/safe_browsing/core/features.h"
 #include "content/public/common/content_features.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
@@ -44,21 +44,12 @@
 
 namespace {
 
-chrome::mojom::PrerenderCanceler* GetPrerenderCanceller(int render_frame_id) {
-  content::RenderFrame* render_frame =
-      content::RenderFrame::FromRoutingID(render_frame_id);
-  if (!render_frame)
-    return nullptr;
-  prerender::PrerenderHelper* helper =
-      prerender::PrerenderHelper::Get(render_frame);
-  if (!helper)
-    return nullptr;
-
-  auto* canceler = new mojo::Remote<chrome::mojom::PrerenderCanceler>;
+mojo::PendingRemote<chrome::mojom::PrerenderCanceler> GetPrerenderCanceler(
+    content::RenderFrame* render_frame) {
+  mojo::PendingRemote<chrome::mojom::PrerenderCanceler> canceler;
   render_frame->GetBrowserInterfaceBroker()->GetInterface(
-      canceler->BindNewPipeAndPassReceiver());
-  base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, canceler);
-  return canceler->get();
+      canceler.InitWithNewPipeAndPassReceiver());
+  return canceler;
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -201,8 +192,7 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
       auto throttle = std::make_unique<prerender::PrerenderURLLoaderThrottle>(
           prerender_helper->prerender_mode(),
           prerender_helper->histogram_prefix(),
-          base::BindOnce(GetPrerenderCanceller, render_frame_id),
-          base::ThreadTaskRunnerHandle::Get());
+          GetPrerenderCanceler(render_frame));
       prerender_helper->AddThrottle(throttle->AsWeakPtr());
       if (prerender_helper->prerender_mode() == prerender::PREFETCH_ONLY) {
         auto* prerender_dispatcher =
@@ -260,7 +250,7 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
 #endif  // defined(OS_CHROMEOS)
 
   auto throttle = subresource_redirect::SubresourceRedirectURLLoaderThrottle::
-      MaybeCreateThrottle(request, resource_type);
+      MaybeCreateThrottle(request, resource_type, render_frame_id);
   if (throttle)
     throttles.push_back(std::move(throttle));
 

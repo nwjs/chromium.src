@@ -60,12 +60,12 @@
 #include "net/base/net_errors.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "skia/ext/platform_canvas.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "third_party/blink/public/mojom/app_banner/app_banner.mojom.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_size.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -94,7 +94,6 @@ using blink::WebElement;
 using blink::WebFrame;
 using blink::WebHistoryItem;
 using blink::WebLocalFrame;
-using blink::WebPoint;
 using blink::WebRect;
 using blink::WebScriptSource;
 using blink::WebSize;
@@ -183,7 +182,7 @@ void BlinkTestRunner::SetEditCommand(const std::string& name,
 }
 
 void BlinkTestRunner::PrintMessageToStderr(const std::string& message) {
-  Send(new BlinkTestHostMsg_PrintMessageToStderr(routing_id(), message));
+  GetWebTestClientRemote().PrintMessageToStderr(message);
 }
 
 void BlinkTestRunner::PrintMessage(const std::string& message) {
@@ -257,12 +256,11 @@ void BlinkTestRunner::ApplyPreferences() {
   WebPreferences prefs = render_view()->GetWebkitPreferences();
   ExportWebTestSpecificPreferences(prefs_, &prefs);
   render_view()->SetWebkitPreferences(prefs);
-  Send(new BlinkTestHostMsg_OverridePreferences(routing_id(), prefs));
+  GetWebTestClientRemote().OverridePreferences(prefs);
 }
 
 void BlinkTestRunner::SetPopupBlockingEnabled(bool block_popups) {
-  Send(
-      new BlinkTestHostMsg_SetPopupBlockingEnabled(routing_id(), block_popups));
+  GetWebTestClientRemote().SetPopupBlockingEnabled(block_popups);
 }
 
 void BlinkTestRunner::UseUnfortunateSynchronousResizeMode(bool enable) {
@@ -290,7 +288,7 @@ void BlinkTestRunner::ResetAutoResizeMode() {
 }
 
 void BlinkTestRunner::NavigateSecondaryWindow(const GURL& url) {
-  Send(new BlinkTestHostMsg_NavigateSecondaryWindow(routing_id(), url));
+  GetWebTestClientRemote().NavigateSecondaryWindow(url);
 }
 
 void BlinkTestRunner::InspectSecondaryWindow() {
@@ -359,20 +357,19 @@ void BlinkTestRunner::SetBluetoothFakeAdapter(const std::string& adapter_name,
 }
 
 void BlinkTestRunner::SetBluetoothManualChooser(bool enable) {
-  Send(new BlinkTestHostMsg_SetBluetoothManualChooser(routing_id(), enable));
+  GetWebTestClientRemote().SetBluetoothManualChooser(enable);
 }
 
 void BlinkTestRunner::GetBluetoothManualChooserEvents(
     base::OnceCallback<void(const std::vector<std::string>&)> callback) {
   get_bluetooth_events_callbacks_.push_back(std::move(callback));
-  Send(new BlinkTestHostMsg_GetBluetoothManualChooserEvents(routing_id()));
+  GetWebTestClientRemote().GetBluetoothManualChooserEvents();
 }
 
 void BlinkTestRunner::SendBluetoothManualChooserEvent(
     const std::string& event,
     const std::string& argument) {
-  Send(new BlinkTestHostMsg_SendBluetoothManualChooserEvent(routing_id(), event,
-                                                            argument));
+  GetWebTestClientRemote().SendBluetoothManualChooserEvent(event, argument);
 }
 
 void BlinkTestRunner::SetFocus(blink::WebView* web_view, bool focus) {
@@ -412,6 +409,16 @@ void BlinkTestRunner::SetLocale(const std::string& locale) {
   setlocale(LC_NUMERIC, "C");
 }
 
+base::FilePath BlinkTestRunner::GetWritableDirectory() {
+  base::FilePath result;
+  Send(new WebTestHostMsg_GetWritableDirectory(routing_id(), &result));
+  return result;
+}
+
+void BlinkTestRunner::SetFilePathForMockFileDialog(const base::FilePath& path) {
+  Send(new WebTestHostMsg_SetFilePathForMockFileDialog(routing_id(), path));
+}
+
 void BlinkTestRunner::OnWebTestRuntimeFlagsChanged(
     const base::DictionaryValue& changed_values) {
   // Ignore changes that happen before we got the initial, accumulated
@@ -446,7 +453,7 @@ void BlinkTestRunner::TestFinished() {
   // dump and pixels from the compositor.
   auto* web_frame = render_view()->GetWebView()->MainFrame()->ToWebLocalFrame();
   web_frame->FrameWidget()->UpdateAllLifecyclePhases(
-      blink::WebWidget::LifecycleUpdateReason::kTest);
+      blink::DocumentUpdateReason::kTest);
 
   // Initialize a new dump results object which we will populate in the calls
   // below.
@@ -518,7 +525,7 @@ void BlinkTestRunner::CaptureLocalLayoutDump() {
     // TODO(vmpstr): Since CaptureDump is called from the browser, we can be
     // smart and move this logic directly to the browser.
     waiting_for_layout_dump_results_ = true;
-    Send(new BlinkTestHostMsg_InitiateLayoutDump(routing_id()));
+    GetWebTestClientRemote().InitiateLayoutDump();
   }
 }
 
@@ -579,7 +586,7 @@ void BlinkTestRunner::CaptureDumpComplete() {
 }
 
 void BlinkTestRunner::CloseRemainingWindows() {
-  Send(new BlinkTestHostMsg_CloseRemainingWindows(routing_id()));
+  GetWebTestClientRemote().CloseRemainingWindows();
 }
 
 void BlinkTestRunner::DeleteAllCookies() {
@@ -591,16 +598,16 @@ int BlinkTestRunner::NavigationEntryCount() {
 }
 
 void BlinkTestRunner::GoToOffset(int offset) {
-  Send(new BlinkTestHostMsg_GoToOffset(routing_id(), offset));
+  GetWebTestClientRemote().GoToOffset(offset);
 }
 
 void BlinkTestRunner::Reload() {
-  Send(new BlinkTestHostMsg_Reload(routing_id()));
+  GetWebTestClientRemote().Reload();
 }
 
 void BlinkTestRunner::LoadURLForFrame(const WebURL& url,
                                       const std::string& frame_name) {
-  Send(new BlinkTestHostMsg_LoadURLForFrame(routing_id(), url, frame_name));
+  GetWebTestClientRemote().LoadURLForFrame(url, frame_name);
 }
 
 bool BlinkTestRunner::AllowExternalPages() {
@@ -618,20 +625,9 @@ void BlinkTestRunner::SetPermission(const std::string& name,
                                     const std::string& value,
                                     const GURL& origin,
                                     const GURL& embedding_origin) {
-  blink::mojom::PermissionStatus status;
-  if (value == "granted") {
-    status = blink::mojom::PermissionStatus::GRANTED;
-  } else if (value == "prompt") {
-    status = blink::mojom::PermissionStatus::ASK;
-  } else if (value == "denied") {
-    status = blink::mojom::PermissionStatus::DENIED;
-  } else {
-    NOTREACHED();
-    status = blink::mojom::PermissionStatus::DENIED;
-  }
-
-  Send(new WebTestHostMsg_SetPermission(routing_id(), name, status, origin,
-                                        embedding_origin));
+  Send(new WebTestHostMsg_SetPermission(routing_id(), name,
+                                        blink::ToPermissionStatus(value),
+                                        origin, embedding_origin));
 }
 
 void BlinkTestRunner::ResetPermissions() {
@@ -681,21 +677,6 @@ void BlinkTestRunner::ForceTextInputStateUpdate(WebLocalFrame* frame) {
 
 void BlinkTestRunner::DidClearWindowObject(WebLocalFrame* frame) {
   WebTestingSupport::InjectInternalsObject(frame);
-}
-
-bool BlinkTestRunner::OnMessageReceived(const IPC::Message& message) {
-  bool handled = true;
-  IPC_BEGIN_MESSAGE_MAP(BlinkTestRunner, message)
-    IPC_MESSAGE_HANDLER(BlinkTestMsg_Reset, OnReset)
-    IPC_MESSAGE_HANDLER(BlinkTestMsg_TestFinishedInSecondaryRenderer,
-                        OnTestFinishedInSecondaryRenderer)
-    IPC_MESSAGE_HANDLER(BlinkTestMsg_ReplyBluetoothManualChooserEvents,
-                        OnReplyBluetoothManualChooserEvents)
-    IPC_MESSAGE_HANDLER(BlinkTestMsg_LayoutDumpCompleted, OnLayoutDumpCompleted)
-    IPC_MESSAGE_UNHANDLED(handled = false)
-  IPC_END_MESSAGE_MAP()
-
-  return handled;
 }
 
 // Public methods - -----------------------------------------------------------
@@ -757,6 +738,14 @@ BlinkTestRunner::GetBluetoothFakeAdapterSetter() {
   return *bluetooth_fake_adapter_setter_;
 }
 
+mojom::WebTestClient& BlinkTestRunner::GetWebTestClientRemote() {
+  if (!web_test_client_remote_) {
+    RenderThread::Get()->BindHostReceiver(
+        web_test_client_remote_.BindNewPipeAndPassReceiver());
+  }
+  return *web_test_client_remote_;
+}
+
 void BlinkTestRunner::OnSetupSecondaryRenderer() {
   DCHECK(!is_main_window_);
 
@@ -812,7 +801,7 @@ void BlinkTestRunner::OnReset() {
   // by the renderer.
   waiting_for_reset_ = true;
 
-  auto request = blink::WebURLRequest(GURL(url::kAboutBlankURL));
+  blink::WebURLRequest request{GURL(url::kAboutBlankURL)};
   request.SetMode(network::mojom::RequestMode::kNavigate);
   request.SetRedirectMode(network::mojom::RedirectMode::kManual);
   request.SetRequestContext(blink::mojom::RequestContextType::INTERNAL);

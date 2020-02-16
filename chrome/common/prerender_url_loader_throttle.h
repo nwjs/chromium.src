@@ -22,15 +22,10 @@ class PrerenderURLLoaderThrottle
     : public blink::URLLoaderThrottle,
       public base::SupportsWeakPtr<PrerenderURLLoaderThrottle> {
  public:
-  // If the throttle needs to cancel the prerender, it will run
-  // |canceler_getter| on |canceler_getter_task_runner| to do so.
-  using CancelerGetterCallback =
-      base::OnceCallback<chrome::mojom::PrerenderCanceler*()>;
   PrerenderURLLoaderThrottle(
       PrerenderMode mode,
       const std::string& histogram_prefix,
-      CancelerGetterCallback canceler_getter,
-      scoped_refptr<base::SequencedTaskRunner> canceler_getter_task_runner);
+      mojo::PendingRemote<chrome::mojom::PrerenderCanceler> canceler);
   ~PrerenderURLLoaderThrottle() override;
 
   // Called when the prerender is used. This will unpaused requests and set the
@@ -61,12 +56,10 @@ class PrerenderURLLoaderThrottle
   std::string histogram_prefix_;
 
   bool deferred_ = false;
-  bool sync_xhr_ = false;
   int redirect_count_ = 0;
   content::ResourceType resource_type_;
 
-  CancelerGetterCallback canceler_getter_;
-  scoped_refptr<base::SequencedTaskRunner> canceler_getter_task_runner_;
+  mojo::PendingRemote<chrome::mojom::PrerenderCanceler> canceler_;
 
   // The throttle changes most request priorities to IDLE during prerendering.
   // The priority is reset back to the original priority when prerendering is

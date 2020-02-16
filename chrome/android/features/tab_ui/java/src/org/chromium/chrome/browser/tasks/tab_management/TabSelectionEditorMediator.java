@@ -15,17 +15,16 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
@@ -74,12 +73,12 @@ class TabSelectionEditorMediator
     private final TabModelSelectorObserver mTabModelSelectorObserver;
     private final TabSelectionEditorPositionProvider mPositionProvider;
     private TabSelectionEditorActionProvider mActionProvider;
+    private TabSelectionEditorCoordinator.TabSelectionEditorNavigationProvider mNavigationProvider;
 
     private final View.OnClickListener mNavigationClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            RecordUserAction.record("TabMultiSelect.Cancelled");
-            hide();
+            mNavigationProvider.goBack();
         }
     };
 
@@ -149,7 +148,7 @@ class TabSelectionEditorMediator
                 ColorStateList toolbarTintColorList = AppCompatResources.getColorStateList(mContext,
                         isIncognito ? R.color.dark_text_color_list
                                     : R.color.default_text_color_inverse_list);
-                int textAppearance = isIncognito ? R.style.TextAppearance_BlackHeadline_Black
+                int textAppearance = isIncognito ? R.style.TextAppearance_Headline_Primary_Black
                                                  : R.style.TextAppearance_Headline_Inverse;
 
                 mModel.set(TabSelectionEditorProperties.PRIMARY_COLOR, primaryColor);
@@ -165,6 +164,9 @@ class TabSelectionEditorMediator
         // Default action for action button is to group selected tabs.
         mActionProvider = new TabSelectionEditorActionProvider(
                 this, TabSelectionEditorActionProvider.TabSelectionEditorAction.GROUP);
+
+        mNavigationProvider =
+                new TabSelectionEditorCoordinator.TabSelectionEditorNavigationProvider(this);
 
         if (mPositionProvider != null) {
             mModel.set(TabSelectionEditorProperties.SELECTION_EDITOR_GLOBAL_LAYOUT_LISTENER,
@@ -216,7 +218,8 @@ class TabSelectionEditorMediator
     public void configureToolbar(@Nullable String actionButtonText,
             @Nullable TabSelectionEditorActionProvider actionProvider,
             int actionButtonEnablingThreshold,
-            @Nullable View.OnClickListener navigationButtonOnClickListener) {
+            @Nullable TabSelectionEditorCoordinator
+                    .TabSelectionEditorNavigationProvider navigationProvider) {
         if (actionButtonText != null) {
             mModel.set(TabSelectionEditorProperties.TOOLBAR_ACTION_BUTTON_TEXT, actionButtonText);
         }
@@ -227,17 +230,15 @@ class TabSelectionEditorMediator
             mModel.set(TabSelectionEditorProperties.TOOLBAR_ACTION_BUTTON_ENABLING_THRESHOLD,
                     actionButtonEnablingThreshold);
         }
-        if (navigationButtonOnClickListener != null) {
-            mModel.set(TabSelectionEditorProperties.TOOLBAR_NAVIGATION_LISTENER,
-                    navigationButtonOnClickListener);
+        if (navigationProvider != null) {
+            mNavigationProvider = navigationProvider;
         }
     }
 
     @Override
     public boolean handleBackPressed() {
         if (!isEditorVisible()) return false;
-        hide();
-        RecordUserAction.record("TabMultiSelect.Cancelled");
+        mNavigationProvider.goBack();
         return true;
     }
 

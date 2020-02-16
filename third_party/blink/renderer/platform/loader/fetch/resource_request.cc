@@ -64,33 +64,40 @@ ResourceRequest::ResourceRequest(const KURL& url)
       cache_mode_(mojom::FetchCacheMode::kDefault),
       skip_service_worker_(false),
       download_to_cache_only_(false),
+      site_for_cookies_set_(false),
       priority_(ResourceLoadPriority::kUnresolved),
       intra_priority_value_(0),
       requestor_id_(0),
       previews_state_(WebURLRequest::kPreviewsUnspecified),
       request_context_(mojom::RequestContextType::UNSPECIFIED),
+      destination_(network::mojom::RequestDestination::kEmpty),
       mode_(network::mojom::RequestMode::kNoCors),
       fetch_importance_mode_(mojom::FetchImportanceMode::kImportanceAuto),
       credentials_mode_(network::mojom::CredentialsMode::kInclude),
       redirect_mode_(network::mojom::RedirectMode::kFollow),
       referrer_string_(Referrer::ClientReferrerString()),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault),
-      did_set_http_referrer_(false),
       is_external_request_(false),
       cors_preflight_policy_(
           network::mojom::CorsPreflightPolicy::kConsiderPreflight),
       redirect_status_(RedirectStatus::kNoRedirect) {}
 
-ResourceRequest::ResourceRequest(const ResourceRequest&) = default;
-
 ResourceRequest::~ResourceRequest() = default;
 
 ResourceRequest& ResourceRequest::operator=(const ResourceRequest&) = default;
 
+ResourceRequest::ResourceRequest(ResourceRequest&&) = default;
+
+ResourceRequest& ResourceRequest::operator=(ResourceRequest&&) = default;
+
+void ResourceRequest::CopyFrom(const ResourceRequest& src) {
+  *this = src;
+}
+
 std::unique_ptr<ResourceRequest> ResourceRequest::CreateRedirectRequest(
     const KURL& new_url,
     const AtomicString& new_method,
-    const KURL& new_site_for_cookies,
+    const net::SiteForCookies& new_site_for_cookies,
     const String& new_referrer,
     network::mojom::ReferrerPolicy new_referrer_policy,
     bool skip_service_worker) const {
@@ -102,9 +109,8 @@ std::unique_ptr<ResourceRequest> ResourceRequest::CreateRedirectRequest(
   request->SetSiteForCookies(new_site_for_cookies);
   String referrer =
       new_referrer.IsEmpty() ? Referrer::NoReferrer() : String(new_referrer);
-  // TODO(domfarolino): Stop storing ResourceRequest's generated referrer as a
-  // header and instead use a separate member. See https://crbug.com/850813.
-  request->SetHttpReferrer(Referrer(referrer, new_referrer_policy));
+  request->SetReferrerString(referrer);
+  request->SetReferrerPolicy(new_referrer_policy);
   request->SetSkipServiceWorker(skip_service_worker);
   request->SetRedirectStatus(RedirectStatus::kFollowedRedirect);
 
@@ -183,12 +189,14 @@ void ResourceRequest::SetTimeoutInterval(
   timeout_interval_ = timout_interval_seconds;
 }
 
-const KURL& ResourceRequest::SiteForCookies() const {
+const net::SiteForCookies& ResourceRequest::SiteForCookies() const {
   return site_for_cookies_;
 }
 
-void ResourceRequest::SetSiteForCookies(const KURL& site_for_cookies) {
+void ResourceRequest::SetSiteForCookies(
+    const net::SiteForCookies& site_for_cookies) {
   site_for_cookies_ = site_for_cookies;
+  site_for_cookies_set_ = true;
 }
 
 const SecurityOrigin* ResourceRequest::TopFrameOrigin() const {
@@ -222,21 +230,6 @@ void ResourceRequest::SetHttpHeaderField(const AtomicString& name,
   http_header_fields_.Set(name, value);
 }
 
-void ResourceRequest::SetHttpReferrer(const Referrer& referrer) {
-  if (referrer.referrer.IsEmpty())
-    http_header_fields_.Remove(http_names::kReferer);
-  else
-    SetHttpHeaderField(http_names::kReferer, referrer.referrer);
-  referrer_policy_ = referrer.referrer_policy;
-  did_set_http_referrer_ = true;
-}
-
-void ResourceRequest::ClearHTTPReferrer() {
-  http_header_fields_.Remove(http_names::kReferer);
-  referrer_policy_ = network::mojom::ReferrerPolicy::kDefault;
-  did_set_http_referrer_ = false;
-}
-
 void ResourceRequest::SetHTTPOrigin(const SecurityOrigin* origin) {
   SetHttpHeaderField(http_names::kOrigin, origin->ToAtomicString());
 }
@@ -252,9 +245,7 @@ void ResourceRequest::SetHttpOriginIfNeeded(const SecurityOrigin* origin) {
 
 void ResourceRequest::SetHTTPOriginToMatchReferrerIfNeeded() {
   if (NeedsHTTPOrigin()) {
-    SetHTTPOrigin(
-        SecurityOrigin::CreateFromString(HttpHeaderField(http_names::kReferer))
-            .get());
+    SetHTTPOrigin(SecurityOrigin::CreateFromString(ReferrerString()).get());
   }
 }
 

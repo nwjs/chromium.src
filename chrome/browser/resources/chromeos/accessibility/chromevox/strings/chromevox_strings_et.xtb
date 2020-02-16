@@ -385,7 +385,6 @@ Kui olete õpetusega lõpetanud, navigeerige ChromeVoxi abil sulgemisnupuni ja k
 <translation id="3646890046000188562">{COUNT,plural, =1{graavis}other{# graavist}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollar}other{# dollarimärki}}</translation>
-<translation id="3658742229777143148">Redaktsioon</translation>
 <translation id="3659787053479271466">alarm</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, loendiboks</translation>
 <translation id="3681531118904532409">Papaiaoranž</translation>
@@ -420,6 +419,7 @@ Kui olete õpetusega lõpetanud, navigeerige ChromeVoxi abil sulgemisnupuni ja k
 <translation id="3914732343065571127">ChromeVoxi käskude viiteteave</translation>
 <translation id="3930383913623796990">Kevadroheline</translation>
 <translation id="3930498801443296724">Tsitaat</translation>
+<translation id="3935615366277838204">Suurtäht <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Lavendliroosa</translation>
 <translation id="3941269780691800708">Hiirekursori all oleva teksti ettelugemine.</translation>
 <translation id="394953087167197343">Viita õigekirjaveale:</translation>
@@ -793,7 +793,6 @@ Kui olete õpetusega lõpetanud, navigeerige ChromeVoxi abil sulgemisnupuni ja k
 <translation id="6459511626086141404">Lame klahvitabel</translation>
 <translation id="6468049171101508116">Järgmine nupp</translation>
 <translation id="646954774886932461">Register</translation>
-<translation id="6479792383819319132">Järgmist lõiku ei ole.</translation>
 <translation id="6493991254603208962">Vähendab heledust</translation>
 <translation id="6501595918865591267">Türkiissinine</translation>
 <translation id="6508059270146105198">Braille' kuva lehe alaserva liigutamine</translation>
@@ -816,7 +815,6 @@ Kui olete õpetusega lõpetanud, navigeerige ChromeVoxi abil sulgemisnupuni ja k
 <translation id="6637586476836377253">logi</translation>
 <translation id="6657128831881431364">Edenemisriba</translation>
 <translation id="6659594942844771486">Vaheleht</translation>
-<translation id="6675661017770918201">Eelmist lõiku ei ole.</translation>
 <translation id="667999046851023355">Dokument</translation>
 <translation id="6688209025607531203">Mittemodaalne teatis</translation>
 <translation id="6689672606256159458">Tume lõheroosa</translation>
@@ -845,6 +843,7 @@ Kui olete õpetusega lõpetanud, navigeerige ChromeVoxi abil sulgemisnupuni ja k
 <translation id="6865519907510167493">Kirjaviga</translation>
 <translation id="6871161210040114857">Tähe suurust eiratakse.</translation>
 <translation id="6877435256196695200">Järgmist graafikat ei ole.</translation>
+<translation id="688976158310523235">Otsingumenüü</translation>
 <translation id="6897341342232909480">Teisalda vasakule</translation>
 <translation id="6901540140423170855">kuupäev</translation>
 <translation id="6910211073230771657">Kustutatud</translation>
@@ -857,6 +856,7 @@ Kui olete õpetusega lõpetanud, navigeerige ChromeVoxi abil sulgemisnupuni ja k
 <translation id="699159175332639490">Otsinguklahv + O + W</translation>
 <translation id="6994042831499278539">Sõnastiku viide</translation>
 <translation id="6996566555547746822">Järgmine liitboks</translation>
+<translation id="6997224546856374593">Suurtähtede lugemisel:</translation>
 <translation id="700202842116345659">Bibliograafia kirje</translation>
 <translation id="7005146664810010831">URL-i ei leitud</translation>
 <translation id="7010712454773919705">ChromeVoxi muuteklahv</translation>
@@ -937,6 +937,7 @@ Chrome'i brauseri menüü avamiseks vajutage klahvikombinatsiooni Alt + F.</tran
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">Tabulaator</translation>
 <translation id="7492049978501397201">Sisestatud dialoog</translation>
+<translation id="7505149250476994901">Öelge enne tähte „suurtäht”</translation>
 <translation id="7518543783849163354">Vajutage klahvi Control, et ChromeVoxi kõne ajutiselt peatada.</translation>
 <translation id="7521682724501952239">Saate ChromeVoxi kasutada koos puuteekraaniga.</translation>
 <translation id="7532613204005497612">Juuni</translation>
@@ -1104,7 +1105,6 @@ Chrome'i brauseri menüü avamiseks vajutage klahvikombinatsiooni Alt + F.</tran
 <translation id="812886159861361726">Allalaadimine katkes: <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">Puudutage valikut</translation>
 <translation id="8153880621934657047">Ei ole tabelis.</translation>
-<translation id="8161114871611868169">Kommentaaride jaotis</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{alljoon}other{# alljoont}}</translation>
 <translation id="8179976553408161302">Sisestusklahv</translation>
 <translation id="8184828902145951186">rida</translation>
@@ -1125,6 +1125,7 @@ Chrome'i brauseri menüü avamiseks vajutage klahvikombinatsiooni Alt + F.</tran
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Pitsvalge</translation>
 <translation id="8326783648485765113">Mururoheline</translation>
+<translation id="8328063869313048659">Lülitatakse tumedale ekraanikuvale</translation>
 <translation id="8344569602005188545">tunnid</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{nael}other{# naelamärki}}</translation>
 <translation id="8374154622594089836">kuu</translation>
@@ -1209,6 +1210,7 @@ Chrome'i brauseri menüü avamiseks vajutage klahvikombinatsiooni Alt + F.</tran
 <translation id="9065283790526219006">+hüpik</translation>
 <translation id="9066023754636984703">Üksikasjade juurde liikumiseks vajutage otsinguklahvi + klahvi A ja seejärel klahvi J.</translation>
 <translation id="9067522039955793016">Leheküljepiir</translation>
+<translation id="9074824103975499138">Otsige ChromeVoxi menüüdest</translation>
 <translation id="9077213568694924680">eemaldatakse valikust</translation>
 <translation id="9077305471618729969">Hele mereroheline</translation>
 <translation id="9082874451376019682">Eelmist liugurit ei ole.</translation>

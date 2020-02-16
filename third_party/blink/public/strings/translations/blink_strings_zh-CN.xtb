@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">滑块</translation>
 <translation id="1211441953136645838">尾注</translation>
 <translation id="1281252709823657822">对话框</translation>
+<translation id="1306460908038601864">已关闭</translation>
 <translation id="1335095011850992622">参与者名单</translation>
 <translation id="1342835525016946179">文章标记</translation>
 <translation id="1359897965706325498">横幅</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">请将该文本增加为 <ph name="MIN_CHARACTERS" /> 个字符或更多（您当前使用的是 <ph name="CURRENT_LENGTH" /> 个字符）。</translation>
 <translation id="383465348367842624">“<ph name="ATSIGN" />”前面的内容不应包含符号“<ph name="INVALIDCHARACTER" />”。</translation>
 <translation id="3846214748874656680">退出全屏模式</translation>
-<translation id="3889183436948184105">修订历史</translation>
 <translation id="3920932319529768807">总结</translation>
 <translation id="3924558731517983934">应用</translation>
 <translation id="3944740393230681990">序言</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">请输入一个数字。</translation>
 <translation id="4912536737030637138">参考书目</translation>
 <translation id="492244087561876220">评论</translation>
+<translation id="4971739861736909480">已选择“<ph name="ACCNAME" />”</translation>
 <translation id="4975562563186953947">选择了<ph name="SELECTED_COUNT" />项</translation>
 <translation id="4992066212339426712">取消静音</translation>
 <translation id="49969490063480558">请在“<ph name="ATSIGN" />”后面输入内容。“<ph name="INVALIDADDRESS" />”不完整。</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">请在“<ph name="ATSIGN" />”前面输入内容。“<ph name="INVALIDADDRESS" />”不完整。</translation>
 <translation id="5334352251556557839">无法播放媒体。</translation>
+<translation id="537648784377940524">最早日期 (<ph name="MIN_DATE_OR_TIME" />) 必须早于最晚日期 (<ph name="MAX_DATE_OR_TIME" />)。</translation>
 <translation id="5406322316791861025">图表</translation>
 <translation id="5453733299334684579">树状目录项</translation>
 <translation id="5466621249238537318">请选择一个或多个文件。</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">更多选项</translation>
 <translation id="576709008726043716">简介</translation>
 <translation id="57838592816432529">静音</translation>
-<translation id="5860033963881614850">关闭</translation>
 <translation id="588258955323874662">全屏</translation>
 <translation id="5888666972993069672">现正投射至“<ph name="DEVICE_FRIENDLY_NAME" />”</translation>
 <translation id="591047860372322273">搜索框</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">请在电子邮件地址中包括“<ph name="ATSIGN" />”。“<ph name="INVALIDADDRESS" />”中缺少“<ph name="ATSIGN" />”。</translation>
 <translation id="7891486169920085145">分离器</translation>
 <translation id="795667975304826397">未选择任何文件</translation>
+<translation id="7962328325860248200">未选择“<ph name="ACCNAME" />”</translation>
 <translation id="8034303206267677282">紧急</translation>
 <translation id="8053789581856978548">搜索文本字段</translation>
 <translation id="8057695513531652401">通知</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">月</translation>
 <translation id="901493112792887934">目前时间（以秒为单位）</translation>
 <translation id="901834265349196618">电子邮件</translation>
-<translation id="9023835124071926463">“评论”部分</translation>
 <translation id="9048119486235211610">导航</translation>
 <translation id="9062295712474918030">文档</translation>
 <translation id="9093215626363556771">退出“画中画”模式</translation>

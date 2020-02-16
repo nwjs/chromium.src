@@ -22,6 +22,8 @@ struct Rule {
   ResolverType resolver_type;
   string host_pattern;
   string replacement;
+  int32 host_resolver_flags;
+  string canonical_name;
 };
 
 // Testing interface to the network service.
@@ -73,6 +75,12 @@ interface NetworkServiceTest {
   // the default.
   [Sync]
   SetTransportSecurityStateSource(uint16 reporting_port) => ();
+
+  // Allow host resolutions to reach the network. Since going to the network
+  // can be a source of flakiness, this should only be called in tests that
+  // can tolerate this, such as those run manually or on an FYI bot.
+  [Sync]
+  SetAllowNetworkAccessToHostResolutions() => ();
 
   // Causes the next host resolve to the given hostname to crash the process.
   CrashOnResolveHost(string host);

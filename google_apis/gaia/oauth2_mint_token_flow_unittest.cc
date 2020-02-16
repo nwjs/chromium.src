@@ -164,14 +164,16 @@ static IssueAdviceInfo CreateIssueAdvice() {
 static RemoteConsentResolutionData CreateRemoteConsentResolutionData() {
   RemoteConsentResolutionData resolution_data;
   resolution_data.url = GURL("https://test.com/consent?param=value");
-  resolution_data.cookies.push_back(net::CanonicalCookie::CreateSanitizedCookie(
-      resolution_data.url, "test_name", "test_value", "test.com", "/",
-      base::Time(), base::Time(), base::Time(), false, true,
-      net::CookieSameSite::LAX_MODE, net::COOKIE_PRIORITY_DEFAULT));
-  resolution_data.cookies.push_back(net::CanonicalCookie::CreateSanitizedCookie(
-      resolution_data.url, "test_name2", "test_value2", "test.com", "/",
-      base::Time(), base::Time(), base::Time(), false, false,
-      net::CookieSameSite::UNSPECIFIED, net::COOKIE_PRIORITY_DEFAULT));
+  resolution_data.cookies.push_back(
+      *net::CanonicalCookie::CreateSanitizedCookie(
+          resolution_data.url, "test_name", "test_value", "test.com", "/",
+          base::Time(), base::Time(), base::Time(), false, true,
+          net::CookieSameSite::LAX_MODE, net::COOKIE_PRIORITY_DEFAULT));
+  resolution_data.cookies.push_back(
+      *net::CanonicalCookie::CreateSanitizedCookie(
+          resolution_data.url, "test_name2", "test_value2", "test.com", "/",
+          base::Time(), base::Time(), base::Time(), false, false,
+          net::CookieSameSite::UNSPECIFIED, net::COOKIE_PRIORITY_DEFAULT));
   return resolution_data;
 }
 
@@ -213,23 +215,30 @@ class OAuth2MintTokenFlowTest : public testing::Test {
   const network::mojom::URLResponseHeadPtr head_200_;
 
   void CreateFlow(OAuth2MintTokenFlow::Mode mode) {
-    return CreateFlow(&delegate_, mode, "");
+    return CreateFlow(&delegate_, mode, "", "");
   }
 
   void CreateFlowWithDeviceId(const std::string& device_id) {
     return CreateFlow(&delegate_, OAuth2MintTokenFlow::MODE_ISSUE_ADVICE,
-                      device_id);
+                      device_id, "");
+  }
+
+  void CreateFlowWithConsentResult(const std::string& consent_result) {
+    return CreateFlow(&delegate_, OAuth2MintTokenFlow::MODE_MINT_TOKEN_NO_FORCE,
+                      "", consent_result);
   }
 
   void CreateFlow(MockDelegate* delegate,
                   OAuth2MintTokenFlow::Mode mode,
-                  const std::string& device_id) {
+                  const std::string& device_id,
+                  const std::string& consent_result) {
     std::string ext_id = "ext1";
     std::string client_id = "client1";
     std::vector<std::string> scopes(CreateTestScopes());
     flow_ = std::make_unique<MockMintTokenFlow>(
-        delegate, OAuth2MintTokenFlow::Parameters(ext_id, client_id, scopes,
-                                                  device_id, mode));
+        delegate,
+        OAuth2MintTokenFlow::Parameters(ext_id, client_id, scopes, device_id,
+                                        consent_result, mode));
   }
 
   void ProcessApiCallSuccess(const network::mojom::URLResponseHead* head,
@@ -315,6 +324,18 @@ TEST_F(OAuth2MintTokenFlowTest, CreateApiCallBody) {
         "&lib_ver=extension");
     EXPECT_EQ(expected_body, body);
   }
+  {
+    CreateFlowWithConsentResult("consent1");
+    std::string body = flow_->CreateApiCallBody();
+    std::string expected_body(
+        "force=false"
+        "&response_type=token"
+        "&scope=http://scope1+http://scope2"
+        "&client_id=client1"
+        "&origin=ext1"
+        "&consent_result=consent1");
+    EXPECT_EQ(expected_body, body);
+  }
 }
 
 TEST_F(OAuth2MintTokenFlowTest, ParseMintTokenResponse) {
@@ -375,7 +396,7 @@ TEST_F(OAuth2MintTokenFlowTest, ParseRemoteConsentResponse) {
 
 TEST_F(OAuth2MintTokenFlowTest, ParseRemoteConsentResponse_EmptyCookies) {
   std::unique_ptr<base::Value> json = ParseJson(kValidRemoteConsentResponse);
-  json->FindListPath("resolutionData.browserCookies")->GetList().clear();
+  json->FindListPath("resolutionData.browserCookies")->ClearList();
   RemoteConsentResolutionData resolution_data;
   EXPECT_TRUE(OAuth2MintTokenFlow::ParseRemoteConsentResponse(
       json.get(), &resolution_data));
@@ -453,7 +474,7 @@ TEST_F(OAuth2MintTokenFlowTest,
   static const char* kRequiredFields[] = {"name", "value", "domain"};
   for (const auto* required_field : kRequiredFields) {
     std::unique_ptr<base::Value> json = ParseJson(kValidRemoteConsentResponse);
-    base::Value::ListStorage& cookies =
+    base::Value::ListView cookies =
         json->FindListPath("resolutionData.browserCookies")->GetList();
     EXPECT_TRUE(cookies[0].RemoveKey(required_field));
     RemoteConsentResolutionData resolution_data;
@@ -470,7 +491,7 @@ TEST_F(OAuth2MintTokenFlowTest,
                                           "isHttpOnly", "sameSite"};
   for (const auto* optional_field : kOptionalFields) {
     std::unique_ptr<base::Value> json = ParseJson(kValidRemoteConsentResponse);
-    base::Value::ListStorage& cookies =
+    base::Value::ListView cookies =
         json->FindListPath("resolutionData.browserCookies")->GetList();
     EXPECT_TRUE(cookies[0].RemoveKey(optional_field));
     RemoteConsentResolutionData resolution_data;
@@ -485,7 +506,7 @@ TEST_F(OAuth2MintTokenFlowTest,
 TEST_F(OAuth2MintTokenFlowTest,
        ParseRemoteConsentResponse_BadCookie_BadMaxAge) {
   std::unique_ptr<base::Value> json = ParseJson(kValidRemoteConsentResponse);
-  base::Value::ListStorage& cookies =
+  base::Value::ListView cookies =
       json->FindListPath("resolutionData.browserCookies")->GetList();
   cookies[0].SetStringKey("maxAgeSeconds", "not-a-number");
   RemoteConsentResolutionData resolution_data;
@@ -497,9 +518,7 @@ TEST_F(OAuth2MintTokenFlowTest,
 
 TEST_F(OAuth2MintTokenFlowTest, ParseRemoteConsentResponse_BadCookieList) {
   std::unique_ptr<base::Value> json = ParseJson(kValidRemoteConsentResponse);
-  base::Value::ListStorage& cookies =
-      json->FindListPath("resolutionData.browserCookies")->GetList();
-  cookies.push_back(base::Value(42));
+  json->FindListPath("resolutionData.browserCookies")->Append(42);
   RemoteConsentResolutionData resolution_data;
   EXPECT_FALSE(OAuth2MintTokenFlow::ParseRemoteConsentResponse(
       json.get(), &resolution_data));
@@ -601,7 +620,7 @@ TEST_F(OAuth2MintTokenFlowTest, ProcessApiCallSuccess_RemoteConsentFallback) {
 
 TEST_F(OAuth2MintTokenFlowTest, ProcessApiCallFailure_NullDelegate) {
   network::mojom::URLResponseHead head;
-  CreateFlow(nullptr, OAuth2MintTokenFlow::MODE_MINT_TOKEN_NO_FORCE, "");
+  CreateFlow(nullptr, OAuth2MintTokenFlow::MODE_MINT_TOKEN_NO_FORCE, "", "");
   ProcessApiCallFailure(net::ERR_FAILED, &head, nullptr);
   histogram_tester_.ExpectUniqueSample(
       kOAuth2MintTokenApiCallResultHistogram,

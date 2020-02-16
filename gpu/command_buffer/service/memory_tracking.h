@@ -36,7 +36,7 @@ class MemoryTracker {
   };
 
   virtual ~MemoryTracker() = default;
-  virtual void TrackMemoryAllocatedChange(uint64_t delta) = 0;
+  virtual void TrackMemoryAllocatedChange(int64_t delta) = 0;
   virtual uint64_t GetSize() const = 0;
 
   // Raw ID identifying the GPU client for whom memory is being allocated.
@@ -58,20 +58,20 @@ class MemoryTypeTracker {
   explicit MemoryTypeTracker(MemoryTracker* memory_tracker)
       : memory_tracker_(memory_tracker) {}
 
-  ~MemoryTypeTracker() = default;
+  ~MemoryTypeTracker() { DCHECK(!mem_represented_); }
 
   void TrackMemAlloc(size_t bytes) {
+    DCHECK(bytes >= 0);
     mem_represented_ += bytes;
     if (memory_tracker_ && bytes)
       memory_tracker_->TrackMemoryAllocatedChange(bytes);
   }
 
   void TrackMemFree(size_t bytes) {
-    DCHECK(bytes <= mem_represented_);
+    DCHECK(bytes >= 0 && bytes <= mem_represented_);
     mem_represented_ -= bytes;
     if (memory_tracker_ && bytes) {
-      memory_tracker_->TrackMemoryAllocatedChange(
-          -static_cast<uint64_t>(bytes));
+      memory_tracker_->TrackMemoryAllocatedChange(-static_cast<int64_t>(bytes));
     }
   }
 

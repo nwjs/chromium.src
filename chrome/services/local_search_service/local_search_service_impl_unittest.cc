@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <map>
 #include <set>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -13,8 +15,8 @@
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
 #include "chrome/services/local_search_service/local_search_service_impl.h"
-#include "chrome/services/local_search_service/public/mojom/local_search_service.mojom-test-utils.h"
 #include "chrome/services/local_search_service/public/mojom/types.mojom.h"
+#include "chrome/services/local_search_service/test_utils.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
@@ -24,77 +26,10 @@
 
 namespace local_search_service {
 
-namespace {
-// The following helper functions call the async functions and check results.
-void GetSizeAndCheck(mojom::Index* index, uint64_t expected_num_items) {
-  DCHECK(index);
-  uint64_t num_items = 0;
-  mojom::IndexAsyncWaiter(index).GetSize(&num_items);
-  EXPECT_EQ(num_items, expected_num_items);
-}
-
-void AddOrUpdateAndCheck(mojom::Index* index,
-                         std::vector<mojom::DataPtr> data) {
-  DCHECK(index);
-  mojom::IndexAsyncWaiter(index).AddOrUpdate(std::move(data));
-}
-
-void DeleteAndCheck(mojom::Index* index,
-                    const std::vector<std::string>& ids,
-                    uint32_t expected_num_deleted) {
-  DCHECK(index);
-  uint32_t num_deleted = 0u;
-  mojom::IndexAsyncWaiter(index).Delete(ids, &num_deleted);
-  EXPECT_EQ(num_deleted, expected_num_deleted);
-}
-
-void FindAndCheck(mojom::Index* index,
-                  std::string query,
-                  int32_t max_latency_in_ms,
-                  int32_t max_results,
-                  mojom::ResponseStatus expected_status,
-                  const std::vector<std::string>& expected_result_ids) {
-  DCHECK(index);
-
-  mojom::IndexAsyncWaiter async_waiter(index);
-  mojom::ResponseStatus status = mojom::ResponseStatus::UNKNOWN_ERROR;
-  base::Optional<std::vector<::local_search_service::mojom::ResultPtr>> results;
-  async_waiter.Find(query, max_latency_in_ms, max_results, &status, &results);
-
-  EXPECT_EQ(status, expected_status);
-
-  if (results) {
-    // If results are returned, check size and values match the expected.
-    EXPECT_EQ(results->size(), expected_result_ids.size());
-    for (size_t i = 0; i < results->size(); ++i) {
-      EXPECT_EQ((*results)[i]->id, expected_result_ids[i]);
-    }
-    return;
-  }
-
-  // If no results are returned, expected ids should be empty.
-  EXPECT_TRUE(expected_result_ids.empty());
-}
-}  // namespace
-
 class LocalSearchServiceImplTest : public testing::Test {
  public:
   LocalSearchServiceImplTest() {
     service_impl_.BindReceiver(service_remote_.BindNewPipeAndPassReceiver());
-  }
-
-  // Creates test data to be registered to the index. |input| is a map from
-  // id to search-tags.
-  std::vector<mojom::DataPtr> CreateTestData(
-      const std::map<std::string, std::vector<std::string>>& input) {
-    std::vector<mojom::DataPtr> output;
-    for (const auto& item : input) {
-      const std::string& id = item.first;
-      const std::vector<std::string>& tags = item.second;
-      mojom::DataPtr data = mojom::Data::New(id, tags);
-      output.push_back(std::move(data));
-    }
-    return output;
   }
 
  protected:
@@ -103,6 +38,8 @@ class LocalSearchServiceImplTest : public testing::Test {
   mojo::Remote<mojom::LocalSearchService> service_remote_;
 };
 
+// Tests a query that results in an exact match. We do not aim to test the
+// algorithm used in the search, but exact match should always be returned.
 TEST_F(LocalSearchServiceImplTest, ResultFound) {
   mojo::Remote<mojom::Index> index_remote;
   service_remote_->GetIndex(mojom::LocalSearchService::IndexId::CROS_SETTINGS,
@@ -113,7 +50,7 @@ TEST_F(LocalSearchServiceImplTest, ResultFound) {
   // Register the following data to the search index, the map is id to
   // search-tags.
   const std::map<std::string, std::vector<std::string>> data_to_register = {
-      {"id1", {"tag1a", "tag1b"}}, {"id2", {"tag2a", "tag2b"}}};
+      {"id1", {"id1", "tag1a", "tag1b"}}, {"xyz", {"xyz"}}};
   std::vector<mojom::DataPtr> data = CreateTestData(data_to_register);
   EXPECT_EQ(data.size(), 2u);
 
@@ -125,6 +62,9 @@ TEST_F(LocalSearchServiceImplTest, ResultFound) {
                /*max_results=*/-1, mojom::ResponseStatus::SUCCESS, {"id1"});
 }
 
+// Tests a query that results in no match. We do not aim to test the algorithm
+// used in the search, but a query too different from the item should have no
+// result returned.
 TEST_F(LocalSearchServiceImplTest, ResultNotFound) {
   mojo::Remote<mojom::Index> index_remote;
   service_remote_->GetIndex(mojom::LocalSearchService::IndexId::CROS_SETTINGS,
@@ -135,15 +75,15 @@ TEST_F(LocalSearchServiceImplTest, ResultNotFound) {
   // Register the following data to the search index, the map is id to
   // search-tags.
   const std::map<std::string, std::vector<std::string>> data_to_register = {
-      {"id1", {"tag1a", "tag1b"}}, {"id2", {"tag2a", "tag2b"}}};
+      {"id1", {"id1", "tag1a", "tag1b"}}, {"id2", {"id2", "tag2a", "tag2b"}}};
   std::vector<mojom::DataPtr> data = CreateTestData(data_to_register);
   EXPECT_EQ(data.size(), 2u);
 
   AddOrUpdateAndCheck(index_remote.get(), std::move(data));
   GetSizeAndCheck(index_remote.get(), 2u);
 
-  // Find result with query "id3". It returns no match.
-  FindAndCheck(index_remote.get(), "id3", /*max_latency_in_ms=*/-1,
+  // Find result with query "xyz". It returns no match.
+  FindAndCheck(index_remote.get(), "xyz", /*max_latency_in_ms=*/-1,
                /*max_results=*/-1, mojom::ResponseStatus::SUCCESS, {});
 }
 

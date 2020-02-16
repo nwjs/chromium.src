@@ -39,14 +39,18 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
-import org.chromium.chrome.browser.ui.widget.text.VerticallyFixedEditText;
+import org.chromium.components.browser_ui.widget.text.VerticallyFixedEditText;
+import org.chromium.components.find_in_page.FindInPageBridge;
+import org.chromium.components.find_in_page.FindMatchRectsDetails;
+import org.chromium.components.find_in_page.FindNotificationDetails;
+import org.chromium.components.find_in_page.FindResultBar;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.lang.annotation.Retention;
@@ -418,7 +422,7 @@ public class FindToolbar extends LinearLayout {
     }
 
     private void onFindResult(FindNotificationDetails result) {
-        if (mResultBar != null) mResultBar.mWaitingForActivateAck = false;
+        if (mResultBar != null) mResultBar.onFindResult();
 
         assert mFindInPageBridge != null;
 
@@ -440,7 +444,7 @@ public class FindToolbar extends LinearLayout {
             if (result.numberOfMatches > 0) {
                 // TODO(johnme): Don't wait till end of find, stream rects live!
                 mFindInPageBridge.requestFindMatchRects(
-                        mResultBar != null ? mResultBar.mRectsVersion : -1);
+                        mResultBar != null ? mResultBar.getRectsVersion() : -1);
             } else {
                 clearResults();
             }
@@ -744,7 +748,8 @@ public class FindToolbar extends LinearLayout {
                 && mCurrentTab.getWebContents() != null) {
             assert mFindInPageBridge != null;
 
-            mResultBar = new FindResultBar(getContext(), mCurrentTab, mFindInPageBridge);
+            mResultBar = new FindResultBar(
+                    getContext(), mCurrentTab.getContentView(), mWindowAndroid, mFindInPageBridge);
         } else if (!visibility) {
             if (mResultBar != null) {
                 mResultBar.dismiss();

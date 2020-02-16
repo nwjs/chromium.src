@@ -5,6 +5,7 @@
 #include "storage/browser/quota/quota_manager_proxy.h"
 
 #include <stdint.h>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -49,18 +50,17 @@ void QuotaManagerProxy::RegisterClient(scoped_refptr<QuotaClient> client) {
     client->OnQuotaManagerDestroyed();
 }
 
-void QuotaManagerProxy::NotifyStorageAccessed(QuotaClient::ID client_id,
-                                              const url::Origin& origin,
+void QuotaManagerProxy::NotifyStorageAccessed(const url::Origin& origin,
                                               blink::mojom::StorageType type) {
   if (!io_thread_->BelongsToCurrentThread()) {
     io_thread_->PostTask(
         FROM_HERE, base::BindOnce(&QuotaManagerProxy::NotifyStorageAccessed,
-                                  this, client_id, origin, type));
+                                  this, origin, type));
     return;
   }
 
   if (manager_)
-    manager_->NotifyStorageAccessed(client_id, origin, type);
+    manager_->NotifyStorageAccessed(origin, type);
 }
 
 void QuotaManagerProxy::NotifyStorageModified(QuotaClient::ID client_id,
@@ -99,6 +99,16 @@ void QuotaManagerProxy::NotifyOriginNoLongerInUse(const url::Origin& origin) {
   }
   if (manager_)
     manager_->NotifyOriginNoLongerInUse(origin);
+}
+
+void QuotaManagerProxy::NotifyWriteFailed(const url::Origin& origin) {
+  if (!io_thread_->BelongsToCurrentThread()) {
+    io_thread_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&QuotaManagerProxy::NotifyWriteFailed, this, origin));
+  }
+  if (manager_)
+    manager_->NotifyWriteFailed(origin);
 }
 
 void QuotaManagerProxy::SetUsageCacheEnabled(QuotaClient::ID client_id,

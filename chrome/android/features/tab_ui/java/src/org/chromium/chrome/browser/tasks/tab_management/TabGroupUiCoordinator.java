@@ -10,13 +10,12 @@ import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
 
-import org.chromium.base.annotations.CheckDiscard;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ThemeColorProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
@@ -91,7 +90,8 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
             // and the dialog here.
             mTabGridDialogCoordinator = new TabGridDialogCoordinator(mContext, tabModelSelector,
                     tabContentManager, activity, activity.getCompositorViewHolder(), null, null,
-                    null, mTabStripCoordinator.getTabGroupTitleEditor());
+                    null, mTabStripCoordinator.getTabGroupTitleEditor(),
+                    mActivity.getShareDelegateSupplier());
         } else {
             mTabGridDialogCoordinator = null;
         }
@@ -191,23 +191,13 @@ public class TabGroupUiCoordinator implements TabGroupUiMediator.ResetHandler, T
     public void onPauseWithNative() {}
 
     // TabGroupUiController implementation.
-    @CheckDiscard("crbug.com/1022827")
     @Override
     public void setupLeftButtonDrawable(int drawableId) {
         mMediator.setupLeftButtonDrawable(drawableId);
     }
 
-    @CheckDiscard("crbug.com/1022827")
     @Override
     public void setupLeftButtonOnClickListener(View.OnClickListener listener) {
         mMediator.setupLeftButtonOnClickListener(listener);
-    }
-
-    /**
-     * @return {@link TabGroupUiMediator.TabGroupUiController} to control the TabGroupUi.
-     */
-    @CheckDiscard("crbug.com/1022827")
-    TabGroupUiMediator.TabGroupUiController getTabGroupUiController() {
-        return this;
     }
 }

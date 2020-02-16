@@ -44,13 +44,11 @@ class UseCreditCardActionTest : public testing::Test {
     autofill::test::SetProfileInfo(&autofill_profile_, kFirstName, "",
                                    kLastName, kEmail, "", "", "", "", "", "",
                                    "", "");
-    client_memory_.set_selected_address(kAddressName,
-                                        std::move(autofill_profile));
-
+    user_data_.selected_addresses_[kAddressName] = std::move(autofill_profile);
     ON_CALL(mock_personal_data_manager_, GetProfileByGUID)
         .WillByDefault(Return(&autofill_profile_));
-    ON_CALL(mock_action_delegate_, GetClientMemory)
-        .WillByDefault(Return(&client_memory_));
+    ON_CALL(mock_action_delegate_, GetUserData)
+        .WillByDefault(Return(&user_data_));
     ON_CALL(mock_action_delegate_, GetPersonalDataManager)
         .WillByDefault(Return(&mock_personal_data_manager_));
     ON_CALL(mock_action_delegate_, RunElementChecks)
@@ -105,7 +103,7 @@ class UseCreditCardActionTest : public testing::Test {
   MockPersonalDataManager mock_personal_data_manager_;
   MockActionDelegate mock_action_delegate_;
   MockWebController mock_web_controller_;
-  ClientMemory client_memory_;
+  UserData user_data_;
 
   autofill::AutofillProfile autofill_profile_;
 };
@@ -120,8 +118,8 @@ TEST_F(UseCreditCardActionTest, FillCreditCard) {
   ActionProto action = CreateUseCreditCardAction();
 
   autofill::CreditCard credit_card;
-  client_memory_.set_selected_card(
-      std::make_unique<autofill::CreditCard>(credit_card));
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
   EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
       .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
   EXPECT_CALL(mock_action_delegate_,
@@ -146,8 +144,8 @@ TEST_F(UseCreditCardActionTest, FillCreditCardRequiredFieldsFilled) {
                    "#expmonth");
 
   autofill::CreditCard credit_card;
-  client_memory_.set_selected_card(
-      std::make_unique<autofill::CreditCard>(credit_card));
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
   EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
       .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
   EXPECT_CALL(mock_action_delegate_,
@@ -159,6 +157,9 @@ TEST_F(UseCreditCardActionTest, FillCreditCardRequiredFieldsFilled) {
 }
 
 TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
+
   ActionProto action = CreateUseCreditCardAction();
   AddRequiredField(
       &action, UseCreditCardProto::RequiredField::CREDIT_CARD_VERIFICATION_CODE,
@@ -181,6 +182,9 @@ TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
   AddRequiredField(&action,
                    UseCreditCardProto::RequiredField::CREDIT_CARD_EXP_MM_YY,
                    "#exp_month_year2");
+  AddRequiredField(&action,
+                   UseCreditCardProto::RequiredField::CREDIT_CARD_NETWORK,
+                   "#network");
 
   // First validation fails.
   EXPECT_CALL(mock_web_controller_, OnGetFieldValue(Selector({"#cvc"}), _))
@@ -199,6 +203,8 @@ TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
       .WillOnce(RunOnceCallback<1>(OkClientStatus(), ""));
   EXPECT_CALL(mock_web_controller_,
               OnGetFieldValue(Selector({"#exp_month_year2"}), _))
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), ""));
+  EXPECT_CALL(mock_web_controller_, OnGetFieldValue(Selector({"#network"}), _))
       .WillOnce(RunOnceCallback<1>(OkClientStatus(), ""));
 
   // Expect fields to be filled
@@ -231,6 +237,10 @@ TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
       EXPECT_CALL(mock_action_delegate_,
                   OnSetFieldValue(Selector({"#exp_month_year2"}), "09/24", _))
           .WillOnce(RunOnceCallback<2>(OkClientStatus()));
+  Expectation set_card_network =
+      EXPECT_CALL(mock_action_delegate_,
+                  OnSetFieldValue(Selector({"#network"}), "visa", _))
+          .WillOnce(RunOnceCallback<2>(OkClientStatus()));
 
   // After fallback, second validation succeeds.
   EXPECT_CALL(mock_web_controller_, OnGetFieldValue(Selector({"#cvc"}), _))
@@ -257,6 +267,9 @@ TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
               OnGetFieldValue(Selector({"#exp_month_year2"}), _))
       .After(set_expyear4)
       .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
+  EXPECT_CALL(mock_web_controller_, OnGetFieldValue(Selector({"#network"}), _))
+      .After(set_card_network)
+      .WillOnce(RunOnceCallback<1>(OkClientStatus(), "not empty"));
 
   autofill::CreditCard credit_card;
   credit_card.SetExpirationMonth(9);
@@ -265,8 +278,8 @@ TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
                          base::UTF8ToUTF16("Jon Doe"));
   credit_card.SetRawInfo(autofill::CREDIT_CARD_NUMBER,
                          base::UTF8ToUTF16("4111111111111111"));
-  client_memory_.set_selected_card(
-      std::make_unique<autofill::CreditCard>(credit_card));
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
   EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
       .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
   EXPECT_CALL(mock_action_delegate_,
@@ -278,6 +291,9 @@ TEST_F(UseCreditCardActionTest, FillCreditCardWithFallback) {
 }
 
 TEST_F(UseCreditCardActionTest, ForcedFallback) {
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
+
   ActionProto action = CreateUseCreditCardAction();
   auto* cvc_required = AddRequiredField(
       &action, UseCreditCardProto::RequiredField::CREDIT_CARD_VERIFICATION_CODE,
@@ -297,8 +313,8 @@ TEST_F(UseCreditCardActionTest, ForcedFallback) {
           .WillOnce(RunOnceCallback<4>(OkClientStatus()));
 
   autofill::CreditCard credit_card;
-  client_memory_.set_selected_card(
-      std::make_unique<autofill::CreditCard>(credit_card));
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
   EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
       .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
   EXPECT_CALL(mock_action_delegate_,
@@ -313,8 +329,8 @@ TEST_F(UseCreditCardActionTest, AutofillFailureWithoutRequiredFieldsIsFatal) {
   ActionProto action_proto = CreateUseCreditCardAction();
 
   autofill::CreditCard credit_card;
-  client_memory_.set_selected_card(
-      std::make_unique<autofill::CreditCard>(credit_card));
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
   EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
       .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
   EXPECT_CALL(mock_action_delegate_,
@@ -335,14 +351,17 @@ TEST_F(UseCreditCardActionTest, AutofillFailureWithoutRequiredFieldsIsFatal) {
 
 TEST_F(UseCreditCardActionTest,
        AutofillFailureWithRequiredFieldsLaunchesFallback) {
+  ON_CALL(mock_action_delegate_, GetElementTag(_, _))
+      .WillByDefault(RunOnceCallback<1>(OkClientStatus(), "INPUT"));
+
   ActionProto action_proto = CreateUseCreditCardAction();
   AddRequiredField(
       &action_proto,
       UseCreditCardProto::RequiredField::CREDIT_CARD_VERIFICATION_CODE, "#cvc");
 
   autofill::CreditCard credit_card;
-  client_memory_.set_selected_card(
-      std::make_unique<autofill::CreditCard>(credit_card));
+  user_data_.selected_card_ =
+      std::make_unique<autofill::CreditCard>(credit_card);
   EXPECT_CALL(mock_action_delegate_, OnGetFullCard(_))
       .WillOnce(RunOnceCallback<0>(credit_card, base::UTF8ToUTF16("123")));
   EXPECT_CALL(mock_action_delegate_,

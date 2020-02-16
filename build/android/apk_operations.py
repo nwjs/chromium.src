@@ -54,21 +54,6 @@ with devil_env.SysPath(
     os.path.join(_DIR_SOURCE_ROOT, 'build', 'android', 'gyp')):
   import bundletool
 
-# Matches messages only on pre-L (Dalvik) that are spammy and unimportant.
-_DALVIK_IGNORE_PATTERN = re.compile('|'.join([
-    r'^Added shared lib',
-    r'^Could not find ',
-    r'^DexOpt:',
-    r'^GC_',
-    r'^Late-enabling CheckJNI',
-    r'^Link of class',
-    r'^No JNI_OnLoad found in',
-    r'^Trying to load lib',
-    r'^Unable to resolve superclass',
-    r'^VFY:',
-    r'^WAIT_',
-    ]))
-
 BASE_MODULE = 'base'
 
 
@@ -119,6 +104,7 @@ def _GenerateBundleApks(info,
     minimal_sdk_version: When minimal=True, use this sdkVersion.
     mode: Build mode, either None, or one of app_bundle_utils.BUILD_APKS_MODES.
   """
+  logging.info('Generating .apks file')
   app_bundle_utils.GenerateBundleApks(
       info.bundle_path,
       # Store .apks file beside the .aab file by default so that it gets cached.
@@ -571,15 +557,113 @@ class _LogcatProcessor(object):
       'ParsedLine',
       ['date', 'invokation_time', 'pid', 'tid', 'priority', 'tag', 'message'])
 
-  def __init__(self, device, package_name, deobfuscate=None, verbose=False):
+  class NativeStackSymbolizer(object):
+    """Buffers lines from native stacks and symbolizes them when done."""
+    # E.g.: #06 pc 0x0000d519 /apex/com.android.runtime/lib/libart.so
+    # E.g.: #01 pc 00180c8d  /data/data/.../lib/libbase.cr.so
+    _STACK_PATTERN = re.compile(r'\s*#\d+\s+(?:pc )?(0x)?[0-9a-f]{8,16}\s')
+
+    def __init__(self, stack_script_context, print_func):
+      # To symbolize native stacks, we need to pass all lines at once.
+      self._stack_script_context = stack_script_context
+      self._print_func = print_func
+      self._crash_lines_buffer = None
+
+    def _FlushLines(self):
+      """Prints queued lines after sending them through stack.py."""
+      crash_lines = self._crash_lines_buffer
+      self._crash_lines_buffer = None
+      with tempfile.NamedTemporaryFile() as f:
+        f.writelines(x[0].message + '\n' for x in crash_lines)
+        f.flush()
+        proc = self._stack_script_context.Popen(
+            input_file=f.name, stdout=subprocess.PIPE)
+        lines = proc.communicate()[0].splitlines()
+
+      for i, line in enumerate(lines):
+        parsed_line, dim = crash_lines[min(i, len(crash_lines) - 1)]
+        d = parsed_line._asdict()
+        d['message'] = line
+        parsed_line = _LogcatProcessor.ParsedLine(**d)
+        self._print_func(parsed_line, dim)
+
+    def AddLine(self, parsed_line, dim):
+      # Assume all lines from DEBUG are stacks.
+      # Also look for "stack-looking" lines to catch manual stack prints.
+      # It's important to not buffer non-stack lines because stack.py does not
+      # pass them through.
+      is_crash_line = parsed_line.tag == 'DEBUG' or (self._STACK_PATTERN.match(
+          parsed_line.message))
+
+      if is_crash_line:
+        if self._crash_lines_buffer is None:
+          self._crash_lines_buffer = []
+        self._crash_lines_buffer.append((parsed_line, dim))
+        return
+
+      if self._crash_lines_buffer is not None:
+        self._FlushLines()
+
+      self._print_func(parsed_line, dim)
+
+
+  # Logcat tags for messages that are generally relevant but are not from PIDs
+  # associated with the apk.
+  _WHITELISTED_TAGS = {
+      'ActivityManager',  # Shows activity lifecycle messages.
+      'ActivityTaskManager',  # More activity lifecycle messages.
+      'AndroidRuntime',  # Java crash dumps
+      'DEBUG',  # Native crash dump.
+  }
+
+  # Matches messages only on pre-L (Dalvik) that are spammy and unimportant.
+  _DALVIK_IGNORE_PATTERN = re.compile('|'.join([
+      r'^Added shared lib',
+      r'^Could not find ',
+      r'^DexOpt:',
+      r'^GC_',
+      r'^Late-enabling CheckJNI',
+      r'^Link of class',
+      r'^No JNI_OnLoad found in',
+      r'^Trying to load lib',
+      r'^Unable to resolve superclass',
+      r'^VFY:',
+      r'^WAIT_',
+  ]))
+
+  def __init__(self,
+               device,
+               package_name,
+               stack_script_context,
+               deobfuscate=None,
+               verbose=False):
     self._device = device
     self._package_name = package_name
     self._verbose = verbose
     self._deobfuscator = deobfuscate
+    self._native_stack_symbolizer = _LogcatProcessor.NativeStackSymbolizer(
+        stack_script_context, self._PrintParsedLine)
+    # Process ID for the app's main process (with no :name suffix).
     self._primary_pid = None
+    # Set of all Process IDs that belong to the app.
     self._my_pids = set()
+    # Set of all Process IDs that we've parsed at some point.
     self._seen_pids = set()
+    # Start proc 22953:com.google.chromeremotedesktop/
+    self._pid_pattern = re.compile(r'Start proc (\d+):{}/'.format(package_name))
+    # START u0 {act=android.intent.action.MAIN \
+    # cat=[android.intent.category.LAUNCHER] \
+    # flg=0x10000000 pkg=com.google.chromeremotedesktop} from uid 2000
+    self._start_pattern = re.compile(r'START .*pkg=' + package_name)
+
+    self.nonce = 'Chromium apk_operations.py nonce={}'.format(random.random())
+    # Holds lines buffered on start-up, before we find our nonce message.
+    self._initial_buffered_lines = []
     self._UpdateMyPids()
+    # Give preference to PID reported by "ps" over those found from
+    # _start_pattern. There can be multiple "Start proc" messages from prior
+    # runs of the app.
+    self._found_initial_pid = self._primary_pid != None
 
   def _UpdateMyPids(self):
     # We intentionally do not clear self._my_pids to make sure that the
@@ -666,62 +750,78 @@ class _LogcatProcessor(object):
           parsed_line.date, parsed_line.invokation_time, pid_str, tid_str,
           priority, tag, message))
 
-  def ProcessLine(self, line, fast=False):
+  def _TriggerNonceFound(self):
+    # Once the nonce is hit, we have confidence that we know which lines
+    # belong to the current run of the app. Process all of the buffered lines.
+    if self._primary_pid:
+      for args in self._initial_buffered_lines:
+        self._native_stack_symbolizer.AddLine(*args)
+    self._initial_buffered_lines = None
+    self.nonce = None
+
+  def ProcessLine(self, line):
     if not line or line.startswith('------'):
       return
+
+    if self.nonce and self.nonce in line:
+      self._TriggerNonceFound()
+
+    nonce_found = self.nonce is None
+
     log = self._ParseLine(line)
     if log.pid not in self._seen_pids:
       self._seen_pids.add(log.pid)
-      if not fast:
+      if nonce_found:
+        # Update list of owned PIDs each time a new PID is encountered.
         self._UpdateMyPids()
 
+    # Search for "Start proc $pid:$package_name/" message.
+    if not nonce_found:
+      # Capture logs before the nonce. Start with the most recent "am start".
+      if self._start_pattern.match(log.message):
+        self._initial_buffered_lines = []
+
+      # If we didn't find the PID via "ps", then extract it from log messages.
+      # This will happen if the app crashes too quickly.
+      if not self._found_initial_pid:
+        m = self._pid_pattern.match(log.message)
+        if m:
+          # Find the most recent "Start proc" line before the nonce.
+          # Track only the primary pid in this mode.
+          # The main use-case is to find app logs when no current PIDs exist.
+          # E.g.: When the app crashes on launch.
+          self._primary_pid = m.group(1)
+          self._my_pids.clear()
+          self._my_pids.add(m.group(1))
+
     owned_pid = log.pid in self._my_pids
-    if fast and not owned_pid:
-      return
     if owned_pid and not self._verbose and log.tag == 'dalvikvm':
-      if _DALVIK_IGNORE_PATTERN.match(log.message):
+      if self._DALVIK_IGNORE_PATTERN.match(log.message):
         return
 
-    if owned_pid or self._verbose or (
-        log.priority == 'F' or  # Java crash dump
-        log.tag == 'ActivityManager' or  # Android system
-        log.tag == 'DEBUG'):  # Native crash dump
-      self._PrintParsedLine(log, not owned_pid)
+    if owned_pid or self._verbose or (log.priority == 'F' or  # Java crash dump
+                                      log.tag in self._WHITELISTED_TAGS):
+      if nonce_found:
+        self._native_stack_symbolizer.AddLine(log, not owned_pid)
+      else:
+        self._initial_buffered_lines.append((log, not owned_pid))
 
 
-def _RunLogcat(device, package_name, mapping_path, verbose):
-  deobfuscate = None
-  if mapping_path:
+def _RunLogcat(device, package_name, stack_script_context, deobfuscate,
+               verbose):
+  logcat_processor = _LogcatProcessor(
+      device, package_name, stack_script_context, deobfuscate, verbose)
+  device.RunShellCommand(['log', logcat_processor.nonce])
+  for line in device.adb.Logcat(logcat_format='threadtime'):
     try:
-      deobfuscate = deobfuscator.Deobfuscator(mapping_path)
-    except OSError:
-      sys.stderr.write('Error executing "bin/java_deobfuscate". '
-                       'Did you forget to build it?\n')
-      sys.exit(1)
-
-  try:
-    logcat_processor = _LogcatProcessor(
-        device, package_name, deobfuscate, verbose)
-    nonce = 'apk_wrappers.py nonce={}'.format(random.random())
-    device.RunShellCommand(['log', nonce])
-    fast = True
-    for line in device.adb.Logcat(logcat_format='threadtime'):
-      try:
-        logcat_processor.ProcessLine(line, fast)
-      except:
-        sys.stderr.write('Failed to process line: ' + line + '\n')
-        # Skip stack trace for the common case of the adb server being
-        # restarted.
-        if 'unexpected EOF' in line:
-          sys.exit(1)
-        raise
-      if fast and nonce in line:
-        fast = False
-  except KeyboardInterrupt:
-    pass  # Don't show stack trace upon Ctrl-C
-  finally:
-    if mapping_path:
-      deobfuscate.Close()
+      logcat_processor.ProcessLine(line)
+    except:
+      sys.stderr.write('Failed to process line: ' + line + '\n')
+      # Skip stack trace for the common case of the adb server being
+      # restarted.
+      if 'unexpected EOF' in line:
+        sys.exit(1)
+      raise
 
 
 def _GetPackageProcesses(device, package_name):
@@ -806,6 +906,68 @@ def _RunProfile(device, package_name, host_build_directory, pprof_out_path,
         """ % {'s': pprof_out_path}))
 
 
+class _StackScriptContext(object):
+  """Maintains temporary files needed by stack.py."""
+
+  def __init__(self,
+               output_directory,
+               apk_path,
+               bundle_generation_info,
+               quiet=False):
+    self._output_directory = output_directory
+    self._apk_path = apk_path
+    self._bundle_generation_info = bundle_generation_info
+    self._staging_dir = None
+    self._quiet = quiet
+
+  def _CreateStaging(self):
+    # In many cases, stack decoding requires APKs to map trace lines to native
+    # libraries. Create a temporary directory, and either unpack a bundle's
+    # APKS into it, or simply symlink the standalone APK into it. This
+    # provides an unambiguous set of APK files for the stack decoding process
+    # to inspect.
+    logging.debug('Creating stack staging directory')
+    self._staging_dir = tempfile.mkdtemp()
+    bundle_generation_info = self._bundle_generation_info
+
+    if bundle_generation_info:
+      # TODO(wnwen): Use apk_helper instead.
+      _GenerateBundleApks(bundle_generation_info)
+      logging.debug('Extracting .apks file')
+      with zipfile.ZipFile(bundle_generation_info.bundle_apks_path, 'r') as z:
+        files_to_extract = [
+            f for f in z.namelist() if f.endswith('-master.apk')
+        ]
+        z.extractall(self._staging_dir, files_to_extract)
+    elif self._apk_path:
+      # Otherwise an incremental APK and an empty apks directory is correct.
+      output = os.path.join(self._staging_dir, os.path.basename(self._apk_path))
+      os.symlink(self._apk_path, output)
+
+  def Close(self):
+    if self._staging_dir:
+      logging.debug('Clearing stack staging directory')
+      shutil.rmtree(self._staging_dir)
+      self._staging_dir = None
+
+  def Popen(self, input_file=None, **kwargs):
+    if self._staging_dir is None:
+      self._CreateStaging()
+    stack_script = os.path.join(
+        constants.host_paths.ANDROID_PLATFORM_DEVELOPMENT_SCRIPTS_PATH,
+        'stack.py')
+    cmd = [
+        stack_script, '--output-directory', self._output_directory,
+        '--apks-directory', self._staging_dir
+    ]
+    if self._quiet:
+      cmd.append('--quiet')
+    if input_file:
+      cmd.append(input_file)
+    logging.info('Running stack.py')
+    return subprocess.Popen(cmd, **kwargs)
+
+
 def _GenerateAvailableDevicesMessage(devices):
   devices_obj = device_utils.DeviceUtils.parallel(devices)
   descriptions = devices_obj.pMap(lambda d: d.build_description).pGet(None)
@@ -886,6 +1048,7 @@ class _Command(object):
     self._from_wrapper_script = from_wrapper_script
     self.args = None
     self.apk_helper = None
+    self.additional_apk_helpers = None
     self.install_dict = None
     self.devices = None
     self.is_bundle = is_bundle
@@ -982,7 +1145,7 @@ class _Command(object):
 
     self._RegisterExtraArgs(group)
 
-  def _CreateApkHelper(self, args, incremental_apk_path, install_dict):
+  def _CreateApkHelpers(self, args, incremental_apk_path, install_dict):
     """Returns true iff self.apk_helper was created and assigned."""
     if self.apk_helper is None:
       if args.apk_path:
@@ -994,6 +1157,11 @@ class _Command(object):
         _GenerateBundleApks(self.bundle_generation_info)
         self.apk_helper = apk_helper.ToHelper(
             self.bundle_generation_info.bundle_apks_path)
+    if args.additional_apk_paths and self.additional_apk_helpers is None:
+      self.additional_apk_helpers = [
+          apk_helper.ToHelper(apk_path)
+          for apk_path in args.additional_apk_paths
+      ]
     return self.apk_helper is not None
 
   def ProcessArgs(self, args):
@@ -1031,15 +1199,15 @@ class _Command(object):
                            'Select using --incremental or --non-incremental')
 
 
-    # Gate apk_helper creation with _CreateApkHelper since for bundles it takes
+    # Gate apk_helper creation with _CreateApkHelpers since for bundles it takes
     # a while to unpack the apks file from the aab file, so avoid this slowdown
     # for simple commands that don't need apk_helper.
     if self.needs_apk_helper:
-      if not self._CreateApkHelper(args, incremental_apk_path, install_dict):
+      if not self._CreateApkHelpers(args, incremental_apk_path, install_dict):
         self._parser.error('App is not built.')
 
     if self.needs_package_name and not args.package_name:
-      if self._CreateApkHelper(args, incremental_apk_path, install_dict):
+      if self._CreateApkHelpers(args, incremental_apk_path, install_dict):
         args.package_name = self.apk_helper.GetPackageName()
       elif self._from_wrapper_script:
         self._parser.error('App is not built.')
@@ -1049,7 +1217,7 @@ class _Command(object):
     self.devices = []
     if self.need_device_args:
       abis = None
-      if self._CreateApkHelper(args, incremental_apk_path, install_dict):
+      if self._CreateApkHelpers(args, incremental_apk_path, install_dict):
         abis = self.apk_helper.GetAbis()
       self.devices = device_utils.DeviceUtils.HealthyDevices(
           device_arg=args.devices,
@@ -1123,6 +1291,9 @@ class _InstallCommand(_Command):
               BASE_MODULE))
 
   def Run(self):
+    if self.additional_apk_helpers:
+      for additional_apk_helper in self.additional_apk_helpers:
+        _InstallApk(self.devices, additional_apk_helper, None)
     if self.is_bundle:
       _InstallBundle(self.devices, self.apk_helper, self.args.package_name,
                      self.args.command_line_flags_file, self.args.module,
@@ -1286,11 +1457,29 @@ To disable filtering, (but keep coloring), use --verbose.
   supports_multiple_devices = False
 
   def Run(self):
-    mapping = self.args.proguard_mapping_path
-    if self.args.no_deobfuscate:
-      mapping = None
-    _RunLogcat(self.devices[0], self.args.package_name, mapping,
-               bool(self.args.verbose_count))
+    deobfuscate = None
+    if self.args.proguard_mapping_path and not self.args.no_deobfuscate:
+      try:
+        deobfuscate = deobfuscator.Deobfuscator(self.args.proguard_mapping_path)
+      except OSError:
+        sys.stderr.write('Error executing "bin/java_deobfuscate". '
+                         'Did you forget to build it?\n')
+        sys.exit(1)
+
+    stack_script_context = _StackScriptContext(
+        self.args.output_directory,
+        self.args.apk_path,
+        self.bundle_generation_info,
+        quiet=True)
+    try:
+      _RunLogcat(self.devices[0], self.args.package_name, stack_script_context,
+                 deobfuscate, bool(self.args.verbose_count))
+    except KeyboardInterrupt:
+      pass  # Don't show stack trace upon Ctrl-C
+    finally:
+      stack_script_context.Close()
+      if deobfuscate:
+        deobfuscate.Close()
 
   def _RegisterExtraArgs(self, group):
     if self._from_wrapper_script:
@@ -1501,41 +1690,15 @@ class _StackCommand(_Command):
         help='File to decode. If not specified, stdin is processed.')
 
   def Run(self):
+    context = _StackScriptContext(self.args.output_directory,
+                                  self.args.apk_path,
+                                  self.bundle_generation_info)
     try:
-      # In many cases, stack decoding requires APKs to map trace lines to native
-      # libraries. Create a temporary directory, and either unpack a bundle's
-      # APKS into it, or simply symlink the standalone APK into it. This
-      # provides an unambiguous set of APK files for the stack decoding process
-      # to inspect.
-      apks_directory = tempfile.mkdtemp()
-
-      if self.is_bundle:
-        # TODO(wnwen): Use apk_helper instead.
-        _GenerateBundleApks(self.bundle_generation_info)
-        with zipfile.ZipFile(self.bundle_generation_info.bundle_apks_path,
-                             'r') as archive:
-          files_to_extract = [
-              f for f in archive.namelist() if f.endswith('-master.apk')
-          ]
-          archive.extractall(apks_directory, files_to_extract)
-      else:
-        output = os.path.join(apks_directory,
-                              os.path.basename(self.args.apk_path))
-        os.symlink(self.args.apk_path, output)
-
-      stack_script = os.path.join(
-          constants.host_paths.ANDROID_PLATFORM_DEVELOPMENT_SCRIPTS_PATH,
-          'stack.py')
-      stack_command = [
-          stack_script, '--output-directory', self.args.output_directory,
-          '--apks-directory', apks_directory
-      ]
-      if self.args.file:
-        stack_command.append(self.args.file)
-      subprocess.call(stack_command)
-
+      proc = context.Popen(input_file=self.args.file)
+      if proc.wait():
+        raise Exception('stack script returned {}'.format(proc.returncode))
     finally:
-      shutil.rmtree(apks_directory)
+      context.Close()
 
 
 # Shared commands for regular APKs and app bundles.
@@ -1600,24 +1763,30 @@ def _RunInternal(parser, output_directory=None, bundle_generation_info=None):
     _SaveDeviceCaches(args.command.devices, output_directory)
 
 
-def Run(output_directory, apk_path, incremental_json, command_line_flags_file,
-        target_cpu, proguard_mapping_path):
+def Run(output_directory, apk_path, additional_apk_paths, incremental_json,
+        command_line_flags_file, target_cpu, proguard_mapping_path):
   """Entry point for generated wrapper scripts."""
   constants.SetOutputDirectory(output_directory)
   devil_chromium.Initialize(output_directory=output_directory)
   parser = argparse.ArgumentParser()
   exists_or_none = lambda p: p if p and os.path.exists(p) else None
+
+  for path in additional_apk_paths:
+    if not path or not os.path.exists(path):
+      raise Exception('Invalid additional APK path "{}"'.format(path))
   parser.set_defaults(
       command_line_flags_file=command_line_flags_file,
       target_cpu=target_cpu,
       apk_path=exists_or_none(apk_path),
+      additional_apk_paths=additional_apk_paths,
       incremental_json=exists_or_none(incremental_json),
       proguard_mapping_path=proguard_mapping_path)
   _RunInternal(parser, output_directory=output_directory)
 
 
-def RunForBundle(output_directory, bundle_path, bundle_apks_path, aapt2_path,
-                 keystore_path, keystore_password, keystore_alias, package_name,
+def RunForBundle(output_directory, bundle_path, bundle_apks_path,
+                 additional_apk_paths, aapt2_path, keystore_path,
+                 keystore_password, keystore_alias, package_name,
                  command_line_flags_file, proguard_mapping_path, target_cpu,
                  system_image_locales):
   """Entry point for generated app bundle wrapper scripts.
@@ -1626,6 +1795,7 @@ def RunForBundle(output_directory, bundle_path, bundle_apks_path, aapt2_path,
     output_dir: Chromium output directory path.
     bundle_path: Input bundle path.
     bundle_apks_path: Output bundle .apks archive path.
+    additional_apk_paths: Additional APKs to install prior to bundle install.
     aapt2_path: Aapt2 tool path.
     keystore_path: Keystore file path.
     keystore_password: Keystore password.
@@ -1650,8 +1820,12 @@ def RunForBundle(output_directory, bundle_path, bundle_apks_path, aapt2_path,
       keystore_alias=keystore_alias,
       system_image_locales=system_image_locales)
 
+  for path in additional_apk_paths:
+    if not path or not os.path.exists(path):
+      raise Exception('Invalid additional APK path "{}"'.format(path))
   parser = argparse.ArgumentParser()
   parser.set_defaults(
+      additional_apk_paths=additional_apk_paths,
       package_name=package_name,
       command_line_flags_file=command_line_flags_file,
       proguard_mapping_path=proguard_mapping_path,

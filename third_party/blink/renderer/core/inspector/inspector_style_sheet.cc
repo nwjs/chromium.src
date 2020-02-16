@@ -155,7 +155,10 @@ class StyleSheetHandler final : public CSSParserObserver {
   StyleSheetHandler(const String& parsed_text,
                     Document* document,
                     CSSRuleSourceDataList* result)
-      : parsed_text_(parsed_text), document_(document), result_(result) {
+      : parsed_text_(parsed_text),
+        document_(document),
+        result_(result),
+        current_rule_data_(nullptr) {
     DCHECK(result_);
   }
 
@@ -177,10 +180,10 @@ class StyleSheetHandler final : public CSSParserObserver {
   inline void SetRuleHeaderEnd(const CharacterType*, unsigned);
 
   const String& parsed_text_;
-  Member<Document> document_;
-  Member<CSSRuleSourceDataList> result_;
+  Document* document_;
+  CSSRuleSourceDataList* result_;
   CSSRuleSourceDataList current_rule_data_stack_;
-  Member<CSSRuleSourceData> current_rule_data_;
+  CSSRuleSourceData* current_rule_data_;
 };
 
 void StyleSheetHandler::StartRuleHeader(StyleRule::RuleType type,
@@ -729,8 +732,6 @@ InspectorStyle::InspectorStyle(CSSStyleDeclaration* style,
   DCHECK(style_);
 }
 
-InspectorStyle::~InspectorStyle() = default;
-
 std::unique_ptr<protocol::CSS::CSSStyle> InspectorStyle::BuildObjectForStyle() {
   std::unique_ptr<protocol::CSS::CSSStyle> result = StyleWithProperties();
   if (source_data_) {
@@ -945,18 +946,6 @@ bool InspectorStyleSheetBase::LineNumberAndColumnToOffset(
                         OrdinalNumber::FromZeroBasedInt(column_number));
   *offset = position.ToOffset(*endings).ZeroBasedInt();
   return true;
-}
-
-InspectorStyleSheet* InspectorStyleSheet::Create(
-    InspectorNetworkAgent* network_agent,
-    CSSStyleSheet* page_style_sheet,
-    const String& origin,
-    const String& document_url,
-    InspectorStyleSheetBase::Listener* listener,
-    InspectorResourceContainer* resource_container) {
-  return MakeGarbageCollected<InspectorStyleSheet>(
-      network_agent, page_style_sheet, origin, document_url, listener,
-      resource_container);
 }
 
 InspectorStyleSheet::InspectorStyleSheet(
@@ -1745,6 +1734,11 @@ String InspectorStyleSheet::SourceMapURL() {
   return page_style_sheet_->Contents()->SourceMapURL();
 }
 
+const Document* InspectorStyleSheet::GetDocument() {
+  return CSSStyleSheet::SingleOwnerDocument(
+      InspectorStyleSheet::PageStyleSheet());
+}
+
 CSSRuleSourceData* InspectorStyleSheet::FindRuleByHeaderRange(
     const SourceRange& source_range) {
   if (!source_data_)
@@ -1920,13 +1914,6 @@ bool InspectorStyleSheet::InspectorStyleSheetText(String* result) {
   return true;
 }
 
-InspectorStyleSheetForInlineStyle* InspectorStyleSheetForInlineStyle::Create(
-    Element* element,
-    Listener* listener) {
-  return MakeGarbageCollected<InspectorStyleSheetForInlineStyle>(element,
-                                                                 listener);
-}
-
 InspectorStyleSheetForInlineStyle::InspectorStyleSheetForInlineStyle(
     Element* element,
     Listener* listener)
@@ -1950,7 +1937,7 @@ bool InspectorStyleSheetForInlineStyle::SetText(
 
   {
     InspectorCSSAgent::InlineStyleOverrideScope override_scope(
-        element_->ownerDocument());
+        &element_->ownerDocument()->GetSecurityContext());
     element_->setAttribute("style", AtomicString(text), exception_state);
   }
   if (!exception_state.HadException())
@@ -2005,6 +1992,10 @@ void InspectorStyleSheetForInlineStyle::Trace(blink::Visitor* visitor) {
   visitor->Trace(element_);
   visitor->Trace(inspector_style_);
   InspectorStyleSheetBase::Trace(visitor);
+}
+
+const Document* InspectorStyleSheetForInlineStyle::GetDocument() {
+  return &InspectorStyleSheetForInlineStyle::element_->GetDocument();
 }
 
 }  // namespace blink

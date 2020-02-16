@@ -100,11 +100,14 @@ class SynchronousCompositorControlHost
   }
 
   // SynchronousCompositorControlHost overrides.
-  void ReturnFrame(uint32_t layer_tree_frame_sink_id,
-                   uint32_t metadata_version,
-                   base::Optional<viz::CompositorFrame> frame) override {
+  void ReturnFrame(
+      uint32_t layer_tree_frame_sink_id,
+      uint32_t metadata_version,
+      base::Optional<viz::CompositorFrame> frame,
+      base::Optional<viz::HitTestRegionList> hit_test_region_list) override {
     if (!bridge_->ReceiveFrameOnIOThread(layer_tree_frame_sink_id,
-                                         metadata_version, std::move(frame))) {
+                                         metadata_version, std::move(frame),
+                                         std::move(hit_test_region_list))) {
       bad_message::ReceivedBadMessage(
           process_id_, bad_message::SYNC_COMPOSITOR_NO_FUTURE_FRAME);
     }
@@ -156,6 +159,8 @@ SynchronousCompositorHost::SynchronousCompositorHost(
 }
 
 SynchronousCompositorHost::~SynchronousCompositorHost() {
+  if (outstanding_begin_frame_requests_ && begin_frame_source_)
+    begin_frame_source_->RemoveObserver(this);
   client_->DidDestroyCompositor(this, frame_sink_id_);
   bridge_->HostDestroyedOnUIThread();
 }
@@ -217,6 +222,7 @@ SynchronousCompositor::Frame SynchronousCompositorHost::DemandDrawHw(
   uint32_t layer_tree_frame_sink_id;
   uint32_t metadata_version = 0u;
   base::Optional<viz::CompositorFrame> compositor_frame;
+  base::Optional<viz::HitTestRegionList> hit_test_region_list;
   SyncCompositorCommonRendererParams common_renderer_params;
 
   {
@@ -226,7 +232,7 @@ SynchronousCompositor::Frame SynchronousCompositorHost::DemandDrawHw(
     if (!IsReadyForSynchronousCall() ||
         !GetSynchronousCompositor()->DemandDrawHw(
             params, &common_renderer_params, &layer_tree_frame_sink_id,
-            &metadata_version, &compositor_frame)) {
+            &metadata_version, &compositor_frame, &hit_test_region_list)) {
       return SynchronousCompositor::Frame();
     }
   }
@@ -240,6 +246,7 @@ SynchronousCompositor::Frame SynchronousCompositorHost::DemandDrawHw(
   frame.frame.reset(new viz::CompositorFrame);
   frame.layer_tree_frame_sink_id = layer_tree_frame_sink_id;
   *frame.frame = std::move(*compositor_frame);
+  frame.hit_test_region_list = std::move(hit_test_region_list);
   UpdateFrameMetaData(metadata_version, frame.frame->metadata.Clone());
   return frame;
 }
@@ -435,7 +442,10 @@ void SynchronousCompositorHost::ReturnResources(
 void SynchronousCompositorHost::DidPresentCompositorFrames(
     viz::FrameTimingDetailsMap timing_details,
     uint32_t frame_token) {
-  rwhva_->DidPresentCompositorFrames(timing_details);
+  timing_details_ = timing_details;
+  if (!timing_details_.empty())
+    AddBeginFrameRequest(BEGIN_FRAME);
+
   UpdatePresentedFrameToken(frame_token);
 }
 
@@ -487,13 +497,6 @@ void SynchronousCompositorHost::OnComputeScroll(
   on_compute_scroll_called_ = true;
 }
 
-void SynchronousCompositorHost::ProgressFling(base::TimeTicks frame_time) {
-  // Progress fling if OnComputeScroll was called or we're scrolling inner frame
-  if (on_compute_scroll_called_ || !rwhva_->is_currently_scrolling_viewport()) {
-    rwhva_->host()->ProgressFlingIfNeeded(frame_time);
-  }
-}
-
 ui::ViewAndroid::CopyViewCallback
 SynchronousCompositorHost::GetCopyViewCallback() {
   // Unretained is safe since callback is helped by ViewAndroid which has same
@@ -509,25 +512,13 @@ void SynchronousCompositorHost::DidOverscroll(
                          over_scroll_params.current_fling_velocity);
 }
 
-void SynchronousCompositorHost::BeginFrame(
-    ui::WindowAndroid* window_android,
-    const viz::BeginFrameArgs& args,
-    const viz::FrameTimingDetailsMap& timing_details) {
-  if (!bridge_->WaitAfterVSyncOnUIThread(window_android))
-    return;
-  mojom::SynchronousCompositor* compositor = GetSynchronousCompositor();
-  DCHECK(compositor);
-  compositor->BeginFrame(args, timing_details);
-}
-
-void SynchronousCompositorHost::SetBeginFramePaused(bool paused) {
-  begin_frame_paused_ = paused;
-  if (mojom::SynchronousCompositor* compositor = GetSynchronousCompositor())
-    compositor->SetBeginFrameSourcePaused(paused);
-}
-
 void SynchronousCompositorHost::SetNeedsBeginFrames(bool needs_begin_frames) {
-  rwhva_->host()->SetNeedsBeginFrame(needs_begin_frames);
+  TRACE_EVENT1("cc", "SynchronousCompositorHost::SetNeedsBeginFrames",
+               "needs_begin_frames", needs_begin_frames);
+  if (needs_begin_frames)
+    AddBeginFrameRequest(PERSISTENT_BEGIN_FRAME);
+  else
+    ClearBeginFrameRequest(PERSISTENT_BEGIN_FRAME);
 }
 
 void SynchronousCompositorHost::LayerTreeFrameSinkCreated() {
@@ -540,7 +531,7 @@ void SynchronousCompositorHost::LayerTreeFrameSinkCreated() {
   compositor->SetMemoryPolicy(bytes_limit_);
 
   if (begin_frame_paused_)
-    compositor->SetBeginFrameSourcePaused(begin_frame_paused_);
+    SendBeginFramePaused();
 }
 
 void SynchronousCompositorHost::UpdateState(
@@ -602,6 +593,114 @@ SynchronousCompositorHost::GetSynchronousCompositor() {
   if (!sync_compositor_)
     return nullptr;
   return sync_compositor_.get();
+}
+
+void SynchronousCompositorHost::OnBeginFrame(const viz::BeginFrameArgs& args) {
+  TRACE_EVENT0("cc,benchmark", "SynchronousCompositorHost::OnBeginFrame");
+
+  // In sync mode, we disregard missed frame args to ensure that
+  // SynchronousCompositorBrowserFilter::SyncStateAfterVSync will be called
+  // during WindowAndroid::WindowBeginFrameSource::OnVSync() observer iteration.
+  if (args.type == viz::BeginFrameArgs::MISSED)
+    return;
+
+  // We need to check this before |outstanding_begin_frame_requests_| will be
+  // changed by ClearBeginFrameRequest below.
+  bool needs_begin_frame =
+      (outstanding_begin_frame_requests_ & BEGIN_FRAME) ||
+      (outstanding_begin_frame_requests_ & PERSISTENT_BEGIN_FRAME);
+
+  // Update |last_begin_frame_args_| before handling
+  // |outstanding_begin_frame_requests_| to prevent the BeginFrameSource from
+  // sending the same MISSED args in infinite recursion.
+  last_begin_frame_args_ = args;
+
+  ClearBeginFrameRequest(BEGIN_FRAME);
+
+  if (on_compute_scroll_called_ || !rwhva_->is_currently_scrolling_viewport()) {
+    rwhva_->host()->ProgressFlingIfNeeded(args.frame_time);
+  }
+
+  if (needs_begin_frame) {
+    SendBeginFrame(args);
+  }
+}
+
+const viz::BeginFrameArgs& SynchronousCompositorHost::LastUsedBeginFrameArgs()
+    const {
+  return last_begin_frame_args_;
+}
+
+void SynchronousCompositorHost::OnBeginFrameSourcePausedChanged(bool paused) {
+  if (paused != begin_frame_paused_) {
+    begin_frame_paused_ = paused;
+    SendBeginFramePaused();
+  }
+}
+
+bool SynchronousCompositorHost::WantsAnimateOnlyBeginFrames() const {
+  return false;
+}
+
+void SynchronousCompositorHost::SendBeginFramePaused() {
+  if (mojom::SynchronousCompositor* compositor = GetSynchronousCompositor())
+    compositor->SetBeginFrameSourcePaused(begin_frame_paused_);
+}
+
+void SynchronousCompositorHost::SendBeginFrame(viz::BeginFrameArgs args) {
+  TRACE_EVENT2("cc", "SynchronousCompositorHost::SendBeginFrame",
+               "frame_number", args.frame_id.sequence_number, "frame_time_us",
+               args.frame_time);
+
+  if (!bridge_->WaitAfterVSyncOnUIThread())
+    return;
+  mojom::SynchronousCompositor* compositor = GetSynchronousCompositor();
+  DCHECK(compositor);
+  compositor->BeginFrame(args, timing_details_);
+  timing_details_.clear();
+}
+
+void SynchronousCompositorHost::SetBeginFrameSource(
+    viz::BeginFrameSource* begin_frame_source) {
+  DCHECK(!begin_frame_source_);
+  DCHECK(!outstanding_begin_frame_requests_);
+  begin_frame_source_ = begin_frame_source;
+}
+
+void SynchronousCompositorHost::AddBeginFrameRequest(
+    BeginFrameRequestType request) {
+  uint32_t prior_requests = outstanding_begin_frame_requests_;
+  outstanding_begin_frame_requests_ = prior_requests | request;
+
+  // Note that if we don't currently have a BeginFrameSource, outstanding begin
+  // frame requests will be pushed if/when we get one during
+  // |StartObservingRootWindow()| or when the DelegatedFrameHostAndroid sets it.
+  viz::BeginFrameSource* source = begin_frame_source_;
+  if (source && outstanding_begin_frame_requests_ && !prior_requests)
+    source->AddObserver(this);
+}
+
+void SynchronousCompositorHost::ClearBeginFrameRequest(
+    BeginFrameRequestType request) {
+  uint32_t prior_requests = outstanding_begin_frame_requests_;
+  outstanding_begin_frame_requests_ = prior_requests & ~request;
+
+  viz::BeginFrameSource* source = begin_frame_source_;
+  if (source && !outstanding_begin_frame_requests_ && prior_requests)
+    source->RemoveObserver(this);
+}
+
+void SynchronousCompositorHost::RequestOneBeginFrame() {
+  AddBeginFrameRequest(BEGIN_FRAME);
+}
+
+void SynchronousCompositorHost::AddBeginFrameCompletionCallback(
+    base::OnceClosure callback) {
+  client_->AddBeginFrameCompletionCallback(std::move(callback));
+}
+
+void SynchronousCompositorHost::DidInvalidate() {
+  invalidate_needs_draw_ = true;
 }
 
 }  // namespace content

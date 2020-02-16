@@ -546,8 +546,6 @@ void FakeSessionManagerClient::StorePolicy(
     policy_[GetMemoryStorageKey(descriptor)] = policy_blob;
 
     if (IsChromeDevicePolicy(descriptor)) {
-      // TODO(ljusten): For historical reasons, this code path only stores keys
-      // for device policy. Should this be extended to other policy?
       if (response.has_new_public_key()) {
         base::FilePath key_path;
         GetStubPolicyFilePath(descriptor, &key_path);
@@ -680,7 +678,14 @@ void FakeSessionManagerClient::EnableAdbSideload(
     EnableAdbSideloadCallback callback) {}
 
 void FakeSessionManagerClient::QueryAdbSideload(
-    QueryAdbSideloadCallback callback) {}
+    QueryAdbSideloadCallback callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback),
+                     adb_sideload_enabled_ ? AdbSideloadResponseCode::SUCCESS
+                                           : AdbSideloadResponseCode::FAILED,
+                     adb_sideload_enabled_));
+}
 
 void FakeSessionManagerClient::NotifyArcInstanceStopped() {
   for (auto& observer : observers_)

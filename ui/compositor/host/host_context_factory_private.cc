@@ -18,7 +18,6 @@
 #include "services/viz/privileged/mojom/compositing/frame_sink_manager.mojom.h"
 #include "services/viz/privileged/mojom/compositing/vsync_parameter_observer.mojom.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom.h"
-#include "ui/compositor/reflector.h"
 
 #if defined(OS_WIN)
 #include "ui/gfx/win/rendering_window_manager.h"
@@ -135,6 +134,9 @@ void HostContextFactoryPrivate::ConfigureCompositor(
   if (command_line->HasSwitch(switches::kDisableFrameRateLimit))
     root_params->disable_frame_rate_limit = true;
 
+  root_params->use_preferred_interval_for_video =
+      features::IsUsingPreferredIntervalForVideo();
+
   // Connects the viz process end of CompositorFrameSink message pipes. The
   // browser compositor may request a new CompositorFrameSink on context loss,
   // which will destroy the existing CompositorFrameSink.
@@ -179,19 +181,6 @@ base::flat_set<Compositor*> HostContextFactoryPrivate::GetAllCompositors() {
   for (auto& pair : compositor_data_map_)
     all_compositors.insert(pair.first);
   return all_compositors;
-}
-
-std::unique_ptr<Reflector> HostContextFactoryPrivate::CreateReflector(
-    Compositor* source,
-    Layer* target) {
-  // TODO(crbug.com/601869): Reflector needs to be rewritten for viz.
-  NOTIMPLEMENTED();
-  return nullptr;
-}
-
-void HostContextFactoryPrivate::RemoveReflector(Reflector* reflector) {
-  // TODO(crbug.com/601869): Reflector needs to be rewritten for viz.
-  NOTIMPLEMENTED();
 }
 
 viz::FrameSinkId HostContextFactoryPrivate::AllocateFrameSinkId() {
@@ -244,15 +233,13 @@ void HostContextFactoryPrivate::SetDisplayColorMatrix(
   iter->second.display_private->SetDisplayColorMatrix(gfx::Transform(matrix));
 }
 
-void HostContextFactoryPrivate::SetDisplayColorSpace(
+void HostContextFactoryPrivate::SetDisplayColorSpaces(
     Compositor* compositor,
-    const gfx::ColorSpace& output_color_space,
-    float sdr_white_level) {
+    const gfx::DisplayColorSpaces& output_color_spaces) {
   auto iter = compositor_data_map_.find(compositor);
   if (iter == compositor_data_map_.end() || !iter->second.display_private)
     return;
-  iter->second.display_private->SetDisplayColorSpace(output_color_space,
-                                                     sdr_white_level);
+  iter->second.display_private->SetDisplayColorSpaces(output_color_spaces);
 }
 
 void HostContextFactoryPrivate::SetDisplayVSyncParameters(

@@ -30,6 +30,10 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/native_theme/native_theme_features.h"
 
+#if defined(OS_MACOSX)
+#include "ui/base/test/scoped_preferred_scroller_style_mac.h"
+#endif
+
 namespace {
 
 const char kDataURL[] =
@@ -275,6 +279,13 @@ class ScrollLatencyScrollbarBrowserTest : public ScrollLatencyBrowserTest {
 
   ~ScrollLatencyScrollbarBrowserTest() override {}
 
+ private:
+#if defined(OS_MACOSX)
+  // Native scrollbars on Mac are overlay scrollbars. Hence they need to be
+  // disabled.
+  ui::test::ScopedPreferredScrollerStyle scroller_style_override{false};
+#endif
+
  protected:
   void RunScrollbarButtonLatencyTest() {
     // We don't run tests that click the scrollbar on Android for a few reasons:
@@ -288,13 +299,12 @@ class ScrollLatencyScrollbarBrowserTest : public ScrollLatencyBrowserTest {
     // WebPreferences) but at that point, we're not really testing a shipping
     // configuration.
 #if !defined(OS_ANDROID)
-
     // Click on the forward scrollbar button to induce a compositor thread
     // scrollbar scroll.
-    blink::WebFloatPoint scrollbar_forward_button(795, 595);
+    gfx::PointF scrollbar_forward_button(795, 595);
     blink::WebMouseEvent mouse_event = SyntheticWebMouseEventBuilder::Build(
-        blink::WebInputEvent::kMouseDown, scrollbar_forward_button.x,
-        scrollbar_forward_button.y, 0);
+        blink::WebInputEvent::kMouseDown, scrollbar_forward_button.x(),
+        scrollbar_forward_button.y(), 0);
     mouse_event.button = blink::WebMouseEvent::Button::kLeft;
     mouse_event.SetTimeStamp(base::TimeTicks::Now());
     GetWidgetHost()->ForwardMouseEvent(mouse_event);
@@ -332,10 +342,10 @@ class ScrollLatencyScrollbarBrowserTest : public ScrollLatencyBrowserTest {
 #if !defined(OS_ANDROID)
     // Click on the scrollbar thumb and drag it twice to induce a compositor
     // thread scrollbar ScrollBegin and ScrollUpdate.
-    blink::WebFloatPoint scrollbar_thumb(795, 30);
+    gfx::PointF scrollbar_thumb(795, 30);
     blink::WebMouseEvent mouse_down = SyntheticWebMouseEventBuilder::Build(
-        blink::WebInputEvent::kMouseDown, scrollbar_thumb.x, scrollbar_thumb.y,
-        0);
+        blink::WebInputEvent::kMouseDown, scrollbar_thumb.x(),
+        scrollbar_thumb.y(), 0);
     mouse_down.button = blink::WebMouseEvent::Button::kLeft;
     mouse_down.SetTimeStamp(base::TimeTicks::Now());
     GetWidgetHost()->ForwardMouseEvent(mouse_down);
@@ -350,21 +360,23 @@ class ScrollLatencyScrollbarBrowserTest : public ScrollLatencyBrowserTest {
     RunUntilInputProcessed(GetWidgetHost());
 
     blink::WebMouseEvent mouse_move = SyntheticWebMouseEventBuilder::Build(
-        blink::WebInputEvent::kMouseMove, scrollbar_thumb.x,
-        scrollbar_thumb.y + 10, 0);
+        blink::WebInputEvent::kMouseMove, scrollbar_thumb.x(),
+        scrollbar_thumb.y() + 10, 0);
     mouse_move.button = blink::WebMouseEvent::Button::kLeft;
     mouse_move.SetTimeStamp(base::TimeTicks::Now());
     GetWidgetHost()->ForwardMouseEvent(mouse_move);
     RunUntilInputProcessed(GetWidgetHost());
 
-    mouse_move.SetPositionInWidget(scrollbar_thumb.x, scrollbar_thumb.y + 20);
-    mouse_move.SetPositionInScreen(scrollbar_thumb.x, scrollbar_thumb.y + 20);
+    mouse_move.SetPositionInWidget(scrollbar_thumb.x(),
+                                   scrollbar_thumb.y() + 20);
+    mouse_move.SetPositionInScreen(scrollbar_thumb.x(),
+                                   scrollbar_thumb.y() + 20);
     GetWidgetHost()->ForwardMouseEvent(mouse_move);
     RunUntilInputProcessed(GetWidgetHost());
 
     blink::WebMouseEvent mouse_up = SyntheticWebMouseEventBuilder::Build(
-        blink::WebInputEvent::kMouseUp, scrollbar_thumb.x,
-        scrollbar_thumb.y + 20, 0);
+        blink::WebInputEvent::kMouseUp, scrollbar_thumb.x(),
+        scrollbar_thumb.y() + 20, 0);
     mouse_up.button = blink::WebMouseEvent::Button::kLeft;
     mouse_up.SetTimeStamp(base::TimeTicks::Now());
     GetWidgetHost()->ForwardMouseEvent(mouse_up);
@@ -432,9 +444,8 @@ IN_PROC_BROWSER_TEST_F(ScrollLatencyScrollbarBrowserTest,
   RunScrollbarButtonLatencyTest();
 }
 
-// Disabled due to test failures (crbug.com/1026720).
 IN_PROC_BROWSER_TEST_F(ScrollLatencyScrollbarBrowserTest,
-                       DISABLED_ScrollbarThumbDragLatency) {
+                       ScrollbarThumbDragLatency) {
   LoadURL();
 
   RunScrollbarThumbDragLatencyTest();
@@ -460,7 +471,7 @@ class ScrollLatencyCompositedScrollbarBrowserTest
 };
 
 IN_PROC_BROWSER_TEST_F(ScrollLatencyCompositedScrollbarBrowserTest,
-                       DISABLED_ScrollbarButtonLatency) {
+                       ScrollbarButtonLatency) {
   LoadURL();
 
   RunScrollbarButtonLatencyTest();

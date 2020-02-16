@@ -589,6 +589,7 @@ gfx::NativeViewAccessible AXPlatformNodeWin::GetNativeViewAccessible() {
 }
 
 void AXPlatformNodeWin::NotifyAccessibilityEvent(ax::mojom::Event event_type) {
+  AXPlatformNodeBase::NotifyAccessibilityEvent(event_type);
   // Menu items fire selection events but Windows screen readers work reliably
   // with focus events. Remap here.
   if (event_type == ax::mojom::Event::kSelection) {
@@ -684,6 +685,12 @@ int AXPlatformNodeWin::GetIndexInParent() {
 }
 
 base::string16 AXPlatformNodeWin::GetHypertext() const {
+  // Special case allows us to get text even in non-HTML case, e.g. browser UI.
+  if (!GetDelegate()->IsWebContent()) {
+    if (IsPlainTextField())
+      return GetString16Attribute(ax::mojom::StringAttribute::kValue);
+  }
+
   // Hypertext of platform leaves, which internally are composite objects, are
   // represented with the inner text of the internal composite object.
   if (IsChildOfLeaf())
@@ -2067,19 +2074,16 @@ IFACEMETHODIMP AXPlatformNodeWin::get_VerticalViewSize(double* result) {
 // ISelectionItemProvider implementation.
 //
 
-HRESULT AXPlatformNodeWin::ISelectionItemProviderSetSelected(bool selected) {
+HRESULT AXPlatformNodeWin::ISelectionItemProviderSetSelected(
+    bool selected) const {
   UIA_VALIDATE_CALL();
-
   int restriction;
   if (GetIntAttribute(ax::mojom::IntAttribute::kRestriction, &restriction)) {
     if (restriction == static_cast<int>(ax::mojom::Restriction::kDisabled))
       return UIA_E_ELEMENTNOTENABLED;
   }
 
-  bool is_selected;
-  if (!GetBoolAttribute(ax::mojom::BoolAttribute::kSelected, &is_selected))
-    return UIA_E_INVALIDOPERATION;
-  if (is_selected == selected)
+  if (selected == ISelectionItemProviderIsSelected())
     return S_OK;
 
   AXActionData data;
@@ -2087,6 +2091,20 @@ HRESULT AXPlatformNodeWin::ISelectionItemProviderSetSelected(bool selected) {
   if (GetDelegate()->AccessibilityPerformAction(data))
     return S_OK;
   return UIA_E_INVALIDOPERATION;
+}
+
+bool AXPlatformNodeWin::ISelectionItemProviderIsSelected() const {
+  // https://www.w3.org/TR/core-aam-1.1/#mapping_state-property_table
+  // SelectionItem.IsSelected is set according to the True or False value of
+  // aria-checked for 'radio' and 'menuitemradio' roles.
+  if (GetData().role == ax::mojom::Role::kRadioButton ||
+      GetData().role == ax::mojom::Role::kMenuItemRadio)
+    return GetData().GetCheckedState() == ax::mojom::CheckedState::kTrue;
+
+  // https://www.w3.org/TR/wai-aria-1.1/#aria-selected
+  // SelectionItem.IsSelected is set according to the True or False value of
+  // aria-selected.
+  return GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
 }
 
 IFACEMETHODIMP AXPlatformNodeWin::AddToSelection() {
@@ -2107,22 +2125,7 @@ IFACEMETHODIMP AXPlatformNodeWin::Select() {
 IFACEMETHODIMP AXPlatformNodeWin::get_IsSelected(BOOL* result) {
   WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_SELECTIONITEM_GET_ISSELECTED);
   UIA_VALIDATE_CALL_1_ARG(result);
-  // https://www.w3.org/TR/core-aam-1.1/#mapping_state-property_table
-  // SelectionItem.IsSelected is set according to the True or False value of
-  // aria-checked for 'radio' and 'menuitemradio' roles.
-  if (GetData().role == ax::mojom::Role::kRadioButton ||
-      GetData().role == ax::mojom::Role::kMenuItemRadio) {
-    *result = (GetData().GetCheckedState() == ax::mojom::CheckedState::kTrue);
-    return S_OK;
-  }
-
-  // https://www.w3.org/TR/wai-aria-1.1/#aria-selected
-  // SelectionItem.IsSelected is set according to the True or False value of
-  // aria-selected.
-  bool is_selected;
-  if (GetBoolAttribute(ax::mojom::BoolAttribute::kSelected, &is_selected))
-    *result = is_selected;
-
+  *result = ISelectionItemProviderIsSelected();
   return S_OK;
 }
 
@@ -3315,7 +3318,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_nCharacters(LONG* n_characters) {
   AXPlatformNode::NotifyAddAXModeFlags(kScreenReaderAndHTMLAccessibilityModes |
                                        ui::AXMode::kInlineTextBoxes);
 
-  base::string16 text = TextForIAccessibleText();
+  base::string16 text = GetHypertext();
   *n_characters = static_cast<LONG>(text.size());
 
   return S_OK;
@@ -3399,7 +3402,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_text(LONG start_offset,
   if (start_offset > end_offset)
     std::swap(start_offset, end_offset);
 
-  const base::string16 str = TextForIAccessibleText();
+  const base::string16 str = GetHypertext();
   LONG str_len = static_cast<LONG>(str.length());
   if (start_offset < 0 || start_offset > str_len)
     return E_INVALIDARG;
@@ -3415,29 +3418,106 @@ IFACEMETHODIMP AXPlatformNodeWin::get_text(LONG start_offset,
   return S_OK;
 }
 
-IFACEMETHODIMP AXPlatformNodeWin::get_textAtOffset(
+HRESULT AXPlatformNodeWin::IAccessibleTextGetTextForOffsetType(
+    TextOffsetType text_offset_type,
     LONG offset,
     enum IA2TextBoundaryType boundary_type,
     LONG* start_offset,
     LONG* end_offset,
     BSTR* text) {
   COM_OBJECT_VALIDATE_3_ARGS(start_offset, end_offset, text);
-  // The IAccessible2 spec says we don't have to implement the "sentence"
-  // boundary type, we can just let the screen reader handle it.
-  if (boundary_type == IA2_TEXT_BOUNDARY_SENTENCE) {
-    *start_offset = 0;
-    *end_offset = 0;
-    *text = nullptr;
+  AXPlatformNode::NotifyAddAXModeFlags(kScreenReaderAndHTMLAccessibilityModes |
+                                       ui::AXMode::kInlineTextBoxes);
+
+  // https://accessibility.linuxfoundation.org/a11yspecs/ia2/docs/html/_accessible_text_8idl.html
+  // IA2_TEXT_BOUNDARY_SENTENCE is optional and we can let the screenreader
+  // handle it, the rest of the boundary types must be supported.
+  if (boundary_type == IA2_TEXT_BOUNDARY_SENTENCE)
     return S_FALSE;
+
+  HandleSpecialTextOffset(&offset);
+  if (offset < 0)
+    return E_INVALIDARG;
+
+  const base::string16& text_str = GetHypertext();
+  LONG text_len = text_str.length();
+
+  // https://accessibility.linuxfoundation.org/a11yspecs/ia2/docs/html/interface_i_accessible_text.html
+  // All methods that operate on particular characters use character indices
+  // (e.g. IAccessibleText::textAtOffset) from 0 to length-1.
+  if (offset >= text_len) {
+    // We aren't strictly following the spec here by allowing offset to be equal
+    // to the text length for IA2_TEXT_BOUNDARY_LINE in case screen readers
+    // expect this behavior which has existed since Feb. 2015,
+    // commit: 6baff46f520e31ff92669890207be5708064d16e.
+    const bool offset_for_line_text_len =
+        offset == text_len && boundary_type == IA2_TEXT_BOUNDARY_LINE;
+    if (!offset_for_line_text_len)
+      return E_INVALIDARG;
   }
 
-  const base::string16& text_str = TextForIAccessibleText();
+  LONG start, end;
 
-  *start_offset = FindBoundary(text_str, boundary_type, offset,
-                               AXTextBoundaryDirection::kBackwards);
-  *end_offset = FindBoundary(text_str, boundary_type, offset,
-                             AXTextBoundaryDirection::kForwards);
-  return get_text(*start_offset, *end_offset, text);
+  switch (text_offset_type) {
+    case TextOffsetType::kAtOffset: {
+      end = FindBoundary(boundary_type, offset,
+                         ui::AXTextBoundaryDirection::kForwards);
+      // Early return if the range will be degenerate containing no text.
+      if (end <= 0)
+        return S_FALSE;
+      start = FindBoundary(boundary_type, offset,
+                           ui::AXTextBoundaryDirection::kBackwards);
+      break;
+    }
+    case TextOffsetType::kBeforeOffset: {
+      // Find the start of the boundary at |offset| and assign to |end|,
+      // then find the start of the preceding boundary and assign to |start|.
+      end = FindBoundary(boundary_type, offset,
+                         ui::AXTextBoundaryDirection::kBackwards);
+      // Early return if the range will be degenerate containing no text,
+      // or the range is after |offset|. Because the character at |offset| must
+      // be excluded, |end| and |offset| may be equal.
+      if (end <= 0 || end > offset)
+        return S_FALSE;
+      start = FindBoundary(boundary_type, end - 1,
+                           ui::AXTextBoundaryDirection::kBackwards);
+      break;
+    }
+    case TextOffsetType::kAfterOffset: {
+      // Find the end of the boundary at |offset| and assign to |start|,
+      // then find the end of the following boundary and assign to |end|.
+      start = FindBoundary(boundary_type, offset,
+                           ui::AXTextBoundaryDirection::kForwards);
+      // Early return if the range will be degenerate containing no text,
+      // or the range is before or includes|offset|. Because the character at
+      // |offset| must be excluded, |start| and |offset| cannot be equal.
+      if (start >= text_len || start <= offset)
+        return S_FALSE;
+      end = FindBoundary(boundary_type, start,
+                         ui::AXTextBoundaryDirection::kForwards);
+      break;
+    }
+  }
+
+  DCHECK_LE(start, end);
+  if (start >= end)
+    return S_FALSE;
+
+  *start_offset = start;
+  *end_offset = end;
+  return get_text(start, end, text);
+}
+
+IFACEMETHODIMP AXPlatformNodeWin::get_textAtOffset(
+    LONG offset,
+    enum IA2TextBoundaryType boundary_type,
+    LONG* start_offset,
+    LONG* end_offset,
+    BSTR* text) {
+  WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_TEXT_AT_OFFSET);
+  return IAccessibleTextGetTextForOffsetType(TextOffsetType::kAtOffset, offset,
+                                             boundary_type, start_offset,
+                                             end_offset, text);
 }
 
 IFACEMETHODIMP AXPlatformNodeWin::get_textBeforeOffset(
@@ -3446,24 +3526,10 @@ IFACEMETHODIMP AXPlatformNodeWin::get_textBeforeOffset(
     LONG* start_offset,
     LONG* end_offset,
     BSTR* text) {
-  if (!start_offset || !end_offset || !text)
-    return E_INVALIDARG;
-
-  // The IAccessible2 spec says we don't have to implement the "sentence"
-  // boundary type, we can just let the screenreader handle it.
-  if (boundary_type == IA2_TEXT_BOUNDARY_SENTENCE) {
-    *start_offset = 0;
-    *end_offset = 0;
-    *text = nullptr;
-    return S_FALSE;
-  }
-
-  const base::string16& text_str = TextForIAccessibleText();
-
-  *start_offset = FindBoundary(text_str, boundary_type, offset,
-                               AXTextBoundaryDirection::kBackwards);
-  *end_offset = offset;
-  return get_text(*start_offset, *end_offset, text);
+  WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_TEXT_BEFORE_OFFSET);
+  return IAccessibleTextGetTextForOffsetType(TextOffsetType::kBeforeOffset,
+                                             offset, boundary_type,
+                                             start_offset, end_offset, text);
 }
 
 IFACEMETHODIMP AXPlatformNodeWin::get_textAfterOffset(
@@ -3472,24 +3538,10 @@ IFACEMETHODIMP AXPlatformNodeWin::get_textAfterOffset(
     LONG* start_offset,
     LONG* end_offset,
     BSTR* text) {
-  if (!start_offset || !end_offset || !text)
-    return E_INVALIDARG;
-
-  // The IAccessible2 spec says we don't have to implement the "sentence"
-  // boundary type, we can just let the screenreader handle it.
-  if (boundary_type == IA2_TEXT_BOUNDARY_SENTENCE) {
-    *start_offset = 0;
-    *end_offset = 0;
-    *text = nullptr;
-    return S_FALSE;
-  }
-
-  const base::string16& text_str = TextForIAccessibleText();
-
-  *start_offset = offset;
-  *end_offset = FindBoundary(text_str, boundary_type, offset,
-                             AXTextBoundaryDirection::kForwards);
-  return get_text(*start_offset, *end_offset, text);
+  WIN_ACCESSIBILITY_API_HISTOGRAM(UMA_API_GET_TEXT_AFTER_OFFSET);
+  return IAccessibleTextGetTextForOffsetType(TextOffsetType::kAfterOffset,
+                                             offset, boundary_type,
+                                             start_offset, end_offset, text);
 }
 
 IFACEMETHODIMP AXPlatformNodeWin::get_offsetAtPoint(
@@ -3570,11 +3622,11 @@ IFACEMETHODIMP AXPlatformNodeWin::setSelection(LONG selection_index,
   HandleSpecialTextOffset(&start_offset);
   HandleSpecialTextOffset(&end_offset);
   if (start_offset < 0 ||
-      start_offset > static_cast<LONG>(TextForIAccessibleText().length())) {
+      start_offset > static_cast<LONG>(GetHypertext().length())) {
     return E_INVALIDARG;
   }
   if (end_offset < 0 ||
-      end_offset > static_cast<LONG>(TextForIAccessibleText().length())) {
+      end_offset > static_cast<LONG>(GetHypertext().length())) {
     return E_INVALIDARG;
   }
 
@@ -3582,6 +3634,25 @@ IFACEMETHODIMP AXPlatformNodeWin::setSelection(LONG selection_index,
     return S_OK;
   }
   return E_FAIL;
+}
+
+//
+// IAccessibleHypertext methods not implemented.
+//
+
+IFACEMETHODIMP AXPlatformNodeWin::get_nHyperlinks(LONG* hyperlink_count) {
+  return E_NOTIMPL;
+}
+
+IFACEMETHODIMP AXPlatformNodeWin::get_hyperlink(
+    LONG index,
+    IAccessibleHyperlink** hyperlink) {
+  return E_NOTIMPL;
+}
+
+IFACEMETHODIMP AXPlatformNodeWin::get_hyperlinkIndex(LONG char_index,
+                                                     LONG* hyperlink_index) {
+  return E_NOTIMPL;
 }
 
 //
@@ -4187,7 +4258,8 @@ IFACEMETHODIMP AXPlatformNodeWin::GetPropertyValue(PROPERTYID property_id,
         result->vt = VT_I4;
         result->intVal = *set_size;
       }
-    } break;
+      break;
+    }
 
     case UIA_LandmarkTypePropertyId: {
       base::Optional<LONG> landmark_type = ComputeUIALandmarkType();
@@ -4335,16 +4407,8 @@ STDMETHODIMP AXPlatformNodeWin::InternalQueryInterface(
 
 HRESULT AXPlatformNodeWin::GetTextAttributeValue(TEXTATTRIBUTEID attribute_id,
                                                  VARIANT* result) {
-  // Text attributes of kInlineTextBox nodes are stored on the parent node
-  // (which is typically a kStaticText or kLineBreak node).
-  if (GetData().role == ax::mojom::Role::kInlineTextBox) {
-    AXPlatformNodeWin* parent_platform_node =
-        static_cast<AXPlatformNodeWin*>(FromNativeViewAccessible(GetParent()));
-    if (!parent_platform_node)
-      return UIA_E_ELEMENTNOTAVAILABLE;
-
-    return parent_platform_node->GetTextAttributeValue(attribute_id, result);
-  }
+  // This should only be called on nodes actually in the tree
+  DCHECK(!GetDelegate()->IsChildOfLeaf());
 
   switch (attribute_id) {
     case UIA_BackgroundColorAttributeId:
@@ -4395,10 +4459,7 @@ HRESULT AXPlatformNodeWin::GetTextAttributeValue(TEXTATTRIBUTEID attribute_id,
       }
       V_VT(result) = VT_BOOL;
       V_BOOL(result) =
-          (GetData().GetRestriction() == ax::mojom::Restriction::kReadOnly ||
-           !GetData().HasState(ax::mojom::State::kEditable))
-              ? VARIANT_TRUE
-              : VARIANT_FALSE;
+          GetData().IsReadOnlyOrDisabled() ? VARIANT_TRUE : VARIANT_FALSE;
       break;
     case UIA_IsSubscriptAttributeId:
       V_VT(result) = VT_BOOL;
@@ -4611,8 +4672,6 @@ int AXPlatformNodeWin::MSAARole() {
       return ROLE_SYSTEM_LINK;
 
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
-    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kSuggestion:
       return ROLE_SYSTEM_GROUPING;
 
@@ -4763,11 +4822,7 @@ int AXPlatformNodeWin::MSAARole() {
       return ROLE_SYSTEM_DOCUMENT;
 
     case ax::mojom::Role::kEmbeddedObject:
-      if (GetDelegate()->GetChildCount()) {
-        return ROLE_SYSTEM_GROUPING;
-      } else {
-        return ROLE_SYSTEM_CLIENT;
-      }
+      return ROLE_SYSTEM_CLIENT;
 
     case ax::mojom::Role::kFigcaption:
       return ROLE_SYSTEM_GROUPING;
@@ -4875,7 +4930,7 @@ int AXPlatformNodeWin::MSAARole() {
       return ROLE_SYSTEM_GROUPING;
 
     case ax::mojom::Role::kMark:
-      return ROLE_SYSTEM_TEXT;
+      return ROLE_SYSTEM_GROUPING;
 
     case ax::mojom::Role::kMarquee:
       return ROLE_SYSTEM_ANIMATION;
@@ -4921,6 +4976,15 @@ int AXPlatformNodeWin::MSAARole() {
     case ax::mojom::Role::kParagraph:
       return ROLE_SYSTEM_GROUPING;
 
+    case ax::mojom::Role::kPdfActionableHighlight:
+      return ROLE_SYSTEM_PUSHBUTTON;
+
+    case ax::mojom::Role::kPluginObject:
+      if (GetDelegate()->GetChildCount())
+        return ROLE_SYSTEM_GROUPING;
+      else
+        return ROLE_SYSTEM_CLIENT;
+
     case ax::mojom::Role::kPopUpButton: {
       std::string html_tag =
           GetData().GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag);
@@ -4928,6 +4992,9 @@ int AXPlatformNodeWin::MSAARole() {
         return ROLE_SYSTEM_COMBOBOX;
       return ROLE_SYSTEM_BUTTONMENU;
     }
+
+    case ax::mojom::Role::kPortal:
+      return ROLE_SYSTEM_PUSHBUTTON;
 
     case ax::mojom::Role::kPre:
       return ROLE_SYSTEM_TEXT;
@@ -5218,10 +5285,9 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
 
   switch (GetData().role) {
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
-    case ax::mojom::Role::kRevision:
+      return IA2_ROLE_COMMENT;
     case ax::mojom::Role::kSuggestion:
-      return IA2_ROLE_SECTION;
+      return IA2_ROLE_SUGGESTION;
     case ax::mojom::Role::kBanner:
     case ax::mojom::Role::kHeader:
       // CORE-AAM recommends LANDMARK instead of HEADER.
@@ -5308,9 +5374,7 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
       ia2_role = IA2_ROLE_FOOTNOTE;
       break;
     case ax::mojom::Role::kEmbeddedObject:
-      if (!GetDelegate()->GetChildCount()) {
-        ia2_role = IA2_ROLE_EMBEDDED_OBJECT;
-      }
+      ia2_role = IA2_ROLE_EMBEDDED_OBJECT;
       break;
     case ax::mojom::Role::kFigcaption:
       ia2_role = IA2_ROLE_CAPTION;
@@ -5342,7 +5406,7 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
       ia2_role = IA2_ROLE_LANDMARK;
       break;
     case ax::mojom::Role::kMark:
-      ia2_role = IA2_ROLE_TEXT_FRAME;
+      ia2_role = IA2_ROLE_MARK;
       break;
     case ax::mojom::Role::kMenuItemCheckBox:
       ia2_role = IA2_ROLE_CHECK_MENU_ITEM;
@@ -5364,6 +5428,10 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
       break;
     case ax::mojom::Role::kParagraph:
       ia2_role = IA2_ROLE_PARAGRAPH;
+      break;
+    case ax::mojom::Role::kPluginObject:
+      if (!GetDelegate()->GetChildCount())
+        ia2_role = IA2_ROLE_EMBEDDED_OBJECT;
       break;
     case ax::mojom::Role::kPre:
       ia2_role = IA2_ROLE_PARAGRAPH;
@@ -5439,8 +5507,6 @@ base::string16 AXPlatformNodeWin::UIAAriaRole() {
       return L"link";
 
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
-    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kSuggestion:
       return L"group";
 
@@ -5594,11 +5660,7 @@ base::string16 AXPlatformNodeWin::UIAAriaRole() {
       return L"document";
 
     case ax::mojom::Role::kEmbeddedObject:
-      if (GetDelegate()->GetChildCount()) {
-        return L"group";
-      } else {
-        return L"document";
-      }
+      return L"region";
 
     case ax::mojom::Role::kEmphasis:
       return L"emphasis";
@@ -5758,6 +5820,15 @@ base::string16 AXPlatformNodeWin::UIAAriaRole() {
     case ax::mojom::Role::kParagraph:
       return L"group";
 
+    case ax::mojom::Role::kPdfActionableHighlight:
+      return L"button";
+
+    case ax::mojom::Role::kPluginObject:
+      if (GetDelegate()->GetChildCount())
+        return L"group";
+      else
+        return L"document";
+
     case ax::mojom::Role::kPopUpButton: {
       std::string html_tag =
           GetData().GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag);
@@ -5765,6 +5836,9 @@ base::string16 AXPlatformNodeWin::UIAAriaRole() {
         return L"combobox";
       return L"menu";
     }
+
+    case ax::mojom::Role::kPortal:
+      return L"button";
 
     case ax::mojom::Role::kPre:
       return L"region";
@@ -5975,22 +6049,15 @@ base::string16 AXPlatformNodeWin::ComputeUIAProperties() {
 
   const auto restriction = static_cast<ax::mojom::Restriction>(
       GetIntAttribute(ax::mojom::IntAttribute::kRestriction));
-  switch (restriction) {
-    case ax::mojom::Restriction::kDisabled:
-      properties.push_back(L"disabled=true");
-      break;
-    case ax::mojom::Restriction::kReadOnly:
+  if (restriction == ax::mojom::Restriction::kDisabled) {
+    properties.push_back(L"disabled=true");
+  } else {
+    // The readonly property is complex on Windows. We set "readonly=true"
+    // on *some* document structure roles such as paragraph, heading or list
+    // even if the node data isn't marked as read only, as long as the
+    // node is not editable.
+    if (GetData().IsReadOnlyOrDisabled())
       properties.push_back(L"readonly=true");
-      break;
-    default:
-      // The readonly property is complex on windows. We set "readonly=true"
-      // on *some* document structure roles such as paragraph, heading or list
-      // even if the node data isn't marked as read only, as long as the
-      // node is not editable.
-      if (!data.HasState(ax::mojom::State::kRichlyEditable) &&
-          ShouldHaveReadonlyStateByDefault(data.role))
-        properties.push_back(L"readonly=true");
-      break;
   }
 
   // aria-dropeffect is deprecated in WAI-ARIA 1.1.
@@ -6114,8 +6181,6 @@ LONG AXPlatformNodeWin::ComputeUIAControlType() {  // NOLINT(runtime/int)
       return UIA_HyperlinkControlTypeId;
 
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
-    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kSuggestion:
       return ROLE_SYSTEM_GROUPING;
 
@@ -6269,11 +6334,7 @@ LONG AXPlatformNodeWin::ComputeUIAControlType() {  // NOLINT(runtime/int)
       return UIA_DocumentControlTypeId;
 
     case ax::mojom::Role::kEmbeddedObject:
-      if (GetDelegate()->GetChildCount()) {
-        return UIA_GroupControlTypeId;
-      } else {
-        return UIA_DocumentControlTypeId;
-      }
+      return UIA_PaneControlTypeId;
 
     case ax::mojom::Role::kEmphasis:
       return UIA_TextControlTypeId;
@@ -6430,6 +6491,15 @@ LONG AXPlatformNodeWin::ComputeUIAControlType() {  // NOLINT(runtime/int)
     case ax::mojom::Role::kParagraph:
       return UIA_GroupControlTypeId;
 
+    case ax::mojom::Role::kPdfActionableHighlight:
+      return UIA_CustomControlTypeId;
+
+    case ax::mojom::Role::kPluginObject:
+      if (GetDelegate()->GetChildCount())
+        return UIA_GroupControlTypeId;
+      else
+        return UIA_DocumentControlTypeId;
+
     case ax::mojom::Role::kPopUpButton: {
       std::string html_tag =
           GetData().GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag);
@@ -6437,6 +6507,9 @@ LONG AXPlatformNodeWin::ComputeUIAControlType() {  // NOLINT(runtime/int)
         return UIA_ComboBoxControlTypeId;
       return UIA_MenuControlTypeId;
     }
+
+    case ax::mojom::Role::kPortal:
+      return UIA_ButtonControlTypeId;
 
     case ax::mojom::Role::kPre:
       return UIA_PaneControlTypeId;
@@ -6608,12 +6681,12 @@ bool AXPlatformNodeWin::IsUIAControl() const {
       // text to be effectively repeated.
       auto* parent = FromNativeViewAccessible(GetDelegate()->GetParent());
       while (parent) {
-        const ui::AXNodeData& data = parent->GetData();
+        const AXNodeData& data = parent->GetData();
+        if (IsCellOrTableHeader(data.role))
+          return false;
         switch (data.role) {
           case ax::mojom::Role::kButton:
-          case ax::mojom::Role::kCell:
           case ax::mojom::Role::kCheckBox:
-          case ax::mojom::Role::kColumnHeader:
           case ax::mojom::Role::kGroup:
           case ax::mojom::Role::kHeading:
           case ax::mojom::Role::kLineBreak:
@@ -6624,10 +6697,10 @@ bool AXPlatformNodeWin::IsUIAControl() const {
           case ax::mojom::Role::kMenuItemCheckBox:
           case ax::mojom::Role::kMenuItemRadio:
           case ax::mojom::Role::kMenuListOption:
+          case ax::mojom::Role::kPdfActionableHighlight:
           case ax::mojom::Role::kRadioButton:
           case ax::mojom::Role::kRow:
           case ax::mojom::Role::kRowGroup:
-          case ax::mojom::Role::kRowHeader:
           case ax::mojom::Role::kStaticText:
           case ax::mojom::Role::kSwitch:
           case ax::mojom::Role::kTab:
@@ -6640,12 +6713,62 @@ bool AXPlatformNodeWin::IsUIAControl() const {
         parent = FromNativeViewAccessible(parent->GetParent());
       }
     }
+    const AXNodeData& data = GetData();
+    // https://docs.microsoft.com/en-us/windows/win32/winauto/uiauto-treeoverview#control-view
+    // The control view also includes noninteractive UI items that contribute
+    // to the logical structure of the UI.
+    if (IsControl(data.role) || ComputeUIALandmarkType() ||
+        IsTableLike(data.role) || IsList(data.role)) {
+      return true;
+    }
+    if (IsImage(data.role)) {
+      // If the author provides an explicitly empty alt text attribute then
+      // the image is decorational and should not be considered as a control.
+      if (data.role == ax::mojom::Role::kImage &&
+          data.GetNameFrom() ==
+              ax::mojom::NameFrom::kAttributeExplicitlyEmpty) {
+        return false;
+      }
+      return true;
+    }
+    switch (data.role) {
+      case ax::mojom::Role::kArticle:
+      case ax::mojom::Role::kBlockquote:
+      case ax::mojom::Role::kDetails:
+      case ax::mojom::Role::kFigure:
+      case ax::mojom::Role::kFooter:
+      case ax::mojom::Role::kFooterAsNonLandmark:
+      case ax::mojom::Role::kHeader:
+      case ax::mojom::Role::kHeaderAsNonLandmark:
+      case ax::mojom::Role::kLabelText:
+      case ax::mojom::Role::kListBoxOption:
+      case ax::mojom::Role::kListItem:
+      case ax::mojom::Role::kMeter:
+      case ax::mojom::Role::kProgressIndicator:
+      case ax::mojom::Role::kSection:
+      case ax::mojom::Role::kSplitter:
+      case ax::mojom::Role::kTime:
+        return true;
+      default:
+        break;
+    }
+    // Classify generic containers that are not clickable or focusable and have
+    // no name, description, landmark type, and is not the root of editable
+    // content as not controls.
+    // Doing so helps Narrator find all the content of live regions.
+    if (!data.GetBoolAttribute(ax::mojom::BoolAttribute::kHasAriaAttribute) &&
+        !data.GetBoolAttribute(ax::mojom::BoolAttribute::kEditableRoot) &&
+        data.GetStringAttribute(ax::mojom::StringAttribute::kName).empty() &&
+        data.GetStringAttribute(ax::mojom::StringAttribute::kDescription)
+            .empty() &&
+        !data.HasState(ax::mojom::State::kFocusable) && !data.IsClickable()) {
+      return false;
+    }
     return true;
   }
-  // non web-content case
+  // non web-content case.
   const ui::AXNodeData& data = GetData();
-  return !(ui::ShouldHaveReadonlyStateByDefault(data.role) ||
-           data.GetRestriction() == ax::mojom::Restriction::kReadOnly ||
+  return !((IsReadOnlySupported(data.role) && data.IsReadOnlyOrDisabled()) ||
            data.HasState(ax::mojom::State::kInvisible) ||
            data.role == ax::mojom::Role::kIgnored);
 }
@@ -6661,7 +6784,19 @@ base::Optional<LONG> AXPlatformNodeWin::ComputeUIALandmarkType() const {
       return UIA_CustomLandmarkTypeId;
 
     case ax::mojom::Role::kForm:
-      return UIA_FormLandmarkTypeId;
+      // https://www.w3.org/TR/html-aam-1.0/#html-element-role-mappings
+      // https://w3c.github.io/core-aam/#mapping_role_table
+      // While the HTML-AAM spec states that <form> without an accessible name
+      // should have no corresponding role, removing the role breaks both
+      // aria-setsize and aria-posinset.
+      // The only other difference for UIA is that it should not be a landmark.
+      // If the author provided an accessible name, or the role was explicit,
+      // then allow the form landmark.
+      if (data.HasStringAttribute(ax::mojom::StringAttribute::kName) ||
+          data.HasStringAttribute(ax::mojom::StringAttribute::kRole)) {
+        return UIA_FormLandmarkTypeId;
+      }
+      return {};
 
     case ax::mojom::Role::kMain:
       return UIA_MainLandmarkTypeId;
@@ -6687,7 +6822,7 @@ bool AXPlatformNodeWin::IsInaccessibleDueToAncestor() const {
   AXPlatformNodeWin* parent = static_cast<AXPlatformNodeWin*>(
       AXPlatformNode::FromNativeViewAccessible(GetParent()));
   while (parent) {
-    if (parent->ShouldHideChildren())
+    if (parent->ShouldHideChildrenForUIA())
       return true;
     parent = static_cast<AXPlatformNodeWin*>(
         FromNativeViewAccessible(parent->GetParent()));
@@ -6695,7 +6830,7 @@ bool AXPlatformNodeWin::IsInaccessibleDueToAncestor() const {
   return false;
 }
 
-bool AXPlatformNodeWin::ShouldHideChildren() const {
+bool AXPlatformNodeWin::ShouldHideChildrenForUIA() const {
   switch (GetData().role) {
     case ax::mojom::Role::kButton:
     case ax::mojom::Role::kImage:
@@ -6705,6 +6840,7 @@ bool AXPlatformNodeWin::ShouldHideChildren() const {
     case ax::mojom::Role::kProgressIndicator:
     case ax::mojom::Role::kScrollBar:
     case ax::mojom::Role::kSlider:
+    case ax::mojom::Role::kTextField:
       return true;
     default:
       return false;
@@ -6858,7 +6994,7 @@ int AXPlatformNodeWin::MSAAState() const {
       msaa_state |= STATE_SYSTEM_READONLY;
       break;
     default:
-      // READONLY state is complex on windows.  We set STATE_SYSTEM_READONLY
+      // READONLY state is complex on Windows.  We set STATE_SYSTEM_READONLY
       // on *some* document structure roles such as paragraph, heading or list
       // even if the node data isn't marked as read only, as long as the
       // node is not editable.
@@ -6967,6 +7103,7 @@ base::Optional<EVENTID> AXPlatformNodeWin::MojoEventToUIAEvent(
       return UIA_SystemAlertEventId;
     case ax::mojom::Event::kFocus:
     case ax::mojom::Event::kFocusContext:
+    case ax::mojom::Event::kFocusAfterMenuClose:
       return UIA_AutomationFocusChangedEventId;
     case ax::mojom::Event::kLiveRegionChanged:
       return UIA_LiveRegionChangedEventId;
@@ -7102,14 +7239,6 @@ void AXPlatformNodeWin::RemoveAlertTarget() {
     g_alert_targets.Get().erase(this);
 }
 
-base::string16 AXPlatformNodeWin::TextForIAccessibleText() {
-  // Special case allows us to get text even in non-HTML case, e.g. browser
-  // UI.
-  if (IsPlainTextField())
-    return GetString16Attribute(ax::mojom::StringAttribute::kValue);
-  return GetHypertext();
-}
-
 void AXPlatformNodeWin::HandleSpecialTextOffset(LONG* offset) {
   if (*offset == IA2_TEXT_OFFSET_LENGTH) {
     *offset = static_cast<LONG>(GetHypertext().length());
@@ -7125,16 +7254,22 @@ void AXPlatformNodeWin::HandleSpecialTextOffset(LONG* offset) {
   }
 }
 
-LONG AXPlatformNodeWin::FindBoundary(const base::string16& text,
-                                     IA2TextBoundaryType ia2_boundary,
+LONG AXPlatformNodeWin::FindBoundary(IA2TextBoundaryType ia2_boundary,
                                      LONG start_offset,
                                      AXTextBoundaryDirection direction) {
   HandleSpecialTextOffset(&start_offset);
+
+  // If the |start_offset| is equal to the location of the caret, then use the
+  // focus affinity, otherwise default to downstream affinity.
+  ax::mojom::TextAffinity affinity = ax::mojom::TextAffinity::kDownstream;
+  int selection_start, selection_end;
+  GetSelectionOffsets(&selection_start, &selection_end);
+  if (selection_end >= 0 && start_offset == selection_end)
+    affinity = GetDelegate()->GetTreeData().sel_focus_affinity;
+
   AXTextBoundary boundary = FromIA2TextBoundary(ia2_boundary);
-  std::vector<int32_t> line_breaks;
-  return static_cast<LONG>(FindAccessibleTextBoundary(
-      text, line_breaks, boundary, start_offset, direction,
-      ax::mojom::TextAffinity::kDownstream));
+  return static_cast<LONG>(
+      FindTextBoundary(boundary, start_offset, direction, affinity));
 }
 
 AXPlatformNodeWin* AXPlatformNodeWin::GetTargetFromChildID(
@@ -7360,14 +7495,31 @@ AXPlatformNodeWin::GetPatternProviderFactoryMethod(PATTERNID pattern_id) {
       break;
 
     case UIA_TablePatternId:
+      // https://docs.microsoft.com/en-us/windows/win32/api/uiautomationcore/nn-uiautomationcore-itableprovider
+      // This control pattern is analogous to IGridProvider with the distinction
+      // that any control implementing ITableProvider must also expose a column
+      // and/or row header relationship for each child element.
       if (IsTableLike(data.role)) {
-        return &PatternProvider<ITableProvider>;
+        base::Optional<bool> table_has_headers =
+            GetDelegate()->GetTableHasColumnOrRowHeaderNode();
+        if (table_has_headers.has_value() && table_has_headers.value()) {
+          return &PatternProvider<ITableProvider>;
+        }
       }
       break;
 
     case UIA_TableItemPatternId:
+      // https://docs.microsoft.com/en-us/windows/win32/api/uiautomationcore/nn-uiautomationcore-itableitemprovider
+      // This control pattern is analogous to IGridItemProvider with the
+      // distinction that any control implementing ITableItemProvider must
+      // expose the relationship between the individual cell and its row and
+      // column information.
       if (IsCellOrTableHeader(data.role)) {
-        return &PatternProvider<ITableItemProvider>;
+        base::Optional<bool> table_has_headers =
+            GetDelegate()->GetTableHasColumnOrRowHeaderNode();
+        if (table_has_headers.has_value() && table_has_headers.value()) {
+          return &PatternProvider<ITableItemProvider>;
+        }
       }
       break;
 
@@ -7457,7 +7609,7 @@ AXPlatformNodeWin* AXPlatformNodeWin::GetLowestAccessibleElement() {
   AXPlatformNodeWin* parent = static_cast<AXPlatformNodeWin*>(
       AXPlatformNode::FromNativeViewAccessible(GetParent()));
   while (parent) {
-    if (parent->ShouldHideChildren())
+    if (parent->ShouldHideChildrenForUIA())
       return parent;
     parent = static_cast<AXPlatformNodeWin*>(
         AXPlatformNode::FromNativeViewAccessible(parent->GetParent()));

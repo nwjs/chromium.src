@@ -18,6 +18,7 @@
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/components/web_app_utils.h"
 #include "chrome/browser/web_applications/extensions/bookmark_app_finalizer_utils.h"
 #include "chrome/browser/web_applications/extensions/bookmark_app_registrar.h"
@@ -158,22 +159,12 @@ void BookmarkAppInstallFinalizer::FinalizeUpdate(
 }
 
 void BookmarkAppInstallFinalizer::UninstallExternalWebApp(
-    const GURL& app_url,
+    const web_app::AppId& app_id,
     web_app::ExternalInstallSource external_install_source,
     UninstallWebAppCallback callback) {
   // Bookmark apps don't support app installation from different sources.
   // |external_install_source| is ignored here.
-  base::Optional<web_app::AppId> app_id =
-      externally_installed_app_prefs_.LookupAppId(app_url);
-  if (!app_id.has_value()) {
-    LOG(WARNING) << "Couldn't uninstall app with url " << app_url
-                 << "; No corresponding extension for url.";
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
-    return;
-  }
-
-  UninstallExtension(*app_id, std::move(callback));
+  UninstallExtension(app_id, std::move(callback));
 }
 
 bool BookmarkAppInstallFinalizer::CanUserUninstallFromSync(
@@ -195,10 +186,10 @@ void BookmarkAppInstallFinalizer::UninstallWebAppFromSyncByUser(
 bool BookmarkAppInstallFinalizer::CanUserUninstallExternalApp(
     const web_app::AppId& app_id) const {
   const Extension* app = GetEnabledExtension(app_id);
-  DCHECK(app);
-  return extensions::ExtensionSystem::Get(profile_)
-      ->management_policy()
-      ->UserMayModifySettings(app, nullptr);
+  return app ? extensions::ExtensionSystem::Get(profile_)
+                   ->management_policy()
+                   ->UserMayModifySettings(app, nullptr)
+             : false;
 }
 
 void BookmarkAppInstallFinalizer::UninstallExternalAppByUser(

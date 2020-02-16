@@ -42,6 +42,16 @@ declare_args() {
   # example, don't omit the frame pointer and leave in symbols.
   enable_profiling = false
 
+  # Whether to use the binary binutils checked into third_party/binutils.
+  # These are not multi-arch so cannot be used except on x86 and x86-64 (the
+  # only two architectures that are currently checked in). Turn this off when
+  # you are using a custom toolchain and need to control -B in cflags.
+  linux_use_bundled_binutils =
+      linux_use_bundled_binutils_override && is_linux &&
+      (current_cpu == "x64" || current_cpu == "x86")
+  binutils_path = rebase_path("//third_party/binutils/Linux_x64/Release/bin",
+                              root_build_dir)
+
   # use_debug_fission: whether to use split DWARF debug info
   # files. This can reduce link time significantly, but is incompatible
   # with some utilities such as icecc and ccache. Requires gold and
@@ -56,7 +66,10 @@ declare_args() {
 
   # Enables support for ThinLTO, which links 3x-10x faster than full LTO. See
   # also http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html
-  use_thin_lto = is_cfi || (is_android && is_official_build)
+  # Use it by default on official-optimized android builds, but not ARC since
+  # it's been seen to not play nicely with Chrome's clang.
+  use_thin_lto =
+      is_cfi || (is_android && target_os != "chromeos" && is_official_build)
 
   # Limit the number of jobs (threads/processes) the linker is allowed
   # to use (for linkers that support this).
@@ -82,18 +95,18 @@ declare_args() {
   # is_component_build=false. Very large debug symbols can have unwanted side
   # effects so this is enforced by default for chromium.
   forbid_non_component_debug_builds = build_with_chromium
+
+  # Exclude unwind tables by default for official builds as unwinding can be
+  # done from stack dumps produced by Crashpad at a later time "offline" in the
+  # crash server. Since this increases binary size, we don't recommend including
+  # them in shipping builds.
+  # For unofficial (e.g. development) builds and non-Chrome branded (e.g. Cronet
+  # which doesn't use Crashpad, crbug.com/479283) builds it's useful to be able
+  # to unwind at runtime.
+  exclude_unwind_tables = true #is_official_build
 }
 
 assert(!is_cfi || use_thin_lto, "CFI requires ThinLTO")
-
-# Exclude unwind tables for official builds as unwinding can be done from stack
-# dumps produced by Crashpad at a later time "offline" in the crash server.
-# For unofficial (e.g. development) builds and non-Chrome branded (e.g. Cronet
-# which doesn't use Crashpad, crbug.com/479283) builds it's useful to be able
-# to unwind at runtime.
-exclude_unwind_tables = true
-#    is_official_build || (is_chromecast && !is_cast_desktop_build &&
-#                          !is_debug && !cast_is_debug && !is_fuchsia)
 
 # If true, optimize for size. Does not affect windows builds.
 # Linux & Mac favor speed over size.
@@ -200,14 +213,14 @@ declare_args() {
 # results independent of the checkout and build directory names, which
 # in turn is important for goma compile hit rate.
 # Setting this to true may make it harder to debug binaries on Linux, see
-# https://chromium.googlesource.com/chromium/src/+/master/docs/linux_debugging.md#Source-level-debug-with-fdebug_compilation_dir
+# https://chromium.googlesource.com/chromium/src/+/master/docs/linux/debugging.md#Source-level-debug-with-fdebug_compilation_dir
 # It's not clear if the crash server will correctly handle dSYMs with relative
 # paths, so we disable this feature for official benefit. The main benefit is
 # deterministic builds to reduce compile times, so this is less relevant for
 # official builders.
 strip_absolute_paths_from_debug_symbols_default =
     is_android || is_fuchsia || is_nacl || (is_win && use_lld) || is_linux ||
-    (is_mac && !enable_dsyms)
+    (is_mac && !enable_dsyms) || ios_use_goma_rbe
 
 # If the platform uses stripped absolute paths by default, then we don't expose
 # it as a configuration option. If this is causing problems, please file a bug.
@@ -222,7 +235,7 @@ if (strip_absolute_paths_from_debug_symbols_default) {
 # If it wasn't manually set, set to an appropriate default.
 assert(symbol_level >= -1 && symbol_level <= 2, "Invalid symbol_level")
 if (symbol_level == -1) {
-  if (is_android && !is_component_build) {
+  if (is_android && !is_component_build && !use_thin_lto) {
     # Reduce symbol level when it will cause invalid elf files to be created
     # (due to file size). https://crbug.com/648948.
     symbol_level = 1
@@ -275,22 +288,12 @@ if (forbid_non_component_debug_builds) {
 
 # Assert that the configuration isn't going to hit https://crbug.com/648948.
 # An exception is made when target_os == "chromeos" as we only use the Android
-# toolchain there to build relatively small binaries.
+# toolchain there to build relatively small binaries. There is a workaround in
+# place for builds using ThinLTO (through '-generate-type-units' flag), so
+# these are exempt from limitation.
 assert(ignore_elf32_limitations || !is_android || target_os == "chromeos" ||
-           is_component_build || symbol_level < 2,
+           is_component_build || use_thin_lto || symbol_level < 2,
        "Android 32-bit non-component builds cannot have symbol_level=2 " +
            "due to 4GiB file size limit, see https://crbug.com/648948. " +
            "If you really want to try this out, " +
            "set ignore_elf32_limitations=true.")
-
-# This variable is true if the current toolchain is either the default
-# toolchain, or, on Android, the secondary ABI toolchain. In other words, it's
-# a toolchain that generates targets for the product, as opposed to the host
-# OS. It can be used in situations where we wish to avoid doing work on the
-# host toolchain, but we don't want to break Android's secondary ABI.
-# Ie. "current_toolchain == default_toolchain" is not a good way to infer
-# "not the host toolchain".
-is_a_target_toolchain =
-    current_toolchain == default_toolchain ||
-    (is_android && defined(android_secondary_abi_toolchain) &&
-     current_toolchain == android_secondary_abi_toolchain)

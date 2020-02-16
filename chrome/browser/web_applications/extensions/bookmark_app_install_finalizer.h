@@ -11,7 +11,7 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/web_applications/components/externally_installed_web_app_prefs.h"
 #include "chrome/browser/web_applications/components/install_finalizer.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "extensions/browser/install/crx_install_error.h"
 #include "extensions/common/constants.h"
 
@@ -43,7 +43,7 @@ class BookmarkAppInstallFinalizer : public web_app::InstallFinalizer {
   void FinalizeUpdate(const WebApplicationInfo& web_app_info,
                       InstallFinalizedCallback callback) override;
   void UninstallExternalWebApp(
-      const GURL& app_url,
+      const web_app::AppId& app_id,
       web_app::ExternalInstallSource external_install_source,
       UninstallWebAppCallback callback) override;
   bool CanUserUninstallFromSync(const web_app::AppId& app_id) const override;

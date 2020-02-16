@@ -2642,11 +2642,14 @@ interface WorkerNavigator
     getter storage
     getter usb
     getter userAgent
+    method clearAppBadge
     method constructor
+    method setAppBadge
 interface WritableStream
     attribute @@toStringTag
     getter locked
     method abort
+    method close
     method constructor
     method getWriter
 interface WritableStreamDefaultWriter
@@ -2674,6 +2677,7 @@ interface WritableStreamDefaultWriter
     getter onfetch
     getter oninstall
     getter onmessage
+    getter onmessageerror
     getter onnotificationclick
     getter onnotificationclose
     getter onpaymentrequest
@@ -2694,6 +2698,7 @@ interface WritableStreamDefaultWriter
     setter onfetch
     setter oninstall
     setter onmessage
+    setter onmessageerror
     setter onnotificationclick
     setter onnotificationclose
     setter onpaymentrequest

@@ -46,6 +46,35 @@ below:
     <output filename="grit/blink_strings.h" type="rc_header">
       <emit emit_type='prepend'></emit>
     </output>
+    <if expr="is_android">
+      <output filename="blink_strings_af.pak" type="data_package" lang="af" />
+      <output filename="blink_strings_as.pak" type="data_package" lang="as" />
+      <output filename="blink_strings_az.pak" type="data_package" lang="az" />
+      <output filename="blink_strings_be.pak" type="data_package" lang="be" />
+      <output filename="blink_strings_bs.pak" type="data_package" lang="bs" />
+      <output filename="blink_strings_eu.pak" type="data_package" lang="eu" />
+      <output filename="blink_strings_fr-CA.pak" type="data_package" lang="fr-CA" />
+      <output filename="blink_strings_gl.pak" type="data_package" lang="gl" />
+      <output filename="blink_strings_hy.pak" type="data_package" lang="hy" />
+      <output filename="blink_strings_is.pak" type="data_package" lang="is" />
+      <output filename="blink_strings_ka.pak" type="data_package" lang="ka" />
+      <output filename="blink_strings_kk.pak" type="data_package" lang="kk" />
+      <output filename="blink_strings_km.pak" type="data_package" lang="km" />
+      <output filename="blink_strings_ky.pak" type="data_package" lang="ky" />
+      <output filename="blink_strings_lo.pak" type="data_package" lang="lo" />
+      <output filename="blink_strings_mk.pak" type="data_package" lang="mk" />
+      <output filename="blink_strings_mn.pak" type="data_package" lang="mn" />
+      <output filename="blink_strings_my.pak" type="data_package" lang="my" />
+      <output filename="blink_strings_ne.pak" type="data_package" lang="ne" />
+      <output filename="blink_strings_or.pak" type="data_package" lang="or" />
+      <output filename="blink_strings_pa.pak" type="data_package" lang="pa" />
+      <output filename="blink_strings_si.pak" type="data_package" lang="si" />
+      <output filename="blink_strings_sq.pak" type="data_package" lang="sq" />
+      <output filename="blink_strings_ur.pak" type="data_package" lang="ur" />
+      <output filename="blink_strings_uz.pak" type="data_package" lang="uz" />
+      <output filename="blink_strings_zh-HK.pak" type="data_package" lang="zh-HK" />
+      <output filename="blink_strings_zu.pak" type="data_package" lang="zu" />
+    </if>
     <output filename="blink_strings_am.pak" type="data_package" lang="am" />
     <output filename="blink_strings_ar.pak" type="data_package" lang="ar" />
     <output filename="blink_strings_bg.pak" type="data_package" lang="bg" />
@@ -293,9 +322,6 @@ below:
       <message name="IDS_AX_ROLE_COMMENT" desc="Accessibility role description for a single comment">
         comment
       </message>
-      <message name="IDS_AX_ROLE_COMMENT_SECTION" desc="Accessibility role description for a section of comments">
-        comment section
-      </message>
       <message name="IDS_AX_ROLE_COMPLEMENTARY" desc="Accessibility role description for complementary">
         complementary
       </message>
@@ -522,9 +548,6 @@ below:
       <message name="IDS_AX_ROLE_REGION" desc="Accessibility role description for region">
         region
       </message>
-      <message name="IDS_AX_ROLE_REVISION" desc="Accessibility role description for revision, meaining historical change info tied to this content">
-        revision
-      </message>
       <!-- https://www.w3.org/TR/core-aam-1.1/#role-map-searchbox -->
       <if expr="is_win">
         <message name="IDS_AX_ROLE_SEARCH_BOX" desc="UIA role description for search text field">
@@ -639,6 +662,9 @@ below:
         </message>
         <message name="IDS_AX_ROLE_NOTE" desc="Accessibility role description for a note">
           note
+        </message>
+        <message name="IDS_AX_ROLE_PDF_HIGHLIGHT" desc="Accessibility role description for PDF highlight.">
+          highlight
         </message>
         <message name="IDS_AX_ROLE_POP_UP_BUTTON" desc="Accessibility role description for a pop up button">
           pop up button
@@ -889,6 +915,14 @@ below:
         Year
       </message>
 
+      <message name="IDS_AX_OBJECT_SELECTED" desc="The current object is selected, like an option in a list">
+        <ph name="accName">$1<ex>Hazelnuts</ex></ph> selected
+      </message>
+      <message name="IDS_AX_OBJECT_NOT_SELECTED" desc="The current object is selected, like an option in a list">
+        <ph name="accName">$1<ex>Hazelnuts</ex></ph> not selected
+      </message>
+
+
       <message name="IDS_FORM_INPUT_WEEK_TEMPLATE" desc="A specific week (1-53) in a specific year shown in a form control">
         Week <ph name="WEEKNUMBER">$2<ex>51</ex></ph>, <ph name="YEAR">$1<ex>2012</ex></ph>
       </message>
@@ -933,6 +967,9 @@ below:
       </message>
       <message name="IDS_FORM_VALIDATION_RANGE_OVERFLOW_DATETIME" desc="Heading or short sentence shown when a form control value in a webpage needs to be earlier than or equal to a maximum date/time value specified by the page author, but a user specified a later date/time.">
         Value must be <ph name="MAXIMUM_DATE_OR_TIME">$1<ex>12/31/2013</ex></ph> or earlier.
+      </message>
+      <message name="IDS_FORM_VALIDATION_RANGE_INVALID_DATETIME" desc="Heading or short sentence shown when a page author has specified minimum and maximum date/time values for a form control, but the maximum comes before the minimum.">
+        Minimum date (<ph name="MIN_DATE_OR_TIME">$1<ex>01/04/2013</ex></ph>) must come before Maximum date (<ph name="MAX_DATE_OR_TIME">$2<ex>02/04/2013</ex></ph>).
       </message>
       <message name="IDS_FORM_VALIDATION_BAD_INPUT_DATETIME" desc="Heading or short sentence shown when a user specified an incomplete value or an invalid date (such as 02/31/2012) to a date/time form control in a webpage.">
         Please enter a valid value. The field is incomplete or has an invalid date.
@@ -1099,7 +1136,7 @@ below:
         Track <ph name="NUMBER">$1<ex>1</ex></ph>
       </message>
 
-      <message name="IDS_MEDIA_TRACKS_OFF" desc="Menu item label for a text track that represents disabling closed captions">
+      <message name="IDS_MEDIA_TRACKS_OFF" desc="Menu item label for a text track that represents disabling closed captions" meaning="Closed captions are disabled.">
         Off
       </message>
 

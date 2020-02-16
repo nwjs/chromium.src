@@ -74,7 +74,7 @@ void InputTypeView::DispatchSimulatedClickIfActive(KeyboardEvent& event) const {
 
 void InputTypeView::AccessKeyAction(bool) {
   GetElement().focus(FocusParams(SelectionBehaviorOnFocus::kReset,
-                                 kWebFocusTypeNone, nullptr));
+                                 mojom::blink::FocusType::kNone, nullptr));
 }
 
 bool InputTypeView::ShouldSubmitImplicitly(const Event& event) {
@@ -85,6 +85,10 @@ bool InputTypeView::ShouldSubmitImplicitly(const Event& event) {
 
 HTMLFormElement* InputTypeView::FormForSubmission() const {
   return GetElement().Form();
+}
+
+bool InputTypeView::TypeShouldForceLegacyLayout() const {
+  return true;
 }
 
 LayoutObject* InputTypeView::CreateLayoutObject(const ComputedStyle& style,
@@ -111,11 +115,15 @@ bool InputTypeView::HasCustomFocusLogic() const {
 
 void InputTypeView::HandleBlurEvent() {}
 
-void InputTypeView::HandleFocusInEvent(Element*, WebFocusType) {}
+void InputTypeView::HandleFocusInEvent(Element*, mojom::blink::FocusType) {}
 
 void InputTypeView::StartResourceLoading() {}
 
 void InputTypeView::ClosePopupView() {}
+
+bool InputTypeView::HasOpenedPopup() const {
+  return false;
+}
 
 bool InputTypeView::NeedsShadowSubtree() const {
   return true;
@@ -126,6 +134,14 @@ void InputTypeView::CreateShadowSubtree() {}
 void InputTypeView::DestroyShadowSubtree() {
   if (ShadowRoot* root = GetElement().UserAgentShadowRoot())
     root->RemoveChildren();
+}
+
+HTMLInputElement* InputTypeView::UploadButton() const {
+  return nullptr;
+}
+
+String InputTypeView::FileStatusText() const {
+  return String();
 }
 
 void InputTypeView::AltAttributeChanged() {}
@@ -179,6 +195,10 @@ FormControlState InputTypeView::SaveFormControlState() const {
 
 void InputTypeView::RestoreFormControlState(const FormControlState& state) {
   GetElement().setValue(state[0]);
+}
+
+bool InputTypeView::IsDraggedSlider() const {
+  return false;
 }
 
 bool InputTypeView::HasBadInput() const {

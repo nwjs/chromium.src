@@ -124,7 +124,10 @@ struct StructTraits<gpu::mojom::GpuPreferencesDataView, gpu::GpuPreferences> {
         prefs.enable_gpu_driver_debug_logging();
     out->disable_gpu_program_cache = prefs.disable_gpu_program_cache();
     out->enforce_gl_minimums = prefs.enforce_gl_minimums();
-    out->force_gpu_mem_available = prefs.force_gpu_mem_available();
+    out->force_gpu_mem_available_bytes = prefs.force_gpu_mem_available_bytes();
+    out->force_gpu_mem_discardable_limit_bytes =
+        prefs.force_gpu_mem_discardable_limit_bytes();
+    out->force_max_texture_size = prefs.force_max_texture_size();
     out->gpu_program_cache_size = prefs.gpu_program_cache_size();
     out->disable_gpu_shader_disk_cache = prefs.disable_gpu_shader_disk_cache();
     out->enable_threaded_texture_mailboxes =
@@ -174,6 +177,9 @@ struct StructTraits<gpu::mojom::GpuPreferencesDataView, gpu::GpuPreferences> {
     if (!prefs.ReadMessagePumpType(&out->message_pump_type))
       return false;
 #endif
+
+    out->enable_native_gpu_memory_buffers =
+        prefs.enable_native_gpu_memory_buffers();
 
     return true;
   }
@@ -245,8 +251,16 @@ struct StructTraits<gpu::mojom::GpuPreferencesDataView, gpu::GpuPreferences> {
   static bool enforce_gl_minimums(const gpu::GpuPreferences& prefs) {
     return prefs.enforce_gl_minimums;
   }
-  static uint32_t force_gpu_mem_available(const gpu::GpuPreferences& prefs) {
-    return prefs.force_gpu_mem_available;
+  static uint32_t force_gpu_mem_available_bytes(
+      const gpu::GpuPreferences& prefs) {
+    return prefs.force_gpu_mem_available_bytes;
+  }
+  static uint32_t force_gpu_mem_discardable_limit_bytes(
+      const gpu::GpuPreferences& prefs) {
+    return prefs.force_gpu_mem_discardable_limit_bytes;
+  }
+  static uint32_t force_max_texture_size(const gpu::GpuPreferences& prefs) {
+    return prefs.force_max_texture_size;
   }
   static uint32_t gpu_program_cache_size(const gpu::GpuPreferences& prefs) {
     return prefs.gpu_program_cache_size;
@@ -336,6 +350,10 @@ struct StructTraits<gpu::mojom::GpuPreferencesDataView, gpu::GpuPreferences> {
     return prefs.message_pump_type;
   }
 #endif
+  static bool enable_native_gpu_memory_buffers(
+      const gpu::GpuPreferences& prefs) {
+    return prefs.enable_native_gpu_memory_buffers;
+  }
 };
 
 }  // namespace mojo

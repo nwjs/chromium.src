@@ -4,11 +4,13 @@
 
 #include "chrome/browser/chromeos/policy/status_collector/device_status_collector.h"
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <stddef.h>
 #include <stdint.h>
 
 #include <algorithm>
-#include <cmath>
 #include <cstdio>
 #include <limits>
 #include <set>
@@ -90,10 +92,16 @@
 #include "components/user_manager/user_type.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/gpu_data_manager.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
+#include "gpu/config/gpu_info.h"
+#include "gpu/ipc/common/memory_stats.h"
 #include "storage/browser/file_system/external_mount_points.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
+#include "ui/gfx/geometry/rect.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -345,8 +353,51 @@ em::StatefulPartitionInfo ReadStatefulPartitionInfo() {
   return spi;
 }
 
+// Collects all the display related information.
+void GetDisplayStatus(em::GraphicsStatus* graphics_status) {
+  const std::vector<display::Display> displays =
+      display::Screen::GetScreen()->GetAllDisplays();
+  for (const auto& display : displays) {
+    em::DisplayInfo* display_info = graphics_status->add_displays();
+    display_info->set_resolution_width(display.GetSizeInPixel().width());
+    display_info->set_resolution_height(display.GetSizeInPixel().height());
+    display_info->set_refresh_rate(display.display_frequency());
+    display_info->set_is_internal(display.IsInternal());
+  }
+}
+
+// Makes the requested |gpu_memory_stats| available. Collects the other required
+// graphics properties next. Finally, calls |callback|.
+void OnVideoMemoryUsageStatsUpdate(
+    policy::DeviceStatusCollector::GraphicsStatusReceiver callback,
+    std::unique_ptr<em::GraphicsStatus> graphics_status,
+    const gpu::VideoMemoryUsageStats& gpu_memory_stats) {
+  auto* gpu_data_manager = content::GpuDataManager::GetInstance();
+  gpu::GPUInfo gpu_info = gpu_data_manager->GetGPUInfo();
+  // Adapter information
+  em::GraphicsAdapterInfo* graphics_info = graphics_status->mutable_adapter();
+  graphics_info->set_name(gpu_info.gpu.device_string);
+  graphics_info->set_driver_version(gpu_info.gpu.driver_version);
+  graphics_info->set_device_id(gpu_info.gpu.device_id);
+  graphics_info->set_system_ram_usage(gpu_memory_stats.bytes_allocated);
+
+  std::move(callback).Run(*graphics_status);
+}
+
+// Fetches display-related and graphics-adapter information.
+void FetchGraphicsStatus(
+    policy::DeviceStatusCollector::GraphicsStatusReceiver callback) {
+  std::unique_ptr<em::GraphicsStatus> graphics_status =
+      std::make_unique<em::GraphicsStatus>();
+  GetDisplayStatus(graphics_status.get());
+  auto* gpu_data_manager = content::GpuDataManager::GetInstance();
+  gpu_data_manager->RequestVideoMemoryUsageStatsUpdate(
+      base::BindOnce(&OnVideoMemoryUsageStatsUpdate, std::move(callback),
+                     std::move(graphics_status)));
+}
+
 bool ReadAndroidStatus(
-    const policy::DeviceStatusCollector::AndroidStatusReceiver& receiver) {
+    const policy::StatusCollector::AndroidStatusReceiver& receiver) {
   auto* const arc_service_manager = arc::ArcServiceManager::Get();
   if (!arc_service_manager)
     return false;
@@ -439,9 +490,8 @@ int ConvertWifiSignalStrength(int signal_strength) {
 }
 
 bool IsKioskApp() {
-  auto user_type = chromeos::LoginState::Get()->GetLoggedInUserType();
-  return user_type == chromeos::LoginState::LOGGED_IN_USER_KIOSK_APP ||
-         user_type == chromeos::LoginState::LOGGED_IN_USER_ARC_KIOSK_APP;
+  return chromeos::LoginState::Get()->GetLoggedInUserType() ==
+         chromeos::LoginState::LOGGED_IN_USER_KIOSK_APP;
 }
 
 // Utility method to turn cpu_temp_fetcher_ to OnceCallback
@@ -557,8 +607,9 @@ class DeviceStatusCollectorState : public StatusCollectorState {
     base::PostTaskAndReplyWithResult(
         FROM_HERE,
         {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-        base::Bind(volume_info_fetcher, mount_points),
-        base::Bind(&DeviceStatusCollectorState::OnVolumeInfoReceived, this));
+        base::BindOnce(volume_info_fetcher, mount_points),
+        base::BindOnce(&DeviceStatusCollectorState::OnVolumeInfoReceived,
+                       this));
   }
 
   // Queues an async callback to query CPU temperature information.
@@ -568,12 +619,13 @@ class DeviceStatusCollectorState : public StatusCollectorState {
     base::PostTaskAndReplyWithResult(
         FROM_HERE,
         {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-        cpu_temp_fetcher,
-        base::Bind(&DeviceStatusCollectorState::OnCPUTempInfoReceived, this));
+        base::BindOnce(cpu_temp_fetcher),
+        base::BindOnce(&DeviceStatusCollectorState::OnCPUTempInfoReceived,
+                       this));
   }
 
-  bool FetchAndroidStatus(const DeviceStatusCollector::AndroidStatusFetcher&
-                              android_status_fetcher) {
+  bool FetchAndroidStatus(
+      const StatusCollector::AndroidStatusFetcher& android_status_fetcher) {
     return android_status_fetcher.Run(
         base::Bind(&DeviceStatusCollectorState::OnAndroidInfoReceived, this));
   }
@@ -614,6 +666,13 @@ class DeviceStatusCollectorState : public StatusCollectorState {
         base::BindOnce(
             &DeviceStatusCollectorState::OnStatefulPartitionInfoReceived,
             this));
+  }
+
+  void FetchGraphicsStatus(
+      const policy::DeviceStatusCollector::GraphicsStatusFetcher&
+          graphics_status_fetcher) {
+    graphics_status_fetcher.Run(base::BindOnce(
+        &DeviceStatusCollectorState::OnGraphicsStatusReceived, this));
   }
 
  private:
@@ -711,10 +770,10 @@ class DeviceStatusCollectorState : public StatusCollectorState {
       }
     }
     const auto& vpd_info = probe_result->vpd_info;
-    if (!vpd_info.is_null()) {
+    if (!vpd_info.is_null() && vpd_info->sku_number.has_value()) {
       em::SystemStatus* const system_status_out =
           response_params_.device_status->mutable_system_status();
-      system_status_out->set_vpd_sku_number(vpd_info->sku_number);
+      system_status_out->set_vpd_sku_number(vpd_info->sku_number.value());
     }
     const auto& battery_info = probe_result->battery_info;
     if (!battery_info.is_null()) {
@@ -745,6 +804,17 @@ class DeviceStatusCollectorState : public StatusCollectorState {
         battery_info_out->set_manufacture_date(
             base::StringPrintf("%04d-%02d-%02d", year, month, day));
       }
+      const auto& cpu_info = probe_result->cpu_info;
+      if (cpu_info.has_value()) {
+        for (const auto& cpu : cpu_info.value()) {
+          em::CpuInfo* const cpu_info_out =
+              response_params_.device_status->add_cpu_info();
+          cpu_info_out->set_model_name(cpu->model_name);
+          cpu_info_out->set_architecture(
+              em::CpuInfo::Architecture(cpu->architecture));
+          cpu_info_out->set_max_clock_speed_khz(cpu->max_clock_speed_khz);
+        }
+      }
 
       for (const std::unique_ptr<SampledData>& sample_data : samples) {
         auto it = sample_data->battery_samples.find(battery_info->model_name);
@@ -771,6 +841,10 @@ class DeviceStatusCollectorState : public StatusCollectorState {
     DCHECK(hdsi.available_space() >= 0);
     DCHECK(hdsi.total_space() >= hdsi.available_space());
     stateful_partition_info->CopyFrom(hdsi);
+  }
+
+  void OnGraphicsStatusReceived(const em::GraphicsStatus& gs) {
+    *response_params_.device_status->mutable_graphics_status() = gs;
   }
 };
 
@@ -813,7 +887,8 @@ DeviceStatusCollector::DeviceStatusCollector(
     const TpmStatusFetcher& tpm_status_fetcher,
     const EMMCLifetimeFetcher& emmc_lifetime_fetcher,
     const StatefulPartitionInfoFetcher& stateful_partition_info_fetcher,
-    const CrosHealthdDataFetcher& cros_healthd_data_fetcher)
+    const CrosHealthdDataFetcher& cros_healthd_data_fetcher,
+    const GraphicsStatusFetcher& graphics_status_fetcher)
     : StatusCollector(provider, chromeos::CrosSettings::Get()),
       pref_service_(pref_service),
       firmware_fetch_error_(kFirmwareNotInitialized),
@@ -825,6 +900,7 @@ DeviceStatusCollector::DeviceStatusCollector(
       emmc_lifetime_fetcher_(emmc_lifetime_fetcher),
       stateful_partition_info_fetcher_(stateful_partition_info_fetcher),
       cros_healthd_data_fetcher_(cros_healthd_data_fetcher),
+      graphics_status_fetcher_(graphics_status_fetcher),
       power_manager_(chromeos::PowerManagerClient::Get()) {
   // protected fields of `StatusCollector`.
   max_stored_past_activity_interval_ = kMaxStoredPastActivityInterval;
@@ -862,6 +938,9 @@ DeviceStatusCollector::DeviceStatusCollector(
                             weak_factory_.GetWeakPtr());
   }
 
+  if (graphics_status_fetcher_.is_null())
+    graphics_status_fetcher_ = base::BindRepeating(&FetchGraphicsStatus);
+
   idle_poll_timer_.Start(FROM_HERE,
                          TimeDelta::FromSeconds(kIdlePollIntervalSeconds), this,
                          &DeviceStatusCollector::CheckIdleState);
@@ -897,6 +976,10 @@ DeviceStatusCollector::DeviceStatusCollector(
       chromeos::kReportDeviceStorageStatus, callback);
   board_status_subscription_ = cros_settings_->AddSettingsObserver(
       chromeos::kReportDeviceBoardStatus, callback);
+  cpu_info_subscription_ = cros_settings_->AddSettingsObserver(
+      chromeos::kReportDeviceCpuInfo, callback);
+  graphics_status_subscription_ = cros_settings_->AddSettingsObserver(
+      chromeos::kReportDeviceGraphicsStatus, callback);
 
   power_manager_->AddObserver(this);
 
@@ -907,16 +990,16 @@ DeviceStatusCollector::DeviceStatusCollector(
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&chromeos::version_loader::GetVersion,
-                 chromeos::version_loader::VERSION_FULL),
-      base::Bind(&DeviceStatusCollector::OnOSVersion,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(&chromeos::version_loader::GetVersion,
+                     chromeos::version_loader::VERSION_FULL),
+      base::BindOnce(&DeviceStatusCollector::OnOSVersion,
+                     weak_factory_.GetWeakPtr()));
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&ReadFirmwareVersion),
-      base::Bind(&DeviceStatusCollector::OnOSFirmware,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(&ReadFirmwareVersion),
+      base::BindOnce(&DeviceStatusCollector::OnOSFirmware,
+                     weak_factory_.GetWeakPtr()));
   chromeos::tpm_util::GetTpmVersion(base::BindOnce(
       &DeviceStatusCollector::OnTpmVersion, weak_factory_.GetWeakPtr()));
 
@@ -932,6 +1015,22 @@ DeviceStatusCollector::DeviceStatusCollector(
   activity_storage_ = std::make_unique<EnterpriseActivityStorage>(
       pref_service_, prefs::kDeviceActivityTimes);
 }
+
+DeviceStatusCollector::DeviceStatusCollector(
+    PrefService* pref_service,
+    chromeos::system::StatisticsProvider* provider)
+    : DeviceStatusCollector(
+          pref_service,
+          provider,
+          DeviceStatusCollector::VolumeInfoFetcher(),
+          DeviceStatusCollector::CPUStatisticsFetcher(),
+          DeviceStatusCollector::CPUTempFetcher(),
+          StatusCollector::AndroidStatusFetcher(),
+          DeviceStatusCollector::TpmStatusFetcher(),
+          DeviceStatusCollector::EMMCLifetimeFetcher(),
+          DeviceStatusCollector::StatefulPartitionInfoFetcher(),
+          DeviceStatusCollector::CrosHealthdDataFetcher(),
+          DeviceStatusCollector::GraphicsStatusFetcher()) {}
 
 DeviceStatusCollector::~DeviceStatusCollector() {
   power_manager_->RemoveObserver(this);
@@ -997,6 +1096,14 @@ void DeviceStatusCollector::UpdateReportingSettings() {
   if (!cros_settings_->GetBoolean(chromeos::kReportDeviceBoardStatus,
                                   &report_board_status_)) {
     report_board_status_ = false;
+  }
+  if (!cros_settings_->GetBoolean(chromeos::kReportDeviceCpuInfo,
+                                  &report_cpu_info_)) {
+    report_cpu_info_ = false;
+  }
+  if (!cros_settings_->GetBoolean(chromeos::kReportDeviceGraphicsStatus,
+                                  &report_graphics_status_)) {
+    report_graphics_status_ = false;
   }
 
   if (!report_hardware_status_) {
@@ -1073,9 +1180,9 @@ void DeviceStatusCollector::SampleResourceUsage() {
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      cpu_statistics_fetcher_,
-      base::Bind(&DeviceStatusCollector::ReceiveCPUStatistics,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(cpu_statistics_fetcher_),
+      base::BindOnce(&DeviceStatusCollector::ReceiveCPUStatistics,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void DeviceStatusCollector::ReceiveCPUStatistics(const std::string& stats) {
@@ -1270,6 +1377,8 @@ void DeviceStatusCollector::FetchCrosHealthdData(
     categories_to_probe.push_back(ProbeCategoryEnum::kNonRemovableBlockDevices);
   if (report_power_status_)
     categories_to_probe.push_back(ProbeCategoryEnum::kBattery);
+  if (report_cpu_info_)
+    categories_to_probe.push_back(ProbeCategoryEnum::kCpu);
 
   auto sample = std::make_unique<SampledData>();
   sample->timestamp = base::Time::Now();
@@ -1289,6 +1398,10 @@ void DeviceStatusCollector::OnProbeDataFetched(
     chromeos::cros_healthd::mojom::TelemetryInfoPtr reply) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   std::move(callback).Run(std::move(reply), sampled_data_);
+}
+
+bool DeviceStatusCollector::ShouldFetchCrosHealthData() const {
+  return report_power_status_ || report_storage_status_ || report_cpu_info_;
 }
 
 void DeviceStatusCollector::ReportingUsersChanged() {
@@ -1417,10 +1530,6 @@ bool DeviceStatusCollector::GetNetworkInterfaces(
           em::NetworkInterface::TYPE_WIFI,
       },
       {
-          shill::kTypeBluetooth,
-          em::NetworkInterface::TYPE_BLUETOOTH,
-      },
-      {
           shill::kTypeCellular,
           em::NetworkInterface::TYPE_CELLULAR,
       },
@@ -1480,9 +1589,11 @@ bool DeviceStatusCollector::GetNetworkInterfaces(
     anything_reported = true;
   }
 
-  // Don't write any network state if we aren't in a kiosk or public session.
-  if (!GetAutoLaunchedKioskSessionInfo() &&
-      !user_manager::UserManager::Get()->IsLoggedInAsPublicAccount()) {
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  const user_manager::User* const primary_user = user_manager->GetPrimaryUser();
+  // Don't write network state for unaffiliated users or when no user is signed
+  // in.
+  if (!primary_user || !primary_user->IsAffiliated()) {
     return anything_reported;
   }
 
@@ -1612,8 +1723,10 @@ bool DeviceStatusCollector::GetHardwareStatus(
   // clear
   status->clear_cpu_temp_infos();
 
-  if (report_power_status_ || report_storage_status_) {
+  if (report_storage_status_)
     state->FetchEMMCLifeTime(emmc_lifetime_fetcher_);
+
+  if (ShouldFetchCrosHealthData()) {
     state->FetchCrosHealthdData(cros_healthd_data_fetcher_);
   } else {
     // Sample CPU temperature in a background thread.
@@ -1731,9 +1844,19 @@ bool DeviceStatusCollector::GetRunningKioskApp(
   } else if (account->type == policy::DeviceLocalAccount::TYPE_ARC_KIOSK_APP) {
     // Use package name as app ID for ARC Kiosks.
     running_kiosk_app->set_app_id(account->arc_kiosk_app_info.package_name());
+  } else if (account->type == policy::DeviceLocalAccount::TYPE_WEB_KIOSK_APP) {
+    running_kiosk_app->set_app_id(account->web_kiosk_app_info.url());
   } else {
     NOTREACHED();
   }
+  return true;
+}
+
+bool DeviceStatusCollector::GetGraphicsStatus(
+    scoped_refptr<DeviceStatusCollectorState> state) {
+  // Fetch Graphics status on a background thread.
+  state->FetchGraphicsStatus(graphics_status_fetcher_);
+
   return true;
 }
 
@@ -1795,6 +1918,9 @@ void DeviceStatusCollector::GetDeviceStatus(
 
   if (report_running_kiosk_app_)
     anything_reported |= GetRunningKioskApp(status);
+
+  if (report_graphics_status_)
+    anything_reported |= GetGraphicsStatus(state);
 
   // Wipe pointer if we didn't actually add any data.
   if (!anything_reported)
@@ -1878,6 +2004,8 @@ bool DeviceStatusCollector::GetKioskSessionStatus(
   } else if (account->type == policy::DeviceLocalAccount::TYPE_ARC_KIOSK_APP) {
     // Use package name as app ID for ARC Kiosks.
     app_status->set_app_id(account->arc_kiosk_app_info.package_name());
+  } else if (account->type == policy::DeviceLocalAccount::TYPE_WEB_KIOSK_APP) {
+    app_status->set_app_id(account->web_kiosk_app_info.url());
   } else {
     NOTREACHED();
   }

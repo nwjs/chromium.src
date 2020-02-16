@@ -14,11 +14,15 @@
 #include "build/build_config.h"
 #include "chrome/browser/vr/service/browser_xr_runtime.h"
 #include "chrome/common/chrome_features.h"
-#include "content/public/browser/system_connector.h"
+#include "content/public/browser/device_service.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/content_switches.h"
+#include "device/base/features.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "device/vr/orientation/orientation_device_provider.h"
 #include "device/vr/vr_device_provider.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/device/public/mojom/sensor_provider.mojom.h"
 
 #if BUILDFLAG(ENABLE_OPENVR)
 #include "device/vr/openvr/openvr_device.h"
@@ -42,6 +46,19 @@ XRRuntimeManager* g_xr_runtime_manager = nullptr;
 
 base::LazyInstance<base::ObserverList<XRRuntimeManagerObserver>>::Leaky
     g_xr_runtime_manager_observers;
+
+#if !defined(OS_ANDROID)
+bool IsEnabled(const base::CommandLine* command_line,
+               const base::Feature& feature,
+               const std::string& name) {
+  if (!command_line->HasSwitch(switches::kWebXrForceRuntime))
+    return base::FeatureList::IsEnabled(feature);
+
+  return (base::CompareCaseInsensitiveASCII(
+              command_line->GetSwitchValueASCII(switches::kWebXrForceRuntime),
+              name) == 0);
+}
+#endif
 
 }  // namespace
 
@@ -69,12 +86,23 @@ scoped_refptr<XRRuntimeManager> XRRuntimeManager::GetOrCreateInstance() {
   providers.emplace_back(std::make_unique<vr::IsolatedVRDeviceProvider>());
 #endif  // defined(OS_ANDROID)
 
-  auto* connector = content::GetSystemConnector();
-  if (connector) {
-    providers.emplace_back(
-        std::make_unique<device::VROrientationDeviceProvider>(connector));
-  }
+  bool orientation_provider_enabled = true;
 
+#if !defined(OS_ANDROID)
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  orientation_provider_enabled =
+      IsEnabled(cmd_line, device::kWebXrOrientationSensorDevice,
+                switches::kWebXrRuntimeOrientationSensors);
+#endif
+
+  if (orientation_provider_enabled) {
+    mojo::PendingRemote<device::mojom::SensorProvider> sensor_provider;
+    content::GetDeviceService().BindSensorProvider(
+        sensor_provider.InitWithNewPipeAndPassReceiver());
+    providers.emplace_back(
+        std::make_unique<device::VROrientationDeviceProvider>(
+            std::move(sensor_provider)));
+  }
   return CreateInstance(std::move(providers));
 }
 
@@ -150,39 +178,26 @@ BrowserXRRuntime* XRRuntimeManager::GetRuntime(device::mojom::XRDeviceId id) {
 
 BrowserXRRuntime* XRRuntimeManager::GetRuntimeForOptions(
     device::mojom::XRSessionOptions* options) {
-  // Examine options to determine which device provider we should use.
-
-  // AR requested.
-  if (options->environment_integration) {
-    if (!options->immersive) {
-      DVLOG(1) << __func__ << ": non-immersive AR mode is unsupported";
-      return nullptr;
-    }
-    // Return the ARCore runtime, but only if it supports all required features.
-    auto* runtime = GetRuntime(device::mojom::XRDeviceId::ARCORE_DEVICE_ID);
-    return runtime && runtime->SupportsAllFeatures(options->required_features)
-               ? runtime
-               : nullptr;
+  BrowserXRRuntime* runtime = nullptr;
+  switch (options->mode) {
+    case device::mojom::XRSessionMode::kImmersiveAr:
+      runtime = GetRuntime(device::mojom::XRDeviceId::ARCORE_DEVICE_ID);
+      break;
+    case device::mojom::XRSessionMode::kImmersiveVr:
+      runtime = GetImmersiveVrRuntime();
+      break;
+    case device::mojom::XRSessionMode::kInline:
+      // Try the orientation provider if it exists.
+      // If we don't have an orientation provider, then we don't have an
+      // explicit runtime to back a non-immersive session.
+      runtime = GetRuntime(device::mojom::XRDeviceId::ORIENTATION_DEVICE_ID);
   }
 
-  if (options->immersive) {
-    auto* runtime = GetImmersiveVrRuntime();
-    return runtime && runtime->SupportsAllFeatures(options->required_features)
-               ? runtime
-               : nullptr;
-  } else {
-    // Non immersive session.
-    // Try the orientation provider if it exists.
-    // If we don't have an orientation provider, then we don't have an explicit
-    // runtime to back a non-immersive session
-    auto* orientation_runtime =
-        GetRuntime(device::mojom::XRDeviceId::ORIENTATION_DEVICE_ID);
-
-    return orientation_runtime && orientation_runtime->SupportsAllFeatures(
-                                      options->required_features)
-               ? orientation_runtime
-               : nullptr;
-  }
+  // Return the runtime from above if we got one and it supports all required
+  // features.
+  return runtime && runtime->SupportsAllFeatures(options->required_features)
+             ? runtime
+             : nullptr;
 }
 
 BrowserXRRuntime* XRRuntimeManager::GetImmersiveVrRuntime() {
@@ -221,8 +236,7 @@ BrowserXRRuntime* XRRuntimeManager::GetImmersiveVrRuntime() {
 
 BrowserXRRuntime* XRRuntimeManager::GetImmersiveArRuntime() {
   device::mojom::XRSessionOptions options = {};
-  options.immersive = true;
-  options.environment_integration = true;
+  options.mode = device::mojom::XRSessionMode::kImmersiveAr;
   return GetRuntimeForOptions(&options);
 }
 
@@ -252,6 +266,7 @@ device::mojom::VRDisplayInfoPtr XRRuntimeManager::GetCurrentVRDisplayInfo(
   // If there is neither, use the generic non-immersive runtime.
   if (!ar_runtime && !immersive_runtime) {
     device::mojom::XRSessionOptions options = {};
+    options.mode = device::mojom::XRSessionMode::kInline;
     auto* non_immersive_runtime = GetRuntimeForOptions(&options);
     if (non_immersive_runtime) {
       // Listen to changes for this runtime.

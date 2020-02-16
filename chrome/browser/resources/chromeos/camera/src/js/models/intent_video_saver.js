@@ -2,66 +2,48 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
-
-/**
- * Namespace for the Camera app.
- */
-var cca = cca || {};
-
-/**
- * Namespace for models.
- */
-cca.models = cca.models || {};
+import {Intent} from '../intent.js';  // eslint-disable-line no-unused-vars
+import {FileVideoSaver} from './file_video_saver.js';
+import {createPrivateTempVideoFile, getFileWriter} from './filesystem.js';
+// eslint-disable-next-line no-unused-vars
+import {VideoSaver} from './video_saver_interface.js';
 
 /**
  * Used to save captured video into a preview file and forward to intent result.
- * @implements {cca.models.VideoSaver}
  */
-cca.models.IntentVideoSaver = class {
+export class IntentVideoSaver extends FileVideoSaver {
   /**
-   * @param {!cca.intent.Intent} intent
-   * @param {!cca.models.FileVideoSaver} fileSaver
-   * @private
+   * @param {!Intent} intent
+   * @param {!FileEntry} file
+   * @param {!FileWriter} writer
    */
-  constructor(intent, fileSaver) {
+  constructor(intent, file, writer) {
+    super(file, writer);
+
     /**
-     * @const {!cca.intent.Intent} intent
+     * @const {!Intent} intent
      * @private
      */
     this.intent_ = intent;
-
-    /**
-     * @const {!cca.models.FileVideoSaver}
-     * @private
-     */
-    this.fileSaver_ = fileSaver;
   }
 
   /**
    * @override
    */
-  async write(blob) {
-    await this.fileSaver_.write(blob);
+  async doWrite_(blob) {
+    await super.doWrite_(blob);
     const arrayBuffer = await blob.arrayBuffer();
-    this.intent_.appendData(new Uint8Array(arrayBuffer));
-  }
-
-  /**
-   * @override
-   */
-  async endWrite() {
-    return this.fileSaver_.endWrite();
+    await this.intent_.appendData(new Uint8Array(arrayBuffer));
   }
 
   /**
    * Creates IntentVideoSaver.
-   * @param {!cca.intent.Intent} intent
-   * @return {!Promise<!cca.models.IntentVideoSaver>}
+   * @param {!Intent} intent
+   * @return {!Promise<!IntentVideoSaver>}
    */
-  static async create(intent) {
-    const tmpFile = await cca.models.FileSystem.createPrivateTempVideoFile();
-    const fileSaver = await cca.models.FileVideoSaver.create(tmpFile);
-    return new cca.models.IntentVideoSaver(intent, fileSaver);
+  static async createIntentVideoSaver(intent) {
+    const tmpFile = await createPrivateTempVideoFile();
+    const writer = await getFileWriter(tmpFile);
+    return new IntentVideoSaver(intent, tmpFile, writer);
   }
-};
+}

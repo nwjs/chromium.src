@@ -45,8 +45,13 @@ class FakePort(object):
         self.name = name
         self.path = path
 
+    ALL_BUILD_TYPES = ('debug', 'release')
+
     def test_configuration(self):
         return None
+
+    def get_platform_tags(self):
+        return frozenset(['linux'])
 
     def expectations_dict(self):
         self.host.ports_parsed.append(self.name)
@@ -62,7 +67,7 @@ class FakePort(object):
         return []
 
     def configuration_specifier_macros(self):
-        return []
+        return {}
 
     def get_option(self, _, val):
         return val
@@ -106,6 +111,7 @@ class LintTest(LoggingTestCase):
         self.assertEqual(res, [])
         self.assertEqual(host.ports_parsed, ['a', 'b', 'b-win'])
 
+    @unittest.skip('crbug.com/986447, re-enable after merging crrev.com/c/1918294')
     def test_lint_test_files(self):
         options = optparse.Values({'platform': 'test-mac-mac10.10'})
         host = MockHost()
@@ -129,8 +135,8 @@ class LintTest(LoggingTestCase):
 
         self.assertTrue(res)
         all_logs = ''.join(self.logMessages())
-        self.assertIn('foo:1', all_logs)
-        self.assertIn('bar:1', all_logs)
+        self.assertIn('foo', all_logs)
+        self.assertIn('bar', all_logs)
 
     def test_extra_files_errors(self):
         options = optparse.Values({'platform': 'test', 'debug_rwt_logging': False})
@@ -147,7 +153,7 @@ class LintTest(LoggingTestCase):
 
         self.assertTrue(res)
         all_logs = ''.join(self.logMessages())
-        self.assertIn('LeakExpectations:1', all_logs)
+        self.assertIn('LeakExpectations', all_logs)
 
     def test_lint_flag_specific_expectation_errors(self):
         options = optparse.Values({'platform': 'test', 'debug_rwt_logging': False})
@@ -163,8 +169,31 @@ class LintTest(LoggingTestCase):
 
         self.assertTrue(res)
         all_logs = ''.join(self.logMessages())
-        self.assertIn('flag-specific:1 Path does not exist. does/not/exist', all_logs)
+        self.assertIn('flag-specific', all_logs)
+        self.assertIn('does/not/exist', all_logs)
         self.assertNotIn('noproblem', all_logs)
+
+    def test_lint_conflicts_in_test_expectations_between_os_and_os_version(self):
+        options = optparse.Values({'platform': 'test', 'debug_rwt_logging': False})
+        host = MockHost()
+
+        port = host.port_factory.get(options.platform, options=options)
+        test_expectations = (
+            '# tags: [ mac mac10.10 ]\n'
+            '# results: [ Failure Pass ]\n'
+            '[ mac ] test1 [ Failure ]\n'
+            '[ mac10.10 ] test1 [ Pass ]\n')
+        port.expectations_dict = lambda: {
+            'testexpectations': test_expectations}
+
+        host.port_factory.get = lambda platform, options=None: port
+        host.port_factory.all_port_names = lambda platform=None: [port.name()]
+
+        res = lint_test_expectations.lint(host, options)
+
+        self.assertTrue(res)
+        all_logs = ''.join(self.logMessages())
+        self.assertIn('conflict', all_logs)
 
 
 class CheckVirtualSuiteTest(unittest.TestCase):

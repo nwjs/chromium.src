@@ -5,7 +5,7 @@
 import("//build/config/android/rules.gni")
 
 android_library("cct_dynamic_module_java") {
-  java_files = [
+  sources = [
     "src/src/java/org/chromium/chrome/browser/customtabs/dynamicmodule/BaseActivityDelegate.java",
     "src/src/java/org/chromium/chrome/browser/customtabs/dynamicmodule/BaseActivityHost.java",
     "src/src/java/org/chromium/chrome/browser/customtabs/dynamicmodule/BaseModuleEntryPoint.java",
@@ -25,4 +25,3 @@ android_aidl("cct_dynamic_module_aidl") {
     "src/src/java/org/chromium/chrome/browser/customtabs/dynamicmodule/IObjectWrapper.aidl",
   ]
 }
-

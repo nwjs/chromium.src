@@ -63,8 +63,6 @@
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
-#include "third_party/blink/public/web/web_scoped_user_gesture.h"
-#include "third_party/blink/public/web/web_user_gesture_indicator.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/public/web/web_widget.h"
 #include "url/gurl.h"
@@ -96,7 +94,7 @@ constexpr base::TimeDelta kAudioOnlyTestFileDuration =
     base::TimeDelta::FromMilliseconds(296);
 
 MATCHER(WmpiDestroyed, "") {
-  return CONTAINS_STRING(arg, "WEBMEDIAPLAYER_DESTROYED {}");
+  return CONTAINS_STRING(arg, "{\"event\":\"kWebMediaPlayerDestroyed\"}");
 }
 
 MATCHER_P2(PlaybackRateChanged, old_rate_string, new_rate_string, "") {
@@ -155,6 +153,8 @@ class MockWebMediaPlayerClient : public blink::WebMediaPlayerClient {
   MOCK_METHOD0(RequestPlay, void());
   MOCK_METHOD0(RequestPause, void());
   MOCK_METHOD1(RequestMuted, void(bool));
+  MOCK_METHOD0(RequestEnterPictureInPicture, void());
+  MOCK_METHOD0(RequestExitPictureInPicture, void());
   MOCK_METHOD0(GetFeatures, Features(void));
   MOCK_METHOD4(OnRequestAnimationFrame,
                void(base::TimeTicks,
@@ -269,6 +269,8 @@ class MockWebMediaPlayerDelegate : public blink::WebMediaPlayerDelegate {
 
   MOCK_METHOD2(DidPlayerMediaPositionStateChange,
                void(int, const media_session::MediaPosition&));
+
+  MOCK_METHOD2(DidPictureInPictureAvailabilityChange, void(int, bool));
 
  private:
   Observer* observer_ = nullptr;
@@ -394,7 +396,7 @@ class WebMediaPlayerImplTest : public testing::Test {
         viz::TestContextProvider::Create(),
         blink::WebMediaPlayer::SurfaceLayerMode::kAlways,
         is_background_suspend_enabled_, is_background_video_playback_enabled_,
-        true);
+        true, nullptr);
 
     auto compositor = std::make_unique<NiceMock<MockVideoFrameCompositor>>(
         params->video_frame_compositor_task_runner());
@@ -1880,17 +1882,17 @@ TEST_F(WebMediaPlayerImplTest, VideoLockedWhenPausedWhenHidden) {
   EXPECT_TRUE(IsVideoLockedWhenPausedWhenHidden());
 
   // With a user gesture it does unlock the player.
-  blink::WebScopedUserGesture user_gesture1(GetWebLocalFrame());
+  GetWebLocalFrame()->NotifyUserActivation();
   Play();
   EXPECT_FALSE(IsVideoLockedWhenPausedWhenHidden());
 
   // Pause without a user gesture doesn't lock the player.
-  blink::WebUserGestureIndicator::ConsumeUserGesture(GetWebLocalFrame());
+  GetWebLocalFrame()->ConsumeTransientUserActivation();
   Pause();
   EXPECT_FALSE(IsVideoLockedWhenPausedWhenHidden());
 
   // With a user gesture, pause does lock the player.
-  blink::WebScopedUserGesture user_gesture2(GetWebLocalFrame());
+  GetWebLocalFrame()->NotifyUserActivation();
   Pause();
   EXPECT_TRUE(IsVideoLockedWhenPausedWhenHidden());
 

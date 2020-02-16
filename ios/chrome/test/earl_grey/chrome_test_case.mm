@@ -307,6 +307,13 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
   _isMockAuthenticationDisabled = YES;
 }
 
+- (void)enableMockAuthentication {
+  // Enforce that enableMockAuthentication can only be called once.
+  DCHECK(_isMockAuthenticationDisabled);
+  [[self class] enableMockAuthentication];
+  _isMockAuthenticationDisabled = NO;
+}
+
 - (void)stopHTTPServer {
   // Enforce that the HTTP server can only be stopped once per test. It should
   // not be stopped if it is not running.
@@ -399,6 +406,10 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeTestCaseAppInterface)
   [self removeAnyOpenMenusAndInfoBars];
   [self closeAllTabs];
   [ChromeEarlGrey setContentSettings:CONTENT_SETTING_DEFAULT];
+
+  // Enforce the assumption that the tests are runing in portrait.
+  [ChromeEarlGrey rotateDeviceToOrientation:UIDeviceOrientationPortrait
+                                      error:nil];
 
   [CoverageUtils configureCoverageReportPath];
 }

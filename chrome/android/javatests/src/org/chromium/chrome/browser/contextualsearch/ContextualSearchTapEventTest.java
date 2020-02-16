@@ -103,12 +103,11 @@ public class ContextualSearchTapEventTest {
             selectionPopupController.setSelectionClient(this.getContextualSearchSelectionClient());
             MockContextualSearchPolicy policy = new MockContextualSearchPolicy();
             setContextualSearchPolicy(policy);
-            mTranslateController = new MockedCSTranslateController(policy, null);
+            getSelectionController().setPolicy(policy);
         }
 
         @Override
-        public void startSearchTermResolutionRequest(
-                String selection, boolean isRestrictedResolve) {
+        public void startSearchTermResolutionRequest(String selection, boolean isExactResolve) {
             // Skip native calls and immediately "resolve" the search term.
             onSearchTermResolutionResponse(true, 200, selection, selection, "", "", false, 0, 10,
                     "", "", "", "", QuickActionCategory.NONE, 0, "", "", 0);
@@ -140,31 +139,6 @@ public class ContextualSearchTapEventTest {
         @Override
         protected SelectionPopupController getSelectionPopupController() {
             return mPopupController;
-        }
-    }
-
-    // --------------------------------------------------------------------------------------------
-
-    /**
-     * Translate controller that mocks out native calls.
-     */
-    private static class MockedCSTranslateController extends ContextualSearchTranslateController {
-        private static final String ENGLISH_TARGET_LANGUAGE = "en";
-        private static final String ENGLISH_ACCEPT_LANGUAGES = "en-US,en";
-
-        MockedCSTranslateController(
-                ContextualSearchPolicy policy, ContextualSearchTranslateInterface hostInterface) {
-            super(policy, hostInterface);
-        }
-
-        @Override
-        protected String getNativeAcceptLanguages() {
-            return ENGLISH_ACCEPT_LANGUAGES;
-        }
-
-        @Override
-        protected String getNativeTranslateServiceTargetLanguage() {
-            return ENGLISH_TARGET_LANGUAGE;
         }
     }
 

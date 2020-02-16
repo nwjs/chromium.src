@@ -87,13 +87,16 @@ AppBrowserController::AppBrowserController(
     : content::WebContentsObserver(nullptr),
       app_id_(std::move(app_id)),
       browser_(browser),
-      // Show tabs for Terminals only
+      system_app_type_(HasAppId() ? WebAppProvider::Get(browser->profile())
+                                        ->system_web_app_manager()
+                                        .GetSystemAppTypeForAppId(GetAppId())
+                                  : base::nullopt),
+      // Show tabs for Terminals only.
       // TODO(crbug.com/846546): Generalise has_tab_strip_ as a SystemWebApp
       // capability.
-      has_tab_strip_(HasAppId() ? GetAppIdForSystemWebApp(
-                                      browser->profile(),
-                                      SystemAppType::TERMINAL) == GetAppId()
-                                : false) {
+      has_tab_strip_(
+          base::FeatureList::IsEnabled(features::kDesktopPWAsTabStrip) ||
+          system_app_type_ == SystemAppType::TERMINAL) {
   browser->tab_strip_model()->AddObserver(this);
 }
 
@@ -150,7 +153,7 @@ bool AppBrowserController::ShouldShowCustomTabBar() const {
       return out_of_scope || !InstallableManager::IsOriginConsideredSecure(url);
     }
 
-    if (IsForSystemWebApp()) {
+    if (is_for_system_web_app()) {
       DCHECK_EQ(url.scheme_piece(), content::kChromeUIScheme);
       return false;
     }
@@ -186,32 +189,33 @@ bool AppBrowserController::has_tab_strip() const {
 bool AppBrowserController::HasTitlebarToolbar() const {
   // Show titlebar toolbar for Terminal System App, but not other system apps.
   // TODO(crbug.com/846546): Generalise this as a SystemWebApp capability.
-  if (IsForSystemWebApp()) {
-    return GetAppIdForSystemWebApp(browser()->profile(),
-                                   SystemAppType::TERMINAL) == GetAppId();
-  }
+  if (is_for_system_web_app())
+    return system_app_type_ == web_app::SystemAppType::TERMINAL &&
+           // SWA terminal has a setting window, which has browser type "app
+           // popup". We don't want it to have the toolbar.
+           !browser_->is_type_app_popup();
+
   // Show for all other apps.
   return true;
 }
 
 bool AppBrowserController::HasTitlebarAppOriginText() const {
   // Do not show origin text for System Apps.
-  return !IsForSystemWebApp();
+  return !is_for_system_web_app();
 }
 
 bool AppBrowserController::HasTitlebarContentSettings() const {
   // Do not show content settings for System Apps.
-  return !IsForSystemWebApp();
+  return !is_for_system_web_app();
 }
 
 #if defined(OS_CHROMEOS)
 bool AppBrowserController::UseTitlebarTerminalSystemAppMenu() const {
   // Use the Terminal System App Menu for Terminal System App only.
   // TODO(crbug.com/846546): Generalise this as a SystemWebApp capability.
-  if (IsForSystemWebApp()) {
-    return GetAppIdForSystemWebApp(browser()->profile(),
-                                   SystemAppType::TERMINAL) == GetAppId();
-  }
+  if (is_for_system_web_app())
+    return system_app_type_ == web_app::SystemAppType::TERMINAL;
+
   return false;
 }
 #endif
@@ -242,15 +246,6 @@ void AppBrowserController::UpdateCustomTabBarVisibility(bool animate) const {
                                                     animate);
 }
 
-bool AppBrowserController::IsForSystemWebApp() const {
-  if (!HasAppId())
-    return false;
-
-  return WebAppProvider::Get(browser()->profile())
-      ->system_web_app_manager()
-      .IsSystemWebApp(GetAppId());
-}
-
 void AppBrowserController::DidStartNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!initial_url().is_empty())
@@ -262,8 +257,7 @@ void AppBrowserController::DidStartNavigation(
   SetInitialURL(navigation_handle->GetURL());
 }
 
-void AppBrowserController::DidChangeThemeColor(
-    base::Optional<SkColor> theme_color) {
+void AppBrowserController::DidChangeThemeColor() {
   browser_->window()->UpdateFrameColor();
 }
 
@@ -303,7 +297,7 @@ void AppBrowserController::OnTabStripModelChanged(
     const TabStripSelectionChange& selection) {
   if (selection.active_tab_changed()) {
     content::WebContentsObserver::Observe(selection.new_contents);
-    DidChangeThemeColor(GetThemeColor());
+    DidChangeThemeColor();
   }
   if (change.type() == TabStripModelChange::kInserted) {
     for (const auto& contents : change.GetInsert()->contents)

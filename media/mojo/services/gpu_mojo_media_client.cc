@@ -38,7 +38,6 @@
 #include "media/mojo/mojom/provision_fetcher.mojom.h"
 #include "media/mojo/services/mojo_media_drm_storage.h"
 #include "media/mojo/services/mojo_provision_fetcher.h"
-#include "services/service_manager/public/cpp/connect.h"
 #endif  // defined(OS_ANDROID)
 
 #if defined(OS_WIN)
@@ -127,8 +126,6 @@ GpuMojoMediaClient::GpuMojoMediaClient(
 
 GpuMojoMediaClient::~GpuMojoMediaClient() = default;
 
-void GpuMojoMediaClient::Initialize(service_manager::Connector* connector) {}
-
 std::unique_ptr<AudioDecoder> GpuMojoMediaClient::CreateAudioDecoder(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
 #if defined(OS_ANDROID)
@@ -160,7 +157,7 @@ GpuMojoMediaClient::GetSupportedVideoDecoderConfigs() {
   supported_config_map[VideoDecoderImplementation::kAlternate] =
       *d3d11_supported_configs_;
 
-#elif defined(USE_CHROMEOS_MEDIA_ACCELERATION)
+#elif BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
   if (base::FeatureList::IsEnabled(kChromeosVideoDecoder)) {
     if (!cros_supported_configs_) {
       cros_supported_configs_ =

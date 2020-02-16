@@ -15,7 +15,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageViewHolder.PartialBindCallback;
 import org.chromium.chrome.browser.ntp.snippets.CategoryInt;
@@ -32,7 +32,7 @@ import org.chromium.chrome.browser.suggestions.DestructionObserver;
 import org.chromium.chrome.browser.suggestions.SuggestionsConfig;
 import org.chromium.chrome.browser.suggestions.SuggestionsRecyclerView;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
-import org.chromium.chrome.browser.ui.widget.displaystyle.UiConfig;
+import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.modelutil.ListObservable;
 
@@ -83,7 +83,7 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
             UiConfig uiConfig, OfflinePageBridge offlinePageBridge,
             ContextMenuManager contextMenuManager) {
         this(uiDelegate, aboveTheFoldView, uiConfig, offlinePageBridge, contextMenuManager,
-                IdentityServicesProvider.getSigninManager());
+                IdentityServicesProvider.get().getSigninManager());
     }
 
     /**

@@ -312,7 +312,7 @@ class InvalidIfDefinedMacroNamesTest(unittest.TestCase):
     self.assertEqual(0, len(errors))
 
 
-class CheckAddedDepsHaveTetsApprovalsTest(unittest.TestCase):
+class CheckAddedDepsHaveTestApprovalsTest(unittest.TestCase):
 
   def calculate(self, old_include_rules, old_specific_include_rules,
                 new_include_rules, new_specific_include_rules):
@@ -1979,14 +1979,20 @@ class BannedTypeCheckTest(unittest.TestCase):
     input_api.files = [
       MockFile('some/cpp/problematic/file.cc',
                ['using namespace std;']),
+      MockFile('third_party/blink/problematic/file.cc',
+               ['GetInterfaceProvider()']),
       MockFile('some/cpp/ok/file.cc',
                ['using std::string;']),
     ]
 
-    errors = PRESUBMIT._CheckNoBannedFunctions(input_api, MockOutputApi())
-    self.assertEqual(1, len(errors))
-    self.assertTrue('some/cpp/problematic/file.c' in errors[0].message)
-    self.assertTrue('some/cpp/ok/file.cc' not in errors[0].message)
+    results = PRESUBMIT._CheckNoBannedFunctions(input_api, MockOutputApi())
+
+     # warnings are results[0], errors are results[1]
+    self.assertEqual(2, len(results))
+    self.assertTrue('some/cpp/problematic/file.cc' in results[1].message)
+    self.assertTrue(
+        'third_party/blink/problematic/file.cc' in results[0].message)
+    self.assertTrue('some/cpp/ok/file.cc' not in results[1].message)
 
   def testBannedBlinkDowncastHelpers(self):
     input_api = MockInputApi()
@@ -2074,8 +2080,9 @@ class BannedTypeCheckTest(unittest.TestCase):
     self.assertTrue('content/renderer/ok/file3.cc' not in results[0].message)
 
   def testDeprecatedMojoTypes(self):
-    ok_paths = ['some/cpp']
-    warning_paths = ['third_party/blink']
+    ok_paths = ['components/arc']
+    warning_paths = ['some/cpp']
+    error_paths = ['third_party/blink', 'content']
     test_cases = [
       {
         'type': 'mojo::AssociatedBinding<>;',
@@ -2144,7 +2151,7 @@ class BannedTypeCheckTest(unittest.TestCase):
     ]
 
     # Build the list of MockFiles considering paths that should trigger warnings
-    # as well as paths that should not trigger anything.
+    # as well as paths that should trigger errors.
     input_api = MockInputApi()
     input_api.files = []
     for test_case in test_cases:
@@ -2154,20 +2161,30 @@ class BannedTypeCheckTest(unittest.TestCase):
       for path in warning_paths:
         input_api.files.append(MockFile(os.path.join(path, test_case['file']),
                                         [test_case['type']]))
+      for path in error_paths:
+        input_api.files.append(MockFile(os.path.join(path, test_case['file']),
+                                        [test_case['type']]))
 
     results = PRESUBMIT._CheckNoDeprecatedMojoTypes(input_api, MockOutputApi())
 
-    # Only warnings for now for all deprecated Mojo types.
-    self.assertEqual(1, len(results))
+    # warnings are results[0], errors are results[1]
+    self.assertEqual(2, len(results))
 
     for test_case in test_cases:
-      # Check that no warnings or errors have been triggered for these paths.
+      # Check that no warnings nor errors have been triggered for these paths.
       for path in ok_paths:
         self.assertFalse(path in results[0].message)
+        self.assertFalse(path in results[1].message)
 
       # Check warnings have been triggered for these paths.
       for path in warning_paths:
         self.assertTrue(path in results[0].message)
+        self.assertFalse(path in results[1].message)
+
+      # Check errors have been triggered for these paths.
+      for path in error_paths:
+        self.assertFalse(path in results[0].message)
+        self.assertTrue(path in results[1].message)
 
 
 class NoProductionCodeUsingTestOnlyFunctionsTest(unittest.TestCase):
@@ -2427,6 +2444,31 @@ class TranslationScreenshotsTest(unittest.TestCase):
            </grit>
         """.splitlines()
 
+  OLD_GRDP_CONTENTS = (
+    '<?xml version="1.0" encoding="utf-8"?>',
+      '<grit-part>',
+    '</grit-part>'
+  )
+
+  NEW_GRDP_CONTENTS1 = (
+    '<?xml version="1.0" encoding="utf-8"?>',
+      '<grit-part>',
+        '<message name="IDS_PART_TEST1">',
+          'Part string 1',
+        '</message>',
+    '</grit-part>')
+
+  NEW_GRDP_CONTENTS2 = (
+    '<?xml version="1.0" encoding="utf-8"?>',
+      '<grit-part>',
+        '<message name="IDS_PART_TEST1">',
+          'Part string 1',
+        '</message>',
+        '<message name="IDS_PART_TEST2">',
+          'Part string 2',
+      '</message>',
+    '</grit-part>')
+
   DO_NOT_UPLOAD_PNG_MESSAGE = ('Do not include actual screenshots in the '
                                'changelist. Run '
                                'tools/translate/upload_screenshots.py to '
@@ -2448,33 +2490,57 @@ class TranslationScreenshotsTest(unittest.TestCase):
         [x.LocalPath() for x in input_api.AffectedFiles(include_deletes=True)])
     return input_api
 
+  """ CL modified and added messages, but didn't add any screenshots."""
   def testNoScreenshots(self):
-    # CL modified and added messages, but didn't add any screenshots.
+    # No new strings (file contents same). Should not warn.
+    input_api = self.makeInputApi([
+      MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS1,
+                       self.NEW_GRD_CONTENTS1, action='M'),
+      MockAffectedFile('part.grdp', self.NEW_GRDP_CONTENTS1,
+                       self.NEW_GRDP_CONTENTS1, action='M')])
+    warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
+                                                      MockOutputApi())
+    self.assertEqual(0, len(warnings))
+
+    # Add two new strings. Should have two warnings.
     input_api = self.makeInputApi([
       MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS2,
-                       self.OLD_GRD_CONTENTS, action='M')])
+                       self.NEW_GRD_CONTENTS1, action='M'),
+      MockAffectedFile('part.grdp', self.NEW_GRDP_CONTENTS2,
+                       self.NEW_GRDP_CONTENTS1, action='M')])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[0].message)
     self.assertEqual([
-        os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
-        os.path.join('test_grd', 'IDS_TEST2.png.sha1')
-    ], warnings[0].items)
+      os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
+      os.path.join('test_grd', 'IDS_TEST2.png.sha1')],
+                     warnings[0].items)
 
+    # Add four new strings. Should have four warnings.
     input_api = self.makeInputApi([
       MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS2,
-                       self.NEW_GRD_CONTENTS1, action='M')])
+                       self.OLD_GRD_CONTENTS, action='M'),
+      MockAffectedFile('part.grdp', self.NEW_GRDP_CONTENTS2,
+                       self.OLD_GRDP_CONTENTS, action='M')])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[0].message)
-    self.assertEqual([os.path.join('test_grd', 'IDS_TEST2.png.sha1')],
-                     warnings[0].items)
+    self.assertEqual([
+        os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+        os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
+        os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
+        os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
+    ], warnings[0].items)
 
-
-  def testUnnecessaryScreenshots(self):
-    # CL added a single message and added the png file, but not the sha1 file.
+  def testPngAddedSha1NotAdded(self):
+    # CL added one new message in a grd file and added the png file associated
+    # with it, but did not add the corresponding sha1 file. This should warn
+    # twice:
+    # - Once for the added png file (because we don't want developers to upload
+    #   actual images)
+    # - Once for the missing .sha1 file
     input_api = self.makeInputApi([
         MockAffectedFile(
             'test.grd',
@@ -2494,38 +2560,59 @@ class TranslationScreenshotsTest(unittest.TestCase):
     self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png.sha1')],
                      warnings[1].items)
 
-    # CL added two messages, one has a png. Expect two messages:
-    # - One for the unnecessary png.
-    # - Another one for missing .sha1 files.
+    # CL added two messages (one in grd, one in grdp) and added the png files
+    # associated with the messages, but did not add the corresponding sha1
+    # files. This should warn twice:
+    # - Once for the added png files (because we don't want developers to upload
+    #   actual images)
+    # - Once for the missing .sha1 files
     input_api = self.makeInputApi([
+        # Modified files:
         MockAffectedFile(
             'test.grd',
-            self.NEW_GRD_CONTENTS2,
+            self.NEW_GRD_CONTENTS1,
             self.OLD_GRD_CONTENTS,
             action='M'),
         MockAffectedFile(
-            os.path.join('test_grd', 'IDS_TEST1.png'), 'binary', action='A')
+            'part.grdp',
+            self.NEW_GRDP_CONTENTS1,
+            self.OLD_GRDP_CONTENTS,
+            action='M'),
+        # Added files:
+        MockAffectedFile(
+            os.path.join('test_grd', 'IDS_TEST1.png'), 'binary', action='A'),
+        MockAffectedFile(
+            os.path.join('part_grdp', 'IDS_PART_TEST1.png'), 'binary',
+            action='A')
     ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(2, len(warnings))
     self.assertEqual(self.DO_NOT_UPLOAD_PNG_MESSAGE, warnings[0].message)
-    self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png')],
+    self.assertEqual([os.path.join('part_grdp', 'IDS_PART_TEST1.png'),
+                      os.path.join('test_grd', 'IDS_TEST1.png')],
                      warnings[0].items)
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[1].message)
-    self.assertEqual([
-        os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
-        os.path.join('test_grd', 'IDS_TEST2.png.sha1')
-    ], warnings[1].items)
+    self.assertEqual([os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+                      os.path.join('test_grd', 'IDS_TEST1.png.sha1')],
+                      warnings[1].items)
 
   def testScreenshotsWithSha1(self):
-    # CL added two messages and their corresponding .sha1 files. No warnings.
+    # CL added four messages (two each in a grd and grdp) and their
+    # corresponding .sha1 files. No warnings.
     input_api = self.makeInputApi([
+        # Modified files:
         MockAffectedFile(
             'test.grd',
             self.NEW_GRD_CONTENTS2,
             self.OLD_GRD_CONTENTS,
             action='M'),
+        MockAffectedFile(
+            'part.grdp',
+            self.NEW_GRDP_CONTENTS2,
+            self.OLD_GRDP_CONTENTS,
+            action='M'),
+        # Added files:
         MockFile(
             os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
             'binary',
@@ -2533,43 +2620,80 @@ class TranslationScreenshotsTest(unittest.TestCase):
         MockFile(
             os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
             'binary',
-            action='A')
+            action='A'),
+        MockFile(
+            os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+            'binary',
+            action='A'),
+        MockFile(
+            os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
+            'binary',
+            action='A'),
     ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual([], warnings)
 
   def testScreenshotsRemovedWithSha1(self):
-    # Swap old contents with new contents, remove IDS_TEST1 and IDS_TEST2. The
-    # sha1 files associated with the messages should also be removed by the CL.
+    # Replace new contents with old contents in grd and grp files, removing
+    # IDS_TEST1, IDS_TEST2, IDS_PART_TEST1 and IDS_PART_TEST2.
+    # Should warn to remove the sha1 files associated with these strings.
     input_api = self.makeInputApi([
+        # Modified files:
         MockAffectedFile(
             'test.grd',
-            self.OLD_GRD_CONTENTS,
-            self.NEW_GRD_CONTENTS2,
+            self.OLD_GRD_CONTENTS, # new_contents
+            self.NEW_GRD_CONTENTS2, # old_contents
             action='M'),
-        MockFile(os.path.join('test_grd', 'IDS_TEST1.png.sha1'), 'binary', ""),
-        MockFile(os.path.join('test_grd', 'IDS_TEST2.png.sha1'), 'binary', "")
+        MockAffectedFile(
+            'part.grdp',
+            self.OLD_GRDP_CONTENTS, # new_contents
+            self.NEW_GRDP_CONTENTS2, # old_contents
+            action='M'),
+        # Unmodified files:
+        MockFile(os.path.join('test_grd', 'IDS_TEST1.png.sha1'), 'binary', ''),
+        MockFile(os.path.join('test_grd', 'IDS_TEST2.png.sha1'), 'binary', ''),
+        MockFile(os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+                 'binary', ''),
+        MockFile(os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
+                 'binary', '')
     ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.REMOVE_SIGNATURES_MESSAGE, warnings[0].message)
     self.assertEqual([
+        os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+        os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
         os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
         os.path.join('test_grd', 'IDS_TEST2.png.sha1')
     ], warnings[0].items)
 
-    # Same as above, but this time one of the .sha1 files is removed.
+    # Same as above, but this time one of the .sha1 files is also removed.
     input_api = self.makeInputApi([
+        # Modified files:
         MockAffectedFile(
             'test.grd',
-            self.OLD_GRD_CONTENTS,
-            self.NEW_GRD_CONTENTS2,
+            self.OLD_GRD_CONTENTS, # new_contents
+            self.NEW_GRD_CONTENTS2, # old_contents
             action='M'),
+        MockAffectedFile(
+            'part.grdp',
+            self.OLD_GRDP_CONTENTS, # new_contents
+            self.NEW_GRDP_CONTENTS2, # old_contents
+            action='M'),
+        # Unmodified files:
         MockFile(os.path.join('test_grd', 'IDS_TEST1.png.sha1'), 'binary', ''),
+        MockFile(os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+                 'binary', ''),
+        # Deleted files:
         MockAffectedFile(
             os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
+            '',
+            'old_contents',
+            action='D'),
+        MockAffectedFile(
+            os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
             '',
             'old_contents',
             action='D')
@@ -2578,22 +2702,38 @@ class TranslationScreenshotsTest(unittest.TestCase):
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.REMOVE_SIGNATURES_MESSAGE, warnings[0].message)
-    self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png.sha1')],
-                     warnings[0].items)
+    self.assertEqual([os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+                      os.path.join('test_grd', 'IDS_TEST1.png.sha1')
+                     ], warnings[0].items)
 
-    # Remove both sha1 files. No presubmit warnings.
+    # Remove all sha1 files. There should be no warnings.
     input_api = self.makeInputApi([
+        # Modified files:
         MockAffectedFile(
             'test.grd',
             self.OLD_GRD_CONTENTS,
             self.NEW_GRD_CONTENTS2,
             action='M'),
+        MockAffectedFile(
+            'part.grdp',
+            self.OLD_GRDP_CONTENTS,
+            self.NEW_GRDP_CONTENTS2,
+            action='M'),
+        # Deleted files:
         MockFile(
             os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
             'binary',
             action='D'),
         MockFile(
             os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
+            'binary',
+            action='D'),
+        MockFile(
+            os.path.join('part_grdp', 'IDS_PART_TEST1.png.sha1'),
+            'binary',
+            action='D'),
+        MockFile(
+            os.path.join('part_grdp', 'IDS_PART_TEST2.png.sha1'),
             'binary',
             action='D')
     ])

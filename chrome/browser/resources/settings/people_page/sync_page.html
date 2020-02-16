@@ -13,14 +13,15 @@
 <link rel="import" href="chrome://resources/cr_elements/shared_style_css.html">
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="sync_account_control.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-spinner/paper-spinner-lite.html">
 <link rel="import" href="sync_browser_proxy.html">
 <link rel="import" href="../privacy_page/personalization_options.html">
-<link rel="import" href="../route.html">
+<link rel="import" href="../router.html">
 <link rel="import" href="../settings_shared_css.html">
 <link rel="import" href="../settings_vars_css.html">
 
 <if expr="not chromeos">
-<link rel="import" href="sync_account_control.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_toast/cr_toast.html">
 </if>
 
@@ -81,7 +82,32 @@
         width: 40px;
       }
 
-<if expr="not chromeos">
+      #history-usage-state {
+        text-align: end;
+        vertical-align: middle;
+        width: 36px;
+      }
+
+      #history-usage-row[disabled] {
+        pointer-events: none;
+      }
+
+      #history-usage-row[disabled] > #history-usage-state {
+        text-align: center;
+      }
+
+      #history-usage-row > cr-icon-button.icon-external {
+        margin-inline-start: 1px;
+      }
+
+      #history-usage-state paper-spinner-lite {
+        --paper-spinner-color: var(--google-grey-500);
+        --paper-spinner-stroke-width: 2px;
+        height: var(--cr-icon-size);
+        vertical-align: middle;
+        width: var(--cr-icon-size);
+    }
+
       #toast {
         left: 0;
         z-index: 1;
@@ -91,9 +117,7 @@
         left: auto;
         right: 0;
       }
-</if>
     </style>
-<if expr="not chromeos">
     <template is="dom-if" if="[[shouldShowSyncAccountControl_(
         syncStatus.syncSystemEnabled, syncStatus.signinAllowed)]]">
       <settings-sync-account-control embedded-in-subpage
@@ -105,7 +129,6 @@
           on-sync-setup-done="onSyncSetupDone_">
       </settings-sync-account-control>
     </template>
-</if>
     <div class="settings-box first" hidden="[[!syncDisabledByAdmin_]]">
       <iron-icon id="disabled-by-admin-icon" icon="cr20:domain"></iron-icon>
       <div class="middle settings-box-text">
@@ -172,13 +195,31 @@
             </cr-icon-button>
           </div>
 
-          <a class="inherit-color no-outline list-item" tabindex="-1"
+          <a id="history-usage-row"
+              class="inherit-color no-outline list-item" tabindex="-1"
               target="_blank" href="$i18n{activityControlsUrl}"
-              on-click="onActivityControlsTap_">
+              on-click="onActivityControlsTap_"
+              disabled$="[[hideActivityControlsUrl_]]">
             <div class="start settings-box-text">
               $i18n{personalizeGoogleServicesTitle}
+              <div id="history-usage-hint"
+                  class="secondary" hidden$="[[!isSWAAFetched_(sWAA_)]]">
+                [[getHistoryUsageHint_(sWAA_, syncPrefs.encryptAllData,
+                      syncPrefs.typedUrlsSynced)]]
+              </div>
             </div>
-            <cr-icon-button class="icon-external"></cr-icon-button>
+            <div id="history-usage-state"
+                hidden$="[[!syncSetupFriendlySettings_]]">
+              <paper-spinner-lite
+                  class="last" hidden$="[[!isSWAAFetching_(sWAA_)]]" active>
+              </paper-spinner-lite>
+              <div class="secondary" hidden$="[[!isSWAAFetched_(sWAA_)]]">
+                [[getSWAAStateText_(sWAA_)]]
+              </div>
+            </div>
+            <cr-icon-button class="icon-external"
+                hidden$="[[hideActivityControlsUrl_]]">
+            </cr-icon-button>
           </a>
 
           <a id="syncDashboardLink"

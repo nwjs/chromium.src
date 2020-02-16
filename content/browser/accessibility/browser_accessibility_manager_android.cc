@@ -103,7 +103,7 @@ void BrowserAccessibilityManagerAndroid::FireBlinkEvent(
   // Sometimes we get events on nodes in our internal accessibility tree
   // that aren't exposed on Android. Update |node| to point to the highest
   // ancestor that's a leaf node.
-  node = node->GetClosestPlatformObject();
+  node = node->PlatformGetClosestPlatformObject();
   BrowserAccessibilityAndroid* android_node =
       static_cast<BrowserAccessibilityAndroid*>(node);
 
@@ -134,7 +134,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
   // that aren't exposed on Android. Update |node| to point to the highest
   // ancestor that's a leaf node.
   BrowserAccessibility* original_node = node;
-  node = node->GetClosestPlatformObject();
+  node = node->PlatformGetClosestPlatformObject();
   BrowserAccessibilityAndroid* android_node =
       static_cast<BrowserAccessibilityAndroid*>(node);
 
@@ -287,8 +287,9 @@ bool BrowserAccessibilityManagerAndroid::NextAtGranularity(
       base::i18n::UTF16CharIterator iter(text.data(), text.size());
       while (!iter.end() && iter.array_pos() <= cursor_index)
         iter.Advance();
-      *start_index = iter.array_pos();
       *end_index = iter.array_pos();
+      iter.Rewind();
+      *start_index = iter.array_pos();
       break;
     }
     case ANDROID_ACCESSIBILITY_NODE_INFO_MOVEMENT_GRANULARITY_WORD:
@@ -335,7 +336,7 @@ bool BrowserAccessibilityManagerAndroid::PreviousAtGranularity(
         iter.Advance();
       }
       *start_index = previous_index;
-      *end_index = previous_index;
+      *end_index = iter.array_pos();
       break;
     }
     case ANDROID_ACCESSIBILITY_NODE_INFO_MOVEMENT_GRANULARITY_WORD:
@@ -378,7 +379,7 @@ void BrowserAccessibilityManagerAndroid::HandleHoverEvent(
 
   // First walk up to the nearest platform node, in case this node isn't
   // even exposed on the platform.
-  node = node->GetClosestPlatformObject();
+  node = node->PlatformGetClosestPlatformObject();
 
   // If this node is uninteresting and just a wrapper around a sole
   // interesting descendant, prefer that descendant instead.
@@ -430,8 +431,7 @@ void BrowserAccessibilityManagerAndroid::OnAtomicUpdateFinished(
 
 bool BrowserAccessibilityManagerAndroid::
     UseRootScrollOffsetsWhenComputingBounds() {
-  // The Java layer handles the root scroll offset.
-  return false;
+  return true;
 }
 
 WebContentsAccessibilityAndroid*

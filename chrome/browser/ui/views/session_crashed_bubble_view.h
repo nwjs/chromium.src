@@ -35,6 +35,10 @@ class SessionCrashedBubbleView : public SessionCrashedBubble,
   static void Show(std::unique_ptr<BrowserRemovalObserver> browser_observer,
                    bool uma_opted_in_already);
 
+ protected:
+  // views::BubbleDialogDelegateView:
+  ax::mojom::Role GetAccessibleWindowRole() override;
+
  private:
   friend class SessionCrashedBubbleViewTest;
 
@@ -49,10 +53,6 @@ class SessionCrashedBubbleView : public SessionCrashedBubble,
   bool ShouldShowWindowTitle() const override;
   bool ShouldShowCloseButton() const override;
   void OnWidgetDestroying(views::Widget* widget) override;
-  bool Accept() override;
-  bool Cancel() override;
-  bool Close() override;
-  int GetDialogButtons() const override;
 
   // views::BubbleDialogDelegateView methods.
   void Init() override;

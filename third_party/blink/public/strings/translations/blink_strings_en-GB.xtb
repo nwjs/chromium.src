@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">slider</translation>
 <translation id="1211441953136645838">endnote</translation>
 <translation id="1281252709823657822">dialogue</translation>
+<translation id="1306460908038601864">Off</translation>
 <translation id="1335095011850992622">credits</translation>
 <translation id="1342835525016946179">article</translation>
 <translation id="1359897965706325498">banner</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Please lengthen this text to <ph name="MIN_CHARACTERS" /> characters or more (you are currently using <ph name="CURRENT_LENGTH" /> characters).</translation>
 <translation id="383465348367842624">A part followed by '<ph name="ATSIGN" />' should not contain the symbol '<ph name="INVALIDCHARACTER" />'.</translation>
 <translation id="3846214748874656680">Exit full screen</translation>
-<translation id="3889183436948184105">revision</translation>
 <translation id="3920932319529768807">conclusion</translation>
 <translation id="3924558731517983934">application</translation>
 <translation id="3944740393230681990">prologue</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Please enter a number.</translation>
 <translation id="4912536737030637138">bibliography entry</translation>
 <translation id="492244087561876220">comment</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> selected</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> selected</translation>
 <translation id="4992066212339426712">Unmute</translation>
 <translation id="49969490063480558">Please enter a part following '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' is incomplete.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">Please enter a part followed by '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' is incomplete.</translation>
 <translation id="5334352251556557839">Unable to play media.</translation>
+<translation id="537648784377940524">Minimum date (<ph name="MIN_DATE_OR_TIME" />) must come before maximum date (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">figure</translation>
 <translation id="5453733299334684579">tree item</translation>
 <translation id="5466621249238537318">Please select one or more files.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">more options</translation>
 <translation id="576709008726043716">introduction</translation>
 <translation id="57838592816432529">Mute</translation>
-<translation id="5860033963881614850">Off</translation>
 <translation id="588258955323874662">Full screen</translation>
 <translation id="5888666972993069672">Now casting to <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">search box</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">Please include an '<ph name="ATSIGN" />' in the email address. '<ph name="INVALIDADDRESS" />' is missing an '<ph name="ATSIGN" />'.</translation>
 <translation id="7891486169920085145">splitter</translation>
 <translation id="795667975304826397">No file chosen</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> not selected</translation>
 <translation id="8034303206267677282">strong</translation>
 <translation id="8053789581856978548">search text field</translation>
 <translation id="8057695513531652401">notice</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Month</translation>
 <translation id="901493112792887934">current time in seconds</translation>
 <translation id="901834265349196618">email</translation>
-<translation id="9023835124071926463">comment section</translation>
 <translation id="9048119486235211610">navigation</translation>
 <translation id="9062295712474918030">document</translation>
 <translation id="9093215626363556771">exit picture-in-picture</translation>

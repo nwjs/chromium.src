@@ -56,14 +56,6 @@ class RegexRulesMatcher final : public RulesetMatcherBase {
 
   // RulesetMatcherBase override:
   ~RegexRulesMatcher() override;
-  base::Optional<RequestAction> GetBlockOrCollapseAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetAllowAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetRedirectAction(
-      const RequestParams& params) const override;
-  base::Optional<RequestAction> GetUpgradeAction(
-      const RequestParams& params) const override;
   uint8_t GetRemoveHeadersMask(
       const RequestParams& params,
       uint8_t excluded_remove_headers_mask,
@@ -73,14 +65,14 @@ class RegexRulesMatcher final : public RulesetMatcherBase {
   }
 
  private:
+  // RulesetMatcherBase override:
+  base::Optional<RequestAction> GetAllowAllRequestsAction(
+      const RequestParams& params) const override;
+  base::Optional<RequestAction> GetBeforeRequestActionIgnoringAncestors(
+      const RequestParams& params) const override;
+
   // Helper to build the necessary data structures for matching.
   void InitializeMatcher();
-
-  // Returns the highest priority matching rule for the given request |params|
-  // and action |type|, or null if no rules match.
-  const RegexRuleInfo* GetHighestPriorityMatchingRule(
-      const RequestParams& params,
-      flat::ActionType type) const;
 
   // Returns the potentially matching rules for the given request. A potentially
   // matching rule is one whose metadata matches the given request |params| and
@@ -88,6 +80,11 @@ class RegexRulesMatcher final : public RulesetMatcherBase {
   // Note: The returned vector is sorted in descending order of rule priority.
   const std::vector<RegexRuleInfo>& GetPotentialMatches(
       const RequestParams& params) const;
+
+  // Returns a RequestAction for the the given regex substitution rule.
+  base::Optional<RequestAction> CreateRegexSubstitutionRedirectAction(
+      const RequestParams& params,
+      const RegexRuleInfo& info) const;
 
   // Pointers to flatbuffer indexed data. Guaranteed to be valid through the
   // lifetime of the object.

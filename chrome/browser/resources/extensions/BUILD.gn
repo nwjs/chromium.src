@@ -29,9 +29,7 @@ if (optimize_webui) {
     pak_file = extensions_pak_file
     out_folder = unpak_folder
 
-    deps = [
-      ":flattened_resources",
-    ]
+    deps = [ ":flattened_resources" ]
   }
 
   grit("flattened_resources") {
@@ -44,9 +42,7 @@ if (optimize_webui) {
       "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
     ]
 
-    deps = [
-      ":polymer3_elements",
-    ]
+    deps = [ ":polymer3_elements" ]
     defines = chrome_grit_defines
     outputs = [
       "grit/extensions_resources.h",
@@ -67,6 +63,7 @@ group("closure_compile") {
 
 group("polymer3_elements") {
   deps = [
+    ":checkup_module",
     ":code_section_module",
     ":detail_view_module",
     ":drop_overlay_module",
@@ -95,6 +92,12 @@ group("polymer3_elements") {
   if (is_chromeos) {
     deps += [ ":kiosk_dialog_module" ]
   }
+}
+
+polymer_modulizer("checkup") {
+  js_file = "checkup.js"
+  html_file = "checkup.html"
+  html_type = "v3-ready"
 }
 
 polymer_modulizer("code_section") {
@@ -250,6 +253,7 @@ js_type_check("extensions_module_resources") {
                   ]
   is_polymer3 = true
   deps = [
+    ":checkup",
     ":code_section",
     ":detail_view",
     ":drag_and_drop_handler",
@@ -282,6 +286,12 @@ js_type_check("extensions_module_resources") {
   if (is_chromeos) {
     deps += [ ":kiosk_dialog" ]
   }
+}
+
+js_library("checkup") {
+  deps = [
+    "//third_party/polymer/v3_0/components-chromium/polymer:polymer_bundled",
+  ]
 }
 
 js_library("code_section") {
@@ -338,16 +348,12 @@ js_library("error_page") {
 }
 
 js_library("host_permissions_toggle_list") {
-  deps = [
-    ":item",
-  ]
+  deps = [ ":item" ]
   externs_list = [ "$externs_path/developer_private.js" ]
 }
 
 js_library("install_warnings_dialog") {
-  deps = [
-    "//ui/webui/resources/cr_elements/cr_dialog:cr_dialog.m",
-  ]
+  deps = [ "//ui/webui/resources/cr_elements/cr_dialog:cr_dialog.m" ]
   externs_list = [ "$externs_path/developer_private.js" ]
 }
 
@@ -366,18 +372,18 @@ js_library("item") {
 }
 
 js_library("item_behavior") {
-  deps = [
-    "//ui/webui/resources/js:load_time_data.m",
-  ]
+  deps = [ "//ui/webui/resources/js:load_time_data.m" ]
   externs_list = [ "$externs_path/developer_private.js" ]
 }
 
 js_library("item_list") {
   deps = [
+    ":checkup",
     ":item",
     "//third_party/polymer/v3_0/components-chromium/iron-a11y-announcer:iron-a11y-announcer",
     "//ui/webui/resources/cr_elements:cr_container_shadow_behavior.m",
     "//ui/webui/resources/js:i18n_behavior.m",
+    "//ui/webui/resources/js:load_time_data.m",
   ]
   externs_list = [
     "$externs_path/developer_private.js",
@@ -412,9 +418,7 @@ js_library("keyboard_shortcuts") {
 }
 
 js_library("kiosk_browser_proxy") {
-  deps = [
-    "//ui/webui/resources/js:cr.m",
-  ]
+  deps = [ "//ui/webui/resources/js:cr.m" ]
 }
 
 if (is_chromeos) {
@@ -533,7 +537,9 @@ js_library("shortcut_input") {
   deps = [
     ":keyboard_shortcut_delegate",
     ":shortcut_util",
+    "//third_party/polymer/v3_0/components-chromium/iron-a11y-announcer:iron-a11y-announcer",
     "//ui/webui/resources/js:assert.m",
+    "//ui/webui/resources/js:i18n_behavior.m",
   ]
   externs_list = [ "$externs_path/developer_private.js" ]
 }

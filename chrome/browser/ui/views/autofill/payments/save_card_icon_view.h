@@ -20,7 +20,8 @@ class SaveCardBubbleController;
 class SaveCardIconView : public PageActionIconView {
  public:
   SaveCardIconView(CommandUpdater* command_updater,
-                   PageActionIconView::Delegate* delegate);
+                   IconLabelBubbleView::Delegate* icon_label_bubble_delegate,
+                   PageActionIconView::Delegate* page_action_icon_delegate);
   ~SaveCardIconView() override;
 
   // PageActionIconView:
@@ -33,6 +34,7 @@ class SaveCardIconView : public PageActionIconView {
   void OnExecuting(PageActionIconView::ExecuteSource execute_source) override;
   const gfx::VectorIcon& GetVectorIcon() const override;
   const gfx::VectorIcon& GetVectorIconBadge() const override;
+  const char* GetClassName() const override;
 
  private:
   SaveCardBubbleController* GetController() const;

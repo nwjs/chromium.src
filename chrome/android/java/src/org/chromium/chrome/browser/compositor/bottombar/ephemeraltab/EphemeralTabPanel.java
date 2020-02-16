@@ -10,10 +10,7 @@ import android.text.TextUtils;
 import android.view.MotionEvent;
 
 import org.chromium.base.SysUtils;
-import org.chromium.base.TimeUtils;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimator;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimator.AnimatorUpdateListener;
@@ -26,15 +23,17 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.OverlayPanelEventFilter;
 import org.chromium.chrome.browser.compositor.scene_layer.EphemeralTabSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.SceneOverlayLayer;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.ssl.SecurityStateModel;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
@@ -49,18 +48,6 @@ import org.chromium.ui.resources.ResourceManager;
 public class EphemeralTabPanel extends OverlayPanel {
     /** The compositor layer used for drawing the panel. */
     private EphemeralTabSceneLayer mSceneLayer;
-
-    /** Remembers whether the panel was opened to the peeking state. */
-    private boolean mDidRecordFirstPeek;
-
-    /** The timestamp when the panel entered the peeking state for the first time. */
-    private long mPanelPeekedNanoseconds;
-
-    /** Remembers whether the panel was opened beyond the peeking state. */
-    private boolean mDidRecordFirstOpen;
-
-    /** The timestamp when the panel entered the opened state for the first time. */
-    private long mPanelOpenedNanoseconds;
 
     /** True if the Tab from which the panel is opened is in incognito mode. */
     private boolean mIsIncognito;
@@ -93,7 +80,7 @@ public class EphemeralTabPanel extends OverlayPanel {
      * @return {@code true} if the feature is enabled.
      */
     public static boolean isSupported() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.EPHEMERAL_TAB)
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.EPHEMERAL_TAB_USING_BOTTOM_SHEET)
                 && !SysUtils.isLowEndDevice();
     }
 
@@ -248,18 +235,6 @@ public class EphemeralTabPanel extends OverlayPanel {
         return 1.0f;
     }
 
-    @Override
-    public void setPanelState(@PanelState int toState, @StateChangeReason int reason) {
-        super.setPanelState(toState, reason);
-        if (toState == PanelState.PEEKED) {
-            recordMetricsForPeeked();
-        } else if (toState == PanelState.CLOSED) {
-            recordMetricsForClosed(reason);
-        } else if (toState == PanelState.EXPANDED || toState == PanelState.MAXIMIZED) {
-            recordMetricsForOpened();
-        }
-    }
-
     // Scene Overlay
 
     @Override
@@ -297,7 +272,8 @@ public class EphemeralTabPanel extends OverlayPanel {
         if (mCaptionAnimation != null) mCaptionAnimation.cancel();
         int securityLevel = SecurityStateModel.getSecurityLevelForWebContents(getWebContents());
         EphemeralTabCaptionControl caption = getBarControl().getCaptionControl();
-        caption.setCaptionText(UrlFormatter.formatUrlForSecurityDisplayOmitScheme(mUrl));
+        caption.setCaptionText(
+                UrlFormatter.formatUrlForSecurityDisplay(mUrl, SchemeDisplay.OMIT_HTTP_AND_HTTPS));
         caption.setSecurityIcon(EphemeralTabCoordinator.getSecurityIconResource(securityLevel));
 
         mCaptionAnimation = new CompositorAnimator(getAnimationHandler());
@@ -449,72 +425,6 @@ public class EphemeralTabPanel extends OverlayPanel {
         if (mEphemeralTabBarControl != null) {
             mEphemeralTabBarControl.destroy();
             mEphemeralTabBarControl = null;
-        }
-    }
-
-    //--------
-    // METRICS
-    //--------
-    /** Records metrics for the peeked panel state. */
-    private void recordMetricsForPeeked() {
-        startPeekTimer();
-        // Could be returning to Peek from Open.
-        finishOpenTimer();
-    }
-
-    /** Records metrics when the panel has been fully opened. */
-    private void recordMetricsForOpened() {
-        startOpenTimer();
-        finishPeekTimer();
-    }
-
-    /** Records metrics when the panel has been closed. */
-    private void recordMetricsForClosed(@StateChangeReason int stateChangeReason) {
-        finishPeekTimer();
-        finishOpenTimer();
-        RecordHistogram.recordBooleanHistogram("EphemeralTab.Ctr", mDidRecordFirstOpen);
-        RecordHistogram.recordEnumeratedHistogram(
-                "EphemeralTab.CloseReason", stateChangeReason, StateChangeReason.MAX_VALUE + 1);
-        resetTimers();
-    }
-
-    /** Resets the metrics used by the timers. */
-    private void resetTimers() {
-        mDidRecordFirstPeek = false;
-        mPanelPeekedNanoseconds = 0;
-        mDidRecordFirstOpen = false;
-        mPanelOpenedNanoseconds = 0;
-    }
-
-    /** Starts timing the peek state if it's not already been started. */
-    private void startPeekTimer() {
-        if (mPanelPeekedNanoseconds == 0) mPanelPeekedNanoseconds = System.nanoTime();
-    }
-
-    /** Finishes timing metrics for the first peek state, unless that has already been done. */
-    private void finishPeekTimer() {
-        if (!mDidRecordFirstPeek && mPanelPeekedNanoseconds != 0) {
-            mDidRecordFirstPeek = true;
-            long durationPeeking = (System.nanoTime() - mPanelPeekedNanoseconds)
-                    / TimeUtils.NANOSECONDS_PER_MILLISECOND;
-            RecordHistogram.recordMediumTimesHistogram(
-                    "EphemeralTab.DurationPeeked", durationPeeking);
-        }
-    }
-
-    /** Starts timing the open state if it's not already been started. */
-    private void startOpenTimer() {
-        if (mPanelOpenedNanoseconds == 0) mPanelOpenedNanoseconds = System.nanoTime();
-    }
-
-    /** Finishes timing metrics for the first open state, unless that has already been done. */
-    private void finishOpenTimer() {
-        if (!mDidRecordFirstOpen && mPanelOpenedNanoseconds != 0) {
-            mDidRecordFirstOpen = true;
-            long durationOpened = (System.nanoTime() - mPanelOpenedNanoseconds)
-                    / TimeUtils.NANOSECONDS_PER_MILLISECOND;
-            RecordHistogram.recordMediumTimesHistogram(
-                    "EphemeralTab.DurationOpened", durationOpened);
         }
     }
 }

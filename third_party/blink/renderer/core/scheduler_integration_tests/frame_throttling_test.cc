@@ -67,8 +67,7 @@ class FrameThrottlingTest : public PaintTestConfigurations, public SimTest {
   }
 
   void UpdateAllLifecyclePhases() {
-    GetDocument().View()->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    GetDocument().View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   }
 };
 
@@ -195,18 +194,22 @@ TEST_P(FrameThrottlingTest, IntersectionObservationOverridesThrottling) {
   LayoutView* inner_view = inner_frame_document->View()->GetLayoutView();
 
   inner_view->SetNeedsLayout("test");
-  inner_view->Compositor()->SetNeedsCompositingUpdate(
-      kCompositingUpdateRebuildTree);
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    inner_view->Compositor()->SetNeedsCompositingUpdate(
+        kCompositingUpdateRebuildTree);
+  }
   inner_view->SetShouldDoFullPaintInvalidation(
       PaintInvalidationReason::kForTesting);
   inner_view->Layer()->SetNeedsRepaint();
   EXPECT_TRUE(inner_frame_document->View()
                   ->GetLayoutView()
                   ->ShouldDoFullPaintInvalidation());
-  inner_view->Compositor()->SetNeedsCompositingUpdate(
-      kCompositingUpdateRebuildTree);
-  EXPECT_EQ(kCompositingUpdateRebuildTree,
-            inner_view->Compositor()->pending_update_type_);
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    inner_view->Compositor()->SetNeedsCompositingUpdate(
+        kCompositingUpdateRebuildTree);
+    EXPECT_EQ(kCompositingUpdateRebuildTree,
+              inner_view->Compositor()->pending_update_type_);
+  }
   EXPECT_TRUE(inner_view->Layer()->SelfNeedsRepaint());
 
   CompositeFrame();
@@ -217,8 +220,10 @@ TEST_P(FrameThrottlingTest, IntersectionObservationOverridesThrottling) {
   EXPECT_TRUE(inner_frame_document->View()
                   ->GetLayoutView()
                   ->ShouldDoFullPaintInvalidation());
-  EXPECT_EQ(kCompositingUpdateRebuildTree,
-            inner_view->Compositor()->pending_update_type_);
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    EXPECT_EQ(kCompositingUpdateRebuildTree,
+              inner_view->Compositor()->pending_update_type_);
+  }
   EXPECT_TRUE(inner_view->Layer()->SelfNeedsRepaint());
 }
 
@@ -405,7 +410,8 @@ TEST_P(FrameThrottlingTest, UnthrottlingTriggersRepaint) {
   // Scroll down to unthrottle the frame. The first frame we composite after
   // scrolling won't contain the frame yet, but will schedule another repaint.
   WebView().MainFrameImpl()->GetFrameView()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 480), kProgrammaticScroll);
+      ScrollOffset(0, 480),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   auto commands = CompositeFrame();
   EXPECT_FALSE(commands.Contains(SimCanvas::kRect, "green"));
 
@@ -444,7 +450,8 @@ TEST_P(FrameThrottlingTest, UnthrottlingTriggersRepaintInCompositedChild) {
   // Scroll down to unthrottle the frame. The first frame we composite after
   // scrolling won't contain the frame yet, but will schedule another repaint.
   WebView().MainFrameImpl()->GetFrameView()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 480), kProgrammaticScroll);
+      ScrollOffset(0, 480),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   auto commands = CompositeFrame();
   EXPECT_FALSE(commands.Contains(SimCanvas::kRect, "green"));
 
@@ -477,7 +484,8 @@ TEST_P(FrameThrottlingTest, ChangeStyleInThrottledFrame) {
 
   // Scroll down to unthrottle the frame.
   WebView().MainFrameImpl()->GetFrameView()->LayoutViewport()->SetScrollOffset(
-      ScrollOffset(0, 480), kProgrammaticScroll);
+      ScrollOffset(0, 480),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   auto commands = CompositeFrame();
   EXPECT_FALSE(commands.Contains(SimCanvas::kRect, "red"));
   EXPECT_FALSE(commands.Contains(SimCanvas::kRect, "green"));

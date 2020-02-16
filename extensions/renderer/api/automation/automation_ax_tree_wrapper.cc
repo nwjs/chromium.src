@@ -3,11 +3,13 @@
 // found in the LICENSE file.
 
 #include "base/no_destructor.h"
+#include "components/crash/core/common/crash_key.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/renderer/api/automation/automation_internal_custom_bindings.h"
 #include "ui/accessibility/ax_language_detection.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_position.h"
+#include "ui/accessibility/ax_tree_manager_map.h"
 
 namespace extensions {
 
@@ -45,6 +47,7 @@ api::automation::EventType ToAutomationEvent(ax::mojom::Event event_type) {
     case ax::mojom::Event::kExpandedChanged:
       return api::automation::EVENT_TYPE_EXPANDEDCHANGED;
     case ax::mojom::Event::kFocus:
+    case ax::mojom::Event::kFocusAfterMenuClose:
     case ax::mojom::Event::kFocusContext:
       return api::automation::EVENT_TYPE_NONE;
     case ax::mojom::Event::kHide:
@@ -244,12 +247,14 @@ AutomationAXTreeWrapper::AutomationAXTreeWrapper(
     AutomationInternalCustomBindings* owner)
     : tree_id_(tree_id), owner_(owner), event_generator_(&tree_) {
   tree_.AddObserver(this);
+  ui::AXTreeManagerMap::GetInstance().AddTreeManager(tree_id, this);
 }
 
 AutomationAXTreeWrapper::~AutomationAXTreeWrapper() {
   // Stop observing so we don't get a callback for every node being deleted.
   event_generator_.SetTree(nullptr);
   tree_.RemoveObserver(this);
+  ui::AXTreeManagerMap::GetInstance().RemoveTreeManager(tree_id_);
 }
 
 // static
@@ -285,6 +290,9 @@ bool AutomationAXTreeWrapper::OnAccessibilityEvents(
     did_send_tree_change_during_unserialization_ = false;
 
     if (!tree_.Unserialize(update)) {
+      static crash_reporter::CrashKeyString<4> crash_key(
+          "ax-tree-wrapper-unserialize-failed");
+      crash_key.Set("yes");
       event_generator_.ClearEvents();
       return false;
     }
@@ -326,8 +334,16 @@ bool AutomationAXTreeWrapper::OnAccessibilityEvents(
   for (const auto& targeted_event : event_generator_) {
     if (targeted_event.event_params.event ==
         ui::AXEventGenerator::Event::LOAD_COMPLETE) {
-      tree_.language_detection_manager->DetectLanguageForSubtree(tree_.root());
-      tree_.language_detection_manager->LabelLanguageForSubtree(tree_.root());
+      tree_.language_detection_manager->DetectLanguages();
+      tree_.language_detection_manager->LabelLanguages();
+
+      // After initial language detection, enable language detection for future
+      // content updates in order to support dynamic content changes.
+      //
+      // If the LanguageDetectionDynamic feature flag is not enabled then this
+      // is a no-op.
+      tree_.language_detection_manager->RegisterLanguageDetectionObserver();
+
       break;
     }
   }
@@ -523,8 +539,6 @@ bool AutomationAXTreeWrapper::IsEventTypeHandledByAXEventGenerator(
     case api::automation::EVENT_TYPE_DOCUMENTTITLECHANGED:
     case api::automation::EVENT_TYPE_EXPANDEDCHANGED:
     case api::automation::EVENT_TYPE_INVALIDSTATUSCHANGED:
-    case api::automation::EVENT_TYPE_LIVEREGIONCHANGED:
-    case api::automation::EVENT_TYPE_LIVEREGIONCREATED:
     case api::automation::EVENT_TYPE_LOADCOMPLETE:
     case api::automation::EVENT_TYPE_LOADSTART:
     case api::automation::EVENT_TYPE_ROWCOLLAPSED:
@@ -555,6 +569,7 @@ bool AutomationAXTreeWrapper::IsEventTypeHandledByAXEventGenerator(
     case api::automation::EVENT_TYPE_AUTOCORRECTIONOCCURED:
     case api::automation::EVENT_TYPE_CLICKED:
     case api::automation::EVENT_TYPE_ENDOFTEST:
+    case api::automation::EVENT_TYPE_FOCUSAFTERMENUCLOSE:
     case api::automation::EVENT_TYPE_FOCUSCONTEXT:
     case api::automation::EVENT_TYPE_HITTESTRESULT:
     case api::automation::EVENT_TYPE_HOVER:
@@ -579,6 +594,8 @@ bool AutomationAXTreeWrapper::IsEventTypeHandledByAXEventGenerator(
     case api::automation::EVENT_TYPE_CONTROLSCHANGED:
     case api::automation::EVENT_TYPE_FOCUS:
     case api::automation::EVENT_TYPE_IMAGEFRAMEUPDATED:
+    case api::automation::EVENT_TYPE_LIVEREGIONCHANGED:
+    case api::automation::EVENT_TYPE_LIVEREGIONCREATED:
     case api::automation::EVENT_TYPE_LOCATIONCHANGED:
     case api::automation::EVENT_TYPE_MENUEND:
     case api::automation::EVENT_TYPE_MENULISTITEMSELECTED:
@@ -592,6 +609,39 @@ bool AutomationAXTreeWrapper::IsEventTypeHandledByAXEventGenerator(
 
   NOTREACHED();
   return false;
+}
+
+ui::AXNode* AutomationAXTreeWrapper::GetNodeFromTree(
+    const ui::AXTreeID tree_id,
+    const int32_t node_id) const {
+  AutomationAXTreeWrapper* tree_wrapper =
+      owner_->GetAutomationAXTreeWrapperFromTreeID(tree_id);
+  if (!tree_wrapper)
+    return nullptr;
+
+  return tree_wrapper->tree()->GetFromId(node_id);
+}
+
+ui::AXTreeID AutomationAXTreeWrapper::GetTreeID() const {
+  return tree_id_;
+}
+
+ui::AXTreeID AutomationAXTreeWrapper::GetParentTreeID() const {
+  AutomationAXTreeWrapper* parent_tree = GetParentOfTreeId(tree_id_);
+  if (!parent_tree)
+    return ui::AXTreeID();  // Unknown AXTreeID.
+
+  return parent_tree->GetTreeID();
+}
+
+ui::AXNode* AutomationAXTreeWrapper::GetRootAsAXNode() const {
+  return tree_.root();
+}
+
+ui::AXNode* AutomationAXTreeWrapper::GetParentNodeFromParentTreeAsAXNode()
+    const {
+  AutomationAXTreeWrapper* wrapper = const_cast<AutomationAXTreeWrapper*>(this);
+  return owner_->GetParent(tree_.root(), &wrapper);
 }
 
 }  // namespace extensions

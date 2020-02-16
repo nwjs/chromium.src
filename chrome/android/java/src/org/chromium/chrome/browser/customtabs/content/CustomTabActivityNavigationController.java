@@ -115,15 +115,11 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
     };
 
     @Inject
-    public CustomTabActivityNavigationController(
-            BrowserServicesActivityTabController tabController,
+    public CustomTabActivityNavigationController(BrowserServicesActivityTabController tabController,
             CustomTabActivityTabProvider tabProvider,
-            BrowserServicesIntentDataProvider intentDataProvider,
-            CustomTabsConnection connection,
-            Lazy<CustomTabObserver> customTabObserver,
-            CloseButtonNavigator closeButtonNavigator,
-            ChromeBrowserInitializer chromeBrowserInitializer,
-            ChromeActivity activity,
+            BrowserServicesIntentDataProvider intentDataProvider, CustomTabsConnection connection,
+            Lazy<CustomTabObserver> customTabObserver, CloseButtonNavigator closeButtonNavigator,
+            ChromeBrowserInitializer chromeBrowserInitializer, ChromeActivity<?> activity,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             Lazy<ChromeFullscreenManager> fullscreenManager) {
         mTabController = tabController;
@@ -220,7 +216,7 @@ public class CustomTabActivityNavigationController implements StartStopWithNativ
     }
 
     private void executeDefaultBackHandling() {
-        if (mToolbarManager != null && mToolbarManager.back() != null) return;
+        if (mToolbarManager != null && mToolbarManager.back()) return;
 
         // mTabController.closeTab may result in either closing the only tab (through the back
         // button or the close button), or swapping to the previous tab. In the first case we need

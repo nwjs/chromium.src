@@ -9,22 +9,22 @@
 
 #include "base/auto_reset.h"
 #include "base/macros.h"
-#include "chrome/browser/ui/extensions/browser_action_test_util.h"
+#include "chrome/browser/ui/extensions/extension_action_test_helper.h"
 
 class Browser;
 class ExtensionsMenuItemView;
 class ExtensionsMenuView;
 class ExtensionsToolbarContainer;
 
-// An implementation of BrowserActionTestUtil that works with the ExtensionsMenu
-// (i.e., when features::kExtensionsToolbarMenu is enabled).
-class ExtensionsMenuTestUtil : public BrowserActionTestUtil {
+// An implementation of ExtensionActionTestHelper that works with the
+// ExtensionsMenu (i.e., when features::kExtensionsToolbarMenu is enabled).
+class ExtensionsMenuTestUtil : public ExtensionActionTestHelper {
  public:
-  explicit ExtensionsMenuTestUtil(Browser* browser);
+  ExtensionsMenuTestUtil(Browser* browser, bool is_real_window);
 
   ~ExtensionsMenuTestUtil() override;
 
-  // BrowserActionTestUtil:
+  // ExtensionActionTestHelper:
   int NumberOfBrowserActions() override;
   int VisibleBrowserActions() override;
   void InspectPopup(int index) override;
@@ -40,17 +40,21 @@ class ExtensionsMenuTestUtil : public BrowserActionTestUtil {
   bool ActionButtonWantsToRun(size_t index) override;
   void SetWidth(int width) override;
   ToolbarActionsBar* GetToolbarActionsBar() override;
-  std::unique_ptr<BrowserActionTestUtil> CreateOverflowBar(
+  ExtensionsContainer* GetExtensionsContainer() override;
+  std::unique_ptr<ExtensionActionTestHelper> CreateOverflowBar(
       Browser* browser) override;
   // TODO(devlin): Some of these popup methods have a common implementation
-  // between this and BrowserActionTestUtilViews. It would make sense to
+  // between this and ExtensionActionTestHelperViews. It would make sense to
   // extract them (since they aren't dependent on the extension action UI
   // implementation).
   gfx::Size GetMinPopupSize() override;
   gfx::Size GetMaxPopupSize() override;
+  gfx::Size GetToolbarActionSize() override;
   bool CanBeResized() override;
 
  private:
+  class Wrapper;
+
   // Returns the ExtensionsMenuItemView at the given |index| from the
   // |menu_view|.
   ExtensionsMenuItemView* GetMenuItemViewAtIndex(int index);
@@ -59,8 +63,10 @@ class ExtensionsMenuTestUtil : public BrowserActionTestUtil {
   // This has to be defined before |menu_view_| below.
   base::AutoReset<bool> scoped_allow_extensions_menu_instances_;
 
+  std::unique_ptr<Wrapper> wrapper_;
+
   Browser* const browser_;
-  ExtensionsToolbarContainer* const extensions_container_;
+  ExtensionsToolbarContainer* extensions_container_;
   std::unique_ptr<ExtensionsMenuView> menu_view_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionsMenuTestUtil);

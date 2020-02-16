@@ -46,11 +46,10 @@ void ShowSettingsApiBubble(SettingsApiOverrideType type,
     return;
 
   settings_api_bubble->SetIsActiveBubble();
-  ToolbarActionsBar* toolbar_actions_bar =
-      browser->window()->GetToolbarActionsBar();
   std::unique_ptr<ToolbarActionsBarBubbleDelegate> bridge(
       new ExtensionMessageBubbleBridge(std::move(settings_api_bubble)));
-  toolbar_actions_bar->ShowToolbarActionBubbleAsync(std::move(bridge));
+  browser->window()->GetExtensionsContainer()->ShowToolbarActionBubbleAsync(
+      std::move(bridge));
 }
 
 }  // namespace
@@ -101,11 +100,8 @@ void MaybeShowExtensionControlledNewTabPage(
 
   // See if the current active URL matches a transformed NewTab URL.
   GURL ntp_url(chrome::kChromeUINewTabURL);
-  bool ignored_param;
   content::BrowserURLHandler::GetInstance()->RewriteURLIfNecessary(
-      &ntp_url,
-      web_contents->GetBrowserContext(),
-      &ignored_param);
+      &ntp_url, web_contents->GetBrowserContext());
   if (ntp_url != active_url)
     return;  // Not being overridden by an extension.
 
@@ -120,11 +116,10 @@ void MaybeShowExtensionControlledNewTabPage(
     return;
 
   ntp_overridden_bubble->SetIsActiveBubble();
-  ToolbarActionsBar* toolbar_actions_bar =
-      browser->window()->GetToolbarActionsBar();
   std::unique_ptr<ToolbarActionsBarBubbleDelegate> bridge(
       new ExtensionMessageBubbleBridge(std::move(ntp_overridden_bubble)));
-  toolbar_actions_bar->ShowToolbarActionBubbleAsync(std::move(bridge));
+  browser->window()->GetExtensionsContainer()->ShowToolbarActionBubbleAsync(
+      std::move(bridge));
 }
 
 }  // namespace extensions

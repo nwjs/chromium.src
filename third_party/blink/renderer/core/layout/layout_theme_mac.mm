@@ -31,21 +31,20 @@
 #import "third_party/blink/public/resources/grit/blink_resources.h"
 #import "third_party/blink/public/strings/grit/blink_strings.h"
 #import "third_party/blink/renderer/core/css_value_keywords.h"
-#import "third_party/blink/renderer/core/fileapi/file_list.h"
+#import "third_party/blink/renderer/core/fileapi/file.h"
 #import "third_party/blink/renderer/core/html_names.h"
 #import "third_party/blink/renderer/core/layout/layout_progress.h"
 #import "third_party/blink/renderer/core/layout/layout_theme_default.h"
 #import "third_party/blink/renderer/core/layout/layout_view.h"
 #import "third_party/blink/renderer/core/style/shadow_list.h"
 #import "third_party/blink/renderer/platform/data_resource_helper.h"
-#import "third_party/blink/renderer/platform/fonts/string_truncator.h"
 #import "third_party/blink/renderer/platform/graphics/bitmap_image.h"
 #import "third_party/blink/renderer/platform/mac/block_exceptions.h"
 #import "third_party/blink/renderer/platform/mac/color_mac.h"
 #import "third_party/blink/renderer/platform/mac/web_core_ns_cell_extras.h"
 #import "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#import "third_party/blink/renderer/platform/text/platform_locale.h"
 #import "third_party/blink/renderer/platform/web_test_support.h"
+#include "ui/base/ui_base_features.h"
 
 // This is a view whose sole purpose is to tell AppKit that it's flipped.
 @interface BlinkFlippedControl : NSControl
@@ -145,6 +144,20 @@ class LayoutThemeMacRefresh final : public LayoutThemeDefault {
  public:
   static scoped_refptr<LayoutTheme> Create() {
     return base::AdoptRef(new LayoutThemeMacRefresh());
+  }
+
+  Color PlatformActiveSelectionBackgroundColor(
+      WebColorScheme color_scheme) const override;
+  Color PlatformInactiveSelectionBackgroundColor(
+      WebColorScheme color_scheme) const override;
+  Color PlatformActiveSelectionForegroundColor(
+      WebColorScheme color_scheme) const override;
+  Color PlatformSpellingMarkerUnderlineColor() const override;
+  Color PlatformGrammarMarkerUnderlineColor() const override;
+  String DisplayNameForFile(const File& file) const override {
+    if (file.GetUserVisibility() == File::kIsUserVisible)
+      return [[NSFileManager defaultManager] displayNameAtPath:file.GetPath()];
+    return file.name();
   }
 };
 
@@ -276,6 +289,29 @@ Color LayoutThemeMac::PlatformInactiveListBoxSelectionBackgroundColor(
   return PlatformInactiveSelectionBackgroundColor(color_scheme);
 }
 
+Color LayoutThemeMacRefresh::PlatformActiveSelectionBackgroundColor(
+    WebColorScheme color_scheme) const {
+  return GetSystemColor(MacSystemColorID::kSelectedTextBackground);
+}
+
+Color LayoutThemeMacRefresh::PlatformInactiveSelectionBackgroundColor(
+    WebColorScheme color_scheme) const {
+  return GetSystemColor(MacSystemColorID::kSecondarySelectedControl);
+}
+
+Color LayoutThemeMacRefresh::PlatformActiveSelectionForegroundColor(
+    WebColorScheme color_scheme) const {
+  return Color::kBlack;
+}
+
+Color LayoutThemeMacRefresh::PlatformSpellingMarkerUnderlineColor() const {
+  return Color(251, 45, 29);
+}
+
+Color LayoutThemeMacRefresh::PlatformGrammarMarkerUnderlineColor() const {
+  return Color(107, 107, 107);
+}
+
 static FontSelectionValue ToFontWeight(NSInteger app_kit_font_weight) {
   DCHECK_GT(app_kit_font_weight, 0);
   DCHECK_LT(app_kit_font_weight, 15);
@@ -334,138 +370,86 @@ void LayoutThemeMac::SystemFont(CSSValueID system_font_id,
   font_family = font_family_names::kSystemUi;
 }
 
-void LayoutThemeMac::PlatformColorsDidChange() {
-  system_color_cache_.clear();
-  LayoutTheme::PlatformColorsDidChange();
-}
-
 Color LayoutThemeMac::SystemColor(CSSValueID css_value_id,
                                   WebColorScheme color_scheme) const {
-  {
-    HashMap<CSSValueID, RGBA32>::iterator it =
-        system_color_cache_.find(css_value_id);
-    if (it != system_color_cache_.end())
-      return it->value;
-  }
-
-  Color color;
-  bool needs_fallback = false;
   switch (css_value_id) {
     case CSSValueID::kActiveborder:
-      color = GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator);
-      break;
+      return GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator);
     case CSSValueID::kActivecaption:
-      color = GetSystemColor(MacSystemColorID::kWindowFrameText);
-      break;
+      return GetSystemColor(MacSystemColorID::kWindowFrameText);
     case CSSValueID::kAppworkspace:
-      color = GetSystemColor(MacSystemColorID::kHeader);
-      break;
+      return GetSystemColor(MacSystemColorID::kHeader);
     case CSSValueID::kBackground:
-      // Use theme independent default
-      needs_fallback = true;
+      // Use theme independent default.
       break;
     case CSSValueID::kButtonface:
-      color = GetSystemColor(MacSystemColorID::kControlBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlBackground);
     case CSSValueID::kButtonhighlight:
-      color = GetSystemColor(MacSystemColorID::kControlHighlight);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlHighlight);
     case CSSValueID::kButtonshadow:
-      color = GetSystemColor(MacSystemColorID::kControlShadow);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlShadow);
     case CSSValueID::kButtontext:
-      color = GetSystemColor(MacSystemColorID::kControlText);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlText);
     case CSSValueID::kCaptiontext:
-      color = GetSystemColor(MacSystemColorID::kText);
-      break;
+      return GetSystemColor(MacSystemColorID::kText);
     case CSSValueID::kField:
-      color = GetSystemColor(MacSystemColorID::kControlBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlBackground);
     case CSSValueID::kFieldtext:
-      color = GetSystemColor(MacSystemColorID::kText);
-      break;
+      return GetSystemColor(MacSystemColorID::kText);
     case CSSValueID::kGraytext:
-      color = GetSystemColor(MacSystemColorID::kDisabledControlText);
-      break;
+      return GetSystemColor(MacSystemColorID::kDisabledControlText);
     case CSSValueID::kHighlight:
-      color = GetSystemColor(MacSystemColorID::kSelectedTextBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kSelectedTextBackground);
     case CSSValueID::kHighlighttext:
-      color = GetSystemColor(MacSystemColorID::kSelectedText);
-      break;
+      return GetSystemColor(MacSystemColorID::kSelectedText);
     case CSSValueID::kInactiveborder:
-      color = GetSystemColor(MacSystemColorID::kControlBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlBackground);
     case CSSValueID::kInactivecaption:
-      color = GetSystemColor(MacSystemColorID::kControlBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlBackground);
     case CSSValueID::kInactivecaptiontext:
-      color = GetSystemColor(MacSystemColorID::kText);
-      break;
+      return GetSystemColor(MacSystemColorID::kText);
     case CSSValueID::kInfobackground:
       // There is no corresponding NSColor for this so we use a hard coded
       // value.
-      color = 0xFFFBFCC5;
-      break;
+      return 0xFFFBFCC5;
     case CSSValueID::kInfotext:
-      color = GetSystemColor(MacSystemColorID::kText);
-      break;
+      return GetSystemColor(MacSystemColorID::kText);
     case CSSValueID::kMenu:
-      color = GetSystemColor(MacSystemColorID::kMenuBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kMenuBackground);
     case CSSValueID::kMenutext:
-      color = GetSystemColor(MacSystemColorID::kSelectedMenuItemText);
-      break;
+      return GetSystemColor(MacSystemColorID::kSelectedMenuItemText);
     case CSSValueID::kScrollbar:
-      color = GetSystemColor(MacSystemColorID::kScrollBar);
-      break;
+      return GetSystemColor(MacSystemColorID::kScrollBar);
     case CSSValueID::kText:
-      color = GetSystemColor(MacSystemColorID::kText);
-      break;
+      return GetSystemColor(MacSystemColorID::kText);
     case CSSValueID::kThreeddarkshadow:
-      color = GetSystemColor(MacSystemColorID::kControlDarkShadow);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlDarkShadow);
     case CSSValueID::kThreedshadow:
-      color = GetSystemColor(MacSystemColorID::kShadow);
-      break;
+      return GetSystemColor(MacSystemColorID::kShadow);
     case CSSValueID::kThreedface:
       // We use this value instead of NSColor's controlColor to avoid website
       // incompatibilities. We may want to change this to use the NSColor in
       // future.
-      color = 0xFFC0C0C0;
-      break;
+      return 0xFFC0C0C0;
     case CSSValueID::kThreedhighlight:
-      color = GetSystemColor(MacSystemColorID::kHighlight);
-      break;
+      return GetSystemColor(MacSystemColorID::kHighlight);
     case CSSValueID::kThreedlightshadow:
-      color = GetSystemColor(MacSystemColorID::kControlLightHighlight);
-      break;
+      return GetSystemColor(MacSystemColorID::kControlLightHighlight);
     case CSSValueID::kWebkitFocusRingColor:
-      color = GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator);
-      break;
+      return GetSystemColor(MacSystemColorID::kKeyboardFocusIndicator);
     case CSSValueID::kWindow:
     case CSSValueID::kCanvas:
-      color = GetSystemColor(MacSystemColorID::kWindowBackground);
-      break;
+      return GetSystemColor(MacSystemColorID::kWindowBackground);
     case CSSValueID::kWindowframe:
-      color = GetSystemColor(MacSystemColorID::kWindowFrame);
-      break;
+      return GetSystemColor(MacSystemColorID::kWindowFrame);
     case CSSValueID::kWindowtext:
     case CSSValueID::kCanvastext:
-      color = GetSystemColor(MacSystemColorID::kWindowFrameText);
-      break;
+      return GetSystemColor(MacSystemColorID::kWindowFrameText);
     default:
-      needs_fallback = true;
       break;
   }
 
-  if (needs_fallback)
-    color = LayoutTheme::SystemColor(css_value_id, color_scheme);
-
-  system_color_cache_.Set(css_value_id, color.Rgb());
-
-  return color;
+  return LayoutTheme::SystemColor(css_value_id, color_scheme);
 }
 
 bool LayoutThemeMac::IsControlStyled(ControlPart part,
@@ -1003,32 +987,10 @@ NSTextFieldCell* LayoutThemeMac::TextField() const {
   return text_field_;
 }
 
-String LayoutThemeMac::FileListNameForWidth(Locale& locale,
-                                            const FileList* file_list,
-                                            const Font& font,
-                                            int width) const {
-  if (width <= 0)
-    return String();
-
-  String str_to_truncate;
-  if (file_list->IsEmpty()) {
-    str_to_truncate = locale.QueryString(IDS_FORM_FILE_NO_FILE_LABEL);
-  } else if (file_list->length() == 1) {
-    File* file = file_list->item(0);
-    if (file->GetUserVisibility() == File::kIsUserVisible)
-      str_to_truncate = [[NSFileManager defaultManager]
-          displayNameAtPath:(file_list->item(0)->GetPath())];
-    else
-      str_to_truncate = file->name();
-  } else {
-    return StringTruncator::RightTruncate(
-        locale.QueryString(IDS_FORM_FILE_MULTIPLE_UPLOAD,
-                           locale.ConvertToLocalizedNumber(
-                               String::Number(file_list->length()))),
-        width, font);
-  }
-
-  return StringTruncator::CenterTruncate(str_to_truncate, width, font);
+String LayoutThemeMac::DisplayNameForFile(const File& file) const {
+  if (file.GetUserVisibility() == File::kIsUserVisible)
+    return [[NSFileManager defaultManager] displayNameAtPath:file.GetPath()];
+  return file.name();
 }
 
 NSView* FlippedView() {
@@ -1037,7 +999,7 @@ NSView* FlippedView() {
 }
 
 LayoutTheme& LayoutTheme::NativeTheme() {
-  if (RuntimeEnabledFeatures::FormControlsRefreshEnabled()) {
+  if (features::IsFormControlsRefreshEnabled()) {
     DEFINE_STATIC_REF(LayoutTheme, layout_theme,
                       (LayoutThemeMacRefresh::Create()));
     return *layout_theme;

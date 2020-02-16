@@ -26,8 +26,10 @@
 #include "content/browser/service_worker/service_worker_content_settings_proxy_impl.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
+#include "content/browser/service_worker/service_worker_provider_host.h"
 #include "content/browser/service_worker/service_worker_script_loader_factory.h"
 #include "content/browser/url_loader_factory_getter.h"
+#include "content/browser/url_loader_factory_params_helper.h"
 #include "content/common/content_switches_internal.h"
 #include "content/common/url_schemes.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -53,14 +55,6 @@ namespace {
 
 // Used for tracing.
 constexpr char kEmbeddedWorkerInstanceScope[] = "EmbeddedWorkerInstance";
-
-EmbeddedWorkerInstance::CreateNetworkFactoryCallback&
-GetNetworkFactoryCallbackForTest() {
-  static base::NoDestructor<
-      EmbeddedWorkerInstance::CreateNetworkFactoryCallback>
-      callback;
-  return *callback;
-}
 
 // When a service worker version's failure count exceeds
 // |kMaxSameProcessFailureCount|, the embedded worker is forced to start in a
@@ -201,7 +195,10 @@ void SetupOnUIThread(
   if (base::FeatureList::IsEnabled(
           blink::features::kEagerCacheStorageSetupForServiceWorkers) &&
       !params->pause_after_download) {
-    rph->BindCacheStorage(url::Origin::Create(params->script_url),
+    // TODO(https://crbug.com/1031542): Add support enforcing CORP in
+    // cache.match() for ServiceWorker.
+    rph->BindCacheStorage(network::mojom::CrossOriginEmbedderPolicy::kNone,
+                          url::Origin::Create(params->script_url),
                           cache_storage.InitWithNewPipeAndPassReceiver());
   }
 
@@ -1053,9 +1050,9 @@ EmbeddedWorkerInstance::CreateFactoryBundleOnUI(
   mojo::PendingReceiver<network::mojom::URLLoaderFactory>
       default_factory_receiver = factory_bundle->pending_default_factory()
                                      .InitWithNewPipeAndPassReceiver();
-  mojo::PendingRemote<network::mojom::TrustedURLLoaderHeaderClient>
-      default_header_client;
-  network::mojom::URLLoaderFactoryOverridePtr factory_override;
+  network::mojom::URLLoaderFactoryParamsPtr factory_params =
+      URLLoaderFactoryParamsHelper::CreateForWorker(
+          rph, origin, net::NetworkIsolationKey(origin, origin));
   bool bypass_redirect_checks = false;
 
   DCHECK(factory_type ==
@@ -1067,30 +1064,16 @@ EmbeddedWorkerInstance::CreateFactoryBundleOnUI(
   GetContentClient()->browser()->WillCreateURLLoaderFactory(
       rph->GetBrowserContext(), nullptr /* frame_host */, rph->GetID(),
       factory_type, origin, base::nullopt /* navigation_id */,
-      &default_factory_receiver, &default_header_client,
-      &bypass_redirect_checks, &factory_override);
+      &default_factory_receiver, &factory_params->header_client,
+      &bypass_redirect_checks, nullptr /* disable_secure_dns */,
+      &factory_params->factory_override);
   devtools_instrumentation::WillCreateURLLoaderFactoryForServiceWorker(
       rph, routing_id, &default_factory_receiver);
 
   // TODO(yhirano): Support COEP.
-  if (GetNetworkFactoryCallbackForTest().is_null()) {
-    rph->CreateURLLoaderFactory(
-        origin, origin, network::mojom::CrossOriginEmbedderPolicy::kNone,
-        nullptr /* preferences */, net::NetworkIsolationKey(origin, origin),
-        std::move(default_header_client), base::nullopt /* top_frame_token */,
-        std::move(default_factory_receiver), std::move(factory_override));
-  } else {
-    mojo::PendingRemote<network::mojom::URLLoaderFactory> original_factory;
-    rph->CreateURLLoaderFactory(
-        origin, origin, network::mojom::CrossOriginEmbedderPolicy::kNone,
-        nullptr /* preferences */, net::NetworkIsolationKey(origin, origin),
-        std::move(default_header_client), base::nullopt /* top_frame_token */,
-        original_factory.InitWithNewPipeAndPassReceiver(),
-        std::move(factory_override));
-    GetNetworkFactoryCallbackForTest().Run(std::move(default_factory_receiver),
-                                           rph->GetID(),
-                                           std::move(original_factory));
-  }
+
+  rph->CreateURLLoaderFactory(std::move(default_factory_receiver),
+                              std::move(factory_params));
 
   factory_bundle->set_bypass_redirect_checks(bypass_redirect_checks);
 
@@ -1255,12 +1238,6 @@ std::string EmbeddedWorkerInstance::StartingPhaseToString(StartingPhase phase) {
   return std::string();
 }
 
-// static
-void EmbeddedWorkerInstance::SetNetworkFactoryForTesting(
-    const CreateNetworkFactoryCallback& create_network_factory_callback) {
-  GetNetworkFactoryCallbackForTest() = create_network_factory_callback;
-}
-
 void EmbeddedWorkerInstance::NotifyForegroundServiceWorkerAdded() {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
 
@@ -1306,7 +1283,7 @@ EmbeddedWorkerInstance::MakeScriptLoaderFactoryRemote(
           std::move(script_bundle));
   script_loader_factory_ = mojo::MakeSelfOwnedReceiver(
       std::make_unique<ServiceWorkerScriptLoaderFactory>(
-          context_, owner_version_->provider_host()->AsWeakPtr(),
+          context_, owner_version_->provider_host()->GetWeakPtr(),
           std::move(script_bundle_factory)),
       script_loader_factory_remote.InitWithNewPipeAndPassReceiver());
 

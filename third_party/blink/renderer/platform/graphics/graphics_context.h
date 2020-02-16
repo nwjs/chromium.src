@@ -242,22 +242,22 @@ class PLATFORM_EXPORT GraphicsContext {
                  const FloatRect* src_rect = nullptr,
                  bool has_filter_property = false,
                  SkBlendMode = SkBlendMode::kSrcOver,
-                 RespectImageOrientationEnum = kDoNotRespectImageOrientation);
-  void DrawImageRRect(
-      Image*,
-      Image::ImageDecodingMode,
-      const FloatRoundedRect& dest,
-      const FloatRect& src_rect,
-      bool has_filter_property = false,
-      SkBlendMode = SkBlendMode::kSrcOver,
-      RespectImageOrientationEnum = kDoNotRespectImageOrientation);
+                 RespectImageOrientationEnum = kRespectImageOrientation);
+  void DrawImageRRect(Image*,
+                      Image::ImageDecodingMode,
+                      const FloatRoundedRect& dest,
+                      const FloatRect& src_rect,
+                      bool has_filter_property = false,
+                      SkBlendMode = SkBlendMode::kSrcOver,
+                      RespectImageOrientationEnum = kRespectImageOrientation);
   void DrawImageTiled(Image* image,
                       const FloatRect& dest_rect,
                       const FloatRect& src_rect,
                       const FloatSize& scale_src_to_dest,
                       const FloatPoint& phase,
                       const FloatSize& repeat_spacing,
-                      SkBlendMode = SkBlendMode::kSrcOver);
+                      SkBlendMode = SkBlendMode::kSrcOver,
+                      RespectImageOrientationEnum = kRespectImageOrientation);
 
   // These methods write to the canvas.
   // Also drawLine(const IntPoint& point1, const IntPoint& point2) and
@@ -371,6 +371,9 @@ class PLATFORM_EXPORT GraphicsContext {
   void DrawFocusRing(const Vector<IntRect>&,
                      float width,
                      int offset,
+                     int default_offset,
+                     float border_radius,
+                     float min_border_width,
                      const Color&,
                      bool is_outset);
   void DrawFocusRing(const Path&, float width, int offset, const Color&);
@@ -428,7 +431,10 @@ class PLATFORM_EXPORT GraphicsContext {
                                           FloatPoint& p2,
                                           float stroke_width);
 
-  static int FocusRingOutsetExtent(int offset, int width, bool is_outset);
+  static int FocusRingOutsetExtent(int offset,
+                                   int default_offset,
+                                   int width,
+                                   bool is_outset);
 
   void SetInDrawingRecorder(bool);
   bool InDrawingRecorder() const { return in_drawing_recorder_; }
@@ -436,6 +442,8 @@ class PLATFORM_EXPORT GraphicsContext {
   static sk_sp<SkColorFilter> WebCoreColorFilterToSkiaColorFilter(ColorFilter);
 
  private:
+  friend class ScopedDarkModeElementRoleOverride;
+
   const GraphicsContextState* ImmutableState() const { return paint_state_; }
 
   GraphicsContextState* MutableState() {
@@ -462,12 +470,19 @@ class PLATFORM_EXPORT GraphicsContext {
   void RestoreLayer();
 
   // Helpers for drawing a focus ring (drawFocusRing)
-  void DrawFocusRingPath(const SkPath&, const Color&, float width);
-  void DrawFocusRingRect(const SkRect&, const Color&, float width);
+  void DrawFocusRingPath(const SkPath&,
+                         const Color&,
+                         float width,
+                         float border_radius);
+  void DrawFocusRingRect(const SkRect&,
+                         const Color&,
+                         float width,
+                         float border_radius);
 
   void DrawFocusRingInternal(const Vector<IntRect>&,
                              float width,
                              int offset,
+                             float border_radius,
                              const Color&,
                              bool is_outset);
 

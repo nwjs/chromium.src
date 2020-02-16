@@ -40,14 +40,7 @@ public class BackgroundTaskSchedulerPrefs {
     @VisibleForTesting
     static class ScheduledTaskPreferenceEntry {
         private static final String ENTRY_SEPARATOR = ":";
-        private String mBackgroundTaskClass;
         private int mTaskId;
-
-        /** Creates a scheduled task shared preference entry from task info. */
-        public static ScheduledTaskPreferenceEntry createForTaskInfo(TaskInfo taskInfo) {
-            return new ScheduledTaskPreferenceEntry(
-                    taskInfo.getBackgroundTaskClass().getName(), taskInfo.getTaskId());
-        }
 
         /**
          * Parses a preference entry from input string.
@@ -68,21 +61,11 @@ public class BackgroundTaskSchedulerPrefs {
             } catch (NumberFormatException e) {
                 return null;
             }
-            return new ScheduledTaskPreferenceEntry(entryParts[0], taskId);
+            return new ScheduledTaskPreferenceEntry(taskId);
         }
 
-        public ScheduledTaskPreferenceEntry(String className, int taskId) {
-            mBackgroundTaskClass = className;
+        public ScheduledTaskPreferenceEntry(int taskId) {
             mTaskId = taskId;
-        }
-
-        /**
-         * Converts a task info to a shared preference entry in the format:
-         * BACKGROUND_TASK_CLASS_NAME:TASK_ID.
-         */
-        @Override
-        public String toString() {
-            return mBackgroundTaskClass + ENTRY_SEPARATOR + mTaskId;
         }
 
         /** Gets the ID of the task in this entry. */
@@ -126,7 +109,8 @@ public class BackgroundTaskSchedulerPrefs {
     public static void addScheduledTask(TaskInfo taskInfo) {
         try (TraceEvent te = TraceEvent.scoped("BackgroundTaskSchedulerPrefs.addScheduledTask",
                      Integer.toString(taskInfo.getTaskId()))) {
-            ScheduledTaskProtoVisitor visitor = new ScheduledTaskProtoVisitor(taskInfo.getExtras());
+            ScheduledTaskProtoVisitor visitor = new ScheduledTaskProtoVisitor(taskInfo.getExtras(),
+                    taskInfo.getRequiredNetworkType(), taskInfo.requiresCharging());
             taskInfo.getTimingInfo().accept(visitor);
 
             getSharedPreferences()
@@ -140,9 +124,15 @@ public class BackgroundTaskSchedulerPrefs {
     private static class ScheduledTaskProtoVisitor implements TaskInfo.TimingInfoVisitor {
         private String mSerializedScheduledTask;
         private final Bundle mExtras;
+        @TaskInfo.NetworkType
+        private final int mRequiredNetworkType;
+        private final boolean mRequiresCharging;
 
-        ScheduledTaskProtoVisitor(Bundle extras) {
+        ScheduledTaskProtoVisitor(Bundle extras, @TaskInfo.NetworkType int requiredNetworkType,
+                boolean requiresCharging) {
             mExtras = extras;
+            mRequiredNetworkType = requiredNetworkType;
+            mRequiresCharging = requiresCharging;
         }
 
         // Only valid after a TimingInfo object was visited.
@@ -176,6 +166,9 @@ public class BackgroundTaskSchedulerPrefs {
                     ScheduledTaskProto.ScheduledTask.newBuilder()
                             .setType(ScheduledTaskProto.ScheduledTask.Type.EXACT)
                             .setTriggerMs(exactInfo.getTriggerAtMs())
+                            .setRequiredNetworkType(
+                                    convertToRequiredNetworkType(mRequiredNetworkType))
+                            .setRequiresCharging(mRequiresCharging)
                             .addAllExtras(
                                     ExtrasToProtoConverter.convertExtrasToProtoExtras(mExtras))
                             .build();
@@ -298,6 +291,21 @@ public class BackgroundTaskSchedulerPrefs {
                     .edit()
                     .putInt(KEY_LAST_SDK_VERSION, sdkVersion)
                     .apply();
+        }
+    }
+
+    private static ScheduledTaskProto.ScheduledTask.RequiredNetworkType
+    convertToRequiredNetworkType(@TaskInfo.NetworkType int networkType) {
+        switch (networkType) {
+            case TaskInfo.NetworkType.NONE:
+                return ScheduledTaskProto.ScheduledTask.RequiredNetworkType.NONE;
+            case TaskInfo.NetworkType.ANY:
+                return ScheduledTaskProto.ScheduledTask.RequiredNetworkType.ANY;
+            case TaskInfo.NetworkType.UNMETERED:
+                return ScheduledTaskProto.ScheduledTask.RequiredNetworkType.UNMETERED;
+            default:
+                assert false : "Incorrect value of TaskInfo.NetworkType";
+                return ScheduledTaskProto.ScheduledTask.RequiredNetworkType.NONE;
         }
     }
 }

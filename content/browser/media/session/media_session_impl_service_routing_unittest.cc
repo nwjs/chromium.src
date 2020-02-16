@@ -12,7 +12,6 @@
 #include "base/time/time.h"
 #include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/mock_media_session_service_impl.h"
-#include "content/public/test/test_service_manager_context.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
 #include "media/base/media_content_type.h"
@@ -52,6 +51,8 @@ class MockMediaSessionPlayerObserver : public MediaSessionPlayerObserver {
   MOCK_METHOD2(OnSeekBackward, void(int player_id, base::TimeDelta seek_time));
   MOCK_METHOD2(OnSetVolumeMultiplier,
                void(int player_id, double volume_multiplier));
+  MOCK_METHOD1(OnEnterPictureInPicture, void(int player_id));
+  MOCK_METHOD1(OnExitPictureInPicture, void(int player_id));
 
   base::Optional<media_session::MediaPosition> GetPosition(
       int player_id) const override {
@@ -61,6 +62,10 @@ class MockMediaSessionPlayerObserver : public MediaSessionPlayerObserver {
   void SetPosition(
       const base::Optional<media_session::MediaPosition>& position) {
     position_ = position;
+  }
+
+  bool IsPictureInPictureAvailable(int player_id) const override {
+    return false;
   }
 
   RenderFrameHost* render_frame_host() const override {
@@ -89,9 +94,6 @@ class MediaSessionImplServiceRoutingTest
   void SetUp() override {
     RenderViewHostImplTestHarness::SetUp();
 
-    test_service_manager_context_ =
-        std::make_unique<content::TestServiceManagerContext>();
-
     contents()->GetMainFrame()->InitializeRenderFrameIfNeeded();
     contents()->NavigateAndCommit(GURL("http://www.example.com"));
 
@@ -105,7 +107,6 @@ class MediaSessionImplServiceRoutingTest
   void TearDown() override {
     services_.clear();
 
-    test_service_manager_context_.reset();
     RenderViewHostImplTestHarness::TearDown();
   }
 
@@ -193,9 +194,6 @@ class MediaSessionImplServiceRoutingTest
   media_session::MediaMetadata empty_metadata_;
 
   std::set<MediaSessionAction> actions_;
-
-  std::unique_ptr<content::TestServiceManagerContext>
-      test_service_manager_context_;
 };
 
 TEST_F(MediaSessionImplServiceRoutingTest, NoFrameProducesAudio) {

@@ -116,6 +116,9 @@ const base::FilePath::CharType kRemovableMediaPath[] =
 const base::FilePath::CharType kAndroidFilesPath[] =
     FILE_PATH_LITERAL("/run/arc/sdcard/write/emulated/0");
 
+const base::FilePath::CharType kSystemFontsPath[] =
+    FILE_PATH_LITERAL("/usr/share/fonts");
+
 base::FilePath GetDownloadsFolderForProfile(Profile* profile) {
   // Check if FilesApp has a registered path already.  This happens for tests.
   const std::string mount_point_name =
@@ -152,6 +155,17 @@ base::FilePath GetMyFilesFolderForProfile(Profile* profile) {
 
   // Return <cryptohome>/MyFiles.
   return profile->GetPath().AppendASCII(kFolderNameMyFiles);
+}
+
+base::FilePath GetAndroidFilesPath() {
+  // Check if Android has a registered path already. This happens for tests.
+  const std::string mount_point_name = util::GetAndroidFilesMountPointName();
+  storage::ExternalMountPoints* const mount_points =
+      storage::ExternalMountPoints::GetSystemInstance();
+  base::FilePath path;
+  if (mount_points->GetRegisteredPath(mount_point_name, &path))
+    return path;
+  return base::FilePath(file_manager::util::kAndroidFilesPath);
 }
 
 bool MigratePathFromOldFormat(Profile* profile,

@@ -33,8 +33,6 @@
 #error "This file requires ARC support."
 #endif
 
-@class CRWSessionController;
-
 namespace {
 
 void SetNavigationItemInWKItem(WKBackForwardListItem* wk_item,
@@ -55,6 +53,7 @@ web::NavigationItemImpl* GetNavigationItemFromWKItem(
 
 // Returns true if |url1| is the same as |url2| or is a placeholder of |url2|.
 bool IsSameOrPlaceholderOf(const GURL& url1, const GURL& url2) {
+  DCHECK(!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage));
   return url1 == url2 ||
          url1 == web::wk_navigation_util::CreatePlaceholderUrlForUrl(url2);
 }
@@ -67,21 +66,12 @@ const char kRestoreNavigationTime[] = "IOS.RestoreNavigationTime";
 
 WKBasedNavigationManagerImpl::WKBasedNavigationManagerImpl()
     : pending_item_index_(-1),
-      previous_item_index_(-1),
       last_committed_item_index_(-1),
       web_view_cache_(this) {}
 
 WKBasedNavigationManagerImpl::~WKBasedNavigationManagerImpl() = default;
 
-void WKBasedNavigationManagerImpl::SetSessionController(
-    CRWSessionController* session_controller) {}
-
 void WKBasedNavigationManagerImpl::InitializeSession() {}
-
-void WKBasedNavigationManagerImpl::OnNavigationItemsPruned(
-    size_t pruned_item_count) {
-  delegate_->OnNavigationItemsPruned(pruned_item_count);
-}
 
 void WKBasedNavigationManagerImpl::DetachFromWebView() {
   web_view_cache_.DetachFromWebView();
@@ -131,11 +121,6 @@ void WKBasedNavigationManagerImpl::FinalizeSessionRestore() {
   }
   restore_session_completion_callbacks_.clear();
   LoadIfNecessary();
-}
-
-CRWSessionController* WKBasedNavigationManagerImpl::GetSessionController()
-    const {
-  return nil;
 }
 
 void WKBasedNavigationManagerImpl::AddTransientItem(const GURL& url) {
@@ -225,9 +210,18 @@ void WKBasedNavigationManagerImpl::AddPendingItem(
     current_item_url = target_url;
   }
 
-  if (proxy.backForwardList.currentItem &&
-      IsSameOrPlaceholderOf(current_item_url, pending_item_->GetURL()) &&
-      IsSameOrPlaceholderOf(current_item_url, net::GURLWithNSURL(proxy.URL))) {
+  BOOL isCurrentURLSameAsPending = NO;
+  if (base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage)) {
+    isCurrentURLSameAsPending =
+        current_item_url == pending_item_->GetURL() &&
+        current_item_url == net::GURLWithNSURL(proxy.URL);
+  } else {
+    isCurrentURLSameAsPending =
+        IsSameOrPlaceholderOf(current_item_url, pending_item_->GetURL()) &&
+        IsSameOrPlaceholderOf(current_item_url, net::GURLWithNSURL(proxy.URL));
+  }
+
+  if (proxy.backForwardList.currentItem && isCurrentURLSameAsPending) {
     pending_item_index_ = web_view_cache_.GetCurrentItemIndex();
 
     // If |currentItem| is not already associated with a NavigationItemImpl,
@@ -236,8 +230,17 @@ void WKBasedNavigationManagerImpl::AddPendingItem(
     NavigationItemImpl* current_item =
         GetNavigationItemFromWKItem(current_wk_item);
     if (!current_item) {
+      current_item = pending_item_.get();
       SetNavigationItemInWKItem(current_wk_item, std::move(pending_item_));
     }
+    if (user_agent_override_option == UserAgentOverrideOption::DESKTOP) {
+      current_item->SetUserAgentType(UserAgentType::DESKTOP,
+                                     /*update_inherited_user_agent =*/true);
+    } else if (user_agent_override_option == UserAgentOverrideOption::MOBILE) {
+      current_item->SetUserAgentType(UserAgentType::MOBILE,
+                                     /*update_inherited_user_agent =*/true);
+    }
+
     pending_item_.reset();
   }
 }
@@ -254,9 +257,6 @@ void WKBasedNavigationManagerImpl::CommitPendingItem() {
     empty_window_open_item_.reset();
     return;
   }
-
-  bool last_committed_item_was_empty_window_open_item =
-      empty_window_open_item_ != nullptr;
 
   if (pending_item_index_ == -1) {
     pending_item_->ResetForCommit();
@@ -290,11 +290,6 @@ void WKBasedNavigationManagerImpl::CommitPendingItem() {
 
   pending_item_index_ = -1;
   pending_item_.reset();
-  // If the last committed item is the empty window open item, then don't update
-  // previous item because the new commit replaces the last committed item.
-  if (!last_committed_item_was_empty_window_open_item) {
-    previous_item_index_ = last_committed_item_index_;
-  }
   // If the newly committed item is the empty window open item, fake an index of
   // 0 because WKBackForwardList is empty at this point.
   last_committed_item_index_ =
@@ -315,9 +310,6 @@ void WKBasedNavigationManagerImpl::CommitPendingItem(
   // pending item.
   if (!item)
     return;
-
-  bool last_committed_item_was_empty_window_open_item =
-      empty_window_open_item_ != nullptr;
 
   item->ResetForCommit();
   item->SetTimestamp(time_smoother_.GetSmoothedTime(base::Time::Now()));
@@ -371,11 +363,6 @@ void WKBasedNavigationManagerImpl::CommitPendingItem(
     }
   }
 
-  // If the last committed item is the empty window open item, then don't update
-  // previous item because the new commit replaces the last committed item.
-  if (!last_committed_item_was_empty_window_open_item) {
-    previous_item_index_ = last_committed_item_index_;
-  }
   // If the newly committed item is the empty window open item, fake an index of
   // 0 because WKBackForwardList is empty at this point.
   last_committed_item_index_ =
@@ -407,16 +394,6 @@ WKBasedNavigationManagerImpl::ReleasePendingItem() {
 void WKBasedNavigationManagerImpl::SetPendingItem(
     std::unique_ptr<web::NavigationItemImpl> item) {
   pending_item_ = std::move(item);
-}
-
-int WKBasedNavigationManagerImpl::GetPreviousItemIndex() const {
-  return previous_item_index_;
-}
-
-void WKBasedNavigationManagerImpl::SetPreviousItemIndex(
-    int previous_item_index) {
-  DCHECK(web_view_cache_.IsAttachedToWebView());
-  previous_item_index_ = previous_item_index;
 }
 
 void WKBasedNavigationManagerImpl::AddPushStateItemIfNecessary(
@@ -708,7 +685,6 @@ void WKBasedNavigationManagerImpl::Restore(
   }
   DCHECK_EQ(0, GetItemCount());
   DCHECK_EQ(-1, pending_item_index_);
-  previous_item_index_ = -1;
   last_committed_item_index_ = -1;
 
   UnsafeRestore(last_committed_item_index, std::move(items));
@@ -852,7 +828,8 @@ WKBasedNavigationManagerImpl::GetLastCommittedItemInCurrentOrRestoredSession()
     GURL virtual_url;
     if (wk_navigation_util::IsRestoreSessionUrl(document_url) &&
         wk_navigation_util::ExtractTargetURL(document_url, &virtual_url)) {
-      if (wk_navigation_util::IsPlaceholderUrl(virtual_url)) {
+      if (!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage) &&
+          wk_navigation_util::IsPlaceholderUrl(virtual_url)) {
         last_committed_web_view_item_->SetVirtualURL(
             wk_navigation_util::ExtractUrlFromPlaceholderUrl(virtual_url));
       } else {
@@ -965,6 +942,7 @@ void WKBasedNavigationManagerImpl::FinishLoadURLWithParams(
 }
 
 bool WKBasedNavigationManagerImpl::IsPlaceholderUrl(const GURL& url) const {
+  DCHECK(!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage));
   return wk_navigation_util::IsPlaceholderUrl(url);
 }
 
@@ -1102,7 +1080,8 @@ WKBasedNavigationManagerImpl::WKWebViewCache::GetNavigationItemImplAtIndex(
   if (wk_navigation_util::IsRestoreSessionUrl(url)) {
     GURL virtual_url;
     if (wk_navigation_util::ExtractTargetURL(url, &virtual_url)) {
-      if (wk_navigation_util::IsPlaceholderUrl(virtual_url)) {
+      if (!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage) &&
+          wk_navigation_util::IsPlaceholderUrl(virtual_url)) {
         new_item->SetVirtualURL(
             wk_navigation_util::ExtractUrlFromPlaceholderUrl(virtual_url));
       } else {
@@ -1116,7 +1095,8 @@ WKBasedNavigationManagerImpl::WKWebViewCache::GetNavigationItemImplAtIndex(
   // navigation. Rather than expose the internal placeholder to the UI and to
   // URL-sensing components outside of //ios/web layer, set virtual URL to the
   // placeholder original URL here.
-  if (wk_navigation_util::IsPlaceholderUrl(url)) {
+  if (!base::FeatureList::IsEnabled(web::features::kUseJSForErrorPage) &&
+      wk_navigation_util::IsPlaceholderUrl(url)) {
     new_item->SetVirtualURL(
         wk_navigation_util::ExtractUrlFromPlaceholderUrl(url));
   }

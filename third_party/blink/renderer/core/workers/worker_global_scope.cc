@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/microtask.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
@@ -308,9 +309,10 @@ bool WorkerGlobalScope::FetchClassicImportedScript(
   WorkerClassicScriptLoader* classic_script_loader =
       MakeGarbageCollected<WorkerClassicScriptLoader>();
   EnsureFetcher();
-  classic_script_loader->LoadSynchronously(*execution_context, Fetcher(),
-                                           script_url,
-                                           mojom::RequestContextType::SCRIPT);
+  classic_script_loader->LoadSynchronously(
+      *execution_context, Fetcher(), script_url,
+      mojom::RequestContextType::SCRIPT,
+      network::mojom::RequestDestination::kScript);
   if (classic_script_loader->Failed())
     return false;
   *out_response_url = classic_script_loader->ResponseURL();
@@ -342,19 +344,6 @@ CoreProbeSink* WorkerGlobalScope::GetProbeSink() {
           GetThread()->GetWorkerInspectorController())
     return controller->GetProbeSink();
   return nullptr;
-}
-
-bool WorkerGlobalScope::IsSecureContext(String& error_message) const {
-  // Until there are APIs that are available in workers and that
-  // require a privileged context test that checks ancestors, just do
-  // a simple check here. Once we have a need for a real
-  // |isSecureContext| check here, we can check the responsible
-  // document for a privileged context at worker creation time, pass
-  // it in via WorkerThreadStartupData, and check it here.
-  if (GetSecurityOrigin()->IsPotentiallyTrustworthy())
-    return true;
-  error_message = GetSecurityOrigin()->IsPotentiallyTrustworthyErrorMessage();
-  return false;
 }
 
 BrowserInterfaceBrokerProxy& WorkerGlobalScope::GetBrowserInterfaceBroker() {
@@ -467,7 +456,7 @@ WorkerGlobalScope::WorkerGlobalScope(
     : WorkerOrWorkletGlobalScope(
           thread->GetIsolate(),
           CreateSecurityOrigin(creation_params.get()),
-          Agent::CreateForWorkerOrWorklet(
+          MakeGarbageCollected<Agent>(
               thread->GetIsolate(),
               (creation_params->agent_cluster_id.is_empty()
                    ? base::UnguessableToken::Create()
@@ -512,7 +501,8 @@ WorkerGlobalScope::WorkerGlobalScope(
   // A FeaturePolicy is created by FeaturePolicy::CreateFromParentPolicy, even
   // if the parent policy is null.
   DCHECK(creation_params->worker_feature_policy);
-  SetFeaturePolicy(std::move(creation_params->worker_feature_policy));
+  GetSecurityContext().SetFeaturePolicy(
+      std::move(creation_params->worker_feature_policy));
 }
 
 void WorkerGlobalScope::ExceptionThrown(ErrorEvent* event) {

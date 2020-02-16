@@ -36,9 +36,9 @@ def EnsureEmptyDir(path):
 
 def BuildForArch(arch):
   build_dir = 'out/release-' + arch
-  Run('scripts/fx', '--dir', build_dir, 'set', 'terminal.qemu-'+ arch,
-      '--with=//topaz/packages/sdk:topaz', '--with-base=//sdk/bundles:tools',
-      '--args=is_debug=false', '--args=build_sdk_archives=true')
+  Run('scripts/fx', '--dir', build_dir, 'set', 'terminal.qemu-' + arch,
+      '--with-base=//sdk/bundles:tools', '--args=is_debug=false',
+      '--args=build_sdk_archives=true')
   Run('scripts/fx', 'build', 'topaz/public/sdk:fuchsia_dart', 'sdk',
       'build/images')
 
@@ -120,6 +120,10 @@ def main(args):
     images_json = json.load(open(os.path.join(arch_output_dir, 'images.json')))
     for entry in images_json:
       if entry['type'] not in ['blk', 'zbi', 'kernel']:
+        continue
+      # Not all images are actually built. Only copy images with the 'archive'
+      # tag.
+      if not entry.get('archive'):
         continue
 
       shutil.copyfile(os.path.join(arch_output_dir, entry['path']),

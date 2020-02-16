@@ -10,16 +10,19 @@
 #include "base/callback_forward.h"
 #include "base/containers/id_map.h"
 #include "base/macros.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/permissions/permission_util.h"
 #include "content/public/browser/permission_controller_delegate.h"
 #include "content/public/browser/permission_type.h"
 #include "url/origin.h"
 
-class PermissionContextBase;
+namespace permissions {
 struct PermissionResult;
+}
+
+class PermissionContextBase;
 class Profile;
 
 class PermissionManager : public KeyedService,
@@ -63,9 +66,10 @@ class PermissionManager : public KeyedService,
       bool user_gesture,
       base::OnceCallback<void(const std::vector<ContentSetting>&)> callback);
 
-  PermissionResult GetPermissionStatus(ContentSettingsType permission,
-                                       const GURL& requesting_origin,
-                                       const GURL& embedding_origin);
+  permissions::PermissionResult GetPermissionStatus(
+      ContentSettingsType permission,
+      const GURL& requesting_origin,
+      const GURL& embedding_origin);
 
   // Returns the permission status for a given frame. This should be preferred
   // over GetPermissionStatus as additional checks can be performed when we know
@@ -73,7 +77,7 @@ class PermissionManager : public KeyedService,
   // TODO(raymes): Currently we still pass the |requesting_origin| as a separate
   // parameter because we can't yet guarantee that it matches the last committed
   // origin of the RenderFrameHost. See crbug.com/698985.
-  PermissionResult GetPermissionStatusForFrame(
+  permissions::PermissionResult GetPermissionStatusForFrame(
       ContentSettingsType permission,
       content::RenderFrameHost* render_frame_host,
       const GURL& requesting_origin);
@@ -132,6 +136,7 @@ class PermissionManager : public KeyedService,
  private:
   friend class PermissionManagerTest;
   friend class GeolocationPermissionContextTests;
+  friend class NfcPermissionContextTests;
 
   class PendingRequest;
   using PendingRequestsMap = base::IDMap<std::unique_ptr<PendingRequest>>;
@@ -159,7 +164,7 @@ class PermissionManager : public KeyedService,
                                ContentSettingsType content_type,
                                const std::string& resource_identifier) override;
 
-  PermissionResult GetPermissionStatusHelper(
+  permissions::PermissionResult GetPermissionStatusHelper(
       ContentSettingsType permission,
       content::RenderFrameHost* render_frame_host,
       const GURL& requesting_origin,

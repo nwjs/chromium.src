@@ -16,16 +16,15 @@ import androidx.browser.customtabs.CustomTabsIntent;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.DefaultBrowserInfo;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.contextmenu.ContextMenuItemDelegate;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.download.ChromeDownloadDelegate;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
 import org.chromium.chrome.browser.util.IntentUtils;
@@ -95,6 +94,11 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
     @Override
     public void onSaveToClipboard(String text, int clipboardType) {
         Clipboard.getInstance().setText(text);
+    }
+
+    @Override
+    public void onSaveImageToClipboard(Uri uri) {
+        Clipboard.getInstance().setImage(uri);
     }
 
     @Override
@@ -228,9 +232,6 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
     public void onOpenInEphemeralTab(String url, String title) {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.EPHEMERAL_TAB_USING_BOTTOM_SHEET)) {
             mTab.getActivity().getEphemeralTabCoordinator().requestOpenSheet(
-                    url, title, mTab.isIncognito());
-        } else {
-            mTab.getActivity().getEphemeralTabPanel().requestOpenPanel(
                     url, title, mTab.isIncognito());
         }
     }

@@ -26,6 +26,9 @@ import org.chromium.ui.base.EventForwarder;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Mock class for {@link WebContents}.
  */
@@ -92,6 +95,11 @@ public class MockWebContents implements WebContents {
     }
 
     @Override
+    public List<? extends WebContents> getInnerWebContents() {
+        return Collections.emptyList();
+    }
+
+    @Override
     public String getTitle() {
         return null;
     }
@@ -143,6 +151,9 @@ public class MockWebContents implements WebContents {
     public boolean focusLocationBarByDefault() {
         return false;
     }
+
+    @Override
+    public void setFocus(boolean hasFocus) {}
 
     @Override
     public void exitFullscreen() {}
@@ -271,4 +282,7 @@ public class MockWebContents implements WebContents {
 
     @Override
     public void notifyRendererPreferenceUpdate() {}
+
+    @Override
+    public void notifyBrowserControlsHeightChanged() {}
 }

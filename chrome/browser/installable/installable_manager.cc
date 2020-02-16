@@ -11,8 +11,7 @@
 #include "base/callback.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
-#include "base/task/post_task.h"
-#include "base/task/task_traits.h"
+#include "base/threading/sequenced_task_runner_handle.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
@@ -181,16 +180,31 @@ bool IsParamsForPwaCheck(const InstallableParams& params) {
 }
 
 void OnDidCompleteGetAllErrors(
-    base::OnceCallback<void(std::vector<std::string> errors)> callback,
+    base::OnceCallback<void(std::vector<std::string> errors,
+                            std::vector<content::InstallabilityError>
+                                installability_errors)> callback,
     const InstallableData& data) {
   std::vector<std::string> error_messages;
+  std::vector<content::InstallabilityError> installability_errors;
   for (auto error : data.errors) {
     std::string message = GetErrorMessage(error);
     if (!message.empty())
       error_messages.push_back(std::move(message));
+
+    content::InstallabilityError installability_error =
+        GetInstallabilityError(error);
+    if (!installability_error.error_id.empty())
+      installability_errors.push_back(installability_error);
   }
 
-  std::move(callback).Run(std::move(error_messages));
+  std::move(callback).Run(std::move(error_messages),
+                          std::move(installability_errors));
+}
+
+void OnDidCompleteGetPrimaryIcon(
+    base::OnceCallback<void(const SkBitmap*)> callback,
+    const InstallableData& data) {
+  std::move(callback).Run(data.primary_icon);
 }
 
 }  // namespace
@@ -287,7 +301,9 @@ void InstallableManager::GetData(const InstallableParams& params,
 }
 
 void InstallableManager::GetAllErrors(
-    base::OnceCallback<void(std::vector<std::string> errors)> callback) {
+    base::OnceCallback<void(std::vector<std::string> errors,
+                            std::vector<content::InstallabilityError>
+                                installability_errors)> callback) {
   InstallableParams params;
   params.check_eligibility = true;
   params.valid_manifest = true;
@@ -298,6 +314,14 @@ void InstallableManager::GetAllErrors(
   params.is_debug_mode = true;
   GetData(params,
           base::BindOnce(OnDidCompleteGetAllErrors, std::move(callback)));
+}
+
+void InstallableManager::GetPrimaryIcon(
+    base::OnceCallback<void(const SkBitmap*)> callback) {
+  InstallableParams params;
+  params.valid_primary_icon = true;
+  GetData(params,
+          base::BindOnce(OnDidCompleteGetPrimaryIcon, std::move(callback)));
 }
 
 bool InstallableManager::IsIconFetched(const IconPurpose purpose) const {
@@ -502,8 +526,8 @@ void InstallableManager::WorkOnTask() {
   if ((!check_passed && !params.is_debug_mode) || IsComplete(params)) {
     // Yield the UI thread before processing the next task. If this object is
     // deleted in the meantime, the next task naturally won't run.
-    base::PostTask(FROM_HERE, {base::CurrentThread()},
-                   base::BindOnce(&InstallableManager::CleanupAndStartNextTask,
+    base::SequencedTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(&InstallableManager::CleanupAndStartNextTask,
                                   weak_factory_.GetWeakPtr()));
 
     auto task = std::move(task_queue_.Current());

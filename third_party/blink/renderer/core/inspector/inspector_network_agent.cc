@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/core/xmlhttprequest/xml_http_request.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
+#include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_info.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
@@ -84,6 +85,10 @@
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
+#include "third_party/inspector_protocol/crdtp/json.h"
+
+using crdtp::SpanFrom;
+using crdtp::json::ConvertCBORToJSON;
 
 namespace blink {
 
@@ -166,13 +171,11 @@ class InspectorFileReaderLoaderClient final : public FileReaderLoaderClient {
  public:
   InspectorFileReaderLoaderClient(
       scoped_refptr<BlobDataHandle> blob,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       base::OnceCallback<void(scoped_refptr<SharedBuffer>)> callback)
       : blob_(std::move(blob)), callback_(std::move(callback)) {
-    // TODO(hajimehoshi): Use a per-ExecutionContext task runner of
-    // TaskType::kFileReading
     loader_ = std::make_unique<FileReaderLoader>(
-        FileReaderLoader::kReadByClient, this,
-        ThreadScheduler::Current()->DeprecatedDefaultTaskRunner());
+        FileReaderLoader::kReadByClient, this, std::move(task_runner));
   }
 
   ~InspectorFileReaderLoaderClient() override = default;
@@ -232,9 +235,12 @@ static void ResponseBodyFileReaderLoaderDone(
 class InspectorPostBodyParser
     : public WTF::RefCounted<InspectorPostBodyParser> {
  public:
-  explicit InspectorPostBodyParser(
-      std::unique_ptr<GetRequestPostDataCallback> callback)
-      : callback_(std::move(callback)), error_(false) {}
+  InspectorPostBodyParser(
+      std::unique_ptr<GetRequestPostDataCallback> callback,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+      : callback_(std::move(callback)),
+        task_runner_(std::move(task_runner)),
+        error_(false) {}
 
   void Parse(EncodedFormData* request_body) {
     if (!request_body || request_body->IsEmpty())
@@ -286,13 +292,14 @@ class InspectorPostBodyParser
     if (!blob_handle)
       return;
     auto* reader = new InspectorFileReaderLoaderClient(
-        blob_handle,
+        blob_handle, task_runner_,
         WTF::Bind(&InspectorPostBodyParser::BlobReadCallback,
                   WTF::RetainedRef(this), WTF::Unretained(destination)));
     reader->Start();
   }
 
   std::unique_ptr<GetRequestPostDataCallback> callback_;
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   bool error_;
   Vector<String> parts_;
   DISALLOW_COPY_AND_ASSIGN(InspectorPostBodyParser);
@@ -495,11 +502,20 @@ BuildObjectForResourceRequest(const ResourceRequest& request,
   bool hasPostData =
       FormDataToString(request.HttpBody(), max_body_size, &postData);
   KURL url = request.Url();
+  // protocol::Network::Request doesn't have a separate referrer string member
+  // like blink::ResourceRequest, so here we add ResourceRequest's referrer
+  // string to the protocol request's headers manually.
+  auto headers = request.HttpHeaderFields();
+
+  // The request's referrer must be generated at this point.
+  DCHECK_NE(request.ReferrerString(), Referrer::ClientReferrerString());
+  headers.Set(http_names::kReferer, AtomicString(request.ReferrerString()));
+
   std::unique_ptr<protocol::Network::Request> result =
       protocol::Network::Request::create()
           .setUrl(UrlWithoutFragment(url).GetString())
           .setMethod(request.HttpMethod())
-          .setHeaders(BuildObjectForHeaders(request.HttpHeaderFields()))
+          .setHeaders(BuildObjectForHeaders(headers))
           .setInitialPriority(ResourcePriorityJSON(request.Priority()))
           .setReferrerPolicy(GetReferrerPolicy(request.GetReferrerPolicy()))
           .build();
@@ -859,13 +875,11 @@ void InspectorNetworkAgent::PrepareRequest(
       AtomicString header_name = AtomicString(key);
       // When overriding referer, also override referrer policy
       // for this request to assure the request will be allowed.
-      // TODO(domfarolino): Stop setting the HTTPReferrer header, and instead
-      // use ResourceRequest::referrer_. See https://crbug.com/850813. This
-      // seems to require storing the referrer info that is currently stored
-      // inside state_'s kExtraRequestHeaders, somewhere else.
+      // TODO: Should we store the referrer header somewhere other than
+      // |extra_request_headers_|?
       if (header_name.LowerASCII() == http_names::kReferer.LowerASCII()) {
-        request.SetHttpReferrer(
-            Referrer(value, network::mojom::ReferrerPolicy::kAlways));
+        request.SetReferrerString(value);
+        request.SetReferrerPolicy(network::mojom::ReferrerPolicy::kAlways);
       } else {
         request.SetHttpHeaderField(header_name, AtomicString(value));
       }
@@ -1127,7 +1141,7 @@ void InspectorNetworkAgent::WillLoadXHR(ExecutionContext* execution_context,
                                         const HTTPHeaderMap& headers,
                                         bool include_credentials) {
   DCHECK(!pending_request_type_);
-  pending_xhr_replay_data_ = XHRReplayData::Create(
+  pending_xhr_replay_data_ = MakeGarbageCollected<XHRReplayData>(
       execution_context, method, UrlWithoutFragment(url), async,
       form_data ? form_data->DeepCopy() : nullptr, include_credentials);
   for (const auto& header : headers)
@@ -1406,8 +1420,13 @@ void InspectorNetworkAgent::GetResponseBodyBlob(
   NetworkResourcesData::ResourceData const* resource_data =
       resources_data_->Data(request_id);
   BlobDataHandle* blob = resource_data->DownloadedFileBlob();
+  ExecutionContext* context = GetTargetExecutionContext();
+  if (!context) {
+    callback->sendFailure(Response::InternalError());
+    return;
+  }
   InspectorFileReaderLoaderClient* client = new InspectorFileReaderLoaderClient(
-      blob,
+      blob, context->GetTaskRunner(TaskType::kFileReading),
       WTF::Bind(ResponseBodyFileReaderLoaderDone, resource_data->MimeType(),
                 resource_data->TextEncodingName(),
                 WTF::Passed(std::move(callback))));
@@ -1677,14 +1696,21 @@ String InspectorNetworkAgent::NavigationInitiatorInfo(LocalFrame* frame) {
     return String();
   auto it =
       frame_navigation_initiator_map_.find(IdentifiersFactory::FrameId(frame));
-  if (it != frame_navigation_initiator_map_.end())
-    return it->value->toJSON();
-  // For navigations, we limit async stack trace to depth 1 to avoid the
-  // base::Value depth limits with Mojo serialization / parsing.
-  // See http://crbug.com/809996.
-  return BuildInitiatorObject(frame->GetDocument(), FetchInitiatorInfo(),
-                              /*max_async_depth=*/1)
-      ->toJSON();
+  std::vector<uint8_t> cbor;
+  if (it != frame_navigation_initiator_map_.end()) {
+    it->value->AppendSerialized(&cbor);
+  } else {
+    // For navigations, we limit async stack trace to depth 1 to avoid the
+    // base::Value depth limits with Mojo serialization / parsing.
+    // See http://crbug.com/809996.
+    cbor = std::move(*BuildInitiatorObject(frame->GetDocument(),
+                                           FetchInitiatorInfo(),
+                                           /*max_async_depth=*/1))
+               .TakeSerialized();
+  }
+  std::vector<uint8_t> json;
+  ConvertCBORToJSON(SpanFrom(cbor), &json);
+  return String(reinterpret_cast<const char*>(json.data()), json.size());
 }
 
 InspectorNetworkAgent::InspectorNetworkAgent(
@@ -1694,8 +1720,9 @@ InspectorNetworkAgent::InspectorNetworkAgent(
     : inspected_frames_(inspected_frames),
       worker_global_scope_(worker_global_scope),
       v8_session_(v8_session),
-      resources_data_(NetworkResourcesData::Create(kDefaultTotalBufferSize,
-                                                   kDefaultResourceBufferSize)),
+      resources_data_(MakeGarbageCollected<NetworkResourcesData>(
+          kDefaultTotalBufferSize,
+          kDefaultResourceBufferSize)),
       devtools_token_(worker_global_scope_
                           ? worker_global_scope_->GetParentDevToolsToken()
                           : inspected_frames->Root()->GetDevToolsFrameToken()),
@@ -1734,11 +1761,23 @@ void InspectorNetworkAgent::getRequestPostData(
         Response::Error("No post data available for the request"));
     return;
   }
-
+  ExecutionContext* context = GetTargetExecutionContext();
+  if (!context) {
+    callback->sendFailure(Response::InternalError());
+    return;
+  }
   scoped_refptr<InspectorPostBodyParser> parser =
-      base::MakeRefCounted<InspectorPostBodyParser>(std::move(callback));
+      base::MakeRefCounted<InspectorPostBodyParser>(
+          std::move(callback), context->GetTaskRunner(TaskType::kFileReading));
   // TODO(crbug.com/810554): Extend protocol to fetch body parts separately
   parser->Parse(post_data.get());
+}
+
+ExecutionContext* InspectorNetworkAgent::GetTargetExecutionContext() const {
+  if (worker_global_scope_)
+    return worker_global_scope_;
+  DCHECK(inspected_frames_);
+  return inspected_frames_->Root()->GetDocument();
 }
 
 }  // namespace blink

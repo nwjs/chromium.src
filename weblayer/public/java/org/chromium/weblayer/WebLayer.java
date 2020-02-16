@@ -10,7 +10,6 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Process;
 import android.os.RemoteException;
 import android.support.v4.app.Fragment;
 import android.util.AndroidRuntimeException;
@@ -44,8 +43,12 @@ public final class WebLayer {
     // load the code. Do not set this in production APKs!
     private static final String PACKAGE_MANIFEST_KEY = "org.chromium.weblayer.WebLayerPackage";
 
+    @SuppressWarnings("StaticFieldLeak")
     @Nullable
-    private static ClassLoader sRemoteClassLoader;
+    private static Context sRemoteContext;
+
+    @Nullable
+    private static Context sAppContext;
 
     @Nullable
     private static WebLayerLoader sLoader;
@@ -123,6 +126,10 @@ public final class WebLayer {
         return sLoader;
     }
 
+    IWebLayer getImpl() {
+        return mImpl;
+    }
+
     /**
      * Returns the supported version. Using any functions defined in a newer version than
      * returned by {@link getSupportedMajorVersion} result in throwing an
@@ -139,6 +146,42 @@ public final class WebLayer {
         ThreadCheck.ensureOnUiThread();
         context = context.getApplicationContext();
         return getWebLayerLoader(context).getMajorVersion();
+    }
+
+    // Internal version of getSupportedMajorVersion(). This should only be used when you know
+    // WebLayer has been initialized. Generally that means calling this from any non-static method.
+    static int getSupportedMajorVersionInternal() {
+        if (sLoader == null) {
+            throw new IllegalStateException(
+                    "This should only be called once WebLayer is initialized");
+        }
+        return sLoader.getMajorVersion();
+    }
+
+    // Internal getter for the app Context. This should only be used when you know WebLayer has
+    // been initialized.
+    static Context getAppContext() {
+        return sAppContext;
+    }
+
+    /**
+     * Returns the Chrome version of the WebLayer implementation. This will return a full version
+     * string such as "79.0.3945.0", while {@link getSupportedMajorVersion} will only return the
+     * major version integer (79 in the example).
+     */
+    public static String getSupportedFullVersion(Context context) {
+        ThreadCheck.ensureOnUiThread();
+        context = context.getApplicationContext();
+        return getWebLayerLoader(context).getVersion();
+    }
+
+    /**
+     * Returns the Chrome version this client was built at. This will return a full version string
+     * such as "79.0.3945.0".
+     */
+    public static String getVersion() {
+        ThreadCheck.ensureOnUiThread();
+        return WebLayerClientVersionConstants.PRODUCT_VERSION;
     }
 
     /**
@@ -168,7 +211,7 @@ public final class WebLayer {
             int majorVersion = -1;
             String version = "<unavailable>";
             try {
-                remoteClassLoader = getOrCreateRemoteClassLoader(appContext);
+                remoteClassLoader = getOrCreateRemoteContext(appContext).getClassLoader();
                 Class factoryClass = remoteClassLoader.loadClass(
                         "org.chromium.weblayer_private.WebLayerFactoryImpl");
                 // NOTE: the 20 comes from the previous scheme of incrementing versioning. It must
@@ -219,12 +262,21 @@ public final class WebLayer {
                 return;
             }
             try {
-                getIWebLayer(appContext)
-                        .loadAsync(ObjectWrapper.wrap(appContext),
-                                ObjectWrapper.wrap((ValueCallback<Boolean>) result -> {
-                                    onWebLayerReady();
-                                }));
-            } catch (RemoteException e) {
+                if (getMajorVersion() < 81) {
+                    getIWebLayer(appContext)
+                            .loadAsyncV80(ObjectWrapper.wrap(appContext),
+                                    ObjectWrapper.wrap((ValueCallback<Boolean>) result -> {
+                                        onWebLayerReady();
+                                    }));
+                } else {
+                    getIWebLayer(appContext)
+                            .loadAsync(ObjectWrapper.wrap(appContext),
+                                    ObjectWrapper.wrap(getOrCreateRemoteContext(appContext)),
+                                    ObjectWrapper.wrap((ValueCallback<Boolean>) result -> {
+                                        onWebLayerReady();
+                                    }));
+                }
+            } catch (Exception e) {
                 throw new APICallException(e);
             }
         }
@@ -239,10 +291,16 @@ public final class WebLayer {
                 return null;
             }
             try {
-                getIWebLayer(appContext).loadSync(ObjectWrapper.wrap(appContext));
+                if (getMajorVersion() < 81) {
+                    getIWebLayer(appContext).loadSyncV80(ObjectWrapper.wrap(appContext));
+                } else {
+                    getIWebLayer(appContext)
+                            .loadSync(ObjectWrapper.wrap(appContext),
+                                    ObjectWrapper.wrap(getOrCreateRemoteContext(appContext)));
+                }
                 onWebLayerReady();
                 return mWebLayer;
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 throw new APICallException(e);
             }
         }
@@ -324,10 +382,37 @@ public final class WebLayer {
      */
     @NonNull
     public static Fragment createBrowserFragment(@Nullable String profileName) {
+        return createBrowserFragment(profileName, null);
+    }
+
+    /**
+     * Creates a new WebLayer Fragment.
+     *
+     * {@link persistenceId} uniquely identifies the Browser for saving the set of tabs and
+     * navigations. A value of null does not save/restore any state. A non-null value results in
+     * asynchronously restoring the tabs and navigations. Supplying a non-null value means the
+     * Browser initially has no tabs (until restore is complete).
+     *
+     * @param profileName Null to indicate in-memory profile. Otherwise, name cannot be empty
+     * and should contain only alphanumeric and underscore characters since it will be used as
+     * a directory name in the file system.
+     * @param persistenceId If non-null and not empty uniquely identifies the Browser for saving
+     * state.
+     *
+     * @since 81
+     */
+    public static Fragment createBrowserFragment(
+            @Nullable String profileName, @Nullable String persistenceId) {
         ThreadCheck.ensureOnUiThread();
+        if (persistenceId != null && getSupportedMajorVersionInternal() < 81) {
+            throw new UnsupportedOperationException();
+        }
         // TODO: use a profile id instead of the path to the actual file.
         Bundle args = new Bundle();
         args.putString(BrowserFragmentArgs.PROFILE_NAME, sanitizeProfileName(profileName));
+        if (persistenceId != null) {
+            args.putString(BrowserFragmentArgs.PERSISTENCE_ID, persistenceId);
+        }
         BrowserFragment fragment = new BrowserFragment();
         fragment.setArguments(args);
         return fragment;
@@ -350,53 +435,38 @@ public final class WebLayer {
         return getWebLayerLoader(appContext).getIWebLayer(appContext);
     }
 
-    @SuppressWarnings("NewApi")
-    static ClassLoader getOrCreateRemoteClassLoaderForChildProcess(Context appContext)
-            throws PackageManager.NameNotFoundException, ReflectiveOperationException {
-        if (sRemoteClassLoader != null) {
-            return sRemoteClassLoader;
-        }
-        if (getImplPackageName(appContext) == null && Process.isIsolated()
-                && Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
-            // In <= M, the WebView update service is not available in isolated processes. This
-            // causes a crash when trying to initialize WebView through the normal machinery, so we
-            // need to directly make the remote context here.
-            String packageName = (String) Class.forName("android.webkit.WebViewFactory")
-                                         .getMethod("getWebViewPackageName")
-                                         .invoke(null);
-            sRemoteClassLoader =
-                    appContext
-                            .createPackageContext(packageName,
-                                    Context.CONTEXT_IGNORE_SECURITY | Context.CONTEXT_INCLUDE_CODE)
-                            .getClassLoader();
-            return sRemoteClassLoader;
-        }
-        return getOrCreateRemoteClassLoader(appContext);
-    }
-
     /**
-     * Creates a ClassLoader for the remote (weblayer implementation) side.
+     * Creates a Context for the remote (weblayer implementation) side.
      */
-    static ClassLoader getOrCreateRemoteClassLoader(Context appContext)
+    static Context getOrCreateRemoteContext(Context appContext)
             throws PackageManager.NameNotFoundException, ReflectiveOperationException {
-        if (sRemoteClassLoader != null) {
-            return sRemoteClassLoader;
+        if (sRemoteContext != null) {
+            return sRemoteContext;
         }
+        Class<?> webViewFactoryClass = Class.forName("android.webkit.WebViewFactory");
         String implPackageName = getImplPackageName(appContext);
-        if (implPackageName == null) {
-            sRemoteClassLoader = createRemoteClassLoaderFromWebViewFactory(appContext);
+        sAppContext = appContext;
+        if (implPackageName != null) {
+            sRemoteContext = createRemoteContextFromPackageName(appContext, implPackageName);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Method getContext =
+                    webViewFactoryClass.getDeclaredMethod("getWebViewContextAndSetProvider");
+            getContext.setAccessible(true);
+            sRemoteContext = (Context) getContext.invoke(null);
         } else {
-            sRemoteClassLoader = createRemoteClassLoaderFromPackage(appContext, implPackageName);
+            implPackageName =
+                    (String) webViewFactoryClass.getMethod("getWebViewPackageName").invoke(null);
+            sRemoteContext = createRemoteContextFromPackageName(appContext, implPackageName);
         }
-        return sRemoteClassLoader;
+        return sRemoteContext;
     }
 
     /**
-     * Creates a ClassLoader for the remote (weblayer implementation) side
+     * Creates a Context for the remote (weblayer implementation) side
      * using a specified package name as the implementation. This is only
      * intended for testing, not production use.
      */
-    private static ClassLoader createRemoteClassLoaderFromPackage(
+    private static Context createRemoteContextFromPackageName(
             Context appContext, String implPackageName)
             throws PackageManager.NameNotFoundException, ReflectiveOperationException {
         // Load the code for the target package.
@@ -414,34 +484,7 @@ public final class WebLayer {
         sPackageInfo.setAccessible(true);
         sPackageInfo.set(null, implPackageInfo);
 
-        return remoteContext.getClassLoader();
-    }
-
-    /**
-     * Creates a ClassLoader for the remote (weblayer implementation) side
-     * using WebViewFactory to load the current WebView implementation.
-     */
-    private static ClassLoader createRemoteClassLoaderFromWebViewFactory(Context appContext)
-            throws ReflectiveOperationException {
-        Class<?> webViewFactory = Class.forName("android.webkit.WebViewFactory");
-        Class<?> providerClass;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // In M+ this method loads the native library and the Java code, and adds the assets
-            // to the app.
-            Method getProviderClass = webViewFactory.getDeclaredMethod("getProviderClass");
-            getProviderClass.setAccessible(true);
-            providerClass = (Class) getProviderClass.invoke(null);
-        } else {
-            // In L we have to load the native library separately first.
-            Method loadNativeLibrary = webViewFactory.getDeclaredMethod("loadNativeLibrary");
-            loadNativeLibrary.setAccessible(true);
-            loadNativeLibrary.invoke(null);
-            // In L the method had a different name but still adds the assets to the app.
-            Method getFactoryClass = webViewFactory.getDeclaredMethod("getFactoryClass");
-            getFactoryClass.setAccessible(true);
-            providerClass = (Class) getFactoryClass.invoke(null);
-        }
-        return providerClass.getClassLoader();
+        return remoteContext;
     }
 
     private static String sanitizeProfileName(String profileName) {

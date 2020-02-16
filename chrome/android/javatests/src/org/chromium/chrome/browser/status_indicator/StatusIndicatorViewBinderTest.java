@@ -21,13 +21,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ui.widget.ViewResourceFrameLayout;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ui.DummyUiActivity;
-import org.chromium.chrome.test.ui.DummyUiActivityTestCase;
+import org.chromium.components.browser_ui.widget.ViewResourceFrameLayout;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.ui.test.util.DummyUiActivity;
+import org.chromium.ui.test.util.DummyUiActivityTestCase;
 
 /**
  * Tests for {@link StatusIndicatorViewBinder}.
@@ -60,7 +60,7 @@ public class StatusIndicatorViewBinderTest extends DummyUiActivityTestCase {
         mModel = new PropertyModel.Builder(StatusIndicatorProperties.ALL_KEYS)
                          .with(StatusIndicatorProperties.STATUS_TEXT, "")
                          .with(StatusIndicatorProperties.STATUS_ICON, null)
-                         .with(StatusIndicatorProperties.ANDROID_VIEW_VISIBLE, false)
+                         .with(StatusIndicatorProperties.ANDROID_VIEW_VISIBILITY, View.GONE)
                          .with(StatusIndicatorProperties.COMPOSITED_VIEW_VISIBLE, false)
                          .build();
         mMCP = PropertyModelChangeProcessor.create(mModel,
@@ -110,7 +110,7 @@ public class StatusIndicatorViewBinderTest extends DummyUiActivityTestCase {
                 mSceneLayer.isSceneOverlayTreeShowing());
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            mModel.set(StatusIndicatorProperties.ANDROID_VIEW_VISIBLE, true);
+            mModel.set(StatusIndicatorProperties.ANDROID_VIEW_VISIBILITY, View.VISIBLE);
             mModel.set(StatusIndicatorProperties.COMPOSITED_VIEW_VISIBLE, true);
         });
 
@@ -120,7 +120,7 @@ public class StatusIndicatorViewBinderTest extends DummyUiActivityTestCase {
                 "Composited view is not visible.", mSceneLayer.isSceneOverlayTreeShowing());
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            mModel.set(StatusIndicatorProperties.ANDROID_VIEW_VISIBLE, false);
+            mModel.set(StatusIndicatorProperties.ANDROID_VIEW_VISIBILITY, View.GONE);
             mModel.set(StatusIndicatorProperties.COMPOSITED_VIEW_VISIBLE, false);
         });
 
@@ -142,7 +142,7 @@ public class StatusIndicatorViewBinderTest extends DummyUiActivityTestCase {
     /** Mock {@link StatusIndicatorSceneLayer} class to avoid native initialization. */
     private class MockStatusIndicatorSceneLayer extends StatusIndicatorSceneLayer {
         MockStatusIndicatorSceneLayer(ViewResourceFrameLayout statusIndicator) {
-            super(statusIndicator);
+            super(statusIndicator, null);
         }
 
         @Override

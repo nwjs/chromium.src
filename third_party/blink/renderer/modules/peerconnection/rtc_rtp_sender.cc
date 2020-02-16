@@ -10,6 +10,11 @@
 #include <utility>
 
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtcp_parameters.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_capabilities.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_codec_parameters.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_header_extension_capability.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_rtp_header_extension_parameters.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
 #include "third_party/blink/renderer/modules/peerconnection/peer_connection_dependency_factory.h"
@@ -17,11 +22,6 @@
 #include "third_party/blink/renderer/modules/peerconnection/rtc_dtmf_sender.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_error_util.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtcp_parameters.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_capabilities.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_codec_parameters.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_header_extension_capability.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_header_extension_parameters.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_stats_report.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_void_request_script_promise_resolver_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/web_rtc_stats_report_callback_resolver.h"
@@ -265,8 +265,6 @@ ToRtpParameters(const RTCRtpSendParameters* parameters) {
 
 webrtc::RtpEncodingParameters ToRtpEncodingParameters(
     const RTCRtpEncodingParameters* encoding) {
-  // TODO(orphis): Forward missing fields from the WebRTC library:
-  // codecPayloadType, dtx, ptime, maxFramerate, scaleResolutionDownBy.
   webrtc::RtpEncodingParameters webrtc_encoding;
   if (encoding->hasRid()) {
     webrtc_encoding.rid = encoding->rid().Utf8();
@@ -282,6 +280,9 @@ webrtc::RtpEncodingParameters ToRtpEncodingParameters(
     webrtc_encoding.scale_resolution_down_by =
         encoding->scaleResolutionDownBy();
   }
+  if (encoding->hasMaxFramerate()) {
+    webrtc_encoding.max_framerate = encoding->maxFramerate();
+  }
   // https://w3c.github.io/webrtc-svc/
   if (encoding->hasScalabilityMode()) {
     if (encoding->scalabilityMode() == "L1T2") {
@@ -294,7 +295,7 @@ webrtc::RtpEncodingParameters ToRtpEncodingParameters(
 }
 
 RTCRtpHeaderExtensionParameters* ToRtpHeaderExtensionParameters(
-    const webrtc::RtpHeaderExtensionParameters& webrtc_header) {
+    const webrtc::RtpExtension& webrtc_header) {
   RTCRtpHeaderExtensionParameters* header =
       RTCRtpHeaderExtensionParameters::Create();
   header->setUri(webrtc_header.uri.c_str());
@@ -375,8 +376,7 @@ ScriptPromise RTCRtpSender::replaceTrack(ScriptState* script_state,
 
 RTCRtpSendParameters* RTCRtpSender::getParameters() {
   RTCRtpSendParameters* parameters = RTCRtpSendParameters::Create();
-  // TODO(orphis): Forward missing fields from the WebRTC library:
-  // degradationPreference
+  // TODO(orphis): Forward missing field: degradationPreference
   std::unique_ptr<webrtc::RtpParameters> webrtc_parameters =
       sender_->GetParameters();
 
@@ -391,10 +391,10 @@ RTCRtpSendParameters* RTCRtpSender::getParameters() {
   encodings.ReserveCapacity(
       SafeCast<wtf_size_t>(webrtc_parameters->encodings.size()));
   for (const auto& webrtc_encoding : webrtc_parameters->encodings) {
-    // TODO(orphis): Forward missing fields from the WebRTC library:
-    // codecPayloadType, dtx, ptime, maxFramerate, scaleResolutionDownBy.
     RTCRtpEncodingParameters* encoding = RTCRtpEncodingParameters::Create();
-    encoding->setRid(WebString::FromUTF8(webrtc_encoding.rid));
+    if (!webrtc_encoding.rid.empty()) {
+      encoding->setRid(String::FromUTF8(webrtc_encoding.rid));
+    }
     encoding->setActive(webrtc_encoding.active);
     if (webrtc_encoding.max_bitrate_bps) {
       encoding->setMaxBitrate(webrtc_encoding.max_bitrate_bps.value());
@@ -402,6 +402,9 @@ RTCRtpSendParameters* RTCRtpSender::getParameters() {
     if (webrtc_encoding.scale_resolution_down_by) {
       encoding->setScaleResolutionDownBy(
           webrtc_encoding.scale_resolution_down_by.value());
+    }
+    if (webrtc_encoding.max_framerate) {
+      encoding->setMaxFramerate(webrtc_encoding.max_framerate.value());
     }
     encoding->setPriority(
         PriorityFromDouble(webrtc_encoding.bitrate_priority).c_str());
@@ -552,7 +555,7 @@ void RTCRtpSender::setStreams(HeapVector<Member<MediaStream>> streams,
                                       kOnlySupportedInUnifiedPlanMessage);
     return;
   }
-  WebVector<WebString> stream_ids;
+  Vector<String> stream_ids;
   for (auto stream : streams)
     stream_ids.emplace_back(stream->id());
   sender_->SetStreams(stream_ids);
@@ -580,7 +583,7 @@ RTCRtpCapabilities* RTCRtpSender::getCapabilities(const String& kind) {
 
   std::unique_ptr<webrtc::RtpCapabilities> rtc_capabilities =
       PeerConnectionDependencyFactory::GetInstance()->GetSenderCapabilities(
-          kind.Utf8());
+          kind);
 
   HeapVector<Member<RTCRtpCodecCapability>> codecs;
   codecs.ReserveInitialCapacity(

@@ -91,13 +91,13 @@ class BookmarkPromoHeader implements AndroidSyncSettingsObserver, SignInStateObs
             mSigninPromoController = null;
         }
 
-        mSignInManager = IdentityServicesProvider.getSigninManager();
+        mSignInManager = IdentityServicesProvider.get().getSigninManager();
         mSignInManager.addSignInStateObserver(this);
 
         mPromoState = calculatePromoState();
         if (mPromoState == PromoState.PROMO_SYNC) {
             SharedPreferencesManager.getInstance().incrementInt(
-                    ChromePreferenceKeys.PREF_SIGNIN_AND_SYNC_PROMO_SHOW_COUNT);
+                    ChromePreferenceKeys.SIGNIN_AND_SYNC_PROMO_SHOW_COUNT);
         }
     }
 
@@ -170,7 +170,7 @@ class BookmarkPromoHeader implements AndroidSyncSettingsObserver, SignInStateObs
      */
     private void setPersonalizedSigninPromoDeclined() {
         SharedPreferencesManager.getInstance().writeBoolean(
-                ChromePreferenceKeys.PREF_PERSONALIZED_SIGNIN_PROMO_DECLINED, true);
+                ChromePreferenceKeys.SIGNIN_PROMO_PERSONALIZED_DECLINED, true);
         mPromoState = calculatePromoState();
         triggerPromoUpdate();
     }
@@ -178,9 +178,20 @@ class BookmarkPromoHeader implements AndroidSyncSettingsObserver, SignInStateObs
     /**
      * @return Whether the user declined the personalized signin promo.
      */
-    private boolean wasPersonalizedSigninPromoDeclined() {
+    @VisibleForTesting
+    static boolean wasPersonalizedSigninPromoDeclined() {
         return SharedPreferencesManager.getInstance().readBoolean(
-                ChromePreferenceKeys.PREF_PERSONALIZED_SIGNIN_PROMO_DECLINED, false);
+                ChromePreferenceKeys.SIGNIN_PROMO_PERSONALIZED_DECLINED, false);
+    }
+
+    /**
+     * @return Whether the personalized signin promo should be shown to user.
+     */
+    private boolean shouldShowBookmarkSigninPromo() {
+        return mSignInManager.isSignInAllowed()
+                && SigninPromoController.hasNotReachedImpressionLimit(
+                        SigninAccessPoint.BOOKMARK_MANAGER)
+                && !wasPersonalizedSigninPromoDeclined();
     }
 
     private @PromoState int calculatePromoState() {
@@ -193,18 +204,13 @@ class BookmarkPromoHeader implements AndroidSyncSettingsObserver, SignInStateObs
         }
 
         if (!ChromeSigninController.get().isSignedIn()) {
-            boolean impressionLimitReached = !SigninPromoController.hasNotReachedImpressionLimit(
-                    SigninAccessPoint.BOOKMARK_MANAGER);
-            if (!mSignInManager.isSignInAllowed() || impressionLimitReached
-                    || wasPersonalizedSigninPromoDeclined()) {
-                return PromoState.PROMO_NONE;
-            }
-            return PromoState.PROMO_SIGNIN_PERSONALIZED;
+            return shouldShowBookmarkSigninPromo() ? PromoState.PROMO_SIGNIN_PERSONALIZED
+                                                   : PromoState.PROMO_NONE;
         }
 
         boolean impressionLimitNotReached =
                 SharedPreferencesManager.getInstance().readInt(
-                        ChromePreferenceKeys.PREF_SIGNIN_AND_SYNC_PROMO_SHOW_COUNT)
+                        ChromePreferenceKeys.SIGNIN_AND_SYNC_PROMO_SHOW_COUNT)
                 < MAX_SIGNIN_AND_SYNC_PROMO_SHOW_COUNT;
         if (!AndroidSyncSettings.get().isChromeSyncEnabled() && impressionLimitNotReached) {
             return PromoState.PROMO_SYNC;
@@ -264,6 +270,6 @@ class BookmarkPromoHeader implements AndroidSyncSettingsObserver, SignInStateObs
     @VisibleForTesting
     static void setPrefPersonalizedSigninPromoDeclinedForTests(boolean isDeclined) {
         SharedPreferencesManager.getInstance().writeBoolean(
-                ChromePreferenceKeys.PREF_PERSONALIZED_SIGNIN_PROMO_DECLINED, isDeclined);
+                ChromePreferenceKeys.SIGNIN_PROMO_PERSONALIZED_DECLINED, isDeclined);
     }
 }

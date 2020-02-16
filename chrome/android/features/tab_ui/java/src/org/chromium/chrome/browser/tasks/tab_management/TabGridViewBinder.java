@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_ALPHA;
+
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
@@ -22,9 +24,9 @@ import androidx.annotation.Nullable;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
-import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.base.MathUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
-import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -161,8 +163,8 @@ class TabGridViewBinder {
                 int tabId = model.get(TabProperties.TAB_ID);
                 listener.run(tabId);
             });
-        } else if (TabProperties.ALPHA == propertyKey) {
-            view.setAlpha(model.get(TabProperties.ALPHA));
+        } else if (CARD_ALPHA == propertyKey) {
+            view.setAlpha(model.get(CARD_ALPHA));
         } else if (TabProperties.TITLE == propertyKey) {
             String title = model.get(TabProperties.TITLE);
             view.fastFindViewById(R.id.action_button)
@@ -178,6 +180,8 @@ class TabGridViewBinder {
                             model.get(TabProperties.CARD_ANIMATION_STATUS), isSelected);
         } else if (TabProperties.IS_INCOGNITO == propertyKey) {
             updateColor(view, model.get(TabProperties.IS_INCOGNITO), TabProperties.UiType.CLOSABLE);
+        } else if (TabProperties.ACCESSIBILITY_DELEGATE == propertyKey) {
+            view.setAccessibilityDelegate(model.get(TabProperties.ACCESSIBILITY_DELEGATE));
         }
     }
 

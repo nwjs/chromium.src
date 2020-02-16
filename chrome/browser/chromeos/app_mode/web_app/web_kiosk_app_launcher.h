@@ -10,7 +10,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
 #include "components/account_id/account_id.h"
@@ -36,6 +36,7 @@ class WebKioskAppLauncher {
     virtual void InitializeNetwork() = 0;
     virtual void OnAppStartedInstalling() = 0;
     virtual void OnAppPrepared() = 0;
+    virtual void OnAppInstallFailed() = 0;
     virtual void OnAppLaunched() = 0;
     virtual void OnAppLaunchFailed() = 0;
 

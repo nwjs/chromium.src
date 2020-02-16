@@ -568,6 +568,16 @@ class AXPlatformNodeTextRangeProviderTest : public ui::AXPlatformNodeWinTest {
   }
 
   ui::AXTreeUpdate BuildAXTreeForMoveByFormat() {
+    //                    1
+    //                    |
+    //    -------------------------------------
+    //    |       |       |    |    |    |    |
+    //    2       4       8   10   12   14   16
+    //    |       |       |    |    |    |    |
+    //    |   ---------   |    |    |    |    |
+    //    |   |   |   |   |    |    |    |    |
+    //    3   5   6   7   9   11   13   15   17
+
     ui::AXNodeData group1_data;
     group1_data.id = 2;
     group1_data.role = ax::mojom::Role::kGenericContainer;
@@ -1212,7 +1222,6 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   Init(BuildAXTreeForMoveByFormat());
   AXNodePosition::SetTree(tree_.get());
   AXNode* root_node = GetRootNode();
-
   ComPtr<ITextRangeProvider> text_range_provider;
   GetTextRangeProviderFromTextNode(text_range_provider, root_node);
 
@@ -1221,54 +1230,290 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
       L"Text with formattingStandalone line with no formattingbold "
       L"textParagraph 1Paragraph 2Paragraph 3Paragraph 4");
 
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"Text with formatting");
+  // https://docs.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationtextrange-expandtoenclosingunit
+  // Consider two consecutive text units A and B.
+  // The documentation illustrates 9 cases, but cases 1 and 9 are equivalent.
+  // In each case, the expected output is a range from start of A to end of A.
 
-  // Set it up so that the text range is in the middle of a format boundary
-  // and expand by format.
+  // Create a range encompassing nodes 11-15 which will serve as text units A
+  // and B for this test.
+  ComPtr<ITextRangeProvider> units_a_b_provider;
+  ASSERT_HRESULT_SUCCEEDED(text_range_provider->Clone(&units_a_b_provider));
   int count;
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->Move(TextUnit_Character, /*count*/ 31, &count));
-  ASSERT_EQ(31, count);
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"l");
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider,
-                          L"Standalone line with no formatting");
+  ASSERT_HRESULT_SUCCEEDED(units_a_b_provider->MoveEndpointByUnit(
+      TextPatternRangeEndpoint_Start, TextUnit_Character, /*count*/ 63,
+      &count));
+  ASSERT_EQ(63, count);
+  ASSERT_HRESULT_SUCCEEDED(units_a_b_provider->MoveEndpointByUnit(
+      TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ -11, &count));
+  ASSERT_EQ(-11, count);
+  EXPECT_UIA_TEXTRANGE_EQ(units_a_b_provider,
+                          L"Paragraph 1Paragraph 2Paragraph 3");
 
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->Move(TextUnit_Character, /*count*/ 35, &count));
-  ASSERT_EQ(35, count);
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"o");
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"bold text");
-
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->Move(TextUnit_Character, /*count*/ 10, &count));
-  ASSERT_EQ(10, count);
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"a");
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"Paragraph 1");
-
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->Move(TextUnit_Character, /*count*/ 15, &count));
-  ASSERT_EQ(15, count);
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"g");
-  ASSERT_HRESULT_SUCCEEDED(
-      text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"Paragraph 2Paragraph 3");
-
-  // Test expanding a degenerate range
-  ASSERT_HRESULT_SUCCEEDED(text_range_provider->MoveEndpointByUnit(
+  // Create a range encompassing node 11 which will serve as our expected
+  // value of a range from start of A to end of A.
+  ComPtr<ITextRangeProvider> unit_a_provider;
+  ASSERT_HRESULT_SUCCEEDED(units_a_b_provider->Clone(&unit_a_provider));
+  ASSERT_HRESULT_SUCCEEDED(unit_a_provider->MoveEndpointByUnit(
       TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ -22, &count));
   ASSERT_EQ(-22, count);
+  EXPECT_UIA_TEXTRANGE_EQ(unit_a_provider, L"Paragraph 1");
+
+  // Case 1: Degenerate range at start of A.
+  {
+    SCOPED_TRACE("Case 1: Degenerate range at start of A.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByRange(
+        TextPatternRangeEndpoint_End, test_case_provider.Get(),
+        TextPatternRangeEndpoint_Start));
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 2: Range from start of A to middle of A.
+  {
+    SCOPED_TRACE("Case 2: Range from start of A to middle of A.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ -7,
+        &count));
+    ASSERT_EQ(-7, count);
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"Para");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 3: Range from start of A to end of A.
+  {
+    SCOPED_TRACE("Case 3: Range from start of A to end of A.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"Paragraph 1");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 4: Range from start of A to middle of B.
+  {
+    SCOPED_TRACE("Case 4: Range from start of A to middle of B.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ 4, &count));
+    ASSERT_EQ(4, count);
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"Paragraph 1Para");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 5: Degenerate range in middle of A.
+  {
+    SCOPED_TRACE("Case 5: Degenerate range in middle of A.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_Start, TextUnit_Character, /*count*/ 4,
+        &count));
+    ASSERT_EQ(4, count);
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByRange(
+        TextPatternRangeEndpoint_End, test_case_provider.Get(),
+        TextPatternRangeEndpoint_Start));
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 6: Range from middle of A to middle of A.
+  {
+    SCOPED_TRACE("Case 6: Range from middle of A to middle of A.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_Start, TextUnit_Character, /*count*/ 4,
+        &count));
+    ASSERT_EQ(4, count);
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ -2,
+        &count));
+    ASSERT_EQ(-2, count);
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"graph");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 7: Range from middle of A to end of A.
+  {
+    SCOPED_TRACE("Case 7: Range from middle of A to end of A.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_Start, TextUnit_Character, /*count*/ 4,
+        &count));
+    ASSERT_EQ(4, count);
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"graph 1");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+
+  // Case 8: Range from middle of A to middle of B.
+  {
+    SCOPED_TRACE("Case 8: Range from middle of A to middle of B.");
+    ComPtr<ITextRangeProvider> test_case_provider;
+    ASSERT_HRESULT_SUCCEEDED(unit_a_provider->Clone(&test_case_provider));
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_Start, TextUnit_Character, /*count*/ 4,
+        &count));
+    ASSERT_EQ(4, count);
+    ASSERT_HRESULT_SUCCEEDED(test_case_provider->MoveEndpointByUnit(
+        TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ 4, &count));
+    ASSERT_EQ(4, count);
+    EXPECT_UIA_TEXTRANGE_EQ(test_case_provider, L"graph 1Para");
+
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->ExpandToEnclosingUnit(TextUnit_Format));
+    BOOL are_same;
+    ASSERT_HRESULT_SUCCEEDED(
+        test_case_provider->Compare(unit_a_provider.Get(), &are_same));
+    EXPECT_TRUE(are_same);
+  }
+}
+
+TEST_F(AXPlatformNodeTextRangeProviderTest,
+       TestITextRangeProviderExpandToEnclosingFormatWithEmptyObjects) {
+  // This test updates the tree structure to test a specific edge case.
+  //
+  // When using heading navigation, the empty objects (see
+  // AXPosition::IsEmptyObjectReplacedByCharacter for information about empty
+  // objects) sometimes cause a problem with
+  // AXPlatformNodeTextRangeProviderWin::ExpandToEnlosingUnit.
+  // With some specific AXTree (like the one used below), the empty object
+  // causes ExpandToEnclosingUnit to move the range back on the heading that it
+  // previously was instead of moving it forward/backward to the next heading.
+  // To avoid this, empty objects are always marked as format boundaries.
+  //
+  // The issue normally occurs when a heading is directly followed by an ignored
+  // empty object, itself followed by an unignored empty object.
+  //
+  // ++1 kRootWebArea
+  // ++++2 kHeading
+  // ++++++3 kStaticText
+  // ++++++++4 kInlineTextBox
+  // ++++5 kGenericContainer ignored
+  // ++++6 kGenericContainer
+  ui::AXNodeData root_1;
+  ui::AXNodeData heading_2;
+  ui::AXNodeData static_text_3;
+  ui::AXNodeData inline_box_4;
+  ui::AXNodeData generic_container_5;
+  ui::AXNodeData generic_container_6;
+
+  root_1.id = 1;
+  heading_2.id = 2;
+  static_text_3.id = 3;
+  inline_box_4.id = 4;
+  generic_container_5.id = 5;
+  generic_container_6.id = 6;
+
+  root_1.role = ax::mojom::Role::kRootWebArea;
+  root_1.child_ids = {heading_2.id, generic_container_5.id,
+                      generic_container_6.id};
+
+  heading_2.role = ax::mojom::Role::kHeading;
+  heading_2.child_ids = {static_text_3.id};
+
+  static_text_3.role = ax::mojom::Role::kStaticText;
+  static_text_3.child_ids = {inline_box_4.id};
+  static_text_3.SetName("3.14");
+
+  inline_box_4.role = ax::mojom::Role::kInlineTextBox;
+  inline_box_4.SetName("3.14");
+
+  generic_container_5.role = ax::mojom::Role::kGenericContainer;
+  generic_container_5.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kIsLineBreakingObject, true);
+  generic_container_5.AddState(ax::mojom::State::kIgnored);
+
+  generic_container_6.role = ax::mojom::Role::kGenericContainer;
+  generic_container_6.AddBoolAttribute(
+      ax::mojom::BoolAttribute::kIsLineBreakingObject, true);
+
+  ui::AXTreeUpdate update;
+  ui::AXTreeData tree_data;
+  tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  update.tree_data = tree_data;
+  update.has_tree_data = true;
+  update.root_id = root_1.id;
+  update.nodes.push_back(root_1);
+  update.nodes.push_back(heading_2);
+  update.nodes.push_back(static_text_3);
+  update.nodes.push_back(inline_box_4);
+  update.nodes.push_back(generic_container_5);
+  update.nodes.push_back(generic_container_6);
+
+  Init(update);
+  AXNodePosition::SetTree(tree_.get());
+  AXTreeManagerMap::GetInstance().AddTreeManager(tree_data.tree_id, this);
+
+  AXNode* root_node = GetRootNode();
+  ComPtr<ITextRangeProvider> text_range_provider;
+  GetTextRangeProviderFromTextNode(text_range_provider, root_node);
+
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"3.14\n\xFFFC");
+
+  // Create a degenerate range positioned at the boundary between nodes 4 and 6,
+  // e.g., "3.14<>" and "<\xFFFC>" (because node 5 is ignored).
+  int count;
+  ASSERT_HRESULT_SUCCEEDED(text_range_provider->MoveEndpointByUnit(
+      TextPatternRangeEndpoint_Start, TextUnit_Character, /*count*/ 5, &count));
+  ASSERT_EQ(5, count);
+  ASSERT_HRESULT_SUCCEEDED(text_range_provider->MoveEndpointByUnit(
+      TextPatternRangeEndpoint_End, TextUnit_Character, /*count*/ -1, &count));
+  ASSERT_EQ(-1, count);
   EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"");
+
+  // ExpandToEnclosingUnit should move the range to the next non-ignored empty
+  // object (i.e, node 6), and not at the beginning of node 4.
   ASSERT_HRESULT_SUCCEEDED(
       text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"Paragraph 2Paragraph 3");
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"\xFFFC");
 }
 
 TEST_F(AXPlatformNodeTextRangeProviderTest,
@@ -3388,10 +3633,19 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
                                          0xDEADC0DEU);
   placeholder_text_data2.SetName("placeholder2");
 
+  ui::AXNodeData link_data;
+  link_data.id = 16;
+  link_data.role = ax::mojom::Role::kLink;
+
+  ui::AXNodeData link_text_data;
+  link_text_data.id = 17;
+  link_text_data.role = ax::mojom::Role::kStaticText;
+  link_data.child_ids = {17};
+
   ui::AXNodeData root_data;
   root_data.id = 1;
   root_data.role = ax::mojom::Role::kRootWebArea;
-  root_data.child_ids = {2, 3, 5, 7, 12, 14};
+  root_data.child_ids = {2, 3, 5, 7, 12, 14, 16};
 
   ui::AXTreeUpdate update;
   ui::AXTreeData tree_data;
@@ -3414,6 +3668,8 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   update.nodes.push_back(placeholder_text_data);
   update.nodes.push_back(input_text_data2);
   update.nodes.push_back(placeholder_text_data2);
+  update.nodes.push_back(link_data);
+  update.nodes.push_back(link_text_data);
 
   Init(update);
   AXNodePosition::SetTree(tree_.get());
@@ -3434,6 +3690,8 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   AXNode* placeholder_text_node = input_text_node->children()[0];
   AXNode* input_text_node2 = root_node->children()[5];
   AXNode* placeholder_text_node2 = input_text_node2->children()[0];
+  AXNode* link_node = root_node->children()[6];
+  AXNode* link_text_node = link_node->children()[0];
 
   ComPtr<ITextRangeProvider> document_range_provider;
   GetTextRangeProviderFromTextNode(document_range_provider, root_node);
@@ -3458,6 +3716,9 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   ComPtr<ITextRangeProvider> placeholder_text_range_provider2;
   GetTextRangeProviderFromTextNode(placeholder_text_range_provider2,
                                    placeholder_text_node2);
+
+  ComPtr<ITextRangeProvider> link_text_range_provider;
+  GetTextRangeProviderFromTextNode(link_text_range_provider, link_text_node);
 
   base::win::ScopedVariant expected_variant;
 
@@ -3551,6 +3812,11 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
 
   expected_variant.Set(false);
   EXPECT_UIA_TEXTATTRIBUTE_EQ(placeholder_text_range_provider2,
+                              UIA_IsReadOnlyAttributeId, expected_variant);
+  expected_variant.Reset();
+
+  expected_variant.Set(true);
+  EXPECT_UIA_TEXTATTRIBUTE_EQ(link_text_range_provider,
                               UIA_IsReadOnlyAttributeId, expected_variant);
   expected_variant.Reset();
 
@@ -4968,5 +5234,136 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   EXPECT_EQ(true, GetEnd(range_span_ignored_nodes.Get())->AtStartOfAnchor());
   EXPECT_EQ(5, GetEnd(range_span_ignored_nodes.Get())->anchor_id());
   EXPECT_EQ(0, GetEnd(range_span_ignored_nodes.Get())->text_offset());
+}
+
+TEST_F(AXPlatformNodeTextRangeProviderTest, TestValidateStartAndEnd) {
+  // This test updates the tree structure to test a specific edge case -
+  // CreatePositionAtFormatBoundary when text lies at the beginning and end
+  // of the AX tree.
+  AXNodeData root_data;
+  root_data.id = 1;
+  root_data.role = ax::mojom::Role::kRootWebArea;
+
+  AXNodeData text_data;
+  text_data.id = 2;
+  text_data.role = ax::mojom::Role::kStaticText;
+  text_data.SetName("some text");
+
+  AXNodeData more_text_data;
+  more_text_data.id = 3;
+  more_text_data.role = ax::mojom::Role::kStaticText;
+  more_text_data.SetName("more text");
+
+  root_data.child_ids = {text_data.id, more_text_data.id};
+
+  ui::AXTreeUpdate update;
+  ui::AXTreeID tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  update.root_id = root_data.id;
+  update.tree_data.tree_id = tree_id;
+  update.has_tree_data = true;
+  update.nodes = {root_data, text_data, more_text_data};
+  Init(update);
+  AXNodePosition::SetTree(tree_.get());
+
+  // Create a position at MaxTextOffset
+  // Making |owner| AXID:1 so that |TestAXNodeWrapper::BuildAllWrappers|
+  // will build the entire tree.
+  AXPlatformNodeWin* owner = static_cast<AXPlatformNodeWin*>(
+      AXPlatformNodeFromNode(GetNodeFromTree(tree_id, 1)));
+
+  // TextPosition, anchor_id=2, text_offset=9, annotated_text=some text<>
+  AXNodePosition::AXPositionInstance range_start =
+      AXNodePosition::CreateTextPosition(tree_id, /*anchor_id=*/1,
+                                         /*text_offset=*/0,
+                                         ax::mojom::TextAffinity::kDownstream);
+
+  // TextPosition, anchor_id=2, text_offset=9, annotated_text=some text<>
+  AXNodePosition::AXPositionInstance range_end =
+      AXNodePosition::CreateTextPosition(tree_id, /*anchor_id=*/3,
+                                         /*text_offset=*/9,
+                                         ax::mojom::TextAffinity::kDownstream);
+
+  ComPtr<ITextRangeProvider> text_range_provider =
+      AXPlatformNodeTextRangeProviderWin::CreateTextRangeProvider(
+          owner, std::move(range_start), std::move(range_end));
+
+  // Since the end of the range is at MaxTextOffset, moving it by 1 character
+  // should have an expected_count of 0.
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Character,
+      /*count*/ 1,
+      /*expected_text*/ L"some textmore text",
+      /*expected_count*/ 0);
+
+  // Now make a change to shorten MaxTextOffset. Ensure that this position is
+  // invalid, then call SnapToMaxTextOffsetIfBeyond and ensure that it is now
+  // valid.
+  more_text_data.SetName("ore tex");
+  AXTreeUpdate test_update;
+  test_update.nodes = {more_text_data};
+  ASSERT_TRUE(tree_->Unserialize(test_update));
+
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Character,
+      /*count*/ 1,
+      /*expected_text*/ L"some textore tex",
+      /*expected_count*/ 0);
+
+  // Now modify the tree so that start_ is pointing to a node that has been
+  // removed from the tree.
+  text_data.SetName("");
+  AXTreeUpdate test_update2;
+  test_update2.nodes = {text_data};
+  ASSERT_TRUE(tree_->Unserialize(test_update2));
+
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Character,
+      /*count*/ 1,
+      /*expected_text*/ L"re tex",
+      /*expected_count*/ 1);
+
+  // Now adjust a node that's not the final node in the tree to point past
+  // MaxTextOffset. First move the range endpoints so that they're pointing to
+  // MaxTextOffset on the first node.
+  text_data.SetName("some text");
+  AXTreeUpdate test_update3;
+  test_update3.nodes = {text_data};
+  ASSERT_TRUE(tree_->Unserialize(test_update3));
+
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Character,
+      /*count*/ -10,
+      /*expected_text*/ L"some textore tex",
+      /*expected_count*/ -10);
+
+  // Ensure that we're at MaxTextOffset on the first node by first
+  // overshooting a negative move...
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Character,
+      /*count*/ -8,
+      /*expected_text*/ L"some tex",
+      /*expected_count*/ -8);
+
+  // ...followed by a positive move
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Character,
+      /*count*/ 1,
+      /*expected_text*/ L"some text",
+      /*expected_count*/ 1);
+
+  // Now our range's start_ is pointing to offset 0 on the first node and end_
+  // is pointing to MaxTextOffset on the first node. Now modify the tree so
+  // that MaxTextOffset is invalid on the first node and ensure that we can
+  // still move
+  text_data.SetName("some tex");
+  AXTreeUpdate test_update4;
+  test_update4.nodes = {text_data};
+  ASSERT_TRUE(tree_->Unserialize(test_update4));
+
+  EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
+      text_range_provider, TextPatternRangeEndpoint_Start, TextUnit_Character,
+      /*count*/ 1,
+      /*expected_text*/ L"ome tex",
+      /*expected_count*/ 1);
 }
 }  // namespace ui

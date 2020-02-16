@@ -226,7 +226,9 @@ NGPhysicalFragment::NGPhysicalFragment(NGFragmentBuilder* builder,
       is_hidden_for_paint_(builder->is_hidden_for_paint_),
       has_floating_descendants_for_paint_(false),
       is_fieldset_container_(false),
-      is_legacy_layout_root_(false) {
+      is_legacy_layout_root_(false),
+      is_painted_atomically_(false),
+      has_baseline_(false) {
   DCHECK(builder->layout_object_);
 }
 
@@ -243,7 +245,9 @@ NGPhysicalFragment::NGPhysicalFragment(LayoutObject* layout_object,
       is_hidden_for_paint_(false),
       has_floating_descendants_for_paint_(false),
       is_fieldset_container_(false),
-      is_legacy_layout_root_(false) {
+      is_legacy_layout_root_(false),
+      is_painted_atomically_(false),
+      has_baseline_(false) {
   DCHECK(layout_object);
 }
 
@@ -406,14 +410,21 @@ PhysicalRect NGPhysicalFragment::ScrollableOverflow() const {
 }
 
 PhysicalRect NGPhysicalFragment::ScrollableOverflowForPropagation(
-    const LayoutObject* container) const {
-  DCHECK(container);
+    const NGPhysicalBoxFragment& container) const {
   PhysicalRect overflow = ScrollableOverflow();
-  if (GetLayoutObject() &&
-      GetLayoutObject()->ShouldUseTransformFromContainer(container)) {
+
+  DCHECK(!IsLineBox());
+  if (!IsCSSBox())
+    return overflow;
+
+  const LayoutObject* layout_object = GetLayoutObject();
+  DCHECK(layout_object);
+  const LayoutObject* container_layout_object = container.GetLayoutObject();
+  DCHECK(container_layout_object);
+  if (layout_object->ShouldUseTransformFromContainer(container_layout_object)) {
     TransformationMatrix transform;
-    GetLayoutObject()->GetTransformFromContainer(container, PhysicalOffset(),
-                                                 transform);
+    layout_object->GetTransformFromContainer(container_layout_object,
+                                             PhysicalOffset(), transform);
     overflow =
         PhysicalRect::EnclosingRect(transform.MapRect(FloatRect(overflow)));
   }

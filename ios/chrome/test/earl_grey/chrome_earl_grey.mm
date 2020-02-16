@@ -15,11 +15,11 @@
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ios/testing/nserror_util.h"
 #include "ios/web/public/test/element_selector.h"
+#include "net/base/mac/url_conversions.h"
 
 #if defined(CHROME_EARL_GREY_1)
 #import <WebKit/WebKit.h>
 
-#import "ios/chrome/browser/ui/static_content/static_html_view_controller.h"  // nogncheck
 #import "ios/chrome/test/app/browsing_data_test_util.h"          // nogncheck
 #import "ios/chrome/test/app/chrome_test_util.h"                 // nogncheck
 #include "ios/chrome/test/app/navigation_test_util.h"            // nogncheck
@@ -183,10 +183,22 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   }
 }
 
+- (void)openURLFromExternalApp:(const GURL&)URL {
+  NSString* spec = base::SysUTF8ToNSString(URL.spec());
+  [ChromeEarlGreyAppInterface openURLFromExternalApp:spec];
+}
+
+- (void)dismissSettings {
+  [ChromeEarlGreyAppInterface dismissSettings];
+}
+
 #pragma mark - Tab Utilities (EG2)
 
 - (void)selectTabAtIndex:(NSUInteger)index {
   [ChromeEarlGreyAppInterface selectTabAtIndex:index];
+  // Tab changes are initiated through |WebStateList|. Need to wait its
+  // obeservers to complete UI changes at app.
+  [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
 }
 
 - (BOOL)isIncognitoMode {
@@ -195,6 +207,9 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 - (void)closeTabAtIndex:(NSUInteger)index {
   [ChromeEarlGreyAppInterface closeTabAtIndex:index];
+  // Tab changes are initiated through |WebStateList|. Need to wait its
+  // obeservers to complete UI changes at app.
+  [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
 }
 
 - (NSUInteger)mainTabCount {
@@ -242,6 +257,12 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
 }
 
+- (void)simulateExternalAppURLOpening {
+  [ChromeEarlGreyAppInterface simulateExternalAppURLOpening];
+  [self waitForPageToFinishLoading];
+  [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
+}
+
 - (void)closeCurrentTab {
   [ChromeEarlGreyAppInterface closeCurrentTab];
   [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
@@ -272,6 +293,9 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 - (void)closeAllTabs {
   [ChromeEarlGreyAppInterface closeAllTabs];
+  // Tab changes are initiated through |WebStateList|. Need to wait its
+  // obeservers to complete UI changes at app.
+  [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
 }
 
 - (void)waitForPageToFinishLoading {
@@ -283,6 +307,11 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
   bool pageLoaded = [finishedLoading waitWithTimeout:kWaitForPageLoadTimeout];
   EG_TEST_HELPER_ASSERT_TRUE(pageLoaded, kWaitForPageToFinishLoadingError);
+}
+
+- (void)applicationOpenURL:(const GURL&)URL {
+  NSString* spec = base::SysUTF8ToNSString(URL.spec());
+  [ChromeEarlGreyAppInterface applicationOpenURL:spec];
 }
 
 - (void)loadURL:(const GURL&)URL waitForCompletion:(BOOL)wait {
@@ -365,8 +394,11 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   NSString* const kGetCookiesScript =
       @"document.cookie ? document.cookie.split(/;\\s*/) : [];";
   id result = [self executeJavaScript:kGetCookiesScript];
+  // TODO(crbug.com/1041000): Assert that |result| is iterable using
+  // respondToSelector instead of methodSignatureForSelector, after upgrading to
+  // the EG version which handles selectors.
   EG_TEST_HELPER_ASSERT_TRUE(
-      [result respondsToSelector:@selector(objectEnumerator)],
+      [result methodSignatureForSelector:@selector(objectEnumerator)],
       @"The script response is not iterable.");
 
   NSMutableDictionary* cookies = [NSMutableDictionary dictionary];
@@ -374,7 +406,6 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
     NSArray* cookieNameValue = [nameValuePair componentsSeparatedByString:@"="];
     EG_TEST_HELPER_ASSERT_TRUE((2 == cookieNameValue.count),
                                @"Cookie has invalid format.");
-
     NSString* cookieName = cookieNameValue[0];
     NSString* cookieValue = cookieNameValue[1];
     cookies[cookieName] = cookieValue;
@@ -402,19 +433,25 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 }
 
 - (void)waitForMainTabCount:(NSUInteger)count {
-  NSString* errorString = [NSString
-      stringWithFormat:@"Failed waiting for main tab count to become %" PRIuNS,
-                       count];
+  __block NSUInteger actualCount = [ChromeEarlGreyAppInterface mainTabCount];
+  NSString* conditionName = [NSString
+      stringWithFormat:@"Waiting for main tab count to become %" PRIuNS, count];
 
   // Allow the UI to become idle, in case any tabs are being opened or closed.
   [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
 
   GREYCondition* tabCountCheck = [GREYCondition
-      conditionWithName:errorString
+      conditionWithName:conditionName
                   block:^{
-                    return [ChromeEarlGreyAppInterface mainTabCount] == count;
+                    actualCount = [ChromeEarlGreyAppInterface mainTabCount];
+                    return actualCount == count;
                   }];
   bool tabCountEqual = [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout];
+
+  NSString* errorString = [NSString
+      stringWithFormat:@"Failed waiting for main tab count to become %" PRIuNS
+                        "; actual count: %" PRIuNS,
+                       count, actualCount];
   EG_TEST_HELPER_ASSERT_TRUE(tabCountEqual, errorString);
 }
 
@@ -434,6 +471,10 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
                   }];
   bool tabCountEqual = [tabCountCheck waitWithTimeout:kWaitForUIElementTimeout];
   EG_TEST_HELPER_ASSERT_TRUE(tabCountEqual, errorString);
+}
+
+- (NSUInteger)indexOfActiveNormalTab {
+  return [ChromeEarlGreyAppInterface indexOfActiveNormalTab];
 }
 
 - (void)waitForRestoreSessionToFinish {
@@ -458,6 +499,12 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 - (void)waitForWebStateContainingText:(const std::string&)UTF8Text {
   [self waitForWebStateContainingText:UTF8Text
                               timeout:kWaitForUIElementTimeout];
+}
+
+- (void)waitForWebStateFrameContainingText:(const std::string&)UTF8Text {
+  NSString* text = base::SysUTF8ToNSString(UTF8Text);
+  EG_TEST_HELPER_ASSERT_NO_ERROR(
+      [ChromeEarlGreyAppInterface waitForWebStateContainingTextInIFrame:text]);
 }
 
 - (void)waitForWebStateContainingText:(const std::string&)UTF8Text
@@ -711,6 +758,10 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   return result;
 }
 
+- (NSString*)mobileUserAgentString {
+  return [ChromeEarlGreyAppInterface mobileUserAgentString];
+}
+
 #pragma mark - URL Utilities (EG2)
 
 - (NSString*)displayTitleForURL:(const GURL&)URL {
@@ -727,16 +778,16 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 #pragma mark - Check features (EG2)
 
-- (BOOL)isSlimNavigationManagerEnabled {
-  return [ChromeEarlGreyAppInterface isSlimNavigationManagerEnabled];
-}
-
 - (BOOL)isBlockNewTabPagePendingLoadEnabled {
   return [ChromeEarlGreyAppInterface isBlockNewTabPagePendingLoadEnabled];
 }
 
-- (BOOL)isNewOmniboxPopupLayoutEnabled {
-  return [ChromeEarlGreyAppInterface isNewOmniboxPopupLayoutEnabled];
+- (BOOL)isVariationEnabled:(int)variationID {
+  return [ChromeEarlGreyAppInterface isVariationEnabled:variationID];
+}
+
+- (BOOL)isTriggerVariationEnabled:(int)variationID {
+  return [ChromeEarlGreyAppInterface isTriggerVariationEnabled:variationID];
 }
 
 - (BOOL)isUMACellularEnabled {
@@ -747,12 +798,8 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
   return [ChromeEarlGreyAppInterface isUKMEnabled];
 }
 
-- (BOOL)isWebPaymentsModifiersEnabled {
-  return [ChromeEarlGreyAppInterface isWebPaymentsModifiersEnabled];
-}
-
-- (BOOL)isSettingsAddPaymentMethodEnabled {
-  return [ChromeEarlGreyAppInterface isSettingsAddPaymentMethodEnabled];
+- (BOOL)isTestFeatureEnabled {
+  return [ChromeEarlGreyAppInterface isTestFeatureEnabled];
 }
 
 - (BOOL)isCreditCardScannerEnabled {
@@ -779,6 +826,22 @@ GREY_STUB_CLASS_IN_APP_MAIN_QUEUE(ChromeEarlGreyAppInterface)
 
 - (NSInteger)registeredKeyCommandCount {
   return [ChromeEarlGreyAppInterface registeredKeyCommandCount];
+}
+
+- (void)simulatePhysicalKeyboardEvent:(NSString*)input
+                                flags:(UIKeyModifierFlags)flags {
+  [ChromeEarlGreyAppInterface simulatePhysicalKeyboardEvent:input flags:flags];
+}
+
+#pragma mark - Pref Utilities (EG2)
+
+- (void)setBoolValue:(BOOL)value forUserPref:(const std::string&)UTF8PrefName {
+  NSString* prefName = base::SysUTF8ToNSString(UTF8PrefName);
+  return [ChromeEarlGreyAppInterface setBoolValue:value forUserPref:prefName];
+}
+
+- (void)resetBrowsingDataPrefs {
+  return [ChromeEarlGreyAppInterface resetBrowsingDataPrefs];
 }
 
 @end

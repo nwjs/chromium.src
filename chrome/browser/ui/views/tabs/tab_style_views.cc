@@ -11,7 +11,6 @@
 #include "cc/paint/paint_record.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/tabs/tab_group_visual_data.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
@@ -21,6 +20,7 @@
 #include "chrome/browser/ui/views/tabs/tab_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
 #include "chrome/grit/theme_resources.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "third_party/skia/include/core/SkScalar.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
 #include "ui/base/theme_provider.h"
@@ -727,8 +727,8 @@ float GM2TabStyle::GetThrobValue() const {
 }
 
 int GM2TabStyle::GetStrokeThickness(bool should_paint_as_active) const {
-  base::Optional<SkColor> group_color = tab_->GetGroupColor();
-  if (group_color.has_value() && tab_->IsActive())
+  base::Optional<tab_groups::TabGroupId> group = tab_->group();
+  if (group.has_value() && tab_->IsActive())
     return TabGroupUnderline::kStrokeThickness;
 
   if (tab_->IsActive() || should_paint_as_active)

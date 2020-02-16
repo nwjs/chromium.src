@@ -161,7 +161,15 @@ class SearchIPCRouter : public content::WebContentsObserver,
 
     virtual void StopAutocomplete(bool clear_result) = 0;
 
+    virtual void LogCharTypedToRepaintLatency(uint32_t latency_ms) = 0;
+
     virtual void BlocklistPromo(const std::string& promo_id) = 0;
+
+    virtual void OpenExtensionsPage(double button,
+                                    bool alt_key,
+                                    bool ctrl_key,
+                                    bool meta_key,
+                                    bool shift_key) = 0;
 
     virtual void OpenAutocompleteMatch(uint8_t line,
                                        const GURL& url,
@@ -213,9 +221,13 @@ class SearchIPCRouter : public content::WebContentsObserver,
     virtual bool ShouldProcessOptOutOfSearchSuggestions() = 0;
     virtual bool ShouldProcessThemeChangeMessages() = 0;
     virtual bool ShouldProcessAutocompleteResultChanged(bool is_active_tab) = 0;
+    virtual bool ShouldProcessAutocompleteMatchImageAvailable(
+        bool is_active_tab) = 0;
     virtual bool ShouldProcessQueryAutocomplete(bool is_active_tab) = 0;
     virtual bool ShouldProcessStopAutocomplete() = 0;
+    virtual bool ShouldProcessLogCharTypedToRepaintLatency() = 0;
     virtual bool ShouldProcessBlocklistPromo() = 0;
+    virtual bool ShouldProcessOpenExtensionsPage() = 0;
     virtual bool ShouldProcessOpenAutocompleteMatch(bool is_active_tab) = 0;
     virtual bool ShouldProcessDeleteAutocompleteMatch() = 0;
   };
@@ -240,6 +252,11 @@ class SearchIPCRouter : public content::WebContentsObserver,
 
   // Updates the renderer with the autocomplete results.
   void AutocompleteResultChanged(chrome::mojom::AutocompleteResultPtr result);
+
+  // Updates the renderer with the given autocomplete match's image data.
+  void AutocompleteMatchImageAvailable(uint32_t match_index,
+                                       const std::string& image_url,
+                                       const std::string& data_url);
 
   // Tells the SearchIPCRouter that a new page in an Instant process committed.
   void OnNavigationEntryCommitted();
@@ -329,7 +346,13 @@ class SearchIPCRouter : public content::WebContentsObserver,
   void QueryAutocomplete(const base::string16& input,
                          bool prevent_inline_autocomplete) override;
   void StopAutocomplete(bool clear_result) override;
+  void LogCharTypedToRepaintLatency(uint32_t latency_ms) override;
   void BlocklistPromo(const std::string& promo_id) override;
+  void OpenExtensionsPage(double button,
+                          bool alt_key,
+                          bool ctrl_key,
+                          bool meta_key,
+                          bool shift_key) override;
   void OpenAutocompleteMatch(uint8_t line,
                              const GURL& url,
                              bool are_matches_showing,

@@ -19,6 +19,7 @@ js2gtest("interactive_ui_tests_js_webui") {
     "cr_focus_row_behavior_v3_interactive_test.js",
     "extensions/cr_extensions_interactive_ui_tests.js",
     "history/history_focus_test.js",
+    "new_tab_page/new_tab_page_interactive_test.js",
     "print_preview/print_preview_interactive_ui_tests.js",
     "settings/cr_settings_interactive_ui_tests.js",
     "settings/settings_ui_browsertest.js",
@@ -34,17 +35,18 @@ js2gtest("interactive_ui_tests_js_webui") {
     "//chrome/browser/ui",
   ]
   data = [
-    "$root_gen_dir/chrome/test/data/webui/cr_focus_row_behavior_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_action_menu_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_checkbox_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_expand_button_focus_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_icon_button_focus_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_input_test.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_profile_avatar_selector_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_tabs_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_toggle_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/iron_list_focus_test.m.js",
-    "$root_gen_dir/chrome/test/data/webui/test_browser_proxy.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_focus_row_behavior_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/mock_controller.m.js",
+    "$root_gen_dir/chrome/test/data/webui/test_browser_proxy.m.js",
     "$root_gen_dir/chrome/test/data/webui/test_store.m.js",
     "$root_gen_dir/chrome/test/data/webui/test_util.m.js",
   ]
@@ -94,6 +96,7 @@ js2gtest("browser_tests_js_webui") {
     "settings/advanced_page_browsertest.js",
     "settings/basic_page_browsertest.js",
     "settings/cr_settings_browsertest.js",
+    "settings/cr_settings_v3_browsertest.js",
     "settings/help_page_browsertest.js",
     "settings/settings_idle_load_browsertest.js",
     "settings/site_settings_page_browsertest.js",
@@ -175,21 +178,27 @@ js2gtest("browser_tests_js_webui") {
     "//skia",
   ]
   data = [
+    "$root_gen_dir/chrome/test/data/webui/cr_components/certificate_manager_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_components/managed_footnote_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_button_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_container_shadow_behavior_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_dialog_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_drawer_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_expand_button_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_fingerprint_progress_arc_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_icon_button_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_lazy_render_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_link_row_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_policy_indicator_behavior_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_policy_indicator_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_policy_pref_indicator_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_radio_button_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_radio_group_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_search_field_tests.m.js",
-    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_splitter_test.m.js",
-    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_toast_test.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_scrollable_behavior_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_slider_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_toast_manager_test.m.js",
+    "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_toast_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_toolbar_search_field_tests.m.js",
     "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_view_manager_test.m.js",
     "$root_gen_dir/chrome/test/data/webui/fake_chrome_event.m.js",
@@ -197,10 +206,23 @@ js2gtest("browser_tests_js_webui") {
     "$root_gen_dir/chrome/test/data/webui/mock_controller.m.js",
     "$root_gen_dir/chrome/test/data/webui/mock_timer.m.js",
     "$root_gen_dir/chrome/test/data/webui/resources/list_property_update_behavior_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/checkbox_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/controlled_button_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/controlled_radio_button_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/dropdown_menu_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/extension_controlled_indicator_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/pref_util_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/settings_slider_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/settings_textarea_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/settings_toggle_button_tests.m.js",
+    "$root_gen_dir/chrome/test/data/webui/settings/test_extension_control_browser_proxy.m.js",
     "$root_gen_dir/chrome/test/data/webui/test_browser_proxy.m.js",
     "$root_gen_dir/chrome/test/data/webui/test_store.m.js",
     "$root_gen_dir/chrome/test/data/webui/test_util.m.js",
   ]
+  if (is_chromeos) {
+    data += [ "$root_gen_dir/chrome/test/data/webui/cr_elements/cr_searchable_drop_down_tests.m.js" ]
+  }
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
   # https://crbug.com/1013656
@@ -218,12 +240,12 @@ js2gtest("browser_tests_js_mojo_lite_webui") {
     "engagement/site_engagement_browsertest.js",
     "interventions_internals_browsertest.js",
     "media/media_engagement_browsertest.js",
+    "media/media_history_webui_browsertest.js",
+    "new_tab_page/new_tab_page_browsertest.js",
     "usb_internals_browsertest.js",
   ]
 
-  deps = [
-    "//chrome/browser/ui",
-  ]
+  deps = [ "//chrome/browser/ui" ]
 
   if (is_win || is_mac || is_desktop_linux || is_chromeos) {
     sources += [ "discards/discards_browsertest.js" ]
@@ -232,6 +254,7 @@ js2gtest("browser_tests_js_mojo_lite_webui") {
   if (is_chromeos) {
     sources += [
       "chromeos/crostini_installer_browsertest.js",
+      "chromeos/crostini_upgrader_browsertest.js",
       "chromeos/machine_learning_internals_browsertest.js",
       "multidevice_setup/multidevice_setup_browsertest.js",
     ]
@@ -258,14 +281,14 @@ js2gtest("unit_tests_js") {
   ]
   if (is_chromeos) {
     sources += [
-      "../../../browser/resources/chromeos/accessibility/braille_ime/braille_ime_unittest.gtestjs",
-      "../../../browser/resources/chromeos/accessibility/select_to_speak/node_utils_unittest.gtestjs",
-      "../../../browser/resources/chromeos/accessibility/select_to_speak/paragraph_utils_unittest.gtestjs",
-      "../../../browser/resources/chromeos/accessibility/select_to_speak/rect_utils_unittest.gtestjs",
-      "../../../browser/resources/chromeos/accessibility/select_to_speak/select_to_speak_unittest.gtestjs",
-      "../../../browser/resources/chromeos/accessibility/select_to_speak/word_utils_unittest.gtestjs",
-      "../../../browser/resources/chromeos/accessibility/switch_access/rect_helper_unittest.gtestjs",
-      "../../../browser/resources/chromeos/machine_learning/machine_learning_internals_utils_unittest.gtestjs",
+      "../../../browser/resources/chromeos/accessibility/braille_ime/braille_ime_unittest.js",
+      "../../../browser/resources/chromeos/accessibility/select_to_speak/node_utils_unittest.js",
+      "../../../browser/resources/chromeos/accessibility/select_to_speak/paragraph_utils_unittest.js",
+      "../../../browser/resources/chromeos/accessibility/select_to_speak/rect_utils_unittest.js",
+      "../../../browser/resources/chromeos/accessibility/select_to_speak/select_to_speak_unittest.js",
+      "../../../browser/resources/chromeos/accessibility/select_to_speak/word_utils_unittest.js",
+      "../../../browser/resources/chromeos/accessibility/switch_access/rect_helper_unittest.js",
+      "../../../browser/resources/chromeos/machine_learning/machine_learning_internals_utils_unittest.js",
     ]
     extra_js_files += [
       "../../../browser/resources/chromeos/accessibility/braille_ime/braille_ime.js",
@@ -287,6 +310,7 @@ group("modulize") {
     "./cr_components:modulize",
     "./cr_elements:modulize",
     "./resources:modulize",
+    "./settings:modulize",
   ]
 }
 

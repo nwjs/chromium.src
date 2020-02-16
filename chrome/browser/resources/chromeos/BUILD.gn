@@ -47,6 +47,7 @@ grit("camera_resources") {
   output_dir = "$root_gen_dir/chrome"
 
   deps = [
+    "//components/arc/mojom:camera_intent_js",
     "//media/capture/video/chromeos/mojom:cros_camera_js",
   ]
 

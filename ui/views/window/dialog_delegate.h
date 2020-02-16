@@ -103,7 +103,7 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   int GetDefaultDialogButton() const;
 
   // Returns the label of the specified dialog button.
-  virtual base::string16 GetDialogButtonLabel(ui::DialogButton button) const;
+  base::string16 GetDialogButtonLabel(ui::DialogButton button) const;
 
   // Returns whether the specified dialog button is enabled.
   virtual bool IsDialogButtonEnabled(ui::DialogButton button) const;
@@ -112,21 +112,28 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   // this is called when the user presses the "Cancel" button.
   // It can also be called on a close action if |Close| has not been
   // overridden. This function should return true if the window can be closed
-  // after it returns, or false if it must remain open.
+  // after it returns, or false if it must remain open. By default, return true
+  // without doing anything.
+  // DEPRECATED: use |set_cancel_callback| instead.
   virtual bool Cancel();
 
   // For Dialog boxes, this is called when the user presses the "OK" button,
   // or the Enter key. It can also be called on a close action if |Close|
   // has not been overridden. This function should return true if the window
-  // can be closed after it returns, or false if it must remain open.
+  // can be closed after it returns, or false if it must remain open. By
+  // default, return true without doing anything.
+  // DEPRECATED: use |set_accept_callback| instead.
   virtual bool Accept();
 
-  // Called when the user closes the window without selecting an option,
-  // e.g. by pressing the close button on the window, pressing the Esc key, or
-  // using a window manager gesture. By default, this calls Accept() if the only
-  // button in the dialog is Accept, Cancel() otherwise. This function should
-  // return true if the window can be closed after it returns, or false if it
-  // must remain open.
+  // Called when the user closes the window without selecting an option, e.g. by
+  // pressing the close button on the window, pressing the Esc key, or using a
+  // window manager gesture. By default, this calls Accept() if the only button
+  // in the dialog is Accept, Cancel() otherwise. This function should return
+  // true if the window can be closed after it returns, or false if it must
+  // remain open.
+  // DEPRECATED: use |set_close_callback| instead.
+  // NOTE: If **any** of the {accept,cancel,close} callbacks is set,
+  // DefaultClose() is not called and closing is unconditional.
   virtual bool Close();
 
   // Overridden from WidgetDelegate:
@@ -185,6 +192,16 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
 
   void set_button_label(ui::DialogButton button, base::string16 label) {
     params_.button_labels[button] = label;
+  }
+
+  void set_accept_callback(base::OnceClosure callback) {
+    accept_callback_ = std::move(callback);
+  }
+  void set_cancel_callback(base::OnceClosure callback) {
+    cancel_callback_ = std::move(callback);
+  }
+  void set_close_callback(base::OnceClosure callback) {
+    close_callback_ = std::move(callback);
   }
 
   // Returns ownership of the extra view for this dialog, if one was provided
@@ -260,6 +277,10 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   const DialogClientView* GetDialogClientView() const;
   DialogClientView* GetDialogClientView();
 
+  // Implements the default close behavior, as described in the comment on
+  // Close() above.
+  bool DefaultClose();
+
   // The margins between the content and the inside of the border.
   // TODO(crbug.com/733040): Most subclasses assume they must set their own
   // margins explicitly, so we set them to 0 here for now to avoid doubled
@@ -281,26 +302,28 @@ class VIEWS_EXPORT DialogDelegate : public WidgetDelegate {
   // Observers for DialogModel changes.
   base::ObserverList<DialogObserver>::Unchecked observer_list_;
 
+  // Callbacks for the dialog's actions:
+  base::OnceClosure accept_callback_;
+  base::OnceClosure cancel_callback_;
+  base::OnceClosure close_callback_;
+
   DISALLOW_COPY_AND_ASSIGN(DialogDelegate);
 };
 
-// A DialogDelegate implementation that is-a View. Used to override GetWidget()
-// to call View's GetWidget() for the common case where a DialogDelegate
-// implementation is-a View. Note that DialogDelegateView is not owned by
-// view's hierarchy and is expected to be deleted on DeleteDelegate call.
+// A DialogDelegate implementation that is-a View. Note that DialogDelegateView
+// is not owned by view's hierarchy and is expected to be deleted on
+// DeleteDelegate call.
 class VIEWS_EXPORT DialogDelegateView : public DialogDelegate,
                                         public View {
  public:
   DialogDelegateView();
   ~DialogDelegateView() override;
 
-  // Overridden from DialogDelegate:
+  // DialogDelegate:
   void DeleteDelegate() override;
-  Widget* GetWidget() override;
-  const Widget* GetWidget() const override;
   View* GetContentsView() override;
 
-  // Overridden from View:
+  // View:
   void ViewHierarchyChanged(
       const ViewHierarchyChangedDetails& details) override;
 

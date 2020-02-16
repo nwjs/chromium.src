@@ -385,7 +385,6 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="3646890046000188562">{COUNT,plural, =1{tanda belakang}other{# tanda belakang}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dolar}other{# tanda dolar}}</translation>
-<translation id="3658742229777143148">Semakan</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755">Kotak senarai, <ph name="VALUE" /></translation>
 <translation id="3681531118904532409">Air Betik</translation>
@@ -420,6 +419,7 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="3914732343065571127">Rujukan Perintah ChromeVox</translation>
 <translation id="3930383913623796990">Hijau Musim Bunga</translation>
 <translation id="3930498801443296724">Petikan tarik keluar</translation>
+<translation id="3935615366277838204">Cap <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Merah Lavender</translation>
 <translation id="3941269780691800708">Sebutkan teks di bawah tetikus.</translation>
 <translation id="394953087167197343">Tunjukkan kesalahan ejaan:</translation>
@@ -793,7 +793,6 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="6459511626086141404">Peta kekunci datar</translation>
 <translation id="6468049171101508116">Butang seterusnya</translation>
 <translation id="646954774886932461">Indeks</translation>
-<translation id="6479792383819319132">Tiada perenggan seterusnya.</translation>
 <translation id="6493991254603208962">Kurangkan kecerahan</translation>
 <translation id="6501595918865591267">Firus</translation>
 <translation id="6508059270146105198">Alihkan paparan braille ke bahagian bawah halaman</translation>
@@ -816,7 +815,6 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">Bar kemajuan</translation>
 <translation id="6659594942844771486">Tab</translation>
-<translation id="6675661017770918201">Tiada perenggan terdahulu.</translation>
 <translation id="667999046851023355">Dokumen</translation>
 <translation id="6688209025607531203">Bukan makluman mod</translation>
 <translation id="6689672606256159458">Jingga Salmon Gelap</translation>
@@ -845,6 +843,7 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="6865519907510167493">Kesilapan ejaan</translation>
 <translation id="6871161210040114857">Mengabaikan huruf.</translation>
 <translation id="6877435256196695200">Tiada grafik seterusnya.</translation>
+<translation id="688976158310523235">Menu Carian</translation>
 <translation id="6897341342232909480">Alih ke kiri</translation>
 <translation id="6901540140423170855">tarikh</translation>
 <translation id="6910211073230771657">Dipadamkan</translation>
@@ -857,6 +856,7 @@ Jika anda ingin keluar daripada tutorial, gunakan ChromeVox untuk menavigasi ke 
 <translation id="699159175332639490">Cari + O + W</translation>
 <translation id="6994042831499278539">Rujukan glosari</translation>
 <translation id="6996566555547746822">Kotak kombo seterusnya</translation>
+<translation id="6997224546856374593">Apabila membaca huruf besar:</translation>
 <translation id="700202842116345659">Masukan bibliografi</translation>
 <translation id="7005146664810010831">Tiada URL dijumpai</translation>
 <translation id="7010712454773919705">Kunci pengubah suai ChromeVox</translation>
@@ -937,6 +937,7 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">tab</translation>
 <translation id="7492049978501397201">Memasuki dialog</translation>
+<translation id="7505149250476994901">Sebut "cap" sebelum huruf</translation>
 <translation id="7518543783849163354">Untuk menghentikan sebentar ChromeVox daripada bertutur, tekan kekunci Control.</translation>
 <translation id="7521682724501952239">Anda boleh menggunakan ChromeVox dengan skrin sentuh.</translation>
 <translation id="7532613204005497612">Jun</translation>
@@ -1104,7 +1105,6 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="812886159861361726">Muat turun <ph name="FILE_NAME" /> dihentikan</translation>
 <translation id="8138880386467279117">Sentuh</translation>
 <translation id="8153880621934657047">Bukan dalam jadual.</translation>
-<translation id="8161114871611868169">Bahagian ulasan</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{garis bawah}other{# garis bawah}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">baris</translation>
@@ -1125,6 +1125,7 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Renda Lama</translation>
 <translation id="8326783648485765113">Hijau Laman</translation>
+<translation id="8328063869313048659">Togol skrin gelap</translation>
 <translation id="8344569602005188545">jam</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{paun}other{# tanda paun}}</translation>
 <translation id="8374154622594089836">bulan</translation>
@@ -1209,6 +1210,7 @@ Untuk membuka menu penyemak imbas Chrome, tekan Alt+F.</translation>
 <translation id="9065283790526219006">+pop timbul</translation>
 <translation id="9066023754636984703">Tekan Carian+A, J untuk melangkau ke butiran.</translation>
 <translation id="9067522039955793016">Pemisah halaman</translation>
+<translation id="9074824103975499138">Cari menu ChromeVox</translation>
 <translation id="9077213568694924680">dialih keluar daripada pilihan</translation>
 <translation id="9077305471618729969">Hijau Laut Cerah</translation>
 <translation id="9082874451376019682">Tiada peluncur terdahulu.</translation>

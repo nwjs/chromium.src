@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/chromecast_build.gni")
 import("//build/config/features.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/ui.gni")
@@ -40,12 +41,8 @@ config("content_shell_lib_warnings") {
 
 source_set("android_shell_descriptors") {
   testonly = true
-  sources = [
-    "android/shell_descriptors.h",
-  ]
-  public_deps = [
-    "//content/public/common:content_descriptors",
-  ]
+  sources = [ "android/shell_descriptors.h" ]
+  public_deps = [ "//content/public/common:content_descriptors" ]
 }
 
 source_set("web_test_messages") {
@@ -173,6 +170,8 @@ jumbo_static_library("content_shell_lib") {
     "browser/web_test/test_info_extractor.h",
     "browser/web_test/web_test_background_fetch_delegate.cc",
     "browser/web_test/web_test_background_fetch_delegate.h",
+    "browser/web_test/web_test_blink_test_client.cc",
+    "browser/web_test/web_test_blink_test_client.h",
     "browser/web_test/web_test_bluetooth_adapter_provider.cc",
     "browser/web_test/web_test_bluetooth_adapter_provider.h",
     "browser/web_test/web_test_bluetooth_chooser_factory.cc",
@@ -215,8 +214,6 @@ jumbo_static_library("content_shell_lib") {
     "common/shell_origin_trial_policy.h",
     "common/shell_switches.cc",
     "common/shell_switches.h",
-    "common/web_test/web_test_content_client.cc",
-    "common/web_test/web_test_content_client.h",
     "gpu/shell_content_gpu_client.cc",
     "gpu/shell_content_gpu_client.h",
     "renderer/shell_content_renderer_client.cc",
@@ -294,7 +291,8 @@ jumbo_static_library("content_shell_lib") {
     "//components/plugins/renderer",
     "//components/url_formatter",
     "//components/web_cache/renderer",
-    "//content:resources",
+    "//content:content_resources",
+    "//content:dev_ui_content_resources",
     "//content/app/resources",
     "//content/gpu",
     "//content/public/common",
@@ -349,6 +347,7 @@ jumbo_static_library("content_shell_lib") {
     "//ui/gfx/ipc/skia",
     "//ui/gl",
     "//ui/platform_window",
+    "//ui/shell_dialogs:shell_dialogs",
     "//url",
     "//v8",
   ]
@@ -380,11 +379,8 @@ jumbo_static_library("content_shell_lib") {
       "//gpu/vulkan/init",
     ]
   }
-  if (mojo_media_host == "browser") {
-    deps += [
-      "//media/mojo/mojom:constants",
-      "//media/mojo/services",
-    ]
+  if (enable_cast_renderer) {
+    deps += [ "//media/mojo/services" ]
   }
 
   if (is_win) {
@@ -477,10 +473,6 @@ jumbo_static_library("content_shell_lib") {
       "browser/shell_plugin_service_filter.h",
     ]
   }
-
-  if (enable_cast_renderer) {
-    deps += [ "//media/mojo/mojom:constants" ]
-  }
 }
 
 static_library("client_hints_util") {
@@ -512,24 +504,16 @@ grit("content_shell_resources_grit") {
 copy("copy_shell_resources") {
   testonly = true
 
-  sources = [
-    "$target_gen_dir/shell_resources.pak",
-  ]
-  outputs = [
-    "$root_out_dir/shell_resources.pak",
-  ]
+  sources = [ "$target_gen_dir/shell_resources.pak" ]
+  outputs = [ "$root_out_dir/shell_resources.pak" ]
 
-  public_deps = [
-    ":content_shell_resources_grit",
-  ]
+  public_deps = [ ":content_shell_resources_grit" ]
 }
 
 group("resources") {
   testonly = true
 
-  public_deps = [
-    ":copy_shell_resources",
-  ]
+  public_deps = [ ":copy_shell_resources" ]
 }
 
 repack("pak") {
@@ -541,6 +525,7 @@ repack("pak") {
     "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
     "$root_gen_dir/content/browser/webrtc/resources/webrtc_internals_resources.pak",
     "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/content/dev_ui_content_resources.pak",
     "$root_gen_dir/content/shell/shell_resources.pak",
     "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
     "$root_gen_dir/net/net_resources.pak",
@@ -555,7 +540,8 @@ repack("pak") {
 
   deps = [
     ":resources",
-    "//content:resources",
+    "//content:content_resources",
+    "//content:dev_ui_content_resources",
     "//content/app/resources",
     "//content/browser/resources/media:media_internals_resources",
     "//content/browser/tracing:resources",
@@ -585,9 +571,7 @@ repack("pak") {
 if (is_android) {
   group("content_shell") {
     testonly = true
-    deps = [
-      "//content/shell/android:content_shell_apk",
-    ]
+    deps = [ "//content/shell/android:content_shell_apk" ]
   }
 } else if (is_mac) {
   tweak_info_plist("content_shell_plist") {
@@ -602,26 +586,20 @@ if (is_android) {
   mac_app_bundle("content_shell") {
     testonly = true
     output_name = content_shell_product_name
-    sources = [
-      "app/shell_main_mac.cc",
-    ]
+    sources = [ "app/shell_main_mac.cc" ]
     defines = [ "SHELL_PRODUCT_NAME=\"$content_shell_product_name\"" ]
     deps = [
       ":content_shell_framework_bundle_data",
       ":content_shell_resources_bundle_data",
     ]
     info_plist_target = ":content_shell_plist"
-    data_deps = [
-      ":content_shell_lib",
-    ]
+    data_deps = [ ":content_shell_lib" ]
   }
 } else {
   executable("content_shell") {
     testonly = true
 
-    sources = [
-      "app/shell_main.cc",
-    ]
+    sources = [ "app/shell_main.cc" ]
 
     if (is_win) {
       sources += [ "app/shell.rc" ]
@@ -654,7 +632,9 @@ if (is_android) {
         configs -= [ "//build/config/win:console" ]
         configs += [ "//build/config/win:windowed" ]
       }
+    }
 
+    if (is_win || is_linux) {
       data_deps +=
           [ "//third_party/crashpad/crashpad/handler:crashpad_handler" ]
     }
@@ -683,19 +663,13 @@ if (is_android) {
 if (is_mac) {
   bundle_data("content_shell_framework_resources") {
     testonly = true
-    sources = [
-      "$root_out_dir/content_shell.pak",
-    ]
+    sources = [ "$root_out_dir/content_shell.pak" ]
 
-    public_deps = [
-      ":pak",
-    ]
+    public_deps = [ ":pak" ]
 
     if (icu_use_data_file) {
       sources += [ "$root_out_dir/icudtl.dat" ]
-      deps = [
-        "//third_party/icu:icudata",
-      ]
+      deps = [ "//third_party/icu:icudata" ]
     }
 
     if (v8_use_external_startup_data) {
@@ -708,9 +682,7 @@ if (is_mac) {
       }
     }
 
-    outputs = [
-      "{{bundle_resources_dir}}/{{source_file_part}}",
-    ]
+    outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
   }
 
   if (enable_plugins) {
@@ -720,9 +692,7 @@ if (is_mac) {
         "$root_out_dir/blink_test_plugin.plugin",
       ]
 
-      outputs = [
-        "{{bundle_contents_dir}}/{{source_file_part}}",
-      ]
+      outputs = [ "{{bundle_contents_dir}}/{{source_file_part}}" ]
 
       public_deps = [
         "//ppapi:blink_deprecated_test_plugin",
@@ -736,15 +706,9 @@ if (is_mac) {
 
   bundle_data("content_shell_framework_helpers") {
     testonly = true
-    sources = [
-      "$root_out_dir/chrome_crashpad_handler",
-    ]
-    outputs = [
-      "{{bundle_contents_dir}}/Helpers/{{source_file_part}}",
-    ]
-    public_deps = [
-      "//components/crash/content/app:chrome_crashpad_handler",
-    ]
+    sources = [ "$root_out_dir/chrome_crashpad_handler" ]
+    outputs = [ "{{bundle_contents_dir}}/Helpers/{{source_file_part}}" ]
+    public_deps = [ "//components/crash/content/app:chrome_crashpad_handler" ]
     foreach(helper_params, content_mac_helpers) {
       sources += [
         "$root_out_dir/${content_shell_helper_name}${helper_params[2]}.app",
@@ -785,9 +749,7 @@ if (is_mac) {
       "app/shell_content_main.h",
     ]
 
-    public_deps = [
-      ":content_shell_lib",
-    ]
+    public_deps = [ ":content_shell_lib" ]
     deps = [
       ":content_shell_angle_library",
       ":content_shell_framework_helpers",
@@ -843,9 +805,7 @@ if (is_mac) {
 
       output_name = content_shell_helper_name + invoker.helper_name_suffix
 
-      sources = [
-        "app/shell_main_mac.cc",
-      ]
+      sources = [ "app/shell_main_mac.cc" ]
       defines = [
         "HELPER_EXECUTABLE",
         "SHELL_PRODUCT_NAME=\"$content_shell_product_name\"",
@@ -854,9 +814,7 @@ if (is_mac) {
         "CONTENT_SHELL_HELPER_SUFFIX=${invoker.helper_name_suffix}",
         "CONTENT_SHELL_HELPER_BUNDLE_ID_SUFFIX=${invoker.helper_bundle_id_suffix}",
       ]
-      deps = [
-        "//sandbox/mac:seatbelt",
-      ]
+      deps = [ "//sandbox/mac:seatbelt" ]
       ldflags = [
         # The helper is in Content Shell.app/Contents/Frameworks/
         #     Content Shell Framework.framework/Versions/C/Helpers/
@@ -881,25 +839,15 @@ if (is_mac) {
 
   bundle_data("content_shell_framework_bundle_data") {
     testonly = true
-    sources = [
-      "$root_out_dir/$content_shell_framework_name.framework",
-    ]
-    outputs = [
-      "{{bundle_contents_dir}}/Frameworks/{{source_file_part}}",
-    ]
-    public_deps = [
-      ":content_shell_framework",
-    ]
+    sources = [ "$root_out_dir/$content_shell_framework_name.framework" ]
+    outputs = [ "{{bundle_contents_dir}}/Frameworks/{{source_file_part}}" ]
+    public_deps = [ ":content_shell_framework" ]
   }
 
   bundle_data("content_shell_resources_bundle_data") {
     testonly = true
-    sources = [
-      "app/app.icns",
-    ]
-    outputs = [
-      "{{bundle_resources_dir}}/{{source_file_part}}",
-    ]
+    sources = [ "app/app.icns" ]
+    outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
   }
 
   if (use_egl) {
@@ -909,12 +857,8 @@ if (is_mac) {
         "$root_out_dir/egl_intermediates/libEGL.dylib",
         "$root_out_dir/egl_intermediates/libGLESv2.dylib",
       ]
-      outputs = [
-        "{{bundle_contents_dir}}/Libraries/{{source_file_part}}",
-      ]
-      public_deps = [
-        "//ui/gl:angle_library_copy",
-      ]
+      outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
+      public_deps = [ "//ui/gl:angle_library_copy" ]
     }
 
     # Add the SwiftShader .dylibs in the Libraries directory of the Framework.
@@ -923,28 +867,20 @@ if (is_mac) {
         "$root_out_dir/egl_intermediates/libswiftshader_libEGL.dylib",
         "$root_out_dir/egl_intermediates/libswiftshader_libGLESv2.dylib",
       ]
-      outputs = [
-        "{{bundle_contents_dir}}/Libraries/{{source_file_part}}",
-      ]
-      public_deps = [
-        "//ui/gl:swiftshader_library_copy",
-      ]
+      outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
+      public_deps = [ "//ui/gl:swiftshader_library_copy" ]
     }
   }
 
   group("content_shell_angle_library") {
     if (use_egl) {
-      deps = [
-        ":content_shell_angle_binaries",
-      ]
+      deps = [ ":content_shell_angle_binaries" ]
     }
   }
 
   group("content_shell_swiftshader_library") {
     if (use_egl) {
-      deps = [
-        ":content_shell_swiftshader_binaries",
-      ]
+      deps = [ ":content_shell_swiftshader_binaries" ]
     }
   }
 }
@@ -957,6 +893,7 @@ mojom("mojo_bindings") {
     "common/web_test/web_test_bluetooth_fake_adapter_setter.mojom",
   ]
   public_deps = [
+    "//content/public/common:web_preferences_mojom",
     "//mojo/public/mojom/base",
     "//skia/public/mojom",
     "//ui/gfx/geometry/mojom",

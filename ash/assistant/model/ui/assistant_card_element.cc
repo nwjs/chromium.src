@@ -5,9 +5,75 @@
 #include "ash/assistant/model/ui/assistant_card_element.h"
 
 #include "ash/assistant/ui/assistant_ui_constants.h"
+#include "ash/public/cpp/assistant/assistant_web_view_factory.h"
 #include "base/base64.h"
 
 namespace ash {
+
+// AssistantCardElement::Processor ---------------------------------------------
+
+class AssistantCardElement::Processor : public AssistantWebView2::Observer {
+ public:
+  Processor(AssistantCardElement& card_element, ProcessingCallback callback)
+      : card_element_(card_element), callback_(std::move(callback)) {}
+
+  Processor(const Processor& copy) = delete;
+  Processor& operator=(const Processor& assign) = delete;
+
+  ~Processor() override {
+    if (contents_view_)
+      contents_view_->RemoveObserver(this);
+
+    if (callback_)
+      std::move(callback_).Run(/*success=*/false);
+  }
+
+  void Process() {
+    // TODO(dmblack): Find a better way of determining desired card size.
+    const int width_dip =
+        kPreferredWidthDip - 2 * kUiElementHorizontalMarginDip;
+
+    // Configure parameters for the card.
+    AssistantWebView2::InitParams contents_params;
+    contents_params.enable_auto_resize = true;
+    contents_params.min_size = gfx::Size(width_dip, 1);
+    contents_params.max_size = gfx::Size(width_dip, INT_MAX);
+    contents_params.suppress_navigation = true;
+
+    // Create |contents_view_| and retain ownership so that is properly cleaned
+    // up in the case where it is never added to the view hierarchy.
+    contents_view_ = AssistantWebViewFactory::Get()->Create(contents_params);
+    contents_view_->set_owned_by_client();
+
+    // Observe |contents_view_| so that we are notified when loading is
+    // complete.
+    contents_view_->AddObserver(this);
+
+    // Encode the html string to be URL-safe.
+    std::string encoded_html;
+    base::Base64Encode(card_element_.html(), &encoded_html);
+
+    // Navigate to the data URL which represents the card.
+    constexpr char kDataUriPrefix[] = "data:text/html;base64,";
+    contents_view_->Navigate(GURL(kDataUriPrefix + encoded_html));
+  }
+
+ private:
+  // AssistantWebView2::Observer:
+  void DidStopLoading() override {
+    contents_view_->RemoveObserver(this);
+
+    // Pass ownership of |contents_view_| to the card element that was being
+    // processed and notify our |callback_| of success.
+    card_element_.set_contents_view(std::move(contents_view_));
+    std::move(callback_).Run(/*success=*/true);
+  }
+
+  AssistantCardElement& card_element_;
+  ProcessingCallback callback_;
+
+  std::unique_ptr<AssistantWebView2> contents_view_;
+};
 
 // AssistantCardElement --------------------------------------------------------
 
@@ -19,65 +85,9 @@ AssistantCardElement::AssistantCardElement(const std::string& html,
 
 AssistantCardElement::~AssistantCardElement() = default;
 
-void AssistantCardElement::Process(
-    content::mojom::NavigableContentsFactory* contents_factory,
-    ProcessingCallback callback) {
-  processor_ =
-      std::make_unique<Processor>(*this, contents_factory, std::move(callback));
+void AssistantCardElement::Process(ProcessingCallback callback) {
+  processor_ = std::make_unique<Processor>(*this, std::move(callback));
   processor_->Process();
-}
-
-// AssistantCardElement::Processor ---------------------------------------------
-
-AssistantCardElement::Processor::Processor(
-    AssistantCardElement& card_element,
-    content::mojom::NavigableContentsFactory* contents_factory,
-    ProcessingCallback callback)
-    : card_element_(card_element),
-      contents_factory_(contents_factory),
-      callback_(std::move(callback)) {}
-
-AssistantCardElement::Processor::~Processor() {
-  if (contents_)
-    contents_->RemoveObserver(this);
-
-  if (callback_)
-    std::move(callback_).Run(/*success=*/false);
-}
-
-void AssistantCardElement::Processor::Process() {
-  // TODO(dmblack): Find a better way of determining desired card size.
-  const int width_dip = kPreferredWidthDip - 2 * kUiElementHorizontalMarginDip;
-
-  // Configure parameters for the card.
-  auto contents_params = content::mojom::NavigableContentsParams::New();
-  contents_params->enable_view_auto_resize = true;
-  contents_params->auto_resize_min_size = gfx::Size(width_dip, 1);
-  contents_params->auto_resize_max_size = gfx::Size(width_dip, INT_MAX);
-  contents_params->suppress_navigations = true;
-
-  contents_ = std::make_unique<content::NavigableContents>(
-      contents_factory_, std::move(contents_params));
-
-  // Observe |contents_| so that we are notified when loading is complete.
-  contents_->AddObserver(this);
-
-  // Encode the html string to be URL-safe.
-  std::string encoded_html;
-  base::Base64Encode(card_element_.html(), &encoded_html);
-
-  // Navigate to the data URL which represents the card.
-  constexpr char kDataUriPrefix[] = "data:text/html;base64,";
-  contents_->Navigate(GURL(kDataUriPrefix + encoded_html));
-}
-
-void AssistantCardElement::Processor::DidStopLoading() {
-  contents_->RemoveObserver(this);
-
-  // Pass ownership of |contents_| to the card element that was being processed
-  // and notify our |callback_| of success.
-  card_element_.set_contents(std::move(contents_));
-  std::move(callback_).Run(/*success=*/true);
 }
 
 }  // namespace ash

@@ -13,7 +13,7 @@
 #include "base/observer_list.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
-#include "base/task/lazy_task_runner.h"
+#include "base/task/lazy_thread_pool_task_runner.h"
 #include "base/task/sequence_manager/sequence_manager.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
@@ -36,7 +36,7 @@ namespace test {
 // This header exposes SingleThreadTaskEnvironment and TaskEnvironment.
 //
 // SingleThreadTaskEnvironment enables the following APIs within its scope:
-//  - ThreadTaskRunnerHandle & GetContinuationTaskRunner on the main thread
+//  - (Thread|Sequenced)TaskRunnerHandle on the main thread
 //  - RunLoop on the main thread
 //
 // TaskEnvironment additionally enables:
@@ -47,7 +47,7 @@ namespace test {
 // Tests should prefer SingleThreadTaskEnvironment over TaskEnvironment when the
 // former is sufficient.
 //
-// Tasks posted to the APIs listed above run synchronously when
+// Tasks posted to the (Thread|Sequenced)TaskRunnerHandle run synchronously when
 // RunLoop::Run(UntilIdle) or TaskEnvironment::RunUntilIdle is called on the
 // main thread.
 //
@@ -115,6 +115,10 @@ class TaskEnvironment {
     DEFAULT = SYSTEM_TIME
   };
 
+  // This type will determine what types of messages will get pumped by the main
+  // thread.
+  // Note: If your test needs to use a custom MessagePump you should
+  // consider using a SingleThreadTaskExecutor instead.
   enum class MainThreadType {
     // The main thread doesn't pump system messages.
     DEFAULT,
@@ -152,6 +156,28 @@ class TaskEnvironment {
     DEFAULT = MULTIPLE_THREADS
   };
 
+  // On Windows, sets the COM environment for the ThreadPoolInstance. Ignored
+  // on other platforms.
+  enum class ThreadPoolCOMEnvironment {
+    // Do not initialize COM for the pool's workers.
+    NONE,
+
+    // Place the pool's workers in a COM MTA.
+    COM_MTA,
+
+    // Enable the MTA by default in unit tests to match the browser process's
+    // ThreadPoolInstance configuration.
+    //
+    // This has the adverse side-effect of enabling the MTA in non-browser unit
+    // tests as well but the downside there is not as bad as not having it in
+    // browser unit tests. It just means some COM asserts may pass in unit
+    // tests where they wouldn't in integration tests or prod. That's okay
+    // because unit tests are already generally very loose on allowing I/O,
+    // waits, etc. Such misuse will still be caught in later phases (and COM
+    // usage should already be pretty much inexistent in sandboxed processes).
+    DEFAULT = COM_MTA,
+  };
+
   // List of traits that are valid inputs for the constructor below.
   struct ValidTraits {
     ValidTraits(TimeSource);
@@ -159,6 +185,7 @@ class TaskEnvironment {
     ValidTraits(ThreadPoolExecutionMode);
     ValidTraits(SubclassCreatesDefaultTaskRunner);
     ValidTraits(ThreadingMode);
+    ValidTraits(ThreadPoolCOMEnvironment);
   };
 
   // Constructor accepts zero or more traits which customize the testing
@@ -176,12 +203,15 @@ class TaskEnvironment {
                                    ThreadPoolExecutionMode::DEFAULT>(traits...),
             trait_helpers::GetEnum<ThreadingMode, ThreadingMode::DEFAULT>(
                 traits...),
+            trait_helpers::GetEnum<ThreadPoolCOMEnvironment,
+                                   ThreadPoolCOMEnvironment::DEFAULT>(
+                traits...),
             trait_helpers::HasTrait<SubclassCreatesDefaultTaskRunner,
                                     TaskEnvironmentTraits...>(),
             trait_helpers::NotATraitTag()) {}
 
   // Waits until no undelayed ThreadPool tasks remain. Then, unregisters the
-  // ThreadPoolInstance and the APIs listed in the top level comment.
+  // ThreadPoolInstance and the (Thread|Sequenced)TaskRunnerHandle.
   virtual ~TaskEnvironment();
 
   // Returns a TaskRunner that schedules tasks on the main thread.
@@ -191,11 +221,11 @@ class TaskEnvironment {
   // always return true if called right after RunUntilIdle.
   bool MainThreadIsIdle() const;
 
-  // Runs tasks until both the APIs listed in the top level comment and the
-  // ThreadPool's non-delayed queues are empty. While RunUntilIdle() is quite
-  // practical and sometimes even necessary -- for example, to flush all tasks
-  // bound to Unretained() state before destroying test members -- it should be
-  // used with caution per the following warnings:
+  // Runs tasks until both the (Thread|Sequenced)TaskRunnerHandle and the
+  // ThreadPool's non-delayed queues are empty.
+  // While RunUntilIdle() is quite practical and sometimes even necessary -- for
+  // example, to flush all tasks bound to Unretained() state before destroying
+  // test members -- it should be used with caution per the following warnings:
   //
   // WARNING #1: This may run long (flakily timeout) and even never return! Do
   //             not use this when repeating tasks such as animated web pages
@@ -325,12 +355,14 @@ class TaskEnvironment {
                   MainThreadType main_thread_type,
                   ThreadPoolExecutionMode thread_pool_execution_mode,
                   ThreadingMode threading_mode,
+                  ThreadPoolCOMEnvironment thread_pool_com_environment,
                   bool subclass_creates_default_taskrunner,
                   trait_helpers::NotATraitTag tag);
 
   const MainThreadType main_thread_type_;
   const ThreadPoolExecutionMode thread_pool_execution_mode_;
   const ThreadingMode threading_mode_;
+  const ThreadPoolCOMEnvironment thread_pool_com_environment_;
   const bool subclass_creates_default_taskrunner_;
 
   std::unique_ptr<sequence_manager::SequenceManager> sequence_manager_;

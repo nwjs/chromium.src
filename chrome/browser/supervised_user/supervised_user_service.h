@@ -20,7 +20,7 @@
 #include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "chrome/browser/net/file_downloader.h"
-#include "chrome/browser/supervised_user/experimental/supervised_user_blacklist.h"
+#include "chrome/browser/supervised_user/supervised_user_blacklist.h"
 #include "chrome/browser/supervised_user/supervised_user_url_filter.h"
 #include "chrome/browser/supervised_user/supervised_users.h"
 #include "chrome/browser/ui/browser_list_observer.h"
@@ -139,12 +139,6 @@ class SupervisedUserService : public KeyedService,
 
   bool IsSupervisedUserIframeFilterEnabled() const;
 
-#if !defined(OS_ANDROID)
-  // Initializes this profile for syncing, using the provided |refresh_token| to
-  // mint access tokens for Sync.
-  void InitSync(const std::string& refresh_token);
-#endif
-
   void AddObserver(SupervisedUserServiceObserver* observer);
   void RemoveObserver(SupervisedUserServiceObserver* observer);
 
@@ -155,7 +149,6 @@ class SupervisedUserService : public KeyedService,
   void Shutdown() override;
 
   // SyncTypePreferenceProvider implementation:
-  syncer::UserSelectableTypeSet GetForcedTypes() const override;
   bool IsEncryptEverythingAllowed() const override;
 
 #if !defined(OS_ANDROID)
@@ -222,8 +215,6 @@ class SupervisedUserService : public KeyedService,
   std::string GetDebugPolicyProviderName() const override;
   bool UserMayLoad(const extensions::Extension* extension,
                    base::string16* error) const override;
-  bool UserMayModifySettings(const extensions::Extension* extension,
-                             base::string16* error) const override;
   bool MustRemainDisabled(const extensions::Extension* extension,
                           extensions::disable_reason::DisableReason* reason,
                           base::string16* error) const override;

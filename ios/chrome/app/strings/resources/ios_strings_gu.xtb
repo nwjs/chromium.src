@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">છૂપી શોધ</translation>
 <translation id="277771892408211951">ભાષા પસંદ કરો</translation>
 <translation id="2780046210906776326">ઇમેઇલ એકાઉન્ટ્સ નથી</translation>
+<translation id="2781331604911854368">ચાલુ</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">ટેબ સ્વિચર છોડી દો</translation>
 <translation id="2830972654601096923">સરનામા મેનેજ કરો…</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">ઓપન ટેબ્સ</translation>
 <translation id="3277021493514034324">સાઇટનું ઍડ્રેસ કૉપિ કર્યું</translation>
 <translation id="3290875554372353449">એકાઉન્ટ પસંદ કરો</translation>
+<translation id="3311748811247479259">બંધ</translation>
 <translation id="3324193307694657476">સરનામાં 2</translation>
 <translation id="3329904751041170572">સર્વરથી કનેક્ટ કરી શક્યું નથી.</translation>
 <translation id="3335947283844343239">બંધ કરેલું ટૅબ ફરીથી ખોલો</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">ફોર્મ્સ ભર્યા.</translation>
 <translation id="3478058380795961209">સમય સમાપ્તિ મહિનો</translation>
 <translation id="3482959374254649722">તમારા ટેબ્સને સમન્વયિત કરી રહ્યું છે...</translation>
+<translation id="3484946776651937681">ડાઉનલોડ ફોલ્ડરમાં ખોલો</translation>
 <translation id="3493531032208478708">સૂચવેલ કન્ટેન્ટ વિશે <ph name="BEGIN_LINK" />વધુ જાણો<ph name="END_LINK" /></translation>
 <translation id="3494788280727468875">બ્રાઉઝિંગ ડેટા સાફ કરવાની પુષ્ટિ કરો</translation>
+<translation id="35083190962747987">${url} ખોલો</translation>
 <translation id="3519193562722059437">વેબ બ્રાઉઝ કરવા ટેબ ખોલો.</translation>
 <translation id="3527085408025491307">ફોલ્ડર</translation>
 <translation id="3529024052484145543">સુરક્ષિત નથી</translation>
@@ -301,6 +305,7 @@
 <translation id="5062321486222145940">Google ડ્રાઇવ ઇન્સ્ટોલ કરો</translation>
 <translation id="5083464117946352670">ફાઇલ કદ નિર્ધારિત કરી શકાતું નથી.</translation>
 <translation id="5094827893301452931">ટ્વિટ પૂર્ણ કરેલ છે.</translation>
+<translation id="5118764316110575523">બંધ</translation>
 <translation id="5127805178023152808">સમન્વયન બંધ છે</translation>
 <translation id="5132942445612118989">બધા ડિવાઇસ પર તમારા પાસવર્ડ, ઇતિહાસ અને વધુ સિંક કરો</translation>
 <translation id="5140288047769711648">Chrome તમારા માટે આ પાસવર્ડ યાદ રાખશે. તમારે તેને યાદ રાખવાની જરૂર નથી.</translation>
@@ -349,13 +354,11 @@
 <translation id="5854790677617711513">30 દિવસ કરતા જૂનો</translation>
 <translation id="5857090052475505287">નવું ફોલ્ડર</translation>
 <translation id="5857770089550859117">સમન્વયનને પ્રારંભ કરવા માટે પાસફ્રેઝ આવશ્યક.</translation>
-<translation id="5860033963881614850">બંધ</translation>
 <translation id="5869029295770560994">બરાબર, સમજાઈ ગયું</translation>
 <translation id="5871497086027727873">1 આઇટમ ખસેડી</translation>
 <translation id="5897956970858271241">કૉપિ કરેલી લિંકની મુલાકાત લો</translation>
 <translation id="5911030830365207728">Google અનુવાદ</translation>
 <translation id="5913600720976431809">પેજનો અનુવાદ કરવા માટેના વિકલ્પો</translation>
-<translation id="5916664084637901428">ચાલુ</translation>
 <translation id="5938160824633642847">તમારું ઉપકરણ લગભગ ભરાઈ ગયું છે. સ્પેસ બનાવો અને ફરી પ્રયાસ કરો.</translation>
 <translation id="5948291296578561264">આ તમને તમારી ફોટો લાઇબ્રેરીમાં ફોટો સાચવવા દે છે.</translation>
 <translation id="5955891643922670672">ઑફલાઇન વર્ઝન જોઈ રહ્યા છે</translation>
@@ -365,6 +368,7 @@
 <translation id="5979837087407522202">પાસવર્ડ શોધો</translation>
 <translation id="5982717868370722439">અસ્તિત્વમાંના ડેટાને <ph name="USER_EMAIL" /> માં ઉમેરો.</translation>
 <translation id="5984222099446776634">હાલમાં મુલાકાત લીધેલા</translation>
+<translation id="5988851877894965432">URLsને Chromeમાં ખોલો</translation>
 <translation id="6012140227487808125">એન્ક્રિપ્ટ કરી રહ્યું છે...</translation>
 <translation id="6021332621416007159">આમાં ખોલો...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />, <ph name="PUBLISHER_INFORMATION" />, <ph name="PUBLICATION_DATE" /></translation>
@@ -475,6 +479,7 @@
 <translation id="734758817008927353">કાર્ડ સાચવવા માટેના વિકલ્પો</translation>
 <translation id="7348502496356775519">બુકમાર્ક કરો</translation>
 <translation id="7383797227493018512">વાંચન સૂચિ</translation>
+<translation id="7392048574806661116">સાઇન આઉટ કરીને સિંક કરેલો ડેટા સાફ કરો</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906"><ph name="UNREAD_COUNT" /> વાંચ્યા વગરના લેખ.</translation>
 <translation id="7425346204213733349">તમારા બુકમાર્ક, ઇતિહાસ, પાસવર્ડ અને બીજા સેટિંગમાં ફેરફારને હવે તમારા Google એકાઉન્ટ પર સિંક કરવામાં આવશે નહિ. જોકે, તમારો અસ્તિત્વમાંનો ડેટા તમારા Google એકાઉન્ટમાં સ્ટોર રહેશે.</translation>
@@ -514,6 +519,7 @@
 <translation id="7961015016161918242">ક્યારેય નહીં</translation>
 <translation id="7971521879845308059">પૉપ-અપ્સ અવરોધિત કરો</translation>
 <translation id="7982789257301363584">નેટવર્ક</translation>
+<translation id="800361585186029508">ઇનપુટ કરેલા URLsને Google Chromeમાં ખોલે છે.</translation>
 <translation id="8007420562015504427">છૂપી શોધ</translation>
 <translation id="8019783059653722575">આ તમને ફોટો સાચવવા અને અપલોડ કરવા દે છે.</translation>
 <translation id="802154636333426148">ડાઉનલોડ નિષ્ફળ થયું</translation>
@@ -533,6 +539,7 @@
 <translation id="8319076807703933069">નવી શોધ</translation>
 <translation id="8323906514956095947">ટૅબના વધુ વિકલ્પો માટે, ટચ કરીને થોડીવાર દબાવી રાખો</translation>
 <translation id="8328777765163860529">બધું બંધ કરો</translation>
+<translation id="8386068868580335421">રીસેટ કરો</translation>
 <translation id="8407669440184693619">આ સાઇટ માટે કોઈ પાસવર્ડ મળ્યાં નથી</translation>
 <translation id="842017693807136194">ની સાથે સાઇન ઇન કરેલ</translation>
 <translation id="8428045167754449968">શહેર/નગર</translation>

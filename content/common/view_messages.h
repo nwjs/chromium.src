@@ -59,7 +59,6 @@
 
 #if defined(OS_MACOSX)
 #include "third_party/blink/public/platform/mac/web_scrollbar_theme.h"
-#include "third_party/blink/public/platform/web_scrollbar_buttons_placement.h"
 #endif
 
 #undef IPC_MESSAGE_EXPORT
@@ -80,10 +79,6 @@ IPC_ENUM_TRAITS_MAX_VALUE(content::ThreeDAPIType,
 IPC_ENUM_TRAITS_MAX_VALUE(ui::TextInputType, ui::TEXT_INPUT_TYPE_MAX)
 
 #if defined(OS_MACOSX)
-IPC_ENUM_TRAITS_MAX_VALUE(
-    blink::WebScrollbarButtonsPlacement,
-    blink::WebScrollbarButtonsPlacement::kWebScrollbarButtonsPlacementLast)
-
 IPC_ENUM_TRAITS_MAX_VALUE(blink::ScrollerStyle, blink::kScrollerStyleOverlay)
 #endif
 
@@ -204,12 +199,6 @@ IPC_MESSAGE_ROUTED0(ViewHostMsg_ClosePage_ACK)
 IPC_MESSAGE_ROUTED1(ViewHostMsg_UpdateTargetURL,
                     GURL)
 
-// Sent when the document element is available for the top-level frame.  This
-// happens after the page starts loading, but before all resources are
-// finished.
-IPC_MESSAGE_ROUTED1(ViewHostMsg_DocumentAvailableInMainFrame,
-                    bool /* uses_temporary_zoom_level */)
-
 IPC_MESSAGE_ROUTED0(ViewHostMsg_Focus)
 
 // Get the list of proxies to use for |url|, as a semicolon delimited list
@@ -253,8 +242,8 @@ IPC_MESSAGE_CONTROL1(ViewHostMsg_UserMetricsRecordAction,
                      std::string /* action */)
 
 // Notifies the browser of an event occurring in the media pipeline.
-IPC_MESSAGE_CONTROL1(ViewHostMsg_MediaLogEvents,
-                     std::vector<media::MediaLogEvent> /* events */)
+IPC_MESSAGE_CONTROL1(ViewHostMsg_MediaLogRecords,
+                     std::vector<media::MediaLogRecord> /* records */)
 
 // Adding a new message? Stick to the sort order above: first platform
 // independent ViewMsg, then ifdefs for platform specific ViewMsg, then platform

@@ -30,8 +30,7 @@ class OmniboxPopupContentsView : public views::View,
  public:
   OmniboxPopupContentsView(OmniboxViewViews* omnibox_view,
                            OmniboxEditModel* edit_model,
-                           LocationBarView* location_bar_view,
-                           const ui::ThemeProvider* theme_provider);
+                           LocationBarView* location_bar_view);
   ~OmniboxPopupContentsView() override;
 
   OmniboxPopupModel* model() const { return model_.get(); }
@@ -73,7 +72,7 @@ class OmniboxPopupContentsView : public views::View,
   // OmniboxPopupView:
   bool IsOpen() const override;
   void InvalidateLine(size_t line) override;
-  void OnLineSelected(size_t line) override;
+  void OnSelectionStateChanged(size_t line) override;
   void UpdatePopupAppearance() override;
   void ProvideButtonFocusHint(size_t line) override;
   void OnMatchIconUpdated(size_t match_index) override;
@@ -124,8 +123,6 @@ class OmniboxPopupContentsView : public views::View,
   OmniboxViewViews* omnibox_view_;
 
   LocationBarView* location_bar_view_;
-
-  const ui::ThemeProvider* theme_provider_;
 
   DISALLOW_COPY_AND_ASSIGN(OmniboxPopupContentsView);
 };

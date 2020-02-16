@@ -140,6 +140,7 @@
 <translation id="2773292004659987824">ค้นหาในโหมดไม่ระบุตัวตน</translation>
 <translation id="277771892408211951">เลือกภาษา</translation>
 <translation id="2780046210906776326">ไม่มีบัญชีอีเมล</translation>
+<translation id="2781331604911854368">เปิด</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2800683595868705743">ออกจากมุมมองตัวสลับแท็บ</translation>
 <translation id="2830972654601096923">จัดการที่อยู่...</translation>
@@ -175,6 +176,7 @@
 <translation id="3268451620468152448">แท็บที่เปิดอยู่</translation>
 <translation id="3277021493514034324">คัดลอกที่อยู่เว็บไซต์แล้ว</translation>
 <translation id="3290875554372353449">เลือกบัญชี</translation>
+<translation id="3311748811247479259">ปิด</translation>
 <translation id="3324193307694657476">ที่อยู่ 2</translation>
 <translation id="3329904751041170572">ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์</translation>
 <translation id="3335947283844343239">เปิดแท็บที่ปิดไปแล้วขึ้นใหม่</translation>
@@ -190,8 +192,10 @@
 <translation id="3474649192738347024">กรอกฟอร์มแล้ว</translation>
 <translation id="3478058380795961209">เดือนที่หมดอายุ</translation>
 <translation id="3482959374254649722">กำลังซิงค์แท็บ...</translation>
+<translation id="3484946776651937681">เปิดใน "ดาวน์โหลด"</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" />เกี่ยวกับเนื้อหาที่แนะนำ</translation>
 <translation id="3494788280727468875">ยืนยันการล้างข้อมูลการท่องเว็บ</translation>
+<translation id="35083190962747987">เปิด ${url}</translation>
 <translation id="3519193562722059437">เปิดแท็บเพื่อท่องเว็บ</translation>
 <translation id="3527085408025491307">โฟลเดอร์</translation>
 <translation id="3529024052484145543">ไม่ปลอดภัย</translation>
@@ -301,6 +305,7 @@
 <translation id="5062321486222145940">ติดตั้ง Google ไดรฟ์</translation>
 <translation id="5083464117946352670">ไม่สามารถระบุขนาดไฟล์ได้</translation>
 <translation id="5094827893301452931">ทวีตแล้ว</translation>
+<translation id="5118764316110575523">ปิด</translation>
 <translation id="5127805178023152808">การซิงค์ปิดอยู่</translation>
 <translation id="5132942445612118989">ซิงค์รหัสผ่าน ประวัติการเข้าชม และอื่นๆ ในอุปกรณ์ทุกเครื่อง</translation>
 <translation id="5140288047769711648">Chrome จะจำรหัสผ่านนี้ให้คุณ คุณไม่จำเป็นต้องจำเอง</translation>
@@ -349,13 +354,11 @@
 <translation id="5854790677617711513">เกิน 30 วัน</translation>
 <translation id="5857090052475505287">โฟลเดอร์ใหม่</translation>
 <translation id="5857770089550859117">ต้องระบุรหัสผ่านเพื่อเริ่มการซิงค์</translation>
-<translation id="5860033963881614850">ปิด</translation>
 <translation id="5869029295770560994">รับทราบ</translation>
 <translation id="5871497086027727873">ย้ายแล้ว 1 รายการ</translation>
 <translation id="5897956970858271241">ไปที่ลิงก์ที่คัดลอก</translation>
 <translation id="5911030830365207728">Google แปลภาษา</translation>
 <translation id="5913600720976431809">ตัวเลือกในการแปลหน้า</translation>
-<translation id="5916664084637901428">เปิด</translation>
 <translation id="5938160824633642847">พื้นที่ในอุปกรณ์เกือบเต็มแล้ว เพิ่มพื้นที่ว่างแล้วลองอีกครั้ง</translation>
 <translation id="5948291296578561264">ช่วยให้คุณบันทึกรูปภาพในคลังภาพได้</translation>
 <translation id="5955891643922670672">การดูเวอร์ชันออฟไลน์</translation>
@@ -365,6 +368,7 @@
 <translation id="5979837087407522202">ค้นหารหัสผ่าน</translation>
 <translation id="5982717868370722439">เพิ่มข้อมูลที่มีอยู่ลงใน <ph name="USER_EMAIL" /></translation>
 <translation id="5984222099446776634">เข้าชมล่าสุด</translation>
+<translation id="5988851877894965432">เปิด URL ใน Chrome</translation>
 <translation id="6012140227487808125">กำลังเข้ารหัส…</translation>
 <translation id="6021332621416007159">เปิดใน...</translation>
 <translation id="6039429417015973673"><ph name="TITLE" />, <ph name="PUBLISHER_INFORMATION" />, <ph name="PUBLICATION_DATE" /></translation>
@@ -475,6 +479,7 @@
 <translation id="734758817008927353">ตัวเลือกในการบันทึกการ์ด</translation>
 <translation id="7348502496356775519">บุ๊กมาร์ก</translation>
 <translation id="7383797227493018512">เรื่องรออ่าน</translation>
+<translation id="7392048574806661116">ออกจากระบบและล้างข้อมูลที่ซิงค์</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7409985198648820906">บทความที่ยังไม่ได้อ่าน <ph name="UNREAD_COUNT" /> รายการ</translation>
 <translation id="7425346204213733349">การเปลี่ยนแปลงบุ๊กมาร์ก ประวัติการเข้าชม รหัสผ่าน และการตั้งค่าอื่นๆ จะไม่ซิงค์กับบัญชี Google ของคุณอีกต่อไป อย่างไรก็ตาม ข้อมูลที่คุณมีจะยังคงจัดเก็บอยู่ในบัญชี Google</translation>
@@ -514,6 +519,7 @@
 <translation id="7961015016161918242">ไม่ต้องเลย</translation>
 <translation id="7971521879845308059">บล็อกป๊อปอัป</translation>
 <translation id="7982789257301363584">เครือข่าย</translation>
+<translation id="800361585186029508">เปิด URL ที่ป้อนใน Google Chrome</translation>
 <translation id="8007420562015504427">ค้นหาในโหมดไม่ระบุตัวตน</translation>
 <translation id="8019783059653722575">ช่วยให้คุณบันทึกและอัปโหลดรูปภาพได้</translation>
 <translation id="802154636333426148">การดาวน์โหลดล้มเหลว</translation>
@@ -533,6 +539,7 @@
 <translation id="8319076807703933069">ค้นหาใหม่</translation>
 <translation id="8323906514956095947">แตะค้างไว้เพื่อดูตัวเลือกแท็บเพิ่มเติม</translation>
 <translation id="8328777765163860529">ปิดทั้งหมด</translation>
+<translation id="8386068868580335421">รีเซ็ต</translation>
 <translation id="8407669440184693619">ไม่พบรหัสผ่านสำหรับเว็บไซต์นี้</translation>
 <translation id="842017693807136194">ลงชื่อเข้าใช้ด้วย</translation>
 <translation id="8428045167754449968">เมือง/จังหวัด</translation>

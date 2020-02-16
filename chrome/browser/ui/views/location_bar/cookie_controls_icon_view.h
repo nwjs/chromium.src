@@ -17,7 +17,9 @@
 class CookieControlsIconView : public PageActionIconView,
                                public CookieControlsView {
  public:
-  explicit CookieControlsIconView(PageActionIconView::Delegate* delegate);
+  CookieControlsIconView(
+      IconLabelBubbleView::Delegate* icon_label_bubble_delegate,
+      PageActionIconView::Delegate* page_action_icon_delegate);
   ~CookieControlsIconView() override;
 
   // CookieControlsUI:
@@ -33,6 +35,7 @@ class CookieControlsIconView : public PageActionIconView,
  protected:
   void OnExecuting(PageActionIconView::ExecuteSource source) override;
   const gfx::VectorIcon& GetVectorIcon() const override;
+  const char* GetClassName() const override;
 
  private:
   bool HasAssociatedBubble() const;

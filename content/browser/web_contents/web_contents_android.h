@@ -242,7 +242,15 @@ class CONTENT_EXPORT WebContentsAndroid {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj);
 
+  void NotifyBrowserControlsHeightChanged(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj);
+
   base::android::ScopedJavaLocalRef<jobject> GetRenderWidgetHostView(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj);
+
+  base::android::ScopedJavaLocalRef<jobjectArray> GetInnerWebContents(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj);
 

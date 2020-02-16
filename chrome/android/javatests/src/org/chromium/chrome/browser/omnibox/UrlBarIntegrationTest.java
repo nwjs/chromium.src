@@ -24,9 +24,9 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
@@ -157,7 +157,7 @@ public class UrlBarIntegrationTest {
     @Test
     @SmallTest
     @Feature({"Omnibox"})
-    // TODO(crbug.com/1048469): Investigate and enable this test for the search engine logo feature.
+    // TODO(crbug.com/1028469): Investigate and enable this test for the search engine logo feature.
     @DisableFeatures("OmniboxSearchEngineLogo")
     @RetryOnFailure
     public void testLongPress() {

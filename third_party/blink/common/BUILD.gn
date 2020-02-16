@@ -5,6 +5,28 @@
 import("//build/config/jumbo.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
+import("//third_party/blink/renderer/build/scripts/scripts.gni")
+
+blink_python_runner("make_generated_document_policy_features") {
+  script = "../renderer/build/scripts/make_document_policy_features.py"
+
+  inputs =
+      scripts_for_json5_files + [
+        "../renderer/build/scripts/make_document_policy_features.py",
+        "../renderer/core/feature_policy/document_policy_features.json5",
+        "../renderer/build/scripts/templates/document_policy_features.cc.tmpl",
+      ]
+  outputs = [ "$root_gen_dir/third_party/blink/common/feature_policy/document_policy_features.cc" ]
+
+  args = [
+    rebase_path(
+        "../renderer/core/feature_policy/document_policy_features.json5",
+        root_build_dir),
+    "--output_dir",
+    rebase_path("$root_gen_dir/third_party/blink/common/feature_policy",
+                root_build_dir),
+  ]
+}
 
 jumbo_source_set("common") {
   # No target should directly depend on this target since this is just the
@@ -47,9 +69,14 @@ jumbo_source_set("common") {
     "indexeddb/indexeddb_key_path.cc",
     "indexeddb/indexeddb_key_range.cc",
     "indexeddb/indexeddb_metadata.cc",
+    "input/web_gesture_event.cc",
+    "input/web_keyboard_event.cc",
+    "input/web_mouse_event.cc",
+    "input/web_mouse_wheel_event.cc",
+    "input/web_pointer_event.cc",
+    "input/web_touch_event.cc",
     "loader/mime_sniffing_throttle.cc",
     "loader/mime_sniffing_url_loader.cc",
-    "loader/request_destination.cc",
     "loader/throttling_url_loader.cc",
     "loader/throttling_url_loader.h",
     "loader/url_loader_factory_bundle.cc",
@@ -72,6 +99,7 @@ jumbo_source_set("common") {
     "messaging/string_message_codec.cc",
     "messaging/transferable_message.cc",
     "messaging/transferable_message_mojom_traits.cc",
+    "messaging/web_message_port.cc",
     "mime_util/mime_util.cc",
     "notifications/notification_mojom_traits.cc",
     "notifications/notification_resources.cc",
@@ -83,6 +111,7 @@ jumbo_source_set("common") {
     "origin_trials/trial_token_validator.cc",
     "page/page_zoom.cc",
     "peerconnection/webrtc_ip_handling_policy.cc",
+    "permissions/permission_utils.cc",
     "scheduler/web_scheduler_tracked_feature.cc",
     "service_worker/service_worker_status_code.cc",
     "service_worker/service_worker_type_converters.cc",
@@ -92,7 +121,10 @@ jumbo_source_set("common") {
     "web_package/signed_exchange_request_matcher.cc",
   ]
 
+  sources += get_target_outputs(":make_generated_document_policy_features")
+
   public_deps = [
+    ":make_generated_document_policy_features",
     "//third_party/blink/public/common:headers",
   ]
 
@@ -126,9 +158,7 @@ jumbo_source_set("common") {
 }
 
 fuzzer_test("http_structured_header_fuzzer") {
-  sources = [
-    "http/structured_header_fuzzer.cc",
-  ]
+  sources = [ "http/structured_header_fuzzer.cc" ]
   deps = [
     ":common",
     "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
@@ -157,7 +187,9 @@ jumbo_source_set("common_unittests_sources") {
     "bluetooth/web_bluetooth_device_id_unittest.cc",
     "client_hints/client_hints_unittest.cc",
     "device_memory/approximated_device_memory_unittest.cc",
+    "feature_policy/document_policy_unittest.cc",
     "feature_policy/feature_policy_unittest.cc",
+    "feature_policy/policy_value_unittest.cc",
     "frame/user_activation_state_unittest.cc",
     "http/structured_header_unittest.cc",
     "indexeddb/indexeddb_key_unittest.cc",
@@ -196,7 +228,10 @@ jumbo_source_set("common_unittests_sources") {
     # TODO(crbug.com/845384): Enable these tests also on Android. Currently
     # they are excluded as they require V8 environment but V8 snapshot is
     # not available in the current minimum test setting.
-    sources += [ "messaging/string_message_codec_unittest.cc" ]
+    sources += [
+      "messaging/string_message_codec_unittest.cc",
+      "messaging/web_message_port_unittest.cc",
+    ]
   }
 
   if (is_android || is_win) {

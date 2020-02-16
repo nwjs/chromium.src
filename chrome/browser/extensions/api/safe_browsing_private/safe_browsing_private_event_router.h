@@ -69,7 +69,16 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   static const char kKeyReason[];
   static const char kKeyNetErrorCode[];
   static const char kKeyClickedThrough[];
-  static const char kKeyTriggeredRules[];
+  static const char kKeyTriggeredRuleId[];
+  static const char kKeyTriggeredRuleName[];
+  static const char kKeyTriggeredRuleResourceName[];
+  static const char kKeyTriggeredRuleSeverity[];
+  static const char kKeyTriggeredRuleAction[];
+  static const char kKeyMatchedDetectors[];
+  static const char kKeyMatchedDetectorId[];
+  static const char kKeyMatchedDetectorName[];
+  static const char kKeyMatchedDetectorType[];
+  static const char kKeyTriggeredRuleInfo[];
   static const char kKeyThreatType[];
   static const char kKeyContentType[];
   static const char kKeyContentSize[];
@@ -135,6 +144,14 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
       const std::string& mime_type,
       const std::string& trigger,
       const int64_t content_size);
+
+  // Notifies listeners that scanning for sensitive data detected a violation.
+  void OnSensitiveDataWarningBypassed(const GURL& url,
+                                      const std::string& file_name,
+                                      const std::string& download_digest_sha256,
+                                      const std::string& mime_type,
+                                      const std::string& trigger,
+                                      const int64_t content_size);
 
   // Notifies listeners that deep scanning failed, for the given |reason|.
   void OnUnscannedFileEvent(const GURL& url,

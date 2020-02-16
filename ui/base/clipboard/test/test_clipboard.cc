@@ -72,6 +72,33 @@ void TestClipboard::ReadAvailableTypes(ClipboardBuffer buffer,
   *contains_filenames = false;
 }
 
+std::vector<base::string16>
+TestClipboard::ReadAvailablePlatformSpecificFormatNames(
+    ClipboardBuffer buffer) const {
+  const auto& data = GetStore(buffer).data;
+  std::vector<base::string16> types;
+  types.reserve(data.size());
+  for (const auto& it : data)
+    types.push_back(base::UTF8ToUTF16(it.first.GetName()));
+
+  // Some platforms add additional raw types to represent text, or offer them
+  // as available formats by automatically converting between them.
+  if (IsFormatAvailable(ClipboardFormatType::GetPlainTextType(), buffer)) {
+#if defined(USE_X11)
+    types.push_back(base::ASCIIToUTF16("TEXT"));
+    types.push_back(base::ASCIIToUTF16("STRING"));
+    types.push_back(base::ASCIIToUTF16("UTF8_STRING"));
+#elif defined(OS_WIN)
+    types.push_back(base::ASCIIToUTF16("CF_LOCALE"));
+    types.push_back(base::ASCIIToUTF16("CF_OEMTEXT"));
+#elif defined(OS_MACOSX)
+    types.push_back(base::ASCIIToUTF16("NSStringPboardType"));
+#endif
+  }
+
+  return types;
+}
+
 void TestClipboard::ReadText(ClipboardBuffer buffer,
                              base::string16* result) const {
   std::string result8;
@@ -124,7 +151,7 @@ void TestClipboard::ReadBookmark(base::string16* title,
                                  std::string* url) const {
   const DataStore& store = GetDefaultStore();
   if (url) {
-    auto it = store.data.find(ClipboardFormatType::GetUrlWType());
+    auto it = store.data.find(ClipboardFormatType::GetUrlType());
     if (it != store.data.end())
       *url = it->second;
   }
@@ -170,8 +197,10 @@ void TestClipboard::WritePlatformRepresentations(
 void TestClipboard::WriteText(const char* text_data, size_t text_len) {
   std::string text(text_data, text_len);
   GetDefaultStore().data[ClipboardFormatType::GetPlainTextType()] = text;
+#if defined(OS_WIN)
   // Create a dummy entry.
-  GetDefaultStore().data[ClipboardFormatType::GetPlainTextWType()];
+  GetDefaultStore().data[ClipboardFormatType::GetPlainTextAType()];
+#endif
   if (IsSupportedClipboardBuffer(ClipboardBuffer::kSelection))
     GetStore(ClipboardBuffer::kSelection)
         .data[ClipboardFormatType::GetPlainTextType()] = text;
@@ -198,7 +227,7 @@ void TestClipboard::WriteBookmark(const char* title_data,
                                   size_t title_len,
                                   const char* url_data,
                                   size_t url_len) {
-  GetDefaultStore().data[ClipboardFormatType::GetUrlWType()] =
+  GetDefaultStore().data[ClipboardFormatType::GetUrlType()] =
       std::string(url_data, url_len);
   GetDefaultStore().url_title = std::string(title_data, title_len);
 }

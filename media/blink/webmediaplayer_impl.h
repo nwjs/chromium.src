@@ -39,9 +39,12 @@
 #include "media/blink/learning_experiment_helper.h"
 #include "media/blink/media_blink_export.h"
 #include "media/blink/multibuffer_data_source.h"
+#include "media/blink/power_status_helper.h"
+#include "media/blink/smoothness_helper.h"
 #include "media/blink/video_frame_compositor.h"
 #include "media/blink/webmediaplayer_params.h"
 #include "media/filters/pipeline_controller.h"
+#include "media/learning/common/media_learning_tasks.h"
 #include "media/renderers/paint_canvas_video_renderer.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/media_session/public/cpp/media_position.h"
@@ -92,7 +95,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
       public blink::WebMediaPlayerDelegate::Observer,
       public Pipeline::Client,
       public MediaObserverClient,
-      public blink::WebSurfaceLayerBridgeObserver {
+      public blink::WebSurfaceLayerBridgeObserver,
+      public SmoothnessHelper::Client {
  public:
   // Constructs a WebMediaPlayer implementation using Chromium's media stack.
   // |delegate| and |renderer_factory_selector| must not be null.
@@ -166,6 +170,9 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   bool PausedWhenHidden() const override;
 
+  // Informed when picture-in-picture availability changed.
+  void OnPictureInPictureAvailabilityChanged(bool available) override;
+
   // Internal states of loading and network.
   // TODO(hclam): Ask the pipeline about the state rather than having reading
   // them from members which would cause race conditions.
@@ -238,8 +245,11 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void OnMuted(bool muted) override;
   void OnSeekForward(double seconds) override;
   void OnSeekBackward(double seconds) override;
+  void OnEnterPictureInPicture() override;
+  void OnExitPictureInPicture() override;
   void OnVolumeMultiplierUpdate(double multiplier) override;
   void OnBecamePersistentVideo(bool value) override;
+  void OnPowerExperimentState(bool state) override;
   void RequestRemotePlaybackDisabled(bool disabled) override;
 
 #if defined(OS_ANDROID)
@@ -341,12 +351,13 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
                               BufferingStateChangeReason reason) override;
   void OnDurationChange() override;
   void OnAddTextTrack(const TextTrackConfig& config,
-                      const AddTextTrackDoneCB& done_cb) override;
+                      AddTextTrackDoneCB done_cb) override;
   void OnWaiting(WaitingReason reason) override;
   void OnAudioConfigChange(const AudioDecoderConfig& config) override;
   void OnVideoConfigChange(const VideoDecoderConfig& config) override;
   void OnVideoNaturalSizeChange(const gfx::Size& size) override;
   void OnVideoOpacityChange(bool opaque) override;
+  void OnVideoFrameRateChange(base::Optional<int> fps) override;
   void OnVideoAverageKeyframeDistanceUpdate() override;
   void OnAudioDecoderChange(const PipelineDecoderInfo& info) override;
   void OnVideoDecoderChange(const PipelineDecoderInfo& info) override;
@@ -625,6 +636,16 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   void SetCurrentFrameOverrideForTesting(
       scoped_refptr<VideoFrame> current_frame_override);
+
+  // Create / recreate |smoothness_helper_|, with current features.  Will take
+  // no action if we already have a smoothness helper with the same features
+  // that we want now.  Will destroy the helper if we shouldn't be measuring
+  // smoothness right now.
+  void UpdateSmoothnessHelper();
+
+  // Get the LearningTaskController for |task_id|.
+  std::unique_ptr<learning::LearningTaskController> GetLearningTaskController(
+      learning::MediaLearningTasks::Id task_id);
 
   blink::WebLocalFrame* const frame_;
 
@@ -1013,6 +1034,12 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   SimpleWatchTimer simple_watch_timer_;
 
   LearningExperimentHelper will_play_helper_;
+
+  std::unique_ptr<PowerStatusHelper> power_status_helper_;
+
+  // Created while playing, deleted otherwise.
+  std::unique_ptr<SmoothnessHelper> smoothness_helper_;
+  base::Optional<int> last_reported_fps_;
 
   base::WeakPtr<WebMediaPlayerImpl> weak_this_;
   base::WeakPtrFactory<WebMediaPlayerImpl> weak_factory_{this};

@@ -4,7 +4,7 @@
 
 #include "third_party/blink/renderer/core/layout/layout_shift_tracker.h"
 
-#include "third_party/blink/public/platform/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
@@ -30,14 +30,13 @@ class LayoutShiftTrackerTest : public RenderingTest {
 
   void SimulateInput() {
     GetLayoutShiftTracker().NotifyInput(WebMouseEvent(
-        WebInputEvent::kMouseDown, WebFloatPoint(), WebFloatPoint(),
+        WebInputEvent::kMouseDown, gfx::PointF(), gfx::PointF(),
         WebPointerProperties::Button::kLeft, 0,
         WebInputEvent::Modifiers::kLeftButtonDown, base::TimeTicks::Now()));
   }
 
   void UpdateAllLifecyclePhases() {
-    GetFrameView().UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    GetFrameView().UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   }
 };
 

@@ -4,14 +4,17 @@
 
 #include "gpu/command_buffer/service/shared_context_state.h"
 
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/memory_dump_manager.h"
+#include "components/crash/core/common/crash_key.h"
 #include "gpu/command_buffer/common/activity_flags.h"
 #include "gpu/command_buffer/service/context_state.h"
 #include "gpu/command_buffer/service/gl_context_virtual.h"
 #include "gpu/command_buffer/service/service_transfer_cache.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_driver_bug_workarounds.h"
+#include "gpu/config/skia_limits.h"
 #include "gpu/vulkan/buildflags.h"
 #include "skia/buildflags.h"
 #include "ui/gl/gl_bindings.h"
@@ -60,15 +63,9 @@ void SharedContextState::MemoryTracker::OnMemoryAllocatedChange(
     CommandBufferId id,
     uint64_t old_size,
     uint64_t new_size) {
-  uint64_t delta = new_size - old_size;
-  old_size = size_;
-  size_ += delta;
+  size_ += new_size - old_size;
   if (peak_memory_monitor_)
-    peak_memory_monitor_->OnMemoryAllocatedChange(id, old_size, size_);
-}
-
-uint64_t SharedContextState::MemoryTracker::GetMemoryUsage() const {
-  return size_;
+    peak_memory_monitor_->OnMemoryAllocatedChange(id, old_size, new_size);
 }
 
 SharedContextState::SharedContextState(
@@ -93,8 +90,6 @@ SharedContextState::SharedContextState(
       context_(context),
       real_context_(std::move(context)),
       surface_(std::move(surface)) {
-  raster::DetermineGrCacheLimitsFromAvailableMemory(
-      &max_resource_cache_bytes_, &glyph_cache_max_texture_bytes_);
   if (GrContextIsVulkan()) {
 #if BUILDFLAG(ENABLE_VULKAN)
     gr_context_ = vk_context_provider_->GetGrContext();
@@ -124,6 +119,10 @@ SharedContextState::SharedContextState(
   // Initialize the scratch buffer to some small initial size.
   scratch_deserialization_buffer_.resize(
       kInitialScratchDeserializationBufferSize);
+
+  static crash_reporter::CrashKeyString<16> crash_key("gr-context-type");
+  crash_key.Set(
+      base::StringPrintf("%u", static_cast<uint32_t>(gr_context_type_)));
 }
 
 SharedContextState::~SharedContextState() {
@@ -141,6 +140,15 @@ SharedContextState::~SharedContextState() {
   // initialized.
   DCHECK(!owned_gr_context_ || owned_gr_context_->unique());
 
+  // GPU memory allocations except skia_gr_cache_size_ tracked by this
+  // memory_tracker_ should have been released.
+  DCHECK_EQ(skia_gr_cache_size_, memory_tracker_.GetMemoryUsage());
+  // gr_context_ and all resources owned by it will be released soon, so set it
+  // to null, and UpdateSkiaOwnedMemorySize() will update skia memory usage to
+  // 0, to ensure that PeakGpuMemoryMonitor sees 0 allocated memory.
+  gr_context_ = nullptr;
+  UpdateSkiaOwnedMemorySize();
+
   // Delete the GrContext. This will either do cleanup if the context is
   // current, or the GrContext was already abandoned if the GLContext was lost.
   owned_gr_context_.reset();
@@ -152,6 +160,7 @@ SharedContextState::~SharedContextState() {
 }
 
 void SharedContextState::InitializeGrContext(
+    const GpuPreferences& gpu_preferences,
     const GpuDriverBugWorkarounds& workarounds,
     GrContextOptions::PersistentCache* cache,
     GpuProcessActivityFlags* activity_flags,
@@ -162,6 +171,11 @@ void SharedContextState::InitializeGrContext(
   if (metal_context_provider_)
     metal_context_provider_->SetProgressReporter(progress_reporter);
 #endif
+
+  size_t max_resource_cache_bytes;
+  size_t glyph_cache_max_texture_bytes;
+  DetermineGrCacheLimitsFromAvailableMemory(&max_resource_cache_bytes,
+                                            &glyph_cache_max_texture_bytes);
 
   if (GrContextIsGL()) {
     DCHECK(context_->IsCurrent(nullptr));
@@ -196,7 +210,7 @@ void SharedContextState::InitializeGrContext(
     options.fDriverBugWorkarounds =
         GrDriverBugWorkarounds(workarounds.ToIntSet());
     options.fDisableCoverageCountingPaths = true;
-    options.fGlyphCacheTextureMaximumBytes = glyph_cache_max_texture_bytes_;
+    options.fGlyphCacheTextureMaximumBytes = glyph_cache_max_texture_bytes;
     options.fPersistentCache = cache;
     options.fAvoidStencilBuffers = workarounds.avoid_stencil_buffers;
     if (workarounds.disable_program_disk_cache) {
@@ -204,6 +218,8 @@ void SharedContextState::InitializeGrContext(
           GrContextOptions::ShaderCacheStrategy::kBackendSource;
     }
     options.fShaderErrorHandler = this;
+    if (gpu_preferences.force_max_texture_size)
+      options.fMaxTextureSizeOverride = gpu_preferences.force_max_texture_size;
     // TODO(csmartdalton): enable internal multisampling after the related Skia
     // rolls are in.
     options.fInternalMultisampleCount = 0;
@@ -215,9 +231,9 @@ void SharedContextState::InitializeGrContext(
     LOG(ERROR) << "OOP raster support disabled: GrContext creation "
                   "failed.";
   } else {
-    gr_context_->setResourceCacheLimit(max_resource_cache_bytes_);
+    gr_context_->setResourceCacheLimit(max_resource_cache_bytes);
   }
-  transfer_cache_ = std::make_unique<ServiceTransferCache>();
+  transfer_cache_ = std::make_unique<ServiceTransferCache>(gpu_preferences);
 }
 
 bool SharedContextState::InitializeGL(
@@ -309,21 +325,38 @@ bool SharedContextState::InitializeGL(
 }
 
 bool SharedContextState::MakeCurrent(gl::GLSurface* surface, bool needs_gl) {
-  if (!GrContextIsGL() && !needs_gl)
-    return true;
-
   if (context_lost_)
     return false;
 
-  if (!context_->MakeCurrent(surface ? surface : surface_.get())) {
+  if (!GrContextIsGL() && !needs_gl)
+    return true;
+
+  gl::GLSurface* dont_care_surface =
+      last_current_surface_ ? last_current_surface_ : surface_.get();
+  surface = surface ? surface : dont_care_surface;
+
+  if (!context_->MakeCurrent(surface)) {
     MarkContextLost();
     return false;
   }
+  last_current_surface_ = surface;
+
   return true;
 }
 
+void SharedContextState::ReleaseCurrent(gl::GLSurface* surface) {
+  if (!surface)
+    surface = last_current_surface_;
+
+  if (surface != last_current_surface_)
+    return;
+
+  last_current_surface_ = nullptr;
+  if (!context_lost_)
+    context_->ReleaseCurrent(surface);
+}
+
 void SharedContextState::MarkContextLost() {
-  DCHECK(GrContextIsGL());
   if (!context_lost_) {
     scoped_refptr<SharedContextState> prevent_last_ref_drop = this;
     context_lost_ = true;
@@ -332,6 +365,7 @@ void SharedContextState::MarkContextLost() {
       context_state_->MarkContextLost();
     if (gr_context_)
       gr_context_->abandonContext();
+    UpdateSkiaOwnedMemorySize();
     std::move(context_lost_callback_).Run();
     for (auto& observer : context_lost_observers_)
       observer.OnContextLost();
@@ -382,12 +416,11 @@ void SharedContextState::PurgeMemory(
 
   switch (memory_pressure_level) {
     case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE:
-      // This function is only called with moderate or critical pressure.
-      NOTREACHED();
       return;
     case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
       // With moderate pressure, clear any unlocked resources.
       gr_context_->purgeUnlockedResources(true /* scratchResourcesOnly */);
+      UpdateSkiaOwnedMemorySize();
       scratch_deserialization_buffer_.resize(
           kInitialScratchDeserializationBufferSize);
       scratch_deserialization_buffer_.shrink_to_fit();
@@ -395,12 +428,36 @@ void SharedContextState::PurgeMemory(
     case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL:
       // With critical pressure, purge as much as possible.
       gr_context_->freeGpuResources();
+      UpdateSkiaOwnedMemorySize();
       scratch_deserialization_buffer_.resize(0u);
       scratch_deserialization_buffer_.shrink_to_fit();
       break;
   }
 
-  transfer_cache_->PurgeMemory(memory_pressure_level);
+  if (transfer_cache_)
+    transfer_cache_->PurgeMemory(memory_pressure_level);
+}
+
+uint64_t SharedContextState::GetMemoryUsage() {
+  UpdateSkiaOwnedMemorySize();
+  return memory_tracker_.GetMemoryUsage();
+}
+
+void SharedContextState::UpdateSkiaOwnedMemorySize() {
+  if (!gr_context_) {
+    memory_tracker_.OnMemoryAllocatedChange(CommandBufferId(),
+                                            skia_gr_cache_size_, 0u);
+    skia_gr_cache_size_ = 0u;
+    return;
+  }
+  size_t new_size;
+  gr_context_->getResourceCacheUsage(nullptr /* resourceCount */, &new_size);
+  // Skia does not have a CommandBufferId. PeakMemoryMonitor currently does not
+  // use CommandBufferId to identify source, so use zero here to separate
+  // prevent confusion.
+  memory_tracker_.OnMemoryAllocatedChange(
+      CommandBufferId(), skia_gr_cache_size_, static_cast<uint64_t>(new_size));
+  skia_gr_cache_size_ = static_cast<uint64_t>(new_size);
 }
 
 void SharedContextState::PessimisticallyResetGrContext() const {

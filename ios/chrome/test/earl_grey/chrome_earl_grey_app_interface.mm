@@ -8,13 +8,18 @@
 #include "base/strings/sys_string_conversions.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/browsing_data/core/pref_names.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
-#import "components/payments/core/features.h"
+#include "components/prefs/pref_service.h"
 #import "components/ukm/ios/features.h"
+#include "components/variations/variations_associated_data.h"
+#include "components/variations/variations_http_header_provider.h"
 #import "ios/chrome/app/main_controller.h"
 #include "ios/chrome/browser/autofill/personal_data_manager_factory.h"
+#include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/content_settings/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/ntp/features.h"
+#import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/settings/autofill/features.h"
 #import "ios/chrome/browser/ui/table_view/feature_flags.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
@@ -29,6 +34,7 @@
 #import "ios/chrome/test/app/sync_test_util.h"
 #import "ios/chrome/test/app/tab_test_util.h"
 #import "ios/chrome/test/earl_grey/accessibility_util.h"
+#import "ios/testing/hardware_keyboard_util.h"
 #import "ios/testing/nserror_util.h"
 #include "ios/testing/verify_custom_webkit.h"
 #import "ios/web/common/features.h"
@@ -42,6 +48,7 @@
 #import "ios/web/public/ui/crw_web_view_proxy.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/public/web_state.h"
+#include "net/base/mac/url_conversions.h"
 #import "services/metrics/public/cpp/ukm_recorder.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -74,6 +81,13 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
       @"Clearing browser cache for main tabs timed out");
 }
 
++ (void)applicationOpenURL:(NSString*)spec {
+  UIApplication* application = UIApplication.sharedApplication;
+  [application.delegate application:application
+                            openURL:[NSURL URLWithString:spec]
+                            options:[NSDictionary dictionary]];
+}
+
 + (void)startLoadingURL:(NSString*)spec {
   chrome_test_util::LoadUrl(GURL(base::SysNSStringToUTF8(spec)));
 }
@@ -98,6 +112,16 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 
 + (NamedGuide*)guideWithName:(GuideName*)name view:(UIView*)view {
   return [NamedGuide guideWithName:name view:view];
+}
+
++ (void)openURLFromExternalApp:(NSString*)URL {
+  chrome_test_util::OpenChromeFromExternalApp(
+      GURL(base::SysNSStringToUTF8(URL)));
+}
+
++ (void)dismissSettings {
+  [chrome_test_util::DispatcherForActiveBrowserViewController()
+      closeSettingsUI];
 }
 
 #pragma mark - Tab Utilities (EG2)
@@ -162,6 +186,10 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   chrome_test_util::OpenNewTab();
 }
 
++ (void)simulateExternalAppURLOpening {
+  chrome_test_util::SimulateExternalAppURLOpening();
+}
+
 + (void)closeCurrentTab {
   chrome_test_util::CloseCurrentTab();
 }
@@ -222,6 +250,10 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   return TabIdTabHelper::FromWebState(web_state)->tab_id();
 }
 
++ (NSUInteger)indexOfActiveNormalTab {
+  return chrome_test_util::GetIndexOfActiveNormalTab();
+}
+
 #pragma mark - WebState Utilities (EG2)
 
 + (NSError*)tapWebStateElementInIFrameWithID:(NSString*)elementID {
@@ -260,6 +292,21 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
     NSString* NSErrorDescription = [NSString
         stringWithFormat:@"Failed waiting for web state containing element %@",
                          selector.selectorDescription];
+    return testing::NSErrorWithLocalizedDescription(NSErrorDescription);
+  }
+  return nil;
+}
+
++ (NSError*)waitForWebStateContainingTextInIFrame:(NSString*)text {
+  std::string stringText = base::SysNSStringToUTF8(text);
+  bool success = WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^bool {
+    return web::test::IsWebViewContainingTextInFrame(
+        chrome_test_util::GetCurrentWebState(), stringText);
+  });
+  if (!success) {
+    NSString* NSErrorDescription = [NSString
+        stringWithFormat:
+            @"Failed waiting for web state's iframes containing text %@", text];
     return testing::NSErrorWithLocalizedDescription(NSErrorDescription);
   }
   return nil;
@@ -554,6 +601,11 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   return blockResult;
 }
 
++ (NSString*)mobileUserAgentString {
+  return base::SysUTF8ToNSString(
+      web::GetWebClient()->GetUserAgent(web::UserAgentType::MOBILE));
+}
+
 #pragma mark - Accessibility Utilities (EG2)
 
 + (NSError*)verifyAccessibilityForCurrentScreen {
@@ -569,16 +621,24 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
 
 #pragma mark - Check features (EG2)
 
-+ (BOOL)isSlimNavigationManagerEnabled {
-  return base::FeatureList::IsEnabled(web::features::kSlimNavigationManager);
-}
-
 + (BOOL)isBlockNewTabPagePendingLoadEnabled {
   return base::FeatureList::IsEnabled(kBlockNewTabPagePendingLoad);
 }
 
-+ (BOOL)isNewOmniboxPopupLayoutEnabled {
-  return base::FeatureList::IsEnabled(kNewOmniboxPopupLayout);
++ (BOOL)isVariationEnabled:(int)variationID {
+  variations::VariationsHttpHeaderProvider* provider =
+      variations::VariationsHttpHeaderProvider::GetInstance();
+  std::vector<variations::VariationID> ids =
+      provider->GetVariationsVector(variations::GOOGLE_WEB_PROPERTIES);
+  return std::find(ids.begin(), ids.end(), variationID) != ids.end();
+}
+
++ (BOOL)isTriggerVariationEnabled:(int)variationID {
+  variations::VariationsHttpHeaderProvider* provider =
+      variations::VariationsHttpHeaderProvider::GetInstance();
+  std::vector<variations::VariationID> ids =
+      provider->GetVariationsVector(variations::GOOGLE_WEB_PROPERTIES_TRIGGER);
+  return std::find(ids.begin(), ids.end(), variationID) != ids.end();
 }
 
 + (BOOL)isUMACellularEnabled {
@@ -589,13 +649,8 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
   return base::FeatureList::IsEnabled(ukm::kUkmFeature);
 }
 
-+ (BOOL)isWebPaymentsModifiersEnabled {
-  return base::FeatureList::IsEnabled(
-      payments::features::kWebPaymentsModifiers);
-}
-
-+ (BOOL)isSettingsAddPaymentMethodEnabled {
-  return base::FeatureList::IsEnabled(kSettingsAddPaymentMethod);
++ (BOOL)isTestFeatureEnabled {
+  return base::FeatureList::IsEnabled(kTestFeature);
 }
 
 + (BOOL)isCreditCardScannerEnabled {
@@ -630,6 +685,23 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
       ->SetDefaultContentSetting(ContentSettingsType::POPUPS, value);
 }
 
+#pragma mark - Pref Utilities (EG2)
+
++ (void)setBoolValue:(BOOL)value forUserPref:(NSString*)prefName {
+  chrome_test_util::SetBooleanUserPref(
+      chrome_test_util::GetOriginalBrowserState(),
+      base::SysNSStringToUTF8(prefName).c_str(), value);
+}
+
++ (void)resetBrowsingDataPrefs {
+  PrefService* prefs = chrome_test_util::GetOriginalBrowserState()->GetPrefs();
+  prefs->ClearPref(browsing_data::prefs::kDeleteBrowsingHistory);
+  prefs->ClearPref(browsing_data::prefs::kDeleteCookies);
+  prefs->ClearPref(browsing_data::prefs::kDeleteCache);
+  prefs->ClearPref(browsing_data::prefs::kDeletePasswords);
+  prefs->ClearPref(browsing_data::prefs::kDeleteFormData);
+}
+
 #pragma mark - Keyboard Command Utilities
 
 + (NSInteger)registeredKeyCommandCount {
@@ -637,6 +709,11 @@ using chrome_test_util::BrowserCommandDispatcherForMainBVC;
       chrome_test_util::GetMainController()
           .interfaceProvider.mainInterface.viewController;
   return mainViewController.keyCommands.count;
+}
+
++ (void)simulatePhysicalKeyboardEvent:(NSString*)input
+                                flags:(UIKeyModifierFlags)flags {
+  chrome_test_util::SimulatePhysicalKeyboardEvent(flags, input);
 }
 
 @end

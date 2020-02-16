@@ -32,8 +32,6 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/custom_handlers/protocol_handler_registry.h"
-#include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
@@ -233,10 +231,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
       extensions::ExtensionSystem::Get(profile)->info_map();
 #endif
 
-  ProtocolHandlerRegistry* protocol_handler_registry =
-      ProtocolHandlerRegistryFactory::GetForBrowserContext(profile);
-  DCHECK(protocol_handler_registry);
-
 #if defined(OS_CHROMEOS)
   const user_manager::User* user =
       chromeos::ProfileHelper::Get()->GetUserByProfile(profile);
@@ -258,9 +252,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
 #endif
 
   profile_params_ = std::move(params);
-
-  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner =
-      base::CreateSingleThreadTaskRunner({BrowserThread::IO});
 
   // We need to make sure that content initializes its own data structures that
   // are associated with each ResourceContext because we might post this
@@ -309,6 +300,7 @@ bool ProfileIOData::IsHandledProtocol(const std::string& scheme) {
     extensions::kExtensionScheme,
 #endif
     content::kChromeUIScheme,
+    content::kChromeUIUntrustedScheme,
     url::kDataScheme,
 #if defined(OS_CHROMEOS)
     content::kExternalFileScheme,
@@ -358,8 +350,7 @@ extensions::InfoMap* ProfileIOData::GetExtensionInfoMap() const {
 }
 
 content_settings::CookieSettings* ProfileIOData::GetCookieSettings() const {
-  // Allow either Init() or SetCookieSettingsForTesting() to initialize.
-  DCHECK(initialized_ || cookie_settings_.get());
+  DCHECK(initialized_);
   return cookie_settings_.get();
 }
 
@@ -376,9 +367,6 @@ ProfileIOData::ResourceContext::ResourceContext(ProfileIOData* io_data)
 ProfileIOData::ResourceContext::~ResourceContext() {}
 
 void ProfileIOData::Init() const {
-  // The basic logic is implemented here. The specific initialization
-  // is done in InitializeInternal(), implemented by subtypes. Static helper
-  // functions have been provided to assist in common operations.
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   DCHECK(!initialized_);
   DCHECK(profile_params_.get());
@@ -409,13 +397,7 @@ void ProfileIOData::Init() const {
 void ProfileIOData::ShutdownOnUIThread() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  safe_browsing_enabled_.Destroy();
-
   bool posted = base::DeleteSoon(FROM_HERE, {BrowserThread::IO}, this);
   if (!posted)
     delete this;
-}
-
-void ProfileIOData::DestroyResourceContext() {
-  resource_context_.reset();
 }

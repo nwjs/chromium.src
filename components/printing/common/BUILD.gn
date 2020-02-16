@@ -29,12 +29,11 @@ static_library("common") {
 }
 
 mojom("mojo_interfaces") {
-  sources = [
-    "print.mojom",
-  ]
+  sources = [ "print.mojom" ]
 
   public_deps = [
     "//mojo/public/mojom/base",
+    "//ui/gfx/geometry/mojom",
   ]
 
   if (enable_print_preview) {

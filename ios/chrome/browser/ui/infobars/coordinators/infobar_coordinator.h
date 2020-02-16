@@ -12,6 +12,8 @@
 #import "ios/chrome/browser/ui/infobars/infobar_ui_delegate.h"
 #import "ios/chrome/browser/ui/infobars/modals/infobar_modal_delegate.h"
 
+class ChromeBrowserState;
+
 @protocol ApplicationCommands;
 @protocol InfobarBadgeUIDelegate;
 @protocol InfobarContainer;
@@ -21,9 +23,6 @@
 @class InfobarModalTransitionDriver;
 @class InfobarModalViewController;
 
-namespace ios {
-class ChromeBrowserState;
-}
 namespace infobars {
 class InfoBarDelegate;
 }
@@ -53,8 +52,7 @@ enum class InfobarBannerPresentationState;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
     NS_UNAVAILABLE;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                              browserState:
-                                  (ios::ChromeBrowserState*)browserState
+                              browserState:(ChromeBrowserState*)browserState
     NS_UNAVAILABLE;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser NS_UNAVAILABLE;
@@ -90,7 +88,7 @@ enum class InfobarBannerPresentationState;
 // The ChromeBrowserState owned by the Coordinator.
 // TODO(crbug.com/927064): Once we create the coordinators in the UI Hierarchy
 // browserState will be set on init.
-@property(nonatomic, assign) ios::ChromeBrowserState* browserState;
+@property(nonatomic, assign) ChromeBrowserState* browserState;
 
 // The WebState that the InfobarCoordinator is associated with. Can be nil.
 @property(nonatomic, assign) web::WebState* webState;

@@ -13,6 +13,7 @@
 
 namespace blink {
 
+class ExceptionState;
 class ScriptPromise;
 class ScriptPromiseResolver;
 class ScriptState;
@@ -22,17 +23,12 @@ class SyncManager final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  static SyncManager* Create(
-      ServiceWorkerRegistration* registration,
-      scoped_refptr<base::SequencedTaskRunner> task_runner) {
-    return MakeGarbageCollected<SyncManager>(registration,
-                                             std::move(task_runner));
-  }
-
   SyncManager(ServiceWorkerRegistration*,
               scoped_refptr<base::SequencedTaskRunner>);
 
-  ScriptPromise registerFunction(ScriptState*, const String& tag);
+  ScriptPromise registerFunction(ScriptState*,
+                                 const String& tag,
+                                 ExceptionState& exception_state);
   ScriptPromise getTags(ScriptState*);
 
   void Trace(blink::Visitor*) override;

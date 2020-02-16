@@ -1032,6 +1032,15 @@ void FeatureInfo::InitializeFeatures() {
   if (gfx::HasExtension(extensions, "GL_OES_EGL_image_external")) {
     AddExtensionString("GL_OES_EGL_image_external");
     feature_flags_.oes_egl_image_external = true;
+
+    // In many places we check oes_egl_image_external to know whether
+    // TEXTURE_EXTERNAL_OES is valid. Drivers with the _essl3 version *should*
+    // have both. But to be safe, only enable the _essl3 version if the
+    // non-_essl3 version is available.
+    if (gfx::HasExtension(extensions, "GL_OES_EGL_image_external_essl3")) {
+      AddExtensionString("GL_OES_EGL_image_external_essl3");
+      feature_flags_.oes_egl_image_external_essl3 = true;
+    }
   }
   if (gfx::HasExtension(extensions, "GL_NV_EGL_stream_consumer_external")) {
     AddExtensionString("GL_NV_EGL_stream_consumer_external");
@@ -1131,13 +1140,13 @@ void FeatureInfo::InitializeFeatures() {
   // TODO(mcasas): connect in Windows, https://crbug.com/803451
   // XB30 support was introduced in GLES 3.0/ OpenGL 3.3, before that it was
   // signalled via a specific extension.
-  feature_flags_.chromium_image_xb30 =
+  feature_flags_.chromium_image_ab30 =
       gl_version_info_->IsAtLeastGL(3, 3) ||
       gl_version_info_->IsAtLeastGLES(3, 0) ||
       gfx::HasExtension(extensions, "GL_EXT_texture_type_2_10_10_10_REV");
 #endif
   if (feature_flags_.chromium_image_xr30 ||
-      feature_flags_.chromium_image_xb30) {
+      feature_flags_.chromium_image_ab30) {
     validators_.texture_internal_format.AddValue(GL_RGB10_A2_EXT);
     validators_.render_buffer_format.AddValue(GL_RGB10_A2_EXT);
     validators_.texture_internal_format_storage.AddValue(GL_RGB10_A2_EXT);
@@ -1147,9 +1156,9 @@ void FeatureInfo::InitializeFeatures() {
     feature_flags_.gpu_memory_buffer_formats.Add(
         gfx::BufferFormat::BGRX_1010102);
   }
-  if (feature_flags_.chromium_image_xb30) {
+  if (feature_flags_.chromium_image_ab30) {
     feature_flags_.gpu_memory_buffer_formats.Add(
-        gfx::BufferFormat::RGBX_1010102);
+        gfx::BufferFormat::RGBA_1010102);
   }
 
   if (feature_flags_.chromium_image_ycbcr_p010) {
@@ -1406,19 +1415,55 @@ void FeatureInfo::InitializeFeatures() {
       (gl_version_info_->IsAtLeastGL(2, 1) &&
        gfx::HasExtension(extensions, "GL_ARB_texture_rg")) ||
       gfx::HasExtension(extensions, "GL_EXT_texture_norm16")) {
-    // TODO(hubbe): Rename ext_texture_norm16 to texture_r16
+    AddExtensionString("GL_EXT_texture_norm16");
     feature_flags_.ext_texture_norm16 = true;
     g_r16_is_present = true;
 
-    // Note: EXT_texture_norm16 is not exposed through WebGL API so we validate
-    // only the combinations used internally.
     validators_.pixel_type.AddValue(GL_UNSIGNED_SHORT);
-    validators_.texture_format.AddValue(GL_RED_EXT);
-    validators_.texture_internal_format.AddValue(GL_R16_EXT);
-    validators_.texture_internal_format.AddValue(GL_RED_EXT);
-    validators_.texture_unsized_internal_format.AddValue(GL_RED_EXT);
-    validators_.texture_internal_format_storage.AddValue(GL_R16_EXT);
+    validators_.pixel_type.AddValue(GL_SHORT);
 
+    validators_.texture_format.AddValue(GL_RED_EXT);
+    validators_.texture_format.AddValue(GL_RG_EXT);
+
+    validators_.texture_internal_format.AddValue(GL_R16_EXT);
+    validators_.texture_internal_format.AddValue(GL_RG16_EXT);
+    validators_.texture_internal_format.AddValue(GL_RGB16_EXT);
+    validators_.texture_internal_format.AddValue(GL_RGBA16_EXT);
+    validators_.texture_internal_format.AddValue(GL_R16_SNORM_EXT);
+    validators_.texture_internal_format.AddValue(GL_RG16_SNORM_EXT);
+    validators_.texture_internal_format.AddValue(GL_RGB16_SNORM_EXT);
+    validators_.texture_internal_format.AddValue(GL_RGBA16_SNORM_EXT);
+    validators_.texture_internal_format.AddValue(GL_RED_EXT);
+
+    validators_.read_pixel_format.AddValue(GL_R16_EXT);
+    validators_.read_pixel_format.AddValue(GL_RG16_EXT);
+    validators_.read_pixel_format.AddValue(GL_RGBA16_EXT);
+
+    validators_.render_buffer_format.AddValue(GL_R16_EXT);
+    validators_.render_buffer_format.AddValue(GL_RG16_EXT);
+    validators_.render_buffer_format.AddValue(GL_RGBA16_EXT);
+
+    validators_.texture_unsized_internal_format.AddValue(GL_RED_EXT);
+    validators_.texture_unsized_internal_format.AddValue(GL_RG_EXT);
+
+    validators_.texture_internal_format_storage.AddValue(GL_R16_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_RG16_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_RGB16_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_RGBA16_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_R16_SNORM_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_RG16_SNORM_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_RGB16_SNORM_EXT);
+    validators_.texture_internal_format_storage.AddValue(GL_RGBA16_SNORM_EXT);
+
+    validators_.texture_sized_color_renderable_internal_format.AddValue(
+        GL_R16_EXT);
+    validators_.texture_sized_color_renderable_internal_format.AddValue(
+        GL_RG16_EXT);
+    validators_.texture_sized_color_renderable_internal_format.AddValue(
+        GL_RGBA16_EXT);
+
+    // TODO(shrekshao): gpu_memory_buffer_formats is not used by WebGL
+    // So didn't expose all buffer formats here.
     feature_flags_.gpu_memory_buffer_formats.Add(gfx::BufferFormat::R_16);
   }
 

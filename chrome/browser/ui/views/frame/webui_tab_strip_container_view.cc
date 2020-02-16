@@ -7,22 +7,29 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/i18n/message_formatter.h"
 #include "base/i18n/number_formatting.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/scoped_observer.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
+#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/chrome_view_class_properties.h"
 #include "chrome/browser/ui/views/feature_promos/feature_promo_bubble_view.h"
@@ -33,14 +40,17 @@
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_layout.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_metrics.h"
+#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_util.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
+#include "content/public/common/drop_data.h"
 #include "ui/aura/window.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/theme_provider.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -65,6 +75,39 @@ bool EventTypeCanCloseTabStrip(const ui::EventType& type) {
       return false;
   }
 }
+
+class WebUITabStripWebView : public views::WebView {
+ public:
+  explicit WebUITabStripWebView(content::BrowserContext* context)
+      : views::WebView(context) {}
+
+  // content::WebContentsDelegate:
+  bool CanDragEnter(content::WebContents* source,
+                    const content::DropData& data,
+                    blink::WebDragOperationsMask operations_allowed) override {
+    // TODO(crbug.com/1032592): Prevent dragging across Chromium instances.
+    if (data.custom_data.find(base::ASCIIToUTF16(kWebUITabIdDataType)) !=
+        data.custom_data.end()) {
+      int tab_id;
+      bool found_tab_id = base::StringToInt(
+          data.custom_data.at(base::ASCIIToUTF16(kWebUITabIdDataType)),
+          &tab_id);
+      return found_tab_id && extensions::ExtensionTabUtil::GetTabById(
+                                 tab_id, browser_context(), false, nullptr);
+    }
+
+    if (data.custom_data.find(base::ASCIIToUTF16(kWebUITabGroupIdDataType)) !=
+        data.custom_data.end()) {
+      std::string group_id = base::UTF16ToUTF8(
+          data.custom_data.at(base::ASCIIToUTF16(kWebUITabGroupIdDataType)));
+      Browser* found_browser = tab_strip_ui::GetBrowserWithGroupId(
+          Profile::FromBrowserContext(browser_context()), group_id);
+      return found_browser != nullptr;
+    }
+
+    return false;
+  }
+};
 
 }  // namespace
 
@@ -108,8 +151,8 @@ WebUITabStripContainerView::WebUITabStripContainerView(
     Browser* browser,
     views::View* tab_contents_container)
     : browser_(browser),
-      web_view_(
-          AddChildView(std::make_unique<views::WebView>(browser->profile()))),
+      web_view_(AddChildView(
+          std::make_unique<WebUITabStripWebView>(browser->profile()))),
       tab_contents_container_(tab_contents_container),
       iph_tracker_(feature_engagement::TrackerFactory::GetForBrowserContext(
           browser_->profile())),
@@ -166,8 +209,7 @@ WebUITabStripContainerView::~WebUITabStripContainerView() {
 }
 
 bool WebUITabStripContainerView::UseTouchableTabStrip() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-             switches::kWebUITabStrip) &&
+  return base::FeatureList::IsEnabled(features::kWebUITabStrip) &&
          ui::MaterialDesignController::touch_ui();
 }
 
@@ -209,8 +251,9 @@ void WebUITabStripContainerView::UpdateButtons() {
   const SkColor normal_color =
       GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
   if (new_tab_button_) {
-    new_tab_button_->SetImage(views::Button::STATE_NORMAL,
-                              gfx::CreateVectorIcon(kAddIcon, normal_color));
+    new_tab_button_->SetImage(
+        views::Button::STATE_NORMAL,
+        gfx::CreateVectorIcon(kNewTabToolbarButtonIcon, normal_color));
   }
 }
 
@@ -351,6 +394,10 @@ TabStripUILayout WebUITabStripContainerView::GetLayout() {
       tab_contents_container_->size());
 }
 
+const ui::ThemeProvider* WebUITabStripContainerView::GetThemeProvider() {
+  return View::GetThemeProvider();
+}
+
 void WebUITabStripContainerView::AddedToWidget() {
   GetWidget()->GetNativeView()->AddPreTargetHandler(auto_closer_.get());
 }
@@ -394,6 +441,9 @@ void WebUITabStripContainerView::ButtonPressed(views::Button* sender,
     }
   } else if (sender->GetID() == VIEW_ID_WEBUI_TAB_STRIP_NEW_TAB_BUTTON) {
     chrome::ExecuteCommand(browser_, IDC_NEW_TAB);
+    UMA_HISTOGRAM_ENUMERATION(
+        "Tab.NewTab", TabStripModel::NEW_TAB_BUTTON_IN_TOOLBAR_FOR_TOUCH,
+        TabStripModel::NEW_TAB_ENUM_COUNT);
 
     if (iph_tracker_->ShouldTriggerHelpUI(
             feature_engagement::kIPHWebUITabStripFeature)) {

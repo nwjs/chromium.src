@@ -488,12 +488,6 @@ field **WiFi** must be set to an object of type [WiFi](#WiFi-type).
       must be of the format 0x&lt;hex-number&gt;, where &lt;hex-number&gt; is
       40, 104, 128, or 232 bits.
 
-* **RoamThreshold**
-    * (optional) - **integer**
-    * The roam threshold for this network, which is the signal-to-noise value
-      (in dB) below which we will attempt to roam to a new network. If this
-      value is not set, the default value will be used.
-
 * **Security**
     * (required) - **string**
     * Allowed values are:
@@ -817,13 +811,11 @@ L2TP over IPsec with pre-shared key:
 * **IgnoreDefaultRoute**
     * (optional, defaults to *false*) - **boolean**
     * Omits a default route to the VPN gateway while the connection is active.
-      By default, the client creates a default route to the gateway address
-      advertised by the VPN server.  Setting this value to
-      *true* will allow split tunnelling for
-      configurations where the VPN server omits explicit default routes.
-      This is roughly equivalent to omitting "redirect-gateway" OpenVPN client
-      configuration option.  If the server pushes a "redirect-gateway"
-      configuration flag to the client, this option is ignored.
+      The client will create a default route through the VPN **only** if the
+      OpenVPN server pushes a "redirect-gateway" option. Setting this value to
+      *true* will cause the client to ignore any "redirect-gateway" option
+      provided by the server, ensuring that no default route is available for
+      the VPN.
 
 * **KeyDirection**
     * (optional) - **string**
@@ -1137,7 +1129,7 @@ Every network can be configured to use a proxy.
     * (optional) - [ProxyLocation](#ProxyLocation-type)
     * settings for secure HTTP proxy.
 
-* **FTPProxy**
+* **FTPProxy (Unsupported)**
     * (optional) - [ProxyLocation](#ProxyLocation-type)
     * settings for FTP proxy
 
@@ -1270,6 +1262,11 @@ type exists to configure the authentication.
     * WiFi only. A substring which a remote RADIUS service certificate subject
       name must contain in order to connect.
 
+* **SubjectAlternativeNameMatch**
+	* (optional) - [array of AlternativeSubjectName](#AlternativeSubjectName-type)
+	* WiFi only. A list of alternative subject names to be matched against the
+    alternative subject name of an authentication server certificate.
+
 * **TLSVersionMax**
     * (optional) - **string**
     * Sets the maximum TLS protocol version used by the OS for EAP.
@@ -1299,6 +1296,19 @@ type exists to configure the authentication.
   * At most one of **ServerCARefs** and **ServerCARef**
     can be set.
 ---
+
+### AlternativeSubjectName type
+
+* **Type**
+	* (required) - **string**
+	* Type of the alternative subject name.
+	* Allowed values are:
+		* *EMAIL*
+		* *DNS*
+		* *URI*
+* **Value**
+	 * (required) - **string**
+	 * Value of the alternative subject name.
 
 ## Cellular Networks
 

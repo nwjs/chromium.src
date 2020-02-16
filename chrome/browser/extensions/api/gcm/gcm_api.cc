@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "components/prefs/pref_service.h"
 #include "chrome/browser/extensions/api/gcm/gcm_api.h"
 
 #include <stddef.h>
@@ -96,7 +97,11 @@ bool GcmApiFunction::IsGcmApiEnabled(std::string* error) const {
     return false;
   }
 
-  return gcm::GCMProfileService::IsGCMEnabled(profile->GetPrefs());
+  if (!profile->GetPrefs()->GetBoolean("gcm.channel_status")) {
+    *error = "GCM is turned off.";
+    return false;
+  }
+  return true;
 }
 
 gcm::GCMDriver* GcmApiFunction::GetGCMDriver() const {

@@ -11,9 +11,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
+import android.content.res.Resources;
 import android.view.View;
 import android.widget.ImageView;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,7 +25,8 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
-import org.chromium.chrome.browser.ui.widget.RoundedCornerImageView;
+import org.chromium.chrome.R;
+import org.chromium.components.browser_ui.widget.RoundedCornerImageView;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -38,13 +41,19 @@ public class BaseSuggestionViewBinderUnitTest {
     BaseSuggestionView mBaseView;
 
     @Mock
-    RoundedCornerImageView mDecorView;
+    DecoratedSuggestionView mDecoratedView;
+
+    @Mock
+    RoundedCornerImageView mIconView;
 
     @Mock
     ImageView mActionView;
 
-    private Activity mActivity;
+    @Mock
+    ImageView mContentView;
 
+    private Activity mActivity;
+    private Resources mResources;
     private PropertyModel mModel;
 
     @Before
@@ -52,15 +61,22 @@ public class BaseSuggestionViewBinderUnitTest {
         MockitoAnnotations.initMocks(this);
 
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
+        mResources = mActivity.getResources();
 
         when(mBaseView.getContext()).thenReturn(mActivity);
-        when(mDecorView.getContext()).thenReturn(mActivity);
+        when(mIconView.getContext()).thenReturn(mActivity);
         when(mActionView.getContext()).thenReturn(mActivity);
-        when(mBaseView.getSuggestionImageView()).thenReturn(mDecorView);
+        when(mBaseView.getDecoratedSuggestionView()).thenReturn(mDecoratedView);
+        when(mBaseView.getSuggestionImageView()).thenReturn(mIconView);
         when(mBaseView.getActionImageView()).thenReturn(mActionView);
+        when(mDecoratedView.getContentView()).thenReturn(mContentView);
+        when(mBaseView.getContentView()).thenReturn(mContentView);
+        when(mDecoratedView.getResources()).thenReturn(mResources);
 
         mModel = new PropertyModel(BaseSuggestionViewProperties.ALL_KEYS);
-        PropertyModelChangeProcessor.create(mModel, mBaseView, new BaseSuggestionViewBinder());
+        PropertyModelChangeProcessor.create(mModel, mBaseView,
+                new BaseSuggestionViewBinder(
+                        (m, v, p) -> { Assert.assertEquals(mContentView, v); }));
     }
 
     @Test
@@ -69,11 +85,11 @@ public class BaseSuggestionViewBinderUnitTest {
         mModel.set(BaseSuggestionViewProperties.ICON, state);
 
         // Expect a single call to setRoundedCorners, and make sure this call sets all radii to 0.
-        verify(mDecorView).setRoundedCorners(0, 0, 0, 0);
-        verify(mDecorView).setRoundedCorners(anyInt(), anyInt(), anyInt(), anyInt());
+        verify(mIconView).setRoundedCorners(0, 0, 0, 0);
+        verify(mIconView).setRoundedCorners(anyInt(), anyInt(), anyInt(), anyInt());
 
-        verify(mDecorView).setVisibility(View.VISIBLE);
-        verify(mDecorView).setImageDrawable(state.drawable);
+        verify(mIconView).setVisibility(View.VISIBLE);
+        verify(mIconView).setImageDrawable(state.drawable);
     }
 
     @Test
@@ -83,26 +99,26 @@ public class BaseSuggestionViewBinderUnitTest {
         mModel.set(BaseSuggestionViewProperties.ICON, state);
 
         // Expect a single call to setRoundedCorners, and make sure this call sets radii to non-0.
-        verify(mDecorView, never()).setRoundedCorners(0, 0, 0, 0);
-        verify(mDecorView).setRoundedCorners(anyInt(), anyInt(), anyInt(), anyInt());
+        verify(mIconView, never()).setRoundedCorners(0, 0, 0, 0);
+        verify(mIconView).setRoundedCorners(anyInt(), anyInt(), anyInt(), anyInt());
 
-        verify(mDecorView).setVisibility(View.VISIBLE);
-        verify(mDecorView).setImageDrawable(state.drawable);
+        verify(mIconView).setVisibility(View.VISIBLE);
+        verify(mIconView).setImageDrawable(state.drawable);
     }
 
     @Test
     public void decorIcon_hideIcon() {
-        InOrder ordered = inOrder(mDecorView);
+        InOrder ordered = inOrder(mIconView);
 
         SuggestionDrawableState state = SuggestionDrawableState.Builder.forColor(0).build();
         mModel.set(BaseSuggestionViewProperties.ICON, state);
         mModel.set(BaseSuggestionViewProperties.ICON, null);
 
-        ordered.verify(mDecorView).setVisibility(View.VISIBLE);
-        ordered.verify(mDecorView).setImageDrawable(state.drawable);
-        ordered.verify(mDecorView).setVisibility(View.GONE);
+        ordered.verify(mIconView).setVisibility(View.VISIBLE);
+        ordered.verify(mIconView).setImageDrawable(state.drawable);
+        ordered.verify(mIconView).setVisibility(View.GONE);
         // Ensure we're releasing drawable to free memory.
-        ordered.verify(mDecorView).setImageDrawable(null);
+        ordered.verify(mIconView).setImageDrawable(null);
     }
 
     @Test
@@ -127,5 +143,29 @@ public class BaseSuggestionViewBinderUnitTest {
         ordered.verify(mActionView).setVisibility(View.GONE);
         // Ensure we're releasing drawable to free memory.
         ordered.verify(mActionView).setImageDrawable(null);
+    }
+
+    @Test
+    public void suggestionPadding_decorIconPresent() {
+        final int startSpace = 0;
+        final int endSpace = mResources.getDimensionPixelSize(
+                R.dimen.omnibox_suggestion_refine_view_modern_end_padding);
+
+        SuggestionDrawableState state = SuggestionDrawableState.Builder.forColor(0).build();
+        mModel.set(BaseSuggestionViewProperties.ICON, state);
+        verify(mDecoratedView).setPaddingRelative(startSpace, 0, endSpace, 0);
+        verify(mBaseView, never()).setPaddingRelative(anyInt(), anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
+    public void suggestionPadding_decorIconAbsent() {
+        final int startSpace = mResources.getDimensionPixelSize(
+                R.dimen.omnibox_suggestion_start_offset_without_icon);
+        final int endSpace = mResources.getDimensionPixelSize(
+                R.dimen.omnibox_suggestion_refine_view_modern_end_padding);
+
+        mModel.set(BaseSuggestionViewProperties.ICON, null);
+        verify(mDecoratedView).setPaddingRelative(startSpace, 0, endSpace, 0);
+        verify(mBaseView, never()).setPaddingRelative(anyInt(), anyInt(), anyInt(), anyInt());
     }
 }

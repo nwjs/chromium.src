@@ -28,14 +28,11 @@ TestWebClient::~TestWebClient() = default;
 
 void TestWebClient::AddAdditionalSchemes(Schemes* schemes) const {
   schemes->standard_schemes.push_back(kTestWebUIScheme);
-  schemes->standard_schemes.push_back(kTestNativeContentScheme);
   schemes->standard_schemes.push_back(kTestAppSpecificScheme);
 }
 
 bool TestWebClient::IsAppSpecificURL(const GURL& url) const {
-  return url.SchemeIs(kTestWebUIScheme) ||
-         url.SchemeIs(kTestNativeContentScheme) ||
-         url.SchemeIs(kTestAppSpecificScheme);
+  return url.SchemeIs(kTestWebUIScheme) || url.SchemeIs(kTestAppSpecificScheme);
 }
 
 bool TestWebClient::ShouldBlockUrlDuringRestore(const GURL& url,
@@ -107,9 +104,10 @@ void TestWebClient::PrepareErrorPage(
     const base::Optional<net::SSLInfo>& info,
     int64_t navigation_id,
     base::OnceCallback<void(NSString*)> callback) {
+  net::CertStatus cert_status = info.has_value() ? info.value().cert_status : 0;
   std::move(callback).Run(base::SysUTF8ToNSString(testing::GetErrorText(
       web_state, url, base::SysNSStringToUTF8(error.domain), error.code,
-      is_post, is_off_the_record, info.has_value())));
+      is_post, is_off_the_record, cert_status)));
 }
 
 UIView* TestWebClient::GetWindowedContainer() {

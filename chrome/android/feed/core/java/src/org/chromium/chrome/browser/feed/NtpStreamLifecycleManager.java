@@ -15,10 +15,9 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
 
@@ -54,7 +53,7 @@ final class NtpStreamLifecycleManager extends StreamLifecycleManager {
         // the associated FeedNewTabPage is destroyed.
         mTabObserver = new EmptyTabObserver() {
             @Override
-            public void onInteractabilityChanged(boolean isInteractable) {
+            public void onInteractabilityChanged(Tab tab, boolean isInteractable) {
                 if (isInteractable) {
                     activate();
                 } else {
@@ -87,7 +86,7 @@ final class NtpStreamLifecycleManager extends StreamLifecycleManager {
         // has opted out from article suggestions during the previous session.
         return super.canShow()
                 && PrefServiceBridge.getInstance().getBoolean(Pref.NTP_ARTICLES_LIST_VISIBLE)
-                && !((TabImpl) mTab).isHidden();
+                && !mTab.isHidden();
     }
 
     /** @return Whether the {@link Stream} can be activated. */

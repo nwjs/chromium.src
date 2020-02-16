@@ -11,7 +11,7 @@
 #include "ui/display/types/display_mode.h"
 #include "ui/display/types/display_snapshot.h"
 #include "ui/display/types/gamma_ramp_rgb_entry.h"
-#include "ui/ozone/common/linux/drm_util_linux.h"
+#include "ui/gfx/linux/drm_util_linux.h"
 #include "ui/ozone/platform/drm/common/drm_util.h"
 #include "ui/ozone/platform/drm/gpu/drm_device.h"
 #include "ui/ozone/platform/drm/gpu/drm_device_manager.h"
@@ -237,6 +237,16 @@ void DrmGpuDisplayManager::SetGammaCorrection(
     return;
   }
   display->SetGammaCorrection(degamma_lut, gamma_lut);
+}
+
+void DrmGpuDisplayManager::SetPrivacyScreen(int64_t display_id, bool enabled) {
+  DrmDisplay* display = FindDisplay(display_id);
+  if (!display) {
+    LOG(ERROR) << "There is no display with ID " << display_id;
+    return;
+  }
+
+  display->SetPrivacyScreen(enabled);
 }
 
 DrmDisplay* DrmGpuDisplayManager::FindDisplay(int64_t display_id) {

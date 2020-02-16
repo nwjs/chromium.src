@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "components/bookmarks/browser/bookmark_client.h"
 
+class ChromeBrowserState;
 class GURL;
 
 namespace bookmarks {
@@ -24,14 +25,10 @@ namespace sync_bookmarks {
 class BookmarkSyncService;
 }
 
-namespace ios {
-class ChromeBrowserState;
-}
-
 class BookmarkClientImpl : public bookmarks::BookmarkClient {
  public:
   BookmarkClientImpl(
-      ios::ChromeBrowserState* browser_state,
+      ChromeBrowserState* browser_state,
       sync_bookmarks::BookmarkSyncService* bookmark_sync_service);
   ~BookmarkClientImpl() override;
 
@@ -59,9 +56,9 @@ class BookmarkClientImpl : public bookmarks::BookmarkClient {
       const base::RepeatingClosure& schedule_save_closure) override;
 
  private:
-  // Pointer to the associated ios::ChromeBrowserState. Must outlive
+  // Pointer to the associated ChromeBrowserState. Must outlive
   // BookmarkClientImpl.
-  ios::ChromeBrowserState* browser_state_;
+  ChromeBrowserState* browser_state_;
 
   bookmarks::BookmarkModel* model_;
 

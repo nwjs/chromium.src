@@ -7,10 +7,13 @@ package org.chromium.weblayer.test;
 import android.app.Activity;
 import android.app.Instrumentation.ActivityMonitor;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.rule.ActivityTestRule;
+import android.support.v4.app.Fragment;
+import android.text.TextUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -19,6 +22,7 @@ import org.junit.Rule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
+import org.chromium.base.CommandLine;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
@@ -28,6 +32,9 @@ import org.chromium.weblayer.Tab;
 import org.chromium.weblayer.WebLayer;
 import org.chromium.weblayer.shell.InstrumentationActivity;
 
+import java.io.File;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.lang.reflect.Field;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -38,6 +45,8 @@ import java.util.concurrent.TimeoutException;
  * Test can use this ActivityTestRule to launch or get InstrumentationActivity.
  */
 public class InstrumentationActivityTestRule extends ActivityTestRule<InstrumentationActivity> {
+    private static final String COMMAND_LINE_FILE = "weblayer-command-line";
+
     @Rule
     private EmbeddedTestServerRule mTestServerRule = new EmbeddedTestServerRule();
 
@@ -60,7 +69,32 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     @Override
     public Statement apply(final Statement base, Description description) {
-        return super.apply(mTestServerRule.apply(base, description), description);
+        Statement testServer = super.apply(mTestServerRule.apply(base, description), description);
+        return new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                try {
+                    // The CommandLine instance we have here will not be picked up in the
+                    // implementation since they use different class loaders, so we need to write
+                    // all the switches to the WebLayer command line file.
+                    try (Writer writer = new OutputStreamWriter(
+                                 InstrumentationRegistry.getInstrumentation()
+                                         .getTargetContext()
+                                         .openFileOutput(COMMAND_LINE_FILE, Context.MODE_PRIVATE),
+                                 "UTF-8")) {
+                        writer.write(TextUtils.join(" ", CommandLine.getJavaSwitchesOrNull()));
+                    }
+
+                    testServer.evaluate();
+                } finally {
+                    new File(InstrumentationRegistry.getInstrumentation()
+                                     .getTargetContext()
+                                     .getFilesDir(),
+                            COMMAND_LINE_FILE)
+                            .delete();
+                }
+            }
+        };
     }
 
     public WebLayer getWebLayer() {
@@ -217,5 +251,13 @@ public class InstrumentationActivityTestRule extends ActivityTestRule<Instrument
 
     public String getTestDataURL(String path) {
         return getTestServer().getURL("/weblayer/test/data/" + path);
+    }
+
+    public void setRetainInstance(boolean retain) {
+        TestThreadUtils.runOnUiThreadBlocking(() -> getActivity().setRetainInstance(retain));
+    }
+
+    public Fragment getFragment() {
+        return TestThreadUtils.runOnUiThreadBlockingNoException(() -> getActivity().getFragment());
     }
 }

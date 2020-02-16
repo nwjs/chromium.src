@@ -6,8 +6,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_INPUT_MOUSE_EVENT_MANAGER_H_
 
 #include "base/macros.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/platform/web_input_event_result.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/synchronous_mutation_observer.h"
 #include "third_party/blink/renderer/core/input/boundary_event_dispatcher.h"
@@ -189,9 +189,9 @@ class CORE_EXPORT MouseEventManager final
                   const String& canvas_region_id,
                   const WebMouseEvent&,
                   bool check_for_listener);
-    Member<MouseEventManager> mouse_event_manager_;
+    MouseEventManager* mouse_event_manager_;
     const WebMouseEvent* web_mouse_event_;
-    Member<EventTarget> exited_target_;
+    EventTarget* exited_target_;
     String canvas_region_id_;
     DISALLOW_COPY_AND_ASSIGN(MouseEventBoundaryEventDispatcher);
   };

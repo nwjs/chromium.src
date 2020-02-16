@@ -5,7 +5,7 @@ import("//build/config/android/rules.gni")
 import("//chrome/android/features/android_library_factory_tmpl.gni")
 
 android_library("java") {
-  java_files = [
+  sources = [
     "java/src/org/chromium/chrome/browser/ui/appmenu/AppMenuBlocker.java",
     "java/src/org/chromium/chrome/browser/ui/appmenu/AppMenuButtonHelper.java",
     "java/src/org/chromium/chrome/browser/ui/appmenu/AppMenuCoordinator.java",
@@ -16,24 +16,18 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ui/appmenu/CustomViewBinder.java",
     "java/src/org/chromium/chrome/browser/ui/appmenu/MenuButtonDelegate.java",
   ]
-  deps = [
-    "//chrome/lib/lifecycle/public/android:java",
-  ]
+  deps = [ "//chrome/lib/lifecycle/public/android:java" ]
 }
 
 android_library_factory("factory_java") {
-  deps = [
-    ":java",
-  ]
-  sources = [
-    "java/src/org/chromium/chrome/browser/ui/appmenu/AppMenuCoordinatorFactory.java",
-  ]
+  deps = [ ":java" ]
+  sources = [ "java/src/org/chromium/chrome/browser/ui/appmenu/AppMenuCoordinatorFactory.java" ]
 }
 
 android_library("test_support_java") {
   testonly = true
 
-  java_files = [
+  sources = [
     "test/java/src/org/chromium/chrome/browser/ui/appmenu/AppMenuTestSupport.java",
     "test/java/src/org/chromium/chrome/browser/ui/appmenu/TestAppMenuObserver.java",
   ]
@@ -48,7 +42,7 @@ android_resources("java_resources") {
   custom_package = "org.chromium.chrome.browser.ui.appmenu"
   resource_dirs = [ "java/res" ]
   deps = [
-    "//chrome/browser/ui/android/styles:java_resources",
+    "//components/browser_ui/styles/android:java_resources",
     "//third_party/android_deps:com_android_support_design_java",
     "//ui/android:ui_java_resources",
   ]

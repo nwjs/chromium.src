@@ -9,7 +9,6 @@
 É posible que algunhas funcións non estean dispoñibles e que non se garden os cambios nas preferencias.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> estaba utilizando Chrome previamente</translation>
 <translation id="1097330777386562916">Borrar as cookies e os datos dos sitios cando peches Chrome</translation>
-<translation id="1104959162601287462">Acerca de &amp;Chrome OS</translation>
 <translation id="110877069173485804">Este é o teu navegador Chrome</translation>
 <translation id="1142745911746664600">Non se puido actualizar Chrome</translation>
 <translation id="1154147086299354128">&amp;Abrir en Chrome</translation>
@@ -21,10 +20,8 @@
 <translation id="1553358976309200471">Actualizar Chrome</translation>
 <translation id="1587223624401073077">Google Chrome utiliza a túa cámara.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> é perigoso, así que Chrome bloqueouno.</translation>
-<translation id="1590588151039584890">Para aplicar a actualización, é necesario que Chrome deixe de executarse neste ordenador, o que pode provocar que outros usuarios que iniciasen sesión nel perdan os cambios non gardados.</translation>
 <translation id="1619887657840448962">Para conseguir que Chrome resulte máis seguro, desactivamos a seguinte extensión que non aparece en <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> e que quizais se engadise sen o teu coñecemento.</translation>
 <translation id="1628000112320670027">Obter axuda sobre Chrome</translation>
-<translation id="1635734105302489219">As cookies bórranse ao pechar Chrome. Para seguir coa sincronización, cambia este <ph name="COOKIE_SETTINGS_LINK" />.</translation>
 <translation id="1662639173275167396">Chrome OS está creado con <ph name="BEGIN_LINK_CROS_OSS" />software de código aberto<ph name="END_LINK_CROS_OSS" /> adicional, como <ph name="BEGIN_LINK_LINUX_OSS" />Linux (beta)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">A actualización está a piques de rematar. Reinicia Google Chrome para completala. As ventás do modo de incógnito non se volverán abrir.</translation>
 <translation id="1674870198290878346">Abrir ligazón nunha ventá do modo de incó&amp;gnito de Chrome</translation>
@@ -53,6 +50,7 @@
 <translation id="2290014774651636340">Non se atopan as claves da API de Google. Desactivaranse algunhas funcións de Google Chrome.</translation>
 <translation id="2290095356545025170">Estás seguro de que queres desinstalar Google Chrome?</translation>
 <translation id="2309047409763057870">Esta é unha instalación secundaria de Google Chrome e non se pode converter no teu navegador predeterminado.</translation>
+<translation id="2341767445688917208">Chrome OS non puido sincronizar os teus contrasinais. Corríxeo agora.</translation>
 <translation id="2348335408836342058">Chrome necesita permiso para acceder á cámara e ao micrófono neste sitio</translation>
 <translation id="2429317896000329049">Google Chrome non puido sincronizar os teus datos porque a sincronización non está dispoñible para o teu dominio.</translation>
 <translation id="2467438592969358367">Google Chrome quere exportar os teus contrasinais. Escribe o teu contrasinal de Windows para permitir esta acción.</translation>
@@ -77,8 +75,6 @@
 <translation id="3080151273017101988">Continuar executando aplicacións en segundo plano cando se peche Google Chrome</translation>
 <translation id="3089968997497233615">Está dispoñible unha versión nova e máis segura de Google Chrome.</translation>
 <translation id="3149510190863420837">Aplicacións de Chrome</translation>
-<translation id="3282568296779691940">Iniciar sesión en Chrome</translation>
-<translation id="3340978935015468852">configuración</translation>
 <translation id="3360895254066713204">Axudante de Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome reiniciarase agora}=1{Chrome reiniciarase en 1 segundo}other{Chrome reiniciarase en # segundos}}</translation>
 <translation id="3395323229510056640">Obter axuda sobre Chrome OS</translation>
@@ -131,7 +127,6 @@
 <translation id="4953650215774548573">Establecer Google Chrome como navegador predeterminado</translation>
 <translation id="495931528404527476">En Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Google Chrome non puido sincronizar os teus datos. Actualiza a túa frase de acceso de sincronización.</translation>
 <translation id="5062123544085870375">Reinicia Chrome OS</translation>
 <translation id="5132929315877954718">Descubre aplicacións, xogos, extensións e temas fantásticos para Google Chrome.</translation>
 <translation id="5170938038195470297">Non se pode utilizar o teu perfil porque pertence a unha versión máis recente de Google Chrome.
@@ -146,7 +141,6 @@
 <translation id="5430073640787465221">O teu ficheiro de preferencias está danado ou non é válido.
 
 Google Chrome non pode recuperar a túa configuración.</translation>
-<translation id="5543953544073077331">Estanse executando outras instancias de Chrome. Para aplicar a actualización, péchaas.</translation>
 <translation id="556024056938947818">Google Chrome está intentando mostrar contrasinais.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">Se non se mostra algunha opción de configuración nesta páxina, accede á <ph name="LINK_BEGIN" />
@@ -196,7 +190,6 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="7408085963519505752">Condicións de Chrome OS</translation>
 <translation id="7419046106786626209">Chrome OS non puido sincronizar os teus datos porque a función de sincronización non está dispoñible para o teu dominio.</translation>
 <translation id="7486227612705979895">Chrome accederá a Drive para facer suxestións na barra de enderezos</translation>
-<translation id="7531671357096394523">Saír de todas as instancias de Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Para ver ser o teu dispositivo está actualizado, accede á <ph name="LINK_BEGIN" />configuración de Chrome OS<ph name="LINK_END" /></translation>
 <translation id="7589360514048265910">Este ordenador deixará de recibir actualizacións de Google Chrome porque Mac OS X 10.9 deixou de ser compatible.</translation>
@@ -215,6 +208,7 @@ Google Chrome non pode recuperar a túa configuración.</translation>
 <translation id="7855730255114109580">Google Chrome está actualizado</translation>
 <translation id="7890208801193284374">Se compartes un ordenador, os teus amigos e familiares poderán navegar por separado e configurar Chrome como prefiran.</translation>
 <translation id="7896673875602241923">Anteriormente, alguén iniciou sesión como <ph name="ACCOUNT_EMAIL_LAST" /> en Chrome neste ordenador. Crea un novo usuario de Chrome para manter a túa información por separado.</translation>
+<translation id="7916016681687251387">Chrome OS non puido sincronizar os teus datos. Corríxeo agora.</translation>
 <translation id="7962410387636238736">Este ordenador deixará de recibir actualizacións de Google Chrome porque xa non se admiten Windows XP nin Windows Vista.</translation>
 <translation id="8008534537613507642">Reinstalar Chrome</translation>
 <translation id="8013993649590906847">Se unha imaxe non ten unha descrición útil, Chrome tentará proporcionarche unha. Para crear descricións, envíanse imaxes a Google.</translation>

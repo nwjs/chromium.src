@@ -34,18 +34,19 @@ function isAllowedRequest(requestDetails) {
 }
 
 const addSupervisionHandler =
-    addSupervision.mojom.AddSupervisionHandler.getRemote();
+    addSupervision.mojom.AddSupervisionHandler.getRemote(
+        /*useBrowserInterfaceBroker=*/ true);
 
 Polymer({
   is: 'add-supervision-ui',
 
   /** Attempts to close the dialog */
-  closeDialog_: function() {
+  closeDialog_() {
     this.server.requestClose();
   },
 
   /** @override */
-  ready: function() {
+  ready() {
     // Initialize and listen for online/offline state.
     this.webviewDiv = this.$.webviewDiv;
     this.webviewDiv.hidden = !navigator.onLine;

@@ -23,7 +23,7 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "base/task/lazy_task_runner.h"
+#include "base/task/lazy_thread_pool_task_runner.h"
 #include "base/task_runner_util.h"
 #include "base/time/default_tick_clock.h"
 #include "build/build_config.h"
@@ -56,10 +56,9 @@ namespace {
 // SequencedTaskRunner to get the network id. A SequencedTaskRunner is used
 // rather than parallel tasks to avoid having many threads getting the network
 // id concurrently.
-base::LazySequencedTaskRunner g_get_network_id_task_runner =
-    LAZY_SEQUENCED_TASK_RUNNER_INITIALIZER(
-        base::TaskTraits(base::ThreadPool(),
-                         base::MayBlock(),
+base::LazyThreadPoolSequencedTaskRunner g_get_network_id_task_runner =
+    LAZY_THREAD_POOL_SEQUENCED_TASK_RUNNER_INITIALIZER(
+        base::TaskTraits(base::MayBlock(),
                          base::TaskPriority::BEST_EFFORT,
                          base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN));
 #endif
@@ -347,9 +346,9 @@ void DataReductionProxyConfig::SetProxyConfig(bool enabled, bool at_startup) {
     // It is safe to use base::Unretained here, since it gets executed
     // synchronously on the IO thread, and |this| outlives
     // |secure_proxy_checker_|.
-    SecureProxyCheck(
-        base::Bind(&DataReductionProxyConfig::HandleSecureProxyCheckResponse,
-                   base::Unretained(this)));
+    SecureProxyCheck(base::BindRepeating(
+        &DataReductionProxyConfig::HandleSecureProxyCheckResponse,
+        base::Unretained(this)));
   }
   network_properties_manager_->ResetWarmupURLFetchMetrics();
   FetchWarmupProbeURL();
@@ -601,9 +600,9 @@ void DataReductionProxyConfig::ContinueNetworkChanged(
     // It is safe to use base::Unretained here, since it gets executed
     // synchronously on the IO thread, and |this| outlives
     // |secure_proxy_checker_|.
-    SecureProxyCheck(
-        base::Bind(&DataReductionProxyConfig::HandleSecureProxyCheckResponse,
-                   base::Unretained(this)));
+    SecureProxyCheck(base::BindRepeating(
+        &DataReductionProxyConfig::HandleSecureProxyCheckResponse,
+        base::Unretained(this)));
   }
 }
 

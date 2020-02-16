@@ -17,6 +17,7 @@
 #include "base/base64.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/guid.h"
@@ -34,6 +35,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
+#include "content/browser/background_sync/background_sync_scheduler.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browsing_data/browsing_data_remover_impl.h"
 #include "content/browser/child_process_security_policy_impl.h"
@@ -231,18 +233,18 @@ base::WeakPtr<storage::BlobStorageContext> BlobStorageContextGetterForBrowser(
 void BrowserContext::AsyncObliterateStoragePartition(
     BrowserContext* browser_context,
     const std::string& partition_domain,
-    const base::Closure& on_gc_required) {
+    base::OnceClosure on_gc_required) {
   GetStoragePartitionMap(browser_context)
-      ->AsyncObliterate(partition_domain, on_gc_required);
+      ->AsyncObliterate(partition_domain, std::move(on_gc_required));
 }
 
 // static
 void BrowserContext::GarbageCollectStoragePartitions(
     BrowserContext* browser_context,
     std::unique_ptr<std::unordered_set<base::FilePath>> active_paths,
-    const base::Closure& done) {
+    base::OnceClosure done) {
   GetStoragePartitionMap(browser_context)
-      ->GarbageCollect(std::move(active_paths), done);
+      ->GarbageCollect(std::move(active_paths), std::move(done));
 }
 
 DownloadManager* BrowserContext::GetDownloadManager(BrowserContext* context) {
@@ -349,14 +351,14 @@ StoragePartition* BrowserContext::GetStoragePartitionForSite(
 
 void BrowserContext::ForEachStoragePartition(
     BrowserContext* browser_context,
-    const StoragePartitionCallback& callback) {
+    StoragePartitionCallback callback) {
   StoragePartitionImplMap* partition_map =
       static_cast<StoragePartitionImplMap*>(
           browser_context->GetUserData(kStoragePartitionMapKeyName));
   if (!partition_map)
     return;
 
-  partition_map->ForEach(callback);
+  partition_map->ForEach(std::move(callback));
 }
 
 StoragePartition* BrowserContext::GetDefaultStoragePartition(
@@ -439,7 +441,7 @@ void BrowserContext::NotifyWillBeDestroyed(BrowserContext* browser_context) {
   // since they keep render process hosts alive and the codebase assumes that
   // render process hosts die before their profile (browser context) dies.
   ForEachStoragePartition(browser_context,
-                          base::Bind(ShutdownServiceWorkerContext));
+                          base::BindRepeating(ShutdownServiceWorkerContext));
 
   // Shared workers also keep render process hosts alive, and are expected to
   // return ref counts to 0 after documents close. However, to ensure that
@@ -505,7 +507,7 @@ void BrowserContext::SaveSessionState(BrowserContext* browser_context) {
   scoped_refptr<IndexedDBContext> indexed_db_context =
       storage_partition->GetIndexedDBContext();
   IndexedDBContext* const indexed_db_context_ptr = indexed_db_context.get();
-  indexed_db_context_ptr->TaskRunner()->PostTask(
+  indexed_db_context_ptr->IDBTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&SaveSessionStateOnIndexedDBThread,
                                 std::move(indexed_db_context)));
 }
@@ -610,7 +612,10 @@ BrowserContext::~BrowserContext() {
   DCHECK(!GetUserData(kStoragePartitionMapKeyName))
       << "StoragePartitionMap is not shut down properly";
 
-  DCHECK(was_notify_will_be_destroyed_called_);
+  if (!was_notify_will_be_destroyed_called_) {
+    NOTREACHED();
+    base::debug::DumpWithoutCrashing();
+  }
 
   RemoveBrowserContextFromInstanceGroupMap(this);
 
@@ -619,6 +624,11 @@ BrowserContext::~BrowserContext() {
 }
 
 void BrowserContext::ShutdownStoragePartitions() {
+  // The BackgroundSyncScheduler keeps raw pointers to partitions; clear it
+  // first.
+  if (GetUserData(kBackgroundSyncSchedulerKey))
+    RemoveUserData(kBackgroundSyncSchedulerKey);
+
   if (GetUserData(kStoragePartitionMapKeyName))
     RemoveUserData(kStoragePartitionMapKeyName);
 }

@@ -130,8 +130,7 @@ const int kRecentlyClosedTabsSectionIndex = 0;
 #pragma mark - Public Interface
 
 - (instancetype)init {
-  self = [super initWithTableViewStyle:UITableViewStylePlain
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:UITableViewStylePlain];
   if (self) {
     _sessionState = SessionsSyncUserState::USER_SIGNED_OUT;
     _syncedSessions.reset(new synced_sessions::SyncedSessions());
@@ -176,7 +175,7 @@ const int kRecentlyClosedTabsSectionIndex = 0;
 // BrowserState, in order to prevent crashes set |_browserState| to
 // |browserState|->OriginalChromeBrowserState. While doing this check if
 // incognito or not so that pages are loaded accordingly.
-- (void)setBrowserState:(ios::ChromeBrowserState*)browserState {
+- (void)setBrowserState:(ChromeBrowserState*)browserState {
   if (browserState) {
     _browserState = browserState->GetOriginalChromeBrowserState();
     _incognito = browserState->IsOffTheRecord();
@@ -882,7 +881,8 @@ const int kRecentlyClosedTabsSectionIndex = 0;
     base::RecordAction(base::UserMetricsAction(
         "MobileRecentTabManagerTabFromOtherDeviceOpened"));
     new_tab_page_uma::RecordAction(
-        self.browserState, new_tab_page_uma::ACTION_OPENED_FOREIGN_SESSION);
+        self.browserState, self.webStateList->GetActiveWebState(),
+        new_tab_page_uma::ACTION_OPENED_FOREIGN_SESSION);
     std::unique_ptr<web::WebState> web_state =
         session_util::CreateWebStateWithNavigationEntries(
             self.browserState, toLoad->current_navigation_index,
@@ -920,7 +920,8 @@ const int kRecentlyClosedTabsSectionIndex = 0;
   base::RecordAction(
       base::UserMetricsAction("MobileRecentTabManagerRecentTabOpened"));
   new_tab_page_uma::RecordAction(
-      self.browserState, new_tab_page_uma::ACTION_OPENED_RECENTLY_CLOSED_ENTRY);
+      self.browserState, self.webStateList->GetActiveWebState(),
+      new_tab_page_uma::ACTION_OPENED_RECENTLY_CLOSED_ENTRY);
 
   // If RecentTabs is being displayed from incognito, the resulting tab will
   // open in the corresponding normal BVC. Change the disposition to avoid

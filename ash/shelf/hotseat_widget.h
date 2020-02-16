@@ -8,6 +8,8 @@
 #include "ash/ash_export.h"
 #include "ash/public/cpp/shelf_config.h"
 #include "ash/public/cpp/shelf_types.h"
+#include "ash/shelf/shelf_component.h"
+#include "base/optional.h"
 #include "ui/views/widget/widget.h"
 
 namespace aura {
@@ -21,8 +23,9 @@ class Shelf;
 class ShelfView;
 
 // The hotseat widget is part of the shelf and hosts app shortcuts.
-class ASH_EXPORT HotseatWidget : public views::Widget,
-                                 public ShelfConfig::Observer {
+class ASH_EXPORT HotseatWidget : public ShelfComponent,
+                                 public ShelfConfig::Observer,
+                                 public views::Widget {
  public:
   HotseatWidget();
   ~HotseatWidget() override;
@@ -38,7 +41,7 @@ class ASH_EXPORT HotseatWidget : public views::Widget,
   void OnGestureEvent(ui::GestureEvent* event) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
 
-  // ShelfConfig::Observer
+  // ShelfConfig::Observer:
   void OnShelfConfigUpdated() override;
 
   // Whether the overflow menu/bubble is currently being shown.
@@ -58,16 +61,18 @@ class ASH_EXPORT HotseatWidget : public views::Widget,
   void OnTabletModeChanged();
 
   // Returns the target opacity (between 0 and 1) given current conditions.
-  float CalculateOpacity();
+  float CalculateOpacity() const;
 
-  // Sets the bounds of the opaque background which functions as the hotseat
-  // background.
-  void SetOpaqueBackground(const gfx::Rect& background_bounds);
+  // Sets the bounds of the translucent background which functions as the
+  // hotseat background.
+  void SetTranslucentBackground(const gfx::Rect& background_bounds);
 
-  // Updates this widget's layout according to current conditions.
-  void UpdateLayout(bool animate);
+  // ShelfComponent:
+  void CalculateTargetBounds() override;
+  gfx::Rect GetTargetBounds() const override;
+  void UpdateLayout(bool animate) override;
 
-  gfx::Size GetOpaqueBackgroundSize() const;
+  gfx::Size GetTranslucentBackgroundSize() const;
 
   // Sets the focus cycler and adds the hotseat to the cycle.
   void SetFocusCycler(FocusCycler* focus_cycler);
@@ -99,7 +104,26 @@ class ASH_EXPORT HotseatWidget : public views::Widget,
  private:
   class DelegateView;
 
+  struct LayoutInputs {
+    gfx::Rect bounds;
+    float opacity = 0.0f;
+
+    bool operator==(const LayoutInputs& other) const {
+      return bounds == other.bounds && opacity == other.opacity;
+    }
+  };
+
+  // Collects the inputs for layout.
+  LayoutInputs GetLayoutInputs() const;
+
+  // The set of inputs that impact this widget's layout. The assumption is that
+  // this widget needs a relayout if, and only if, one or more of these has
+  // changed.
+  base::Optional<LayoutInputs> layout_inputs_;
+
   HotseatState state_ = HotseatState::kShown;
+
+  Shelf* shelf_ = nullptr;
 
   // View containing the shelf items within an active user session. Owned by
   // the views hierarchy.

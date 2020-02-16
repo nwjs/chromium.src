@@ -14,7 +14,7 @@
 #include "base/optional.h"
 #include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 
 namespace web_app {
 
@@ -47,6 +47,7 @@ class WebAppRegistrar : public AppRegistrar {
   std::vector<WebApplicationIconInfo> GetAppIconInfos(
       const AppId& app_id) const override;
   std::vector<AppId> GetAppIds() const override;
+  WebAppRegistrar* AsWebAppRegistrar() override;
 
   // Only range-based |for| loop supported. Don't use AppSet directly.
   // Doesn't support registration and unregistration of WebApp while iterating.

@@ -14,8 +14,8 @@
 #include "chrome/browser/subresource_filter/subresource_filter_browser_test_harness.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/embedder_support/switches.h"
 #include "components/page_load_metrics/browser/page_load_metrics_test_waiter.h"
 #include "components/subresource_filter/content/browser/subresource_filter_observer_test_utils.h"
 #include "components/subresource_filter/core/common/test_ruleset_utils.h"
@@ -403,7 +403,7 @@ class AdClickNavigationBrowserTest
     // here to unblock that, so as to be able to test that the UseCounter not
     // being recorded was due to the filtering in our recording function, rather
     // than the default popup blocking.
-    command_line->AppendSwitch(::switches::kDisablePopupBlocking);
+    command_line->AppendSwitch(embedder_support::kDisablePopupBlocking);
   }
 };
 
@@ -470,7 +470,7 @@ IN_PROC_BROWSER_TEST_P(AdClickNavigationBrowserTest, UseCounter) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     AdClickNavigationBrowserTest,
     ::testing::Combine(
         ::testing::Values(NavigationInitiationType::kWindowOpen,
@@ -515,7 +515,7 @@ IN_PROC_BROWSER_TEST_P(AdTaggingEventFromSubframeBrowserTest,
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     AdTaggingEventFromSubframeBrowserTest,
     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
@@ -547,7 +547,7 @@ IN_PROC_BROWSER_TEST_P(AdTaggingEventWithScriptInStackBrowserTest,
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    /* no prefix */,
+    All,
     AdTaggingEventWithScriptInStackBrowserTest,
     ::testing::Bool());
 

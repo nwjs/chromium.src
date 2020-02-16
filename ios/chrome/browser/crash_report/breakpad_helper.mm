@@ -35,6 +35,8 @@
 
 namespace breakpad_helper {
 
+NSString* const kBreadcrumbs = @"breadcrumbs";
+
 namespace {
 
 // Key in NSUserDefaults for a Boolean value that stores whether to upload
@@ -370,6 +372,10 @@ void SetGridToVisibleTabAnimation(NSString* to_view_controller,
 
 void RemoveGridToVisibleTabAnimation() {
   RemoveReportParameter(kGridToVisibleTabAnimation);
+}
+
+void SetBreadcrumbEvents(NSString* breadcrumbs) {
+  AddReportParameter(breakpad_helper::kBreadcrumbs, breadcrumbs, true);
 }
 
 void MediaStreamPlaybackDidStart() {

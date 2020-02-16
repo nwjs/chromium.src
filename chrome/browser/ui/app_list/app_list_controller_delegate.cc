@@ -96,11 +96,11 @@ void AppListControllerDelegate::DoShowAppInfoFlow(
     const std::string& extension_id) {
   DCHECK(CanDoShowAppInfoFlow());
 
+  // TODO(crbug.com/1029221): Make DoShowAppInfoFlow extensions-agnostic.
   const extensions::Extension* extension = GetExtension(profile, extension_id);
   DCHECK(extension);
 
-  if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings) &&
-      base::FeatureList::IsEnabled(features::kAppManagement)) {
+  if (base::FeatureList::IsEnabled(features::kAppManagement)) {
     chrome::ShowAppManagementPage(profile, extension_id);
 
     if (extension->is_hosted_app() && extension->from_bookmark()) {

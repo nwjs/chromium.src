@@ -12,6 +12,7 @@
 
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
+#include "base/metrics/histogram_functions.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -45,6 +46,9 @@
 #include "extensions/renderer/renderer_extension_registry.h"
 #include "extensions/renderer/script_context.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
+#include "net/cookies/site_for_cookies.h"
+#include "services/metrics/public/cpp/mojo_ukm_recorder.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -67,6 +71,16 @@ void IsGuestViewApiAvailableToScriptContext(
     *api_is_available = true;
   }
 }
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class GoogleDocsExtensionAvailablity {
+  kAvailableRegular = 0,
+  kNotAvailableRegular = 1,
+  kAvailableIncognito = 2,
+  kNotAvailableIncognito = 3,
+  kMaxValue = kNotAvailableIncognito
+};
 
 bool ExtensionHasAccessToUrl(const Extension* extension,
                              int tab_id,
@@ -263,19 +277,18 @@ void ChromeExtensionsRendererClient::WillSendRequest(
     blink::WebLocalFrame* frame,
     ui::PageTransition transition_type,
     const blink::WebURL& url,
-    const blink::WebURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const url::Origin* initiator_origin,
     GURL* new_url,
     bool* attach_same_site_cookies) {
   std::string extension_id;
+  GURL request_url(url);
   if (initiator_origin &&
       initiator_origin->scheme() == extensions::kExtensionScheme) {
     extension_id = initiator_origin->host();
   } else {
-    url::Origin site_for_cookies_origin =
-        url::Origin::Create(GURL(site_for_cookies));
-    if (site_for_cookies_origin.scheme() == extensions::kExtensionScheme) {
-      extension_id = site_for_cookies_origin.host();
+    if (site_for_cookies.scheme() == extensions::kExtensionScheme) {
+      extension_id = site_for_cookies.registrable_domain();
     }
   }
 
@@ -287,7 +300,6 @@ void ChromeExtensionsRendererClient::WillSendRequest(
       int tab_id = extensions::ExtensionFrameHelper::Get(
                        content::RenderFrame::FromWebFrame(frame))
                        ->tab_id();
-      GURL request_url(url);
       bool extension_has_access_to_request_url =
           ExtensionHasAccessToUrl(extension, tab_id, request_url);
 
@@ -330,6 +342,39 @@ void ChromeExtensionsRendererClient::WillSendRequest(
       !resource_request_policy_->CanRequestResource(GURL(url), frame,
                                                     transition_type)) {
     *new_url = GURL(chrome::kExtensionInvalidRequestURL);
+  }
+
+  // TODO(https://crbug.com/588766): Remove metrics after bug is fixed.
+  if (url.ProtocolIs(extensions::kExtensionScheme) &&
+      request_url.host_piece() == extension_misc::kDocsOfflineExtensionId) {
+    if (!ukm_recorder_) {
+      mojo::PendingRemote<ukm::mojom::UkmRecorderInterface> recorder;
+      content::RenderThread::Get()->BindHostReceiver(
+          recorder.InitWithNewPipeAndPassReceiver());
+      ukm_recorder_ =
+          std::make_unique<ukm::MojoUkmRecorder>(std::move(recorder));
+    }
+
+    const ukm::SourceId source_id = frame->GetDocument().GetUkmSourceId();
+    ukm::builders::GoogleDocsOfflineExtension(source_id)
+        .SetResourceRequested(true)
+        .Record(ukm_recorder_.get());
+
+    bool is_available = extensions::RendererExtensionRegistry::Get()->GetByID(
+                            extension_misc::kDocsOfflineExtensionId) != nullptr;
+    bool is_incognito = IsIncognitoProcess();
+    GoogleDocsExtensionAvailablity vote;
+    if (is_incognito) {
+      vote = is_available
+                 ? GoogleDocsExtensionAvailablity::kAvailableIncognito
+                 : GoogleDocsExtensionAvailablity::kNotAvailableIncognito;
+    } else {
+      vote = is_available
+                 ? GoogleDocsExtensionAvailablity::kAvailableRegular
+                 : GoogleDocsExtensionAvailablity::kNotAvailableRegular;
+    }
+    base::UmaHistogramEnumeration(
+        "Extensions.GoogleDocOffline.AvailabilityOnResourceRequest", vote);
   }
 }
 

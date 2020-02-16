@@ -63,11 +63,13 @@ class PLATFORM_EXPORT ThreadHeapStatsObserver {
   V(VisitDOMWrappers)                 \
   V(VisitPersistentRoots)             \
   V(VisitPersistents)                 \
-  V(VisitStackRoots)
+  V(VisitRoots)                       \
+  V(VisitStackRoots)                  \
+  V(VisitRememberedSets)
 
 #define FOR_ALL_CONCURRENT_SCOPES(V) \
-  V(ConcurrentMark)                  \
-  V(ConcurrentSweep)
+  V(ConcurrentMarkingStep)           \
+  V(ConcurrentSweepingStep)
 
 // Manages counters and statistics across garbage collection cycles.
 //
@@ -249,6 +251,9 @@ class PLATFORM_EXPORT ThreadHeapStatsCollector {
 
     // Time spent in the final atomic pause in sweeping and compacting the heap.
     base::TimeDelta atomic_sweep_and_compact_time() const;
+
+    // Time spent marking the roots.
+    base::TimeDelta roots_marking_time() const;
 
     // Time spent incrementally marking the heap.
     base::TimeDelta incremental_marking_time() const;

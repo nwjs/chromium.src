@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
+import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.OTHERS;
+
 import android.content.Context;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -12,18 +15,16 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 import java.util.List;
-
-import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.CARD_TYPE;
-import static org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType.OTHERS;
 
 /**
  * This class is a coordinator for TabSelectionEditor component. It manages the communication with
@@ -67,12 +68,35 @@ class TabSelectionEditorCoordinator {
          *         action when action button gets clicked.
          * @param actionButtonEnablingThreshold The minimum threshold to enable the action button.
          *         If it's -1 use the default value.
-         * @param navigationButtonOnClickListener Click listener for the navigation button.
+         * @param navigationProvider The {@link TabSelectionEditorNavigationProvider} that specifies
+         *                           the action when navigation button gets clicked.
          */
         void configureToolbar(@Nullable String actionButtonText,
                 @Nullable TabSelectionEditorActionProvider actionProvider,
                 int actionButtonEnablingThreshold,
-                @Nullable View.OnClickListener navigationButtonOnClickListener);
+                @Nullable TabSelectionEditorNavigationProvider navigationProvider);
+    }
+
+    /**
+     * Provider of action for the navigation button in {@link TabSelectionEditorMediator}.
+     */
+    public static class TabSelectionEditorNavigationProvider {
+        private final TabSelectionEditorCoordinator
+                .TabSelectionEditorController mTabSelectionEditorController;
+
+        public TabSelectionEditorNavigationProvider(
+                TabSelectionEditorCoordinator
+                        .TabSelectionEditorController tabSelectionEditorController) {
+            mTabSelectionEditorController = tabSelectionEditorController;
+        }
+
+        /**
+         * Defines what to do when the navigation button is clicked.
+         */
+        public void goBack() {
+            RecordUserAction.record("TabMultiSelect.Cancelled");
+            mTabSelectionEditorController.hide();
+        }
     }
 
     private final Context mContext;
@@ -93,6 +117,8 @@ class TabSelectionEditorCoordinator {
         mParentView = parentView;
         mTabModelSelector = tabModelSelector;
 
+        // TODO(crbug.com/1007598): construct TabListCoordinator with List mode if it's a low end
+        // device, and TabGroupContinuation is turned on.
         mTabListCoordinator = new TabListCoordinator(TabListCoordinator.TabListMode.GRID, context,
                 mTabModelSelector, tabContentManager::getTabThumbnailWithCallback, null, false,
                 null, null, null, TabProperties.UiType.SELECTABLE, this::getSelectionDelegate, null,
@@ -148,8 +174,7 @@ class TabSelectionEditorCoordinator {
     void resetWithListOfTabs(@Nullable List<Tab> tabs, int preSelectedCount) {
         mTabListCoordinator.resetWithListOfTabs(tabs);
 
-        if (tabs != null && preSelectedCount > 0) {
-            assert preSelectedCount < tabs.size();
+        if (tabs != null && preSelectedCount > 0 && preSelectedCount < tabs.size()) {
             mTabListCoordinator.addSpecialListItem(preSelectedCount, TabProperties.UiType.DIVIDER,
                     new PropertyModel.Builder(CARD_TYPE).with(CARD_TYPE, OTHERS).build());
         }

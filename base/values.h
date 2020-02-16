@@ -183,7 +183,11 @@ class BASE_EXPORT Value {
   std::string& GetString();
   const BlobStorage& GetBlob() const;
 
-  ListStorage& GetList();
+  // Returns the Values in a list as a view. The mutable overload allows for
+  // modification of the underlying values, but does not allow changing the
+  // structure of the list. If this is desired, use TakeList(), perform the
+  // operations, and return the list back to the Value via move assignment.
+  ListView GetList();
   ConstListView GetList() const;
 
   // Transfers ownership of the the underlying list to the caller. Subsequent
@@ -204,10 +208,7 @@ class BASE_EXPORT Value {
   void Append(Value&& value);
 
   // Inserts |value| before |pos|.
-  // Note: These CHECK that type() is Type::LIST.
-  // TODO(crbug.com/990059): Remove ListStorage::const_iterator overload once
-  // mutable GetList() returns a base::span.
-  ListStorage::iterator Insert(ListStorage::const_iterator pos, Value&& value);
+  // Note: This CHECK that type() is Type::LIST.
   CheckedContiguousIterator<Value> Insert(
       CheckedContiguousConstIterator<Value> pos,
       Value&& value);
@@ -215,9 +216,6 @@ class BASE_EXPORT Value {
   // Erases the Value pointed to by |iter|. Returns false if |iter| is out of
   // bounds.
   // Note: This CHECKs that type() is Type::LIST.
-  // TODO(crbug.com/990059): Remove ListStorage::const_iterator overload once
-  // mutable GetList() returns a base::span.
-  bool EraseListIter(ListStorage::const_iterator iter);
   bool EraseListIter(CheckedContiguousConstIterator<Value> iter);
 
   // Erases all Values that compare equal to |val|. Returns the number of
@@ -463,6 +461,14 @@ class BASE_EXPORT Value {
   // dictionary. These are intended for iteration over all items in the
   // dictionary and are compatible with for-each loops and standard library
   // algorithms.
+  //
+  // Unlike with std::map, a range-for over the non-const version of DictItems()
+  // will range over items of type pair<const std::string&, Value&>, so code of
+  // the form
+  //   for (auto kv : my_value.DictItems())
+  //     Mutate(kv.second);
+  // will actually alter |my_value| in place (if it isn't const).
+  //
   // Note: These CHECK that type() is Type::DICTIONARY.
   dict_iterator_proxy DictItems();
   const_dict_iterator_proxy DictItems() const;

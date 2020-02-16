@@ -29,11 +29,12 @@
 #include "third_party/blink/renderer/modules/accessibility/ax_object.h"
 
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/platform/web_scroll_into_view_params.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/renderer/core/aom/accessible_node.h"
 #include "third_party/blink/renderer/core/aom/accessible_node_list.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
+#include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -53,6 +54,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_range.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_sparse_attribute_setter.h"
@@ -102,7 +104,6 @@ const RoleEntry kRoles[] = {
     {"columnheader", ax::mojom::Role::kColumnHeader},
     {"combobox", ax::mojom::Role::kComboBoxGrouping},
     {"comment", ax::mojom::Role::kComment},
-    {"commentsection", ax::mojom::Role::kCommentSection},
     {"complementary", ax::mojom::Role::kComplementary},
     {"contentinfo", ax::mojom::Role::kContentInfo},
     {"definition", ax::mojom::Role::kDefinition},
@@ -200,7 +201,6 @@ const RoleEntry kRoles[] = {
     // TODO(accessibility) region should only be mapped
     // if name present. See http://crbug.com/840819.
     {"region", ax::mojom::Role::kRegion},
-    {"revision", ax::mojom::Role::kRevision},
     {"row", ax::mojom::Role::kRow},
     {"rowgroup", ax::mojom::Role::kRowGroup},
     {"rowheader", ax::mojom::Role::kRowHeader},
@@ -241,7 +241,6 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kAlert, "Alert"},
     {ax::mojom::Role::kAnchor, "Anchor"},
     {ax::mojom::Role::kComment, "Comment"},
-    {ax::mojom::Role::kComment, "CommentSection"},
     {ax::mojom::Role::kApplication, "Application"},
     {ax::mojom::Role::kArticle, "Article"},
     {ax::mojom::Role::kAudio, "Audio"},
@@ -382,14 +381,16 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kNote, "Note"},
     {ax::mojom::Role::kPane, "Pane"},
     {ax::mojom::Role::kParagraph, "Paragraph"},
+    {ax::mojom::Role::kPdfActionableHighlight, "PdfActionableHighlight"},
+    {ax::mojom::Role::kPluginObject, "PluginObject"},
     {ax::mojom::Role::kPopUpButton, "PopUpButton"},
+    {ax::mojom::Role::kPortal, "Portal"},
     {ax::mojom::Role::kPre, "Pre"},
     {ax::mojom::Role::kPresentational, "Presentational"},
     {ax::mojom::Role::kProgressIndicator, "ProgressIndicator"},
     {ax::mojom::Role::kRadioButton, "RadioButton"},
     {ax::mojom::Role::kRadioGroup, "RadioGroup"},
     {ax::mojom::Role::kRegion, "Region"},
-    {ax::mojom::Role::kRevision, "Revision"},
     {ax::mojom::Role::kRootWebArea, "WebArea"},
     {ax::mojom::Role::kRow, "Row"},
     {ax::mojom::Role::kRowGroup, "RowGroup"},
@@ -1519,6 +1520,7 @@ bool AXObject::IsSubWidget() const {
 bool AXObject::SupportsARIASetSizeAndPosInSet() const {
   switch (RoleValue()) {
     case ax::mojom::Role::kArticle:
+    case ax::mojom::Role::kComment:
     case ax::mojom::Role::kListBoxOption:
     case ax::mojom::Role::kListItem:
     case ax::mojom::Role::kMenuItem:
@@ -1631,6 +1633,8 @@ bool AXObject::IsHiddenForTextAlternativeCalculation() const {
 
   if (GetLayoutObject())
     return GetLayoutObject()->Style()->Visibility() != EVisibility::kVisible;
+  else if (GetNode() && IsA<HTMLNoScriptElement>(GetNode()))
+    return true;
 
   // This is an obscure corner case: if a node has no LayoutObject, that means
   // it's not rendered, but we still may be exploring it as part of a text
@@ -1688,33 +1692,40 @@ String AXObject::AriaTextAlternative(bool recursive,
       name_sources->back().type = name_from;
     }
 
-    const AtomicString& aria_labelledby = GetAttribute(attr);
-    if (!aria_labelledby.IsNull()) {
-      if (name_sources)
-        name_sources->back().attribute_value = aria_labelledby;
-
-      // Operate on a copy of |visited| so that if |nameSources| is not null,
-      // the set of visited objects is preserved unmodified for future
-      // calculations.
-      AXObjectSet visited_copy = visited;
+    Element* element = GetElement();
+    if (element) {
+      HeapVector<Member<Element>> elements_from_attribute;
       Vector<String> ids;
-      text_alternative =
-          TextFromAriaLabelledby(visited_copy, related_objects, ids);
-      if (!ids.IsEmpty())
-        AXObjectCache().UpdateReverseRelations(this, ids);
-      if (!text_alternative.IsNull()) {
-        if (name_sources) {
-          NameSource& source = name_sources->back();
-          source.type = name_from;
-          source.related_objects = *related_objects;
-          source.text = text_alternative;
-          *found_text_alternative = true;
-        } else {
-          *found_text_alternative = true;
-          return text_alternative;
+      ElementsFromAttribute(elements_from_attribute, attr, ids);
+
+      const AtomicString& aria_labelledby = GetAttribute(attr);
+
+      if (!aria_labelledby.IsNull()) {
+        if (name_sources)
+          name_sources->back().attribute_value = aria_labelledby;
+
+        // Operate on a copy of |visited| so that if |name_sources| is not
+        // null, the set of visited objects is preserved unmodified for future
+        // calculations.
+        AXObjectSet visited_copy = visited;
+        text_alternative = TextFromElements(
+            true, visited, elements_from_attribute, related_objects);
+        if (!ids.IsEmpty())
+          AXObjectCache().UpdateReverseRelations(this, ids);
+        if (!text_alternative.IsNull()) {
+          if (name_sources) {
+            NameSource& source = name_sources->back();
+            source.type = name_from;
+            source.related_objects = *related_objects;
+            source.text = text_alternative;
+            *found_text_alternative = true;
+          } else {
+            *found_text_alternative = true;
+            return text_alternative;
+          }
+        } else if (name_sources) {
+          name_sources->back().invalid = true;
         }
-      } else if (name_sources) {
-        name_sources->back().invalid = true;
       }
     }
   }
@@ -1796,15 +1807,22 @@ void AXObject::TokenVectorFromAttribute(Vector<String>& tokens,
 void AXObject::ElementsFromAttribute(HeapVector<Member<Element>>& elements,
                                      const QualifiedName& attribute,
                                      Vector<String>& ids) const {
+  // We compute the attr-associated elements, which are either explicitly set
+  // element references set via the IDL, or computed from the content attribute.
   TokenVectorFromAttribute(ids, attribute);
-  if (ids.IsEmpty())
+  Element* element = GetElement();
+  if (!element)
     return;
 
-  TreeScope& scope = GetNode()->GetTreeScope();
-  for (const auto& id : ids) {
-    if (Element* id_element = scope.getElementById(AtomicString(id)))
-      elements.push_back(id_element);
-  }
+  bool attr_associated_elements_are_null = true;
+  HeapVector<Member<Element>> attr_associated_elements =
+      element->GetElementArrayAttribute(attribute,
+                                        attr_associated_elements_are_null);
+  if (attr_associated_elements_are_null)
+    return;
+
+  for (const auto& element : attr_associated_elements)
+    elements.push_back(element);
 }
 
 void AXObject::AriaLabelledbyElementVector(
@@ -1864,6 +1882,17 @@ ax::mojom::DefaultActionVerb AXObject::Action() const {
     return CheckedState() != ax::mojom::CheckedState::kTrue
                ? ax::mojom::DefaultActionVerb::kCheck
                : ax::mojom::DefaultActionVerb::kUncheck;
+  }
+
+  // If this object cannot receive focus and has a button role, use click as
+  // the default action. On the AuraLinux platform, the press action is a
+  // signal to users that they can trigger the action using the keyboard, while
+  // a click action means the user should trigger the action via a simulated
+  // click. If this object cannot receive focus, it's impossible to trigger it
+  // with a key press.
+  if (RoleValue() == ax::mojom::Role::kButton &&
+      !CanReceiveAccessibilityFocus()) {
+    return ax::mojom::DefaultActionVerb::kClick;
   }
 
   switch (RoleValue()) {
@@ -2079,9 +2108,7 @@ ax::mojom::Role AXObject::DetermineAriaRoleAttribute() const {
 
   switch (role) {
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
     case ax::mojom::Role::kMark:
-    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kSuggestion:
       UseCounter::Count(GetDocument(), WebFeature::kARIAAnnotations);
       if (!RuntimeEnabledFeatures::AccessibilityExposeARIAAnnotationsEnabled(
@@ -2754,8 +2781,9 @@ void AXObject::SetScrollOffset(const IntPoint& offset) const {
     return;
 
   // TODO(bokan): This should potentially be a UserScroll.
-  area->SetScrollOffset(ScrollOffset(offset.X(), offset.Y()),
-                        kProgrammaticScroll);
+  area->SetScrollOffset(
+      ScrollOffset(offset.X(), offset.Y()),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
 }
 
 bool AXObject::IsTableLikeRole() const {
@@ -2978,6 +3006,13 @@ const AXObject* AXObject::TableParent() const {
   return table;
 }
 
+int AXObject::GetDOMNodeId() const {
+  Node* node = GetNode();
+  if (node)
+    return DOMNodeIds::IdForNode(node);
+  return 0;
+}
+
 void AXObject::GetRelativeBounds(AXObject** out_container,
                                  FloatRect& out_bounds_in_container,
                                  SkMatrix44& out_container_transform,
@@ -3163,8 +3198,8 @@ bool AXObject::OnNativeClickAction() {
       if (page) {
         page->GetFocusController().SetFocusedElement(
             element, GetDocument()->GetFrame(),
-            FocusParams(SelectionBehaviorOnFocus::kNone, kWebFocusTypeMouse,
-                        nullptr));
+            FocusParams(SelectionBehaviorOnFocus::kNone,
+                        mojom::blink::FocusType::kMouse, nullptr));
       }
     }
 
@@ -3262,9 +3297,11 @@ bool AXObject::OnNativeScrollToMakeVisibleAction() const {
   PhysicalRect target_rect(layout_object->AbsoluteBoundingBoxRect());
   layout_object->ScrollRectToVisible(
       target_rect,
-      WebScrollIntoViewParams(ScrollAlignment::kAlignCenterIfNeeded,
-                              ScrollAlignment::kAlignCenterIfNeeded,
-                              kProgrammaticScroll, false, kScrollBehaviorAuto));
+      CreateScrollIntoViewParams(
+          ScrollAlignment::kAlignCenterIfNeeded,
+          ScrollAlignment::kAlignCenterIfNeeded,
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
+          mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
   AXObjectCache().PostNotification(
       AXObjectCache().GetOrCreate(GetDocument()->GetLayoutView()),
       ax::mojom::Event::kLocationChanged);
@@ -3282,11 +3319,11 @@ bool AXObject::OnNativeScrollToMakeVisibleWithSubFocusAction(
   PhysicalRect target_rect =
       layout_object->LocalToAbsoluteRect(PhysicalRect(rect));
   layout_object->ScrollRectToVisible(
-      target_rect,
-      WebScrollIntoViewParams(horizontal_scroll_alignment,
-                              vertical_scroll_alignment, kProgrammaticScroll,
-                              false /* make_visible_in_visual_viewport */,
-                              kScrollBehaviorAuto));
+      target_rect, CreateScrollIntoViewParams(
+                       horizontal_scroll_alignment, vertical_scroll_alignment,
+                       mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
+                       false /* make_visible_in_visual_viewport */,
+                       mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
   AXObjectCache().PostNotification(
       AXObjectCache().GetOrCreate(GetDocument()->GetLayoutView()),
       ax::mojom::Event::kLocationChanged);
@@ -3303,9 +3340,10 @@ bool AXObject::OnNativeScrollToGlobalPointAction(
   target_rect.Move(-PhysicalOffset(global_point));
   layout_object->ScrollRectToVisible(
       target_rect,
-      WebScrollIntoViewParams(ScrollAlignment::kAlignLeftAlways,
-                              ScrollAlignment::kAlignTopAlways,
-                              kProgrammaticScroll, false, kScrollBehaviorAuto));
+      CreateScrollIntoViewParams(
+          ScrollAlignment::kAlignLeftAlways, ScrollAlignment::kAlignTopAlways,
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
+          mojom::blink::ScrollIntoViewParams::Behavior::kAuto));
   AXObjectCache().PostNotification(
       AXObjectCache().GetOrCreate(GetDocument()->GetLayoutView()),
       ax::mojom::Event::kLocationChanged);
@@ -3442,6 +3480,7 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kMenuItemRadio:
     case ax::mojom::Role::kMenuListOption:
     case ax::mojom::Role::kPopUpButton:
+    case ax::mojom::Role::kPortal:
     case ax::mojom::Role::kRadioButton:
     case ax::mojom::Role::kRowHeader:
     case ax::mojom::Role::kStaticText:
@@ -3470,7 +3509,6 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kColumn:
     case ax::mojom::Role::kComboBoxGrouping:
     case ax::mojom::Role::kComment:
-    case ax::mojom::Role::kCommentSection:
     case ax::mojom::Role::kComplementary:
     case ax::mojom::Role::kContentInfo:
     case ax::mojom::Role::kDate:
@@ -3544,9 +3582,9 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kNavigation:
     case ax::mojom::Role::kNote:
     case ax::mojom::Role::kPane:
+    case ax::mojom::Role::kPluginObject:
     case ax::mojom::Role::kProgressIndicator:
     case ax::mojom::Role::kRadioGroup:
-    case ax::mojom::Role::kRevision:
     case ax::mojom::Role::kRootWebArea:
     case ax::mojom::Role::kRowGroup:
     case ax::mojom::Role::kScrollBar:
@@ -3622,6 +3660,12 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kRubyAnnotation:
     case ax::mojom::Role::kSection:
       result = recursive || (CanReceiveAccessibilityFocus() && !IsEditable());
+      break;
+
+    case ax::mojom::Role::kPdfActionableHighlight:
+      LOG(ERROR) << "PDF specific highlight role, Blink shouldn't generate "
+                    "this role type";
+      NOTREACHED();
       break;
 
     case ax::mojom::Role::kUnknown:

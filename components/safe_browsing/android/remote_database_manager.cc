@@ -14,10 +14,11 @@
 #include "base/strings/string_split.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler.h"
-#include "components/safe_browsing/db/v4_get_hash_protocol_manager.h"
-#include "components/safe_browsing/db/v4_protocol_manager_util.h"
+#include "components/safe_browsing/core/db/v4_get_hash_protocol_manager.h"
+#include "components/safe_browsing/core/db/v4_protocol_manager_util.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/common/resource_type.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 using content::BrowserThread;
@@ -88,11 +89,6 @@ void RemoteSafeBrowsingDatabaseManager::ClientRequest::OnRequestDone(
   UMA_HISTOGRAM_TIMES("SB2.RemoteCall.Elapsed", timer_.Elapsed());
   // CancelCheck() will delete *this.
   db_manager_->CancelCheck(client_);
-}
-
-RealTimeUrlLookupService*
-RemoteSafeBrowsingDatabaseManager::GetRealTimeUrlLookupService() {
-  return rt_url_lookup_service_.get();
 }
 
 //
@@ -343,8 +339,7 @@ void RemoteSafeBrowsingDatabaseManager::StartOnIOThread(
   VLOG(1) << "RemoteSafeBrowsingDatabaseManager starting";
   SafeBrowsingDatabaseManager::StartOnIOThread(url_loader_factory, config);
 
-  rt_url_lookup_service_ =
-      std::make_unique<RealTimeUrlLookupService>(url_loader_factory);
+  SetupRealTimeUrlLookupService(url_loader_factory);
 
   enabled_ = true;
 }
@@ -363,7 +358,7 @@ void RemoteSafeBrowsingDatabaseManager::StopOnIOThread(bool shutdown) {
   }
   enabled_ = false;
 
-  rt_url_lookup_service_.reset();
+  ResetRealTimeUrlLookupService();
 
   SafeBrowsingDatabaseManager::StopOnIOThread(shutdown);
 }

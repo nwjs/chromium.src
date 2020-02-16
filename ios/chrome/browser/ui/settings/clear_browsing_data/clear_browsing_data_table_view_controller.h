@@ -7,11 +7,9 @@
 
 #import "ios/chrome/browser/ui/settings/settings_root_table_view_controller.h"
 
-namespace ios {
-class ChromeBrowserState;
-}
-
 @protocol ApplicationCommands;
+@protocol BrowsingDataCommands;
+class ChromeBrowserState;
 @protocol ClearBrowsingDataLocalCommands;
 
 // TableView for clearing browsing data (including history,
@@ -20,12 +18,9 @@ class ChromeBrowserState;
     : SettingsRootTableViewController <UIAdaptivePresentationControllerDelegate>
 
 // Initializers. |browserState| can't be nil.
-- (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState
+- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
     NS_DESIGNATED_INITIALIZER;
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)style
-                           appBarStyle:
-                               (ChromeTableViewControllerStyle)appBarStyle
-    NS_UNAVAILABLE;
+- (instancetype)initWithStyle:(UITableViewStyle)style NS_UNAVAILABLE;
 
 // Prepares view controller so that -dismissViewControllerAnimated dismisses it.
 // Call this method before dismissing view controller.
@@ -35,7 +30,8 @@ class ChromeBrowserState;
 @property(nonatomic, weak) id<ClearBrowsingDataLocalCommands> localDispatcher;
 
 // The dispatcher used by this ViewController.
-@property(nonatomic, weak) id<ApplicationCommands> dispatcher;
+@property(nonatomic, weak) id<ApplicationCommands, BrowsingDataCommands>
+    dispatcher;
 
 @end
 

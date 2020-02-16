@@ -12,6 +12,7 @@
 #include "third_party/blink/public/platform/web_audio_device.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_audio_context_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/frame_types.h"
@@ -20,7 +21,6 @@
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/media/autoplay_policy.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
-#include "third_party/blink/renderer/modules/webaudio/audio_context_options.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet_thread.h"
 #include "third_party/blink/renderer/platform/testing/histogram_tester.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
@@ -189,7 +189,8 @@ TEST_P(AudioContextAutoplayTest,
 
   AudioContext* audio_context = AudioContext::Create(
       ChildDocument(), AudioContextOptions::Create(), ASSERT_NO_EXCEPTION);
-  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -216,7 +217,8 @@ TEST_P(AudioContextAutoplayTest, AutoplayMetrics_CallResumeNoGesture_Main) {
 
   AudioContext* audio_context = AudioContext::Create(
       GetDocument(), AudioContextOptions::Create(), ASSERT_NO_EXCEPTION);
-  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -294,7 +296,8 @@ TEST_P(AudioContextAutoplayTest, AutoplayMetrics_CallResumeGesture_Child) {
 
   LocalFrame::NotifyUserActivation(ChildDocument().GetFrame());
 
-  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -326,7 +329,8 @@ TEST_P(AudioContextAutoplayTest, AutoplayMetrics_CallResumeGesture_Main) {
 
   LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
 
-  audio_context->resumeContext(GetScriptStateFrom(GetDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(GetDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -457,7 +461,8 @@ TEST_P(AudioContextAutoplayTest,
   audio_context->NotifySourceNodeStart();
 
   LocalFrame::NotifyUserActivation(ChildDocument().GetFrame());
-  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -490,7 +495,8 @@ TEST_P(AudioContextAutoplayTest,
   audio_context->NotifySourceNodeStart();
 
   LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
-  audio_context->resumeContext(GetScriptStateFrom(GetDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(GetDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -520,7 +526,8 @@ TEST_P(AudioContextAutoplayTest,
 
   LocalFrame::NotifyUserActivation(ChildDocument().GetFrame());
   audio_context->NotifySourceNodeStart();
-  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(ChildDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -553,7 +560,8 @@ TEST_P(AudioContextAutoplayTest,
 
   LocalFrame::NotifyUserActivation(GetDocument().GetFrame());
   audio_context->NotifySourceNodeStart();
-  audio_context->resumeContext(GetScriptStateFrom(GetDocument()));
+  audio_context->resumeContext(GetScriptStateFrom(GetDocument()),
+                               ASSERT_NO_EXCEPTION);
   RejectPendingResolvers(audio_context);
   RecordAutoplayStatus(audio_context);
 
@@ -637,8 +645,7 @@ TEST_P(AudioContextAutoplayTest,
 // document received a user gesture before navigation.
 TEST_P(AudioContextAutoplayTest,
        AutoplayMetrics_DocumentReceivedGesture_BeforeNavigation) {
-  GetDocument().GetFrame()->SetDocumentHasReceivedUserGestureBeforeNavigation(
-      true);
+  GetDocument().GetFrame()->SetHadStickyUserActivationBeforeNavigation(true);
 
   AudioContext* audio_context = AudioContext::Create(
       GetDocument(), AudioContextOptions::Create(), ASSERT_NO_EXCEPTION);

@@ -9,14 +9,18 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/no_destructor.h"
+#include "base/optional.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/values.h"
+#include "chromecast/activity/queryable_data_host.h"
+#include "chromecast/base/cast_features.h"
 #include "chromecast/base/chromecast_switches.h"
 #include "chromecast/base/metrics/cast_metrics_helper.h"
 #include "chromecast/browser/cast_browser_process.h"
 #include "chromecast/browser/devtools/remote_debugging_server.h"
+#include "chromecast/browser/queryable_data_host_cast.h"
 #include "chromecast/common/mojom/media_playback_options.mojom.h"
 #include "chromecast/common/mojom/on_load_script_injector.mojom.h"
 #include "chromecast/common/mojom/queryable_data_store.mojom.h"
@@ -84,6 +88,21 @@ std::vector<CastWebContents*>& CastWebContents::GetAll() {
   return *instance;
 }
 
+// static
+CastWebContents* CastWebContents::FromWebContents(
+    content::WebContents* web_contents) {
+  auto& all_cast_web_contents = CastWebContents::GetAll();
+  auto it =
+      std::find_if(all_cast_web_contents.begin(), all_cast_web_contents.end(),
+                   [&web_contents](const auto* cast_web_contents) {
+                     return cast_web_contents->web_contents() == web_contents;
+                   });
+  if (it == all_cast_web_contents.end()) {
+    return nullptr;
+  }
+  return *it;
+}
+
 CastWebContentsImpl::CastWebContentsImpl(content::WebContents* web_contents,
                                          const InitParams& init_params)
     : web_contents_(web_contents),
@@ -100,6 +119,8 @@ CastWebContentsImpl::CastWebContentsImpl(content::WebContents* web_contents,
                          ? std::make_unique<CastMediaBlocker>(web_contents_)
                          : nullptr),
       tab_id_(init_params.is_root_window ? 0 : next_tab_id++),
+      is_websql_enabled_(init_params.enable_websql),
+      is_mixer_audio_enabled_(init_params.enable_mixer_audio),
       main_frame_loaded_(false),
       closing_(false),
       stopped_(false),
@@ -121,6 +142,13 @@ CastWebContentsImpl::CastWebContentsImpl(content::WebContents* web_contents,
   // TODO(yucliu): Change the flag name to kDisableCmaRenderer in a latter diff.
   if (GetSwitchValueBoolean(switches::kDisableMojoRenderer, false)) {
     use_cma_renderer_ = false;
+  }
+
+  // Provides QueryableDataHostCast if the new QueryableData bindings is not
+  // enabled.
+  if (init_params.enable_queryable_data_host) {
+    queryable_data_host_ =
+        std::make_unique<QueryableDataHostCast>(web_contents_);
   }
 }
 
@@ -148,6 +176,25 @@ content::WebContents* CastWebContentsImpl::web_contents() const {
 CastWebContents::PageState CastWebContentsImpl::page_state() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return page_state_;
+}
+
+QueryableDataHost* CastWebContentsImpl::queryable_data_host() const {
+  return queryable_data_host_.get();
+}
+
+base::Optional<pid_t> CastWebContentsImpl::GetMainFrameRenderProcessPid()
+    const {
+  // Returns empty value if |web_contents_| is (being) destroyed or the main
+  // frame is not available yet.
+  if (!web_contents_ || !web_contents_->GetMainFrame()) {
+    return base::nullopt;
+  }
+
+  auto* rph = web_contents_->GetMainFrame()->GetProcess();
+  if (!rph || rph->GetProcess().Handle() == base::kNullProcessHandle) {
+    return base::nullopt;
+  }
+  return base::make_optional(rph->GetProcess().Handle());
 }
 
 void CastWebContentsImpl::AddRendererFeatures(
@@ -292,6 +339,7 @@ void CastWebContentsImpl::RemoveBeforeLoadJavaScript(base::StringPiece id) {
   }
 }
 
+// TODO(crbug.com/803242): Deprecated and will be shortly removed.
 void CastWebContentsImpl::PostMessageToMainFrame(
     const std::string& target_origin,
     const std::string& data,
@@ -310,6 +358,26 @@ void CastWebContentsImpl::PostMessageToMainFrame(
   content::MessagePortProvider::PostMessageToFrame(
       web_contents(), base::string16(), target_origin_utf16, data_utf16,
       std::move(channels));
+}
+
+void CastWebContentsImpl::PostMessageToMainFrame(
+    const std::string& target_origin,
+    const std::string& data,
+    std::vector<blink::WebMessagePort> ports) {
+  DCHECK(!data.empty());
+
+  base::string16 data_utf16;
+  data_utf16 = base::UTF8ToUTF16(data);
+
+  // If origin is set as wildcard, no origin scoping would be applied.
+  constexpr char kWildcardOrigin[] = "*";
+  base::Optional<base::string16> target_origin_utf16;
+  if (target_origin != kWildcardOrigin)
+    target_origin_utf16 = base::UTF8ToUTF16(target_origin);
+
+  content::MessagePortProvider::PostMessageToFrame(
+      web_contents(), base::string16(), target_origin_utf16, data_utf16,
+      std::move(ports));
 }
 
 void CastWebContentsImpl::AddObserver(CastWebContents::Observer* observer) {
@@ -333,6 +401,14 @@ void CastWebContentsImpl::RegisterInterfaceProvider(
     service_manager::InterfaceProvider* interface_provider) {
   DCHECK(interface_provider);
   interface_providers_map_.emplace(interface_set, interface_provider);
+}
+
+bool CastWebContentsImpl::is_websql_enabled() {
+  return is_websql_enabled_;
+}
+
+bool CastWebContentsImpl::is_mixer_audio_enabled() {
+  return is_mixer_audio_enabled_;
 }
 
 void CastWebContentsImpl::OnClosePageTimeout() {
@@ -530,6 +606,13 @@ void CastWebContentsImpl::DidFinishNavigation(
     return;
   }
 
+  // Notifies observers that the navigation of the main frame has finished.
+  if (!navigation_handle->IsErrorPage() && navigation_handle->IsInMainFrame()) {
+    for (Observer& observer : observer_list_) {
+      observer.MainFrameFinishedNavigation();
+    }
+  }
+
   // Return early if we didn't navigate to an error page. Note that even if we
   // haven't navigated to an error page, there could still be errors in loading
   // the desired content: e.g. if the server returned HTTP 404, or if there is
@@ -591,8 +674,7 @@ void CastWebContentsImpl::DidFinishLoad(
 void CastWebContentsImpl::DidFailLoad(
     content::RenderFrameHost* render_frame_host,
     const GURL& validated_url,
-    int error_code,
-    const base::string16& error_description) {
+    int error_code) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Only report an error if we are the main frame.  See b/8433611.
   if (render_frame_host->GetParent()) {
@@ -700,7 +782,8 @@ void CastWebContentsImpl::ResourceLoadComplete(
       metrics::CastMetricsHelper::GetInstance();
   metrics_helper->RecordApplicationEventWithValue(
       "Cast.Platform.ResourceRequestError", net_error);
-  LOG(ERROR) << "Resource \"" << resource_load_info.url << "\" failed to load "
+  LOG(ERROR) << "Resource \"" << resource_load_info.original_url << "\""
+             << " failed to load "
              << " with net_error=" << net_error
              << ", description=" << net::ErrorToShortString(net_error);
   shell::CastBrowserProcess::GetInstance()->connectivity_checker()->Check();

@@ -55,6 +55,8 @@ class AXPlatformNodeWinTest : public ui::AXPlatformNodeTest {
   void TearDown() override;
 
  protected:
+  static const base::string16 kEmbeddedCharacterAsString;
+
   AXPlatformNode* AXPlatformNodeFromNode(AXNode* node);
   template <typename T>
   Microsoft::WRL::ComPtr<T> QueryInterfaceFromNodeId(int32_t id);
@@ -64,6 +66,9 @@ class AXPlatformNodeWinTest : public ui::AXPlatformNodeTest {
   GetRootIRawElementProviderSimple();
   Microsoft::WRL::ComPtr<IRawElementProviderSimple>
   GetIRawElementProviderSimpleFromChildIndex(int child_index);
+  Microsoft::WRL::ComPtr<IRawElementProviderSimple>
+  GetIRawElementProviderSimpleFromTree(const ui::AXTreeID tree_id,
+                                       const int32_t node_id);
   Microsoft::WRL::ComPtr<IRawElementProviderFragment>
   GetRootIRawElementProviderFragment();
   Microsoft::WRL::ComPtr<IRawElementProviderFragment>

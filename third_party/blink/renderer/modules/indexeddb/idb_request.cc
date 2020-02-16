@@ -62,21 +62,25 @@ IDBRequest::AsyncTraceState::AsyncTraceState(const char* trace_event_name)
   // If PopulateForNewEvent is called, it sets trace_event_name_ to
   // trace_event_name. Otherwise, trace_event_name_ is nullptr, so this instance
   // is considered empty. This roundabout initialization lets us avoid calling
-  // TRACE_EVENT_ASYNC_END0 with an uninitalized ID.
-  TRACE_EVENT_ASYNC_BEGIN0("IndexedDB", trace_event_name,
-                           PopulateForNewEvent(trace_event_name));
+  // TRACE_EVENT_NESTABLE_ASYNC_END0 with an uninitalized ID.
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0(
+      "IndexedDB", trace_event_name,
+      TRACE_ID_LOCAL(PopulateForNewEvent(trace_event_name)));
 }
 
 void IDBRequest::AsyncTraceState::RecordAndReset() {
   if (trace_event_name_) {
-    TRACE_EVENT_ASYNC_END0("IndexedDB", trace_event_name_, id_);
+    TRACE_EVENT_NESTABLE_ASYNC_END0("IndexedDB", trace_event_name_,
+                                    TRACE_ID_LOCAL(id_));
     trace_event_name_ = nullptr;
   }
 }
 
 IDBRequest::AsyncTraceState::~AsyncTraceState() {
-  if (trace_event_name_)
-    TRACE_EVENT_ASYNC_END0("IndexedDB", trace_event_name_, id_);
+  if (trace_event_name_) {
+    TRACE_EVENT_NESTABLE_ASYNC_END0("IndexedDB", trace_event_name_,
+                                    TRACE_ID_LOCAL(id_));
+  }
 }
 
 size_t IDBRequest::AsyncTraceState::PopulateForNewEvent(
@@ -413,7 +417,7 @@ void IDBRequest::EnqueueResponse(DOMException* error) {
   }
 
   error_ = error;
-  SetResult(IDBAny::CreateUndefined());
+  SetResult(MakeGarbageCollected<IDBAny>(IDBAny::kUndefinedType));
   pending_cursor_.Clear();
   EnqueueEvent(Event::CreateCancelableBubble(event_type_names::kError));
 }
@@ -482,7 +486,7 @@ void IDBRequest::EnqueueResponse(std::unique_ptr<IDBKey> idb_key) {
   if (idb_key && idb_key->IsValid())
     EnqueueResultInternal(MakeGarbageCollected<IDBAny>(std::move(idb_key)));
   else
-    EnqueueResultInternal(IDBAny::CreateUndefined());
+    EnqueueResultInternal(MakeGarbageCollected<IDBAny>(IDBAny::kUndefinedType));
 }
 
 namespace {
@@ -556,7 +560,7 @@ void IDBRequest::EnqueueResponse() {
     metrics_.RecordAndReset();
     return;
   }
-  EnqueueResultInternal(IDBAny::CreateUndefined());
+  EnqueueResultInternal(MakeGarbageCollected<IDBAny>(IDBAny::kUndefinedType));
 }
 
 void IDBRequest::EnqueueResultInternal(IDBAny* result) {
@@ -625,6 +629,29 @@ ExecutionContext* IDBRequest::GetExecutionContext() const {
 
 DispatchEventResult IDBRequest::DispatchEventInternal(Event& event) {
   IDB_TRACE("IDBRequest::dispatchEvent");
+
+  event.SetTarget(this);
+
+  HeapVector<Member<EventTarget>> targets;
+  targets.push_back(this);
+  if (transaction_ && !prevent_propagation_) {
+    // Per spec: "A request's get the parent algorithm returns the request’s
+    // transaction."
+    targets.push_back(transaction_);
+    // Per spec: "A transaction's get the parent algorithm returns the
+    // transaction’s connection."
+    targets.push_back(transaction_->db());
+  }
+
+  // If this event originated from script, it should have no side effects.
+  if (!event.isTrusted())
+    return IDBEventDispatcher::Dispatch(event, targets);
+  DCHECK(event.type() == event_type_names::kSuccess ||
+         event.type() == event_type_names::kError ||
+         event.type() == event_type_names::kBlocked ||
+         event.type() == event_type_names::kUpgradeneeded)
+      << "event type was " << event.type();
+
   if (!GetExecutionContext())
     return DispatchEventResult::kCanceledBeforeDispatch;
   DCHECK_EQ(ready_state_, PENDING);
@@ -633,17 +660,6 @@ DispatchEventResult IDBRequest::DispatchEventInternal(Event& event) {
 
   if (event.type() != event_type_names::kBlocked)
     ready_state_ = DONE;
-
-  HeapVector<Member<EventTarget>> targets;
-  targets.push_back(this);
-  if (transaction_ && !prevent_propagation_) {
-    targets.push_back(transaction_);
-    // If there ever are events that are associated with a database but
-    // that do not have a transaction, then this will not work and we need
-    // this object to actually hold a reference to the database (to ensure
-    // it stays alive).
-    targets.push_back(transaction_->db());
-  }
 
   // Cursor properties should not be updated until the success event is being
   // dispatched.
@@ -662,13 +678,6 @@ DispatchEventResult IDBRequest::DispatchEventInternal(Event& event) {
     did_fire_upgrade_needed_event_ = true;
   }
 
-  // FIXME: When we allow custom event dispatching, this will probably need to
-  // change.
-  DCHECK(event.type() == event_type_names::kSuccess ||
-         event.type() == event_type_names::kError ||
-         event.type() == event_type_names::kBlocked ||
-         event.type() == event_type_names::kUpgradeneeded)
-      << "event type was " << event.type();
   const bool set_transaction_active =
       transaction_ &&
       (event.type() == event_type_names::kSuccess ||
@@ -692,7 +701,6 @@ DispatchEventResult IDBRequest::DispatchEventInternal(Event& event) {
   // has completed.
   metrics_.RecordAndReset();
 
-  event.SetTarget(this);
   DispatchEventResult dispatch_result =
       IDBEventDispatcher::Dispatch(event, targets);
 

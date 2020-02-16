@@ -18,6 +18,11 @@
 #include "base/traits_bag.h"
 #include "build/build_config.h"
 
+// TODO(gab): This is backwards, thread_pool.h should include task_traits.h
+// but it this is necessary to have it in this direction during the migration
+// from old code that used base::ThreadPool as a trait.
+#include "base/task/thread_pool.h"
+
 namespace base {
 
 class PostTaskAndroid;
@@ -180,22 +185,6 @@ struct MayBlock {};
 // In doubt, consult with //base/task/OWNERS.
 struct WithBaseSyncPrimitives {};
 
-// Tasks and task runners with this trait will run in the thread pool,
-// concurrently with tasks on other task runners. If you need mutual exclusion
-// between tasks, see base::PostTask::CreateSequencedTaskRunner.
-struct ThreadPool {};
-
-// Tasks and task runners with this thread will run tasks on the virtual thread
-// (sequence) they are posted/created from. Other traits may be specified
-// alongside this one to refine properties for the associated tasks
-// (e.g. base::TaskPriority or content::BrowserTaskType) as long as those traits
-// are compatible with the current thread (e.g. cannot specify base::MayBlock()
-// on a non-blocking thread or alter base::TaskShutdownBehavior).
-//
-// Experimental: Further discussions are in progress for this API. Please
-// continue using SequencedTaskRunnerHandle::Get() in the mean time.
-struct CurrentThread {};
-
 // Describes metadata for a single task or a group of tasks.
 class BASE_EXPORT TaskTraits {
  public:
@@ -207,7 +196,6 @@ class BASE_EXPORT TaskTraits {
     ValidTrait(MayBlock);
     ValidTrait(WithBaseSyncPrimitives);
     ValidTrait(ThreadPool);
-    ValidTrait(CurrentThread);
   };
 
   // Invoking this constructor without arguments produces TaskTraits that are
@@ -224,14 +212,14 @@ class BASE_EXPORT TaskTraits {
   // WithBaseSyncPrimitives in any order to the constructor.
   //
   // E.g.
-  // constexpr base::TaskTraits default_traits = {base::ThreadPool()};
+  // constexpr base::TaskTraits default_traits = {};
   // constexpr base::TaskTraits user_visible_traits = {
-  //     base::ThreadPool(), base::TaskPriority::USER_VISIBLE};
+  //     base::TaskPriority::USER_VISIBLE};
   // constexpr base::TaskTraits user_visible_may_block_traits = {
-  //     base::ThreadPool(), base::TaskPriority::USER_VISIBLE, base::MayBlock()
+  //     base::TaskPriority::USER_VISIBLE, base::MayBlock()
   // };
   // constexpr base::TaskTraits other_user_visible_may_block_traits = {
-  //     base::ThreadPool(), base::MayBlock(), base::TaskPriority::USER_VISIBLE
+  //     base::MayBlock(), base::TaskPriority::USER_VISIBLE
   // };
   template <class... ArgTypes,
             class CheckArgumentsAreValid = std::enable_if_t<
@@ -267,38 +255,21 @@ class BASE_EXPORT TaskTraits {
         may_block_(trait_helpers::HasTrait<MayBlock, ArgTypes...>()),
         with_base_sync_primitives_(
             trait_helpers::HasTrait<WithBaseSyncPrimitives, ArgTypes...>()),
-        use_thread_pool_(trait_helpers::HasTrait<ThreadPool, ArgTypes...>()),
-        use_current_thread_(
-            trait_helpers::HasTrait<CurrentThread, ArgTypes...>()) {
-    constexpr bool has_thread_pool =
-        trait_helpers::HasTrait<ThreadPool, ArgTypes...>();
-    constexpr bool has_extension =
-        !trait_helpers::AreValidTraits<ValidTrait, ArgTypes...>::value;
-    constexpr bool has_current_thread =
-        trait_helpers::HasTrait<CurrentThread, ArgTypes...>();
-    static_assert(
-        !has_current_thread || !has_thread_pool,
-        "base::CurrentThread is mutually exclusive with base::ThreadPool");
-    static_assert(
-        has_thread_pool ^ has_extension || has_current_thread,
-        "Traits must explicitly specify a destination (e.g. ThreadPool or a "
-        "named thread like BrowserThread, or CurrentThread)");
-  }
+        use_thread_pool_(trait_helpers::HasTrait<ThreadPool, ArgTypes...>()) {}
 
   constexpr TaskTraits(const TaskTraits& other) = default;
   TaskTraits& operator=(const TaskTraits& other) = default;
 
   // TODO(eseckler): Default the comparison operator once C++20 arrives.
   bool operator==(const TaskTraits& other) const {
-    static_assert(sizeof(TaskTraits) == 16,
+    static_assert(sizeof(TaskTraits) == 15,
                   "Update comparison operator when TaskTraits change");
     return extension_ == other.extension_ && priority_ == other.priority_ &&
            shutdown_behavior_ == other.shutdown_behavior_ &&
            thread_policy_ == other.thread_policy_ &&
            may_block_ == other.may_block_ &&
            with_base_sync_primitives_ == other.with_base_sync_primitives_ &&
-           use_thread_pool_ == other.use_thread_pool_ &&
-           use_current_thread_ == other.use_current_thread_;
+           use_thread_pool_ == other.use_thread_pool_;
   }
 
   // Sets the priority of tasks with these traits to |priority|.
@@ -351,10 +322,6 @@ class BASE_EXPORT TaskTraits {
   // Returns true if tasks with these traits execute on the thread pool.
   constexpr bool use_thread_pool() const { return use_thread_pool_; }
 
-  // Returns true if tasks with these traits execute on the virtual thread
-  // (sequence) they are posted/created from.
-  constexpr bool use_current_thread() const { return use_current_thread_; }
-
   uint8_t extension_id() const { return extension_.extension_id; }
 
   // Access the extension data by parsing it into the provided extension type.
@@ -373,7 +340,6 @@ class BASE_EXPORT TaskTraits {
              TaskPriority priority,
              bool may_block,
              bool use_thread_pool,
-             bool use_current_thread,
              TaskTraitsExtensionStorage extension)
       : extension_(extension),
         priority_(static_cast<uint8_t>(priority) |
@@ -383,9 +349,17 @@ class BASE_EXPORT TaskTraits {
         thread_policy_(static_cast<uint8_t>(ThreadPolicy::PREFER_BACKGROUND)),
         may_block_(may_block),
         with_base_sync_primitives_(false),
-        use_thread_pool_(use_thread_pool),
-        use_current_thread_(use_current_thread) {
-    static_assert(sizeof(TaskTraits) == 16, "Keep this constructor up to date");
+        use_thread_pool_(use_thread_pool) {
+    static_assert(sizeof(TaskTraits) == 15, "Keep this constructor up to date");
+
+    // Java is expected to provide an explicit destination. See TODO in
+    // TaskTraits.java to move towards API-as-a-destination there as well.
+    const bool has_extension =
+        (extension_.extension_id !=
+         TaskTraitsExtensionStorage::kInvalidExtensionId);
+    DCHECK(use_thread_pool_ ^ has_extension)
+        << "Traits must explicitly specify a destination (e.g. ThreadPool or a "
+           "named thread like BrowserThread)";
   }
 
   // This bit is set in |priority_|, |shutdown_behavior_| and |thread_policy_|
@@ -400,7 +374,6 @@ class BASE_EXPORT TaskTraits {
   bool may_block_;
   bool with_base_sync_primitives_;
   bool use_thread_pool_;
-  bool use_current_thread_;
 };
 
 // Returns string literals for the enums defined in this file. These methods

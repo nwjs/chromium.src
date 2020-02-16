@@ -11,42 +11,45 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/task/post_task.h"
+#include "base/threading/sequenced_task_runner_handle.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
-#include "content/public/browser/browser_thread.h"
 #include "net/base/url_util.h"
 #include "storage/browser/database/database_util.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 
 using blink::mojom::StorageType;
-using storage::QuotaClient;
 using storage::DatabaseUtil;
+using storage::QuotaClient;
 
 namespace content {
 namespace {
 
-blink::mojom::QuotaStatusCode DeleteOriginDataOnIndexedDBThread(
-    IndexedDBContextImpl* context,
-    const url::Origin& origin) {
-  context->DeleteForOrigin(origin);
-  return blink::mojom::QuotaStatusCode::kOk;
+void DidDeleteIDBData(scoped_refptr<base::SequencedTaskRunner> task_runner,
+                      IndexedDBQuotaClient::DeletionCallback callback,
+                      bool) {
+  task_runner->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), blink::mojom::QuotaStatusCode::kOk));
 }
 
 int64_t GetOriginUsageOnIndexedDBThread(IndexedDBContextImpl* context,
                                         const url::Origin& origin) {
-  DCHECK(context->TaskRunner()->RunsTasksInCurrentSequence());
+  DCHECK(context->IDBTaskRunner()->RunsTasksInCurrentSequence());
   return context->GetOriginDiskUsage(origin);
 }
 
 void GetAllOriginsOnIndexedDBThread(IndexedDBContextImpl* context,
                                     std::set<url::Origin>* origins_to_return) {
-  DCHECK(context->TaskRunner()->RunsTasksInCurrentSequence());
+  DCHECK(context->IDBTaskRunner()->RunsTasksInCurrentSequence());
   for (const auto& origin : context->GetAllOrigins())
     origins_to_return->insert(origin);
 }
 
 void DidGetOrigins(IndexedDBQuotaClient::GetOriginsCallback callback,
                    const std::set<url::Origin>* origins) {
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  // Run on the same sequence that GetOriginsForType was called on,
+  // which is likely the IO thread.
   std::move(callback).Run(*origins);
 }
 
@@ -54,7 +57,7 @@ void GetOriginsForHostOnIndexedDBThread(
     IndexedDBContextImpl* context,
     const std::string& host,
     std::set<url::Origin>* origins_to_return) {
-  DCHECK(context->TaskRunner()->RunsTasksInCurrentSequence());
+  DCHECK(context->IDBTaskRunner()->RunsTasksInCurrentSequence());
   for (const auto& origin : context->GetAllOrigins()) {
     GURL origin_url(origin.Serialize());
     if (host == net::GetHostOrSpecFromURL(origin_url))
@@ -72,7 +75,9 @@ IndexedDBQuotaClient::IndexedDBQuotaClient(
 
 IndexedDBQuotaClient::~IndexedDBQuotaClient() {}
 
-QuotaClient::ID IndexedDBQuotaClient::id() const { return kIndexedDatabase; }
+QuotaClient::ID IndexedDBQuotaClient::id() const {
+  return kIndexedDatabase;
+}
 
 void IndexedDBQuotaClient::GetOriginUsage(const url::Origin& origin,
                                           StorageType type,
@@ -87,7 +92,7 @@ void IndexedDBQuotaClient::GetOriginUsage(const url::Origin& origin,
   }
 
   base::PostTaskAndReplyWithResult(
-      indexed_db_context_->TaskRunner(), FROM_HERE,
+      indexed_db_context_->IDBTaskRunner(), FROM_HERE,
       base::BindOnce(&GetOriginUsageOnIndexedDBThread,
                      base::RetainedRef(indexed_db_context_), origin),
       std::move(callback));
@@ -105,7 +110,7 @@ void IndexedDBQuotaClient::GetOriginsForType(StorageType type,
   }
 
   std::set<url::Origin>* origins_to_return = new std::set<url::Origin>();
-  indexed_db_context_->TaskRunner()->PostTaskAndReply(
+  indexed_db_context_->IDBTaskRunner()->PostTaskAndReply(
       FROM_HERE,
       base::BindOnce(&GetAllOriginsOnIndexedDBThread,
                      base::RetainedRef(indexed_db_context_),
@@ -127,7 +132,7 @@ void IndexedDBQuotaClient::GetOriginsForHost(StorageType type,
   }
 
   std::set<url::Origin>* origins_to_return = new std::set<url::Origin>();
-  indexed_db_context_->TaskRunner()->PostTaskAndReply(
+  indexed_db_context_->IDBTaskRunner()->PostTaskAndReply(
       FROM_HERE,
       base::BindOnce(&GetOriginsForHostOnIndexedDBThread,
                      base::RetainedRef(indexed_db_context_), host,
@@ -144,11 +149,13 @@ void IndexedDBQuotaClient::DeleteOriginData(const url::Origin& origin,
     return;
   }
 
-  base::PostTaskAndReplyWithResult(
-      indexed_db_context_->TaskRunner(), FROM_HERE,
-      base::BindOnce(&DeleteOriginDataOnIndexedDBThread,
-                     base::RetainedRef(indexed_db_context_), origin),
-      std::move(callback));
+  indexed_db_context_->IDBTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&IndexedDBContextImpl::DeleteForOrigin,
+                     base::RetainedRef(indexed_db_context_), origin,
+                     base::BindOnce(DidDeleteIDBData,
+                                    base::SequencedTaskRunnerHandle::Get(),
+                                    std::move(callback))));
 }
 
 bool IndexedDBQuotaClient::DoesSupport(StorageType type) const {

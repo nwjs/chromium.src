@@ -73,6 +73,7 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public DialogDelegateView,
   bool close_on_deactivate() const { return close_on_deactivate_; }
   void set_close_on_deactivate(bool close) { close_on_deactivate_ = close; }
 
+  void SetAnchorView(View* anchor_view);
   View* GetAnchorView() const;
   Widget* anchor_widget() const { return anchor_widget_; }
 
@@ -136,6 +137,9 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public DialogDelegateView,
   virtual void OnBeforeBubbleWidgetInit(Widget::InitParams* params,
                                         Widget* widget) const;
 
+  // The layer type of the bubble widget.
+  virtual ui::LayerType GetLayerType() const;
+
   // Sets the content margins to a default picked for smaller bubbles.
   void UseCompactMargins();
 
@@ -180,7 +184,6 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public DialogDelegateView,
   // valid view gets passed, the anchor rect will get ignored. If the view gets
   // deleted, but no new view gets set, the last known anchor postion will get
   // returned.
-  void SetAnchorView(View* anchor_view);
   void SetAnchorRect(const gfx::Rect& rect);
 
   // Resize and potentially move the bubble to fit the content's preferred size.
@@ -193,6 +196,8 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public DialogDelegateView,
   friend class BubbleBorderDelegate;
   friend class BubbleWindowTargeter;
   friend class ui_devtools::PageAgentViews;
+
+  class AnchorViewObserver;
 
   FRIEND_TEST_ALL_PREFIXES(BubbleDelegateTest, CreateDelegate);
   FRIEND_TEST_ALL_PREFIXES(BubbleDelegateTest, NonClientHitTest);
@@ -218,10 +223,9 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public DialogDelegateView,
   // A flag controlling bubble closure on deactivation.
   bool close_on_deactivate_;
 
-  // The view and widget to which this bubble is anchored. Since an anchor view
-  // can be deleted without notice, we store it in a ViewTracker and retrieve
-  // it from there. It will make sure that the view is still valid.
-  std::unique_ptr<ViewTracker> anchor_view_tracker_;
+  // The view and widget to which this bubble is anchored. AnchorViewObserver
+  // is used to observe bounds changes and view deletion.
+  std::unique_ptr<AnchorViewObserver> anchor_view_observer_;
   Widget* anchor_widget_;
   std::unique_ptr<Widget::PaintAsActiveLock> paint_as_active_lock_;
 

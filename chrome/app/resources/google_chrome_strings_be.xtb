@@ -9,7 +9,6 @@
 Некаторыя функцыі могуць быць недаступныя, і змены ў параметрах не захаваюцца.</translation>
 <translation id="1088300314857992706">Карыстальнік <ph name="USER_EMAIL_ADDRESS" /> раней выкарыстоўваў Chrome</translation>
 <translation id="1097330777386562916">Выдаліць файлы cookie і даныя сайтаў пры выхадзе з браўзера Chrome</translation>
-<translation id="1104959162601287462">Пра &amp;Chrome OS</translation>
 <translation id="110877069173485804">Гэта ваш Chrome</translation>
 <translation id="1142745911746664600">Не ўдаецца абнавіць Chrome</translation>
 <translation id="1154147086299354128">&amp;Адкрыць у браўзеры Chrome</translation>
@@ -21,10 +20,8 @@
 <translation id="1553358976309200471">Абнавіць Chrome</translation>
 <translation id="1587223624401073077">Google Chrome выкарыстоўвае камеру.</translation>
 <translation id="1587325591171447154">Файл <ph name="FILE_NAME" /> небяспечны, таму Chrome заблакіраваў яго.</translation>
-<translation id="1590588151039584890">Для абнаўлення браўзеру Chrome трэба спыніць працу на гэтым камп'ютары. Іншыя карыстальнікі, якія ўвайшлі на камп'ютар, могуць страціць незахаваныя змены.</translation>
 <translation id="1619887657840448962">У мэтах бяспекі Chrome мы адключылі наступнае пашырэнне, якое не значыцца ў спісе <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> і магло быць дададзена без вашага ведама.</translation>
 <translation id="1628000112320670027">Даведка Chrome</translation>
-<translation id="1635734105302489219">Пры выхадзе з браўзера Chrome файлы cookie выдаляюцца. Каб сінхранізацыя працавала, змяніце гэтыя <ph name="COOKIE_SETTINGS_LINK" />.</translation>
 <translation id="1662639173275167396">Chrome OS працуе дзякуючы дадатковаму <ph name="BEGIN_LINK_CROS_OSS" />праграмнаму забеспячэнню з адкрытым зыходным кодам<ph name="END_LINK_CROS_OSS" />, як і <ph name="BEGIN_LINK_LINUX_OSS" />Linux (бэта-версія)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">Амаль гатова! Каб завяршыць абнаўленне, перазапусціце Google Chrome. Вокны ў рэжыме інкогніта не будуць адкрыты паўторна.</translation>
 <translation id="1674870198290878346">Адкрыць спасылку ў акне інко&amp;гніта ў Chrome</translation>
@@ -53,6 +50,7 @@
 <translation id="2290014774651636340">Адсутнічаюць ключы Google API. Некаторыя функцыі Google Chrome будуць выключаны.</translation>
 <translation id="2290095356545025170">Сапраўды выдаліць Google Chrome?</translation>
 <translation id="2309047409763057870">Гэта другасны ўсталяваны экзэмпляр Google Chrome – яго нельга зрабіць стандартным браўзерам.</translation>
+<translation id="2341767445688917208">Сістэме Chrome OS не ўдалося сінхранізаваць паролі. Вырашыце праблему.</translation>
 <translation id="2348335408836342058">Chrome запытвае дазвол на доступ да вашай камеры і мікрафона для гэтага сайта</translation>
 <translation id="2429317896000329049">Браўзеру Google Chrome не ўдалося сінхранізаваць даныя: для вашага дамена сінхранізацыя недаступная.</translation>
 <translation id="2467438592969358367">Google Chrome запытвае дазвол на экспартаванне вашых пароляў. Каб дазволіць гэта, увядзіце пароль Windows.</translation>
@@ -77,8 +75,6 @@
 <translation id="3080151273017101988">Працягваць выконваць фонавыя праграмы, калі Google Chrome закрыты</translation>
 <translation id="3089968997497233615">Ёсць новая, больш бяспечная версія Google Chrome.</translation>
 <translation id="3149510190863420837">Праграмы Chrome</translation>
-<translation id="3282568296779691940">Увайсці ў Chrome</translation>
-<translation id="3340978935015468852">налады</translation>
 <translation id="3360895254066713204">Памочнік Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Перазапуск Chrome адбудзецца зараз}=1{Chrome будзе перазапушчаны праз 1 секунду}one{Chrome будзе перазапушчаны праз # секунду}few{Chrome будзе перазапушчаны праз # секунды}many{Chrome будзе перазапушчаны праз # секунд}other{Chrome будзе перазапушчаны праз # секунды}}</translation>
 <translation id="3395323229510056640">Даведка па Chrome OS</translation>
@@ -131,7 +127,6 @@
 <translation id="4953650215774548573">Зрабіць Google Chrome стандартным браўзерам</translation>
 <translation id="495931528404527476">У браўзеры Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Сінхранізаваць даныя ў браўзеры Google Chrome не ўдалося. Абнавіце фразу-пароль для сінхранізацыі.</translation>
 <translation id="5062123544085870375">Перазапусціце Chrome OS</translation>
 <translation id="5132929315877954718">Адкрывайце для сябе выдатныя праграмы, гульні, пашырэнні і тэмы для Google Chrome.</translation>
 <translation id="5170938038195470297">Ваш профіль нельга выкарыстоўваць, бо ён з навейшай версіі Google Chrome.
@@ -146,7 +141,6 @@
 <translation id="5430073640787465221">Файл параметраў пашкоджаны або няправільны.
 
 Не ўдалося аднавіць налады ў браўзеры Google Chrome.</translation>
-<translation id="5543953544073077331">Працуюць іншыя копіі Chrome. Каб завяршыць абнаўленне, закрыйце іх.</translation>
 <translation id="556024056938947818">Google Chrome спрабуе паказаць паролі.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">Калі налада адсутнічае на гэтай старонцы, перайдзіце ў <ph name="LINK_BEGIN" />
@@ -196,7 +190,6 @@
 <translation id="7408085963519505752">Умовы выкарыстання Chrome OS</translation>
 <translation id="7419046106786626209">Chrome OS не ўдалося сінхранізаваць даныя, бо гэта функцыя недаступная для вашага дамена.</translation>
 <translation id="7486227612705979895">Каб выводзіць прапановы ў адрасным радку, браўзер Chrome будзе карыстацца доступам да вашага Дыска</translation>
-<translation id="7531671357096394523">Выхад з усіх копій Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome для распрацоўшчыкаў</translation>
 <translation id="7573289029918943991">Каб даведацца, ці абноўлена прылада, адкрыйце <ph name="LINK_BEGIN" />Налады Chrome OS<ph name="LINK_END" /></translation>
 <translation id="7589360514048265910">Гэты камп'ютар больш не будзе атрымліваць абнаўленні Google Chrome: Mac OS X 10.9 цяпер не падтрымліваецца.</translation>
@@ -215,6 +208,7 @@
 <translation id="7855730255114109580">Google Chrome абноўлены да апошняй версіі</translation>
 <translation id="7890208801193284374">Калі камп'ютар выкарыстоўваюць некалькі чалавек, кожны з іх можа наладзіць Chrome для сябе і праглядаць старонкі асобна ад іншых.</translation>
 <translation id="7896673875602241923">Нехта раней увайшоў у Chrome на гэтым камп'ютары як <ph name="ACCOUNT_EMAIL_LAST" />. Стварыце новага карыстальніка Chrome, каб трымаць сваю інфармацыю асобна.</translation>
+<translation id="7916016681687251387">Сістэме Chrome OS не ўдалося сінхранізаваць даныя. Вырашыце праблему.</translation>
 <translation id="7962410387636238736">Гэты камп'ютар больш не будзе атрымліваць абнаўленні Google Chrome: Windows XP і Windows Vista цяпер не падтрымліваюцца</translation>
 <translation id="8008534537613507642">Пераўсталяваць Chrome</translation>
 <translation id="8013993649590906847">Калі відарыс не мае прыдатнага апісання, Chrome паспрабуе дадаць яго для вас. Каб стварыць апісанні, відарысы адпраўляюцца ў Google.</translation>

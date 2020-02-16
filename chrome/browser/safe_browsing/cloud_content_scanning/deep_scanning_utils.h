@@ -27,16 +27,27 @@ void MaybeReportDeepScanningVerdict(Profile* profile,
                                     BinaryUploadService::Result result,
                                     DeepScanningClientResponse response);
 
-// Access points used to record UMA metrics. Adding an access point here
-// requires updating histograms.xml by adding histograms with names
+// Access points used to record UMA metrics and specify which code location is
+// initiating a deep scan. Any new caller of
+// DeepScanningDialogDelegate::ShowForWebContents should add an access point
+// here instead of re-using an existing value. histograms.xml should also be
+// updated by adding histograms with names
 //   "SafeBrowsing.DeepScan.<access-point>.BytesPerSeconds"
 //   "SafeBrowsing.DeepScan.<access-point>.Duration"
 //   "SafeBrowsing.DeepScan.<access-point>.<result>.Duration"
-// TODO(domfc): Add PASTE access point.
+// for the new access point and every possible result.
 enum class DeepScanAccessPoint {
+  // A deep scan was initiated from downloading 1+ file(s).
   DOWNLOAD,
+
+  // A deep scan was initiated from uploading 1+ file(s) via a system dialog.
   UPLOAD,
+
+  // A deep scan was initiated from drag-and-dropping text or 1+ file(s).
   DRAG_AND_DROP,
+
+  // A deep scan was initiated from pasting text.
+  PASTE,
 };
 std::string DeepScanAccessPointToString(DeepScanAccessPoint access_point);
 
@@ -52,6 +63,14 @@ void RecordDeepScanMetrics(DeepScanAccessPoint access_point,
                            int64_t total_bytes,
                            const std::string& result,
                            bool success);
+
+// Returns an array of the file types supported for DLP scanning.
+std::array<const base::FilePath::CharType*, 21> SupportedDlpFileTypes();
+
+// Returns true if the given file type is supported for DLP scanning.
+bool FileTypeSupported(bool for_malware_scan,
+                       bool for_dlp_scan,
+                       const base::FilePath& path);
 
 }  // namespace safe_browsing
 

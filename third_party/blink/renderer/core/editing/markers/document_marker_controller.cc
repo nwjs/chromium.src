@@ -173,10 +173,16 @@ void DocumentMarkerController::AddTextMatchMarker(
     const EphemeralRange& range,
     TextMatchMarker::MatchStatus match_status) {
   DCHECK(!document_->NeedsLayoutTreeUpdate());
-  AddMarkerInternal(range, [match_status](int start_offset, int end_offset) {
-    return MakeGarbageCollected<TextMatchMarker>(start_offset, end_offset,
-                                                 match_status);
-  });
+  AddMarkerInternal(
+      range,
+      [match_status](int start_offset, int end_offset) {
+        return MakeGarbageCollected<TextMatchMarker>(start_offset, end_offset,
+                                                     match_status);
+      },
+      // Since we've already determined to have a match in the given range (via
+      // FindBuffer), we can ignore the display lock for the purposes of finding
+      // where to put the marker.
+      TextIteratorBehavior::Builder().SetIgnoresDisplayLock(true).Build());
   // Don't invalidate tickmarks here. TextFinder invalidates tickmarks using a
   // throttling algorithm. crbug.com/6819.
 }
@@ -185,26 +191,34 @@ void DocumentMarkerController::AddCompositionMarker(
     const EphemeralRange& range,
     Color underline_color,
     ui::mojom::ImeTextSpanThickness thickness,
+    ui::mojom::ImeTextSpanUnderlineStyle underline_style,
+    Color text_color,
     Color background_color) {
   DCHECK(!document_->NeedsLayoutTreeUpdate());
-  AddMarkerInternal(range, [underline_color, thickness, background_color](
-                               int start_offset, int end_offset) {
-    return MakeGarbageCollected<CompositionMarker>(
-        start_offset, end_offset, underline_color, thickness, background_color);
-  });
+  AddMarkerInternal(range,
+                    [underline_color, thickness, underline_style, text_color,
+                     background_color](int start_offset, int end_offset) {
+                      return MakeGarbageCollected<CompositionMarker>(
+                          start_offset, end_offset, underline_color, thickness,
+                          underline_style, text_color, background_color);
+                    });
 }
 
 void DocumentMarkerController::AddActiveSuggestionMarker(
     const EphemeralRange& range,
     Color underline_color,
     ui::mojom::ImeTextSpanThickness thickness,
+    ui::mojom::ImeTextSpanUnderlineStyle underline_style,
+    Color text_color,
     Color background_color) {
   DCHECK(!document_->NeedsLayoutTreeUpdate());
-  AddMarkerInternal(range, [underline_color, thickness, background_color](
-                               int start_offset, int end_offset) {
-    return MakeGarbageCollected<ActiveSuggestionMarker>(
-        start_offset, end_offset, underline_color, thickness, background_color);
-  });
+  AddMarkerInternal(range,
+                    [underline_color, thickness, underline_style, text_color,
+                     background_color](int start_offset, int end_offset) {
+                      return MakeGarbageCollected<ActiveSuggestionMarker>(
+                          start_offset, end_offset, underline_color, thickness,
+                          underline_style, text_color, background_color);
+                    });
 }
 
 void DocumentMarkerController::AddSuggestionMarker(
@@ -258,8 +272,10 @@ void DocumentMarkerController::RemoveMarkersInRange(
 
 void DocumentMarkerController::AddMarkerInternal(
     const EphemeralRange& range,
-    std::function<DocumentMarker*(int, int)> create_marker_from_offsets) {
-  for (TextIterator marked_text(range.StartPosition(), range.EndPosition());
+    std::function<DocumentMarker*(int, int)> create_marker_from_offsets,
+    const TextIteratorBehavior& iterator_behavior) {
+  for (TextIterator marked_text(range.StartPosition(), range.EndPosition(),
+                                iterator_behavior);
        !marked_text.AtEnd(); marked_text.Advance()) {
     const int start_offset_in_current_container =
         marked_text.StartOffsetInCurrentContainer();

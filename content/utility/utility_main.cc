@@ -22,6 +22,7 @@
 #include "services/service_manager/sandbox/sandbox.h"
 
 #if defined(OS_LINUX)
+#include "content/utility/soda/soda_sandbox_hook_linux.h"
 #include "services/audio/audio_sandbox_hook_linux.h"
 #include "services/network/network_sandbox_hook_linux.h"
 #include "services/service_manager/sandbox/linux/sandbox_linux.h"
@@ -78,18 +79,21 @@ int UtilityMain(const MainFunctionParams& parameters) {
   auto sandbox_type =
       service_manager::SandboxTypeFromCommandLine(parameters.command_line);
   if (parameters.zygote_child ||
-      sandbox_type == service_manager::SANDBOX_TYPE_NETWORK ||
+      sandbox_type == service_manager::SandboxType::kNetwork ||
 #if defined(OS_CHROMEOS)
-      sandbox_type == service_manager::SANDBOX_TYPE_IME ||
+      sandbox_type == service_manager::SandboxType::kIme ||
 #endif  // OS_CHROMEOS
-      sandbox_type == service_manager::SANDBOX_TYPE_AUDIO) {
+      sandbox_type == service_manager::SandboxType::kAudio ||
+      sandbox_type == service_manager::SandboxType::kSoda) {
     service_manager::SandboxLinux::PreSandboxHook pre_sandbox_hook;
-    if (sandbox_type == service_manager::SANDBOX_TYPE_NETWORK)
+    if (sandbox_type == service_manager::SandboxType::kNetwork)
       pre_sandbox_hook = base::BindOnce(&network::NetworkPreSandboxHook);
-    else if (sandbox_type == service_manager::SANDBOX_TYPE_AUDIO)
+    else if (sandbox_type == service_manager::SandboxType::kAudio)
       pre_sandbox_hook = base::BindOnce(&audio::AudioPreSandboxHook);
+    else if (sandbox_type == service_manager::SandboxType::kSoda)
+      pre_sandbox_hook = base::BindOnce(&soda::SodaPreSandboxHook);
 #if defined(OS_CHROMEOS)
-    else if (sandbox_type == service_manager::SANDBOX_TYPE_IME)
+    else if (sandbox_type == service_manager::SandboxType::kIme)
       pre_sandbox_hook = base::BindOnce(&chromeos::ime::ImePreSandboxHook);
 #endif  // OS_CHROMEOS
 
@@ -127,7 +131,7 @@ int UtilityMain(const MainFunctionParams& parameters) {
   auto sandbox_type =
       service_manager::SandboxTypeFromCommandLine(parameters.command_line);
   if (!service_manager::IsUnsandboxedSandboxType(sandbox_type) &&
-      sandbox_type != service_manager::SANDBOX_TYPE_CDM) {
+      sandbox_type != service_manager::SandboxType::kCdm) {
     if (!g_utility_target_services)
       return false;
     char buffer;

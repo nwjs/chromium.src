@@ -7,7 +7,9 @@
 #include "base/command_line.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gaia_resources.h"
+#include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
+#include "chrome/credential_provider/gaiacp/mdm_utils.h"
 #include "chrome/credential_provider/gaiacp/os_user_manager.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
 
@@ -27,11 +29,33 @@ void CReauthCredential::FinalRelease() {
 }
 
 // CGaiaCredentialBase /////////////////////////////////////////////////////////
+bool CReauthCredential::CheckIfTosAccepted() {
+  DCHECK(os_user_sid_.Length());
+
+  DWORD acceptTos = 0;
+  HRESULT hr = GetUserProperty(OLE2W(os_user_sid_), kKeyAcceptTos, &acceptTos);
+  if (FAILED(hr))
+    LOGFN(ERROR) << "Failed getting accept_tos. hr = " << putHR(hr);
+  return acceptTos == 1;
+}
 
 HRESULT CReauthCredential::GetUserGlsCommandline(
     base::CommandLine* command_line) {
   DCHECK(command_line);
   DCHECK(os_user_sid_.Length());
+
+  // This boolean is set to false if generating GlsCommandLine HRESULT
+  // is E_UNEXPECTED.
+  bool get_cmd_line_status = false;
+
+  // Check if tos is accepted. If not, we need to load gaia login page
+  // with ToS acceptance screen.
+  // Note:
+  // 1. We need to append this switch irrespective of whether its a
+  // reauth flow vs add user flow.
+  // 2. We only show tos for GEM usecases.
+  if (!CheckIfTosAccepted() && IsGemEnabled())
+    command_line->AppendSwitchASCII(kShowTosSwitch, "1");
 
   // If this is an existing user with an SID, try to get its gaia id and pass
   // it to the GLS for verification.
@@ -39,19 +63,27 @@ HRESULT CReauthCredential::GetUserGlsCommandline(
   if (GetIdFromSid(OLE2CW(os_user_sid_), &gaia_id) == S_OK &&
       !gaia_id.empty()) {
     command_line->AppendSwitchNative(kGaiaIdSwitch, gaia_id);
-    if (email_for_reauth_.Length()) {
-      command_line->AppendSwitchNative(kPrefillEmailSwitch,
-                                       OLE2CW(email_for_reauth_));
-    }
-    return CGaiaCredentialBase::GetUserGlsCommandline(command_line);
-  } else if (CGaiaCredentialBase::IsAdToGoogleAssociationEnabled() &&
+    get_cmd_line_status = true;
+  } else if (CGaiaCredentialBase::IsCloudAssociationEnabled() &&
              OSUserManager::Get()->IsUserDomainJoined(OLE2CW(os_user_sid_))) {
     // Note that if ADAssociationIsEnabled and the reauth credential is an AD
     // user account, then fallback to the GaiaCredentialBase for loading Gls.
+    get_cmd_line_status = true;
+  }
+
+  // If there is an existing email with an SID then pass it to the GLS
+  // as PrefillEmail switch.
+  if (email_for_reauth_.Length()) {
+    get_cmd_line_status = true;
+    command_line->AppendSwitchNative(kPrefillEmailSwitch,
+                                     OLE2CW(email_for_reauth_));
+  }
+
+  if (get_cmd_line_status) {
     return CGaiaCredentialBase::GetUserGlsCommandline(command_line);
   } else {
     LOGFN(ERROR) << "Reauth credential on user=" << os_username_
-                 << " does not have an associated Gaia id";
+                 << " does not have an associated Gaia id or Email address";
     return E_UNEXPECTED;
   }
 }
@@ -99,7 +131,7 @@ HRESULT CReauthCredential::GetStringValueImpl(DWORD field_id, wchar_t** value) {
     // If its an AD user sid without a user_id set in the registry, then
     // we need to show a different description message.
     if (email_for_reauth_.Length() == 0 &&
-        CGaiaCredentialBase::IsAdToGoogleAssociationEnabled() &&
+        CGaiaCredentialBase::IsCloudAssociationEnabled() &&
         OSUserManager::Get()->IsUserDomainJoined(sid)) {
       description_label_id = IDS_REAUTH_AD_NO_USER_FID_DESCRIPTION_BASE;
     } else {
@@ -114,6 +146,11 @@ HRESULT CReauthCredential::GetStringValueImpl(DWORD field_id, wchar_t** value) {
             MISSING_PASSWORD_RECOVERY_INFO:
           description_label_id =
               IDS_REAUTH_MISSING_PASSWORD_RECOVERY_INFO_FID_DESCRIPTION_BASE;
+          break;
+        case AssociatedUserValidator::EnforceAuthReason::
+            UPLOAD_DEVICE_DETAILS_FAILED:
+          description_label_id =
+              IDS_REAUTH_FAILED_UPLOAD_DEVICE_DETAILS_DESCRIPTION_BASE;
           break;
         default:
           description_label_id = IDS_REAUTH_FID_DESCRIPTION_BASE;

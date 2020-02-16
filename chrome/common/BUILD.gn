@@ -39,7 +39,6 @@ buildflag_header("buildflags") {
     "ENABLE_BACKGROUND_MODE=$enable_background_mode",
     "ENABLE_BACKGROUND_CONTENTS=$enable_background_contents",
     "ENABLE_BASIC_PRINT_DIALOG=$enable_basic_print_dialog",
-    "ENABLE_CAPTIVE_PORTAL_DETECTION=$enable_captive_portal_detection",
     "ENABLE_CLICK_TO_CALL=$enable_click_to_call",
     "ENABLE_HANGOUT_SERVICES_EXTENSION=$enable_hangout_services_extension",
     "ENABLE_ONE_CLICK_SIGNIN=$enable_one_click_signin",
@@ -67,9 +66,7 @@ source_set("channel_info") {
     sources += [ "channel_info_posix.cc" ]
   }
 
-  deps = [
-    "//build:branding_buildflags",
-  ]
+  deps = [ "//build:branding_buildflags" ]
 
   public_deps = [
     "//base",
@@ -89,9 +86,7 @@ source_set("ini_parser") {
     "ini_parser.cc",
     "ini_parser.h",
   ]
-  deps = [
-    "//base",
-  ]
+  deps = [ "//base" ]
 }
 
 # Use a static library here because many test binaries depend on this but don't
@@ -136,8 +131,6 @@ static_library("common") {
     "mac/launchd.mm",
     "mac/service_management.h",
     "mac/service_management.mm",
-    "mac/staging_watcher.h",
-    "mac/staging_watcher.mm",
     "media/media_resource_provider.cc",
     "media/media_resource_provider.h",
     "media_galleries/metadata_types.h",
@@ -231,7 +224,7 @@ static_library("common") {
     "//components/policy/core/common",
     "//components/prefs",
     "//components/safe_browsing:buildflags",
-    "//components/safe_browsing/web_ui:constants",
+    "//components/safe_browsing/core/web_ui:constants",
     "//components/services/heap_profiling/public/cpp",
     "//components/strings",
     #"//components/translate/content/common",
@@ -583,9 +576,7 @@ component("chrome_features") {
     "//rlz/buildflags",
   ]
 
-  public_deps = [
-    "//ui/base:buildflags",
-  ]
+  public_deps = [ "//ui/base:buildflags" ]
 }
 
 static_library("constants") {
@@ -779,17 +770,15 @@ mojom("mojo_bindings") {
   }
 
   overridden_deps = [
-    "//third_party/blink/public/mojom:mojom_platform",
     "//content/public/common:interfaces",
+    "//third_party/blink/public/mojom:mojom_platform",
   ]
 
   component_deps = [ "//content/public/common" ]
 }
 
 mojom("search_mojom") {
-  sources = [
-    "search.mojom",
-  ]
+  sources = [ "search.mojom" ]
 
   public_deps = [
     "//mojo/public/mojom/base",
@@ -803,32 +792,20 @@ if (enable_print_preview && !is_chromeos) {
       "cloud_print.mojom",
       "service_process.mojom",
     ]
-    public_deps = [
-      "//mojo/public/mojom/base",
-    ]
+    public_deps = [ "//mojo/public/mojom/base" ]
   }
 }
 
 mojom("supervised_user_commands_mojom") {
-  sources = [
-    "supervised_user_commands.mojom",
-  ]
+  sources = [ "supervised_user_commands.mojom" ]
 }
 
 mojom("available_offline_content_mojom") {
-  sources = [
-    "available_offline_content.mojom",
-  ]
-  public_deps = [
-    "//url/mojom:url_mojom_gurl",
-  ]
+  sources = [ "available_offline_content.mojom" ]
+  public_deps = [ "//url/mojom:url_mojom_gurl" ]
 }
 
 mojom("offline_page_auto_fetcher_mojom") {
-  sources = [
-    "offline_page_auto_fetcher.mojom",
-  ]
-  public_deps = [
-    "//url/mojom:url_mojom_gurl",
-  ]
+  sources = [ "offline_page_auto_fetcher.mojom" ]
+  public_deps = [ "//url/mojom:url_mojom_gurl" ]
 }

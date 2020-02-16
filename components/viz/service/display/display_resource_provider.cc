@@ -300,13 +300,12 @@ void DisplayResourceProvider::WaitSyncToken(ResourceId id) {
 #endif
 }
 
-int DisplayResourceProvider::CreateChild(const ReturnCallback& return_callback,
-                                         bool needs_sync_tokens) {
+int DisplayResourceProvider::CreateChild(
+    const ReturnCallback& return_callback) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   Child child_info;
   child_info.return_callback = return_callback;
-  child_info.needs_sync_tokens = needs_sync_tokens;
   int child = next_child_++;
   children_[child] = child_info;
   return child;
@@ -386,6 +385,13 @@ void DisplayResourceProvider::DeclareUsedResourcesFromChild(
       unused.push_back(local_id);
   }
   DeleteAndReturnUnusedResourcesToChild(child_it, NORMAL, unused);
+}
+
+gpu::Mailbox DisplayResourceProvider::GetMailbox(int resource_id) {
+  ChildResource* resource = TryGetResource(resource_id);
+  if (!resource)
+    return gpu::Mailbox();
+  return resource->transferable.mailbox_holder.mailbox;
 }
 
 const std::unordered_map<ResourceId, ResourceId>&
@@ -701,7 +707,7 @@ void DisplayResourceProvider::DeleteAndReturnUnusedResourcesToChild(
                            resource.imported_count, is_lost);
     auto& returned = to_return.back();
 
-    if (resource.is_gpu_resource_type() && child_info->needs_sync_tokens) {
+    if (resource.is_gpu_resource_type()) {
       if (resource.needs_sync_token()) {
         need_synchronization_resources.push_back(&returned);
       } else if (returned.sync_token.HasData() &&
@@ -720,14 +726,12 @@ void DisplayResourceProvider::DeleteAndReturnUnusedResourcesToChild(
 
   gpu::SyncToken new_sync_token;
   if (!need_synchronization_resources.empty()) {
-    DCHECK(child_info->needs_sync_tokens);
     DCHECK(gl);
     gl->GenUnverifiedSyncTokenCHROMIUM(new_sync_token.GetData());
     unverified_sync_tokens.push_back(new_sync_token.GetData());
   }
 
   if (!unverified_sync_tokens.empty()) {
-    DCHECK(child_info->needs_sync_tokens);
     DCHECK(gl);
     gl->VerifySyncTokensCHROMIUM(unverified_sync_tokens.data(),
                                  unverified_sync_tokens.size());
@@ -774,11 +778,17 @@ void DisplayResourceProvider::DestroyChildInternal(ChildMap::iterator it,
 void DisplayResourceProvider::SetBatchReturnResources(bool batch) {
   if (batch) {
     DCHECK_GE(batch_return_resources_lock_count_, 0);
+    if (!scoped_batch_read_access_) {
+      scoped_batch_read_access_ =
+          std::make_unique<ScopedBatchReadAccess>(ContextGL());
+    }
     batch_return_resources_lock_count_++;
   } else {
     DCHECK_GT(batch_return_resources_lock_count_, 0);
     batch_return_resources_lock_count_--;
     if (batch_return_resources_lock_count_ == 0) {
+      DCHECK(scoped_batch_read_access_);
+      scoped_batch_read_access_.reset();
       for (auto& child_resources_kv : batched_returning_resources_) {
         auto child_it = children_.find(child_resources_kv.first);
 
@@ -1111,6 +1121,18 @@ void DisplayResourceProvider::ChildResource::UpdateSyncToken(
   // the gpu process or in case of context loss.
   sync_token_ = sync_token;
   synchronization_state_ = sync_token.HasData() ? NEEDS_WAIT : SYNCHRONIZED;
+}
+
+DisplayResourceProvider::ScopedBatchReadAccess::ScopedBatchReadAccess(
+    gpu::gles2::GLES2Interface* gl)
+    : gl_(gl) {
+  if (gl_)
+    gl_->BeginBatchReadAccessSharedImageCHROMIUM();
+}
+
+DisplayResourceProvider::ScopedBatchReadAccess::~ScopedBatchReadAccess() {
+  if (gl_)
+    gl_->EndBatchReadAccessSharedImageCHROMIUM();
 }
 
 }  // namespace viz

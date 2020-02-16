@@ -34,6 +34,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "content/public/browser/render_frame_host.h"
 #include "extensions/browser/extension_error.h"
+#include "extensions/browser/extension_icon_placeholder.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
@@ -368,10 +369,15 @@ void AddPermissionsInfo(content::BrowserContext* browser_context,
   } else {
     granted_permissions =
         extension_prefs->GetRuntimeGrantedPermissions(extension.id());
-    runtime_host_permissions->host_access =
-        granted_permissions->effective_hosts().is_empty()
-            ? developer::HOST_ACCESS_ON_CLICK
-            : developer::HOST_ACCESS_ON_SPECIFIC_SITES;
+    if (granted_permissions->effective_hosts().is_empty()) {
+      runtime_host_permissions->host_access = developer::HOST_ACCESS_ON_CLICK;
+    } else if (granted_permissions->ShouldWarnAllHosts(false)) {
+      runtime_host_permissions->host_access =
+          developer::HOST_ACCESS_ON_ALL_SITES;
+    } else {
+      runtime_host_permissions->host_access =
+          developer::HOST_ACCESS_ON_SPECIFIC_SITES;
+    }
   }
 
   runtime_host_permissions->hosts = GetSpecificSiteControls(
@@ -549,6 +555,11 @@ void ExtensionInfoGenerator::CreateExtensionInfoHelper(
   info->disable_reasons.update_required =
       (disable_reasons & disable_reason::DISABLE_UPDATE_REQUIRED_BY_POLICY) !=
       0;
+  info->disable_reasons.blocked_by_policy =
+      (disable_reasons & disable_reason::DISABLE_BLOCKED_BY_POLICY) != 0;
+  info->disable_reasons.custodian_approval_required =
+      (disable_reasons & disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED) !=
+      0;
 
   // Error collection.
   bool error_console_enabled =
@@ -706,7 +717,7 @@ void ExtensionInfoGenerator::CreateExtensionInfoHelper(
                                  extension_misc::EXTENSION_ICON_MEDIUM,
                                  ExtensionIconSet::MATCH_BIGGER);
   if (icon.empty()) {
-    info->icon_url = GetDefaultIconUrl(extension.is_app(), !is_enabled);
+    info->icon_url = GetDefaultIconUrl(extension.name());
     list_.push_back(std::move(*info));
   } else {
     ++pending_image_loads_;
@@ -721,25 +732,9 @@ void ExtensionInfoGenerator::CreateExtensionInfoHelper(
   }
 }
 
-const std::string& ExtensionInfoGenerator::GetDefaultIconUrl(
-    bool is_app,
-    bool is_greyscale) {
-  std::string* str;
-  if (is_app) {
-    str = is_greyscale ? &default_disabled_app_icon_url_ :
-        &default_app_icon_url_;
-  } else {
-    str = is_greyscale ? &default_disabled_extension_icon_url_ :
-        &default_extension_icon_url_;
-  }
-
-  if (str->empty()) {
-    *str = GetIconUrlFromImage(
-        ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-            is_app ? IDR_APP_DEFAULT_ICON : IDR_EXTENSION_DEFAULT_ICON));
-  }
-
-  return *str;
+std::string ExtensionInfoGenerator::GetDefaultIconUrl(const std::string& name) {
+  return GetIconUrlFromImage(ExtensionIconPlaceholder::CreateImage(
+      extension_misc::EXTENSION_ICON_MEDIUM, name));
 }
 
 std::string ExtensionInfoGenerator::GetIconUrlFromImage(
@@ -759,12 +754,7 @@ void ExtensionInfoGenerator::OnImageLoaded(
   if (!icon.IsEmpty()) {
     info->icon_url = GetIconUrlFromImage(icon);
   } else {
-    bool is_app =
-        info->type == developer::EXTENSION_TYPE_HOSTED_APP ||
-        info->type == developer::EXTENSION_TYPE_LEGACY_PACKAGED_APP ||
-        info->type == developer::EXTENSION_TYPE_PLATFORM_APP;
-    info->icon_url = GetDefaultIconUrl(
-        is_app, info->state != developer::EXTENSION_STATE_ENABLED);
+    info->icon_url = GetDefaultIconUrl(info->name);
   }
 
   list_.push_back(std::move(*info));

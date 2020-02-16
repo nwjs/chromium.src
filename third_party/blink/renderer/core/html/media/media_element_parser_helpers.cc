@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/html/image_document.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html_element_type_helpers.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
@@ -23,7 +24,7 @@ namespace media_element_parser_helpers {
 
 bool IsMediaElement(const Element* element) {
   if ((IsA<HTMLImageElement>(element) || IsA<SVGImageElement>(element)) &&
-      !element->GetDocument().IsImageDocument())
+      !IsA<ImageDocument>(element->GetDocument()))
     return true;
   if (IsA<HTMLVideoElement>(element) &&
       !element->GetDocument().IsMediaDocument())
@@ -37,10 +38,10 @@ void ReportUnsizedMediaViolation(const LayoutObject* layout_object,
   if (!style.LogicalWidth().IsSpecified() &&
       !style.LogicalHeight().IsSpecified()) {
     layout_object->GetDocument().CountPotentialFeaturePolicyViolation(
-        mojom::FeaturePolicyFeature::kUnsizedMedia);
+        mojom::blink::FeaturePolicyFeature::kUnsizedMedia);
     if (send_report) {
       layout_object->GetDocument().ReportFeaturePolicyViolation(
-          mojom::FeaturePolicyFeature::kUnsizedMedia,
+          mojom::blink::FeaturePolicyFeature::kUnsizedMedia,
           mojom::FeaturePolicyDisposition::kEnforce);
     }
   }

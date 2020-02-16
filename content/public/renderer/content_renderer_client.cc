@@ -7,7 +7,6 @@
 #include "media/base/renderer_factory.h"
 #include "third_party/blink/public/platform/web_audio_device.h"
 #include "third_party/blink/public/platform/web_prescient_networking.h"
-#include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "ui/gfx/icc_profile.h"
 #include "url/gurl.h"
 
@@ -121,7 +120,7 @@ void ContentRendererClient::WillSendRequest(
     blink::WebLocalFrame* frame,
     ui::PageTransition transition_type,
     const blink::WebURL& url,
-    const blink::WebURL& site_for_cookies,
+    const net::SiteForCookies& site_for_cookies,
     const url::Origin* initiator_origin,
     GURL* new_url,
     bool* attach_same_site_cookies) {}

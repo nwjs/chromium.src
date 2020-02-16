@@ -9,17 +9,34 @@ cr.define('settings_people_page_sync_page', function() {
     let encryptWithGoogle = null;
     let encryptWithPassphrase = null;
 
+    suiteSetup(function() {
+      loadTimeData.overrideValues({
+        syncSetupFriendlySettings: true,
+        sWAAOn: 'On',
+        sWAAOff: 'Off',
+        sWAAOnHint: 'sWAAOnHint',
+        sWAAOffHint: 'sWAAOffHint',
+        historySyncOffHint: 'historySyncOffHint',
+        dataEncryptedHint: 'dataEncryptedHint'
+      });
+    });
+
     setup(function() {
+      sync_test_util.setupRouterWithSyncRoutes();
       browserProxy = new TestSyncBrowserProxy();
       settings.SyncBrowserProxyImpl.instance_ = browserProxy;
 
       PolymerTest.clearBody();
       syncPage = document.createElement('settings-sync-page');
-      settings.navigateTo(settings.routes.SYNC);
-      // Preferences should exist for embedded 'personalization_options.html'.
-      // We don't perform tests on them.
+      settings.Router.getInstance().navigateTo(settings.routes.SYNC);
+      // Preferences should exist for embedded
+      // 'personalization_options.html'. We don't perform tests on them.
       syncPage.prefs = {
         profile: {password_manager_leak_detection: {value: true}},
+        signin: {
+          allowed_on_next_startup:
+              {type: chrome.settingsPrivate.PrefType.BOOLEAN, value: true}
+        },
         safebrowsing:
             {enabled: {value: true}, scout_reporting_enabled: {value: true}},
       };
@@ -32,8 +49,9 @@ cr.define('settings_people_page_sync_page', function() {
       assertTrue(syncPage.$$('#' + settings.PageStatus.TIMEOUT).hidden);
       assertTrue(syncPage.$$('#' + settings.PageStatus.SPINNER).hidden);
 
-      // Start with Sync All with no encryption selected. Also, ensure that
-      // this is not a supervised user, so that Sync Passphrase is enabled.
+      // Start with Sync All with no encryption selected. Also, ensure
+      // that this is not a supervised user, so that Sync Passphrase is
+      // enabled.
       cr.webUIListenerCallback(
           'sync-prefs-changed', sync_test_util.getSyncAllPrefs());
       syncPage.set('syncStatus', {supervisedUser: false});
@@ -59,13 +77,13 @@ cr.define('settings_people_page_sync_page', function() {
 
     test('NotifiesHandlerOfNavigation', function() {
       function testNavigateAway() {
-        settings.navigateTo(settings.routes.PEOPLE);
+        settings.Router.getInstance().navigateTo(settings.routes.PEOPLE);
         return browserProxy.whenCalled('didNavigateAwayFromSyncPage');
       }
 
       function testNavigateBack() {
         browserProxy.resetResolver('didNavigateToSyncPage');
-        settings.navigateTo(settings.routes.SYNC);
+        settings.Router.getInstance().navigateTo(settings.routes.SYNC);
         return browserProxy.whenCalled('didNavigateToSyncPage');
       }
 
@@ -78,7 +96,7 @@ cr.define('settings_people_page_sync_page', function() {
       function testRecreate() {
         browserProxy.resetResolver('didNavigateToSyncPage');
         syncPage = document.createElement('settings-sync-page');
-        settings.navigateTo(settings.routes.SYNC);
+        settings.Router.getInstance().navigateTo(settings.routes.SYNC);
 
         document.body.appendChild(syncPage);
         return browserProxy.whenCalled('didNavigateToSyncPage');
@@ -314,8 +332,8 @@ cr.define('settings_people_page_sync_page', function() {
 
           // Assert that the radio boxes are disabled after encryption enabled.
           assertTrue(syncPage.$$('#encryptionRadioGroup').disabled);
-          assertEquals('-1', encryptWithGoogle.getAttribute('tabindex'));
-          assertEquals('-1', encryptWithPassphrase.getAttribute('tabindex'));
+          assertEquals(-1, encryptWithGoogle.$.button.tabIndex);
+          assertEquals(-1, encryptWithPassphrase.$.button.tabIndex);
         });
       }
       return browserProxy.whenCalled('setSyncEncryption').then(verifyPrefs);
@@ -417,8 +435,8 @@ cr.define('settings_people_page_sync_page', function() {
 
         // Verify that the encryption radio boxes are shown but disabled.
         assertTrue(syncPage.$$('#encryptionRadioGroup').disabled);
-        assertEquals('-1', encryptWithGoogle.getAttribute('tabindex'));
-        assertEquals('-1', encryptWithPassphrase.getAttribute('tabindex'));
+        assertEquals(-1, encryptWithGoogle.$.button.tabIndex);
+        assertEquals(-1, encryptWithPassphrase.$.button.tabIndex);
       });
     });
 
@@ -431,7 +449,9 @@ cr.define('settings_people_page_sync_page', function() {
       syncAdvancedRow.click();
       Polymer.dom.flush();
 
-      assertEquals(settings.routes.SYNC_ADVANCED, settings.getCurrentRoute());
+      assertEquals(
+          settings.routes.SYNC_ADVANCED,
+          settings.Router.getInstance().getCurrentRoute());
     });
 
     // This test checks whether the passphrase encryption options are
@@ -504,13 +524,91 @@ cr.define('settings_people_page_sync_page', function() {
       assertTrue(dashboardLink.hidden);
     });
 
+    test('sWAA', async function() {
+      function verifyResults(hidden, sWAA, sWAAHint, hideActivityControlsUrl) {
+        const sWAAText = syncPage.$$('#history-usage-state .secondary');
+        const historyUsageHint = syncPage.$$('#history-usage-hint');
+        assertEquals(sWAAText.hidden, hidden);
+        assertEquals(historyUsageHint.hidden, hidden);
+        assertEquals(
+            syncPage.$$('#history-usage-row')
+                .querySelector('.icon-external')
+                .hidden,
+            hideActivityControlsUrl);
+
+        if (!hidden) {
+          assertEquals(sWAAText.textContent.trim(), sWAA);
+          assertEquals(historyUsageHint.textContent.trim(), sWAAHint);
+        }
+      }
+
+      /** @param {Object=} syncPrefOverrides */
+      function setSyncPrefs(syncPrefOverrides = {}) {
+        const defaults = sync_test_util.getSyncAllPrefs();
+        const syncPrefs = Object.assign({}, defaults, syncPrefOverrides);
+        cr.webUIListenerCallback('sync-prefs-changed', syncPrefs);
+        Polymer.dom.flush();
+      }
+
+      const syncSection = syncPage.$$('#sync-section');
+      assertTrue(syncSection.hidden);
+      syncPage.syncStatus = {
+        signedIn: true,
+        disabled: false,
+        hasError: false,
+        statusAction: settings.StatusAction.NO_ACTION,
+      };
+      Polymer.dom.flush();
+      assertFalse(syncSection.hidden);
+      await browserProxy.whenCalled('queryIsHistoryRecordingEnabled');
+      verifyResults(
+          /*hidden=*/ false, 'On', 'sWAAOnHint',
+          /*hideActivityControlsUrl=*/ false);
+
+      // Data encrypted with custom passphrase.
+      setSyncPrefs({encryptAllData: true});
+      verifyResults(
+          /*hidden=*/ false, 'Off', 'dataEncryptedHint',
+          /*hideActivityControlsUrl=*/ true);
+
+      // sWAA off.
+      browserProxy.setHistoryRecordingEnabled({
+        requestSucceeded: true,
+        historyRecordingEnabled: /*hideActivityControlsUrl=*/ false
+      });
+      setSyncPrefs();
+      await browserProxy.whenCalled('queryIsHistoryRecordingEnabled');
+      verifyResults(
+          /*hidden=*/ false, 'Off', 'sWAAOffHint',
+          /*hideActivityControlsUrl=*/ false);
+
+      // Turn history sync off.
+      setSyncPrefs({syncAllDataTypes: false, typedUrlsSynced: false});
+      verifyResults(
+          /*hidden=*/ false, 'Off', 'historySyncOffHint',
+          /*hideActivityControlsUrl=*/ true);
+
+      // Verify hint is updated.
+      setSyncPrefs({encryptAllData: true});
+      verifyResults(
+          /*hidden=*/ false, 'Off', 'dataEncryptedHint',
+          /*hideActivityControlsUrl=*/ true);
+
+      // Failed to fetch |historyRecordingEnabled|.
+      browserProxy.setHistoryRecordingEnabled(
+          {requestSucceeded: false, historyRecordingEnabled: false});
+      setSyncPrefs();
+      await browserProxy.whenCalled('queryIsHistoryRecordingEnabled');
+      verifyResults(
+          /*hidden=*/ true, '', '', /*hideActivityControlsUrl=*/ false);
+    });
+
     // ##################################
     // TESTS THAT ARE SKIPPED ON CHROMEOS
     // ##################################
 
     if (!cr.isChromeOS) {
       test('SyncSetupCancel', function() {
-        syncPage.diceEnabled = true;
         syncPage.syncStatus = {
           signinAllowed: true,
           syncSystemEnabled: true,
@@ -534,7 +632,6 @@ cr.define('settings_people_page_sync_page', function() {
       });
 
       test('SyncSetupConfirm', function() {
-        syncPage.diceEnabled = true;
         syncPage.syncStatus = {
           signinAllowed: true,
           syncSystemEnabled: true,
@@ -568,10 +665,12 @@ cr.define('settings_people_page_sync_page', function() {
 
         // Navigating away while setup is in progress opens the 'Cancel sync?'
         // dialog.
-        settings.navigateTo(settings.routes.BASIC);
+        settings.Router.getInstance().navigateTo(settings.routes.BASIC);
         return test_util.eventToPromise('cr-dialog-open', syncPage)
             .then(() => {
-              assertEquals(settings.routes.SYNC, settings.getCurrentRoute());
+              assertEquals(
+                  settings.routes.SYNC,
+                  settings.Router.getInstance().getCurrentRoute());
               assertTrue(syncPage.$$('#setupCancelDialog').open);
 
               // Clicking the cancel button on the 'Cancel sync?' dialog closes
@@ -585,12 +684,14 @@ cr.define('settings_people_page_sync_page', function() {
             })
             .then(() => {
               Polymer.dom.flush();
-              assertEquals(settings.routes.SYNC, settings.getCurrentRoute());
+              assertEquals(
+                  settings.routes.SYNC,
+                  settings.Router.getInstance().getCurrentRoute());
               assertFalse(!!syncPage.$$('#setupCancelDialog'));
 
               // Navigating away while setup is in progress opens the
               // dialog again.
-              settings.navigateTo(settings.routes.BASIC);
+              settings.Router.getInstance().navigateTo(settings.routes.BASIC);
               return test_util.eventToPromise('cr-dialog-open', syncPage);
             })
             .then(() => {
@@ -617,7 +718,7 @@ cr.define('settings_people_page_sync_page', function() {
         Polymer.dom.flush();
 
         // Searching settings while setup is in progress cancels sync.
-        settings.navigateTo(
+        settings.Router.getInstance().navigateTo(
             settings.routes.BASIC, new URLSearchParams('search=foo'));
 
         return browserProxy.whenCalled('didNavigateAwayFromSyncPage')
@@ -628,7 +729,6 @@ cr.define('settings_people_page_sync_page', function() {
 
       test('ShowAccountRow', function() {
         assertFalse(!!syncPage.$$('settings-sync-account-control'));
-        syncPage.diceEnabled = true;
         Polymer.dom.flush();
         assertFalse(!!syncPage.$$('settings-sync-account-control'));
         syncPage.syncStatus = {signinAllowed: false, syncSystemEnabled: false};

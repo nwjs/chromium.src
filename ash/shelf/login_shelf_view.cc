@@ -40,6 +40,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/rect.h"
@@ -99,15 +100,26 @@ constexpr int kButtonMarginRightDp = 16;
 // Spacing between the button image and label.
 constexpr int kImageLabelSpacingDp = 10;
 
-// The color of the button background.
-constexpr SkColor kButtonBackgroundColor =
-    SkColorSetA(gfx::kGoogleGrey100, 0x19);
-
 // The color of the button text.
 constexpr SkColor kButtonTextColor = gfx::kGoogleGrey100;
 
+// The color of the button text during OOBE.
+constexpr SkColor kButtonTextColorOobe = gfx::kGoogleGrey700;
+
 // The color of the button icon.
 constexpr SkColor kButtonIconColor = SkColorSetRGB(0xEB, 0xEA, 0xED);
+
+void AnimateButtonOpacity(ui::Layer* layer,
+                          float target_opacity,
+                          base::TimeDelta animation_duration,
+                          gfx::Tween::Type type) {
+  ui::ScopedLayerAnimationSettings animation_setter(layer->GetAnimator());
+  animation_setter.SetTransitionDuration(animation_duration);
+  animation_setter.SetTweenType(type);
+  animation_setter.SetPreemptionStrategy(
+      ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET);
+  layer->SetOpacity(target_opacity);
+}
 
 SkPath GetButtonHighlightPath(const views::View* view) {
   gfx::Rect rect(view->GetLocalBounds());
@@ -195,7 +207,7 @@ class LoginShelfButton : public views::LabelButton {
   void PaintButtonContents(gfx::Canvas* canvas) override {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
-    flags.setColor(kButtonBackgroundColor);
+    flags.setColor(ShelfConfig::Get()->GetShelfControlButtonColor());
     flags.setStyle(cc::PaintFlags::kFill_Style);
     canvas->DrawPath(GetButtonHighlightPath(this), flags);
   }
@@ -214,15 +226,17 @@ class LoginShelfButton : public views::LabelButton {
   }
 
   void PaintDarkColors() {
-    SetEnabledTextColors(gfx::kGoogleGrey600);
+    SetEnabledTextColors(kButtonTextColorOobe);
     SetImage(views::Button::STATE_NORMAL,
-             gfx::CreateVectorIcon(icon_, gfx::kGoogleGrey600));
+             gfx::CreateVectorIcon(icon_, kButtonTextColorOobe));
+    SchedulePaint();
   }
 
   void PaintLightColors() {
     SetEnabledTextColors(kButtonTextColor);
     SetImage(views::Button::STATE_NORMAL,
              gfx::CreateVectorIcon(icon_, kButtonTextColor));
+    SchedulePaint();
   }
 
  private:
@@ -321,7 +335,7 @@ class KioskAppsButton : public views::MenuButton,
   void PaintButtonContents(gfx::Canvas* canvas) override {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
-    flags.setColor(kButtonBackgroundColor);
+    flags.setColor(ShelfConfig::Get()->GetShelfControlButtonColor());
     flags.setStyle(cc::PaintFlags::kFill_Style);
     canvas->DrawPath(GetButtonHighlightPath(this), flags);
   }
@@ -340,15 +354,17 @@ class KioskAppsButton : public views::MenuButton,
   }
 
   void PaintDarkColors() {
-    SetEnabledTextColors(gfx::kGoogleGrey600);
+    SetEnabledTextColors(kButtonTextColorOobe);
     SetImage(views::Button::STATE_NORMAL,
-             CreateVectorIcon(kShelfAppsButtonIcon, gfx::kGoogleGrey600));
+             CreateVectorIcon(kShelfAppsButtonIcon, kButtonTextColorOobe));
+    SchedulePaint();
   }
 
   void PaintLightColors() {
     SetEnabledTextColors(kButtonTextColor);
     SetImage(views::Button::STATE_NORMAL,
              CreateVectorIcon(kShelfAppsButtonIcon, kButtonIconColor));
+    SchedulePaint();
   }
 
   // views::ButtonListener:
@@ -616,6 +632,19 @@ void LoginShelfView::SetAddUserButtonEnabled(bool enable_add_user) {
 void LoginShelfView::SetShutdownButtonEnabled(bool enable_shutdown_button) {
   GetViewByID(kShutdown)->SetEnabled(enable_shutdown_button);
 }
+void LoginShelfView::SetButtonOpacity(float target_opacity) {
+  static constexpr ButtonId kButtonIds[] = {
+      kShutdown, kRestart,      kSignOut,       kCloseNote,
+      kCancel,   kParentAccess, kBrowseAsGuest, kAddUser};
+  for (const auto& button_id : kButtonIds) {
+    AnimateButtonOpacity(GetViewByID(button_id)->layer(), target_opacity,
+                         ShelfConfig::Get()->DimAnimationDuration(),
+                         ShelfConfig::Get()->DimAnimationTween());
+  }
+  AnimateButtonOpacity(kiosk_apps_button_->layer(), target_opacity,
+                       ShelfConfig::Get()->DimAnimationDuration(),
+                       ShelfConfig::Get()->DimAnimationTween());
+}
 
 std::unique_ptr<ScopedGuestButtonBlocker>
 LoginShelfView::GetScopedGuestButtonBlocker() {
@@ -717,11 +746,8 @@ void LoginShelfView::UpdateUi() {
   // Show kiosk apps button if:
   // 1. It's in login screen.
   // 2. There are Kiosk apps available.
-  // 3. Oobe UI dialog is not visible or is currently showing gaia signin
-  // screen.
-  kiosk_apps_button_->SetVisible(
-      (!dialog_visible || dialog_state_ == OobeDialogState::GAIA_SIGNIN) &&
-      kiosk_apps_button_->HasApps() && (is_login_primary || is_oobe));
+  kiosk_apps_button_->SetVisible(kiosk_apps_button_->HasApps() &&
+                                 (is_login_primary || is_oobe));
 
   UpdateButtonColors(is_oobe);
   Layout();

@@ -112,9 +112,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   };
 
   // Source that initiated the move loop.
-  enum MoveLoopSource {
-    MOVE_LOOP_SOURCE_MOUSE,
-    MOVE_LOOP_SOURCE_TOUCH,
+  enum class MoveLoopSource {
+    kMouse,
+    kTouch,
   };
 
   // Behavior when escape is pressed during a move loop.
@@ -882,6 +882,8 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // returned lock can safely outlive the associated widget.
   std::unique_ptr<PaintAsActiveLock> LockPaintAsActive();
 
+  base::WeakPtr<Widget> GetWeakPtr();
+
   // Overridden from NativeWidgetDelegate:
   bool IsModal() const override;
   bool IsDialogBox() const override;
@@ -997,6 +999,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Notifies the window frame that the active rendering state has changed.
   void UpdatePaintAsActiveState(bool paint_as_active);
+
+  // If a descendent of |root_view_| is focused, then clear the focus.
+  void ClearFocusFromWidget();
 
   static bool g_disable_activation_change_handling_;
 

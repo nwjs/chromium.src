@@ -53,9 +53,6 @@ class AppUninstallDialogView : public apps::UninstallDialog::UiBase,
   ~AppUninstallDialogView() override = default;
 
   // views::BubbleDialogDelegateView:
-  bool Cancel() override;
-  bool Accept() override;
-  bool Close() override;
   gfx::Size CalculatePreferredSize() const override;
   ui::ModalType GetModalType() const override;
   gfx::ImageSkia GetWindowIcon() override;
@@ -65,7 +62,12 @@ class AppUninstallDialogView : public apps::UninstallDialog::UiBase,
 
  private:
   void AddMultiLineLabel(views::View* parent, const base::string16& label_text);
+  void InitializeCommonView(bool show_report_abuse_checkbox,
+                            bool show_clear_site_data_checkbox,
+                            const GURL& app_launch_url);
+
   void InitializeViewForExtension(Profile* profile, const std::string& app_id);
+  void InitializeViewForWebApp(Profile* profile, const std::string& app_id);
 #if defined(OS_CHROMEOS)
   void InitializeViewForArcApp(Profile* profile, const std::string& app_id);
   void InitializeViewForCrostiniApp(Profile* profile,
@@ -73,6 +75,9 @@ class AppUninstallDialogView : public apps::UninstallDialog::UiBase,
 #endif
   void InitializeView(Profile* profile,
                       const std::string& app_id);
+
+  void OnDialogCancelled();
+  void OnDialogAccepted();
 
   // The type of apps, e.g. Extension-backed app, Android app.
   apps::mojom::AppType app_type_;

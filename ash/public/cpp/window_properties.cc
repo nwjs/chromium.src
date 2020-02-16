@@ -7,6 +7,7 @@
 #include "ash/public/cpp/ash_constants.h"
 #include "ash/public/cpp/immersive/immersive_fullscreen_controller.h"
 #include "ash/public/cpp/shelf_types.h"
+#include "ash/public/cpp/window_backdrop.h"
 #include "ash/public/cpp/window_pin_type.h"
 #include "ash/public/cpp/window_state_type.h"
 #include "ui/aura/window.h"
@@ -14,16 +15,14 @@
 
 DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(ASH_PUBLIC_EXPORT, ash::WindowPinType)
 DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(ASH_PUBLIC_EXPORT, ash::WindowStateType)
-DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(ASH_PUBLIC_EXPORT,
-                                       ash::BackdropWindowMode)
+DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(ASH_PUBLIC_EXPORT, ash::WindowBackdrop*)
+DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(ASH_PUBLIC_EXPORT, float*)
 
 namespace ash {
 
 DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(std::string, kAppIDKey, nullptr)
 DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(std::string, kArcPackageNameKey, nullptr)
-DEFINE_UI_CLASS_PROPERTY_KEY(BackdropWindowMode,
-                             kBackdropWindowMode,
-                             BackdropWindowMode::kAutoOpaque)
+DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(WindowBackdrop, kWindowBackdropKey, nullptr)
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kBlockedForAssistantSnapshotKey, false)
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kCanAttachToAnotherWindowKey, true)
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kCanConsumeSystemKeysKey, false)
@@ -46,6 +45,8 @@ DEFINE_UI_CLASS_PROPERTY_KEY(bool, kForceVisibleInMiniViewKey, false)
 DEFINE_UI_CLASS_PROPERTY_KEY(WindowStateType,
                              kPrePipWindowStateTypeKey,
                              WindowStateType::kDefault)
+DEFINE_UI_CLASS_PROPERTY_KEY(bool, kPipOriginalWindowKey, false)
+DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(float, kPipSnapFractionKey, nullptr)
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kRenderTitleAreaProperty, false)
 DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(gfx::Rect,
                                    kRestoreBoundsOverrideKey,

@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">slīdnis</translation>
 <translation id="1211441953136645838">beigu vēre</translation>
 <translation id="1281252709823657822">dialoglodziņš</translation>
+<translation id="1306460908038601864">Izsl.</translation>
 <translation id="1335095011850992622">pateicības</translation>
 <translation id="1342835525016946179">raksts</translation>
 <translation id="1359897965706325498">reklāmkarogs</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">Lūdzu, papildiniet šo tekstu līdz vismaz <ph name="MIN_CHARACTERS" /> rakstzīmēm (pašlaik tas ietver <ph name="CURRENT_LENGTH" /> rakstzīmes).</translation>
 <translation id="383465348367842624">Daļā, kas atrodas pirms zīmes <ph name="ATSIGN" />, nedrīkst būt ietverts simbols <ph name="INVALIDCHARACTER" />.</translation>
 <translation id="3846214748874656680">Aizvērt pilnekrāna režīmu</translation>
-<translation id="3889183436948184105">pārskatīšana</translation>
 <translation id="3920932319529768807">nobeigums</translation>
 <translation id="3924558731517983934">lietojumprogramma</translation>
 <translation id="3944740393230681990">prologs</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">Lūdzu, ievadiet skaitli.</translation>
 <translation id="4912536737030637138">bibliogrāfijas ieraksts</translation>
 <translation id="492244087561876220">komentārs</translation>
+<translation id="4971739861736909480">Atlasīts: <ph name="ACCNAME" /></translation>
 <translation id="4975562563186953947">Atlasīti <ph name="SELECTED_COUNT" /></translation>
 <translation id="4992066212339426712">Ieslēgt skaņu</translation>
 <translation id="49969490063480558">Lūdzu, ievadiet daļu, kas atrodas aiz zīmes <ph name="ATSIGN" />. “<ph name="INVALIDADDRESS" />” ir nepilna adrese.</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">Lūdzu, ievadiet daļu, kas atrodas pirms zīmes <ph name="ATSIGN" />. “<ph name="INVALIDADDRESS" />” ir nepilna adrese.</translation>
 <translation id="5334352251556557839">Nevar atskaņot multividi.</translation>
+<translation id="537648784377940524">Minimālajai datuma vērtībai (<ph name="MIN_DATE_OR_TIME" />) ir jābūt pirms maksimālās datuma vērtības (<ph name="MAX_DATE_OR_TIME" />).</translation>
 <translation id="5406322316791861025">cipars</translation>
 <translation id="5453733299334684579">koka vienums</translation>
 <translation id="5466621249238537318">Lūdzu, atlasiet vienu vai vairākus failus.</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">citas opcijas</translation>
 <translation id="576709008726043716">ievads</translation>
 <translation id="57838592816432529">Izslēgt skaņu</translation>
-<translation id="5860033963881614850">Izsl.</translation>
 <translation id="588258955323874662">Pilnekrāna</translation>
 <translation id="5888666972993069672">Notiek apraide šajā ierīcē: <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">meklēšanas lodziņš</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">E-pasta adresē ietveriet zīmi <ph name="ATSIGN" />. Adresē “<ph name="INVALIDADDRESS" />” trūkst zīmes <ph name="ATSIGN" />.</translation>
 <translation id="7891486169920085145">sadalītājs</translation>
 <translation id="795667975304826397">Nav izvēlēts neviens fails</translation>
+<translation id="7962328325860248200">Nav atlasīts: <ph name="ACCNAME" /></translation>
 <translation id="8034303206267677282">drošs</translation>
 <translation id="8053789581856978548">meklēšanas teksta lauks</translation>
 <translation id="8057695513531652401">paziņojums</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">Mēnesis</translation>
 <translation id="901493112792887934">pašreizējais laiks sekundēs</translation>
 <translation id="901834265349196618">e-pasts</translation>
-<translation id="9023835124071926463">komentāru sadaļa</translation>
 <translation id="9048119486235211610">navigācija</translation>
 <translation id="9062295712474918030">dokuments</translation>
 <translation id="9093215626363556771">aizvērt režīmu “attēls attēlā”</translation>

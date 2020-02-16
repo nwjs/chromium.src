@@ -267,6 +267,8 @@ const char* ServiceWorkerDatabase::StatusToString(
       return "Database operation failed";
     case ServiceWorkerDatabase::STATUS_ERROR_NOT_SUPPORTED:
       return "Database operation not supported";
+    case ServiceWorkerDatabase::STATUS_ERROR_DISABLED:
+      return "Database is disabled";
     case ServiceWorkerDatabase::STATUS_ERROR_MAX:
       NOTREACHED();
       return "Database unknown error";
@@ -282,7 +284,9 @@ ServiceWorkerDatabase::RegistrationData::RegistrationData()
       version_id(blink::mojom::kInvalidServiceWorkerVersionId),
       is_active(false),
       has_fetch_handler(false),
-      resources_total_size_bytes(0) {}
+      resources_total_size_bytes(0),
+      cross_origin_embedder_policy(
+          network::mojom::CrossOriginEmbedderPolicy::kNone) {}
 
 ServiceWorkerDatabase::RegistrationData::RegistrationData(
     const RegistrationData& other) = default;
@@ -1549,6 +1553,19 @@ ServiceWorkerDatabase::Status ServiceWorkerDatabase::ParseRegistrationData(
         static_cast<blink::mojom::ServiceWorkerUpdateViaCache>(value);
   }
 
+  if (data.has_cross_origin_embedder_policy()) {
+    switch (data.cross_origin_embedder_policy()) {
+      case ServiceWorkerRegistrationData::NONE_OR_NOT_EXIST:
+        out->cross_origin_embedder_policy =
+            network::mojom::CrossOriginEmbedderPolicy::kNone;
+        break;
+      case ServiceWorkerRegistrationData::REQUIRE_CORP:
+        out->cross_origin_embedder_policy =
+            network::mojom::CrossOriginEmbedderPolicy::kRequireCorp;
+        break;
+    }
+  }
+
   return ServiceWorkerDatabase::STATUS_OK;
 }
 
@@ -1601,6 +1618,12 @@ void ServiceWorkerDatabase::WriteRegistrationDataInBatch(
       static_cast<
           ServiceWorkerRegistrationData_ServiceWorkerUpdateViaCacheType>(
           registration.update_via_cache));
+
+  data.set_cross_origin_embedder_policy(
+      registration.cross_origin_embedder_policy ==
+              network::mojom::CrossOriginEmbedderPolicy::kRequireCorp
+          ? ServiceWorkerRegistrationData::REQUIRE_CORP
+          : ServiceWorkerRegistrationData::NONE_OR_NOT_EXIST);
 
   std::string value;
   bool success = data.SerializeToString(&value);

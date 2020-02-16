@@ -22,10 +22,11 @@ namespace content {
 // `navigate-to` and `form-action` (in the case of form submissions).
 class InitiatorCSPContext : public CSPContext {
  public:
-  InitiatorCSPContext(const std::vector<ContentSecurityPolicy>& policies,
-                      base::Optional<CSPSource>& self_source,
-                      mojo::PendingRemote<blink::mojom::NavigationInitiator>
-                          navigation_initiator);
+  InitiatorCSPContext(
+      std::vector<network::mojom::ContentSecurityPolicyPtr> policies,
+      network::mojom::CSPSourcePtr self_source,
+      mojo::PendingRemote<blink::mojom::NavigationInitiator>
+          navigation_initiator);
   ~InitiatorCSPContext() override;
 
   void ReportContentSecurityPolicyViolation(
@@ -34,7 +35,7 @@ class InitiatorCSPContext : public CSPContext {
   void SetReportingRenderFrameHost(RenderFrameHostImpl* rfh);
   void SanitizeDataForUseInCspViolation(
       bool is_redirect,
-      CSPDirective::Name directive,
+      network::mojom::CSPDirectiveName directive,
       GURL* blocked_url,
       SourceLocation* source_location) const override;
 

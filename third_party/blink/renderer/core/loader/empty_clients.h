@@ -37,9 +37,9 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/public/common/input/web_menu_source_type.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_focus_type.h"
-#include "third_party/blink/public/platform/web_menu_source_type.h"
 #include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/public/platform/web_spell_check_panel_host_client.h"
 #include "third_party/blink/public/platform/web_url_loader.h"
@@ -89,16 +89,16 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
 
   void Focus(LocalFrame*) override {}
 
-  bool CanTakeFocus(WebFocusType) override { return false; }
-  void TakeFocus(WebFocusType) override {}
+  bool CanTakeFocus(mojom::blink::FocusType) override { return false; }
+  void TakeFocus(mojom::blink::FocusType) override {}
 
   void FocusedElementChanged(Element*, Element*) override {}
   void Show(NavigationPolicy, WebString* manifest = nullptr) override {}
 
-  void DidOverscroll(const FloatSize&,
-                     const FloatSize&,
-                     const FloatPoint&,
-                     const FloatSize&) override {}
+  void DidOverscroll(const gfx::Vector2dF&,
+                     const gfx::Vector2dF&,
+                     const gfx::PointF&,
+                     const gfx::Vector2dF&) override {}
   void SetOverscrollBehavior(LocalFrame& frame,
                              const cc::OverscrollBehavior&) override {}
 
@@ -107,8 +107,6 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                              base::TimeDelta timeout) override {}
   void StopDeferringCommits(LocalFrame& main_frame,
                             cc::PaintHoldingCommitTrigger) override {}
-
-  bool HadFormInteraction() const override { return false; }
 
   void StartDragging(LocalFrame*,
                      const WebDragData&,
@@ -287,7 +285,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
   void BeginNavigation(
       const ResourceRequest&,
-      network::mojom::RequestContextFrameType,
+      mojom::RequestContextFrameType,
       Document* origin_document,
       DocumentLoader*,
       WebNavigationType,
@@ -297,7 +295,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       bool,
       TriggeringEventInfo,
       HTMLFormElement*,
-      ContentSecurityPolicyDisposition,
+      network::mojom::CSPDisposition,
       mojo::PendingRemote<mojom::blink::BlobURLToken>,
       base::TimeTicks,
       const String&,
@@ -308,10 +306,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
 
   void DidStartLoading() override {}
-  void ProgressEstimateChanged(double) override {}
   void DidStopLoading() override {}
-
-  void ForwardResourceTimingToParent(const WebResourceTimingInfo&) override {}
 
   void DownloadURL(const ResourceRequest&,
                    network::mojom::RedirectMode) override {}
@@ -319,6 +314,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   DocumentLoader* CreateDocumentLoader(
       LocalFrame*,
       WebNavigationType,
+      ContentSecurityPolicy*,
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
   void UpdateDocumentLoader(
@@ -407,10 +403,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
     return nullptr;
   }
 
-  void BubbleLogicalScrollInParentFrame(
-      ScrollDirection direction,
-      ScrollGranularity granularity) override {}
-
   void AnnotatedRegionsChanged() override {}
   base::UnguessableToken GetDevToolsFrameToken() const override {
     return base::UnguessableToken::Create();
@@ -451,11 +443,10 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
   void Navigate(const ResourceRequest&,
                 bool should_replace_current_entry,
                 bool is_opener_navigation,
-                bool prevent_sandboxed_download,
+                bool initiator_frame_has_download_sandbox_flag,
                 bool initiator_frame_is_ad,
                 mojo::PendingRemote<mojom::blink::BlobURLToken>) override {}
   unsigned BackForwardLength() override { return 0; }
-  void CheckCompleted() override {}
   void ForwardPostMessage(MessageEvent*,
                           scoped_refptr<const SecurityOrigin> target,
                           LocalFrame* source_frame) const override {}
@@ -463,7 +454,7 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
                          const IntRect& transformed_frame_rect) override {}
   void UpdateRemoteViewportIntersection(
       const ViewportIntersectionState& intersection_state) override {}
-  void AdvanceFocus(WebFocusType, LocalFrame* source) override {}
+  void AdvanceFocus(mojom::blink::FocusType, LocalFrame* source) override {}
   void SetIsInert(bool) override {}
   void UpdateRenderThrottlingStatus(bool is_throttled,
                                     bool subtree_throttled) override {}

@@ -20,13 +20,14 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/web_site_settings_uma_util.h"
 #include "chrome/browser/engagement/site_engagement_service.h"
+#include "chrome/browser/hid/hid_chooser_context.h"
+#include "chrome/browser/hid/hid_chooser_context_factory.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/media/unified_autoplay_config.h"
 #include "chrome/browser/permissions/chooser_context_base.h"
-#include "chrome/browser/permissions/permission_decision_auto_blocker.h"
+#include "chrome/browser/permissions/permission_decision_auto_blocker_factory.h"
 #include "chrome/browser/permissions/permission_manager.h"
 #include "chrome/browser/permissions/permission_uma_util.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/serial/serial_chooser_context.h"
 #include "chrome/browser/serial/serial_chooser_context_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -45,6 +46,8 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/crx_file/id_util.h"
+#include "components/permissions/permission_decision_auto_blocker.h"
+#include "components/permissions/permission_util.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_thread.h"
@@ -454,8 +457,8 @@ void SiteSettingsHandler::OnJavascriptAllowed() {
   host_zoom_map_subscription_ =
       content::HostZoomMap::GetDefaultForBrowserContext(profile_)
           ->AddZoomLevelChangedCallback(
-              base::Bind(&SiteSettingsHandler::OnZoomLevelChanged,
-                         base::Unretained(this)));
+              base::BindRepeating(&SiteSettingsHandler::OnZoomLevelChanged,
+                                  base::Unretained(this)));
 
   pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
   pref_change_registrar_->Init(profile_->GetPrefs());
@@ -701,25 +704,12 @@ void SiteSettingsHandler::HandleGetAllSites(const base::ListValue* args) {
 
   // Retrieve a list of embargoed settings to check separately. This ensures
   // that only settings included in |content_types| will be listed in all sites.
-  ContentSettingsForOneType embargo_settings;
-  map->GetSettingsForOneType(ContentSettingsType::PERMISSION_AUTOBLOCKER_DATA,
-                             std::string(), &embargo_settings);
-  PermissionManager* permission_manager = PermissionManager::Get(profile);
-  for (const ContentSettingPatternSource& e : embargo_settings) {
-    for (ContentSettingsType content_type : content_types) {
-      if (PermissionUtil::IsPermission(content_type)) {
-        const GURL url(e.primary_pattern.ToString());
-        // Add |url| to the set if there are any embargo settings.
-        PermissionResult result =
-            permission_manager->GetPermissionStatus(content_type, url, url);
-        if (result.source == PermissionStatusSource::MULTIPLE_DISMISSALS ||
-            result.source == PermissionStatusSource::MULTIPLE_IGNORES) {
-          CreateOrAppendSiteGroupEntry(&all_sites_map_, url);
-          origin_permission_set_.insert(url.spec());
-          break;
-        }
-      }
-    }
+  auto* autoblocker =
+      PermissionDecisionAutoBlockerFactory::GetForProfile(profile_);
+  for (auto& url : autoblocker->GetEmbargoedOrigins(content_types)) {
+    // Add |url| to the set if there are any embargo settings.
+    CreateOrAppendSiteGroupEntry(&all_sites_map_, url);
+    origin_permission_set_.insert(url.spec());
   }
 
   // Convert |types| to a list of ContentSettingsTypes.
@@ -946,13 +936,13 @@ void SiteSettingsHandler::HandleSetOriginPermissions(
     HostContentSettingsMap* map =
         HostContentSettingsMapFactory::GetForProfile(profile_);
 
-    PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+    PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
         profile_, origin, origin, content_type,
         PermissionSourceUI::SITE_SETTINGS);
 
     // Clear any existing embargo status if the new setting isn't block.
     if (setting != CONTENT_SETTING_BLOCK) {
-      PermissionDecisionAutoBlocker::GetForProfile(profile_)
+      PermissionDecisionAutoBlockerFactory::GetForProfile(profile_)
           ->RemoveEmbargoByUrl(origin, content_type);
     }
     map->SetContentSettingDefaultScope(origin, origin, content_type,
@@ -1036,7 +1026,7 @@ void SiteSettingsHandler::HandleResetCategoryPermissionForPattern(
       secondary_pattern_string.empty()
           ? ContentSettingsPattern::Wildcard()
           : ContentSettingsPattern::FromString(secondary_pattern_string);
-  PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+  PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
       profile, primary_pattern, secondary_pattern, content_type,
       PermissionSourceUI::SITE_SETTINGS);
 
@@ -1096,7 +1086,7 @@ void SiteSettingsHandler::HandleSetCategoryPermissionForPattern(
           ? ContentSettingsPattern::Wildcard()
           : ContentSettingsPattern::FromString(secondary_pattern_string);
 
-  PermissionUtil::ScopedRevocationReporter scoped_revocation_reporter(
+  PermissionUmaUtil::ScopedRevocationReporter scoped_revocation_reporter(
       profile, primary_pattern, secondary_pattern, content_type,
       PermissionSourceUI::SITE_SETTINGS);
 
@@ -1352,6 +1342,10 @@ void SiteSettingsHandler::ObserveSourcesForProfile(Profile* profile) {
   if (!chooser_observer_.IsObserving(serial_context))
     chooser_observer_.Add(serial_context);
 
+  auto* hid_context = HidChooserContextFactory::GetForProfile(profile);
+  if (!chooser_observer_.IsObserving(hid_context))
+    chooser_observer_.Add(hid_context);
+
   observed_profiles_.Add(profile);
 }
 
@@ -1367,6 +1361,10 @@ void SiteSettingsHandler::StopObservingSourcesForProfile(Profile* profile) {
   auto* serial_context = SerialChooserContextFactory::GetForProfile(profile);
   if (chooser_observer_.IsObserving(serial_context))
     chooser_observer_.Remove(serial_context);
+
+  auto* hid_context = HidChooserContextFactory::GetForProfile(profile);
+  if (chooser_observer_.IsObserving(hid_context))
+    chooser_observer_.Remove(hid_context);
 
   observed_profiles_.Remove(profile);
 }

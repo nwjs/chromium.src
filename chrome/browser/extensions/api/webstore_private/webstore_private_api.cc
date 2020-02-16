@@ -206,6 +206,9 @@ ConvertExtensionInstallStatusForAPI(ExtensionInstallStatus status) {
     case kBlacklisted:
       return api::webstore_private::ExtensionInstallStatus::
           EXTENSION_INSTALL_STATUS_BLACKLISTED;
+    case kCustodianApprovalRequired:
+      return api::webstore_private::ExtensionInstallStatus::
+          EXTENSION_INSTALL_STATUS_CUSTODIAN_APPROVAL_REQUIRED;
   }
   return api::webstore_private::EXTENSION_INSTALL_STATUS_NONE;
 }
@@ -383,10 +386,18 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseFailure(
 
 void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
     ExtensionInstallPrompt::Result result) {
-  if (result == ExtensionInstallPrompt::Result::ACCEPTED) {
-    HandleInstallProceed();
-  } else {
-    HandleInstallAbort(result == ExtensionInstallPrompt::Result::USER_CANCELED);
+  switch (result) {
+    case ExtensionInstallPrompt::Result::ACCEPTED:
+    case ExtensionInstallPrompt::Result::ACCEPTED_AND_OPTION_CHECKED: {
+      HandleInstallProceed();
+      break;
+    }
+    case ExtensionInstallPrompt::Result::USER_CANCELED:
+    case ExtensionInstallPrompt::Result::ABORTED: {
+      HandleInstallAbort(result ==
+                         ExtensionInstallPrompt::Result::USER_CANCELED);
+      break;
+    }
   }
 
   // Matches the AddRef in Run().
@@ -600,8 +611,8 @@ ExtensionFunction::ResponseAction WebstorePrivateSetStoreLoginFunction::Run() {
 WebstorePrivateGetWebGLStatusFunction::WebstorePrivateGetWebGLStatusFunction()
     : feature_checker_(content::GpuFeatureChecker::Create(
           gpu::GPU_FEATURE_TYPE_ACCELERATED_WEBGL,
-          base::Bind(&WebstorePrivateGetWebGLStatusFunction::OnFeatureCheck,
-                     base::Unretained(this)))) {}
+          base::BindOnce(&WebstorePrivateGetWebGLStatusFunction::OnFeatureCheck,
+                         base::Unretained(this)))) {}
 
 WebstorePrivateGetWebGLStatusFunction::
     ~WebstorePrivateGetWebGLStatusFunction() {}

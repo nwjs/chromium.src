@@ -6,8 +6,8 @@
 
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "chrome/browser/permissions/permission_util.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/permissions/permission_util.h"
 #include "components/url_formatter/elide_url.h"
 #include "net/base/escape.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -37,7 +37,8 @@ PermissionRequestImpl::~PermissionRequestImpl() {
   DCHECK(is_finished_);
 }
 
-PermissionRequest::IconId PermissionRequestImpl::GetIconId() const {
+permissions::PermissionRequest::IconId PermissionRequestImpl::GetIconId()
+    const {
 #if defined(OS_ANDROID)
   switch (content_settings_type_) {
     case ContentSettingsType::GEOLOCATION:
@@ -54,10 +55,13 @@ PermissionRequest::IconId PermissionRequestImpl::GetIconId() const {
       return IDR_ANDROID_INFOBAR_MEDIA_STREAM_CAMERA;
     case ContentSettingsType::ACCESSIBILITY_EVENTS:
       return IDR_ANDROID_INFOBAR_ACCESSIBILITY_EVENTS;
-    case ContentSettingsType::CLIPBOARD_READ:
+    case ContentSettingsType::CLIPBOARD_READ_WRITE:
       return IDR_ANDROID_INFOBAR_CLIPBOARD;
     case ContentSettingsType::NFC:
       return IDR_ANDROID_INFOBAR_NFC;
+    case ContentSettingsType::VR:
+    case ContentSettingsType::AR:
+      return IDR_ANDROID_INFOBAR_VR_HEADSET;
     default:
       NOTREACHED();
       return IDR_ANDROID_INFOBAR_WARNING;
@@ -83,8 +87,11 @@ PermissionRequest::IconId PermissionRequestImpl::GetIconId() const {
       return vector_icons::kVideocamIcon;
     case ContentSettingsType::ACCESSIBILITY_EVENTS:
       return vector_icons::kAccessibilityIcon;
-    case ContentSettingsType::CLIPBOARD_READ:
+    case ContentSettingsType::CLIPBOARD_READ_WRITE:
       return kContentPasteIcon;
+    case ContentSettingsType::VR:
+    case ContentSettingsType::AR:
+      return kVrHeadsetIcon;
     default:
       NOTREACHED();
       return kExtensionIcon;
@@ -117,12 +124,18 @@ base::string16 PermissionRequestImpl::GetTitleText() const {
     case ContentSettingsType::ACCESSIBILITY_EVENTS:
       message_id = IDS_ACCESSIBILITY_EVENTS_PERMISSION_TITLE;
       break;
-    case ContentSettingsType::CLIPBOARD_READ:
+    case ContentSettingsType::CLIPBOARD_READ_WRITE:
       message_id = IDS_CLIPBOARD_PERMISSION_TITLE;
       break;
     case ContentSettingsType::NFC:
       message_id = IDS_NFC_PERMISSION_TITLE;
       break;
+    // TODO(andypaicu): GetTitleText is no longer used, but we have to return
+    // something at present to avoid crashing. This both avoids the crash and
+    // avoids adding an unused string.
+    case ContentSettingsType::VR:
+    case ContentSettingsType::AR:
+      return base::string16();
     default:
       NOTREACHED();
       return base::string16();
@@ -157,11 +170,17 @@ base::string16 PermissionRequestImpl::GetMessageText() const {
     case ContentSettingsType::ACCESSIBILITY_EVENTS:
       message_id = IDS_ACCESSIBILITY_EVENTS_INFOBAR_TEXT;
       break;
-    case ContentSettingsType::CLIPBOARD_READ:
+    case ContentSettingsType::CLIPBOARD_READ_WRITE:
       message_id = IDS_CLIPBOARD_INFOBAR_TEXT;
       break;
     case ContentSettingsType::NFC:
       message_id = IDS_NFC_INFOBAR_TEXT;
+      break;
+    case ContentSettingsType::VR:
+      message_id = IDS_VR_INFOBAR_TEXT;
+      break;
+    case ContentSettingsType::AR:
+      message_id = IDS_AR_INFOBAR_TEXT;
       break;
     default:
       NOTREACHED();
@@ -225,8 +244,17 @@ base::string16 PermissionRequestImpl::GetMessageTextFragment() const {
     case ContentSettingsType::ACCESSIBILITY_EVENTS:
       message_id = IDS_ACCESSIBILITY_EVENTS_PERMISSION_FRAGMENT;
       break;
-    case ContentSettingsType::CLIPBOARD_READ:
+    case ContentSettingsType::CLIPBOARD_READ_WRITE:
       message_id = IDS_CLIPBOARD_PERMISSION_FRAGMENT;
+      break;
+    case ContentSettingsType::NFC:
+      message_id = IDS_NFC_PERMISSION_FRAGMENT;
+      break;
+    case ContentSettingsType::VR:
+      message_id = IDS_VR_PERMISSION_FRAGMENT;
+      break;
+    case ContentSettingsType::AR:
+      message_id = IDS_AR_PERMISSION_FRAGMENT;
       break;
     default:
       NOTREACHED();
@@ -256,14 +284,14 @@ void PermissionRequestImpl::RequestFinished() {
   std::move(delete_callback_).Run();
 }
 
-PermissionRequestType PermissionRequestImpl::GetPermissionRequestType()
-    const {
-  return PermissionUtil::GetRequestType(content_settings_type_);
+permissions::PermissionRequestType
+PermissionRequestImpl::GetPermissionRequestType() const {
+  return permissions::PermissionUtil::GetRequestType(content_settings_type_);
 }
 
-PermissionRequestGestureType PermissionRequestImpl::GetGestureType()
-    const {
-  return PermissionUtil::GetGestureType(has_gesture_);
+permissions::PermissionRequestGestureType
+PermissionRequestImpl::GetGestureType() const {
+  return permissions::PermissionUtil::GetGestureType(has_gesture_);
 }
 
 ContentSettingsType PermissionRequestImpl::GetContentSettingsType() const {

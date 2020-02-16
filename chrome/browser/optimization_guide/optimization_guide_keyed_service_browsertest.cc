@@ -89,6 +89,12 @@ class OptimizationGuideConsumerWebContentsObserver
     last_can_apply_optimization_decision_ = service->CanApplyOptimization(
         navigation_handle, optimization_guide::proto::NOSCRIPT,
         /*optimization_metadata=*/nullptr);
+
+    if (callback_) {
+      service->CanApplyOptimizationAsync(navigation_handle,
+                                         optimization_guide::proto::NOSCRIPT,
+                                         std::move(callback_));
+    }
   }
 
   // Returns the last optimization guide decision that was returned by the
@@ -105,6 +111,11 @@ class OptimizationGuideConsumerWebContentsObserver
     return last_can_apply_optimization_decision_;
   }
 
+  void set_callback(
+      optimization_guide::OptimizationGuideDecisionCallback callback) {
+    callback_ = std::move(callback);
+  }
+
  private:
   optimization_guide::OptimizationGuideDecision
       last_should_target_navigation_decision_ =
@@ -112,6 +123,7 @@ class OptimizationGuideConsumerWebContentsObserver
   optimization_guide::OptimizationGuideDecision
       last_can_apply_optimization_decision_ =
           optimization_guide::OptimizationGuideDecision::kUnknown;
+  optimization_guide::OptimizationGuideDecisionCallback callback_;
 };
 
 }  // namespace
@@ -162,10 +174,6 @@ class OptimizationGuideKeyedServiceBrowserTest
         https_server_->GetURL("somehost.com", "/hashints/whatever");
     url_that_redirects_ = https_server_->GetURL("/redirect");
 
-    // Set up an OptimizationGuideKeyedService consumer.
-    consumer_.reset(new OptimizationGuideConsumerWebContentsObserver(
-        browser()->tab_strip_model()->GetActiveWebContents()));
-
     SetEffectiveConnectionType(
         net::EffectiveConnectionType::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
   }
@@ -179,7 +187,12 @@ class OptimizationGuideKeyedServiceBrowserTest
   void RegisterWithKeyedService() {
     OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->profile())
         ->RegisterOptimizationTypesAndTargets(
-            {optimization_guide::proto::NOSCRIPT}, /*optimization_targets=*/{});
+            {optimization_guide::proto::NOSCRIPT},
+            /*optimization_targets=*/{});
+
+    // Set up an OptimizationGuideKeyedService consumer.
+    consumer_.reset(new OptimizationGuideConsumerWebContentsObserver(
+        browser()->tab_strip_model()->GetActiveWebContents()));
   }
 
   void PushHintsComponentAndWaitForCompletion() {
@@ -205,6 +218,15 @@ class OptimizationGuideKeyedServiceBrowserTest
       net::EffectiveConnectionType effective_connection_type) {
     g_browser_process->network_quality_tracker()
         ->ReportEffectiveConnectionTypeForTesting(effective_connection_type);
+  }
+
+  // Sets the callback on the consumer of the OptimizationGuideKeyedService. If
+  // set, this will call the async version of CanApplyOptimization.
+  void SetCallbackOnConsumer(
+      optimization_guide::OptimizationGuideDecisionCallback callback) {
+    ASSERT_TRUE(consumer_);
+
+    consumer_->set_callback(std::move(callback));
   }
 
   // Returns the last decision from the CanApplyOptimization() method seen by
@@ -272,11 +294,48 @@ IN_PROC_BROWSER_TEST_F(
   ui_test_utils::NavigateToURL(browser(), url_with_hints());
 
   histogram_tester.ExpectTotalCount("OptimizationGuide.LoadedHint.Result", 0);
-  // There is a hint that matches this URL but it wasn't loaded.
-  EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
-            last_should_target_navigation_decision());
-  EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kUnknown,
-            last_can_apply_optimization_decision());
+}
+
+IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
+                       NavigateToPageWithAsyncCallbackReturnsAnswer) {
+  PushHintsComponentAndWaitForCompletion();
+  RegisterWithKeyedService();
+
+  std::unique_ptr<base::RunLoop> run_loop = std::make_unique<base::RunLoop>();
+  SetCallbackOnConsumer(base::BindOnce(
+      [](base::RunLoop* run_loop,
+         optimization_guide::OptimizationGuideDecision decision,
+         const optimization_guide::OptimizationMetadata& metadata) {
+        EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kTrue,
+                  decision);
+        EXPECT_EQ(metadata.previews_metadata.max_ect_trigger(),
+                  optimization_guide::proto::EFFECTIVE_CONNECTION_TYPE_2G);
+        run_loop->Quit();
+      },
+      run_loop.get()));
+
+  ui_test_utils::NavigateToURL(browser(), url_with_hints());
+  run_loop->Run();
+}
+
+IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,
+                       NavigateToPageWithAsyncCallbackReturnsAnswerEventually) {
+  PushHintsComponentAndWaitForCompletion();
+  RegisterWithKeyedService();
+
+  std::unique_ptr<base::RunLoop> run_loop = std::make_unique<base::RunLoop>();
+  SetCallbackOnConsumer(base::BindOnce(
+      [](base::RunLoop* run_loop,
+         optimization_guide::OptimizationGuideDecision decision,
+         const optimization_guide::OptimizationMetadata& metadata) {
+        EXPECT_EQ(optimization_guide::OptimizationGuideDecision::kFalse,
+                  decision);
+        run_loop->Quit();
+      },
+      run_loop.get()));
+
+  ui_test_utils::NavigateToURL(browser(), GURL("https://nohints.com/"));
+  run_loop->Run();
 }
 
 IN_PROC_BROWSER_TEST_F(OptimizationGuideKeyedServiceBrowserTest,

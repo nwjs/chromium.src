@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/keyed_service/core/refcounted_keyed_service.h"
+#include "components/password_manager/core/browser/compromised_credentials_table.h"
 #include "components/password_manager/core/browser/password_store_change.h"
 #include "components/password_manager/core/browser/password_store_sync.h"
 #include "components/sync/model/syncable_service.h"
@@ -250,9 +251,11 @@ class PasswordStore : protected PasswordStoreSync,
   void AddCompromisedCredentials(
       const CompromisedCredentials& compromised_credentials);
 
-  // Removes information about credentials compromised on |url| for |username|.
-  void RemoveCompromisedCredentials(const GURL& url,
-                                    const base::string16& username);
+  // Removes information about credentials compromised on |signon_realm| for
+  // |username|.
+  void RemoveCompromisedCredentials(const std::string& signon_realm,
+                                    const base::string16& username,
+                                    RemoveCompromisedCredentialsReason reason);
 
   // Retrieves all compromised credentials and notifies |consumer| on
   // completion. The request will be cancelled if the consumer is destroyed.
@@ -486,10 +489,10 @@ class PasswordStore : protected PasswordStoreSync,
   // compromised credentials.
   virtual void AddCompromisedCredentialsImpl(
       const CompromisedCredentials& compromised_credentials) = 0;
-  // TODO(bdea): Add CompromiseType as a filter.
   virtual void RemoveCompromisedCredentialsImpl(
-      const GURL& url,
-      const base::string16& username) = 0;
+      const std::string& signon_realm,
+      const base::string16& username,
+      RemoveCompromisedCredentialsReason reason) = 0;
   virtual std::vector<CompromisedCredentials>
   GetAllCompromisedCredentialsImpl() = 0;
   virtual void RemoveCompromisedCredentialsByUrlAndTimeImpl(
@@ -601,7 +604,9 @@ class PasswordStore : protected PasswordStoreSync,
   // Schedules the given |task| to be run on the PasswordStore's TaskRunner.
   // Invokes |consumer|->OnGetPasswordStoreResults() on the caller's thread with
   // the result, after it was post-processed by |processor|.
+  // |trace_name| is the trace to be closed before calling the consumer.
   void PostLoginsTaskAndReplyToConsumerWithProcessedResult(
+      const char* trace_name,
       PasswordStoreConsumer* consumer,
       LoginsTask task,
       LoginsResultProcessor processor);

@@ -74,11 +74,20 @@ const base::FeatureParam<int> kDynamicTuningTimeSec = {
 
 // The time a frame must be invisible before being additionally scaled. -1 will
 // disable invisible scaling.
-extern const base::FeatureParam<int> kDynamicTuningScaleInvisibleTimeSec = {
+const base::FeatureParam<int> kDynamicTuningScaleInvisibleTimeSec = {
     &kDynamicTcmallocTuning, "DynamicTcmallocScaleInvisibleTimeSec", -1};
 #endif  // BUILDFLAG(USE_TCMALLOC)
 
 #endif  // defined(OS_LINUX)
+
+#if !defined(OS_ANDROID)
+const base::Feature kPageFreezingFromPerformanceManager{
+    "PageFreezingFromPerformanceManager", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kUrgentDiscardingFromPerformanceManager{
+    "UrgentDiscardingFromPerformanceManager",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
 
 }  // namespace features
 }  // namespace performance_manager

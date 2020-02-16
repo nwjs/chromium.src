@@ -10,6 +10,9 @@ import("//tools/grit/repack.gni")
 import("//ui/base/ui_features.gni")
 
 assert(enable_extensions)
+assert(
+    !(enable_autofill_assistant_api && is_official_build),
+    "The AutofillAssistant Extension API must be disabled in official builds.")
 
 group("extensions_resources") {
   public_deps = [
@@ -159,9 +162,7 @@ jumbo_static_library("test_support") {
     #"//third_party/cld_3/src/src:cld_3",
   ]
 
-  public_deps = [
-    "//content/public/browser",
-  ]
+  public_deps = [ "//content/public/browser" ]
 }
 
 repack("shell_and_test_pak") {
@@ -170,6 +171,7 @@ repack("shell_and_test_pak") {
   sources = [
     "$root_gen_dir/content/browser/devtools/devtools_resources.pak",
     "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/content/dev_ui_content_resources.pak",
     "$root_gen_dir/content/shell/shell_resources.pak",
     "$root_gen_dir/extensions/extensions_browser_resources_100_percent.pak",
     "$root_gen_dir/extensions/extensions_renderer_resources.pak",
@@ -189,7 +191,8 @@ repack("shell_and_test_pak") {
 
   deps = [
     ":extensions_resources",
-    "//content:resources",
+    "//content:content_resources",
+    "//content:dev_ui_content_resources",
     "//content/browser/devtools:devtools_resources",
     "//content/shell:resources",
     "//extensions/shell:resources",
@@ -234,9 +237,7 @@ test("extensions_unittests") {
     "//ui/gl:test_support",
   ]
 
-  data_deps = [
-    "//third_party/mesa_headers",
-  ]
+  data_deps = [ "//third_party/mesa_headers" ]
 }
 
 test("extensions_browsertests") {
@@ -253,9 +254,7 @@ test("extensions_browsertests") {
     "//extensions/shell:browser_tests",
   ]
 
-  data_deps = [
-    "//third_party/mesa_headers",
-  ]
+  data_deps = [ "//third_party/mesa_headers" ]
 }
 
 # TODO(rockot) bug 505926: These should be moved to extensions_browsertests but have
@@ -273,7 +272,6 @@ source_set("chrome_extensions_browsertests") {
     "browser/api/serial/serial_apitest.cc",
     "browser/api/usb/usb_manual_apitest.cc",
     "browser/app_window/app_window_browsertest.cc",
-    "browser/guest_view/extension_options/extension_options_apitest.cc",
     "browser/guest_view/mime_handler_view/mime_handler_view_browsertest.cc",
     "renderer/script_context_browsertest.cc",
   ]
@@ -292,7 +290,7 @@ source_set("chrome_extensions_browsertests") {
     "//components/app_modal",
     "//components/autofill/content/browser:risk_proto",
     "//components/autofill/content/renderer:test_support",
-    "//components/captive_portal:test_support",
+    "//components/captive_portal/core:test_support",
     "//components/dom_distiller/content/browser",
     "//components/dom_distiller/core:test_support",
     "//components/guest_view/browser:test_support",

@@ -213,6 +213,7 @@ std::unique_ptr<base::DictionaryValue> BuildObjectForResponse(
   }
   response->SetInteger("statusCode", responseCode);
   response->SetInteger("netError", net_error);
+  response->SetString("netErrorName", net::ErrorToString(net_error));
 
   auto headers = std::make_unique<base::DictionaryValue>();
   size_t iterator = 0;
@@ -708,15 +709,24 @@ void DevToolsUIBindings::HandleMessageFromDevToolsFrontend(
 }
 
 // content::DevToolsAgentHostClient implementation --------------------------
+// There is a sibling implementation of DevToolsAgentHostClient in
+//   content/shell/browser/shell_devtools_bindings.cc
+// that is used in layout tests, which only use content_shell.
+// The two implementations needs to be kept in sync wrt. the interface they
+// provide to the DevTools front-end.
+
 void DevToolsUIBindings::DispatchProtocolMessage(
-    content::DevToolsAgentHost* agent_host, const std::string& message) {
+    content::DevToolsAgentHost* agent_host,
+    base::span<const uint8_t> message) {
   DCHECK(agent_host == agent_host_.get());
   if (!frontend_host_)
     return;
 
-  if (message.length() < kMaxMessageChunkSize) {
+  base::StringPiece message_sp(reinterpret_cast<const char*>(message.data()),
+                               message.size());
+  if (message_sp.length() < kMaxMessageChunkSize) {
     std::string param;
-    base::EscapeJSONString(message, true, &param);
+    base::EscapeJSONString(message_sp, true, &param);
     base::string16 javascript =
         base::UTF8ToUTF16("DevToolsAPI.dispatchMessage(" + param + ");");
     web_contents_->GetMainFrame()->ExecuteJavaScript(javascript,
@@ -724,9 +734,9 @@ void DevToolsUIBindings::DispatchProtocolMessage(
     return;
   }
 
-  base::Value total_size(static_cast<int>(message.length()));
-  for (size_t pos = 0; pos < message.length(); pos += kMaxMessageChunkSize) {
-    base::Value message_value(message.substr(pos, kMaxMessageChunkSize));
+  base::Value total_size(static_cast<int>(message_sp.length()));
+  for (size_t pos = 0; pos < message_sp.length(); pos += kMaxMessageChunkSize) {
+    base::Value message_value(message_sp.substr(pos, kMaxMessageChunkSize));
     CallClientFunction("DevToolsAPI.dispatchMessageChunk",
                        &message_value, pos ? NULL : &total_size, NULL);
   }
@@ -840,7 +850,7 @@ void DevToolsUIBindings::LoadNetworkResource(const DispatchCallback& callback,
   resource_request.url = gurl;
   // TODO(caseq): this preserves behavior of URLFetcher-based implementation.
   // We really need to pass proper first party origin from the front-end.
-  resource_request.site_for_cookies = gurl;
+  resource_request.site_for_cookies = net::SiteForCookies::FromUrl(gurl);
   resource_request.headers.AddHeadersFromString(headers);
 
   NetworkResourceLoader::URLLoaderFactoryHolder url_loader_factory;
@@ -956,9 +966,7 @@ void DevToolsUIBindings::IndexPath(
   base::Optional<base::Value> parsed_excluded_folders =
       base::JSONReader::Read(excluded_folders_message);
   if (parsed_excluded_folders && parsed_excluded_folders->is_list()) {
-    const std::vector<base::Value>& folder_paths =
-        parsed_excluded_folders->GetList();
-    for (const base::Value& folder_path : folder_paths) {
+    for (const base::Value& folder_path : parsed_excluded_folders->GetList()) {
       if (folder_path.is_string())
         excluded_folders.push_back(folder_path.GetString());
     }
@@ -1209,8 +1217,10 @@ void DevToolsUIBindings::SetOpenNewWindowForPopups(bool value) {
 
 void DevToolsUIBindings::DispatchProtocolMessageFromDevToolsFrontend(
     const std::string& message) {
-  if (agent_host_.get())
-    agent_host_->DispatchProtocolMessage(this, message);
+  if (!agent_host_)
+    return;
+  agent_host_->DispatchProtocolMessage(
+      this, base::as_bytes(base::make_span(message)));
 }
 
 void DevToolsUIBindings::RecordEnumeratedHistogram(const std::string& name,

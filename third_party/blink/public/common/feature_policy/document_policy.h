@@ -6,10 +6,9 @@
 #define THIRD_PARTY_BLINK_PUBLIC_COMMON_FEATURE_POLICY_DOCUMENT_POLICY_H_
 
 #include <limits>
-#include <map>
 #include <memory>
-#include <vector>
 
+#include "base/containers/flat_map.h"
 #include "base/macros.h"
 #include "third_party/blink/public/common/common_export.h"
 #include "third_party/blink/public/common/feature_policy/policy_value.h"
@@ -66,12 +65,10 @@ namespace blink {
 
 class BLINK_COMMON_EXPORT DocumentPolicy {
  public:
-  using FeatureState = std::map<mojom::FeaturePolicyFeature, PolicyValue>;
+  using FeatureState = base::flat_map<mojom::FeaturePolicyFeature, PolicyValue>;
 
-  ~DocumentPolicy();
-
-  static std::unique_ptr<DocumentPolicy> CreateWithRequiredPolicy(
-      const FeatureState& required_policy);
+  static std::unique_ptr<DocumentPolicy> CreateWithHeaderPolicy(
+      const FeatureState& header_policy);
 
   // Returns true if the feature is unrestricted (has its default value for the
   // platform)
@@ -90,34 +87,41 @@ class BLINK_COMMON_EXPORT DocumentPolicy {
   // Returns the value of the given feature on the given origin.
   PolicyValue GetFeatureValue(mojom::FeaturePolicyFeature feature) const;
 
-  // Returns the current threshold values assigned to all document policies.
-  // the declared header policy as well as any unadvertised required policies
-  // (such as sandbox policies).
-  FeatureState GetFeatureState() const;
-
-  // Returns true if this document policy is compatible with the incoming
-  // document policy.
-  bool IsPolicyCompatible(const FeatureState& incoming_policy);
+  // Returns true if the incoming policy is compatible with the given required
+  // policy, i.e. incoming policy is at least as strict as required policy.
+  static bool IsPolicyCompatible(const FeatureState& required_policy,
+                                 const FeatureState& incoming_policy);
 
   // Returns the list of features which can be controlled by Document Policy,
   // and their default values.
   static const FeatureState& GetFeatureDefaults();
 
+  // Serialize document policy according to http_structured_header.
+  // returns base::nullopt when http structured header serializer encounters
+  // problems, e.g. double value out of the range supported.
+  static base::Optional<std::string> Serialize(const FeatureState& policy);
+
+  // Parse document policy header to FeatureState
+  static base::Optional<FeatureState> Parse(const std::string& header);
+
+  // Merge two FeatureState map. Take stricter value when there is conflict.
+  static FeatureState MergeFeatureState(const FeatureState& policy1,
+                                        const FeatureState& policy2);
+
  private:
   friend class DocumentPolicyTest;
 
   DocumentPolicy(const FeatureState& feature_list);
-  static std::unique_ptr<DocumentPolicy> CreateWithRequiredPolicy(
-      const FeatureState& required_policy,
+  static std::unique_ptr<DocumentPolicy> CreateWithHeaderPolicy(
+      const FeatureState& header_policy,
       const FeatureState& defaults);
 
   void UpdateFeatureState(const FeatureState& feature_state);
 
-  // Threshold values for each defined feature.
-  // TODO(iclelland): Generate these members; pack booleans in bitfields if
-  // possible.
-  bool font_display_ = true;
-  double unoptimized_lossless_images_ = std::numeric_limits<double>::infinity();
+  // Internal feature state is represented as an array to avoid overhead
+  // in using container classes.
+  PolicyValue internal_feature_state_
+      [static_cast<size_t>(mojom::FeaturePolicyFeature::kMaxValue) + 1];
 
   DISALLOW_COPY_AND_ASSIGN(DocumentPolicy);
 };

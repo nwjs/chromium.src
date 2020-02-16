@@ -8,19 +8,14 @@
 #include <utility>
 
 #include "ash/app_list/app_list_controller_impl.h"
-#include "ash/app_list/views/assistant/assistant_main_view.h"
-#include "ash/app_list/views/assistant/assistant_page_view.h"
 #include "ash/assistant/assistant_controller.h"
+#include "ash/assistant/test/test_assistant_web_view_factory.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/keyboard/ui/test/keyboard_test_util.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
-#include "ash/public/cpp/keyboard/keyboard_switches.h"
 #include "ash/public/cpp/test/assistant_test_api.h"
 #include "ash/shell.h"
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/run_loop.h"
-#include "ui/compositor/scoped_animation_duration_scale_mode.h"
-#include "ui/views/controls/textfield/textfield.h"
 
 namespace ash {
 
@@ -53,10 +48,17 @@ void CheckCanProcessEvents(const views::View* view) {
   }
 }
 
+void PressHomeButton() {
+  Shell::Get()->app_list_controller()->ToggleAppList(
+      display::Screen::GetScreen()->GetPrimaryDisplay().id(),
+      AppListShowSource::kShelfButton, base::TimeTicks::Now());
+}
+
 }  // namespace
 
 AssistantAshTestBase::AssistantAshTestBase()
-    : test_api_(AssistantTestApi::Create()) {}
+    : test_api_(AssistantTestApi::Create()),
+      test_web_view_factory_(std::make_unique<TestAssistantWebViewFactory>()) {}
 
 AssistantAshTestBase::~AssistantAshTestBase() = default;
 
@@ -64,17 +66,13 @@ void AssistantAshTestBase::SetUp() {
   scoped_feature_list_.InitAndEnableFeature(
       app_list_features::kEnableAssistantLauncherUI);
 
-  // Enable virtual keyboard.
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      keyboard::switches::kEnableVirtualKeyboard);
-
   AshTestBase::SetUp();
 
   // Make the display big enough to hold the app list.
   UpdateDisplay("1024x768");
 
   // Enable Assistant in settings.
-  test_api_->EnableAssistant();
+  test_api_->SetAssistantEnabled(true);
 
   // Cache controller.
   controller_ = Shell::Get()->assistant_controller();
@@ -82,17 +80,18 @@ void AssistantAshTestBase::SetUp() {
 
   // At this point our Assistant service is ready for use.
   // Indicate this by changing status from NOT_READY to READY.
-  AssistantState::Get()->NotifyStatusChanged(mojom::AssistantState::READY);
+  test_api_->GetAssistantState()->NotifyStatusChanged(
+      mojom::AssistantState::READY);
 
   test_api_->DisableAnimations();
 
-  // Wait for virtual keyboard to load.
-  SetTouchKeyboardEnabled(true);
+  EnableKeyboard();
 }
 
 void AssistantAshTestBase::TearDown() {
   windows_.clear();
-  SetTouchKeyboardEnabled(false);
+  widgets_.clear();
+  DisableKeyboard();
   AshTestBase::TearDown();
   scoped_feature_list_.Reset();
 }
@@ -114,8 +113,12 @@ void AssistantAshTestBase::CloseAssistantUi(AssistantExitPoint exit_point) {
   controller_->ui_controller()->CloseUi(exit_point);
 }
 
+void AssistantAshTestBase::OpenLauncher() {
+  PressHomeButton();
+}
+
 void AssistantAshTestBase::CloseLauncher() {
-  ash::Shell::Get()->app_list_controller()->ViewClosing();
+  Shell::Get()->app_list_controller()->ViewClosing();
 }
 
 void AssistantAshTestBase::SetTabletMode(bool enable) {
@@ -142,6 +145,13 @@ views::View* AssistantAshTestBase::app_list_view() {
   return test_api_->app_list_view();
 }
 
+views::View* AssistantAshTestBase::root_view() {
+  views::View* result = app_list_view();
+  while (result && result->parent())
+    result = result->parent();
+  return result;
+}
+
 void AssistantAshTestBase::MockAssistantInteractionWithResponse(
     const std::string& response_text) {
   MockAssistantInteractionWithQueryAndResponse(/*query=*/"input text",
@@ -166,7 +176,11 @@ void AssistantAshTestBase::SendQueryThroughTextField(const std::string& query) {
 
 void AssistantAshTestBase::TapOnAndWait(views::View* view) {
   CheckCanProcessEvents(view);
-  GetEventGenerator()->GestureTapAt(GetPointInside(view));
+  TapAndWait(GetPointInside(view));
+}
+
+void AssistantAshTestBase::TapAndWait(gfx::Point position) {
+  GetEventGenerator()->GestureTapAt(position);
 
   base::RunLoop().RunUntilIdle();
 }
@@ -190,6 +204,16 @@ aura::Window* AssistantAshTestBase::SwitchToNewAppWindow() {
   aura::Window* window = windows_.back().get();
   window->SetName("<app-window>");
   return window;
+}
+
+views::Widget* AssistantAshTestBase::SwitchToNewWidget() {
+  widgets_.push_back(CreateTestWidget());
+
+  views::Widget* result = widgets_.back().get();
+  // Give the widget a non-zero size, otherwise things like tapping and clicking
+  // on it do not work.
+  result->SetBounds(gfx::Rect(500, 100));
+  return result;
 }
 
 aura::Window* AssistantAshTestBase::window() {
@@ -221,12 +245,23 @@ void AssistantAshTestBase::ShowKeyboard() {
   keyboard_controller->ShowKeyboard(/*lock=*/false);
 }
 
+void AssistantAshTestBase::DismissKeyboard() {
+  auto* keyboard_controller = keyboard::KeyboardUIController::Get();
+  keyboard_controller->HideKeyboardImplicitlyByUser();
+  EXPECT_FALSE(IsKeyboardShowing());
+}
+
 bool AssistantAshTestBase::IsKeyboardShowing() const {
-  return keyboard::IsKeyboardShowing();
+  auto* keyboard_controller = keyboard::KeyboardUIController::Get();
+  return keyboard_controller->IsEnabled() && keyboard::IsKeyboardShowing();
 }
 
 AssistantInteractionController* AssistantAshTestBase::interaction_controller() {
   return controller_->interaction_controller();
+}
+
+const AssistantInteractionModel* AssistantAshTestBase::interaction_model() {
+  return interaction_controller()->model();
 }
 
 TestAssistantService* AssistantAshTestBase::assistant_service() {

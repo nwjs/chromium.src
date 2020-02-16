@@ -23,7 +23,8 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/common/referrer.h"
-#include "third_party/blink/public/common/frame/user_activation_update_type.h"
+#include "services/network/public/mojom/content_security_policy.mojom-forward.h"
+#include "third_party/blink/public/mojom/frame/user_activation_update_types.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "url/origin.h"
 
@@ -41,7 +42,6 @@ class RenderViewHost;
 class RenderViewHostImpl;
 class RenderWidgetHostView;
 class TestWebContents;
-struct ContentSecurityPolicyHeader;
 struct FrameOwnerProperties;
 struct FrameReplicationState;
 
@@ -258,7 +258,8 @@ class CONTENT_EXPORT RenderFrameHostManager
   // Called when a renderer's frame navigates.
   void DidNavigateFrame(RenderFrameHostImpl* render_frame_host,
                         bool was_caused_by_user_gesture,
-                        bool is_same_document_navigation);
+                        bool is_same_document_navigation,
+                        const blink::FramePolicy& frame_policy);
 
   // Called when this frame's opener is changed to the frame specified by
   // |opener_routing_id| in |source_site_instance|'s process.  This change
@@ -281,10 +282,6 @@ class CONTENT_EXPORT RenderFrameHostManager
   // called on the parent of a new child frame before the child leaves the
   // SiteInstance.
   void CreateProxiesForChildFrame(FrameTreeNode* child);
-
-  // Returns the swapped out RenderViewHost for the given SiteInstance, if any.
-  // This method is *deprecated* and GetRenderFrameProxyHost should be used.
-  RenderViewHostImpl* GetSwappedOutRenderViewHost(SiteInstance* instance) const;
 
   // Returns the RenderFrameProxyHost for the given SiteInstance, if any.
   RenderFrameProxyHost* GetRenderFrameProxyHost(SiteInstance* instance) const;
@@ -341,7 +338,7 @@ class CONTENT_EXPORT RenderFrameHostManager
 
   // Sends the newly added Content Security Policy headers to all the proxies.
   void OnDidAddContentSecurityPolicies(
-      const std::vector<ContentSecurityPolicyHeader>& headers);
+      std::vector<network::mojom::ContentSecurityPolicyHeaderPtr> headers);
 
   // Resets Content Security Policy in all the proxies.
   void OnDidResetContentSecurityPolicy();
@@ -377,10 +374,14 @@ class CONTENT_EXPORT RenderFrameHostManager
   void OnDidUpdateOrigin(const url::Origin& origin,
                          bool is_potentially_trustworthy_unique_origin);
 
+  // Send updated ad frame type to all frame proxies at ready-to-commit time
+  // when the ad status gets updated.
+  void OnDidSetAdFrameType(blink::mojom::AdFrameType ad_frame_type);
+
   void EnsureRenderViewInitialized(RenderViewHostImpl* render_view_host,
                                    SiteInstance* instance);
 
-  // Creates swapped out RenderViews and RenderFrameProxies for this frame's
+  // Creates RenderFrameProxies and inactive RenderViewHosts for this frame's
   // FrameTree and for its opener chain in the given SiteInstance. This allows
   // other tabs to send cross-process JavaScript calls to their opener(s) and
   // to any other frames in the opener's FrameTree (e.g., supporting calls like
@@ -407,8 +408,8 @@ class CONTENT_EXPORT RenderFrameHostManager
   // RenderFrameProxyHost in its outer WebContents's SiteInstance,
   // |outer_contents_site_instance|. The frame in outer WebContents that is
   // hosting the inner WebContents is |render_frame_host|, and the frame will
-  // be swapped out with the proxy. Note that this method must only be called
-  // for an OOPIF-based inner WebContents.
+  // be swapped with the proxy. Note that this method must only be called for an
+  // OOPIF-based inner WebContents.
   RenderFrameProxyHost* CreateOuterDelegateProxy(
       SiteInstance* outer_contents_site_instance);
 
@@ -453,7 +454,8 @@ class CONTENT_EXPORT RenderFrameHostManager
 
   // Updates the user activation state in all proxies of this frame.  For
   // more details, see the comment on FrameTreeNode::user_activation_state_.
-  void UpdateUserActivationState(blink::UserActivationUpdateType update_type);
+  void UpdateUserActivationState(
+      blink::mojom::UserActivationUpdateType update_type);
 
   // When a frame transfers user activation to another frame via postMessage,
   // this is used to inform proxies of the target frame (via IPC) about the
@@ -463,12 +465,12 @@ class CONTENT_EXPORT RenderFrameHostManager
   // RenderFrame, since that will be handled as part of postMessage.
   void TransferUserActivationFrom(RenderFrameHostImpl* source_rfh);
 
-  void OnSetHasReceivedUserGestureBeforeNavigation(bool value);
+  void OnSetHadStickyUserActivationBeforeNavigation(bool value);
 
   // Sets up the necessary state for a new RenderViewHost.  If |proxy| is not
   // null, it creates a RenderFrameProxy in the target renderer process which is
-  // used to route IPC messages when in swapped out state.  Returns early if the
-  // RenderViewHost has already been initialized for another RenderFrameHost.
+  // used to route IPC messages.  Returns early if the RenderViewHost has
+  // already been initialized for another RenderFrameHost.
   bool InitRenderView(RenderViewHostImpl* render_view_host,
                       RenderFrameProxyHost* proxy);
 
@@ -501,6 +503,9 @@ class CONTENT_EXPORT RenderFrameHostManager
   void set_attach_complete() {
     attach_to_inner_delegate_state_ = AttachToInnerDelegateState::ATTACHED;
   }
+
+  // Sets an embedding token to track the relationship of a frame to its parent.
+  void SetEmbeddingToken(const base::UnguessableToken& embedding_token);
 
  private:
   friend class NavigatorTest;
@@ -581,7 +586,8 @@ class CONTENT_EXPORT RenderFrameHostManager
       const GURL& destination_effective_url,
       bool destination_is_view_source_mode,
       bool is_failure,
-      bool is_reload) const;
+      bool is_reload,
+      bool cross_origin_opener_policy_mismatch) const;
 
   // Returns the SiteInstance to use for the navigation.
   scoped_refptr<SiteInstance> GetSiteInstanceForNavigation(
@@ -594,7 +600,8 @@ class CONTENT_EXPORT RenderFrameHostManager
       bool is_reload,
       bool dest_is_restore,
       bool dest_is_view_source_mode,
-      bool was_server_redirect);
+      bool was_server_redirect,
+      bool cross_origin_opener_policy_mismatch);
 
   // Returns a descriptor of the appropriate SiteInstance object for the given
   // |dest_url|, possibly reusing the current, source or destination
@@ -673,7 +680,7 @@ class CONTENT_EXPORT RenderFrameHostManager
       std::vector<FrameTree*>* opener_frame_trees,
       std::unordered_set<FrameTreeNode*>* nodes_with_back_links);
 
-  // Create swapped out RenderViews and RenderFrameProxies in the given
+  // Create RenderFrameProxies and inactive RenderViewHosts in the given
   // SiteInstance for the current node's FrameTree.  Used as a helper function
   // in CreateOpenerProxies for creating proxies in each FrameTree on the
   // opener chain.  Don't create proxies for the subtree rooted at
@@ -720,18 +727,17 @@ class CONTENT_EXPORT RenderFrameHostManager
                                 bool was_caused_by_user_gesture,
                                 bool is_same_document_navigation);
 
-  // Commits any pending sandbox flag or feature policy updates when the
-  // renderer's frame navigates.
-  void CommitPendingFramePolicy();
+  // Commits given frame policy when the renderer's frame navigates.
+  void CommitFramePolicy(const blink::FramePolicy& frame_policy);
 
   // Runs the unload handler in the old RenderFrameHost, after the new
   // RenderFrameHost has committed.  |old_render_frame_host| will either be
   // deleted or put on the pending delete list during this call.
-  void SwapOutOldFrame(
+  void UnloadOldFrame(
       std::unique_ptr<RenderFrameHostImpl> old_render_frame_host);
 
   // Discards a RenderFrameHost that was never made active (for active ones
-  // SwapOutOldFrame is used instead).
+  // UnloadOldFrame is used instead).
   void DiscardUnusedFrame(
       std::unique_ptr<RenderFrameHostImpl> render_frame_host);
 

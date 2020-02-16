@@ -293,6 +293,8 @@ std::unique_ptr<base::DictionaryValue> GetTranslatedStrings(bool is_google) {
               IDS_NEW_TAB_VOICE_OTHER_ERROR);
     AddString(translated_strings.get(), "voiceCloseTooltip",
               IDS_NEW_TAB_VOICE_CLOSE_TOOLTIP);
+    AddString(translated_strings.get(), "voiceSearchClosed",
+              IDS_NEW_TAB_VOICE_SEARCH_CLOSED);
 
     // Realbox
     AddString(translated_strings.get(), "realboxSeparator",
@@ -342,7 +344,6 @@ std::string GetLocalNtpPath() {
 base::Value ConvertCollectionInfoToDict(
     const std::vector<CollectionInfo>& collection_info) {
   base::Value collections(base::Value::Type::LIST);
-  collections.GetList().reserve(collection_info.size());
   for (const CollectionInfo& collection : collection_info) {
     base::Value dict(base::Value::Type::DICTIONARY);
     dict.SetKey("collectionId", base::Value(collection.collection_id));
@@ -357,7 +358,6 @@ base::Value ConvertCollectionInfoToDict(
 base::Value ConvertCollectionImageToDict(
     const std::vector<CollectionImage>& collection_image) {
   base::Value images(base::Value::Type::LIST);
-  images.GetList().reserve(collection_image.size());
   for (const CollectionImage& image : collection_image) {
     base::Value dict(base::Value::Type::DICTIONARY);
     dict.SetKey("thumbnailImageUrl",
@@ -404,7 +404,7 @@ scoped_refptr<base::RefCountedString> GetPromoString(
     dict.SetString("promoHtml", promo->promo_html);
     dict.SetString("promoLogUrl", promo->promo_log_url.spec());
     dict.SetString("promoId", promo->promo_id);
-    dict.SetBoolean("canOpenPrivilegedLinks", promo->can_open_privileged_links);
+    dict.SetBoolean("canOpenExtensionsPage", promo->can_open_extensions_page);
   }
 
   std::string js;
@@ -610,14 +610,7 @@ class LocalNtpSource::SearchConfigurationProvider
                                ->IsAccessibleBrowser());
 
     if (is_google) {
-      config_data.SetBoolean(
-          "richerPicker",
-          base::FeatureList::IsEnabled(ntp_features::kCustomizationMenuV2));
-      config_data.SetBoolean("chromeColors", base::FeatureList::IsEnabled(
-                                                 ntp_features::kChromeColors));
-      config_data.SetBoolean("chromeColorsCustomColorPicker",
-                             base::FeatureList::IsEnabled(
-                                 ntp_features::kChromeColorsCustomColorPicker));
+      config_data.SetBoolean("richerPicker", true);
       config_data.SetBoolean("realboxEnabled",
                              ntp_features::IsRealboxEnabled());
       config_data.SetBoolean("realboxMatchOmniboxTheme",

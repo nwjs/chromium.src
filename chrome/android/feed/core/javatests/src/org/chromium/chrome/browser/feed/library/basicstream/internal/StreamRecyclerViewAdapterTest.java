@@ -37,7 +37,7 @@ import org.mockito.Mockito;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
-import org.chromium.base.Supplier;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.feed.library.api.client.stream.Header;
 import org.chromium.chrome.browser.feed.library.api.client.stream.Stream.ContentChangedListener;
 import org.chromium.chrome.browser.feed.library.api.host.config.Configuration;
@@ -59,7 +59,7 @@ import org.chromium.chrome.browser.feed.library.piet.host.EventLogger;
 import org.chromium.chrome.browser.feed.library.sharedstream.deepestcontenttracker.DeepestContentTracker;
 import org.chromium.chrome.browser.feed.library.sharedstream.piet.PietEventLogger;
 import org.chromium.chrome.browser.feed.library.sharedstream.publicapi.scroll.ScrollObservable;
-import org.chromium.chrome.browser.feed.library.sharedstream.ui.R;
+import org.chromium.chrome.feed.R;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
 
 import java.util.Collections;

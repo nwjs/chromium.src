@@ -56,10 +56,7 @@ const char kSansSerifCssClass[] = "sans-serif";
 const char kMonospaceCssClass[] = "monospace";
 
 std::string GetPlatformSpecificCss() {
-#if defined(OS_IOS)
-  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
-      IDR_DISTILLER_IOS_CSS);
-#elif defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(OS_IOS)
   return "";
 #else  // Desktop
   return ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
@@ -112,7 +109,6 @@ void EnsureNonEmptyContent(std::string* content) {
 }
 
 std::string ReplaceHtmlTemplateValues(
-    const std::string& original_url,
     const DistilledPagePrefs::Theme theme,
     const DistilledPagePrefs::FontFamily font_family) {
   std::string html_template =
@@ -198,11 +194,10 @@ const std::string GetToggleLoadingIndicatorJs(bool is_last_page) {
   return "showLoadingIndicator(false);";
 }
 
-const std::string GetUnsafeArticleTemplateHtml(
-    const std::string& original_url,
+const std::string GetArticleTemplateHtml(
     DistilledPagePrefs::Theme theme,
     DistilledPagePrefs::FontFamily font_family) {
-  return ReplaceHtmlTemplateValues(original_url, theme, font_family);
+  return ReplaceHtmlTemplateValues(theme, font_family);
 }
 
 const std::string GetUnsafeArticleContentJs(

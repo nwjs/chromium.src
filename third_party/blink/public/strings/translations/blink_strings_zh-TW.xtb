@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">滑桿</translation>
 <translation id="1211441953136645838">章節附註</translation>
 <translation id="1281252709823657822">對話方塊</translation>
+<translation id="1306460908038601864">關閉</translation>
 <translation id="1335095011850992622">參與名單</translation>
 <translation id="1342835525016946179">文章</translation>
 <translation id="1359897965706325498">橫幅</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">請將這段文字加長到 <ph name="MIN_CHARACTERS" /> 個字元以上 (目前使用字元數：<ph name="CURRENT_LENGTH" />)。</translation>
 <translation id="383465348367842624">「<ph name="ATSIGN" />」後面的部分不應包含「<ph name="INVALIDCHARACTER" />」符號。</translation>
 <translation id="3846214748874656680">結束全螢幕</translation>
-<translation id="3889183436948184105">修訂版本</translation>
 <translation id="3920932319529768807">結論</translation>
 <translation id="3924558731517983934">應用程式</translation>
 <translation id="3944740393230681990">序言</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">請輸入一個數字。</translation>
 <translation id="4912536737030637138">參考書目</translation>
 <translation id="492244087561876220">評論</translation>
+<translation id="4971739861736909480">已選取「<ph name="ACCNAME" />」</translation>
 <translation id="4975562563186953947">已選取 <ph name="SELECTED_COUNT" /> 個項目</translation>
 <translation id="4992066212339426712">取消靜音</translation>
 <translation id="49969490063480558">請輸入「<ph name="ATSIGN" />」後面的部分。「<ph name="INVALIDADDRESS" />」不是完整值。</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">請輸入「<ph name="ATSIGN" />」後面的部分。「<ph name="INVALIDADDRESS" />」不是完整值。</translation>
 <translation id="5334352251556557839">無法播放媒體。</translation>
+<translation id="537648784377940524">最小日期 (<ph name="MIN_DATE_OR_TIME" />) 必須早於最大日期 (<ph name="MAX_DATE_OR_TIME" />)。</translation>
 <translation id="5406322316791861025">圖表</translation>
 <translation id="5453733299334684579">樹狀目錄項目</translation>
 <translation id="5466621249238537318">請選取一或多個檔案。</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">更多選項</translation>
 <translation id="576709008726043716">簡介</translation>
 <translation id="57838592816432529">靜音</translation>
-<translation id="5860033963881614850">關閉</translation>
 <translation id="588258955323874662">全螢幕</translation>
 <translation id="5888666972993069672">正在投放到「<ph name="DEVICE_FRIENDLY_NAME" />」</translation>
 <translation id="591047860372322273">搜尋框</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">請在電子郵件地址中包含「<ph name="ATSIGN" />」。「<ph name="INVALIDADDRESS" />」未包含「<ph name="ATSIGN" />」。</translation>
 <translation id="7891486169920085145">分割器</translation>
 <translation id="795667975304826397">未選擇任何檔案</translation>
+<translation id="7962328325860248200">未選取「<ph name="ACCNAME" />」</translation>
 <translation id="8034303206267677282">強</translation>
 <translation id="8053789581856978548">搜尋文字欄位</translation>
 <translation id="8057695513531652401">聲明</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">月</translation>
 <translation id="901493112792887934">目前時間 (以秒為單位)</translation>
 <translation id="901834265349196618">電子郵件</translation>
-<translation id="9023835124071926463">評論部分</translation>
 <translation id="9048119486235211610">導覽</translation>
 <translation id="9062295712474918030">文件</translation>
 <translation id="9093215626363556771">離開子母畫面</translation>

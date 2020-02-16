@@ -15,30 +15,29 @@ goog.require('Output');
 goog.require('ChromeVoxKbHandler');
 goog.require('ChromeVoxPrefs');
 
-/** @constructor */
-BackgroundKeyboardHandler = function() {
-  /** @type {number} @private */
-  this.passThroughKeyUpCount_ = 0;
+BackgroundKeyboardHandler = class {
+  constructor() {
+    /** @type {number} @private */
+    this.passThroughKeyUpCount_ = 0;
 
-  /** @type {Set} @private */
-  this.eatenKeyDowns_ = new Set();
+    /** @type {Set} @private */
+    this.eatenKeyDowns_ = new Set();
 
-  document.addEventListener('keydown', this.onKeyDown.bind(this), false);
-  document.addEventListener('keyup', this.onKeyUp.bind(this), false);
+    document.addEventListener('keydown', this.onKeyDown.bind(this), false);
+    document.addEventListener('keyup', this.onKeyUp.bind(this), false);
 
-  chrome.accessibilityPrivate.setKeyboardListener(
-      true, ChromeVox.isStickyPrefOn);
-  window['prefs'].switchToKeyMap('keymap_next');
-};
+    chrome.accessibilityPrivate.setKeyboardListener(
+        true, ChromeVox.isStickyPrefOn);
+    window['prefs'].switchToKeyMap('keymap_next');
+  }
 
-BackgroundKeyboardHandler.prototype = {
   /**
    * Handles key down events.
    * @param {Event} evt The key down event to process.
    * @return {boolean} This value has no effect since we ignore it in
    *     SpokenFeedbackEventRewriterDelegate::HandleKeyboardEvent.
    */
-  onKeyDown: function(evt) {
+  onKeyDown(evt) {
     EventSourceState.set(EventSourceType.STANDARD_KEYBOARD);
     evt.stickyMode = ChromeVox.isStickyModeOn();
     if (ChromeVox.passThroughMode) {
@@ -62,7 +61,7 @@ BackgroundKeyboardHandler.prototype = {
       this.eatenKeyDowns_.add(evt.keyCode);
     }
     return false;
-  },
+  }
 
   /**
    * Handles key up events.
@@ -70,9 +69,9 @@ BackgroundKeyboardHandler.prototype = {
    * @return {boolean} This value has no effect since we ignore it in
    *     SpokenFeedbackEventRewriterDelegate::HandleKeyboardEvent.
    */
-  onKeyUp: function(evt) {
-    // Reset pass through mode once a keyup (not involving the pass through key)
-    // is seen. The pass through command involves three keys.
+  onKeyUp(evt) {
+    // Reset pass through mode once a keyup (not involving the pass through
+    // key) is seen. The pass through command involves three keys.
     if (ChromeVox.passThroughMode) {
       if (this.passThroughKeyUpCount_ >= 3) {
         ChromeVox.passThroughMode = false;
@@ -90,21 +89,22 @@ BackgroundKeyboardHandler.prototype = {
 
     return false;
   }
-};
 
-/**
- * @param {number} keyCode
- * @param {chrome.accessibilityPrivate.SyntheticKeyboardModifiers=} modifiers
- * @return {boolean}
- */
-BackgroundKeyboardHandler.sendKeyPress = function(keyCode, modifiers) {
-  var key = {
-    type: chrome.accessibilityPrivate.SyntheticKeyboardEventType.KEYDOWN,
-    keyCode: keyCode,
-    modifiers: modifiers
-  };
-  chrome.accessibilityPrivate.sendSyntheticKeyEvent(key);
-  key['type'] = chrome.accessibilityPrivate.SyntheticKeyboardEventType.KEYUP;
-  chrome.accessibilityPrivate.sendSyntheticKeyEvent(key);
-  return true;
+  /**
+   * @param {number} keyCode
+   * @param {chrome.accessibilityPrivate.SyntheticKeyboardModifiers=}
+   *     modifiers
+   * @return {boolean}
+   */
+  static sendKeyPress(keyCode, modifiers) {
+    const key = {
+      type: chrome.accessibilityPrivate.SyntheticKeyboardEventType.KEYDOWN,
+      keyCode,
+      modifiers
+    };
+    chrome.accessibilityPrivate.sendSyntheticKeyEvent(key);
+    key['type'] = chrome.accessibilityPrivate.SyntheticKeyboardEventType.KEYUP;
+    chrome.accessibilityPrivate.sendSyntheticKeyEvent(key);
+    return true;
+  }
 };

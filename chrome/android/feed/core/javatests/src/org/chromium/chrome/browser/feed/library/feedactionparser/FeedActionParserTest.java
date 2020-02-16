@@ -216,6 +216,28 @@ public class FeedActionParserTest {
             .build())
         .build();
 
+    private static final FeedActionPayload MANAGE_INTERESTS_FEED_ACTION =
+        FeedActionPayload.newBuilder()
+        .setExtension(FeedAction.feedActionExtension,
+            FeedAction.newBuilder()
+            .setMetadata(
+                FeedActionMetadata.newBuilder()
+                .setType(Type.OPEN_URL)
+                .setOpenUrlData(
+                    OpenUrlData.newBuilder().setUrl(
+                        FeedActionParser.EXPECTED_MANAGE_INTERESTS_URL)))
+                .build())
+            .build();
+
+    private static final FeedActionPayload SEND_FEEDBACK_FEED_ACTION =
+        FeedActionPayload.newBuilder()
+        .setExtension(FeedAction.feedActionExtension,
+            FeedAction.newBuilder()
+            .setMetadata(FeedActionMetadata.newBuilder().setType(
+                Type.SEND_FEEDBACK))
+            .build())
+        .build();
+
     private static final Action OPEN_URL_ACTION =
         Action.newBuilder()
         .setExtension(PietFeedActionPayload.pietFeedActionPayloadExtension,
@@ -284,6 +306,23 @@ public class FeedActionParserTest {
             .setFeedActionPayload(LEARN_MORE_FEED_ACTION)
             .build())
         .build();
+
+    private static final Action MANAGE_INTERESTS_ACTION =
+        Action.newBuilder()
+        .setExtension(PietFeedActionPayload.pietFeedActionPayloadExtension,
+            PietFeedActionPayload.newBuilder()
+            .setFeedActionPayload(MANAGE_INTERESTS_FEED_ACTION)
+            .build())
+        .build();
+
+    private static final Action SEND_FEEDBACK_ACTION =
+        Action.newBuilder()
+        .setExtension(PietFeedActionPayload.pietFeedActionPayloadExtension,
+            PietFeedActionPayload.newBuilder()
+            .setFeedActionPayload(SEND_FEEDBACK_FEED_ACTION)
+            .build())
+        .build();
+
     private static final ContentId DISMISS_CONTENT_ID = ContentId.newBuilder().setId(123).build();
 
     private static final String DISMISS_CONTENT_ID_STRING = "dismissContentId";
@@ -435,6 +474,16 @@ public class FeedActionParserTest {
 
         verify(mStreamActionApi).openUrl(URL);
         verify(mStreamActionApi).onClientAction(ActionType.OPEN_URL);
+    }
+
+    @Test
+    public void testParseAction_manageInterests() {
+        when(mStreamActionApi.canOpenUrl()).thenReturn(true);
+        mFeedActionParser.parseAction(MANAGE_INTERESTS_ACTION, mStreamActionApi,
+                /* view= */ null, LogData.getDefaultInstance(), ActionSource.CLICK);
+
+        verify(mStreamActionApi).openUrl(FeedActionParser.EXPECTED_MANAGE_INTERESTS_URL);
+        verify(mStreamActionApi).onClientAction(ActionType.MANAGE_INTERESTS);
     }
 
     @Test
@@ -746,6 +795,16 @@ public class FeedActionParserTest {
                 null, ActionSource.CLICK);
 
         verify(mStreamActionApi, never()).learnMore();
+    }
+
+    @Test
+    public void testSendFeedback() {
+        when(mStreamActionApi.canLearnMore()).thenReturn(true);
+        mFeedActionParser.parseAction(SEND_FEEDBACK_ACTION, mStreamActionApi,
+                /* view= */ null, /* veLoggingToken- */
+                null, ActionSource.CLICK);
+
+        // TODO(petewil): Figure out how to verify that it worked as expected.
     }
 
     @Test

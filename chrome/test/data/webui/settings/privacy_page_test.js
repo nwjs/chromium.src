@@ -15,7 +15,7 @@ cr.define('settings_privacy_page', function() {
   /** @implements {settings.ClearBrowsingDataBrowserProxy} */
   class TestClearBrowsingDataBrowserProxy extends TestBrowserProxy {
     constructor() {
-      super(['initialize', 'clearBrowsingData']);
+      super(['initialize', 'clearBrowsingData', 'getInstalledApps']);
 
       /**
        * The promise to return from |clearBrowsingData|.
@@ -24,6 +24,12 @@ cr.define('settings_privacy_page', function() {
        * @private {?Promise}
        */
       this.clearBrowsingDataPromise_ = null;
+
+      /**
+       * Response for |getInstalledApps|.
+       * @private {!Array<!InstalledApp>}
+       */
+      this.installedApps_ = [];
     }
 
     /** @param {!Promise} promise */
@@ -32,12 +38,24 @@ cr.define('settings_privacy_page', function() {
     }
 
     /** @override */
-    clearBrowsingData(dataTypes, timePeriod) {
-      this.methodCalled('clearBrowsingData', [dataTypes, timePeriod]);
+    clearBrowsingData(dataTypes, timePeriod, installedApps) {
+      this.methodCalled(
+          'clearBrowsingData', [dataTypes, timePeriod, installedApps]);
       cr.webUIListenerCallback('browsing-data-removing', true);
       return this.clearBrowsingDataPromise_ !== null ?
           this.clearBrowsingDataPromise_ :
           Promise.resolve();
+    }
+
+    /** @param {!Array<!InstalledApp>} apps */
+    setInstalledApps(apps) {
+      this.installedApps_ = apps;
+    }
+
+    /** @override */
+    getInstalledApps(timePeriod) {
+      this.methodCalled('getInstalledApps');
+      return Promise.resolve(this.installedApps_);
     }
 
     /** @override */
@@ -51,18 +69,23 @@ cr.define('settings_privacy_page', function() {
     return {
       browser: {
         clear_data: {
-          time_period: {
-            key: 'browser.clear_data.time_period',
-            type: chrome.settingsPrivate.PrefType.NUMBER,
-            value: 0,
-          },
-          time_period_basic: {
-            key: 'browser.clear_data.time_period_basic',
-            type: chrome.settingsPrivate.PrefType.NUMBER,
-            value: 0,
-          },
           browsing_history: {
             key: 'browser.clear_data.browsing_history',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          browsing_history_basic: {
+            key: 'browser.clear_data.browsing_history_basic',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          cache: {
+            key: 'browser.clear_data.cache',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          cache_basic: {
+            key: 'browser.clear_data.cache_basic',
             type: chrome.settingsPrivate.PrefType.BOOLEAN,
             value: false,
           },
@@ -76,10 +99,40 @@ cr.define('settings_privacy_page', function() {
             type: chrome.settingsPrivate.PrefType.BOOLEAN,
             value: false,
           },
-          cache_basic: {
-            key: 'browser.clear_data.cache_basic',
+          download_history: {
+            key: 'browser.clear_data.download_history',
             type: chrome.settingsPrivate.PrefType.BOOLEAN,
             value: false,
+          },
+          hosted_apps_data: {
+            key: 'browser.clear_data.hosted_apps_data',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          form_data: {
+            key: 'browser.clear_data.form_data',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          passwords: {
+            key: 'browser.clear_data.passwords',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          site_settings: {
+            key: 'browser.clear_data.site_settings',
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          },
+          time_period: {
+            key: 'browser.clear_data.time_period',
+            type: chrome.settingsPrivate.PrefType.NUMBER,
+            value: 0,
+          },
+          time_period_basic: {
+            key: 'browser.clear_data.time_period_basic',
+            type: chrome.settingsPrivate.PrefType.NUMBER,
+            value: 0,
           },
         },
         last_clear_browsing_data_tab: {
@@ -96,14 +149,30 @@ cr.define('settings_privacy_page', function() {
       /** @type {settings.TestPrivacyPageBrowserProxy} */
       let testBrowserProxy;
 
+      /** @type {settings.TestMetricsBrowserProxy} */
+      let testMetricsBrowserProxy;
+
       /** @type {SettingsPrivacyPageElement} */
       let page;
 
       setup(function() {
+        testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+        settings.MetricsBrowserProxyImpl.instance_ = testMetricsBrowserProxy;
         testBrowserProxy = new TestPrivacyPageBrowserProxy();
         settings.PrivacyPageBrowserProxyImpl.instance_ = testBrowserProxy;
+        const testSyncBrowserProxy = new TestSyncBrowserProxy();
+        settings.SyncBrowserProxyImpl.instance_ = testSyncBrowserProxy;
         PolymerTest.clearBody();
         page = document.createElement('settings-privacy-page');
+        page.prefs = {
+          profile: {password_manager_leak_detection: {value: true}},
+          signin: {
+            allowed_on_next_startup:
+                {type: chrome.settingsPrivate.PrefType.BOOLEAN, value: true}
+          },
+          safebrowsing:
+              {enabled: {value: true}, scout_reporting_enabled: {value: true}},
+        };
         document.body.appendChild(page);
       });
 
@@ -113,7 +182,7 @@ cr.define('settings_privacy_page', function() {
 
       test('LogMangeCerfificatesClick', function() {
         page.$$('#manageCertificates').click();
-        return testBrowserProxy.whenCalled('recordSettingsPageHistogram')
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
             .then(result => {
               assertEquals(
                   settings.SettingsPageInteractions.PRIVACY_MANAGE_CERTIFICATES,
@@ -123,7 +192,7 @@ cr.define('settings_privacy_page', function() {
 
       test('LogClearBrowsingClick', function() {
         page.$$('#clearBrowsingData').click();
-        return testBrowserProxy.whenCalled('recordSettingsPageHistogram')
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
             .then(result => {
               assertEquals(
                   settings.SettingsPageInteractions.PRIVACY_CLEAR_BROWSING_DATA,
@@ -133,7 +202,7 @@ cr.define('settings_privacy_page', function() {
 
       test('LogDoNotTrackClick', function() {
         page.$$('#doNotTrack').click();
-        return testBrowserProxy.whenCalled('recordSettingsPageHistogram')
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
             .then(result => {
               assertEquals(
                   settings.SettingsPageInteractions.PRIVACY_DO_NOT_TRACK,
@@ -143,7 +212,7 @@ cr.define('settings_privacy_page', function() {
 
       test('LogCanMakePaymentToggleClick', function() {
         page.$$('#canMakePaymentToggle').click();
-        return testBrowserProxy.whenCalled('recordSettingsPageHistogram')
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
             .then(result => {
               assertEquals(
                   settings.SettingsPageInteractions.PRIVACY_PAYMENT_METHOD,
@@ -153,10 +222,32 @@ cr.define('settings_privacy_page', function() {
 
       test('LogSiteSettingsSubpageClick', function() {
         page.$$('#site-settings-subpage-trigger').click();
-        return testBrowserProxy.whenCalled('recordSettingsPageHistogram')
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
             .then(result => {
               assertEquals(
                   settings.SettingsPageInteractions.PRIVACY_SITE_SETTINGS,
+                  result);
+            });
+      });
+
+      test('LogSafeBrowsingToggleClick', function() {
+        Polymer.dom.flush();
+        page.$$('#safeBrowsingToggle').click();
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
+            .then(result => {
+              assertEquals(
+                  settings.SettingsPageInteractions.PRIVACY_SAFE_BROWSING,
+                  result);
+            });
+      });
+
+      test('LogSafeBrowsingReportingToggleClick', function() {
+        Polymer.dom.flush();
+        page.$$('#safeBrowsingReportingToggle').click();
+        return testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram')
+            .then(result => {
+              assertEquals(
+                  settings.SettingsPageInteractions.PRIVACY_IMPROVE_SECURITY,
                   result);
             });
       });
@@ -205,6 +296,7 @@ cr.define('settings_privacy_page', function() {
 
         page = document.createElement('settings-privacy-page');
         page.prefs = {
+          profile: {password_manager_leak_detection: {value: true}},
           signin: {
             allowed_on_next_startup:
                 {type: chrome.settingsPrivate.PrefType.BOOLEAN, value: true}
@@ -235,153 +327,9 @@ cr.define('settings_privacy_page', function() {
             dialog.$$('#clearBrowsingDataDialog'), 'open', '');
       });
 
-      test('defaultPrivacySettings', function() {
-        Polymer.dom.flush();
-
-        assertFalse(loadTimeData.getBoolean('privacySettingsRedesignEnabled'));
-        assertVisible(page.$$('#syncLinkRow'), true);
-
-        // These elements should not even be present in the DOM
-        assertFalse(!!page.$$('#safeBrowsingToggle'));
-        assertFalse(!!page.$$('#passwordsLeakDetectionToggle'));
-        assertFalse(!!page.$$('#safeBrowsingReportingToggle'));
-      });
-
-      if (!cr.isChromeOS) {
-        test('signinAllowedToggle', function() {
-          const toggle = page.$$('#signinAllowedToggle');
-          assertVisible(toggle, true);
-
-          page.syncStatus = {signedIn: false};
-          // Check initial setup.
-          assertTrue(toggle.checked);
-          assertTrue(page.prefs.signin.allowed_on_next_startup.value);
-          assertFalse(page.$.toast.open);
-
-          // When the user is signed out, clicking the toggle should work
-          // normally and the restart toast should be opened.
-          toggle.click();
-          assertFalse(toggle.checked);
-          assertFalse(page.prefs.signin.allowed_on_next_startup.value);
-          assertTrue(page.$.toast.open);
-
-          // Clicking it again, turns the toggle back on. The toast remains
-          // open.
-          toggle.click();
-          assertTrue(toggle.checked);
-          assertTrue(page.prefs.signin.allowed_on_next_startup.value);
-          assertTrue(page.$.toast.open);
-
-          // Reset toast.
-          page.showRestart_ = false;
-          assertFalse(page.$.toast.open);
-
-          page.syncStatus = {signedIn: true};
-          // When the user is signed in, clicking the toggle should open the
-          // sign-out dialog.
-          assertFalse(!!page.$$('settings-signout-dialog'));
-          toggle.click();
-          return test_util.eventToPromise('cr-dialog-open', page)
-              .then(function() {
-                Polymer.dom.flush();
-                // The toggle remains on.
-                assertTrue(toggle.checked);
-                assertTrue(page.prefs.signin.allowed_on_next_startup.value);
-                assertFalse(page.$.toast.open);
-
-                const signoutDialog = page.$$('settings-signout-dialog');
-                assertTrue(!!signoutDialog);
-                assertTrue(signoutDialog.$$('#dialog').open);
-
-                // The user clicks cancel.
-                const cancel = signoutDialog.$$('#disconnectCancel');
-                cancel.click();
-
-                return test_util.eventToPromise('close', signoutDialog);
-              })
-              .then(function() {
-                Polymer.dom.flush();
-                assertFalse(!!page.$$('settings-signout-dialog'));
-
-                // After the dialog is closed, the toggle remains turned on.
-                assertTrue(toggle.checked);
-                assertTrue(page.prefs.signin.allowed_on_next_startup.value);
-                assertFalse(page.$.toast.open);
-
-                // The user clicks the toggle again.
-                toggle.click();
-                return test_util.eventToPromise('cr-dialog-open', page);
-              })
-              .then(function() {
-                Polymer.dom.flush();
-                const signoutDialog = page.$$('settings-signout-dialog');
-                assertTrue(!!signoutDialog);
-                assertTrue(signoutDialog.$$('#dialog').open);
-
-                // The user clicks confirm, which signs them out.
-                const disconnectConfirm =
-                    signoutDialog.$$('#disconnectConfirm');
-                disconnectConfirm.click();
-
-                return test_util.eventToPromise('close', signoutDialog);
-              })
-              .then(function() {
-                Polymer.dom.flush();
-                // After the dialog is closed, the toggle is turned off and the
-                // toast is shown.
-                assertFalse(toggle.checked);
-                assertFalse(page.prefs.signin.allowed_on_next_startup.value);
-                assertTrue(page.$.toast.open);
-              });
-        });
-      }
-    });
-  }
-
-  function registerPrivacySettingsRedesignTests() {
-    suite('PrivacySettingsRedesignTests', function() {
-      /** @type {SettingsPrivacyPageElement} */
-      let page;
-
-      suiteSetup(function() {
-        loadTimeData.overrideValues({
-          privacySettingsRedesignEnabled: true,
-          passwordsLeakDetectionEnabled: true,
-        });
-      });
-
-      setup(function() {
-        PolymerTest.clearBody();
-        page = document.createElement('settings-privacy-page');
-        page.prefs = {
-          profile: {password_manager_leak_detection: {value: true}},
-          safebrowsing:
-              {enabled: {value: true}, scout_reporting_enabled: {value: true}},
-        };
-        document.body.appendChild(page);
-        Polymer.dom.flush();
-      });
-
-      teardown(function() {
-        page.remove();
-      });
-
-      test('redesignedPrivacySettings', function() {
-        Polymer.dom.flush();
-
-        // Unloaded elements will not be present in the DOM
-        assertFalse(!!page.$$('#syncLinkRow'));
-        assertFalse(!!page.$$('#signinAllowedToggle'));
-
-        assertVisible(page.$$('#safeBrowsingToggle'), true);
-        assertVisible(page.$$('#passwordsLeakDetectionToggle'), true);
-        assertVisible(page.$$('#safeBrowsingReportingToggle'), true);
-      });
-
       test('safeBrowsingReportingToggle', function() {
-        const safeBrowsingToggle = page.$$('#safeBrowsingToggle');
-        const safeBrowsingReportingToggle =
-            page.$$('#safeBrowsingReportingToggle');
+        const safeBrowsingToggle = page.$.safeBrowsingToggle;
+        const safeBrowsingReportingToggle = page.$.safeBrowsingReportingToggle;
         assertTrue(safeBrowsingToggle.checked);
         assertFalse(safeBrowsingReportingToggle.disabled);
         assertTrue(safeBrowsingReportingToggle.checked);
@@ -402,9 +350,9 @@ cr.define('settings_privacy_page', function() {
     });
   }
 
-  function registerClearBrowsingDataTestsDice() {
+  function registerClearBrowsingDataTestsDesktop() {
     assert(!cr.isChromeOS);
-    suite('ClearBrowsingDataDice', function() {
+    suite('ClearBrowsingDataDesktop', function() {
       /** @type {settings.TestClearBrowsingDataBrowserProxy} */
       let testBrowserProxy;
 
@@ -413,12 +361,6 @@ cr.define('settings_privacy_page', function() {
 
       /** @type {SettingsClearBrowsingDataDialogElement} */
       let element;
-
-      suiteSetup(function() {
-        loadTimeData.overrideValues({
-          diceEnabled: true,
-        });
-      });
 
       setup(function() {
         testBrowserProxy = new TestClearBrowsingDataBrowserProxy();
@@ -438,15 +380,14 @@ cr.define('settings_privacy_page', function() {
         element.remove();
       });
 
-      test('ClearBrowsingDataSyncAccountInfoDice', function() {
+      test('ClearBrowsingDataSyncAccountInfoDesktop', function() {
         // Not syncing: the footer is hidden.
         cr.webUIListenerCallback('sync-status-changed', {
           signedIn: false,
           hasError: false,
         });
         Polymer.dom.flush();
-        const footer = element.$$('#clearBrowsingDataDialog [slot=footer]');
-        assertTrue(footer.hidden);
+        assertFalse(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
 
         // Syncing: the footer is shown, with the normal sync info.
         cr.webUIListenerCallback('sync-status-changed', {
@@ -454,7 +395,7 @@ cr.define('settings_privacy_page', function() {
           hasError: false,
         });
         Polymer.dom.flush();
-        assertFalse(footer.hidden);
+        assertTrue(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
         assertVisible(element.$$('#sync-info'), true);
         assertVisible(element.$$('#sync-paused-info'), false);
         assertVisible(element.$$('#sync-passphrase-error-info'), false);
@@ -497,14 +438,13 @@ cr.define('settings_privacy_page', function() {
         assertVisible(element.$$('#sync-other-error-info'), true);
       });
 
-      test('ClearBrowsingDataPauseSyncDice', function() {
+      test('ClearBrowsingDataPauseSyncDesktop', function() {
         cr.webUIListenerCallback('sync-status-changed', {
           signedIn: true,
           hasError: false,
         });
         Polymer.dom.flush();
-        assertFalse(
-            element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
+        assertTrue(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
         const syncInfo = element.$$('#sync-info');
         assertVisible(syncInfo, true);
         const signoutLink = syncInfo.querySelector('a[href]');
@@ -514,15 +454,14 @@ cr.define('settings_privacy_page', function() {
         assertEquals(1, testSyncBrowserProxy.getCallCount('pauseSync'));
       });
 
-      test('ClearBrowsingDataStartSignInDice', function() {
+      test('ClearBrowsingDataStartSignInDesktop', function() {
         cr.webUIListenerCallback('sync-status-changed', {
           signedIn: true,
           hasError: true,
           statusAction: settings.StatusAction.REAUTHENTICATE,
         });
         Polymer.dom.flush();
-        assertFalse(
-            element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
+        assertTrue(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
         const syncInfo = element.$$('#sync-paused-info');
         assertVisible(syncInfo, true);
         const signinLink = syncInfo.querySelector('a[href]');
@@ -532,21 +471,22 @@ cr.define('settings_privacy_page', function() {
         assertEquals(1, testSyncBrowserProxy.getCallCount('startSignIn'));
       });
 
-      test('ClearBrowsingDataHandlePassphraseErrorDice', function() {
+      test('ClearBrowsingDataHandlePassphraseErrorDesktop', function() {
         cr.webUIListenerCallback('sync-status-changed', {
           signedIn: true,
           hasError: true,
           statusAction: settings.StatusAction.ENTER_PASSPHRASE,
         });
         Polymer.dom.flush();
-        assertFalse(
-            element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
+        assertTrue(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
         const syncInfo = element.$$('#sync-passphrase-error-info');
         assertVisible(syncInfo, true);
         const passphraseLink = syncInfo.querySelector('a[href]');
         assertTrue(!!passphraseLink);
         passphraseLink.click();
-        assertEquals(settings.routes.SYNC, settings.getCurrentRoute());
+        assertEquals(
+            settings.routes.SYNC,
+            settings.Router.getInstance().getCurrentRoute());
       });
     });
   }
@@ -558,12 +498,6 @@ cr.define('settings_privacy_page', function() {
 
       /** @type {SettingsClearBrowsingDataDialogElement} */
       let element;
-
-      suiteSetup(function() {
-        loadTimeData.overrideValues({
-          diceEnabled: false,
-        });
-      });
 
       setup(function() {
         testBrowserProxy = new TestClearBrowsingDataBrowserProxy();
@@ -581,6 +515,7 @@ cr.define('settings_privacy_page', function() {
 
       test('ClearBrowsingDataTap', function() {
         assertTrue(element.$$('#clearBrowsingDataDialog').open);
+        assertFalse(element.$$('#installedAppsDialog').open);
 
         const cancelButton = element.$$('.cancel-button');
         assertTrue(!!cancelButton);
@@ -606,12 +541,14 @@ cr.define('settings_privacy_page', function() {
             .then(function(args) {
               const dataTypes = args[0];
               const timePeriod = args[1];
+              const installedApps = args[2];
               assertEquals(1, dataTypes.length);
               assertEquals('browser.clear_data.cookies_basic', dataTypes[0]);
               assertTrue(element.$$('#clearBrowsingDataDialog').open);
               assertTrue(cancelButton.disabled);
               assertTrue(actionButton.disabled);
               assertTrue(spinner.active);
+              assertTrue(installedApps.length == 0);
 
               // Simulate signal from browser indicating that clearing has
               // completed.
@@ -627,6 +564,9 @@ cr.define('settings_privacy_page', function() {
               assertFalse(actionButton.disabled);
               assertFalse(spinner.active);
               assertFalse(!!element.$$('#notice'));
+
+              // Check that the dialog didn't switch to installed apps.
+              assertFalse(element.$$('#installedAppsDialog').open);
             });
       });
 
@@ -737,44 +677,46 @@ cr.define('settings_privacy_page', function() {
         });
       });
 
-      // When Dice is disabled, the footer is never shown.
-      test('ClearBrowsingDataSyncAccountInfo', function() {
-        assertTrue(element.$$('#clearBrowsingDataDialog').open);
+      if (cr.isChromeOS) {
+        // On ChromeOS the footer is never shown.
+        test('ClearBrowsingDataSyncAccountInfo', function() {
+          assertTrue(element.$$('#clearBrowsingDataDialog').open);
 
-        // Not syncing.
-        cr.webUIListenerCallback('sync-status-changed', {
-          signedIn: false,
-          hasError: false,
-        });
-        Polymer.dom.flush();
-        assertTrue(element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
+          // Not syncing.
+          cr.webUIListenerCallback('sync-status-changed', {
+            signedIn: false,
+            hasError: false,
+          });
+          Polymer.dom.flush();
+          assertFalse(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
 
-        // Syncing.
-        cr.webUIListenerCallback('sync-status-changed', {
-          signedIn: true,
-          hasError: false,
-        });
-        Polymer.dom.flush();
-        assertTrue(element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
+          // Syncing.
+          cr.webUIListenerCallback('sync-status-changed', {
+            signedIn: true,
+            hasError: false,
+          });
+          Polymer.dom.flush();
+          assertFalse(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
 
-        // Sync passphrase error.
-        cr.webUIListenerCallback('sync-status-changed', {
-          signedIn: true,
-          hasError: true,
-          statusAction: settings.StatusAction.ENTER_PASSPHRASE,
-        });
-        Polymer.dom.flush();
-        assertTrue(element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
+          // Sync passphrase error.
+          cr.webUIListenerCallback('sync-status-changed', {
+            signedIn: true,
+            hasError: true,
+            statusAction: settings.StatusAction.ENTER_PASSPHRASE,
+          });
+          Polymer.dom.flush();
+          assertFalse(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
 
-        // Other sync error.
-        cr.webUIListenerCallback('sync-status-changed', {
-          signedIn: true,
-          hasError: true,
-          statusAction: settings.StatusAction.NO_ACTION,
+          // Other sync error.
+          cr.webUIListenerCallback('sync-status-changed', {
+            signedIn: true,
+            hasError: true,
+            statusAction: settings.StatusAction.NO_ACTION,
+          });
+          Polymer.dom.flush();
+          assertFalse(!!element.$$('#clearBrowsingDataDialog [slot=footer]'));
         });
-        Polymer.dom.flush();
-        assertTrue(element.$$('#clearBrowsingDataDialog [slot=footer]').hidden);
-      });
+      }
     });
   }
 
@@ -806,7 +748,8 @@ cr.define('settings_privacy_page', function() {
         settings.PrivacyPageBrowserProxyImpl.instance_ = testBrowserProxy;
         PolymerTest.clearBody();
 
-        settings.router.navigateTo(settings.routes.SITE_SETTINGS_SOUND);
+        settings.Router.getInstance().navigateTo(
+            settings.routes.SITE_SETTINGS_SOUND);
         page = document.createElement('settings-privacy-page');
         document.body.appendChild(page);
         return flushAsync();
@@ -895,13 +838,80 @@ cr.define('settings_privacy_page', function() {
     });
   }
 
+  function registerInstalledAppsTests() {
+    suite('InstalledApps', function() {
+      /** @type {settings.TestClearBrowsingDataBrowserProxy} */
+      let testBrowserProxy;
+
+      /** @type {SettingsClearBrowsingDataDialogElement} */
+      let element;
+
+      /** @type {Array<InstalledApp>} */
+      const installedApps = [
+        {registerableDomain: 'google.com', isChecked: true},
+        {registerableDomain: 'yahoo.com', isChecked: true},
+      ];
+
+      setup(() => {
+        loadTimeData.overrideValues({installedAppsInCbd: true});
+        testBrowserProxy = new TestClearBrowsingDataBrowserProxy();
+        testBrowserProxy.setInstalledApps(installedApps);
+        settings.ClearBrowsingDataBrowserProxyImpl.instance_ = testBrowserProxy;
+        PolymerTest.clearBody();
+        element = document.createElement('settings-clear-browsing-data-dialog');
+        element.set('prefs', getClearBrowsingDataPrefs());
+        document.body.appendChild(element);
+        return testBrowserProxy.whenCalled('initialize');
+      });
+
+      teardown(() => {
+        element.remove();
+      });
+
+      test('getInstalledApps', async function() {
+        assertTrue(element.$.clearBrowsingDataDialog.open);
+        assertFalse(element.$.installedAppsDialog.open);
+
+        // Select cookie checkbox.
+        element.$.cookiesCheckboxBasic.$.checkbox.click();
+        assertTrue(element.$.cookiesCheckboxBasic.checked);
+        // Clear browsing data.
+        element.$.clearBrowsingDataConfirm.click();
+        assertTrue(element.$.clearBrowsingDataDialog.open);
+
+        await testBrowserProxy.whenCalled('getInstalledApps');
+        await test_util.whenAttributeIs(
+            element.$.installedAppsDialog, 'open', '');
+        const firstInstalledApp = element.$$('installed-app-checkbox');
+        assertTrue(!!firstInstalledApp);
+        assertEquals(
+            'google.com', firstInstalledApp.installed_app.registerableDomain);
+        assertTrue(firstInstalledApp.installed_app.isChecked);
+        // Choose to keep storage for google.com.
+        firstInstalledApp.$.checkbox.click();
+        assertFalse(firstInstalledApp.installed_app.isChecked);
+        // Confirm deletion.
+        element.$.installedAppsConfirm.click();
+        const [dataTypes, timePeriod, apps] =
+            await testBrowserProxy.whenCalled('clearBrowsingData');
+        assertEquals(1, dataTypes.length);
+        assertEquals('browser.clear_data.cookies_basic', dataTypes[0]);
+        assertEquals(2, apps.length);
+        assertEquals('google.com', apps[0].registerableDomain);
+        assertFalse(apps[0].isChecked);
+        assertEquals('yahoo.com', apps[1].registerableDomain);
+        assertTrue(apps[1].isChecked);
+      });
+    });
+  }
+
   return {
     registerNativeCertificateManagerTests,
-    registerClearBrowsingDataTestsDice,
+    registerClearBrowsingDataTestsDesktop,
     registerClearBrowsingDataTests,
+    registerInstalledAppsTests,
     registerPrivacyPageTests,
     registerPrivacyPageSoundTests,
-    registerPrivacySettingsRedesignTests,
     registerUMALoggingTests,
   };
 });

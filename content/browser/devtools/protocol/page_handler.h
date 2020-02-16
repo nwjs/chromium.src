@@ -166,6 +166,9 @@ class PageHandler : public DevToolsDomainHandler,
   void GetInstallabilityErrors(
       std::unique_ptr<GetInstallabilityErrorsCallback> callback) override;
 
+  void GetManifestIcons(
+      std::unique_ptr<GetManifestIconsCallback> callback) override;
+
  private:
   enum EncodingFormat { PNG, JPEG };
 
@@ -190,6 +193,7 @@ class PageHandler : public DevToolsDomainHandler,
 
   void GotManifest(std::unique_ptr<GetAppManifestCallback> callback,
                    const GURL& manifest_url,
+                   const ::blink::Manifest& parsed_manifest,
                    blink::mojom::ManifestDebugInfoPtr debug_info);
 
   // RenderWidgetHostObserver overrides.

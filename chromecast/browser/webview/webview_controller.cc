@@ -12,7 +12,6 @@
 #include "chromecast/base/version.h"
 #include "chromecast/browser/cast_web_contents_impl.h"
 #include "chromecast/browser/webview/proto/webview.pb.h"
-#include "chromecast/browser/webview/webview_layout_manager.h"
 #include "chromecast/browser/webview/webview_navigation_throttle.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browsing_data_remover.h"
@@ -84,7 +83,8 @@ WebviewController::MaybeGetNavigationThrottle(
   if (webview_user_data &&
       webview_user_data->controller()->has_navigation_delegate_) {
     return std::make_unique<WebviewNavigationThrottle>(
-        handle, webview_user_data->controller());
+        handle,
+        webview_user_data->controller()->weak_ptr_factory_.GetWeakPtr());
   }
   return nullptr;
 }
@@ -123,6 +123,18 @@ void WebviewController::ProcessRequest(const webview::WebviewRequest& request) {
   }
 }
 
+void WebviewController::DidFirstVisuallyNonEmptyPaint() {
+  if (client_) {
+    std::unique_ptr<webview::WebviewResponse> response =
+        std::make_unique<webview::WebviewResponse>();
+    auto* event = response->mutable_page_event();
+    event->set_url(contents_->GetURL().spec());
+    event->set_current_page_state(current_state());
+    event->set_did_first_visually_non_empty_paint(true);
+    client_->EnqueueSend(std::move(response));
+  }
+}
+
 void WebviewController::SendNavigationEvent(
     WebviewNavigationThrottle* throttle,
     content::NavigationHandle* navigation_handle) {
@@ -132,14 +144,12 @@ void WebviewController::SendNavigationEvent(
       std::make_unique<webview::WebviewResponse>();
   auto* navigation_event = response->mutable_navigation_event();
 
-  navigation_event->set_url(navigation_handle->GetURL().GetContent());
+  navigation_event->set_url(navigation_handle->GetURL().spec());
   navigation_event->set_is_for_main_frame(navigation_handle->IsInMainFrame());
   navigation_event->set_is_renderer_initiated(
       navigation_handle->IsRendererInitiated());
   navigation_event->set_is_same_document(navigation_handle->IsSameDocument());
   navigation_event->set_has_user_gesture(navigation_handle->HasUserGesture());
-  navigation_event->set_previous_url(
-      navigation_handle->GetPreviousURL().GetContent());
   navigation_event->set_was_server_redirect(
       navigation_handle->WasServerRedirect());
   navigation_event->set_is_post(navigation_handle->IsPost());
@@ -148,6 +158,12 @@ void WebviewController::SendNavigationEvent(
 
   current_navigation_throttle_ = throttle;
   client_->EnqueueSend(std::move(response));
+}
+
+void WebviewController::OnNavigationThrottleDestroyed(
+    WebviewNavigationThrottle* throttle) {
+  if (current_navigation_throttle_ == throttle)
+    current_navigation_throttle_ = nullptr;
 }
 
 void WebviewController::ClosePage() {

@@ -15,7 +15,7 @@
 #include "ash/app_list/test/app_list_test_helper.h"
 #include "ash/display/screen_orientation_controller.h"
 #include "ash/display/screen_orientation_controller_test_api.h"
-#include "ash/ime/ime_controller.h"
+#include "ash/ime/ime_controller_impl.h"
 #include "ash/ime/mode_indicator_observer.h"
 #include "ash/ime/test_ime_controller_client.h"
 #include "ash/magnifier/docked_magnifier_controller_impl.h"
@@ -24,9 +24,9 @@
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/cpp/ash_switches.h"
+#include "ash/public/cpp/ime_info.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/test/shell_test_api.h"
-#include "ash/public/mojom/ime_info.mojom.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/session/test_session_controller_client.h"
 #include "ash/shell.h"
@@ -87,15 +87,15 @@ using media_session::mojom::MediaSessionAction;
 namespace {
 
 void AddTestImes() {
-  mojom::ImeInfoPtr ime1 = mojom::ImeInfo::New();
-  ime1->id = "id1";
-  mojom::ImeInfoPtr ime2 = mojom::ImeInfo::New();
-  ime2->id = "id2";
-  std::vector<mojom::ImeInfoPtr> available_imes;
+  ImeInfo ime1;
+  ime1.id = "id1";
+  ImeInfo ime2;
+  ime2.id = "id2";
+  std::vector<ImeInfo> available_imes;
   available_imes.push_back(std::move(ime1));
   available_imes.push_back(std::move(ime2));
-  Shell::Get()->ime_controller()->RefreshIme(
-      "id1", std::move(available_imes), std::vector<mojom::ImeMenuItemPtr>());
+  Shell::Get()->ime_controller()->RefreshIme("id1", std::move(available_imes),
+                                             std::vector<ImeMenuItem>());
 }
 
 ui::Accelerator CreateReleaseAccelerator(ui::KeyboardCode key_code,
@@ -614,7 +614,7 @@ TEST_F(AcceleratorControllerTest, RotateScreen) {
 TEST_F(AcceleratorControllerTest, RotateScreenInPhysicalTabletState) {
   display::test::DisplayManagerTestApi(display_manager())
       .SetFirstDisplayAsInternalDisplay();
-  ash::ShellTestApi().SetTabletModeEnabledForTest(true);
+  ShellTestApi().SetTabletModeEnabledForTest(true);
   auto* tablet_mode_controller = Shell::Get()->tablet_mode_controller();
   auto* screen_orientation_controller =
       Shell::Get()->screen_orientation_controller();
@@ -633,7 +633,7 @@ TEST_F(AcceleratorControllerTest, RotateScreenInPhysicalTabletState) {
 
   // When the device is no longer used as a tablet, the original rotation will
   // be restored.
-  ash::ShellTestApi().SetTabletModeEnabledForTest(false);
+  ShellTestApi().SetTabletModeEnabledForTest(false);
   EXPECT_FALSE(tablet_mode_controller->is_in_tablet_physical_state());
   EXPECT_EQ(OrientationLockType::kLandscapePrimary,
             screen_orientation_controller->GetCurrentOrientation());
@@ -648,7 +648,7 @@ TEST_F(AcceleratorControllerTest, RotateScreenInPhysicalTabletState) {
 TEST_F(AcceleratorControllerTest, RotateScreenWithWindowLockingOrientation) {
   display::test::DisplayManagerTestApi(display_manager())
       .SetFirstDisplayAsInternalDisplay();
-  ash::ShellTestApi().SetTabletModeEnabledForTest(true);
+  ShellTestApi().SetTabletModeEnabledForTest(true);
   auto* tablet_mode_controller = Shell::Get()->tablet_mode_controller();
   auto* screen_orientation_controller =
       Shell::Get()->screen_orientation_controller();
@@ -1063,7 +1063,7 @@ TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppListFullscreen) {
       ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
   base::RunLoop().RunUntilIdle();
   GetAppListTestHelper()->CheckVisibility(true);
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kFullscreenAllApps);
+  GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
   histogram_tester.ExpectTotalCount(kAppListToggleMethodHistogram,
                                     ++toggle_count_total);
   histogram_tester.ExpectBucketCount(kAppListToggleMethodHistogram,
@@ -1081,7 +1081,7 @@ TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppListFullscreen) {
       ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_NONE)));
   base::RunLoop().RunUntilIdle();
   GetAppListTestHelper()->CheckVisibility(true);
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kPeeking);
+  GetAppListTestHelper()->CheckState(AppListViewState::kPeeking);
   histogram_tester.ExpectTotalCount(kAppListToggleMethodHistogram,
                                     ++toggle_count_total);
   histogram_tester.ExpectBucketCount(kAppListToggleMethodHistogram, kSearchKey,
@@ -1091,7 +1091,7 @@ TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppListFullscreen) {
       ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
   base::RunLoop().RunUntilIdle();
   GetAppListTestHelper()->CheckVisibility(true);
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kFullscreenAllApps);
+  GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenAllApps);
   histogram_tester.ExpectTotalCount(kAppListToggleMethodHistogram,
                                     ++toggle_count_total);
   histogram_tester.ExpectBucketCount(kAppListToggleMethodHistogram,
@@ -1109,7 +1109,7 @@ TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppListFullscreen) {
       ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_NONE)));
   base::RunLoop().RunUntilIdle();
   GetAppListTestHelper()->CheckVisibility(true);
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kPeeking);
+  GetAppListTestHelper()->CheckState(AppListViewState::kPeeking);
   histogram_tester.ExpectTotalCount(kAppListToggleMethodHistogram,
                                     ++toggle_count_total);
   histogram_tester.ExpectBucketCount(kAppListToggleMethodHistogram, kSearchKey,
@@ -1119,13 +1119,13 @@ TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppListFullscreen) {
   generator->ReleaseKey(ui::VKEY_0, ui::EF_NONE);
   base::RunLoop().RunUntilIdle();
   GetAppListTestHelper()->CheckVisibility(true);
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kHalf);
+  GetAppListTestHelper()->CheckState(AppListViewState::kHalf);
   // Shift+VKEY_BROWSER_SEARCH transitions to FULLSCREEN_SEARCH.
   EXPECT_TRUE(ProcessInController(
       ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
   base::RunLoop().RunUntilIdle();
   GetAppListTestHelper()->CheckVisibility(true);
-  GetAppListTestHelper()->CheckState(ash::AppListViewState::kFullscreenSearch);
+  GetAppListTestHelper()->CheckState(AppListViewState::kFullscreenSearch);
   histogram_tester.ExpectTotalCount(kAppListToggleMethodHistogram,
                                     ++toggle_count_total);
   histogram_tester.ExpectBucketCount(kAppListToggleMethodHistogram,
@@ -1443,10 +1443,10 @@ namespace {
 
 // Tests the TOGGLE_CAPS_LOCK accelerator.
 TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
-  ImeController* controller = Shell::Get()->ime_controller();
+  ImeControllerImpl* controller = Shell::Get()->ime_controller();
 
   TestImeControllerClient client;
-  controller->SetClient(client.CreateRemote());
+  controller->SetClient(&client);
   EXPECT_EQ(0, client.set_caps_lock_count_);
 
   // 1. Press Alt, Press Search, Release Search, Release Alt.
@@ -1459,7 +1459,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
   const ui::Accelerator release_search_before_alt(
       CreateReleaseAccelerator(ui::VKEY_LWIN, ui::EF_ALT_DOWN));
   EXPECT_TRUE(ProcessInController(release_search_before_alt));
-  controller->FlushMojoForTesting();
   EXPECT_EQ(1, client.set_caps_lock_count_);
   EXPECT_TRUE(controller->IsCapsLockEnabled());
   controller->UpdateCapsLockState(false);
@@ -1469,7 +1468,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
                                               ui::EF_COMMAND_DOWN);
   EXPECT_FALSE(ProcessInController(press_search_then_alt));
   EXPECT_TRUE(ProcessInController(release_search_before_alt));
-  controller->FlushMojoForTesting();
   EXPECT_EQ(2, client.set_caps_lock_count_);
   EXPECT_TRUE(controller->IsCapsLockEnabled());
   controller->UpdateCapsLockState(false);
@@ -1479,7 +1477,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
   const ui::Accelerator release_alt_before_search(
       CreateReleaseAccelerator(ui::VKEY_MENU, ui::EF_COMMAND_DOWN));
   EXPECT_TRUE(ProcessInController(release_alt_before_search));
-  controller->FlushMojoForTesting();
   EXPECT_EQ(3, client.set_caps_lock_count_);
   EXPECT_TRUE(controller->IsCapsLockEnabled());
   controller->UpdateCapsLockState(false);
@@ -1487,7 +1484,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
   // 4. Press Search, Press Alt, Release Alt, Release Search.
   EXPECT_FALSE(ProcessInController(press_search_then_alt));
   EXPECT_TRUE(ProcessInController(release_alt_before_search));
-  controller->FlushMojoForTesting();
   EXPECT_EQ(4, client.set_caps_lock_count_);
   EXPECT_TRUE(controller->IsCapsLockEnabled());
   controller->UpdateCapsLockState(false);
@@ -1499,7 +1495,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
   generator->PressKey(ui::VKEY_MENU, ui::EF_NONE);
   generator->PressKey(ui::VKEY_LWIN, ui::EF_ALT_DOWN);
   generator->ReleaseKey(ui::VKEY_MENU, ui::EF_COMMAND_DOWN);
-  controller->FlushMojoForTesting();
   EXPECT_FALSE(controller->IsCapsLockEnabled());
   controller->UpdateCapsLockState(false);
   generator->ReleaseKey(ui::VKEY_M, ui::EF_NONE);
@@ -1534,7 +1529,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
     // triggered.
     EXPECT_FALSE(ProcessInController(press_search_then_alt));
     EXPECT_TRUE(ProcessInController(release_search_before_alt));
-    controller->FlushMojoForTesting();
     EXPECT_EQ(5, client.set_caps_lock_count_);
     EXPECT_TRUE(controller->IsCapsLockEnabled());
     controller->UpdateCapsLockState(false);
@@ -1549,7 +1543,6 @@ TEST_F(AcceleratorControllerTest, ToggleCapsLockAccelerators) {
   // triggered.
   EXPECT_FALSE(ProcessInController(press_search_then_alt));
   EXPECT_TRUE(ProcessInController(release_search_before_alt));
-  controller->FlushMojoForTesting();
   EXPECT_EQ(6, client.set_caps_lock_count_);
   EXPECT_TRUE(controller->IsCapsLockEnabled());
   controller->UpdateCapsLockState(false);
@@ -2115,6 +2108,108 @@ TEST_F(MagnifiersAcceleratorsTester, TestToggleDockedMagnifier) {
   RemoveAllNotifications();
 }
 
+class AccessibilityAcceleratorTester : public MagnifiersAcceleratorsTester {
+ public:
+  AccessibilityAcceleratorTester() = default;
+  ~AccessibilityAcceleratorTester() override = default;
+
+  AccessibilityAcceleratorTester(const AccessibilityAcceleratorTester&) =
+      delete;
+  AccessibilityAcceleratorTester& operator=(
+      const AccessibilityAcceleratorTester&) = delete;
+
+  bool ContainsAccessibilityNotification(
+      const std::string& notification_id) const {
+    return nullptr !=
+           message_center()->FindVisibleNotificationById(notification_id);
+  }
+
+  void TestAccessibilityAcceleratorControlledByPref(
+      const std::string& pref_name,
+      const char* notification_id,
+      const ui::Accelerator& accelerator) {
+    // Verify that the initial state for the accessibility feature will be
+    // disabled, and for accessibility accelerators controller pref
+    // |kAccessibilityShortcutsEnabled| is enabled. And neither of that
+    // accessibility feature notification id, nor its confirmation dialog have
+    // appeared.
+    EXPECT_FALSE(user_pref_service()->GetBoolean(pref_name));
+    EXPECT_TRUE(
+        user_pref_service()->GetBoolean(prefs::kAccessibilityShortcutsEnabled));
+    EXPECT_FALSE(IsConfirmationDialogOpen());
+    if (notification_id)
+      EXPECT_FALSE(ContainsAccessibilityNotification(notification_id));
+
+    // Verify that after disabling the accessibility accelerators, the
+    // confirmation dialog won't appear for that accessibility feature. And its
+    // corresponding pref won't be enabled. But a notification should appear,
+    // which shows that the shortcut for that feature has been disabled.
+    user_pref_service()->SetBoolean(prefs::kAccessibilityShortcutsEnabled,
+                                    false);
+    EXPECT_TRUE(ProcessInController(accelerator));
+    EXPECT_FALSE(IsConfirmationDialogOpen());
+    if (notification_id)
+      EXPECT_TRUE(ContainsAccessibilityNotification(notification_id));
+    EXPECT_FALSE(user_pref_service()->GetBoolean(pref_name));
+
+    // Verify that if the accessibility accelerators are enabled, then
+    // it will show the confirmation dialog for the first time only when
+    // toggling its value. And the coressponding pref will be chanaged
+    // accordingly.
+    user_pref_service()->SetBoolean(prefs::kAccessibilityShortcutsEnabled,
+                                    true);
+    EXPECT_TRUE(ProcessInController(accelerator));
+    if (notification_id)
+      AcceptConfirmationDialog();
+    base::RunLoop().RunUntilIdle();
+    message_center::NotificationList::Notifications notifications =
+        message_center()->GetVisibleNotifications();
+    ASSERT_EQ(1u, notifications.size());
+    EXPECT_TRUE(user_pref_service()->GetBoolean(pref_name));
+    if (notification_id)
+      EXPECT_TRUE(ContainsAccessibilityNotification(notification_id));
+
+    // Verify that the notification id, won't be shown if the accessibility
+    // feature is going to be disabled.
+    EXPECT_TRUE(ProcessInController(accelerator));
+    if (notification_id)
+      EXPECT_FALSE(ContainsAccessibilityNotification(notification_id));
+    EXPECT_FALSE(user_pref_service()->GetBoolean(pref_name));
+
+    // Remove all the current notifications, to get the initial state again.
+    RemoveAllNotifications();
+  }
+};
+
+TEST_F(AccessibilityAcceleratorTester, DisableAccessibilityAccelerators) {
+  struct PrefToAcceleratorEntry {
+    const char* pref_name;
+    // If |notification_id| has been set to nullptr, then no notification is
+    // expected.
+    const char* notification_id;
+    const ui::Accelerator accelerator;
+  };
+  const PrefToAcceleratorEntry kAccessibilityAcceleratorMap[] = {
+      {prefs::kAccessibilityHighContrastEnabled,
+       kHighContrastToggleAccelNotificationId,
+       ui::Accelerator(ui::VKEY_H, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
+      {prefs::kDockedMagnifierEnabled,
+       kDockedMagnifierToggleAccelNotificationId,
+       ui::Accelerator(ui::VKEY_D, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
+      {prefs::kAccessibilitySpokenFeedbackEnabled, nullptr,
+       ui::Accelerator(ui::VKEY_Z, ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN)},
+      {prefs::kAccessibilityScreenMagnifierEnabled,
+       kFullscreenMagnifierToggleAccelNotificationId,
+       ui::Accelerator(ui::VKEY_M, ui::EF_COMMAND_DOWN | ui::EF_CONTROL_DOWN)},
+  };
+  FakeMagnificationManager manager;
+  manager.SetPrefs(user_pref_service());
+  for (const auto& test_data : kAccessibilityAcceleratorMap) {
+    TestAccessibilityAcceleratorControlledByPref(
+        test_data.pref_name, test_data.notification_id, test_data.accelerator);
+  }
+}
+
 namespace {
 
 struct MediaSessionAcceleratorTestConfig {
@@ -2503,12 +2598,11 @@ TEST_F(AcceleratorControllerTest, ChangeIMEMode_SwitchesInputMethod) {
   ImeController* controller = Shell::Get()->ime_controller();
 
   TestImeControllerClient client;
-  controller->SetClient(client.CreateRemote());
+  controller->SetClient(&client);
 
   EXPECT_EQ(0, client.next_ime_count_);
 
   ProcessInController(ui::Accelerator(ui::VKEY_MODECHANGE, ui::EF_NONE));
-  controller->FlushMojoForTesting();
 
   EXPECT_EQ(1, client.next_ime_count_);
 }

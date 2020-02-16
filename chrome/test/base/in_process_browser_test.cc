@@ -46,7 +46,6 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -59,6 +58,7 @@
 #include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/captive_portal/core/buildflags.h"
 #include "components/google/core/common/google_util.h"
 #include "components/os_crypt/os_crypt_mocker.h"
 #include "content/public/browser/devtools_agent_host.h"
@@ -84,7 +84,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-#include "chrome/browser/captive_portal/captive_portal_service.h"
+#include "components/captive_portal/content/captive_portal_service.h"
 #endif
 
 #if !defined(OS_ANDROID)
@@ -163,14 +163,6 @@ InProcessBrowserTest::InProcessBrowserTest(
   views_delegate_ = std::move(views_delegate);
 }
 #endif
-
-std::unique_ptr<storage::QuotaSettings>
-InProcessBrowserTest::CreateQuotaSettings() {
-  // By default use hardcoded quota settings to have a consistent testing
-  // environment.
-  const int kQuota = 5 * 1024 * 1024;
-  return std::make_unique<storage::QuotaSettings>(kQuota * 5, kQuota, 0, 0);
-}
 
 void InProcessBrowserTest::Initialize() {
   CreateTestServer(GetChromeTestDataDir());
@@ -289,10 +281,6 @@ void InProcessBrowserTest::SetUp() {
   ash::ShellTestApi::SetTabletControllerUseScreenshotForTest(false);
 #endif  // defined(OS_CHROMEOS)
 
-  quota_settings_ = CreateQuotaSettings();
-  ChromeContentBrowserClient::SetDefaultQuotaSettingsForTesting(
-      quota_settings_.get());
-
   // Redirect the default download directory to a temporary directory.
   ASSERT_TRUE(default_download_dir_.CreateUniqueTempDir());
   CHECK(base::PathService::Override(chrome::DIR_DEFAULT_DOWNLOADS,
@@ -323,7 +311,6 @@ void InProcessBrowserTest::TearDown() {
 #if defined(OS_MACOSX) || defined(OS_LINUX)
   OSCryptMocker::TearDown();
 #endif
-  ChromeContentBrowserClient::SetDefaultQuotaSettingsForTesting(nullptr);
 
 #if defined(OS_CHROMEOS)
   chromeos::device_sync::DeviceSyncImpl::Factory::SetInstanceForTesting(

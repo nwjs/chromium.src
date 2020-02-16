@@ -134,16 +134,6 @@ ExecutionContext* WorkletGlobalScope::GetExecutionContext() const {
   return const_cast<WorkletGlobalScope*>(this);
 }
 
-bool WorkletGlobalScope::IsSecureContext(String& error_message) const {
-  // Until there are APIs that are available in worklets and that
-  // require a privileged context test that checks ancestors, just do
-  // a simple check here.
-  if (GetSecurityOrigin()->IsPotentiallyTrustworthy())
-    return true;
-  error_message = GetSecurityOrigin()->IsPotentiallyTrustworthyErrorMessage();
-  return false;
-}
-
 bool WorkletGlobalScope::IsContextThread() const {
   if (IsMainThreadWorkletGlobalScope())
     return IsMainThread();
@@ -240,6 +230,7 @@ void WorkletGlobalScope::FetchAndInvokeScript(
   auto destination = mojom::RequestContextType::SCRIPT;
   FetchModuleScript(module_url_record, outside_settings_object,
                     outside_resource_timing_notifier, destination,
+                    network::mojom::RequestDestination::kScript,
                     credentials_mode,
                     ModuleScriptCustomFetchType::kWorkletAddModule, client);
 }

@@ -185,7 +185,7 @@ bool DoCopyFile(const FilePath& from_path,
 
   // Mitigate the issues caused by loading DLLs on a background thread
   // (http://crbug/973868).
-  ScopedThreadMayLoadLibraryOnBackgroundThread priority_boost(FROM_HERE);
+  SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
 
   // Unlike the posix implementation that copies the file manually and discards
   // the ACL bits, CopyFile() copies the complete SECURITY_DESCRIPTOR and access
@@ -752,6 +752,12 @@ FilePath MakeLongFilePath(const FilePath& input) {
     return FilePath();
 
   return FilePath(path_long_str);
+}
+
+bool CreateWinHardLink(const FilePath& to_file, const FilePath& from_file) {
+  ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
+  return ::CreateHardLink(to_file.value().c_str(), from_file.value().c_str(),
+                          nullptr);
 }
 
 // TODO(rkc): Work out if we want to handle NTFS junctions here or not, handle

@@ -15,10 +15,10 @@
 <translation id="1153356358378277386">Сопряженные устройства</translation>
 <translation id="1175572348579024023">Прокрутка</translation>
 <translation id="1178581264944972037">Пауза</translation>
+<translation id="1190609913194133056">Центр уведомлений</translation>
 <translation id="1195412055398077112">Каемка экрана</translation>
 <translation id="119944043368869598">Удалить все</translation>
 <translation id="1247372569136754018">Микрофон (встроенный)</translation>
-<translation id="1249456112629248620">Функцией "<ph name="FEATURE_NAME" />" управляет администратор.</translation>
 <translation id="1252999807265626933">Подключен источник питания: <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Какая сейчас погода?</translation>
 <translation id="1267032506238418139">Изменение сочетания клавиш</translation>
@@ -45,6 +45,7 @@
 <translation id="1460620680449458626">Сейчас звук выключен.</translation>
 <translation id="1467432559032391204">Слева</translation>
 <translation id="1484102317210609525"><ph name="DEVICE_NAME" /> (HDMI/DP)</translation>
+<translation id="1508507608940204251">Включено</translation>
 <translation id="1516740043221086139">Режим "Не беспокоить" включен</translation>
 <translation id="1520303207432623762">{NUM_APPS,plural, =1{Показать настройки уведомлений. Уведомления отключены для одного приложения.}one{Показать настройки уведомлений. Уведомления отключены для # приложения.}few{Показать настройки уведомлений. Уведомления отключены для # приложений.}many{Показать настройки уведомлений. Уведомления отключены для # приложений.}other{Показать настройки уведомлений. Уведомления отключены для # приложения.}}</translation>
 <translation id="1525508553941733066">ЗАКРЫТЬ</translation>
@@ -69,6 +70,7 @@
 <translation id="1836215606488044471">Ассистент (загрузка…)</translation>
 <translation id="1838895407229022812">Ночной режим отключен</translation>
 <translation id="1850504506766569011">Wi-Fi отключен</translation>
+<translation id="1859889070386344428">Отключено</translation>
 <translation id="1864454756846565995">Устройство USB-C (порт сзади)</translation>
 <translation id="1882897271359938046">Дублирование экрана в <ph name="DISPLAY_NAME" /></translation>
 <translation id="1885785240814121742">Используйте разблокировку по отпечатку пальца</translation>
@@ -110,17 +112,19 @@
 <translation id="2352467521400612932">Настройки стилуса</translation>
 <translation id="2354174487190027830">Активация <ph name="NAME" /></translation>
 <translation id="2359808026110333948">Продолжить</translation>
+<translation id="2364154243880592194">Строка состояния: время – <ph name="TIME" />, <ph name="BATTERY" /> Чтобы открыть центр уведомлений, нажмите Поиск + Стрелка влево.</translation>
 <translation id="2365393535144473978">Вместе с мобильным Интернетом включится Bluetooth.</translation>
 <translation id="2391579633712104609">180°</translation>
 <translation id="2412593942846481727">Доступно обновление</translation>
 <translation id="2413728805700750528">Управляемый сеанс "<ph name="DISPLAY_NAME" />" выполняется в домене <ph name="DOMAIN" /></translation>
 <translation id="2427507373259914951">Нажатие на левую кнопку мыши</translation>
 <translation id="2429753432712299108">Устройству <ph name="DEVICE_NAME" /> требуется разрешение на подключение через Bluetooth. Проверьте, отображается ли на нем код: <ph name="PASSKEY" />.</translation>
+<translation id="2473177541599297363">Разрешение экрана было изменено</translation>
 <translation id="2482878487686419369">Уведомления</translation>
 <translation id="2484513351006226581">Чтобы переключить раскладку клавиатуры, нажмите клавиши <ph name="KEYBOARD_SHORTCUT" />.</translation>
 <translation id="2501920221385095727">Залипание клавиш</translation>
 <translation id="2509468283778169019">Включен режим CAPS LOCK</translation>
-<translation id="2517825809102302935">Не включать сегодня</translation>
+<translation id="2519465031217098801">Включено</translation>
 <translation id="2542089167727451762">Нажмите на фото профиля</translation>
 <translation id="255671100581129685">Google Ассистент не работает в сеансе общего доступа.</translation>
 <translation id="256712445991462162">Закрепленная лупа</translation>
@@ -134,10 +138,10 @@
 <translation id="2704781753052663061">Подключиться к другим сетям Wi-Fi</translation>
 <translation id="2718395828230677721">Ночной режим</translation>
 <translation id="2727977024730340865">Подключено маломощное зарядное устройство. Возможны проблемы при зарядке.</translation>
-<translation id="2761704814324807722">Строка состояния, время <ph name="TIME" />, <ph name="BATTERY" /></translation>
 <translation id="2792498699870441125">Alt + Search</translation>
 <translation id="2803734122639935495">Чтобы разблокировать устройство, введите пароль</translation>
 <translation id="2819276065543622893">Сеанс завершен.</translation>
+<translation id="2825224105325558319"><ph name="DISPLAY_NAME" /> не поддерживает разрешение <ph name="SPECIFIED_RESOLUTION" />. Установлено разрешение <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="2825619548187458965">Полка</translation>
 <translation id="2844169650293029770">Устройство USB-C (ближний порт слева)</translation>
 <translation id="2865888419503095837">Информация о сети</translation>
@@ -167,6 +171,7 @@
 <translation id="3151786313568798007">Ориентация</translation>
 <translation id="3153444934357957346">Для множественного входа можно использовать не более <ph name="MULTI_PROFILE_USER_LIMIT" /> аккаунтов.</translation>
 <translation id="3154351730702813399">Администратору устройства доступна информация о том, какие страницы вы просматриваете в браузере.</translation>
+<translation id="3181441307743005334">Перезапуск может занять несколько минут</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Подключено одно устройство}one{Подключено # устройство}few{Подключено # устройства}many{Подключено # устройств}other{Подключено # устройства}}</translation>
 <translation id="3217205077783620295">Звук включен. Нажмите эту кнопку, чтобы отключить его.</translation>
 <translation id="3226991577105957773">Ещё <ph name="COUNT" /></translation>
@@ -224,6 +229,7 @@
 <translation id="3901991538546252627">Подключение к <ph name="NAME" /></translation>
 <translation id="394485226368336402">Настройки звука</translation>
 <translation id="3962859241508114581">Предыдущий трек</translation>
+<translation id="3965097803111112935">Отключено</translation>
 <translation id="397105322502079400">Вычисление…</translation>
 <translation id="3977512764614765090">Батарея заряжена на <ph name="PERCENTAGE" /> % и подключена к источнику питания.</translation>
 <translation id="3995138139523574647">Устройство USB-C (дальний порт справа)</translation>
@@ -235,6 +241,7 @@
 <translation id="4112140312785995938">Перемотать назад</translation>
 <translation id="4129129681837227511">Чтобы разрешить показ уведомлений на заблокированном экране, разблокируйте устройство, а затем измените эту настройку.</translation>
 <translation id="4146833061457621061">Включить музыку</translation>
+<translation id="4149156641122542261">Устройство <ph name="DEVICE_TYPE" /> находится в домене <ph name="DOMAIN" />.</translation>
 <translation id="4181841719683918333">Языки</translation>
 <translation id="4195877955194704651">Меню "Автоматическое нажатие"</translation>
 <translation id="4217571870635786043">Голосовой ввод</translation>
@@ -297,7 +304,6 @@
 <translation id="4924411785043111640">Перезапустить и сбросить настройки</translation>
 <translation id="495046168593986294">Прокрутить вверх</translation>
 <translation id="4961318399572185831">Трансляция экрана</translation>
-<translation id="5018302031617932556">Он помогает снизить напряжение глаз при тусклом свете. Нажмите, чтобы изменить эту настройку.</translation>
 <translation id="5030687792513154421">Время вышло</translation>
 <translation id="5035236842988137213">Устройство <ph name="DEVICE_NAME" /> подключено к новому телефону</translation>
 <translation id="5083553833479578423">Получите доступ к другим возможностям Ассистента.</translation>
@@ -306,6 +312,7 @@
 <translation id="5207949376430453814">Выделять курсор при вводе текста</translation>
 <translation id="5222676887888702881">Выйти</translation>
 <translation id="523505283826916779">Настройки специальных возможностей</translation>
+<translation id="5250225880026334010">Отключено</translation>
 <translation id="5260676007519551770">Рабочий стол 4</translation>
 <translation id="5283198616748585639">Добавить 1 мин.</translation>
 <translation id="5286194356314741248">Сканирование...</translation>
@@ -333,6 +340,7 @@
 <translation id="5669267381087807207">Активация</translation>
 <translation id="5673434351075758678">В результате синхронизации настроек язык изменен. Теперь используется <ph name="TO_LOCALE" />, а не <ph name="FROM_LOCALE" />.</translation>
 <translation id="5682642926269496722">Google Ассистент недоступен в этом аккаунте.</translation>
+<translation id="5689633613396158040">Этот режим помогает снизить напряжение глаз при тусклом свете. Нажмите здесь, чтобы изменить расписание или полностью отключить ночной режим.</translation>
 <translation id="5691772641933328258">Не удалось распознать отпечаток</translation>
 <translation id="5710450975648804523">Режим "Не беспокоить" включен</translation>
 <translation id="573413375004481890">Вы подключили к устройству больше дисплеев, чем оно может поддерживать, поэтому один из них пришлось отключить</translation>
@@ -344,7 +352,6 @@
 <translation id="5777841717266010279">Закрыть доступ к экрану?</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5837036133683224804">Остановить трансляцию <ph name="ROUTE_TITLE" /> на устройство "<ph name="RECEIVER_NAME" />"</translation>
-<translation id="5860033963881614850">ВЫКЛ</translation>
 <translation id="5895138241574237353">Перезапустить</translation>
 <translation id="5901316534475909376">Shift + Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
@@ -395,6 +402,7 @@
 <translation id="6490471652906364588">Устройство USB-C (порт справа)</translation>
 <translation id="649452524636452238">PIN-код для смарт-карты</translation>
 <translation id="6501401484702599040">Трансляция содержимого экрана: <ph name="RECEIVER_NAME" /></translation>
+<translation id="652139407789908527">Экран будет оставаться выключенным дольше, чем обычно (до одной минуты). Не нажимайте кнопку питания, пока обновление не завершится.</translation>
 <translation id="6521655319214113338">Рукописный ввод</translation>
 <translation id="6528179044667508675">Не беспокоить</translation>
 <translation id="6537270692134705506">Снимок экрана</translation>
@@ -408,6 +416,7 @@
 <translation id="6650933572246256093">Устройству <ph name="DEVICE_NAME" /> требуется разрешение на подключение через Bluetooth. Введите на нем код: <ph name="PASSKEY" />.</translation>
 <translation id="6657585470893396449">Пароль</translation>
 <translation id="6665545700722362599">Разрешать сайтам, приложениям и расширениям использовать геолокацию, микрофон, камеру и другие функции устройства.</translation>
+<translation id="6669268301501499730">Включено</translation>
 <translation id="6670153871843998651">Рабочий стол 3</translation>
 <translation id="6691659475504239918">ПОИСК + SHIFT + H</translation>
 <translation id="6696025732084565524">Необходимо обновить внешнюю клавиатуру</translation>
@@ -446,6 +455,7 @@
 <translation id="7143207342074048698">Подключение</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Возврат к предыдущему разрешению через <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7246071203293827765"><ph name="UPDATE_TEXT" /> Для установки обновления необходимо перезапустить Chromebook. Это может занять около минуты.</translation>
 <translation id="7256634071279256947">Основной микрофон</translation>
 <translation id="726276584504105859">Перетащите сюда, чтобы разделить экран</translation>
 <translation id="7262906531272962081">Создать напоминание</translation>
@@ -464,7 +474,6 @@
 <translation id="7526573455193969409">Сеть может отслеживаться</translation>
 <translation id="7536035074519304529">IP-адрес: <ph name="ADDRESS" /></translation>
 <translation id="7548434653388805669">Пора ложиться спать</translation>
-<translation id="7561014039265304140">Дисплей <ph name="DISPLAY_NAME" /> не поддерживает разрешение <ph name="SPECIFIED_RESOLUTION" />. Будет использовано разрешение <ph name="FALLBACK_RESOLUTION" />.</translation>
 <translation id="7562368315689366235">Меню смайликов</translation>
 <translation id="7564874036684306347">При переносе окон на другой рабочий стол иногда возникают ошибки. Уведомления и диалоговые окна могут появляться на разных рабочих столах.</translation>
 <translation id="7568294522609223312">Выключение автоматического нажатия</translation>
@@ -507,11 +516,13 @@
 <translation id="8061464966246066292">Высокая контрастность</translation>
 <translation id="8098591350844501178">Остановить трансляцию содержимого экрана на устройство "<ph name="RECEIVER_NAME" />"</translation>
 <translation id="8113423164597455979">Уведомления включены для всех приложений</translation>
+<translation id="8131740175452115882">Подтвердить</translation>
 <translation id="8132793192354020517">Подключено к сети <ph name="NAME" /></translation>
 <translation id="813913629614996137">Инициализация...</translation>
 <translation id="8142441511840089262">Двойное нажатие кнопкой мыши</translation>
 <translation id="8142699993796781067">Частные сети</translation>
 <translation id="8152092012181020186">Нажмите Ctrl + W, чтобы закрыть вкладку.</translation>
+<translation id="8155007568264258537">Функцией "<ph name="FEATURE_NAME" />" управляет администратор.</translation>
 <translation id="8167567890448493835">Используемый язык: <ph name="LOCALE_NAME" /></translation>
 <translation id="8190698733819146287">Настройки языков и ввода…</translation>
 <translation id="8192202700944119416">Уведомления скрыты</translation>
@@ -539,6 +550,7 @@
 <translation id="847056008324733326">Настройки масштаба экрана</translation>
 <translation id="8473301994082929012">Организация <ph name="ORGANIZATION_NAME" /> <ph name="FEATURE_STATE" /> функцию "<ph name="FEATURE_NAME" />".</translation>
 <translation id="8477270416194247200">Для отмены нажмите ALT + SEARCH или SHIFT.</translation>
+<translation id="8492573885090281069"><ph name="DISPLAY_NAME" /> не поддерживает разрешение <ph name="SPECIFIED_RESOLUTION" />. Установлено разрешение <ph name="FALLBACK_RESOLUTION" />. Чтобы сохранить изменения, нажмите "Подтвердить". Предыдущие настройки восстановятся через <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="8513108775083588393">Автоповорот</translation>
 <translation id="8517041960877371778">Не удается зарядить устройство <ph name="DEVICE_TYPE" />, пока оно включено.</translation>
 <translation id="8627191004499078455">Подключено устройство "<ph name="DEVICE_NAME" />"</translation>
@@ -588,12 +600,13 @@
 <translation id="9089416786594320554">Методы ввода</translation>
 <translation id="9091626656156419976">Удален экран "<ph name="DISPLAY_NAME" />"</translation>
 <translation id="9151726767154816831">Чтобы обновить систему, перезапустите ее и выполните Powerwash</translation>
+<translation id="9168436347345867845">Позже</translation>
 <translation id="9179259655489829027">Эта функция позволяет быстро и без пароля получить доступ к любому аккаунту, в который выполнен вход. Используйте ее только для надежных аккаунтов.</translation>
 <translation id="9183456764293710005">Полноэкранная лупа</translation>
 <translation id="9193626018745640770">Трансляция на неизвестное устройство</translation>
 <translation id="9194617393863864469">Войти в другой аккаунт...</translation>
+<translation id="9198992156681343238">У экрана "<ph name="DISPLAY_NAME" />" установлено разрешение <ph name="RESOLUTION" />. Чтобы сохранить изменения, нажмите "Подтвердить". Предыдущие настройки восстановятся через <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="9201374708878217446">Статус подключения – "<ph name="CONNECTION_STATUS" />", под управлением администратора</translation>
-<translation id="9205817095063786319">Устройство находится под управлением домена <ph name="DOMAIN" />.</translation>
 <translation id="9210037371811586452">Выход из режима единого рабочего стола…</translation>
 <translation id="9211681782751733685">Оставшееся время до полной зарядки батареи: <ph name="TIME_REMAINING" />.</translation>
 <translation id="9215934040295798075">Выбрать обои</translation>

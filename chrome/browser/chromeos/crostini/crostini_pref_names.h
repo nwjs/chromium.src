@@ -18,12 +18,14 @@ extern const char kCrostiniContainers[];
 extern const char kCrostiniTerminalSettings[];
 extern const char kVmKey[];
 extern const char kContainerKey[];
+extern const char kContainerOsVersionKey[];
 
 extern const char kUserCrostiniAllowedByPolicy[];
 extern const char kUserCrostiniExportImportUIAllowedByPolicy[];
 extern const char kVmManagementCliAllowedByPolicy[];
 extern const char kUserCrostiniRootAccessAllowedByPolicy[];
 extern const char kCrostiniAnsiblePlaybookFilePath[];
+extern const char kCrostiniDefaultContainerConfigured[];
 
 extern const char kReportCrostiniUsageEnabled[];
 extern const char kCrostiniLastLaunchTerminaComponentVersion[];

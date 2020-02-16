@@ -28,20 +28,16 @@ HardwareDisplayPlaneList::HardwareDisplayPlaneList() {
   atomic_property_set.reset(drmModeAtomicAlloc());
 }
 
-HardwareDisplayPlaneList::~HardwareDisplayPlaneList() {
-}
+HardwareDisplayPlaneList::~HardwareDisplayPlaneList() = default;
 
 HardwareDisplayPlaneList::PageFlipInfo::PageFlipInfo(uint32_t crtc_id,
-                                                     uint32_t framebuffer,
-                                                     CrtcController* crtc)
-    : crtc_id(crtc_id), framebuffer(framebuffer), crtc(crtc) {
-}
+                                                     uint32_t framebuffer)
+    : crtc_id(crtc_id), framebuffer(framebuffer) {}
 
 HardwareDisplayPlaneList::PageFlipInfo::PageFlipInfo(
     const PageFlipInfo& other) = default;
 
-HardwareDisplayPlaneList::PageFlipInfo::~PageFlipInfo() {
-}
+HardwareDisplayPlaneList::PageFlipInfo::~PageFlipInfo() = default;
 
 HardwareDisplayPlaneManager::CrtcState::CrtcState() = default;
 
@@ -52,8 +48,7 @@ HardwareDisplayPlaneManager::CrtcState::CrtcState(CrtcState&&) = default;
 HardwareDisplayPlaneManager::HardwareDisplayPlaneManager(DrmDevice* drm)
     : drm_(drm) {}
 
-HardwareDisplayPlaneManager::~HardwareDisplayPlaneManager() {
-}
+HardwareDisplayPlaneManager::~HardwareDisplayPlaneManager() = default;
 
 bool HardwareDisplayPlaneManager::Initialize() {
 // Try to get all of the planes if possible, so we don't have to try to
@@ -99,9 +94,10 @@ HardwareDisplayPlane* HardwareDisplayPlaneManager::FindNextUnusedPlane(
 }
 
 int HardwareDisplayPlaneManager::LookupCrtcIndex(uint32_t crtc_id) const {
-  for (size_t i = 0; i < crtc_state_.size(); ++i)
+  for (size_t i = 0; i < crtc_state_.size(); ++i) {
     if (crtc_state_[i].properties.id == crtc_id)
       return i;
+  }
   return -1;
 }
 
@@ -159,8 +155,7 @@ void HardwareDisplayPlaneManager::BeginFrame(
 bool HardwareDisplayPlaneManager::AssignOverlayPlanes(
     HardwareDisplayPlaneList* plane_list,
     const DrmOverlayPlaneList& overlay_list,
-    uint32_t crtc_id,
-    CrtcController* crtc) {
+    uint32_t crtc_id) {
   int crtc_index = LookupCrtcIndex(crtc_id);
   if (crtc_index < 0) {
     LOG(ERROR) << "Cannot find crtc " << crtc_id;
@@ -185,16 +180,16 @@ bool HardwareDisplayPlaneManager::AssignOverlayPlanes(
 
       // This returns a number in 16.16 fixed point, required by the DRM overlay
       // APIs.
-      auto to_fixed_point =
-          [](double v) -> uint32_t { return v * kFixedPointScaleValue; };
+      auto to_fixed_point = [](double v) -> uint32_t {
+        return v * kFixedPointScaleValue;
+      };
       fixed_point_rect = gfx::Rect(to_fixed_point(crop_rect.x()),
                                    to_fixed_point(crop_rect.y()),
                                    to_fixed_point(crop_rect.width()),
                                    to_fixed_point(crop_rect.height()));
     }
 
-    if (!SetPlaneData(plane_list, hw_plane, plane, crtc_id, fixed_point_rect,
-                      crtc)) {
+    if (!SetPlaneData(plane_list, hw_plane, plane, crtc_id, fixed_point_rect)) {
       ResetCurrentPlaneList(plane_list);
       return false;
     }

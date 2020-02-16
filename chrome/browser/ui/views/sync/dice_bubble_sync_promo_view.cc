@@ -27,14 +27,13 @@ DiceBubbleSyncPromoView::DiceBubbleSyncPromoView(
     int accounts_promo_message_resource_id,
     bool signin_button_prominent,
     int text_style)
-    : views::View(), delegate_(delegate) {
+    : delegate_(delegate) {
   DCHECK(!profile->IsGuestSession());
-  std::vector<AccountInfo> accounts;
+  AccountInfo account;
   // Signin promos can be shown in incognito, they use an empty account list.
-  if (profile->IsRegularProfile()) {
-    DCHECK(AccountConsistencyModeManager::IsDiceEnabledForProfile(profile));
-    accounts = signin_ui_util::GetAccountsForDicePromos(profile);
-  }
+  if (profile->IsRegularProfile())
+    account = signin_ui_util::GetSingleAccountForDicePromos(profile);
+
   // Always show the accounts promo message for now.
   const int title_resource_id = accounts_promo_message_resource_id;
 
@@ -54,25 +53,22 @@ DiceBubbleSyncPromoView::DiceBubbleSyncPromoView(
     AddChildView(title);
   }
 
-  if (accounts.empty()) {
+  if (account.IsEmpty()) {
     signin_button_view_ =
         new DiceSigninButtonView(this, signin_button_prominent);
   } else {
-    gfx::Image account_icon = accounts[0].account_image;
+    gfx::Image account_icon = account.account_image;
     if (account_icon.IsEmpty()) {
       account_icon = ui::ResourceBundle::GetSharedInstance().GetImageNamed(
           profiles::GetPlaceholderAvatarIconResourceID());
     }
     signin_button_view_ =
-        new DiceSigninButtonView(accounts[0], account_icon, this,
+        new DiceSigninButtonView(account, account_icon, this,
                                  /*use_account_name_as_title=*/true);
-
-    // Store account information for submenu.
-    accounts_for_submenu_.assign(accounts.begin() + 1, accounts.end());
   }
   signin_metrics::RecordSigninImpressionUserActionForAccessPoint(access_point);
   signin_metrics::RecordSigninImpressionWithAccountUserActionForAccessPoint(
-      access_point, !accounts.empty() /* with_account */);
+      access_point, !account.IsEmpty() /* with_account */);
   AddChildView(signin_button_view_);
 }
 

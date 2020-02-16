@@ -17,6 +17,7 @@
 #include "base/time/default_clock.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
+#include "chrome/browser/password_manager/password_store_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/passwords/manage_passwords_view_utils.h"
@@ -94,7 +95,7 @@ class ManagePasswordsBubbleModel::InteractionKeeper {
  private:
   // The way the bubble appeared.
   const password_manager::metrics_util::UIDisplayDisposition
-  display_disposition_;
+      display_disposition_;
 
   // Dismissal reason for a password bubble.
   password_manager::metrics_util::UIDismissalReason dismissal_reason_;
@@ -132,7 +133,8 @@ void ManagePasswordsBubbleModel::InteractionKeeper::ReportInteractions(
         interaction_stats_.update_time = clock_->Now();
         password_manager::PasswordStore* password_store =
             PasswordStoreFactory::GetForProfile(
-                profile, ServiceAccessType::IMPLICIT_ACCESS).get();
+                profile, ServiceAccessType::IMPLICIT_ACCESS)
+                .get();
         password_store->AddSiteStats(interaction_stats_);
       }
     }
@@ -210,23 +212,6 @@ ManagePasswordsBubbleModel::ManagePasswordsBubbleModel(
                           kCredentialManagementAPI;
 
     UpdatePendingStateTitle();
-  } else if (state_ == password_manager::ui::CONFIRMATION_STATE) {
-    title_ =
-        l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_CONFIRM_SAVED_TITLE);
-  } else if (state_ == password_manager::ui::AUTO_SIGNIN_STATE) {
-    pending_password_ = delegate_->GetPendingPassword();
-  } else if (state_ == password_manager::ui::MANAGE_STATE) {
-    local_credentials_ = DeepCopyForms(delegate_->GetCurrentForms());
-    UpdateManageStateTitle();
-  }
-
-  if (state_ == password_manager::ui::CONFIRMATION_STATE) {
-    base::string16 link = l10n_util::GetStringUTF16(IDS_MANAGE_PASSWORDS_LINK);
-
-    size_t offset;
-    save_confirmation_text_ = l10n_util::GetStringFUTF16(
-        IDS_MANAGE_PASSWORDS_CONFIRM_GENERATED_TEXT, link, &offset);
-    save_confirmation_link_range_ = gfx::Range(offset, offset + link.length());
   }
 
   password_manager::metrics_util::UIDisplayDisposition display_disposition =
@@ -237,16 +222,10 @@ ManagePasswordsBubbleModel::ManagePasswordsBubbleModel(
         display_disposition = metrics_util::MANUAL_WITH_PASSWORD_PENDING;
         break;
       case password_manager::ui::PENDING_PASSWORD_UPDATE_STATE:
-        display_disposition =
-            metrics_util::MANUAL_WITH_PASSWORD_PENDING_UPDATE;
+        display_disposition = metrics_util::MANUAL_WITH_PASSWORD_PENDING_UPDATE;
         break;
       case password_manager::ui::MANAGE_STATE:
-        display_disposition = metrics_util::MANUAL_MANAGE_PASSWORDS;
-        break;
       case password_manager::ui::CONFIRMATION_STATE:
-        display_disposition =
-            metrics_util::MANUAL_GENERATED_PASSWORD_CONFIRMATION;
-        break;
       case password_manager::ui::CREDENTIAL_REQUEST_STATE:
       case password_manager::ui::AUTO_SIGNIN_STATE:
       case password_manager::ui::CHROME_SIGN_IN_PROMO_STATE:
@@ -264,12 +243,7 @@ ManagePasswordsBubbleModel::ManagePasswordsBubbleModel(
             metrics_util::AUTOMATIC_WITH_PASSWORD_PENDING_UPDATE;
         break;
       case password_manager::ui::CONFIRMATION_STATE:
-        display_disposition =
-            metrics_util::AUTOMATIC_GENERATED_PASSWORD_CONFIRMATION;
-        break;
       case password_manager::ui::AUTO_SIGNIN_STATE:
-        display_disposition = metrics_util::AUTOMATIC_SIGNIN_TOAST;
-        break;
       case password_manager::ui::MANAGE_STATE:
       case password_manager::ui::CREDENTIAL_REQUEST_STATE:
       case password_manager::ui::CHROME_SIGN_IN_PROMO_STATE:
@@ -339,59 +313,6 @@ void ManagePasswordsBubbleModel::OnSaveClicked() {
   }
 }
 
-void ManagePasswordsBubbleModel::OnManageClicked(
-    password_manager::ManagePasswordsReferrer referrer) {
-  interaction_keeper_->set_dismissal_reason(metrics_util::CLICKED_MANAGE);
-  if (delegate_)
-    delegate_->NavigateToPasswordManagerSettingsPage(referrer);
-}
-
-void ManagePasswordsBubbleModel::
-    OnNavigateToPasswordManagerAccountDashboardLinkClicked(
-        password_manager::ManagePasswordsReferrer referrer) {
-  interaction_keeper_->set_dismissal_reason(
-      metrics_util::CLICKED_PASSWORDS_DASHBOARD);
-  if (delegate_)
-    delegate_->NavigateToPasswordManagerAccountDashboard(referrer);
-}
-
-void ManagePasswordsBubbleModel::OnAutoSignInToastTimeout() {
-  interaction_keeper_->set_dismissal_reason(
-      metrics_util::AUTO_SIGNIN_TOAST_TIMEOUT);
-}
-
-void ManagePasswordsBubbleModel::OnPasswordAction(
-    const autofill::PasswordForm& password_form,
-    PasswordAction action) {
-  Profile* profile = GetProfile();
-  if (!profile)
-    return;
-  password_manager::PasswordStore* password_store =
-      PasswordStoreFactory::GetForProfile(
-          profile, ServiceAccessType::EXPLICIT_ACCESS).get();
-  DCHECK(password_store);
-  if (action == REMOVE_PASSWORD)
-    password_store->RemoveLogin(password_form);
-  else
-    password_store->AddLogin(password_form);
-}
-
-void ManagePasswordsBubbleModel::OnSignInToChromeClicked(
-    const AccountInfo& account,
-    bool is_default_promo_account) {
-  // Enabling sync for an existing account and starting a new sign-in are
-  // triggered by the user interacting with the sign-in promo.
-  GetProfile()->GetPrefs()->SetBoolean(
-      password_manager::prefs::kWasSignInPasswordPromoClicked, true);
-  if (delegate_)
-    delegate_->EnableSync(account, is_default_promo_account);
-}
-
-void ManagePasswordsBubbleModel::OnSkipSignInClicked() {
-  GetProfile()->GetPrefs()->SetBoolean(
-      password_manager::prefs::kWasSignInPasswordPromoClicked, true);
-}
-
 #if defined(PASSWORD_STORE_SELECT_ENABLED)
 void ManagePasswordsBubbleModel::OnToggleAccountStore(bool is_checked) {
   delegate_->GetPasswordFeatureManager()->SetDefaultPasswordStore(
@@ -426,10 +347,6 @@ bool ManagePasswordsBubbleModel::ShouldShowFooter() const {
          IsSyncUser(GetProfile());
 }
 
-const base::string16& ManagePasswordsBubbleModel::GetCurrentUsername() const {
-  return pending_password_.username_value;
-}
-
 int ManagePasswordsBubbleModel::GetTopIllustration(bool dark_mode) const {
   if (state_ == password_manager::ui::PENDING_PASSWORD_UPDATE_STATE ||
       state_ == password_manager::ui::PENDING_PASSWORD_STATE) {
@@ -460,8 +377,7 @@ bool ManagePasswordsBubbleModel::ReplaceToShowPromotionIfNeeded() {
   if (password_bubble_experiment::ShouldShowChromeSignInPasswordPromo(
           prefs, sync_service)) {
     interaction_keeper_->ReportInteractions(this);
-    title_ =
-        l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_SYNC_PROMO_TITLE);
+    title_ = l10n_util::GetStringUTF16(IDS_PASSWORD_MANAGER_SYNC_PROMO_TITLE);
     state_ = password_manager::ui::CHROME_SIGN_IN_PROMO_STATE;
     int show_count = prefs->GetInteger(
         password_manager::prefs::kNumberSignInPasswordPromoShown);
@@ -501,9 +417,4 @@ void ManagePasswordsBubbleModel::UpdatePendingStateTitle() {
                  : PasswordTitleType::SAVE_ACCOUNT);
   GetSavePasswordDialogTitleTextAndLinkRange(GetWebContents()->GetVisibleURL(),
                                              origin_, type, &title_);
-}
-
-void ManagePasswordsBubbleModel::UpdateManageStateTitle() {
-  GetManagePasswordsDialogTitleText(GetWebContents()->GetVisibleURL(), origin_,
-                                    !local_credentials_.empty(), &title_);
 }

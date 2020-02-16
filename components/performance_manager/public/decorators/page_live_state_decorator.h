@@ -27,13 +27,32 @@ class PageLiveStateDecorator {
   PageLiveStateDecorator(const PageLiveStateDecorator& other) = delete;
   PageLiveStateDecorator& operator=(const PageLiveStateDecorator&) = delete;
 
-  // The following functions should only be called from the UI thread:
+  // Must be called when the connected to USB device state changes.
+  static void OnIsConnectedToUSBDeviceChanged(content::WebContents* contents,
+                                              bool is_connected_to_usb_device);
 
-  // Should be called whenever a WebContents gets connected or disconnected to
-  // a USB device.
-  // TODO(sebmarchand|olivierli): Call this from USBTabHelper.
-  static void OnWebContentsAttachedToUSBChange(content::WebContents* contents,
-                                               bool is_attached_to_usb);
+  // Must be called when the connected to Bluetooth device state changes.
+  static void OnIsConnectedToBluetoothDeviceChanged(
+      content::WebContents* contents,
+      bool is_connected_to_bluetooth_device);
+
+  // Functions that should be called by a MediaStreamCaptureIndicator::Observer.
+  static void OnIsCapturingVideoChanged(content::WebContents* contents,
+                                        bool is_capturing_video);
+  static void OnIsCapturingAudioChanged(content::WebContents* contents,
+                                        bool is_capturing_audio);
+  static void OnIsBeingMirroredChanged(content::WebContents* contents,
+                                       bool is_being_mirrored);
+  static void OnIsCapturingDesktopChanged(content::WebContents* contents,
+                                          bool is_capturing_desktop);
+
+  // Set the auto discardable property. This indicates whether or not the page
+  // can be discarded during an intervention.
+  static void SetIsAutoDiscardable(content::WebContents* contents,
+                                   bool is_auto_discardable);
+
+  static void SetWasDiscarded(content::WebContents* contents,
+                              bool was_discarded);
 };
 
 class PageLiveStateDecorator::Data {
@@ -43,8 +62,16 @@ class PageLiveStateDecorator::Data {
   Data(const Data& other) = delete;
   Data& operator=(const Data&) = delete;
 
-  virtual bool IsAttachedToUSB() const = 0;
+  virtual bool IsConnectedToUSBDevice() const = 0;
+  virtual bool IsConnectedToBluetoothDevice() const = 0;
+  virtual bool IsCapturingVideo() const = 0;
+  virtual bool IsCapturingAudio() const = 0;
+  virtual bool IsBeingMirrored() const = 0;
+  virtual bool IsCapturingDesktop() const = 0;
+  virtual bool IsAutoDiscardable() const = 0;
+  virtual bool WasDiscarded() const = 0;
 
+  static const Data* FromPageNode(const PageNode* page_node);
   static Data* GetOrCreateForTesting(PageNode* page_node);
 };
 

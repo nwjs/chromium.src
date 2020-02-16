@@ -78,8 +78,6 @@ constexpr char kIntentHelperClassName[] =
     "org.chromium.arc.intent_helper.SettingsReceiver";
 constexpr char kSetInTouchModeIntent[] =
     "org.chromium.arc.intent_helper.SET_IN_TOUCH_MODE";
-constexpr char kShowTalkbackSettingsIntent[] =
-    "org.chromium.arc.intent_helper.SHOW_TALKBACK_SETTINGS";
 
 constexpr char kAction[] = "action";
 constexpr char kActionMain[] = "android.intent.action.MAIN";
@@ -96,7 +94,6 @@ constexpr char kAndroidContactsAppId[] = "kipfkokfekalckplgaikemhghlbkgpfl";
 
 constexpr char const* kAppIdsHiddenInLauncher[] = {
     kAndroidClockAppId,   kSettingsAppId,     kAndroidFilesAppId,
-    kCameraAppId,         kLegacyCameraAppId, kCameraMigrationAppId,
     kAndroidContactsAppId};
 
 // Returns true if |event_flags| came from a mouse or touch event.
@@ -155,18 +152,8 @@ bool Launch(content::BrowserContext* context,
     return false;
   }
 
-  arc::mojom::IntentHelperInstance* intent_helper_instance =
-      GET_INTENT_HELPER_INSTANCE(SendBroadcast);
-  if (intent_helper_instance) {
-    base::DictionaryValue extras;
-    extras.SetBoolean("inTouchMode", IsMouseOrTouchEventFromFlags(event_flags));
-    std::string extras_string;
-    base::JSONWriter::Write(extras, &extras_string);
-    intent_helper_instance->SendBroadcast(
-        kSetInTouchModeIntent,
-        ArcIntentHelperBridge::kArcIntentHelperPackageName,
-        kIntentHelperClassName, extras_string);
-  }
+  if (IsMouseOrTouchEventFromFlags(event_flags))
+    SetTouchMode(IsMouseOrTouchEventFromFlags(event_flags));
 
   // Unthrottle the ARC instance before launching an ARC app. This is done
   // to minimize lag on an app launch.
@@ -220,15 +207,12 @@ const char kSettingsAppDomainUrlActivity[] =
 constexpr char kSettingsAppPackage[] = "com.android.settings";
 
 // App IDs, kept in sorted order.
-const char kCameraAppId[] = "goamfaniemdfcajgcmmflhchgkmbngka";
-const char kCameraMigrationAppId[] = "ngmkobaiicipbagcngcmilfkhejlnfci";
 const char kGmailAppId[] = "hhkfkjpmacfncmbapfohfocpjpdnobjg";
 const char kGoogleCalendarAppId[] = "decaoeahkmjpajbmlbpogjjkjbjokeed";
 const char kGoogleDuoAppId[] = "djkcbcmkefiiphjkonbeknmcgiheajce";
 const char kGoogleMapsAppId[] = "gmhipfhgnoelkiiofcnimehjnpaejiel";
 const char kGooglePhotosAppId[] = "fdbkkojdbojonckghlanfaopfakedeca";
 const char kInfinitePainterAppId[] = "afihfgfghkmdmggakhkgnfhlikhdpima";
-const char kLegacyCameraAppId[] = "obfofkigjfamlldmipdegnjlcpincibc";
 const char kLightRoomAppId[] = "fpegfnbgomakooccabncdaelhfppceni";
 const char kPlayBooksAppId[] = "cafegjnmmjpfibnlddppihpnkbkgicbg";
 const char kPlayGamesAppId[] = "nplnnjkbeijcggmpdcecpabgbjgeiedc";
@@ -444,16 +428,21 @@ void CloseTask(int task_id) {
   app_instance->CloseTask(task_id);
 }
 
-void ShowTalkBackSettings() {
+bool SetTouchMode(bool enable) {
   arc::mojom::IntentHelperInstance* intent_helper_instance =
       GET_INTENT_HELPER_INSTANCE(SendBroadcast);
   if (!intent_helper_instance)
-    return;
+    return false;
 
+  base::DictionaryValue extras;
+  extras.SetBoolean("inTouchMode", enable);
+  std::string extras_string;
+  base::JSONWriter::Write(extras, &extras_string);
   intent_helper_instance->SendBroadcast(
-      kShowTalkbackSettingsIntent,
-      ArcIntentHelperBridge::kArcIntentHelperPackageName,
-      kIntentHelperClassName, "{}");
+      kSetInTouchModeIntent, ArcIntentHelperBridge::kArcIntentHelperPackageName,
+      kIntentHelperClassName, extras_string);
+
+  return true;
 }
 
 std::vector<std::string> GetSelectedPackagesFromPrefs(

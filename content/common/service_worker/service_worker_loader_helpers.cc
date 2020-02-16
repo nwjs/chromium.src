@@ -110,7 +110,7 @@ void ServiceWorkerLoaderHelpers::SaveResponseInfo(
   out_head->cors_exposed_header_names = response.cors_exposed_header_names;
   out_head->did_service_worker_navigation_preload = false;
   out_head->content_security_policy =
-      network::ContentSecurityPolicy(response.content_security_policy.Clone());
+      mojo::Clone(response.content_security_policy);
 }
 
 // static

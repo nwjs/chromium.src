@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
+#include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
@@ -82,6 +83,7 @@ class ImageDocumentTest : public testing::Test {
 
   void CreateDocumentWithoutLoadingImage(int view_width, int view_height);
   void CreateDocument(int view_width, int view_height);
+  DocumentParser* StartLoadingImage();
   void LoadImage();
 
   ImageDocument& GetDocument() const;
@@ -108,9 +110,11 @@ void ImageDocumentTest::CreateDocumentWithoutLoadingImage(int view_width,
 
   LocalFrame& frame = dummy_page_holder_->GetFrame();
   frame.GetDocument()->Shutdown();
-  DocumentInit init = DocumentInit::Create().WithDocumentLoader(
-      frame.Loader().GetDocumentLoader());
-  frame.DomWindow()->InstallNewDocument("image/jpeg", init, false);
+  DocumentInit init =
+      DocumentInit::Create()
+          .WithDocumentLoader(frame.Loader().GetDocumentLoader())
+          .WithTypeFrom("image/jpeg");
+  frame.DomWindow()->InstallNewDocument(init, false);
   frame.GetDocument()->SetURL(KURL("http://www.example.com/image.jpg"));
 }
 
@@ -125,11 +129,16 @@ ImageDocument& ImageDocumentTest::GetDocument() const {
   return *image_document;
 }
 
-void ImageDocumentTest::LoadImage() {
+DocumentParser* ImageDocumentTest::StartLoadingImage() {
   DocumentParser* parser = GetDocument().ImplicitOpen(
       ParserSynchronizationPolicy::kForceSynchronousParsing);
   const Vector<unsigned char>& data = JpegImage();
   parser->AppendBytes(reinterpret_cast<const char*>(data.data()), data.size());
+  return parser;
+}
+
+void ImageDocumentTest::LoadImage() {
+  DocumentParser* parser = StartLoadingImage();
   parser->Finish();
 }
 
@@ -220,6 +229,13 @@ TEST_F(ImageDocumentTest, ImageCenteredWithoutForceZeroLayoutHeight) {
 TEST_F(ImageDocumentTest, DomInteractive) {
   CreateDocument(25, 30);
   EXPECT_FALSE(GetDocument().GetTiming().DomInteractive().is_null());
+}
+
+TEST_F(ImageDocumentTest, ImageSrcChangedBeforeFinish) {
+  CreateDocumentWithoutLoadingImage(80, 70);
+  DocumentParser* parser = StartLoadingImage();
+  GetDocument().ImageElement()->removeAttribute(html_names::kSrcAttr);
+  parser->Finish();
 }
 
 #if defined(OS_ANDROID)

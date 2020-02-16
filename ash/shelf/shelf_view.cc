@@ -317,7 +317,6 @@ ShelfView::ShelfView(ShelfModel* model,
   DCHECK(model_);
   DCHECK(shelf_);
   Shell::Get()->tablet_mode_controller()->AddObserver(this);
-  ShelfConfig::Get()->AddObserver(this);
   Shell::Get()->AddShellObserver(this);
   bounds_animator_->AddObserver(this);
   set_context_menu_controller(this);
@@ -331,7 +330,6 @@ ShelfView::~ShelfView() {
   // Shell destroys the TabletModeController before destroying all root windows.
   if (Shell::Get()->tablet_mode_controller())
     Shell::Get()->tablet_mode_controller()->RemoveObserver(this);
-  ShelfConfig::Get()->RemoveObserver(this);
   Shell::Get()->RemoveShellObserver(this);
   bounds_animator_->RemoveObserver(this);
   model_->RemoveObserver(this);
@@ -470,6 +468,14 @@ void ShelfView::StopAnimatingViewIfAny(views::View* view) {
     bounds_animator_->StopAnimatingView(view);
 }
 
+bool ShelfView::IsShelfViewHandlingDragAndDrop() const {
+  // If the ShelfView has a drag icon proxy, the drag originated from the
+  // AppsGridView. When the drag originates from the shelf, the
+  // ScrollableShelfView is the ApplicationDragAndDropHost, so ShelfView will
+  // not have a drag proxy.
+  return drag_image_ != nullptr;
+}
+
 bool ShelfView::ShouldHideTooltip(const gfx::Point& cursor_location) const {
   // There are thin gaps between launcher buttons but the tooltip shouldn't hide
   // in the gaps, but the tooltip should hide if the mouse moved totally outside
@@ -540,8 +546,8 @@ void ShelfView::ToggleOverflowBubble() {
   overflow_view->overflow_mode_ = true;
   overflow_view->Init();
   overflow_view->set_owner_overflow_bubble(overflow_bubble_.get());
-  overflow_view->OnShelfAlignmentChanged(
-      GetWidget()->GetNativeWindow()->GetRootWindow());
+  aura::Window* root_window = GetWidget()->GetNativeWindow()->GetRootWindow();
+  overflow_view->OnShelfAlignmentChanged(root_window, shelf_->alignment());
   overflow_view->main_shelf_ = this;
   UpdateOverflowRange(overflow_view);
 
@@ -598,8 +604,12 @@ void ShelfView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   // time would produce a time lag since the animation of the BoundsAnimator has
   // itself a delay before it arrives at the required location. As such we tell
   // the animator to go there immediately. We still want to use an animation
-  // when the bounds change is caused by entering or exiting tablet mode.
-  if (shelf_->is_tablet_mode_animation_running()) {
+  // when the bounds change is caused by entering or exiting tablet mode, with
+  // an exception of usage within the scrollable shelf. With scrollable shelf
+  // (and hotseat), tablet mode transition causes hotseat bounds changes, so
+  // animating shelf items as well would introduce a lag.
+  if (shelf_->is_tablet_mode_animation_running() &&
+      !chromeos::switches::ShouldShowScrollableShelf()) {
     AnimateToIdealBounds();
     if (IsShowingOverflowBubble()) {
       overflow_bubble_->bubble_view()->shelf_view()->OnBoundsChanged(
@@ -619,7 +629,7 @@ void ShelfView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
 
 bool ShelfView::OnKeyPressed(const ui::KeyEvent& event) {
   if (event.IsControlDown() &&
-      ash::keyboard_util::IsArrowKeyCode(event.key_code())) {
+      keyboard_util::IsArrowKeyCode(event.key_code())) {
     bool swap_with_next = (event.key_code() == ui::VKEY_DOWN ||
                            event.key_code() == ui::VKEY_RIGHT);
     SwapButtons(GetFocusManager()->GetFocusedView(), swap_with_next);
@@ -830,29 +840,6 @@ views::View* ShelfView::GetDefaultFocusableChild() {
                                        : FindFirstFocusableChild();
 }
 
-void ShelfView::CreateDragIconProxy(
-    const gfx::Point& location_in_screen_coordinates,
-    const gfx::ImageSkia& icon,
-    views::View* replaced_view,
-    const gfx::Vector2d& cursor_offset_from_center,
-    float scale_factor) {
-  drag_replaced_view_ = replaced_view;
-  aura::Window* root_window =
-      drag_replaced_view_->GetWidget()->GetNativeWindow()->GetRootWindow();
-  drag_image_ = std::make_unique<DragImageView>(
-      root_window, ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE);
-  drag_image_->SetImage(icon);
-  gfx::Size size = drag_image_->GetPreferredSize();
-  size.set_width(size.width() * scale_factor);
-  size.set_height(size.height() * scale_factor);
-  drag_image_offset_ = gfx::Vector2d(size.width() / 2, size.height() / 2) +
-                       cursor_offset_from_center;
-  gfx::Rect drag_image_bounds(
-      location_in_screen_coordinates - drag_image_offset_, size);
-  drag_image_->SetBoundsInScreen(drag_image_bounds);
-  drag_image_->SetWidgetVisible(true);
-}
-
 void ShelfView::ShowContextMenuForViewImpl(views::View* source,
                                            const gfx::Point& point,
                                            ui::MenuSourceType source_type) {
@@ -872,11 +859,13 @@ void ShelfView::ShowContextMenuForViewImpl(views::View* source,
   }
 
   item_awaiting_response_ = item->id;
+  context_menu_callback_.Reset(base::BindOnce(
+      &ShelfView::ShowShelfContextMenu, weak_factory_.GetWeakPtr(), item->id,
+      point, source, source_type));
+
   const int64_t display_id = GetDisplayIdForView(this);
   model_->GetShelfItemDelegate(item->id)->GetContextMenu(
-      display_id, base::BindOnce(&ShelfView::ShowShelfContextMenu,
-                                 weak_factory_.GetWeakPtr(), item->id, point,
-                                 source, source_type));
+      display_id, context_menu_callback_.callback());
 }
 
 void ShelfView::OnTabletModeStarted() {
@@ -899,7 +888,6 @@ void ShelfView::OnShelfConfigUpdated() {
   for (int i = 0; i < view_model_->view_size(); i++) {
     ShelfAppButton* button =
         static_cast<ShelfAppButton*>(view_model_->view_at(i));
-
     if (!button->IsIconSizeCurrent())
       ShelfItemChanged(i, model_->items()[i]);
   }
@@ -956,6 +944,12 @@ void ShelfView::CreateDragIconProxyByLocationWithNoAnimation(
   drag_image_->GetWidget()->SetVisibilityAnimationTransition(
       views::Widget::ANIMATE_NONE);
   drag_image_->SetWidgetVisible(true);
+  if (chromeos::switches::ShouldShowScrollableShelf()) {
+    // Add a layer in order to ensure the icon properly animates when a drag
+    // starts from AppsGridView and ends in the Shelf.
+    drag_image_->SetPaintToLayer();
+    drag_image_->layer()->SetFillsBoundsOpaquely(false);
+  }
 }
 
 void ShelfView::UpdateDragIconProxy(
@@ -1282,6 +1276,14 @@ void ShelfView::DestroyDragIconProxy() {
   drag_image_offset_ = gfx::Vector2d(0, 0);
 }
 
+DragImageView* ShelfView::RetrieveDragIconProxyAndClearDragProxyState() {
+  // TODO(https://crub.com/1045186): Make ScrollableShelfView the only
+  // ApplicationDragAndDropHost in the view hierarchy, and remove this.
+  DragImageView* temp_drag_image_view = drag_image_.release();
+  DestroyDragIconProxy();
+  return temp_drag_image_view;
+}
+
 bool ShelfView::StartDrag(const std::string& app_id,
                           const gfx::Point& location_in_screen_coordinates) {
   // Bail if an operation is already going on - or the cursor is not inside.
@@ -1316,9 +1318,11 @@ bool ShelfView::StartDrag(const std::string& app_id,
   drag_and_drop_view->SetSize(gfx::Size());
 
   // First we have to center the mouse cursor over the item.
-  gfx::Point pt = drag_and_drop_view->GetBoundsInScreen().CenterPoint();
+  const gfx::Point start_point_in_screen =
+      drag_and_drop_view->GetBoundsInScreen().CenterPoint();
+  gfx::Point pt = start_point_in_screen;
   views::View::ConvertPointFromScreen(drag_and_drop_view, &pt);
-  gfx::Point point_in_root = location_in_screen_coordinates;
+  gfx::Point point_in_root = start_point_in_screen;
   wm::ConvertPointFromScreen(
       window_util::GetRootWindowAt(location_in_screen_coordinates),
       &point_in_root);
@@ -1395,9 +1399,6 @@ void ShelfView::EndDrag(bool cancel) {
 void ShelfView::SwapButtons(views::View* button_to_swap, bool with_next) {
   if (!button_to_swap)
     return;
-  // We don't allow reordering of buttons that aren't app buttons.
-  if (button_to_swap->GetClassName() != ShelfAppButton::kViewClassName)
-    return;
 
   // Find the index of the button to swap in the view model.
   int src_index = -1;
@@ -1410,23 +1411,19 @@ void ShelfView::SwapButtons(views::View* button_to_swap, bool with_next) {
   }
 
   const int target_index = with_next ? src_index + 1 : src_index - 1;
+  // TODO(manucornet): Remove this restriction once we get rid of overflow
+  // bubbles in favor of a scrollable shelf.
   const int first_swappable_index = std::max(first_visible_index_, 0);
   const int last_swappable_index = last_visible_index_;
-  if (src_index == -1 || (target_index > last_swappable_index) ||
-      (target_index < first_swappable_index)) {
-    return;
-  }
-
-  // Only allow swapping two pinned apps or two unpinned apps.
-  if (!SamePinState(model_->items()[src_index].type,
-                    model_->items()[target_index].type)) {
+  if (target_index > last_swappable_index ||
+      target_index < first_swappable_index) {
     return;
   }
 
   // Swapping items in the model is sufficient, everything will then be
   // reflected in the views.
-  model_->Move(src_index, target_index);
-  AnimateToIdealBounds();
+  if (model_->Swap(src_index, with_next))
+    AnimateToIdealBounds();
   // TODO(manucornet): Announce the swap to screen readers.
 }
 
@@ -1490,13 +1487,8 @@ void ShelfView::PointerReleasedOnButton(views::View* view,
   if (drag_pointer_ != NONE)
     return;
 
-  if (chromeos::switches::ShouldShowScrollableShelf()) {
+  if (chromeos::switches::ShouldShowScrollableShelf())
     drag_and_drop_host_->DestroyDragIconProxy();
-
-    // |drag_view_| is reset already when being removed from the shelf view.
-    if (drag_view_)
-      drag_view_->layer()->SetOpacity(1.0f);
-  }
 
   // If the drag pointer is NONE, no drag operation is going on and the
   // drag_view can be released.
@@ -1520,7 +1512,10 @@ bool ShelfView::IsItemPinned(const ShelfItem& item) const {
 }
 
 void ShelfView::OnTabletModeChanged() {
-  OnBoundsChanged(GetBoundsInScreen());
+  // For scrollable shelf, the layout change will happen as part of shelf config
+  // update.
+  if (!chromeos::switches::ShouldShowScrollableShelf())
+    OnBoundsChanged(GetBoundsInScreen());
 }
 
 void ShelfView::LayoutOverflowButton() const {
@@ -1585,6 +1580,14 @@ void ShelfView::PrepareForDrag(Pointer pointer, const ui::LocatedEvent& event) {
   if (start_drag_index_ == -1) {
     CancelDrag(-1);
     return;
+  }
+
+  // Cancel in-flight request for app item context menu model (made when app
+  // context menu is requested), to prevent the pending callback from showing
+  // a context menu just after drag starts.
+  if (!context_menu_callback_.IsCancelled()) {
+    context_menu_callback_.Cancel();
+    item_awaiting_response_ = ShelfID();
   }
 
   // Move the view to the front so that it appears on top of other views.
@@ -1658,13 +1661,17 @@ void ShelfView::ContinueDrag(const ui::LocatedEvent& event) {
     }
   }
 
+  // Calculates the drag point in screen before MoveDragViewTo is called.
+  gfx::Point drag_point_in_screen(event.location());
+  ConvertPointToScreen(drag_view_, &drag_point_in_screen);
+
   gfx::Point drag_point(event.location());
   ConvertPointToTarget(drag_view_, this, &drag_point);
   MoveDragViewTo(shelf_->PrimaryAxisValue(drag_point.x() - drag_origin_.x(),
                                           drag_point.y() - drag_origin_.y()));
   if (chromeos::switches::ShouldShowScrollableShelf()) {
-    drag_and_drop_host_->UpdateDragIconProxy(
-        drag_view_->GetBoundsInScreen().origin());
+    drag_and_drop_host_->UpdateDragIconProxy(drag_point_in_screen -
+                                             drag_origin_.OffsetFromOrigin());
   }
 }
 
@@ -1747,6 +1754,34 @@ void ShelfView::EndDragOnOtherShelf(bool cancel) {
   }
 }
 
+void ShelfView::CreateDragIconProxy(
+    const gfx::Point& location_in_screen_coordinates,
+    const gfx::ImageSkia& icon,
+    views::View* replaced_view,
+    const gfx::Vector2d& cursor_offset_from_center,
+    float scale_factor,
+    bool animate_visibility) {
+  drag_replaced_view_ = replaced_view;
+  aura::Window* root_window =
+      drag_replaced_view_->GetWidget()->GetNativeWindow()->GetRootWindow();
+  drag_image_ = std::make_unique<DragImageView>(
+      root_window, ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE);
+  drag_image_->SetImage(icon);
+  gfx::Size size = drag_image_->GetPreferredSize();
+  size.set_width(std::round(size.width() * scale_factor));
+  size.set_height(std::round(size.height() * scale_factor));
+  drag_image_offset_ = gfx::Vector2d(size.width() / 2, size.height() / 2) +
+                       cursor_offset_from_center;
+  gfx::Rect drag_image_bounds(
+      location_in_screen_coordinates - drag_image_offset_, size);
+  drag_image_->SetBoundsInScreen(drag_image_bounds);
+  if (!animate_visibility) {
+    drag_image_->GetWidget()->SetVisibilityAnimationTransition(
+        views::Widget::ANIMATE_NONE);
+  }
+  drag_image_->SetWidgetVisible(true);
+}
+
 bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
   int current_index = view_model_->GetIndexOfView(drag_view_);
   DCHECK_NE(-1, current_index);
@@ -1775,29 +1810,21 @@ bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
         drag_view_->SetBoundsRect(view_model_->ideal_bounds(drag_view_index));
         dragged_to_another_shelf_ = false;
       }
+
+      if (chromeos::switches::ShouldShowScrollableShelf()) {
+        drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
+            event.root_location(), drag_view_->GetImage(), drag_image_.get(),
+            /*scale_factor=*/1.0f, /*blur_radius=*/0);
+      }
+
       // Destroy our proxy view item.
       DestroyDragIconProxy();
       // Re-insert the item and return simply false since the caller will handle
       // the move as in any normal case.
       dragged_off_shelf_ = false;
 
-      if (chromeos::switches::ShouldShowScrollableShelf()) {
-        // |drag_view_| is moved to the end of the view model when the app icon
-        // is dragged off the shelf. So updates the location of |drag_view_|
-        // before creating a proxy icon to ensure that the proxy icon has the
-        // correct bounds.
-        gfx::Point drag_point(event.location());
-        ConvertPointToTarget(drag_view_, this, &drag_point);
-        MoveDragViewTo(
-            shelf_->PrimaryAxisValue(drag_point.x() - drag_origin_.x(),
-                                     drag_point.y() - drag_origin_.y()));
-
-        drag_and_drop_host_->CreateDragIconProxyByLocationWithNoAnimation(
-            event.root_location(), drag_view_->GetImage(), drag_view_,
-            /*scale_factor=*/1.0f, /*blur_radius=*/0);
-      } else {
+      if (!chromeos::switches::ShouldShowScrollableShelf())
         drag_view_->layer()->SetOpacity(1.0f);
-      }
 
       // The size of Overflow bubble should be updated immediately when an item
       // is re-inserted.
@@ -1868,17 +1895,28 @@ bool ShelfView::HandleRipOffDrag(const ui::LocatedEvent& event) {
                             .Contains(screen_location));
 
   if (dragged_off_shelf) {
+    // When scrollable shelf is enabled, replaces a proxy icon provided by
+    // drag_and_drop_host_ - keep cursor position consistent with the host
+    // provided icon, and disable visibility animations (to prevent the proxy
+    // icon from lingering on when replaced with the icon provided by host).
+    const bool animate_proxy_visibility =
+        !chromeos::switches::ShouldShowScrollableShelf();
+    const gfx::Point center = drag_view_->GetLocalBounds().CenterPoint();
+    const gfx::Vector2d cursor_offset_from_center =
+        chromeos::switches::ShouldShowScrollableShelf() ? drag_origin_ - center
+                                                        : gfx::Vector2d();
     // Create a proxy view item which can be moved anywhere.
     CreateDragIconProxy(event.root_location(), drag_view_->GetImage(),
-                        drag_view_, gfx::Vector2d(0, 0),
-                        kDragAndDropProxyScale);
+                        drag_view_, cursor_offset_from_center,
+                        kDragAndDropProxyScale, animate_proxy_visibility);
+
+    dragged_off_shelf_ = true;
 
     if (chromeos::switches::ShouldShowScrollableShelf())
       drag_and_drop_host_->DestroyDragIconProxy();
     else
       drag_view_->layer()->SetOpacity(0.0f);
 
-    dragged_off_shelf_ = true;
     if (RemovableByRipOff(current_index) == REMOVABLE) {
       // Move the item to the back and hide it. ShelfItemMoved() callback will
       // handle the |view_model_| update and call AnimateToIdealBounds().
@@ -2100,13 +2138,13 @@ void ShelfView::AnnounceShelfAlignment() {
 void ShelfView::AnnounceShelfAutohideBehavior() {
   base::string16 announcement;
   switch (shelf_->auto_hide_behavior()) {
-    case SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS:
+    case ShelfAutoHideBehavior::kAlways:
       announcement = l10n_util::GetStringUTF16(IDS_SHELF_STATE_AUTO_HIDE);
       break;
-    case SHELF_AUTO_HIDE_BEHAVIOR_NEVER:
+    case ShelfAutoHideBehavior::kNever:
       announcement = l10n_util::GetStringUTF16(IDS_SHELF_STATE_ALWAYS_SHOWN);
       break;
-    case SHELF_AUTO_HIDE_ALWAYS_HIDDEN:
+    case ShelfAutoHideBehavior::kAlwaysHidden:
       announcement = l10n_util::GetStringUTF16(IDS_SHELF_STATE_ALWAYS_HIDDEN);
       break;
   }
@@ -2281,7 +2319,10 @@ void ShelfView::ShelfItemRemoved(int model_index, const ShelfItem& old_item) {
   if (view.get() == shelf_->tooltip()->GetCurrentAnchorView())
     shelf_->tooltip()->Close();
 
-  if (view->GetVisible()) {
+  if (view->GetVisible() && view->layer()->opacity() > 0.0f) {
+    if (chromeos::switches::ShouldShowScrollableShelf())
+      UpdateVisibleIndices();
+
     // The first animation fades out the view. When done we'll animate the rest
     // of the views to their target location.
     bounds_animator_->AnimateViewTo(view.get(), view->bounds());
@@ -2405,7 +2446,8 @@ void ShelfView::ShelfItemStatusChanged(const ShelfID& id) {
   button->SchedulePaint();
 }
 
-void ShelfView::OnShelfAlignmentChanged(aura::Window* root_window) {
+void ShelfView::OnShelfAlignmentChanged(aura::Window* root_window,
+                                        ShelfAlignment old_alignment) {
   LayoutToIdealBounds();
   for (int i = 0; i < view_model_->view_size(); ++i) {
     if (i >= first_visible_index_ && i <= last_visible_index_)
@@ -2441,9 +2483,12 @@ void ShelfView::AfterItemSelected(const ShelfItem& item,
   if (action == SHELF_ACTION_APP_LIST_DISMISSED) {
     ink_drop->SnapToActivated();
     ink_drop->AnimateToState(views::InkDropState::HIDDEN);
-  } else if (action != SHELF_ACTION_APP_LIST_SHOWN) {
-    if (action != SHELF_ACTION_NEW_WINDOW_CREATED && menu_items.size() > 1) {
-      // Show the app menu with 2 or more items, if no window was created.
+  } else if (action != SHELF_ACTION_APP_LIST_SHOWN && !dragging()) {
+    if (action != SHELF_ACTION_NEW_WINDOW_CREATED && menu_items.size() > 1 &&
+        !dragging()) {
+      // Show the app menu with 2 or more items, if no window was created. The
+      // menu is not shown in case item drag started while the selection request
+      // was in progress.
       ink_drop->AnimateToState(views::InkDropState::ACTIVATED);
       context_menu_id_ = item.id;
       ShowMenu(std::make_unique<ShelfApplicationMenuModel>(
@@ -2555,15 +2600,14 @@ void ShelfView::OnBoundsAnimatorDone(views::BoundsAnimator* animator) {
       // previously hidden status can be shown again. Since the button itself
       // might have gone away or changed locations we check that the button
       // is still in the shelf and show its status again.
-      for (int index = 0; index < view_model_->view_size(); index++) {
-        views::View* view = view_model_->view_at(index);
-        if (view == snap_back_from_rip_off_view_) {
-          CHECK_EQ(ShelfAppButton::kViewClassName, view->GetClassName());
-          ShelfAppButton* button = static_cast<ShelfAppButton*>(view);
-          button->ClearState(ShelfAppButton::STATE_HIDDEN);
-          break;
-        }
-      }
+      const auto& entries = view_model_->entries();
+      const auto iter = std::find_if(
+          entries.begin(), entries.end(), [this](const auto& entry) {
+            return entry.view == snap_back_from_rip_off_view_;
+          });
+      if (iter != entries.end())
+        snap_back_from_rip_off_view_->ClearState(ShelfAppButton::STATE_HIDDEN);
+
       snap_back_from_rip_off_view_ = nullptr;
     }
   }
@@ -2636,16 +2680,13 @@ base::string16 ShelfView::GetTitleForChildView(const views::View* view) const {
   return item ? item->title : base::string16();
 }
 
-bool ShelfView::UpdateVisibleIndices() {
+void ShelfView::UpdateVisibleIndices() {
   DCHECK_EQ(true, chromeos::switches::ShouldShowScrollableShelf());
-  const int previous_first_visible_index = first_visible_index_;
-  const int previous_last_visible_index = last_visible_index_;
 
+  // When the scrollable shelf is enabled, ShelfView's |last_visible_index_| is
+  // always the index to the last shelf item.
   first_visible_index_ = view_model()->view_size() == 0 ? -1 : 0;
   last_visible_index_ = model_->item_count() - 1;
-
-  return (first_visible_index_ != previous_first_visible_index) ||
-         (last_visible_index_ != previous_last_visible_index);
 }
 
 }  // namespace ash

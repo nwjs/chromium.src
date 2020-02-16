@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
+#include "ui/base/ui_base_features.h"
 
 namespace blink {
 
@@ -59,7 +60,7 @@ PickerIndicatorElement::~PickerIndicatorElement() {
 LayoutObject* PickerIndicatorElement::CreateLayoutObject(
     const ComputedStyle& style,
     LegacyLayout legacy) {
-  if (RuntimeEnabledFeatures::FormControlsRefreshEnabled())
+  if (features::IsFormControlsRefreshEnabled())
     return HTMLDivElement::CreateLayoutObject(style, legacy);
 
   return new LayoutDetailsMarker(this);
@@ -109,10 +110,16 @@ void PickerIndicatorElement::DidChooseValue(double value) {
 
 void PickerIndicatorElement::DidEndChooser() {
   chooser_.Clear();
+  picker_indicator_owner_->DidEndChooser();
+  if (::features::IsFormControlsRefreshEnabled() &&
+      OwnerElement().GetLayoutObject()) {
+    // Invalidate paint to ensure that the focus ring is shown.
+    OwnerElement().GetLayoutObject()->SetShouldDoFullPaintInvalidation();
+  }
 }
 
 void PickerIndicatorElement::OpenPopup() {
-  if (chooser_)
+  if (HasOpenedPopup())
     return;
   if (!GetDocument().GetPage())
     return;
@@ -123,6 +130,11 @@ void PickerIndicatorElement::OpenPopup() {
     return;
   chooser_ = GetDocument().GetPage()->GetChromeClient().OpenDateTimeChooser(
       GetDocument().GetFrame(), this, parameters);
+  if (::features::IsFormControlsRefreshEnabled() &&
+      OwnerElement().GetLayoutObject()) {
+    // Invalidate paint to ensure that the focus ring is removed.
+    OwnerElement().GetLayoutObject()->SetShouldDoFullPaintInvalidation();
+  }
 }
 
 Element& PickerIndicatorElement::OwnerElement() const {
@@ -134,6 +146,10 @@ void PickerIndicatorElement::ClosePopup() {
   if (!chooser_)
     return;
   chooser_->EndChooser();
+}
+
+bool PickerIndicatorElement::HasOpenedPopup() const {
+  return chooser_;
 }
 
 void PickerIndicatorElement::DetachLayoutTree(bool performing_reattach) {

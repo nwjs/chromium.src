@@ -29,6 +29,7 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/content_capture/content_capture_manager.h"
+#include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -221,13 +222,20 @@ void LayoutText::RemoveAndDestroyTextBoxes() {
       for (InlineTextBox* box : TextBoxes())
         box->Remove();
     } else {
-      if (NGPaintFragment* first_inline_fragment = FirstInlineFragment()) {
+      if (RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled()) {
+        if (has_abstract_inline_text_box_)
+          ClearFirstInlineFragmentItemIndex();
+      } else if (NGPaintFragment* first_inline_fragment =
+                     FirstInlineFragment()) {
         first_inline_fragment->LayoutObjectWillBeDestroyed();
         SetFirstInlineFragment(nullptr);
       }
       if (Parent())
         Parent()->DirtyLinesFromChangedChild(this);
     }
+  } else if (RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled()) {
+    if (has_abstract_inline_text_box_)
+      ClearFirstInlineFragmentItemIndex();
   } else if (NGPaintFragment* first_inline_fragment = FirstInlineFragment()) {
     // Still do this to clear the global hash map in  NGAbstractInlineTextBox.
     SetFirstInlineFragment(nullptr);
@@ -265,7 +273,27 @@ void LayoutText::RemoveTextBox(InlineTextBox* box) {
 
 void LayoutText::DeleteTextBoxes() {
   if (!IsInLayoutNGInlineFormattingContext())
-    MutableTextBoxes().DeleteLineBoxes();
+    return MutableTextBoxes().DeleteLineBoxes();
+  DetachAbstractInlineTextBoxesIfNeeded();
+}
+
+void LayoutText::DetachAbstractInlineTextBoxesIfNeeded() {
+  // TODO(layout-dev): Because We should call |WillDestroy()| once for
+  // associated fragments, when you reuse fragments, you should construct
+  // NGAbstractInlineTextBox for them.
+  if (!has_abstract_inline_text_box_)
+    return;
+  has_abstract_inline_text_box_ = false;
+  if (!RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled()) {
+    for (NGPaintFragment* fragment : NGPaintFragment::InlineFragmentsFor(this))
+      NGAbstractInlineTextBox::WillDestroy(fragment);
+    return;
+  }
+  // TODO(yosin): Make sure we call this function within valid containg block
+  // of |this|.
+  NGInlineCursor cursor;
+  for (cursor.MoveTo(*this); cursor; cursor.MoveToNextForSameLayoutObject())
+    NGAbstractInlineTextBox::WillDestroy(cursor);
 }
 
 void LayoutText::SetFirstInlineFragment(NGPaintFragment* first_fragment) {
@@ -274,20 +302,14 @@ void LayoutText::SetFirstInlineFragment(NGPaintFragment* first_fragment) {
   // |!fragment|.
   DCHECK(!first_fragment ||
          !RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
-  // TODO(layout-dev): Because We should call |WillDestroy()| once for
-  // associated fragments, when you reuse fragments, you should construct
-  // NGAbstractInlineTextBox for them.
-  if (has_abstract_inline_text_box_) {
-    for (NGPaintFragment* fragment : NGPaintFragment::InlineFragmentsFor(this))
-      NGAbstractInlineTextBox::WillDestroy(fragment);
-    has_abstract_inline_text_box_ = false;
-  }
+  DetachAbstractInlineTextBoxesIfNeeded();
   first_paint_fragment_ = first_fragment;
 }
 
 void LayoutText::ClearFirstInlineFragmentItemIndex() {
   CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
   DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
+  DetachAbstractInlineTextBoxesIfNeeded();
   first_fragment_item_index_ = 0u;
 }
 
@@ -296,7 +318,10 @@ void LayoutText::SetFirstInlineFragmentItemIndex(wtf_size_t index) {
   // TODO(yosin): Call |NGAbstractInlineTextBox::WillDestroy()|.
   DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
   DCHECK_NE(index, 0u);
-  first_fragment_item_index_ = index;
+  DetachAbstractInlineTextBoxesIfNeeded();
+  // TDOO(yosin): Once we update all |LayoutObject::FirstInlineFragment()|,
+  // we should enable below.
+  // first_fragment_item_index_ = index;
 }
 
 void LayoutText::InLayoutNGInlineFormattingContextWillChange(bool new_value) {
@@ -305,9 +330,17 @@ void LayoutText::InLayoutNGInlineFormattingContextWillChange(bool new_value) {
   // Because |first_paint_fragment_| and |text_boxes_| are union, when one is
   // deleted, the other should be initialized to nullptr.
   DCHECK(new_value ? !first_paint_fragment_ : !text_boxes_.First());
+
+  // Because there are no inline boxes associated to this text, we should not
+  // have abstract inline text boxes too.
+  DCHECK(!has_abstract_inline_text_box_);
 }
 
 Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
+  // This function may kick the layout (e.g., |LocalRect()|), but Inspector may
+  // call this function outside of the layout phase.
+  FontCachePurgePreventer fontCachePurgePreventer;
+
   Vector<TextBoxInfo> results;
   if (const NGOffsetMapping* mapping = GetNGOffsetMapping()) {
     bool in_hidden_for_paint = false;
@@ -350,7 +383,7 @@ Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
         // Compute rect of the legacy text box.
         LayoutRect rect =
             cursor.CurrentLocalRect(clamped_start, clamped_end).ToLayoutRect();
-        rect.MoveBy(cursor.CurrentOffset().ToLayoutPoint());
+        rect.MoveBy(cursor.Current().OffsetInContainerBlock().ToLayoutPoint());
 
         // Compute start of the legacy text box.
         if (unit.AssociatedNode()) {
@@ -382,9 +415,12 @@ Vector<LayoutText::TextBoxInfo> LayoutText::GetTextBoxInfo() const {
 
 bool LayoutText::HasTextBoxes() const {
   if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
-    auto fragments = NGPaintFragment::InlineFragmentsFor(this);
-    if (fragments.IsInLayoutNGInlineFormattingContext())
-      return !(fragments.begin() == fragments.end());
+    if (IsInLayoutNGInlineFormattingContext()) {
+      NGInlineCursor cursor;
+      cursor.MoveTo(*this);
+      return cursor.IsNotNull();
+    }
+
     // When legacy is forced, IsInLayoutNGInlineFormattingContext is false,
     // and we fall back to normal HasTextBox
     return FirstTextBox();
@@ -476,7 +512,7 @@ void LayoutText::CollectLineBoxRects(const PhysicalRectCollector& yield,
         if (cursor.IsHiddenForPaint())
           continue;
       }
-      yield(cursor.CurrentRect());
+      yield(cursor.Current().RectInContainerBlock());
     }
     return;
   }
@@ -591,7 +627,7 @@ void LayoutText::AbsoluteQuadsForRange(Vector<FloatQuad>& quads,
       const unsigned clamped_start = std::max(start, offset.start);
       const unsigned clamped_end = std::min(end, offset.end);
       PhysicalRect rect = cursor.CurrentLocalRect(clamped_start, clamped_end);
-      rect.Move(cursor.CurrentOffset());
+      rect.Move(cursor.Current().OffsetInContainerBlock());
       const FloatQuad quad = LocalRectToAbsoluteQuad(rect);
       if (clamped_start < clamped_end) {
         quads.push_back(quad);
@@ -1588,12 +1624,15 @@ UChar32 LayoutText::LastCharacterAfterWhitespaceCollapsing() const {
 }
 
 PhysicalOffset LayoutText::FirstLineBoxTopLeft() const {
-  if (const NGPaintFragment* fragment = FirstInlineFragment()) {
+  if (IsInLayoutNGInlineFormattingContext()) {
     // TODO(kojii): Some clients call this against dirty-tree, but NG fragments
     // are not safe to read for dirty-tree. crbug.com/963103
     if (UNLIKELY(!IsFirstInlineFragmentSafe()))
       return PhysicalOffset();
-    return fragment->InlineOffsetToContainerBox();
+    NGInlineCursor cursor;
+    cursor.MoveTo(*this);
+    return cursor ? cursor.Current().OffsetInContainerBlock()
+                  : PhysicalOffset();
   }
   if (const auto* text_box = FirstTextBox()) {
     LayoutPoint location = text_box->Location();
@@ -2117,7 +2156,7 @@ PhysicalRect LayoutText::LocalSelectionVisualRect() const {
       if (status.start == status.end)
         continue;
       PhysicalRect item_rect = ComputeLocalSelectionRectForText(cursor, status);
-      item_rect.offset += cursor.CurrentOffset();
+      item_rect.offset += cursor.Current().OffsetInContainerBlock();
       rect.Unite(item_rect);
     }
     return rect;
@@ -2415,12 +2454,10 @@ void LayoutText::MomentarilyRevealLastTypedCharacter(
 }
 
 scoped_refptr<AbstractInlineTextBox> LayoutText::FirstAbstractInlineTextBox() {
-  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
-    auto fragments = NGPaintFragment::InlineFragmentsFor(this);
-    if (!fragments.IsEmpty() &&
-        fragments.IsInLayoutNGInlineFormattingContext()) {
-      return NGAbstractInlineTextBox::GetOrCreate(fragments.front());
-    }
+  if (IsInLayoutNGInlineFormattingContext()) {
+    NGInlineCursor cursor;
+    cursor.MoveTo(*this);
+    return NGAbstractInlineTextBox::GetOrCreate(cursor);
   }
   return LegacyAbstractInlineTextBox::GetOrCreate(LineLayoutText(this),
                                                   FirstTextBox());
@@ -2430,7 +2467,8 @@ void LayoutText::InvalidateDisplayItemClients(
     PaintInvalidationReason invalidation_reason) const {
   ObjectPaintInvalidator paint_invalidator(*this);
 
-  if (RuntimeEnabledFeatures::LayoutNGBlockFragmentationEnabled()) {
+  if (RuntimeEnabledFeatures::LayoutNGBlockFragmentationEnabled() &&
+      !RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled()) {
     auto fragments = NGPaintFragment::InlineFragmentsFor(this);
     if (fragments.IsInLayoutNGInlineFormattingContext()) {
       for (NGPaintFragment* fragment : fragments) {
@@ -2445,7 +2483,7 @@ void LayoutText::InvalidateDisplayItemClients(
     NGInlineCursor cursor;
     for (cursor.MoveTo(*this); cursor; cursor.MoveToNextForSameLayoutObject()) {
       paint_invalidator.InvalidateDisplayItemClient(
-          *cursor.CurrentDisplayItemClient(), invalidation_reason);
+          *cursor.Current().GetDisplayItemClient(), invalidation_reason);
     }
     return;
   }
@@ -2467,8 +2505,13 @@ PhysicalRect LayoutText::DebugRect() const {
 
 DOMNodeId LayoutText::EnsureNodeId() {
   if (node_id_ == kInvalidDOMNodeId) {
-    if (auto* content_capture_manager = GetContentCaptureManager())
-      node_id_ = content_capture_manager->GetNodeId(*GetNode());
+    auto* content_capture_manager = GetContentCaptureManager();
+    if (content_capture_manager)
+      content_capture_manager->ScheduleTaskIfNeeded();
+
+    // If either content capture or accessibility are enabled, store a node ID.
+    if (content_capture_manager || GetDocument().ExistingAXObjectCache())
+      node_id_ = DOMNodeIds::IdForNode(GetNode());
   }
   return node_id_;
 }

@@ -54,7 +54,6 @@ LayerImpl::LayerImpl(LayerTreeImpl* tree_impl,
       layer_property_changed_not_from_property_trees_(false),
       layer_property_changed_from_property_trees_(false),
       may_contain_video_(false),
-      masks_to_bounds_(false),
       contents_opaque_(false),
       use_parent_backface_visibility_(false),
       should_check_backface_visibility_(false),
@@ -75,8 +74,7 @@ LayerImpl::LayerImpl(LayerTreeImpl* tree_impl,
       scrollbars_hidden_(false),
       needs_show_scrollbars_(false),
       raster_even_if_not_drawn_(false),
-      has_transform_node_(false),
-      mirror_count_(0) {
+      has_transform_node_(false) {
   DCHECK_GT(layer_id_, 0);
 
   DCHECK(layer_tree_impl_);
@@ -181,8 +179,8 @@ void LayerImpl::PopulateScaledSharedQuadStateWithContentRects(
     bool contents_opaque) const {
   gfx::Transform scaled_draw_transform =
       draw_properties_.target_space_transform;
-  scaled_draw_transform.Scale(SK_MScalar1 / layer_to_content_scale,
-                              SK_MScalar1 / layer_to_content_scale);
+  scaled_draw_transform.Scale(SK_Scalar1 / layer_to_content_scale,
+                              SK_Scalar1 / layer_to_content_scale);
 
   EffectNode* effect_node = GetEffectTree().Node(effect_tree_index_);
   state->SetAll(scaled_draw_transform, content_rect, visible_content_rect,
@@ -232,12 +230,6 @@ void LayerImpl::GetDebugBorderProperties(SkColor* color, float* width) const {
   if (draws_content_) {
     *color = DebugColors::ContentLayerBorderColor();
     *width = DebugColors::ContentLayerBorderWidth(device_scale_factor);
-    return;
-  }
-
-  if (masks_to_bounds_) {
-    *color = DebugColors::MaskingLayerBorderColor();
-    *width = DebugColors::MaskingLayerBorderWidth(device_scale_factor);
     return;
   }
 
@@ -365,7 +357,6 @@ void LayerImpl::PushPropertiesTo(LayerImpl* layer) {
 
   layer->has_transform_node_ = has_transform_node_;
   layer->offset_to_transform_parent_ = offset_to_transform_parent_;
-  layer->masks_to_bounds_ = masks_to_bounds_;
   layer->contents_opaque_ = contents_opaque_;
   layer->may_contain_video_ = may_contain_video_;
   layer->use_parent_backface_visibility_ = use_parent_backface_visibility_;
@@ -386,7 +377,6 @@ void LayerImpl::PushPropertiesTo(LayerImpl* layer) {
   layer->clip_tree_index_ = clip_tree_index_;
   layer->scroll_tree_index_ = scroll_tree_index_;
   layer->has_will_change_transform_hint_ = has_will_change_transform_hint_;
-  layer->mirror_count_ = mirror_count_;
   layer->scrollbars_hidden_ = scrollbars_hidden_;
   if (needs_show_scrollbars_)
     layer->needs_show_scrollbars_ = needs_show_scrollbars_;
@@ -616,10 +606,6 @@ SkColor LayerImpl::SafeOpaqueBackgroundColor() const {
   return color;
 }
 
-void LayerImpl::SetMasksToBounds(bool masks_to_bounds) {
-  masks_to_bounds_ = masks_to_bounds;
-}
-
 void LayerImpl::SetContentsOpaque(bool opaque) {
   contents_opaque_ = opaque;
 }
@@ -641,10 +627,6 @@ void LayerImpl::SetElementId(ElementId element_id) {
   layer_tree_impl_->RemoveFromElementLayerList(element_id_);
   element_id_ = element_id;
   layer_tree_impl_->AddToElementLayerList(element_id_, this);
-}
-
-void LayerImpl::SetMirrorCount(int mirror_count) {
-  mirror_count_ = mirror_count;
 }
 
 void LayerImpl::UnionUpdateRect(const gfx::Rect& update_rect) {
@@ -799,6 +781,13 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
       state->EndArray();
     }
 
+    if (debug_info_->compositing_reason_ids.size()) {
+      state->BeginArray("compositing_reason_ids");
+      for (const char* reason_id : debug_info_->compositing_reason_ids)
+        state->AppendString(reason_id);
+      state->EndArray();
+    }
+
     if (debug_info_->invalidations.size()) {
       state->BeginArray("annotated_invalidation_rects");
       for (auto& invalidation : debug_info_->invalidations) {
@@ -889,7 +878,7 @@ gfx::Rect LayerImpl::GetEnclosingRectInTargetSpace() const {
 
 gfx::Rect LayerImpl::GetScaledEnclosingRectInTargetSpace(float scale) const {
   gfx::Transform scaled_draw_transform = DrawTransform();
-  scaled_draw_transform.Scale(SK_MScalar1 / scale, SK_MScalar1 / scale);
+  scaled_draw_transform.Scale(SK_Scalar1 / scale, SK_Scalar1 / scale);
   gfx::Size scaled_bounds = gfx::ScaleToCeiledSize(bounds(), scale);
   return MathUtil::MapEnclosingClippedRect(scaled_draw_transform,
                                            gfx::Rect(scaled_bounds));
@@ -945,9 +934,16 @@ float LayerImpl::GetIdealContentsScale() const {
   gfx::Vector2dF transform_scales =
       MathUtil::ComputeTransform2dScaleComponents(transform, default_scale);
 
+  return GetPreferredRasterScale(transform_scales);
+}
+
+float LayerImpl::GetPreferredRasterScale(
+    gfx::Vector2dF raster_space_scale_factor) {
   constexpr float kMaxScaleRatio = 5.f;
-  float lower_scale = std::min(transform_scales.x(), transform_scales.y());
-  float higher_scale = std::max(transform_scales.x(), transform_scales.y());
+  float lower_scale =
+      std::min(raster_space_scale_factor.x(), raster_space_scale_factor.y());
+  float higher_scale =
+      std::max(raster_space_scale_factor.x(), raster_space_scale_factor.y());
   return std::min(kMaxScaleRatio * lower_scale, higher_scale);
 }
 
@@ -1038,6 +1034,10 @@ int LayerImpl::CalculateJitter() {
     }
   }
   return jitter;
+}
+
+std::string LayerImpl::DebugName() const {
+  return debug_info_ ? debug_info_->name : "";
 }
 
 }  // namespace cc

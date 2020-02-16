@@ -14,6 +14,7 @@
 #include "base/containers/flat_map.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
 #include "ui/gfx/geometry/rect.h"
@@ -25,7 +26,6 @@ class Shadow;
 }  // namespace ui
 
 namespace views {
-class ImageButton;
 class Widget;
 }  // namespace views
 
@@ -148,7 +148,7 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // by |new_grid_y|. Returns the settings object of the layer the caller should
   // observe.
   std::unique_ptr<ui::ScopedLayerAnimationSettings> UpdateYPositionAndOpacity(
-      int new_grid_y,
+      float new_grid_y,
       float opacity,
       OverviewSession::UpdateAnimationSettingsCallback callback);
 
@@ -158,11 +158,9 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // Checks if this item is current being dragged.
   bool IsDragItem();
 
-  // Called after a positioning transform animation ends. Checks to see if the
-  // animation was triggered by a drag end event. If so, inserts the window back
-  // to its original stacking order so that the order of windows is the same as
-  // when entering overview.
-  void OnDragAnimationCompleted();
+  // Inserts the window back to its original stacking order so that the order of
+  // windows is the same as when entering overview.
+  void Restack();
 
   // Updates |phantoms_for_dragging_|. If |phantoms_for_dragging_| is null, then
   // a new object is created for it.
@@ -172,7 +170,7 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
 
   // Sets the bounds of the window shadow. If |bounds_in_screen| is nullopt,
   // the shadow is hidden.
-  void SetShadowBounds(base::Optional<gfx::Rect> bounds_in_screen);
+  void SetShadowBounds(base::Optional<gfx::RectF> bounds_in_screen);
 
   // Updates the rounded corners and shadow on this overview window item.
   void UpdateRoundedCornersAndShadow();
@@ -262,9 +260,6 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
 
   void set_activate_on_unminimized(bool val) { activate_on_unminimized_ = val; }
 
-  views::ImageButton* GetCloseButtonForTesting();
-  float GetCloseButtonOpacityForTesting() const;
-  float GetTitlebarOpacityForTesting() const;
   gfx::Rect GetShadowBoundsForTesting();
   RoundedLabelWidget* cannot_snap_widget_for_testing() {
     return cannot_snap_widget_.get();
@@ -274,11 +269,8 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   }
 
  private:
-  friend class OverviewSessionRoundedCornerTest;
   friend class OverviewSessionTest;
   FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest, Clipping);
-  FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest,
-                           OverviewUnsnappableIndicatorVisibility);
 
   // Returns the target bounds of |window_|. Same as |target_bounds_|, with some
   // insets.
@@ -307,8 +299,8 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
                      OverviewAnimationType animation_type,
                      bool is_first_update);
 
-  // Creates the window label.
-  void CreateWindowLabel();
+  // Creates |item_widget_|, which holds |overview_item_view_|.
+  void CreateItemWidget();
 
   // Updates the |item_widget|'s bounds. Any change in bounds will be animated
   // from the current bounds to the new bounds as per the |animation_type|.
@@ -430,14 +422,14 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // Stores the last translations of the windows affected by |SetBounds|. Used
   // for ease of calculations when swiping away overview mode using home
   // launcher gesture.
-  base::flat_map<aura::Window*, int> translation_y_map_;
+  base::flat_map<aura::Window*, float> translation_y_map_;
 
   // The shadow around the overview window. Shadows the original window, not
   // |item_widget_|. Done here instead of on the original window because of the
   // rounded edges mask applied on entering overview window.
   std::unique_ptr<ui::Shadow> shadow_;
 
-  base::WeakPtrFactory<OverviewItem> weak_ptr_factory_;
+  base::WeakPtrFactory<OverviewItem> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(OverviewItem);
 };

@@ -11,7 +11,13 @@ namespace password_manager {
 
 class PasswordGenerationManager;
 
-enum class PendingCredentialsState { NONE, NEW_LOGIN, UPDATE, AUTOMATIC_SAVE };
+enum class PendingCredentialsState {
+  NONE,
+  NEW_LOGIN,
+  UPDATE,
+  AUTOMATIC_SAVE,
+  EQUAL_TO_SAVED_MATCH
+};
 
 class PasswordSaveManagerImpl : public PasswordSaveManager {
  public:
@@ -23,7 +29,7 @@ class PasswordSaveManagerImpl : public PasswordSaveManager {
   static std::unique_ptr<PasswordSaveManagerImpl> CreatePasswordSaveManagerImpl(
       const PasswordManagerClient* client);
 
-  const autofill::PasswordForm* GetPendingCredentials() const override;
+  const autofill::PasswordForm& GetPendingCredentials() const override;
   const base::string16& GetGeneratedPassword() const override;
   FormSaver* GetFormSaver() const override;
 
@@ -40,6 +46,8 @@ class PasswordSaveManagerImpl : public PasswordSaveManager {
       const autofill::FormData& submitted_form,
       bool is_http_auth,
       bool is_credential_api_save) override;
+
+  void ResetPendingCrednetials() override;
 
   void Save(const autofill::FormData& observed_form,
             const autofill::PasswordForm& parsed_submitted_form) override;
@@ -62,6 +70,8 @@ class PasswordSaveManagerImpl : public PasswordSaveManager {
 
   // Signals that the user cancels password generation.
   void PasswordNoLongerGenerated() override;
+
+  void MoveCredentialsToAccountStore() override;
 
   bool IsNewLogin() const override;
   bool IsPasswordUpdate() const override;
@@ -86,6 +96,9 @@ class PasswordSaveManagerImpl : public PasswordSaveManager {
       const std::vector<const autofill::PasswordForm*>& matches,
       const base::string16& old_password);
 
+  // Clones the current object into |clone|. |clone| must not be null.
+  void CloneInto(PasswordSaveManagerImpl* clone);
+
   // FormSaver instance used by |this| to all tasks related to storing
   // credentials.
   const std::unique_ptr<FormSaver> form_saver_;
@@ -101,6 +114,9 @@ class PasswordSaveManagerImpl : public PasswordSaveManager {
 
   PendingCredentialsState pending_credentials_state_ =
       PendingCredentialsState::NONE;
+
+  // FormFetcher instance which owns the login data from PasswordStore.
+  const FormFetcher* form_fetcher_;
 
  private:
   // Create pending credentials from provisionally saved form when this form
@@ -124,9 +140,6 @@ class PasswordSaveManagerImpl : public PasswordSaveManager {
 
   // Handles the user flows related to the generation.
   std::unique_ptr<PasswordGenerationManager> generation_manager_;
-
-  // FormFetcher instance which owns the login data from PasswordStore.
-  const FormFetcher* form_fetcher_;
 
   // Takes care of recording metrics and events for |*this|.
   scoped_refptr<PasswordFormMetricsRecorder> metrics_recorder_;

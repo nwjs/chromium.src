@@ -34,7 +34,12 @@ extern const base::Feature kAddToHomescreenMessaging;
 #if defined(OS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kApkWebAppInstalls;
-#endif  // defined(OS_CHROMEOS)
+#endif
+
+#if defined(OS_CHROMEOS)
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kAppActivityReporting;
+#endif
 
 #if defined(OS_MACOSX)
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -43,7 +48,6 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kAppShimRemoteCocoa;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kShow10_9ObsoleteInfobar;
-COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kViewsTaskManager;
 #endif  // defined(OS_MACOSX)
 
 #if defined(OS_ANDROID)
@@ -52,6 +56,8 @@ extern const base::Feature kAppNotificationStatusMessaging;
 #endif  // defined(OS_ANDROID)
 
 #if !defined(OS_ANDROID)
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kAppServiceContextMenu;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kAppServiceInstanceRegistry;
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -68,23 +74,12 @@ extern const base::Feature kBackgroundModeAllowRestart;
 #endif  // defined(OS_WIN) || defined(OS_LINUX)
 
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kBlockPromptsIfDismissedOften;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kBlockPromptsIfIgnoredOften;
-
-COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kBlockRepeatedNotificationPermissionPrompts;
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kBrowserHangFixesExperiment;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kBundledConnectionHelpFeature;
 
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kCaptionSettings;
-
-#if (defined(OS_LINUX) && !defined(OS_CHROMEOS)) || defined(OS_MACOSX)
+#if BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kCertDualVerificationTrialFeature;
 #endif
@@ -125,7 +120,7 @@ extern const base::Feature kCrostiniAnsibleSoftwareManagement;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kCrostiniForceClose;
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kCupsPrintersUiOverhaul;
+extern const base::Feature kCrostiniArcSideload;
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kPluginVm;
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kPrintServerUi;
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kTerminalSystemApp;
@@ -152,13 +147,19 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDesktopPWAsLocalUpdating;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kDesktopPWAsLocalUpdatingThrottlePersistence;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kDesktopPWAsTabStrip;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDesktopPWAsUnifiedUiController;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDesktopPWAsUnifiedLaunch;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kDesktopPWAsUSS;
+extern const base::Feature kDesktopPWAsSharedStoreService;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDisallowUnsafeHttpDownloads;
@@ -176,9 +177,6 @@ extern const base::FeatureParam<std::string> kDnsOverHttpsTemplatesParam;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kDownloadsLocationChange;
 #endif
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kDriveFcmInvalidations;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kPolicyFcmInvalidations;
@@ -263,6 +261,12 @@ extern const base::Feature kHappinessTrackingSurveysForDesktop;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kHappinessTrackingSurveysForDesktopDemo;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kHappinessTrackingSurveysForDesktopSettings;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kHappinessTrackingSurveysForDesktopSettingsPrivacy;
 #endif
 
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -293,9 +297,6 @@ extern const base::Feature kIntentPicker;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kKernelnextVMs;
 #endif
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::Feature kKidsManagementUrlClassification;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kLookalikeUrlNavigationSuggestionsUI;
@@ -329,6 +330,9 @@ extern const base::Feature kMixedContentSiteSetting;
 #if !defined(OS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES) extern const base::Feature kOnConnectNative;
 #endif
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::Feature kNativeFileSystemOriginScopedPermissions;
 
 #if BUILDFLAG(ENABLE_NATIVE_NOTIFICATIONS)
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -455,8 +459,6 @@ extern const base::Feature kTLS13HardeningForLocalAnchors;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kTreatUnsafeDownloadsAsActive;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const char kTreatUnsafeDownloadsAsActiveParamName[];
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::Feature kHeavyAdIntervention;

@@ -10,6 +10,7 @@
 #include "chrome/browser/web_applications/components/app_registrar_observer.h"
 #include "chrome/browser/web_applications/components/externally_installed_web_app_prefs.h"
 #include "chrome/browser/web_applications/components/install_bounce_metric.h"
+#include "chrome/browser/web_applications/components/web_app_helpers.h"
 
 namespace web_app {
 
@@ -42,6 +43,11 @@ void AppRegistrar::NotifyWebAppInstalled(const AppId& app_id) {
     observer.OnWebAppInstalled(app_id);
   // TODO(alancutter): Call RecordWebAppInstallation here when we get access to
   // the WebappInstallSource in this event.
+}
+
+void AppRegistrar::NotifyWebAppWillBeUninstalled(const AppId& app_id) {
+  for (AppRegistrarObserver& observer : observers_)
+    observer.OnWebAppWillBeUninstalled(app_id);
 }
 
 void AppRegistrar::NotifyWebAppUninstalled(const AppId& app_id) {
@@ -78,11 +84,20 @@ base::Optional<AppId> AppRegistrar::LookupExternalAppId(
       .LookupAppId(install_url);
 }
 
+bool AppRegistrar::HasExternalApp(const AppId& app_id) const {
+  return ExternallyInstalledWebAppPrefs::HasAppId(profile()->GetPrefs(),
+                                                  app_id);
+}
+
 bool AppRegistrar::HasExternalAppWithInstallSource(
     const AppId& app_id,
     ExternalInstallSource install_source) const {
   return ExternallyInstalledWebAppPrefs::HasAppIdWithInstallSource(
       profile()->GetPrefs(), app_id, install_source);
+}
+
+extensions::BookmarkAppRegistrar* AppRegistrar::AsBookmarkAppRegistrar() {
+  return nullptr;
 }
 
 base::Optional<AppId> AppRegistrar::FindAppWithUrlInScope(

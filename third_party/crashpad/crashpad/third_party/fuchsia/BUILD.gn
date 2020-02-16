@@ -134,7 +134,7 @@ if (crashpad_is_in_fuchsia) {
     cpp_stem = "$fidl_root_gen_dir/${fidl_source.header_stem}/cpp/fidl"
     cpp_header = "$cpp_stem.h"
     cpp_source = "$cpp_stem.cc"
-    coding_tables = "$fidl_stem/tables.cc"
+    coding_tables = "$fidl_stem/tables.c"
 
     # Compiles the .fidl file, outputs the intermediary JSON representation
     # and generates the C bindings.
@@ -200,19 +200,13 @@ if (crashpad_is_in_fuchsia) {
         cpp_source,
       ]
 
-      deps = [
-        ":fidlc_${fidl_source.library_name}",
-      ]
+      deps = [ ":fidlc_${fidl_source.library_name}" ]
     }
 
     source_set("${fidl_source.library_name}_tables") {
-      sources = [
-        coding_tables,
-      ]
+      sources = [ coding_tables ]
 
-      deps = [
-        ":fidlc_${fidl_source.library_name}",
-      ]
+      deps = [ ":fidlc_${fidl_source.library_name}" ]
 
       public_configs = [ ":fidl_config" ]
     }

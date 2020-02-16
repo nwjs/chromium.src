@@ -4,15 +4,19 @@
 
 package org.chromium.chrome.browser.ui;
 
+import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
-import org.chromium.base.ObservableSupplier;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActivity;
@@ -23,24 +27,32 @@ import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager;
 import org.chromium.chrome.browser.compositor.layouts.EmptyOverviewModeObserver;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
+import org.chromium.chrome.browser.directactions.DirectActionInitializer;
 import org.chromium.chrome.browser.findinpage.FindToolbarManager;
 import org.chromium.chrome.browser.findinpage.FindToolbarObserver;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.lifecycle.InflationObserver;
 import org.chromium.chrome.browser.metrics.UkmRecorder;
 import org.chromium.chrome.browser.share.ShareDelegate;
-;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinatorFactory;
-import org.chromium.chrome.browser.vr.VrModeObserver;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
+import org.chromium.chrome.browser.widget.ScrimView;
+import org.chromium.chrome.browser.widget.bottomsheet.BottomSheetController;
+import org.chromium.components.paintpreview.browser.PaintPreviewUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogManagerObserver;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.vr.VrModeObserver;
+
+import java.util.function.Consumer;
 
 /**
  * The root UI coordinator. This class will eventually be responsible for inflating and managing
@@ -78,6 +90,13 @@ public class RootUiCoordinator
 
     private VrModeObserver mVrModeObserver;
 
+    private BottomSheetManager mBottomSheetManager;
+    private BottomSheetController mBottomSheetController;
+    private SnackbarManager mBottomSheetSnackbarManager;
+
+    private ScrimView mScrimView;
+    private DirectActionInitializer mDirectActionInitializer;
+
     /**
      * Create a new {@link RootUiCoordinator} for the given activity.
      * @param activity The containing {@link ChromeActivity}. TODO(https://crbug.com/931496):
@@ -107,14 +126,6 @@ public class RootUiCoordinator
     // TODO(pnoland, crbug.com/865801): remove this in favor of wiring it directly.
     public ToolbarManager getToolbarManager() {
         return mToolbarManager;
-    }
-
-    /**
-     * @return The find toolbar manager or {@code null} if UI inflation is not yet complete.
-     */
-    @Nullable
-    public FindToolbarManager getFindToolbarManager() {
-        return mFindToolbarManager;
     }
 
     @Override
@@ -154,20 +165,29 @@ public class RootUiCoordinator
             mActivity.getModalDialogManager().removeObserver(mModalDialogManagerObserver);
         }
 
+        if (mBottomSheetController != null) mBottomSheetController.destroy();
+
         mActivity = null;
     }
 
     @Override
-    public void onPreInflationStartup() {}
+    public void onPreInflationStartup() {
+        initializeBottomSheetController();
+    }
 
     @Override
     public void onPostInflationStartup() {
+        ViewGroup coordinator = mActivity.findViewById(R.id.coordinator);
+        mScrimView = new ScrimView(mActivity,
+                mActivity.getStatusBarColorController().getStatusBarScrimDelegate(), coordinator);
+
         mTabThemeColorProvider = new TabThemeColorProvider(mActivity);
         mTabThemeColorProvider.setActivityTabProvider(mActivity.getActivityTabProvider());
 
         initializeToolbar();
         initAppMenu();
         initFindToolbarManager();
+        initDirectActionInitializer();
         if (mAppMenuCoordinator != null) {
             mToolbarManager.onAppMenuInitialized(mAppMenuCoordinator);
             mModalDialogManagerObserver = new ModalDialogManagerObserver() {
@@ -231,6 +251,8 @@ public class RootUiCoordinator
         } else if (id == R.id.share_menu_id || id == R.id.direct_share_menu_id) {
             onShareMenuItemSelected(id == R.id.direct_share_menu_id,
                     mActivity.getTabModelSelector().isIncognitoSelected());
+        } else if (id == R.id.paint_preview_capture_id) {
+            PaintPreviewUtils.capturePaintPreview(mActivity.getCurrentWebContents());
         }
 
         return false;
@@ -261,6 +283,35 @@ public class RootUiCoordinator
         }
 
         return true;
+    }
+
+    /**
+     * Performs a direct action.
+     *
+     * @param actionId Name of the direct action to perform.
+     * @param arguments Arguments for this action.
+     * @param cancellationSignal Signal used to cancel a direct action from the caller.
+     * @param callback Callback to run when the action is done.
+     */
+    public void onPerformDirectAction(String actionId, Bundle arguments,
+            CancellationSignal cancellationSignal, Consumer<Bundle> callback) {
+        if (mDirectActionInitializer == null) return;
+        mDirectActionInitializer.onPerformDirectAction(
+                actionId, arguments, cancellationSignal, callback);
+    }
+
+    /**
+     * Lists direct actions supported.
+     *
+     * Returns a list of direct actions supported by the Activity associated with this
+     * RootUiCoordinator.
+     *
+     * @param cancellationSignal Signal used to cancel a direct action from the caller.
+     * @param callback Callback to run when the action is done.
+     */
+    public void onGetDirectActions(CancellationSignal cancellationSignal, Consumer callback) {
+        if (mDirectActionInitializer == null) return;
+        mDirectActionInitializer.onGetDirectActions(cancellationSignal, callback);
     }
 
     // Protected class methods
@@ -410,6 +461,62 @@ public class RootUiCoordinator
         mFindToolbarManager.addObserver(mFindToolbarObserver);
 
         mActivity.getToolbarManager().setFindToolbarManager(mFindToolbarManager);
+    }
+
+    /**
+     * Initialize the {@link BottomSheetController}. The view for this component is not created
+     * until content is requested in the sheet.
+     */
+    private void initializeBottomSheetController() {
+        Supplier<View> sheetViewSupplier = () -> {
+            ViewGroup coordinator = mActivity.findViewById(R.id.coordinator);
+            mActivity.getLayoutInflater().inflate(R.layout.bottom_sheet, coordinator);
+
+            View sheet = coordinator.findViewById(R.id.bottom_sheet);
+
+            mBottomSheetSnackbarManager = new SnackbarManager(mActivity,
+                    sheet.findViewById(R.id.bottom_sheet_snackbar_container),
+                    mActivity.getWindowAndroid());
+
+            return sheet;
+        };
+
+        Supplier<OverlayPanelManager> panelManagerSupplier = ()
+                -> mActivity.getCompositorViewHolder().getLayoutManager().getOverlayPanelManager();
+
+        mBottomSheetController = new BottomSheetController(mActivity.getLifecycleDispatcher(),
+                mActivityTabProvider, this::getScrim, sheetViewSupplier, panelManagerSupplier,
+                mActivity.getFullscreenManager(), mActivity.getWindow(),
+                mActivity.getWindowAndroid().getKeyboardDelegate());
+
+        mBottomSheetManager = new BottomSheetManager(mBottomSheetController, mActivityTabProvider,
+                mActivity::getFullscreenManager, mActivity::getModalDialogManager,
+                this::getBottomSheetSnackbarManager, mActivity);
+    }
+
+    /** @return The {@link BottomSheetController} for this activity. */
+    public BottomSheetController getBottomSheetController() {
+        return mBottomSheetController;
+    }
+
+    /** @return The root coordinator / activity's primary scrim. */
+    public ScrimView getScrim() {
+        return mScrimView;
+    }
+
+    /** @return The {@link SnackbarManager} for the {@link BottomSheetController}. */
+    public SnackbarManager getBottomSheetSnackbarManager() {
+        return mBottomSheetSnackbarManager;
+    }
+
+    private void initDirectActionInitializer() {
+        @ActivityType
+        int activityType = mActivity.getActivityType();
+        TabModelSelector tabModelSelector = mActivity.getTabModelSelector();
+        mDirectActionInitializer = new DirectActionInitializer(mActivity, activityType, mActivity,
+                mActivity::onBackPressed, tabModelSelector, mFindToolbarManager,
+                mActivity.getBottomSheetController(), mScrimView);
+        mActivity.getLifecycleDispatcher().register(mDirectActionInitializer);
     }
 
     // Testing methods

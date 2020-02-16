@@ -9,7 +9,6 @@
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_border_edges.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_box_strut.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_fragment_geometry.h"
-#include "third_party/blink/renderer/core/layout/ng/inline/ng_baseline.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_fragment_items_builder.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_container_fragment_builder.h"
@@ -68,9 +67,8 @@ class CORE_EXPORT NGBoxFragmentBuilder final
     return *initial_fragment_geometry_;
   }
 
-  void SetUnconstrainedIntrinsicBlockSize(
-      LayoutUnit unconstrained_intrinsic_block_size) {
-    unconstrained_intrinsic_block_size_ = unconstrained_intrinsic_block_size;
+  void SetOverflowBlockSize(LayoutUnit overflow_block_size) {
+    overflow_block_size_ = overflow_block_size;
   }
   void SetIntrinsicBlockSize(LayoutUnit intrinsic_block_size) {
     intrinsic_block_size_ = intrinsic_block_size;
@@ -254,15 +252,9 @@ class CORE_EXPORT NGBoxFragmentBuilder final
     custom_layout_data_ = std::move(custom_layout_data);
   }
 
-  // Layout algorithms should call this function for each baseline request in
-  // the constraint space.
-  //
-  // If a request should use a synthesized baseline from the box rectangle,
-  // algorithms can omit the call.
-  //
-  // This function should be called at most once for a given algorithm/baseline
-  // type pair.
-  void AddBaseline(NGBaselineRequest, LayoutUnit);
+  // Sets the alignment baseline for this fragment.
+  void SetBaseline(LayoutUnit baseline) { baseline_ = baseline; }
+  base::Optional<LayoutUnit> Baseline() const { return baseline_; }
 
   // The |NGFragmentItemsBuilder| for the inline formatting context of this box.
   NGFragmentItemsBuilder* ItemsBuilder() { return items_builder_; }
@@ -304,7 +296,7 @@ class CORE_EXPORT NGBoxFragmentBuilder final
   scoped_refptr<const NGLayoutResult> ToBoxFragment(WritingMode);
 
   const NGFragmentGeometry* initial_fragment_geometry_ = nullptr;
-  LayoutUnit unconstrained_intrinsic_block_size_ = kIndefiniteSize;
+  LayoutUnit overflow_block_size_ = kIndefiniteSize;
   LayoutUnit intrinsic_block_size_;
 
   NGFragmentItemsBuilder* items_builder_ = nullptr;
@@ -331,8 +323,7 @@ class CORE_EXPORT NGBoxFragmentBuilder final
   // The break-after value of the previous in-flow sibling.
   EBreakBetween previous_break_after_ = EBreakBetween::kAuto;
 
-  NGBaselineList baselines_;
-
+  base::Optional<LayoutUnit> baseline_;
   NGBorderEdges border_edges_;
 
   scoped_refptr<SerializedScriptValue> custom_layout_data_;

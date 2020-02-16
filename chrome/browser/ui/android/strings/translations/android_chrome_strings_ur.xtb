@@ -15,7 +15,6 @@
 <translation id="1111673857033749125">آپ کے دیگر آلات پر محفوظ کردہ بُک مارکس یہاں ظاہر ہوں گے۔</translation>
 <translation id="1113597929977215864">سادہ منظر دکھائیں</translation>
 <translation id="1122278879166832009">کسی بھی جگہ سے اپنے ہوم پیج تک تیزی سے رسائی حاصل کرنے کے لیے یہاں تھپتھپائیں</translation>
-<translation id="1124772482545689468">صارف</translation>
 <translation id="1129510026454351943">تفصیلات: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1141800923049248244">{FILE_COUNT,plural, =1{1 ڈاؤن لوڈ زير التوا ہے۔}other{# ڈاؤن لوڈز زير التوا ہیں۔}}</translation>
 <translation id="1145536944570833626">موجودہ ڈیٹا کو حذف کریں۔</translation>
@@ -24,8 +23,6 @@
 <translation id="1171770572613082465">"سر فہرست سائٹس" بٹن پر تھپتھپا کر مقبول ویب سائٹس دیکھیں</translation>
 <translation id="1173894706177603556">نام بدلیں</translation>
 <translation id="1178581264944972037">موقوف کریں</translation>
-<translation id="118069123878619799">- آپ کی جسمانی خصوصیات، جیسے کہ قد</translation>
-<translation id="1181037720776840403">ہٹائیں</translation>
 <translation id="1188239144602654184">‏AR میں داخل ہوں</translation>
 <translation id="1197267115302279827">بُک مارکس منتقل کریں</translation>
 <translation id="119944043368869598">سب کو صاف کریں</translation>
@@ -38,10 +35,10 @@
 <translation id="1231733316453485619">مطابقت پذیری آن کریں؟</translation>
 <translation id="123724288017357924">کیش کردہ مواد نظر انداز کرکے موجودہ صفحہ پھر لوڈ کریں</translation>
 <translation id="124116460088058876">مزید زبانیں</translation>
+<translation id="1242008676835033345"><ph name="WEBSITE_URL" /> پر سرایت کردہ</translation>
 <translation id="124678866338384709">موجودہ ٹیب بند کریں</translation>
 <translation id="1258753120186372309">Google doodle: <ph name="DOODLE_DESCRIPTION" /></translation>
 <translation id="1260236875608242557">تلاش اور دریافت کریں</translation>
-<translation id="1264974993859112054">کھیل</translation>
 <translation id="1266864766717917324"><ph name="CONTENT_TYPE" /> کا اشتراک نہیں کیا جا سکا</translation>
 <translation id="1272079795634619415">روکیں</translation>
 <translation id="1283039547216852943">پھیلانے کیلئے تھپتھپائیں</translation>
@@ -62,7 +59,6 @@
 <translation id="1384959399684842514">ڈاؤن لوڈ موقوف ہوگیا</translation>
 <translation id="1386674309198842382"><ph name="LAST_UPDATED" /> دن پہلے فعال تھا</translation>
 <translation id="1397811292916898096"><ph name="PRODUCT_NAME" /> کے ساتھ تلاش کریں</translation>
-<translation id="1404122904123200417"><ph name="WEBSITE_URL" /> میں سرایت کردہ</translation>
 <translation id="1406000523432664303">"ٹریک نہ کریں"</translation>
 <translation id="1407135791313364759">سبھی کو کھولیں</translation>
 <translation id="1409426117486808224">کھلے ٹیبز کیلئے سادہ منظر</translation>
@@ -77,7 +73,6 @@
 <translation id="1506061864768559482">تلاش انجن</translation>
 <translation id="1513352483775369820">بُک مارکس اور ویب سرگزشت</translation>
 <translation id="1513858653616922153">پاس ورڈ حذف کریں</translation>
-<translation id="1516229014686355813">‏'تلاش کرنے کیلئے تھپتھپائیں' منتخب کردہ لفظ اور موجودہ صفحے کو بطور سیاق و سباق Google تلاش کو بھیجتا ہے۔ آپ اسے <ph name="BEGIN_LINK" />ترتیبات<ph name="END_LINK" /> میں آف کر سکتے ہیں۔</translation>
 <translation id="1521774566618522728">آج فعال کیا گیا</translation>
 <translation id="1544826120773021464">‏اپنے Google اکاؤنٹ کا نظم کرنے کے لیے، "اکاؤنٹ کا نظم کریں" بٹن پر تھپتھپائیں</translation>
 <translation id="1549000191223877751">دوسری ونڈو پر جائیں</translation>
@@ -86,7 +81,6 @@
 <translation id="1571304935088121812">صارف نام کاپی کریں</translation>
 <translation id="1612196535745283361">‏Chrome کو آلات اسکین کرنے کیلئے مقام تک رسائی کی ضرورت ہے۔ مقام تک رسائی <ph name="BEGIN_LINK" />اس آلہ کیلئے آف<ph name="END_LINK" /> ہے۔</translation>
 <translation id="1620510694547887537">کیمرا</translation>
-<translation id="1623104350909869708">اس صفحہ کو اضافی ڈائیلاگز بنانے سے روکیں</translation>
 <translation id="1628019612362412531">{NUM_SELECTED,plural, =1{1 منتخب آئٹم کو ہٹائیں}other{# منتخب آئٹمز کو ہٹائیں}}</translation>
 <translation id="164269334534774161">آپ <ph name="CREATION_TIME" /> سے اس صفحہ کی ایک آف لائن کاپی دیکھ رہے ہیں</translation>
 <translation id="1644574205037202324">سرگزشت</translation>
@@ -139,6 +133,7 @@
 <translation id="1994173015038366702">‏سائٹ کا URL</translation>
 <translation id="2000419248597011803">پتہ بار اور تلاش خانے سے کچھ کوکیز اور تلاشیاں آپ کے ڈیفالٹ تلاش انجن کو بھیجتا ہے</translation>
 <translation id="2002537628803770967">‏Google Pay کا استعمال کرنے والے کریڈٹ کارڈز اور پتے</translation>
+<translation id="2012973609889389923">تیز سائٹ</translation>
 <translation id="2013642289801508067">{FILE_COUNT,plural, =1{# فائل}other{# فائلیں}}</translation>
 <translation id="2017836877785168846">پتہ بار کی سرگزشت اور خودکار تکمیلات کو صاف کرتا ہے۔</translation>
 <translation id="2021896219286479412">پوری اسکرین کے سائٹ کنٹرولز</translation>
@@ -147,12 +142,11 @@
 <translation id="204321170514947529">‏<ph name="APP_NAME" /> کا ڈیٹا Chrome میں بھی ہے</translation>
 <translation id="2049574241039454490"><ph name="FILE_SIZE_OF_TOTAL" /> <ph name="SEPARATOR" /> <ph name="DESCRIPTION" /></translation>
 <translation id="2056878612599315956">سائٹ رک گئی</translation>
-<translation id="2063713494490388661">تلاش کرنے کیلئے تھپتھپائیں</translation>
 <translation id="2067805253194386918">متن</translation>
-<translation id="2079545284768500474">کالعدم کریں</translation>
 <translation id="2082238445998314030">نتیجہ <ph name="RESULT_NUMBER" /> از <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2091887806945687916">آواز</translation>
 <translation id="2096012225669085171">سبھی آلات پر مطابقت پذیری اور ذاتی نوعیت سازی کریں</translation>
+<translation id="2099625543891475722">آپ کی جسمانی خصوصیات، جیسے کہ قد</translation>
 <translation id="2100273922101894616">خودکار سائن ان</translation>
 <translation id="2100314319871056947">چھوٹے ٹکڑوں میں متن کا اشتراک کرنے کی کوشش کریں</translation>
 <translation id="2107397443965016585">سائٹس کو محفوظ مواد چلانے کی اجازت دینے سے پہلے پوچھیں (تجویز کردہ)</translation>
@@ -163,7 +157,6 @@
 <translation id="213279576345780926"><ph name="TAB_TITLE" /> کو بند کر دیا گیا</translation>
 <translation id="2139186145475833000">ہوم اسکرین میں شامل کریں</translation>
 <translation id="2146738493024040262">فوری ایپ کھولیں</translation>
-<translation id="2148716181193084225">آج</translation>
 <translation id="2154484045852737596">کارڈ میں ترمیم کریں</translation>
 <translation id="2154710561487035718">‏URL کاپی کریں</translation>
 <translation id="2156074688469523661">باقی سائٹس (<ph name="NUMBER_OF_SITES" />)</translation>
@@ -206,7 +199,6 @@
 <translation id="2496180316473517155">براؤزنگ سرگزشت</translation>
 <translation id="2497852260688568942">مطابقت پذیری کو آپ کے منتظم نے غیر فعال کر دیا ہے</translation>
 <translation id="2498359688066513246">مدد اور تاثرات</translation>
-<translation id="2501278716633472235">پیچھے جائیں</translation>
 <translation id="2513403576141822879">‏راز داری، سیکیورٹی اور ڈیٹا کی جمع آوری سے متعلق مزید ترتیبات کے لیے، <ph name="BEGIN_LINK" />مطابقت پذیری اور Google سروسز<ph name="END_LINK" /> دیکھیں</translation>
 <translation id="2517472476991765520">اسکین کریں</translation>
 <translation id="2518590038762162553">‏لائٹ موڈ میں، Chrome صفحات کو زیادہ تیزی سے لوڈ کرتا ہے اور 60 فیصد تک کم ڈیٹا استعمال کرتا ہے۔ آپ کے ملاحظہ کئے جانے والے صفحات کو بہتر بنانے کے لیے Chrome آپ کا ویب ٹریفک Google کو بھیجتا ہے۔ <ph name="BEGIN_LINK" />مزید جانیں<ph name="END_LINK" /></translation>
@@ -215,6 +207,7 @@
 <translation id="2534155362429831547"><ph name="NUMBER_OF_ITEMS" /> آئٹمز حذف ہو گئے</translation>
 <translation id="2536728043171574184">اس صفحہ کی ایک آف لائن کاپی دیکھی جا رہی ہے</translation>
 <translation id="2537178555904266562">پاس ورڈز کی مطابقت پذیری کرنے میں خرابی</translation>
+<translation id="2537296579376733324">تمام کوکیز، صرف اس سائٹ پر</translation>
 <translation id="2546283357679194313">کوکیز اور سائٹ ڈیٹا</translation>
 <translation id="2567385386134582609">تصویر</translation>
 <translation id="257088987046510401">تھیمز</translation>
@@ -231,9 +224,6 @@
 <translation id="2647434099613338025">زبان شامل کریں</translation>
 <translation id="2650751991977523696">فائل دوبارہ ڈاؤن لوڈ کریں؟</translation>
 <translation id="2651091186440431324">{FILE_COUNT,plural, =1{# آڈیو فائل}other{# آڈیو فائلیں}}</translation>
-<translation id="2653659639078652383">جمع کرائیں</translation>
-<translation id="2677748264148917807">چھوڑیں</translation>
-<translation id="2704606927547763573">کاپی کیا</translation>
 <translation id="2707726405694321444">صفحہ ریفریش کریں</translation>
 <translation id="2709516037105925701">آٹو فل</translation>
 <translation id="2717722538473713889">ای میل پتے</translation>
@@ -250,7 +240,6 @@
 <translation id="2818669890320396765">اپنے سبھی آلات پر اپنے بُک مارکس حاصل کرنے کیلئے، سائن ان کریں اور سِنک کو آن کریں</translation>
 <translation id="2822354292072154809">کیا آپ واقعی <ph name="CHOSEN_OBJECT_NAME" /> کے لیے سائٹ کی سبھی اجازتوں کو دوبارہ ترتیب دینا چاہتے ہیں؟</translation>
 <translation id="2842985007712546952">پیرینٹ فولڈر</translation>
-<translation id="2858138569776157458">ٹاپ سائٹس</translation>
 <translation id="2860954141821109167">یہ یقینی بنائیں کہ اس آلے پر کوئی فون ایپ فعال ہے</translation>
 <translation id="2870560284913253234">سائٹ</translation>
 <translation id="2874939134665556319">پچھلا ٹریک</translation>
@@ -287,10 +276,10 @@
 <translation id="3058498974290601450">آپ ترتیبات میں کسی بھی وقت مطابقت پذیری کو آن کر سکتے ہیں</translation>
 <translation id="3060635849835183725">{BOOKMARKS_COUNT,plural, =1{<ph name="BOOKMARKS_COUNT_ONE" /> بُک مارک}other{<ph name="BOOKMARKS_COUNT_MANY" /> بُک مارکس}}</translation>
 <translation id="3089395242580810162">پوشیدگی ٹیب میں کھولیں</translation>
-<translation id="3115898365077584848">معلومات دکھائیں</translation>
 <translation id="3123473560110926937">بعض سائٹس پر مسدود ہے</translation>
 <translation id="3123734510202723619">اعلانات</translation>
 <translation id="3137521801621304719">پوشیدگی وضع ترک کریں</translation>
+<translation id="3140134512074889489">‏QR کوڈ کو اسکین کرنے کے لیے براہ کرم اپنے کیمرے کو فعال کریں</translation>
 <translation id="3143515551205905069">مطابقت پذیری منسوخ کریں</translation>
 <translation id="3157842584138209013">مزید اختیارات بٹن سے اپنا محفوظ کردہ ڈیٹا دیکھیں</translation>
 <translation id="3166827708714933426">ٹیب اور ونڈو شارٹ کٹس</translation>
@@ -314,10 +303,10 @@
 <translation id="3288003805934695103">صفحہ دوبارہ لوڈ ہو رہا ہے</translation>
 <translation id="32895400574683172">اطلاعات کی اجازت ہے</translation>
 <translation id="3295530008794733555">مزید تیزی سے براؤز کریں۔ کم ڈیٹا استعمال کریں۔</translation>
-<translation id="3295602654194328831">معلومات چھپائیں</translation>
 <translation id="3298243779924642547">لائٹ</translation>
 <translation id="3303414029551471755">مواد ڈاؤن لوڈ کرنے کیلئے آگے بڑھیں؟</translation>
 <translation id="3306398118552023113">‏یہ ایپ Chrome میں چل رہی ہے</translation>
+<translation id="3312292613668865961">سائٹس کو آپ کے ورچوئل ریئلٹی ڈیوائس اور ڈیٹا تک رسائی کی اجازت سے پہلے پوچھیں (تجویز کردہ)</translation>
 <translation id="3315103659806849044">‏آپ فی الوقت اپنی Sync اور Google سروس کی ترتیبات کو حسب ضرورت بنا رہے ہیں۔ مطابقت پذیری آن کرنے کا عمل مکمل کرنے کیلئے، اسکرین کے نچلے حصے کے پاس موجود 'تصدیق کریں' بٹن تھپتھپائیں۔ اوپر نیویگیٹ کریں</translation>
 <translation id="3328801116991980348">سائٹ کی معلومات</translation>
 <translation id="3333961966071413176">تمام رابطے</translation>
@@ -336,7 +325,6 @@
 <translation id="3443221991560634068">موجودہ صفحہ دوبارہ لوڈ کریں</translation>
 <translation id="3445014427084483498">ابھی ابھی</translation>
 <translation id="3478363558367712427">آپ اپنا سرچ انجن منتخب کر سکتے ہیں</translation>
-<translation id="3479552764303398839">ابھی نہیں</translation>
 <translation id="3492207499832628349">نیا پوشیدگی ٹیب</translation>
 <translation id="3493531032208478708">تجویز کردہ مواد کے بارے میں <ph name="BEGIN_LINK" />مزید جانیں<ph name="END_LINK" /></translation>
 <translation id="3513704683820682405">افزودہ حقیقت</translation>
@@ -364,6 +352,7 @@
 <translation id="3714981814255182093">تلاش کریں بار کھولیں</translation>
 <translation id="3716182511346448902">‏یہ صفحہ بہت زیادہ میموری استعمال کرتا ہے، لہذا Chrome نے اسے موقوف کر دیا۔</translation>
 <translation id="3730075448226062617">‏Chrome کو اپنے مائیکروفون تک رسائی دینے کیلئے، <ph name="BEGIN_LINK" />Android کی ترتیبات<ph name="END_LINK" /> میں بھی مائیکروفون آن کریں۔</translation>
+<translation id="3738139272394829648">تلاش کرنے کیلئے ٹچ کریں</translation>
 <translation id="3739899004075612870"><ph name="PRODUCT_NAME" /> میں بُک مارک کر دیا گیا</translation>
 <translation id="3744111561329211289">پس منظر کی مطابقت پذیری</translation>
 <translation id="3749259744154402564">غیر تعاون یافتہ</translation>
@@ -378,7 +367,6 @@
 <translation id="381841723434055211">فون نمبرز</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> ڈاؤن لوڈز کو حذف کر دیا گیا</translation>
 <translation id="3822502789641063741">سائٹ کا اسٹوریج صاف کریں؟</translation>
-<translation id="385051799172605136">پیچھے</translation>
 <translation id="3859306556332390985">آگے لے جائیں</translation>
 <translation id="388596076286380598">آف لائن ہونے یا آپ کا کنکشن خراب ہونے کے باوجود اپنی پسندیدہ سائٹس سے مضامین، ویڈیوز اور دیگر مواد حاصل کریں۔</translation>
 <translation id="3894427358181296146">فولڈر کا اضافہ کریں</translation>
@@ -401,13 +389,9 @@
 <translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / ?</translation>
 <translation id="3997476611815694295">غیر اہم اسٹوریج</translation>
 <translation id="4000212216660919741">آف لائن ہوم</translation>
-<translation id="4002066346123236978">عنوان</translation>
 <translation id="4008040567710660924">مخصوص سائٹ کے لیے کوکیز کی اجازت دیں۔</translation>
 <translation id="4034817413553209278">{HOURS,plural, =1{# گھنٹہ}other{# گھنٹے}}</translation>
 <translation id="4046123991198612571">اگلا ٹریک</translation>
-<translation id="4048707525896921369">‏صفحہ چھوڑے بغیر ویب سائٹس پر موضوعات کے بارے میں جانیں۔ 'تلاش کرنے کیلئے تھپتھپائیں' کسی لفظ اور اس کے آس پاس کا سیاق و سباق Google تلاش کو بھیجتی ہے، جس کے نتیجے میں تعریفات، تصاویر، تلاش کے نتائج اور دیگر تفصیلات موصول ہوتی ہیں۔
-
-اپنی تلاش کی اصطلاح کو ایڈجسٹ کرنے کیلئے، منتخب کرنے کی خاطر لانگ پریس کریں۔ اپنی تلاش کو بہتر بنانے کیلئے، پینل کو اوپر کی طرف سلائیڈ کریں اور تلاش کے خانے کو تھپتھپائیں۔</translation>
 <translation id="4056223980640387499">سیپیا</translation>
 <translation id="4060598801229743805">اسکرین کے اوپری حصہ کے قریب اختیارات دستیاب ہیں</translation>
 <translation id="4062305924942672200">قانونی معلومات</translation>
@@ -429,6 +413,7 @@
 <translation id="4226663524361240545">اطلاعات آلہ کو وائبریٹ کر سکتی ہیں</translation>
 <translation id="423219824432660969">‏<ph name="TIME" /> تک Google پاس ورڈ کے ساتھ مطابقت پذیر کردہ ڈیٹا کی مرموزکاری کریں</translation>
 <translation id="4242533952199664413">ترتیبات کھولیں</translation>
+<translation id="4250229828105606438">اسکرین شاٹ</translation>
 <translation id="4256782883801055595">اوپن سورس لائسنسز</translation>
 <translation id="4259722352634471385">نیویگیشن مسدود ہے: <ph name="URL" /></translation>
 <translation id="4269820728363426813">لنک کا پتہ کاپی کریں</translation>
@@ -465,14 +450,17 @@
 <translation id="4521489764227272523">‏Chrome اور آپ کے مطابقت پذیر آلات سے منتخب ڈیٹا کو ہٹا دیا گیا ہے۔
 
 ممکن ہے کہ ‎<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />‎ پر آپ کے Google اکاؤنٹ میں دیگر Google سروسز کی تلاشیں اور سرگرمی جیسی براؤزنگ کی سرگزشت کی دیگر شکلیں موجود ہوں۔</translation>
+<translation id="4527374721149092498">‏صفحہ کو چھوڑے بغیر ویب سائٹس پر موجود عنوانات کے بارے میں جانیں۔ 'تلاش کرنے کیلئے ٹچ کریں' کسی لفظ اور اس کے آس پاس کا سیاق و سباق Google تلاش کو بھیجتا ہے، جس کے نتیجے میں تعریفات، تصاویر، تلاش کے نتائج اور دیگر تفصیلات موصول ہوتی ہیں۔
+
+کسی بھی لفظ کا تلاش تخلیق کرنے کے لیے اس پر تھپتھپائیں۔ اپنی تلاش کی اصطلاح کو ایڈجسٹ کرنے کی خاطر، منتخب کرنے کے لیے دیر تک دبائیں۔ اپنی تلاش کو بہتر بنانے کے لیے کھلے ہوئے پینل کو سلائیڈ کریں، ایک نیا ٹیب بنانے کے لیے آئیکن کو پھیلائیں پر تھپتھپائیں اور پھر تلاش کے خانہ پر تھپتھپائیں۔</translation>
 <translation id="4532845899244822526">فولڈر منتخب کریں</translation>
 <translation id="4538018662093857852">لائٹ موڈ آن کریں</translation>
 <translation id="4550003330909367850">یہاں اپنے پاس ورڈ کو دیکھنے یا اسے کاپی کرنے کے لئے، اس آلے پر اسکرین لاک سیٹ کریں۔</translation>
 <translation id="4558311620361989323">ویب صفحہ شارٹ کٹس</translation>
 <translation id="4561979708150884304">کوئی کنکشن نہیں</translation>
 <translation id="4565377596337484307">پاس ورڈ چھپائیں</translation>
-<translation id="4570913071927164677">تفاصیل</translation>
 <translation id="4572422548854449519">نظم کردہ اکاؤنٹ میں سائن ان کریں</translation>
+<translation id="4574741712540401491">•  <ph name="LIST_ITEM_TEXT" /></translation>
 <translation id="4583164079174244168">{MINUTES,plural, =1{# منٹ پہلے}other{# منٹ پہلے}}</translation>
 <translation id="4587589328781138893">سائٹیں</translation>
 <translation id="4594952190837476234">یہ آف لائن صفحہ <ph name="CREATION_TIME" /> کا ہے اور آن لائن ورژن سے مختلف ہو سکتا ہے۔</translation>
@@ -481,6 +469,7 @@
 <translation id="4634124774493850572">پاس ورڈ استعمال کریں</translation>
 <translation id="4645575059429386691">آپ کے والدین کے زیر انتظام</translation>
 <translation id="4650364565596261010">سسٹم ڈیفالٹ</translation>
+<translation id="4660838440047236328">آپ کے کمرے کا لے آؤٹ</translation>
 <translation id="4663756553811254707"><ph name="NUMBER_OF_BOOKMARKS" /> بُک مارکس حذف کر دیے گئے</translation>
 <translation id="4665282149850138822"><ph name="NAME" /> کو آپ کی ہوم اسکرین میں شامل کر دیا گیا تھا</translation>
 <translation id="4684427112815847243">ہر چیز کی مطابقت پذیری کریں</translation>
@@ -524,6 +513,7 @@
 <translation id="4915549754973153784">آلات کو اسکین کرتے وقت <ph name="BEGIN_LINK" />مدد حاصل کریں<ph name="END_LINK" />…</translation>
 <translation id="4921180162323349895">{FILE_COUNT,plural, =1{# صفحہ}other{# صفحات}}</translation>
 <translation id="4932247056774066048">‏چونکہ آپ <ph name="DOMAIN_NAME" /> کے زیر نظم اکاؤنٹ سے سائن آؤٹ ہو رہے ہیں اسلئے آپ کا Chrome ڈیٹا اس آلہ سے حذف کردیا جائے گا۔ یہ آپ کے Google اکاؤنٹ میں باقی رہے گا۔</translation>
+<translation id="4935305910887312910">سائٹس کو کیمرا کی پوزیشن حاصل کرنے یا اپنے کمرے کی پیمائش کرنے کی اجازت دینے سے پہلے پوچھیں (تجویز کردہ)</translation>
 <translation id="4943703118917034429">ورچوئل رئیلٹی</translation>
 <translation id="4943872375798546930">کوئی نتائج نہیں ہیں</translation>
 <translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> آپ کی اسکرین کا اشتراک کر رہا ہے</translation>
@@ -570,13 +560,10 @@
 <translation id="5271967389191913893">آلہ ڈاؤن لوڈ کیے جانے والے مواد کو نہیں کھول سکتا۔</translation>
 <translation id="528192093759286357">پوری اسکرین سے باہر نکلنے کیلئے اوپر سے گھسیٹیں اور پیچھے جائیں بٹن کو ٹچ کریں۔</translation>
 <translation id="5292796745632149097">اس پر بھیجیں</translation>
-<translation id="5300589172476337783">دکھائیں</translation>
-<translation id="5301954838959518834">ٹھیک ہے، سمجھ آ گئی</translation>
 <translation id="5304593522240415983">یہ فیلڈ خالی نہیں رہ سکتی ہے</translation>
 <translation id="5307446750509046227">سائٹ اسٹوریج صاف کریں</translation>
 <translation id="5308380583665731573">منسلک کریں</translation>
 <translation id="5313967007315987356">سائٹ شامل کریں</translation>
-<translation id="5317780077021120954">محفوظ کریں</translation>
 <translation id="5324858694974489420">والدین کی ترتیبات</translation>
 <translation id="5327248766486351172">نام</translation>
 <translation id="5335288049665977812">‏سائٹس کو JavaScript چلانے کی اجازت دیں (تجویز کردہ)</translation>
@@ -616,14 +603,12 @@
 <translation id="5527111080432883924">سائٹس کو کلپ بورڈ سے ٹیکسٹ اور تصاویر پڑھنے کی اجازت دینے سے پہلے پوچھیں (تجویز کردہ)</translation>
 <translation id="5530766185686772672">پوشیدگی ٹیبز بند کریں</translation>
 <translation id="5534640966246046842">سائٹ کاپی ہو گئی</translation>
-<translation id="5556459405103347317">دوبارہ لوڈ کریں</translation>
 <translation id="5561549206367097665">نیٹ ورک کا منتظر…</translation>
 <translation id="557283862590186398">‏Chrome کو اس سائٹ کیلئے آپ کے مائیکروفون تک رسائی کی اجازتیں درکار ہیں۔</translation>
 <translation id="55737423895878184">مقام اور اطلاعات کی اجازت ہے</translation>
 <translation id="5578795271662203820">اس تصویر کیلئے <ph name="SEARCH_ENGINE" /> تلاش کریں</translation>
 <translation id="5581519193887989363">آپ <ph name="BEGIN_LINK1" />ترتیبات<ph name="END_LINK1" /> میں کسی بھی وقت اس بات کا انتخاب کر سکتے ہیں کہ کس چیز کی مطابقت پذیری کرنی ہے۔</translation>
 <translation id="5595485650161345191">پتے میں ترمیم کریں</translation>
-<translation id="5596627076506792578">مزید اختیارات</translation>
 <translation id="5599455543593328020">پوشیدگی وضع</translation>
 <translation id="5620928963363755975">مزید اختیارات بٹن سے اپنی فائلیں اور صفحات ڈاؤن لوڈز میں تلاش کریں</translation>
 <translation id="5626134646977739690">نام:</translation>
@@ -654,21 +639,20 @@
 <translation id="5809361687334836369">{HOURS,plural, =1{# گھنٹہ پہلے}other{# گھنٹے پہلے}}</translation>
 <translation id="5810288467834065221">‏کاپی رائٹ<ph name="YEAR" /> Google LLC۔ جملہ حقوق محفوظ ہیں۔</translation>
 <translation id="5817918615728894473">جوڑا بنائيں</translation>
-<translation id="5819762621475381970">- آپ کے کمرے کا لے آؤٹ</translation>
 <translation id="583281660410589416">نامعلوم</translation>
 <translation id="5833984609253377421">لنک کا اشتراک کریں</translation>
 <translation id="5836192821815272682">‏Chrome اپ ڈیٹ ڈاؤن لوڈ ہو رہا ہے…</translation>
 <translation id="5853623416121554550">موقوف ہو گیا</translation>
 <translation id="5854790677617711513">30 دن سے زیادہ پرانا</translation>
 <translation id="5858741533101922242">‏Chrome بلوٹوتھ اڈاپٹر آن کرنے سے قاصر ہے</translation>
-<translation id="5860033963881614850">آف</translation>
+<translation id="5860491529813859533">آن کریں</translation>
 <translation id="5862731021271217234">اپنے دیگر آلات سے اپنے ٹیبز حاصل کرنے کیلئے، سِنک کو آن کریں</translation>
 <translation id="5864174910718532887">تفصیلات: سائٹ کے نام کے لحاظ سے ترتیب دیا گیا</translation>
 <translation id="5864419784173784555">ایک اور ڈاؤن لوڈ کا منتظر…</translation>
 <translation id="5865733239029070421">‏Google کو خودکار طور پر استعمال کے اعداد و شمار اور کریش رپورٹس بھیجتا ہے</translation>
 <translation id="5869522115854928033">محفوظ کردہ پاس ورڈز</translation>
+<translation id="5884076754568147479">‏ٹاسکس کو مکمل کرنے میں آپ کی مدد کرنے کے لیے، Google کو ان سائٹس کے URLs اور مواد موصول ہوں گے جن پر آپ اسسٹنٹ استعمال کرتے ہیں، نیز اسسٹنٹ کے ذریعے آپ کی جمع کروائی ہوئی معلومات بھی موصول ہوں گی</translation>
 <translation id="5902828464777634901">کوکیز سمیت، اس ویب سائٹ کی جانب سے اسٹور کردہ سبھی مقامی ڈیٹا حذف کر دیا جائے گا۔</translation>
-<translation id="5916664084637901428">آن</translation>
 <translation id="5919204609460789179">مطابقت پذیری شروع کرنے کیلئے <ph name="PRODUCT_NAME" /> کو اپ ڈیٹ کریں</translation>
 <translation id="5937580074298050696"><ph name="AMOUNT" /> کی بچت ہوئی</translation>
 <translation id="5939518447894949180">دوبارہ ترتیب دیں</translation>
@@ -687,6 +671,7 @@
 <translation id="605721222689873409">YY</translation>
 <translation id="6064125863973209585">مکمل کردہ ڈاؤن لوڈز</translation>
 <translation id="6075798973483050474">ہوم صفحہ میں ترمیم کریں</translation>
+<translation id="6092062101542170135">‏جاری رکھنے کے لیے، Android کی ترتیبات میں NFC آن کریں</translation>
 <translation id="60923314841986378"><ph name="HOURS" /> گھنٹے باقی</translation>
 <translation id="6108923351542677676">سیٹ اپ جاری ہے…</translation>
 <translation id="6111020039983847643">استعمال شدہ ڈیٹا</translation>
@@ -696,20 +681,22 @@
 <translation id="614940544461990577">آزمائیں:</translation>
 <translation id="6154478581116148741">اس آلہ سے اپنے پاس ورڈز برآمد کرنے کے لئے ترتیبات میں اسکرین لاک آن کریں</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> ڈیٹا کی سیونگز</translation>
-<translation id="6165508094623778733">مزید جانیں</translation>
 <translation id="6177111841848151710">موجودہ سرچ انجن کیلئے مسدود</translation>
 <translation id="6181444274883918285">سائٹ کا استثناء شامل کریں</translation>
 <translation id="6192333916571137726">فائل ڈاؤن لوڈ کریں</translation>
 <translation id="6192792657125177640">استثناء</translation>
 <translation id="6194112207524046168">‏Chrome کو اپنے کیمرے تک رسائی دینے کیلئے، <ph name="BEGIN_LINK" />Android کی ترتیبات<ph name="END_LINK" /> میں بھی کیمرا آن کریں۔</translation>
 <translation id="6196640612572343990">فریق ثالث کوکیز کو مسدود کریں</translation>
+<translation id="6201345951596836663">لنک کاپی ہو گیا</translation>
 <translation id="6206551242102657620">کنیکشن محفوظ ہے۔ سائٹ کی معلومات</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> نہیں؟</translation>
-<translation id="6216432067784365534"><ph name="NAME_OF_LIST_ITEM" /> اختیارات</translation>
 <translation id="6221633008163990886">اپنے پاس ورڈز برآمد کرنے کے لئے غیر مقفل کریں</translation>
 <translation id="6232535412751077445">ٹریک نہ کریں' کو فعال کرنے کا مطلب یہ ہے کہ آپ کی براؤزنگ ٹریفک کے ساتھ ایک درخواست شامل کر دی جائے گی۔ کسی بھی اثر کا انحصار اس بات پر ہوتا ہے کہ آیا ویب سائٹ درخواست کا جواب دیتی ہے اور درخواست کی ترجمانی کس طرح کی جاتی ہے۔
 
 مثلاً، کچھ ویب سائٹس آپ کو ایسے اشتہارات دکھا کر اس درخواست کا جواب دے سکتی ہیں جو آپ کی ملاحظہ کردہ دوسری ویب سائٹس پر مبنی نہیں ہیں۔ بہت ساری ویب سائٹس اب بھی آپ کا براؤزنگ ڈیٹا اکٹھا اور استعمال کریں گی — مثلاً، سیکیورٹی کو بہتر بنانے، مواد، اشتہارات اور تجاویز فراہم کرنے اوراطلاع دہندگی کے اعداد و شمار تیار کرنے کیلئے۔</translation>
+<translation id="6238003486329291387">‏صفحہ کو چھوڑے بغیر ویب سائٹس پر موجود عنوانات کے بارے میں جانیں۔ 'تلاش کرنے کیلئے ٹچ کریں' کسی لفظ اور اس کے آس پاس کا سیاق و سباق Google تلاش کو بھیجتا ہے، جس کے نتیجے میں تعریفات، تصاویر، تلاش کے نتائج اور دیگر تفصیلات موصول ہوتی ہیں۔
+
+کسی لفظ کا تلاش تخلیق کرنے کے لیے اسے دیر تک دبائے رکھیں۔ اپنی تلاش کو بہتر بنانے کے لیے انتخاب کو ایڈجسٹ کریں۔ آپ کھلے پینل کو سلائیڈ بھی کر سکتے ہیں، ایک نیا ٹیب بنانے کے لیے آئیکن کو پھیلائیں پر تھپتھپا سکتے ہیں، اور اس کے بعد تلاش کے خانہ پر تھپتھپا سکتے ہیں۔</translation>
 <translation id="624789221780392884">اپ ڈیٹ تیار ہے</translation>
 <translation id="6255999984061454636">مواد کی تجاویز</translation>
 <translation id="6270391203985052864">سائٹس اطلاعات بھیجنے کے لیے کہہ سکتی ہیں</translation>
@@ -747,12 +734,10 @@
 <translation id="6482749332252372425">اسٹوریج کی جگہ کم ہونے کی وجہ سے <ph name="FILE_NAME" /> کو ڈاؤن لوڈ کرنا ناکام ہوگیا۔</translation>
 <translation id="6496823230996795692">پہلی مرتبہ <ph name="APP_NAME" /> استعمال کرنے کے لیے، براہ کرم انٹرنیٹ سے منسلک ہوں۔</translation>
 <translation id="6508722015517270189">‏Chrome کو دوبارہ شروع کریں</translation>
-<translation id="6527303717912515753">اشتراک کریں</translation>
 <translation id="6532866250404780454">‏Chrome میں آپ کی ملاحظہ کردہ سائٹس نہیں دکھائی دیں گی۔ سائٹ کے سبھی ٹائمرز حذف کر دیے جائیں گے۔</translation>
 <translation id="6534565668554028783">‏Google کو جواب دینے میں کافی وقت لگا</translation>
 <translation id="6538442820324228105">‏<ph name="GBS" /> GB ڈاؤن لوڈ ہو گیا</translation>
 <translation id="6539092367496845964">کچھ غلط ہو گیا۔ بعد میں دوبارہ کوشش کریں۔</translation>
-<translation id="654446541061731451">بیم کرنے کیلئے ایک ٹیب منتخب کریں</translation>
 <translation id="6545017243486555795">سبھی ڈیٹا صاف کریں</translation>
 <translation id="6545864417968258051">بلوٹوتھ اسکیننگ</translation>
 <translation id="6560414384669816528">‏Sogou کے ساتھ تلاش کریں</translation>
@@ -763,6 +748,7 @@
 <translation id="6573431926118603307">‏اپنے دیگر آلات پر Chrome میں آپ نے جو ٹیبز کھولے ہیں وہ یہاں ظاہر ہوں گے۔</translation>
 <translation id="6583199322650523874">موجودہ صفحہ کا بُک مارک بنائیں</translation>
 <translation id="6593061639179217415">ڈیسک ٹاپ سائٹ</translation>
+<translation id="6597891566292541626">‏QR/بار کوڈ کو اس فریم میں رکھیں۔</translation>
 <translation id="6600954340915313787">‏Chrome پر کاپی کر دیا گیا</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> GB</translation>
 <translation id="6612358246767739896">تحفظ یافتہ مواد</translation>
@@ -776,24 +762,22 @@
 <translation id="6659594942844771486">ٹیب</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" /> میں کھولیں</translation>
 <translation id="666981079809192359">‏Chrome کی رازداری کا نوٹس</translation>
+<translation id="6671495933530132209">تصویر کاپی کریں</translation>
 <translation id="6676840375528380067">‏اس آلہ سے آپ کا Chrome ڈیٹا صاف کریں؟</translation>
 <translation id="6689172468748959065">پروفائل کی تصاویر</translation>
 <translation id="6697492270171225480">صفحہ نہ مل پانے کی صورت میں ملتے جلتے صفحات کے لیے تجاویز دکھائیں</translation>
 <translation id="6697947395630195233">‏Chrome کو اس سائٹ کے ساتھ آپ کے مقام کا اشتراک کرنے کیلئے آپ کے مقام تک رسائی درکار ہے۔</translation>
 <translation id="6698801883190606802">مطابقت پذیر ڈیٹا کا نظم کریں</translation>
 <translation id="6699370405921460408">‏Google سرورز آپ کے ملاحظہ کیے جانے والے صفحات کو بہتر بنائیں گے۔</translation>
-<translation id="6709133671862442373">خبریں</translation>
 <translation id="6710213216561001401">گزشتہ</translation>
 <translation id="671481426037969117">آپ کا <ph name="FQDN" /> ٹائمر بند ہو گیا ہے۔ یہ کل دوبارہ شروع ہو جائے گا۔</translation>
 <translation id="6738867403308150051">ڈاؤن لوڈ ہو رہے ہیں…</translation>
-<translation id="6746124502594467657">نیچے منتقل کریں</translation>
 <translation id="6766622839693428701">بند کرنے کے لئے نیچے سوائپ کریں۔</translation>
 <translation id="6766758767654711248">سائٹ پر جانے کیلئے تھپتھپائیں</translation>
 <translation id="6767294960381293877">ان آلات کی فہرست جن کے ساتھ ٹیب کا اشتراک کرنا ہے نصف اونچائی پر کھلی ہوئی ہے۔</translation>
 <translation id="6782111308708962316">فریق ثالث ویب سائٹس کو کوکی ڈیٹا محفوظ کرنے اور پڑھنے سے روکیں</translation>
 <translation id="6790428901817661496">چلائیں</translation>
 <translation id="6811034713472274749">صفحہ دیکھے جانے کیلئے تیار ہے</translation>
-<translation id="6818926723028410516">آئٹمز منتخب کریں</translation>
 <translation id="6820686453637990663">CVC</translation>
 <translation id="6831043979455480757">ترجمہ کریں</translation>
 <translation id="6845325883481699275">‏Chrome کی سیکیورٹی کو بہتر بنانے میں مدد کریں</translation>
@@ -806,14 +790,12 @@
 <translation id="688738109438487280"><ph name="TO_ACCOUNT" /> میں موجودہ ڈیٹا شامل کریں۔</translation>
 <translation id="6891726759199484455">اپنا پاس ورڈ کاپی کرنے کیلئے غیر مقفل کریں</translation>
 <translation id="6896758677409633944">کاپی کریں</translation>
-<translation id="6910211073230771657">حذف کردہ</translation>
 <translation id="6912998170423641340">سائٹس کو کلپ بورڈ سے ٹیکسٹ اور تصاویر پڑھنے سے مسدود کریں</translation>
 <translation id="6914783257214138813">آپ کے پاسورڈز کسی بھی ایسے شخص کے لیے مرئی ہوں گے جو برآمد کردہ فائل کو دیکھ سکتا ہے۔</translation>
 <translation id="6942665639005891494">ترتیبات کا مینو اختیار استعمال کر کے ڈاؤن لوڈ کا ڈیفالٹ مقام کسی بھی وقت تبدیل کریں</translation>
 <translation id="6945221475159498467">منتخب کریں</translation>
 <translation id="6963642900430330478">یہ صفحہ خطرناک ہے۔ سائٹ کی معلومات</translation>
 <translation id="6963766334940102469">بُک مارکس حذف کریں</translation>
-<translation id="6965382102122355670">ٹھیک ہے</translation>
 <translation id="6979737339423435258">ہر وقت</translation>
 <translation id="6981982820502123353">ایکسیسبیلٹی</translation>
 <translation id="6989267951144302301">ڈاؤن لوڈ نہیں کیا جا سکا</translation>
@@ -828,10 +810,8 @@
 <translation id="7053983685419859001">مسدود کریں</translation>
 <translation id="7055152154916055070">ری ڈائریکٹ مسدود کیا گیا:</translation>
 <translation id="7063006564040364415">مطابقت پذیری سرور سے منسلک نہیں کیا جا سکا۔</translation>
-<translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 منتخب ہے}other{# منتخب کردہ}}</translation>
 <translation id="7071521146534760487">اکاؤنٹ کا نظم کریں</translation>
 <translation id="7077143737582773186">‏SD کارڈ</translation>
-<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> منتخب ہو گئے۔ اختیارات اسکرین کے اوپری حصہ کے قریب دستیاب ہیں</translation>
 <translation id="7121362699166175603">‏پتہ بار میں موجود سرگزشت اور خودکار تکمیلات کو صاف کر دیتا ہے۔ ممکن ہے کہ <ph name="BEGIN_LINK" />myactivity.google<ph name="END_LINK" /> پر آپ کے Google اکاؤنٹ میں براؤزنگ کی سرگزشت کی دیگر شکلیں موجود ہوں۔</translation>
 <translation id="7128222689758636196">موجودہ سرچ انجن کی اجازت دیں</translation>
 <translation id="7138678301420049075">دوسرا</translation>
@@ -847,7 +827,6 @@
 <translation id="7233236755231902816">‏اپنی زبان میں ویب کو دیکھنے کے لیے، Chrome کا تازہ ترین ورژن حاصل کریں</translation>
 <translation id="7243308994586599757">اسکرین کے نچلے حصہ کے قریب اختیارات دستیاب ہیں</translation>
 <translation id="7248069434667874558">‏یہ یقینی بنائیں کہ Chrome پر <ph name="TARGET_DEVICE_NAME" /> کی مطابقت پذیری آن ہے</translation>
-<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> منتخب ہو گئے</translation>
 <translation id="7274013316676448362">مسدود سائٹ</translation>
 <translation id="7290209999329137901">'نام تبدیل کریں' دستیاب نہیں ہے</translation>
 <translation id="7291387454912369099">اسسٹنٹ کا محرک کردہ چیک آؤٹ</translation>
@@ -910,7 +889,6 @@
 <translation id="7638584964844754484">غلط پاس فریز</translation>
 <translation id="7641339528570811325">براؤزنگ ڈیٹا صاف کریں…</translation>
 <translation id="7648422057306047504">‏Google اسناد کے ساتھ پاس ورڈز کو مرموز کریں</translation>
-<translation id="7649070708921625228">مدد</translation>
 <translation id="7658239707568436148">منسوخ کریں</translation>
 <translation id="7665369617277396874">اکاؤنٹ شامل کریں</translation>
 <translation id="766587987807204883">مضامین یہاں دکھائی دیتے ہیں جنہیں آپ آف لائن ہونے پر بھی پڑھ سکتے ہیں</translation>
@@ -926,12 +904,10 @@
 <translation id="7772032839648071052">پاس فریز کی توثیق کریں</translation>
 <translation id="7772375229873196092"><ph name="APP_NAME" /> بند کریں</translation>
 <translation id="7774809984919390718">{PAYMENT_METHOD,plural, =1{‏<ph name="PAYMENT_METHOD_PREVIEW" />\u2026 اور <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> مزید}other{‏<ph name="PAYMENT_METHOD_PREVIEW" />\u2026 اور <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> مزید}}</translation>
-<translation id="7781829728241885113">گزشتہ کل</translation>
 <translation id="7791543448312431591">شامل کریں</translation>
 <translation id="780301667611848630">نہیں شکریہ</translation>
 <translation id="7810647596859435254">اس کے ساتھ کھولیں…</translation>
 <translation id="7821588508402923572">آپ کے ڈیٹا کی بچتیں یہاں دکھائی دیں گی</translation>
-<translation id="7846076177841592234">انتخاب منسوخ کریں</translation>
 <translation id="784934925303690534">وقت کی حد</translation>
 <translation id="7851858861565204677">دیگر آلات</translation>
 <translation id="7875915731392087153">ای میل تخلیق کریں</translation>
@@ -977,8 +953,9 @@
 <translation id="8109613176066109935">اپنے سبھی آلات پر اپنے بُک مارکس حاصل کرنے کیلئے، سِنک کو آن کریں</translation>
 <translation id="8110087112193408731">‏ڈیجیٹل فلاح و بہبود میں آپ کی Chrome سرگرمی دکھائیں؟</translation>
 <translation id="8116925261070264013">‏خاموش کردہ</translation>
+<translation id="8127542551745560481">ہوم صفحہ میں ترمیم کریں</translation>
 <translation id="813082847718468539">سائٹ کی معلومات دیکھیں</translation>
-<translation id="8131740175452115882">توثیق کریں</translation>
+<translation id="8137558756159375272">‏تلاش کریں کو ٹچ کرنا منتخب کردہ لفظ اور سیاق و سباق کے بطور حالیہ صفحہ Google تلاش کو بھیج دیتا ہے۔ آپ اسے <ph name="BEGIN_LINK" />ترتیبات<ph name="END_LINK" /> میں آف کر سکتے ہیں۔</translation>
 <translation id="8156139159503939589">آپ کون سی زبانیں پڑھ سکتے ہیں؟</translation>
 <translation id="8168435359814927499">مواد</translation>
 <translation id="8186512483418048923"><ph name="FILES" /> فائلیں باقی ہیں</translation>
@@ -988,7 +965,6 @@
 <translation id="8218622182176210845">اپنے اکاؤنٹ کا نظم کریں</translation>
 <translation id="8224471946457685718">‏Wi-Fi پر اپنے لئے مضامین ڈاؤن لوڈ کریں</translation>
 <translation id="8232956427053453090">ڈیٹا برقرار رکھیں</translation>
-<translation id="8249310407154411074">اوپر منتقل کریں</translation>
 <translation id="8250920743982581267">دستاویزات</translation>
 <translation id="825412236959742607">‏یہ صفحہ بہت زیادہ میموری استعمال کرتا ہے، لہذا Chrome نے بعض مواد حذف کر دیا۔</translation>
 <translation id="8260126382462817229">دوبارہ سائن ان کرنے کی کوشش کریں</translation>
@@ -1039,7 +1015,6 @@
 <translation id="857943718398505171">اجازت یافتہ (تجویز کردہ)</translation>
 <translation id="8583805026567836021">اکاؤنٹ ڈیٹا صاف کرنا</translation>
 <translation id="860043288473659153">کارڈ کے حامل کا نام</translation>
-<translation id="8609465669617005112">اوپر منتقل کریں</translation>
 <translation id="8616006591992756292">‏ممکن ہے کہ ‎<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />‎ پر آپ کے Google اکاؤنٹ میں براؤزنگ کی سرگزشت کی دیگر شکلیں موجود ہوں۔</translation>
 <translation id="8617240290563765734">‏ڈاؤن لوڈ کردہ مواد میں بیان کیا گیا تجویز کردہ URL کھولیں؟</translation>
 <translation id="8636825310635137004">اپنے دیگر آلات سے اپنے ٹیبز حاصل کرنے کیلئے، مطابقت پذیری کو آن کریں۔</translation>
@@ -1048,14 +1023,11 @@
 <translation id="8655599981421006542">نئے ٹیبز کی تخلیق کرنے اور پرانے والے پر واپس جانے کے لیے یہاں تھپتھپائیں</translation>
 <translation id="8662811608048051533">اکثر سائٹس سے آپ کو سائن آؤٹ کرتا ہے۔</translation>
 <translation id="8664979001105139458">فائل کا نام پہلے سے موجود ہے</translation>
-<translation id="8676374126336081632">ان پٹ صاف کریں</translation>
 <translation id="8687353297350450808">{N_BARS,plural, =1{سگنل کی مضبوطی کی سطح: # بار}other{سگنل کی مضبوطی کی سطح: # بارز}}</translation>
 <translation id="868929229000858085">اپنے رابطوں کو تلاش کریں</translation>
+<translation id="8698438463325761328">سائٹس کو اپنے ورچوئل ریئلٹی ڈیوائس اور ڈیٹا تک رسائی سے مسدود کریں</translation>
 <translation id="869891660844655955">میعاد ختم ہونے کی تاریخ</translation>
-<translation id="8719023831149562936">موجودہ ٹیب کو بیم نہیں کیا جا سکتا</translation>
-<translation id="8725066075913043281">دوبارہ کوشش کریں</translation>
 <translation id="8728487861892616501">‏اس ایپلیکیشن کا استعمال کر کے آپ Chrome کی <ph name="BEGIN_LINK1" />سروس کی شرائط<ph name="END_LINK1" /> اور <ph name="BEGIN_LINK2" />رازداری کے نوٹس<ph name="END_LINK2" />، اور <ph name="BEGIN_LINK3" />Family Link سے نظم کردہ Google اکاؤنٹس کیلئے رازداری کے نوٹس<ph name="END_LINK3" /> سے اتفاق کرتے ہیں۔</translation>
-<translation id="8730621377337864115">ہوگیا</translation>
 <translation id="8748850008226585750">مواد مخفی ہیں</translation>
 <translation id="8751914237388039244">ایک تصویر منتخب کریں</translation>
 <translation id="8758557275681689734">اپنے سبھی کھلے ہوئے ٹیبز دیکھیں</translation>
@@ -1070,6 +1042,7 @@
 <translation id="883806473910249246">مواد ڈاؤن لوڈ کرتے وقت ایک خرابی پیش آ گئی۔</translation>
 <translation id="8840953339110955557">یہ صفحہ آن لائن ورژن سے مختلف ہو سکتا ہے۔</translation>
 <translation id="8847988622838149491">USB</translation>
+<translation id="884828189055900810">سائٹس کو کیمرا کی پوزیشن حاصل کرنے یا اپنے کمرے کی پیمائش کرنے سے مسدود کریں</translation>
 <translation id="8853345339104747198"><ph name="TAB_TITLE" />، ٹیب</translation>
 <translation id="885701979325669005">اسٹوریج</translation>
 <translation id="889338405075704026">‏Chrome کی ترتیبات میں جائیں</translation>
@@ -1077,7 +1050,9 @@
 <translation id="8909135823018751308">اشتراک کریں…</translation>
 <translation id="8912362522468806198">‏Google اکاؤنٹ</translation>
 <translation id="8920114477895755567">والدین کی تفصیلات کا انتظار ہے۔</translation>
+<translation id="8921772741368021346"><ph name="POSITION" /> / <ph name="DURATION" /></translation>
 <translation id="8922289737868596582">آف لائن صفحات استعمال کرنے کے لیے انہیں مزید اختیارات بٹن سے ڈاؤن لوڈ کریں</translation>
+<translation id="8926666909099850184">‏اس آلہ کے لیے NFC آف ہے۔ اسے <ph name="BEGIN_LINK" />Android ترتیبات<ph name="END_LINK" /> میں آن کریں۔</translation>
 <translation id="8937772741022875483">‏ڈیجیٹل فلاح و بہبود سے آپ کی Chrome سرگرمی ہٹائیں؟</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">دوسری ونڈو میں کھولیں</translation>
@@ -1106,7 +1081,6 @@
 <translation id="9133397713400217035">آف لائن دریافت کریں</translation>
 <translation id="9133703968756164531">‎<ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)‎</translation>
 <translation id="9137013805542155359">اصل دکھائیں</translation>
-<translation id="9139318394846604261">خریداری</translation>
 <translation id="9155898266292537608">آپ کسی لفظ پر فوری تھپتھپاہٹ سے بھی تلاش کر سکتے ہیں</translation>
 <translation id="9169507124922466868">نیویگیشن کی سرگزشت آدھی کھلی ہوئی ہے</translation>
 <translation id="9204836675896933765">1 فائل باقی ہے</translation>

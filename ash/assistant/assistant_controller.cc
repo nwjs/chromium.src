@@ -16,7 +16,6 @@
 #include "ash/public/mojom/assistant_volume_control.mojom.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
-#include "ash/shell_delegate.h"
 #include "ash/utility/screenshot_controller.h"
 #include "base/bind.h"
 #include "base/memory/scoped_refptr.h"
@@ -24,7 +23,6 @@
 #include "chromeos/services/assistant/public/features.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 #include "components/prefs/pref_registry_simple.h"
-#include "services/content/public/mojom/navigable_contents_factory.mojom.h"
 
 namespace ash {
 
@@ -109,6 +107,14 @@ void AssistantController::SendAssistantFeedback(
   assistant_->SendAssistantFeedback(std::move(assistant_feedback));
 }
 
+void AssistantController::StartTextInteraction(
+    const std::string& query,
+    bool allow_tts,
+    chromeos::assistant::mojom::AssistantQuerySource source) {
+  assistant_interaction_controller_.StartTextInteraction(query, allow_tts,
+                                                         source);
+}
+
 void AssistantController::StartSpeakerIdEnrollmentFlow() {
   if (assistant_state_controller_.consent_status().value_or(
           chromeos::assistant::prefs::ConsentStatus::kUnknown) ==
@@ -160,7 +166,8 @@ void AssistantController::OnDeepLinkReceived(
     case DeepLinkType::kScreenshot:
       // We close the UI before taking the screenshot as it's probably not the
       // user's intention to include the Assistant in the picture.
-      assistant_ui_controller_.CloseUi(AssistantExitPoint::kScreenshot);
+      assistant_ui_controller_.CloseUi(
+          chromeos::assistant::mojom::AssistantExitPoint::kScreenshot);
       Shell::Get()->screenshot_controller()->TakeScreenshotForAllRootWindows();
       break;
     case DeepLinkType::kTaskManager:
@@ -254,12 +261,6 @@ void AssistantController::OpenUrl(const GURL& url,
   NotifyUrlOpened(url, from_server);
 }
 
-void AssistantController::GetNavigableContentsFactory(
-    mojo::PendingReceiver<content::mojom::NavigableContentsFactory> receiver) {
-  Shell::Get()->shell_delegate()->BindNavigableContentsFactory(
-      std::move(receiver));
-}
-
 bool AssistantController::IsAssistantReady() const {
   return !!assistant_;
 }
@@ -301,12 +302,14 @@ void AssistantController::NotifyUrlOpened(const GURL& url, bool from_server) {
 void AssistantController::OnAssistantStatusChanged(
     mojom::AssistantState state) {
   if (state == mojom::AssistantState::NOT_READY)
-    assistant_ui_controller_.CloseUi(AssistantExitPoint::kUnspecified);
+    assistant_ui_controller_.CloseUi(
+        chromeos::assistant::mojom::AssistantExitPoint::kUnspecified);
 }
 
 void AssistantController::OnLockedFullScreenStateChanged(bool enabled) {
   if (enabled)
-    assistant_ui_controller_.CloseUi(AssistantExitPoint::kUnspecified);
+    assistant_ui_controller_.CloseUi(
+        chromeos::assistant::mojom::AssistantExitPoint::kUnspecified);
 }
 
 void AssistantController::BindController(

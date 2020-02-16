@@ -358,8 +358,10 @@ void AppCacheRequestHandler::OnMainResponseFound(
     return;
 
   AppCachePolicy* policy = host_->service()->appcache_policy();
-  bool was_blocked_by_policy = !manifest_url.is_empty() && policy &&
-      !policy->CanLoadAppCache(manifest_url, host_->first_party_url());
+  bool was_blocked_by_policy =
+      !manifest_url.is_empty() && policy &&
+      !policy->CanLoadAppCache(manifest_url,
+                               host_->site_for_cookies().RepresentativeUrl());
 
   if (was_blocked_by_policy) {
     if (IsResourceTypeFrame(resource_type_)) {
@@ -437,7 +439,7 @@ void AppCacheRequestHandler::RunLoaderCallbackForMainResource(
               frame_tree_node->navigation_request()->GetNavigationId(),
               &factory_receiver, nullptr /* header_client */,
               nullptr /* bypass_redirect_checks */,
-              nullptr /* factory_override */);
+              nullptr /* disable_secure_dns */, nullptr /* factory_override */);
       if (use_proxy) {
         single_request_factory->Clone(std::move(factory_receiver));
         single_request_factory =
@@ -635,8 +637,8 @@ AppCacheRequestHandler::MaybeCreateSubresourceLoaderParams() {
   // The factory is destroyed when the renderer drops the connection.
   mojo::PendingRemote<network::mojom::URLLoaderFactory> factory_remote;
 
-  AppCacheSubresourceURLFactory::CreateURLLoaderFactory(appcache_host_,
-                                                        &factory_remote);
+  AppCacheSubresourceURLFactory::CreateURLLoaderFactory(
+      appcache_host_, factory_remote.InitWithNewPipeAndPassReceiver());
 
   SubresourceLoaderParams params;
   params.pending_appcache_loader_factory = std::move(factory_remote);

@@ -157,6 +157,8 @@ class WebMediaPlayer {
   // as it will be needed.
   virtual void OnRequestPictureInPicture() = 0;
 
+  virtual void OnPictureInPictureAvailabilityChanged(bool available) = 0;
+
   virtual void RequestRemotePlayback() {}
   virtual void RequestRemotePlaybackControl() {}
   virtual void RequestRemotePlaybackStop() {}
@@ -436,7 +438,7 @@ class WebMediaPlayer {
   // Register a request to be notified the next time a video frame is presented
   // to the compositor. The video frame and its metadata will be surfaced via
   // WebMediaPlayerClient::OnRequestAnimationFrame().
-  // TODO(https://crbug.com/1022186): Add pointer to spec.
+  // See https://wicg.github.io/video-raf/.
   virtual void RequestAnimationFrame() {}
 
   virtual base::WeakPtr<WebMediaPlayer> AsWeakPtr() = 0;

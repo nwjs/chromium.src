@@ -18,7 +18,6 @@
 #include "base/time/time.h"
 #include "chrome/browser/extensions/extension_message_bubble_controller.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/extension_action_view_controller.h"
@@ -130,6 +129,14 @@ ToolbarActionsBar::~ToolbarActionsBar() {
 
   for (ToolbarActionsBarObserver& observer : observers_)
     observer.OnToolbarActionsBarDestroyed();
+}
+
+// static
+ToolbarActionsBar* ToolbarActionsBar::FromBrowserWindow(BrowserWindow* window) {
+  DCHECK(!base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu));
+  // The ToolbarActionsBar is the only implementation of the ExtensionsContainer
+  // if the ExtensionsMenu feature is disabled.
+  return static_cast<ToolbarActionsBar*>(window->GetExtensionsContainer());
 }
 
 // static

@@ -9,7 +9,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.text.SpannableString;
 import android.text.style.RelativeSizeSpan;
 
@@ -17,6 +20,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 
 /**
@@ -27,6 +31,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 public class ClipboardTest {
     private static final String PLAIN_TEXT = "plain";
     private static final String HTML_TEXT = "<span style=\"color: red;\">HTML</span>";
+    private static final Uri IMAGE_URI = Uri.parse("content://test.image");
 
     @Test
     public void testClipDataToHtmlText() {
@@ -52,5 +57,25 @@ public class ClipboardTest {
         intent.setType("*/*");
         ClipData intentClip = ClipData.newIntent("intent", intent);
         assertNull(clipboard.clipDataToHtmlText(intentClip));
+    }
+
+    @Test
+    public void testClipboardSetImage() {
+        Clipboard clipboard = Clipboard.getInstance();
+
+        // simple set a null, check if there is no crash.
+        clipboard.setImage(null);
+
+        // Set actually data.
+        clipboard.setImage(IMAGE_URI);
+
+        ClipboardManager clipboardManager =
+                (ClipboardManager) ContextUtils.getApplicationContext().getSystemService(
+                        Context.CLIPBOARD_SERVICE);
+        final ClipData clipData = clipboardManager.getPrimaryClip();
+        assertNotNull(clipData);
+
+        final Uri uri = clipData.getItemAt(0).getUri();
+        assertEquals(IMAGE_URI, uri);
     }
 }

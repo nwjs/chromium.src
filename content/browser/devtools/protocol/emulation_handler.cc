@@ -229,7 +229,7 @@ Response EmulationHandler::SetDeviceMetricsOverride(
       blink::WebSize(screen_width.fromMaybe(0), screen_height.fromMaybe(0));
   if (position_x.isJust() && position_y.isJust()) {
     params.view_position =
-        blink::WebPoint(position_x.fromMaybe(0), position_y.fromMaybe(0));
+        gfx::Point(position_x.fromMaybe(0), position_y.fromMaybe(0));
   }
   params.device_scale_factor = device_scale_factor;
   params.view_size = blink::WebSize(width, height);
@@ -238,8 +238,8 @@ Response EmulationHandler::SetDeviceMetricsOverride(
   params.screen_orientation_angle = orientationAngle;
 
   if (viewport.isJust()) {
-    params.viewport_offset.x = viewport.fromJust()->GetX();
-    params.viewport_offset.y = viewport.fromJust()->GetY();
+    params.viewport_offset.SetPoint(viewport.fromJust()->GetX(),
+                                    viewport.fromJust()->GetY());
 
     ScreenInfo screen_info;
     host_->GetRenderWidgetHost()->GetScreenInfo(&screen_info);

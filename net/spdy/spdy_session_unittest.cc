@@ -6082,7 +6082,7 @@ class SpdySessionReadIfReadyTest
   }
 };
 
-INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+INSTANTIATE_TEST_SUITE_P(All,
                          SpdySessionReadIfReadyTest,
                          testing::Values(READ_IF_READY_SUPPORTED,
                                          READ_IF_READY_NOT_SUPPORTED));
@@ -6731,6 +6731,11 @@ class TestSSLConfigService : public SSLConfigService {
         return true;
       }
     }
+    return false;
+  }
+
+  bool ShouldSuppressLegacyTLSWarning(
+      const std::string& hostname) const override {
     return false;
   }
 

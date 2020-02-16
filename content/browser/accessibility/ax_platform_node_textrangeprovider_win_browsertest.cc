@@ -76,6 +76,9 @@ namespace content {
 class AXPlatformNodeTextRangeProviderWinBrowserTest
     : public AccessibilityContentBrowserTest {
  protected:
+  const base::string16 kEmbeddedCharacterAsString = {
+      ui::AXPlatformNodeBase::kEmbeddedCharacter};
+
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
     SetupCrossSiteRedirector(embedded_test_server());
@@ -424,6 +427,56 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   EXPECT_EQ(value.type(), VT_UNKNOWN);
   EXPECT_EQ(V_UNKNOWN(value.ptr()), mix_attribute_value.Get())
       << "expected 'mixed attribute value' interface pointer";
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       GetAttributeValueIsReadonlyEmptyTextInputs) {
+  LoadInitialAccessibilityTreeFromHtml(std::string(R"HTML(
+      <!DOCTYPE html>
+      <html>
+        <body>
+          <input type='text' aria-label='input_text'>
+          <input type='search' aria-label='input_search'>
+        </body>
+      </html>
+  )HTML"));
+
+  auto* input_text_node = FindNode(ax::mojom::Role::kTextField, "input_text");
+  ASSERT_NE(nullptr, input_text_node);
+  EXPECT_TRUE(input_text_node->PlatformIsLeaf());
+  EXPECT_EQ(0u, input_text_node->PlatformChildCount());
+
+  ComPtr<ITextRangeProvider> text_range_provider;
+  GetTextRangeProviderFromTextNode(*input_text_node, &text_range_provider);
+  ASSERT_NE(nullptr, text_range_provider.Get());
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider,
+                          kEmbeddedCharacterAsString.c_str());
+
+  base::win::ScopedVariant value;
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider->GetAttributeValue(
+      UIA_IsReadOnlyAttributeId, value.Receive()));
+  EXPECT_EQ(value.type(), VT_BOOL);
+  EXPECT_EQ(V_BOOL(value.ptr()), VARIANT_FALSE);
+  text_range_provider.Reset();
+  value.Reset();
+
+  auto* input_search_node =
+      FindNode(ax::mojom::Role::kSearchBox, "input_search");
+  ASSERT_NE(nullptr, input_search_node);
+  EXPECT_TRUE(input_search_node->PlatformIsLeaf());
+  EXPECT_EQ(0u, input_search_node->PlatformChildCount());
+
+  GetTextRangeProviderFromTextNode(*input_search_node, &text_range_provider);
+  ASSERT_NE(nullptr, text_range_provider.Get());
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider,
+                          kEmbeddedCharacterAsString.c_str());
+
+  EXPECT_HRESULT_SUCCEEDED(text_range_provider->GetAttributeValue(
+      UIA_IsReadOnlyAttributeId, value.Receive()));
+  EXPECT_EQ(value.type(), VT_BOOL);
+  EXPECT_EQ(V_BOOL(value.ptr()), VARIANT_FALSE);
+  text_range_provider.Reset();
+  value.Reset();
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
@@ -1788,7 +1841,7 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 
   ASSERT_HRESULT_SUCCEEDED(
       text_range_provider->ExpandToEnclosingUnit(TextUnit_Format));
-  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"italic\ntext");
+  EXPECT_UIA_TEXTRANGE_EQ(text_range_provider, L"italic\ntext\n");
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
@@ -1858,8 +1911,9 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
        L"bold and italic text more bold and italic text", L" italic text",
        L" plain text"});
 
-  AssertMoveByUnitForMarkup(TextUnit_Format, "before <img src='test'> after",
-                            {L"before ", L" after"});
+  AssertMoveByUnitForMarkup(
+      TextUnit_Format, "before <img src='test'> after",
+      {L"before ", kEmbeddedCharacterAsString.c_str(), L" after"});
 
   AssertMoveByUnitForMarkup(TextUnit_Format,
                             "before <a href='test'>link</a> after",
@@ -1935,6 +1989,47 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       MoveByCharacterWithEmbeddedObject) {
+  const std::string html_markup = R"HTML(<!DOCTYPE html>
+  <html>
+    <body>
+      <div>
+        <label for="input1">Some text</label>
+        <input id="input1">
+        <p>after</p>
+      </div>
+    </body>
+  </html>)HTML";
+
+  const std::vector<const wchar_t*> characters = {
+      L"S", L"o", L"m", L"e", L" ",
+      L"t", L"e", L"x", L"t", kEmbeddedCharacterAsString.c_str(),
+      L"a", L"f", L"t", L"e", L"r"};
+
+  AssertMoveByUnitForMarkup(TextUnit_Character, html_markup, characters);
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       MoveByWordWithEmbeddedObject) {
+  const std::string html_markup = R"HTML(<!DOCTYPE html>
+  <html>
+    <body>
+      <div>
+        <label for="input1">Some text </label>
+        <input id="input1">
+        <p> after input</p>
+      </div>
+    </body>
+  </html>)HTML";
+
+  const std::vector<const wchar_t*> words = {L"Some ", L"text ",
+                                             kEmbeddedCharacterAsString.c_str(),
+                                             L"after ", L"input"};
+
+  AssertMoveByUnitForMarkup(TextUnit_Word, html_markup, words);
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        BoundingRectangleOfWordBeforeListItemMarker) {
   LoadInitialAccessibilityTreeFromHtml(
       R"HTML(<!DOCTYPE html>
@@ -1984,6 +2079,44 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
       text_range_provider->GetBoundingRectangles(rectangles.Receive()));
   expected_values = {105 + view_offset.x(), 50 + view_offset.y(), 28, 17};
   EXPECT_UIA_DOUBLE_SAFEARRAY_EQ(rectangles.Get(), expected_values);
+}
+
+IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
+                       MoveByFormatWithGeneratedContentTableAndSpans) {
+  const std::string html_markup =
+      "<!DOCTYPE html>"
+      "<style>"
+      "h2:before, h2:after { content: \" \"; display: table; }"
+      "span {white-space: pre; }"
+      "</style>"
+      "<div><h2>First Heading</h2><span>\nParagraph One</span></div>"
+      "<div><h2>Second Heading</h2><span>\nParagraph Two</span></div>";
+
+  const std::vector<const wchar_t*> format_units = {
+      L"  \nFirst Heading  ", L"\nParagraph One", L"  \nSecond Heading  ",
+      L"\nParagraph Two"};
+
+  AssertMoveByUnitForMarkup(TextUnit_Format, html_markup, format_units);
+}
+
+// https://crbug.com/1036397
+IN_PROC_BROWSER_TEST_F(
+    AXPlatformNodeTextRangeProviderWinBrowserTest,
+    DISABLED_MoveByFormatWithGeneratedContentTableAndParagraphs) {
+  const std::string html_markup = R"HTML(<!DOCTYPE html>
+        <html>
+        <style>
+            h2:before, h2:after { content: " "; display: table; }
+        </style>
+        <div><h2>First Heading</h2><p>Paragraph One</p></div>
+        <div><h2>Second Heading</h2><p>Paragraph Two</p></div>
+        </html>)HTML";
+
+  const std::vector<const wchar_t*> format_units = {
+      L"  \nFirst Heading  ", L"\nParagraph One", L"  \nSecond Heading  ",
+      L"\nParagraph Two"};
+
+  AssertMoveByUnitForMarkup(TextUnit_Format, html_markup, format_units);
 }
 
 }  // namespace content

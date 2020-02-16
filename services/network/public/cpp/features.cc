@@ -31,12 +31,13 @@ const base::Feature kNetworkService {
       base::FEATURE_ENABLED_BY_DEFAULT
 };
 
-// Out of Blink CORS will be launched at m79. The flag will be enabled by
-// default around m81 after the feature rolled out over the finch successfully
-// at m79. Both mode will be maintained at least until m81, or around m83+ for
-// enterprise supports.
+// Out of Blink CORS for browsers is launched at m79 (http://crbug.com/1001450),
+// and one for WebView will be at m81 (http://crbug.com/1035763).
+// The legacy CORS will be also maintained at least until m81 for enterprise
+// users. See https://sites.google.com/a/chromium.org/dev/Home/loading/oor-cors
+// for FYI Builders information.
 const base::Feature kOutOfBlinkCors{"OutOfBlinkCors",
-                                    base::FEATURE_DISABLED_BY_DEFAULT};
+                                    base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kReporting{"Reporting", base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -159,14 +160,22 @@ const base::Feature kDisableKeepaliveFetch{"DisableKeepaliveFetch",
 // When kOutOfBlinkFrameAncestors is enabled, the frame-ancestors
 // directive is parsed from the Content-Security-Policy header in the network
 // service and enforced in the browser.
-const base::Feature kOutOfBlinkFrameAncestors{
-    "OutOfBlinkFrameAncestors", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kOutOfBlinkFrameAncestors{"OutOfBlinkFrameAncestors",
+                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Attach the origin of the destination URL to the "origin" header
 const base::Feature
     kDeriveOriginFromUrlForNeitherGetNorHeadRequestWhenHavingSpecialAccess{
         "DeriveOriginFromUrlForNeitherGetNorHeadRequestWhenHavingSpecialAccess",
         base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Emergency switch for legacy cookie access semantics on given patterns, as
+// specified by the param, comma separated.
+const base::Feature kEmergencyLegacyCookieAccess{
+    "EmergencyLegacyCookieAccess", base::FEATURE_DISABLED_BY_DEFAULT};
+const char kEmergencyLegacyCookieAccessParamName[] = "Patterns";
+const base::FeatureParam<std::string> kEmergencyLegacyCookieAccessParam{
+    &kEmergencyLegacyCookieAccess, kEmergencyLegacyCookieAccessParamName, ""};
 
 bool ShouldEnableOutOfBlinkCorsForTesting() {
   return base::FeatureList::IsEnabled(features::kOutOfBlinkCors);

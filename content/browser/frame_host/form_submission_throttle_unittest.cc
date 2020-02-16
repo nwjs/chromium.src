@@ -15,14 +15,14 @@ namespace content {
 class FormSubmissionTest : public RenderViewHostImplTestHarness {
  public:
   void PreventFormSubmission() {
-    std::vector<CSPDirective> directives;
-    directives.push_back(
-        CSPDirective(CSPDirective::FormAction, CSPSourceList()));
-    ContentSecurityPolicy form_action_none(ContentSecurityPolicyHeader(),
-                                           directives,
-                                           std::vector<std::string>(), false);
-
-    main_test_rfh()->AddContentSecurityPolicy(form_action_none);
+    auto form_action_none = network::mojom::CSPDirective::New(
+        network::mojom::CSPDirectiveName::FormAction,
+        network::mojom::CSPSourceList::New(
+            std::vector<network::mojom::CSPSourcePtr>(), false, false, false));
+    auto policy = network::mojom::ContentSecurityPolicy::New();
+    policy->header = network::mojom::ContentSecurityPolicyHeader::New();
+    policy->directives.push_back(std::move(form_action_none));
+    main_test_rfh()->AddContentSecurityPolicy(std::move(policy));
   }
 };
 
@@ -39,7 +39,8 @@ TEST_F(FormSubmissionTest, ContentSecurityPolicyFormActionNoCSP) {
   auto form_submission =
       NavigationSimulatorImpl::CreateRendererInitiated(kFormUrl, main_rfh());
   form_submission->SetIsFormSubmission(true);
-  form_submission->set_should_check_main_world_csp(CSPDisposition::CHECK);
+  form_submission->set_should_check_main_world_csp(
+      network::mojom::CSPDisposition::CHECK);
   form_submission->Start();
   EXPECT_EQ(NavigationThrottle::PROCEED,
             form_submission->GetLastThrottleCheckResult());
@@ -63,7 +64,8 @@ TEST_F(FormSubmissionTest, ContentSecurityPolicyFormActionNone) {
   auto form_submission =
       NavigationSimulatorImpl::CreateRendererInitiated(kFormUrl, main_rfh());
   form_submission->SetIsFormSubmission(true);
-  form_submission->set_should_check_main_world_csp(CSPDisposition::CHECK);
+  form_submission->set_should_check_main_world_csp(
+      network::mojom::CSPDisposition::CHECK);
 
   // Browser side checks have been disabled on the initial load. Only the
   // renderer side checks occurs. Related issue: https://crbug.com/798698.
@@ -93,7 +95,7 @@ TEST_F(FormSubmissionTest, ContentSecurityPolicyFormActionBypassCSP) {
       NavigationSimulatorImpl::CreateRendererInitiated(kFormUrl, main_rfh());
   form_submission->SetIsFormSubmission(true);
   form_submission->set_should_check_main_world_csp(
-      CSPDisposition::DO_NOT_CHECK);
+      network::mojom::CSPDisposition::DO_NOT_CHECK);
   form_submission->Start();
   EXPECT_EQ(NavigationThrottle::PROCEED,
             form_submission->GetLastThrottleCheckResult());

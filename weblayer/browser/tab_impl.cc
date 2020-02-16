@@ -5,20 +5,32 @@
 #include "weblayer/browser/tab_impl.h"
 
 #include "base/auto_reset.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
+#include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/core/browser/autofill_manager.h"
+#include "components/autofill/core/browser/autofill_provider.h"
+#include "components/captive_portal/core/buildflags.h"
+#include "components/find_in_page/find_tab_helper.h"
+#include "components/find_in_page/find_types.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/interstitial_page.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/browser_controls_state.h"
 #include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "ui/base/window_open_disposition.h"
+#include "weblayer/browser/autofill_client_impl.h"
+#include "weblayer/browser/browser_impl.h"
 #include "weblayer/browser/file_select_helper.h"
+#include "weblayer/browser/i18n_util.h"
 #include "weblayer/browser/isolated_world_ids.h"
 #include "weblayer/browser/navigation_controller_impl.h"
 #include "weblayer/browser/profile_impl.h"
+#include "weblayer/browser/session_service.h"
 #include "weblayer/public/download_delegate.h"
 #include "weblayer/public/fullscreen_delegate.h"
 #include "weblayer/public/new_tab_delegate.h"
@@ -33,14 +45,38 @@
 #include "base/android/jni_string.h"
 #include "base/json/json_writer.h"
 #include "base/trace_event/trace_event.h"
+#include "components/autofill/android/autofill_provider_android.h"
 #include "components/embedder_support/android/delegate/color_chooser_android.h"
 #include "weblayer/browser/java/jni/TabImpl_jni.h"
 #include "weblayer/browser/top_controls_container_view.h"
 #endif
 
+#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
+#include "components/captive_portal/content/captive_portal_tab_helper.h"
+#include "weblayer/browser/captive_portal_service_factory.h"
+#endif
+
 namespace weblayer {
 
 namespace {
+
+#if defined(OS_ANDROID)
+const base::Feature kImmediatelyHideBrowserControlsForTest{
+    "ImmediatelyHideBrowserControlsForTest", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// The time that must elapse after a navigation before the browser controls can
+// be hidden. This value matches what chrome has in
+// TabStateBrowserControlsVisibilityDelegate.
+base::TimeDelta GetBrowserControlsAllowHideDelay() {
+  if (base::FeatureList::IsEnabled(kImmediatelyHideBrowserControlsForTest))
+    return base::TimeDelta();
+
+  return base::TimeDelta::FromSeconds(3);
+}
+
+bool g_system_autofill_disabled_for_testing = false;
+
+#endif
 
 NewTabType NewTabTypeFromWindowDisposition(WindowOpenDisposition disposition) {
   // WindowOpenDisposition has a *ton* of types, but the following are really
@@ -61,6 +97,25 @@ NewTabType NewTabTypeFromWindowDisposition(WindowOpenDisposition disposition) {
       return NewTabType::kForeground;
   }
 }
+
+#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
+// Opens a captive portal login page in |web_contents|.
+void OpenCaptivePortalLoginTabInWebContents(
+    content::WebContents* web_contents) {
+  // In Chrome this opens in a new tab, but WebLayer's TabImpl has no support
+  // for opening new tabs (its OpenURLFromTab() method DCHECKs if the
+  // disposition is not |CURRENT_TAB|).
+  // TODO(crbug.com/1047130): Revisit if TabImpl gets support for opening URLs
+  // in new tabs.
+  content::OpenURLParams params(
+      CaptivePortalServiceFactory::GetForBrowserContext(
+          web_contents->GetBrowserContext())
+          ->test_url(),
+      content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
+      ui::PAGE_TRANSITION_LINK, false);
+  web_contents->OpenURL(params);
+}
+#endif
 
 // Pointer value of this is used as a key in base::SupportsUserData for
 // WebContents. Value of the key is an instance of |UserData|.
@@ -122,9 +177,30 @@ TabImpl::TabImpl(ProfileImpl* profile,
   Observe(web_contents_.get());
 
   navigation_controller_ = std::make_unique<NavigationControllerImpl>(this);
+
+  find_in_page::FindTabHelper::CreateForWebContents(web_contents_.get());
+  GetFindTabHelper()->AddObserver(this);
+
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents_.get(),
+      base::BindRepeating(&TabImpl::GetSessionServiceTabHelperDelegate,
+                          base::Unretained(this)));
+
+#if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
+  CaptivePortalTabHelper::CreateForWebContents(
+      web_contents_.get(),
+      CaptivePortalServiceFactory::GetForBrowserContext(
+          web_contents_->GetBrowserContext()),
+      base::BindRepeating(&OpenCaptivePortalLoginTabInWebContents,
+                          web_contents_.get()));
+#endif
 }
 
 TabImpl::~TabImpl() {
+  DCHECK(!browser_);
+
+  GetFindTabHelper()->RemoveObserver(this);
+
   // Destruct WebContents now to avoid it calling back when this object is
   // partially destructed. DidFinishNavigation can be called while destroying
   // WebContents, so stop observing first.
@@ -197,6 +273,12 @@ void TabImpl::ExecuteScript(const base::string16& script,
   }
 }
 
+void TabImpl::ExecuteScriptWithUserGestureForTests(
+    const base::string16& script) {
+  web_contents_->GetMainFrame()->ExecuteJavaScriptWithUserGestureForTests(
+      script);
+}
+
 #if !defined(OS_ANDROID)
 void TabImpl::AttachToView(views::WebView* web_view) {
   web_view->SetWebContents(web_contents_.get());
@@ -205,6 +287,11 @@ void TabImpl::AttachToView(views::WebView* web_view) {
 #endif
 
 #if defined(OS_ANDROID)
+// static
+void TabImpl::DisableAutofillSystemIntegrationForTesting() {
+  g_system_autofill_disabled_for_testing = true;
+}
+
 static jlong JNI_TabImpl_CreateTab(
     JNIEnv* env,
     jlong profile,
@@ -214,7 +301,13 @@ static jlong JNI_TabImpl_CreateTab(
 }
 
 static void JNI_TabImpl_DeleteTab(JNIEnv* env, jlong tab) {
-  delete reinterpret_cast<TabImpl*>(tab);
+  std::unique_ptr<Tab> owned_tab;
+  TabImpl* tab_impl = reinterpret_cast<TabImpl*>(tab);
+  DCHECK(tab_impl);
+  if (tab_impl->browser())
+    owned_tab = tab_impl->browser()->RemoveTab(tab_impl);
+  else
+    owned_tab.reset(tab_impl);
 }
 
 base::android::ScopedJavaLocalRef<jobject> TabImpl::GetWebContents(
@@ -249,6 +342,30 @@ void TabImpl::SetJavaImpl(JNIEnv* env,
   java_impl_ = impl;
 }
 
+void TabImpl::OnAutofillProviderChanged(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& autofill_provider) {
+  if (g_system_autofill_disabled_for_testing)
+    return;
+
+  if (!autofill_provider_) {
+    // The first invocation should be when instantiating the autofill
+    // infrastructure, at which point the Java-side object should not be null.
+    DCHECK(autofill_provider);
+
+    // Initialize the native side of the autofill infrastructure.
+    autofill_provider_ = std::make_unique<autofill::AutofillProviderAndroid>(
+        autofill_provider, web_contents_.get());
+    InitializeAutofill();
+    return;
+  }
+
+  // The AutofillProvider Java object has been changed; inform
+  // |autofill_provider_|.
+  auto* provider =
+      static_cast<autofill::AutofillProviderAndroid*>(autofill_provider_.get());
+  provider->OnJavaAutofillProviderChanged(env, autofill_provider);
+}
 #endif
 
 content::WebContents* TabImpl::OpenURLFromTab(
@@ -291,8 +408,6 @@ void TabImpl::RunFileChooser(
 }
 
 int TabImpl::GetTopControlsHeight() {
-  if (is_fullscreen_)
-    return 0;
 #if defined(OS_ANDROID)
   return top_controls_container_view_
              ? top_controls_container_view_->GetTopControlsHeight()
@@ -327,11 +442,21 @@ void TabImpl::EnterFullscreenModeForTab(
                                                 weak_ptr_factory_.GetWeakPtr());
   base::AutoReset<bool> reset(&processing_enter_fullscreen_, true);
   fullscreen_delegate_->EnterFullscreen(std::move(exit_fullscreen_closure));
+#if defined(OS_ANDROID)
+  // Make sure browser controls cannot show when the tab is fullscreen.
+  UpdateBrowserControlsState(content::BROWSER_CONTROLS_STATE_HIDDEN,
+                             content::BROWSER_CONTROLS_STATE_BOTH, false);
+#endif
 }
 
 void TabImpl::ExitFullscreenModeForTab(content::WebContents* web_contents) {
   is_fullscreen_ = false;
   fullscreen_delegate_->ExitFullscreen();
+#if defined(OS_ANDROID)
+  // Attempt to show browser controls when exiting fullscreen.
+  UpdateBrowserControlsState(content::BROWSER_CONTROLS_STATE_BOTH,
+                             content::BROWSER_CONTROLS_STATE_SHOWN, true);
+#endif
 }
 
 bool TabImpl::IsFullscreenForTabOrPending(
@@ -365,19 +490,62 @@ void TabImpl::CloseContents(content::WebContents* source) {
     new_tab_delegate_->CloseTab();
 }
 
+void TabImpl::FindReply(content::WebContents* web_contents,
+                        int request_id,
+                        int number_of_matches,
+                        const gfx::Rect& selection_rect,
+                        int active_match_ordinal,
+                        bool final_update) {
+  GetFindTabHelper()->HandleFindReply(request_id, number_of_matches,
+                                      selection_rect, active_match_ordinal,
+                                      final_update);
+}
+
+#if defined(OS_ANDROID)
+// FindMatchRectsReply and OnFindResultAvailable forward find-related results to
+// the Java TabImpl. The find actions themselves are initiated directly from
+// Java via FindInPageBridge.
+void TabImpl::FindMatchRectsReply(content::WebContents* web_contents,
+                                  int version,
+                                  const std::vector<gfx::RectF>& rects,
+                                  const gfx::RectF& active_rect) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  // Create the details object.
+  ScopedJavaLocalRef<jobject> details_object =
+      Java_TabImpl_createFindMatchRectsDetails(
+          env, version, rects.size(),
+          ScopedJavaLocalRef<jobject>(Java_TabImpl_createRectF(
+              env, active_rect.x(), active_rect.y(), active_rect.right(),
+              active_rect.bottom())));
+
+  // Add the rects.
+  for (size_t i = 0; i < rects.size(); ++i) {
+    const gfx::RectF& rect = rects[i];
+    Java_TabImpl_setMatchRectByIndex(
+        env, details_object, i,
+        ScopedJavaLocalRef<jobject>(Java_TabImpl_createRectF(
+            env, rect.x(), rect.y(), rect.right(), rect.bottom())));
+  }
+
+  Java_TabImpl_onFindMatchRectsAvailable(env, java_impl_, details_object);
+}
+#endif
+
 void TabImpl::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
 #if defined(OS_ANDROID)
-  web_contents_->GetMainFrame()->UpdateBrowserControlsState(
-      content::BROWSER_CONTROLS_STATE_BOTH,
-      content::BROWSER_CONTROLS_STATE_SHOWN, false);
-
-  if (web_contents_->ShowingInterstitialPage()) {
-    web_contents_->GetInterstitialPage()
-        ->GetMainFrame()
-        ->UpdateBrowserControlsState(content::BROWSER_CONTROLS_STATE_SHOWN,
-                                     content::BROWSER_CONTROLS_STATE_SHOWN,
-                                     false);
+  if (navigation_handle->IsInMainFrame() &&
+      !navigation_handle->IsSameDocument()) {
+    // Force the browser controls to show initially, then allow hiding after a
+    // short delay.
+    UpdateBrowserControlsState(content::BROWSER_CONTROLS_STATE_SHOWN,
+                               content::BROWSER_CONTROLS_STATE_BOTH, true);
+    update_browser_controls_state_timer_.Start(
+        FROM_HERE, GetBrowserControlsAllowHideDelay(),
+        base::BindOnce(&TabImpl::UpdateBrowserControlsState,
+                       base::Unretained(this),
+                       content::BROWSER_CONTROLS_STATE_BOTH,
+                       content::BROWSER_CONTROLS_STATE_BOTH, true));
   }
 #endif
 }
@@ -385,6 +553,17 @@ void TabImpl::DidFinishNavigation(
 void TabImpl::RenderProcessGone(base::TerminationStatus status) {
   for (auto& observer : observers_)
     observer.OnRenderProcessGone();
+}
+
+void TabImpl::OnFindResultAvailable(content::WebContents* web_contents) {
+#if defined(OS_ANDROID)
+  const find_in_page::FindNotificationDetails& find_result =
+      GetFindTabHelper()->find_result();
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_TabImpl_onFindResultAvailable(
+      env, java_impl_, find_result.number_of_matches(),
+      find_result.active_match_ordinal(), find_result.final_update());
+#endif
 }
 
 void TabImpl::OnExitFullscreen() {
@@ -403,6 +582,24 @@ void TabImpl::UpdateRendererPrefs(bool should_sync_prefs) {
     web_contents_->SyncRendererPrefs();
 }
 
+#if defined(OS_ANDROID)
+void TabImpl::UpdateBrowserControlsState(
+    content::BrowserControlsState constraints,
+    content::BrowserControlsState current,
+    bool animate) {
+  // Cancel the timer since the state was set explicitly.
+  update_browser_controls_state_timer_.Stop();
+  web_contents_->GetMainFrame()->UpdateBrowserControlsState(constraints,
+                                                            current, animate);
+
+  if (web_contents_->ShowingInterstitialPage()) {
+    web_contents_->GetInterstitialPage()
+        ->GetMainFrame()
+        ->UpdateBrowserControlsState(constraints, current, animate);
+  }
+}
+#endif
+
 std::unique_ptr<Tab> Tab::Create(Profile* profile) {
   return std::make_unique<TabImpl>(static_cast<ProfileImpl*>(profile));
 }
@@ -412,5 +609,38 @@ Tab* Tab::GetLastTabForTesting() {
   return g_last_tab;
 }
 #endif
+
+void TabImpl::InitializeAutofillForTests(
+    std::unique_ptr<autofill::AutofillProvider> provider) {
+  DCHECK(!autofill_provider_);
+
+  autofill_provider_ = std::move(provider);
+  InitializeAutofill();
+}
+
+void TabImpl::InitializeAutofill() {
+  DCHECK(autofill_provider_);
+
+  content::WebContents* web_contents = web_contents_.get();
+  DCHECK(
+      !autofill::ContentAutofillDriverFactory::FromWebContents(web_contents));
+
+  AutofillClientImpl::CreateForWebContents(web_contents);
+  autofill::ContentAutofillDriverFactory::CreateForWebContentsAndDelegate(
+      web_contents, AutofillClientImpl::FromWebContents(web_contents),
+      i18n::GetApplicationLocale(),
+      autofill::AutofillManager::DISABLE_AUTOFILL_DOWNLOAD_MANAGER,
+      autofill_provider_.get());
+}
+
+find_in_page::FindTabHelper* TabImpl::GetFindTabHelper() {
+  return find_in_page::FindTabHelper::FromWebContents(web_contents_.get());
+}
+
+sessions::SessionTabHelperDelegate* TabImpl::GetSessionServiceTabHelperDelegate(
+    content::WebContents* web_contents) {
+  DCHECK_EQ(web_contents, web_contents_.get());
+  return browser_ ? browser_->session_service() : nullptr;
+}
 
 }  // namespace weblayer

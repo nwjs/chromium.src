@@ -13,6 +13,7 @@
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_shadow_root_init.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_rule_list.h"
@@ -25,7 +26,6 @@
 #include "third_party/blink/renderer/core/dom/first_letter_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
-#include "third_party/blink/renderer/core/dom/shadow_root_init.h"
 #include "third_party/blink/renderer/core/dom/slot_assignment_engine.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
@@ -65,8 +65,7 @@ class StyleEngineTest : public testing::Test {
 
   // A wrapper to add a reason for UpdateAllLifecyclePhases
   void UpdateAllLifecyclePhases() {
-    GetDocument().View()->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    GetDocument().View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   }
 
   Node* GetStyleRecalcRoot() {
@@ -1108,7 +1107,7 @@ TEST_F(StyleEngineTest, ScheduleInvalidationAfterSubtreeRecalc) {
   EXPECT_FALSE(t2->NeedsStyleInvalidation());
 }
 
-TEST_F(StyleEngineTest, NoScheduledRuleSetInvalidationsOnNewShadow) {
+TEST_F(StyleEngineTest, ScheduleRuleSetInvalidationsOnNewShadow) {
   GetDocument().body()->SetInnerHTMLFromString("<div id='host'></div>");
   Element* host = GetDocument().getElementById("host");
   ASSERT_TRUE(host);
@@ -1127,8 +1126,9 @@ TEST_F(StyleEngineTest, NoScheduledRuleSetInvalidationsOnNewShadow) {
   )HTML");
 
   GetStyleEngine().UpdateActiveStyle();
-  EXPECT_FALSE(GetDocument().ChildNeedsStyleInvalidation());
+  EXPECT_TRUE(GetDocument().ChildNeedsStyleInvalidation());
   EXPECT_FALSE(GetDocument().NeedsStyleInvalidation());
+  EXPECT_TRUE(shadow_root.NeedsStyleInvalidation());
 }
 
 TEST_F(StyleEngineTest, EmptyHttpEquivDefaultStyle) {
@@ -1230,7 +1230,7 @@ TEST_F(StyleEngineTest, ViewportDescriptionForZoomDSF) {
   WebViewImpl* web_view_impl =
       web_view_helper.Initialize(nullptr, nullptr, &client);
   web_view_impl->MainFrameWidget()->UpdateAllLifecyclePhases(
-      WebWidget::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 
   Document* document =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame())->GetDocument();
@@ -1244,7 +1244,7 @@ TEST_F(StyleEngineTest, ViewportDescriptionForZoomDSF) {
   const float device_scale = 3.5f;
   client.set_device_scale_factor(device_scale);
   web_view_impl->MainFrameWidget()->UpdateAllLifecyclePhases(
-      WebWidget::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 
   desc = document->GetViewportData().GetViewportDescription();
   EXPECT_FLOAT_EQ(device_scale * min_width, desc.min_width.GetFloatValue());
@@ -1493,8 +1493,6 @@ TEST_F(StyleEngineTest, MediaQueriesChangeDefaultFontSize) {
 }
 
 TEST_F(StyleEngineTest, MediaQueriesChangeColorScheme) {
-  ScopedMediaQueryPrefersColorSchemeForTest feature_scope(true);
-
   GetDocument().body()->SetInnerHTMLFromString(R"HTML(
     <style>
       body { color: red }
@@ -1520,8 +1518,6 @@ TEST_F(StyleEngineTest, MediaQueriesChangeColorScheme) {
 }
 
 TEST_F(StyleEngineTest, MediaQueriesChangeColorSchemeForcedDarkMode) {
-  ScopedMediaQueryPrefersColorSchemeForTest feature_scope(true);
-
   GetDocument().GetSettings()->SetForceDarkModeEnabled(true);
   ColorSchemeHelper color_scheme_helper;
   color_scheme_helper.SetPreferredColorScheme(GetDocument(),
@@ -1667,8 +1663,6 @@ TEST_F(StyleEngineTest, MediaQueriesChangeForcedColorsAndPreferredColorScheme) {
 }
 
 TEST_F(StyleEngineTest, MediaQueriesColorSchemeOverride) {
-  ScopedMediaQueryPrefersColorSchemeForTest feature_scope(true);
-
   EXPECT_EQ(PreferredColorScheme::kLight,
             Platform::Current()->ThemeEngine()->PreferredColorScheme());
 
@@ -1810,10 +1804,13 @@ TEST_F(StyleEngineTest, RejectSelectorForPseudoElement) {
   UpdateAllLifecyclePhases();
 
   StyleEngine& engine = GetStyleEngine();
+  // If the Stats() were already enabled, we would not start with 0 counts.
+  EXPECT_FALSE(engine.Stats());
   engine.SetStatsEnabled(true);
 
   StyleResolverStats* stats = engine.Stats();
   ASSERT_TRUE(stats);
+  EXPECT_EQ(0u, stats->rules_fast_rejected);
 
   Element* div = GetDocument().QuerySelector("div");
   ASSERT_TRUE(div);
@@ -1977,8 +1974,7 @@ TEST_F(StyleEngineTest, CSSSelectorEmptyWhitespaceOnlyFail) {
     <div></div>
     <div> <!-- --></div>
   )HTML");
-  GetDocument().View()->UpdateAllLifecyclePhases(
-      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  GetDocument().View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
 
   EXPECT_FALSE(GetDocument().IsUseCounted(
       WebFeature::kCSSSelectorEmptyWhitespaceOnlyFail));
@@ -1990,7 +1986,7 @@ TEST_F(StyleEngineTest, CSSSelectorEmptyWhitespaceOnlyFail) {
   auto is_counted = [](Element* element) {
     element->setAttribute(blink::html_names::kClassAttr, "match");
     element->GetDocument().View()->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+        DocumentUpdateReason::kTest);
     return element->GetDocument().IsUseCounted(
         WebFeature::kCSSSelectorEmptyWhitespaceOnlyFail);
   };
@@ -2144,6 +2140,7 @@ TEST_F(StyleEngineTest, ColorSchemeBaseBackgroundChange) {
 
 TEST_F(StyleEngineTest, ColorSchemeOverride) {
   ScopedCSSColorSchemeForTest enable_color_scheme(true);
+  ScopedCSSColorSchemeUARenderingForTest enable_color_scheme_ua(true);
 
   GetDocument().documentElement()->SetInlineStyleProperty(
       CSSPropertyID::kColorScheme, "light dark");
@@ -2160,52 +2157,6 @@ TEST_F(StyleEngineTest, ColorSchemeOverride) {
   EXPECT_EQ(
       WebColorScheme::kDark,
       GetDocument().documentElement()->GetComputedStyle()->UsedColorScheme());
-}
-
-TEST_F(StyleEngineTest, InternalRootColor) {
-  ScopedCSSColorSchemeForTest enable_color_scheme(true);
-  ColorSchemeHelper color_scheme_helper;
-  color_scheme_helper.SetPreferredColorScheme(GetDocument(),
-                                              PreferredColorScheme::kDark);
-
-  GetDocument().body()->SetInnerHTMLFromString(R"HTML(
-    <style>
-      #container { color-scheme: dark }
-      #light { color-scheme: light }
-    </style>
-    <div id="container">
-      <span id="dark">Text</span>
-      <span id="light">Text</span>
-    </div>
-  )HTML");
-
-  UpdateAllLifecyclePhases();
-
-  auto* container = GetDocument().getElementById("container");
-  auto* light = GetDocument().getElementById("light");
-  auto* dark = GetDocument().getElementById("dark");
-
-  // Initial value of color-scheme is 'light'.
-  EXPECT_EQ(
-      WebColorScheme::kLight,
-      GetDocument().documentElement()->GetComputedStyle()->UsedColorScheme());
-  EXPECT_EQ(WebColorScheme::kDark,
-            container->GetComputedStyle()->UsedColorScheme());
-  // color-scheme:dark inherited from #container.
-  EXPECT_EQ(WebColorScheme::kDark, dark->GetComputedStyle()->UsedColorScheme());
-  EXPECT_EQ(WebColorScheme::kLight,
-            light->GetComputedStyle()->UsedColorScheme());
-
-  EXPECT_EQ(Color::kBlack, GetDocument()
-                               .documentElement()
-                               ->GetComputedStyle()
-                               ->VisitedDependentColor(GetCSSPropertyColor()));
-  EXPECT_EQ(Color::kWhite, container->GetComputedStyle()->VisitedDependentColor(
-                               GetCSSPropertyColor()));
-  EXPECT_EQ(Color::kWhite, dark->GetComputedStyle()->VisitedDependentColor(
-                               GetCSSPropertyColor()));
-  EXPECT_EQ(Color::kBlack, light->GetComputedStyle()->VisitedDependentColor(
-                               GetCSSPropertyColor()));
 }
 
 TEST_F(StyleEngineTest, PseudoElementBaseComputedStyle) {
@@ -2482,6 +2433,124 @@ TEST_F(StyleEngineTest, RemoveStyleRecalcRootFromFlatTree) {
   EXPECT_FALSE(slot->ChildNeedsStyleRecalc());
   EXPECT_FALSE(span->NeedsStyleRecalc());
   EXPECT_FALSE(GetStyleRecalcRoot());
+}
+
+TEST_F(StyleEngineTest, SlottedWithEnsuredStyleOutsideFlatTree) {
+  ScopedFlatTreeStyleRecalcForTest scope(true);
+
+  GetDocument().body()->SetInnerHTMLFromString(R"HTML(
+    <div id="host"><span></span></div>
+  )HTML");
+
+  auto* host = GetDocument().getElementById("host");
+  auto* span = To<Element>(host->firstChild());
+
+  ShadowRoot& shadow_root =
+      host->AttachShadowRootInternal(ShadowRootType::kOpen);
+  shadow_root.SetInnerHTMLFromString(R"HTML(
+    <div><slot name="default"></slot></div>
+  )HTML");
+
+  UpdateAllLifecyclePhases();
+
+  // Ensure style outside the flat tree.
+  const ComputedStyle* style = span->EnsureComputedStyle();
+  ASSERT_TRUE(style);
+  EXPECT_TRUE(style->IsEnsuredOutsideFlatTree());
+
+  span->setAttribute("slot", "default");
+  GetDocument().GetSlotAssignmentEngine().RecalcSlotAssignments();
+  EXPECT_EQ(span, GetStyleRecalcRoot());
+  EXPECT_FALSE(span->GetComputedStyle());
+}
+
+TEST_F(StyleEngineTest, RecalcEnsuredStyleOutsideFlatTreeV0) {
+  ScopedFlatTreeStyleRecalcForTest scope(true);
+
+  GetDocument().body()->SetInnerHTMLFromString(R"HTML(
+    <div id="host"><span></span></div>
+  )HTML");
+
+  auto* host = GetDocument().getElementById("host");
+  auto* span = To<Element>(host->firstChild());
+
+  host->CreateV0ShadowRootForTesting();
+  UpdateAllLifecyclePhases();
+
+  EXPECT_FALSE(span->FlatTreeParentForChildDirty());
+
+  // Ensure style outside the flat tree.
+  const ComputedStyle* style = span->EnsureComputedStyle();
+  ASSERT_TRUE(style);
+  EXPECT_TRUE(style->IsEnsuredOutsideFlatTree());
+  EXPECT_EQ(EDisplay::kInline, style->Display());
+
+  span->SetInlineStyleProperty(CSSPropertyID::kDisplay, "block");
+  EXPECT_FALSE(GetStyleRecalcRoot());
+  EXPECT_FALSE(GetDocument().body()->ChildNeedsStyleRecalc());
+}
+
+TEST_F(StyleEngineTest, ForceReattachRecalcRootAttachShadow) {
+  ScopedFlatTreeStyleRecalcForTest scope(true);
+
+  GetDocument().body()->SetInnerHTMLFromString(R"HTML(
+    <div id="reattach"></div><div id="host"><span></span></div>
+  )HTML");
+
+  auto* reattach = GetDocument().getElementById("reattach");
+  auto* host = GetDocument().getElementById("host");
+
+  UpdateAllLifecyclePhases();
+
+  reattach->SetForceReattachLayoutTree();
+  EXPECT_FALSE(reattach->NeedsStyleRecalc());
+  EXPECT_EQ(reattach, GetStyleRecalcRoot());
+
+  // Attaching the shadow root will call RemovedFromFlatTree() on the span child
+  // of the host. The style recalc root should still be #reattach.
+  host->AttachShadowRootInternal(ShadowRootType::kOpen);
+  EXPECT_EQ(reattach, GetStyleRecalcRoot());
+}
+
+TEST_F(StyleEngineTest, InitialColorChange) {
+  GetDocument().body()->SetInnerHTMLFromString(R"HTML(
+    <style>
+      :root { color-scheme: light dark }
+      #initial { color: initial }
+    </style>
+    <div id="initial"></div>
+  )HTML");
+  UpdateAllLifecyclePhases();
+
+  Element* initial = GetDocument().getElementById("initial");
+  ASSERT_TRUE(initial);
+  ASSERT_TRUE(GetDocument().documentElement());
+  const ComputedStyle* document_element_style =
+      GetDocument().documentElement()->GetComputedStyle();
+  ASSERT_TRUE(document_element_style);
+  EXPECT_EQ(Color::kBlack, document_element_style->VisitedDependentColor(
+                               GetCSSPropertyColor()));
+
+  const ComputedStyle* initial_style = initial->GetComputedStyle();
+  ASSERT_TRUE(initial_style);
+  EXPECT_EQ(Color::kBlack,
+            initial_style->VisitedDependentColor(GetCSSPropertyColor()));
+
+  // Change color scheme to dark.
+  ColorSchemeHelper color_scheme_helper;
+  color_scheme_helper.SetPreferredColorScheme(GetDocument(),
+                                              PreferredColorScheme::kDark);
+  UpdateAllLifecyclePhases();
+
+  document_element_style = GetDocument().documentElement()->GetComputedStyle();
+  ASSERT_TRUE(document_element_style);
+  EXPECT_EQ(Color::kWhite, document_element_style->VisitedDependentColor(
+                               GetCSSPropertyColor()));
+
+  initial_style = initial->GetComputedStyle();
+  ASSERT_TRUE(initial_style);
+  EXPECT_EQ(Color::kWhite,
+            initial_style->VisitedDependentColor(GetCSSPropertyColor()));
 }
 
 }  // namespace blink

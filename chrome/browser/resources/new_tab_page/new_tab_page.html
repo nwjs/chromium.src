@@ -11,12 +11,15 @@
       }
 
       body {
+        background: $i18n{backgroundColor};
         margin: 0;
       }
     </style>
   </head>
   <body>
-    <manager-ui></manager-ui>
-    <script type="module" src="manager.js"></script>
+    <ntp-app></ntp-app>
+    <script type="module" src="app.js"></script>
+    <link rel="stylesheet" href="chrome://resources/css/text_defaults_md.css">
+    <link rel="stylesheet" href="shared_vars.css">
   </body>
 </html>

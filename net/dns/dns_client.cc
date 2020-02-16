@@ -155,23 +155,6 @@ class DnsClientImpl : public DnsClient,
     return &config->hosts;
   }
 
-  void ActivateDohProbes(URLRequestContext* url_request_context) override {
-    DCHECK(url_request_context);
-    DCHECK(!url_request_context_for_probes_);
-
-    url_request_context_for_probes_ = url_request_context;
-    StartDohProbes(false /* network_change */);
-  }
-
-  void CancelDohProbes() override {
-    DCHECK(url_request_context_for_probes_);
-
-    if (factory_)
-      factory_->CancelDohProbes();
-
-    url_request_context_for_probes_ = nullptr;
-  }
-
   DnsTransactionFactory* GetTransactionFactory() override {
     return session_.get() ? factory_.get() : nullptr;
   }
@@ -258,7 +241,6 @@ class DnsClientImpl : public DnsClient,
           new DnsSession(std::move(new_effective_config).value(),
                          std::move(socket_pool), rand_int_callback_, net_log_);
       factory_ = DnsTransactionFactory::CreateFactory(session_.get());
-      StartDohProbes(false /* network_change*/);
     }
   }
 
@@ -269,16 +251,7 @@ class DnsClientImpl : public DnsClient,
       const char* kTrialName = "AsyncDnsFlushServerStatsOnConnectionTypeChange";
       if (base::FieldTrialList::FindFullName(kTrialName) == "enable")
         session_->InitializeServerStats();
-      if (type != NetworkChangeNotifier::CONNECTION_NONE)
-        StartDohProbes(true /* network_change */);
     }
-  }
-
-  void StartDohProbes(bool network_change) {
-    if (!url_request_context_for_probes_ || !factory_)
-      return;
-
-    factory_->StartDohProbes(url_request_context_for_probes_, network_change);
   }
 
   bool insecure_enabled_ = false;
@@ -291,7 +264,6 @@ class DnsClientImpl : public DnsClient,
   std::unique_ptr<DnsTransactionFactory> factory_;
   std::unique_ptr<AddressSorter> address_sorter_ =
       AddressSorter::CreateAddressSorter();
-  URLRequestContext* url_request_context_for_probes_ = nullptr;
 
   NetLog* net_log_;
 

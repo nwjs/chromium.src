@@ -14,6 +14,7 @@ namespace blink {
 
 class NGBlockNode;
 class NGBlockBreakToken;
+class NGBoxFragment;
 
 class CORE_EXPORT NGFlexLayoutAlgorithm
     : public NGLayoutAlgorithm<NGBlockNode,
@@ -47,7 +48,8 @@ class CORE_EXPORT NGFlexLayoutAlgorithm
   bool IsColumnContainerMainSizeDefinite() const;
   bool IsContainerCrossSizeDefinite() const;
 
-  NGConstraintSpace BuildConstraintSpaceForDeterminingFlexBasis(
+  NGConstraintSpace BuildSpaceForFlexBasis(const NGBlockNode& flex_item) const;
+  NGConstraintSpace BuildSpaceForIntrinsicBlockSize(
       const NGBlockNode& flex_item) const;
   void ConstructAndAppendFlexItems();
   void ApplyStretchAlignmentToChild(FlexItem& flex_item);
@@ -57,9 +59,17 @@ class CORE_EXPORT NGFlexLayoutAlgorithm
   // This is same method as FlexItem but we need that logic before FlexItem is
   // constructed.
   bool MainAxisIsInlineAxis(const NGBlockNode& child) const;
-  LayoutUnit MainAxisContentExtent(LayoutUnit sum_hypothetical_main_size);
+  LayoutUnit MainAxisContentExtent(LayoutUnit sum_hypothetical_main_size) const;
 
   void HandleOutOfFlowPositioned(NGBlockNode child);
+
+  // Propagates the baseline from the given flex-item if needed.
+  void PropagateBaselineFromChild(
+      const FlexItem&,
+      const NGBoxFragment&,
+      LayoutUnit block_offset,
+      base::Optional<LayoutUnit>* fallback_baseline);
+
   // TODO(dgrogan): This is redundant with FlexLayoutAlgorithm.IsMultiline() but
   // it's needed before the algorithm is instantiated. Figure out how to
   // not reimplement.
@@ -69,8 +79,7 @@ class CORE_EXPORT NGFlexLayoutAlgorithm
   const NGBoxStrut border_scrollbar_padding_;
   const bool is_column_;
   const bool is_horizontal_flow_;
-  // These are populated at the top of Layout(), so aren't available in
-  // ComputeMinMaxSize() or anything it calls.
+  const bool is_cross_size_definite_;
   LogicalSize border_box_size_;
   LogicalSize content_box_size_;
   LogicalSize child_percentage_size_;

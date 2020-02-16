@@ -83,23 +83,37 @@ bool VulkanInstance::Initialize(
   app_info.pApplicationName = "Chromium";
   app_info.apiVersion = vulkan_info_.used_api_version;
 
-  vulkan_info_.enabled_instance_extensions = required_extensions;
-  uint32_t num_instance_exts = 0;
-  result = vkEnumerateInstanceExtensionProperties(nullptr, &num_instance_exts,
-                                                  nullptr);
-  if (VK_SUCCESS != result) {
-    DLOG(ERROR) << "vkEnumerateInstanceExtensionProperties(NULL) failed: "
-                << result;
-    return false;
-  }
+  // Query the extensions from all layers, including ones that are implicitly
+  // available (identified by passing a null ptr as the layer name).
+  std::vector<const char*> all_required_layers = required_layers;
 
-  vulkan_info_.instance_extensions.resize(num_instance_exts);
-  result = vkEnumerateInstanceExtensionProperties(
-      nullptr, &num_instance_exts, vulkan_info_.instance_extensions.data());
-  if (VK_SUCCESS != result) {
-    DLOG(ERROR) << "vkEnumerateInstanceExtensionProperties() failed: "
-                << result;
-    return false;
+  // Include the extension properties provided by the Vulkan implementation as
+  // part of the enumeration.
+  all_required_layers.push_back(nullptr);
+
+  for (const char* layer_name : all_required_layers) {
+    vulkan_info_.enabled_instance_extensions = required_extensions;
+    uint32_t num_instance_exts = 0;
+    result = vkEnumerateInstanceExtensionProperties(
+        layer_name, &num_instance_exts, nullptr);
+    if (VK_SUCCESS != result) {
+      DLOG(ERROR) << "vkEnumerateInstanceExtensionProperties(" << layer_name
+                  << ") failed: " << result;
+      return false;
+    }
+
+    const size_t previous_extension_count =
+        vulkan_info_.instance_extensions.size();
+    vulkan_info_.instance_extensions.resize(previous_extension_count +
+                                            num_instance_exts);
+    result = vkEnumerateInstanceExtensionProperties(
+        layer_name, &num_instance_exts,
+        &vulkan_info_.instance_extensions.data()[previous_extension_count]);
+    if (VK_SUCCESS != result) {
+      DLOG(ERROR) << "vkEnumerateInstanceExtensionProperties(" << layer_name
+                  << ") failed: " << result;
+      return false;
+    }
   }
 
   for (const VkExtensionProperties& ext_property :
@@ -257,6 +271,18 @@ void VulkanInstance::CollectInfo() {
     info.device = device;
 
     vkGetPhysicalDeviceProperties(device, &info.properties);
+
+    count = 0;
+    result = vkEnumerateDeviceExtensionProperties(
+        device, nullptr /* pLayerName */, &count, nullptr);
+    DLOG_IF(ERROR, result != VK_SUCCESS)
+        << "vkEnumerateDeviceExtensionProperties failed: " << result;
+
+    info.extensions.resize(count);
+    result = vkEnumerateDeviceExtensionProperties(
+        device, nullptr /* pLayerName */, &count, info.extensions.data());
+    DLOG_IF(ERROR, result != VK_SUCCESS)
+        << "vkEnumerateDeviceExtensionProperties failed: " << result;
 
     count = 0;
     result = vkEnumerateDeviceLayerProperties(device, &count, nullptr);

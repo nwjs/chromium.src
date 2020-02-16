@@ -21,6 +21,7 @@
 #import "ios/chrome/browser/tabs/tab_model_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/web/public/navigation/navigation_item.h"
+#import "ios/web/public/navigation/navigation_manager.h"
 #include "ios/web/public/thread/web_thread.h"
 #import "ios/web/public/web_state.h"
 
@@ -42,7 +43,7 @@ const CFTimeInterval kSecondsPerDay = 60 * 60 * 24;
 // checking for null closure).
 void RunCallback(base::ScopedClosureRunner closure_runner) {}
 
-NSSet* ComputeReferencedExternalFiles(ios::ChromeBrowserState* browser_state,
+NSSet* ComputeReferencedExternalFiles(ChromeBrowserState* browser_state,
                                       WebStateList* web_state_list) {
   NSMutableSet* referenced_files = [NSMutableSet set];
   if (!browser_state)
@@ -138,7 +139,7 @@ void RemoveFilesWithOptions(NSSet* files_to_keep, NSInteger age_in_days) {
 }  // namespace
 
 ExternalFileRemoverImpl::ExternalFileRemoverImpl(
-    ios::ChromeBrowserState* browser_state,
+    ChromeBrowserState* browser_state,
     sessions::TabRestoreService* tab_restore_service)
     : tab_restore_service_(tab_restore_service),
       browser_state_(browser_state),

@@ -39,7 +39,7 @@ class ColorSpace;
 namespace gpu {
 namespace gles2 {
 class GLES2Interface;
-}
+}  // namespace gles2
 }  // namespace gpu
 
 namespace viz {
@@ -310,11 +310,8 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
     current_read_lock_fence_ = fence;
   }
 
-  // Creates accounting for a child. Returns a child ID. |needs_sync_tokens|
-  // sets whether resources need sync points set on them when returned to this
-  // child.
-  int CreateChild(const ReturnCallback& return_callback,
-                  bool needs_sync_tokens);
+  // Creates accounting for a child. Returns a child ID.
+  int CreateChild(const ReturnCallback& return_callback);
 
   // Destroys accounting for the child, deleting all accounted resources.
   void DestroyChild(int child);
@@ -341,6 +338,9 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
   // releasing any other resources back to the child.
   void DeclareUsedResourcesFromChild(int child,
                                      const ResourceIdSet& resources_from_child);
+
+  // Returns the mailbox corresponding to a resource id.
+  gpu::Mailbox GetMailbox(int resource_id);
 
  private:
   enum DeleteStyle {
@@ -385,7 +385,6 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
     std::unordered_map<ResourceId, ResourceId> child_to_parent_map;
     ReturnCallback return_callback;
     bool marked_for_deletion = false;
-    bool needs_sync_tokens = true;
   };
 
   // The data structure used to track state of Gpu and Software-based
@@ -482,6 +481,18 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
     gpu::SyncToken sync_token_;
   };
 
+  // Class to do Scoped Begin/End read access on a batch of shared images.
+  class ScopedBatchReadAccess {
+   public:
+    explicit ScopedBatchReadAccess(gpu::gles2::GLES2Interface* gl);
+    ~ScopedBatchReadAccess();
+
+   private:
+    gpu::gles2::GLES2Interface* gl_ = nullptr;
+
+    DISALLOW_COPY_AND_ASSIGN(ScopedBatchReadAccess);
+  };
+
   using ChildMap = std::unordered_map<int, Child>;
   using ResourceMap = std::unordered_map<ResourceId, ChildResource>;
 
@@ -558,6 +569,7 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
 #endif
 
   bool enable_shared_images_;
+  std::unique_ptr<ScopedBatchReadAccess> scoped_batch_read_access_;
 };
 
 }  // namespace viz

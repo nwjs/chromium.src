@@ -6,8 +6,10 @@
 
 #include "base/optional.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/bindings/core/v8/double_or_scroll_timeline_auto_keyword.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
 #include "third_party/blink/renderer/bindings/modules/v8/animation_effect_or_animation_effect_sequence.h"
+#include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect_model.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
@@ -21,6 +23,7 @@
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/modules/animationworklet/css_animation_worklet.h"
+#include "third_party/blink/renderer/platform/animation/compositor_animation_timeline.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -37,21 +40,23 @@ bool ConvertAnimationEffects(
   // Currently we only support KeyframeEffect.
   if (effects.IsAnimationEffect()) {
     auto* const effect = effects.GetAsAnimationEffect();
-    if (!effect->IsKeyframeEffect()) {
+    auto* key_frame = DynamicTo<KeyframeEffect>(effect);
+    if (!key_frame) {
       error_string = "Effect must be a KeyframeEffect object";
       return false;
     }
-    keyframe_effects.push_back(ToKeyframeEffect(effect));
+    keyframe_effects.push_back(key_frame);
   } else {
     const HeapVector<Member<AnimationEffect>>& effect_sequence =
         effects.GetAsAnimationEffectSequence();
     keyframe_effects.ReserveInitialCapacity(effect_sequence.size());
     for (const auto& effect : effect_sequence) {
-      if (!effect->IsKeyframeEffect()) {
+      auto* key_frame = DynamicTo<KeyframeEffect>(*effect);
+      if (!key_frame) {
         error_string = "Effects must all be KeyframeEffect objects";
         return false;
       }
-      keyframe_effects.push_back(ToKeyframeEffect(effect));
+      keyframe_effects.push_back(key_frame);
     }
   }
 
@@ -118,14 +123,13 @@ bool CheckElementComposited(const Node& target) {
 void StartEffectOnCompositor(CompositorAnimation* animation,
                              KeyframeEffect* effect) {
   DCHECK(effect);
-  DCHECK(effect->target());
-  Element& target = *effect->target();
+  DCHECK(effect->EffectTarget());
+  Element& target = *effect->EffectTarget();
   effect->Model()->SnapshotAllCompositorKeyframesIfNecessary(
       target, target.ComputedStyleRef(), target.ParentComputedStyle());
 
   int group = 0;
   base::Optional<double> start_time = base::nullopt;
-  double time_offset = 0;
 
   // Normally the playback rate of a blink animation gets translated into
   // equivalent playback rate of cc::KeyframeModels.
@@ -139,7 +143,7 @@ void StartEffectOnCompositor(CompositorAnimation* animation,
   // it on animation. https://crbug.com/925373.
   double playback_rate = 1;
 
-  effect->StartAnimationOnCompositor(group, start_time, time_offset,
+  effect->StartAnimationOnCompositor(group, start_time, base::TimeDelta(),
                                      playback_rate, animation);
 }
 
@@ -306,7 +310,7 @@ void WorkletAnimation::play(ExceptionState& exception_state) {
   has_started_ = true;
 
   for (auto& effect : effects_) {
-    Element* target = effect->target();
+    Element* target = effect->EffectTarget();
     if (!target)
       continue;
 
@@ -379,7 +383,7 @@ void WorkletAnimation::cancel() {
   SetCurrentTime(base::nullopt);
 
   for (auto& effect : effects_) {
-    Element* target = effect->target();
+    Element* target = effect->EffectTarget();
     if (!target)
       continue;
     // TODO(yigu): Currently we have to keep a set of worklet animations in
@@ -545,10 +549,10 @@ bool WorkletAnimation::CanStartOnCompositor() {
     return false;
   }
 
-  if (!GetEffect()->target())
+  if (!GetEffect()->EffectTarget())
     return false;
 
-  Element& target = *GetEffect()->target();
+  Element& target = *GetEffect()->EffectTarget();
 
   // TODO(crbug.com/836393): This should not be possible but it is currently
   // happening and needs to be investigated/fixed.
@@ -573,7 +577,7 @@ bool WorkletAnimation::CanStartOnCompositor() {
   // If the scroll source is not composited, fall back to main thread.
   if (timeline_->IsScrollTimeline() &&
       !CheckElementComposited(
-          *ToScrollTimeline(timeline_)->ResolvedScrollSource())) {
+          *To<ScrollTimeline>(*timeline_).ResolvedScrollSource())) {
     return false;
   }
 
@@ -611,7 +615,7 @@ bool WorkletAnimation::StartOnCompositor() {
           document_->Timeline().CompositorTimeline())
     compositor_timeline->AnimationAttached(*this);
 
-  CompositorAnimations::AttachCompositedLayers(*GetEffect()->target(),
+  CompositorAnimations::AttachCompositedLayers(*GetEffect()->EffectTarget(),
                                                compositor_animation_.get());
 
   // TODO(smcgruer): We need to start all of the effects, not just the first.
@@ -644,7 +648,7 @@ bool WorkletAnimation::UpdateOnCompositor() {
   }
 
   if (timeline_->IsScrollTimeline()) {
-    Node* scroll_source = ToScrollTimeline(timeline_)->ResolvedScrollSource();
+    Node* scroll_source = To<ScrollTimeline>(*timeline_).ResolvedScrollSource();
     LayoutBox* box = scroll_source ? scroll_source->GetLayoutBox() : nullptr;
 
     base::Optional<double> start_scroll_offset;
@@ -652,14 +656,15 @@ bool WorkletAnimation::UpdateOnCompositor() {
     if (box) {
       double current_offset;
       double max_offset;
-      ToScrollTimeline(timeline_)->GetCurrentAndMaxOffset(box, current_offset,
-                                                          max_offset);
+      To<ScrollTimeline>(*timeline_)
+          .GetCurrentAndMaxOffset(box, current_offset, max_offset);
 
       double resolved_start_scroll_offset = 0;
       double resolved_end_scroll_offset = max_offset;
-      ToScrollTimeline(timeline_)->ResolveScrollStartAndEnd(
-          box, max_offset, resolved_start_scroll_offset,
-          resolved_end_scroll_offset);
+      To<ScrollTimeline>(*timeline_)
+          .ResolveScrollStartAndEnd(box, max_offset,
+                                    resolved_start_scroll_offset,
+                                    resolved_end_scroll_offset);
       start_scroll_offset = resolved_start_scroll_offset;
       end_scroll_offset = resolved_end_scroll_offset;
     }

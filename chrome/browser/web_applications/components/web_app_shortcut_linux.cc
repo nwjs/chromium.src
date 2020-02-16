@@ -21,7 +21,7 @@
 #include "base/threading/scoped_blocking_call.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/shell_integration_linux.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_shortcut.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_constants.h"
@@ -170,7 +170,31 @@ bool CreateShortcutInApplicationsMenu(const base::FilePath& shortcut_filename,
   argv.push_back(temp_file_path.value());
   int exit_code;
   shell_integration_linux::LaunchXdgUtility(argv, &exit_code);
-  return exit_code == 0;
+
+  if (exit_code != 0)
+    return false;
+
+  // Some Linux file managers (Nautilus and Nemo) depend on an up to date
+  // mimeinfo.cache file to detect whether applications can open files, so
+  // manually run update-desktop-database on the user applications folder.
+  // See this bug on xdg desktop-file-utils
+  // https://gitlab.freedesktop.org/xdg/desktop-file-utils/issues/54
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
+  base::FilePath user_applications_dir =
+      shell_integration_linux::GetDataWriteLocation(env.get()).Append(
+          "applications");
+  argv.clear();
+  argv.push_back("update-desktop-database");
+  argv.push_back(user_applications_dir.value());
+
+  // Ignore the exit code of update-desktop-database, if it fails it isn't
+  // important (the shortcut is created and usable when xdg-desktop-menu install
+  // completes). Failure means the file type associations for this desktop entry
+  // may not show up in some file managers, but this is non-critical.
+  int ignored_exit_code = 0;
+  shell_integration_linux::LaunchXdgUtility(argv, &ignored_exit_code);
+
+  return true;
 }
 
 }  // namespace
@@ -286,12 +310,16 @@ bool CreateDesktopShortcut(const ShortcutInfo& shortcut_info,
       break;
   }
 
+  std::vector<std::string> mime_types(
+      shortcut_info.file_handler_mime_types.begin(),
+      shortcut_info.file_handler_mime_types.end());
+
   // Set NoDisplay=true if hidden. This will hide the application from
   // user-facing menus.
   std::string contents = shell_integration_linux::GetDesktopFileContents(
       chrome_exe_path, app_name, shortcut_info.url, shortcut_info.extension_id,
       shortcut_info.title, icon_name, shortcut_info.profile_path, "",
-      base::JoinString(shortcut_info.mime_types, ";"),
+      base::JoinString(mime_types, ";"),
       creation_locations.applications_menu_location ==
           APP_MENU_LOCATION_HIDDEN);
   success = CreateShortcutInApplicationsMenu(shortcut_filename, contents,

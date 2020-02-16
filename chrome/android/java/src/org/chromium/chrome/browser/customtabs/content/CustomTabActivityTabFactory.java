@@ -19,8 +19,8 @@ import org.chromium.chrome.browser.init.StartupTabPreloader;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.ChromeTabCreator;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
 import org.chromium.chrome.browser.util.IntentUtils;
@@ -37,23 +37,25 @@ import dagger.Lazy;
  */
 @ActivityScope
 public class CustomTabActivityTabFactory {
-    private final ChromeActivity mActivity;
+    private final ChromeActivity<?> mActivity;
     private final CustomTabTabPersistencePolicy mPersistencePolicy;
     private final Lazy<ActivityWindowAndroid> mActivityWindowAndroid;
     private final Lazy<CustomTabDelegateFactory> mCustomTabDelegateFactory;
     private final BrowserServicesIntentDataProvider mIntentDataProvider;
+
+    @Nullable
     private final StartupTabPreloader mStartupTabPreloader;
 
     @Nullable
     private TabModelSelectorImpl mTabModelSelector;
 
     @Inject
-    public CustomTabActivityTabFactory(ChromeActivity activity,
+    public CustomTabActivityTabFactory(ChromeActivity<?> activity,
             CustomTabTabPersistencePolicy persistencePolicy,
             Lazy<ActivityWindowAndroid> activityWindowAndroid,
             Lazy<CustomTabDelegateFactory> customTabDelegateFactory,
             BrowserServicesIntentDataProvider intentDataProvider,
-            StartupTabPreloader startupTabPreloader) {
+            @Nullable StartupTabPreloader startupTabPreloader) {
         mActivity = activity;
         mPersistencePolicy = persistencePolicy;
         mActivityWindowAndroid = activityWindowAndroid;
@@ -85,12 +87,7 @@ public class CustomTabActivityTabFactory {
 
     private ChromeTabCreator createTabCreator(boolean incognito) {
         return new ChromeTabCreator(mActivity, mActivityWindowAndroid.get(), mStartupTabPreloader,
-                mCustomTabDelegateFactory::get, incognito) {
-            @Override
-            public TabDelegateFactory createDefaultTabDelegateFactory() {
-                return mCustomTabDelegateFactory.get();
-            }
-        };
+                mCustomTabDelegateFactory::get, incognito);
     }
 
     /** Creates a new tab for a Custom Tab activity */
@@ -98,12 +95,8 @@ public class CustomTabActivityTabFactory {
         Intent intent = mIntentDataProvider.getIntent();
         int assignedTabId =
                 IntentUtils.safeGetIntExtra(intent, IntentHandler.EXTRA_TAB_ID, Tab.INVALID_TAB_ID);
-        int parentTabId = IntentUtils.safeGetIntExtra(
-                intent, IntentHandler.EXTRA_PARENT_TAB_ID, Tab.INVALID_TAB_ID);
-        Tab parent = mTabModelSelector != null ? mTabModelSelector.getTabById(parentTabId) : null;
         return new TabBuilder()
                 .setId(assignedTabId)
-                .setParent(parent)
                 .setIncognito(mIntentDataProvider.isIncognito())
                 .setWindow(mActivityWindowAndroid.get())
                 .setLaunchType(TabLaunchType.FROM_EXTERNAL_APP)

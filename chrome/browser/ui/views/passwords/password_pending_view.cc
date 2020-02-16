@@ -28,6 +28,7 @@
 #include "ui/base/models/combobox_model_observer.h"
 #include "ui/base/models/simple_combobox_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/image_button.h"
@@ -271,7 +272,7 @@ PasswordPendingView::PasswordPendingView(content::WebContents* web_contents,
     std::pair<base::string16, base::string16> titles =
         GetCredentialLabelsForAccountChooser(password_form);
     CredentialsItemView* credential_view = new CredentialsItemView(
-        this, titles.first, titles.second, kButtonHoverColor, &password_form,
+        this, titles.first, titles.second, &password_form,
         content::BrowserContext::GetDefaultStoragePartition(
             model()->GetProfile())
             ->GetURLLoaderFactoryForBrowserProcess()
@@ -306,6 +307,7 @@ PasswordPendingView::PasswordPendingView(content::WebContents* web_contents,
   }
 
   DialogDelegate::SetFootnoteView(CreateFooterView());
+  UpdateDialogButtons();
 }
 
 views::View* PasswordPendingView::GetUsernameTextfieldForTest() const {
@@ -313,6 +315,14 @@ views::View* PasswordPendingView::GetUsernameTextfieldForTest() const {
 }
 
 PasswordPendingView::~PasswordPendingView() = default;
+
+PasswordBubbleControllerBase* PasswordPendingView::GetController() {
+  return nullptr;
+}
+
+const PasswordBubbleControllerBase* PasswordPendingView::GetController() const {
+  return nullptr;
+}
 
 bool PasswordPendingView::Accept() {
   UpdateUsernameAndPasswordInModel();
@@ -361,6 +371,7 @@ void PasswordPendingView::OnContentChanged(
   if (is_update_state_before != model()->IsCurrentStateUpdate() ||
       is_ok_button_enabled_before !=
           IsDialogButtonEnabled(ui::DIALOG_BUTTON_OK)) {
+    UpdateDialogButtons();
     DialogModelChanged();
     // TODO(ellyjones): This should not be necessary; DialogModelChanged()
     // implies a re-layout of the dialog.
@@ -385,28 +396,6 @@ views::View* PasswordPendingView::GetInitiallyFocusedView() {
   // up the menu without a user interaction. We only allow initial focus on
   // |username_dropdown_| above, when the text is empty.
   return (initial_view && initial_view->IsFocusable()) ? initial_view : nullptr;
-}
-
-int PasswordPendingView::GetDialogButtons() const {
-  if (sign_in_promo_)
-    return ui::DIALOG_BUTTON_NONE;
-
-  return PasswordBubbleViewBase::GetDialogButtons();
-}
-
-base::string16 PasswordPendingView::GetDialogButtonLabel(
-    ui::DialogButton button) const {
-  int message = 0;
-  if (button == ui::DIALOG_BUTTON_OK) {
-    message = model()->IsCurrentStateUpdate()
-                  ? IDS_PASSWORD_MANAGER_UPDATE_BUTTON
-                  : IDS_PASSWORD_MANAGER_SAVE_BUTTON;
-  } else {
-    message = is_update_bubble_ ? IDS_PASSWORD_MANAGER_CANCEL_BUTTON
-                                : IDS_PASSWORD_MANAGER_BUBBLE_BLACKLIST_BUTTON;
-  }
-
-  return l10n_util::GetStringUTF16(message);
 }
 
 bool PasswordPendingView::IsDialogButtonEnabled(ui::DialogButton button) const {
@@ -434,7 +423,7 @@ void PasswordPendingView::AddedToWidget() {
 
 void PasswordPendingView::OnThemeChanged() {
   if (int id = model()->GetTopIllustration(
-          GetNativeTheme()->ShouldUseDarkColors())) {
+          color_utils::IsDark(GetBubbleFrameView()->GetBackgroundColor()))) {
     GetBubbleFrameView()->SetHeaderView(CreateHeaderImage(id));
   }
 }
@@ -478,17 +467,37 @@ void PasswordPendingView::ReplaceWithPromo() {
   set_margins(ChromeLayoutProvider::Get()->GetDialogInsetsForContentType(
       views::TEXT, views::TEXT));
   if (model()->state() == password_manager::ui::CHROME_SIGN_IN_PROMO_STATE) {
-    sign_in_promo_ = new PasswordSignInPromoView(model());
+    sign_in_promo_ = new PasswordSignInPromoView(model()->GetWebContents());
     AddChildView(sign_in_promo_);
   } else {
     NOTREACHED();
   }
   GetWidget()->UpdateWindowIcon();
   GetWidget()->UpdateWindowTitle();
+  UpdateDialogButtons();
   DialogModelChanged();
 
   SizeToContents();
 #endif  // defined(OS_CHROMEOS)
+}
+
+void PasswordPendingView::UpdateDialogButtons() {
+  if (sign_in_promo_) {
+    DialogDelegate::set_buttons(ui::DIALOG_BUTTON_NONE);
+    return;
+  }
+  DialogDelegate::set_buttons(
+      (ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL));
+  DialogDelegate::set_button_label(
+      ui::DIALOG_BUTTON_OK,
+      l10n_util::GetStringUTF16(model()->IsCurrentStateUpdate()
+                                    ? IDS_PASSWORD_MANAGER_UPDATE_BUTTON
+                                    : IDS_PASSWORD_MANAGER_SAVE_BUTTON));
+  DialogDelegate::set_button_label(
+      ui::DIALOG_BUTTON_CANCEL,
+      l10n_util::GetStringUTF16(
+          is_update_bubble_ ? IDS_PASSWORD_MANAGER_CANCEL_BUTTON
+                            : IDS_PASSWORD_MANAGER_BUBBLE_BLACKLIST_BUTTON));
 }
 
 std::unique_ptr<views::View> PasswordPendingView::CreateFooterView() {

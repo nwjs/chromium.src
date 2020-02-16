@@ -6,10 +6,11 @@
 #define CHROME_BROWSER_WEB_APPLICATIONS_COMPONENTS_WEB_APP_SHORTCUT_H_
 
 #include <memory>
+#include <set>
 #include <string>
-#include <vector>
 
 #include "base/callback_forward.h"
+#include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/macros.h"
 #include "base/sequence_checker.h"
@@ -19,6 +20,10 @@
 
 namespace base {
 class TaskRunner;
+}
+
+namespace gfx {
+class ImageSkia;
 }
 
 namespace web_app {
@@ -40,7 +45,8 @@ struct ShortcutInfo {
   base::FilePath profile_path;
   std::string profile_name;
   std::string version_for_display;
-  std::vector<std::string> mime_types;
+  std::set<std::string> file_handler_extensions;
+  std::set<std::string> file_handler_mime_types;
 
  private:
   // Since gfx::ImageFamily |favicon| has a non-thread-safe reference count in
@@ -104,6 +110,13 @@ base::FilePath GetWebAppDataDirectory(const base::FilePath& profile_path,
 // platform shortcuts indicating whether or not they were successfully
 // created.
 using CreateShortcutsCallback = base::OnceCallback<void(bool shortcut_created)>;
+
+// Returns an array of desired icon sizes (in px) to be contained in an app OS
+// shortcut, sorted in ascending order (biggest desired icon size is last).
+base::span<const int> GetDesiredIconSizesForShortcut();
+
+// Load the standard application icon from resources.
+gfx::ImageSkia CreateDefaultApplicationIcon(int size);
 
 namespace internals {
 

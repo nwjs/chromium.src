@@ -4,11 +4,10 @@
 
 package org.chromium.chrome.browser.status_indicator;
 
-import android.view.View;
 import android.widget.TextView;
 
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ui.widget.ViewResourceFrameLayout;
+import org.chromium.components.browser_ui.widget.ViewResourceFrameLayout;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -45,10 +44,9 @@ class StatusIndicatorViewBinder {
             assert view.sceneLayer != null;
             view.sceneLayer.setIsVisible(
                     model.get(StatusIndicatorProperties.COMPOSITED_VIEW_VISIBLE));
-        } else if (StatusIndicatorProperties.ANDROID_VIEW_VISIBLE == propertyKey) {
+        } else if (StatusIndicatorProperties.ANDROID_VIEW_VISIBILITY == propertyKey) {
             view.javaViewRoot.setVisibility(
-                    model.get(StatusIndicatorProperties.ANDROID_VIEW_VISIBLE) ? View.VISIBLE
-                                                                              : View.GONE);
+                    model.get(StatusIndicatorProperties.ANDROID_VIEW_VISIBILITY));
         } else {
             assert false : "Unhandled property detected in StatusIndicatorViewBinder!";
         }

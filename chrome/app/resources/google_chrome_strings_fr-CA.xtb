@@ -9,7 +9,6 @@
 Certaines fonctionnalités ne seront peut-être pas disponibles et les modifications apportées à vos préférences ne seront pas enregistrées.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> utilisait précédemment Chrome</translation>
 <translation id="1097330777386562916">Effacer les témoins et les données des sites lorsque vous quittez Chrome</translation>
-<translation id="1104959162601287462">À propos de &amp;Chrome OS</translation>
 <translation id="110877069173485804">Voici votre navigateur Chrome</translation>
 <translation id="1142745911746664600">Impossible de mettre à jour Google Chrome</translation>
 <translation id="1154147086299354128">&amp;Ouvrir dans Chrome</translation>
@@ -21,10 +20,8 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="1553358976309200471">Mettre à jour Chrome</translation>
 <translation id="1587223624401073077">Google Chrome se sert de votre caméra Web.</translation>
 <translation id="1587325591171447154">Chrome a bloqué le fichier <ph name="FILE_NAME" />, car il est dangereux.</translation>
-<translation id="1590588151039584890">Pour installer la mise à jour, vous devez fermer Chrome sur cet ordinateur. Cela pourrait engendrer la perte de modifications non enregistrées pour d'autres utilisateurs connectés à cet ordinateur.</translation>
 <translation id="1619887657840448962">Afin de rendre Chrome plus sûr, nous avons désactivé l'extension suivante qui n'est pas répertoriée dans <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> et a pu être ajoutée à votre insu.</translation>
 <translation id="1628000112320670027">Obtenir de l'aide pour Chrome</translation>
-<translation id="1635734105302489219">Vous effacez les témoins lorsque vous quittez Chrome. Pour continuer la synchronisation, modifiez ce paramètre : <ph name="COOKIE_SETTINGS_LINK" />.</translation>
 <translation id="1662639173275167396">Chrome OS fonctionne grâce à d'autres <ph name="BEGIN_LINK_CROS_OSS" />logiciels libres<ph name="END_LINK_CROS_OSS" />, tout comme <ph name="BEGIN_LINK_LINUX_OSS" />Linux (bêta)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">La mise à jour est presque terminée! Il ne reste plus qu'à relancer Google Chrome. Vos fenêtres de navigation privée ne seront pas rouvertes.</translation>
 <translation id="1674870198290878346">Ouvrir le lien dans une fenêtre de navi&amp;gation privée Chrome</translation>
@@ -52,6 +49,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="2290014774651636340">Les clés d'API Google sont manquantes. Certaines fonctionnalités de Google Chrome seront désactivées.</translation>
 <translation id="2290095356545025170">Voulez-vous vraiment désinstaller Google Chrome?</translation>
 <translation id="2309047409763057870">Cette installation de Google Chrome est secondaire. Celui-ci ne peut donc pas servir de navigateur par défaut.</translation>
+<translation id="2341767445688917208">Chrome OS n'a pas pu synchroniser vos mots de passe. Corrigez le problème maintenant.</translation>
 <translation id="2348335408836342058">Chrome a besoin de votre autorisation pour accéder à votre appareil photo et à votre micro pour ce site</translation>
 <translation id="2429317896000329049">Google Chrome ne peut pas synchroniser vos données, car la synchronisation n'est pas offerte pour votre domaine.</translation>
 <translation id="2467438592969358367">Google Chrome veut exporter vos mots de passe. Pour autoriser cette action, entrez votre mot de passe Windows.</translation>
@@ -76,8 +74,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="3080151273017101988">Continuer l'exécution des applications en arrière-plan après la fermeture de Google Chrome</translation>
 <translation id="3089968997497233615">Une nouvelle version de Google Chrome encore plus sûre est maintenant offerte.</translation>
 <translation id="3149510190863420837">Applications Chrome</translation>
-<translation id="3282568296779691940">Connexion à Chrome</translation>
-<translation id="3340978935015468852">paramètres</translation>
 <translation id="3360895254066713204">Aide de Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome va maintenant redémarrer}=1{Chrome redémarrera dans 1 seconde}one{Chrome redémarrera dans # seconde}other{Chrome redémarrera dans # secondes}}</translation>
 <translation id="3395323229510056640">Obtenir de l'aide pour Chrome OS</translation>
@@ -130,7 +126,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="4953650215774548573">Sélectionner Google Chrome comme navigateur par défaut</translation>
 <translation id="495931528404527476">Dans Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Échec de synchronisation de vos données dans Google Chrome. Veuillez mettre à jour votre phrase de passe de synchronisation.</translation>
 <translation id="5062123544085870375">Redémarrer Chrome OS</translation>
 <translation id="5132929315877954718">Découvrez des applications, des jeux, des extensions et des thèmes exceptionnels conçus pour Google Chrome.</translation>
 <translation id="5170938038195470297">Votre profil ne peut pas être utilisé parce qu'il provient d'une version plus récente de Google Chrome.
@@ -145,7 +140,6 @@ Certaines fonctionnalités peuvent être inaccessibles. Veuillez spécifier un r
 <translation id="5430073640787465221">Votre fichier des préférences est endommagé ou n'est pas valide. 
 
 Google Chrome ne peut pas récupérer vos paramètres.</translation>
-<translation id="5543953544073077331">D'autres instances de Chrome sont en cours d'exécution. Pour effectuer la mise à jour, fermez-les.</translation>
 <translation id="556024056938947818">Google Chrome essaie d'afficher les mots de passe.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">Si un paramètre ne s'affiche pas sur cette page, consultez les <ph name="LINK_BEGIN" />paramètres de Chrome OS<ph name="LINK_END" /></translation>
@@ -194,7 +188,6 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="7408085963519505752">Conditions d'utilisation de Chrome OS</translation>
 <translation id="7419046106786626209">Chrome OS n'a pas pu synchroniser vos données, car la synchronisation n'est pas offerte pour votre nom de domaine.</translation>
 <translation id="7486227612705979895">Chrome accédera à votre Disque pour faire des suggestions dans la barre d'adresse</translation>
-<translation id="7531671357096394523">Quitter toutes les instances en cours de Chrome.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Pour voir si votre appareil est à jour, sélectionnez les <ph name="LINK_BEGIN" />paramètres de Chrome OS<ph name="LINK_END" /></translation>
 <translation id="7589360514048265910">Cet ordinateur ne recevra plus de mises à jour de Google Chrome, car Mac OS X 10.9 n'est plus pris en charge.</translation>
@@ -213,6 +206,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="7855730255114109580">Google Chrome est à jour</translation>
 <translation id="7890208801193284374">Si vous partagez un ordinateur avec vos proches, ceux-ci peuvent configurer Google Chrome comme bon leur semble et naviguer sur le Web à leur manière.</translation>
 <translation id="7896673875602241923">Un utilisateur s'est récemment connecté à Google Chrome sur cet ordinateur en tant que <ph name="ACCOUNT_EMAIL_LAST" />. Veuillez créer un autre utilisateur Google Chrome pour séparer vos données.</translation>
+<translation id="7916016681687251387">Chrome OS n'a pas pu synchroniser vos données. Corrigez le problème maintenant.</translation>
 <translation id="7962410387636238736">Cet ordinateur ne recevra plus de mises à jour de Google Chrome, car Windows XP et Windows Vista ne sont plus pris en charge</translation>
 <translation id="8008534537613507642">Réinstaller Chrome</translation>
 <translation id="8013993649590906847">Si une image n'est pas accompagnée d'une description utile, Chrome essaiera de vous en proposer une. Pour créer des descriptions, les images sont envoyées à Google.</translation>

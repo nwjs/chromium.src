@@ -7,6 +7,7 @@
 #include "base/json/json_reader.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/test_scheme_classifier.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -153,4 +154,83 @@ TEST(SearchSuggestionParserTest, ParseSuggestResults) {
     ASSERT_EQ("#424242", suggestion_result.image_dominant_color());
     ASSERT_EQ("http://example.com/a.png", suggestion_result.image_url());
   }
+}
+
+TEST(SearchSuggestionParserTest, SuggestClassification) {
+  SearchSuggestionParser::SuggestResult result(
+      base::ASCIIToUTF16("foobar"), AutocompleteMatchType::SEARCH_SUGGEST, 0,
+      false, 400, true, base::string16());
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+
+  // Nothing should be bolded for ZeroSuggest classified input.
+  result.ClassifyMatchContents(true, base::string16());
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+  const ACMatchClassifications kNone = {
+      {0, AutocompleteMatch::ACMatchClassification::NONE}};
+  EXPECT_EQ(kNone, result.match_contents_class());
+
+  // Test a simple case of bolding half the text.
+  result.ClassifyMatchContents(false, base::ASCIIToUTF16("foo"));
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+  const ACMatchClassifications kHalfBolded = {
+      {0, AutocompleteMatch::ACMatchClassification::NONE},
+      {3, AutocompleteMatch::ACMatchClassification::MATCH}};
+  EXPECT_EQ(kHalfBolded, result.match_contents_class());
+
+  // Test the edge case that if we forbid bolding all, and then reclassifying
+  // would otherwise bold-all, we leave the existing classifications alone.
+  // This is weird, but it's in the function contract, and is useful for
+  // flicker-free search suggestions as the user types.
+  result.ClassifyMatchContents(false, base::ASCIIToUTF16("apple"));
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+  EXPECT_EQ(kHalfBolded, result.match_contents_class());
+
+  // And finally, test the case where we do allow bolding-all.
+  result.ClassifyMatchContents(true, base::ASCIIToUTF16("apple"));
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+  const ACMatchClassifications kBoldAll = {
+      {0, AutocompleteMatch::ACMatchClassification::MATCH}};
+  EXPECT_EQ(kBoldAll, result.match_contents_class());
+}
+
+TEST(SearchSuggestionParserTest, NavigationClassification) {
+  TestSchemeClassifier scheme_classifier;
+  SearchSuggestionParser::NavigationResult result(
+      scheme_classifier, GURL("https://news.google.com/"),
+      AutocompleteMatchType::Type::NAVSUGGEST, 0, base::string16(),
+      std::string(), false, 400, true, base::ASCIIToUTF16("google"));
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+  const ACMatchClassifications kBoldMiddle = {
+      {0, AutocompleteMatch::ACMatchClassification::URL},
+      {5, AutocompleteMatch::ACMatchClassification::URL |
+              AutocompleteMatch::ACMatchClassification::MATCH},
+      {11, AutocompleteMatch::ACMatchClassification::URL}};
+  EXPECT_EQ(kBoldMiddle, result.match_contents_class());
+
+  // Reclassifying in a way that would cause bold-none if it's disallowed should
+  // do nothing.
+  result.CalculateAndClassifyMatchContents(
+      false, base::ASCIIToUTF16("term not found"));
+  EXPECT_EQ(kBoldMiddle, result.match_contents_class());
+
+  // Test the allow bold-nothing case too.
+  result.CalculateAndClassifyMatchContents(
+      true, base::ASCIIToUTF16("term not found"));
+  const ACMatchClassifications kAnnotateUrlOnly = {
+      {0, AutocompleteMatch::ACMatchClassification::URL}};
+  EXPECT_EQ(kAnnotateUrlOnly, result.match_contents_class());
+
+  // Nothing should be bolded for ZeroSuggest classified input.
+  result.CalculateAndClassifyMatchContents(true, base::string16());
+  AutocompleteMatch::ValidateClassifications(result.match_contents(),
+                                             result.match_contents_class());
+  const ACMatchClassifications kNone = {
+      {0, AutocompleteMatch::ACMatchClassification::NONE}};
+  EXPECT_EQ(kNone, result.match_contents_class());
 }

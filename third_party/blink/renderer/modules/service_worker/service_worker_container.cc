@@ -33,6 +33,7 @@
 #include <utility>
 
 #include "base/macros.h"
+#include "base/optional.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_error_type.mojom-blink.h"
 #include "third_party/blink/public/platform/web_fetch_client_settings_object.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -55,10 +56,12 @@
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/messaging/blink_transferable_message.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
+#include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_error.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_registration.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_throw_exception.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -80,14 +83,8 @@ void MaybeRecordThirdPartyServiceWorkerUsage(
   Document* document = To<Document>(execution_context);
   DCHECK(document);
 
-  // Don't record the use counter if the frame is same-origin to the top frame,
-  // or if we can't tell whether the frame was ever cross-origin or not.
-  if (!document->TopFrameOrigin() ||
-      document->TopFrameOrigin()->CanAccess(document->GetSecurityOrigin())) {
-    return;
-  }
-
-  UseCounter::Count(document, WebFeature::kThirdPartyServiceWorker);
+  if (document->IsCrossSiteSubframe())
+    UseCounter::Count(document, WebFeature::kThirdPartyServiceWorker);
 }
 
 bool HasFiredDomContentLoaded(const Document& document) {
@@ -103,15 +100,6 @@ mojom::ServiceWorkerUpdateViaCache ParseUpdateViaCache(const String& value) {
     return mojom::ServiceWorkerUpdateViaCache::kNone;
   // Default value.
   return mojom::ServiceWorkerUpdateViaCache::kImports;
-}
-
-mojom::ScriptType ParseScriptType(const String& type) {
-  if (type == "classic")
-    return mojom::ScriptType::kClassic;
-  if (type == "module")
-    return mojom::ScriptType::kModule;
-  NOTREACHED() << "Invalid type: " << type;
-  return mojom::ScriptType::kClassic;
 }
 
 class GetRegistrationCallback : public WebServiceWorkerProvider::
@@ -359,7 +347,9 @@ ScriptPromise ServiceWorkerContainer::registerServiceWorker(
 
   mojom::ServiceWorkerUpdateViaCache update_via_cache =
       ParseUpdateViaCache(options->updateViaCache());
-  mojom::ScriptType type = ParseScriptType(options->type());
+  base::Optional<mojom::ScriptType> script_type =
+      Script::ParseScriptType(options->type());
+  DCHECK(script_type);
 
   WebFetchClientSettingsObject fetch_client_settings_object(
       execution_context->Fetcher()
@@ -372,7 +362,7 @@ ScriptPromise ServiceWorkerContainer::registerServiceWorker(
   }
 
   provider_->RegisterServiceWorker(
-      scope_url, script_url, type, update_via_cache,
+      scope_url, script_url, *script_type, update_via_cache,
       std::move(fetch_client_settings_object), std::move(callbacks));
   return promise;
 }
@@ -477,17 +467,17 @@ void ServiceWorkerContainer::startMessages() {
   EnableClientMessageQueue();
 }
 
-ScriptPromise ServiceWorkerContainer::ready(ScriptState* caller_state) {
+ScriptPromise ServiceWorkerContainer::ready(ScriptState* caller_state,
+                                            ExceptionState& exception_state) {
   if (!GetExecutionContext())
     return ScriptPromise();
 
   if (!caller_state->World().IsMainWorld()) {
     // FIXME: Support .ready from isolated worlds when
     // ScriptPromiseProperty can vend Promises in isolated worlds.
-    return ScriptPromise::RejectWithDOMException(
-        caller_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kNotSupportedError,
-                          "'ready' is only supported in pages."));
+    exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                      "'ready' is only supported in pages.");
+    return ScriptPromise();
   }
 
   if (!ready_) {
@@ -625,8 +615,7 @@ ServiceWorkerContainer::ServiceWorkerContainer(Document* document)
 
 ServiceWorkerContainer::ReadyProperty*
 ServiceWorkerContainer::CreateReadyProperty() {
-  return MakeGarbageCollected<ReadyProperty>(GetExecutionContext(), this,
-                                             ReadyProperty::kReady);
+  return MakeGarbageCollected<ReadyProperty>(GetExecutionContext());
 }
 
 void ServiceWorkerContainer::EnableClientMessageQueue() {

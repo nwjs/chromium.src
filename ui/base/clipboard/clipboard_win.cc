@@ -88,14 +88,13 @@ class ScopedClipboard {
     // shouldn't be contention.
 
     for (int attempts = 0; attempts < kMaxAttemptsToOpenClipboard; ++attempts) {
-      // If we didn't manage to open the clipboard, sleep a bit and be hopeful.
-      if (attempts != 0)
-        ::Sleep(5);
-
       if (::OpenClipboard(owner)) {
         opened_ = true;
         return true;
       }
+
+      // If we didn't manage to open the clipboard, sleep a bit and be hopeful.
+      ::Sleep(5);
     }
 
     // We failed to acquire the clipboard.
@@ -268,7 +267,7 @@ void ClipboardWin::ReadAvailableTypes(ClipboardBuffer buffer,
 
   types->clear();
   if (::IsClipboardFormatAvailable(
-          ClipboardFormatType::GetPlainTextType().ToFormatEtc().cfFormat))
+          ClipboardFormatType::GetPlainTextAType().ToFormatEtc().cfFormat))
     types->push_back(base::UTF8ToUTF16(kMimeTypeText));
   if (::IsClipboardFormatAvailable(
           ClipboardFormatType::GetHtmlType().ToFormatEtc().cfFormat))
@@ -280,7 +279,7 @@ void ClipboardWin::ReadAvailableTypes(ClipboardBuffer buffer,
     types->push_back(base::UTF8ToUTF16(kMimeTypePNG));
   *contains_filenames = false;
 
-  // Acquire the clipboard.
+  // Acquire the clipboard to read WebCustomDataType types.
   ScopedClipboard clipboard;
   if (!clipboard.Acquire(GetClipboardWindow()))
     return;
@@ -292,6 +291,31 @@ void ClipboardWin::ReadAvailableTypes(ClipboardBuffer buffer,
 
   ReadCustomDataTypes(::GlobalLock(hdata), ::GlobalSize(hdata), types);
   ::GlobalUnlock(hdata);
+}
+
+std::vector<base::string16>
+ClipboardWin::ReadAvailablePlatformSpecificFormatNames(
+    ClipboardBuffer buffer) const {
+  int count = ::CountClipboardFormats();
+  if (!count)
+    return {};
+
+  std::vector<base::string16> types;
+  types.reserve(count);
+
+  ScopedClipboard clipboard;
+  if (!clipboard.Acquire(GetClipboardWindow()))
+    return {};
+
+  UINT cf_format = 0;
+  cf_format = ::EnumClipboardFormats(cf_format);
+  while (cf_format) {
+    std::string type_name = ClipboardFormatType(cf_format).GetName();
+    if (!type_name.empty())
+      types.push_back(base::UTF8ToUTF16(type_name));
+    cf_format = ::EnumClipboardFormats(cf_format);
+  }
+  return types;
 }
 
 void ClipboardWin::ReadText(ClipboardBuffer buffer,
@@ -469,7 +493,7 @@ SkBitmap ClipboardWin::ReadImage(ClipboardBuffer buffer) const {
   // Since Windows uses premultiplied alpha, we scan for instances where
   // (R, G, B) > A. If there are any invalid premultiplied colors in the image,
   // we assume the alpha channel contains garbage and force the bitmap to be
-  // opaque as well. Note that this  heuristic will fail on a transparent bitmap
+  // opaque as well. Note that this heuristic will fail on a transparent bitmap
   // containing only black pixels...
   SkPixmap device_pixels(SkImageInfo::MakeN32Premul(bitmap->bmiHeader.biWidth,
                                                     bitmap->bmiHeader.biHeight),
@@ -525,7 +549,7 @@ void ClipboardWin::ReadBookmark(base::string16* title, std::string* url) const {
     return;
 
   HANDLE data = ::GetClipboardData(
-      ClipboardFormatType::GetUrlWType().ToFormatEtc().cfFormat);
+      ClipboardFormatType::GetUrlType().ToFormatEtc().cfFormat);
   if (!data)
     return;
 
@@ -625,12 +649,12 @@ void ClipboardWin::WriteBookmark(const char* title_data,
   base::string16 wide_bookmark = base::UTF8ToUTF16(bookmark);
   HGLOBAL glob = CreateGlobalData(wide_bookmark);
 
-  WriteToClipboard(ClipboardFormatType::GetUrlWType().ToFormatEtc().cfFormat,
+  WriteToClipboard(ClipboardFormatType::GetUrlType().ToFormatEtc().cfFormat,
                    glob);
 }
 
 void ClipboardWin::WriteWebSmartPaste() {
-  DCHECK(clipboard_owner_->hwnd() != nullptr);
+  DCHECK_NE(clipboard_owner_->hwnd(), nullptr);
   ::SetClipboardData(
       ClipboardFormatType::GetWebKitSmartPasteType().ToFormatEtc().cfFormat,
       nullptr);
@@ -744,9 +768,10 @@ void ClipboardWin::WriteBitmapFromHandle(HBITMAP source_hbitmap,
 }
 
 void ClipboardWin::WriteToClipboard(unsigned int format, HANDLE handle) {
-  DCHECK(clipboard_owner_->hwnd() != nullptr);
+  DCHECK_NE(clipboard_owner_->hwnd(), nullptr);
   if (handle && !::SetClipboardData(format, handle)) {
-    DCHECK(ERROR_CLIPBOARD_NOT_OPEN != GetLastError());
+    DCHECK_NE(GetLastError(),
+              static_cast<unsigned long>(ERROR_CLIPBOARD_NOT_OPEN));
     FreeData(format, handle);
   }
 }
@@ -756,7 +781,7 @@ HWND ClipboardWin::GetClipboardWindow() const {
     return nullptr;
 
   if (clipboard_owner_->hwnd() == nullptr)
-    clipboard_owner_->Create(base::Bind(&ClipboardOwnerWndProc));
+    clipboard_owner_->Create(base::BindRepeating(&ClipboardOwnerWndProc));
 
   return clipboard_owner_->hwnd();
 }

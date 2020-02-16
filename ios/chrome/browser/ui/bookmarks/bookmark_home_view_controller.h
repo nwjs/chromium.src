@@ -18,10 +18,8 @@
 namespace bookmarks {
 class BookmarkNode;
 }  // namespace bookmarks
-class GURL;
-namespace ios {
 class ChromeBrowserState;
-}  // namespace ios
+class GURL;
 class WebStateList;
 
 @protocol BookmarkHomeViewControllerDelegate
@@ -52,13 +50,10 @@ class WebStateList;
 
 // Initializers.
 - (instancetype)
-    initWithBrowserState:(ios::ChromeBrowserState*)browserState
+    initWithBrowserState:(ChromeBrowserState*)browserState
               dispatcher:(id<ApplicationCommands, BrowserCommands>)dispatcher
             webStateList:(WebStateList*)webStateList NS_DESIGNATED_INITIALIZER;
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)tableViewStyle
-                           appBarStyle:
-                               (ChromeTableViewControllerStyle)appBarStyle
-    NS_UNAVAILABLE;
+- (instancetype)initWithStyle:(UITableViewStyle)tableViewStyle NS_UNAVAILABLE;
 
 // Setter to set _rootNode value.
 - (void)setRootNode:(const bookmarks::BookmarkNode*)rootNode;

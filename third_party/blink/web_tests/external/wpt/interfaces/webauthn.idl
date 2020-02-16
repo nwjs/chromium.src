@@ -142,8 +142,7 @@ enum AuthenticatorTransport {
     "usb",
     "nfc",
     "ble",
-    "internal",
-    "lightning"
+    "internal"
 };
 
 typedef long COSEAlgorithmIdentifier;
@@ -222,7 +221,7 @@ partial dictionary AuthenticationExtensionsClientInputs {
 };
 
 partial dictionary AuthenticationExtensionsClientOutputs {
-  Coordinates loc;
+  GeolocationCoordinates loc;
 };
 
 partial dictionary AuthenticationExtensionsClientInputs {
@@ -236,10 +235,10 @@ partial dictionary AuthenticationExtensionsClientOutputs {
   UvmEntries uvm;
 };
 
-dictionary authenticatorBiometricPerfBounds{
+dictionary AuthenticatorBiometricPerfBounds {
     float FAR;
     float FRR;
-    };
+};
 
 partial dictionary AuthenticationExtensionsClientInputs {
     boolean credProps;

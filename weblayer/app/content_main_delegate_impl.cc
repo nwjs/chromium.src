@@ -117,7 +117,8 @@ bool ContentMainDelegateImpl::BasicStartupComplete(int* exit_code) {
   cl->AppendSwitch(switches::kDisableNotifications);
   cl->AppendSwitch(switches::kDisableSpeechSynthesisAPI);
   cl->AppendSwitch(switches::kDisableSpeechAPI);
-  cl->AppendSwitch(switches::kDisablePermissionsAPI);
+  if (!cl->HasSwitch(switches::kWebLayerFakePermissions))
+    cl->AppendSwitch(switches::kDisablePermissionsAPI);
   cl->AppendSwitch(switches::kDisablePresentationAPI);
   cl->AppendSwitch(switches::kDisableRemotePlaybackAPI);
 #if defined(OS_ANDROID)
@@ -137,8 +138,6 @@ bool ContentMainDelegateImpl::BasicStartupComplete(int* exit_code) {
 
   InitLogging(&params_);
 
-  content_client_ = std::make_unique<ContentClientImpl>();
-  SetContentClient(content_client_.get());
   RegisterPathProvider();
 
   return false;
@@ -290,6 +289,11 @@ void ContentMainDelegateImpl::InitializeResourceBundle() {
   pak_file = pak_file.AppendASCII(params_.pak_name);
   ui::ResourceBundle::InitSharedInstanceWithPakPath(pak_file);
 #endif
+}
+
+content::ContentClient* ContentMainDelegateImpl::CreateContentClient() {
+  content_client_ = std::make_unique<ContentClientImpl>();
+  return content_client_.get();
 }
 
 content::ContentBrowserClient*

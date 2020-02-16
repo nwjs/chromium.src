@@ -223,8 +223,7 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   auto* overlay_window = window_controller()->GetWindowForTesting();
   gfx::NativeWindow native_window =
       static_cast<OverlayWindowViews*>(overlay_window)->GetNativeWindow();
-#if defined(OS_CHROMEOS) || \
-    (defined(MAC_OS_X_VERSION_10_12) && !defined(MAC_OS_VERSION_10_13))
+#if defined(OS_CHROMEOS) || defined(OS_MACOSX)
   EXPECT_FALSE(platform_util::IsWindowActive(native_window));
 #else
   EXPECT_TRUE(platform_util::IsWindowActive(native_window));
@@ -508,14 +507,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 
 // Tests that when closing a Picture-in-Picture window, the video element is
 // reflected as no longer in Picture-in-Picture.
-// TODO(crbug.com/1001421): Flaky on ASan.
-#if defined(ADDRESS_SANITIZER)
-#define MAYBE_CloseWindowWhilePlaying DISABLED_CloseWindowWhilePlaying
-#else
-#define MAYBE_CloseWindowWhilePlaying CloseWindowWhilePlaying
-#endif
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
-                       MAYBE_CloseWindowWhilePlaying) {
+                       CloseWindowWhilePlaying) {
   GURL test_page_url = ui_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(kPictureInPictureWindowSizePage));
@@ -665,16 +658,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 
 // Tests that when starting a new Picture-in-Picture session from the same
 // video, the video stays in Picture-in-Picture mode.
-// TODO(crbug.com/1001446): Flaky on ASan.
-#if defined(ADDRESS_SANITIZER)
-#define MAYBE_RequestPictureInPictureTwiceFromSameVideo \
-  DISABLED_RequestPictureInPictureTwiceFromSameVideo
-#else
-#define MAYBE_RequestPictureInPictureTwiceFromSameVideo \
-  RequestPictureInPictureTwiceFromSameVideo
-#endif
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
-                       MAYBE_RequestPictureInPictureTwiceFromSameVideo) {
+                       RequestPictureInPictureTwiceFromSameVideo) {
   GURL test_page_url = ui_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(kPictureInPictureWindowSizePage));
@@ -730,16 +715,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 
 // Tests that when starting a new Picture-in-Picture session from the same tab,
 // the previous video is no longer in Picture-in-Picture mode.
-// TODO(crbug.com/1001421): Flaky on ASan.
-#if defined(ADDRESS_SANITIZER)
-#define MAYBE_OpenSecondPictureInPictureStopsFirst \
-  DISABLED_OpenSecondPictureInPictureStopsFirst
-#else
-#define MAYBE_OpenSecondPictureInPictureStopsFirst \
-  OpenSecondPictureInPictureStopsFirst
-#endif
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
-                       MAYBE_OpenSecondPictureInPictureStopsFirst) {
+                       OpenSecondPictureInPictureStopsFirst) {
   GURL test_page_url = ui_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(kPictureInPictureWindowSizePage));
@@ -1365,8 +1342,9 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 
 // Tests that when a new surface id is sent to the Picture-in-Picture window, it
 // doesn't move back to its default position.
+// crbug.com/1002489: disabled due to flakiness.
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
-                       SurfaceIdChangeDoesNotMoveWindow) {
+                       DISABLED_SurfaceIdChangeDoesNotMoveWindow) {
   LoadTabAndEnterPictureInPicture(
       browser(), base::FilePath(kPictureInPictureWindowSizePage));
 
@@ -1436,14 +1414,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 
 // Tests that the play/pause icon state is properly updated when a
 // Picture-in-Picture is created after a reload.
-// TODO(crbug.com/1001421): Flaky on ASan.
-#if defined(ADDRESS_SANITIZER)
-#define MAYBE_PlayPauseStateAtCreation DISABLED_PlayPauseStateAtCreation
-#else
-#define MAYBE_PlayPauseStateAtCreation PlayPauseStateAtCreation
-#endif
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
-                       MAYBE_PlayPauseStateAtCreation) {
+                       PlayPauseStateAtCreation) {
   LoadTabAndEnterPictureInPicture(
       browser(), base::FilePath(kPictureInPictureWindowSizePage));
 
@@ -1555,14 +1527,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 // changing source willproperly update the associated media player id. This is
 // checked by closing the window because the test it at a too high level to be
 // able to check the actual media player id being used.
-// TODO(crbug.com/1001421): Flaky on ASan.
-#if defined(ADDRESS_SANITIZER)
-#define MAYBE_PreloadNoneSrcChangeThenLoad DISABLED_PreloadNoneSrcChangeThenLoad
-#else
-#define MAYBE_PreloadNoneSrcChangeThenLoad PreloadNoneSrcChangeThenLoad
-#endif
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
-                       MAYBE_PreloadNoneSrcChangeThenLoad) {
+                       PreloadNoneSrcChangeThenLoad) {
   GURL test_page_url = ui_test_utils::GetTestUrl(
       base::FilePath(base::FilePath::kCurrentDirectory),
       base::FilePath(FILE_PATH_LITERAL(

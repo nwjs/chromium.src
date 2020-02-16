@@ -22,10 +22,12 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/browser/threat_details.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/ping_manager.h"
+#include "components/safe_browsing/content/browser/threat_details.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/ping_manager.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
+#include "components/security_interstitials/content/unsafe_resource_util.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/notification_service.h"
@@ -69,7 +71,7 @@ void SafeBrowsingUIManager::CreateAndSendHitReport(
   hit_report.threat_source = resource.threat_source;
   hit_report.population_id = resource.threat_metadata.population_id;
 
-  NavigationEntry* entry = resource.GetNavigationEntryForResource();
+  NavigationEntry* entry = GetNavigationEntryForResource(resource);
   if (entry) {
     hit_report.page_url = entry->GetURL();
     hit_report.referrer_url = entry->GetReferrer().url;
@@ -193,9 +195,10 @@ void SafeBrowsingUIManager::OnBlockingPageDone(
     const std::vector<UnsafeResource>& resources,
     bool proceed,
     content::WebContents* web_contents,
-    const GURL& main_frame_url) {
+    const GURL& main_frame_url,
+    bool showed_interstitial) {
   BaseUIManager::OnBlockingPageDone(resources, proceed, web_contents,
-                                    main_frame_url);
+                                    main_frame_url, showed_interstitial);
   if (proceed && !resources.empty()) {
     MaybeTriggerSecurityInterstitialProceededEvent(
         web_contents, main_frame_url,
@@ -222,6 +225,13 @@ BaseBlockingPage* SafeBrowsingUIManager::CreateBlockingPageForSubresource(
       SafeBrowsingBlockingPage::CreateBlockingPage(
           this, contents, blocked_url, unsafe_resource,
           /*should_trigger_reporting=*/false);
+
+  // Report that we showed an interstitial.
+  MaybeTriggerSecurityInterstitialShownEvent(
+      contents, blocked_url,
+      GetThreatTypeStringForInterstitial(unsafe_resource.threat_type),
+      /*net_error_code=*/0);
+
   return blocking_page;
 }
 

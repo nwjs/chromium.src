@@ -6,6 +6,7 @@ assert(is_fuchsia)
 
 import("//build/config/fuchsia/generate_runner_scripts.gni")
 import("//build/config/fuchsia/symbol_archive.gni")
+import("//fuchsia/release_channel.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//testing/test.gni")
 import("//tools/grit/repack.gni")
@@ -33,12 +34,14 @@ repack("web_engine_pak") {
     "$root_gen_dir/content/app/resources/content_resources_100_percent.pak",
     "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
     "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/content/dev_ui_content_resources.pak",
     "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
     "$root_gen_dir/net/net_resources.pak",
     "$root_gen_dir/third_party/blink/public/resources/blink_resources.pak",
     "$root_gen_dir/third_party/blink/public/resources/blink_scaled_resources_100_percent.pak",
     "$root_gen_dir/third_party/blink/public/strings/blink_strings_en-US.pak",
     "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+    "$root_gen_dir/ui/resources/webui_resources.pak",
     "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
     "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
   ]
@@ -46,7 +49,8 @@ repack("web_engine_pak") {
   deps = [
     "//components/resources:components_resources",
     "//components/strings",
-    "//content:resources",
+    "//content:content_resources",
+    "//content:dev_ui_content_resources",
     "//content/app/resources",
     "//content/browser/tracing:resources",
     "//gpu/command_buffer/service",
@@ -67,7 +71,6 @@ component("web_engine_core") {
   deps = [
     ":mojom",
     ":switches",
-    ":web_engine_pak",
     "//base",
     "//base:base_static",
     "//base/util/memory_pressure",
@@ -108,15 +111,9 @@ component("web_engine_core") {
     "//ui/wm",
     "//ui/wm/public",
   ]
-  data_deps = [
-    ":web_engine_pak",
-  ]
-  public_deps = [
-    "//content/public/browser",
-  ]
-  data = [
-    "$root_out_dir/web_engine.pak",
-  ]
+  data_deps = [ ":web_engine_pak" ]
+  public_deps = [ "//content/public/browser" ]
+  data = [ "$root_out_dir/web_engine.pak" ]
   configs += [ ":web_engine_implementation" ]
   sources = [
     "browser/accessibility_bridge.cc",
@@ -201,32 +198,16 @@ executable("web_engine_exe") {
     "//content/public/app:both",
     "//services/service_manager/embedder:embedder_switches",
   ]
-  sources = [
-    "web_engine_main.cc",
-  ]
+  sources = [ "web_engine_main.cc" ]
   visibility = [ ":*" ]
-}
-
-# Transitional package using old package/component names.
-# TODO(crbug.com/1029180): Remove this after CIPD consumers have transitioned
-#                          to using "web_engine.cmx" (from ":web_engine").
-fuchsia_package("web_engine_deprecated") {
-  binary = ":web_engine_exe"
-  package_name_override = "chromium"
-  manifest = "chromium.cmx"
-  excluded_files = [
-    "lib/libswiftshader_libEGL.so",
-    "lib/libswiftshader_libGLESv2.so",
-    "lib/libEGL.so",
-    "lib/libGLESv2.so",
-    "lib/libfuchsia_egl.so",
-  ]
 }
 
 fuchsia_package("web_engine") {
   binary = ":web_engine_exe"
   manifest = "context_provider.cmx"
   component_name_override = "context_provider"
+  package_name_override = "web_engine${release_channel_suffix}"
+  archive_name_override = "web_engine"
 
   excluded_files = [
     "lib/libswiftshader_libEGL.so",
@@ -251,9 +232,7 @@ source_set("browsertest_core") {
     "test/web_engine_browser_test.h",
     "test/web_engine_test_launcher.cc",
   ]
-  data = [
-    "test/data",
-  ]
+  data = [ "test/data" ]
   deps = [
     ":web_engine_core",
     "//content/public/browser",
@@ -324,16 +303,12 @@ test("web_engine_unittests") {
 test("web_engine_integration_tests") {
   manifest = "web_engine_integration_tests.cmx"
   sources = [
-    "test/context_provider_test_connector.cc",
-    "test/context_provider_test_connector.h",
     "test_debug_listener.cc",
     "test_debug_listener.h",
     "web_engine_debug_integration_test.cc",
     "web_engine_integration_test.cc",
   ]
-  data = [
-    "test/data",
-  ]
+  data = [ "test/data" ]
   deps = [
     "//base",
     "//base/test:run_all_unittests",
@@ -344,7 +319,7 @@ test("web_engine_integration_tests") {
   ]
   package_deps = [ [
         ":web_engine",
-        "web_engine",
+        "web_engine${release_channel_suffix}",
       ] ]
 }
 
@@ -366,13 +341,9 @@ fuchsia_package_runner("web_engine_shell") {
 }
 
 executable("web_engine_shell_exec") {
-  sources = [
-    "test/web_engine_shell.cc",
-  ]
+  sources = [ "test/web_engine_shell.cc" ]
 
-  data = [
-    "test/shell_data",
-  ]
+  data = [ "test/shell_data" ]
 
   deps = [
     "//base",
@@ -387,9 +358,7 @@ executable("web_engine_shell_exec") {
 
 if (is_official_build) {
   symbol_archive("symbol_archive") {
-    deps = [
-      ":web_engine",
-    ]
+    deps = [ ":web_engine" ]
     ids_txt = "$root_gen_dir/fuchsia/engine/web_engine/ids.txt"
     archive_name =
         "$root_gen_dir/fuchsia/engine/web_engine/web_engine.symbols.tar.bz2"

@@ -20,6 +20,7 @@
 #include "chrome/common/extensions/manifest_handlers/linked_app_icons.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/unloaded_extension_reason.h"
 #include "extensions/common/extension.h"
 #include "url/gurl.h"
 
@@ -35,7 +36,7 @@ BookmarkAppRegistrar::BookmarkAppRegistrar(Profile* profile)
 BookmarkAppRegistrar::~BookmarkAppRegistrar() = default;
 
 bool BookmarkAppRegistrar::IsInstalled(const web_app::AppId& app_id) const {
-  const Extension* extension = GetExtension(app_id);
+  const Extension* extension = GetEnabledExtension(app_id);
   return extension && extension->from_bookmark();
 }
 
@@ -71,10 +72,19 @@ void BookmarkAppRegistrar::OnExtensionUnloaded(
   DCHECK_EQ(browser_context, profile());
   if (!extension->from_bookmark())
     return;
+
+  // OnWebAppWillBeUninstalled and OnWebAppProfileWillBeDeleted observers may
+  // find this pointer via FindExtension method.
+  DCHECK(!bookmark_app_being_uninstalled_);
+  bookmark_app_being_uninstalled_ = extension;
+
+  NotifyWebAppWillBeUninstalled(extension->id());
   // If a profile is removed, notify the web app that it is uninstalled, so it
   // can cleanup any state outside the profile dir (e.g., registry settings).
   if (reason == UnloadedExtensionReason::PROFILE_SHUTDOWN)
     NotifyWebAppProfileWillBeDeleted(extension->id());
+
+  bookmark_app_being_uninstalled_ = nullptr;
 }
 
 void BookmarkAppRegistrar::OnShutdown(ExtensionRegistry* registry) {
@@ -183,14 +193,32 @@ std::vector<web_app::AppId> BookmarkAppRegistrar::GetAppIds() const {
   return app_ids;
 }
 
+web_app::WebAppRegistrar* BookmarkAppRegistrar::AsWebAppRegistrar() {
+  return nullptr;
+}
+
+BookmarkAppRegistrar* BookmarkAppRegistrar::AsBookmarkAppRegistrar() {
+  return this;
+}
+
+const Extension* BookmarkAppRegistrar::FindExtension(
+    const web_app::AppId& app_id) const {
+  if (bookmark_app_being_uninstalled_ &&
+      bookmark_app_being_uninstalled_->id() == app_id) {
+    return bookmark_app_being_uninstalled_;
+  }
+
+  return ExtensionRegistry::Get(profile())->GetInstalledExtension(app_id);
+}
+
 const Extension* BookmarkAppRegistrar::GetBookmarkApp(
     const web_app::AppId& app_id) const {
-  const Extension* extension = GetExtension(app_id);
+  const Extension* extension = GetEnabledExtension(app_id);
   DCHECK(!extension || extension->from_bookmark());
   return extension;
 }
 
-const Extension* BookmarkAppRegistrar::GetExtension(
+const Extension* BookmarkAppRegistrar::GetEnabledExtension(
     const web_app::AppId& app_id) const {
   return ExtensionRegistry::Get(profile())->enabled_extensions().GetByID(
       app_id);

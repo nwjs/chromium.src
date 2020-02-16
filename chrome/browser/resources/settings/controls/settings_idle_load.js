@@ -11,8 +11,6 @@
 Polymer({
   is: 'settings-idle-load',
 
-  behaviors: [Polymer.Templatizer],
-
   properties: {
     /**
      * If specified, it will be loaded via an HTML import before stamping the
@@ -31,12 +29,14 @@ Polymer({
   idleCallback_: 0,
 
   /** @override */
-  attached: function() {
-    this.idleCallback_ = requestIdleCallback(this.get.bind(this));
+  attached() {
+    this.idleCallback_ = requestIdleCallback(() => {
+      this.get();
+    });
   },
 
   /** @override */
-  detached: function() {
+  detached() {
     // No-op if callback already fired.
     cancelIdleCallback(this.idleCallback_);
   },
@@ -45,18 +45,21 @@ Polymer({
    * @return {!Promise<Element>} Child element which has been stamped into the
    *     DOM tree.
    */
-  get: function() {
+  get() {
     if (this.loading_) {
       return this.loading_;
     }
 
     this.loading_ = new Promise((resolve, reject) => {
       this.importHref(this.url, () => {
-        assert(!this.ctor);
-        this.templatize(this.getContentChildren()[0]);
-        assert(this.ctor);
+        const template =
+            /** @type {!HTMLTemplateElement} */ (this.getContentChildren()[0]);
+        const TemplateClass = Polymer.Templatize.templatize(template, this, {
+          mutableData: false,
+          forwardHostProp: this._forwardHostPropV2,
+        });
 
-        this.instance_ = this.stamp({});
+        this.instance_ = new TemplateClass();
 
         assert(!this.child_);
         this.child_ = this.instance_.root.firstElementChild;
@@ -75,7 +78,7 @@ Polymer({
    * @param {string} prop
    * @param {Object} value
    */
-  _forwardHostPropV2: function(prop, value) {
+  _forwardHostPropV2(prop, value) {
     if (this.instance_) {
       this.instance_.forwardHostProp(prop, value);
     }

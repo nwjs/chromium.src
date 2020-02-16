@@ -43,9 +43,7 @@ bool D3D11PictureBuffer::Init(GetCommandBufferHelperCB get_helper_cb,
   view_desc.Texture2D.ArraySlice = (UINT)level_;
 
   if (!texture_wrapper_->Init(std::move(get_helper_cb), level_, size_)) {
-    media_log->AddEvent(
-        media_log->CreateStringEvent(MediaLogEvent::MEDIA_ERROR_LOG_ENTRY,
-                                     "error", "Failed to Init the wrapper"));
+    MEDIA_LOG(ERROR, media_log) << "Failed to Initialize the wrapper";
     return false;
   }
 
@@ -53,9 +51,7 @@ bool D3D11PictureBuffer::Init(GetCommandBufferHelperCB get_helper_cb,
       Texture().Get(), &view_desc, &output_view_);
 
   if (!SUCCEEDED(hr)) {
-    media_log->AddEvent(media_log->CreateStringEvent(
-        MediaLogEvent::MEDIA_ERROR_LOG_ENTRY, "error",
-        "Failed to CreateVideoDecoderOutputView"));
+    MEDIA_LOG(ERROR, media_log) << "Failed to CreateVideoDecoderOutputView";
     return false;
   }
 

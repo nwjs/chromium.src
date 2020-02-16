@@ -41,23 +41,30 @@ TaskTraits GetTaskTraitsWithExplicitPriority(TaskTraits traits) {
 }
 
 TaskExecutor* GetTaskExecutorForTraits(const TaskTraits& traits) {
-  if (traits.use_current_thread()) {
-    TaskExecutor* executor = GetTaskExecutorForCurrentThread();
-    DCHECK(executor) << "Couldn't find a TaskExecutor for this thread. Note "
-                        "you can't use base::CurrentThread in a one-off "
-                        "base::ThreadPool task.";
-    return executor;
-  }
-  TaskExecutor* executor = GetRegisteredTaskExecutorForTraits(traits);
-  DCHECK(executor || ThreadPoolInstance::Get())
-      << "Ref. Prerequisite section of post_task.h.\n\n"
-         "Hint: if this is in a unit test, you're likely merely missing a "
-         "base::test::TaskEnvironment member in your fixture (or your fixture "
-         "is using a base::test::SingleThreadTaskEnvironment and now needs a "
-         "full base::test::TaskEnvironment).\n";
-  // TODO(skyostil): Make thread affinity a required trait.
-  if (!executor || traits.use_thread_pool())
+  const bool has_extension =
+      traits.extension_id() != TaskTraitsExtensionStorage::kInvalidExtensionId;
+  DCHECK(has_extension ^ traits.use_thread_pool())
+      << "A destination (e.g. ThreadPool or BrowserThread) must be specified "
+         "to use the post_task.h API. However, you should prefer the direct "
+         "thread_pool.h or browser_thread.h APIs in new code.";
+
+  if (traits.use_thread_pool()) {
+    DCHECK(ThreadPoolInstance::Get())
+        << "Ref. Prerequisite section of post_task.h for base::ThreadPool "
+           "usage.\n"
+           "Hint: if this is in a unit test, you're likely merely missing a "
+           "base::test::TaskEnvironment member in your fixture (or your "
+           "fixture is using a base::test::SingleThreadTaskEnvironment and now "
+           "needs a full base::test::TaskEnvironment).\n";
     return static_cast<internal::ThreadPoolImpl*>(ThreadPoolInstance::Get());
+  }
+
+  // Assume |has_extension| per above invariant.
+  TaskExecutor* executor = GetRegisteredTaskExecutorForTraits(traits);
+  DCHECK(executor)
+      << "A TaskExecutor wasn't yet registered for this extension.\n"
+         "Hint: if this is in a unit test, you're likely missing a "
+         "content::BrowserTaskEnvironment member in your fixture.";
   return executor;
 }
 
@@ -145,18 +152,5 @@ scoped_refptr<SingleThreadTaskRunner> CreateCOMSTATaskRunner(
                                                                   thread_mode);
 }
 #endif  // defined(OS_WIN)
-
-const scoped_refptr<SequencedTaskRunner>& GetContinuationTaskRunner() {
-  TaskExecutor* executor = GetTaskExecutorForCurrentThread();
-  DCHECK(executor) << "Couldn't find a TaskExecutor for this thread. Note "
-                      "you can't use base::GetContinuationTaskRunner in "
-                      "a one-off base::ThreadPool task.";
-  const auto& task_runner = executor->GetContinuationTaskRunner();
-  DCHECK(task_runner)
-      << "The current execution context lacks a continuation task runner. "
-         "Note: you can't use base::GetContinuationTaskRunner() from a native "
-         "system event or any other context outside of a Chrome task.";
-  return task_runner;
-}
 
 }  // namespace base

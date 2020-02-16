@@ -235,9 +235,9 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
           // We should not return the window until that window is properly
           // initialized. Hence, adding a callback for window first navigation
           // completion.
-          if (existing_window->DidFinishFirstNavigation()) 
+          if (existing_window->DidFinishFirstNavigation())
             return RespondNow(OneArgument(std::move(result)));
-          
+
           existing_window->AddOnDidFinishFirstNavigationCallback(
             base::BindOnce(&AppWindowCreateFunction::
                            OnAppWindowFinishedFirstNavigationOrClosed,
@@ -500,7 +500,7 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
 
   // Delay sending the response until the newly created window has finished its
   // navigation or was closed during that process.
-  // AddOnDidFinishFirstNavigationCallback() will respond asynchrously.
+  // AddOnDidFinishFirstNavigationCallback() will respond asynchronously.
   app_window->AddOnDidFinishFirstNavigationCallback(base::BindOnce(
       &AppWindowCreateFunction::OnAppWindowFinishedFirstNavigationOrClosed,
       this, std::move(result_arg)));

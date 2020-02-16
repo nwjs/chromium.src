@@ -315,6 +315,7 @@ class AX_EXPORT AXNode final {
   base::Optional<int> GetTableAriaColCount() const;
   base::Optional<int> GetTableAriaRowCount() const;
   base::Optional<int> GetTableCellCount() const;
+  base::Optional<bool> GetTableHasColumnOrRowHeaderNode() const;
   AXNode* GetTableCaption() const;
   AXNode* GetTableCellFromIndex(int index) const;
   AXNode* GetTableCellFromCoords(int row_index, int col_index) const;
@@ -331,6 +332,8 @@ class AX_EXPORT AXNode final {
   // Table row-like nodes.
   bool IsTableRow() const;
   base::Optional<int> GetTableRowRowIndex() const;
+  // Get the node ids that represent rows in a table.
+  std::vector<AXNode::AXID> GetTableRowNodeIds() const;
 
 #if defined(OS_MACOSX)
   // Table column-like nodes. These nodes are only present on macOS.
@@ -356,18 +359,20 @@ class AX_EXPORT AXNode final {
   bool IsCellOrHeaderOfARIATable() const;
   bool IsCellOrHeaderOfARIAGrid() const;
 
-  // Return an object containing information about the languages used.
+  // Return an object containing information about the languages detected on
+  // this node.
   // Callers should not retain this pointer, instead they should request it
   // every time it is needed.
   //
-  // Clients likely want to use GetLanguage instead.
-  //
   // Returns nullptr if the node has no language info.
-  AXLanguageInfo* GetLanguageInfo();
+  AXLanguageInfo* GetLanguageInfo() const;
 
-  // This should only be called by the LabelLanguageForSubtree and is used as
-  // part of the language detection feature.
+  // This should only be called by LabelLanguageForSubtree and is used as part
+  // of the language detection feature.
   void SetLanguageInfo(std::unique_ptr<AXLanguageInfo> lang_info);
+
+  // Destroy the language info for this node.
+  void ClearLanguageInfo();
 
   // Returns true if node has ignored state or ignored role.
   bool IsIgnored() const;
@@ -375,6 +380,10 @@ class AX_EXPORT AXNode final {
   // Returns true if this current node is a list marker or if it's a descendant
   // of a list marker node. Returns false otherwise.
   bool IsInListMarker() const;
+
+  // Returns true if this object is used only for representing text, including
+  // inline text boxes.
+  bool IsTextOnlyObject() const;
 
  private:
   // Computes the text offset where each line starts by traversing all child

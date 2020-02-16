@@ -35,8 +35,6 @@ import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.LifecycleObserver;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
-import org.chromium.chrome.browser.native_page.NativePage;
-import org.chromium.chrome.browser.native_page.NativePageHost;
 import org.chromium.chrome.browser.ntp.NewTabPageView.NewTabPageManager;
 import org.chromium.chrome.browser.ntp.cards.ItemViewType;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageAdapter;
@@ -45,7 +43,6 @@ import org.chromium.chrome.browser.omnibox.LocationBar.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.LocationBarVoiceRecognitionHandler;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.suggestions.SuggestionsDependencyFactory;
 import org.chromium.chrome.browser.suggestions.SuggestionsEventReporter;
 import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
@@ -56,11 +53,14 @@ import org.chromium.chrome.browser.suggestions.tile.TileGroup;
 import org.chromium.chrome.browser.suggestions.tile.TileGroupDelegateImpl;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.Tab.TabHidingType;
+import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
@@ -85,7 +85,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
     private static final String NAVIGATION_ENTRY_SCROLL_POSITION_KEY = "NewTabPageScrollPosition";
     public static final String CONTEXT_MENU_USER_ACTION_PREFIX = "Suggestions";
 
-    protected final Tab mTab;
+    protected final TabImpl mTab;
     private final ActivityTabProvider mActivityTabProvider;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
 
@@ -123,7 +123,8 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
     public void onContentOffsetChanged(int offset) {}
 
     @Override
-    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
+    public void onControlsOffsetChanged(int topOffset, int topControlsMinHeightOffset,
+            int bottomOffset, int bottomControlsMinHeightOffset, boolean needsAnimate) {
         updateMargins();
     }
 
@@ -231,7 +232,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
             mIsLoaded = true;
             NewTabPageUma.recordNTPImpression(NewTabPageUma.NTP_IMPRESSION_REGULAR);
             // If not visible when loading completes, wait until onShown is received.
-            if (!((TabImpl) mTab).isHidden()) recordNTPShown();
+            if (!mTab.isHidden()) recordNTPShown();
         }
     }
 
@@ -274,24 +275,26 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
      * @param tabModelSelector The TabModelSelector used to open tabs.
      * @param activityTabProvider Allows us to check if we are the current tab.
      * @param activityLifecycleDispatcher Allows us to subscribe to backgrounding events.
+     * @param tab The {@link TabImpl} that contains this new tab page.
      */
     public NewTabPage(ChromeActivity activity, NativePageHost nativePageHost,
             TabModelSelector tabModelSelector, ActivityTabProvider activityTabProvider,
-            ActivityLifecycleDispatcher activityLifecycleDispatcher) {
+            ActivityLifecycleDispatcher activityLifecycleDispatcher, TabImpl tab) {
         mConstructedTimeNs = System.nanoTime();
         TraceEvent.begin(TAG);
 
         mActivityTabProvider = activityTabProvider;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
-        mTab = nativePageHost.getActiveTab();
-        Profile profile = ((TabImpl) mTab).getProfile();
+
+        mTab = tab;
+        Profile profile = mTab.getProfile();
 
         SuggestionsDependencyFactory depsFactory = SuggestionsDependencyFactory.getInstance();
         SuggestionsSource suggestionsSource = depsFactory.createSuggestionSource(profile);
         SuggestionsEventReporter eventReporter = depsFactory.createEventReporter();
 
         SuggestionsNavigationDelegate navigationDelegate = new SuggestionsNavigationDelegate(
-                activity, profile, nativePageHost, tabModelSelector);
+                activity, profile, nativePageHost, tabModelSelector, mTab);
         mNewTabPageManager = new NewTabPageManagerImpl(suggestionsSource, eventReporter,
                 navigationDelegate, profile, nativePageHost,
                 GlobalDiscardableReferencePool.getReferencePool(), activity.getSnackbarManager());
@@ -676,7 +679,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
         assert !mIsDestroyed;
         assert !ViewCompat
                 .isAttachedToWindow(getView()) : "Destroy called before removed from window";
-        if (mIsLoaded && !((TabImpl) mTab).isHidden()) recordNTPHidden();
+        if (mIsLoaded && !mTab.isHidden()) recordNTPHidden();
 
         mNewTabPageManager.onDestroy();
         mTileGroupDelegate.destroy();

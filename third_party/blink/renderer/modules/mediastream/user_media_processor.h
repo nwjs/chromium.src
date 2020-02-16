@@ -61,7 +61,7 @@ class MODULES_EXPORT UserMediaProcessor
  public:
   using MediaDevicesDispatcherCallback = base::RepeatingCallback<
       blink::mojom::blink::MediaDevicesDispatcherHost*()>;
-  // |web_frame| must outlive this instance.
+  // |frame| must outlive this instance.
   UserMediaProcessor(LocalFrame* frame,
                      MediaDevicesDispatcherCallback media_devices_dispatcher_cb,
                      scoped_refptr<base::SingleThreadTaskRunner> task_runner);
@@ -146,6 +146,7 @@ class MODULES_EXPORT UserMediaProcessor
                          const Vector<blink::MediaStreamDevice>& video_devices);
 
   void GotAllVideoInputFormatsForDevice(
+      bool success,
       const blink::WebUserMediaRequest& web_request,
       const String& label,
       const String& device_id,
@@ -161,9 +162,11 @@ class MODULES_EXPORT UserMediaProcessor
   bool IsCurrentRequestInfo(
       const blink::WebUserMediaRequest& web_request) const;
   void DelayedGetUserMediaRequestSucceeded(
+      int request_id,
       const blink::WebMediaStream& stream,
       blink::WebUserMediaRequest web_request);
   void DelayedGetUserMediaRequestFailed(
+      int request_id,
       blink::WebUserMediaRequest web_request,
       blink::mojom::blink::MediaStreamRequestResult result,
       const String& constraint_name);
@@ -291,6 +294,9 @@ class MODULES_EXPORT UserMediaProcessor
   // contains the request currently being processed.
   Member<RequestInfo> current_request_info_;
   MediaDevicesDispatcherCallback media_devices_dispatcher_cb_;
+
+  // |request_completed_cb_| is invoked when the processing of
+  // |current_request_info_| is completed.
   base::OnceClosure request_completed_cb_;
 
   Member<LocalFrame> frame_;

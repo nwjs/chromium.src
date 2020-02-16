@@ -64,7 +64,7 @@ DispatchEventResult EventDispatcher::DispatchEvent(Node& node, Event& event) {
 }
 
 EventDispatcher::EventDispatcher(Node& node, Event& event)
-    : node_(node), event_(event) {
+    : node_(&node), event_(&event) {
   view_ = node.GetDocument().View();
   event_->InitEventPath(*node_);
 }
@@ -202,9 +202,6 @@ DispatchEventResult EventDispatcher::Dispatch() {
                               pre_dispatch_event_handler_result) ==
       kContinueDispatching) {
     if (DispatchEventAtCapturing() == kContinueDispatching) {
-      // TODO(crbug/882574): Remove these.
-      CHECK(event_->HasEventPath());
-      CHECK(!event_->GetEventPath().IsEmpty());
       if (DispatchEventAtTarget() == kContinueDispatching)
         DispatchEventAtBubbling();
     }

@@ -12,6 +12,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "net/base/load_flags.h"
+#include "net/base/network_isolation_key.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/loader_util.h"
 #include "services/network/public/cpp/cors/cors.h"
@@ -81,10 +82,11 @@ std::unique_ptr<ResourceRequest> CreatePreflightRequest(
   // Algorithm step 1 through 5 of the CORS-preflight fetch,
   // https://fetch.spec.whatwg.org/#cors-preflight-fetch.
   preflight_request->url = request.url;
-  preflight_request->method = "OPTIONS";
+  preflight_request->method = net::HttpRequestHeaders::kOptionsMethod;
   preflight_request->priority = request.priority;
   preflight_request->fetch_request_context_type =
       request.fetch_request_context_type;
+  preflight_request->destination = request.destination;
   preflight_request->referrer = request.referrer;
   preflight_request->referrer_policy = request.referrer_policy;
 
@@ -133,9 +135,8 @@ std::unique_ptr<PreflightResult> CreatePreflightResult(
     base::Optional<CorsErrorStatus>* detected_error_status) {
   DCHECK(detected_error_status);
 
-  const int response_code = head.headers ? head.headers->response_code() : 0;
   *detected_error_status = CheckPreflightAccess(
-      final_url, response_code,
+      final_url, head.headers ? head.headers->response_code() : 0,
       GetHeaderString(head.headers, header_names::kAccessControlAllowOrigin),
       GetHeaderString(head.headers,
                       header_names::kAccessControlAllowCredentials),
@@ -144,13 +145,6 @@ std::unique_ptr<PreflightResult> CreatePreflightResult(
   if (*detected_error_status)
     return nullptr;
 
-  base::Optional<mojom::CorsError> error;
-  error = CheckPreflight(response_code);
-  if (error) {
-    *detected_error_status = CorsErrorStatus(*error);
-    return nullptr;
-  }
-
   if (original_request.is_external_request) {
     *detected_error_status = CheckExternalPreflight(GetHeaderString(
         head.headers, header_names::kAccessControlAllowExternal));
@@ -158,6 +152,7 @@ std::unique_ptr<PreflightResult> CreatePreflightResult(
       return nullptr;
   }
 
+  base::Optional<mojom::CorsError> error;
   auto result = PreflightResult::Create(
       original_request.credentials_mode,
       GetHeaderString(head.headers, header_names::kAccessControlAllowMethods),
@@ -344,9 +339,9 @@ void PreflightController::PerformPreflightCheck(
 
   if (!RetrieveCacheFlags(request.load_flags) && !request.is_external_request &&
       cache_.CheckIfRequestCanSkipPreflight(
-          request.request_initiator->Serialize(), request.url,
-          request.credentials_mode, request.method, request.headers,
-          request.is_revalidating)) {
+          request.request_initiator.value(), request.url,
+          net::NetworkIsolationKey::Todo(), request.credentials_mode,
+          request.method, request.headers, request.is_revalidating)) {
     std::move(callback).Run(net::OK, base::nullopt);
     return;
   }
@@ -367,7 +362,8 @@ void PreflightController::AppendToCache(
     const url::Origin& origin,
     const GURL& url,
     std::unique_ptr<PreflightResult> result) {
-  cache_.AppendEntry(origin.Serialize(), url, std::move(result));
+  cache_.AppendEntry(origin, url, net::NetworkIsolationKey::Todo(),
+                     std::move(result));
 }
 
 }  // namespace cors

@@ -77,7 +77,7 @@ Polymer({
     /** @private {chrome.settingsPrivate.PrefObject} */
     controlParams_: {
       type: Object,
-      value: function() {
+      value() {
         return /** @type {chrome.settingsPrivate.PrefObject} */ ({});
       },
     },
@@ -99,7 +99,7 @@ Polymer({
     /** @private {!DefaultContentSetting} */
     priorDefaultContentSetting_: {
       type: Object,
-      value: function() {
+      value() {
         return /** @type {DefaultContentSetting} */ ({});
       },
     },
@@ -111,7 +111,7 @@ Polymer({
      */
     subControlParams_: {
       type: Object,
-      value: function() {
+      value() {
         return /** @type {chrome.settingsPrivate.PrefObject} */ ({});
       },
     },
@@ -124,7 +124,7 @@ Polymer({
   ],
 
   /** @override */
-  ready: function() {
+  ready() {
     this.addWebUIListener(
         'contentSettingCategoryChanged', this.onCategoryChanged_.bind(this));
   },
@@ -139,7 +139,7 @@ Polymer({
    * This is also called during page setup after we get the default state.
    * @private
    */
-  onChangePermissionControl_: function() {
+  onChangePermissionControl_() {
     if (this.category === undefined ||
         this.controlParams_.value === undefined ||
         this.subControlParams_.value === undefined) {
@@ -182,6 +182,9 @@ Polymer({
       case settings.ContentSettingsTypes.SERIAL_PORTS:
       case settings.ContentSettingsTypes.BLUETOOTH_SCANNING:
       case settings.ContentSettingsTypes.NATIVE_FILE_SYSTEM_WRITE:
+      case settings.ContentSettingsTypes.HID_DEVICES:
+      case settings.ContentSettingsTypes.VR:
+      case settings.ContentSettingsTypes.AR:
         // "Ask" vs "Blocked".
         this.browserProxy.setDefaultValueForContentType(
             this.category,
@@ -216,7 +219,7 @@ Polymer({
    * @param {!DefaultContentSetting} update
    * @private
    */
-  updateControlParams_: function(update) {
+  updateControlParams_(update) {
     // Early out if there is no actual change.
     if (this.priorDefaultContentSetting_.setting == update.setting &&
         this.priorDefaultContentSetting_.source == update.source) {
@@ -268,7 +271,7 @@ Polymer({
    * Handles changes to the category pref and the |category| member variable.
    * @private
    */
-  onCategoryChanged_: function() {
+  onCategoryChanged_() {
     this.browserProxy.getDefaultValueForContentType(this.category)
         .then(defaultValue => {
           this.updateControlParams_(defaultValue);
@@ -286,7 +289,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  isToggleDisabled_: function() {
+  isToggleDisabled_() {
     return this.category == settings.ContentSettingsTypes.POPUPS &&
         loadTimeData.getBoolean('isGuest');
   },
@@ -295,7 +298,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  showCookiesSubOption_: function(subOptionMode) {
+  showCookiesSubOption_(subOptionMode) {
     return (subOptionMode == SubOptionMode.COOKIES_SESSION_ONLY);
   },
 
@@ -303,7 +306,7 @@ Polymer({
    * @return {boolean}
    * @private
    */
-  showPrefSubOption_: function(subOptionMode) {
+  showPrefSubOption_(subOptionMode) {
     return (subOptionMode == SubOptionMode.PREF);
   },
 });

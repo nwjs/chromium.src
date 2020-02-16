@@ -15,7 +15,7 @@
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/public/browser/site_isolation_policy.h"
-#include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/events/blink/blink_event_util.h"
 
 namespace content {
@@ -106,7 +106,7 @@ RenderWidgetTargeter::TargetingRequest::TargetingRequest(
     const ui::LatencyInfo& latency) {
   this->root_view = std::move(root_view);
   this->location = ComputeEventLocation(event);
-  this->event = ui::WebInputEventTraits::Clone(event);
+  this->event = event.Clone();
   this->latency = latency;
 }
 
@@ -144,16 +144,6 @@ bool RenderWidgetTargeter::TargetingRequest::MergeEventIfPossible(
     return true;
   }
   return false;
-}
-
-void RenderWidgetTargeter::TargetingRequest::StartQueueingTimeTracker() {
-  tracker =
-      std::make_unique<TracingUmaTracker>("Event.AsyncTargeting.TimeInQueue");
-}
-
-void RenderWidgetTargeter::TargetingRequest::StopQueueingTimeTracker() {
-  if (tracker)
-    tracker->StopAndRecord();
 }
 
 bool RenderWidgetTargeter::TargetingRequest::IsWebInputEventRequest() const {
@@ -223,7 +213,6 @@ void RenderWidgetTargeter::FindTargetAndCallback(
 
 void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
   if (request_in_flight_) {
-    request.StartQueueingTimeTracker();
     requests_.push(std::move(request));
     return;
   }
@@ -340,7 +329,6 @@ void RenderWidgetTargeter::FlushEventQueue() {
     if (!request.GetRootView())
       continue;
 
-    request.StopQueueingTimeTracker();
     // Only notify the delegate once that the current event queue is being
     // flushed. Once all the events are flushed, notify the delegate again.
     if (!events_being_flushed) {

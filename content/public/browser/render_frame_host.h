@@ -14,6 +14,7 @@
 #include "base/optional.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/common/browser_controls_state.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/common/page_visibility_state.h"
@@ -26,6 +27,7 @@
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/common/scheduler/web_scheduler_tracked_feature.h"
+#include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-forward.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom.h"
@@ -38,7 +40,6 @@
 
 namespace blink {
 class AssociatedInterfaceProvider;
-struct MediaPlayerAction;
 namespace mojom {
 enum class FeaturePolicyFeature;
 }  // namespace mojom
@@ -81,6 +82,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Returns the RenderFrameHost given its ID and the ID of its render process.
   // Returns nullptr if the IDs do not correspond to a live RenderFrameHost.
+  static RenderFrameHost* FromID(GlobalFrameRoutingId id);
   static RenderFrameHost* FromID(int render_process_id, int render_frame_id);
 
   // Globally allows for injecting JavaScript into the main world. This feature
@@ -163,6 +165,13 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // is never sent back from the renderer in the control calls. It should be
   // never used to look up the FrameTreeNode instance.
   virtual base::UnguessableToken GetDevToolsFrameToken() = 0;
+
+  // Returns the embedding token for this frame that is used by a remote parent
+  // to uniquely identify it. This will be null if the frame
+  // - is not embedded by a parent
+  // - is a local child
+  // - is not the current RFH (for example, when pending deletion)
+  virtual base::Optional<base::UnguessableToken> GetEmbeddingToken() = 0;
 
   // Returns the assigned name of the frame, the name of the iframe tag
   // declaring it. For example, <iframe name="framename">[...]</iframe>. It is
@@ -372,7 +381,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Run the given action on the media player location at the given point.
   virtual void ExecuteMediaPlayerActionAtLocation(
       const gfx::Point& location,
-      const blink::MediaPlayerAction& action) = 0;
+      const blink::mojom::MediaPlayerAction& action) = 0;
 
   // Creates a Network Service-backed factory from appropriate |NetworkContext|.
   // If this returns true, any redirect safety checks should be bypassed in
@@ -456,6 +465,18 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Returns true if this frame has fired DOMContentLoaded.
   virtual bool IsDOMContentLoaded() = 0;
+
+  // Update the ad frame state. The parameter |ad_frame_type| cannot be kNonAd,
+  // and once this has been called, it cannot be called again with a different
+  // |ad_frame_type|, since once a frame is determined to be an ad, it will stay
+  // tagged as an ad of the same type for its entire lifetime.
+  //
+  // Note: The ad frame type is currently maintained and updated *outside*
+  // content. This is used to ensure the render frame proxies are in sync (since
+  // they aren't exposed in the public API). Eventually, we might be able to
+  // simplify this somewhat (maybe //content would be responsible for
+  // maintaining the state, with some content client method used to update it).
+  virtual void UpdateAdFrameType(blink::mojom::AdFrameType ad_frame_type) = 0;
 
  private:
   // This interface should only be implemented inside content.

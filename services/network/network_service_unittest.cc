@@ -621,6 +621,8 @@ TEST_F(NetworkServiceTest, DohProbe) {
 
   net::DnsConfig config;
   config.nameservers.push_back(net::IPEndPoint());
+  config.dns_over_https_servers.emplace_back("example.com",
+                                             true /* use_post */);
   auto dns_client = std::make_unique<net::MockDnsClient>(
       std::move(config), net::MockDnsClientRuleList());
   dns_client->set_ignore_system_config_changes(true);
@@ -643,6 +645,8 @@ TEST_F(NetworkServiceTest, DohProbe_NoPrimaryContext) {
 
   net::DnsConfig config;
   config.nameservers.push_back(net::IPEndPoint());
+  config.dns_over_https_servers.emplace_back("example.com",
+                                             true /* use_post */);
   auto dns_client = std::make_unique<net::MockDnsClient>(
       std::move(config), net::MockDnsClientRuleList());
   dns_client->set_ignore_system_config_changes(true);
@@ -659,6 +663,8 @@ TEST_F(NetworkServiceTest, DohProbe_NoPrimaryContext) {
 TEST_F(NetworkServiceTest, DohProbe_ContextAddedBeforeTimeout) {
   net::DnsConfig config;
   config.nameservers.push_back(net::IPEndPoint());
+  config.dns_over_https_servers.emplace_back("example.com",
+                                             true /* use_post */);
   auto dns_client = std::make_unique<net::MockDnsClient>(
       std::move(config), net::MockDnsClientRuleList());
   dns_client->set_ignore_system_config_changes(true);
@@ -683,6 +689,8 @@ TEST_F(NetworkServiceTest, DohProbe_ContextAddedBeforeTimeout) {
 TEST_F(NetworkServiceTest, DohProbe_ContextAddedAfterTimeout) {
   net::DnsConfig config;
   config.nameservers.push_back(net::IPEndPoint());
+  config.dns_over_https_servers.emplace_back("example.com",
+                                             true /* use_post */);
   auto dns_client = std::make_unique<net::MockDnsClient>(
       std::move(config), net::MockDnsClientRuleList());
   dns_client->set_ignore_system_config_changes(true);
@@ -713,6 +721,8 @@ TEST_F(NetworkServiceTest, DohProbe_ContextRemovedBeforeTimeout) {
 
   net::DnsConfig config;
   config.nameservers.push_back(net::IPEndPoint());
+  config.dns_over_https_servers.emplace_back("example.com",
+                                             true /* use_post */);
   auto dns_client = std::make_unique<net::MockDnsClient>(
       std::move(config), net::MockDnsClientRuleList());
   dns_client->set_ignore_system_config_changes(true);
@@ -739,6 +749,8 @@ TEST_F(NetworkServiceTest, DohProbe_ContextRemovedAfterTimeout) {
 
   net::DnsConfig config;
   config.nameservers.push_back(net::IPEndPoint());
+  config.dns_over_https_servers.emplace_back("example.com",
+                                             true /* use_post */);
   auto dns_client = std::make_unique<net::MockDnsClient>(
       std::move(config), net::MockDnsClientRuleList());
   dns_client->set_ignore_system_config_changes(true);
@@ -1197,15 +1209,21 @@ TEST_F(NetworkServiceTestWithService, CRLSetIsApplied) {
       net::GetTestCertsDirectory().AppendASCII("crlset_by_leaf_spki.raw"),
       &crl_set_bytes));
 
-  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)));
-  network_service_.FlushForTesting();
+  {
+    base::RunLoop run_loop;
+    service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)),
+                            run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   // Flush all connections in the context, to force a new connection. A new
   // verification should be attempted, due to the configuration having
   // changed, thus forcing the CRLSet to be checked.
-  base::RunLoop run_loop;
-  context()->CloseAllConnections(run_loop.QuitClosure());
-  run_loop.Run();
+  {
+    base::RunLoop run_loop;
+    context()->CloseAllConnections(run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   // Make sure the connection fails, due to the certificate being revoked.
   LoadURL(test_server.GetURL("/echo"), options);
@@ -1231,8 +1249,10 @@ TEST_F(NetworkServiceTestWithService, CRLSetIsPassedToNewContexts) {
       net::GetTestCertsDirectory().AppendASCII("crlset_by_leaf_spki.raw"),
       &crl_set_bytes));
 
-  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)));
-  network_service_.FlushForTesting();
+  base::RunLoop run_loop;
+  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)),
+                          run_loop.QuitClosure());
+  run_loop.Run();
 
   // Configure a new NetworkContext.
   CreateNetworkContext();
@@ -1262,8 +1282,12 @@ TEST_F(NetworkServiceTestWithService, CRLSetIsUpdatedIfNewer) {
       net::GetTestCertsDirectory().AppendASCII("crlset_by_root_subject.raw"),
       &crl_set_bytes));
 
-  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)));
-  network_service_.FlushForTesting();
+  {
+    base::RunLoop run_loop;
+    service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)),
+                            run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   CreateNetworkContext();
 
@@ -1278,15 +1302,21 @@ TEST_F(NetworkServiceTestWithService, CRLSetIsUpdatedIfNewer) {
                                          "crlset_by_root_subject_no_spki.raw"),
                                      &crl_set_bytes));
 
-  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)));
-  network_service_.FlushForTesting();
+  {
+    base::RunLoop run_loop;
+    service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)),
+                            run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   // Flush all connections in the context, to force a new connection. A new
   // verification should be attempted, due to the configuration having
   // changed, thus forcing the CRLSet to be checked.
-  base::RunLoop run_loop;
-  context()->CloseAllConnections(run_loop.QuitClosure());
-  run_loop.Run();
+  {
+    base::RunLoop run_loop;
+    context()->CloseAllConnections(run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   // Make sure the connection fails, due to the certificate being revoked.
   LoadURL(test_server.GetURL("/echo"), options);
@@ -1311,8 +1341,12 @@ TEST_F(NetworkServiceTestWithService, CRLSetDoesNotDowngrade) {
                                          "crlset_by_root_subject_no_spki.raw"),
                                      &crl_set_bytes));
 
-  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)));
-  network_service_.FlushForTesting();
+  {
+    base::RunLoop run_loop;
+    service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)),
+                            run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   CreateNetworkContext();
 
@@ -1331,15 +1365,21 @@ TEST_F(NetworkServiceTestWithService, CRLSetDoesNotDowngrade) {
       net::GetTestCertsDirectory().AppendASCII("crlset_by_root_subject.raw"),
       &crl_set_bytes));
 
-  service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)));
-  network_service_.FlushForTesting();
+  {
+    base::RunLoop run_loop;
+    service()->UpdateCRLSet(base::as_bytes(base::make_span(crl_set_bytes)),
+                            run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   // Flush all connections in the context, to force a new connection. A new
   // verification should be attempted, due to the configuration having
   // changed, thus forcing the CRLSet to be checked.
-  base::RunLoop run_loop;
-  context()->CloseAllConnections(run_loop.QuitClosure());
-  run_loop.Run();
+  {
+    base::RunLoop run_loop;
+    context()->CloseAllConnections(run_loop.QuitClosure());
+    run_loop.Run();
+  }
 
   // Make sure the connection still fails, due to the newer CRLSet still
   // applying.
@@ -1370,9 +1410,15 @@ TEST_F(NetworkServiceTestWithService, CRLSetDoesNotDowngrade) {
 // The SpawnedTestServer does not work on iOS.
 #if !defined(OS_IOS)
 
+// The test is flaky on Android. crbug.com/1045732.
+#if defined(OS_ANDROID)
+#define MAYBE_AIAFetching DISABLED_AIAFetching
+#else
+#define MAYBE_AIAFetching AIAFetching
+#endif
 // Test |primary_network_context|, which is required by AIA fetching, among
 // other things.
-TEST_F(NetworkServiceTestWithService, AIAFetching) {
+TEST_F(NetworkServiceTestWithService, MAYBE_AIAFetching) {
   mojom::NetworkContextParamsPtr context_params = CreateContextParams();
   context_params->primary_network_context = true;
 
@@ -1671,7 +1717,7 @@ class ClearSiteDataNetworkContextClient : public TestNetworkContextClient {
       : receiver_(this, std::move(receiver)) {}
   ~ClearSiteDataNetworkContextClient() override = default;
 
-  void OnClearSiteData(uint32_t process_id,
+  void OnClearSiteData(int32_t process_id,
                        int32_t routing_id,
                        const GURL& url,
                        const std::string& header_value,

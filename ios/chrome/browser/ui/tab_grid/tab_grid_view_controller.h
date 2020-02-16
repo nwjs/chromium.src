@@ -48,6 +48,11 @@
 @property(nonatomic, weak) id<GridImageDataSource> regularTabsImageDataSource;
 @property(nonatomic, weak) id<GridImageDataSource> incognitoTabsImageDataSource;
 
+// Readwrite override of the UIViewController property. This object will ignore
+// the value supplied by UIViewController.
+@property(nonatomic, weak, readwrite)
+    UIViewController* childViewControllerForStatusBarStyle;
+
 // The view controller for remote tabs.
 // TODO(crbug.com/845192) : This was only exposed in the public interface so
 // that TabGridViewController does not need to know about model objects. The
@@ -59,6 +64,11 @@
 // resources it needs from data sources. This should be called before any
 // transitions are triggered.
 - (void)prepareForAppearance;
+
+// Notifies the ViewController that its content is being displayed or hidden.
+- (void)contentWillAppearAnimated:(BOOL)animated;
+- (void)contentDidAppear;
+- (void)contentWillDisappearAnimated:(BOOL)animated;
 
 @end
 

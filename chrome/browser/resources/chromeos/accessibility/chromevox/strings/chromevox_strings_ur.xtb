@@ -385,7 +385,6 @@
 <translation id="3646890046000188562">{COUNT,plural, =1{بیک ٹک}other{# بیک ٹکس}}</translation>
 <translation id="3650317109285159359">chkmnuitm</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{ڈالر}other{# ڈالر کے نشانات}}</translation>
-<translation id="3658742229777143148">نظرثانی</translation>
 <translation id="3659787053479271466">الرٹ</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />، فہرست باکس</translation>
 <translation id="3681531118904532409">بھورا مائل ہلکا نارنجی</translation>
@@ -420,6 +419,7 @@
 <translation id="3914732343065571127">‏ChromeVox کمانڈ ریفرینس</translation>
 <translation id="3930383913623796990">بہار نما سبز</translation>
 <translation id="3930498801443296724">اقوال زریں</translation>
+<translation id="3935615366277838204"><ph name="LETTER" /> بڑا حرف</translation>
 <translation id="3936394396199829062">ارغوانی بلش</translation>
 <translation id="3941269780691800708">ماؤس کے نیچے متن بولیں۔</translation>
 <translation id="394953087167197343">غلط ہجے کی نشاندہی کریں:</translation>
@@ -793,7 +793,6 @@
 <translation id="6459511626086141404">فلیٹ کلیدی نقشہ</translation>
 <translation id="6468049171101508116">اگلا بٹن</translation>
 <translation id="646954774886932461">فہرست مضامین</translation>
-<translation id="6479792383819319132">کوئی اگلا پیراگراف نہیں ہے۔</translation>
 <translation id="6493991254603208962">چمک کم کریں</translation>
 <translation id="6501595918865591267">فیروزی</translation>
 <translation id="6508059270146105198">بریل ڈسپلے کو صفحہ کے نیچے لے جائیں</translation>
@@ -816,7 +815,6 @@
 <translation id="6637586476836377253">لاگ</translation>
 <translation id="6657128831881431364">پیشرفت بار</translation>
 <translation id="6659594942844771486">ٹیب</translation>
-<translation id="6675661017770918201">کوئی گزشتہ پیراگراف نہیں ہے۔</translation>
 <translation id="667999046851023355">دستاویز</translation>
 <translation id="6688209025607531203">ایک غیر موڈل الرٹ</translation>
 <translation id="6689672606256159458">گہرا سرخی مائل نارنجی</translation>
@@ -845,6 +843,7 @@
 <translation id="6865519907510167493">غلط ہجے</translation>
 <translation id="6871161210040114857">حروف کے تئیں حساس کو نظر انداز کیا جا رہا ہے۔</translation>
 <translation id="6877435256196695200">کوئی اگلا گرافک نہیں ہے۔</translation>
+<translation id="688976158310523235">تلاش مینو</translation>
 <translation id="6897341342232909480">بائیں منتقل ہوں</translation>
 <translation id="6901540140423170855">تاریخ</translation>
 <translation id="6910211073230771657">حذف کردہ</translation>
@@ -857,6 +856,7 @@
 <translation id="699159175332639490">Search + O + W</translation>
 <translation id="6994042831499278539">فرہنگ کا حوالہ</translation>
 <translation id="6996566555547746822">اگلا کامبو باکس</translation>
+<translation id="6997224546856374593">بڑے حروف پڑھتے ہوئے:</translation>
 <translation id="700202842116345659">کتابیات کا اندراج</translation>
 <translation id="7005146664810010831">‏کوئی URL نہیں ملا</translation>
 <translation id="7010712454773919705">‏ChromeVox موڈیفائر کلید</translation>
@@ -937,6 +937,7 @@ Chrome براؤزر مینو کھولنے کیلئے، Alt+F دبائیں۔</tra
 <translation id="744163271241493234">pwded</translation>
 <translation id="7491962110804786152">ٹیب</translation>
 <translation id="7492049978501397201">ڈائیلاگ میں داخل ہو گئے</translation>
+<translation id="7505149250476994901">حرف سے پہلے "بڑا حرف" بولیں</translation>
 <translation id="7518543783849163354">‏ChromeVox کو عارضی طور پر بولنے سے روکنے کیلئے، Control کلید دبائیں۔</translation>
 <translation id="7521682724501952239">‏آپ ٹچ اسکرین کے ساتھ ChromeVox کو استعمال کر سکتے ہیں۔</translation>
 <translation id="7532613204005497612">جون</translation>
@@ -1104,7 +1105,6 @@ Chrome براؤزر مینو کھولنے کیلئے، Alt+F دبائیں۔</tra
 <translation id="812886159861361726">ڈاؤن لوڈ رک گیا <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">ٹچ کریں</translation>
 <translation id="8153880621934657047">کوئی اندرونی ٹیبل نہیں ہے۔</translation>
-<translation id="8161114871611868169">تبصرہ سیکشن</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{انڈر اسکور}other{# انڈر اسکورز}}</translation>
 <translation id="8179976553408161302">انٹر</translation>
 <translation id="8184828902145951186">قطار</translation>
@@ -1125,6 +1125,7 @@ Chrome براؤزر مینو کھولنے کیلئے، Alt+F دبائیں۔</tra
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">پرانے لیس نما</translation>
 <translation id="8326783648485765113">لان سبز</translation>
+<translation id="8328063869313048659">تاریک اسکرین ٹوگل کریں</translation>
 <translation id="8344569602005188545">گھنٹے</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{پاؤنڈ}other{# پاؤنڈ کے نشانات}}</translation>
 <translation id="8374154622594089836">مہینہ</translation>
@@ -1209,6 +1210,7 @@ Chrome براؤزر مینو کھولنے کیلئے، Alt+F دبائیں۔</tra
 <translation id="9065283790526219006">+پاپ اپ</translation>
 <translation id="9066023754636984703">‏تفصیلات پر جانے کیلئے، Search+A, J دبائیں۔</translation>
 <translation id="9067522039955793016">صفحہ کا انقطاع</translation>
+<translation id="9074824103975499138">‏ChromeVox مینوز تلاش کریں</translation>
 <translation id="9077213568694924680">انتخاب سے ہٹا دیا گیا</translation>
 <translation id="9077305471618729969">ہلکا سمندری سبز</translation>
 <translation id="9082874451376019682">کوئی پچھلا سلائیڈر نہیں ہے۔</translation>

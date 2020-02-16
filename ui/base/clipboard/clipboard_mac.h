@@ -17,7 +17,7 @@
 
 namespace ui {
 
-class COMPONENT_EXPORT(BASE_CLIPBOARD) ClipboardMac : public Clipboard {
+class COMPONENT_EXPORT(UI_BASE_CLIPBOARD) ClipboardMac : public Clipboard {
  private:
   FRIEND_TEST_ALL_PREFIXES(ClipboardMacTest, ReadImageRetina);
   FRIEND_TEST_ALL_PREFIXES(ClipboardMacTest, ReadImageNonRetina);
@@ -37,6 +37,8 @@ class COMPONENT_EXPORT(BASE_CLIPBOARD) ClipboardMac : public Clipboard {
   void ReadAvailableTypes(ClipboardBuffer buffer,
                           std::vector<base::string16>* types,
                           bool* contains_filenames) const override;
+  std::vector<base::string16> ReadAvailablePlatformSpecificFormatNames(
+      ClipboardBuffer buffer) const override;
   void ReadText(ClipboardBuffer buffer, base::string16* result) const override;
   void ReadAsciiText(ClipboardBuffer buffer,
                      std::string* result) const override;

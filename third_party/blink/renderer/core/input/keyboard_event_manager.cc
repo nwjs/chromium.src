@@ -7,8 +7,9 @@
 #include <memory>
 
 #include "build/build_config.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
@@ -47,7 +48,7 @@ const int kVKeySpatNavBack = 233;
 
 bool MapKeyCodeForScroll(int key_code,
                          WebInputEvent::Modifiers modifiers,
-                         ScrollDirection* scroll_direction,
+                         mojom::blink::ScrollDirection* scroll_direction,
                          ScrollGranularity* scroll_granularity,
                          WebFeature* scroll_use_uma) {
   if (modifiers & WebInputEvent::kShiftKey ||
@@ -74,42 +75,50 @@ bool MapKeyCodeForScroll(int key_code,
 
   switch (key_code) {
     case VKEY_LEFT:
-      *scroll_direction = kScrollLeftIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollLeftIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_RIGHT:
-      *scroll_direction = kScrollRightIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollRightIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_UP:
-      *scroll_direction = kScrollUpIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollUpIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_DOWN:
-      *scroll_direction = kScrollDownIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollDownIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByLine;
       *scroll_use_uma = WebFeature::kScrollByKeyboardArrowKeys;
       break;
     case VKEY_HOME:
-      *scroll_direction = kScrollUpIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollUpIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByDocument;
       *scroll_use_uma = WebFeature::kScrollByKeyboardHomeEndKeys;
       break;
     case VKEY_END:
-      *scroll_direction = kScrollDownIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollDownIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByDocument;
       *scroll_use_uma = WebFeature::kScrollByKeyboardHomeEndKeys;
       break;
     case VKEY_PRIOR:  // page up
-      *scroll_direction = kScrollUpIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollUpIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByPage;
       *scroll_use_uma = WebFeature::kScrollByKeyboardPageUpDownKeys;
       break;
     case VKEY_NEXT:  // page down
-      *scroll_direction = kScrollDownIgnoringWritingMode;
+      *scroll_direction =
+          mojom::blink::ScrollDirection::kScrollDownIgnoringWritingMode;
       *scroll_granularity = ScrollGranularity::kScrollByPage;
       *scroll_use_uma = WebFeature::kScrollByKeyboardPageUpDownKeys;
       break;
@@ -147,7 +156,7 @@ bool KeyboardEventManager::HandleAccessKey(const WebKeyboardEvent& evt) {
   if (!elem)
     return false;
   elem->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
-                          kWebFocusTypeAccessKey, nullptr));
+                          mojom::blink::FocusType::kAccessKey, nullptr));
   elem->AccessKeyAction(false);
   return true;
 }
@@ -186,7 +195,9 @@ WebInputEventResult KeyboardEventManager::KeyEvent(
   if (!is_modifier && initial_key_event.dom_key != ui::DomKey::ESCAPE &&
       (initial_key_event.GetType() == WebInputEvent::kKeyDown ||
        initial_key_event.GetType() == WebInputEvent::kRawKeyDown)) {
-    LocalFrame::NotifyUserActivation(frame_);
+    LocalFrame::NotifyUserActivation(
+        frame_,
+        RuntimeEnabledFeatures::BrowserVerifiedUserActivationKeyboardEnabled());
   }
 
   // In IE, access keys are special, they are handled after default keydown
@@ -387,8 +398,10 @@ void KeyboardEventManager::DefaultSpaceEventHandler(
   if (event->ctrlKey() || event->metaKey() || event->altKey())
     return;
 
-  ScrollDirection direction = event->shiftKey() ? kScrollBlockDirectionBackward
-                                                : kScrollBlockDirectionForward;
+  mojom::blink::ScrollDirection direction =
+      event->shiftKey()
+          ? mojom::blink::ScrollDirection::kScrollBlockDirectionBackward
+          : mojom::blink::ScrollDirection::kScrollBlockDirectionForward;
 
   // TODO(bokan): enable scroll customization in this case. See
   // crbug.com/410974.
@@ -423,7 +436,7 @@ void KeyboardEventManager::DefaultArrowEventHandler(
   if (event->KeyEvent() && event->KeyEvent()->is_system_key)
     return;
 
-  ScrollDirection scroll_direction;
+  mojom::blink::ScrollDirection scroll_direction;
   ScrollGranularity scroll_granularity;
   WebFeature scroll_use_uma;
   if (!MapKeyCodeForScroll(event->keyCode(), event->GetModifiers(),
@@ -460,8 +473,9 @@ void KeyboardEventManager::DefaultTabEventHandler(KeyboardEvent* event) {
   if (!page->TabKeyCyclesThroughElements())
     return;
 
-  WebFocusType focus_type =
-      event->shiftKey() ? kWebFocusTypeBackward : kWebFocusTypeForward;
+  mojom::blink::FocusType focus_type = event->shiftKey()
+                                           ? mojom::blink::FocusType::kBackward
+                                           : mojom::blink::FocusType::kForward;
 
   // Tabs can be used in design mode editing.
   if (frame_->GetDocument()->InDesignMode())

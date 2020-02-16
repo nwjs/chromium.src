@@ -147,7 +147,6 @@ class CORE_EXPORT StyleRuleFontFace : public StyleRuleBase {
  public:
   StyleRuleFontFace(CSSPropertyValueSet*);
   StyleRuleFontFace(const StyleRuleFontFace&);
-  ~StyleRuleFontFace();
 
   const CSSPropertyValueSet& Properties() const { return *properties_; }
   MutableCSSPropertyValueSet& MutableProperties();
@@ -189,11 +188,6 @@ class StyleRulePage : public StyleRuleBase {
 
 class StyleRuleProperty : public StyleRuleBase {
  public:
-  static StyleRuleProperty* Create(const String& name,
-                                   CSSPropertyValueSet* properties) {
-    return MakeGarbageCollected<StyleRuleProperty>(name, properties);
-  }
-
   StyleRuleProperty(const String& name, CSSPropertyValueSet*);
   StyleRuleProperty(const StyleRuleProperty&);
   ~StyleRuleProperty();
@@ -292,7 +286,6 @@ class StyleRuleViewport : public StyleRuleBase {
  public:
   explicit StyleRuleViewport(CSSPropertyValueSet*);
   explicit StyleRuleViewport(const StyleRuleViewport&);
-  ~StyleRuleViewport();
 
   const CSSPropertyValueSet& Properties() const { return *properties_; }
   MutableCSSPropertyValueSet& MutableProperties();

@@ -17,9 +17,7 @@ if (is_android) {
 }
 
 group("blink") {
-  public_deps = [
-    ":blink_headers",
-  ]
+  public_deps = [ ":blink_headers" ]
   deps = [
     "//third_party/blink/renderer/controller",
     "//third_party/blink/renderer/core",
@@ -75,8 +73,7 @@ if (is_android) {
   java_cpp_enum("blink_headers_java_enums_srcjar") {
     sources = [
       "./common/context_menu_data/media_type.h",
-      "./platform/web_focus_type.h",
-      "./platform/web_input_event.h",
+      "./common/input/web_input_event.h",
       "./platform/web_text_input_mode.h",
       "./platform/web_text_input_type.h",
     ]
@@ -126,7 +123,6 @@ source_set("blink_headers") {
     "platform/mac/web_scrollbar_theme.h",
     "platform/media/webmediaplayer_delegate.h",
     "platform/modules/mediastream/media_stream_audio_deliverer.h",
-    "platform/modules/mediastream/media_stream_audio_track.h",
     "platform/modules/mediastream/media_stream_types.h",
     "platform/modules/mediastream/secure_display_link_tracker.h",
     "platform/modules/mediastream/web_media_element_source_utils.h",
@@ -146,7 +142,6 @@ source_set("blink_headers") {
     "platform/modules/video_capture/web_video_capture_impl_manager.h",
     "platform/modules/webrtc/webrtc_logging.h",
     "platform/platform.h",
-    "platform/pointer_id.h",
     "platform/pointer_properties.h",
     "platform/scheduler/web_rail_mode_observer.h",
     "platform/scheduler/web_render_widget_scheduling_state.h",
@@ -154,17 +149,16 @@ source_set("blink_headers") {
     "platform/scheduler/web_resource_loading_task_runner_handle.h",
     "platform/scheduler/web_scoped_virtual_time_pauser.h",
     "platform/scheduler/web_thread_scheduler.h",
+    "platform/scheduler/web_widget_scheduler.h",
     "platform/shape_properties.h",
     "platform/task_type.h",
     "platform/url_conversion.h",
     "platform/user_metrics_action.h",
     "platform/viewport_intersection_state.h",
     "platform/web_audio_bus.h",
-    "platform/web_audio_destination_consumer.h",
     "platform/web_audio_device.h",
     "platform/web_audio_latency_hint.h",
     "platform/web_audio_source_provider.h",
-    "platform/web_audio_source_provider_client.h",
     "platform/web_blob_info.h",
     "platform/web_cache.h",
     "platform/web_callbacks.h",
@@ -179,7 +173,6 @@ source_set("blink_headers") {
     "platform/web_content_decryption_module_exception.h",
     "platform/web_content_decryption_module_result.h",
     "platform/web_content_decryption_module_session.h",
-    "platform/web_content_security_policy.h",
     "platform/web_content_security_policy_struct.h",
     "platform/web_content_settings_client.h",
     "platform/web_crypto.h",
@@ -204,16 +197,12 @@ source_set("blink_headers") {
     "platform/web_encrypted_media_types.h",
     "platform/web_fetch_client_settings_object.h",
     "platform/web_file_system_type.h",
-    "platform/web_float_point.h",
     "platform/web_float_rect.h",
     "platform/web_float_size.h",
-    "platform/web_focus_type.h",
     "platform/web_font.h",
     "platform/web_font_description.h",
     "platform/web_font_render_style.h",
     "platform/web_gesture_curve.h",
-    "platform/web_gesture_device.h",
-    "platform/web_gesture_event.h",
     "platform/web_graphics_context_3d_provider.h",
     "platform/web_history_scroll_restoration_type.h",
     "platform/web_http_body.h",
@@ -223,15 +212,12 @@ source_set("blink_headers") {
     "platform/web_image_generator.h",
     "platform/web_inband_text_track.h",
     "platform/web_inband_text_track_client.h",
-    "platform/web_input_event.h",
     "platform/web_input_event_result.h",
     "platform/web_insecure_request_policy.h",
     "platform/web_intrinsic_sizing_info.h",
     "platform/web_isolated_world_ids.h",
     "platform/web_isolated_world_info.h",
-    "platform/web_keyboard_event.h",
     "platform/web_loading_hints_provider.h",
-    "platform/web_media_constraints.h",
     "platform/web_media_key_system_configuration.h",
     "platform/web_media_key_system_media_capability.h",
     "platform/web_media_player.h",
@@ -244,32 +230,19 @@ source_set("blink_headers") {
     "platform/web_media_stream_track.h",
     "platform/web_memory_pressure_level.h",
     "platform/web_memory_pressure_listener.h",
-    "platform/web_menu_source_type.h",
     "platform/web_mixed_content.h",
     "platform/web_mixed_content_context_type.h",
-    "platform/web_mouse_event.h",
-    "platform/web_mouse_wheel_event.h",
     "platform/web_navigation_body_loader.h",
     "platform/web_network_state_notifier.h",
-    "platform/web_point.h",
-    "platform/web_pointer_event.h",
-    "platform/web_pointer_properties.h",
     "platform/web_prerender.h",
     "platform/web_prerendering_support.h",
     "platform/web_prescient_networking.h",
     "platform/web_private_ptr.h",
     "platform/web_rect.h",
-    "platform/web_resource_timing_info.h",
-    "platform/web_rtc_peer_connection_handler.h",
-    "platform/web_rtc_peer_connection_handler_client.h",
-    "platform/web_rtc_stats.h",
     "platform/web_runtime_features.h",
     "platform/web_scoped_page_pauser.h",
     "platform/web_screen_info.h",
     "platform/web_scroll_anchor_data.h",
-    "platform/web_scroll_into_view_params.h",
-    "platform/web_scroll_types.h",
-    "platform/web_scrollbar_buttons_placement.h",
     "platform/web_scrollbar_overlay_color_theme.h",
     "platform/web_security_origin.h",
     "platform/web_set_sink_id_callbacks.h",
@@ -288,11 +261,8 @@ source_set("blink_headers") {
     "platform/web_thread_safe_data.h",
     "platform/web_time_range.h",
     "platform/web_touch_action.h",
-    "platform/web_touch_event.h",
-    "platform/web_touch_point.h",
     "platform/web_url.h",
     "platform/web_url_error.h",
-    "platform/web_url_load_timing.h",
     "platform/web_url_loader.h",
     "platform/web_url_loader_client.h",
     "platform/web_url_loader_factory.h",
@@ -392,7 +362,6 @@ source_set("blink_headers") {
     "web/web_node.h",
     "web/web_option_element.h",
     "web/web_origin_policy.h",
-    "web/web_page_importance_signals.h",
     "web/web_page_popup.h",
     "web/web_pepper_socket.h",
     "web/web_pepper_socket_client.h",
@@ -411,7 +380,6 @@ source_set("blink_headers") {
     "web/web_remote_frame.h",
     "web/web_remote_frame_client.h",
     "web/web_render_theme.h",
-    "web/web_scoped_user_gesture.h",
     "web/web_scoped_window_focus_allowed_indicator.h",
     "web/web_script_controller.h",
     "web/web_script_execution_callback.h",
@@ -432,7 +400,6 @@ source_set("blink_headers") {
     "web/web_text_decoration_type.h",
     "web/web_text_direction.h",
     "web/web_tree_scope_type.h",
-    "web/web_user_gesture_indicator.h",
     "web/web_user_media_request.h",
     "web/web_v8_context_snapshot.h",
     "web/web_view.h",
@@ -485,21 +452,15 @@ source_set("blink_headers") {
 devtools_frontend_path = "//third_party/devtools-frontend/src"
 
 group("blink_devtools_frontend_resources") {
-  public_deps = [
-    "$devtools_frontend_path:devtools_frontend_resources",
-  ]
+  public_deps = [ "$devtools_frontend_path:devtools_frontend_resources" ]
 }
 
 group("blink_devtools_frontend_resources_files") {
-  data_deps = [
-    "$devtools_frontend_path:devtools_all_files",
-  ]
+  data_deps = [ "$devtools_frontend_path:devtools_all_files" ]
 }
 
 group("blink_generate_devtools_grd") {
-  public_deps = [
-    "$devtools_frontend_path:generate_devtools_grd",
-  ]
+  public_deps = [ "$devtools_frontend_path:generate_devtools_grd" ]
 }
 
 resources_out_dir = "$root_gen_dir/third_party/blink/public/resources"
@@ -536,9 +497,7 @@ repack("scaled_resources_100_percent") {
     "$root_gen_dir/third_party/blink/public/resources/blink_image_resources_100_percent.pak",
     "$root_gen_dir/third_party/blink/renderer/modules/media_controls/resources/media_controls_resources_100_percent.pak",
   ]
-  deps = [
-    ":scaled_resources",
-  ]
+  deps = [ ":scaled_resources" ]
 }
 
 repack("scaled_resources_200_percent") {
@@ -547,7 +506,5 @@ repack("scaled_resources_200_percent") {
     "$root_gen_dir/third_party/blink/public/resources/blink_image_resources_200_percent.pak",
     "$root_gen_dir/third_party/blink/renderer/modules/media_controls/resources/media_controls_resources_200_percent.pak",
   ]
-  deps = [
-    ":scaled_resources",
-  ]
+  deps = [ ":scaled_resources" ]
 }

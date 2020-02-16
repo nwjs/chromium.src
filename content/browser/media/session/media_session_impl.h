@@ -34,8 +34,6 @@
 #include "base/android/scoped_java_ref.h"
 #endif  // defined(OS_ANDROID)
 
-class MediaSessionImplBrowserTest;
-
 namespace media {
 enum class MediaContentType;
 }  // namespace media
@@ -140,6 +138,7 @@ class MediaSessionImpl : public MediaSession,
   void OnWebContentsLostFocus(RenderWidgetHost*) override;
   void TitleWasSet(NavigationEntry* entry) override;
   void DidUpdateFaviconURL(const std::vector<FaviconURL>& candidates) override;
+  void MediaPictureInPictureChanged(bool is_picture_in_picture) override;
 
   // MediaSessionService-related methods
 
@@ -248,6 +247,12 @@ class MediaSessionImpl : public MediaSession,
   // Scrub ("fast seek") the media session to a specific time.
   void ScrubTo(base::TimeDelta seek_time) override;
 
+  // Enter picture-in-picture.
+  void EnterPictureInPicture() override;
+
+  // Exit picture-in-picture.
+  void ExitPictureInPicture() override;
+
   // Downloads the bitmap version of a MediaImage at least |minimum_size_px|
   // and closest to |desired_size_px|. If the download failed, was too small or
   // the image did not come from the media session then returns a null image.
@@ -261,6 +266,8 @@ class MediaSessionImpl : public MediaSession,
     return audio_focus_group_id_;
   }
 
+  void OnPictureInPictureAvailabilityChanged();
+
   // Returns whether the action should be routed to |routed_service_|.
   bool ShouldRouteAction(media_session::mojom::MediaSessionAction action) const;
 
@@ -273,7 +280,7 @@ class MediaSessionImpl : public MediaSession,
 
  private:
   friend class content::WebContentsUserData<MediaSessionImpl>;
-  friend class ::MediaSessionImplBrowserTest;
+  friend class MediaSessionImplBrowserTest;
   friend class content::MediaSessionImplVisibilityBrowserTest;
   friend class content::AudioFocusManagerTest;
   friend class content::MediaSessionImplServiceRoutingTest;
@@ -306,7 +313,6 @@ class MediaSessionImpl : public MediaSession,
   };
   using PlayersMap =
       std::unordered_set<PlayerIdentifier, PlayerIdentifier::Hash>;
-  using StateChangedCallback = base::Callback<void(State)>;
 
   CONTENT_EXPORT explicit MediaSessionImpl(WebContents* web_contents);
 
@@ -375,6 +381,8 @@ class MediaSessionImpl : public MediaSession,
   // Rebuilds |metadata_| and |images_| and notifies observers if they have
   // changed.
   void RebuildAndNotifyMetadataChanged();
+
+  bool IsPictureInPictureAvailable() const;
 
   // Called when a MediaSessionAction is received. The action will be forwarded
   // to blink::MediaSession corresponding to the current routed service.

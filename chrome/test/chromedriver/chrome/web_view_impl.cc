@@ -623,16 +623,10 @@ Status WebViewImpl::DispatchTouchEventWithMultiPoints(
     params.SetInteger("timestamp", current_time);
     std::string type = GetAsString(event.type);
     params.SetString("type", type);
-    if (type == "touchStart" || type == "touchMove") {
-      point_list->Append(GenerateTouchPoint(event));
-      for (auto point = touch_points_.begin(); point != touch_points_.end();
-           ++point) {
-        if (point->first != event.id) {
-          point_list->Append(GenerateTouchPoint(point->second));
-        }
-      }
-      touch_points_[event.id] = event;
-    }
+    if (type == "touchCancel")
+      continue;
+
+    point_list->Append(GenerateTouchPoint(event));
     params.Set("touchPoints", std::move(point_list));
 
     if (async_dispatch_events || touch_count < events.size()) {
@@ -644,12 +638,6 @@ Status WebViewImpl::DispatchTouchEventWithMultiPoints(
     if (status.IsError())
       return status;
 
-    if (type != "touchStart" && type != "touchMove") {
-      for (auto point = touch_points_.begin(); point != touch_points_.end();) {
-        point = touch_points_.erase(point);
-      }
-      break;
-    }
     touch_count++;
   }
   return Status(kOk);
@@ -984,23 +972,7 @@ Status WebViewImpl::TakeHeapSnapshot(std::unique_ptr<base::Value>* snapshot) {
 Status WebViewImpl::InitProfileInternal() {
   base::DictionaryValue params;
 
-  // TODO: Remove Debugger.enable after Chrome 36 stable is released.
-  Status status_debug = client_->SendCommand("Debugger.enable", params);
-
-  if (status_debug.IsError())
-    return status_debug;
-
-  Status status_profiler = client_->SendCommand("Profiler.enable", params);
-
-  if (status_profiler.IsError()) {
-    Status status_debugger = client_->SendCommand("Debugger.disable", params);
-    if (status_debugger.IsError())
-      return status_debugger;
-
-    return status_profiler;
-  }
-
-  return Status(kOk);
+  return client_->SendCommand("Profiler.enable", params);
 }
 
 Status WebViewImpl::StopProfileInternal() {

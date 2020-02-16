@@ -8,6 +8,8 @@
 
 #include "base/strings/stringprintf.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "third_party/icu/source/common/unicode/locid.h"
 #include "third_party/re2/src/re2/re2.h"
 
 namespace chromeos {
@@ -39,9 +41,50 @@ const QuickAnswersRequest PreprocessRequest(
 }  // namespace
 
 QuickAnswersClient::QuickAnswersClient(URLLoaderFactory* url_loader_factory,
+                                       ash::AssistantState* assistant_state,
                                        QuickAnswersDelegate* delegate)
-    : url_loader_factory_(url_loader_factory), delegate_(delegate) {}
-QuickAnswersClient::~QuickAnswersClient() {}
+    : url_loader_factory_(url_loader_factory),
+      assistant_state_(assistant_state),
+      delegate_(delegate) {
+  if (assistant_state_) {
+    // We observe Assistant state to detect enabling/disabling of Assistant in
+    // settings as well as enabling/disabling of screen context.
+    assistant_state_->AddObserver(this);
+  }
+}
+
+QuickAnswersClient::~QuickAnswersClient() {
+  if (assistant_state_)
+    assistant_state_->RemoveObserver(this);
+}
+
+void QuickAnswersClient::OnAssistantFeatureAllowedChanged(
+    ash::mojom::AssistantAllowedState state) {
+  assistant_allowed_state_ = state;
+  NotifyEligibilityChanged();
+}
+
+void QuickAnswersClient::OnAssistantSettingsEnabled(bool enabled) {
+  assistant_enabled_ = enabled;
+  NotifyEligibilityChanged();
+}
+
+void QuickAnswersClient::OnAssistantContextEnabled(bool enabled) {
+  assistant_context_enabled_ = enabled;
+  NotifyEligibilityChanged();
+}
+
+void QuickAnswersClient::OnLocaleChanged(const std::string& locale) {
+  const std::string kAllowedLocales[] = {ULOC_US};
+  const std::string kRuntimeLocale = icu::Locale::getDefault().getName();
+  locale_supported_ = (base::Contains(kAllowedLocales, locale) ||
+                       base::Contains(kAllowedLocales, kRuntimeLocale));
+  NotifyEligibilityChanged();
+}
+
+void QuickAnswersClient::OnAssistantStateDestroyed() {
+  assistant_state_ = nullptr;
+}
 
 void QuickAnswersClient::SendRequest(
     const QuickAnswersRequest& quick_answers_request) {
@@ -50,11 +93,27 @@ void QuickAnswersClient::SendRequest(
   delegate_->OnRequestPreprocessFinish(processed_request);
 
   // Load and parse search result.
-  search_results_loader_ = std::make_unique<SearchResultLoader>(
-      url_loader_factory_,
-      base::BindOnce(&QuickAnswersClient::OnQuickAnswerReceived,
-                     base::Unretained(this)));
+  search_results_loader_ =
+      std::make_unique<SearchResultLoader>(url_loader_factory_, this);
   search_results_loader_->Fetch(processed_request.selected_text);
+}
+
+void QuickAnswersClient::NotifyEligibilityChanged() {
+  DCHECK(delegate_);
+  bool is_eligible =
+      (chromeos::features::IsQuickAnswersEnabled() && assistant_state_ &&
+       assistant_enabled_ && locale_supported_ && assistant_context_enabled_ &&
+       assistant_allowed_state_ == ash::mojom::AssistantAllowedState::ALLOWED);
+
+  if (is_eligible_ != is_eligible) {
+    is_eligible_ = is_eligible;
+    delegate_->OnEligibilityChanged(is_eligible);
+  }
+}
+
+void QuickAnswersClient::OnNetworkError() {
+  DCHECK(delegate_);
+  delegate_->OnNetworkError();
 }
 
 void QuickAnswersClient::OnQuickAnswerReceived(

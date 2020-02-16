@@ -3,6 +3,11 @@
 # found in the LICENSE file.
 
 import("//build/config/python.gni")
+import("//third_party/blink/renderer/bindings/bindings.gni")
+import("//third_party/blink/renderer/bindings/core/v8/generated.gni")
+import("//third_party/blink/renderer/bindings/idl_in_core.gni")
+import("//third_party/blink/renderer/bindings/idl_in_modules.gni")
+import("//third_party/blink/renderer/bindings/modules/v8/generated.gni")
 import("//third_party/blink/renderer/bindings/scripts/scripts.gni")
 import("//third_party/blink/renderer/build/scripts/scripts.gni")
 import("//third_party/blink/renderer/core/core_idl_files.gni")
@@ -15,9 +20,7 @@ action("interfaces_info") {
     "$bindings_core_output_dir/interfaces_info_core.pickle",
     "$bindings_modules_output_dir/interfaces_info_modules.pickle",
   ]
-  outputs = [
-    "$bindings_output_dir/interfaces_info.pickle",
-  ]
+  outputs = [ "$bindings_output_dir/interfaces_info.pickle" ]
 
   args = [
     "--",
@@ -53,9 +56,7 @@ template("collect_idl_files") {
     script = "${bindings_scripts_dir}/collect_idl_files.py"
 
     inputs = invoker.inputs
-    outputs = [
-      invoker.output,
-    ]
+    outputs = [ invoker.output ]
 
     # List input file names in a temporary file.
     response_file_contents = rebase_path(inputs, root_build_dir)
@@ -75,13 +76,21 @@ template("collect_idl_files") {
 }
 
 collect_idl_files("web_idl_in_core") {
-  # All IDL files in 'core' component.
-  inputs = core_static_interface_idl_files +
-           core_generated_interface_idl_files + core_all_dependency_idl_files
+  component = "core"
 
-  # The hack of "constructor attributes" for the old bindings generator is not
-  # necessary for the new one.
-  inputs -= core_global_constructors_generated_idl_files
+  inputs = static_idl_files_in_core
+  deps = []
+
+  inputs += get_path_info(
+          [
+            "$root_gen_dir/third_party/blink/renderer/core/testing/internal_runtime_flags.idl",
+            "$root_gen_dir/third_party/blink/renderer/core/testing/internal_settings_generated.idl",
+          ],
+          "abspath")
+  deps += [
+    "//third_party/blink/renderer/core:generated_testing_idls_internal_runtime_flags",
+    "//third_party/blink/renderer/core:generated_testing_idls_settings",
+  ]
 
   # Supplemental IDL definitions to support the migration from the old bindings
   # generator to the new one.
@@ -90,19 +99,14 @@ collect_idl_files("web_idl_in_core") {
   # Additional IDL files to test and demonstrate the new IDL compiler.
   inputs += [ "${bindings_scripts_dir}/web_idl/demonstration_and_testing.idl" ]
 
-  component = "core"
   output = "${bindings_output_dir}/web_idl_in_core.pickle"
-  deps = [
-    "//third_party/blink/renderer/core:generated_testing_idls_internal_runtime_flags",
-    "//third_party/blink/renderer/core:generated_testing_idls_settings",
-  ]
 }
 
 collect_idl_files("web_idl_in_modules") {
-  # All IDL files in 'modules' component.
-  inputs = modules_definition_idl_files + modules_static_interface_idl_files +
-           modules_static_dependency_idl_files
   component = "modules"
+
+  inputs = static_idl_files_in_modules
+
   output = "${bindings_output_dir}/web_idl_in_modules.pickle"
 }
 
@@ -119,9 +123,7 @@ action_with_pydeps("web_idl_database") {
              runtime_enabled_features_test_file,
            ]
   output_data_file = "${bindings_output_dir}/web_idl_database.pickle"
-  outputs = [
-    output_data_file,
-  ]
+  outputs = [ output_data_file ]
 
   args = [
            "--output",
@@ -139,30 +141,59 @@ action_with_pydeps("web_idl_database") {
   ]
 }
 
-action_with_pydeps("generate_bindings_example") {
-  script = "${bindings_scripts_dir}/generate_bindings.py"
+group("generate_v8_bindings") {
+  public_deps = []
+  if (use_v8_bind_gen_for_dictionary) {
+    public_deps += [ ":generate_v8_bindings_dictionary" ]
+  }
+}
+
+if (use_v8_bind_gen_for_dictionary) {
+  action_with_pydeps("generate_v8_bindings_dictionary") {
+    script = "${bindings_scripts_dir}/generate_bindings.py"
+
+    web_idl_database_outputs = get_target_outputs(":web_idl_database")
+    web_idl_database = web_idl_database_outputs[0]
+
+    inputs = [ web_idl_database ]
+    outputs =
+        generated_core_dictionary_files + generated_modules_dictionary_files +
+        generated_core_testing_dictionary_files + generated_demo_files
+
+    args = [
+      "dictionary",
+      "--web_idl_database",
+      rebase_path(web_idl_database, root_build_dir),
+      "--root_src_dir",
+      rebase_path("//", root_build_dir),
+      "--root_gen_dir",
+      rebase_path(root_gen_dir, root_build_dir),
+      "--output_core_reldir",
+      rebase_path("${bindings_output_dir}/core/v8/", root_gen_dir),
+      "--output_modules_reldir",
+      rebase_path("${bindings_output_dir}/modules/v8/", root_gen_dir),
+    ]
+
+    deps = [ ":web_idl_database" ]
+  }
+}
+
+action_with_pydeps("generate_high_entropy_list") {
+  script = "${bindings_scripts_dir}/generate_high_entropy_list.py"
 
   web_idl_database_outputs = get_target_outputs(":web_idl_database")
   web_idl_database = web_idl_database_outputs[0]
 
-  inputs = [
-    web_idl_database,
-  ]
-  outputs = [
-    "${bindings_output_dir}/core/v8/example_dictionary.cc",
-  ]
+  inputs = [ web_idl_database ]
+  output_data_file = "${bindings_output_dir}/high_entropy_list.txt"
+  outputs = [ output_data_file ]
 
   args = [
-    "dictionary",
     "--web_idl_database",
     rebase_path(web_idl_database, root_build_dir),
-    "--output_dir_core",
-    rebase_path("${bindings_output_dir}/core/v8/", root_build_dir),
-    "--output_dir_modules",
-    rebase_path("${bindings_output_dir}/modules/v8/", root_build_dir),
+    "--output",
+    rebase_path(output_data_file, root_build_dir),
   ]
 
-  deps = [
-    ":web_idl_database",
-  ]
+  deps = [ ":web_idl_database" ]
 }

@@ -37,7 +37,7 @@ class PasswordManagerDriver;
 }  // namespace password_manager
 
 namespace autofill {
-struct PasswordForm;
+struct FormData;
 struct Suggestion;
 namespace password_generation {
 struct PasswordGenerationUIData;
@@ -103,6 +103,8 @@ class PasswordGenerationPopupControllerImpl
   // content::WebContentsObserver overrides
   void DidAttachInterstitialPage() override;
   void WebContentsDestroyed() override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
 
 #if !defined(OS_ANDROID)
   // ZoomObserver implementation.
@@ -125,12 +127,13 @@ class PasswordGenerationPopupControllerImpl
  private:
   class KeyPressRegistrator;
   // PasswordGenerationPopupController implementation:
-  void Hide() override;
+  void Hide(autofill::PopupHidingReason reason) override;
   void ViewDestroyed() override;
   void SetSelectionAtPoint(const gfx::Point& point) override;
   bool AcceptSelectedLine() override;
   void SelectionCleared() override;
   bool HasSelection() const override;
+  void SetSelected() override;
   void PasswordAccepted() override;
   gfx::NativeView container_view() const override;
   gfx::Rect popup_bounds() const override;
@@ -158,7 +161,7 @@ class PasswordGenerationPopupControllerImpl
   // Accept password if it's selected.
   bool PossiblyAcceptPassword();
 
-  const autofill::PasswordForm form_;
+  const autofill::FormData form_data_;
 
   base::WeakPtr<password_manager::PasswordManagerDriver> const driver_;
 

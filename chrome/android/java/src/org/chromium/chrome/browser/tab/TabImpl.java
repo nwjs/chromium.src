@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.tab;
 
-import static org.chromium.chrome.browser.tab.Tab.INVALID_TAB_ID;
-
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -13,7 +11,6 @@ import android.graphics.Rect;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
-import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
 
 import androidx.annotation.Nullable;
@@ -33,29 +30,23 @@ import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.WebContentsFactory;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.contextmenu.ContextMenuPopulator;
-import org.chromium.chrome.browser.native_page.FrozenNativePage;
-import org.chromium.chrome.browser.native_page.NativePage;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.prerender.ExternalPrerenderHandler;
-import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.rlz.RevenueStats;
-import org.chromium.chrome.browser.ssl.SecurityStateModel;
 import org.chromium.chrome.browser.tab.TabState.WebContentsState;
 import org.chromium.chrome.browser.tab.TabUma.TabCreationState;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.ui.native_page.FrozenNativePage;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.view.ContentView;
-import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.ChildProcessImportance;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.content_public.browser.RenderWidgetHostView;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -98,7 +89,7 @@ public class TabImpl implements Tab {
     private WebContents mWebContents;
 
     /** The parent view of the ContentView and the InfoBarContainer. */
-    private ViewGroup mContentView;
+    private ContentView mContentView;
 
     /** A list of Tab observers.  These are used to broadcast Tab events to listeners. */
     private final ObserverList<TabObserver> mObservers = new ObserverList<>();
@@ -337,7 +328,7 @@ public class TabImpl implements Tab {
     }
 
     @Override
-    public ViewGroup getContentView() {
+    public ContentView getContentView() {
         return mContentView;
     }
 
@@ -517,7 +508,8 @@ public class TabImpl implements Tab {
         if (OfflinePageUtils.isOfflinePage(this)) {
             // If current page is an offline page, reload it with custom behavior defined in extra
             // header respected.
-            OfflinePageUtils.reload(this);
+            OfflinePageUtils.reload(getWebContents(),
+                    /*loadUrlDelegate=*/new OfflinePageUtils.TabOfflinePageLoadUrlDelegate(this));
         } else {
             if (getWebContents() != null) getWebContents().getNavigationController().reload(true);
         }
@@ -582,32 +574,14 @@ public class TabImpl implements Tab {
         if (getWebContents() != null) getWebContents().getNavigationController().goForward();
     }
 
-    /**
-     * @return Whether or not this Tab has a live native component.  This will be true prior to
-     *         {@link #initializeNative()} being called or after {@link #destroy()}.
-     */
+    // TabLifecycle implementation.
+
+    @Override
     public boolean isInitialized() {
         return mNativeTabAndroid != 0;
     }
 
-    /**
-     * @return Whether or not the tab has something valid to render.
-     */
-    public boolean isReady() {
-        if (mNativePage != null) return true;
-        WebContents webContents = getWebContents();
-        if (webContents == null) return false;
-
-        RenderWidgetHostView rwhv = webContents.getRenderWidgetHostView();
-        return rwhv != null && rwhv.isReady();
-    }
-
-    /**
-     * Prepares the tab to be shown. This method is supposed to be called before the tab is
-     * displayed. It restores the ContentView if it is not available after the cold start and
-     * reloads the tab if its renderer has crashed.
-     * @param type Specifies how the tab was selected.
-     */
+    @Override
     public final void show(@TabSelectionType int type) {
         try {
             TraceEvent.begin("Tab.show");
@@ -647,9 +621,7 @@ public class TabImpl implements Tab {
         }
     }
 
-    /**
-     * Triggers the hiding logic for the view backing the tab.
-     */
+    @Override
     public final void hide(@TabHidingType int type) {
         try {
             TraceEvent.begin("Tab.hide");
@@ -665,6 +637,46 @@ public class TabImpl implements Tab {
             for (TabObserver observer : mObservers) observer.onHidden(this, type);
         } finally {
             TraceEvent.end("Tab.hide");
+        }
+    }
+
+    @Override
+    public boolean isClosing() {
+        return mIsClosing;
+    }
+
+    @Override
+    public void setClosing(boolean closing) {
+        mIsClosing = closing;
+        for (TabObserver observer : mObservers) observer.onClosingStateChanged(this, closing);
+    }
+
+    @Override
+    public boolean isHidden() {
+        return mIsHidden;
+    }
+
+    @Override
+    public void destroy() {
+        // Update the title before destroying the tab. http://b/5783092
+        updateTitle();
+
+        for (TabObserver observer : mObservers) observer.onDestroyed(this);
+        mObservers.clear();
+
+        mUserDataHost.destroy();
+        hideNativePage(false, null);
+        destroyWebContents(true);
+
+        TabImportanceManager.tabDestroyed(this);
+
+        // Destroys the native tab after destroying the ContentView but before destroying the
+        // InfoBarContainer. The native tab should be destroyed before the infobar container as
+        // destroying the native tab cleanups up any remaining infobars. The infobar container
+        // expects all infobars to be cleaned up before its own destruction.
+        if (mNativeTabAndroid != 0) {
+            TabImplJni.get().destroy(mNativeTabAndroid, TabImpl.this);
+            assert mNativeTabAndroid == 0;
         }
     }
 
@@ -704,23 +716,6 @@ public class TabImpl implements Tab {
      */
     public int getRootId() {
         return mRootId;
-    }
-
-    /**
-     * @return If the page being displayed is a Preview
-     */
-    public boolean isPreview() {
-        return getWebContents() != null && !isNativePage() && !isShowingInterstitialPage()
-                && getSecurityLevel() != ConnectionSecurityLevel.DANGEROUS
-                && PreviewsAndroidBridge.getInstance().shouldShowPreviewUI(getWebContents());
-    }
-
-    /**
-     * @return The current {@link ConnectionSecurityLevel} for the tab.
-     */
-    // TODO(tedchoc): Remove this and transition all clients to use LocationBarModel directly.
-    public int getSecurityLevel() {
-        return SecurityStateModel.getSecurityLevelForWebContents(getWebContents());
     }
 
     /**
@@ -778,28 +773,6 @@ public class TabImpl implements Tab {
     }
 
     /**
-     * @return Whether or not the tab is in the closing process.
-     */
-    public boolean isClosing() {
-        return mIsClosing;
-    }
-
-    /**
-     * @param closing Whether or not the tab is in the closing process.
-     */
-    public void setClosing(boolean closing) {
-        mIsClosing = closing;
-        for (TabObserver observer : mObservers) observer.onClosingStateChanged(this, closing);
-    }
-
-    /**
-     * @return Whether or not the tab is hidden.
-     */
-    public boolean isHidden() {
-        return mIsHidden;
-    }
-
-    /**
      * Update whether or not the current native tab and/or web contents are
      * currently visible (from an accessibility perspective), or whether
      * they're obscured by another view.
@@ -831,35 +804,6 @@ public class TabImpl implements Tab {
     public void notifyContextualActionBarVisibilityChanged(boolean show) {
         for (TabObserver observer : mObservers) {
             observer.onContextualActionBarVisibilityChanged(this, show);
-        }
-    }
-
-    /**
-     * Cleans up all internal state, destroying any {@link NativePage} or {@link WebContents}
-     * currently associated with this {@link Tab}.  This also destroys the native counterpart
-     * to this class, which means that all subclasses should erase their native pointers after
-     * this method is called.  Once this call is made this {@link Tab} should no longer be used.
-     */
-    public void destroy() {
-        // Update the title before destroying the tab. http://b/5783092
-        updateTitle();
-
-        for (TabObserver observer : mObservers) observer.onDestroyed(this);
-        mObservers.clear();
-
-        mUserDataHost.destroy();
-        hideNativePage(false, null);
-        destroyWebContents(true);
-
-        TabImportanceManager.tabDestroyed(this);
-
-        // Destroys the native tab after destroying the ContentView but before destroying the
-        // InfoBarContainer. The native tab should be destroyed before the infobar container as
-        // destroying the native tab cleanups up any remaining infobars. The infobar container
-        // expects all infobars to be cleaned up before its own destruction.
-        if (mNativeTabAndroid != 0) {
-            TabImplJni.get().destroy(mNativeTabAndroid, TabImpl.this);
-            assert mNativeTabAndroid == 0;
         }
     }
 
@@ -1117,8 +1061,14 @@ public class TabImpl implements Tab {
         }
     }
 
-    @Override
-    public void setIsShowingErrorPage(boolean isShowingErrorPage) {
+    /**
+     * Sets whether the tab is showing an error page.  This is reset whenever the tab finishes a
+     * navigation.
+     * Note: This is kept here to keep the build green. Remove from interface as soon as
+     *       the downstream patch lands.
+     * @param isShowingErrorPage Whether the tab shows an error page.
+     */
+    void setIsShowingErrorPage(boolean isShowingErrorPage) {
         mIsShowingErrorPage = isShowingErrorPage;
     }
 
@@ -1237,6 +1187,7 @@ public class TabImpl implements Tab {
                 : null;
         if (bounds != null) original.set(bounds);
 
+        mWebContents.setFocus(false);
         destroyWebContents(false /* do not delete native web contents */);
         hideNativePage(false, () -> {
             // Size of the new content is zero at this point. Set the view size in advance
@@ -1428,7 +1379,9 @@ public class TabImpl implements Tab {
         if (currentState == mInteractableState) return;
 
         mInteractableState = currentState;
-        for (TabObserver observer : mObservers) observer.onInteractabilityChanged(currentState);
+        for (TabObserver observer : mObservers) {
+            observer.onInteractabilityChanged(this, currentState);
+        }
     }
 
     /**

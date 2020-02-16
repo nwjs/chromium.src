@@ -41,6 +41,7 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     kSuccess = 0,
     kBfcBlockOffsetResolved = 1,
     kNeedsEarlierBreak = 2,
+    kOutOfFragmentainerSpace = 3,
     // When adding new values, make sure the bit size of |Bitfields::status| is
     // large enough to store.
   };
@@ -146,10 +147,9 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     return intrinsic_block_size_;
   }
 
-  LayoutUnit UnconstrainedIntrinsicBlockSize() const {
-    return HasRareData() && rare_data_->unconstrained_intrinsic_block_size_ !=
-                                kIndefiniteSize
-               ? rare_data_->unconstrained_intrinsic_block_size_
+  LayoutUnit OverflowBlockSize() const {
+    return HasRareData() && rare_data_->overflow_block_size_ != kIndefiniteSize
+               ? rare_data_->overflow_block_size_
                : intrinsic_block_size_;
   }
 
@@ -285,21 +285,24 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
                                     bool check_same_block_size = true) const;
 #endif
 
- private:
-  friend class NGBoxFragmentBuilder;
-  friend class NGLineBoxFragmentBuilder;
-  friend class MutableForOutOfFlow;
-
+  using NGBoxFragmentBuilderPassKey = util::PassKey<NGBoxFragmentBuilder>;
+  // This constructor is for a non-success status.
+  NGLayoutResult(NGBoxFragmentBuilderPassKey, EStatus, NGBoxFragmentBuilder*);
   // This constructor requires a non-null fragment and sets a success status.
   NGLayoutResult(
+      NGBoxFragmentBuilderPassKey,
       scoped_refptr<const NGPhysicalContainerFragment> physical_fragment,
       NGBoxFragmentBuilder*);
+  using NGLineBoxFragmentBuilderPassKey =
+      util::PassKey<NGLineBoxFragmentBuilder>;
   // This constructor requires a non-null fragment and sets a success status.
   NGLayoutResult(
+      NGLineBoxFragmentBuilderPassKey,
       scoped_refptr<const NGPhysicalContainerFragment> physical_fragment,
       NGLineBoxFragmentBuilder*);
-  // This constructor is for a non-success status.
-  NGLayoutResult(EStatus, NGBoxFragmentBuilder*);
+
+ private:
+  friend class MutableForOutOfFlow;
 
   // We don't need the copy constructor, move constructor, copy
   // assigmnment-operator, or move assignment-operator today.
@@ -358,7 +361,7 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     };
     NGExclusionSpace exclusion_space;
     scoped_refptr<SerializedScriptValue> custom_layout_data;
-    LayoutUnit unconstrained_intrinsic_block_size_ = kIndefiniteSize;
+    LayoutUnit overflow_block_size_ = kIndefiniteSize;
 #if DCHECK_IS_ON()
     bool has_tallest_unbreakable_block_size = false;
 #endif

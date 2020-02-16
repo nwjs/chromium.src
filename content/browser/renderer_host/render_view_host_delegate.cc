@@ -41,7 +41,7 @@ FrameTree* RenderViewHostDelegate::GetFrameTree() {
   return nullptr;
 }
 
-bool RenderViewHostDelegate::IsNeverVisible() {
+bool RenderViewHostDelegate::IsNeverComposited() {
   return false;
 }
 

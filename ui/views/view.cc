@@ -154,13 +154,9 @@ View::~View() {
 
 // Tree operations -------------------------------------------------------------
 
-const Widget* View::GetWidget() const {
+const Widget* View::GetWidgetImpl() const {
   // The root view holds a reference to this view hierarchy's Widget.
   return parent_ ? parent_->GetWidget() : nullptr;
-}
-
-Widget* View::GetWidget() {
-  return const_cast<Widget*>(const_cast<const View*>(this)->GetWidget());
 }
 
 void View::ReorderChildView(View* view, int index) {
@@ -425,6 +421,12 @@ int View::GetHeightForWidth(int w) const {
   return GetPreferredSize().height();
 }
 
+SizeBounds View::GetAvailableSize(const View* child) const {
+  if (layout_manager_)
+    return layout_manager_->GetAvailableSize(this, child);
+  return SizeBounds();
+}
+
 bool View::GetVisible() const {
   return visible_;
 }
@@ -444,7 +446,7 @@ void View::SetVisible(bool visible) {
     if (parent_) {
       parent_->ChildVisibilityChanged(this);
       parent_->NotifyAccessibilityEvent(ax::mojom::Event::kChildrenChanged,
-                                        false);
+                                        true);
     }
 
     // This notifies all sub-views recursively.
@@ -481,6 +483,7 @@ void View::SetEnabled(bool enabled) {
 
   enabled_ = enabled;
   AdvanceFocusIfNecessary();
+  NotifyAccessibilityEvent(ax::mojom::Event::kStateChanged, true);
   OnPropertyChanged(&enabled_, kPropertyEffectsPaint);
 }
 
@@ -972,7 +975,8 @@ void View::Paint(const PaintInfo& parent_paint_info) {
           SkFloatToScalar(paint_info.paint_recording_scale_x()),
           SkFloatToScalar(paint_info.paint_recording_scale_y()));
 
-      clip_path_in_parent.transform(to_parent_recording_space.matrix());
+      clip_path_in_parent.transform(
+          SkMatrix(to_parent_recording_space.matrix()));
       clip_recorder.ClipPathWithAntiAliasing(clip_path_in_parent);
     }
   }
@@ -1009,6 +1013,7 @@ void View::SetBackground(std::unique_ptr<Background> b) {
 }
 
 void View::SetBorder(std::unique_ptr<Border> b) {
+  const gfx::Rect old_contents_bounds = GetContentsBounds();
   border_ = std::move(b);
 
   // Conceptually, this should be PreferredSizeChanged(), but for some view
@@ -1018,7 +1023,8 @@ void View::SetBorder(std::unique_ptr<Border> b) {
   // InvalidateLayout() still triggers a re-layout of the view, which should
   // include re-querying its preferred size so in practice this is both safe and
   // has the intended effect.
-  InvalidateLayout();
+  if (old_contents_bounds != GetContentsBounds())
+    InvalidateLayout();
 
   SchedulePaint();
 }
@@ -2190,12 +2196,6 @@ void View::AddChildViewAtImpl(View* view, int index) {
   // inherit the visibility of the owner View.
   view->UpdateLayerVisibility();
 
-  if (widget) {
-    const ui::NativeTheme* new_theme = view->GetNativeTheme();
-    if (new_theme != old_theme)
-      view->PropagateThemeChanged();
-  }
-
   // Need to notify the layout manager because one of the callbacks below might
   // want to know the view's new preferred size, minimum size, etc.
   if (layout_manager_)
@@ -2207,6 +2207,12 @@ void View::AddChildViewAtImpl(View* view, int index) {
     v->ViewHierarchyChangedImpl(false, details);
 
   view->PropagateAddNotifications(details, widget && widget != old_widget);
+
+  if (widget) {
+    const ui::NativeTheme* new_theme = view->GetNativeTheme();
+    if (new_theme != old_theme)
+      view->PropagateThemeChanged();
+  }
 
   UpdateTooltip();
 
@@ -2539,7 +2545,7 @@ void View::CreateLayer(ui::LayerType layer_type) {
 
   SetLayer(std::make_unique<ui::Layer>(layer_type));
   layer()->set_delegate(this);
-  layer()->set_name(GetClassName());
+  layer()->SetName(GetClassName());
 
   UpdateParentLayers();
   UpdateLayerVisibility();

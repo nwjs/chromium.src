@@ -7,7 +7,6 @@
 <translation id="1065672644894730302">Sozlamalarni ko‘rib bo‘lmadi. Ba’zi funksiyalar mavjud emas va o‘zgartirilgan sozlamalar saqlanmaydi.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> hisobi avvallari Chrome’da ishlatilgan</translation>
 <translation id="1097330777386562916">Chrome yopilganda barcha cookie fayllari va sayt maʼlumotlari tozalanadi</translation>
-<translation id="1104959162601287462">&amp;Chrome OS haqida</translation>
 <translation id="110877069173485804">Bu Chrome sizniki</translation>
 <translation id="1142745911746664600">Chromeni yangilab bo‘lmadi</translation>
 <translation id="1154147086299354128">Chrome brauzerida &amp;ochish</translation>
@@ -19,10 +18,8 @@
 <translation id="1553358976309200471">Chrome‘ni yangilash</translation>
 <translation id="1587223624401073077">Google Chrome kameradan foydalanmoqda.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> zararli edi, shuning uchun u Chrome tomonidan bloklandi.</translation>
-<translation id="1590588151039584890">Yangilanishi uchun Chrome bu kompyuterda yopilishi zarur. Bunda kompyuterdagi boshqa sessiya foydalanuvchilari saqlamagan maʼlumotlar tozalanishi mumkin.</translation>
 <translation id="1619887657840448962">Chrome brauzerini xavfsiz holda saqlash uchun <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> ro‘yxatida keltirilmagan va sizga bildirmasdan qo‘shilgan bo‘lishi mumkin bo‘lgan quyidagi kengaytma o‘chirib qo‘yiladi.</translation>
 <translation id="1628000112320670027">Chrome yordam markazi</translation>
-<translation id="1635734105302489219">Chrome yopilganda barcha cookie fayllari tozalanadi. <ph name="COOKIE_SETTINGS_LINK" /> sozlamasini oʻzgartirib, sinxronizatsiyani davom ettiring.</translation>
 <translation id="1662639173275167396">Chrome OS tizimini ishlab chiqishda <ph name="BEGIN_LINK_LINUX_OSS" />Linux (Beta)<ph name="END_LINK_LINUX_OSS" /> kabi <ph name="BEGIN_LINK_CROS_OSS" />ochiq kodli DT<ph name="END_LINK_CROS_OSS" /> vositalaridan foydalanilgan.</translation>
 <translation id="1666409074978194368">Deyarli yangilandi! Yangilanishni tamomlash uchun Google Chromeni qaytadan ishga tushiring. Inkognito oynalar qayta ochilmaydi.</translation>
 <translation id="1674870198290878346">Havolani Chromening &amp;inkognito oynasida ochish</translation>
@@ -50,6 +47,7 @@
 <translation id="2290014774651636340">Google API kalitlari topilmadi. Google Chrome’ning ba’zi funksiyalari o‘chirib qo‘yiladi.</translation>
 <translation id="2290095356545025170">Haqiqatan ham Google Chrome brauzerini o‘chirib tashlamoqchimisiz?</translation>
 <translation id="2309047409763057870">Google Chrome takroran o‘rnatilgan, shuning uchun u asosiy brauzer bo‘la olmaydi.</translation>
+<translation id="2341767445688917208">Chrome OS tizimidagi parollaringiz sinxronlanmadi. Tuzatish.</translation>
 <translation id="2348335408836342058">Bu sayt kamera va mikrofoningizdan foydalanishi uchun Chrome brauzeriga ruxsat berishingiz lozim</translation>
 <translation id="2429317896000329049">Google Chrome domeningizda Sync xizmati yo‘qligi sababli ma’lumotlaringizni sinxronlay olmadi.</translation>
 <translation id="2467438592969358367">Google Chrome parollaringizni eksport qilmoqchi. Ruxsat berish uchun Windows platformasidagi parolingizni kiriting.</translation>
@@ -74,8 +72,6 @@
 <translation id="3080151273017101988">Google Chrome yopilishida orqa fon rejimida ishlayotgan ilovalar to‘xtatilmasin</translation>
 <translation id="3089968997497233615">Google Chrome brauzerining yangi, yanada xavfsiz versiyasi chiqdi.</translation>
 <translation id="3149510190863420837">Chrome ilovalari</translation>
-<translation id="3282568296779691940">Chrome hisobiga kirish</translation>
-<translation id="3340978935015468852">sozlamalar</translation>
 <translation id="3360895254066713204">Chrome Helper</translation>
 <translation id="3379938682270551431">{0,plural, =0{Chrome hozir qayta ishga tushadi}=1{Chrome 1 soniyadan keyin qayta ishga tushadi}other{Chrome # soniyadan keyin qayta ishga tushadi}}</translation>
 <translation id="3395323229510056640">Chrome OS yordam markazi</translation>
@@ -128,7 +124,6 @@
 <translation id="4953650215774548573">Google Chrome‘ni standart brauzer etib tayinlash</translation>
 <translation id="495931528404527476">Chrome brauzerida</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">Google Chrome ma’lumotlarni sinxronlay olmadi. Sync kodli iborasini yangilashingiz kerak.</translation>
 <translation id="5062123544085870375">Chrome OS tizimini qayta ishga tushirish</translation>
 <translation id="5132929315877954718">Google Chrome uchun zo‘r ilovalar, o‘yinlar, kengaytmalar va mavzular bilan tanishing.</translation>
 <translation id="5170938038195470297">Profilingizdan foydalanib bo‘lmaydi, chunki u yanada yangiroq Google Chrome versiyasiga ta’luqli.
@@ -143,7 +138,6 @@ Ba’zi imkoniyatlar ishlamasligi mumkin. Profilni saqlash uchun boshqa jild tan
 <translation id="5430073640787465221">Sozlamalar fayli shikastlangan yoki yaroqsiz holatda.
 
 Google Chrome sozlamalaringizni qaytadan tiklay olmadi.</translation>
-<translation id="5543953544073077331">Boshqa Chrome nusxalari ishlayapti. Yangilash uchun ularni yopish kerak.</translation>
 <translation id="556024056938947818">Kirtilgan parollar Google Chrome‘da ko‘rsatiladi.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">Agar sozlama bu sahifada chiqmasa, <ph name="LINK_BEGIN" />
@@ -193,7 +187,6 @@ Google Chrome sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="7408085963519505752">Chrome OS shartlari</translation>
 <translation id="7419046106786626209">Ma’lumotlarni sinxronlab bo‘lmadi, chunki domeningizda Sync xizmati mavjud emas.</translation>
 <translation id="7486227612705979895">Manzil panelida tavsiyalarni namoyish qilish uchun Chrome sizning Drive omboringizdan foydalanadi</translation>
-<translation id="7531671357096394523">Barcha Chrome nusxalaridan chiqish.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">Qurilmangiz tizimi yangilanganligini <ph name="LINK_BEGIN" />Chrome OS sozlamalari<ph name="LINK_END" /> orqali bilish mumkin</translation>
 <translation id="7589360514048265910">Bu kompyuterdagi Google Chrome endi boshqa yangilanmaydi, chunki  Mac OS X 10.9 tizimi uchun ta’minoti to‘xtatilgan.</translation>
@@ -212,6 +205,7 @@ Google Chrome sozlamalaringizni qaytadan tiklay olmadi.</translation>
 <translation id="7855730255114109580">Google Chrome versiyasi yangi</translation>
 <translation id="7890208801193284374">Agar kompyuterdan yaqinlaringiz va do‘stlaringiz ham foydalansa, ular Chrome brauzerini o‘zlari xohlagancha sozlab olishlari mumkin.</translation>
 <translation id="7896673875602241923">Oldinroq Chrome profiliga kimdir bu kompyuterdan <ph name="ACCOUNT_EMAIL_LAST" /> sifatida kirgan. Ma’lumotlaringizni alohida saqlash uchun yangi Chrome profilini yarating.</translation>
+<translation id="7916016681687251387">Chrome OS tizimidagi maʼlumotlaringiz sinxronlanmadi. Tuzatish.</translation>
 <translation id="7962410387636238736">Endi kompyuteringizda Google Chrome yangilanmaydi, chunki uning yangi versiyalarida Windows XP va Windows Vista tizimlari ta’minoti to‘xtatilgan</translation>
 <translation id="8008534537613507642">Chrome‘ni qaytadan o‘rnatish</translation>
 <translation id="8013993649590906847">Agar rasmga foydali tavsif berilmagan boʻlsa, Google Chrome uni sizga tavsiflaydi. Tavsif yaratish uchun rasmlar Googlega yuboriladi.</translation>

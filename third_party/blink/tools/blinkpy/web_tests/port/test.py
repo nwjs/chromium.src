@@ -90,13 +90,13 @@ class TestList(object):
             test.__dict__[key] = value
         self.tests[name] = test
 
-    def add_reference(self, name, actual_checksum='checksum', actual_image='IMAGE'):
+    def add_reference(self, name, actual_checksum='checksum', actual_image='FAIL'):
         self.add(name, actual_checksum=actual_checksum, actual_image=actual_image,
                  actual_text=None, expected_text=None, expected_image=None)
 
     def add_reftest(self, name, reference_name, same_image=True,
                     actual_text=None, expected_text=None, crash=False, error=''):
-        self.add(name, actual_checksum='checksum', actual_image='IMAGE', expected_image=None,
+        self.add(name, actual_checksum='checksum', actual_image='FAIL', expected_image=None,
                  actual_text=actual_text, expected_text=expected_text,
                  crash=crash, error=error)
         if same_image:
@@ -116,14 +116,14 @@ class TestList(object):
 #
 # These numbers may need to be updated whenever we add or delete tests. This includes virtual tests.
 #
-TOTAL_TESTS = 152
+TOTAL_TESTS = 154
 TOTAL_WONTFIX = 3
 TOTAL_SKIPS = 20 + TOTAL_WONTFIX
 TOTAL_CRASHES = 78
 
 UNEXPECTED_PASSES = 1
-UNEXPECTED_NON_VIRTUAL_FAILURES = 33
-UNEXPECTED_FAILURES = 65
+UNEXPECTED_NON_VIRTUAL_FAILURES = 34
+UNEXPECTED_FAILURES = 67
 
 
 def unit_test_list():
@@ -186,6 +186,7 @@ def unit_test_list():
     tests.add('failures/expected/crash_then_text.html')
     tests.add('failures/expected/skip_text.html', actual_text='text diff')
     tests.add('failures/flaky/text.html')
+    tests.add('failures/unexpected/*/text.html', actual_text='text_fail-png')
     tests.add('failures/unexpected/missing_text.html', expected_text=None)
     tests.add('failures/unexpected/missing_check.html', expected_image='missing-check-png')
     tests.add('failures/unexpected/missing_image.html', expected_image=None)
@@ -322,35 +323,37 @@ def add_unit_tests_to_mock_filesystem(filesystem):
     filesystem.maybe_make_directory(WEB_TEST_DIR)
     if not filesystem.exists(WEB_TEST_DIR + '/TestExpectations'):
         filesystem.write_text_file(WEB_TEST_DIR + '/TestExpectations', """
-Bug(test) failures/expected/audio.html [ Failure ]
-Bug(test) failures/expected/crash.html [ Crash ]
-Bug(test) failures/expected/crash_then_text.html [ Failure ]
-Bug(test) failures/expected/device_failure.html [ Crash ]
-Bug(test) failures/expected/exception.html [ Crash ]
-Bug(test) failures/expected/image.html [ Failure ]
-Bug(test) failures/expected/image_checksum.html [ Failure ]
-Bug(test) failures/expected/keyboard.html [ Crash ]
-Bug(test) failures/expected/leak.html [ Failure ]
-Bug(test) failures/expected/mismatch.html [ Failure ]
-Bug(test) failures/expected/newlines_leading.html [ Failure ]
-Bug(test) failures/expected/newlines_trailing.html [ Failure ]
-Bug(test) failures/expected/newlines_with_excess_CR.html [ Failure ]
-Bug(test) failures/expected/reftest.html [ Failure ]
-Bug(test) failures/expected/skip_text.html [ Skip ]
-Bug(test) failures/expected/text.html [ Failure ]
-Bug(test) failures/expected/timeout.html [ Timeout ]
-Bug(test) failures/unexpected/pass.html [ Failure ]
-Bug(test) failures/unexpected/skip_pass.html [ Skip ]
-Bug(test) passes/skipped/skip.html [ Skip ]
-Bug(test) passes/text.html [ Pass ]
-Bug(test) virtual/skipped/failures/expected [ Skip ]
+# results: [ Pass Failure Crash Timeout Skip ]
+failures/expected/audio.html [ Failure ]
+failures/expected/crash.html [ Crash ]
+failures/expected/crash_then_text.html [ Failure ]
+failures/expected/device_failure.html [ Crash ]
+failures/expected/exception.html [ Crash ]
+failures/expected/image.html [ Failure ]
+failures/expected/image_checksum.html [ Failure ]
+failures/expected/keyboard.html [ Crash ]
+failures/expected/leak.html [ Failure ]
+failures/expected/mismatch.html [ Failure ]
+failures/expected/newlines_leading.html [ Failure ]
+failures/expected/newlines_trailing.html [ Failure ]
+failures/expected/newlines_with_excess_CR.html [ Failure ]
+failures/expected/reftest.html [ Failure ]
+failures/expected/skip_text.html [ Skip ]
+failures/expected/text.html [ Failure ]
+failures/expected/timeout.html [ Timeout ]
+failures/unexpected/pass.html [ Failure ]
+failures/unexpected/skip_pass.html [ Skip ]
+crbug.com/123 passes/skipped/skip.html [ Skip ]
+passes/text.html [ Pass ]
+virtual/skipped/failures/expected* [ Skip ]
 """)
 
     if not filesystem.exists(WEB_TEST_DIR + '/NeverFixTests'):
         filesystem.write_text_file(WEB_TEST_DIR + '/NeverFixTests', """
-Bug(test) failures/expected/keyboard.html [ Skip ]
-Bug(test) failures/expected/exception.html [ Skip ]
-Bug(test) failures/expected/device_failure.html [ Skip ]
+# results: [ Pass Failure Crash Timeout Skip ]
+failures/expected/keyboard.html [ Skip ]
+failures/expected/exception.html [ Skip ]
+failures/expected/device_failure.html [ Skip ]
 """)
 
     # FIXME: This test was only being ignored because of missing a leading '/'.
@@ -427,6 +430,8 @@ class TestPort(Port):
             self._operating_system = 'win'
         elif self._name.startswith('test-linux'):
             self._operating_system = 'linux'
+
+        self.port_name = self._operating_system
 
         version_map = {
             'test-win-win7': 'win7',
@@ -518,7 +523,7 @@ class TestPort(Port):
         return self._operating_system
 
     def default_results_directory(self):
-        return '/tmp/layout-test-results'
+        return '/tmp'
 
     def setup_test_run(self):
         pass

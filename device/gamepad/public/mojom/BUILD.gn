@@ -5,14 +5,9 @@
 import("//mojo/public/tools/bindings/mojom.gni")
 
 mojom_component("mojom") {
-  sources = [
-    "gamepad.mojom",
-  ]
+  sources = [ "gamepad.mojom" ]
 
-  deps = [
-    "//mojo/public/mojom/base",
-    "//services/service_manager/public/mojom",
-  ]
+  deps = [ "//mojo/public/mojom/base" ]
 
   output_prefix = "gamepad_mojom"
   macro_prefix = "GAMEPAD_MOJOM"

@@ -30,6 +30,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/security_events/security_event_recorder_factory.h"
+#include "chrome/browser/sharing/sharing_message_bridge_factory.h"
 #include "chrome/browser/signin/about_signin_internals_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
@@ -80,6 +81,7 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/printing/synced_printers_manager_factory.h"
 #include "chrome/browser/sync/wifi_configuration_sync_service_factory.h"
+#include "chromeos/constants/chromeos_features.h"
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_WIN)
@@ -156,6 +158,7 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(PasswordStoreFactory::GetInstance());
   DependsOn(SecurityEventRecorderFactory::GetInstance());
   DependsOn(SendTabToSelfSyncServiceFactory::GetInstance());
+  DependsOn(SharingMessageBridgeFactory::GetInstance());
   DependsOn(SpellcheckServiceFactory::GetInstance());
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   DependsOn(SupervisedUserServiceFactory::GetInstance());
@@ -270,8 +273,8 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
     // need to take care that ProfileSyncService doesn't get tripped up between
     // those two cases. Bug 88109.
     bool is_auto_start = browser_defaults::kSyncAutoStarts;
-#if defined(OS_ANDROID)
-    if (base::FeatureList::IsEnabled(switches::kSyncManualStartAndroid))
+#if defined(OS_CHROMEOS)
+    if (chromeos::features::IsSplitSettingsSyncEnabled())
       is_auto_start = false;
 #endif
     init_params.start_behavior = is_auto_start
@@ -302,6 +305,23 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
 // static
 bool ProfileSyncServiceFactory::HasSyncService(Profile* profile) {
   return GetInstance()->GetServiceForBrowserContext(profile, false) != nullptr;
+}
+
+// static
+bool ProfileSyncServiceFactory::IsSyncAllowed(Profile* profile) {
+  DCHECK(profile);
+  if (HasSyncService(profile)) {
+    syncer::SyncService* sync_service = GetForProfile(profile);
+    return !sync_service->HasDisableReason(
+               syncer::SyncService::DISABLE_REASON_PLATFORM_OVERRIDE) &&
+           !sync_service->HasDisableReason(
+               syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
+  }
+
+  // No ProfileSyncService created yet - we don't want to create one, so just
+  // infer the accessible state by looking at prefs/command line flags.
+  syncer::SyncPrefs prefs(profile->GetPrefs());
+  return switches::IsSyncAllowedByFlag() && !prefs.IsManaged();
 }
 
 // static

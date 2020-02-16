@@ -158,6 +158,8 @@ cc_component("cc") {
     "metrics/compositor_timing_history.h",
     "metrics/frame_sequence_tracker.cc",
     "metrics/frame_sequence_tracker.h",
+    "metrics/latency_ukm_reporter.cc",
+    "metrics/latency_ukm_reporter.h",
     "metrics/throughput_ukm_reporter.cc",
     "metrics/throughput_ukm_reporter.h",
     "raster/bitmap_raster_buffer_provider.cc",
@@ -480,6 +482,8 @@ cc_test_static_library("test_support") {
     "test/layer_tree_test.h",
     "test/mock_layer_tree_mutator.cc",
     "test/mock_layer_tree_mutator.h",
+    "test/mock_mutator_host.cc",
+    "test/mock_mutator_host.h",
     "test/mock_occlusion_tracker.h",
     "test/paint_op_helper.h",
     "test/pixel_comparator.cc",
@@ -579,9 +583,7 @@ cc_test_static_library("test_support") {
     deps += [ "//gpu/vulkan/init" ]
   }
   if (!is_android) {
-    data_deps = [
-      "//third_party/mesa_headers",
-    ]
+    data_deps = [ "//third_party/mesa_headers" ]
   }
 }
 
@@ -674,6 +676,7 @@ cc_test("cc_unittests") {
     "resources/resource_pool_unittest.cc",
     "scheduler/scheduler_state_machine_unittest.cc",
     "scheduler/scheduler_unittest.cc",
+    "test/mock_mutator_host_unittest.cc",
     "tiles/checker_image_tracker_unittest.cc",
     "tiles/decoded_image_tracker_unittest.cc",
     "tiles/gpu_image_decode_cache_unittest.cc",
@@ -741,9 +744,8 @@ cc_test("cc_unittests") {
   ]
 
   if (!is_android) {
-    data = [
-      "//components/viz/test/data/",
-    ]
+    data = [ "//components/viz/test/data/" ]
+    sources += [ "paint/skottie_transfer_cache_entry_unittest.cc" ]
   }
 
   if (is_win) {
@@ -785,6 +787,7 @@ cc_test("cc_unittests") {
     "//ui/gl:test_support",
   ]
   data_deps = [
+    "//testing/buildbot/filters:cc_unittests_filters",
     "//third_party/mesa_headers",
   ]
 
@@ -855,9 +858,7 @@ cc_test("cc_perftests") {
   # This target should not require the Chrome executable to run.
   assert_no_deps = [ "//chrome" ]
 
-  data = [
-    "//components/viz/test/data/",
-  ]
+  data = [ "//components/viz/test/data/" ]
 
   data_deps = [
     # Needed for isolate script to execute.

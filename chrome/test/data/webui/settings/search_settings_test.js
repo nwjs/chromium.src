@@ -7,12 +7,12 @@ cr.define('settings_test', function() {
   suite('SearchSettingsTest', function() {
     let searchManager;
 
-    // Don't import script if already imported (happens in Vulcanized mode).
     suiteSetup(function() {
-      if (!window.settings || !settings.getSearchManager) {
-        return PolymerTest.loadScript(
-                   'chrome://resources/js/search_highlight_utils.js') &&
-            PolymerTest.loadScript('chrome://settings/search_settings.js');
+      // Import <settings-section> manually if not already imported
+      // (happens when |optimize_webui| is false).
+      if (customElements.get('settings-section') === undefined) {
+        return PolymerTest.importHtml(
+            'chrome://settings/settings_page/settings_section.html');
       }
     });
 
@@ -66,8 +66,8 @@ cr.define('settings_test', function() {
 
     /**
      * Tests that a search hit within a <select> node causes the parent
-     * settings-section to be shown, but the DOM of the <select> is not
-     * modified.
+     * settings-section to be shown and the <select> to be highlighted by a
+     * bubble.
      */
     test('<select> highlighting', function() {
       document.body.innerHTML = `<settings-section hidden-by-search>
@@ -86,9 +86,7 @@ cr.define('settings_test', function() {
           .then(function() {
             assertFalse(section.hiddenBySearch);
 
-            const highlightWrapper =
-                select.querySelector('.search-highlight-wrapper');
-            assertFalse(!!highlightWrapper);
+            assertEquals(1, document.querySelectorAll('.search-bubble').length);
 
             // Check that original DOM structure is present even after search
             // highlights are cleared.
@@ -283,6 +281,56 @@ cr.define('settings_test', function() {
       await searchManager.search('hello', document.body);
 
       assertEquals(1, document.querySelectorAll('.search-bubble').length);
+    });
+
+    test('bubble result count', async () => {
+      document.body.innerHTML = `
+          <settings-section>
+            <select>
+              <option>nohello</option>
+              <option>hello dolly!</option>
+              <option>hello to you, too!</option>
+              <option>you say goodbye, I say hello!</option>
+            </select>
+
+            <button></button>
+            <settings-subpage>
+              hello there!
+            </settings-subpage>
+          </setting-section>`;
+
+      const subpage = document.querySelector('settings-subpage');
+      subpage.associatedControl = document.querySelector('button');
+
+      await searchManager.search('hello', document.body);
+
+      const bubbles = document.querySelectorAll('.search-bubble');
+      assertEquals(2, bubbles.length);
+      assertEquals('4 results', bubbles[1].textContent);
+      assertEquals('1 result', bubbles[0].textContent);
+    });
+
+    test('diacritics', async () => {
+      document.body.innerHTML = `
+          <settings-section>
+            <select>
+              <option>año de oro</option>
+            </select>
+            <button></button>
+            <settings-subpage>
+              malibu cañon
+            </settings-subpage>
+            danger zone
+          </setting-section>`;
+
+      const subpage = document.querySelector('settings-subpage');
+      subpage.associatedControl = document.querySelector('button');
+
+      await searchManager.search('an', document.body);
+
+      const highlights = document.querySelectorAll('.search-highlight-wrapper');
+      assertEquals(2, highlights.length);
+      assertEquals(2, document.querySelectorAll('.search-bubble').length);
     });
   });
 });

@@ -23,7 +23,6 @@ import org.chromium.chrome.browser.feed.library.api.client.stream.Stream;
 import org.chromium.chrome.browser.feed.library.api.host.action.ActionApi;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
-import org.chromium.chrome.browser.native_page.NativePageHost;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPageLayout;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
@@ -33,6 +32,7 @@ import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.ui.base.DeviceFormFactor;
 
 /**
@@ -51,12 +51,13 @@ public class FeedNewTabPage
      * @param tabModelSelector The {@link TabModelSelector} for the containing activity.
      * @param activityTabProvider Allows us to check if we are the current tab.
      * @param activityLifecycleDispatcher Allows us to subscribe to backgrounding events.
+     * @param tab The {@link TabImpl} that contains this new tab page.
      */
     public FeedNewTabPage(ChromeActivity activity, NativePageHost nativePageHost,
             TabModelSelector tabModelSelector, ActivityTabProvider activityTabProvider,
-            ActivityLifecycleDispatcher activityLifecycleDispatcher) {
+            ActivityLifecycleDispatcher activityLifecycleDispatcher, TabImpl tab) {
         super(activity, nativePageHost, tabModelSelector, activityTabProvider,
-                activityLifecycleDispatcher);
+                activityLifecycleDispatcher, tab);
 
         // Don't store a direct reference to the activity, because it might change later if the tab
         // is reparented.
@@ -89,7 +90,6 @@ public class FeedNewTabPage
         SectionHeaderView sectionHeaderView = (SectionHeaderView) inflater.inflate(
                 R.layout.new_tab_page_snippets_expandable_header, null, false);
         mCoordinator = new FeedSurfaceCoordinator(((TabImpl) mTab).getActivity(),
-                host.createHistoryNavigationDelegate(),
                 new SnapScrollHelper(mNewTabPageManager, mNewTabPageLayout), mNewTabPageLayout,
                 sectionHeaderView, actionApi,
                 ((TabImpl) mTab).getActivity().getNightModeStateProvider().isInNightMode(), this);

@@ -51,6 +51,10 @@ public final class ProfileImpl extends IProfile.Stub {
         return mName;
     }
 
+    public boolean isIncognito() {
+        return mName.isEmpty();
+    }
+
     @Override
     public void clearBrowsingData(@NonNull @BrowsingDataType int[] dataTypes, long fromMillis,
             long toMillis, @NonNull IObjectWrapper completionCallback) {
@@ -58,6 +62,12 @@ public final class ProfileImpl extends IProfile.Stub {
         Runnable callback = ObjectWrapper.unwrap(completionCallback, Runnable.class);
         ProfileImplJni.get().clearBrowsingData(
                 mNativeProfile, mapBrowsingDataTypes(dataTypes), fromMillis, toMillis, callback);
+    }
+
+    @Override
+    public void setDownloadDirectory(String directory) {
+        StrictModeWorkaround.apply();
+        ProfileImplJni.get().setDownloadDirectory(mNativeProfile, directory);
     }
 
     private static @ImplBrowsingDataType int[] mapBrowsingDataTypes(
@@ -90,5 +100,6 @@ public final class ProfileImpl extends IProfile.Stub {
         void deleteProfile(long profile);
         void clearBrowsingData(long nativeProfileImpl, @ImplBrowsingDataType int[] dataTypes,
                 long fromMillis, long toMillis, Runnable callback);
+        void setDownloadDirectory(long nativeProfileImpl, String directory);
     }
 }

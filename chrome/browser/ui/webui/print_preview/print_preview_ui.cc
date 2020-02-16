@@ -15,7 +15,7 @@
 #include "base/lazy_instance.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted_memory.h"
-#include "base/metrics/histogram_macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -56,6 +56,7 @@
 #include "printing/print_job_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
 #include "ui/web_dialogs/web_dialog_ui.h"
@@ -280,6 +281,8 @@ void AddPrintPreviewStrings(content::WebUIDataSource* source) {
     {"scalingInstruction", IDS_PRINT_PREVIEW_SCALING_INSTRUCTION},
     {"scalingLabel", IDS_PRINT_PREVIEW_SCALING_LABEL},
     {"searchBoxPlaceholder", IDS_PRINT_PREVIEW_SEARCH_BOX_PLACEHOLDER},
+    {"searchResultBubbleText", IDS_SEARCH_RESULT_BUBBLE_TEXT},
+    {"searchResultsBubbleText", IDS_SEARCH_RESULTS_BUBBLE_TEXT},
     {"selectButton", IDS_PRINT_PREVIEW_BUTTON_SELECT},
     {"seeMore", IDS_PRINT_PREVIEW_SEE_MORE},
     {"seeMoreDestinationsLabel", IDS_PRINT_PREVIEW_SEE_MORE_DESTINATIONS_LABEL},
@@ -596,8 +599,9 @@ void PrintPreviewUI::OnPrintPreviewCancelled(int request_id) {
 
 void PrintPreviewUI::OnPrintPreviewRequest(int request_id) {
   if (!initial_preview_start_time_.is_null()) {
-    UMA_HISTOGRAM_TIMES("PrintPreview.InitializationTime",
-                        base::TimeTicks::Now() - initial_preview_start_time_);
+    base::UmaHistogramTimes(
+        "PrintPreview.InitializationTime",
+        base::TimeTicks::Now() - initial_preview_start_time_);
   }
   g_print_preview_request_id_map.Get().Set(*id_, request_id);
 }
@@ -672,16 +676,13 @@ void PrintPreviewUI::OnDidPreviewPage(
 }
 
 void PrintPreviewUI::OnPreviewDataIsAvailable(
-    int expected_pages_count,
     scoped_refptr<base::RefCountedMemory> data,
     int preview_request_id) {
-  VLOG(1) << "Print preview request finished with "
-          << expected_pages_count << " pages";
-
   if (!initial_preview_start_time_.is_null()) {
-    UMA_HISTOGRAM_TIMES("PrintPreview.InitialDisplayTime",
-                        base::TimeTicks::Now() - initial_preview_start_time_);
-    UMA_HISTOGRAM_COUNTS_1M(
+    base::UmaHistogramTimes(
+        "PrintPreview.InitialDisplayTime",
+        base::TimeTicks::Now() - initial_preview_start_time_);
+    base::UmaHistogramCounts1M(
         "PrintPreview.RegeneratePreviewRequest.BeforeFirstData",
         handler_->regenerate_preview_request_count());
     initial_preview_start_time_ = base::TimeTicks();

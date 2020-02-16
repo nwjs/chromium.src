@@ -16,6 +16,7 @@
 #include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "pdf/document_layout.h"
 #include "ppapi/c/dev/pp_cursor_type_dev.h"
@@ -300,6 +301,7 @@ class PDFEngine {
     int start_char_index = -1;
     int char_count;
     pp::FloatRect bounds;
+    uint32_t color;
   };
 
   // Factory method to create an instance of the PDF Engine.
@@ -339,6 +341,7 @@ class PDFEngine {
   virtual void ZoomUpdated(double new_zoom_level) = 0;
   virtual void RotateClockwise() = 0;
   virtual void RotateCounterclockwise() = 0;
+  virtual void SetTwoUpView(bool enable) = 0;
 
   // Applies the document layout options proposed by a call to
   // PDFEngine::Client::ProposeDocumentLayout(), returning the overall size of
@@ -534,6 +537,12 @@ class PDFEngineExports {
   // PDF but untagged, and nullopt if the PDF can't be parsed.
   virtual base::Optional<bool> IsPDFDocTagged(
       base::span<const uint8_t> pdf_buffer) = 0;
+
+  // Given a tagged PDF (see IsPDFDocTagged, above), return the portion of
+  // the structure tree for a given page as a hierarchical tree of base::Values.
+  virtual base::Value GetPDFStructTreeForPage(
+      base::span<const uint8_t> pdf_buffer,
+      int page_index) = 0;
 
   // See the definition of GetPDFPageSizeByIndex in pdf.cc for details.
   virtual bool GetPDFPageSizeByIndex(base::span<const uint8_t> pdf_buffer,

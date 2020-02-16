@@ -42,7 +42,8 @@ class NativeFileSystemManagerImplTest : public testing::Test {
         /*quota_manager_proxy=*/nullptr, dir_.GetPath());
 
     chrome_blob_context_ = base::MakeRefCounted<ChromeBlobStorageContext>();
-    chrome_blob_context_->InitializeOnIOThread(base::FilePath(), nullptr);
+    chrome_blob_context_->InitializeOnIOThread(base::FilePath(),
+                                               base::FilePath(), nullptr);
 
     manager_ = base::MakeRefCounted<NativeFileSystemManagerImpl>(
         file_system_context_, chrome_blob_context_, &permission_context_,
@@ -120,8 +121,9 @@ TEST_F(NativeFileSystemManagerImplTest, CreateFileEntryFromPath_Permissions) {
 
   EXPECT_CALL(
       permission_context_,
-      GetReadPermissionGrant(kTestOrigin, kTestPath, /*is_directory=*/false,
-                             kProcessId, kFrameId))
+      GetReadPermissionGrant(
+          kTestOrigin, kTestPath, /*is_directory=*/false, kProcessId, kFrameId,
+          NativeFileSystemPermissionContext::UserAction::kOpen))
       .WillOnce(testing::Return(allow_grant_));
   EXPECT_CALL(
       permission_context_,
@@ -147,8 +149,9 @@ TEST_F(NativeFileSystemManagerImplTest,
 
   EXPECT_CALL(
       permission_context_,
-      GetReadPermissionGrant(kTestOrigin, kTestPath, /*is_directory=*/false,
-                             kProcessId, kFrameId))
+      GetReadPermissionGrant(
+          kTestOrigin, kTestPath, /*is_directory=*/false, kProcessId, kFrameId,
+          NativeFileSystemPermissionContext::UserAction::kSave))
       .WillOnce(testing::Return(allow_grant_));
   EXPECT_CALL(
       permission_context_,
@@ -174,8 +177,9 @@ TEST_F(NativeFileSystemManagerImplTest,
 
   EXPECT_CALL(
       permission_context_,
-      GetReadPermissionGrant(kTestOrigin, kTestPath, /*is_directory=*/true,
-                             kProcessId, kFrameId))
+      GetReadPermissionGrant(
+          kTestOrigin, kTestPath, /*is_directory=*/true, kProcessId, kFrameId,
+          NativeFileSystemPermissionContext::UserAction::kOpen))
       .WillOnce(testing::Return(allow_grant_));
   EXPECT_CALL(
       permission_context_,

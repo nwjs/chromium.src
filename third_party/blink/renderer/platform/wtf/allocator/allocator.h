@@ -5,6 +5,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_ALLOCATOR_ALLOCATOR_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_ALLOCATOR_ALLOCATOR_H_
 
+#include <atomic>
+
+#include "build/build_config.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partitions.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/type_traits.h"
@@ -147,6 +150,70 @@ class __thisIsHereToForceASemicolonAfterThisMacro;
 #define USING_FAST_MALLOC_WITH_TYPE_NAME(type) \
   USING_FAST_MALLOC_INTERNAL(type, #type)
 
+// TOOD(omerkatz): replace these casts with std::atomic_ref (C++20) once it
+// becomes available
+template <typename T>
+ALWAYS_INLINE std::atomic<T>* AsAtomicPtr(T* t) {
+  return reinterpret_cast<std::atomic<T>*>(t);
+}
+template <typename T>
+ALWAYS_INLINE const std::atomic<T>* AsAtomicPtr(const T* t) {
+  return reinterpret_cast<const std::atomic<T>*>(t);
+}
+
+// Load |bytes| bytes from |from| to |to| using atomic reads. Assumes |to| is
+// size_t-aligned and  points to a buffer of size at least |bytes|. Note that
+// atomicity is guaranteed only per word, not for the entire |bytes| bytes as
+// a whole.
+WTF_EXPORT void AtomicMemcpy(void* to, const void* from, size_t bytes);
+template <size_t bytes>
+ALWAYS_INLINE void AtomicMemcpy(void* to, const void* from) {
+  AtomicMemcpy(to, from, bytes);
+}
+
+// AtomicMemcpy specializations:
+
+#if defined(ARCH_CPU_X86_64)
+template <>
+ALWAYS_INLINE void AtomicMemcpy<sizeof(uint32_t)>(void* to, const void* from) {
+  *reinterpret_cast<uint32_t*>(to) =
+      AsAtomicPtr(reinterpret_cast<const uint32_t*>(from))
+          ->load(std::memory_order_relaxed);
+}
+#endif  // ARCH_CPU_X86_64
+
+template <>
+ALWAYS_INLINE void AtomicMemcpy<sizeof(size_t)>(void* to, const void* from) {
+  *reinterpret_cast<size_t*>(to) =
+      AsAtomicPtr(reinterpret_cast<const size_t*>(from))
+          ->load(std::memory_order_relaxed);
+}
+
+template <>
+ALWAYS_INLINE void AtomicMemcpy<2 * sizeof(size_t)>(void* to,
+                                                    const void* from) {
+  *reinterpret_cast<size_t*>(to) =
+      AsAtomicPtr(reinterpret_cast<const size_t*>(from))
+          ->load(std::memory_order_relaxed);
+  *(reinterpret_cast<size_t*>(to) + 1) =
+      AsAtomicPtr(reinterpret_cast<const size_t*>(from) + 1)
+          ->load(std::memory_order_relaxed);
+}
+
+template <>
+ALWAYS_INLINE void AtomicMemcpy<3 * sizeof(size_t)>(void* to,
+                                                    const void* from) {
+  *reinterpret_cast<size_t*>(to) =
+      AsAtomicPtr(reinterpret_cast<const size_t*>(from))
+          ->load(std::memory_order_relaxed);
+  *(reinterpret_cast<size_t*>(to) + 1) =
+      AsAtomicPtr(reinterpret_cast<const size_t*>(from) + 1)
+          ->load(std::memory_order_relaxed);
+  *(reinterpret_cast<size_t*>(to) + 2) =
+      AsAtomicPtr(reinterpret_cast<const size_t*>(from) + 2)
+          ->load(std::memory_order_relaxed);
+}
+
 }  // namespace WTF
 
 // This version of placement new omits a 0 check.
@@ -155,21 +222,5 @@ inline void* operator new(size_t, NotNullTag, void* location) {
   DCHECK(location);
   return location;
 }
-
-#if defined(__clang__) && __has_attribute(uninitialized)
-// Attribute "uninitialized" disables -ftrivial-auto-var-init=pattern for
-// the specified variable.
-//
-// -ftrivial-auto-var-init is security risk mitigation feature, so attribute
-// should not be used "just in case", but only to fix real performance
-// bottlenecks when other approaches do not work. In general the compiler is
-// quite effective at eliminating unneeded initializations introduced by the
-// flag, e.g. when they are followed by actual initialization by a program.
-// However if compiler optimization fails and code refactoring is hard, the
-// attribute can be used as a workaround.
-#define STACK_UNINITIALIZED __attribute__((uninitialized))
-#else
-#define STACK_UNINITIALIZED
-#endif
 
 #endif /* WTF_Allocator_h */

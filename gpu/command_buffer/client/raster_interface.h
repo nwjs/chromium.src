@@ -26,7 +26,7 @@ enum class BufferUsage;
 }  // namespace gfx
 
 extern "C" typedef struct _ClientBuffer* ClientBuffer;
-extern "C" typedef struct _GLColorSpace* GLColorSpace;
+extern "C" typedef const struct _GLcolorSpace* GLcolorSpace;
 
 namespace gpu {
 
@@ -49,7 +49,9 @@ class RasterInterface : public InterfaceBase {
                               GLint x,
                               GLint y,
                               GLsizei width,
-                              GLsizei height) = 0;
+                              GLsizei height,
+                              GLboolean unpack_flip_y,
+                              GLboolean unpack_premultiply_alpha) = 0;
   // OOP-Raster
   virtual void BeginRasterCHROMIUM(GLuint sk_color,
                                    GLuint msaa_sample_count,

@@ -43,6 +43,8 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualCtap2Device
     bool pin_support = false;
     bool is_platform_authenticator = false;
     bool internal_uv_support = false;
+    // Ignored if |internal_uv_support| is false.
+    bool uv_token_support = false;
     bool resident_key_support = false;
     bool credential_management_support = false;
     bool bio_enrollment_support = false;
@@ -50,6 +52,11 @@ class COMPONENT_EXPORT(DEVICE_FIDO) VirtualCtap2Device
     uint8_t bio_enrollment_capacity = 10;
     uint8_t bio_enrollment_samples_required = 4;
     bool cred_protect_support = false;
+
+    // force_cred_protect, if set and if |cred_protect_support| is true, is a
+    // credProtect level that will be forced for all registrations. This
+    // overrides any level requested in the makeCredential.
+    base::Optional<device::CredProtect> force_cred_protect;
 
     // max_credential_count_in_list, if non-zero, is the value to return for
     // maxCredentialCountInList in the authenticatorGetInfo reponse.

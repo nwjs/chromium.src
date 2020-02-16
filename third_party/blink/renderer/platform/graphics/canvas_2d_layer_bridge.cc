@@ -29,21 +29,24 @@
 #include <utility>
 
 #include "base/location.h"
+#include "base/numerics/checked_math.h"
 #include "base/rand_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/timer/elapsed_timer.h"
+#include "cc/base/region.h"
 #include "cc/layers/texture_layer.h"
 #include "components/viz/common/resources/transferable_resource.h"
 #include "gpu/command_buffer/client/raster_interface.h"
+#include "ui/gfx/geometry/size.h"
 
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_context_rate_limiter.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
@@ -55,6 +58,52 @@
 #include "third_party/skia/include/core/SkSurface.h"
 
 namespace blink {
+
+namespace {
+// Canvas with an area less than 256 pixel by 256 pixel are considered too small
+// for partial repaint instead of full repaint.
+constexpr int kMinAreaForComputingDirtyRegion = 256 * 256;
+
+// Returns true if the area defined by |width| and |height| are dirty; false
+// otherwise.
+bool GatherDirtyRect(const cc::PaintOpBuffer* buffer,
+                     cc::InvalidationRegion* dirty_region,
+                     SkNoDrawCanvas* canvas,
+                     SkScalar width,
+                     SkScalar height) {
+  // Prevent PaintOpBuffers from having side effects back into the canvas.
+  SkAutoCanvasRestore save_restore(canvas, true);
+
+  cc::PlaybackParams params(nullptr, canvas->getTotalMatrix());
+  for (auto* op : cc::PaintOpBuffer::Iterator(buffer)) {
+    // Note that the dirty from SaveLayer will not computed until the next draw
+    // op. Since there is alawys a draw op between SaveLayer and Restore, this
+    // approach does the computation correctly.
+    if (!op->IsDrawOp()) {
+      op->Raster(canvas, params);
+      continue;
+    }
+    if (static_cast<cc::PaintOpType>(op->type) == cc::PaintOpType::DrawRecord) {
+      sk_sp<const PaintRecord> paint_record =
+          static_cast<cc::DrawRecordOp*>(op)->record;
+      if (GatherDirtyRect(paint_record.get(), dirty_region, canvas, width,
+                          height))
+        return true;
+    } else {
+      const SkRect& clip_rect = SkRect::Make(canvas->getDeviceClipBounds());
+      const SkMatrix& ctm = canvas->getTotalMatrix();
+      gfx::Rect rect = cc::PaintOp::ComputePaintRect(op, clip_rect, ctm);
+      dirty_region->Union(rect);
+      // If one draw op takes the entire canvas, stop compute for the dirty
+      // rect from the remaining draw ops.
+      if (rect.width() >= width && rect.height() >= height)
+        return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
 
 Canvas2DLayerBridge::Canvas2DLayerBridge(const IntSize& size,
                                          AccelerationMode acceleration_mode,
@@ -75,6 +124,11 @@ Canvas2DLayerBridge::Canvas2DLayerBridge(const IntSize& size,
   // Used by browser tests to detect the use of a Canvas2DLayerBridge.
   TRACE_EVENT_INSTANT0("test_gpu", "Canvas2DLayerBridgeCreation",
                        TRACE_EVENT_SCOPE_GLOBAL);
+
+  // A raw pointer is safe here because the callback is only used by the
+  // |recorder_|.
+  set_needs_flush_callback_ = WTF::BindRepeating(
+      &Canvas2DLayerBridge::SetNeedsFlush, WTF::Unretained(this));
   StartRecording();
 
   // Clear the background transparent or opaque. Similar code at
@@ -98,7 +152,6 @@ Canvas2DLayerBridge::~Canvas2DLayerBridge() {
     return;
 
   if (acceleration_mode_ != kDisableAcceleration) {
-    GraphicsLayer::UnregisterContentsLayer(layer_.get());
     layer_->ClearTexture();
     // Orphaning the layer is required to trigger the recreation of a new layer
     // in the case where destruction is caused by a canvas resize. Test:
@@ -110,9 +163,11 @@ Canvas2DLayerBridge::~Canvas2DLayerBridge() {
 }
 
 void Canvas2DLayerBridge::StartRecording() {
-  recorder_ = std::make_unique<PaintRecorder>();
+  recorder_ =
+      std::make_unique<MemoryManagedPaintRecorder>(set_needs_flush_callback_);
   cc::PaintCanvas* canvas =
       recorder_->beginRecording(size_.Width(), size_.Height());
+
   // Always save an initial frame, to support resetting the top level matrix
   // and clip.
   canvas->save();
@@ -308,7 +363,6 @@ CanvasResourceProvider* Canvas2DLayerBridge::GetOrCreateResourceProvider(
     layer_->SetBlendBackgroundColor(ColorParams().GetOpacityMode() != kOpaque);
     layer_->SetNearestNeighbor(resource_host_->FilterQuality() ==
                                kNone_SkFilterQuality);
-    GraphicsLayer::RegisterContentsLayer(layer_.get());
   }
 
   if (!IsHibernating())
@@ -325,13 +379,10 @@ CanvasResourceProvider* Canvas2DLayerBridge::GetOrCreateResourceProvider(
     }
   }
 
-  PaintFlags copy_paint;
-  copy_paint.setBlendMode(SkBlendMode::kSrc);
   PaintImageBuilder builder = PaintImageBuilder::WithDefault();
   builder.set_image(hibernation_image_, PaintImage::GetNextContentId());
   builder.set_id(PaintImage::GetNextId());
-  resource_provider->Canvas()->drawImage(builder.TakePaintImage(), 0, 0,
-                                         &copy_paint);
+  resource_provider->RestoreBackBuffer(builder.TakePaintImage());
   hibernation_image_.reset();
 
   if (resource_host_) {
@@ -440,9 +491,9 @@ bool Canvas2DLayerBridge::WritePixels(const SkImageInfo& orig_info,
 
   last_record_tainted_by_write_pixels_ = true;
   have_recorded_draw_commands_ = false;
-  // Add a save to initialize the transform/clip stack and then restore it after
-  // the draw. This is needed because each recording initializes and the resets
-  // this state after every flush.
+  // Apply clipstack to canvas_ and then restore it to original state once
+  // we leave this scope. This is needed because each recording initializes and
+  // resets this state after every flush.
   cc::PaintCanvas* canvas = ResourceProvider()->Canvas();
   PaintCanvasAutoRestore auto_restore(canvas, true);
   if (GetOrCreateResourceProvider()) {
@@ -462,6 +513,45 @@ void Canvas2DLayerBridge::SkipQueuedDrawCommands() {
 
   if (rate_limiter_)
     rate_limiter_->Reset();
+}
+
+void Canvas2DLayerBridge::CalculateDirtyRegion(int canvas_width,
+                                               int canvas_height) {
+  base::CheckedNumeric<int> area(canvas_width);
+  area *= canvas_height;
+  if (!area.IsValid() || area.ValueOrDie() < kMinAreaForComputingDirtyRegion)
+    return;
+  SkNoDrawCanvas no_draw_canvas(canvas_width, canvas_height);
+  dirty_invalidate_region_.Clear();
+
+  // If GatherDirtyRect returns true, the entire canvas is dirty. Record the
+  // percentage of dirty area in the canvas to 100 and skip the calculation.
+  if (GatherDirtyRect(last_recording_.get(), &dirty_invalidate_region_,
+                      &no_draw_canvas, canvas_width, canvas_height)) {
+    UMA_HISTOGRAM_PERCENTAGE("Canvas.Repaint.Region.Percentage", 100);
+    UMA_HISTOGRAM_PERCENTAGE("Canvas.Repaint.Bounds.Percentage", 100);
+  } else {
+    int valid_area = area.ValueOrDie();
+    base::CheckedNumeric<int> used_total = 0;
+    cc::Region dirty_region;
+    dirty_invalidate_region_.Swap(&dirty_region);
+    gfx::Rect bounds;
+    for (const gfx::Rect& rect : dirty_region) {
+      bounds.Union(rect);
+      used_total += rect.size().GetCheckedArea();
+    }
+    int ratio_region =
+        (static_cast<float>(used_total.ValueOrDefault(valid_area)) /
+         valid_area) *
+        100;
+    int ratio_rect =
+        (static_cast<float>(
+             bounds.size().GetCheckedArea().ValueOrDefault(valid_area)) /
+         valid_area) *
+        100;
+    UMA_HISTOGRAM_PERCENTAGE("Canvas.Repaint.Region.Percentage", ratio_region);
+    UMA_HISTOGRAM_PERCENTAGE("Canvas.Repaint.Bounds.Percentage", ratio_rect);
+  }
 }
 
 void Canvas2DLayerBridge::ClearPendingRasterTimers() {
@@ -546,8 +636,14 @@ void Canvas2DLayerBridge::FlushRecording() {
 
   // Sample one out of every kRasterMetricProbability frames to time
   // If the canvas is accelerated, we also need access to the raster_interface
-  bool measure_raster_metric = (raster_interface || !IsAccelerated()) &&
-                               bernoulli_distribution_(random_generator_);
+
+  // We are using @dont_use_idle_scheduling_for_testing_ temporarily to always
+  // measure while testing.
+  const bool will_measure = dont_use_idle_scheduling_for_testing_ ||
+                            bernoulli_distribution_(random_generator_);
+  const bool measure_raster_metric =
+      (raster_interface || !IsAccelerated()) && will_measure;
+
   RasterTimer rasterTimer;
   base::Optional<base::ElapsedTimer> timer;
   // Start Recording the raster duration
@@ -560,10 +656,17 @@ void Canvas2DLayerBridge::FlushRecording() {
     }
     timer.emplace();
   }
-
   {  // Make a new scope so that PaintRecord gets deleted and that gets timed
     cc::PaintCanvas* canvas = ResourceProvider()->Canvas();
     last_recording_ = recorder_->finishRecordingAsPicture();
+    SkScalar canvas_width = canvas->getLocalClipBounds().width();
+    SkScalar canvas_height = canvas->getLocalClipBounds().height();
+    DCHECK_GE(canvas_width, size_.Width());
+    DCHECK_GE(canvas_height, size_.Height());
+    if (will_measure) {
+      CalculateDirtyRegion(canvas_width, canvas_height);
+    }
+
     canvas->drawPicture(last_recording_);
     last_record_tainted_by_write_pixels_ = false;
     if (!clear_frame_ || !resource_host_ || !resource_host_->IsPrinting()) {
@@ -716,6 +819,8 @@ cc::Layer* Canvas2DLayerBridge::Layer() {
 }
 
 void Canvas2DLayerBridge::DidDraw(const FloatRect& /* rect */) {
+  if (needs_flush_)
+    FinalizeFrame();
   have_recorded_draw_commands_ = true;
 }
 
@@ -743,6 +848,8 @@ void Canvas2DLayerBridge::FinalizeFrame() {
 
   if (rate_limiter_)
     rate_limiter_->Tick();
+
+  needs_flush_ = false;
 }
 
 void Canvas2DLayerBridge::DoPaintInvalidation(const FloatRect& dirty_rect) {
@@ -771,6 +878,10 @@ scoped_refptr<StaticBitmapImage> Canvas2DLayerBridge::NewImageSnapshot(
 
 void Canvas2DLayerBridge::WillOverwriteCanvas() {
   SkipQueuedDrawCommands();
+}
+
+void Canvas2DLayerBridge::SetNeedsFlush() {
+  needs_flush_ = true;
 }
 
 void Canvas2DLayerBridge::Logger::ReportHibernationEvent(

@@ -62,6 +62,7 @@ using testing::Mock;
 using testing::NiceMock;
 using testing::Pointee;
 using testing::Return;
+using testing::ReturnRef;
 using testing::SaveArg;
 using testing::SaveArgPointee;
 using testing::UnorderedElementsAre;
@@ -343,13 +344,13 @@ class PasswordFormManagerTest : public testing::Test,
     saved_match_.origin = origin;
     saved_match_.action = action;
     saved_match_.signon_realm = "https://accounts.google.com/";
-    saved_match_.preferred = true;
     saved_match_.username_value = ASCIIToUTF16("test@gmail.com");
     saved_match_.username_element = ASCIIToUTF16("field1");
     saved_match_.password_value = ASCIIToUTF16("test1");
     saved_match_.password_element = ASCIIToUTF16("field2");
     saved_match_.is_public_suffix_match = false;
     saved_match_.scheme = PasswordForm::Scheme::kHtml;
+    saved_match_.in_store = PasswordForm::Store::kProfileStore;
 
     psl_saved_match_ = saved_match_;
     psl_saved_match_.origin = psl_origin;
@@ -547,7 +548,7 @@ TEST_P(PasswordFormManagerTest, AutofillSignUpForm) {
   SetNonFederatedAndNotifyFetchCompleted({&saved_match_});
 
   task_runner_->FastForwardUntilNoTasksRemain();
-  constexpr uint32_t kNoID = FormFieldData::kNotSetFormControlRendererId;
+  constexpr uint32_t kNoID = FormData::kNotSetRendererId;
   EXPECT_EQ(kNoID, fill_data.password_field.unique_renderer_id);
   EXPECT_EQ(saved_match_.password_value, fill_data.password_field.value);
 #if defined(OS_IOS)
@@ -636,16 +637,15 @@ TEST_P(PasswordFormManagerTest, SetSubmittedMultipleTimes) {
   // Make the submitted form to be invalid password form.
   submitted_form_.fields.clear();
 
-  // Expect that |form_manager_| is still in submitted state because the first
-  // time the submited form was valid.
-  EXPECT_TRUE(
+  EXPECT_FALSE(
       form_manager_->ProvisionallySave(submitted_form_, &driver_, nullptr));
-  EXPECT_TRUE(form_manager_->is_submitted());
-  EXPECT_TRUE(form_manager_->GetSubmittedForm());
+  EXPECT_FALSE(form_manager_->is_submitted());
+  EXPECT_FALSE(form_manager_->GetSubmittedForm());
+  EXPECT_EQ(PasswordForm(), form_manager_->GetPendingCredentials());
 }
 
 // Tests that when PasswordFormManager receives saved matches it waits for
-// server predictions and fills on receving them.
+// server predictions and fills on receiving them.
 TEST_P(PasswordFormManagerTest, ServerPredictionsWithinDelay) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
 
@@ -662,7 +662,7 @@ TEST_P(PasswordFormManagerTest, ServerPredictionsWithinDelay) {
   form_manager_->ProcessServerPredictions(predictions);
   Mock::VerifyAndClearExpectations(&driver_);
 
-  // Expect no filling on receving predictions again.
+  // Expect no filling on receiving predictions again.
   EXPECT_CALL(driver_, FillPasswordForm(_)).Times(0);
   form_manager_->ProcessServerPredictions(predictions);
 }
@@ -723,8 +723,14 @@ TEST_P(PasswordFormManagerTest, CreatePendingCredentialsEmptyStore) {
       form_manager_->GetPendingCredentials();
   CheckPendingCredentials(parsed_submitted_form_, pending_credentials);
   EXPECT_GE(pending_credentials.date_last_used, kNow);
-  EXPECT_EQ(UserAction::kOverrideUsernameAndPassword,
-            form_manager_->GetMetricsRecorder()->GetUserAction());
+}
+
+// Tests creating pending credentials when fetch completed
+TEST_P(PasswordFormManagerTest, CreatePendingCredentialsWhenFetchCompleted) {
+  form_manager_->set_wait_for_server_predictions_for_filling(false);
+  form_manager_->ProvisionallySave(submitted_form_, &driver_, nullptr);
+  SetNonFederatedAndNotifyFetchCompleted({&parsed_submitted_form_});
+  EXPECT_FALSE(form_manager_->IsNewLogin());
 }
 
 // Tests creating pending credentials when new credentials are submitted and the
@@ -737,8 +743,6 @@ TEST_P(PasswordFormManagerTest, CreatePendingCredentialsNewCredentials) {
       form_manager_->ProvisionallySave(submitted_form_, &driver_, nullptr));
   CheckPendingCredentials(parsed_submitted_form_,
                           form_manager_->GetPendingCredentials());
-  EXPECT_EQ(UserAction::kOverrideUsernameAndPassword,
-            form_manager_->GetMetricsRecorder()->GetUserAction());
 }
 
 // Tests that when submitted credentials are equal to already saved one then
@@ -762,8 +766,6 @@ TEST_P(PasswordFormManagerTest, CreatePendingCredentialsAlreadySaved) {
         form_manager_->ProvisionallySave(submitted_form_, &driver_, nullptr));
     CheckPendingCredentials(/* expected */ saved_match_,
                             form_manager_->GetPendingCredentials());
-    EXPECT_EQ(is_incognito ? UserAction::kChoose : UserAction::kNone,
-              form_manager_->GetMetricsRecorder()->GetUserAction());
   }
 }
 
@@ -787,13 +789,11 @@ TEST_P(PasswordFormManagerTest, CreatePendingCredentialsPSLMatchSaved) {
   EXPECT_TRUE(
       form_manager_->ProvisionallySave(submitted_form_, &driver_, nullptr));
   CheckPendingCredentials(expected, form_manager_->GetPendingCredentials());
-  EXPECT_EQ(UserAction::kChoosePslMatch,
-            form_manager_->GetMetricsRecorder()->GetUserAction());
 }
 
 // Tests creating pending credentials when new credentials are different only in
 // password with already saved one.
-TEST_P(PasswordFormManagerTest, CreatePendingCredentialsPasswordOverriden) {
+TEST_P(PasswordFormManagerTest, CreatePendingCredentialsPasswordOverridden) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   SetNonFederatedAndNotifyFetchCompleted({&saved_match_});
 
@@ -806,8 +806,6 @@ TEST_P(PasswordFormManagerTest, CreatePendingCredentialsPasswordOverriden) {
   EXPECT_TRUE(
       form_manager_->ProvisionallySave(submitted_form_, &driver_, nullptr));
   CheckPendingCredentials(expected, form_manager_->GetPendingCredentials());
-  EXPECT_EQ(UserAction::kOverridePassword,
-            form_manager_->GetMetricsRecorder()->GetUserAction());
 }
 
 // Tests that when submitted credentials are equal to already saved one then
@@ -826,12 +824,10 @@ TEST_P(PasswordFormManagerTest, CreatePendingCredentialsUpdate) {
   EXPECT_TRUE(
       form_manager_->ProvisionallySave(submitted_form, &driver_, nullptr));
   CheckPendingCredentials(expected, form_manager_->GetPendingCredentials());
-  EXPECT_EQ(UserAction::kOverridePassword,
-            form_manager_->GetMetricsRecorder()->GetUserAction());
 }
 
 // Tests creating pending credentials when a change password form is submitted
-// and there are multipe saved forms.
+// and there are multiple saved forms.
 TEST_P(PasswordFormManagerTest, CreatePendingCredentialsUpdateMultipleSaved) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   PasswordForm another_saved_match = saved_match_;
@@ -945,7 +941,6 @@ TEST_P(PasswordFormManagerTest, SaveNewCredentials) {
   EXPECT_EQ(expected_signon_realm, saved_form.signon_realm);
   EXPECT_EQ(new_username, saved_form.username_value);
   EXPECT_EQ(new_password, saved_form.password_value);
-  EXPECT_TRUE(saved_form.preferred);
 
   EXPECT_EQ(submitted_form.fields[kUsernameFieldIndex].name,
             saved_form.username_element);
@@ -997,8 +992,6 @@ TEST_P(PasswordFormManagerTest, SavePSLToAlreadySaved) {
   EXPECT_EQ(saved_form.username_element, psl_saved_match_.username_element);
   EXPECT_EQ(saved_form.password_element, psl_saved_match_.password_element);
 
-  EXPECT_TRUE(saved_form.preferred);
-
   EXPECT_EQ(std::vector<const PasswordForm*>{&psl_saved_match_}, best_matches);
 }
 
@@ -1028,7 +1021,6 @@ TEST_P(PasswordFormManagerTest, OverridePassword) {
   form_manager_->Save();
 
   EXPECT_TRUE(ArePasswordFormUniqueKeysEqual(saved_match_, updated_form));
-  EXPECT_TRUE(updated_form.preferred);
   EXPECT_EQ(new_password, updated_form.password_value);
 }
 
@@ -1038,7 +1030,6 @@ TEST_P(PasswordFormManagerTest, UpdatePasswordOnChangePasswordForm) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   CreateFormManager(observed_form_only_password_fields_);
   PasswordForm not_best_saved_match = saved_match_;
-  not_best_saved_match.preferred = false;
   PasswordForm saved_match_another_username = saved_match_;
   saved_match_another_username.username_value += ASCIIToUTF16("1");
 
@@ -1068,7 +1059,6 @@ TEST_P(PasswordFormManagerTest, UpdatePasswordOnChangePasswordForm) {
   form_manager_->Save();
 
   EXPECT_TRUE(ArePasswordFormUniqueKeysEqual(saved_match_, updated_form));
-  EXPECT_TRUE(updated_form.preferred);
   EXPECT_EQ(new_password, updated_form.password_value);
 }
 
@@ -1443,7 +1433,8 @@ TEST_P(PasswordFormManagerTest, PresaveGeneratedPasswordEmptyStore) {
 
   PasswordForm form_with_generated_password = parsed_submitted_form_;
   FormData& form_data = form_with_generated_password.form_data;
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_data, form_with_generated_password.password_value);
 
   EXPECT_TRUE(form_manager_->HasGeneratedPassword());
   EXPECT_EQ(saved_form.username_value,
@@ -1462,7 +1453,9 @@ TEST_P(PasswordFormManagerTest, PresaveGeneratedPasswordEmptyStore) {
                             FormHasUniqueKey(form_with_generated_password)))
       .WillOnce(SaveArg<0>(&saved_form));
 
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
 
   EXPECT_TRUE(form_manager_->HasGeneratedPassword());
   EXPECT_EQ(saved_form.username_value,
@@ -1496,7 +1489,9 @@ TEST_P(PasswordFormManagerTest, PresaveGenerated_ModifiedUsername) {
   EXPECT_CALL(form_saver, Save(_, _, _)).WillOnce(SaveArg<0>(&saved_form));
   PasswordForm form_with_generated_password = parsed_submitted_form_;
   FormData& form_data = form_with_generated_password.form_data;
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
   Mock::VerifyAndClearExpectations(&form_saver);
 
   // Check that when the username is edited, then it's presaved.
@@ -1507,7 +1502,9 @@ TEST_P(PasswordFormManagerTest, PresaveGenerated_ModifiedUsername) {
   EXPECT_CALL(form_saver, UpdateReplace(_, IsEmpty(), ASCIIToUTF16(""),
                                         FormHasUniqueKey(saved_form)))
       .WillOnce(SaveArg<0>(&saved_form));
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
 
   EXPECT_TRUE(form_manager_->HasGeneratedPassword());
   EXPECT_EQ(saved_form.username_value,
@@ -1542,7 +1539,9 @@ TEST_P(PasswordFormManagerTest, GeneratedPasswordWhichIsNotInFormData) {
   PasswordForm saved_form;
   EXPECT_CALL(form_saver, Save(_, _, _)).WillOnce(SaveArg<0>(&saved_form));
 
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
   EXPECT_EQ(submitted_form_.fields[kUsernameFieldIndex].value,
             saved_form.username_value);
   EXPECT_EQ(generated_password, saved_form.password_value);
@@ -1578,7 +1577,9 @@ TEST_P(PasswordFormManagerTest, PresaveGenerationWhenParsingFails) {
   PasswordForm saved_form;
   EXPECT_CALL(form_saver, Save(_, IsEmpty(), base::string16()))
       .WillOnce(SaveArg<0>(&saved_form));
-  form_manager_->PresaveGeneratedPassword(form_with_empty_form_data);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_empty_form_data.form_data,
+      form_with_empty_form_data.password_value);
   EXPECT_EQ(generated_password, saved_form.password_value);
 }
 
@@ -1593,7 +1594,7 @@ TEST_P(PasswordFormManagerTest, PasswordNoLongerGenerated) {
   EXPECT_CALL(form_saver, Save(_, _, _));
 
   PasswordForm form = parsed_submitted_form_;
-  form_manager_->PresaveGeneratedPassword(form);
+  form_manager_->PresaveGeneratedPassword(form.form_data, form.password_value);
   Mock::VerifyAndClearExpectations(&form_saver);
 
   EXPECT_TRUE(form_manager_->HasGeneratedPassword());
@@ -1634,7 +1635,9 @@ TEST_P(PasswordFormManagerTest, PresaveGeneratedPasswordExistingCredential) {
   // Check that the generated password is saved with the empty username when
   // there is already a saved credetial with the same username.
   form_data.fields[kUsernameFieldIndex].value = saved_match_.username_value;
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
 
   EXPECT_TRUE(form_manager_->HasGeneratedPassword());
   EXPECT_TRUE(saved_form.username_value.empty());
@@ -1653,7 +1656,8 @@ TEST_P(PasswordFormManagerTest, UserEventsForGeneration) {
   {  // User accepts a generated password.
     base::HistogramTester histogram_tester;
     CreateFormManager(observed_form_);
-    form_manager_->PresaveGeneratedPassword(submitted_form);
+    form_manager_->PresaveGeneratedPassword(submitted_form.form_data,
+                                            submitted_form.password_value);
     form_manager_.reset();
     histogram_tester.ExpectUniqueSample(
         "PasswordGeneration.UserDecision",
@@ -1663,10 +1667,12 @@ TEST_P(PasswordFormManagerTest, UserEventsForGeneration) {
   {  // User edits the generated password.
     base::HistogramTester histogram_tester;
     CreateFormManager(observed_form_);
-    form_manager_->PresaveGeneratedPassword(submitted_form);
+    form_manager_->PresaveGeneratedPassword(submitted_form.form_data,
+                                            submitted_form.password_value);
     form_data.fields[kPasswordFieldIndex].value += ASCIIToUTF16("1");
     submitted_form.password_value = form_data.fields[kPasswordFieldIndex].value;
-    form_manager_->PresaveGeneratedPassword(submitted_form);
+    form_manager_->PresaveGeneratedPassword(submitted_form.form_data,
+                                            submitted_form.password_value);
     form_manager_.reset();
     histogram_tester.ExpectUniqueSample(
         "PasswordGeneration.UserDecision",
@@ -1676,10 +1682,12 @@ TEST_P(PasswordFormManagerTest, UserEventsForGeneration) {
   {  // User clears the generated password.
     base::HistogramTester histogram_tester;
     CreateFormManager(observed_form_);
-    form_manager_->PresaveGeneratedPassword(submitted_form);
+    form_manager_->PresaveGeneratedPassword(submitted_form.form_data,
+                                            submitted_form.password_value);
     form_data.fields[kPasswordFieldIndex].value += ASCIIToUTF16("2");
     submitted_form.password_value = form_data.fields[kPasswordFieldIndex].value;
-    form_manager_->PresaveGeneratedPassword(submitted_form);
+    form_manager_->PresaveGeneratedPassword(submitted_form.form_data,
+                                            submitted_form.password_value);
     form_manager_->PasswordNoLongerGenerated();
     form_manager_.reset();
     histogram_tester.ExpectUniqueSample(
@@ -1774,7 +1782,6 @@ TEST_P(PasswordFormManagerTest, Update) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
 
   PasswordForm not_best_saved_match = saved_match_;
-  not_best_saved_match.preferred = false;
   PasswordForm saved_match_another_username = saved_match_;
   saved_match_another_username.username_value += ASCIIToUTF16("1");
   SetNonFederatedAndNotifyFetchCompleted(
@@ -1803,7 +1810,6 @@ TEST_P(PasswordFormManagerTest, Update) {
   form_manager_->Update(saved_match_);
 
   EXPECT_TRUE(ArePasswordFormUniqueKeysEqual(saved_match_, updated_form));
-  EXPECT_TRUE(updated_form.preferred);
   EXPECT_EQ(new_password, updated_form.password_value);
   EXPECT_GE(updated_form.date_last_used, kNow);
 }
@@ -2064,27 +2070,29 @@ TEST_P(PasswordFormManagerTest, iOSPresavedGeneratedPassword) {
   EXPECT_CALL(form_saver, UpdateReplace(_, _, base::string16(), _))
       .WillOnce(SaveArg<0>(&saved_form));
 
-  form_manager_->UpdateGeneratedPasswordOnUserInput(
-      form_to_presave.name, generation_element, changed_password);
+  form_manager_->UpdateStateOnUserInput(form_to_presave.name,
+                                        generation_element, changed_password);
   EXPECT_EQ(username_field.value, saved_form.username_value);
   EXPECT_EQ(changed_password, saved_form.password_value);
 }
 
-TEST_P(PasswordFormManagerTest, UpdateGeneratedPasswordBeforePresaving) {
+TEST_P(PasswordFormManagerTest, iOSUpdateStateWithoutPresaving) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   fetcher_->NotifyFetchCompleted();
   MockFormSaver& form_saver = MockFormSaver::Get(form_manager_.get());
 
-  FormData form_to_presave = observed_form_;
-  const base::string16 generation_element =
-      form_to_presave.fields[kPasswordFieldIndex].unique_id;
-  const base::string16 generation_field_value = ASCIIToUTF16("some_password");
+  const base::string16 password_field =
+      observed_form_.fields[kPasswordFieldIndex].unique_id;
+  const base::string16 new_field_value = ASCIIToUTF16("some_password");
 
   // Check that nothing is saved on changing password, in case when there was no
   // pre-saving.
   EXPECT_CALL(form_saver, Save(_, _, _)).Times(0);
-  form_manager_->UpdateGeneratedPasswordOnUserInput(
-      form_to_presave.name, generation_element, generation_field_value);
+  EXPECT_TRUE(form_manager_->UpdateStateOnUserInput(
+      observed_form_.name, password_field, new_field_value));
+
+  EXPECT_EQ(new_field_value,
+            form_manager_->observed_form().fields[kPasswordFieldIndex].value);
 }
 
 #endif  // defined(OS_IOS)
@@ -2301,7 +2309,7 @@ TEST_P(PasswordFormManagerTest, ProvisinallySavedOnSingleUsernameForm) {
                                                 &driver_, nullptr));
 }
 
-INSTANTIATE_TEST_SUITE_P(,
+INSTANTIATE_TEST_SUITE_P(All,
                          PasswordFormManagerTest,
                          testing::Values(false, true));
 
@@ -2314,7 +2322,7 @@ class MockPasswordSaveManager : public PasswordSaveManager {
                     const FormFetcher*,
                     scoped_refptr<PasswordFormMetricsRecorder>,
                     VotesUploader*));
-  MOCK_CONST_METHOD0(GetPendingCredentials, const autofill::PasswordForm*());
+  MOCK_CONST_METHOD0(GetPendingCredentials, const autofill::PasswordForm&());
   MOCK_CONST_METHOD0(GetGeneratedPassword, const base::string16&());
   MOCK_CONST_METHOD0(GetFormSaver, FormSaver*());
   MOCK_METHOD5(CreatePendingCredentials,
@@ -2323,6 +2331,7 @@ class MockPasswordSaveManager : public PasswordSaveManager {
                     const autofill::FormData&,
                     bool,
                     bool));
+  MOCK_METHOD0(ResetPendingCrednetials, void());
   MOCK_METHOD2(Save,
                void(const autofill::FormData&, const autofill::PasswordForm&));
   MOCK_METHOD3(Update,
@@ -2342,6 +2351,7 @@ class MockPasswordSaveManager : public PasswordSaveManager {
   std::unique_ptr<PasswordSaveManager> Clone() override {
     return std::make_unique<MockPasswordSaveManager>();
   }
+  MOCK_METHOD0(MoveCredentialsToAccountStore, void());
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockPasswordSaveManager);
@@ -2387,8 +2397,9 @@ class PasswordFormManagerTestWithMockedSaver : public PasswordFormManagerTest {
   DISALLOW_COPY_AND_ASSIGN(PasswordFormManagerTestWithMockedSaver);
 };
 
-TEST_F(PasswordFormManagerTestWithMockedSaver,
-       ProviosnallySaveShouldCreatePendingCredentials) {
+TEST_F(
+    PasswordFormManagerTestWithMockedSaver,
+    ProviosnallySaveShouldCreatePendingPasswordFormManagerTestWithMockedSaverCredentials) {
   TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
   EXPECT_CALL(*mock_password_save_manager(),
               CreatePendingCredentials(_, _, _, _, _));
@@ -2533,6 +2544,12 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, PermanentlyBlacklist) {
   EXPECT_TRUE(form_manager_->IsBlacklisted());
 }
 
+TEST_F(PasswordFormManagerTestWithMockedSaver, MoveCredentialsToAccountStore) {
+  TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner_.get());
+  EXPECT_CALL(*mock_password_save_manager(), MoveCredentialsToAccountStore());
+  form_manager_->MoveCredentialsToAccountStore();
+}
+
 TEST_F(PasswordFormManagerTestWithMockedSaver, IsNewLogin) {
   EXPECT_CALL(*mock_password_save_manager(), IsNewLogin());
   form_manager_->IsNewLogin();
@@ -2549,7 +2566,9 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, HasGeneratedPassword) {
 }
 
 TEST_F(PasswordFormManagerTestWithMockedSaver, GetPendingCredentials) {
-  EXPECT_CALL(*mock_password_save_manager(), GetPendingCredentials());
+  PasswordForm password_form;
+  EXPECT_CALL(*mock_password_save_manager(), GetPendingCredentials())
+      .WillOnce(ReturnRef(password_form));
   form_manager_->GetPendingCredentials();
 }
 
@@ -2565,7 +2584,9 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, PresaveGeneratedPassword) {
   EXPECT_CALL(*mock_password_save_manager(),
               PresaveGeneratedPassword(FormHasPassword(
                   form_data.fields[kPasswordFieldIndex].value)));
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
 }
 
 TEST_F(PasswordFormManagerTestWithMockedSaver,
@@ -2584,7 +2605,9 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
   EXPECT_CALL(*mock_password_save_manager(),
               PresaveGeneratedPassword(FormHasPassword(generated_password)))
       .WillOnce(SaveArg<0>(&updated_form));
-  form_manager_->PresaveGeneratedPassword(form_with_generated_password);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_generated_password.form_data,
+      form_with_generated_password.password_value);
   // Now, the password save manager should have a generated password.
   ON_CALL(*mock_password_save_manager(), HasGeneratedPassword())
       .WillByDefault(Return(true));
@@ -2618,7 +2641,9 @@ TEST_F(PasswordFormManagerTestWithMockedSaver,
   // PasswordSaveManager.
   EXPECT_CALL(*mock_password_save_manager(),
               PresaveGeneratedPassword(FormHasPassword(generated_password)));
-  form_manager_->PresaveGeneratedPassword(form_with_empty_form_data);
+  form_manager_->PresaveGeneratedPassword(
+      form_with_empty_form_data.form_data,
+      form_with_empty_form_data.password_value);
 }
 
 TEST_F(PasswordFormManagerTestWithMockedSaver, PasswordNoLongerGenerated) {
@@ -2628,7 +2653,7 @@ TEST_F(PasswordFormManagerTestWithMockedSaver, PasswordNoLongerGenerated) {
   form_manager_->SetGenerationPopupWasShown(true /* is_manual_generation */);
   EXPECT_CALL(*mock_password_save_manager(), PresaveGeneratedPassword(_));
   PasswordForm form = parsed_submitted_form_;
-  form_manager_->PresaveGeneratedPassword(form);
+  form_manager_->PresaveGeneratedPassword(form.form_data, form.password_value);
   Mock::VerifyAndClearExpectations(mock_password_save_manager());
   // Now, the password save manager should have a generated password.
   ON_CALL(*mock_password_save_manager(), HasGeneratedPassword())

@@ -258,8 +258,7 @@ WebInputEventResult GestureManager::HandleGestureTap(
   if (current_hit_test.InnerNode()) {
     LocalFrame& main_frame = frame_->LocalFrameRoot();
     if (main_frame.View()) {
-      main_frame.View()->UpdateAllLifecyclePhases(
-          DocumentLifecycle::LifecycleUpdateReason::kOther);
+      main_frame.View()->UpdateAllLifecyclePhases(DocumentUpdateReason::kOther);
     }
     adjusted_point = frame_view->ConvertFromRootFrame(tapped_position);
     current_hit_test = event_handling_util::HitTestResultInFrame(
@@ -486,10 +485,8 @@ void GestureManager::ShowUnhandledTapUIIfNeeded(
     // e.g. style->GetFontWeight() to return bold.  Need italic, color, etc.
 
     // Notify the Browser.
-    WebPoint point(tapped_position_in_viewport.X(),
-                   tapped_position_in_viewport.Y());
-    auto tapped_info =
-        mojom::blink::UnhandledTapInfo::New(point, font_size, text_run_length);
+    auto tapped_info = mojom::blink::UnhandledTapInfo::New(
+        tapped_position_in_viewport, font_size, text_run_length);
     provider->ShowUnhandledTapUIIfNeeded(std::move(tapped_info));
   }
 #endif  // BUILDFLAG(ENABLE_UNHANDLED_TAP)

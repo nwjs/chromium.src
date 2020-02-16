@@ -7,7 +7,6 @@
 <translation id="1065672644894730302">உங்கள் விருப்பதேர்வுகள் படிக்கும்படி இல்லை. சில அம்சங்கள் கிடைக்காமல் இருக்கலாம் மேலும் விருப்பதேர்வுகளின் மாற்றங்களைச் சேமிக்க முடியாது.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" /> ஏற்கனவே Chromeஐப் பயன்படுத்திக் கொண்டிருந்தது</translation>
 <translation id="1097330777386562916">நீங்கள் Chromeமை விட்டு வெளியேறும் போது குக்கீகளையும் வலைதளத் தரவையும் அழிக்கும்</translation>
-<translation id="1104959162601287462">&amp;Chrome OS அறிமுகம்</translation>
 <translation id="110877069173485804">இது உங்கள் Chrome ஆகும்</translation>
 <translation id="1142745911746664600">Chromeஐப் புதுப்பிக்க முடியவில்லை</translation>
 <translation id="1154147086299354128">&amp;Chrome இல் திற</translation>
@@ -19,10 +18,8 @@
 <translation id="1553358976309200471">Chromeஐப் புதுப்பி</translation>
 <translation id="1587223624401073077">Google Chrome உங்கள் கேமராவைப் பயன்படுத்துகிறது.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" /> ஆபத்தானது என்பதால் Chrome அதைத் தடுத்துள்ளது.</translation>
-<translation id="1590588151039584890">புதுப்பிப்பதற்கு இந்தக் கம்ப்யூட்டரில் Chrome இயங்குவதை நிறுத்த வேண்டும். இதனால் உள்நுழைந்துள்ள பிற பயனர்கள் தங்களின் சேமிக்கப்படாத மாற்றங்களை இழக்கக்கூடும்.</translation>
 <translation id="1619887657840448962">Chromeஐப் பாதுகாப்பானதாக்க, <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> இல் பட்டியலிடப்படாத பின்வரும் நீட்டிப்பை முடக்கியுள்ளோம், மேலும் அது உங்களுக்குத் தெரியாமல் சேர்க்கப்பட்டிருக்கலாம்.</translation>
 <translation id="1628000112320670027">Chrome தொடர்பான உதவி பெறுக</translation>
-<translation id="1635734105302489219">Chromeமை விட்டு வெளியேறும்போது குக்கீகளை அழிக்கிறீர்கள். ஒத்திசைவைத் தொடர இந்த <ph name="COOKIE_SETTINGS_LINK" /> ஐ மாற்றவும்.</translation>
 <translation id="1662639173275167396">Chrome OS, <ph name="BEGIN_LINK_LINUX_OSS" />Linuxஸைப் (பீட்டா)<ph name="END_LINK_LINUX_OSS" /> போலவே கூடுதல் <ph name="BEGIN_LINK_CROS_OSS" />ஓப்பன் சோர்ஸ் மென்பொருளால்<ph name="END_LINK_CROS_OSS" /> உருவாக்கப்பட்டுள்ளது.</translation>
 <translation id="1666409074978194368">கிட்டத்தட்ட புதுப்பிக்கப்பட்ட நிலையில் உள்ளது! புதுப்பித்தலை முடிக்க Google Chromeமை மீண்டும் தொடங்குக. மறைநிலை சாளரங்கள் மீண்டும் திறக்காது.</translation>
 <translation id="1674870198290878346">Chrome மறை&amp;நிலை சாளரத்தில் இணைப்பைத் திற</translation>
@@ -49,6 +46,7 @@
 <translation id="2290014774651636340">Google API விசைகள் காணப்படவில்லை. Google Chrome இன் சில செயல்பாடுகள் முடக்கப்படும்.</translation>
 <translation id="2290095356545025170">Google Chrome நிறுவல் நீக்கம் செய்வதில் உறுதியாக உள்ளீர்களா?</translation>
 <translation id="2309047409763057870">இது Google Chrome இன் இரண்டாம் நிலை நிறுவல் என்பதால், அதை இயல்புநிலை உலாவியாக அமைக்க முடியாது.</translation>
+<translation id="2341767445688917208">உங்கள் கடவுச்சொற்களை Chrome OSஸால் ஒத்திசைக்க முடியவில்லை. இப்போதே சரிசெய்யுங்கள்.</translation>
 <translation id="2348335408836342058">இந்தத் தளத்திற்காகக் கேமராவையும் மைக்ரோஃபோனையும் அணுக Chromeமுக்கு அனுமதி தேவை</translation>
 <translation id="2429317896000329049">உங்கள் களத்திற்கு ஒத்திசைவு இல்லாததால், Google Chrome ஆல் உங்கள் தரவை ஒத்திசைக்க முடியவில்லை.</translation>
 <translation id="2467438592969358367">Google Chrome உங்கள் கடவுச்சொற்களை ஏற்ற விரும்புகிறது. இதை அனுமதிக்க, உங்கள் Windows கடவுச்சொல்லை உள்ளிடவும்.</translation>
@@ -73,8 +71,6 @@
 <translation id="3080151273017101988">Google Chrome மூடப்பட்டிருக்கும்போது பின்புல ஆப்ஸை இயக்க அனுமதி</translation>
 <translation id="3089968997497233615">புதிய, இன்னும் பாதுகாப்பான Google Chrome பதிப்பு தற்போது கிடைக்கிறது.</translation>
 <translation id="3149510190863420837">Chrome ஆப்ஸ்</translation>
-<translation id="3282568296779691940">Chrome இல் உள்நுழைக</translation>
-<translation id="3340978935015468852">அமைப்புகள்</translation>
 <translation id="3360895254066713204">Chrome உதவி</translation>
 <translation id="3379938682270551431">{0,plural, =0{இப்போது Chrome மீண்டும் தொடங்கும்}=1{ஒரு வினாடியில் Chrome மீண்டும் தொடங்கும்}other{# வினாடிகளில் Chrome மீண்டும் தொடங்கும்}}</translation>
 <translation id="3395323229510056640">Chrome OS தொடர்பான உதவி பெறுக</translation>
@@ -127,7 +123,6 @@
 <translation id="4953650215774548573">Google Chrome ஐ உங்கள் இயல்புநிலை உலாவியாக அமைக்கவும்</translation>
 <translation id="495931528404527476">Chrome இல்</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">உங்கள் தரவை Google Chrome ஆல் ஒத்திசைக்க முடியவில்லை. உங்கள் கடவுச்சொற்றொடரைப் புதுப்பிக்கவும்.</translation>
 <translation id="5062123544085870375">Chrome OSஸை மீண்டும் தொடங்கவும்</translation>
 <translation id="5132929315877954718">Google Chrome க்கான சிறந்த ஆப்ஸ், கேம்ஸ், நீட்டிப்புகள் மற்றும் தீம்களைக் கண்டறியவும்.</translation>
 <translation id="5170938038195470297">Google Chrome இன் புத்தம் புதிய பதிப்பு என்பதால், உங்கள் சுயவிவரத்தைப் பயன்படுத்த முடியாது. சில அம்சங்கள் கிடைக்காமல் போகலாம். வேறு சுயவிவர கோப்பகத்தைக் குறிப்பிடுக அல்லது Chrome இன் புதிய பதிப்பைப் பயன்படுத்துக.</translation>
@@ -138,7 +133,6 @@
 <translation id="5386244825306882791">Chromeமைத் தொடங்கும்போது அல்லது சர்வபுலத்திலிருந்து தேடலை மேற்கொள்ளும்போது காண்பிக்கப்படும் பக்கத்தையும் இது கட்டுப்படுத்துகிறது.</translation>
 <translation id="5394833366792865639">Chrome தாவலைப் பகிர்தல்</translation>
 <translation id="5430073640787465221">உங்கள் விருப்பத்தேர்வுகளின் கோப்பு சிதைவடைந்துள்ளது அல்லது தவறானது. உங்கள் அமைப்புகளை Google Chrome ஆல் மீட்டெடுக்க முடியவில்லை.</translation>
-<translation id="5543953544073077331">Chromeமின் பிற நேர்வுகள் செயல்பாட்டில் உள்ளன. புதுப்பிக்க அவற்றை மூடவும்.</translation>
 <translation id="556024056938947818">Google Chrome ஆனது கடவுச்சொற்களைக் காட்ட முயற்சிக்கிறது.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">இந்தப் பக்கத்தில் ஓர் அமைப்பு காட்டப்படவில்லை எனில் அதை <ph name="LINK_BEGIN" />
@@ -188,7 +182,6 @@
 <translation id="7408085963519505752">Chrome OS விதிமுறைகள்</translation>
 <translation id="7419046106786626209">உங்கள் களத்திற்கு ஒத்திசைவு கிடைக்கவில்லை என்பதால், Chrome OS ஆல் உங்கள் தரவை ஒத்திசைக்க முடியவில்லை.</translation>
 <translation id="7486227612705979895">முகவரிப் பட்டியில் பரிந்துரைகளை வழங்க, Chrome உங்கள் இயக்ககத்தை அணுகும்</translation>
-<translation id="7531671357096394523">Chromeமின் அனைத்து நேர்வுகளில் இருந்தும் வெளியேறுதல்.</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7573289029918943991">உங்கள் சாதனம் புதுப்பித்த நிலையில் உள்ளதா என்பதைப் பார்க்க <ph name="LINK_BEGIN" />Chrome OS அமைப்புகளுக்குச்<ph name="LINK_END" /> செல்லவும்</translation>
 <translation id="7589360514048265910">Mac OS X 10.9 இனி ஆதரிக்கப்படாது என்பதால், இந்தக் கம்ப்யூட்டர் இனி Google Chrome புதுப்பிப்புகளைப் பெறாது.</translation>
@@ -207,6 +200,7 @@
 <translation id="7855730255114109580">Google Chrome புதுப்பித்த நிலையில் உள்ளது</translation>
 <translation id="7890208801193284374">நீங்கள் கம்ப்யூட்டரைப் பகிர்ந்தால், நண்பர்களும் குடும்பத்தினரும் தனிப்பட்ட முறையில் உலாவலாம், மேலும் Chromeமை அவர்கள் விருப்பத்திற்கு ஏற்ப அமைத்துக்கொள்ளலாம்.</translation>
 <translation id="7896673875602241923">இதற்கு முன்னர் ஒருவர் இந்தக் கம்ப்யூட்டரில் Chromeமில் <ph name="ACCOUNT_EMAIL_LAST" /> எனும் முகவரியைப் பயன்படுத்தி உள்நுழைந்திருந்தார். உங்கள் தகவலைத் தனிப்பட்டதாக வைத்திருக்க, புதிய Chrome பயனரை உருவாக்கவும்.</translation>
+<translation id="7916016681687251387">உங்கள் தரவை Chrome OSஸால் ஒத்திசைக்க முடியவில்லை. இப்போதே சரிசெய்யுங்கள்.</translation>
 <translation id="7962410387636238736">Windows XP மற்றும் Windows Vista ஆகியவை இனி ஆதரிக்கப்படாது என்பதால் இந்தக் கம்ப்யூட்டர் இனி Google Chrome புதுப்பிப்புகளைப் பெறாது</translation>
 <translation id="8008534537613507642">Chrome ஐ மீண்டும்நிறுவு</translation>
 <translation id="8013993649590906847">ஒரு படத்திற்குப் பயனுள்ள விளக்கம் இல்லாதபட்சத்தில் Chrome உங்களுக்காக அதை வழங்க முயலும். விளக்கங்களை உருவாக்குவதற்காக படங்கள் Googleளுக்கு அனுப்பப்படும்.</translation>

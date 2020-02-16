@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_image_encode_options.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_async_blob_creator.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_layer_bridge.h"
@@ -182,9 +183,6 @@ CanvasRenderingContextHost::GetOrCreateCanvasResourceProviderImpl(
             presentation_mode, std::move(dispatcher), is_origin_top_left));
 
         if (ResourceProvider()) {
-          // Always save an initial frame, to support resetting the top level
-          // matrix and clip.
-          ResourceProvider()->Canvas()->save();
           ResourceProvider()->SetFilterQuality(FilterQuality());
           ResourceProvider()->SetResourceRecyclingEnabled(true);
         }

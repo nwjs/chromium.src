@@ -231,7 +231,7 @@ bool StructTraits<autofill::mojom::PasswordGenerationUIDataDataView,
 
   if (!data.ReadGenerationElement(&out->generation_element) ||
       !data.ReadTextDirection(&out->text_direction) ||
-      !data.ReadPasswordForm(&out->password_form))
+      !data.ReadFormData(&out->form_data))
     return false;
 
   return true;
@@ -272,8 +272,6 @@ bool StructTraits<
   if (!data.ReadConfirmationPasswordElement(
           &out->confirmation_password_element))
     return false;
-
-  out->preferred = data.preferred();
 
   if (!data.ReadDateCreated(&out->date_created) ||
       !data.ReadDateSynced(&out->date_synced))

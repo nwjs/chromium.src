@@ -136,8 +136,8 @@ class ScrollbarsTest : public SimTest {
   }
 
   void HandleMouseMoveEvent(int x, int y) {
-    WebMouseEvent event(WebInputEvent::kMouseMove, WebFloatPoint(x, y),
-                        WebFloatPoint(x, y),
+    WebMouseEvent event(WebInputEvent::kMouseMove, gfx::PointF(x, y),
+                        gfx::PointF(x, y),
                         WebPointerProperties::Button::kNoButton, 0,
                         WebInputEvent::kNoModifiers, base::TimeTicks::Now());
     event.SetFrameScale(1);
@@ -146,17 +146,17 @@ class ScrollbarsTest : public SimTest {
   }
 
   void HandleMousePressEvent(int x, int y) {
-    WebMouseEvent event(
-        WebInputEvent::kMouseDown, WebFloatPoint(x, y), WebFloatPoint(x, y),
-        WebPointerProperties::Button::kLeft, 0,
-        WebInputEvent::Modifiers::kLeftButtonDown, base::TimeTicks::Now());
+    WebMouseEvent event(WebInputEvent::kMouseDown, gfx::PointF(x, y),
+                        gfx::PointF(x, y), WebPointerProperties::Button::kLeft,
+                        0, WebInputEvent::Modifiers::kLeftButtonDown,
+                        base::TimeTicks::Now());
     event.SetFrameScale(1);
     GetEventHandler().HandleMousePressEvent(event);
   }
 
   void HandleContextMenuEvent(int x, int y) {
     WebMouseEvent event(
-        WebInputEvent::kMouseDown, WebFloatPoint(x, y), WebFloatPoint(x, y),
+        WebInputEvent::kMouseDown, gfx::PointF(x, y), gfx::PointF(x, y),
         WebPointerProperties::Button::kNoButton, 0,
         WebInputEvent::Modifiers::kNoModifiers, base::TimeTicks::Now());
     event.SetFrameScale(1);
@@ -164,17 +164,17 @@ class ScrollbarsTest : public SimTest {
   }
 
   void HandleMouseReleaseEvent(int x, int y) {
-    WebMouseEvent event(
-        WebInputEvent::kMouseUp, WebFloatPoint(x, y), WebFloatPoint(x, y),
-        WebPointerProperties::Button::kLeft, 0,
-        WebInputEvent::Modifiers::kNoModifiers, base::TimeTicks::Now());
+    WebMouseEvent event(WebInputEvent::kMouseUp, gfx::PointF(x, y),
+                        gfx::PointF(x, y), WebPointerProperties::Button::kLeft,
+                        0, WebInputEvent::Modifiers::kNoModifiers,
+                        base::TimeTicks::Now());
     event.SetFrameScale(1);
     GetEventHandler().HandleMouseReleaseEvent(event);
   }
 
   void HandleMouseMiddlePressEvent(int x, int y) {
     WebMouseEvent event(
-        WebInputEvent::kMouseDown, WebFloatPoint(x, y), WebFloatPoint(x, y),
+        WebInputEvent::kMouseDown, gfx::PointF(x, y), gfx::PointF(x, y),
         WebPointerProperties::Button::kMiddle, 0,
         WebInputEvent::Modifiers::kMiddleButtonDown, base::TimeTicks::Now());
     event.SetFrameScale(1);
@@ -183,7 +183,7 @@ class ScrollbarsTest : public SimTest {
 
   void HandleMouseMiddleReleaseEvent(int x, int y) {
     WebMouseEvent event(
-        WebInputEvent::kMouseUp, WebFloatPoint(x, y), WebFloatPoint(x, y),
+        WebInputEvent::kMouseUp, gfx::PointF(x, y), gfx::PointF(x, y),
         WebPointerProperties::Button::kMiddle, 0,
         WebInputEvent::Modifiers::kMiddleButtonDown, base::TimeTicks::Now());
     event.SetFrameScale(1);
@@ -191,10 +191,10 @@ class ScrollbarsTest : public SimTest {
   }
 
   void HandleMouseLeaveEvent() {
-    WebMouseEvent event(
-        WebInputEvent::kMouseMove, WebFloatPoint(1, 1), WebFloatPoint(1, 1),
-        WebPointerProperties::Button::kLeft, 0,
-        WebInputEvent::Modifiers::kLeftButtonDown, base::TimeTicks::Now());
+    WebMouseEvent event(WebInputEvent::kMouseMove, gfx::PointF(1, 1),
+                        gfx::PointF(1, 1), WebPointerProperties::Button::kLeft,
+                        0, WebInputEvent::Modifiers::kLeftButtonDown,
+                        base::TimeTicks::Now());
     event.SetFrameScale(1);
     GetEventHandler().HandleMouseLeaveEvent(event);
   }
@@ -235,7 +235,7 @@ class ScrollbarsTest : public SimTest {
     WebGestureEvent event(type, WebInputEvent::kNoModifiers,
                           base::TimeTicks::Now(), device);
 
-    event.SetPositionInWidget(WebFloatPoint(position.X(), position.Y()));
+    event.SetPositionInWidget(gfx::PointF(position.X(), position.Y()));
 
     if (type == WebInputEvent::kGestureScrollUpdate) {
       event.data.scroll_update.delta_x = offset.Width();
@@ -370,7 +370,7 @@ TEST(ScrollbarsTestWithOwnWebViewHelper, ScrollbarSizeForUseZoomDSF) {
                                      "</body>",
                                      base_url);
   web_view_impl->MainFrameWidget()->UpdateAllLifecyclePhases(
-      WebWidget::LifecycleUpdateReason::kTest);
+      DocumentUpdateReason::kTest);
 
   Document* document =
       To<LocalFrame>(web_view_impl->GetPage()->MainFrame())->GetDocument();
@@ -603,11 +603,11 @@ TEST_F(ScrollbarsTest, scrollbarIsNotHandlingTouchpadScroll) {
       WebInputEvent::kGestureScrollBegin, WebInputEvent::kNoModifiers,
       base::TimeTicks::Now(), WebGestureDevice::kTouchpad);
   scroll_begin.SetPositionInWidget(
-      WebFloatPoint(scrollable->OffsetLeft() + scrollable->OffsetWidth() - 2,
-                    scrollable->OffsetTop()));
+      gfx::PointF(scrollable->OffsetLeft() + scrollable->OffsetWidth() - 2,
+                  scrollable->OffsetTop()));
   scroll_begin.SetPositionInScreen(
-      WebFloatPoint(scrollable->OffsetLeft() + scrollable->OffsetWidth() - 2,
-                    scrollable->OffsetTop()));
+      gfx::PointF(scrollable->OffsetLeft() + scrollable->OffsetWidth() - 2,
+                  scrollable->OffsetTop()));
   scroll_begin.data.scroll_begin.delta_x_hint = 0;
   scroll_begin.data.scroll_begin.delta_y_hint = 10;
   scroll_begin.SetFrameScale(1);
@@ -1510,8 +1510,10 @@ TEST_F(ScrollbarsTestWithVirtualTimer, TestNonCompositedOverlayScrollbarsFade) {
   RunTasksForPeriod(kMockOverlayFadeOutDelay);
   EXPECT_TRUE(scrollable_area->ScrollbarsHiddenIfOverlay());
 
-  scrollable_area->SetScrollOffset(ScrollOffset(10, 10), kProgrammaticScroll,
-                                   kScrollBehaviorInstant);
+  scrollable_area->SetScrollOffset(
+      ScrollOffset(10, 10),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
+      mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
 
   EXPECT_FALSE(scrollable_area->ScrollbarsHiddenIfOverlay());
   RunTasksForPeriod(kMockOverlayFadeOutDelay);
@@ -1533,8 +1535,10 @@ TEST_F(ScrollbarsTestWithVirtualTimer, TestNonCompositedOverlayScrollbarsFade) {
 
   // Non-composited scrollbars don't fade out while mouse is over.
   EXPECT_TRUE(scrollable_area->VerticalScrollbar());
-  scrollable_area->SetScrollOffset(ScrollOffset(20, 20), kProgrammaticScroll,
-                                   kScrollBehaviorInstant);
+  scrollable_area->SetScrollOffset(
+      ScrollOffset(20, 20),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
+      mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
   EXPECT_FALSE(scrollable_area->ScrollbarsHiddenIfOverlay());
   scrollable_area->MouseEnteredScrollbar(*scrollable_area->VerticalScrollbar());
   RunTasksForPeriod(kMockOverlayFadeOutDelay);
@@ -1692,8 +1696,9 @@ TEST_P(ScrollbarAppearanceTest, HugeScrollingThumbPosition) {
 
   Compositor().BeginFrame();
 
-  scrollable_area->SetScrollOffset(ScrollOffset(0, 10000000),
-                                   kProgrammaticScroll);
+  scrollable_area->SetScrollOffset(
+      ScrollOffset(0, 10000000),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
 
   Compositor().BeginFrame();
 
@@ -2315,9 +2320,9 @@ TEST_F(ScrollbarsTest, MiddleDownShouldNotAffectScrollbarPress) {
   EXPECT_EQ(scrollbar->PressedPart(), ScrollbarPart::kThumbPart);
 
   // Move mouse out of scrollbar with press.
-  WebMouseEvent event(WebInputEvent::kMouseMove, WebFloatPoint(5, 5),
-                      WebFloatPoint(5, 5), WebPointerProperties::Button::kLeft,
-                      0, WebInputEvent::Modifiers::kLeftButtonDown,
+  WebMouseEvent event(WebInputEvent::kMouseMove, gfx::PointF(5, 5),
+                      gfx::PointF(5, 5), WebPointerProperties::Button::kLeft, 0,
+                      WebInputEvent::Modifiers::kLeftButtonDown,
                       base::TimeTicks::Now());
   event.SetFrameScale(1);
   GetEventHandler().HandleMouseLeaveEvent(event);
@@ -2675,8 +2680,10 @@ TEST_F(ScrollbarsTestWithVirtualTimer,
   Scrollbar* scrollbar = scrollable_area->VerticalScrollbar();
 
   // Scroll to bottom.
-  scrollable_area->SetScrollOffset(ScrollOffset(0, 400), kProgrammaticScroll,
-                                   kScrollBehaviorInstant);
+  scrollable_area->SetScrollOffset(
+      ScrollOffset(0, 400),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
+      mojom::blink::ScrollIntoViewParams::Behavior::kInstant);
   EXPECT_EQ(scrollable_area->ScrollOffsetInt(), IntSize(0, 200));
 
   HandleMouseMoveEvent(195, 195);
@@ -2803,7 +2810,8 @@ INSTANTIATE_TEST_SUITE_P(NonOverlay,
 
 TEST_P(ScrollbarColorSchemeTest, MAYBE_ThemeEnginePaint) {
   ScopedTestingPlatformSupport<ScrollbarTestingPlatformSupport> platform;
-  ScopedCSSColorSchemeForTest css_feature_scope(true);
+  ScopedCSSColorSchemeForTest color_scheme_scope(true);
+  ScopedCSSColorSchemeUARenderingForTest color_scheme_ua_scope(true);
 
   WebView().MainFrameWidget()->Resize(WebSize(800, 600));
   SimRequest request("https://example.com/test.html", "text/html");

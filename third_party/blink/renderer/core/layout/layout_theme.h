@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/font_selection_types.h"
+#include "third_party/blink/renderer/platform/geometry/int_rect.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/geometry/length_box.h"
 #include "third_party/blink/renderer/platform/geometry/length_size.h"
@@ -42,12 +43,11 @@ namespace blink {
 
 class ComputedStyle;
 class Element;
-class FileList;
-class Font;
+class File;
 class FontDescription;
 class HTMLInputElement;
+class IntRect;
 class LengthSize;
-class Locale;
 class LocalFrame;
 class Node;
 class ThemePainter;
@@ -175,17 +175,13 @@ class CORE_EXPORT LayoutTheme : public RefCounted<LayoutTheme> {
   void SetCustomFocusRingColor(const Color&);
   static Color TapHighlightColor();
 
-  // Root element text color. It can be different from the initial color in
-  // other color schemes than the light theme.
-  Color RootElementColor(WebColorScheme) const;
-
   virtual Color PlatformTapHighlightColor() const {
     return LayoutTheme::kDefaultTapHighlightColor;
   }
   virtual Color PlatformDefaultCompositionBackgroundColor() const {
     return kDefaultCompositionBackgroundColor;
   }
-  virtual void PlatformColorsDidChange();
+  void PlatformColorsDidChange();
   virtual void ColorSchemeDidChange();
 
   void SetCaretBlinkInterval(base::TimeDelta);
@@ -242,10 +238,7 @@ class CORE_EXPORT LayoutTheme : public RefCounted<LayoutTheme> {
   virtual bool PopsMenuByReturnKey() const { return false; }
   virtual bool PopsMenuByAltDownUpOrF4Key() const { return false; }
 
-  virtual String FileListNameForWidth(Locale&,
-                                      const FileList*,
-                                      const Font&,
-                                      int width) const;
+  virtual String DisplayNameForFile(const File& file) const;
 
   virtual bool ShouldOpenPickerWithF4Key() const;
 

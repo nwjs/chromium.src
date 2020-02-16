@@ -18,10 +18,10 @@ import org.junit.runner.RunWith;
 
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ui.DummyUiActivityTestCase;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.ui.test.util.DummyUiActivityTestCase;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -46,13 +46,14 @@ public class MessageCardViewBinderTest extends DummyUiActivityTestCase {
     private MessageCardView.ReviewActionProvider mUiReviewHandler = () -> {
         mReviewButtonClicked.set(true);
     };
-    private MessageCardView.DismissActionProvider mUiDismissHandler = () -> {
+    private MessageCardView.DismissActionProvider mUiDismissHandler = (int messageType) -> {
         mDismissButtonClicked.set(true);
     };
     private MessageCardView.ReviewActionProvider mMessageServiceActionHandler = () -> {
         mMessageServiceReviewCallbackRan.set(true);
     };
-    private MessageCardView.DismissActionProvider mMessageServiceDismissHandler = () -> {
+    private MessageCardView.DismissActionProvider mMessageServiceDismissHandler =
+            (int messageType) -> {
         mMessageServiceDismissCallbackRan.set(true);
     };
 

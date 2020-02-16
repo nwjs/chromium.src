@@ -53,6 +53,7 @@
 #include "extensions/browser/extension_util.h"
 #include "net/base/escape.h"
 #include "services/device/public/mojom/mtp_manager.mojom.h"
+#include "services/device/public/mojom/mtp_storage_info.mojom.h"
 #include "storage/browser/file_system/external_mount_points.h"
 #include "storage/browser/file_system/file_stream_reader.h"
 #include "storage/browser/file_system/file_system_context.h"
@@ -381,9 +382,8 @@ ExtensionFunction::ResponseAction FileManagerPrivateGrantAccessFunction::Run() {
   for (auto* profile : profiles) {
     if (profile->IsOffTheRecord())
       continue;
-    const GURL site = util::GetSiteForExtensionId(extension_id(), profile);
     storage::FileSystemContext* const context =
-        content::BrowserContext::GetStoragePartitionForSite(profile, site)
+        util::GetStoragePartitionForExtensionId(extension_id(), profile)
             ->GetFileSystemContext();
     for (const auto& url : params->entry_urls) {
       const storage::FileSystemURL file_system_url =

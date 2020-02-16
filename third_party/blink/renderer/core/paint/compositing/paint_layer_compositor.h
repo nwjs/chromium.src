@@ -95,13 +95,6 @@ class CORE_EXPORT PaintLayerCompositor {
   // to the native view/window system.
   void SetCompositingModeEnabled(bool);
 
-  // Returns true if the accelerated compositing is enabled
-  bool HasAcceleratedCompositing() const {
-    return has_accelerated_compositing_;
-  }
-
-  bool PreferCompositingToLCDTextEnabled() const;
-
   bool RootShouldAlwaysComposite() const;
 
   // Notifies about changes to PreferCompositingToLCDText or
@@ -198,7 +191,6 @@ class CORE_EXPORT PaintLayerCompositor {
   GraphicsLayer* GetXrImmersiveDomOverlayLayer() const;
 
   LayoutView& layout_view_;
-  const bool has_accelerated_compositing_ = true;
 
   bool compositing_ = false;
 

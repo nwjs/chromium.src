@@ -11,6 +11,7 @@ cr.define('device_page_tests', function() {
     NightLight: 'night light',
     Pointers: 'pointers',
     Power: 'power',
+    Storage: 'storage',
     Stylus: 'stylus',
   };
 
@@ -392,7 +393,7 @@ cr.define('device_page_tests', function() {
       settings.display.systemDisplayApi = fakeSystemDisplay;
 
       PolymerTest.clearBody();
-      settings.navigateTo(settings.routes.BASIC);
+      settings.Router.getInstance().navigateTo(settings.routes.BASIC);
 
       devicePage = document.createElement('settings-device-page');
       devicePage.prefs = getFakePrefs();
@@ -413,7 +414,8 @@ cr.define('device_page_tests', function() {
     function showAndGetDeviceSubpage(subpage, expectedRoute) {
       const row = assert(devicePage.$$(`#main #${subpage}Row`));
       row.click();
-      assertEquals(expectedRoute, settings.getCurrentRoute());
+      assertEquals(
+          expectedRoute, settings.Router.getInstance().getCurrentRoute());
       const page = devicePage.$$('settings-' + subpage);
       assert(page);
       return Promise.resolve(page);
@@ -480,15 +482,11 @@ cr.define('device_page_tests', function() {
      * @param {!HTMLElement} pointersPage
      * @param {boolean} expected
      */
-    function expectNaturalScrollValue(pointersPage, expected) {
-      const naturalScrollOff = pointersPage.$$('cr-radio-button[name="false"]');
-      const naturalScrollOn = pointersPage.$$('cr-radio-button[name="true"]');
-      assertTrue(!!naturalScrollOff);
-      assertTrue(!!naturalScrollOn);
-
-      expectEquals(!expected, naturalScrollOff.checked);
-      expectEquals(expected, naturalScrollOn.checked);
-      expectEquals(
+    function expectReverseScrollValue(pointersPage, expected) {
+      const reverseScrollToggle =
+          pointersPage.$$('#enableReverseScrollingToggle');
+      assertEquals(expected, reverseScrollToggle.checked);
+      expectNotEquals(
           expected, devicePage.prefs.settings.touchpad.natural_scroll.value);
     }
 
@@ -516,21 +514,27 @@ cr.define('device_page_tests', function() {
       });
 
       test('subpage responds to pointer attach/detach', function() {
-        assertEquals(settings.routes.POINTERS, settings.getCurrentRoute());
+        assertEquals(
+            settings.routes.POINTERS,
+            settings.Router.getInstance().getCurrentRoute());
         assertLT(0, pointersPage.$$('#mouse').offsetHeight);
         assertLT(0, pointersPage.$$('#touchpad').offsetHeight);
         assertLT(0, pointersPage.$$('#mouse h2').offsetHeight);
         assertLT(0, pointersPage.$$('#touchpad h2').offsetHeight);
 
         cr.webUIListenerCallback('has-touchpad-changed', false);
-        assertEquals(settings.routes.POINTERS, settings.getCurrentRoute());
+        assertEquals(
+            settings.routes.POINTERS,
+            settings.Router.getInstance().getCurrentRoute());
         assertLT(0, pointersPage.$$('#mouse').offsetHeight);
         assertEquals(0, pointersPage.$$('#touchpad').offsetHeight);
         assertEquals(0, pointersPage.$$('#mouse h2').offsetHeight);
         assertEquals(0, pointersPage.$$('#touchpad h2').offsetHeight);
 
         cr.webUIListenerCallback('has-mouse-changed', false);
-        assertEquals(settings.routes.DEVICE, settings.getCurrentRoute());
+        assertEquals(
+            settings.routes.DEVICE,
+            settings.Router.getInstance().getCurrentRoute());
         assertEquals(0, devicePage.$$('#main #pointersRow').offsetHeight);
 
         cr.webUIListenerCallback('has-touchpad-changed', true);
@@ -545,7 +549,8 @@ cr.define('device_page_tests', function() {
 
               cr.webUIListenerCallback('has-mouse-changed', true);
               assertEquals(
-                  settings.routes.POINTERS, settings.getCurrentRoute());
+                  settings.routes.POINTERS,
+                  settings.Router.getInstance().getCurrentRoute());
               assertLT(0, pointersPage.$$('#mouse').offsetHeight);
               assertLT(0, pointersPage.$$('#touchpad').offsetHeight);
               assertLT(0, pointersPage.$$('#mouse h2').offsetHeight);
@@ -585,51 +590,32 @@ cr.define('device_page_tests', function() {
       });
 
       test('link doesn\'t activate control', function() {
-        expectNaturalScrollValue(pointersPage, false);
+        expectReverseScrollValue(pointersPage, true);
 
         // Tapping the link shouldn't enable the radio button.
-        const naturalScrollOff =
-            pointersPage.$$('cr-radio-button[name="false"]');
-        const naturalScrollOn = pointersPage.$$('cr-radio-button[name="true"]');
-        const a = naturalScrollOn.querySelector('a');
-
+        const reverseScrollLabel =
+            pointersPage.$$('#enableReverseScrollingLabel');
+        const a = reverseScrollLabel.$.container.querySelector('a');
+        expectTrue(!!a);
         // Prevent actually opening a link, which would block test.
         a.removeAttribute('href');
-
         a.click();
-        expectNaturalScrollValue(pointersPage, false);
+        expectReverseScrollValue(pointersPage, true);
 
-        naturalScrollOn.click();
-        expectNaturalScrollValue(pointersPage, true);
+        // Check specifically clicking toggle changes pref.
+        const reverseScrollToggle =
+            pointersPage.$$('#enableReverseScrollingToggle');
+        reverseScrollToggle.click();
+        expectReverseScrollValue(pointersPage, false);
         devicePage.set('prefs.settings.touchpad.natural_scroll.value', false);
-        expectNaturalScrollValue(pointersPage, false);
+        expectReverseScrollValue(pointersPage, true);
 
-        /**
-         * MockInteraction's pressEnter does not sufficiently set all key-event
-         * properties.
-         * @param {!HTMLElement} element
-         * @param {string} keyCode
-         * @param {string} keyName
-         */
-        function triggerKeyEvents(element, keyCode, keyName) {
-          ['keydown', 'keypress', 'keyup'].forEach(event => {
-            MockInteractions.keyEventOn(
-                element, event, keyCode, undefined, keyName);
-          });
-        }
-
-        // Enter on the link shouldn't enable the radio button either.
-        triggerKeyEvents(a, 'Enter', 'Enter');
-        test_util.flushTasks();
-        expectNaturalScrollValue(pointersPage, false);
-
-        pointersPage.$$('settings-radio-group').selected = '';
-        const falseRadio = pointersPage.$$('cr-radio-button[name="false"]');
-        assertTrue(!!falseRadio);
-        assertFalse(falseRadio.checked);
-        triggerKeyEvents(naturalScrollOff, 'Space', ' ');
-        test_util.flushTasks();
-        expectNaturalScrollValue(pointersPage, false);
+        // Check specifically clicking the row changes pref.
+        const reverseScrollSettings = pointersPage.$$('#reverseScrollRow');
+        reverseScrollToggle.click();
+        expectReverseScrollValue(pointersPage, false);
+        devicePage.set('prefs.settings.touchpad.natural_scroll.value', false);
+        expectReverseScrollValue(pointersPage, true);
       });
     });
 
@@ -1810,6 +1796,114 @@ cr.define('device_page_tests', function() {
                   'prefs.settings.restore_last_lock_screen_note.value', true);
               expectTrue(keepLastNoteOnLockScreenToggle().checked);
             });
+      });
+    });
+
+    suite(assert(TestNames.Storage), function() {
+      /** @type {!Element} */
+      let storagePage;
+
+      /**
+       * Simulate storage size stat callback.
+       * @param {string} availableSize
+       * @param {string} usedSize
+       * @param {number} usedRatio
+       * @param {number} spaceState
+       */
+      function sendStorageSizeStat(
+          usedSize, availableSize, usedRatio, spaceState) {
+        cr.webUIListenerCallback('storage-size-stat-changed', {
+          usedSize: usedSize,
+          availableSize: availableSize,
+          usedRatio: usedRatio,
+          spaceState: spaceState,
+        });
+        Polymer.dom.flush();
+      }
+
+      /**
+       * @param {?Element} element
+       * @return {boolean}
+       */
+      function isHidden(element) {
+        return !element ||
+            (element.offsetWidth == 0 && element.offsetHeight == 0);
+      }
+
+      suiteSetup(function() {
+        // Disable animations so sub-pages open within one event loop.
+        testing.Test.disableAnimationsAndTransitions();
+      });
+
+      setup(function() {
+        // Avoid unwanted callbacks by disabling storage computations when the
+        // storage page is loaded.
+        registerMessageCallback(
+            'updateStorageInfo', null /* message handler */,
+            () => {} /* callback */);
+
+        return showAndGetDeviceSubpage('storage', settings.routes.STORAGE)
+            .then(function(page) {
+              storagePage = page;
+              storagePage.stopPeriodicUpdate_();
+            });
+      });
+
+      test('storage stats size', async function() {
+        // Low available storage space.
+        sendStorageSizeStat(
+            '9.1 GB', '0.9 GB', 0.91, settings.StorageSpaceState.LOW);
+        assertEquals('91%', storagePage.$.inUseLabelArea.style.width);
+        assertEquals('9%', storagePage.$.availableLabelArea.style.width);
+        assertFalse(isHidden(storagePage.$$('#lowMessage')));
+        assertTrue(isHidden(storagePage.$$('#criticallyLowMessage')));
+        assertTrue(!!storagePage.$$('#bar.space-low'));
+        assertFalse(!!storagePage.$$('#bar.space-critically-low'));
+        assertEquals(
+            '9.1 GB',
+            storagePage.$.inUseLabelArea.querySelector('.storage-size')
+                .innerText);
+        assertEquals(
+            '0.9 GB',
+            storagePage.$.availableLabelArea.querySelector('.storage-size')
+                .innerText);
+
+        // Critically low available storage space.
+        sendStorageSizeStat(
+            '9.7 GB', '0.3 GB', 0.97,
+            settings.StorageSpaceState.CRITICALLY_LOW);
+        assertEquals('97%', storagePage.$.inUseLabelArea.style.width);
+        assertEquals('3%', storagePage.$.availableLabelArea.style.width);
+        assertTrue(isHidden(storagePage.$$('#lowMessage')));
+        assertFalse(isHidden(storagePage.$$('#criticallyLowMessage')));
+        assertFalse(!!storagePage.$$('#bar.space-low'));
+        assertTrue(!!storagePage.$$('#bar.space-critically-low'));
+        assertEquals(
+            '9.7 GB',
+            storagePage.$.inUseLabelArea.querySelector('.storage-size')
+                .innerText);
+        assertEquals(
+            '0.3 GB',
+            storagePage.$.availableLabelArea.querySelector('.storage-size')
+                .innerText);
+
+        // Normal storage usage.
+        sendStorageSizeStat(
+            '2.5 GB', '7.5 GB', 0.25, settings.StorageSpaceState.NORMAL);
+        assertEquals('25%', storagePage.$.inUseLabelArea.style.width);
+        assertEquals('75%', storagePage.$.availableLabelArea.style.width);
+        assertTrue(isHidden(storagePage.$$('#lowMessage')));
+        assertTrue(isHidden(storagePage.$$('#criticallyLowMessage')));
+        assertFalse(!!storagePage.$$('#bar.space-low'));
+        assertFalse(!!storagePage.$$('#bar.space-critically-low'));
+        assertEquals(
+            '2.5 GB',
+            storagePage.$.inUseLabelArea.querySelector('.storage-size')
+                .innerText);
+        assertEquals(
+            '7.5 GB',
+            storagePage.$.availableLabelArea.querySelector('.storage-size')
+                .innerText);
       });
     });
   });

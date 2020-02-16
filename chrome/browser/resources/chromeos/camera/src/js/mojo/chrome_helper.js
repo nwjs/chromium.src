@@ -2,22 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
-
 /**
- * Namespace for the Camera app.
+ * The singleton instance of ChromeHelper. Initialized by the first
+ * invocation of getInstance().
+ * @type {?ChromeHelper}
  */
-var cca = cca || {};
-
-/**
- * Namespace for mojo.
- */
-cca.mojo = cca.mojo || {};
+let instance = null;
 
 /**
  * Communicates with Chrome.
  */
-cca.mojo.ChromeHelper = class {
+export class ChromeHelper {
   /**
    * @public
    */
@@ -26,7 +21,7 @@ cca.mojo.ChromeHelper = class {
      * An interface remote that is used to communicate with Chrome.
      * @type {!chromeosCamera.mojom.CameraAppHelperRemote}
      */
-    this.remote_ = chromeosCamera.mojom.CameraAppHelper.getRemote();
+    this.remote_ = chromeosCamera.mojom.CameraAppHelper.getRemote(true);
   }
 
   /**
@@ -37,6 +32,22 @@ cca.mojo.ChromeHelper = class {
     return await this.remote_.isTabletMode().then(({isTabletMode}) => {
       return isTabletMode;
     });
+  }
+
+  /**
+   * Triggers the begin of event tracing in Chrome.
+   * @param {string} event Name of the event.
+   */
+  startTracing(event) {
+    this.remote_.startPerfEventTrace(event);
+  }
+
+  /**
+   * Triggers the end of event tracing in Chrome.
+   * @param {string} event Name of the event.
+   */
+  stopTracing(event) {
+    this.remote_.stopPerfEventTrace(event);
   }
 
   /**
@@ -116,19 +127,12 @@ cca.mojo.ChromeHelper = class {
   /**
    * Creates a new instance of ChromeHelper if it is not set. Returns the
    *     exist instance.
-   * @return {!cca.mojo.ChromeHelper} The singleton instance.
+   * @return {!ChromeHelper} The singleton instance.
    */
   static getInstance() {
-    if (this.instance === null) {
-      this.instance = new cca.mojo.ChromeHelper();
+    if (instance === null) {
+      instance = new ChromeHelper();
     }
-    return this.instance;
+    return instance;
   }
-};
-
-/**
- * The singleton instance of ChromeHelper. Initialized by the first
- * invocation of getInstance().
- * @type {?cca.mojo.ChromeHelper}
- */
-cca.mojo.ChromeHelper.instance = null;
+}

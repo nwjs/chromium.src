@@ -15,7 +15,7 @@ import '../strings.m.js';
 import {I18nBehavior} from 'chrome://resources/js/i18n_behavior.m.js';
 import {Base, html, Polymer} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {createDestinationKey, createRecentDestinationKey, Destination, DestinationOrigin, RecentDestination} from '../data/destination.js';
+import {createDestinationKey, Destination, DestinationOrigin, RecentDestination} from '../data/destination.js';
 import {getSelectDropdownBackground} from '../print_preview_utils.js';
 
 import {SelectBehavior} from './select_behavior.js';
@@ -37,11 +37,13 @@ Polymer({
 
     disabled: Boolean,
 
+    driveDestinationReady: Boolean,
+
     noDestinations: Boolean,
 
     pdfPrinterDisabled: Boolean,
 
-    /** @type {!Array<!RecentDestination>} */
+    /** @type {!Array<!Destination>} */
     recentDestinationList: Array,
   },
 
@@ -49,12 +51,12 @@ Polymer({
   meta_: /** @type {!IronMetaElement} */ (
       Base.create('iron-meta', {type: 'iconset'})),
 
-  focus: function() {
+  focus() {
     this.$$('.md-select').focus();
   },
 
   /** Sets the select to the current value of |destination|. */
-  updateDestination: function() {
+  updateDestination() {
     this.selectedValue = this.destination.key;
   },
 
@@ -62,7 +64,7 @@ Polymer({
    * @return {string} Unique identifier for the Save as PDF destination
    * @private
    */
-  getPdfDestinationKey_: function() {
+  getPdfDestinationKey_() {
     return createDestinationKey(
         Destination.GooglePromotedId.SAVE_AS_PDF, DestinationOrigin.LOCAL, '');
   },
@@ -71,7 +73,7 @@ Polymer({
    * @return {string} Unique identifier for the Save to Google Drive destination
    * @private
    */
-  getGoogleDriveDestinationKey_: function() {
+  getGoogleDriveDestinationKey_() {
     return createDestinationKey(
         Destination.GooglePromotedId.DOCS, DestinationOrigin.COOKIES,
         this.activeUser);
@@ -84,7 +86,7 @@ Polymer({
    * @return {string} The iconset and icon for the current selection.
    * @private
    */
-  getDestinationIcon_: function() {
+  getDestinationIcon_() {
     if (!this.selectedValue) {
       return '';
     }
@@ -106,7 +108,7 @@ Polymer({
 
     // Otherwise, must be in the recent list.
     const recent = this.recentDestinationList.find(d => {
-      return createRecentDestinationKey(d) === this.selectedValue;
+      return d.key === this.selectedValue;
     });
     if (recent && recent.icon) {
       return recent.icon;
@@ -123,7 +125,7 @@ Polymer({
    *     destination and the image for the dropdown arrow.
    * @private
    */
-  getBackgroundImages_: function() {
+  getBackgroundImages_() {
     const icon = this.getDestinationIcon_();
     if (!icon) {
       return '';
@@ -139,16 +141,7 @@ Polymer({
     return getSelectDropdownBackground(iconset, iconSetAndIcon[1], this);
   },
 
-  onProcessSelectChange: function(value) {
+  onProcessSelectChange(value) {
     this.fire('selected-option-change', value);
-  },
-
-  /**
-   * @param {!RecentDestination} recentDestination
-   * @return {string} Key for the recent destination
-   * @private
-   */
-  getKey_: function(recentDestination) {
-    return createRecentDestinationKey(recentDestination);
   },
 });

@@ -385,7 +385,6 @@ As jy klaar is met die tutoriaal, gebruik ChromeVox om na die Maak toe-knoppie t
 <translation id="3646890046000188562">{COUNT,plural, =1{agteroorstrepie}other{# agteroorstrepies}}</translation>
 <translation id="3650317109285159359">kieslysitemmerkblokkie</translation>
 <translation id="3655855170848725876">{COUNT,plural, =1{dollar}other{# dollartekens}}</translation>
-<translation id="3658742229777143148">Hersiening</translation>
 <translation id="3659787053479271466">alrt</translation>
 <translation id="3665563998540286755"><ph name="VALUE" />, lyskassie</translation>
 <translation id="3681531118904532409">Papajaklits</translation>
@@ -420,6 +419,7 @@ As jy klaar is met die tutoriaal, gebruik ChromeVox om na die Maak toe-knoppie t
 <translation id="3914732343065571127">ChromeVox-bevelverwysing</translation>
 <translation id="3930383913623796990">Lentegroen</translation>
 <translation id="3930498801443296724">Uithaalaanhaling</translation>
+<translation id="3935615366277838204">Hoofletter <ph name="LETTER" /></translation>
 <translation id="3936394396199829062">Lilapienkrooi</translation>
 <translation id="3941269780691800708">Lees teks onder die muis.</translation>
 <translation id="394953087167197343">Dui spelfout aan:</translation>
@@ -793,7 +793,6 @@ As jy klaar is met die tutoriaal, gebruik ChromeVox om na die Maak toe-knoppie t
 <translation id="6459511626086141404">Plat sleutelkaart</translation>
 <translation id="6468049171101508116">Volgende knoppie</translation>
 <translation id="646954774886932461">Indeks</translation>
-<translation id="6479792383819319132">Geen volgende paragraaf nie.</translation>
 <translation id="6493991254603208962">Verlaag helderheid</translation>
 <translation id="6501595918865591267">Turkoois</translation>
 <translation id="6508059270146105198">Skuif braille-skerm na onderkant van bladsy</translation>
@@ -816,7 +815,6 @@ As jy klaar is met die tutoriaal, gebruik ChromeVox om na die Maak toe-knoppie t
 <translation id="6637586476836377253">loglêer</translation>
 <translation id="6657128831881431364">Vorderingbalk</translation>
 <translation id="6659594942844771486">Oortjie</translation>
-<translation id="6675661017770918201">Geen vorige paragraaf nie.</translation>
 <translation id="667999046851023355">Dokument</translation>
 <translation id="6688209025607531203">'n Nie-modale opletberig</translation>
 <translation id="6689672606256159458">Donkersalm</translation>
@@ -845,6 +843,7 @@ As jy klaar is met die tutoriaal, gebruik ChromeVox om na die Maak toe-knoppie t
 <translation id="6865519907510167493">Spelfout</translation>
 <translation id="6871161210040114857">Ignoreer tans kas.</translation>
 <translation id="6877435256196695200">Geen volgende grafika nie.</translation>
+<translation id="688976158310523235">Soekkieslys</translation>
 <translation id="6897341342232909480">Beweeg links</translation>
 <translation id="6901540140423170855">datum</translation>
 <translation id="6910211073230771657">Uitgevee</translation>
@@ -857,6 +856,7 @@ As jy klaar is met die tutoriaal, gebruik ChromeVox om na die Maak toe-knoppie t
 <translation id="699159175332639490">Search + O + W</translation>
 <translation id="6994042831499278539">Woordelysverwysing</translation>
 <translation id="6996566555547746822">Volgende kombinasiekassie</translation>
+<translation id="6997224546856374593">Wanneer jy hoofletters lees:</translation>
 <translation id="700202842116345659">Bibliografie-inskrywing</translation>
 <translation id="7005146664810010831">Geen URL gevind nie</translation>
 <translation id="7010712454773919705">ChromeVox-wysigersleutel</translation>
@@ -937,6 +937,7 @@ Druk Alt+F om die Chrome-blaaierkieslys oop te maak.</translation>
 <translation id="744163271241493234">wagwoord</translation>
 <translation id="7491962110804786152">oortjie</translation>
 <translation id="7492049978501397201">Het dialoog ingevoer</translation>
+<translation id="7505149250476994901">Sê "cap" (hoofletter) voor letter</translation>
 <translation id="7518543783849163354">Druk die Control-sleutel om ChromeVox tydelik te laat ophou praat.</translation>
 <translation id="7521682724501952239">Jy kan ChromeVox met die raakskerm gebruik.</translation>
 <translation id="7532613204005497612">Junie</translation>
@@ -1104,7 +1105,6 @@ Druk Alt+F om die Chrome-blaaierkieslys oop te maak.</translation>
 <translation id="812886159861361726">Aflaai is gestaak <ph name="FILE_NAME" /></translation>
 <translation id="8138880386467279117">Raak</translation>
 <translation id="8153880621934657047">Nie in tabel nie.</translation>
-<translation id="8161114871611868169">Opmerking-afdeling</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{onderstreep}other{# onderstrepe}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">ry</translation>
@@ -1125,6 +1125,7 @@ Druk Alt+F om die Chrome-blaaierkieslys oop te maak.</translation>
 <translation id="8313653172105209786">dir</translation>
 <translation id="8316881042119029234">Oukant</translation>
 <translation id="8326783648485765113">Grasgroen</translation>
+<translation id="8328063869313048659">Wissel donker skerm</translation>
 <translation id="8344569602005188545">ure</translation>
 <translation id="8345569862449483843">{COUNT,plural, =1{pond}other{# pondtekens}}</translation>
 <translation id="8374154622594089836">maand</translation>
@@ -1209,6 +1210,7 @@ Druk Alt+F om die Chrome-blaaierkieslys oop te maak.</translation>
 <translation id="9065283790526219006">+opspringer</translation>
 <translation id="9066023754636984703">Druk Search+A, J om na besonderhede te spring.</translation>
 <translation id="9067522039955793016">Bladsybreuk</translation>
+<translation id="9074824103975499138">Deursoek ChromeVox-kieslyste</translation>
 <translation id="9077213568694924680">is uit seleksie verwyder</translation>
 <translation id="9077305471618729969">Ligte seegroen</translation>
 <translation id="9082874451376019682">Geen vorige glyer nie.</translation>

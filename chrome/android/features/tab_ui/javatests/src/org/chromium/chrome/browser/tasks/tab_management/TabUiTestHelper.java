@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.tab_management;
 
 import static android.support.test.espresso.Espresso.onView;
 import static android.support.test.espresso.action.ViewActions.click;
+import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.RootMatchers.withDecorView;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
@@ -28,6 +29,7 @@ import android.os.Build;
 import android.provider.Settings;
 import android.support.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.espresso.NoMatchingRootException;
 import android.support.test.espresso.NoMatchingViewException;
 import android.support.test.espresso.UiController;
 import android.support.test.espresso.ViewAction;
@@ -42,8 +44,8 @@ import org.chromium.base.ContextUtils;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.tab_ui.R;
@@ -55,6 +57,7 @@ import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -110,6 +113,115 @@ public class TabUiTestHelper {
         onView(allOf(withParent(withId(org.chromium.chrome.R.id.compositor_view_holder)),
                        withId(R.id.tab_list_view)))
                 .perform(RecyclerViewActions.actionOnItemAtPosition(index, click()));
+    }
+
+    /**
+     * Click the first tab in tab grid dialog to open a tab page.
+     * @param cta  The current running activity.
+     */
+    static void clickFirstTabInDialog(ChromeTabbedActivity cta) {
+        clickNthTabInDialog(cta, 0);
+    }
+
+    /**
+     * Click the Nth tab in tab grid dialog to open a tab page.
+     * @param cta  The current running activity.
+     * @param index The index of the target tab.
+     */
+    static void clickNthTabInDialog(ChromeTabbedActivity cta, int index) {
+        OverviewModeBehaviorWatcher hideWatcher = createOverviewHideWatcher(cta);
+        onView(withId(R.id.tab_list_view))
+                .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
+                .perform(RecyclerViewActions.actionOnItemAtPosition(index, click()));
+        hideWatcher.waitForBehavior();
+    }
+
+    /**
+     * Close the first tab in tab gri dialog.
+     * @param cta  The current running activity.
+     */
+    static void closeFirstTabInDialog(ChromeTabbedActivity cta) {
+        closeNthTabInDialog(cta, 0);
+    }
+
+    /**
+     * Close the Nth tab in tab gri dialog.
+     * @param cta  The current running activity.
+     * @param index The index of the target tab to close.
+     */
+    static void closeNthTabInDialog(ChromeTabbedActivity cta, int index) {
+        onView(withId(R.id.tab_list_view))
+                .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
+                .perform(new ViewAction() {
+                    @Override
+                    public Matcher<View> getConstraints() {
+                        return isDisplayed();
+                    }
+
+                    @Override
+                    public String getDescription() {
+                        return "close first tab";
+                    }
+
+                    @Override
+                    public void perform(UiController uiController, View view) {
+                        RecyclerView recyclerView = (RecyclerView) view;
+                        RecyclerView.ViewHolder viewHolder =
+                                recyclerView.findViewHolderForAdapterPosition(index);
+                        assert viewHolder != null;
+                        viewHolder.itemView.findViewById(R.id.action_button).performClick();
+                    }
+                });
+    }
+
+    /**
+     * Check whether there is a tab list showing in a {@link android.widget.PopupWindow}. This can
+     * be used for tab grid dialog and tab group popup UI.
+     * @param cta  The current running activity.
+     * @return Whether there is a tab list showing in a popup component.
+     */
+    static boolean isShowingPopupTabList(ChromeTabbedActivity cta) {
+        boolean isShowing = true;
+        try {
+            onView(withId(R.id.tab_list_view))
+                    .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
+                    .check(matches(isDisplayed()));
+        } catch (NoMatchingRootException e) {
+            isShowing = false;
+        } catch (Exception e) {
+            assert false : "error when inspecting pop up tab list.";
+        }
+        return isShowing;
+    }
+
+    /**
+     * Verify the number of tabs in the tab list showing in a popup component.
+     * @param cta   The current running activity.
+     * @param count The count of the tabs in the tab list.
+     */
+    static void verifyShowingPopupTabList(ChromeTabbedActivity cta, int count) {
+        onView(withId(R.id.tab_list_view))
+                .inRoot(withDecorView(not(cta.getWindow().getDecorView())))
+                .check(ChildrenCountAssertion.havingTabCount(count));
+    }
+
+    /**
+     * Merge all normal tabs into a single tab group.
+     * @param cta   The current running activity.
+     */
+    static void mergeAllNormalTabsToAGroup(ChromeTabbedActivity cta) {
+        List<Tab> tabGroup = new ArrayList<>();
+        TabModel tabModel = cta.getTabModelSelector().getModel(false);
+        for (int i = 0; i < tabModel.getCount(); i++) {
+            tabGroup.add(tabModel.getTabAt(i));
+        }
+        createTabGroup(cta, false, tabGroup);
+        assertTrue(cta.getTabModelSelector().getTabModelFilterProvider().getCurrentTabModelFilter()
+                           instanceof TabGroupModelFilter);
+        TabGroupModelFilter filter = (TabGroupModelFilter) cta.getTabModelSelector()
+                                             .getTabModelFilterProvider()
+                                             .getCurrentTabModelFilter();
+        assertEquals(1, filter.getCount());
     }
 
     /**
@@ -338,7 +450,7 @@ public class TabUiTestHelper {
                 "The thumbnail " + etc1File.getName() + " is not found",
                 DEFAULT_MAX_TIME_TO_POLL * 10, DEFAULT_POLLING_INTERVAL);
 
-        File jpegFile = TabContentManager.getTabThumbnailFileJpeg(tab);
+        File jpegFile = TabContentManager.getTabThumbnailFileJpeg(tab.getId());
         CriteriaHelper.pollInstrumentationThread(jpegFile::exists,
                 "The thumbnail " + jpegFile.getName() + " is not found",
                 DEFAULT_MAX_TIME_TO_POLL * 10, DEFAULT_POLLING_INTERVAL);

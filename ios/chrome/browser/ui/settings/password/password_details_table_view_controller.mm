@@ -6,6 +6,7 @@
 
 #import <UIKit/UIKit.h>
 
+#include "base/ios/ios_util.h"
 #include "base/mac/foundation_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/sys_string_conversions.h"
@@ -106,8 +107,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   UITableViewStyle style = base::FeatureList::IsEnabled(kSettingsRefresh)
                                ? UITableViewStylePlain
                                : UITableViewStyleGrouped;
-  self = [super initWithTableViewStyle:style
-                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
+  self = [super initWithStyle:style];
   if (self) {
     _delegate = delegate;
     _weakReauthenticationModule = reauthenticationModule;
@@ -397,10 +397,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
         "PasswordManager.AccessPasswordInSettings",
         password_manager::metrics_util::ACCESS_PASSWORD_COPIED,
         password_manager::metrics_util::ACCESS_PASSWORD_COUNT);
-    UMA_HISTOGRAM_ENUMERATION(
-        "PasswordManager.ReauthToAccessPasswordInSettings",
-        password_manager::metrics_util::REAUTH_SKIPPED,
-        password_manager::metrics_util::REAUTH_COUNT);
+    password_manager::metrics_util::LogPasswordSettingsReauthResult(
+        password_manager::metrics_util::ReauthResult::kSkipped);
   } else if ([_weakReauthenticationModule canAttemptReauth]) {
     __weak PasswordDetailsTableViewController* weakSelf = self;
     void (^copyPasswordHandler)(BOOL) = ^(BOOL success) {
@@ -459,6 +457,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
                              handler:nil];
   [alertController addAction:okAction];
   alertController.preferredAction = okAction;
+
   [self presentViewController:alertController animated:YES completion:nil];
 }
 
@@ -504,6 +503,13 @@ typedef NS_ENUM(NSInteger, ItemType) {
                                         deletePassword:_passwordForm];
               }];
   [_deleteConfirmation addAction:deleteAction];
+
+  // Starting with iOS13, alerts of style UIAlertControllerStyleActionSheet
+  // need a sourceView or sourceRect, or this crashes.
+  if (base::ios::IsRunningOnIOS13OrLater() && IsIPadIdiom()) {
+    _deleteConfirmation.popoverPresentationController.sourceView =
+        self.tableView;
+  }
 
   [self presentViewController:_deleteConfirmation animated:YES completion:nil];
 }

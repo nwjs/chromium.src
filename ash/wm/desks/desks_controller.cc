@@ -103,6 +103,18 @@ ui::Compositor* GetSelectedCompositorForAnimationSmoothness() {
   return selected_root->layer()->GetCompositor();
 }
 
+base::string16 GetDeskDefaultName(size_t desk_index) {
+  DCHECK_LT(desk_index, desks_util::kMaxNumberOfDesks);
+  constexpr int kStringIds[] = {IDS_ASH_DESKS_DESK_1_MINI_VIEW_TITLE,
+                                IDS_ASH_DESKS_DESK_2_MINI_VIEW_TITLE,
+                                IDS_ASH_DESKS_DESK_3_MINI_VIEW_TITLE,
+                                IDS_ASH_DESKS_DESK_4_MINI_VIEW_TITLE};
+  static_assert(desks_util::kMaxNumberOfDesks == base::size(kStringIds),
+                "Wrong default desks' names.");
+
+  return l10n_util::GetStringUTF16(kStringIds[desk_index]);
+}
+
 }  // namespace
 
 // -----------------------------------------------------------------------------
@@ -118,6 +130,8 @@ class DesksController::DeskAnimationBase
  public:
   ~DeskAnimationBase() override = default;
 
+  const Desk* ending_desk() const { return ending_desk_; }
+
   // Launches the animation. This should be done once all animators
   // are created and added to `desk_switch_animators_`. This is to avoid any
   // potential race conditions that might happen if one animator finished phase
@@ -128,6 +142,16 @@ class DesksController::DeskAnimationBase
 
     fps_counter_ = std::make_unique<FpsCounter>(
         GetSelectedCompositorForAnimationSmoothness());
+
+    // This step makes sure that the containers of the target desk are shown at
+    // the beginning of the animation (but not actually visible to the user yet,
+    // until the desk is actually activated at a later step of the animation).
+    // This is needed because a window on the target desk can be focused before
+    // the desk becomes active (See `DesksController::OnWindowActivating()`).
+    // This window must be able to accept events (See
+    // `aura::Window::CanAcceptEvent()`) even though its desk is still being
+    // activated. https://crbug.com/1008574.
+    const_cast<Desk*>(ending_desk_)->PrepareForActivationAnimation();
 
     DCHECK(!desk_switch_animators_.empty());
     for (auto& animator : desk_switch_animators_)
@@ -200,8 +224,11 @@ class DesksController::DeskAnimationBase
   }
 
  protected:
-  explicit DeskAnimationBase(DesksController* controller)
-      : controller_(controller) {}
+  DeskAnimationBase(DesksController* controller, const Desk* ending_desk)
+      : controller_(controller), ending_desk_(ending_desk) {
+    DCHECK(controller_);
+    DCHECK(ending_desk_);
+  }
 
   // Abstract functions that can be overridden by child classes to do different
   // things when phase (1), and phase (3) completes. Note that
@@ -223,6 +250,9 @@ class DesksController::DeskAnimationBase
   // this list is cleared.
   std::vector<std::unique_ptr<RootWindowDeskSwitchAnimator>>
       desk_switch_animators_;
+
+  // The desk that will be active after this animation ends.
+  const Desk* const ending_desk_;
 
  private:
   // Computes the animation smoothness and reports an UMA stat for it.
@@ -249,7 +279,7 @@ class DesksController::DeskActivationAnimation
   DeskActivationAnimation(DesksController* controller,
                           const Desk* ending_desk,
                           bool move_left)
-      : DeskAnimationBase(controller) {
+      : DeskAnimationBase(controller, ending_desk) {
     for (auto* root : Shell::GetAllRootWindows()) {
       desk_switch_animators_.emplace_back(
           std::make_unique<RootWindowDeskSwitchAnimator>(root, ending_desk,
@@ -262,6 +292,7 @@ class DesksController::DeskActivationAnimation
 
   // DesksController::AbstractDeskSwitchAnimation:
   void OnStartingDeskScreenshotTakenInternal(const Desk* ending_desk) override {
+    DCHECK_EQ(ending_desk_, ending_desk);
     // The order here matters. Overview must end before ending tablet split view
     // before switching desks. (If clamshell split view is active on one or more
     // displays, then it simply will end when we end overview.) That's because
@@ -312,7 +343,7 @@ class DesksController::DeskRemovalAnimation
                        const Desk* desk_to_activate,
                        bool move_left,
                        DesksCreationRemovalSource source)
-      : DeskAnimationBase(controller),
+      : DeskAnimationBase(controller, desk_to_activate),
         desk_to_remove_(desk_to_remove),
         request_source_(source) {
     DCHECK(!Shell::Get()->overview_controller()->InOverviewSession());
@@ -330,6 +361,7 @@ class DesksController::DeskRemovalAnimation
 
   // DesksController::AbstractDeskSwitchAnimation:
   void OnStartingDeskScreenshotTakenInternal(const Desk* ending_desk) override {
+    DCHECK_EQ(ending_desk_, ending_desk);
     DCHECK_EQ(controller_->active_desk(), desk_to_remove_);
     // We are removing the active desk, which may have tablet split view active.
     // We will restore the split view state of the newly activated desk at the
@@ -393,6 +425,12 @@ DesksController* DesksController::Get() {
   return Shell::Get()->desks_controller();
 }
 
+const Desk* DesksController::GetTargetActiveDesk() const {
+  if (!animations_.empty())
+    return animations_.back()->ending_desk();
+  return active_desk();
+}
+
 void DesksController::Shutdown() {
   animations_.clear();
 }
@@ -437,8 +475,10 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
 
   base::AutoReset<bool> in_progress(&are_desks_being_modified_, true);
 
-  desks_.emplace_back(std::make_unique<Desk>(available_container_ids_.front()));
+  desks_.push_back(std::make_unique<Desk>(available_container_ids_.front()));
   available_container_ids_.pop();
+  Desk* new_desk = desks_.back().get();
+  new_desk->SetName(GetDeskDefaultName(desks_.size() - 1));
 
   UMA_HISTOGRAM_ENUMERATION(kNewDeskHistogramName, source);
   ReportDesksCountHistogram();
@@ -449,7 +489,7 @@ void DesksController::NewDesk(DesksCreationRemovalSource source) {
           base::NumberToString16(desks_.size())));
 
   for (auto& observer : observers_)
-    observer.OnDeskAdded(desks_.back().get());
+    observer.OnDeskAdded(new_desk);
 }
 
 void DesksController::RemoveDesk(const Desk* desk,
@@ -803,7 +843,9 @@ void DesksController::RemoveDeskInternal(const Desk* desk,
   // if windows from the removed desk moved to it.
   DCHECK(active_desk_->should_notify_content_changed());
   if (!removed_desk_windows.empty())
-    active_desk_->NotifyContentChanged();
+    active_desk_->NotifyContentChanged(/*force_update_backdrops=*/true);
+
+  UpdateDesksDefaultNames();
 
   for (auto& observer : observers_)
     observer.OnDeskRemoved(removed_desk.get());
@@ -885,6 +927,13 @@ void DesksController::ReportDesksCountHistogram() const {
   DCHECK_LE(desks_.size(), desks_util::kMaxNumberOfDesks);
   UMA_HISTOGRAM_EXACT_LINEAR(kDesksCountHistogramName, desks_.size(),
                              desks_util::kMaxNumberOfDesks);
+}
+
+void DesksController::UpdateDesksDefaultNames() {
+  // TODO(afakhry): Don't do this for user-modified desk labels.
+  size_t i = 0;
+  for (auto& desk : desks_)
+    desk->SetName(GetDeskDefaultName(i++));
 }
 
 }  // namespace ash

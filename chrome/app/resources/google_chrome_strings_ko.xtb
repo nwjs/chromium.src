@@ -9,7 +9,6 @@
 일부 기능을 사용할 수 없으며 환경설정의 변경사항이 저장되지 않습니다.</translation>
 <translation id="1088300314857992706"><ph name="USER_EMAIL_ADDRESS" />에서 이전에 Chrome을 사용한 적이 있음</translation>
 <translation id="1097330777386562916">Chrome을 종료할 때 쿠키 및 사이트 데이터 삭제</translation>
-<translation id="1104959162601287462">Chrome OS 정보(&amp;C)</translation>
 <translation id="110877069173485804">나만의 Chrome</translation>
 <translation id="1142745911746664600">Chrome을 업데이트할 수 없음</translation>
 <translation id="1154147086299354128">Chrome에서 열기(&amp;O)</translation>
@@ -21,10 +20,8 @@
 <translation id="1553358976309200471">Chrome 업데이트</translation>
 <translation id="1587223624401073077">Chrome에서 카메라를 사용 중입니다.</translation>
 <translation id="1587325591171447154"><ph name="FILE_NAME" />은(는) 위험하므로 Chrome에서 차단했습니다.</translation>
-<translation id="1590588151039584890">업데이트하려면 이 컴퓨터에서 Chrome 실행을 중단해야 합니다. 중단하면 이 컴퓨터에 로그인한 다른 사용자가 저장하지 않은 변경 사항을 잃을 수 있습니다.</translation>
 <translation id="1619887657840448962">Google에서는 Chrome의 보안을 강화하기 위해 <ph name="IDS_EXTENSION_WEB_STORE_TITLE" />에 표시되지 않고 사용자가 모르게 추가되었을 수 있는 다음 확장 프로그램의 사용을 중지했습니다.</translation>
 <translation id="1628000112320670027">Chrome 도움말 보기</translation>
-<translation id="1635734105302489219">Chrome을 종료할 때 쿠키를 삭제합니다. 동기화를 계속하려면 이 <ph name="COOKIE_SETTINGS_LINK" />을(를) 변경하세요.</translation>
 <translation id="1662639173275167396"><ph name="BEGIN_LINK_LINUX_OSS" />Linux(베타)<ph name="END_LINK_LINUX_OSS" />와 마찬가지로, Chrome OS는 추가 <ph name="BEGIN_LINK_CROS_OSS" />오픈소스 소프트웨어<ph name="END_LINK_CROS_OSS" />를 사용하여 개발되었습니다.</translation>
 <translation id="1666409074978194368">업데이트가 거의 완료되었습니다. 업데이트를 마치려면 Chrome을 다시 실행하세요. 시크릿 창은 다시 열리지 않습니다.</translation>
 <translation id="1674870198290878346">Chrome 시크릿 창에서 링크 열기(&amp;G)</translation>
@@ -53,6 +50,7 @@
 <translation id="2290014774651636340">Google API 키가 누락되었습니다. Chrome의 일부 기능이 사용 중지됩니다.</translation>
 <translation id="2290095356545025170">Chrome을 제거하시겠습니까?</translation>
 <translation id="2309047409763057870">Chrome의 보조 설치이며 기본 브라우저로 설정할 수 없습니다.</translation>
+<translation id="2341767445688917208">Chrome OS에서 비밀번호를 동기화할 수 없습니다. 지금 문제를 해결해 주세요.</translation>
 <translation id="2348335408836342058">이 사이트에서 카메라와 마이크에 액세스하려면 Chrome에 권한이 필요합니다</translation>
 <translation id="2429317896000329049">도메인에서 동기화를 사용할 수 없어 Chrome에서 데이터를 동기화하지 못했습니다.</translation>
 <translation id="2467438592969358367">Chrome에서 비밀번호를 내보내려고 합니다. 허용하려면 Windows 비밀번호를 입력하세요.</translation>
@@ -77,8 +75,6 @@
 <translation id="3080151273017101988">Chrome 종료 후에도 백그라운드 앱을 계속 실행</translation>
 <translation id="3089968997497233615">새롭고 안전한 Chrome의 새 버전을 사용할 수 있습니다.</translation>
 <translation id="3149510190863420837">Chrome 앱</translation>
-<translation id="3282568296779691940">Chrome에 로그인</translation>
-<translation id="3340978935015468852">설정</translation>
 <translation id="3360895254066713204">Chrome 도우미</translation>
 <translation id="3379938682270551431">{0,plural, =0{지금 Chrome이 다시 시작됩니다}=1{1초 후 Chrome이 다시 시작됩니다}other{#초 후 Chrome이 다시 시작됩니다}}</translation>
 <translation id="3395323229510056640">Chrome OS 도움말 보기</translation>
@@ -131,7 +127,6 @@
 <translation id="4953650215774548573">Chrome을 기본 브라우저로 설정</translation>
 <translation id="495931528404527476">Chrome</translation>
 <translation id="4990567037958725628">Chrome 카나리아</translation>
-<translation id="5028489144783860647">Chrome에서 데이터를 동기화하지 못했습니다. 동기화 암호를 업데이트하시기 바랍니다.</translation>
 <translation id="5062123544085870375">Chrome OS 다시 시작</translation>
 <translation id="5132929315877954718">Chrome에 사용할 유용한 애플리케이션, 게임, 확장 프로그램 및 테마를 찾아보세요.</translation>
 <translation id="5170938038195470297">최신 버전의 Chrome에서 가져온 사용자 프로필이기 때문에 사용할 수 없습니다.
@@ -146,7 +141,6 @@
 <translation id="5430073640787465221">환경설정 파일이 손상되었거나 잘못되었습니다.
 
 Chrome에서 설정을 복구할 수 없습니다.</translation>
-<translation id="5543953544073077331">다른 Chrome 버전이 실행 중입니다. 업데이트하려면 실행 중인 버전을 종료하세요.</translation>
 <translation id="556024056938947818">Chrome에서 비밀번호를 표시하려고 합니다.</translation>
 <translation id="5566025111015594046">Chrome(mDNS-In)</translation>
 <translation id="5657226924540934362">페이지에 표시되지 않는 설정이 있다면 <ph name="LINK_BEGIN" />
@@ -196,7 +190,6 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7408085963519505752">Chrome OS 이용약관</translation>
 <translation id="7419046106786626209">내 도메인에서 동기화를 사용할 수 없으므로 Chrome OS에서 데이터를 동기화하지 못했습니다.</translation>
 <translation id="7486227612705979895">Chrome에서 내 드라이브에 액세스하여 주소 표시줄에 추천 검색어를 표시합니다.</translation>
-<translation id="7531671357096394523">모든 Chrome 버전 종료</translation>
 <translation id="7535429826459677826">Chrome 개발자</translation>
 <translation id="7573289029918943991">기기가 최신 버전인지 확인하려면 <ph name="LINK_BEGIN" />Chrome OS 설정<ph name="LINK_END" />으로 이동하세요.</translation>
 <translation id="7589360514048265910">Mac OS X 10.9가 더 이상 지원되지 않으므로 이 컴퓨터에서 Chrome 업데이트를 받을 수 없게 됩니다.</translation>
@@ -215,6 +208,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7855730255114109580">Chrome이 최신 버전입니다.</translation>
 <translation id="7890208801193284374">컴퓨터를 공유하는 경우 친구와 가족이 개별적으로 탐색하고 원하는 대로 Chrome을 설정할 수 있습니다.</translation>
 <translation id="7896673875602241923">다른 사용자가 이전에 이 컴퓨터에서 <ph name="ACCOUNT_EMAIL_LAST" />(으)로 Chrome에 로그인했습니다. 새 Chrome 사용자를 만들어 정보를 별도로 관리하세요.</translation>
+<translation id="7916016681687251387">Chrome OS에서 데이터를 동기화할 수 없습니다. 지금 문제를 해결해 주세요.</translation>
 <translation id="7962410387636238736">Windows XP와 Windows Vista가 더 이상 지원되지 않으므로 이 컴퓨터에서 Chrome 업데이트를 받을 수 없게 됩니다</translation>
 <translation id="8008534537613507642">Chrome 재설치</translation>
 <translation id="8013993649590906847">이미지에 유용한 설명이 없으면 Chrome에서 자동으로 설명을 제공하려고 시도합니다. 설명을 생성하기 위해 이미지가 Google로 전송됩니다.</translation>

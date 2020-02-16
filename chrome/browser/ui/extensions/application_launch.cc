@@ -32,8 +32,10 @@
 #include "chrome/browser/ui/extensions/extension_enable_flow_delegate.h"
 #include "chrome/browser/ui/extensions/hosted_app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/system_web_app_ui_utils.h"
+#include "chrome/browser/web_applications/components/file_handler_manager.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
-#include "chrome/browser/web_applications/components/web_app_tab_helper.h"
+#include "chrome/browser/web_applications/components/web_app_provider_base.h"
+#include "chrome/browser/web_applications/components/web_app_tab_helper_base.h"
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/browser/web_launch/web_launch_files_helper.h"
 #include "chrome/common/chrome_features.h"
@@ -142,14 +144,22 @@ bool IsAllowedToOverrideURL(const extensions::Extension* extension,
 // |override_url|, if non-empty, will be preferred over the extension's
 // launch url.
 GURL UrlForExtension(const extensions::Extension* extension,
-                     const GURL& override_url) {
+                     Profile* profile,
+                     const apps::AppLaunchParams& params) {
   if (!extension)
-    return override_url;
+    return params.override_url;
 
   GURL url;
-  if (!override_url.is_empty()) {
-    DCHECK(IsAllowedToOverrideURL(extension, override_url));
-    url = override_url;
+  if (!params.override_url.is_empty()) {
+    DCHECK(IsAllowedToOverrideURL(extension, params.override_url));
+    url = params.override_url;
+  } else if (extension->from_bookmark()) {
+    web_app::FileHandlerManager& file_handler_manager =
+        web_app::WebAppProviderBase::GetProviderBase(profile)
+            ->file_handler_manager();
+    url = file_handler_manager
+              .GetMatchingFileHandlerURL(params.app_id, params.launch_files)
+              .value_or(extensions::AppLaunchInfo::GetFullLaunchURL(extension));
   } else {
     url = extensions::AppLaunchInfo::GetFullLaunchURL(extension);
   }
@@ -258,8 +268,8 @@ WebContents* OpenApplicationTab(Profile* profile,
   }
 
   if (extension->from_bookmark()) {
-    web_app::WebAppTabHelper* tab_helper =
-        web_app::WebAppTabHelper::FromWebContents(contents);
+    web_app::WebAppTabHelperBase* tab_helper =
+        web_app::WebAppTabHelperBase::FromWebContents(contents);
     DCHECK(tab_helper);
     tab_helper->SetAppId(extension->id());
   }
@@ -301,7 +311,7 @@ WebContents* OpenEnabledApplication(Profile* profile,
   UMA_HISTOGRAM_ENUMERATION("Extensions.HostedAppLaunchContainer",
                             params.container);
 
-  GURL url = UrlForExtension(extension, params.override_url);
+  GURL url = UrlForExtension(extension, profile, params);
 
   // System Web Apps go through their own launch path.
   base::Optional<web_app::SystemAppType> system_app_type =
@@ -336,6 +346,13 @@ WebContents* OpenEnabledApplication(Profile* profile,
   }
 
   if (extension->from_bookmark()) {
+    if (web_app::WebAppProviderBase::GetProviderBase(profile)
+            ->file_handler_manager()
+            .IsFileHandlingAPIAvailable(extension->id())) {
+      web_launch::WebLaunchFilesHelper::SetLaunchPaths(tab, url,
+                                                       params.launch_files);
+    }
+
     UMA_HISTOGRAM_ENUMERATION("Extensions.BookmarkAppLaunchSource",
                               params.source);
     UMA_HISTOGRAM_ENUMERATION("Extensions.BookmarkAppLaunchContainer",
@@ -389,8 +406,16 @@ Browser* CreateApplicationWindow(Profile* profile,
 
   // TODO(erg): AppLaunchParams should pass through the user_gesture from the
   // extension system here.
-  Browser::CreateParams browser_params(Browser::CreateParams::CreateForApp(
-      app_name, true /* trusted_source */, initial_bounds, profile, true));
+  Browser::CreateParams browser_params(
+      params.disposition == WindowOpenDisposition::NEW_POPUP
+          ? Browser::CreateParams::CreateForAppPopup(app_name,
+                                                     /*trusted_source=*/true,
+                                                     initial_bounds, profile,
+                                                     /*user_gesture=*/true)
+          : Browser::CreateParams::CreateForApp(app_name,
+                                                /*trusted_source=*/true,
+                                                initial_bounds, profile,
+                                                /*user_gesture=*/true));
 
   browser_params.initial_show_state =
       DetermineWindowShowState(profile, params.container, extension);
@@ -398,12 +423,11 @@ Browser* CreateApplicationWindow(Profile* profile,
   return new Browser(browser_params);
 }
 
-WebContents* ShowApplicationWindow(Profile* profile,
-                                   const apps::AppLaunchParams& params,
-                                   const GURL& url,
-                                   Browser* browser,
-                                   WindowOpenDisposition disposition) {
-  const Extension* const extension = GetExtension(profile, params);
+WebContents* NavigateApplicationWindow(Browser* browser,
+                                       const apps::AppLaunchParams& params,
+                                       const GURL& url,
+                                       WindowOpenDisposition disposition) {
+  const Extension* const extension = GetExtension(browser->profile(), params);
   ui::PageTransition transition =
       (extension ? ui::PAGE_TRANSITION_AUTO_BOOKMARK
                  : ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
@@ -414,24 +438,19 @@ WebContents* ShowApplicationWindow(Profile* profile,
 
   WebContents* web_contents = nav_params.navigated_or_inserted_contents;
 
+  // TODO(https://crbug.com/1034361):
+  // Once WebAppBrowserController implements TabInserted and TabRemoved, remove
+  // the following call.
   extensions::HostedAppBrowserController::SetAppPrefsForWebContents(
       browser->app_controller(), web_contents);
+
+  // TODO(https://crbug.com/1032443):
+  // Eventually move this to browser_navigator.cc: CreateTargetContents().
   if (extension && extension->from_bookmark()) {
-    web_app::WebAppTabHelper* tab_helper =
-        web_app::WebAppTabHelper::FromWebContents(web_contents);
+    web_app::WebAppTabHelperBase* tab_helper =
+        web_app::WebAppTabHelperBase::FromWebContents(web_contents);
     DCHECK(tab_helper);
     tab_helper->SetAppId(extension->id());
-  }
-
-  browser->window()->Show();
-
-  // TODO(jcampan): http://crbug.com/8123 we should not need to set the initial
-  //                focus explicitly.
-  web_contents->SetInitialFocus();
-
-  if (base::FeatureList::IsEnabled(blink::features::kFileHandlingAPI)) {
-    web_launch::WebLaunchFilesHelper::SetLaunchPaths(web_contents, url,
-                                                     params.launch_files);
   }
 
   return web_contents;
@@ -441,8 +460,11 @@ WebContents* OpenApplicationWindow(Profile* profile,
                                    const apps::AppLaunchParams& params,
                                    const GURL& url) {
   Browser* browser = CreateApplicationWindow(profile, params, url);
-  return ShowApplicationWindow(profile, params, url, browser,
-                               WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  WebContents* web_contents = NavigateApplicationWindow(
+      browser, params, url, WindowOpenDisposition::NEW_FOREGROUND_TAB);
+
+  browser->window()->Show();
+  return web_contents;
 }
 
 void OpenApplicationWithReenablePrompt(Profile* profile,

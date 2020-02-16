@@ -17,7 +17,6 @@
 #include "chrome/browser/hid/hid_chooser_context_factory.h"
 #include "chrome/browser/permissions/chooser_context_base.h"
 #include "chrome/browser/permissions/permission_manager.h"
-#include "chrome/browser/permissions/permission_result.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/serial/serial_chooser_context.h"
 #include "chrome/browser/serial/serial_chooser_context_factory.h"
@@ -28,6 +27,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/permissions/permission_result.h"
 #include "components/prefs/pref_service.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
 #include "extensions/browser/extension_registry.h"
@@ -79,7 +79,7 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::BACKGROUND_SYNC, "background-sync"},
     {ContentSettingsType::ADS, "ads"},
     {ContentSettingsType::SOUND, "sound"},
-    {ContentSettingsType::CLIPBOARD_READ, "clipboard"},
+    {ContentSettingsType::CLIPBOARD_READ_WRITE, "clipboard"},
     {ContentSettingsType::SENSORS, "sensors"},
     {ContentSettingsType::PAYMENT_HANDLER, "payment-handler"},
     {ContentSettingsType::USB_GUARD, "usb-devices"},
@@ -93,6 +93,8 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::NATIVE_FILE_SYSTEM_WRITE_GUARD,
      "native-file-system-write"},
     {ContentSettingsType::MIXEDSCRIPT, "mixed-script"},
+    {ContentSettingsType::VR, "vr"},
+    {ContentSettingsType::AR, "ar"},
 
     // Add new content settings here if a corresponding Javascript string
     // representation for it is not required. Note some exceptions do have UI in
@@ -113,7 +115,7 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::MEDIA_ENGAGEMENT, nullptr},
     {ContentSettingsType::CLIENT_HINTS, nullptr},
     {ContentSettingsType::ACCESSIBILITY_EVENTS, nullptr},
-    {ContentSettingsType::CLIPBOARD_WRITE, nullptr},
+    {ContentSettingsType::CLIPBOARD_SANITIZED_WRITE, nullptr},
     {ContentSettingsType::PLUGINS_DATA, nullptr},
     {ContentSettingsType::BACKGROUND_FETCH, nullptr},
     {ContentSettingsType::INTENT_PICKER_DISPLAY, nullptr},
@@ -124,6 +126,7 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::INSTALLED_WEB_APP_METADATA, nullptr},
     {ContentSettingsType::NFC, nullptr},
     {ContentSettingsType::BLUETOOTH_CHOOSER_DATA, nullptr},
+    {ContentSettingsType::SAFE_BROWSING_URL_CHECK_DATA, nullptr},
 };
 static_assert(base::size(kContentSettingsTypeGroupNames) ==
                   // ContentSettingsType starts at -1, so add 1 here.
@@ -170,11 +173,11 @@ SiteSettingSource CalculateSiteSettingSource(
     const ContentSettingsType content_type,
     const GURL& origin,
     const content_settings::SettingInfo& info,
-    const PermissionResult result) {
-  if (result.source == PermissionStatusSource::KILL_SWITCH)
+    const permissions::PermissionResult result) {
+  if (result.source == permissions::PermissionStatusSource::KILL_SWITCH)
     return SiteSettingSource::kKillSwitch;  // Source #1.
 
-  if (result.source == PermissionStatusSource::INSECURE_ORIGIN)
+  if (result.source == permissions::PermissionStatusSource::INSECURE_ORIGIN)
     return SiteSettingSource::kInsecureOrigin;  // Source #2.
 
   if (info.source == content_settings::SETTING_SOURCE_POLICY ||
@@ -205,8 +208,10 @@ SiteSettingSource CalculateSiteSettingSource(
 
   DCHECK_NE(content_settings::SETTING_SOURCE_NONE, info.source);
   if (info.source == content_settings::SETTING_SOURCE_USER) {
-    if (result.source == PermissionStatusSource::MULTIPLE_DISMISSALS ||
-        result.source == PermissionStatusSource::MULTIPLE_IGNORES) {
+    if (result.source ==
+            permissions::PermissionStatusSource::MULTIPLE_DISMISSALS ||
+        result.source ==
+            permissions::PermissionStatusSource::MULTIPLE_IGNORES) {
       return SiteSettingSource::kEmbargo;  // Source #8.
     }
     if (info.primary_pattern == ContentSettingsPattern::Wildcard() &&
@@ -239,8 +244,9 @@ std::string GetSourceStringForChooserException(
 
   // Chooser exceptions do not use a PermissionContextBase for their
   // permissions.
-  PermissionResult permission_result(CONTENT_SETTING_DEFAULT,
-                                     PermissionStatusSource::UNSPECIFIED);
+  permissions::PermissionResult permission_result(
+      CONTENT_SETTING_DEFAULT,
+      permissions::PermissionStatusSource::UNSPECIFIED);
 
   // The |origin| parameter is only used for |ContentSettingsType::ADS| with
   // the |kSafeBrowsingSubresourceFilter| feature flag enabled, so an empty GURL
@@ -541,9 +547,10 @@ ContentSetting GetContentSettingForOrigin(
       origin, origin, content_type, std::string(), &info);
 
   // Retrieve the content setting.
-  PermissionResult result(CONTENT_SETTING_DEFAULT,
-                          PermissionStatusSource::UNSPECIFIED);
-  if (PermissionUtil::IsPermission(content_type)) {
+  permissions::PermissionResult result(
+      CONTENT_SETTING_DEFAULT,
+      permissions::PermissionStatusSource::UNSPECIFIED);
+  if (permissions::PermissionUtil::IsPermission(content_type)) {
     result = PermissionManager::Get(profile)->GetPermissionStatus(
         content_type, origin, origin);
   } else {

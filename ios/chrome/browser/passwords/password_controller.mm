@@ -61,7 +61,6 @@
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #include "ios/chrome/browser/web/tab_id_tab_helper.h"
 #include "ios/chrome/grit/ios_strings.h"
-#import "ios/web/common/origin_util.h"
 #include "ios/web/common/url_scheme_util.h"
 #import "ios/web/public/deprecated/crw_js_injection_receiver.h"
 #include "ios/web/public/js_messaging/web_frame.h"
@@ -371,12 +370,9 @@ NSString* const kSuggestionSuffix = @" ••••••••";
     }
   }
 
-  if (self.isPasswordGenerated) {
-    // Always update, in case, for example, that username has been edited.
-    self.passwordManager->UpdateGeneratedPasswordOnUserInput(
-        SysNSStringToUTF16(formName), SysNSStringToUTF16(fieldIdentifier),
-        SysNSStringToUTF16(typedValue));
-  }
+  self.passwordManager->UpdateStateOnUserInput(
+      SysNSStringToUTF16(formName), SysNSStringToUTF16(fieldIdentifier),
+      SysNSStringToUTF16(typedValue));
 }
 
 - (void)retrieveSuggestionsForForm:(NSString*)formName
@@ -492,8 +488,8 @@ NSString* const kSuggestionSuffix = @" ••••••••";
   return _webState;
 }
 
-- (ios::ChromeBrowserState*)browserState {
-  return _webState ? ios::ChromeBrowserState::FromBrowserState(
+- (ChromeBrowserState*)browserState {
+  return _webState ? ChromeBrowserState::FromBrowserState(
                          _webState->GetBrowserState())
                    : nullptr;
 }
@@ -589,18 +585,14 @@ NSString* const kSuggestionSuffix = @" ••••••••";
 - (void)formHelper:(PasswordFormHelper*)formHelper
      didSubmitForm:(const FormData&)form
        inMainFrame:(BOOL)inMainFrame {
-  // TODO(crbug.com/949519): remove using PasswordForm completely when the old
-  // parser is gone.
-  PasswordForm password_form;
-  password_form.form_data = form;
   if (inMainFrame) {
     self.passwordManager->OnPasswordFormSubmitted(self.passwordManagerDriver,
-                                                  password_form);
+                                                  form);
   } else {
     // Show a save prompt immediately because for iframes it is very hard to
     // figure out correctness of password forms submission.
     self.passwordManager->OnPasswordFormSubmittedNoChecksForiOS(
-        self.passwordManagerDriver, password_form);
+        self.passwordManagerDriver, form);
   }
 }
 
@@ -618,19 +610,13 @@ NSString* const kSuggestionSuffix = @" ••••••••";
   if (!self.passwordManager)
     return;
 
-  // TODO(crbug.com/949519): remove using PasswordForm completely when the old
-  // parser is gone.
-  std::vector<PasswordForm> password_forms(forms.size());
-  for (size_t i = 0; i < forms.size(); ++i)
-    password_forms[i].form_data = forms[i];
-
-  if (!password_forms.empty()) {
+  if (!forms.empty()) {
     [self.suggestionHelper updateStateOnPasswordFormExtracted];
 
     // Invoke the password manager callback to autofill password forms
     // on the loaded page.
     self.passwordManager->OnPasswordFormsParsed(self.passwordManagerDriver,
-                                                password_forms);
+                                                forms);
   } else {
     [self onNoSavedCredentials];
   }
@@ -641,7 +627,7 @@ NSString* const kSuggestionSuffix = @" ••••••••";
   // and OnPasswordFormsRendered(). Bling has to improvised a bit on the
   // ordering of these two calls.
   self.passwordManager->OnPasswordFormsRendered(self.passwordManagerDriver,
-                                                password_forms, true);
+                                                forms, true);
 }
 
 - (void)findPasswordFormsAndSendThemToPasswordStore {
@@ -760,7 +746,7 @@ NSString* const kSuggestionSuffix = @" ••••••••";
   // TODO(crbug.com/886583): pass correct |max_length|.
   base::string16 generatedPassword =
       _passwordGenerationHelper->GeneratePassword([self lastCommittedURL], 0, 0,
-                                                  0, nullptr);
+                                                  0);
 
   self.generatedPotentialPassword = SysUTF16ToNSString(generatedPassword);
 

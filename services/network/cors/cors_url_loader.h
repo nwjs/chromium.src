@@ -44,6 +44,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       uint32_t options,
       DeleteCallback delete_callback,
       const ResourceRequest& resource_request,
+      bool ignore_isolated_world_origin,
       mojo::PendingRemote<mojom::URLLoaderClient> client,
       const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
       mojom::URLLoaderFactory* network_loader_factory,
@@ -114,6 +115,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   // URL (via |origin_access_list_| and |factory_bound_origin_access_list_|).
   bool HasSpecialAccessToDestination() const;
 
+  bool PassesTimingAllowOriginCheck(
+      const mojom::URLResponseHead& response) const;
+
   static base::Optional<std::string> GetHeaderString(
       const mojom::URLResponseHead& response,
       const std::string& header_name);
@@ -163,6 +167,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
 
   // https://fetch.spec.whatwg.org/#concept-request-redirect-count
   int redirect_count_ = 0;
+
+  // https://fetch.spec.whatwg.org/#timing-allow-failed
+  bool timing_allow_failed_flag_ = false;
 
   // We need to save this for redirect.
   net::MutableNetworkTrafficAnnotationTag traffic_annotation_;

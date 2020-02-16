@@ -1249,6 +1249,84 @@ static void PartialSecureContextLongAttributeAttributeSetter(
   TestInterfacePartial::setPartialSecureContextLongAttribute(*impl, cpp_value);
 }
 
+static void Dec45DashedDec45AttributeAttributeGetter(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Local<v8::Object> holder = info.Holder();
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(holder);
+
+  V8SetReturnValueString(info, TestInterfacePartial::dashedAttribute(*impl), info.GetIsolate());
+}
+
+static void Dec45DashedDec45AttributeAttributeSetter(
+    v8::Local<v8::Value> v8_value, const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Isolate* isolate = info.GetIsolate();
+  ALLOW_UNUSED_LOCAL(isolate);
+
+  v8::Local<v8::Object> holder = info.Holder();
+  ALLOW_UNUSED_LOCAL(holder);
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(holder);
+
+  // Prepare the value to be set.
+  V8StringResource<> cpp_value = v8_value;
+  if (!cpp_value.Prepare())
+    return;
+
+  TestInterfacePartial::setDashedAttribute(*impl, cpp_value);
+}
+
+static void Dec45WebkitDec45CasedDec45AttributeAttributeGetter(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Local<v8::Object> holder = info.Holder();
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(holder);
+
+  V8SetReturnValueString(info, TestInterfacePartial::webkitCasedAttribute(*impl), info.GetIsolate());
+}
+
+static void Dec45WebkitDec45CasedDec45AttributeAttributeSetter(
+    v8::Local<v8::Value> v8_value, const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Isolate* isolate = info.GetIsolate();
+  ALLOW_UNUSED_LOCAL(isolate);
+
+  v8::Local<v8::Object> holder = info.Holder();
+  ALLOW_UNUSED_LOCAL(holder);
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(holder);
+
+  // Prepare the value to be set.
+  V8StringResource<> cpp_value = v8_value;
+  if (!cpp_value.Prepare())
+    return;
+
+  TestInterfacePartial::setWebkitCasedAttribute(*impl, cpp_value);
+}
+
+static void UnderlineDec95AttributeAttributeGetter(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Local<v8::Object> holder = info.Holder();
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(holder);
+
+  V8SetReturnValueString(info, TestInterfacePartial::underline_attribute(*impl), info.GetIsolate());
+}
+
+static void UnderlineDec95AttributeAttributeSetter(
+    v8::Local<v8::Value> v8_value, const v8::FunctionCallbackInfo<v8::Value>& info) {
+  v8::Isolate* isolate = info.GetIsolate();
+  ALLOW_UNUSED_LOCAL(isolate);
+
+  v8::Local<v8::Object> holder = info.Holder();
+  ALLOW_UNUSED_LOCAL(holder);
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(holder);
+
+  // Prepare the value to be set.
+  V8StringResource<> cpp_value = v8_value;
+  if (!cpp_value.Prepare())
+    return;
+
+  TestInterfacePartial::setUnderline_attribute(*impl, cpp_value);
+}
+
 static void Partial2LongAttributeAttributeGetter(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Local<v8::Object> holder = info.Holder();
 
@@ -1650,6 +1728,23 @@ static void VoidOptionalDictArgWithEmptyDefaultMethod(const v8::FunctionCallback
     return;
 
   impl->voidOptionalDictArgWithEmptyDefault(test_dict);
+}
+
+static void VoidOptionalUnionArgWithEmptyDefaultMethod(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  ExceptionState exception_state(info.GetIsolate(), ExceptionState::kExecutionContext, "TestInterface", "voidOptionalUnionArgWithEmptyDefault");
+
+  TestInterfaceImplementation* impl = V8TestInterface::ToImpl(info.Holder());
+
+  StringOrTestDictionary arg;
+  if (!info[0]->IsUndefined()) {
+    V8StringOrTestDictionary::ToImpl(info.GetIsolate(), info[0], arg, UnionTypeConversionMode::kNotNullable, exception_state);
+    if (exception_state.HadException())
+      return;
+  } else {
+    arg.SetTestDictionary(MakeGarbageCollected<TestDictionary>());
+  }
+
+  impl->voidOptionalUnionArgWithEmptyDefault(arg);
 }
 
 static void VoidMethodMethod(const v8::FunctionCallbackInfo<v8::Value>& info) {
@@ -3160,6 +3255,51 @@ void V8TestInterface::PartialSecureContextLongAttributeAttributeSetterCallback(
   test_interface_implementation_v8_internal::PartialSecureContextLongAttributeAttributeSetter(v8_value, info);
 }
 
+void V8TestInterface::Dec45DashedDec45AttributeAttributeGetterCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_-dashed-attribute_Getter");
+
+  test_interface_implementation_v8_internal::Dec45DashedDec45AttributeAttributeGetter(info);
+}
+
+void V8TestInterface::Dec45DashedDec45AttributeAttributeSetterCallback(
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_-dashed-attribute_Setter");
+
+  v8::Local<v8::Value> v8_value = info[0];
+
+  test_interface_implementation_v8_internal::Dec45DashedDec45AttributeAttributeSetter(v8_value, info);
+}
+
+void V8TestInterface::Dec45WebkitDec45CasedDec45AttributeAttributeGetterCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_-webkit-cased-attribute_Getter");
+
+  test_interface_implementation_v8_internal::Dec45WebkitDec45CasedDec45AttributeAttributeGetter(info);
+}
+
+void V8TestInterface::Dec45WebkitDec45CasedDec45AttributeAttributeSetterCallback(
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_-webkit-cased-attribute_Setter");
+
+  v8::Local<v8::Value> v8_value = info[0];
+
+  test_interface_implementation_v8_internal::Dec45WebkitDec45CasedDec45AttributeAttributeSetter(v8_value, info);
+}
+
+void V8TestInterface::UnderlineDec95AttributeAttributeGetterCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_underline_attribute_Getter");
+
+  test_interface_implementation_v8_internal::UnderlineDec95AttributeAttributeGetter(info);
+}
+
+void V8TestInterface::UnderlineDec95AttributeAttributeSetterCallback(
+    const v8::FunctionCallbackInfo<v8::Value>& info) {
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_underline_attribute_Setter");
+
+  v8::Local<v8::Value> v8_value = info[0];
+
+  test_interface_implementation_v8_internal::UnderlineDec95AttributeAttributeSetter(v8_value, info);
+}
+
 void V8TestInterface::Partial2LongAttributeAttributeGetterCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partial2LongAttribute_Getter");
 
@@ -3296,354 +3436,420 @@ void V8TestInterface::PartialSecureContextWorkerExposedRuntimeEnabledAttributeAt
 }
 
 void V8TestInterface::VoidMethodTestInterfaceEmptyArgMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethodTestInterfaceEmptyArg");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethodTestInterfaceEmptyArg");
 
   test_interface_implementation_v8_internal::VoidMethodTestInterfaceEmptyArgMethod(info);
 }
 
 void V8TestInterface::VoidMethodDoubleArgFloatArgMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethodDoubleArgFloatArg");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethodDoubleArgFloatArg");
 
   test_interface_implementation_v8_internal::VoidMethodDoubleArgFloatArgMethod(info);
 }
 
 void V8TestInterface::VoidMethodNullableAndOptionalObjectArgsMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethodNullableAndOptionalObjectArgs");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethodNullableAndOptionalObjectArgs");
 
   test_interface_implementation_v8_internal::VoidMethodNullableAndOptionalObjectArgsMethod(info);
 }
 
 void V8TestInterface::VoidMethodUnrestrictedDoubleArgUnrestrictedFloatArgMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethodUnrestrictedDoubleArgUnrestrictedFloatArg");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethodUnrestrictedDoubleArgUnrestrictedFloatArg");
 
   test_interface_implementation_v8_internal::VoidMethodUnrestrictedDoubleArgUnrestrictedFloatArgMethod(info);
 }
 
 void V8TestInterface::VoidMethodTestEnumArgMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethodTestEnumArg");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethodTestEnumArg");
 
   test_interface_implementation_v8_internal::VoidMethodTestEnumArgMethod(info);
 }
 
 void V8TestInterface::VoidOptionalDictArgWithEmptyDefaultMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidOptionalDictArgWithEmptyDefault");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidOptionalDictArgWithEmptyDefault");
 
   test_interface_implementation_v8_internal::VoidOptionalDictArgWithEmptyDefaultMethod(info);
 }
 
+void V8TestInterface::VoidOptionalUnionArgWithEmptyDefaultMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidOptionalUnionArgWithEmptyDefault");
+  RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidOptionalUnionArgWithEmptyDefault");
+
+  test_interface_implementation_v8_internal::VoidOptionalUnionArgWithEmptyDefaultMethod(info);
+}
+
 void V8TestInterface::VoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethod");
 
   test_interface_implementation_v8_internal::VoidMethodMethod(info);
 }
 
 void V8TestInterface::VoidMethodMethodCallbackForMainWorld(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethod");
 
   test_interface_implementation_v8_internal::VoidMethodMethodForMainWorld(info);
 }
 
 void V8TestInterface::AlwaysExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.alwaysExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_alwaysExposedMethod");
 
   test_interface_implementation_v8_internal::AlwaysExposedMethodMethod(info);
 }
 
 void V8TestInterface::WorkerExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.workerExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_workerExposedMethod");
 
   test_interface_implementation_v8_internal::WorkerExposedMethodMethod(info);
 }
 
 void V8TestInterface::WindowExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.windowExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_windowExposedMethod");
 
   test_interface_implementation_v8_internal::WindowExposedMethodMethod(info);
 }
 
 void V8TestInterface::OriginTrialWindowExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.originTrialWindowExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_originTrialWindowExposedMethod");
 
   test_interface_implementation_v8_internal::OriginTrialWindowExposedMethodMethod(info);
 }
 
 void V8TestInterface::AlwaysExposedStaticMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.alwaysExposedStaticMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_alwaysExposedStaticMethod");
 
   test_interface_implementation_v8_internal::AlwaysExposedStaticMethodMethod(info);
 }
 
 void V8TestInterface::WorkerExposedStaticMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.workerExposedStaticMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_workerExposedStaticMethod");
 
   test_interface_implementation_v8_internal::WorkerExposedStaticMethodMethod(info);
 }
 
 void V8TestInterface::WindowExposedStaticMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.windowExposedStaticMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_windowExposedStaticMethod");
 
   test_interface_implementation_v8_internal::WindowExposedStaticMethodMethod(info);
 }
 
 void V8TestInterface::StaticReturnDOMWrapperMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.staticReturnDOMWrapperMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_staticReturnDOMWrapperMethod");
 
   test_interface_implementation_v8_internal::StaticReturnDOMWrapperMethodMethod(info);
 }
 
 void V8TestInterface::MethodWithExposedAndRuntimeEnabledFlagMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.methodWithExposedAndRuntimeEnabledFlag");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_methodWithExposedAndRuntimeEnabledFlag");
 
   test_interface_implementation_v8_internal::MethodWithExposedAndRuntimeEnabledFlagMethod(info);
 }
 
 void V8TestInterface::OverloadMethodWithExposedAndRuntimeEnabledFlagMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.overloadMethodWithExposedAndRuntimeEnabledFlag");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_overloadMethodWithExposedAndRuntimeEnabledFlag");
 
   test_interface_implementation_v8_internal::OverloadMethodWithExposedAndRuntimeEnabledFlagMethod(info);
 }
 
 void V8TestInterface::MethodWithExposedHavingRuntimeEnabldFlagMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.methodWithExposedHavingRuntimeEnabldFlag");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_methodWithExposedHavingRuntimeEnabldFlag");
 
   test_interface_implementation_v8_internal::MethodWithExposedHavingRuntimeEnabldFlagMethod(info);
 }
 
 void V8TestInterface::WindowAndServiceWorkerExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.windowAndServiceWorkerExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_windowAndServiceWorkerExposedMethod");
 
   test_interface_implementation_v8_internal::WindowAndServiceWorkerExposedMethodMethod(info);
 }
 
 void V8TestInterface::OverloadMethodWithUnionTypeWithStringMemberMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.overloadMethodWithUnionTypeWithStringMember");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_overloadMethodWithUnionTypeWithStringMember");
 
   test_interface_implementation_v8_internal::OverloadMethodWithUnionTypeWithStringMemberMethod(info);
 }
 
 void V8TestInterface::SideEffectFreeMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.sideEffectFreeMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_sideEffectFreeMethod");
 
   test_interface_implementation_v8_internal::SideEffectFreeMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextMethod");
 
   test_interface_implementation_v8_internal::SecureContextMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::SecureContextRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextnessRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextnessRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextnessRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::SecureContextnessRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextWindowExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextWindowExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextWindowExposedMethod");
 
   test_interface_implementation_v8_internal::SecureContextWindowExposedMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextWorkerExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextWorkerExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextWorkerExposedMethod");
 
   test_interface_implementation_v8_internal::SecureContextWorkerExposedMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextWindowExposedRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextWindowExposedRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextWindowExposedRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::SecureContextWindowExposedRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::SecureContextWorkerExposedRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.secureContextWorkerExposedRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_secureContextWorkerExposedRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::SecureContextWorkerExposedRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::MethodWithNullableSequencesMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.methodWithNullableSequences");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_methodWithNullableSequences");
 
   test_interface_implementation_v8_internal::MethodWithNullableSequencesMethod(info);
 }
 
 void V8TestInterface::MethodWithNullableRecordsMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.methodWithNullableRecords");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_methodWithNullableRecords");
 
   test_interface_implementation_v8_internal::MethodWithNullableRecordsMethod(info);
 }
 
 void V8TestInterface::MixinVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.mixinVoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_mixinVoidMethod");
 
   test_interface_implementation_v8_internal::MixinVoidMethodMethod(info);
 }
 
 void V8TestInterface::MixinComplexMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.mixinComplexMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_mixinComplexMethod");
 
   test_interface_implementation_v8_internal::MixinComplexMethodMethod(info);
 }
 
 void V8TestInterface::MixinCustomVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.mixinCustomVoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_mixinCustomVoidMethod");
 
   V8TestInterface::MixinCustomVoidMethodMethodCustom(info);
 }
 
 void V8TestInterface::Mixin2VoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.mixin2VoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_mixin2VoidMethod");
 
   test_interface_implementation_v8_internal::Mixin2VoidMethodMethod(info);
 }
 
 void V8TestInterface::Mixin3VoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.mixin3VoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_mixin3VoidMethod");
 
   test_interface_implementation_v8_internal::Mixin3VoidMethodMethod(info);
 }
 
 void V8TestInterface::PartialVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialVoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialVoidMethod");
 
   test_interface_implementation_v8_internal::PartialVoidMethodMethod(info);
 }
 
 void V8TestInterface::PartialStaticVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialStaticVoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialStaticVoidMethod");
 
   test_interface_implementation_v8_internal::PartialStaticVoidMethodMethod(info);
 }
 
 void V8TestInterface::PartialVoidMethodLongArgMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialVoidMethodLongArg");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialVoidMethodLongArg");
 
   test_interface_implementation_v8_internal::PartialVoidMethodLongArgMethod(info);
 }
 
 void V8TestInterface::PartialCallWithExecutionContextRaisesExceptionVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialCallWithExecutionContextRaisesExceptionVoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialCallWithExecutionContextRaisesExceptionVoidMethod");
 
   test_interface_implementation_v8_internal::PartialCallWithExecutionContextRaisesExceptionVoidMethodMethod(info);
 }
 
 void V8TestInterface::PartialVoidMethodPartialCallbackTypeArgMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialVoidMethodPartialCallbackTypeArg");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialVoidMethodPartialCallbackTypeArg");
 
   test_interface_implementation_v8_internal::PartialVoidMethodPartialCallbackTypeArgMethod(info);
 }
 
 void V8TestInterface::Partial2SecureContextMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partial2SecureContextMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partial2SecureContextMethod");
 
   test_interface_implementation_v8_internal::Partial2SecureContextMethodMethod(info);
 }
 
 void V8TestInterface::PartialSecureContextMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialSecureContextMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialSecureContextMethod");
 
   test_interface_implementation_v8_internal::PartialSecureContextMethodMethod(info);
 }
 
 void V8TestInterface::PartialSecureContextRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialSecureContextRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialSecureContextRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::PartialSecureContextRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::PartialSecureContextWindowExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialSecureContextWindowExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialSecureContextWindowExposedMethod");
 
   test_interface_implementation_v8_internal::PartialSecureContextWindowExposedMethodMethod(info);
 }
 
 void V8TestInterface::PartialSecureContextWorkerExposedMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialSecureContextWorkerExposedMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialSecureContextWorkerExposedMethod");
 
   test_interface_implementation_v8_internal::PartialSecureContextWorkerExposedMethodMethod(info);
 }
 
 void V8TestInterface::PartialSecureContextWindowExposedRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialSecureContextWindowExposedRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialSecureContextWindowExposedRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::PartialSecureContextWindowExposedRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::PartialSecureContextWorkerExposedRuntimeEnabledMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partialSecureContextWorkerExposedRuntimeEnabledMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partialSecureContextWorkerExposedRuntimeEnabledMethod");
 
   test_interface_implementation_v8_internal::PartialSecureContextWorkerExposedRuntimeEnabledMethodMethod(info);
 }
 
 void V8TestInterface::VoidMethodPartialOverloadMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.voidMethodPartialOverload");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_voidMethodPartialOverload");
 
   test_interface_implementation_v8_internal::VoidMethodPartialOverloadMethod(info);
 }
 
 void V8TestInterface::StaticVoidMethodPartialOverloadMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.staticVoidMethodPartialOverload");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_staticVoidMethodPartialOverload");
 
   test_interface_implementation_v8_internal::StaticVoidMethodPartialOverloadMethod(info);
 }
 
 void V8TestInterface::PromiseMethodPartialOverloadMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.promiseMethodPartialOverload");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_promiseMethodPartialOverload");
 
   test_interface_implementation_v8_internal::PromiseMethodPartialOverloadMethod(info);
 }
 
 void V8TestInterface::StaticPromiseMethodPartialOverloadMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.staticPromiseMethodPartialOverload");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_staticPromiseMethodPartialOverload");
 
   test_interface_implementation_v8_internal::StaticPromiseMethodPartialOverloadMethod(info);
 }
 
 void V8TestInterface::Partial2VoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partial2VoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partial2VoidMethod");
 
   test_interface_implementation_v8_internal::Partial2VoidMethodMethod(info);
 }
 
 void V8TestInterface::Partial2StaticVoidMethodMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.partial2StaticVoidMethod");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_partial2StaticVoidMethod");
 
   test_interface_implementation_v8_internal::Partial2StaticVoidMethodMethod(info);
 }
 
 void V8TestInterface::KeysMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.keys");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_keys");
 
   test_interface_implementation_v8_internal::KeysMethod(info);
 }
 
 void V8TestInterface::ValuesMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.values");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_values");
 
   test_interface_implementation_v8_internal::ValuesMethod(info);
 }
 
 void V8TestInterface::ForEachMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.forEach");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_forEach");
 
   test_interface_implementation_v8_internal::ForEachMethod(info);
 }
 
 void V8TestInterface::ToStringMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.toString");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_toString");
 
   test_interface_implementation_v8_internal::ToStringMethod(info);
 }
 
 void V8TestInterface::IteratorMethodCallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  BLINK_BINDINGS_TRACE_EVENT("TestInterface.iterator");
   RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_TestInterfaceImplementation_iterator");
 
   test_interface_implementation_v8_internal::IteratorMethod(info);
@@ -3751,6 +3957,7 @@ static constexpr V8DOMConfiguration::MethodConfiguration kV8TestInterfaceMethods
     {"voidMethodUnrestrictedDoubleArgUnrestrictedFloatArg", V8TestInterface::VoidMethodUnrestrictedDoubleArgUnrestrictedFloatArgMethodCallback, 2, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAllWorlds},
     {"voidMethodTestEnumArg", V8TestInterface::VoidMethodTestEnumArgMethodCallback, 1, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAllWorlds},
     {"voidOptionalDictArgWithEmptyDefault", V8TestInterface::VoidOptionalDictArgWithEmptyDefaultMethodCallback, 0, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAllWorlds},
+    {"voidOptionalUnionArgWithEmptyDefault", V8TestInterface::VoidOptionalUnionArgWithEmptyDefaultMethodCallback, 0, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAllWorlds},
     {"voidMethod", V8TestInterface::VoidMethodMethodCallbackForMainWorld, 0, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kMainWorld},
     {"voidMethod", V8TestInterface::VoidMethodMethodCallback, 0, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kNonMainWorlds},
     {"alwaysExposedMethod", V8TestInterface::AlwaysExposedMethodMethodCallback, 0, v8::None, V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kDoNotCheckAccess, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAllWorlds},
@@ -3931,10 +4138,13 @@ void V8TestInterface::InstallRuntimeEnabledFeaturesOnTemplate(
   if (RuntimeEnabledFeatures::PartialRuntimeFeatureEnabled()) {
     static constexpr V8DOMConfiguration::AccessorConfiguration
     kAccessorConfigurations[] = {
+        { "-dashed-attribute", V8TestInterface::Dec45DashedDec45AttributeAttributeGetterCallback, V8TestInterface::Dec45DashedDec45AttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
+        { "-webkit-cased-attribute", V8TestInterface::Dec45WebkitDec45CasedDec45AttributeAttributeGetterCallback, V8TestInterface::Dec45WebkitDec45CasedDec45AttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
         { "partialCallWithExecutionContextLongAttribute", V8TestInterface::PartialCallWithExecutionContextLongAttributeAttributeGetterCallback, V8TestInterface::PartialCallWithExecutionContextLongAttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
         { "partialLongAttribute", V8TestInterface::PartialLongAttributeAttributeGetterCallback, V8TestInterface::PartialLongAttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
         { "partialPartialEnumTypeAttribute", V8TestInterface::PartialPartialEnumTypeAttributeAttributeGetterCallback, V8TestInterface::PartialPartialEnumTypeAttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
         { "partialStaticLongAttribute", V8TestInterface::PartialStaticLongAttributeAttributeGetterCallback, V8TestInterface::PartialStaticLongAttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnInterface, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
+        { "underline_attribute", V8TestInterface::UnderlineDec95AttributeAttributeGetterCallback, V8TestInterface::UnderlineDec95AttributeAttributeSetterCallback, V8PrivateProperty::kNoCachedAccessor, static_cast<v8::PropertyAttribute>(v8::None), V8DOMConfiguration::kOnPrototype, V8DOMConfiguration::kCheckHolder, V8DOMConfiguration::kHasSideEffect, V8DOMConfiguration::kAlwaysCallGetter, V8DOMConfiguration::kAllWorlds },
     };
     V8DOMConfiguration::InstallAccessors(
         isolate, world, instance_template, prototype_template, interface_template,
@@ -4094,16 +4304,6 @@ v8::Local<v8::Object> V8TestInterface::FindInstanceInPrototypeChain(
 TestInterfaceImplementation* V8TestInterface::ToImplWithTypeCheck(
     v8::Isolate* isolate, v8::Local<v8::Value> value) {
   return HasInstance(value, isolate) ? ToImpl(v8::Local<v8::Object>::Cast(value)) : nullptr;
-}
-
-TestInterfaceImplementation* NativeValueTraits<TestInterfaceImplementation>::NativeValue(
-    v8::Isolate* isolate, v8::Local<v8::Value> value, ExceptionState& exception_state) {
-  TestInterfaceImplementation* native_value = V8TestInterface::ToImplWithTypeCheck(isolate, value);
-  if (!native_value) {
-    exception_state.ThrowTypeError(ExceptionMessages::FailedToConvertJSValue(
-        "TestInterface"));
-  }
-  return native_value;
 }
 
 void V8TestInterface::InstallConditionalFeatures(

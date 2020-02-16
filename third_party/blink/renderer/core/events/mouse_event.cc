@@ -22,7 +22,8 @@
 
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 
-#include "third_party/blink/public/platform/web_pointer_properties.h"
+#include "third_party/blink/public/common/input/web_pointer_properties.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_mouse_event_init.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatcher.h"
 #include "third_party/blink/renderer/core/dom/events/event_path.h"
@@ -223,11 +224,11 @@ void MouseEvent::SetCoordinatesFromWebPointerProperties(
     const LocalDOMWindow* dom_window,
     MouseEventInit* initializer) {
   FloatPoint client_point;
-  FloatPoint screen_point = web_pointer_properties.PositionInScreen();
+  FloatPoint screen_point(web_pointer_properties.PositionInScreen());
   float scale_factor = 1.0f;
   if (dom_window && dom_window->GetFrame() && dom_window->GetFrame()->View()) {
     LocalFrame* frame = dom_window->GetFrame();
-    FloatPoint root_frame_point = web_pointer_properties.PositionInWidget();
+    FloatPoint root_frame_point(web_pointer_properties.PositionInWidget());
     if (Page* p = frame->GetPage()) {
       if (p->GetPointerLockController().GetElement() &&
           !p->GetPointerLockController().LockPending()) {

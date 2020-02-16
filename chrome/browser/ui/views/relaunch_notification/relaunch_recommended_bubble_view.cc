@@ -91,8 +91,7 @@ bool RelaunchRecommendedBubbleView::ShouldShowCloseButton() const {
 
 gfx::ImageSkia RelaunchRecommendedBubbleView::GetWindowIcon() {
   return gfx::CreateVectorIcon(gfx::IconDescription(
-      vector_icons::kBusinessIcon, kTitleIconSize, gfx::kChromeIconGrey,
-      base::TimeDelta(), gfx::kNoneIcon));
+      vector_icons::kBusinessIcon, kTitleIconSize, gfx::kChromeIconGrey));
 }
 
 bool RelaunchRecommendedBubbleView::ShouldShowWindowIcon() const {

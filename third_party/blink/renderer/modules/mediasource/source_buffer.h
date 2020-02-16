@@ -63,9 +63,6 @@ class SourceBuffer final : public EventTargetWithInlineData,
   USING_PRE_FINALIZER(SourceBuffer, Dispose);
 
  public:
-  static SourceBuffer* Create(std::unique_ptr<WebSourceBuffer>,
-                              MediaSource*,
-                              EventQueue*);
   static const AtomicString& SegmentsKeyword();
   static const AtomicString& SequenceKeyword();
 
@@ -129,7 +126,7 @@ class SourceBuffer final : public EventTargetWithInlineData,
   bool EvictCodedFrames(double media_time, size_t new_data_size);
   void AppendBufferInternal(double media_time,
                             const unsigned char*,
-                            unsigned,
+                            size_t,
                             ExceptionState&);
   void AppendBufferAsyncPart();
   void AppendError();

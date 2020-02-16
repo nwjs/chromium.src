@@ -85,6 +85,10 @@ class CrxInstaller : public SandboxedUnpackerClient {
     NumOffStoreInstallAllowReasons
   };
 
+  // Used to indicate if host permissions should be withheld during
+  // installation.
+  enum WithholdingBehavior { kWithholdPermissions, kDontWithholdPermissions };
+
   // Extensions will be installed into service->install_directory(), then
   // registered with |service|. This does a silent install - see below for
   // other options.
@@ -261,7 +265,15 @@ class CrxInstaller : public SandboxedUnpackerClient {
   // should complete.
   base::Optional<CrxInstallError> AllowInstall(const Extension* extension);
 
+  // To check whether we need to compute hashes or not, we have to make a query
+  // to ContentVerifier, and that should be done on the UI thread.
+  void ShouldComputeHashesOnUI(scoped_refptr<const Extension> extension,
+                               base::OnceCallback<void(bool)> callback);
+
   // SandboxedUnpackerClient
+  void ShouldComputeHashesForOffWebstoreExtension(
+      scoped_refptr<const Extension> extension,
+      base::OnceCallback<void(bool)> callback) override;
   void OnUnpackFailure(const CrxInstallError& error) override;
   void OnUnpackSuccess(
       const base::FilePath& temp_dir,
@@ -283,7 +295,8 @@ class CrxInstaller : public SandboxedUnpackerClient {
 
   // Runs on the UI thread. Updates the creation flags for the extension and
   // calls CompleteInstall().
-  void UpdateCreationFlagsAndCompleteInstall();
+  void UpdateCreationFlagsAndCompleteInstall(
+      WithholdingBehavior withholding_behavior);
 
   // Runs on File thread. Install the unpacked extension into the profile and
   // notify the frontend.

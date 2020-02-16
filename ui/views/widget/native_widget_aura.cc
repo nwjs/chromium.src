@@ -289,14 +289,6 @@ void NativeWidgetAura::FrameTypeChanged() {
   GetWidget()->GetRootView()->SchedulePaint();
 }
 
-Widget* NativeWidgetAura::GetWidget() {
-  return delegate_->AsWidget();
-}
-
-const Widget* NativeWidgetAura::GetWidget() const {
-  return delegate_->AsWidget();
-}
-
 gfx::NativeView NativeWidgetAura::GetNativeView() const {
   return window_;
 }
@@ -440,6 +432,10 @@ void NativeWidgetAura::SetWindowIcons(const gfx::ImageSkia& window_icon,
 void NativeWidgetAura::InitModalType(ui::ModalType modal_type) {
   if (modal_type != ui::MODAL_TYPE_NONE)
     window_->SetProperty(aura::client::kModalKey, modal_type);
+  if (modal_type == ui::MODAL_TYPE_WINDOW) {
+    wm::TransientWindowManager::GetOrCreate(window_)
+        ->set_parent_controls_visibility(true);
+  }
 }
 
 gfx::Rect NativeWidgetAura::GetWindowBoundsInScreen() const {
@@ -761,7 +757,7 @@ Widget::MoveLoopResult NativeWidgetAura::RunMoveLoop(
 
   SetCapture();
   wm::WindowMoveSource window_move_source =
-      source == Widget::MOVE_LOOP_SOURCE_MOUSE ? wm::WINDOW_MOVE_SOURCE_MOUSE
+      source == Widget::MoveLoopSource::kMouse ? wm::WINDOW_MOVE_SOURCE_MOUSE
                                                : wm::WINDOW_MOVE_SOURCE_TOUCH;
   if (move_client->RunMoveLoop(window_, drag_offset, window_move_source) ==
       wm::MOVE_SUCCESSFUL) {
@@ -820,6 +816,10 @@ ui::GestureRecognizer* NativeWidgetAura::GetGestureRecognizer() {
 void NativeWidgetAura::OnSizeConstraintsChanged() {
   SetResizeBehaviorFromDelegate(GetWidget()->widget_delegate(), window_);
 }
+
+void NativeWidgetAura::OnNativeViewHierarchyWillChange() {}
+
+void NativeWidgetAura::OnNativeViewHierarchyChanged() {}
 
 std::string NativeWidgetAura::GetName() const {
   return window_ ? window_->GetName() : std::string();
@@ -1059,6 +1059,10 @@ void NativeWidgetAura::SetInitialFocus(ui::WindowShowState show_state) {
   // The window does not get keyboard messages unless we focus it.
   if (!GetWidget()->SetInitialFocus(show_state))
     window_->Focus();
+}
+
+const Widget* NativeWidgetAura::GetWidgetImpl() const {
+  return delegate_->AsWidget();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

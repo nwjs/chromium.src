@@ -6,45 +6,24 @@ package org.chromium.chrome.browser.tab;
 
 import android.content.Context;
 import android.view.View;
-import android.view.ViewGroup;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.chromium.base.UserDataHost;
-import org.chromium.chrome.browser.native_page.NativePage;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
 /**
  * Tab is a visual/functional unit that encapsulates the content (not just web site content
  * from network but also other types of content such as NTP, navigation history, etc) and
  * presents it to users who perceive it as one of the 'pages' managed by Chrome.
  */
-public interface Tab {
+public interface Tab extends TabLifecycle {
     public static final int INVALID_TAB_ID = -1;
-
-    /**
-     * A list of the various ways tabs can be hidden.
-     */
-    @IntDef({TabHidingType.CHANGED_TABS, TabHidingType.ACTIVITY_HIDDEN, TabHidingType.REPARENTED})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface TabHidingType {
-        /** A tab was hidden due to other tab getting foreground. */
-        int CHANGED_TABS = 0;
-
-        /** A tab was hidden together with an activity. */
-        int ACTIVITY_HIDDEN = 1;
-
-        /** A tab was hidden while being reparented to a new activity. */
-        int REPARENTED = 2;
-    }
 
     /**
      * Adds a {@link TabObserver} to be notified on {@link Tab} changes.
@@ -99,7 +78,7 @@ public interface Tab {
      * @return Content view used for rendered web contents. Can be null
      *    if web contents is null.
      */
-    ViewGroup getContentView();
+    ContentView getContentView();
 
     /**
      * @return The {@link View} displaying the current page in the tab. This can be {@code null}, if
@@ -264,13 +243,4 @@ public interface Tab {
      * Goes to the navigation entry after the current one.
      */
     void goForward();
-
-    /**
-     * Sets whether the tab is showing an error page.  This is reset whenever the tab finishes a
-     * navigation.
-     * Note: This is kept here to keep the build green. Remove from interface as soon as
-     *       the downstream patch lands.
-     * @param isShowingErrorPage Whether the tab shows an error page.
-     */
-    void setIsShowingErrorPage(boolean isShowingErrorPage);
 }

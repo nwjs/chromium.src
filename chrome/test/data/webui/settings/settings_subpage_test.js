@@ -5,6 +5,20 @@
 cr.define('settings_subpage', function() {
   suite('SettingsSubpage', function() {
     setup(function() {
+      const routes = {
+        BASIC: new settings.Route('/'),
+      };
+      routes.SEARCH = routes.BASIC.createSection('/search', 'search');
+      routes.SEARCH_ENGINES = routes.SEARCH.createChild('/searchEngines');
+      routes.PEOPLE = routes.BASIC.createSection('/people', 'people');
+      routes.SYNC = routes.PEOPLE.createChild('/syncSetup');
+      routes.PRIVACY = routes.BASIC.createSection('/privacy', 'privacy');
+      routes.CERTIFICATES = routes.PRIVACY.createChild('/certificates');
+
+      settings.Router.resetInstanceForTesting(new settings.Router(routes));
+      settings.routes = routes;
+      test_util.setupPopstateListener();
+
       PolymerTest.clearBody();
     });
 
@@ -42,20 +56,26 @@ cr.define('settings_subpage', function() {
       // Pretend that we initially started on the CERTIFICATES route.
       window.history.replaceState(
           undefined, '', settings.routes.CERTIFICATES.path);
-      settings.initializeRouteFromUrl();
-      assertEquals(settings.routes.CERTIFICATES, settings.getCurrentRoute());
+      settings.Router.getInstance().initializeRouteFromUrl();
+      assertEquals(
+          settings.routes.CERTIFICATES,
+          settings.Router.getInstance().getCurrentRoute());
 
       const subpage = document.createElement('settings-subpage');
       document.body.appendChild(subpage);
 
       subpage.$$('cr-icon-button').click();
-      assertEquals(settings.routes.PRIVACY, settings.getCurrentRoute());
+      assertEquals(
+          settings.routes.PRIVACY,
+          settings.Router.getInstance().getCurrentRoute());
     });
 
     test('navigates to any route via window.back()', function(done) {
-      settings.navigateTo(settings.routes.BASIC);
-      settings.navigateTo(settings.routes.SYNC);
-      assertEquals(settings.routes.SYNC, settings.getCurrentRoute());
+      settings.Router.getInstance().navigateTo(settings.routes.BASIC);
+      settings.Router.getInstance().navigateTo(settings.routes.SYNC);
+      assertEquals(
+          settings.routes.SYNC,
+          settings.Router.getInstance().getCurrentRoute());
 
       const subpage = document.createElement('settings-subpage');
       document.body.appendChild(subpage);
@@ -63,20 +83,22 @@ cr.define('settings_subpage', function() {
       subpage.$$('cr-icon-button').click();
 
       window.addEventListener('popstate', function(event) {
-        assertEquals(settings.routes.BASIC, settings.getCurrentRoute());
+        assertEquals(
+            settings.Router.getInstance().getRoutes().BASIC,
+            settings.Router.getInstance().getCurrentRoute());
         done();
       });
     });
 
     test('updates the title of the document when active', function() {
       const expectedTitle = 'My Subpage Title';
-      settings.navigateTo(settings.routes.SEARCH);
+      settings.Router.getInstance().navigateTo(settings.routes.SEARCH);
       const subpage = document.createElement('settings-subpage');
       subpage.setAttribute('route-path', settings.routes.SEARCH_ENGINES.path);
       subpage.setAttribute('page-title', expectedTitle);
       document.body.appendChild(subpage);
 
-      settings.navigateTo(settings.routes.SEARCH_ENGINES);
+      settings.Router.getInstance().navigateTo(settings.routes.SEARCH_ENGINES);
       assertEquals(
           document.title,
           loadTimeData.getStringF('settingsAltPageTitle', expectedTitle));

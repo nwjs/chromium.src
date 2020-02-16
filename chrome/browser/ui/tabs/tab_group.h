@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "base/strings/string16.h"
-#include "chrome/browser/ui/tabs/tab_group_id.h"
-#include "chrome/browser/ui/tabs/tab_group_visual_data.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 
 class TabGroupController;
 
@@ -26,18 +26,21 @@ class TabGroupController;
 class TabGroup {
  public:
   TabGroup(TabGroupController* controller,
-           TabGroupId id,
-           TabGroupVisualData visual_data);
+           const tab_groups::TabGroupId& id,
+           const tab_groups::TabGroupVisualData& visual_data);
   ~TabGroup();
 
-  TabGroupId id() const { return id_; }
-  TabGroupVisualData* visual_data() const { return visual_data_.get(); }
-  void SetVisualData(TabGroupVisualData visual_data);
+  const tab_groups::TabGroupId& id() const { return id_; }
+  const tab_groups::TabGroupVisualData* visual_data() const {
+    return visual_data_.get();
+  }
+  void SetVisualData(const tab_groups::TabGroupVisualData& visual_data);
 
-  // Returns the user-visible group title that will be displayed in context
-  // menus and tooltips. Generates a descriptive placeholder if the user has
-  // not yet named the group, otherwise uses the group's name.
-  base::string16 GetDisplayedTitle() const;
+  // Returns a user-visible string describing the contents of the group, such as
+  // "Google Search and 3 other tabs". Used for accessibly describing the group,
+  // as well as for displaying in context menu items and tooltips when the group
+  // is unnamed.
+  base::string16 GetContentString() const;
 
   // Updates internal bookkeeping for group contents, and notifies the
   // controller that contents changed when a tab is added.
@@ -58,8 +61,8 @@ class TabGroup {
  private:
   TabGroupController* controller_;
 
-  TabGroupId id_;
-  std::unique_ptr<TabGroupVisualData> visual_data_;
+  tab_groups::TabGroupId id_;
+  std::unique_ptr<tab_groups::TabGroupVisualData> visual_data_;
 
   int tab_count_ = 0;
 };

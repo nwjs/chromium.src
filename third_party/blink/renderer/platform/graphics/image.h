@@ -30,6 +30,7 @@
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "third_party/blink/renderer/platform/geometry/float_point.h"
 #include "third_party/blink/renderer/platform/geometry/float_size.h"
 #include "third_party/blink/renderer/platform/geometry/int_rect.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types.h"
@@ -57,7 +58,6 @@ class ImageDecodeCache;
 namespace blink {
 
 class DarkModeImageClassifier;
-class FloatPoint;
 class FloatRect;
 class GraphicsContext;
 class Image;
@@ -109,9 +109,14 @@ class PLATFORM_EXPORT Image : public ThreadSafeRefCounted<Image> {
   virtual bool HasIntrinsicSize() const { return true; }
 
   virtual IntSize Size() const = 0;
+  IntSize Size(RespectImageOrientationEnum);
+  virtual FloatSize SizeAsFloat() const { return FloatSize(Size()); }
   IntRect Rect() const { return IntRect(IntPoint(), Size()); }
   int width() const { return Size().Width(); }
   int height() const { return Size().Height(); }
+
+  virtual bool HasDefaultOrientation() const { return true; }
+
   virtual bool GetHotSpot(IntPoint&) const { return false; }
 
   enum SizeAvailability {
@@ -276,7 +281,8 @@ class PLATFORM_EXPORT Image : public ThreadSafeRefCounted<Image> {
                            const FloatPoint& phase,
                            SkBlendMode,
                            const FloatRect&,
-                           const FloatSize& repeat_spacing);
+                           const FloatSize& repeat_spacing,
+                           RespectImageOrientationEnum);
 
   // Creates and initializes a PaintImageBuilder with the metadata flags for the
   // PaintImage.
@@ -285,7 +291,7 @@ class PLATFORM_EXPORT Image : public ThreadSafeRefCounted<Image> {
   // Whether or not size is available yet.
   virtual bool IsSizeAvailable() { return true; }
 
-  typedef FloatSize ClassificationKey;
+  typedef FloatPoint ClassificationKey;
   HashMap<ClassificationKey, DarkModeClassification> dark_mode_classifications_;
 
  private:

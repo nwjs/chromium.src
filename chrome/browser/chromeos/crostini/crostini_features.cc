@@ -110,7 +110,6 @@ bool CrostiniFeatures::IsEnabled(Profile* profile) {
 
 bool CrostiniFeatures::IsExportImportUIAllowed(Profile* profile) {
   return g_crostini_features->IsUIAllowed(profile, true) &&
-         base::FeatureList::IsEnabled(chromeos::features::kCrostiniBackup) &&
          profile->GetPrefs()->GetBoolean(
              crostini::prefs::kUserCrostiniExportImportUIAllowedByPolicy);
 }
@@ -121,6 +120,12 @@ bool CrostiniFeatures::IsRootAccessAllowed(Profile* profile) {
         crostini::prefs::kUserCrostiniRootAccessAllowedByPolicy);
   }
   return true;
+}
+
+bool CrostiniFeatures::IsContainerUpgradeUIAllowed(Profile* profile) {
+  return g_crostini_features->IsUIAllowed(profile, true) &&
+         base::FeatureList::IsEnabled(
+             chromeos::features::kCrostiniWebUIUpgrader);
 }
 
 }  // namespace crostini

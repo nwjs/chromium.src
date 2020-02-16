@@ -18,19 +18,22 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.chrome.browser.flags.FeatureUtilities;
+import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.share.ShareParams;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.ScrimView;
@@ -98,6 +101,7 @@ public class TabGridDialogMediator {
     private final DialogHandler mTabGridDialogHandler;
     private final TabSelectionEditorCoordinator
             .TabSelectionEditorController mTabSelectionEditorController;
+    private final ObservableSupplier<ShareDelegate> mShareDelegateSupplier;
     private final String mComponentName;
     private KeyboardVisibilityDelegate.KeyboardVisibilityListener mKeyboardVisibilityListener;
     private int mCurrentTabId = Tab.INVALID_TAB_ID;
@@ -111,7 +115,8 @@ public class TabGridDialogMediator {
             AnimationSourceViewProvider animationSourceViewProvider,
             @Nullable TabSelectionEditorCoordinator
                     .TabSelectionEditorController tabSelectionEditorController,
-            TabGroupTitleEditor tabGroupTitleEditor, String componentName) {
+            TabGroupTitleEditor tabGroupTitleEditor,
+            ObservableSupplier<ShareDelegate> shareDelegateSupplier, String componentName) {
         mContext = context;
         mModel = model;
         mTabModelSelector = tabModelSelector;
@@ -122,6 +127,7 @@ public class TabGridDialogMediator {
         mTabGroupTitleEditor = tabGroupTitleEditor;
         mTabGridDialogHandler = new DialogHandler();
         mTabSelectionEditorController = tabSelectionEditorController;
+        mShareDelegateSupplier = shareDelegateSupplier;
         mComponentName = componentName;
 
         // Register for tab model.
@@ -205,6 +211,17 @@ public class TabGridDialogMediator {
                 mModel.set(TabGridPanelProperties.IS_POPUP_WINDOW_FOCUSABLE, false);
                 List<Tab> tabs = getRelatedTabs(mCurrentTabId);
                 mTabSelectionEditorController.show(tabs);
+            } else if (result == R.id.share_tab_group) {
+                Tab tab = mTabModelSelector.getTabById(mCurrentTabId);
+                ShareParams shareParams =
+                        new ShareParams
+                                .Builder(tab.getWindowAndroid(),
+                                        mModel.get(TabGridPanelProperties.HEADER_TITLE), "")
+                                .setShareDirectly(false)
+                                .setSaveLastUsed(true)
+                                .setText(getTabGroupStringForSharing())
+                                .build();
+                mShareDelegateSupplier.get().share(shareParams);
             }
         };
 
@@ -485,13 +502,28 @@ public class TabGridDialogMediator {
         }
     }
 
+    private String getTabGroupStringForSharing() {
+        StringBuilder sb = new StringBuilder();
+        List<Tab> tabgroup = getRelatedTabs(mCurrentTabId);
+        assert tabgroup.size() > 0;
+        for (int i = 0; i < tabgroup.size(); i++) {
+            sb.append(i + 1).append(". ").append(tabgroup.get(i).getUrl()).append("\n");
+        }
+        return sb.toString();
+    }
+
     @VisibleForTesting
-    int getCurrentTabIdForTest() {
+    String getTabGroupStringForSharingForTesting() {
+        return getTabGroupStringForSharing();
+    }
+
+    @VisibleForTesting
+    int getCurrentTabIdForTesting() {
         return mCurrentTabId;
     }
 
     @VisibleForTesting
-    void setCurrentTabIdForTest(int tabId) {
+    void setCurrentTabIdForTesting(int tabId) {
         mCurrentTabId = tabId;
     }
 

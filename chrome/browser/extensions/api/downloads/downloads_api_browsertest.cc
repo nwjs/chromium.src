@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
@@ -37,7 +38,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/extensions/browser_action_test_util.h"
+#include "chrome/browser/ui/extensions/extension_action_test_helper.h"
 #include "chrome/common/extensions/api/downloads.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -2049,8 +2050,20 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
         DownloadExtensionTest_Download_InvalidURLs
 #endif
 
+class DownloadExtensionTestWithFtp : public DownloadExtensionTest {
+ public:
+  DownloadExtensionTestWithFtp() {
+    // DownloadExtensionTest_Download_InvalidURLs requires FTP support.
+    // TODO(https://crbug.com/333943): Remove FTP tests and FTP feature flags.
+    scoped_feature_list_.InitAndEnableFeature(features::kFtpProtocol);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
 // Test that downloading invalid URLs immediately returns kInvalidURLError.
-IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
+IN_PROC_BROWSER_TEST_F(DownloadExtensionTestWithFtp,
                        MAYBE_DownloadExtensionTest_Download_InvalidURLs) {
   LoadExtension("downloads_split");
   GoOnTheRecord();
@@ -4280,7 +4293,7 @@ IN_PROC_BROWSER_TEST_F(
       current_browser(),
       GURL(net::URLRequestSlowDownloadJob::kErrorDownloadUrl),
       WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Errors caught before filename determination are delayed until after
   // filename determination.
@@ -4418,7 +4431,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
       base::Bind(&OnDangerPromptCreated);
   DownloadsAcceptDangerFunction::OnPromptCreatedForTesting(
       &callback);
-  BrowserActionTestUtil::Create(current_browser())->Press(0);
+  ExtensionActionTestHelper::Create(current_browser())->Press(0);
   observer->WaitForFinished();
 }
 

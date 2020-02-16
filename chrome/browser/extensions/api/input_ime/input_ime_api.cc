@@ -27,7 +27,7 @@ InputMethodEngineBase* GetEngineIfActive(Profile* profile,
                                          std::string* error) {
   extensions::InputImeEventRouter* event_router =
       extensions::GetInputImeEventRouter(profile);
-  CHECK(event_router) << kErrorRouterNotAvailable;
+  DCHECK(event_router) << kErrorRouterNotAvailable;
   InputMethodEngineBase* engine =
       event_router->GetEngineIfActive(extension_id, error);
   return engine;
@@ -419,9 +419,11 @@ ExtensionFunction::ResponseAction InputImeSendKeyEventsFunction::Run() {
     event.shift_key = key_event.shift_key ? *(key_event.shift_key) : false;
     event.caps_lock = key_event.caps_lock ? *(key_event.caps_lock) : false;
   }
-  if (!engine->SendKeyEvents(params.context_id, key_data_out))
-    return RespondNow(
-        Error(InformativeError(kErrorSetKeyEventsFail, function_name())));
+
+  if (!engine->SendKeyEvents(params.context_id, key_data_out, &error))
+    return RespondNow(Error(InformativeError(
+        base::StringPrintf("%s %s", kErrorSetKeyEventsFail, error.c_str()),
+        function_name())));
   return RespondNow(NoArguments());
 }
 
@@ -461,7 +463,7 @@ InputImeEventRouter* GetInputImeEventRouter(Profile* profile) {
 
 std::string InformativeError(const std::string& error,
                              const char* function_name) {
-  return base::StringPrintf("%s\nThrown by %s", error.c_str(), function_name);
+  return base::StringPrintf("[%s]: %s", function_name, error.c_str());
 }
 
 }  // namespace extensions

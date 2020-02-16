@@ -248,7 +248,7 @@ class VIEWS_EXPORT Textfield : public View,
   void SetAssociatedLabel(View* labelling_view);
 
   // Set extra spacing placed between glyphs; used for obscured text styling.
-  void SetGlyphSpacing(int spacing);
+  void SetObscuredGlyphSpacing(int spacing);
 
   int GetPasswordCharRevealIndex() const { return password_char_reveal_index_; }
 
@@ -377,6 +377,9 @@ class VIEWS_EXPORT Textfield : public View,
 #endif
 
 #if defined(OS_WIN)
+  void GetActiveTextInputControlLayoutBounds(
+      base::Optional<gfx::Rect>* control_bounds,
+      base::Optional<gfx::Rect>* selection_bounds) override;
   void SetActiveCompositionForAccessibility(
       const gfx::Range& range,
       const base::string16& active_composition_text,

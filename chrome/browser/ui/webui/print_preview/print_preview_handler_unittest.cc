@@ -15,6 +15,7 @@
 #include "base/json/json_writer.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/optional.h"
+#include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
@@ -22,6 +23,7 @@
 #include "base/values.h"
 #include "chrome/browser/printing/print_test_utils.h"
 #include "chrome/browser/printing/print_view_manager.h"
+#include "chrome/browser/ui/webui/print_preview/fake_print_render_frame.h"
 #include "chrome/browser/ui/webui/print_preview/policy_settings.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
@@ -29,16 +31,13 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/pref_service.h"
-#include "components/printing/common/print_messages.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_controller.h"
 #include "content/public/test/browser_task_environment.h"
-#include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_web_ui.h"
-#include "ipc/ipc_test_sink.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace printing {
@@ -208,6 +207,31 @@ class FakePrintPreviewUI : public PrintPreviewUI {
   DISALLOW_COPY_AND_ASSIGN(FakePrintPreviewUI);
 };
 
+class TestPrintPreviewPrintRenderFrame : public FakePrintRenderFrame {
+ public:
+  explicit TestPrintPreviewPrintRenderFrame(
+      blink::AssociatedInterfaceProvider* provider)
+      : FakePrintRenderFrame(provider) {}
+
+  ~TestPrintPreviewPrintRenderFrame() final = default;
+
+  const base::Value& GetSettings() { return settings_; }
+
+  void SetCompletionClosure(base::OnceClosure closure) {
+    closure_ = std::move(closure);
+  }
+
+ private:
+  // FakePrintRenderFrame:
+  void PrintPreview(base::Value settings) final {
+    settings_ = std::move(settings);
+    std::move(closure_).Run();
+  }
+
+  base::OnceClosure closure_;
+  base::Value settings_;
+};
+
 class TestPrintPreviewHandler : public PrintPreviewHandler {
  public:
   TestPrintPreviewHandler(std::unique_ptr<PrinterHandler> printer_handler,
@@ -314,12 +338,12 @@ class PrintPreviewHandlerTest : public testing::Test {
       // locale code sync up correctly.
       browser_process->SetApplicationLocale(locale);
       base::test::ScopedRestoreICUDefaultLocale scoped_locale(locale);
-      base::testing::ResetFormatters();
+      base::ResetFormattersForTesting();
       handler()->HandleGetInitialSettings(list_args.get());
     }
     // Reset again now that |scoped_locale| has been destroyed.
     browser_process->SetApplicationLocale(original_locale);
-    base::testing::ResetFormatters();
+    base::ResetFormattersForTesting();
 
     // In response to get initial settings, the initial settings are sent back.
     ASSERT_EQ(1u, web_ui()->call_data().size());
@@ -502,28 +526,10 @@ class PrintPreviewHandlerTest : public testing::Test {
     }
   }
 
-  IPC::TestSink& initiator_sink() {
-    content::RenderFrameHost* rfh = initiator_web_contents_->GetMainFrame();
-    auto* rph = static_cast<content::MockRenderProcessHost*>(rfh->GetProcess());
-    return rph->sink();
-  }
-
-  IPC::TestSink& preview_sink() {
-    content::RenderFrameHost* rfh = preview_web_contents_->GetMainFrame();
-    auto* rph = static_cast<content::MockRenderProcessHost*>(rfh->GetProcess());
-    return rph->sink();
-  }
-
-  base::DictionaryValue VerifyPreviewMessage() {
-    // Verify that the preview was requested from the renderer
-    EXPECT_TRUE(
-        initiator_sink().GetUniqueMessageMatching(PrintMsg_PrintPreview::ID));
-    const IPC::Message* msg =
-        initiator_sink().GetFirstMessageMatching(PrintMsg_PrintPreview::ID);
-    EXPECT_TRUE(msg);
-    PrintMsg_PrintPreview::Param param;
-    PrintMsg_PrintPreview::Read(msg, &param);
-    return std::move(std::get<0>(param));
+  blink::AssociatedInterfaceProvider*
+  GetInitiatorAssociatedInterfaceProvider() {
+    return initiator_web_contents_->GetMainFrame()
+        ->GetRemoteAssociatedInterfaces();
   }
 
   const Profile* profile() { return profile_.get(); }
@@ -837,14 +843,20 @@ TEST_F(PrintPreviewHandlerTest, Print) {
 TEST_F(PrintPreviewHandlerTest, GetPreview) {
   Initialize();
 
+  base::RunLoop run_loop;
+  TestPrintPreviewPrintRenderFrame print_render_frame(
+      GetInitiatorAssociatedInterfaceProvider());
+  print_render_frame.SetCompletionClosure(run_loop.QuitClosure());
+
   base::Value print_ticket = GetPrintPreviewTicket();
   std::unique_ptr<base::ListValue> list_args =
       ConstructPreviewArgs("test-callback-id-1", print_ticket);
   handler()->HandleGetPreview(list_args.get());
+  run_loop.Run();
 
   // Verify that the preview was requested from the renderer with the
   // appropriate settings.
-  base::DictionaryValue preview_params = VerifyPreviewMessage();
+  const base::Value& preview_params = print_render_frame.GetSettings();
   bool preview_id_found = false;
   for (const auto& it : preview_params.DictItems()) {
     if (it.first == kPreviewUIID) {  // This is added by the handler.
@@ -861,12 +873,18 @@ TEST_F(PrintPreviewHandlerTest, GetPreview) {
 TEST_F(PrintPreviewHandlerTest, SendPreviewUpdates) {
   Initialize();
 
+  base::RunLoop run_loop;
+  TestPrintPreviewPrintRenderFrame print_render_frame(
+      GetInitiatorAssociatedInterfaceProvider());
+  print_render_frame.SetCompletionClosure(run_loop.QuitClosure());
+
   const char callback_id_in[] = "test-callback-id-1";
   base::Value print_ticket = GetPrintPreviewTicket();
   std::unique_ptr<base::ListValue> list_args =
       ConstructPreviewArgs(callback_id_in, print_ticket);
   handler()->HandleGetPreview(list_args.get());
-  base::DictionaryValue preview_params = VerifyPreviewMessage();
+  run_loop.Run();
+  const base::Value& preview_params = print_render_frame.GetSettings();
 
   // Read the preview UI ID and request ID
   base::Optional<int> request_value =

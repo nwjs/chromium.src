@@ -8,9 +8,8 @@
 
 #include "base/logging.h"
 #include "chrome/browser/media/router/providers/openscreen/platform/chrome_tls_client_connection.h"
-#include "chrome/browser/media/router/providers/openscreen/platform/mojo_data_pump.h"
-#include "chrome/browser/media/router/providers/openscreen/platform/network_util.h"
 #include "chrome/browser/net/system_network_context_manager.h"
+#include "components/openscreen_platform/network_util.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
 #include "net/ssl/ssl_info.h"
@@ -21,14 +20,14 @@
 #include "third_party/openscreen/src/platform/base/tls_listen_options.h"
 
 namespace openscreen {
-namespace platform {
+
 std::unique_ptr<TlsConnectionFactory> TlsConnectionFactory::CreateFactory(
     Client* client,
     TaskRunner* task_runner) {
   return std::make_unique<media_router::ChromeTlsConnectionFactory>(
       client, task_runner, nullptr /* network context */);
 }
-}  // namespace platform
+
 }  // namespace openscreen
 
 namespace media_router {
@@ -36,9 +35,9 @@ namespace media_router {
 namespace {
 
 using openscreen::IPEndpoint;
-using openscreen::platform::TlsConnectOptions;
-using openscreen::platform::TlsCredentials;
-using openscreen::platform::TlsListenOptions;
+using openscreen::TlsConnectOptions;
+using openscreen::TlsCredentials;
+using openscreen::TlsListenOptions;
 
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("open_screen_tls_message", R"(
@@ -86,7 +85,7 @@ void ChromeTlsConnectionFactory::Connect(const IPEndpoint& remote_address,
                             mojo::Remote<network::mojom::TCPConnectedSocket>{});
 
   const net::AddressList address_list(
-      media_router::network_util::ToChromeNetEndpoint(remote_address));
+      openscreen_platform::ToNetEndPoint(remote_address));
 
   network_context->CreateTCPConnectedSocket(
       base::nullopt /* local_addr */, address_list,
@@ -109,15 +108,15 @@ void ChromeTlsConnectionFactory::Listen(const IPEndpoint& local_address,
 }
 
 ChromeTlsConnectionFactory::ChromeTlsConnectionFactory(
-    openscreen::platform::TlsConnectionFactory::Client* client,
-    openscreen::platform::TaskRunner* task_runner,
+    openscreen::TlsConnectionFactory::Client* client,
+    openscreen::TaskRunner* task_runner,
     network::mojom::NetworkContext* network_context)
     : client_(client),
       task_runner_(task_runner),
       network_context_(network_context) {}
 
 ChromeTlsConnectionFactory::TcpConnectRequest::TcpConnectRequest(
-    openscreen::platform::TlsConnectOptions options_in,
+    openscreen::TlsConnectOptions options_in,
     openscreen::IPEndpoint remote_address_in,
     mojo::Remote<network::mojom::TCPConnectedSocket> tcp_socket_in)
     : options(std::move(options_in)),
@@ -163,7 +162,7 @@ void ChromeTlsConnectionFactory::OnTcpConnect(
   }
 
   net::HostPortPair host_port_pair = net::HostPortPair::FromIPEndPoint(
-      network_util::ToChromeNetEndpoint(request.remote_address));
+      openscreen_platform::ToNetEndPoint(request.remote_address));
   network::mojom::TLSClientSocketOptionsPtr options =
       network::mojom::TLSClientSocketOptions::New();
   options->unsafely_skip_cert_verification =
@@ -171,7 +170,8 @@ void ChromeTlsConnectionFactory::OnTcpConnect(
 
   openscreen::IPEndpoint local_endpoint{};
   if (local_address) {
-    local_endpoint = network_util::ToOpenScreenEndpoint(local_address.value());
+    local_endpoint =
+        openscreen_platform::ToOpenScreenEndPoint(local_address.value());
   }
 
   TlsUpgradeRequest upgrade_request(
@@ -199,13 +199,10 @@ void ChromeTlsConnectionFactory::OnTlsUpgrade(
     return;
   }
 
-  auto data_pump = std::make_unique<MojoDataPump>(std::move(receive_stream),
-                                                  std::move(send_stream));
-
   auto tls_connection = std::make_unique<ChromeTlsClientConnection>(
       task_runner_, request.local_address, request.remote_address,
-      std::move(data_pump), std::move(request.tcp_socket),
-      std::move(request.tls_socket));
+      std::move(receive_stream), std::move(send_stream),
+      std::move(request.tcp_socket), std::move(request.tls_socket));
 
   // TODO(crbug.com/1017903): populate X509 certificate field when it is
   // migrated to a CRYPTO_BUFFER. For motivation, see:

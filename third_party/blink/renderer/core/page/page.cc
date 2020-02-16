@@ -391,7 +391,7 @@ void Page::ResetPluginData() {
 static void RestoreSVGImageAnimations() {
   for (const Page* page : AllPages()) {
     if (auto* svg_image_chrome_client =
-            ToSVGImageChromeClientOrNull(page->GetChromeClient()))
+            DynamicTo<SVGImageChromeClient>(page->GetChromeClient()))
       svg_image_chrome_client->RestoreAnimationIfNeeded();
   }
 }
@@ -800,7 +800,20 @@ void Page::UpdateAcceleratedCompositingSettings() {
     if (!local_frame)
       continue;
     LayoutView* layout_view = local_frame->ContentLayoutObject();
-    layout_view->Compositor()->UpdateAcceleratedCompositingSettings();
+    if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+      layout_view->Compositor()->UpdateAcceleratedCompositingSettings();
+    } else {
+      // Mark all scrollable areas as needing a paint property update because
+      // the compositing reasons may have changed.
+      if (const auto* areas = local_frame->View()->ScrollableAreas()) {
+        for (const auto& scrollable_area : *areas) {
+          if (scrollable_area->ScrollsOverflow()) {
+            if (auto* layout_box = scrollable_area->GetLayoutBox())
+              layout_box->SetNeedsPaintPropertyUpdate();
+          }
+        }
+      }
+    }
   }
 }
 
@@ -815,9 +828,10 @@ void Page::DidCommitLoad(LocalFrame* frame) {
     // would update the previous history item, Page::didCommitLoad is called
     // after a new history item is created in FrameLoader.
     // See crbug.com/642279
-    GetVisualViewport().SetScrollOffset(ScrollOffset(), kProgrammaticScroll,
-                                        kScrollBehaviorInstant,
-                                        ScrollableArea::ScrollCallback());
+    GetVisualViewport().SetScrollOffset(
+        ScrollOffset(), mojom::blink::ScrollIntoViewParams::Type::kProgrammatic,
+        mojom::blink::ScrollIntoViewParams::Behavior::kInstant,
+        ScrollableArea::ScrollCallback());
     hosts_using_features_.UpdateMeasurementsAndClear();
     // Update |has_related_pages_| as features are reset after navigation.
     UpdateHasRelatedPages();
@@ -1035,8 +1049,6 @@ void Page::ClearMediaFeatureOverrides() {
 }
 
 Page::PageClients::PageClients() : chrome_client(nullptr) {}
-
-Page::PageClients::~PageClients() = default;
 
 template class CORE_TEMPLATE_EXPORT Supplement<Page>;
 

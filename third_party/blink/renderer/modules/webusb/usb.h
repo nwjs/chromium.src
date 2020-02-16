@@ -20,6 +20,7 @@
 
 namespace blink {
 
+class ExceptionState;
 class ScriptPromiseResolver;
 class ScriptState;
 class USBDevice;
@@ -33,18 +34,16 @@ class USB final : public EventTargetWithInlineData,
   USING_PRE_FINALIZER(USB, Dispose);
 
  public:
-  static USB* Create(ExecutionContext& context) {
-    return MakeGarbageCollected<USB>(context);
-  }
-
   explicit USB(ExecutionContext&);
   ~USB() override;
 
   void Dispose();
 
   // USB.idl
-  ScriptPromise getDevices(ScriptState*);
-  ScriptPromise requestDevice(ScriptState*, const USBDeviceRequestOptions*);
+  ScriptPromise getDevices(ScriptState*, ExceptionState&);
+  ScriptPromise requestDevice(ScriptState*,
+                              const USBDeviceRequestOptions*,
+                              ExceptionState&);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(connect, kConnect)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(disconnect, kDisconnect)
 
@@ -83,7 +82,7 @@ class USB final : public EventTargetWithInlineData,
   void EnsureServiceConnection();
 
   bool IsContextSupported() const;
-  FeatureEnabledState GetFeatureEnabledState() const;
+  bool IsFeatureEnabled(ReportOptions) const;
 
   mojo::Remote<mojom::blink::WebUsbService> service_;
   HeapHashSet<Member<ScriptPromiseResolver>> get_devices_requests_;

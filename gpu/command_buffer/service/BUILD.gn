@@ -11,25 +11,17 @@ import("//ui/gl/features.gni")
 
 group("service") {
   if (is_component_build) {
-    public_deps = [
-      "//gpu",
-    ]
+    public_deps = [ "//gpu" ]
   } else {
-    public_deps = [
-      ":service_sources",
-    ]
+    public_deps = [ ":service_sources" ]
   }
 }
 
 group("gles2") {
   if (is_component_build) {
-    public_deps = [
-      "//gpu:gles2",
-    ]
+    public_deps = [ "//gpu:gles2" ]
   } else {
-    public_deps = [
-      ":gles2_sources",
-    ]
+    public_deps = [ ":gles2_sources" ]
   }
 }
 
@@ -92,6 +84,7 @@ target(link_target_type, "service_sources") {
     "//gpu/ipc/common:surface_handle_type",
     "//ui/gfx",
     "//ui/gfx/geometry",
+    "//ui/gfx/ipc/color",
     "//ui/gl",
   ]
 
@@ -178,6 +171,8 @@ target(link_target_type, "gles2_sources") {
     "indexed_buffer_binding_host.h",
     "logger.cc",
     "logger.h",
+    "mailbox_manager_dummy.cc",
+    "mailbox_manager_dummy.h",
     "mailbox_manager_factory.cc",
     "mailbox_manager_factory.h",
     "mailbox_manager_impl.cc",
@@ -320,16 +315,13 @@ target(link_target_type, "gles2_sources") {
     "//third_party/zlib",
     "//ui/gfx",
     "//ui/gfx/geometry",
-    "//ui/gfx/ipc/color",
     "//ui/gl",
     "//ui/gl:buildflags",
     "//ui/gl/init",
   ]
 
   if (use_ozone) {
-    deps += [
-      "//ui/ozone",
-    ]
+    deps += [ "//ui/ozone" ]
   }
 
   if (enable_vulkan) {
@@ -362,6 +354,13 @@ target(link_target_type, "gles2_sources") {
       sources += [
         "external_vk_image_dawn_representation.cc",
         "external_vk_image_dawn_representation.h",
+      ]
+    }
+
+    if (use_ozone && use_dawn) {
+      sources += [
+        "shared_image_representation_dawn_ozone.cc",
+        "shared_image_representation_dawn_ozone.h",
       ]
     }
   }
@@ -404,8 +403,12 @@ target(link_target_type, "gles2_sources") {
       "ahardwarebuffer_utils.h",
       "image_reader_gl_owner.cc",
       "image_reader_gl_owner.h",
+      "shared_image_backing_egl_image.cc",
+      "shared_image_backing_egl_image.h",
       "shared_image_backing_factory_ahardwarebuffer.cc",
       "shared_image_backing_factory_ahardwarebuffer.h",
+      "shared_image_batch_access_manager.cc",
+      "shared_image_batch_access_manager.h",
       "shared_image_video.cc",
       "shared_image_video.h",
       "stream_texture_shared_image_interface.h",
@@ -431,16 +434,18 @@ target(link_target_type, "gles2_sources") {
 
   if (is_win) {
     sources += [
+      "shared_image_backing_d3d.cc",
+      "shared_image_backing_d3d.h",
       "shared_image_backing_factory_d3d.cc",
       "shared_image_backing_factory_d3d.h",
+      "shared_image_representation_d3d.cc",
+      "shared_image_representation_d3d.h",
     ]
   }
 }
 
 proto_library("disk_cache_proto") {
-  sources = [
-    "disk_cache_proto.proto",
-  ]
+  sources = [ "disk_cache_proto.proto" ]
 }
 
 if (is_android) {

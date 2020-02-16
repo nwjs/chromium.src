@@ -28,12 +28,6 @@
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 
-namespace net {
-
-class HttpResponseInfo;
-
-}  // namespace net
-
 namespace content {
 
 class EmbeddedWorkerTestHelper;
@@ -112,34 +106,34 @@ class ServiceWorkerRemoteProviderEndpoint {
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerRemoteProviderEndpoint);
 };
 
-struct ServiceWorkerProviderHostAndInfo {
-  ServiceWorkerProviderHostAndInfo(
-      base::WeakPtr<ServiceWorkerProviderHost> host,
+struct ServiceWorkerContainerHostAndInfo {
+  ServiceWorkerContainerHostAndInfo(
+      base::WeakPtr<ServiceWorkerContainerHost> host,
       blink::mojom::ServiceWorkerProviderInfoForClientPtr);
-  ~ServiceWorkerProviderHostAndInfo();
+  ~ServiceWorkerContainerHostAndInfo();
 
-  base::WeakPtr<ServiceWorkerProviderHost> host;
+  base::WeakPtr<ServiceWorkerContainerHost> host;
   blink::mojom::ServiceWorkerProviderInfoForClientPtr info;
 
-  DISALLOW_COPY_AND_ASSIGN(ServiceWorkerProviderHostAndInfo);
+  DISALLOW_COPY_AND_ASSIGN(ServiceWorkerContainerHostAndInfo);
 };
 
-// Creates a provider host that finished navigation. Test code can typically use
-// this function, but if more control is required
-// CreateProviderHostAndInfoForWindow() can be used instead.
-base::WeakPtr<ServiceWorkerProviderHost> CreateProviderHostForWindow(
+// Creates a container host that finished navigation. Test code can typically
+// use this function, but if more control is required
+// CreateContainerHostAndInfoForWindow() can be used instead.
+base::WeakPtr<ServiceWorkerContainerHost> CreateContainerHostForWindow(
     int process_id,
     bool is_parent_frame_secure,
     base::WeakPtr<ServiceWorkerContextCore> context,
     ServiceWorkerRemoteProviderEndpoint* output_endpoint);
 
-// Creates a provider host that can be used for a navigation.
-std::unique_ptr<ServiceWorkerProviderHostAndInfo>
-CreateProviderHostAndInfoForWindow(
+// Creates a container host that can be used for a navigation.
+std::unique_ptr<ServiceWorkerContainerHostAndInfo>
+CreateContainerHostAndInfoForWindow(
     base::WeakPtr<ServiceWorkerContextCore> context,
     bool are_ancestors_secure);
 
-base::WeakPtr<ServiceWorkerProviderHost>
+std::unique_ptr<ServiceWorkerProviderHost>
 CreateProviderHostForServiceWorkerContext(
     int process_id,
     bool is_parent_frame_secure,
@@ -165,19 +159,6 @@ ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheSync(
     const std::string& body,
     const std::string& meta_data);
 
-// Writes the script with custom net::HttpResponseInfo down to |storage|
-// synchronously. This should not be used in base::RunLoop since base::RunLoop
-// is used internally to wait for completing all of tasks. If it's in another
-// base::RunLoop, consider to use WriteToDiskCacheWithCustomResponseInfoAsync().
-ServiceWorkerDatabase::ResourceRecord
-WriteToDiskCacheWithCustomResponseInfoSync(
-    ServiceWorkerStorage* storage,
-    const GURL& script_url,
-    int64_t resource_id,
-    std::unique_ptr<net::HttpResponseInfo> http_info,
-    const std::string& body,
-    const std::string& meta_data);
-
 // Writes the script down to |storage| asynchronously. When completing tasks,
 // |callback| will be called. You must wait for |callback| instead of
 // base::RunUntilIdle because wiriting to the storage might happen on another
@@ -187,21 +168,6 @@ ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheAsync(
     const GURL& script_url,
     int64_t resource_id,
     const std::vector<std::pair<std::string, std::string>>& headers,
-    const std::string& body,
-    const std::string& meta_data,
-    base::OnceClosure callback);
-
-// Writes the script with custom net::HttpResponseInfo down to |storage|
-// asynchronously. When completing tasks, |callback| will be called. You must
-// wait for |callback| instead of base::RunUntilIdle because wiriting to the
-// storage might happen on another thread and base::RunLoop could get idle
-// before writes has not finished yet.
-ServiceWorkerDatabase::ResourceRecord
-WriteToDiskCacheWithCustomResponseInfoAsync(
-    ServiceWorkerStorage* storage,
-    const GURL& script_url,
-    int64_t resource_id,
-    std::unique_ptr<net::HttpResponseInfo> http_info,
     const std::string& body,
     const std::string& meta_data,
     base::OnceClosure callback);

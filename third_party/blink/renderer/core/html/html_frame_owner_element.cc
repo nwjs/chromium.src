@@ -20,6 +20,7 @@
 
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
@@ -224,6 +225,7 @@ void HTMLFrameOwnerElement::ClearContentFrame() {
 
   DCHECK_EQ(content_frame_->Owner(), this);
   content_frame_ = nullptr;
+  embedding_token_ = base::nullopt;
 
   for (ContainerNode* node = this; node; node = node->ParentOrShadowHostNode())
     node->DecrementConnectedSubframeCount();
@@ -307,6 +309,19 @@ void HTMLFrameOwnerElement::UpdateContainerPolicy(Vector<String>* messages) {
   }
 }
 
+void HTMLFrameOwnerElement::UpdateRequiredPolicy() {
+  const DocumentPolicy::FeatureState self_required_policy =
+      ConstructRequiredPolicy();
+  const auto* frame = GetDocument().GetFrame();
+  DCHECK(frame);
+  frame_policy_.required_document_policy = DocumentPolicy::MergeFeatureState(
+      self_required_policy,
+      frame->GetRequiredDocumentPolicy() /* parent required policy */);
+  if (ContentFrame()) {
+    frame->Client()->DidChangeFramePolicy(ContentFrame(), frame_policy_);
+  }
+}
+
 void HTMLFrameOwnerElement::FrameOwnerPropertiesChanged() {
   // Don't notify about updates if ContentFrame() is null, for example when
   // the subframe hasn't been created yet; or if we are in the middle of
@@ -359,7 +374,7 @@ void HTMLFrameOwnerElement::SetEmbeddedContentView(
     if (old_view->IsAttached()) {
       old_view->DetachFromLayout();
       if (old_view->IsPluginView())
-        DisposePluginSoon(ToWebPluginContainerImpl(old_view));
+        DisposePluginSoon(To<WebPluginContainerImpl>(old_view));
       else
         old_view->Dispose();
     }
@@ -423,6 +438,7 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
   }
 
   UpdateContainerPolicy();
+  UpdateRequiredPolicy();
 
   KURL url_to_request = url.IsNull() ? BlankURL() : url;
   ResourceRequest request(url_to_request);
@@ -504,8 +520,8 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
     scoped_refptr<SecurityOrigin> origin = SecurityOrigin::Create(url);
     request.SetRequestorOrigin(origin);
   }
-  child_frame->Loader().StartNavigation(
-      FrameLoadRequest(nwfaketop() ? nullptr : &GetDocument(), request), child_load_type);
+  FrameLoadRequest frame_load_request(nwfaketop() ? nullptr : &GetDocument(), request);
+  child_frame->Loader().StartNavigation(frame_load_request, child_load_type);
 
   return true;
 }
@@ -544,6 +560,20 @@ void HTMLFrameOwnerElement::ParseAttribute(
   }
 }
 
+void HTMLFrameOwnerElement::FrameCrossOriginStatusChanged() {
+  if (base::FeatureList::IsEnabled(
+          blink::features::kCompositeCrossOriginIframes)) {
+    SetNeedsCompositingUpdate();
+  }
+}
+
+void HTMLFrameOwnerElement::SetEmbeddingToken(
+    const base::UnguessableToken& embedding_token) {
+  DCHECK(content_frame_);
+  DCHECK(content_frame_->IsRemoteFrame());
+  embedding_token_ = embedding_token;
+}
+
 void HTMLFrameOwnerElement::Trace(Visitor* visitor) {
   visitor->Trace(content_frame_);
   visitor->Trace(embedded_content_view_);
@@ -555,7 +585,7 @@ void HTMLFrameOwnerElement::Trace(Visitor* visitor) {
 bool HTMLFrameOwnerElement::IsLoadingFrameDefaultEagerEnforced() const {
   return RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
          !GetDocument().IsFeatureEnabled(
-             mojom::FeaturePolicyFeature::kLoadingFrameDefaultEager);
+             mojom::blink::FeaturePolicyFeature::kLoadingFrameDefaultEager);
 }
 
 }  // namespace blink

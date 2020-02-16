@@ -76,15 +76,15 @@ template("chrome_bundle") {
                              "proguard_android_sdk_dep",
                              "proguard_jar_path",
                              "sign_bundle",
-                             "static_library_proguard_disabled",
                              "static_library_provider",
+                             "static_library_synchronized_proguard",
                              "verify_proguard_flags",
                            ])
     command_line_flags_file = "chrome-command-line"
     proguard_enabled = !is_java_debug
     enable_language_splits = true
     extra_modules = _extra_modules
-    system_image_locale_whitelist = android_non_bundle_locales
+    system_image_locale_whitelist = android_apk_locales
     is_multi_abi = _is_multi_abi
 
     # NOTE: Only sign bundle for official builds since this is very slow.

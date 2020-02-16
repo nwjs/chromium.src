@@ -41,11 +41,10 @@
 #include "cc/trees/layer_tree_host.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "services/network/public/mojom/referrer_policy.mojom-shared.h"
+#include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
-#include "third_party/blink/public/platform/web_gesture_event.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/public/platform/web_touch_action.h"
@@ -64,18 +63,17 @@ class PaintImage;
 
 namespace gfx {
 class Point;
+class PointF;
 class Vector2d;
 }
 
 namespace blink {
 class WebDragData;
 class WebGestureEvent;
+struct WebFloatRect;
 class WebString;
 class WebWidget;
 struct WebCursorInfo;
-struct WebFloatPoint;
-struct WebFloatRect;
-struct WebFloatSize;
 class WebLocalFrame;
 
 class WebWidgetClient {
@@ -127,8 +125,8 @@ class WebWidgetClient {
   // Called when the cursor for the widget changes.
   virtual void DidChangeCursor(const WebCursorInfo&) {}
 
-  virtual void AutoscrollStart(const WebFloatPoint&) {}
-  virtual void AutoscrollFling(const WebFloatSize& velocity) {}
+  virtual void AutoscrollStart(const gfx::PointF&) {}
+  virtual void AutoscrollFling(const gfx::Vector2dF& velocity) {}
   virtual void AutoscrollEnd() {}
 
   // Called to show the widget according to the given policy.
@@ -175,10 +173,10 @@ class WebWidgetClient {
 
   // Called when overscrolled on main thread. All parameters are in
   // viewport-space.
-  virtual void DidOverscroll(const WebFloatSize& overscroll_delta,
-                             const WebFloatSize& accumulated_overscroll,
-                             const WebFloatPoint& position_in_viewport,
-                             const WebFloatSize& velocity_in_viewport) {}
+  virtual void DidOverscroll(const gfx::Vector2dF& overscroll_delta,
+                             const gfx::Vector2dF& accumulated_overscroll,
+                             const gfx::PointF& position_in_viewport,
+                             const gfx::Vector2dF& velocity_in_viewport) {}
 
   // Requests that a gesture of |injected_type| be reissued at a later point in
   // time. |injected_type| is required to be one of
@@ -187,7 +185,7 @@ class WebWidgetClient {
   // delta + granularity.
   virtual void InjectGestureScrollEvent(
       WebGestureDevice device,
-      const WebFloatSize& delta,
+      const gfx::Vector2dF& delta,
       ui::input_types::ScrollGranularity granularity,
       cc::ElementId scrollable_area_element_id,
       WebInputEvent::Type injected_type) {}
@@ -254,7 +252,7 @@ class WebWidgetClient {
                              const gfx::Point& drag_image_offset) {}
 
   // Double tap zooms a rect in the main-frame renderer.
-  virtual void AnimateDoubleTapZoomInMainFrame(const blink::WebPoint& point,
+  virtual void AnimateDoubleTapZoomInMainFrame(const gfx::Point& point,
                                                const blink::WebRect& bounds) {}
 
   // Find in page zooms a rect in the main-frame renderer.

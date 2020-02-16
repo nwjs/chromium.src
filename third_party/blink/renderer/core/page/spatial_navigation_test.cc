@@ -5,7 +5,7 @@
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/web_keyboard_event.h"
+#include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/renderer/core/exported/web_remote_frame_impl.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -72,8 +72,7 @@ class SpatialNavigationTest : public RenderingTest {
   }
 
   void UpdateAllLifecyclePhases(LocalFrameView* frame_view) {
-    frame_view->UpdateAllLifecyclePhases(
-        DocumentLifecycle::LifecycleUpdateReason::kTest);
+    frame_view->UpdateAllLifecyclePhases(DocumentUpdateReason::kTest);
   }
 };
 
@@ -449,7 +448,9 @@ TEST_F(SpatialNavigationTest, PartiallyVisible) {
 
   // Do some scrolling.
   ScrollableArea* root_scroller = GetDocument().View()->GetScrollableArea();
-  root_scroller->SetScrollOffset(ScrollOffset(0, 600), kProgrammaticScroll);
+  root_scroller->SetScrollOffset(
+      ScrollOffset(0, 600),
+      mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
   PhysicalRect button_after_scroll = NodeRectInRootFrame(b);
   ASSERT_NE(button_in_root_frame,
             button_after_scroll);  // As we scrolled, the

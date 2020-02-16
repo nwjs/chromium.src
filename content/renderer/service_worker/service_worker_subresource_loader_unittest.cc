@@ -77,6 +77,9 @@ class FakeBlob final : public blink::mojom::Blob {
   void ReadSideData(ReadSideDataCallback callback) override {
     std::move(callback).Run(side_data_);
   }
+  void CaptureSnapshot(CaptureSnapshotCallback callback) override {
+    std::move(callback).Run(body_.size(), base::nullopt);
+  }
   void GetInternalUUID(GetInternalUUIDCallback callback) override {
     NOTREACHED();
   }
@@ -532,10 +535,10 @@ class ServiceWorkerSubresourceLoaderTest : public ::testing::Test {
               info.cache_storage_cache_name);
     EXPECT_EQ(expected_info.did_service_worker_navigation_preload,
               info.did_service_worker_navigation_preload);
-    EXPECT_NE(expected_info.service_worker_start_time,
-              info.service_worker_start_time);
-    EXPECT_NE(expected_info.service_worker_ready_time,
-              info.service_worker_ready_time);
+    EXPECT_NE(expected_info.load_timing.service_worker_start_time,
+              info.load_timing.service_worker_start_time);
+    EXPECT_NE(expected_info.load_timing.service_worker_ready_time,
+              info.load_timing.service_worker_ready_time);
   }
 
   network::ResourceRequest CreateRequest(const GURL& url) {

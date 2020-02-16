@@ -58,9 +58,6 @@ class WebRtcGetMediaDevicesBrowserTest
   void SetUpCommandLine(base::CommandLine* command_line) override {
     // Ensure the infobar is enabled, since we expect that in this test.
     EXPECT_FALSE(command_line->HasSwitch(switches::kUseFakeUIForMediaStream));
-
-    // Always use fake devices.
-    command_line->AppendSwitch(switches::kUseFakeDeviceForMediaStream);
   }
 
  protected:
@@ -235,7 +232,7 @@ IN_PROC_BROWSER_TEST_F(WebRtcGetMediaDevicesBrowserTest,
   std::vector<MediaDeviceInfo> devices;
   EnumerateDevices(tab1, &devices);
 
-  chrome::AddTabAt(browser(), GURL(), -1, true);
+  chrome::AddTabAt(browser(), GURL(url::kAboutBlankURL), -1, true);
   ui_test_utils::NavigateToURL(browser(), url);
   content::WebContents* tab2 =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -266,6 +263,9 @@ IN_PROC_BROWSER_TEST_F(WebRtcGetMediaDevicesBrowserTest,
   ui_test_utils::NavigateToURL(browser(), url);
   content::WebContents* tab =
       browser()->tab_strip_model()->GetActiveWebContents();
+
+  EXPECT_TRUE(GetUserMediaAndAccept(tab));
+
   std::vector<MediaDeviceInfo> devices;
   EnumerateDevices(tab, &devices);
 
@@ -295,10 +295,13 @@ IN_PROC_BROWSER_TEST_F(WebRtcGetMediaDevicesBrowserTest,
       ->SetDefaultCookieSetting(CONTENT_SETTING_BLOCK);
   content::WebContents* tab1 =
       browser()->tab_strip_model()->GetActiveWebContents();
+
+  EXPECT_TRUE(GetUserMediaAndAccept(tab1));
+
   std::vector<MediaDeviceInfo> devices;
   EnumerateDevices(tab1, &devices);
 
-  chrome::AddTabAt(browser(), GURL(), -1, true);
+  chrome::AddTabAt(browser(), GURL(url::kAboutBlankURL), -1, true);
   ui_test_utils::NavigateToURL(browser(), url);
   content::WebContents* tab2 =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -319,6 +322,9 @@ IN_PROC_BROWSER_TEST_F(WebRtcGetMediaDevicesBrowserTest,
       ->SetDefaultCookieSetting(CONTENT_SETTING_BLOCK);
   content::WebContents* tab =
       browser()->tab_strip_model()->GetActiveWebContents();
+
+  EXPECT_TRUE(GetUserMediaAndAccept(tab));
+
   std::vector<MediaDeviceInfo> devices;
   EnumerateDevices(tab, &devices);
 

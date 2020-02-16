@@ -547,8 +547,7 @@ class CookieTreeIndexedDBNode : public CookieTreeNode {
     LocalDataContainer* container = GetLocalDataContainerForNode(this);
 
     if (container) {
-      container->indexed_db_helper_->DeleteIndexedDB(
-          usage_info_->origin.GetURL());
+      container->indexed_db_helper_->DeleteIndexedDB(usage_info_->origin);
       container->indexed_db_info_list_.erase(usage_info_);
     }
   }
@@ -753,8 +752,7 @@ class CookieTreeCacheStorageNode : public CookieTreeNode {
     LocalDataContainer* container = GetLocalDataContainerForNode(this);
 
     if (container) {
-      container->cache_storage_helper_->DeleteCacheStorage(
-          usage_info_->origin.GetURL());
+      container->cache_storage_helper_->DeleteCacheStorage(usage_info_->origin);
       container->cache_storage_info_list_.erase(usage_info_);
     }
   }
@@ -1962,7 +1960,7 @@ std::unique_ptr<CookiesTreeModel> CookiesTreeModel::CreateForProfile(
       new BrowsingDataLocalStorageHelper(profile),
       /*session_storage_helper=*/nullptr,
       new BrowsingDataAppCacheHelper(storage_partition->GetAppCacheService()),
-      new BrowsingDataIndexedDBHelper(storage_partition->GetIndexedDBContext()),
+      new BrowsingDataIndexedDBHelper(storage_partition),
       BrowsingDataFileSystemHelper::Create(file_system_context),
       BrowsingDataQuotaHelper::Create(profile),
       new BrowsingDataServiceWorkerHelper(

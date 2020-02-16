@@ -20,6 +20,7 @@
 #include "base/values.h"
 #include "content/public/common/common_param_traits.h"
 #include "content/public/common/socket_permission_request.h"
+#include "extensions/common/activation_sequence.h"
 #include "extensions/common/api/messaging/message.h"
 #include "extensions/common/api/messaging/messaging_endpoint.h"
 #include "extensions/common/api/messaging/port_context.h"
@@ -187,8 +188,8 @@ IPC_STRUCT_BEGIN(ExtensionMsg_ExecuteCode_Params)
   // are examples of when this will be false.
   IPC_STRUCT_MEMBER(bool, wants_result)
 
-  // The URL of the file that was injected, if any.
-  IPC_STRUCT_MEMBER(GURL, file_url)
+  // The URL of the script that was injected, if any.
+  IPC_STRUCT_MEMBER(GURL, script_url)
 
   // Whether the code to be executed should be associated with a user gesture.
   IPC_STRUCT_MEMBER(bool, user_gesture)
@@ -360,13 +361,19 @@ struct ExtensionMsg_Loaded_Params {
   ExtensionMsg_Loaded_Params();
   ~ExtensionMsg_Loaded_Params();
   ExtensionMsg_Loaded_Params(const extensions::Extension* extension,
-                             bool include_tab_permissions);
+                             bool include_tab_permissions,
+                             base::Optional<extensions::ActivationSequence>
+                                 worker_activation_sequence);
 
   ExtensionMsg_Loaded_Params(ExtensionMsg_Loaded_Params&& other);
   ExtensionMsg_Loaded_Params& operator=(ExtensionMsg_Loaded_Params&& other);
 
   // Creates a new extension from the data in this object.
+  // A context_id needs to be passed because each browser context can have
+  // different values for default_policy_blocked/allowed_hosts.
+  // (see extension_util.cc#GetBrowserContextId)
   scoped_refptr<extensions::Extension> ConvertToExtension(
+      int context_id,
       std::string* error) const;
 
   // The subset of the extension manifest data we send to renderers.
@@ -394,6 +401,10 @@ struct ExtensionMsg_Loaded_Params {
 
   // We keep this separate so that it can be used in logging.
   std::string id;
+
+  // If this extension is Service Worker based, then this contains the
+  // activation sequence of the extension.
+  base::Optional<extensions::ActivationSequence> worker_activation_sequence;
 
   // Send creation flags so extension is initialized identically.
   int creation_flags;
@@ -1070,16 +1081,18 @@ IPC_MESSAGE_CONTROL3(ExtensionHostMsg_DidInitializeServiceWorkerContext,
 //     straightforward as it changes SW IPC ordering with respect of rest of
 //     Chrome.
 // See https://crbug.com/879015#c4 for details.
-IPC_MESSAGE_CONTROL4(ExtensionHostMsg_DidStartServiceWorkerContext,
+IPC_MESSAGE_CONTROL5(ExtensionHostMsg_DidStartServiceWorkerContext,
                      std::string /* extension_id */,
+                     extensions::ActivationSequence /* activation_sequence */,
                      GURL /* service_worker_scope */,
                      int64_t /* service_worker_version_id */,
                      int /* worker_thread_id */)
 
 // Tells the browser that an extension service worker context has been
 // destroyed.
-IPC_MESSAGE_CONTROL4(ExtensionHostMsg_DidStopServiceWorkerContext,
+IPC_MESSAGE_CONTROL5(ExtensionHostMsg_DidStopServiceWorkerContext,
                      std::string /* extension_id */,
+                     extensions::ActivationSequence /* activation_sequence */,
                      GURL /* service_worker_scope */,
                      int64_t /* service_worker_version_id */,
                      int /* worker_thread_id */)

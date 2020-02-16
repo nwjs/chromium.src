@@ -28,6 +28,9 @@
 // the operation failed.
 + (NSError*)removeBrowsingCache;
 
+// Opens |URL| using the application delegate.
++ (void)applicationOpenURL:(NSString*)spec;
+
 // Loads the URL |spec| in the current WebState with transition type
 // ui::PAGE_TRANSITION_TYPED and returns without waiting for the page to load.
 + (void)startLoadingURL:(NSString*)spec;
@@ -46,6 +49,12 @@
 // Returns the NamedGuide with the given |name|, if one is attached to |view|
 // or one of |view|'s ancestors.  If no guide is found, returns nil.
 + (NamedGuide*)guideWithName:(NSString*)name view:(UIView*)view;
+
+// Loads |URL| as if it was opened from an external application.
++ (void)openURLFromExternalApp:(NSString*)URL;
+
+// Programmatically dismisses settings screen.
++ (void)dismissSettings;
 
 #pragma mark - Tab Utilities (EG2)
 
@@ -93,6 +102,9 @@
 // Opens a new tab, and does not wait for animations to complete.
 + (void)openNewTab;
 
+// Simulates opening http://www.example.com/ from another application.
++ (void)simulateExternalAppURLOpening;
+
 // Closes current tab.
 + (void)closeCurrentTab;
 
@@ -135,6 +147,9 @@
 // Returns a unique identifier for the next Tab.
 + (NSString*)nextTabID;
 
+// Returns the index of active tab in normal mode.
++ (NSUInteger)indexOfActiveNormalTab;
+
 #pragma mark - WebState Utilities (EG2)
 
 // Attempts to tap the element with |element_id| within window.frames[0] of the
@@ -152,6 +167,11 @@
 // If not succeed returns an NSError indicating  why the operation failed,
 // otherwise nil.
 + (NSError*)waitForWebStateContainingElement:(ElementSelector*)selector;
+
+// Waits for the current web state's frames to contain |text|.
+// If not succeed returns an NSError indicating  why the operation failed,
+// otherwise nil.
++ (NSError*)waitForWebStateContainingTextInIFrame:(NSString*)text;
 
 // Attempts to submit form with |formID| in the current WebState.
 // Returns nil on success, or else an NSError indicating why the operation
@@ -312,6 +332,9 @@
 // otherwise returns object representing execution result.
 + (id)executeJavaScript:(NSString*)javaScript error:(NSError**)error;
 
+// Returns the user agent that should be used for the mobile version.
++ (NSString*)mobileUserAgentString;
+
 #pragma mark - Accessibility Utilities (EG2)
 
 // Verifies that all interactive elements on screen (or at least one of their
@@ -324,14 +347,14 @@
 // invoked from test code, as the EG test code runs in a separate process and
 // must query Chrome for the state.
 
-// Returns YES if SlimNavigationManager feature is enabled.
-+ (BOOL)isSlimNavigationManagerEnabled WARN_UNUSED_RESULT;
-
 // Returns YES if BlockNewTabPagePendingLoad feature is enabled.
 + (BOOL)isBlockNewTabPagePendingLoadEnabled WARN_UNUSED_RESULT;
 
-// Returns YES if NewOmniboxPopupLayout feature is enabled.
-+ (BOOL)isNewOmniboxPopupLayoutEnabled WARN_UNUSED_RESULT;
+// Returns YES if |variationID| is enabled.
++ (BOOL)isVariationEnabled:(int)variationID;
+
+// Returns YES if a variation triggering server-side behavior is enabled.
++ (BOOL)isTriggerVariationEnabled:(int)variationID;
 
 // Returns YES if UmaCellular feature is enabled.
 + (BOOL)isUMACellularEnabled WARN_UNUSED_RESULT;
@@ -339,11 +362,8 @@
 // Returns YES if UKM feature is enabled.
 + (BOOL)isUKMEnabled WARN_UNUSED_RESULT;
 
-// Returns YES if WebPaymentsModifiers feature is enabled.
-+ (BOOL)isWebPaymentsModifiersEnabled WARN_UNUSED_RESULT;
-
-// Returns YES if SettingsAddPaymentMethod feature is enabled.
-+ (BOOL)isSettingsAddPaymentMethodEnabled WARN_UNUSED_RESULT;
+// Returns YES if kTestFeature is enabled.
++ (BOOL)isTestFeatureEnabled;
 
 // Returns YES if CreditCardScanner feature is enabled.
 + (BOOL)isCreditCardScannerEnabled WARN_UNUSED_RESULT;
@@ -369,10 +389,27 @@
 // browser state.
 + (void)setPopupPrefValue:(ContentSetting)value;
 
+#pragma mark - Pref Utilities (EG2)
+
+// Sets the value of a boolean user pref in the original browser state.
++ (void)setBoolValue:(BOOL)value forUserPref:(NSString*)prefName;
+
+// Resets the BrowsingDataPrefs, which defines if its selected or not when
+// clearing Browsing data.
++ (void)resetBrowsingDataPrefs;
+
 #pragma mark - Keyboard Command utilities
 
 // The count of key commands registered with the currently active BVC.
 + (NSInteger)registeredKeyCommandCount;
+
+// Simulates a physical keyboard event.
+// The input is similar to UIKeyCommand parameters, and is designed for testing
+// keyboard shortcuts.
+// Accepts any strings and also UIKeyInput{Up|Down|Left|Right}Arrow and
+// UIKeyInputEscape constants as |input|.
++ (void)simulatePhysicalKeyboardEvent:(NSString*)input
+                                flags:(UIKeyModifierFlags)flags;
 
 @end
 

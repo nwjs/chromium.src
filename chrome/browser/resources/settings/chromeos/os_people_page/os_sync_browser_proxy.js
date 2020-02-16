@@ -2,37 +2,28 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/**
- * @fileoverview A helper object to get the status of the sync backend and user
- * preferences on what data to sync.
- */
-cr.exportPath('settings');
-
-/**
- * User preferences for OS sync. 'Enforced' means the user cannot disable the
- * type. For example, a type might be forced on for supervised user accounts.
- * 'Registered' means the user has the option to select a type. For example, a
- * type might not be registered due to a feature flag being disabled.
- * @see components/sync/driver/sync_service.h
- *
- * TODO(jamescook): Encryption options.
- *
- * @typedef {{
- *   osPreferencesEnforced: boolean,
- *   osPreferencesRegistered: boolean,
- *   osPreferencesSynced: boolean,
- *   printersEnforced: boolean,
- *   printersRegistered: boolean,
- *   printersSynced: boolean,
- *   syncAllOsDataTypes: boolean,
- *   wifiConfigurationsEnforced: boolean,
- *   wifiConfigurationsRegistered: boolean,
- *   wifiConfigurationsSynced: boolean,
- * }}
- */
-settings.OsSyncPrefs;
-
 cr.define('settings', function() {
+  /**
+   * User preferences for OS sync. 'Registered' means the user has the option to
+   * select a type. For example, a type might not be registered due to a feature
+   * flag being disabled.
+   * @see components/sync/driver/sync_service.h
+   *
+   * TODO(jamescook): Encryption options.
+   *
+   * @typedef {{
+   *   osAppsRegistered: boolean,
+   *   osAppsSynced: boolean,
+   *   osPreferencesRegistered: boolean,
+   *   osPreferencesSynced: boolean,
+   *   syncAllOsDataTypes: boolean,
+   *   wallpaperEnabled: boolean,
+   *   wifiConfigurationsRegistered: boolean,
+   *   wifiConfigurationsSynced: boolean,
+   * }}
+   */
+  let OsSyncPrefs;
+
   /** @interface */
   class OsSyncBrowserProxy {
     /**
@@ -46,6 +37,13 @@ cr.define('settings', function() {
      * be notified that the sync UI is no longer open.
      */
     didNavigateAwayFromOsSyncPage() {}
+
+    /**
+     * Sets whether the OS sync feature should be enabled. Sync will not start
+     * until the user either navigates away from the page or closes settings.
+     * @param {boolean} enabled
+     */
+    setOsSyncFeatureEnabled(enabled) {}
 
     /**
      * Sets which types of data to sync.
@@ -69,6 +67,11 @@ cr.define('settings', function() {
     }
 
     /** @override */
+    setOsSyncFeatureEnabled(enabled) {
+      return chrome.send('SetOsSyncFeatureEnabled', [enabled]);
+    }
+
+    /** @override */
     setOsSyncDatatypes(osSyncPrefs) {
       return chrome.send('SetOsSyncDatatypes', [osSyncPrefs]);
     }
@@ -77,7 +80,8 @@ cr.define('settings', function() {
   cr.addSingletonGetter(OsSyncBrowserProxyImpl);
 
   return {
-    OsSyncBrowserProxy: OsSyncBrowserProxy,
-    OsSyncBrowserProxyImpl: OsSyncBrowserProxyImpl,
+    OsSyncBrowserProxy,
+    OsSyncBrowserProxyImpl,
+    OsSyncPrefs,
   };
 });

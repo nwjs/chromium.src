@@ -120,6 +120,18 @@ const char kBrowserContainerKeepsContentViewDescription[] =
     "When enable, the browser container keeps the content view in the view "
     "hierarchy, to avoid WKWebView from being unloaded from the process.";
 
+const char kClearSyncedDataName[] = "Clear Synced Data on Sign Out";
+const char kClearSyncedDataDescription[] =
+    "When enabled users signed in with a non-managed account will be "
+    "presented with the option to clear synced data from the local "
+    "device when signing out.";
+
+extern const char kChangeTabSwitcherPositionName[] =
+    "Change tab switcher button position";
+extern const char kChangeTabSwitcherPositionDescription[] =
+    "When enable, the tab switcher button position changes from tab strip to "
+    "toolbar and bookmark button is removed.";
+
 const char kCollectionsCardPresentationStyleName[] =
     "Card style presentation for Collections.";
 const char kCollectionsCardPresentationStyleDescription[] =
@@ -129,6 +141,11 @@ const char kCollectionsCardPresentationStyleDescription[] =
 const char kConfirmInfobarMessagesUIName[] = "Confirm Infobars Messages UI";
 const char kConfirmInfobarMessagesUIDescription[] =
     "When enabled Confirm Infobars use the new Messages UI.";
+
+const char kContainedBVCName[] = "Contained Browser ViewController";
+const char kContainedBVCDescription[] =
+    "When enabled, the BrowserViewController is contained by the TabGrid "
+    "instead of being presented";
 
 const char kCrashRestoreInfobarMessagesUIName[] =
     "Crash Restore Infobars Messages UI";
@@ -228,6 +245,12 @@ const char kFullscreenSmoothScrollingDescription[] =
     "When enabled, the web view's insets are updated for scoll events. If "
     "disabled, the the web view's frame are updated.";
 
+const char kFullscreenControllerBrowserScopedName[] =
+    "Scope FullscreenController to Browser";
+const char kFullscreenControllerBrowserScopedDescription[] =
+    "When enabled, FullscreenController will be stored and retrieved using the "
+    "Browser.";
+
 const char kIgnoresViewportScaleLimitsName[] = "Ignore Viewport Scale Limits";
 const char kIgnoresViewportScaleLimitsDescription[] =
     "When enabled the page can always be scaled, regardless of author intent.";
@@ -248,11 +271,6 @@ const char kInProductHelpDemoModeDescription[] =
     "an individual promotion causes that promotion but no other promotions to "
     "occur.";
 
-const char kLanguageSettingsName[] = "Language Settings";
-const char kLanguageSettingsDescription[] =
-    "Enables the Language Settings page allowing modifications to user "
-    "preferred languages and translate preferences.";
-
 const char kLockBottomToolbarName[] = "Lock bottom toolbar";
 const char kLockBottomToolbarDescription[] =
     "When enabled, the bottom toolbar will not get collapsed when scrolling "
@@ -266,31 +284,10 @@ const char kMobileGoogleSRPDescription[] =
     "Request the Mobile version of Google SRP by default when the desktop mode "
     "is requested by default.";
 
-const char kNewClearBrowsingDataUIName[] = "Clear Browsing Data UI";
-const char kNewClearBrowsingDataUIDescription[] =
-    "Enable new Clear Browsing Data UI.";
-
-const char kNewOmniboxPopupLayoutName[] = "New omnibox popup";
-const char kNewOmniboxPopupLayoutDescription[] =
-    "Switches the omnibox suggestions and omnibox itself to display the new "
-    "design with favicons, new suggestion layout, rich entity support.";
-
 const char kNonModalDialogsName[] = "Use non-modal JavaScript dialogs";
 const char kNonModalDialogsDescription[] =
     "Presents JavaScript dialogs non-modally so that the user can change tabs "
     "while a dialog is displayed.";
-
-const char kOfflineVersionWithoutNativeContentName[] =
-    "Use offline pages without native content";
-const char kOfflineVersionWithoutNativeContentDescription[] =
-    "Shows offline pages directly in the web view.  This feature is forced"
-    "enabled if web::features::kSlimNavigationManager is enabled.";
-
-const char kOmniboxPopupShortcutIconsInZeroStateName[] =
-    "Show zero-state omnibox shortcuts";
-const char kOmniboxPopupShortcutIconsInZeroStateDescription[] =
-    "Instead of ZeroSuggest, show most visited sites and collection shortcuts "
-    "in the omnibox popup.";
 
 const char kOmniboxPreserveDefaultMatchAgainstAsyncUpdateName[] =
     "Omnibox Preserve Default Match Against Async Update";
@@ -307,20 +304,20 @@ const char kOmniboxUIMaxAutocompleteMatchesDescription[] =
     "Changes the maximum number of autocomplete matches displayed in the "
     "Omnibox UI.";
 
-const char kOmniboxUseDefaultSearchEngineFaviconName[] =
-    "Default search engine favicon in the omnibox";
-const char kOmniboxUseDefaultSearchEngineFaviconDescription[] =
-    "Shows default search engine favicon in the omnibox";
-
 const char kOmniboxOnDeviceHeadSuggestionsName[] =
     "Omnibox on device head suggestions";
 const char kOmniboxOnDeviceHeadSuggestionsDescription[] =
     "Shows Google head non personalized search suggestions provided by a "
     "compact on device model";
 
-const char kPasswordLeakDetectionName[] = "Password Leak Detection";
-const char kPasswordLeakDetectionDescription[] =
-    "Enables the detection of leaked passwords.";
+const char kPageInfoRefactoringName[] = "New design of the page info";
+const char kPageInfoRefactoringDescription[] =
+    "Uses the new design for the page security info.";
+
+const char kReloadSadTabName[] = "Reload SadTab automatically";
+const char kReloadSadTabDescription[] =
+    "When enabled, the first time the renderer crashes, the page is reloaded "
+    "instead of showing the SadTab";
 
 const char kSaveCardInfobarMessagesUIName[] = "Save Card Infobar Messages UI";
 const char kSaveCardInfobarMessagesUIDescription[] =
@@ -345,12 +342,6 @@ const char kSendUmaOverAnyNetwork[] =
 const char kSendUmaOverAnyNetworkDescription[] =
     "When enabled, will send UMA data over either WiFi or cellular by default.";
 
-const char kSettingsAddPaymentMethodName[] =
-    "Enable the add payment method button";
-const char kSettingsAddPaymentMethodDescription[] =
-    "Allow a user to add a new credit card to payment methods from the "
-    "settings menu.";
-
 const char kSettingsRefreshName[] = "Enable the UI Refresh for Settings";
 const char kSettingsRefreshDescription[] =
     "Change the UI appearance of the settings to have something in phase with "
@@ -361,14 +352,15 @@ const char kShowAutofillTypePredictionsDescription[] =
     "Annotates web forms with Autofill field type predictions as placeholder "
     "text.";
 
-const char kSlimNavigationManagerName[] = "Use Slim Navigation Manager";
-const char kSlimNavigationManagerDescription[] =
-    "When enabled, uses the experimental slim navigation manager that provides "
-    "better compatibility with HTML navigation spec.";
-
 const char kSnapshotDrawViewName[] = "Use DrawViewHierarchy for Snapshots";
 const char kSnapshotDrawViewDescription[] =
     "When enabled, snapshots will be taken using |-drawViewHierarchy:|.";
+
+const char kSSLCommittedInterstitialsName[] =
+    "Enable SSL committed interstitials";
+const char kSSLCommittedInterstitialsDescription[] =
+    "When enabled, SSL interstitial pages will be committed rather than using "
+    "an overlay on the page.";
 
 const char kForceStartupSigninPromoName[] = "Display the startup sign-in promo";
 const char kForceStartupSigninPromoDescription[] =

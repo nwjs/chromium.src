@@ -134,6 +134,9 @@ class NGInlineItemsBuilderTemplate {
   void EnterInline(LayoutInline*);
   void ExitInline(LayoutObject*);
 
+  // Set collected inline items data to |data|.
+  void DidFinishCollectInlines(NGInlineNodeData* data);
+
   OffsetMappingBuilder& GetOffsetMappingBuilder() { return mapping_builder_; }
 
   void SetIsSymbolMarker(bool b);
@@ -160,9 +163,11 @@ class NGInlineItemsBuilderTemplate {
 
   // Keep track of inline boxes to compute ShouldCreateBoxFragment.
   struct BoxInfo {
+    DISALLOW_NEW();
+
     unsigned item_index;
     bool should_create_box_fragment;
-    const ComputedStyle& style;
+    bool may_have_margin_;
     NGLineHeightMetrics text_metrics;
 
     BoxInfo(unsigned item_index, const NGInlineItem& item);
@@ -220,6 +225,8 @@ class NGInlineItemsBuilderTemplate {
   void AppendGeneratedBreakOpportunity(LayoutObject*);
 
   void Exit(LayoutObject*);
+
+  bool MayBeBidiEnabled() const;
 
   bool ShouldInsertBreakOpportunityAfterLeadingPreservedSpaces(
       const String&,

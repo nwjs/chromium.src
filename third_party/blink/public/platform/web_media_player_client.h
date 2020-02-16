@@ -170,6 +170,12 @@ class BLINK_PLATFORM_EXPORT WebMediaPlayerClient {
   // Request the player to mute/unmute.
   virtual void RequestMuted(bool muted) = 0;
 
+  // Request the player to enter picture-in-picture.
+  virtual void RequestEnterPictureInPicture() = 0;
+
+  // Request the player to exit picture-in-picture.
+  virtual void RequestExitPictureInPicture() = 0;
+
   // Notify the client that one of the state used by Picture-in-Picture has
   // changed. The client will then have to poll the states from the associated
   // WebMediaPlayer.
@@ -181,7 +187,7 @@ class BLINK_PLATFORM_EXPORT WebMediaPlayerClient {
 
   // Called when a video frame has been presented to the compositor, after a
   // request was initiated via WebMediaPlayer::RequestAnimationFrame().
-  // TODO(https://crbug.com/1022186): Add pointer to spec.
+  // See https://wicg.github.io/video-raf/.
   virtual void OnRequestAnimationFrame(
       base::TimeTicks presentation_time,
       base::TimeTicks expected_presentation_time,

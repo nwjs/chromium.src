@@ -212,8 +212,7 @@ PageHandler::PageHandler(EmulationHandler* emulation_handler,
   DCHECK(emulation_handler_);
 }
 
-PageHandler::~PageHandler() {
-}
+PageHandler::~PageHandler() = default;
 
 // static
 std::vector<PageHandler*> PageHandler::EnabledForWebContents(
@@ -649,10 +648,11 @@ void PageHandler::CaptureScreenshot(
   // We don't support clip/emulation when capturing from window, bail out.
   if (!from_surface.fromMaybe(true)) {
     widget_host->GetSnapshotFromBrowser(
-        base::Bind(&PageHandler::ScreenshotCaptured, weak_factory_.GetWeakPtr(),
-                   base::Passed(std::move(callback)), screenshot_format,
-                   screenshot_quality, gfx::Size(), gfx::Size(),
-                   blink::WebDeviceEmulationParams()),
+        base::BindOnce(&PageHandler::ScreenshotCaptured,
+                       weak_factory_.GetWeakPtr(),
+                       base::Passed(std::move(callback)), screenshot_format,
+                       screenshot_quality, gfx::Size(), gfx::Size(),
+                       blink::WebDeviceEmulationParams()),
         false);
     return;
   }
@@ -711,12 +711,11 @@ void PageHandler::CaptureScreenshot(
 
   // Set up viewport in renderer.
   if (clip.isJust()) {
-    modified_params.viewport_offset.x = clip.fromJust()->GetX();
-    modified_params.viewport_offset.y = clip.fromJust()->GetY();
+    modified_params.viewport_offset.SetPoint(clip.fromJust()->GetX(),
+                                             clip.fromJust()->GetY());
     modified_params.viewport_scale = clip.fromJust()->GetScale() * dpfactor;
     if (IsUseZoomForDSFEnabled()) {
-      modified_params.viewport_offset.x *= screen_info.device_scale_factor;
-      modified_params.viewport_offset.y *= screen_info.device_scale_factor;
+      modified_params.viewport_offset.Scale(screen_info.device_scale_factor);
     }
   }
 
@@ -749,10 +748,11 @@ void PageHandler::CaptureScreenshot(
   }
 
   widget_host->GetSnapshotFromBrowser(
-      base::Bind(&PageHandler::ScreenshotCaptured, weak_factory_.GetWeakPtr(),
-                 base::Passed(std::move(callback)), screenshot_format,
-                 screenshot_quality, original_view_size, requested_image_size,
-                 original_params),
+      base::BindOnce(&PageHandler::ScreenshotCaptured,
+                     weak_factory_.GetWeakPtr(),
+                     base::Passed(std::move(callback)), screenshot_format,
+                     screenshot_quality, original_view_size,
+                     requested_image_size, original_params),
       true);
 }
 
@@ -1109,6 +1109,7 @@ void PageHandler::ScreenshotCaptured(
 
 void PageHandler::GotManifest(std::unique_ptr<GetAppManifestCallback> callback,
                               const GURL& manifest_url,
+                              const ::blink::Manifest& parsed_manifest,
                               blink::mojom::ManifestDebugInfoPtr debug_info) {
   auto errors = std::make_unique<protocol::Array<Page::AppManifestError>>();
   bool failed = true;
@@ -1125,9 +1126,18 @@ void PageHandler::GotManifest(std::unique_ptr<GetAppManifestCallback> callback,
         failed = true;
     }
   }
+
+  std::unique_ptr<Page::AppManifestParsedProperties> parsed;
+  if (!parsed_manifest.IsEmpty()) {
+    parsed = Page::AppManifestParsedProperties::Create()
+                 .SetScope(parsed_manifest.scope.possibly_invalid_spec())
+                 .Build();
+  }
+
   callback->sendSuccess(
       manifest_url.possibly_invalid_spec(), std::move(errors),
-      failed ? Maybe<std::string>() : debug_info->raw_manifest);
+      failed ? Maybe<std::string>() : debug_info->raw_manifest,
+      std::move(parsed));
 }
 
 Response PageHandler::StopLoading() {
@@ -1159,9 +1169,18 @@ Response PageHandler::SetWebLifecycleState(const std::string& state) {
 void PageHandler::GetInstallabilityErrors(
     std::unique_ptr<GetInstallabilityErrorsCallback> callback) {
   auto errors = std::make_unique<protocol::Array<std::string>>();
+  auto installability_errors =
+      std::make_unique<protocol::Array<Page::InstallabilityError>>();
   // TODO: Use InstallableManager once it moves into content/.
   // Until then, this code is only used to return empty array in the tests.
-  callback->sendSuccess(std::move(errors));
+  callback->sendSuccess(std::move(errors), std::move(installability_errors));
+}
+
+void PageHandler::GetManifestIcons(
+    std::unique_ptr<GetManifestIconsCallback> callback) {
+  // TODO: Use InstallableManager once it moves into content/.
+  // Until then, this code is only used to return no image data in the tests.
+  callback->sendSuccess(Maybe<Binary>());
 }
 
 }  // namespace protocol

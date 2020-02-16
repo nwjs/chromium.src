@@ -21,6 +21,7 @@
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
+#include "services/network/public/mojom/cross_origin_embedder_policy.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/navigation_preload_state.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration_options.mojom.h"
 #include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
@@ -52,8 +53,8 @@ class CONTENT_EXPORT ServiceWorkerDatabase {
   ~ServiceWorkerDatabase();
 
   // Used in UMA. A new value must be appended only.
-  // TODO(bashi): Change this enum to an enum class and migrate from legacy
-  // histogram APIs to new ones. See //tools/metrics/histograms/README.md.
+  // TODO(bashi): Change this enum to a mojo enum and update corresponding
+  // UMAs. See //tools/metrics/histograms/README.md
   enum Status {
     STATUS_OK,
     STATUS_ERROR_NOT_FOUND,
@@ -61,6 +62,7 @@ class CONTENT_EXPORT ServiceWorkerDatabase {
     STATUS_ERROR_CORRUPTED,
     STATUS_ERROR_FAILED,
     STATUS_ERROR_NOT_SUPPORTED,
+    STATUS_ERROR_DISABLED,
     STATUS_ERROR_MAX,
   };
   static const char* StatusToString(Status status);
@@ -90,6 +92,8 @@ class CONTENT_EXPORT ServiceWorkerDatabase {
 
     // Not populated until ServiceWorkerStorage::StoreRegistration is called.
     int64_t resources_total_size_bytes;
+
+    network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy;
 
     RegistrationData();
     RegistrationData(const RegistrationData& other);
@@ -452,6 +456,8 @@ class CONTENT_EXPORT ServiceWorkerDatabase {
                            UserData_UninitializedDatabase);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerDatabaseTest, DestroyDatabase);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerDatabaseTest, InvalidWebFeature);
+  FRIEND_TEST_ALL_PREFIXES(ServiceWorkerDatabaseTest,
+                           NoCrossOriginEmbedderPolicy);
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerDatabase);
 };

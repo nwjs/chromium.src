@@ -72,7 +72,6 @@ class AutofillPopupBaseView : public views::WidgetDelegateView,
   void OnMouseMoved(const ui::MouseEvent& event) override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
   void OnMouseReleased(const ui::MouseEvent& event) override;
-  void OnGestureEvent(ui::GestureEvent* event) override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
 
   // views::WidgetFocusChangeListener implementation.
@@ -92,7 +91,7 @@ class AutofillPopupBaseView : public views::WidgetDelegateView,
 
   // Hide the controller of this view. This assumes that doing so will
   // eventually hide this view in the process.
-  void HideController();
+  void HideController(PopupHidingReason reason);
 
   // Returns the border to be applied to the popup.
   std::unique_ptr<views::Border> CreateBorder();

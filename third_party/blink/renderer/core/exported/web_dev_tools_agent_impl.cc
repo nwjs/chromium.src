@@ -379,11 +379,12 @@ void WebDevToolsAgentImpl::DetachSession(DevToolsSession* session) {
     Thread::Current()->RemoveTaskObserver(this);
 }
 
-void WebDevToolsAgentImpl::InspectElement(const WebPoint& point_in_local_root) {
-  WebFloatRect rect(point_in_local_root.x, point_in_local_root.y, 0, 0);
+void WebDevToolsAgentImpl::InspectElement(
+    const gfx::Point& point_in_local_root) {
+  WebFloatRect rect(point_in_local_root.x(), point_in_local_root.y(), 0, 0);
   web_local_frame_impl_->FrameWidgetImpl()->Client()->ConvertWindowToViewport(
       &rect);
-  WebPoint point(rect.x, rect.y);
+  gfx::PointF point(rect.x, rect.y);
 
   HitTestRequest::HitTestRequestType hit_type =
       HitTestRequest::kMove | HitTestRequest::kReadOnly |
@@ -392,7 +393,7 @@ void WebDevToolsAgentImpl::InspectElement(const WebPoint& point_in_local_root) {
   WebMouseEvent dummy_event(WebInputEvent::kMouseDown,
                             WebInputEvent::kNoModifiers,
                             base::TimeTicks::Now());
-  dummy_event.SetPositionInWidget(point.x, point.y);
+  dummy_event.SetPositionInWidget(point);
   IntPoint transformed_point = FlooredIntPoint(
       TransformWebMouseEvent(web_local_frame_impl_->GetFrameView(), dummy_event)
           .PositionInRootFrame());

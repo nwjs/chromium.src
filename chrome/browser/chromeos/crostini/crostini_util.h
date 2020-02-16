@@ -12,6 +12,7 @@
 #include "base/callback.h"
 #include "base/files/file_path.h"
 #include "base/optional.h"
+#include "base/values.h"
 #include "storage/browser/file_system/file_system_url.h"
 #include "ui/base/resource/scale_factor.h"
 
@@ -62,6 +63,9 @@ bool IsUninstallable(Profile* profile, const std::string& app_id);
 
 // Returns whether the default Crostini VM is running for the user.
 bool IsCrostiniRunning(Profile* profile);
+
+// Whether the user is able to perform a container upgrade.
+bool ShouldAllowContainerUpgrade();
 
 // Returns whether default Crostini container should be configured according to
 // the configuration specified by CrostiniAnsiblePlaybook user policy.
@@ -119,8 +123,6 @@ enum class CrostiniUISurface { kSettings = 0, kAppList = 1, kCount };
 // See chrome/browser/ui/views/crostini for implementation of the ShowXXX
 // functions below.
 
-// Shows the Crostini Installer dialog.
-void ShowCrostiniInstallerView(Profile* profile, CrostiniUISurface ui_surface);
 // Shows the Crostini Uninstaller dialog.
 void ShowCrostiniUninstallerView(Profile* profile,
                                  CrostiniUISurface ui_surface);
@@ -141,6 +143,8 @@ views::Widget* ShowCrostiniForceCloseDialog(
 // Termina version matches).
 void ShowCrostiniUpdateComponentView(Profile* profile,
                                      CrostiniUISurface ui_surface);
+// Shows the ui with the error message when installing a package fails.
+void ShowCrostiniPackageInstallFailureView(const std::string& error_message);
 
 // Shows the Crostini Container Upgrade dialog (for running upgrades in the
 // container).
@@ -177,8 +181,6 @@ constexpr char kCrostiniTerminalSystemAppId[] =
 constexpr char kCrostiniDefaultVmName[] = "termina";
 constexpr char kCrostiniDefaultContainerName[] = "penguin";
 constexpr char kCrostiniDefaultUsername[] = "emperor";
-constexpr char kCrostiniCroshBuiltinAppId[] =
-    "nkoccljplnhpfnfiajclkommnmllphnl";
 // In order to be compatible with sync folder id must match standard.
 // Generated using crx_file::id_util::GenerateId("LinuxAppsFolder")
 constexpr char kCrostiniFolderId[] = "ddolnhmblagmcagkedkbfejapapdimlk";
@@ -205,6 +207,23 @@ void RemoveLxdContainerFromPrefs(Profile* profile,
 // left for an operation to run which started and time |start| and is current
 // at |percent| way through.
 base::string16 GetTimeRemainingMessage(base::TimeTicks start, int percent);
+
+// Splits the range between |min_size| and |available_space| into enough
+// evenly-spaced intervals you can use them as ticks on a slider. Will return an
+// empty set if the range is invalid (e.g. any numbers are negative).
+std::vector<int64_t> GetTicksForDiskSize(int64_t min_size,
+                                         int64_t available_space);
+
+// Returns a pref value stored for a specific container.
+const base::Value* GetContainerPrefValue(Profile* profile,
+                                         const ContainerId& container_id,
+                                         const std::string& key);
+
+// Sets a pref value for a specific container.
+void UpdateContainerPref(Profile* profile,
+                         const ContainerId& container_id,
+                         const std::string& key,
+                         base::Value value);
 
 }  // namespace crostini
 

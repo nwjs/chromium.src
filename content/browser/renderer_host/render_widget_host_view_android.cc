@@ -35,8 +35,6 @@
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/surfaces/frame_sink_id_allocator.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
-#include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
-#include "components/viz/service/surfaces/surface.h"
 #include "content/browser/accessibility/browser_accessibility_manager_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
 #include "content/browser/android/content_feature_list.h"
@@ -212,8 +210,6 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
     RenderWidgetHostImpl* widget_host,
     gfx::NativeView parent_native_view)
     : RenderWidgetHostViewBase(widget_host),
-      begin_frame_source_(nullptr),
-      outstanding_begin_frame_requests_(0),
       is_showing_(!widget_host->is_hidden()),
       is_window_visible_(true),
       is_window_activity_started_(true),
@@ -461,8 +457,10 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
   view_.UpdateFrameInfo({scrollable_viewport_size_dip, top_content_offset_dip});
   bool controls_changed = UpdateControls(
       view_.GetDipScale(), metadata.top_controls_height,
-      metadata.top_controls_shown_ratio, metadata.bottom_controls_height,
-      metadata.bottom_controls_shown_ratio);
+      metadata.top_controls_shown_ratio,
+      metadata.top_controls_min_height_offset, metadata.bottom_controls_height,
+      metadata.bottom_controls_shown_ratio,
+      metadata.bottom_controls_min_height_offset);
 
   SetContentBackgroundColor(is_transparent ? SK_ColorTRANSPARENT
                                            : root_background_color);
@@ -757,19 +755,6 @@ void RenderWidgetHostViewAndroid::OnTextSelectionChanged(
       base::UTF16ToUTF8(selection.selected_text()));
 }
 
-void RenderWidgetHostViewAndroid::SetNeedsBeginFrames(bool needs_begin_frames) {
-  TRACE_EVENT1("cc", "RenderWidgetHostViewAndroid::SetNeedsBeginFrames",
-               "needs_begin_frames", needs_begin_frames);
-  if (needs_begin_frames)
-    AddBeginFrameRequest(PERSISTENT_BEGIN_FRAME);
-  else
-    ClearBeginFrameRequest(PERSISTENT_BEGIN_FRAME);
-}
-
-void RenderWidgetHostViewAndroid::SetWantsAnimateOnlyBeginFrames() {
-  wants_animate_only_begin_frames_ = true;
-}
-
 viz::FrameSinkId RenderWidgetHostViewAndroid::GetRootFrameSinkId() {
   if (view_.GetWindowAndroid() && view_.GetWindowAndroid()->GetCompositor())
     return view_.GetWindowAndroid()->GetCompositor()->GetFrameSinkId();
@@ -888,9 +873,10 @@ bool RenderWidgetHostViewAndroid::OnTouchEvent(
   // scroll-inducing touch events. Note that Android's Choreographer ensures
   // that BeginFrame requests made during Action::MOVE dispatch will be honored
   // in the same vsync phase.
-  if (observing_root_window_ && result.moved_beyond_slop_region)
-    AddBeginFrameRequest(BEGIN_FRAME);
-
+  if (observing_root_window_ && result.moved_beyond_slop_region) {
+    if (sync_compositor_)
+      sync_compositor_->RequestOneBeginFrame();
+  }
   return true;
 }
 
@@ -1040,7 +1026,7 @@ void RenderWidgetHostViewAndroid::OnInterstitialPageAttached() {
 }
 
 void RenderWidgetHostViewAndroid::OnInterstitialPageGoingAway() {
-  sync_compositor_.reset();
+  ResetSynchronousCompositor();
 }
 
 std::unique_ptr<SyntheticGestureTarget>
@@ -1053,37 +1039,6 @@ bool RenderWidgetHostViewAndroid::ShouldRouteEvents() const {
   DCHECK(host());
   return using_browser_compositor_ && host()->delegate() &&
          host()->delegate()->GetInputEventRouter();
-}
-
-void RenderWidgetHostViewAndroid::DidReceiveCompositorFrameAck(
-    const std::vector<viz::ReturnedResource>& resources) {
-  renderer_compositor_frame_sink_->DidReceiveCompositorFrameAck(resources);
-}
-
-void RenderWidgetHostViewAndroid::DidPresentCompositorFrames(
-    const viz::FrameTimingDetailsMap& timing_details) {
-  timing_details_ = timing_details;
-  if (!timing_details_.empty())
-    AddBeginFrameRequest(BEGIN_FRAME);
-}
-
-void RenderWidgetHostViewAndroid::ReclaimResources(
-    const std::vector<viz::ReturnedResource>& resources) {
-  renderer_compositor_frame_sink_->ReclaimResources(resources);
-}
-
-void RenderWidgetHostViewAndroid::DidCreateNewRendererCompositorFrameSink(
-    viz::mojom::CompositorFrameSinkClient* renderer_compositor_frame_sink) {
-  if (!delegated_frame_host_) {
-    DCHECK(!using_browser_compositor_);
-    // We don't expect RendererCompositorFrameSink on Android WebView.
-    // (crbug.com/721102)
-    bad_message::ReceivedBadMessage(host()->GetProcess(),
-                                    bad_message::RWH_BAD_FRAME_SINK_REQUEST);
-    return;
-  }
-  delegated_frame_host_->CompositorFrameSinkChanged();
-  renderer_compositor_frame_sink_ = renderer_compositor_frame_sink;
 }
 
 void RenderWidgetHostViewAndroid::EvictFrameIfNecessary() {
@@ -1113,24 +1068,6 @@ void RenderWidgetHostViewAndroid::UpdateWebViewBackgroundColorIfNecessary() {
   }
 }
 
-void RenderWidgetHostViewAndroid::SubmitCompositorFrame(
-    const viz::LocalSurfaceId& local_surface_id,
-    viz::CompositorFrame frame,
-    base::Optional<viz::HitTestRegionList> hit_test_region_list) {
-  NOTREACHED();
-}
-
-void RenderWidgetHostViewAndroid::OnDidNotProduceFrame(
-    const viz::BeginFrameAck& ack) {
-  if (!delegated_frame_host_) {
-    // We are not using the browser compositor and there's no DisplayScheduler
-    // that needs to be notified about the BeginFrameAck, so we can drop it.
-    DCHECK(!using_browser_compositor_);
-    return;
-  }
-  NOTREACHED();
-}
-
 void RenderWidgetHostViewAndroid::ResetFallbackToFirstNavigationSurface() {
   if (delegated_frame_host_)
     delegated_frame_host_->ResetFallbackToFirstNavigationSurface();
@@ -1146,7 +1083,10 @@ void RenderWidgetHostViewAndroid::FrameTokenChangedForSynchronousCompositor(
     uint32_t frame_token,
     const gfx::ScrollOffset& root_scroll_offset) {
   if (host() && frame_token) {
-    host()->DidProcessFrame(frame_token);
+    if (!using_viz_for_webview_) {
+      // For viz it's reported through FrameSinkManager.
+      host()->DidProcessFrame(frame_token);
+    }
 
     // DevTools ScreenCast support for Android WebView. Don't call this if
     // we're currently in SynchronousCopyContents, as this can lead to
@@ -1171,10 +1111,23 @@ void RenderWidgetHostViewAndroid::FrameTokenChangedForSynchronousCompositor(
 void RenderWidgetHostViewAndroid::SetSynchronousCompositorClient(
       SynchronousCompositorClient* client) {
   synchronous_compositor_client_ = client;
+  MaybeCreateSynchronousCompositor();
+}
+
+void RenderWidgetHostViewAndroid::MaybeCreateSynchronousCompositor() {
   if (!sync_compositor_ && synchronous_compositor_client_) {
     sync_compositor_ =
         SynchronousCompositorHost::Create(this, host()->GetFrameSinkId());
     view_.SetCopyOutputCallback(sync_compositor_->GetCopyViewCallback());
+    if (render_widget_initialized_)
+      sync_compositor_->InitMojo();
+  }
+}
+
+void RenderWidgetHostViewAndroid::ResetSynchronousCompositor() {
+  if (sync_compositor_) {
+    view_.SetCopyOutputCallback(ui::ViewAndroid::CopyViewCallback());
+    sync_compositor_.reset();
   }
 }
 
@@ -1341,8 +1294,10 @@ bool RenderWidgetHostViewAndroid::UpdateControls(
     float dip_scale,
     float top_controls_height,
     float top_controls_shown_ratio,
+    float top_controls_min_height_offset,
     float bottom_controls_height,
-    float bottom_controls_shown_ratio) {
+    float bottom_controls_shown_ratio,
+    float bottom_controls_min_height_offset) {
   float to_pix = IsUseZoomForDSFEnabled() ? 1.f : dip_scale;
   float top_controls_pix = top_controls_height * to_pix;
   // |top_content_offset| is in physical pixels if --use-zoom-for-dsf is
@@ -1354,8 +1309,14 @@ bool RenderWidgetHostViewAndroid::UpdateControls(
   float top_translate = top_shown_pix - top_controls_pix;
   bool top_changed =
       !cc::MathUtil::IsFloatNearlyTheSame(top_shown_pix, prev_top_shown_pix_);
+
+  float top_min_height_offset_pix = top_controls_min_height_offset * to_pix;
+  top_changed |= !cc::MathUtil::IsFloatNearlyTheSame(
+      top_min_height_offset_pix, prev_top_controls_min_height_offset_pix_);
+
   if (top_changed || !controls_initialized_)
-    view_.OnTopControlsChanged(top_translate, top_shown_pix);
+    view_.OnTopControlsChanged(top_translate, top_shown_pix,
+                               top_min_height_offset_pix);
   prev_top_shown_pix_ = top_shown_pix;
   prev_top_controls_translate_ = top_translate;
 
@@ -1364,8 +1325,16 @@ bool RenderWidgetHostViewAndroid::UpdateControls(
   bool bottom_changed = !cc::MathUtil::IsFloatNearlyTheSame(
       bottom_shown_pix, prev_bottom_shown_pix_);
   float bottom_translate = bottom_controls_pix - bottom_shown_pix;
+
+  float bottom_min_height_offset_pix =
+      bottom_controls_min_height_offset * to_pix;
+  bottom_changed |= !cc::MathUtil::IsFloatNearlyTheSame(
+      bottom_min_height_offset_pix,
+      prev_bottom_controls_min_height_offset_pix_);
+
   if (bottom_changed || !controls_initialized_)
-    view_.OnBottomControlsChanged(bottom_translate, bottom_shown_pix);
+    view_.OnBottomControlsChanged(bottom_translate, bottom_shown_pix,
+                                  bottom_min_height_offset_pix);
   prev_bottom_shown_pix_ = bottom_shown_pix;
   prev_bottom_controls_translate_ = bottom_translate;
   controls_initialized_ = true;
@@ -1453,7 +1422,8 @@ void RenderWidgetHostViewAndroid::ShowInternal() {
 
   if (view_.parent() && view_.GetWindowAndroid()) {
     StartObservingRootWindow();
-    AddBeginFrameRequest(BEGIN_FRAME);
+    if (sync_compositor_)
+      sync_compositor_->RequestOneBeginFrame();
   }
 }
 
@@ -1493,41 +1463,6 @@ void RenderWidgetHostViewAndroid::HideInternal() {
   host()->WasHidden();
 }
 
-void RenderWidgetHostViewAndroid::SetBeginFrameSource(
-    viz::BeginFrameSource* begin_frame_source) {
-  if (begin_frame_source_ == begin_frame_source)
-    return;
-
-  if (begin_frame_source_ && outstanding_begin_frame_requests_)
-    begin_frame_source_->RemoveObserver(this);
-  begin_frame_source_ = begin_frame_source;
-  if (begin_frame_source_ && outstanding_begin_frame_requests_)
-    begin_frame_source_->AddObserver(this);
-}
-
-void RenderWidgetHostViewAndroid::AddBeginFrameRequest(
-    BeginFrameRequestType request) {
-  uint32_t prior_requests = outstanding_begin_frame_requests_;
-  outstanding_begin_frame_requests_ = prior_requests | request;
-
-  // Note that if we don't currently have a BeginFrameSource, outstanding begin
-  // frame requests will be pushed if/when we get one during
-  // |StartObservingRootWindow()| or when the DelegatedFrameHostAndroid sets it.
-  viz::BeginFrameSource* source = begin_frame_source_;
-  if (source && outstanding_begin_frame_requests_ && !prior_requests)
-    source->AddObserver(this);
-}
-
-void RenderWidgetHostViewAndroid::ClearBeginFrameRequest(
-    BeginFrameRequestType request) {
-  uint32_t prior_requests = outstanding_begin_frame_requests_;
-  outstanding_begin_frame_requests_ = prior_requests & ~request;
-
-  viz::BeginFrameSource* source = begin_frame_source_;
-  if (source && !outstanding_begin_frame_requests_ && prior_requests)
-    source->RemoveObserver(this);
-}
-
 void RenderWidgetHostViewAndroid::StartObservingRootWindow() {
   DCHECK(view_.parent());
   DCHECK(view_.GetWindowAndroid());
@@ -1536,11 +1471,7 @@ void RenderWidgetHostViewAndroid::StartObservingRootWindow() {
     return;
 
   observing_root_window_ = true;
-  SendBeginFramePaused();
   view_.GetWindowAndroid()->AddObserver(this);
-  // When using browser compositor, DelegatedFrameHostAndroid provides the BFS.
-  if (!using_browser_compositor_ && !using_viz_for_webview_)
-    SetBeginFrameSource(view_.GetWindowAndroid()->GetBeginFrameSource());
 
   ui::WindowAndroidCompositor* compositor =
       view_.GetWindowAndroid()->GetCompositor();
@@ -1565,34 +1496,11 @@ void RenderWidgetHostViewAndroid::StopObservingRootWindow() {
   is_window_visible_ = true;
   observing_root_window_ = false;
   OnUpdateScopedSelectionHandles();
-  SendBeginFramePaused();
   view_.GetWindowAndroid()->RemoveObserver(this);
-  if (!using_browser_compositor_)
-    SetBeginFrameSource(nullptr);
   // If the DFH has already been destroyed, it will have cleaned itself up.
   // This happens in some WebView cases.
   if (delegated_frame_host_)
     delegated_frame_host_->DetachFromCompositor();
-  DCHECK(!begin_frame_source_);
-}
-
-void RenderWidgetHostViewAndroid::SendBeginFrame(viz::BeginFrameArgs args) {
-  TRACE_EVENT2("cc", "RenderWidgetHostViewAndroid::SendBeginFrame",
-               "frame_number", args.sequence_number, "frame_time_us",
-               args.frame_time.ToInternalValue());
-
-  // Synchronous compositor does not use deadline-based scheduling.
-  // TODO(brianderson): Replace this hardcoded deadline after Android
-  // switches to Surfaces and the Browser's commit isn't in the critical path.
-  args.deadline = sync_compositor_ ? base::TimeTicks()
-  : args.frame_time + (args.interval * 0.6);
-  if (sync_compositor_) {
-    sync_compositor_->BeginFrame(view_.GetWindowAndroid(), args,
-                                 timing_details_);
-  } else if (renderer_compositor_frame_sink_) {
-    renderer_compositor_frame_sink_->OnBeginFrame(args, timing_details_);
-  }
-  timing_details_.clear();
 }
 
 bool RenderWidgetHostViewAndroid::Animate(base::TimeTicks frame_time) {
@@ -1717,7 +1625,8 @@ InputEventAckState RenderWidgetHostViewAndroid::FilterInputEvent(
   if (input_event.GetType() == blink::WebInputEvent::kGestureTapDown ||
       input_event.GetType() == blink::WebInputEvent::kTouchStart) {
     GpuProcessHost::CallOnIO(GPU_PROCESS_KIND_SANDBOXED,
-                             false /* force_create */, base::Bind(&WakeUpGpu));
+                             false /* force_create */,
+                             base::BindOnce(&WakeUpGpu));
   }
 
   return INPUT_EVENT_ACK_STATE_NOT_CONSUMED;
@@ -2025,9 +1934,13 @@ void RenderWidgetHostViewAndroid::UpdateNativeViewTree(
   }
 
   if (!has_view_tree) {
-    sync_compositor_.reset();
+    ResetSynchronousCompositor();
     return;
   }
+  // Parent native view can become null and then later non-null again, if
+  // WebContents swaps away from this, and then later back to it. Need to
+  // ensure SynchronousCompositor is recreated in this case.
+  MaybeCreateSynchronousCompositor();
 
   if (is_showing_ && view_.GetWindowAndroid())
     StartObservingRootWindow();
@@ -2075,6 +1988,7 @@ RenderWidgetHostViewAndroid::GetLocalSurfaceIdAllocation() const {
 }
 
 void RenderWidgetHostViewAndroid::OnRenderWidgetInit() {
+  render_widget_initialized_ = true;
   if (sync_compositor_)
     sync_compositor_->InitMojo();
 }
@@ -2176,76 +2090,6 @@ void RenderWidgetHostViewAndroid::OnDetachCompositor() {
   overscroll_controller_.reset();
   if (using_browser_compositor_)
     delegated_frame_host_->DetachFromCompositor();
-}
-
-void RenderWidgetHostViewAndroid::OnBeginFrame(
-    const viz::BeginFrameArgs& args) {
-  TRACE_EVENT0("cc,benchmark", "RenderWidgetHostViewAndroid::OnBeginFrame");
-  if (!host()) {
-    OnDidNotProduceFrame(
-        viz::BeginFrameAck(args.source_id, args.sequence_number, false));
-    return;
-  }
-
-  // In sync mode, we disregard missed frame args to ensure that
-  // SynchronousCompositorBrowserFilter::SyncStateAfterVSync will be called
-  // during WindowAndroid::WindowBeginFrameSource::OnVSync() observer iteration.
-  if (sync_compositor_ && args.type == viz::BeginFrameArgs::MISSED) {
-    OnDidNotProduceFrame(
-        viz::BeginFrameAck(args.source_id, args.sequence_number, false));
-    return;
-  }
-
-  bool webview_fling = sync_compositor_ && is_currently_scrolling_viewport_;
-  if (!webview_fling) {
-    host_->ProgressFlingIfNeeded(args.frame_time);
-  } else if (sync_compositor_->on_compute_scroll_called()) {
-    // On Android webview progress the fling only when |OnComputeScroll| is
-    // called since in some cases Apps override |OnComputeScroll| to cancel
-    // fling animation.
-    host_->ProgressFlingIfNeeded(args.frame_time);
-  }
-
-  // Update |last_begin_frame_args_| before handling
-  // |outstanding_begin_frame_requests_| to prevent the BeginFrameSource from
-  // sending the same MISSED args in infinite recursion.
-  last_begin_frame_args_ = args;
-
-  if ((outstanding_begin_frame_requests_ & BEGIN_FRAME) ||
-      (outstanding_begin_frame_requests_ & PERSISTENT_BEGIN_FRAME)) {
-    ClearBeginFrameRequest(BEGIN_FRAME);
-    SendBeginFrame(args);
-  } else {
-    OnDidNotProduceFrame(
-        viz::BeginFrameAck(args.source_id, args.sequence_number, false));
-  }
-}
-
-const viz::BeginFrameArgs& RenderWidgetHostViewAndroid::LastUsedBeginFrameArgs()
-    const {
-  return last_begin_frame_args_;
-}
-
-bool RenderWidgetHostViewAndroid::WantsAnimateOnlyBeginFrames() const {
-  return wants_animate_only_begin_frames_;
-}
-
-void RenderWidgetHostViewAndroid::SendBeginFramePaused() {
-  bool paused = begin_frame_paused_ || !observing_root_window_;
-
-  if (!using_browser_compositor_ && !using_viz_for_webview_) {
-    if (sync_compositor_)
-      sync_compositor_->SetBeginFramePaused(paused);
-  } else if (renderer_compositor_frame_sink_) {
-    renderer_compositor_frame_sink_->OnBeginFramePausedChanged(paused);
-  }
-}
-
-void RenderWidgetHostViewAndroid::OnBeginFrameSourcePausedChanged(bool paused) {
-  if (paused != begin_frame_paused_) {
-    begin_frame_paused_ = paused;
-    SendBeginFramePaused();
-  }
 }
 
 void RenderWidgetHostViewAndroid::OnAnimate(base::TimeTicks begin_frame_time) {
@@ -2534,6 +2378,11 @@ void RenderWidgetHostViewAndroid::SetWebContentsAccessibility(
         ->render_frame_metadata_provider()
         ->ReportAllRootScrollsForAccessibility(!!web_contents_accessibility_);
   }
+}
+
+void RenderWidgetHostViewAndroid::SetNeedsBeginFrameForFlingProgress() {
+  if (sync_compositor_)
+    sync_compositor_->RequestOneBeginFrame();
 }
 
 }  // namespace content

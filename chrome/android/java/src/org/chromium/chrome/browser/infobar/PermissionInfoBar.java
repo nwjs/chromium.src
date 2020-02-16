@@ -10,8 +10,8 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ResourceId;
 import org.chromium.chrome.browser.permissions.AndroidPermissionRequester;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
-import org.chromium.chrome.browser.settings.website.SingleCategoryPreferences;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
+import org.chromium.chrome.browser.settings.website.SingleCategorySettings;
 import org.chromium.chrome.browser.settings.website.SiteSettingsCategory;
 import org.chromium.chrome.browser.tab.Tab;
 
@@ -129,10 +129,10 @@ public class PermissionInfoBar
 
     private void launchNotificationsSettingsPage() {
         Bundle fragmentArguments = new Bundle();
-        fragmentArguments.putString(SingleCategoryPreferences.EXTRA_CATEGORY,
+        fragmentArguments.putString(SingleCategorySettings.EXTRA_CATEGORY,
                 SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.NOTIFICATIONS));
-        PreferencesLauncher.launchSettingsPage(
-                getContext(), SingleCategoryPreferences.class, fragmentArguments);
+        SettingsLauncher.getInstance().launchSettingsPage(
+                getContext(), SingleCategorySettings.class, fragmentArguments);
     }
 
     /**

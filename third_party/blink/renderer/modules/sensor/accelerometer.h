@@ -5,8 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_SENSOR_ACCELEROMETER_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_SENSOR_ACCELEROMETER_H_
 
+#include "third_party/blink/renderer/bindings/modules/v8/v8_spatial_sensor_options.h"
 #include "third_party/blink/renderer/modules/sensor/sensor.h"
-#include "third_party/blink/renderer/modules/sensor/spatial_sensor_options.h"
 
 namespace blink {
 
@@ -23,7 +23,7 @@ class Accelerometer : public Sensor {
                 const SpatialSensorOptions*,
                 ExceptionState&,
                 device::mojom::blink::SensorType,
-                const Vector<mojom::FeaturePolicyFeature>&);
+                const Vector<mojom::blink::FeaturePolicyFeature>&);
 
   double x(bool& is_null) const;
   double y(bool& is_null) const;

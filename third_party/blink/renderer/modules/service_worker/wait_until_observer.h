@@ -36,6 +36,7 @@ class MODULES_EXPORT WaitUntilObserver final
     kFetch,
     kInstall,
     kMessage,
+    kMessageerror,
     kNotificationClick,
     kNotificationClose,
     kPaymentRequest,
@@ -49,8 +50,6 @@ class MODULES_EXPORT WaitUntilObserver final
     kBackgroundFetchSuccess,
     kContentDelete,
   };
-
-  static WaitUntilObserver* Create(ExecutionContext*, EventType, int event_id);
 
   WaitUntilObserver(ExecutionContext*, EventType, int event_id);
 

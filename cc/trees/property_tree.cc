@@ -7,7 +7,6 @@
 #include <set>
 #include <vector>
 
-#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/checked_math.h"
@@ -252,7 +251,7 @@ void TransformTree::CombineTransformsBetween(int source_id,
     DCHECK(IsDescendant(dest_id, current->id));
     CombineInversesBetween(current->id, dest_id, &combined_transform);
     DCHECK(combined_transform.IsApproximatelyIdentityOrTranslation(
-        SkDoubleToMScalar(1e-4)));
+        SkDoubleToScalar(1e-4)));
   }
 
   size_t source_to_destination_size = source_to_destination.size();
@@ -298,7 +297,7 @@ bool TransformTree::CombineInversesBetween(int source_id,
 }
 
 // This function should match the offset we set for sticky position layer in
-// CompositedLayerMapping::UpdateMainGraphicsLayerGeometry.
+// blink::LayoutBoxModelObject::StickyPositionOffset.
 gfx::Vector2dF TransformTree::StickyPositionOffset(TransformNode* node) {
   StickyPositionNodeData* sticky_data = MutableStickyPositionData(node->id);
   if (!sticky_data)
@@ -318,7 +317,7 @@ gfx::Vector2dF TransformTree::StickyPositionOffset(TransformNode* node) {
     scroll_position -= transform_node->snap_amount;
   }
 
-  gfx::Rect clip = constraint.constraint_box_rect;
+  gfx::RectF clip = constraint.constraint_box_rect;
   clip.Offset(scroll_position.x(), scroll_position.y());
 
   // The clip region may need to be offset by the outer viewport bounds, e.g. if
@@ -419,7 +418,8 @@ gfx::Vector2dF TransformTree::StickyPositionOffset(TransformNode* node) {
       ancestor_sticky_box_offset + ancestor_containing_block_offset +
       sticky_offset;
 
-  return sticky_offset;
+  // return
+  return gfx::Vector2dF(roundf(sticky_offset.x()), roundf(sticky_offset.y()));
 }
 
 void TransformTree::UpdateLocalTransform(TransformNode* node) {
@@ -498,7 +498,7 @@ void TransformTree::UpdateSnapping(TransformNode* node) {
   gfx::Transform delta = FromScreen(node->id);
   delta *= rounded;
 
-  DCHECK(delta.IsApproximatelyIdentityOrTranslation(SkDoubleToMScalar(1e-4)))
+  DCHECK(delta.IsApproximatelyIdentityOrTranslation(SkDoubleToScalar(1e-4)))
       << delta.ToString();
 
   gfx::Vector2dF translation = delta.To2dTranslation();
@@ -1418,9 +1418,11 @@ gfx::ScrollOffset ScrollTree::PullDeltaForMainThread(
   return delta;
 }
 
-void ScrollTree::CollectScrollDeltas(ScrollAndScaleSet* scroll_info,
-                                     ElementId inner_viewport_scroll_element_id,
-                                     bool use_fractional_deltas) {
+void ScrollTree::CollectScrollDeltas(
+    ScrollAndScaleSet* scroll_info,
+    ElementId inner_viewport_scroll_element_id,
+    bool use_fractional_deltas,
+    const base::flat_set<ElementId>& snapped_elements) {
   DCHECK(!property_trees()->is_main_thread);
   TRACE_EVENT0("cc", "ScrollTree::CollectScrollDeltas");
   for (auto map_entry : synced_scroll_offset_map_) {
@@ -1429,19 +1431,24 @@ void ScrollTree::CollectScrollDeltas(ScrollAndScaleSet* scroll_info,
 
     ElementId id = map_entry.first;
 
-    if (!scroll_delta.IsZero()) {
-      TRACE_EVENT_INSTANT2("cc", "CollectScrollDeltas",
-                           TRACE_EVENT_SCOPE_THREAD, "x", scroll_delta.x(), "y",
-                           scroll_delta.y());
-      // The snap targets will change on cc only if the node was scrolled, so it
-      // is safe to update the snap targets only when the scroll delta is not
-      // zero.
+    base::Optional<TargetSnapAreaElementIds> snap_target_ids;
+    if (snapped_elements.find(id) != snapped_elements.end()) {
       ScrollNode* scroll_node = FindNodeFromElementId(id);
-      base::Optional<TargetSnapAreaElementIds> snap_target_ids;
       if (scroll_node && scroll_node->snap_container_data) {
         snap_target_ids = scroll_node->snap_container_data.value()
                               .GetTargetSnapAreaElementIds();
       }
+    }
+
+    // Snap targets are set at the end of scroll offset animations (i.e when the
+    // animation state is updated to FINISHED). The state can be updated after
+    // the compositor's draw stage, which means the next attempt to push the
+    // snap targets is during the next frame. This makes it possible for the
+    // scroll delta to be zero.
+    if (!scroll_delta.IsZero() || snap_target_ids) {
+      TRACE_EVENT_INSTANT2("cc", "CollectScrollDeltas",
+                           TRACE_EVENT_SCOPE_THREAD, "x", scroll_delta.x(), "y",
+                           scroll_delta.y());
       ScrollAndScaleSet::ScrollUpdateInfo update(id, scroll_delta,
                                                  snap_target_ids);
       if (id == inner_viewport_scroll_element_id) {
@@ -1927,36 +1934,34 @@ void PropertyTrees::ResetAllChangeTracking() {
 std::unique_ptr<base::trace_event::TracedValue> PropertyTrees::AsTracedValue()
     const {
   auto value = base::WrapUnique(new base::trace_event::TracedValue);
-
-  value->SetInteger("sequence_number", sequence_number);
-
-  value->BeginDictionary("transform_tree");
-  transform_tree.AsValueInto(value.get());
-  value->EndDictionary();
-
-  value->BeginDictionary("effect_tree");
-  effect_tree.AsValueInto(value.get());
-  value->EndDictionary();
-
-  value->BeginDictionary("clip_tree");
-  clip_tree.AsValueInto(value.get());
-  value->EndDictionary();
-
-  value->BeginDictionary("scroll_tree");
-  scroll_tree.AsValueInto(value.get());
-  value->EndDictionary();
-
+  AsValueInto(value.get());
   return value;
 }
 
+void PropertyTrees::AsValueInto(base::trace_event::TracedValue* value) const {
+  value->SetInteger("sequence_number", sequence_number);
+
+  value->BeginDictionary("transform_tree");
+  transform_tree.AsValueInto(value);
+  value->EndDictionary();
+
+  value->BeginDictionary("effect_tree");
+  effect_tree.AsValueInto(value);
+  value->EndDictionary();
+
+  value->BeginDictionary("clip_tree");
+  clip_tree.AsValueInto(value);
+  value->EndDictionary();
+
+  value->BeginDictionary("scroll_tree");
+  scroll_tree.AsValueInto(value);
+  value->EndDictionary();
+}
+
 std::string PropertyTrees::ToString() const {
-  std::string str;
-  base::JSONWriter::WriteWithOptions(
-      *AsTracedValue()->ToBaseValue(),
-      base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION |
-          base::JSONWriter::OPTIONS_PRETTY_PRINT,
-      &str);
-  return str;
+  base::trace_event::TracedValueJSON value;
+  AsValueInto(&value);
+  return value.ToFormattedJSON();
 }
 
 CombinedAnimationScale PropertyTrees::GetAnimationScales(

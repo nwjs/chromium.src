@@ -71,7 +71,7 @@ UIColor* IncognitoSecureTextColor() {
 OmniboxViewIOS::OmniboxViewIOS(OmniboxTextFieldIOS* field,
                                WebOmniboxEditController* controller,
                                id<OmniboxLeftImageConsumer> left_image_consumer,
-                               ios::ChromeBrowserState* browser_state,
+                               ChromeBrowserState* browser_state,
                                id<OmniboxFocuser> omnibox_focuser)
     : OmniboxView(controller,
                   controller
@@ -288,8 +288,8 @@ void OmniboxViewIOS::OnDidBeginEditing() {
       model()->set_focus_source(OmniboxFocusSource::OMNIBOX);
     }
 
-    model()->OnSetFocus(/*control_down=*/false,
-                        /*suppress_on_focus_suggestions=*/false);
+    model()->ShowOnFocusSuggestionsIfAutocompleteIdle();
+    model()->OnSetFocus(/*control_down=*/false);
   }
 
   // If the omnibox is displaying a URL and the popup is not showing, set the
@@ -667,35 +667,8 @@ BOOL OmniboxViewIOS::IsPopupOpen() {
   return popup_provider_->IsPopupOpen();
 }
 
-int OmniboxViewIOS::GetIcon(bool offlinePage) const {
-  if (!IsEditingOrEmpty()) {
-    if (offlinePage) {
-      return IDR_IOS_OMNIBOX_OFFLINE;
-    }
-    return GetIconForSecurityState(
-        controller()->GetLocationBarModel()->GetSecurityLevel());
-  }
-  return GetIconForAutocompleteMatchType(
-      model() ? model()->CurrentMatch(nullptr).type
-              : AutocompleteMatchType::URL_WHAT_YOU_TYPED,
-      /* is_starred */ false, /* is_incognito */ false);
-}
-
 int OmniboxViewIOS::GetOmniboxTextLength() const {
   return [field_ displayedText].length();
-}
-
-void OmniboxViewIOS::EmphasizeURLComponents() {
-// TODO(rohitrao): Implement this function using code like below.  This code
-// is being left out for now because it was not present before the OmniboxView
-// rewrite.
-#if 0
-  // When editing is in progress, the url text is not colored, so there is
-  // nothing to emphasize.  (Calling SetText() in that situation would also be
-  // harmful, as it would reset the carat position to the end of the text.)
-  if (!IsEditingOrEmpty())
-    SetText(GetText());
-#endif
 }
 
 #pragma mark - OmniboxPopupViewSuggestionsDelegate

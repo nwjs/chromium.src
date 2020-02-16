@@ -36,8 +36,6 @@ class MockJobTaskRunner : public TaskRunner {
                        OnceClosure closure,
                        TimeDelta delay) override;
 
-  bool RunsTasksInCurrentSequence() const override;
-
  private:
   ~MockJobTaskRunner() override;
 
@@ -60,10 +58,6 @@ bool MockJobTaskRunner::PostDelayedTask(const Location& from_here,
       from_here, traits_, pooled_task_runner_delegate_);
   return pooled_task_runner_delegate_->EnqueueJobTaskSource(
       std::move(task_source));
-}
-
-bool MockJobTaskRunner::RunsTasksInCurrentSequence() const {
-  return pooled_task_runner_delegate_->IsRunningPoolWithTraits(traits_);
 }
 
 MockJobTaskRunner::~MockJobTaskRunner() = default;
@@ -115,16 +109,16 @@ scoped_refptr<Sequence> CreateSequenceWithTask(
   return sequence;
 }
 
-scoped_refptr<TaskRunner> CreateTaskRunnerWithExecutionMode(
+scoped_refptr<TaskRunner> CreatePooledTaskRunnerWithExecutionMode(
     TaskSourceExecutionMode execution_mode,
     MockPooledTaskRunnerDelegate* mock_pooled_task_runner_delegate,
     const TaskTraits& traits) {
   switch (execution_mode) {
     case TaskSourceExecutionMode::kParallel:
-      return CreateTaskRunner(traits, mock_pooled_task_runner_delegate);
+      return CreatePooledTaskRunner(traits, mock_pooled_task_runner_delegate);
     case TaskSourceExecutionMode::kSequenced:
-      return CreateSequencedTaskRunner(traits,
-                                       mock_pooled_task_runner_delegate);
+      return CreatePooledSequencedTaskRunner(traits,
+                                             mock_pooled_task_runner_delegate);
     case TaskSourceExecutionMode::kJob:
       return CreateJobTaskRunner(traits, mock_pooled_task_runner_delegate);
     default:
@@ -135,14 +129,14 @@ scoped_refptr<TaskRunner> CreateTaskRunnerWithExecutionMode(
   return nullptr;
 }
 
-scoped_refptr<TaskRunner> CreateTaskRunner(
+scoped_refptr<TaskRunner> CreatePooledTaskRunner(
     const TaskTraits& traits,
     MockPooledTaskRunnerDelegate* mock_pooled_task_runner_delegate) {
   return MakeRefCounted<PooledParallelTaskRunner>(
       traits, mock_pooled_task_runner_delegate);
 }
 
-scoped_refptr<SequencedTaskRunner> CreateSequencedTaskRunner(
+scoped_refptr<SequencedTaskRunner> CreatePooledSequencedTaskRunner(
     const TaskTraits& traits,
     MockPooledTaskRunnerDelegate* mock_pooled_task_runner_delegate) {
   return MakeRefCounted<PooledSequencedTaskRunner>(
@@ -242,15 +236,6 @@ bool MockPooledTaskRunnerDelegate::EnqueueJobTaskSource(
 void MockPooledTaskRunnerDelegate::RemoveJobTaskSource(
     scoped_refptr<JobTaskSource> task_source) {
   thread_group_->RemoveTaskSource(*task_source);
-}
-
-bool MockPooledTaskRunnerDelegate::IsRunningPoolWithTraits(
-    const TaskTraits& traits) const {
-  // |thread_group_| must be initialized with SetThreadGroup() before
-  // proceeding.
-  DCHECK(thread_group_);
-
-  return thread_group_->IsBoundToCurrentThread();
 }
 
 void MockPooledTaskRunnerDelegate::UpdatePriority(

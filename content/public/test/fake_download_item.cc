@@ -231,6 +231,10 @@ void FakeDownloadItem::ValidateDangerousDownload() {
   NOTREACHED();
 }
 
+void FakeDownloadItem::ValidateMixedContentDownload() {
+  NOTREACHED();
+}
+
 void FakeDownloadItem::StealDangerousDownload(
     bool delete_file_afterward,
     const AcquireFileCallback& callback) {
@@ -414,9 +418,20 @@ bool FakeDownloadItem::IsDangerous() const {
   return false;
 }
 
+bool FakeDownloadItem::IsMixedContent() const {
+  NOTREACHED();
+  return false;
+}
+
 download::DownloadDangerType FakeDownloadItem::GetDangerType() const {
   NOTREACHED();
   return download::DownloadDangerType();
+}
+
+download::DownloadItem::MixedContentStatus
+FakeDownloadItem::GetMixedContentStatus() const {
+  NOTREACHED();
+  return download::DownloadItem::MixedContentStatus();
 }
 
 bool FakeDownloadItem::TimeRemaining(base::TimeDelta* remaining) const {

@@ -16,10 +16,13 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/tab_groups/tab_group_color.h"
 
 class Browser;
 class BrowserNonClientFrameView;
 class Tab;
+class TabGroupId;
+class TabGroupVisualData;
 
 namespace content {
 class WebContents;
@@ -61,9 +64,13 @@ class BrowserTabStripController : public TabStripController,
   void AddSelectionFromAnchorTo(int model_index) override;
   bool BeforeCloseTab(int model_index, CloseTabSource source) override;
   void CloseTab(int model_index, CloseTabSource source) override;
-  void UngroupAllTabsInGroup(TabGroupId group) override;
-  void AddNewTabInGroup(TabGroupId group) override;
+  void UngroupAllTabsInGroup(const tab_groups::TabGroupId& group) override;
+  void AddNewTabInGroup(const tab_groups::TabGroupId& group) override;
+  void AddTabToGroup(int model_index,
+                     const tab_groups::TabGroupId& group) override;
+  void RemoveTabFromGroup(int model_index) override;
   void MoveTab(int start_index, int final_index) override;
+  void MoveGroup(const tab_groups::TabGroupId& group, int final_index) override;
   void ShowContextMenuForTab(Tab* tab,
                              const gfx::Point& p,
                              ui::MenuSourceType source_type) override;
@@ -75,11 +82,17 @@ class BrowserTabStripController : public TabStripController,
   void OnStartedDragging() override;
   void OnStoppedDragging() override;
   void OnKeyboardFocusedTabChanged(base::Optional<int> index) override;
-  const TabGroupVisualData* GetVisualDataForGroup(
-      TabGroupId group_id) const override;
-  void SetVisualDataForGroup(TabGroupId group,
-                             TabGroupVisualData visual_data) override;
-  std::vector<int> ListTabsInGroup(TabGroupId group_id) const override;
+  base::string16 GetGroupTitle(
+      const tab_groups::TabGroupId& group_id) const override;
+  base::string16 GetGroupContentString(
+      const tab_groups::TabGroupId& group_id) const override;
+  tab_groups::TabGroupColorId GetGroupColorId(
+      const tab_groups::TabGroupId& group_id) const override;
+  void SetVisualDataForGroup(
+      const tab_groups::TabGroupId& group,
+      const tab_groups::TabGroupVisualData& visual_data) override;
+  std::vector<int> ListTabsInGroup(
+      const tab_groups::TabGroupId& group_id) const override;
   bool IsFrameCondensed() const override;
   bool HasVisibleBackgroundTabShapes() const override;
   bool EverHasVisibleBackgroundTabShapes() const override;
@@ -107,7 +120,7 @@ class BrowserTabStripController : public TabStripController,
                              int model_index) override;
   void TabBlockedStateChanged(content::WebContents* contents,
                               int model_index) override;
-  void TabGroupedStateChanged(base::Optional<TabGroupId> group,
+  void TabGroupedStateChanged(base::Optional<tab_groups::TabGroupId> group,
                               int index) override;
   void SetTabNeedsAttentionAt(int index, bool attention) override;
 

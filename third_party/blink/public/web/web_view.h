@@ -33,9 +33,9 @@
 
 #include "base/time/time.h"
 #include "third_party/blink/public/common/page/page_visibility_state.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-shared.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
-#include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -46,7 +46,9 @@ struct BrowserControlsParams;
 
 namespace gfx {
 class Point;
+class PointF;
 class Rect;
+class SizeF;
 }
 
 namespace blink {
@@ -64,8 +66,6 @@ class WebViewClient;
 class WebWidget;
 struct PluginAction;
 struct WebDeviceEmulationParams;
-struct WebFloatPoint;
-struct WebFloatSize;
 struct WebRect;
 struct WebSize;
 struct WebTextAutosizerPageInfo;
@@ -162,11 +162,6 @@ class WebView {
   // Focus the first (last if reverse is true) focusable node.
   virtual void SetInitialFocus(bool reverse) = 0;
 
-  // Clears the focused element (and selection if a text field is focused)
-  // to ensure that a text field on the page is not eating keystrokes we
-  // send it.
-  virtual void ClearFocusedElement() = 0;
-
   // Smooth scroll the root layer to |targetX|, |targetY| in |duration|.
   virtual void SmoothScroll(int target_x,
                             int target_y,
@@ -177,11 +172,19 @@ class WebView {
   virtual void AdvanceFocus(bool reverse) {}
 
   // Advance the focus from the frame |from| to the next in sequence
-  // (determined by WebFocusType) focusable element in frame |to|. Used when
+  // (determined by mojom::FocusType) focusable element in frame |to|. Used when
   // focus needs to advance to/from a cross-process frame.
-  virtual void AdvanceFocusAcrossFrames(WebFocusType,
+  virtual void AdvanceFocusAcrossFrames(mojom::FocusType,
                                         WebRemoteFrame* from,
                                         WebLocalFrame* to) {}
+
+  // Changes the zoom and scroll for zooming into an editable element
+  // with bounds |element_bounds_in_document| and caret bounds
+  // |caret_bounds_in_document|.
+  virtual void ZoomAndScrollToFocusedEditableElementRect(
+      const WebRect& element_bounds_in_document,
+      const WebRect& caret_bounds_in_document,
+      bool zoom_into_legible_scale) = 0;
 
   // Zoom ----------------------------------------------------------------
 
@@ -220,14 +223,14 @@ class WebView {
   // Sets the offset of the visual viewport within the main frame, in
   // fractional CSS pixels. The offset will be clamped so the visual viewport
   // stays within the frame's bounds.
-  virtual void SetVisualViewportOffset(const WebFloatPoint&) = 0;
+  virtual void SetVisualViewportOffset(const gfx::PointF&) = 0;
 
   // Gets the visual viewport's current offset within the page's main frame,
   // in fractional CSS pixels.
-  virtual WebFloatPoint VisualViewportOffset() const = 0;
+  virtual gfx::PointF VisualViewportOffset() const = 0;
 
   // Get the visual viewport's size in CSS pixels.
-  virtual WebFloatSize VisualViewportSize() const = 0;
+  virtual gfx::SizeF VisualViewportSize() const = 0;
 
   // Resizes the unscaled (page scale = 1.0) visual viewport. Normally the
   // unscaled visual viewport is the same size as the main frame. The passed

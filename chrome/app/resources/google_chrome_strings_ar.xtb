@@ -7,7 +7,6 @@
 <translation id="1065672644894730302">لا يمكن قراءة إعداداتك المفضّلة. قد تكون بعض الميزات غير متاحة، ولن يتم حفظ التغييرات في الإعدادات المفضّلة.</translation>
 <translation id="1088300314857992706">‏كان <ph name="USER_EMAIL_ADDRESS" /> يستخدم Chrome سابقًا</translation>
 <translation id="1097330777386562916">‏محو بيانات الموقع الإلكتروني وملفات تعريف الارتباط عند الخروج من Chrome</translation>
-<translation id="1104959162601287462">‏حول &amp;نظام التشغيل Google Chrome</translation>
 <translation id="110877069173485804">‏هذا Chrome الخاص بك</translation>
 <translation id="1142745911746664600">‏تعذّر تحديث Chrome</translation>
 <translation id="1154147086299354128">‏&amp;فتح في Chrome</translation>
@@ -19,10 +18,8 @@
 <translation id="1553358976309200471">‏تحديث Chrome‏</translation>
 <translation id="1587223624401073077">‏يستخدم Google Chrome الكاميرا.</translation>
 <translation id="1587325591171447154">‏ملف <ph name="FILE_NAME" /> ضار، لذلك فقد حظره Chrome.</translation>
-<translation id="1590588151039584890">‏يجب إيقاف تشغيل Chrome على جهاز الكمبيوتر هذا لإجراء التحديث. وجرّاء ذلك، إنّ المستخدمين الآخرين الذين سجَّلوا الدخول إلى جهاز الكمبيوتر هذا قد يفقدون التغييرات غير المحفوظة.</translation>
 <translation id="1619887657840448962">‏لجعل Chrome أكثر أمنًا، أوقفنا الإضافة التالية التي لم تُدرج في <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> وربما تكون قد أضيفت بدون علمك.</translation>
 <translation id="1628000112320670027">‏الحصول على مساعدة في Chrome</translation>
-<translation id="1635734105302489219">‏يتم محو ملفات تعريف الارتباط عند الخروج من Chrome. لمواصلة عملية المزامنة، يمكنك تغيير هذا <ph name="COOKIE_SETTINGS_LINK" />.</translation>
 <translation id="1662639173275167396">‏أصبح نظام التشغيل Chrome متاحًا من خلال <ph name="BEGIN_LINK_CROS_OSS" />برنامج مفتوح المصدر<ph name="END_LINK_CROS_OSS" />إضافي، كما في نظام التشغيل <ph name="BEGIN_LINK_LINUX_OSS" />Linux (إصدار تجريبي)<ph name="END_LINK_LINUX_OSS" />.</translation>
 <translation id="1666409074978194368">‏أوشك التحديث على الانتهاء. إعادة تشغيل Google Chrome لإنهاء التحديث لن تتم إعادة فتح نوافذ التصفح المتخفي.</translation>
 <translation id="1674870198290878346">‏فتح الرابط في نافذة تصفح متخفٍ في Chrome</translation>
@@ -51,6 +48,7 @@
 <translation id="2290014774651636340">‏مفاتيح واجهة برمجة تطبيقات Google مفقودة. وسيترتب على ذلك توقف بعض وظائف Google Chrome عن العمل.</translation>
 <translation id="2290095356545025170">‏هل تريد فعلًا إزالة Google Chrome؟</translation>
 <translation id="2309047409763057870">‏هذا تثبيت ثانوي من Google Chrome، ولا يمكن جعله متصفحك التلقائي.</translation>
+<translation id="2341767445688917208">‏تعذّر على نظام التشغيل Chrome مزامنة كلمات المرور. إصلاح المشكلة الآن</translation>
 <translation id="2348335408836342058">‏يحتاج Chrome إلى إذن للوصول إلى الكاميرا والميكروفون من أجل موقع الويب هذا.</translation>
 <translation id="2429317896000329049">‏تعذر على Google Chrome مزامنة البيانات نظرًا لأن المزامنة غير متاحة في نطاقك.</translation>
 <translation id="2467438592969358367">‏يرغب Google Chrome في تصدير كلمات مرورك، لذا يُرجى كتابة كلمة مرور Windows للسماح بذلك.</translation>
@@ -75,8 +73,6 @@
 <translation id="3080151273017101988">‏استمرار تشغيل تطبيقات الخلفية عند إغلاق Google Chrome</translation>
 <translation id="3089968997497233615">‏يتوفر إصدار جديد وأكثر أمانًا لمتصفح Google Chrome.</translation>
 <translation id="3149510190863420837">‏تطبيقات Chrome</translation>
-<translation id="3282568296779691940">‏تسجيل الدخول إلى Chrome</translation>
-<translation id="3340978935015468852">الإعدادات</translation>
 <translation id="3360895254066713204">‏مساعد Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{‏ستتم إعادة تشغيل Chrome الآن}=1{‏ستتم إعادة تشغيل Chrome في غضون ثانية واحدة}two{‏ستتم إعادة تشغيل Chrome في غضون ثانيتين}few{‏ستتم إعادة تشغيل Chrome في غضون # ثوان}many{‏ستتم إعادة تشغيل Chrome في غضون # ثانيةً}other{‏ستتم إعادة تشغيل Chrome في غضون # ثانية}}</translation>
 <translation id="3395323229510056640">‏الحصول على مساعدة في نظام التشغيل Chrome</translation>
@@ -129,7 +125,6 @@
 <translation id="4953650215774548573">‏تعيين Google Chrome المتصفح التلقائي</translation>
 <translation id="495931528404527476">‏في Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
-<translation id="5028489144783860647">‏تعذر على Google Chrome مزامنة البيانات. يُرجى تحديث عبارة مرور المزامنة.</translation>
 <translation id="5062123544085870375">‏إعادة تشغيل نظام التشغيل Chrome</translation>
 <translation id="5132929315877954718">‏يمكنك اكتشاف تطبيقات، وألعاب، وإضافات، ومظاهر رائعة لمتصفح Google Chrome.</translation>
 <translation id="5170938038195470297">‏لا يمكن استخدام ملفك الشخصي نظرًا لأنه من إصدار أحدث من Google Chrome.
@@ -142,7 +137,6 @@
 <translation id="5386244825306882791">‏كما أنها تتحكم في الصفحة التي تظهر عند تشغيل Chrome أو إجراء بحث من المربع متعدد الاستخدامات.</translation>
 <translation id="5394833366792865639">‏مشاركة علامة تبويب Chrome</translation>
 <translation id="5430073640787465221">‏ملف الإعدادات المفضّلة تالف أو غير صالح. يتعذر على Google Chrome استرداد إعداداتك.</translation>
-<translation id="5543953544073077331">‏هناك نُسخ أخرى من Chrome قيد التشغيل. يُرجى إغلاقها لإجراء التحديث.</translation>
 <translation id="556024056938947818">‏يحاول Google Chrome إظهار كلمات المرور.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5657226924540934362">‏في حال عدم عرض إعداد على هذه الصفحة، انتقل إلى <ph name="LINK_BEGIN" />
@@ -192,7 +186,6 @@
 <translation id="7408085963519505752">‏بنود نظام التشغيل Chrome</translation>
 <translation id="7419046106786626209">‏تعذر على نظام التشغيل Chrome مزامنة البيانات نظرًا لأن المزامنة غير متاحة في نطاقك.</translation>
 <translation id="7486227612705979895">‏سيصل Chrome إلى Drive لإنشاء الاقتراحات في شريط العناوين.</translation>
-<translation id="7531671357096394523">‏الخروج من جميع نُسخ Chrome</translation>
 <translation id="7535429826459677826">‏إصدار مطوري البرامج من Google Chrome</translation>
 <translation id="7573289029918943991">‏للتأكّد من أن جهازك يستخدم أحدث إصدار من نظام التشغيل، يُرجى الانتقال إلى <ph name="LINK_BEGIN" />إعدادات نظام التشغيل Chrome<ph name="LINK_END" />.</translation>
 <translation id="7589360514048265910">‏لن يتلقى هذا الكمبيوتر تحديثات Google Chrome بعد الآن لأن نظام التشغيل Mac OS X 10.9 لم يعُد متاحًا.</translation>
@@ -211,6 +204,7 @@
 <translation id="7855730255114109580">‏Google Chrome محدّث</translation>
 <translation id="7890208801193284374">‏إذا كنت تشارك الكمبيوتر مع أصدقائك وعائلتك، فبإمكانهم التصفح على حدة وإعداد Chrome على النحو الذي يريدونه.</translation>
 <translation id="7896673875602241923">‏سجّل شخص ما الدخول من قبل إلى Chrome على جهاز الكمبيوتر هذا باسم <ph name="ACCOUNT_EMAIL_LAST" />. يُرجى إنشاء حساب مستخدم جديد في Chrome للإبقاء على معلوماتك بشكلٍ منفصل.</translation>
+<translation id="7916016681687251387">‏تعذّر على نظام التشغيل Chrome مزامنة بياناتك. إصلاح المشكلة الآن</translation>
 <translation id="7962410387636238736">‏لن يستلم جهاز الكمبيوتر هذا تحديثات Google Chrome لأن Windows XP وWindows Vista أصبحا غير مدعومين.</translation>
 <translation id="8008534537613507642">‏إعادة تثبيت Chrome</translation>
 <translation id="8013993649590906847">‏في حال لم تتضمن صورة ما وصفًا مفيدًا، سيحاول Chrome توفير وصف لك. لإنشاء الأوصاف، سيتم إرسال الصور إلى Google.</translation>

@@ -30,6 +30,8 @@ jumbo_component("cpp") {
     "cors/preflight_cache.h",
     "cors/preflight_result.cc",
     "cors/preflight_result.h",
+    "cross_origin_opener_policy_parser.cc",
+    "cross_origin_opener_policy_parser.h",
     "cross_origin_resource_policy.cc",
     "cross_origin_resource_policy.h",
     "cross_thread_pending_shared_url_loader_factory.cc",
@@ -54,14 +56,12 @@ jumbo_component("cpp") {
     "network_quality_tracker.h",
     "network_switches.cc",
     "network_switches.h",
+    "request_destination.cc",
+    "request_destination.h",
     "request_mode.cc",
     "request_mode.h",
     "resolve_host_client_base.cc",
     "resolve_host_client_base.h",
-    "resource_response.cc",
-    "resource_response.h",
-    "resource_response_info.cc",
-    "resource_response_info.h",
     "shared_url_loader_factory.cc",
     "shared_url_loader_factory.h",
     "simple_url_loader.cc",
@@ -110,10 +110,24 @@ jumbo_component("cpp") {
   ]
 
   defines = [ "IS_NETWORK_CPP_IMPL" ]
+}
 
-  if (is_chromecast) {
-    defines += [ "IS_CHROMECAST" ]
-  }
+# These interfaces are put in their own target so that modules that only
+# need to depend on mojom_ip_address does not depend on the entire cpp_base.
+component("ip_address_mojom_support") {
+  sources = [
+    "address_list_mojom_traits.cc",
+    "address_list_mojom_traits.h",
+    "ip_address_mojom_traits.cc",
+    "ip_address_mojom_traits.h",
+    "ip_endpoint_mojom_traits.cc",
+    "ip_endpoint_mojom_traits.h",
+  ]
+  deps = [
+    "//net",
+    "//services/network/public/mojom:mojom_ip_address_shared",
+  ]
+  defines = [ "IS_NETWORK_CPP_BASE_IMPL" ]
 }
 
 jumbo_component("cpp_base") {
@@ -128,10 +142,14 @@ jumbo_component("cpp_base") {
     "http_raw_request_response_info.h",
     "http_request_headers_mojom_traits.cc",
     "http_request_headers_mojom_traits.h",
+    "isolation_opt_in_hints.cc",
+    "isolation_opt_in_hints.h",
     "mutable_network_traffic_annotation_tag_mojom_traits.h",
     "mutable_partial_network_traffic_annotation_tag_mojom_traits.h",
     "net_ipc_param_traits.cc",
     "net_ipc_param_traits.h",
+    "network_interface_mojom_traits.cc",
+    "network_interface_mojom_traits.h",
     "network_ipc_param_traits.cc",
     "network_ipc_param_traits.h",
     "network_isolation_key_mojom_traits.cc",
@@ -149,6 +167,8 @@ jumbo_component("cpp_base") {
     "resource_request.h",
     "resource_request_body.cc",
     "resource_request_body.h",
+    "site_for_cookies_mojom_traits.cc",
+    "site_for_cookies_mojom_traits.h",
     "url_loader_completion_status.cc",
     "url_loader_completion_status.h",
     "url_request_mojom_traits.cc",
@@ -167,6 +187,7 @@ jumbo_component("cpp_base") {
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   public_deps = [
+    ":ip_address_mojom_support",
     "//services/network/public/mojom:data_pipe_interfaces",
     "//services/network/public/mojom:mutable_network_traffic_annotation_interface",
     "//url/ipc:url_ipc",
@@ -185,12 +206,8 @@ jumbo_component("cpp_base") {
 }
 
 mojom("test_interfaces") {
-  sources = [
-    "network_traits_test_service.mojom",
-  ]
-  public_deps = [
-    "//services/network/public/mojom",
-  ]
+  sources = [ "network_traits_test_service.mojom" ]
+  public_deps = [ "//services/network/public/mojom" ]
 }
 
 source_set("tests") {
@@ -204,6 +221,7 @@ source_set("tests") {
     "cors/origin_access_list_unittest.cc",
     "cors/preflight_cache_unittest.cc",
     "cors/preflight_result_unittest.cc",
+    "cross_origin_opener_policy_parser_unittest.cc",
     "cross_origin_resource_policy_unittest.cc",
     "cross_thread_pending_shared_url_loader_factory_unittest.cc",
     "data_pipe_to_source_stream_unittest.cc",
@@ -222,6 +240,7 @@ source_set("tests") {
     "network_quality_tracker_unittest.cc",
     "proxy_config_mojom_traits_unittest.cc",
     "simple_url_loader_unittest.cc",
+    "site_for_cookies_mojom_traits_unittest.cc",
     "source_stream_to_data_pipe_unittest.cc",
     "url_request_mojom_traits_unittest.cc",
   ]
@@ -244,16 +263,10 @@ source_set("tests") {
     "//testing/gtest",
   ]
 
-  public_deps = [
-    ":buildflags",
-  ]
+  public_deps = [ ":buildflags" ]
 }
 
 fuzzer_test("cors_fuzzer") {
-  sources = [
-    "cors/cors_fuzzer.cc",
-  ]
-  deps = [
-    ":cpp",
-  ]
+  sources = [ "cors/cors_fuzzer.cc" ]
+  deps = [ ":cpp" ]
 }

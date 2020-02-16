@@ -16,6 +16,7 @@
 #include "base/build_time.h"
 #include "base/callback.h"
 #include "base/command_line.h"
+#include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -398,8 +399,10 @@ GURL VariationsService::GetVariationsServerURL(HttpOptions http_options) {
     server_url = net::AppendOrReplaceQueryParameter(server_url, "restrict",
                                                     restrict_mode);
   }
-  server_url = net::AppendOrReplaceQueryParameter(server_url, "osname",
-                                                  GetPlatformString());
+  server_url = net::AppendOrReplaceQueryParameter(
+      server_url, "osname",
+      osname_server_param_override_.empty() ? GetPlatformString()
+                                            : osname_server_param_override_);
 
   // Add channel to the request URL.
   version_info::Channel channel = client_->GetChannelForVariations();
@@ -437,7 +440,17 @@ void VariationsService::EnsureLocaleEquals(const std::string& locale) {
   // Uses a CHECK rather than a DCHECK to ensure that issues are caught since
   // problems in this area may only appear in the wild due to official builds
   // and end user machines.
-  CHECK_EQ(locale, field_trial_creator_.application_locale());
+  if (locale != field_trial_creator_.application_locale()) {
+    // TODO(crbug.com/912320): Report the two values in crash keys.
+    static auto* lhs_key = base::debug::AllocateCrashKeyString(
+        "mismatched_locale_lhs", base::debug::CrashKeySize::Size256);
+    static auto* rhs_key = base::debug::AllocateCrashKeyString(
+        "mismatched_locale_rhs", base::debug::CrashKeySize::Size256);
+    base::debug::ScopedCrashKeyString scoped_lhs(lhs_key, locale);
+    base::debug::ScopedCrashKeyString scoped_rhs(
+        rhs_key, field_trial_creator_.application_locale());
+    CHECK_EQ(locale, field_trial_creator_.application_locale());
+  }
 #endif
 }
 
@@ -462,6 +475,11 @@ void VariationsService::RegisterPrefs(PrefRegistrySimple* registry) {
   // This preference keeps track of the country code used to filter
   // permanent-consistency studies.
   registry->RegisterListPref(prefs::kVariationsPermanentConsistencyCountry);
+  // This preference keeps track of ChromeVariations enum policy which
+  // allows the admin to restrict the set of variations applied.
+  registry->RegisterIntegerPref(
+      prefs::kVariationsRestrictionsByPolicy,
+      static_cast<int>(RestrictionPolicyValues::NO_RESTRICTIONS));
 }
 
 // static
@@ -614,8 +632,8 @@ bool VariationsService::StoreSeed(const std::string& seed_data,
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       client_->GetVersionForSimulationCallback(),
-      base::Bind(&VariationsService::PerformSimulationWithVersion,
-                 weak_ptr_factory_.GetWeakPtr(), base::Passed(&seed)));
+      base::BindOnce(&VariationsService::PerformSimulationWithVersion,
+                     weak_ptr_factory_.GetWeakPtr(), base::Passed(&seed)));
   return true;
 }
 
@@ -643,8 +661,8 @@ void VariationsService::StartRepeatedVariationsSeedFetch() {
 
   DCHECK(!request_scheduler_);
   request_scheduler_.reset(VariationsRequestScheduler::Create(
-      base::Bind(&VariationsService::FetchVariationsSeed,
-                 weak_ptr_factory_.GetWeakPtr()),
+      base::BindRepeating(&VariationsService::FetchVariationsSeed,
+                          weak_ptr_factory_.GetWeakPtr()),
       local_state_));
   // Note that the act of starting the scheduler will start the fetch, if the
   // scheduler deems appropriate.
@@ -931,6 +949,13 @@ void VariationsService::CancelCurrentRequestForTesting() {
 void VariationsService::StartRepeatedVariationsSeedFetchForTesting() {
   InitResourceRequestedAllowedNotifier();
   return StartRepeatedVariationsSeedFetch();
+}
+
+void VariationsService::OverridePlatform(
+    Study::Platform platform,
+    const std::string& osname_server_param_override) {
+  field_trial_creator_.OverrideVariationsPlatform(platform);
+  osname_server_param_override_ = osname_server_param_override;
 }
 
 std::string VariationsService::GetOverriddenPermanentCountry() {

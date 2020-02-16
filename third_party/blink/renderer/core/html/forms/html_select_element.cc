@@ -30,17 +30,18 @@
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 
 #include "build/build_config.h"
+#include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "third_party/blink/renderer/bindings/core/v8/html_element_or_long.h"
 #include "third_party/blink/renderer/bindings/core/v8/html_option_element_or_html_opt_group_element.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_mutation_observer_init.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer.h"
-#include "third_party/blink/renderer/core/dom/mutation_observer_init.h"
 #include "third_party/blink/renderer/core/dom/mutation_record.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
@@ -74,10 +75,14 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation.h"
+#include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
+#include "third_party/blink/renderer/core/scroll/scroll_into_view_params_type_converters.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
+#include "ui/base/ui_base_features.h"
 
 namespace blink {
 
@@ -163,9 +168,6 @@ String HTMLSelectElement::validationMessage() const {
 }
 
 bool HTMLSelectElement::ValueMissing() const {
-  if (!willValidate())
-    return false;
-
   if (!IsRequired())
     return false;
 
@@ -332,6 +334,15 @@ bool HTMLSelectElement::MayTriggerVirtualKeyboard() const {
   return true;
 }
 
+bool HTMLSelectElement::ShouldHaveFocusAppearance() const {
+  // For FormControlsRefresh don't draw focus ring for a select that has its
+  // popup open.
+  if (::features::IsFormControlsRefreshEnabled() && PopupIsVisible())
+    return false;
+
+  return HTMLFormControlElementWithState::ShouldHaveFocusAppearance();
+}
+
 bool HTMLSelectElement::CanSelectAll() const {
   return !UsesMenuList();
 }
@@ -357,7 +368,7 @@ void HTMLSelectElement::OptionElementChildrenChanged(
 
   if (GetLayoutObject()) {
     if (option.Selected() && UsesMenuList())
-      GetLayoutObject()->UpdateFromElement();
+      UpdateFromElement();
     if (AXObjectCache* cache =
             GetLayoutObject()->GetDocument().ExistingAXObjectCache())
       cache->ChildrenChanged(this);
@@ -903,8 +914,8 @@ void HTMLSelectElement::SetSuggestedOption(HTMLOptionElement* option) {
     return;
   suggested_option_ = option;
 
-  if (LayoutObject* layout_object = GetLayoutObject()) {
-    layout_object->UpdateFromElement();
+  if (GetLayoutObject()) {
+    UpdateFromElement();
     ScrollToOption(option);
   }
   if (PopupIsVisible())
@@ -940,7 +951,20 @@ void HTMLSelectElement::ScrollToOptionTask() {
   if (!GetLayoutObject() || !GetLayoutObject()->IsListBox())
     return;
   PhysicalRect bounds = option->BoundingBoxForScrollIntoView();
-  ToLayoutListBox(GetLayoutObject())->ScrollToRect(bounds);
+
+  // The following code will not scroll parent boxes unlike ScrollRectToVisible.
+  auto* box = GetLayoutBox();
+  if (!box->HasOverflowClip())
+    return;
+  DCHECK(box->Layer());
+  DCHECK(box->Layer()->GetScrollableArea());
+  box->Layer()->GetScrollableArea()->ScrollIntoView(
+      bounds,
+      CreateScrollIntoViewParams(
+          ScrollAlignment::kAlignToEdgeIfNeeded,
+          ScrollAlignment::kAlignToEdgeIfNeeded,
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic, false,
+          mojom::blink::ScrollIntoViewParams::Behavior::kInstant));
 }
 
 void HTMLSelectElement::OptionSelectionStateChanged(HTMLOptionElement* option,
@@ -1067,8 +1091,7 @@ void HTMLSelectElement::SelectOption(HTMLOptionElement* element,
   }
 
   // For the menu list case, this is what makes the selected element appear.
-  if (LayoutObject* layout_object = GetLayoutObject())
-    layout_object->UpdateFromElement();
+  UpdateFromElement();
   // PopupMenu::UpdateFromElement() posts an O(N) task.
   if (PopupIsVisible() && should_update_popup)
     popup_->UpdateFromElement(PopupMenu::kBySelectionChange);
@@ -1085,8 +1108,9 @@ void HTMLSelectElement::SelectOption(HTMLOptionElement* element,
       // Need to check UsesMenuList() again because event handlers might
       // change the status.
       if (UsesMenuList()) {
-        // DidSelectOption() is O(N) because of HTMLOptionElement::index().
-        ToLayoutMenuList(layout_object)->DidSelectOption(element);
+        // DidUpdateMenuListActiveOption() is O(N) because of
+        // HTMLOptionElement::index().
+        DidUpdateMenuListActiveOption(element);
       }
     }
   }
@@ -1104,7 +1128,7 @@ void HTMLSelectElement::SelectOption(HTMLOptionElement* element,
 
 void HTMLSelectElement::DispatchFocusEvent(
     Element* old_focused_element,
-    WebFocusType type,
+    mojom::blink::FocusType type,
     InputDeviceCapabilities* source_capabilities) {
   // Save the selection so it can be compared to the new selection when
   // dispatching change events during blur event dispatch.
@@ -1116,7 +1140,7 @@ void HTMLSelectElement::DispatchFocusEvent(
 
 void HTMLSelectElement::DispatchBlurEvent(
     Element* new_focused_element,
-    WebFocusType type,
+    mojom::blink::FocusType type,
     InputDeviceCapabilities* source_capabilities) {
   type_ahead_.ResetSession();
   // We only need to fire change events here for menu lists, because we fire
@@ -1326,6 +1350,14 @@ bool HTMLSelectElement::ShouldOpenPopupForKeyPressEvent(
           (layout_theme.PopsMenuByReturnKey() && key_code == '\r'));
 }
 
+void HTMLSelectElement::SetPopupIsVisible(bool popup_is_visible) {
+  popup_is_visible_ = popup_is_visible;
+  if (::features::IsFormControlsRefreshEnabled() && GetLayoutObject()) {
+    // Invalidate paint to ensure that the focus ring is updated.
+    GetLayoutObject()->SetShouldDoFullPaintInvalidation();
+  }
+}
+
 void HTMLSelectElement::MenuListDefaultEventHandler(Event& event) {
   // We need to make the layout tree up-to-date to have GetLayoutObject() give
   // the correct result below. An author event handler may have set display to
@@ -1428,8 +1460,8 @@ void HTMLSelectElement::MenuListDefaultEventHandler(Event& event) {
             .domWindow()
             ->GetInputDeviceCapabilities()
             ->FiresTouchEvents(ToMouseEvent(event).FromTouch());
-    focus(FocusParams(SelectionBehaviorOnFocus::kRestore, kWebFocusTypeNone,
-                      source_capabilities));
+    focus(FocusParams(SelectionBehaviorOnFocus::kRestore,
+                      mojom::blink::FocusType::kNone, source_capabilities));
     if (GetLayoutObject() && GetLayoutObject()->IsMenuList() &&
         !IsDisabledFormControl()) {
       if (PopupIsVisible()) {
@@ -1499,6 +1531,27 @@ void HTMLSelectElement::UpdateSelectedState(HTMLOptionElement* clicked_option,
   UpdateListBoxSelection(!multi_select);
 }
 
+void HTMLSelectElement::DidUpdateMenuListActiveOption(
+    HTMLOptionElement* option) {
+  if (!GetDocument().ExistingAXObjectCache())
+    return;
+
+  int option_index = option ? option->index() : -1;
+  if (ax_menulist_last_active_index_ == option_index)
+    return;
+  ax_menulist_last_active_index_ = option_index;
+
+  // We skip sending accessiblity notifications for the very first option,
+  // otherwise we get extra focus and select events that are undesired.
+  if (!has_updated_menulist_active_option_) {
+    has_updated_menulist_active_option_ = true;
+    return;
+  }
+
+  GetDocument().ExistingAXObjectCache()->HandleUpdateActiveMenuOption(
+      ToLayoutMenuList(GetLayoutObject()), option_index);
+}
+
 HTMLOptionElement* HTMLSelectElement::EventTargetOption(const Event& event) {
   return DynamicTo<HTMLOptionElement>(event.target()->ToNode());
 }
@@ -1517,6 +1570,15 @@ AutoscrollController* HTMLSelectElement::GetAutoscrollController() const {
   if (Page* page = GetDocument().GetPage())
     return &page->GetAutoscrollController();
   return nullptr;
+}
+
+LayoutBox* HTMLSelectElement::AutoscrollBox() {
+  return !UsesMenuList() ? GetLayoutBox() : nullptr;
+}
+
+void HTMLSelectElement::StopAutoscroll() {
+  if (!UsesMenuList() && !IsDisabledFormControl())
+    HandleMouseRelease();
 }
 
 void HTMLSelectElement::HandleMouseRelease() {
@@ -1972,18 +2034,17 @@ LayoutUnit HTMLSelectElement::ClientPaddingRight() const {
 }
 
 void HTMLSelectElement::PopupDidHide() {
-  popup_is_visible_ = false;
+  SetPopupIsVisible(false);
   UnobserveTreeMutation();
   if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
     if (GetLayoutObject() && GetLayoutObject()->IsMenuList())
-      cache->DidHideMenuListPopup(ToLayoutMenuList(GetLayoutObject()));
+      cache->DidHideMenuListPopup(GetLayoutObject());
   }
 }
 
 void HTMLSelectElement::SetIndexToSelectOnCancel(int list_index) {
   index_to_select_on_cancel_ = list_index;
-  if (GetLayoutObject())
-    GetLayoutObject()->UpdateFromElement();
+  UpdateFromElement();
 }
 
 HTMLOptionElement* HTMLSelectElement::OptionToBeShown() const {
@@ -2047,13 +2108,12 @@ void HTMLSelectElement::ShowPopup() {
   if (!popup_)
     return;
 
-  popup_is_visible_ = true;
+  SetPopupIsVisible(true);
   ObserveTreeMutation();
 
-  LayoutMenuList* menu_list = ToLayoutMenuList(GetLayoutObject());
   popup_->Show();
   if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache())
-    cache->DidShowMenuListPopup(menu_list);
+    cache->DidShowMenuListPopup(GetLayoutObject());
 }
 
 void HTMLSelectElement::HidePopup() {
@@ -2063,12 +2123,19 @@ void HTMLSelectElement::HidePopup() {
 
 void HTMLSelectElement::DidRecalcStyle(const StyleRecalcChange change) {
   HTMLFormControlElementWithState::DidRecalcStyle(change);
-  if (!change.ReattachLayoutTree() && PopupIsVisible())
+  if (change.ReattachLayoutTree())
+    return;
+  UpdateFromElement();
+  if (PopupIsVisible())
     popup_->UpdateFromElement(PopupMenu::kByStyleChange);
 }
 
 void HTMLSelectElement::AttachLayoutTree(AttachContext& context) {
   HTMLFormControlElementWithState::AttachLayoutTree(context);
+  // The call to UpdateFromElement() needs to go after the call through
+  // to the base class's AttachLayoutTree() because that can sometimes do a
+  // close on the LayoutObject.
+  UpdateFromElement();
 
   if (const ComputedStyle* style = GetComputedStyle()) {
     if (style->Visibility() != EVisibility::kHidden) {
@@ -2084,8 +2151,9 @@ void HTMLSelectElement::DetachLayoutTree(bool performing_reattach) {
   HTMLFormControlElementWithState::DetachLayoutTree(performing_reattach);
   if (popup_)
     popup_->DisconnectClient();
-  popup_is_visible_ = false;
+  SetPopupIsVisible(false);
   popup_ = nullptr;
+  option_style_ = nullptr;
   UnobserveTreeMutation();
 }
 
@@ -2183,6 +2251,60 @@ void HTMLSelectElement::ChangeRendering() {
   DetachLayoutTree();
   SetNeedsStyleRecalc(kLocalStyleChange, StyleChangeReasonForTracing::Create(
                                              style_change_reason::kControl));
+
+  if (UsesMenuList()) {
+    ax_menulist_last_active_index_ = -1;
+    has_updated_menulist_active_option_ = false;
+  }
+}
+
+void HTMLSelectElement::UpdateFromElement() {
+  if (!UsesMenuList())
+    return;
+  auto* layout_object = GetLayoutObject();
+  if (!layout_object)
+    return;
+
+  HTMLOptionElement* option = OptionToBeShown();
+  String text = g_empty_string;
+  option_style_ = nullptr;
+
+  if (IsMultiple()) {
+    unsigned selected_count = 0;
+    HTMLOptionElement* selected_option_element = nullptr;
+    for (auto* const option : GetOptionList()) {
+      if (option->Selected()) {
+        if (++selected_count == 1)
+          selected_option_element = option;
+      }
+    }
+
+    if (selected_count == 1) {
+      text = selected_option_element->TextIndentedToRespectGroupLabel();
+      option_style_ = selected_option_element->GetComputedStyle();
+    } else {
+      Locale& locale = GetLocale();
+      String localized_number_string =
+          locale.ConvertToLocalizedNumber(String::Number(selected_count));
+      text = locale.QueryString(IDS_FORM_SELECT_MENU_LIST_TEXT,
+                                localized_number_string);
+      DCHECK(!option_style_);
+    }
+  } else {
+    if (option) {
+      text = option->TextIndentedToRespectGroupLabel();
+      option_style_ = option->GetComputedStyle();
+    }
+  }
+
+  ToLayoutMenuList(layout_object)->SetText(text.StripWhiteSpace());
+  layout_object->UpdateFromElement();
+  DidUpdateMenuListActiveOption(option);
+}
+
+const ComputedStyle* HTMLSelectElement::OptionStyle() const {
+  DCHECK(UsesMenuList());
+  return option_style_.get();
 }
 
 }  // namespace blink

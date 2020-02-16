@@ -12,22 +12,26 @@
 #import "ios/chrome/browser/ui/tab_grid/view_controller_swapping.h"
 
 @protocol ApplicationCommands;
-@class TabModel;
+@protocol BrowsingDataCommands;
 @protocol TabSwitcher;
+
+class Browser;
 
 @interface TabGridCoordinator : ChromeRootCoordinator<ViewControllerSwapping>
 
 - (instancetype)initWithWindow:(UIWindow*)window
-    applicationCommandEndpoint:
-        (id<ApplicationCommands>)applicationCommandEndpoint
+     applicationCommandEndpoint:
+         (id<ApplicationCommands>)applicationCommandEndpoint
+    browsingDataCommandEndpoint:
+        (id<BrowsingDataCommands>)browsingDataCommandEndpoint
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithWindow:(UIWindow*)window NS_UNAVAILABLE;
 
 @property(nonatomic, readonly) id<TabSwitcher> tabSwitcher;
 
-@property(nonatomic, weak) TabModel* regularTabModel;
-@property(nonatomic, weak) TabModel* incognitoTabModel;
+@property(nonatomic, assign) Browser* regularBrowser;
+@property(nonatomic, assign) Browser* incognitoBrowser;
 
 // If this property is YES, calls to |showTabSwitcher:completion:| and
 // |showTabViewController:completion:| will present the given view controllers

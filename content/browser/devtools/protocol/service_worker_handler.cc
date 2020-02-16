@@ -32,8 +32,8 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/mojom/push_messaging/push_messaging_status.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_container_type.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
-#include "third_party/blink/public/mojom/service_worker/service_worker_provider_type.mojom.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -91,13 +91,13 @@ void StopServiceWorkerOnCoreThread(
 void GetDevToolsRouteInfoOnCoreThread(
     scoped_refptr<ServiceWorkerContextWrapper> context,
     int64_t version_id,
-    const base::Callback<void(int, int)>& callback) {
+    base::OnceCallback<void(int, int)> callback) {
   if (content::ServiceWorkerVersion* version =
           context->GetLiveVersion(version_id)) {
     RunOrPostTaskOnThread(
         FROM_HERE, BrowserThread::UI,
         base::BindOnce(
-            callback, version->embedded_worker()->process_id(),
+            std::move(callback), version->embedded_worker()->process_id(),
             version->embedded_worker()->worker_devtools_agent_route_id()));
   }
 }
@@ -218,13 +218,14 @@ Response ServiceWorkerHandler::Enable() {
     return CreateContextErrorResponse();
   enabled_ = true;
 
-  context_watcher_ = new ServiceWorkerContextWatcher(
-      context_, base::Bind(&ServiceWorkerHandler::OnWorkerRegistrationUpdated,
-                           weak_factory_.GetWeakPtr()),
-      base::Bind(&ServiceWorkerHandler::OnWorkerVersionUpdated,
-                 weak_factory_.GetWeakPtr()),
-      base::Bind(&ServiceWorkerHandler::OnErrorReported,
-                 weak_factory_.GetWeakPtr()));
+  context_watcher_ = base::MakeRefCounted<ServiceWorkerContextWatcher>(
+      context_,
+      base::BindRepeating(&ServiceWorkerHandler::OnWorkerRegistrationUpdated,
+                          weak_factory_.GetWeakPtr()),
+      base::BindRepeating(&ServiceWorkerHandler::OnWorkerVersionUpdated,
+                          weak_factory_.GetWeakPtr()),
+      base::BindRepeating(&ServiceWorkerHandler::OnErrorReported,
+                          weak_factory_.GetWeakPtr()));
   context_watcher_->Start();
 
   return Response::OK();
@@ -318,9 +319,10 @@ Response ServiceWorkerHandler::InspectWorker(const std::string& version_id) {
     return CreateInvalidVersionIdErrorResponse();
   RunOrPostTaskOnThread(
       FROM_HERE, ServiceWorkerContext::GetCoreThreadId(),
-      base::BindOnce(&GetDevToolsRouteInfoOnCoreThread, context_, id,
-                     base::Bind(&ServiceWorkerHandler::OpenNewDevToolsWindow,
-                                weak_factory_.GetWeakPtr())));
+      base::BindOnce(
+          &GetDevToolsRouteInfoOnCoreThread, context_, id,
+          base::BindOnce(&ServiceWorkerHandler::OpenNewDevToolsWindow,
+                         weak_factory_.GetWeakPtr())));
   return Response::OK();
 }
 
@@ -436,7 +438,7 @@ void ServiceWorkerHandler::OnWorkerVersionUpdated(
 
     for (const auto& client : version.clients) {
       if (client.second.type ==
-          blink::mojom::ServiceWorkerProviderType::kForWindow) {
+          blink::mojom::ServiceWorkerContainerType::kForWindow) {
         // A navigation may not yet be associated with a RenderFrameHost. Use
         // the |web_contents_getter| instead.
         WebContents* web_contents =

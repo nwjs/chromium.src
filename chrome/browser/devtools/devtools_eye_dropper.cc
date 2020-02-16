@@ -22,8 +22,8 @@
 #include "media/base/video_frame.h"
 #include "media/capture/mojom/video_capture_types.mojom.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "third_party/blink/public/platform/web_input_event.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkPaint.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -115,8 +115,8 @@ void DevToolsEyeDropper::ResetFrame() {
 }
 
 bool DevToolsEyeDropper::HandleMouseEvent(const blink::WebMouseEvent& event) {
-  last_cursor_x_ = event.PositionInWidget().x;
-  last_cursor_y_ = event.PositionInWidget().y;
+  last_cursor_x_ = event.PositionInWidget().x();
+  last_cursor_y_ = event.PositionInWidget().y();
   if (frame_.drawsNothing())
     return true;
 

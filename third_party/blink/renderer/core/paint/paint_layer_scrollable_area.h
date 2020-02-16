@@ -46,6 +46,7 @@
 
 #include <memory>
 #include "base/macros.h"
+#include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/scroll_anchor.h"
 #include "third_party/blink/renderer/core/page/scrolling/sticky_position_scrolling_constraints.h"
@@ -77,6 +78,8 @@ struct CORE_EXPORT PaintLayerScrollableAreaRareData {
 
   StickyConstraintsMap sticky_constraints_map_;
   base::Optional<cc::SnapContainerData> snap_container_data_;
+  bool snap_container_data_needs_update_ = true;
+  bool needs_resnap_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(PaintLayerScrollableAreaRareData);
 };
@@ -246,10 +249,6 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   // FIXME: We should pass in the LayoutBox but this opens a window
   // for crashers during PaintLayer setup (see crbug.com/368062).
-  static PaintLayerScrollableArea* Create(PaintLayer& layer) {
-    return MakeGarbageCollected<PaintLayerScrollableArea>(layer);
-  }
-
   explicit PaintLayerScrollableArea(PaintLayer&);
   ~PaintLayerScrollableArea() override;
 
@@ -345,7 +344,8 @@ class CORE_EXPORT PaintLayerScrollableArea final
   bool UserInputScrollable(ScrollbarOrientation) const override;
   bool ShouldPlaceVerticalScrollbarOnLeft() const override;
   int PageStep(ScrollbarOrientation) const override;
-  ScrollBehavior ScrollBehaviorStyle() const override;
+  mojom::blink::ScrollIntoViewParams::Behavior ScrollBehaviorStyle()
+      const override;
   WebColorScheme UsedColorScheme() const override;
   cc::AnimationHost* GetCompositorAnimationHost() const override;
   CompositorAnimationTimeline* GetCompositorAnimationTimeline() const override;
@@ -360,20 +360,26 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   void ScrollToAbsolutePosition(
       const FloatPoint& position,
-      ScrollBehavior scroll_behavior = kScrollBehaviorInstant,
-      ScrollType scroll_type = kProgrammaticScroll) {
+      mojom::blink::ScrollIntoViewParams::Behavior scroll_behavior =
+          mojom::blink::ScrollIntoViewParams::Behavior::kInstant,
+      mojom::blink::ScrollIntoViewParams::Type scroll_type =
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic) {
     SetScrollOffset(position - ScrollOrigin(), scroll_type, scroll_behavior);
   }
 
   // This will set the scroll position without clamping, and it will do all
   // post-update work even if the scroll position didn't change.
-  void SetScrollOffsetUnconditionally(const ScrollOffset&,
-                                      ScrollType = kProgrammaticScroll);
+  void SetScrollOffsetUnconditionally(
+      const ScrollOffset&,
+      mojom::blink::ScrollIntoViewParams::Type =
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
 
   // This will set the scroll position without clamping, and it will do all
   // post-update work even if the scroll position didn't change.
-  void SetScrollPositionUnconditionally(const DoublePoint&,
-                                        ScrollType = kProgrammaticScroll);
+  void SetScrollPositionUnconditionally(
+      const DoublePoint&,
+      mojom::blink::ScrollIntoViewParams::Type =
+          mojom::blink::ScrollIntoViewParams::Type::kProgrammatic);
 
   // TODO(szager): Actually run these after all of layout is finished.
   // Currently, they run at the end of box()'es layout (or after all flexbox
@@ -439,8 +445,9 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   // Returns the new offset, after scrolling, of the given rect in absolute
   // coordinates, clipped by the parent's client rect.
-  PhysicalRect ScrollIntoView(const PhysicalRect&,
-                              const WebScrollIntoViewParams&) override;
+  PhysicalRect ScrollIntoView(
+      const PhysicalRect&,
+      const mojom::blink::ScrollIntoViewParamsPtr&) override;
 
   // Returns true if scrollable area is in the FrameView's collection of
   // scrollable areas. This can only happen if we're scrollable, visible to hit
@@ -574,11 +581,25 @@ class CORE_EXPORT PaintLayerScrollableArea final
   const cc::SnapContainerData* GetSnapContainerData() const override;
   void SetSnapContainerData(base::Optional<cc::SnapContainerData>) override;
   bool SetTargetSnapAreaElementIds(cc::TargetSnapAreaElementIds) override;
+  bool SnapContainerDataNeedsUpdate() const override;
+  void SetSnapContainerDataNeedsUpdate(bool) override;
+  bool NeedsResnap() const override;
+  void SetNeedsResnap(bool) override;
 
   base::Optional<FloatPoint> GetSnapPositionAndSetTarget(
       const cc::SnapSelectionStrategy& strategy) override;
 
   void DisposeImpl() override;
+
+  void SetPendingHistoryRestoreScrollOffset(
+      const HistoryItem::ViewState& view_state,
+      bool should_restore_scroll) override {
+    if (!should_restore_scroll)
+      return;
+    pending_view_state_ = view_state;
+  }
+
+  void ApplyPendingHistoryRestoreScrollOffset() override;
 
  private:
   bool NeedsScrollbarReconstruction() const;
@@ -591,7 +612,8 @@ class CORE_EXPORT PaintLayerScrollableArea final
   // Update the proportions used for thumb rect dimensions.
   void UpdateScrollbarProportions();
 
-  void UpdateScrollOffset(const ScrollOffset&, ScrollType) override;
+  void UpdateScrollOffset(const ScrollOffset&,
+                          mojom::blink::ScrollIntoViewParams::Type) override;
   void InvalidatePaintForScrollOffsetChange();
 
   int VerticalScrollbarStart(int min_x, int max_x) const;
@@ -768,13 +790,8 @@ class CORE_EXPORT PaintLayerScrollableArea final
   ScrollingBackgroundDisplayItemClient
       scrolling_background_display_item_client_{*this};
   ScrollCornerDisplayItemClient scroll_corner_display_item_client_{*this};
+  base::Optional<HistoryItem::ViewState> pending_view_state_;
 };
-
-DEFINE_TYPE_CASTS(PaintLayerScrollableArea,
-                  ScrollableArea,
-                  scrollableArea,
-                  scrollableArea->IsPaintLayerScrollableArea(),
-                  scrollableArea.IsPaintLayerScrollableArea());
 
 }  // namespace blink
 

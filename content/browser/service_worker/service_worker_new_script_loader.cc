@@ -23,7 +23,7 @@
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/cert/cert_status_flags.h"
-#include "services/network/public/cpp/resource_response.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 
 namespace content {
@@ -224,6 +224,9 @@ void ServiceWorkerNewScriptLoader::OnReceiveResponse(
           error_message);
       return;
     }
+
+    version_->set_cross_origin_embedder_policy(
+        response_head->cross_origin_embedder_policy);
 
     if (response_head->network_accessed)
       version_->embedded_worker()->OnNetworkAccessedForScriptLoad();

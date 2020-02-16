@@ -27,26 +27,35 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/arc/arc_util.h"
+#include "chrome/browser/ui/app_list/app_list_syncable_service_factory.h"
 #include "chromeos/constants/chromeos_features.h"
 #endif
 
 class ProfileSyncServiceFactoryTest : public testing::Test {
  public:
   void SetUp() override {
+#if defined(OS_CHROMEOS)
+    app_list::AppListSyncableServiceFactory::SetUseInTesting(true);
+#endif  // defined(OS_CHROMEOS)
+    profile_ = std::make_unique<TestingProfile>();
     // Some services will only be created if there is a WebDataService.
     profile_->CreateWebDataService();
   }
 
   void TearDown() override {
+#if defined(OS_CHROMEOS)
+    app_list::AppListSyncableServiceFactory::SetUseInTesting(false);
+#endif  // defined(OS_CHROMEOS)
     base::ThreadPoolInstance::Get()->FlushForTesting();
   }
 
  protected:
-  ProfileSyncServiceFactoryTest() : profile_(new TestingProfile()) {}
+  ProfileSyncServiceFactoryTest() = default;
+  ~ProfileSyncServiceFactoryTest() override = default;
 
   // Returns the collection of default datatypes.
   std::vector<syncer::ModelType> DefaultDatatypes() {
-    static_assert(40 == syncer::ModelType::NUM_ENTRIES,
+    static_assert(41 == syncer::ModelType::NUM_ENTRIES,
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
@@ -68,10 +77,8 @@ class ProfileSyncServiceFactoryTest : public testing::Test {
     datatypes.push_back(syncer::EXTENSIONS);
     datatypes.push_back(syncer::EXTENSION_SETTINGS);
     datatypes.push_back(syncer::APP_SETTINGS);
-    if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions) &&
-        base::FeatureList::IsEnabled(features::kDesktopPWAsUSS)) {
+    if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions))
       datatypes.push_back(syncer::WEB_APPS);
-    }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if !defined(OS_ANDROID)
@@ -123,6 +130,7 @@ class ProfileSyncServiceFactoryTest : public testing::Test {
     datatypes.push_back(syncer::USER_EVENTS);
     datatypes.push_back(syncer::USER_CONSENTS);
     datatypes.push_back(syncer::SEND_TAB_TO_SELF);
+    datatypes.push_back(syncer::SHARING_MESSAGE);
     return datatypes;
   }
 

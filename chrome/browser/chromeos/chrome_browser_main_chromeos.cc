@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "ash/keyboard/ui/resources/keyboard_resource_util.h"
+#include "ash/public/ash_interfaces.h"
 #include "ash/public/cpp/event_rewriter_controller.h"
 #include "ash/public/cpp/keyboard/keyboard_controller.h"
 #include "ash/shell.h"
@@ -100,6 +101,7 @@
 #include "chrome/browser/chromeos/power/power_metrics_reporter.h"
 #include "chrome/browser/chromeos/power/process_data_collector.h"
 #include "chrome/browser/chromeos/power/renderer_freezer.h"
+#include "chrome/browser/chromeos/power/smart_charging/smart_charging_manager.h"
 #include "chrome/browser/chromeos/printing/bulk_printers_calculator_factory.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/resource_reporter/resource_reporter.h"
@@ -123,7 +125,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
-#include "chrome/browser/ui/ash/assistant/assistant_client.h"
+#include "chrome/browser/ui/ash/assistant/assistant_client_impl.h"
 #include "chrome/browser/ui/ash/assistant/assistant_state_client.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/webui/chromeos/login/discover/discover_manager.h"
@@ -176,12 +178,14 @@
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_names.h"
+#include "content/public/browser/audio_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/device_service.h"
 #include "content/public/browser/media_capture_devices.h"
+#include "content/public/browser/media_session_service.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/notification_service.h"
-#include "content/public/browser/system_connector.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
 #include "dbus/object_path.h"
@@ -191,7 +195,6 @@
 #include "printing/backend/print_backend.h"
 #include "rlz/buildflags/buildflags.h"
 #include "services/audio/public/cpp/sounds/sounds_manager.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/base/ime/chromeos/ime_keyboard.h"
 #include "ui/base/ime/chromeos/input_method_manager.h"
@@ -530,8 +533,12 @@ void ChromeBrowserMainPartsChromeos::PreMainMessageLoopRun() {
   system_token_certdb_initializer_ =
       std::make_unique<SystemTokenCertDBInitializer>();
 
+  mojo::PendingRemote<media_session::mojom::MediaControllerManager>
+      media_controller_manager;
+  content::GetMediaSessionService().BindMediaControllerManager(
+      media_controller_manager.InitWithNewPipeAndPassReceiver());
   CrasAudioHandler::Initialize(
-      content::GetSystemConnector(),
+      std::move(media_controller_manager),
       new AudioDevicesPrefHandlerImpl(g_browser_process->local_state()));
 
   content::MediaCaptureDevices::GetInstance()->AddVideoCaptureObserver(
@@ -570,13 +577,9 @@ void ChromeBrowserMainPartsChromeos::PreMainMessageLoopRun() {
 
   discover_manager_ = std::make_unique<DiscoverManager>();
 
-  scheduler_configuration_manager_ =
-      std::make_unique<SchedulerConfigurationManager>(
-          DBusThreadManager::Get()->GetDebugDaemonClient(),
-          g_browser_process->local_state());
-
+  g_browser_process->platform_part()->InitializeSchedulerConfigurationManager();
   arc_service_launcher_ = std::make_unique<arc::ArcServiceLauncher>(
-      scheduler_configuration_manager_.get());
+      g_browser_process->platform_part()->scheduler_configuration_manager());
 
   session_termination_manager_ =
       std::make_unique<chromeos::SessionTerminationManager>();
@@ -650,7 +653,7 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
         new default_app_order::ExternalLoader(true /* async */));
   }
 
-  audio::SoundsManager::Create(content::GetSystemConnector()->Clone());
+  audio::SoundsManager::Create(content::GetAudioServiceStreamFactoryBinder());
 
   // |arc_service_launcher_| must be initialized before NoteTakingHelper.
   NoteTakingHelper::Initialize();
@@ -668,13 +671,13 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
   // ChromeBrowserMainExtraPartsAsh::session_controller_client_ to avoid race of
   // SessionChanged event and assistant_client initialization. It must come
   // after AssistantStateClient.
-  assistant_client_ = std::make_unique<AssistantClient>();
+  assistant_client_ = std::make_unique<AssistantClientImpl>();
 
   base::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::ThreadPool(), base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&version_loader::GetVersion, version_loader::VERSION_FULL),
-      base::Bind(&ChromeOSVersionCallback));
+      base::BindOnce(&version_loader::GetVersion, version_loader::VERSION_FULL),
+      base::BindOnce(&ChromeOSVersionCallback));
 
   arc_kiosk_app_manager_.reset(new ArcKioskAppManager());
   web_kiosk_app_manager_.reset(new WebKioskAppManager());
@@ -698,6 +701,13 @@ void ChromeBrowserMainPartsChromeos::PreProfileInit() {
   // ChromeBrowserMainExtraPartsAsh::PreProfileInit() which initializes
   // ash::Shell.
   ChromeBrowserMainPartsLinux::PreProfileInit();
+
+  // ash::Shell must be initialized before we can ask Ash to bind a
+  // CrosDisplayConfigController.
+  mojo::PendingRemote<ash::mojom::CrosDisplayConfigController> display_config;
+  ash::BindCrosDisplayConfigController(
+      display_config.InitWithNewPipeAndPassReceiver());
+  arc_service_launcher_->Initialize(std::move(display_config));
 
   // Needs to be initialized after ash::Shell.
   chrome_keyboard_controller_client_->Init(ash::KeyboardController::Get());
@@ -945,6 +955,8 @@ void ChromeBrowserMainPartsChromeos::PostBrowserStart() {
   // fetch of the initial CrosSettings DeviceRebootOnShutdown policy.
   shutdown_policy_forwarder_ = std::make_unique<ShutdownPolicyForwarder>();
 
+  smart_charging_manager_ = power::SmartChargingManager::CreateInstance();
+
   if (base::FeatureList::IsEnabled(
           ::features::kAdaptiveScreenBrightnessLogging)) {
     adaptive_screen_brightness_manager_ =
@@ -968,8 +980,11 @@ void ChromeBrowserMainPartsChromeos::PostBrowserStart() {
   crostini_unsupported_action_notifier_ =
       std::make_unique<crostini::CrostiniUnsupportedActionNotifier>();
 
+  mojo::PendingRemote<device::mojom::WakeLockProvider> wake_lock_provider;
+  content::GetDeviceService().BindWakeLockProvider(
+      wake_lock_provider.InitWithNewPipeAndPassReceiver());
   dark_resume_controller_ = std::make_unique<system::DarkResumeController>(
-      content::GetSystemConnector());
+      std::move(wake_lock_provider));
 
   ChromeBrowserMainPartsLinux::PostBrowserStart();
 }
@@ -1034,6 +1049,7 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
     ScreenLocker::ShutDownClass();
   low_disk_notification_.reset();
   demo_mode_resources_remover_.reset();
+  smart_charging_manager_.reset();
   adaptive_screen_brightness_manager_.reset();
   auto_screen_brightness_controller_.reset();
   dark_resume_controller_.reset();
@@ -1130,8 +1146,8 @@ void ChromeBrowserMainPartsChromeos::PostMainMessageLoopRun() {
   // Specifically, this should be done after Profile destruction run in
   // ChromeBrowserMainPartsLinux::PostMainMessageLoopRun().
   arc_service_launcher_.reset();
-  // |arc_service_launcher_| uses |scheduler_configuration_manager_|.
-  scheduler_configuration_manager_.reset();
+  // |arc_service_launcher_| uses SchedulerConfigurationManager.
+  g_browser_process->platform_part()->ShutdownSchedulerConfigurationManager();
 
   if (pre_profile_init_called_) {
     AccessibilityManager::Shutdown();

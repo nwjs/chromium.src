@@ -17,7 +17,7 @@ class BackButtonNode extends SAChildNode {
      */
     this.group_ = group;
 
-    /** @private {chrome.automation.AutomationNode} */
+    /** @private {?chrome.automation.AutomationNode} */
     this.node_ = SwitchAccess.get().getBackButtonAutomationNode();
   }
 
@@ -59,7 +59,7 @@ class BackButtonNode extends SAChildNode {
 
   /** @override */
   isEquivalentTo(node) {
-    return this.node_ === node;
+    return node instanceof BackButtonNode || this.node_ === node;
   }
 
   /** @override */
@@ -68,13 +68,20 @@ class BackButtonNode extends SAChildNode {
   }
 
   /** @override */
+  isValidAndVisible() {
+    return this.node_ !== null;
+  }
+
+  /** @override */
   onFocus() {
+    super.onFocus();
     chrome.accessibilityPrivate.setSwitchAccessMenuState(
         true, this.group_.location, 0 /* num_actions */);
   }
 
   /** @override */
   onUnfocus() {
+    super.onUnfocus();
     chrome.accessibilityPrivate.setSwitchAccessMenuState(
         false, RectHelper.ZERO_RECT, 0 /* num_actions */);
   }

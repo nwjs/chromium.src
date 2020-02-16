@@ -61,8 +61,6 @@ class LayoutTextControlSingleLine : public LayoutTextControl {
                    const PhysicalOffset& accumulated_offset,
                    HitTestAction) final;
 
-  void Autoscroll(const PhysicalOffset&) final;
-
   // Subclassed to forward to our inner div.
   LayoutUnit ScrollWidth() const final;
   LayoutUnit ScrollHeight() const final;
@@ -105,7 +103,6 @@ class LayoutTextControlInnerEditor : public LayoutBlockFlow {
   }
   bool ScrollsOverflowX() const override { return HasOverflowClip(); }
   bool ScrollsOverflowY() const override { return false; }
-  bool HasLineIfEmpty() const override { return true; }
 };
 
 }  // namespace blink

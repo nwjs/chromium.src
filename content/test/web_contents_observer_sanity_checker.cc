@@ -9,6 +9,7 @@
 #include "base/strings/stringprintf.h"
 #include "build/build_config.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
+#include "content/common/content_navigation_policy.h"
 #include "content/common/frame_messages.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -16,7 +17,6 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/common/navigation_policy.h"
 #include "net/base/net_errors.h"
 
 namespace content {
@@ -262,8 +262,7 @@ void WebContentsObserverSanityChecker::DidFinishLoad(
 void WebContentsObserverSanityChecker::DidFailLoad(
     RenderFrameHost* render_frame_host,
     const GURL& validated_url,
-    int error_code,
-    const base::string16& error_description) {
+    int error_code) {
   AssertRenderFrameExists(render_frame_host);
 }
 

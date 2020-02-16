@@ -37,16 +37,16 @@ import org.chromium.chrome.browser.browserservices.TrustedWebActivityClient;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.notifications.channels.ChannelDefinitions;
 import org.chromium.chrome.browser.notifications.channels.SiteChannelsManager;
-import org.chromium.chrome.browser.permissions.PermissionFieldTrial;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.settings.PreferencesLauncher;
-import org.chromium.chrome.browser.settings.website.SingleCategoryPreferences;
-import org.chromium.chrome.browser.settings.website.SingleWebsitePreferences;
+import org.chromium.chrome.browser.settings.SettingsLauncher;
+import org.chromium.chrome.browser.settings.website.SingleCategorySettings;
+import org.chromium.chrome.browser.settings.website.SingleWebsiteSettings;
 import org.chromium.chrome.browser.settings.website.SiteSettingsCategory;
 import org.chromium.chrome.browser.usage_stats.NotificationSuspender;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
 import org.chromium.chrome.browser.webapps.WebApkServiceClient;
+import org.chromium.components.url_formatter.SchemeDisplay;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.webapk.lib.client.WebApkIdentityServiceClient;
 import org.chromium.webapk.lib.client.WebApkValidator;
@@ -267,21 +267,22 @@ public class NotificationPlatformBridge {
             RecordUserAction.record("Notifications.ShowSiteSettings");
 
             // All preferences for a specific origin.
-            fragmentArguments = SingleWebsitePreferences.createFragmentArgsForSite(origin);
+            fragmentArguments = SingleWebsiteSettings.createFragmentArgsForSite(origin);
         } else {
             // Notification preferences for all origins.
             fragmentArguments = new Bundle();
-            fragmentArguments.putString(SingleCategoryPreferences.EXTRA_CATEGORY,
+            fragmentArguments.putString(SingleCategorySettings.EXTRA_CATEGORY,
                     SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.NOTIFICATIONS));
-            fragmentArguments.putString(SingleCategoryPreferences.EXTRA_TITLE,
+            fragmentArguments.putString(SingleCategorySettings.EXTRA_TITLE,
                     applicationContext.getResources().getString(
                             R.string.push_notifications_permission_title));
         }
 
         Class<? extends PreferenceFragmentCompat> fragment = launchSingleWebsitePreferences
-                ? SingleWebsitePreferences.class
-                : SingleCategoryPreferences.class;
-        PreferencesLauncher.launchSettingsPage(applicationContext, fragment, fragmentArguments);
+                ? SingleWebsiteSettings.class
+                : SingleCategorySettings.class;
+        SettingsLauncher.getInstance().launchSettingsPage(
+                applicationContext, fragment, fragmentArguments);
     }
 
     /**
@@ -551,9 +552,7 @@ public class NotificationPlatformBridge {
             // Display notification as Chrome.
             mNotificationManager.notify(notification);
             NotificationUmaTracker.getInstance().onNotificationShown(
-                    notificationType == NotificationType.PERMISSION_REQUEST
-                            ? PermissionFieldTrial.systemNotificationTypeToUse()
-                            : NotificationUmaTracker.SystemNotificationType.SITES,
+                    NotificationUmaTracker.SystemNotificationType.SITES,
                     notification.getNotification());
         });
     }
@@ -588,22 +587,10 @@ public class NotificationPlatformBridge {
                         .setTicker(createTickerText(title, body))
                         .setTimestamp(timestamp)
                         .setRenotify(renotify)
-                        .setOrigin(UrlFormatter.formatUrlForSecurityDisplayOmitScheme(origin))
-                        .setHideLargeIcon(notificationType == NotificationType.PERMISSION_REQUEST);
+                        .setOrigin(UrlFormatter.formatUrlForSecurityDisplay(
+                                origin, SchemeDisplay.OMIT_HTTP_AND_HTTPS));
 
-        if (notificationType == NotificationType.PERMISSION_REQUEST) {
-            assert false; // Notification permission requests are not used anymore.
-            @PermissionFieldTrial.UIFlavor
-            int ui_flavor = PermissionFieldTrial.uiFlavorToUse();
-
-            assert ui_flavor != PermissionFieldTrial.UIFlavor.MINI_INFOBAR;
-            assert ui_flavor != PermissionFieldTrial.UIFlavor.NONE;
-
-            // Notification priority is used before Android O instead of channel importance to
-            // determine how to display the notification.
-            notificationBuilder.setPriority(PermissionFieldTrial.notificationPriorityToUse());
-            notificationBuilder.setChannelId(PermissionFieldTrial.notificationChannelIdToUse());
-        } else if (shouldSetChannelId(forWebApk)) {
+        if (shouldSetChannelId(forWebApk)) {
             // TODO(crbug.com/773738): Channel ID should be retrieved from cache in native and
             // passed through to here with other notification parameters.
             String channelId = SiteChannelsManager.getInstance().getChannelIdForOrigin(origin);
@@ -651,21 +638,10 @@ public class NotificationPlatformBridge {
 
         // TODO(knollr): Generalize the NotificationPlatformBridge sufficiently to not need
         // to care about the individual notification types.
-        String fragmentName = notificationType == NotificationType.PERMISSION_REQUEST
-                ? SingleCategoryPreferences.class.getName()
-                : SingleWebsitePreferences.class.getName();
-        Bundle fragmentArguments = notificationType == NotificationType.PERMISSION_REQUEST
-                ? new Bundle()
-                : SingleWebsitePreferences.createFragmentArgsForSite(origin);
-        if (notificationType == NotificationType.PERMISSION_REQUEST) {
-            // TODO(andypaicu): this needs to be content settings type agnostic, to support
-            // future permission requests that are not for the notification permission.
-            fragmentArguments.putString(SingleCategoryPreferences.EXTRA_CATEGORY,
-                    SiteSettingsCategory.preferenceKey(SiteSettingsCategory.Type.NOTIFICATIONS));
-        }
         // Set up a pending intent for going to the settings screen for |origin|.
-        Intent settingsIntent = PreferencesLauncher.createIntentForSettingsPage(
-                context, fragmentName, fragmentArguments);
+        Intent settingsIntent = SettingsLauncher.getInstance().createIntentForSettingsPage(context,
+                SingleWebsiteSettings.class.getName(),
+                SingleWebsiteSettings.createFragmentArgsForSite(origin));
         settingsIntent.setData(makeIntentData(notificationId, origin, -1 /* actionIndex */));
         PendingIntent pendingSettingsIntent = PendingIntent.getActivity(context,
                 PENDING_INTENT_REQUEST_CODE, settingsIntent, PendingIntent.FLAG_UPDATE_CURRENT);
@@ -677,18 +653,15 @@ public class NotificationPlatformBridge {
         // don't abbreviate them.
         boolean abbreviateSiteSettings = actions.length > 0 && !useCustomLayouts(image != null);
         int settingsIconId = abbreviateSiteSettings ? 0 : R.drawable.settings_cog;
-        CharSequence settingsTitle = notificationType == NotificationType.PERMISSION_REQUEST
-                ? res.getString(R.string.notification_manage_button)
-                : abbreviateSiteSettings ? res.getString(R.string.notification_site_settings_button)
-                                         : res.getString(R.string.page_info_site_settings_button);
+        CharSequence settingsTitle = abbreviateSiteSettings
+                ? res.getString(R.string.notification_site_settings_button)
+                : res.getString(R.string.page_info_site_settings_button);
         // If the settings button is displayed together with the other buttons it has to be the
         // last one, so add it after the other actions.
         notificationBuilder.addSettingsAction(settingsIconId, settingsTitle, pendingSettingsIntent);
 
         return notificationBuilder.build(
-                new NotificationMetadata(notificationType == NotificationType.PERMISSION_REQUEST
-                                ? PermissionFieldTrial.systemNotificationTypeToUse()
-                                : NotificationUmaTracker.SystemNotificationType.SITES,
+                new NotificationMetadata(NotificationUmaTracker.SystemNotificationType.SITES,
                         notificationId /* notificationTag */, PLATFORM_ID /* notificationId */));
     }
 

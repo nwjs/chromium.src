@@ -177,10 +177,10 @@ void HTMLTextAreaElement::ParseAttribute(
     // extension by IE and NS 4.
     WrapMethod wrap;
     if (DeprecatedEqualIgnoringCase(value, "physical") ||
-        DeprecatedEqualIgnoringCase(value, "hard") ||
-        DeprecatedEqualIgnoringCase(value, "on"))
+        EqualIgnoringASCIICase(value, "hard") ||
+        EqualIgnoringASCIICase(value, "on"))
       wrap = kHardWrap;
-    else if (DeprecatedEqualIgnoringCase(value, "off"))
+    else if (EqualIgnoringASCIICase(value, "off"))
       wrap = kNoWrap;
     else
       wrap = kSoftWrap;
@@ -445,6 +445,10 @@ void HTMLTextAreaElement::SetValueCommon(
       DispatchFormControlChangeEvent();
       break;
 
+    case TextFieldEventBehavior::kDispatchInputEvent:
+      DispatchInputEvent();
+      break;
+
     case TextFieldEventBehavior::kDispatchInputAndChangeEvent:
       DispatchInputEvent();
       DispatchFormControlChangeEvent();
@@ -503,10 +507,12 @@ String HTMLTextAreaElement::validationMessage() const {
 
 bool HTMLTextAreaElement::ValueMissing() const {
   // We should not call value() for performance.
-  return willValidate() && ValueMissing(nullptr);
+  return ValueMissing(nullptr);
 }
 
 bool HTMLTextAreaElement::ValueMissing(const String* value) const {
+  // For textarea elements, the value is missing only if it is mutable.
+  // https://html.spec.whatwg.org/multipage/form-elements.html#attr-textarea-required
   return IsRequiredFormControl() && !IsDisabledOrReadOnly() &&
          (value ? *value : this->value()).IsEmpty();
 }

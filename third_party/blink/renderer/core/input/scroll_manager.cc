@@ -235,7 +235,7 @@ bool ScrollManager::CanScroll(const ScrollState& scroll_state,
   return clamped_offset != current_offset;
 }
 
-bool ScrollManager::LogicalScroll(ScrollDirection direction,
+bool ScrollManager::LogicalScroll(mojom::blink::ScrollDirection direction,
                                   ScrollGranularity granularity,
                                   Node* start_node,
                                   Node* mouse_press_node) {
@@ -334,7 +334,7 @@ bool ScrollManager::LogicalScroll(ScrollDirection direction,
 
 // TODO(bokan): This should be merged with logicalScroll assuming
 // defaultSpaceEventHandler's chaining scroll can be done crossing frames.
-bool ScrollManager::BubblingScroll(ScrollDirection direction,
+bool ScrollManager::BubblingScroll(mojom::blink::ScrollDirection direction,
                                    ScrollGranularity granularity,
                                    Node* starting_node,
                                    Node* mouse_press_node) {
@@ -589,8 +589,7 @@ WebInputEventResult ScrollManager::HandleGestureScrollUpdate(
       std::make_unique<ScrollStateData>();
   scroll_state_data->delta_x = delta.Width();
   scroll_state_data->delta_y = delta.Height();
-  scroll_state_data->delta_granularity =
-      static_cast<double>(gesture_event.DeltaUnits());
+  scroll_state_data->delta_granularity = gesture_event.DeltaUnits();
   scroll_state_data->velocity_x = velocity.Width();
   scroll_state_data->velocity_y = velocity.Height();
   scroll_state_data->position_x = position.X();
@@ -659,6 +658,8 @@ void ScrollManager::HandleDeferredGestureScrollEnd(
 WebInputEventResult ScrollManager::HandleGestureScrollEnd(
     const WebGestureEvent& gesture_event) {
   TRACE_EVENT0("input", "ScrollManager::handleGestureScrollEnd");
+  GetPage()->GetBrowserControls().ScrollEnd();
+
   Node* node = scroll_gesture_handling_node_;
 
   if (node && node->GetLayoutObject()) {
@@ -778,7 +779,7 @@ bool ScrollManager::SnapAtGestureScrollEnd(
       std::move(on_finish));
 }
 
-bool ScrollManager::GetSnapFlingInfoAndSetSnapTarget(
+bool ScrollManager::GetSnapFlingInfoAndSetAnimatingSnapTarget(
     const gfx::Vector2dF& natural_displacement,
     gfx::Vector2dF* out_initial_position,
     gfx::Vector2dF* out_target_position) const {
@@ -792,7 +793,8 @@ bool ScrollManager::GetSnapFlingInfoAndSetSnapTarget(
   std::unique_ptr<cc::SnapSelectionStrategy> strategy =
       cc::SnapSelectionStrategy::CreateForEndAndDirection(
           gfx::ScrollOffset(*out_initial_position),
-          gfx::ScrollOffset(natural_displacement));
+          gfx::ScrollOffset(natural_displacement),
+          RuntimeEnabledFeatures::FractionalScrollOffsetsEnabled());
   base::Optional<FloatPoint> snap_end =
       scrollable_area->GetSnapPositionAndSetTarget(*strategy);
   if (!snap_end.has_value())
@@ -817,7 +819,7 @@ gfx::Vector2dF ScrollManager::ScrollByForSnapFling(
   scroll_state_data->is_in_inertial_phase = true;
   scroll_state_data->from_user_input = true;
   scroll_state_data->delta_granularity =
-      static_cast<double>(ScrollGranularity::kScrollByPrecisePixel);
+      ScrollGranularity::kScrollByPrecisePixel;
   scroll_state_data->delta_consumed_for_scroll_sequence =
       delta_consumed_for_scroll_sequence_;
   auto* scroll_state =
@@ -829,7 +831,7 @@ gfx::Vector2dF ScrollManager::ScrollByForSnapFling(
   return gfx::Vector2dF(end_position.X(), end_position.Y());
 }
 
-void ScrollManager::ScrollEndForSnapFling() {
+void ScrollManager::ScrollEndForSnapFling(bool did_finish) {
   if (RuntimeEnabledFeatures::OverscrollCustomizationEnabled()) {
     if (Node* scroll_end_target = GetScrollEventTarget()) {
       scroll_end_target->GetDocument().EnqueueScrollEndEventForNode(
@@ -1096,7 +1098,8 @@ bool ScrollManager::HandleScrollGestureOnResizer(
     }
   } else if (gesture_event.GetType() == WebInputEvent::kGestureScrollUpdate) {
     if (resize_scrollable_area_ && resize_scrollable_area_->InResizeMode()) {
-      IntPoint pos = RoundedIntPoint(gesture_event.PositionInRootFrame());
+      IntPoint pos =
+          RoundedIntPoint(FloatPoint(gesture_event.PositionInRootFrame()));
       pos.Move(gesture_event.DeltaXInRootFrame(),
                gesture_event.DeltaYInRootFrame());
       resize_scrollable_area_->Resize(pos, offset_from_resize_corner_);

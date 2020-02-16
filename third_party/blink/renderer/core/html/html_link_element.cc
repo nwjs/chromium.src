@@ -56,7 +56,8 @@ namespace blink {
 HTMLLinkElement::HTMLLinkElement(Document& document,
                                  const CreateElementFlags flags)
     : HTMLElement(html_names::kLinkTag, document),
-      link_loader_(LinkLoader::Create(this)),
+      link_loader_(
+          MakeGarbageCollected<LinkLoader>(this, GetLoadingTaskRunner())),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault),
       sizes_(MakeGarbageCollected<DOMTokenList>(*this, html_names::kSizesAttr)),
       rel_list_(MakeGarbageCollected<RelList>(this)),
@@ -90,6 +91,16 @@ void HTMLLinkElement::ParseAttribute(
           }
         }
       }
+    }
+    if (rel_attribute_.IsMonetization() && !GetDocument().ParentDocument()) {
+      // TODO(1031476): The Web Monetization specification is an unofficial
+      // draft, available at https://webmonetization.org/specification.html
+      // Currently it relies on a <meta> tag but there is an open issue about
+      // whether the <link rel="monetization"> should be used instead:
+      // https://github.com/interledger/webmonetization.org/issues/19
+      // For now, only use counters are implemented in Blink.
+      UseCounter::Count(&GetDocument(),
+                        WebFeature::kHTMLLinkElementMonetization);
     }
     rel_list_->DidUpdateAttributeValue(params.old_value, value);
     Process();

@@ -7,8 +7,11 @@ package org.chromium.chrome.browser.browserservices.trustedwebactivityui.control
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +29,7 @@ import org.chromium.chrome.browser.customtabs.CloseButtonVisibilityManager;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
 import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbarCoordinator;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabImpl;
 import org.chromium.chrome.browser.webapps.WebDisplayMode;
 import org.chromium.chrome.test.util.browser.webapps.WebApkInfoBuilder;
@@ -49,12 +53,14 @@ public class TrustedWebActivityBrowserControlsVisibilityManagerTest {
     @Mock
     public CloseButtonVisibilityManager mCloseButtonVisibilityManager;
 
+    @Mock
     TrustedWebActivityBrowserControlsVisibilityManager mController;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(mTabProvider.getTab()).thenReturn(mTab);
+        when(mTab.getParentId()).thenReturn(Tab.INVALID_TAB_ID);
         setTabSecurityLevel(ConnectionSecurityLevel.NONE);
     }
 
@@ -63,9 +69,8 @@ public class TrustedWebActivityBrowserControlsVisibilityManagerTest {
      */
     @Test
     public void testDangerousSecurityLevel() {
-        setTabSecurityLevel(ConnectionSecurityLevel.DANGEROUS);
-
         mController = buildController(mock(BrowserServicesIntentDataProvider.class));
+        setTabSecurityLevel(ConnectionSecurityLevel.DANGEROUS);
         mController.updateIsInTwaMode(true);
         assertEquals(BrowserControlsState.SHOWN, getLastBrowserControlsState());
         assertFalse(getLastCloseButtonVisibility());
@@ -129,7 +134,7 @@ public class TrustedWebActivityBrowserControlsVisibilityManagerTest {
     }
 
     private void setTabSecurityLevel(int securityLevel) {
-        when(mTab.getSecurityLevel()).thenReturn(securityLevel);
+        doReturn(securityLevel).when(mController).getSecurityLevel(any());
     }
 
     private BrowserServicesIntentDataProvider buildWebApkIntentDataProvider(
@@ -142,9 +147,9 @@ public class TrustedWebActivityBrowserControlsVisibilityManagerTest {
 
     private TrustedWebActivityBrowserControlsVisibilityManager buildController(
             BrowserServicesIntentDataProvider intentDataProvider) {
-        return new TrustedWebActivityBrowserControlsVisibilityManager(mTabObserverRegistrar,
+        return spy(new TrustedWebActivityBrowserControlsVisibilityManager(mTabObserverRegistrar,
                 mTabProvider, mToolbarCoordinator, mCloseButtonVisibilityManager,
-                intentDataProvider);
+                intentDataProvider));
     }
 
     /**

@@ -39,7 +39,6 @@
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_isolated_world_ids.h"
 #include "third_party/blink/public/platform/web_isolated_world_info.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/public/web/blink.h"
@@ -721,7 +720,8 @@ blink::WebLocalFrame* TestRunnerForSpecificView::GetLocalMainFrame() {
 }
 
 WebWidgetTestProxy* TestRunnerForSpecificView::main_frame_render_widget() {
-  return static_cast<WebWidgetTestProxy*>(web_view_test_proxy_->GetWidget());
+  return static_cast<WebWidgetTestProxy*>(
+      web_view_test_proxy_->GetMainRenderFrame()->GetLocalRootRenderWidget());
 }
 
 blink::WebView* TestRunnerForSpecificView::web_view() {

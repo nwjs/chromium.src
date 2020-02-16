@@ -28,7 +28,6 @@
 #include "net/base/load_flags.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/resource_request_body.h"
-#include "services/network/public/cpp/resource_response_info.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
@@ -165,7 +164,7 @@ void ServiceWorkerControlleeRequestHandler::MaybeCreateLoader(
   resource_context_ = resource_context;
 
   // Look up a registration.
-  context_->storage()->FindRegistrationForClientUrl(
+  context_->registry()->FindRegistrationForClientUrl(
       stripped_url_,
       base::BindOnce(
           &ServiceWorkerControlleeRequestHandler::ContinueWithRegistration,
@@ -282,13 +281,15 @@ void ServiceWorkerControlleeRequestHandler::ContinueWithRegistration(
   if (ServiceWorkerContext::IsServiceWorkerOnUIEnabled()) {
     allow_service_worker =
         GetContentClient()->browser()->AllowServiceWorkerOnUI(
-            registration->scope(), container_host_->site_for_cookies(),
+            registration->scope(),
+            container_host_->site_for_cookies().RepresentativeUrl(),
             container_host_->top_frame_origin(), /*script_url=*/GURL(),
             browser_context_, container_host_->web_contents_getter());
   } else {
     allow_service_worker =
         GetContentClient()->browser()->AllowServiceWorkerOnIO(
-            registration->scope(), container_host_->site_for_cookies(),
+            registration->scope(),
+            container_host_->site_for_cookies().RepresentativeUrl(),
             container_host_->top_frame_origin(), /*script_url=*/GURL(),
             resource_context_, container_host_->web_contents_getter());
   }
@@ -439,7 +440,7 @@ void ServiceWorkerControlleeRequestHandler::ContinueWithActivatedVersion(
   DCHECK_NE(active_version->fetch_handler_existence(),
             ServiceWorkerVersion::FetchHandlerExistence::UNKNOWN);
   ServiceWorkerMetrics::CountControlledPageLoad(
-      active_version->site_for_uma(), stripped_url_,
+      active_version->site_for_uma(),
       resource_type_ == ResourceType::kMainFrame);
 
   if (IsResourceTypeFrame(resource_type_))
@@ -496,7 +497,7 @@ void ServiceWorkerControlleeRequestHandler::DidUpdateRegistration(
       !original_registration->installing_version()) {
     // Update failed. Look up the registration again since the original
     // registration was possibly unregistered in the meantime.
-    context_->storage()->FindRegistrationForClientUrl(
+    context_->registry()->FindRegistrationForClientUrl(
         stripped_url_,
         base::BindOnce(
             &ServiceWorkerControlleeRequestHandler::ContinueWithRegistration,
@@ -552,7 +553,7 @@ void ServiceWorkerControlleeRequestHandler::OnUpdatedVersionStatusChanged(
     // When the status is REDUNDANT, the update failed (eg: script error), we
     // continue with the incumbent version.
     // In case unregister job may have run, look up the registration again.
-    context_->storage()->FindRegistrationForClientUrl(
+    context_->registry()->FindRegistrationForClientUrl(
         stripped_url_,
         base::BindOnce(
             &ServiceWorkerControlleeRequestHandler::ContinueWithRegistration,

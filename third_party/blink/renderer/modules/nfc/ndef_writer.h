@@ -15,7 +15,7 @@
 
 namespace blink {
 
-class NDEFPushOptions;
+class NDEFWriteOptions;
 class ExceptionState;
 class ExecutionContext;
 class ScriptPromise;
@@ -35,24 +35,24 @@ class NDEFWriter : public ScriptWrappable, public ContextClient {
 
   void Trace(blink::Visitor*) override;
 
-  // Pushes NDEFMessageSource asynchronously to NFC tag / peer.
-  ScriptPromise push(ScriptState*,
-                     const NDEFMessageSource&,
-                     const NDEFPushOptions*,
-                     ExceptionState&);
+  // Write NDEFMessageSource asynchronously to NFC tag.
+  ScriptPromise write(ScriptState*,
+                      const NDEFMessageSource&,
+                      const NDEFWriteOptions*,
+                      ExceptionState&);
 
   // Called by NFCProxy for notification about connection error.
   void OnMojoConnectionError();
 
  private:
   void InitNfcProxyIfNeeded();
-  void Abort(const String& target, ScriptPromiseResolver* resolver);
+  void Abort(ScriptPromiseResolver* resolver);
   void OnRequestCompleted(ScriptPromiseResolver* resolver,
                           device::mojom::blink::NDEFErrorPtr error);
 
   // Permission handling
   void OnRequestPermission(ScriptPromiseResolver* resolver,
-                           const NDEFPushOptions* options,
+                           const NDEFWriteOptions* options,
                            device::mojom::blink::NDEFMessagePtr ndef_message,
                            mojom::blink::PermissionStatus status);
   mojom::blink::PermissionService* GetPermissionService();

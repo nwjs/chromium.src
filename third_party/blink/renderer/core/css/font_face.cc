@@ -32,6 +32,7 @@
 
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/string_or_array_buffer_or_array_buffer_view.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_font_face_descriptors.h"
 #include "third_party/blink/renderer/core/css/binary_data_font_face_source.h"
 #include "third_party/blink/renderer/core/css/css_font_face.h"
 #include "third_party/blink/renderer/core/css/css_font_face_src_value.h"
@@ -42,7 +43,6 @@
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/css_unicode_range_value.h"
 #include "third_party/blink/renderer/core/css/css_value_list.h"
-#include "third_party/blink/renderer/core/css/font_face_descriptors.h"
 #include "third_party/blink/renderer/core/css/local_font_face_source.h"
 #include "third_party/blink/renderer/core/css/offscreen_font_selector.h"
 #include "third_party/blink/renderer/core/css/parser/at_rule_descriptor_parser.h"
@@ -463,7 +463,7 @@ void FontFace::SetError(DOMException* error) {
 ScriptPromise FontFace::FontStatusPromise(ScriptState* script_state) {
   if (!loaded_property_) {
     loaded_property_ = MakeGarbageCollected<LoadedProperty>(
-        ExecutionContext::From(script_state), this, LoadedProperty::kLoaded);
+        ExecutionContext::From(script_state));
     if (status_ == kLoaded)
       loaded_property_->Resolve(this);
     else if (status_ == kError)

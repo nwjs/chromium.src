@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_APPS_APP_SERVICE_EXTENSION_APPS_H_
 #define CHROME_BROWSER_APPS_APP_SERVICE_EXTENSION_APPS_H_
 
+#include <map>
+#include <set>
 #include <string>
 
 #include "base/macros.h"
@@ -57,8 +59,6 @@ class ExtensionApps : public apps::mojom::Publisher,
   static void RecordUninstallCanceledAction(Profile* profile,
                                             const std::string& app_id);
 
-  static bool ShowPauseAppDialog(const std::string& app_id);
-
   ExtensionApps(const mojo::Remote<apps::mojom::AppService>& app_service,
                 Profile* profile,
                 apps::mojom::AppType app_type,
@@ -103,6 +103,10 @@ class ExtensionApps : public apps::mojom::Publisher,
                  bool report_abuse) override;
   void PauseApp(const std::string& app_id) override;
   void UnpauseApps(const std::string& app_id) override;
+  void GetMenuModel(const std::string& app_id,
+                    apps::mojom::MenuType menu_type,
+                    int64_t display_id,
+                    GetMenuModelCallback callback) override;
   void OpenNativeSettings(const std::string& app_id) override;
   void OnPreferredAppSet(const std::string& app_id,
                          apps::mojom::IntentFilterPtr intent_filter,
@@ -118,6 +122,8 @@ class ExtensionApps : public apps::mojom::Publisher,
   void OnAppWindowAdded(extensions::AppWindow* app_window) override;
   void OnAppWindowShown(extensions::AppWindow* app_window,
                         bool was_hidden) override;
+  void OnAppWindowHidden(extensions::AppWindow* app_window) override;
+  void OnAppWindowRemoved(extensions::AppWindow* app_window) override;
 
   // extensions::ExtensionPrefsObserver overrides.
   void OnExtensionLastLaunchTimeChanged(
@@ -192,7 +198,11 @@ class ExtensionApps : public apps::mojom::Publisher,
 
   void SetIconEffect(const std::string& app_id);
 
+  bool ShouldRecordAppWindowActivity(extensions::AppWindow* app_window);
   void RegisterInstance(extensions::AppWindow* app_window, InstanceState state);
+
+  void GetMenuModelForChromeBrowserApp(apps::mojom::MenuType menu_type,
+                                       GetMenuModelCallback callback);
 
   mojo::Receiver<apps::mojom::Publisher> receiver_{this};
   mojo::RemoteSet<apps::mojom::Subscriber> subscribers_;
@@ -220,6 +230,8 @@ class ExtensionApps : public apps::mojom::Publisher,
   std::map<std::string, EnableFlowPtr> enable_flow_map_;
 
   std::set<std::string> paused_apps_;
+
+  std::map<extensions::AppWindow*, aura::Window*> app_window_to_aura_window_;
 
   ArcAppListPrefs* arc_prefs_ = nullptr;
 

@@ -6,9 +6,9 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_payment_validation_errors.h"
 #include "third_party/blink/renderer/modules/payments/payment_address.h"
 #include "third_party/blink/renderer/modules/payments/payment_state_resolver.h"
-#include "third_party/blink/renderer/modules/payments/payment_validation_errors.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -109,20 +109,24 @@ ScriptValue PaymentResponse::details(ScriptState* script_state) const {
 }
 
 ScriptPromise PaymentResponse::complete(ScriptState* script_state,
-                                        const String& result) {
+                                        const String& result,
+                                        ExceptionState& exception_state) {
   PaymentStateResolver::PaymentComplete converted_result =
       PaymentStateResolver::PaymentComplete::kUnknown;
   if (result == "success")
     converted_result = PaymentStateResolver::PaymentComplete::kSuccess;
   else if (result == "fail")
     converted_result = PaymentStateResolver::PaymentComplete::kFail;
-  return payment_state_resolver_->Complete(script_state, converted_result);
+  return payment_state_resolver_->Complete(script_state, converted_result,
+                                           exception_state);
 }
 
 ScriptPromise PaymentResponse::retry(
     ScriptState* script_state,
-    const PaymentValidationErrors* error_fields) {
-  return payment_state_resolver_->Retry(script_state, error_fields);
+    const PaymentValidationErrors* error_fields,
+    ExceptionState& exception_state) {
+  return payment_state_resolver_->Retry(script_state, error_fields,
+                                        exception_state);
 }
 
 bool PaymentResponse::HasPendingActivity() const {

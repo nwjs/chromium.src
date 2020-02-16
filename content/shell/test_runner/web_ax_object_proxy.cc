@@ -10,7 +10,6 @@
 #include "base/strings/stringprintf.h"
 #include "gin/handle.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
-#include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/blink.h"
@@ -71,8 +70,6 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("ComboBoxMenuButton");
     case ax::mojom::Role::kComment:
       return result.append("Comment");
-    case ax::mojom::Role::kCommentSection:
-      return result.append("CommentSection");
     case ax::mojom::Role::kComplementary:
       return result.append("Complementary");
     case ax::mojom::Role::kContentDeletion:
@@ -285,6 +282,8 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("Note");
     case ax::mojom::Role::kParagraph:
       return result.append("Paragraph");
+    case ax::mojom::Role::kPluginObject:
+      return result.append("PluginObject");
     case ax::mojom::Role::kPopUpButton:
       return result.append("PopUpButton");
     case ax::mojom::Role::kPre:
@@ -299,8 +298,6 @@ std::string RoleToString(ax::mojom::Role role) {
       return result.append("RadioGroup");
     case ax::mojom::Role::kRegion:
       return result.append("Region");
-    case ax::mojom::Role::kRevision:
-      return result.append("Revision");
     case ax::mojom::Role::kRow:
       return result.append("Row");
     case ax::mojom::Role::kRowGroup:
@@ -436,8 +433,8 @@ blink::WebFloatRect BoundsForObject(const blink::WebAXObject& object) {
   gfx::RectF computedBounds(0, 0, bounds.width, bounds.height);
   while (!container.IsDetached()) {
     computedBounds.Offset(bounds.x, bounds.y);
-    computedBounds.Offset(-container.GetScrollOffset().x,
-                          -container.GetScrollOffset().y);
+    computedBounds.Offset(-container.GetScrollOffset().x(),
+                          -container.GetScrollOffset().y());
     if (!matrix.isIdentity()) {
       gfx::Transform transform(matrix);
       transform.TransformRect(&computedBounds);
@@ -780,7 +777,8 @@ gin::ObjectTemplateBuilder WebAXObjectProxy::GetObjectTemplateBuilder(
                  &WebAXObjectProxy::AriaActiveDescendantElement)
       .SetMethod("ariaControlsElementAtIndex",
                  &WebAXObjectProxy::AriaControlsElementAtIndex)
-      .SetMethod("ariaDetailsElement", &WebAXObjectProxy::AriaDetailsElement)
+      .SetMethod("ariaDetailsElementAtIndex",
+                 &WebAXObjectProxy::AriaDetailsElementAtIndex)
       .SetMethod("ariaErrorMessageElement",
                  &WebAXObjectProxy::AriaErrorMessageElement)
       .SetMethod("ariaFlowToElementAtIndex",
@@ -1547,14 +1545,19 @@ v8::Local<v8::Object> WebAXObjectProxy::AriaControlsElementAtIndex(
   return factory_->GetOrCreate(elements[index]);
 }
 
-v8::Local<v8::Object> WebAXObjectProxy::AriaDetailsElement() {
+v8::Local<v8::Object> WebAXObjectProxy::AriaDetailsElementAtIndex(
+    unsigned index) {
   accessibility_object_.UpdateLayoutAndCheckValidity();
   SparseAttributeAdapter attribute_adapter;
   accessibility_object_.GetSparseAXAttributes(attribute_adapter);
-  blink::WebAXObject element =
-      attribute_adapter
-          .object_attributes[blink::WebAXObjectAttribute::kAriaDetails];
-  return factory_->GetOrCreate(element);
+  blink::WebVector<blink::WebAXObject> elements =
+      attribute_adapter.object_vector_attributes
+          [blink::WebAXObjectVectorAttribute::kAriaDetails];
+  size_t elementCount = elements.size();
+  if (index >= elementCount)
+    return v8::Local<v8::Object>();
+
+  return factory_->GetOrCreate(elements[index]);
 }
 
 v8::Local<v8::Object> WebAXObjectProxy::AriaErrorMessageElement() {
@@ -1641,7 +1644,7 @@ v8::Local<v8::Object> WebAXObjectProxy::ChildAtIndex(int index) {
 
 v8::Local<v8::Object> WebAXObjectProxy::ElementAtPoint(int x, int y) {
   accessibility_object_.UpdateLayoutAndCheckValidity();
-  blink::WebPoint point(x, y);
+  gfx::Point point(x, y);
   blink::WebAXObject obj = accessibility_object_.HitTest(point);
   if (obj.IsNull())
     return v8::Local<v8::Object>();
@@ -1822,17 +1825,17 @@ void WebAXObjectProxy::ScrollToMakeVisibleWithSubFocus(int x,
 
 void WebAXObjectProxy::ScrollToGlobalPoint(int x, int y) {
   accessibility_object_.UpdateLayoutAndCheckValidity();
-  accessibility_object_.ScrollToGlobalPoint(blink::WebPoint(x, y));
+  accessibility_object_.ScrollToGlobalPoint(gfx::Point(x, y));
 }
 
 int WebAXObjectProxy::ScrollX() {
   accessibility_object_.UpdateLayoutAndCheckValidity();
-  return accessibility_object_.GetScrollOffset().x;
+  return accessibility_object_.GetScrollOffset().x();
 }
 
 int WebAXObjectProxy::ScrollY() {
   accessibility_object_.UpdateLayoutAndCheckValidity();
-  return accessibility_object_.GetScrollOffset().y;
+  return accessibility_object_.GetScrollOffset().y();
 }
 
 std::string WebAXObjectProxy::ToString() {

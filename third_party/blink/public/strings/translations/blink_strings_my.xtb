@@ -11,6 +11,7 @@
 <translation id="1206693055195146388">ရွှေ့ရန်ဘားတန်း</translation>
 <translation id="1211441953136645838">အဆုံးသတ် မှတ်ချက်</translation>
 <translation id="1281252709823657822">ဒိုင်ယာလော့</translation>
+<translation id="1306460908038601864">ပိတ်ထားသည်</translation>
 <translation id="1335095011850992622">မှတ်တမ်းတင်ထိုက်သူများ စာရင်း</translation>
 <translation id="1342835525016946179">ဆောင်းပါး</translation>
 <translation id="1359897965706325498">နဖူးစည်းစာတန်း</translation>
@@ -82,7 +83,6 @@
 <translation id="3822383571486410024">ကျေးဇူးပြုပြီး ဤစာသားကို စာလုံး <ph name="MIN_CHARACTERS" /> လုံး သို့မဟုတ် ထို့ထက်ပို ရှည်ပေးပါ (သင်သည် ယခု စာလုံး <ph name="CURRENT_LENGTH" /> လုံးကို သုံးထားသည်)။</translation>
 <translation id="383465348367842624">'<ph name="ATSIGN" />'၏ နောက်မှာ ပါလာသည့် အပိုင်း ထဲတွင် သင်္ကေတာ '<ph name="INVALIDCHARACTER" />' မပါရပါ။</translation>
 <translation id="3846214748874656680">မျက်နှာပြင်အပြည့်မှ ထွက်ရန်</translation>
-<translation id="3889183436948184105">ပြန်လည်ပြင်ဆင်မှု</translation>
 <translation id="3920932319529768807">နိဂုံး</translation>
 <translation id="3924558731517983934">အက်ပ်</translation>
 <translation id="3944740393230681990">ပဏာမ</translation>
@@ -115,6 +115,7 @@
 <translation id="4812940957355064477">နံ</translation>
 <translation id="4912536737030637138">ကျမ်းကိုးစာရင်း အကြောင်းအရာ</translation>
 <translation id="492244087561876220">မှတ်ချက်</translation>
+<translation id="4971739861736909480"><ph name="ACCNAME" /> ကို ရွေးထားသည်</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> ရွေးထား</translation>
 <translation id="4992066212339426712">အသံတိတ်မှုဖြုတ်မည်</translation>
 <translation id="49969490063480558">'<ph name="ATSIGN" />' ၏နောက်တွင် အပိုင်းတစ်ပိုင်း ရိုက်ထည့်ပါ။ '<ph name="INVALIDADDRESS" />' က မပြည့်စုံပါ။</translation>
@@ -129,6 +130,7 @@
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
 <translation id="5307600278924710095">'<ph name="ATSIGN" />' ၏နောက်တွင် တစ်ပိုင်း ရိုက်ထည့်ပါ။ '<ph name="INVALIDADDRESS" />' က မပြည့်စုံပါ။</translation>
 <translation id="5334352251556557839">မီဒီယာ ဖွင့်၍ မရပါ။</translation>
+<translation id="537648784377940524">အနည်းဆုံးရက်စွဲ (<ph name="MIN_DATE_OR_TIME" />) သည် အများဆုံးရက်စွဲ (<ph name="MAX_DATE_OR_TIME" />) အရင် ဖြစ်ရပါမည်။</translation>
 <translation id="5406322316791861025">ပုံပန်း</translation>
 <translation id="5453733299334684579">သစ်ပင်ပုံစံဇယား အကြောင်းအရာ</translation>
 <translation id="5466621249238537318">ကျေးဇူးပြုပြီး ဖိုင် တစ်ခု သို့ ပိုများပြီး ရွေးပါ။</translation>
@@ -144,7 +146,6 @@
 <translation id="5677946354068040947">နောက်ထပ် ရွေးချယ်စရာများ</translation>
 <translation id="576709008726043716">နိဒါန်း</translation>
 <translation id="57838592816432529">တိတ်ရန်</translation>
-<translation id="5860033963881614850">ပိတ်ထား</translation>
 <translation id="588258955323874662">မျက်နှာပြင် အပြည့်</translation>
 <translation id="5888666972993069672"><ph name="DEVICE_FRIENDLY_NAME" /> သို့ ယခု ကာစ်လုပ်နေသည်</translation>
 <translation id="591047860372322273">ရှာဖွေစာလုံးဖြည့်ရန် ကွက်လပ်</translation>
@@ -219,6 +220,7 @@
 <translation id="7888071071722539607">ကျေးဇူးပြု၍ အီးမေးလ်လိပ်စာတွင် '<ph name="ATSIGN" />' တစ်ခုပါရှိစေပါ။ '<ph name="INVALIDADDRESS" />' တွင် '<ph name="ATSIGN" />' ပျောက်နေသည်။</translation>
 <translation id="7891486169920085145">ခွဲခြင်းစနစ်</translation>
 <translation id="795667975304826397">ဖိုင် မရွေးထား</translation>
+<translation id="7962328325860248200"><ph name="ACCNAME" /> ကို ရွေးမထားပါ</translation>
 <translation id="8034303206267677282">အားကောင်းသည်</translation>
 <translation id="8053789581856978548">ရှာဖွေရေး စာသား အကွက်</translation>
 <translation id="8057695513531652401">သတိပေးချက်</translation>
@@ -257,7 +259,6 @@
 <translation id="8987927404178983737">လ</translation>
 <translation id="901493112792887934">စက္ကန့်အားဖြင့် လက်ရှိအချိန်</translation>
 <translation id="901834265349196618">အီးမေးလ်</translation>
-<translation id="9023835124071926463">မှတ်ချက်ကဏ္ဍ</translation>
 <translation id="9048119486235211610">သွားလာမှု</translation>
 <translation id="9062295712474918030">စာရွက်စာတမ်း</translation>
 <translation id="9093215626363556771">တစ်ခုပေါ်တစ်ခု ထပ်၍ဖွင့်သည့် မုဒ်မှ ထွက်ရန်</translation>

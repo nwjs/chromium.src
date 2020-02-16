@@ -11,8 +11,8 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.widget.LinearLayout;
 
-import org.chromium.chrome.browser.snackbar.TemplatePreservingTextView;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.widget.text.TemplatePreservingTextView;
 import org.chromium.ui.widget.ButtonCompat;
 import org.chromium.ui.widget.ChromeImageView;
 
@@ -38,7 +38,9 @@ class MessageCardView extends LinearLayout {
     /**
      * An interface to handle the dismiss action.
      */
-    public interface DismissActionProvider { void dismiss(); }
+    public interface DismissActionProvider {
+        void dismiss(@MessageService.MessageType int messageType);
+    }
 
     private ChromeImageView mIcon;
     private TemplatePreservingTextView mDescription;

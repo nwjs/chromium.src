@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/cancelable_callback.h"
 #include "base/containers/id_map.h"
 #include "base/debug/stack_trace.h"
 #include "base/gtest_prod_util.h"
@@ -43,6 +44,7 @@
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "services/network/public/mojom/cross_origin_embedder_policy.mojom.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom.h"
@@ -80,7 +82,6 @@ class ServiceWorkerVersionTest;
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, FailToStart_Timeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, IdleTimeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, MixedRequestTimeouts);
-FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RegisterForeignFetchScopes);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestCustomizedTimeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestNowTimeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestTimeout);
@@ -191,6 +192,8 @@ class CONTENT_EXPORT ServiceWorkerVersion
     virtual ~Observer() {}
   };
 
+  // The constructor should be called only from ServiceWorkerRegistry other than
+  // tests.
   ServiceWorkerVersion(ServiceWorkerRegistration* registration,
                        const GURL& script_url,
                        blink::mojom::ScriptType script_type,
@@ -513,6 +516,15 @@ class CONTENT_EXPORT ServiceWorkerVersion
     return used_features_;
   }
 
+  void set_cross_origin_embedder_policy(
+      network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy) {
+    cross_origin_embedder_policy_ = cross_origin_embedder_policy;
+  }
+  network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy()
+      const {
+    return cross_origin_embedder_policy_;
+  }
+
   void set_script_response_time_for_devtools(base::Time response_time) {
     script_response_time_for_devtools_ = std::move(response_time);
   }
@@ -545,7 +557,8 @@ class CONTENT_EXPORT ServiceWorkerVersion
   void PrepareForUpdate(
       std::map<GURL, ServiceWorkerUpdateChecker::ComparedScriptInfo>
           compared_script_info_map,
-      const GURL& updated_script_url);
+      const GURL& updated_script_url,
+      network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy);
   const std::map<GURL, ServiceWorkerUpdateChecker::ComparedScriptInfo>&
   compared_script_info_map() const;
   ServiceWorkerUpdateChecker::ComparedScriptInfo TakeComparedScriptInfo(
@@ -858,6 +871,10 @@ class CONTENT_EXPORT ServiceWorkerVersion
 
   void InitializeGlobalScope();
 
+  // Update the idle delay if the worker is starting or running and we don't
+  // have to terminate the worker ASAP (e.g. for activation).
+  void UpdateIdleDelayIfNeeded(base::TimeDelta delay);
+
   const int64_t version_id_;
   const int64_t registration_id_;
   const GURL script_url_;
@@ -874,6 +891,12 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // doesn't necessarily exist whenever there is a live version.
   blink::mojom::NavigationPreloadState navigation_preload_state_;
   ServiceWorkerMetrics::Site site_for_uma_;
+
+  // Cross-Origin-Embedder-Policy for the service worker script. This persists
+  // in the disk. kNone is set if this is a brand-new service worker whose main
+  // script is not loaded yet.
+  network::mojom::CrossOriginEmbedderPolicy cross_origin_embedder_policy_ =
+      network::mojom::CrossOriginEmbedderPolicy::kNone;
 
   Status status_ = NEW;
   std::unique_ptr<EmbeddedWorkerInstance> embedded_worker_;
@@ -932,7 +955,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // Keeps track of the provider hosting this running service worker for this
   // version. |provider_host_| is always valid as long as this version is
   // running.
-  base::WeakPtr<ServiceWorkerProviderHost> provider_host_;
+  std::unique_ptr<ServiceWorkerProviderHost> provider_host_;
 
   // |controllee_map_| and |bfcached_controllee_map_| should not share the same
   // controllee.
@@ -1033,6 +1056,12 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // TODO(crbug.com/951571): Remove once the bug is debugged.
   // This is set when this service worker becomes redundant.
   base::debug::StackTrace redundant_state_callstack_;
+
+  // Callback to stop service worker small seconds after all controllees are
+  // gone. This callback can be canceled when the service worker starts to
+  // control another client and we know the worker needs to be used more.
+  // Used only when ServiceWorkerTerminationOnNoControllee is on.
+  base::CancelableOnceClosure stop_on_no_controllee_callback_;
 
   base::WeakPtrFactory<ServiceWorkerVersion> weak_factory_{this};
 

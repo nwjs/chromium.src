@@ -41,6 +41,7 @@
 #include "extensions/browser/uninstall_reason.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_id.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest.h"
 
@@ -72,6 +73,7 @@ class ExtensionUpdater;
 class ExternalInstallManager;
 class SharedModuleService;
 class UpdateObserver;
+enum class UnloadedExtensionReason;
 
 // This is an interface class to encapsulate the dependencies that
 // various classes have on ExtensionService. This allows easy mocking.
@@ -484,6 +486,11 @@ class ExtensionService : public ExtensionServiceInterface,
 
   // Common helper to finish installing the given extension.
   void FinishInstallation(const Extension* extension);
+
+  // Sets the policy settings for the extension basically
+  // by delegating this to the permission_data_updater.
+  // Holds for default and policy settings.
+  void SetPolicySettingsForExtension(const Extension* extension);
 
   // Disables the extension if the privilege level has increased
   // (e.g., due to an upgrade).

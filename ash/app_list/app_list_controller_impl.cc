@@ -13,6 +13,7 @@
 #include "ash/app_list/model/app_list_item.h"
 #include "ash/app_list/views/app_list_main_view.h"
 #include "ash/app_list/views/app_list_view.h"
+#include "ash/app_list/views/apps_container_view.h"
 #include "ash/app_list/views/contents_view.h"
 #include "ash/app_list/views/search_box_view.h"
 #include "ash/assistant/assistant_controller.h"
@@ -63,6 +64,9 @@
 #include "ui/wm/public/activation_client.h"
 
 namespace ash {
+
+using chromeos::assistant::mojom::AssistantEntryPoint;
+using chromeos::assistant::mojom::AssistantExitPoint;
 
 namespace {
 
@@ -123,16 +127,17 @@ void SetAssistantPrivacyInfoDismissed() {
   prefs->SetBoolean(prefs::kAssistantPrivacyInfoDismissedInLauncher, true);
 }
 
-// Whether a window will be shown over the applist when shown in tablet mode.
-bool HasVisibleWindows() {
+// Gets the MRU window shown over the applist when in tablet mode.
+// Returns nullptr if no windows are shown over the applist.
+aura::Window* GetTopVisibleWindow() {
   std::vector<aura::Window*> window_list =
-      ash::Shell::Get()->mru_window_tracker()->BuildMruWindowList(
-          ash::DesksMruType::kActiveDesk);
+      Shell::Get()->mru_window_tracker()->BuildWindowListIgnoreModal(
+          DesksMruType::kActiveDesk);
   for (auto* window : window_list) {
-    if (window->TargetVisibility())
-      return true;
+    if (window->TargetVisibility() && !WindowState::Get(window)->IsMinimized())
+      return window;
   }
-  return false;
+  return nullptr;
 }
 
 void LogAppListShowSource(AppListShowSource show_source) {
@@ -181,6 +186,11 @@ AppListControllerImpl::AppListControllerImpl()
 }
 
 AppListControllerImpl::~AppListControllerImpl() {
+  if (tracked_app_window_) {
+    tracked_app_window_->RemoveObserver(this);
+    tracked_app_window_ = nullptr;
+  }
+
   // If this is being destroyed before the Shell starts shutting down, first
   // remove this from objects it's observing.
   if (!is_shutdown_)
@@ -216,7 +226,7 @@ SearchModel* AppListControllerImpl::GetSearchModel() {
 }
 
 void AppListControllerImpl::AddItem(
-    std::unique_ptr<ash::AppListItemMetadata> item_data) {
+    std::unique_ptr<AppListItemMetadata> item_data) {
   const std::string folder_id = item_data->folder_id;
   if (folder_id.empty())
     model_->AddItem(CreateAppListItem(std::move(item_data)));
@@ -225,7 +235,7 @@ void AppListControllerImpl::AddItem(
 }
 
 void AppListControllerImpl::AddItemToFolder(
-    std::unique_ptr<ash::AppListItemMetadata> item_data,
+    std::unique_ptr<AppListItemMetadata> item_data,
     const std::string& folder_id) {
   // When we're setting a whole model of a profile, each item may have its
   // folder id set properly. However, |AppListModel::AddItemToFolder| requires
@@ -249,11 +259,11 @@ void AppListControllerImpl::MoveItemToFolder(const std::string& id,
   model_->MoveItemToFolder(item, folder_id);
 }
 
-void AppListControllerImpl::SetStatus(ash::AppListModelStatus status) {
+void AppListControllerImpl::SetStatus(AppListModelStatus status) {
   model_->SetStatus(status);
 }
 
-void AppListControllerImpl::SetState(ash::AppListState state) {
+void AppListControllerImpl::SetState(AppListState state) {
   model_->SetState(state);
 }
 
@@ -283,7 +293,7 @@ void AppListControllerImpl::UpdateSearchBox(const base::string16& text,
 }
 
 void AppListControllerImpl::PublishSearchResults(
-    std::vector<std::unique_ptr<ash::SearchResultMetadata>> results) {
+    std::vector<std::unique_ptr<SearchResultMetadata>> results) {
   std::vector<std::unique_ptr<SearchResult>> new_results;
   for (auto& result_metadata : results) {
     std::unique_ptr<SearchResult> result = std::make_unique<SearchResult>();
@@ -295,7 +305,7 @@ void AppListControllerImpl::PublishSearchResults(
 
 void AppListControllerImpl::SetItemMetadata(
     const std::string& id,
-    std::unique_ptr<ash::AppListItemMetadata> data) {
+    std::unique_ptr<AppListItemMetadata> data) {
   AppListItem* item = model_->FindItem(id);
   if (!item)
     return;
@@ -350,7 +360,7 @@ void AppListControllerImpl::SetItemPercentDownloaded(
 
 void AppListControllerImpl::SetModelData(
     int profile_id,
-    std::vector<std::unique_ptr<ash::AppListItemMetadata>> apps,
+    std::vector<std::unique_ptr<AppListItemMetadata>> apps,
     bool is_search_engine_google) {
   // Clear old model data.
   model_->DeleteAllItems();
@@ -375,7 +385,7 @@ void AppListControllerImpl::SetModelData(
 }
 
 void AppListControllerImpl::SetSearchResultMetadata(
-    std::unique_ptr<ash::SearchResultMetadata> metadata) {
+    std::unique_ptr<SearchResultMetadata> metadata) {
   SearchResult* result = search_model_.FindSearchResult(metadata->id);
   if (result)
     result->SetMetadata(std::move(metadata));
@@ -437,7 +447,7 @@ void AppListControllerImpl::ResolveOemFolderPosition(
     ResolveOemFolderPositionCallback callback) {
   // In ash:
   AppListFolderItem* ash_oem_folder = FindFolderItem(kOemFolderId);
-  std::unique_ptr<ash::AppListItemMetadata> metadata;
+  std::unique_ptr<AppListItemMetadata> metadata;
   if (ash_oem_folder) {
     const syncer::StringOrdinal& oem_folder_pos =
         preferred_oem_position.IsValid() ? preferred_oem_position
@@ -449,6 +459,11 @@ void AppListControllerImpl::ResolveOemFolderPosition(
 }
 
 void AppListControllerImpl::DismissAppList() {
+  if (tracked_app_window_) {
+    tracked_app_window_->RemoveObserver(this);
+    tracked_app_window_ = nullptr;
+  }
+
   presenter_.Dismiss(base::TimeTicks());
 }
 
@@ -490,17 +505,35 @@ void AppListControllerImpl::OnActiveUserPrefServiceChanged(
     return;
   }
 
-  // Show the app list after signing in in tablet mode. For metrics, the app
-  // list is not considered shown since the browser window is shown over app
-  // list upon login.
-  Show(GetDisplayIdToShowAppListOn(), base::nullopt /* no AppListShowSource */,
-       base::TimeTicks());
-
   // The app list is not dismissed before switching user, suggestion chips will
   // not be shown. So reset app list state and trigger an initial search here to
   // update the suggestion results.
-  presenter_.GetView()->CloseOpenedPage();
-  presenter_.GetView()->search_box_view()->ClearSearch();
+  if (presenter_.GetView()) {
+    presenter_.GetView()->CloseOpenedPage();
+    presenter_.GetView()->search_box_view()->ClearSearch();
+  }
+}
+
+void AppListControllerImpl::OnSessionStateChanged(
+    session_manager::SessionState state) {
+  if (!IsTabletMode())
+    return;
+
+  if (state != session_manager::SessionState::ACTIVE)
+    return;
+
+  // Show the app list after signing in in tablet mode. For metrics, the app
+  // list is not considered shown since the browser window is shown over app
+  // list upon login.
+  if (!presenter_.GetTargetVisibility())
+    Shell::Get()->home_screen_controller()->Show();
+
+  // Hide app list UI initially to prevent app list from flashing in background
+  // while the initial app window is being shown.
+  if (!last_target_visible_ && !ShouldHomeLauncherBeVisible())
+    presenter_.SetViewVisibility(false);
+  else
+    OnVisibilityChanged(true, last_visible_display_id_);
 }
 
 void AppListControllerImpl::OnAppListItemWillBeDeleted(AppListItem* item) {
@@ -519,38 +552,24 @@ void AppListControllerImpl::OnAppListItemUpdated(AppListItem* item) {
     client_->OnItemUpdated(profile_id_, item->CloneMetadata());
 }
 
-void AppListControllerImpl::OnAppListStateChanged(ash::AppListState new_state,
-                                                  ash::AppListState old_state) {
+void AppListControllerImpl::OnAppListStateChanged(AppListState new_state,
+                                                  AppListState old_state) {
   if (!app_list_features::IsAssistantLauncherUIEnabled())
     return;
 
   UpdateLauncherContainer();
 
-  // Band-aid for https://b/144056527 to update visibility after AppListState
-  // change. Otherwise, previously calculated visibility in OnVisibilityChanged
-  // and OnVisibilityWillChange is not correct and makes focus change handler
-  // code in AppListPresenterImpl::OnWindowFocused close the app list window
-  // when focus moves into Assistant web contents.
-  aura::Window* app_list_window = GetWindow();
-  if (app_list_window) {
-    const bool app_list_visible = app_list_window->TargetVisibility();
-    if (app_list_visible != IsVisible()) {
-      OnVisibilityWillChange(app_list_visible, last_visible_display_id_);
-      OnVisibilityChanged(app_list_visible, last_visible_display_id_);
-    }
-  }
-
-  if (new_state == ash::AppListState::kStateEmbeddedAssistant) {
+  if (new_state == AppListState::kStateEmbeddedAssistant) {
     // ShowUi will be no-op if the AssistantUiModel is already visible.
     Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
-        ash::AssistantEntryPoint::kUnspecified);
+        AssistantEntryPoint::kUnspecified);
     return;
   }
 
-  if (old_state == ash::AppListState::kStateEmbeddedAssistant) {
+  if (old_state == AppListState::kStateEmbeddedAssistant) {
     // CloseUi will be no-op if the AssistantUiModel is already closed.
     Shell::Get()->assistant_controller()->ui_controller()->CloseUi(
-        ash::AssistantExitPoint::kBackInLauncher);
+        AssistantExitPoint::kBackInLauncher);
   }
 }
 
@@ -584,8 +603,7 @@ void AppListControllerImpl::UpdateYPositionAndOpacity(
                                        background_opacity);
 }
 
-void AppListControllerImpl::EndDragFromShelf(
-    ash::AppListViewState app_list_state) {
+void AppListControllerImpl::EndDragFromShelf(AppListViewState app_list_state) {
   // Avoid dragging app list when homecher is enabled.
   if (IsTabletMode())
     return;
@@ -597,11 +615,24 @@ void AppListControllerImpl::ProcessMouseWheelEvent(
   presenter_.ProcessMouseWheelOffset(event.offset());
 }
 
-ash::ShelfAction AppListControllerImpl::ToggleAppList(
+ShelfAction AppListControllerImpl::ToggleAppList(
     int64_t display_id,
     AppListShowSource show_source,
     base::TimeTicks event_time_stamp) {
-  ash::ShelfAction action =
+  if (IsTabletMode()) {
+    bool handled = Shell::Get()->home_screen_controller()->GoHome(display_id);
+
+    // Perform the "back" action for the app list.
+    if (!handled) {
+      Back();
+      return SHELF_ACTION_APP_LIST_BACK;
+    }
+
+    LogAppListShowSource(show_source);
+    return SHELF_ACTION_APP_LIST_SHOWN;
+  }
+
+  ShelfAction action =
       presenter_.ToggleAppList(display_id, show_source, event_time_stamp);
   UpdateExpandArrowVisibility();
   if (action == SHELF_ACTION_APP_LIST_SHOWN)
@@ -609,15 +640,25 @@ ash::ShelfAction AppListControllerImpl::ToggleAppList(
   return action;
 }
 
-ash::AppListViewState AppListControllerImpl::GetAppListViewState() {
+AppListViewState AppListControllerImpl::GetAppListViewState() {
   return model_->state_fullscreen();
 }
 
 bool AppListControllerImpl::ShouldHomeLauncherBeVisible() const {
-  return IsTabletMode() && !HasVisibleWindows();
+  if (!IsTabletMode())
+    return false;
+
+  if (home_launcher_transition_state_ ==
+      HomeLauncherTransitionState::kMostlyShown)
+    return true;
+
+  return !Shell::Get()->overview_controller()->InOverviewSession() &&
+         !GetTopVisibleWindow();
 }
 
-void AppListControllerImpl::OnShelfAlignmentChanged(aura::Window* root_window) {
+void AppListControllerImpl::OnShelfAlignmentChanged(
+    aura::Window* root_window,
+    ShelfAlignment old_alignment) {
   if (!IsTabletMode())
     DismissAppList();
 }
@@ -631,7 +672,7 @@ void AppListControllerImpl::OnShellDestroying() {
 void AppListControllerImpl::OnOverviewModeStarting() {
   if (IsTabletMode()) {
     const int64_t display_id = last_visible_display_id_;
-    OnHomeLauncherPositionChanged(0 /* percent_shown */, display_id);
+    OnVisibilityWillChange(false /*shown*/, display_id);
   } else {
     DismissAppList();
   }
@@ -641,26 +682,38 @@ void AppListControllerImpl::OnOverviewModeStartingAnimationComplete(
     bool canceled) {
   if (!IsTabletMode())
     return;
-  OnHomeLauncherAnimationComplete(canceled && !HasVisibleWindows() /* shown */,
-                                  last_visible_display_id_);
+
+  // If overview start was canceled, overview end animations are about to start.
+  // Preemptively update the target app list visibility.
+  if (canceled) {
+    OnVisibilityWillChange(!GetTopVisibleWindow(), last_visible_display_id_);
+    return;
+  }
+
+  OnVisibilityChanged(false /* shown */, last_visible_display_id_);
 }
 
 void AppListControllerImpl::OnOverviewModeEnding(OverviewSession* session) {
   if (!IsTabletMode())
     return;
-  const int64_t display_id = last_visible_display_id_;
-  bool target_visibility = GetTargetVisibility();
-  if (home_launcher_transition_state_ == HomeLauncherTransitionState::kFinished)
-    target_visibility &= !HasVisibleWindows();
-  OnHomeLauncherPositionChanged(target_visibility ? 100 : 0, display_id);
+
+  // Overview state might end during home launcher transition - if that is the
+  // case, respect the final state set by in-progress home launcher transition.
+  if (home_launcher_transition_state_ != HomeLauncherTransitionState::kFinished)
+    return;
+
+  OnVisibilityWillChange(!GetTopVisibleWindow() /*shown*/,
+                         last_visible_display_id_);
 }
 
 void AppListControllerImpl::OnOverviewModeEnded() {
   if (!IsTabletMode())
     return;
-  const int64_t display_id = last_visible_display_id_;
-  const bool app_list_visible = GetTargetVisibility();
-  OnHomeLauncherAnimationComplete(app_list_visible, display_id);
+  // Overview state might end during home launcher transition - if that is the
+  // case, respect the final state set by in-progress home launcher transition.
+  if (home_launcher_transition_state_ != HomeLauncherTransitionState::kFinished)
+    return;
+  OnVisibilityChanged(!GetTopVisibleWindow(), last_visible_display_id_);
 }
 
 void AppListControllerImpl::OnTabletModeStarted() {
@@ -674,8 +727,26 @@ void AppListControllerImpl::OnTabletModeStarted() {
   presenter_.OnTabletModeChanged(true);
 
   // Show the app list if the tablet mode starts.
-  Shell::Get()->home_screen_controller()->Show();
+  if (Shell::Get()->session_controller()->GetSessionState() ==
+      session_manager::SessionState::ACTIVE) {
+    Shell::Get()->home_screen_controller()->Show();
+  }
   UpdateLauncherContainer();
+
+  // If the app list is visible before the transition to tablet mode,
+  // AppListPresenter relies on the active window change to detect the app list
+  // view got hidden behind a window. Though, app list UI moving behind an app
+  // window does not always cause an active window change:
+  // *   If the app list is still being shown - given that app list takes focus
+  //     from the top window only when it's fully shown, the focus will remain
+  //     within the app window throughout the tablet mode transition.
+  // *   If the assistant UI is visible before the tablet mode transition - the
+  //     assistant will keep the focus during transition, even though the app
+  //     window will be shown over the app list view.
+  // Ensure the app list visibility is properly updated if the app list is
+  // hidden behind a window at this point.
+  if (last_target_visible_ && !ShouldHomeLauncherBeVisible())
+    OnVisibilityChanged(false, last_visible_display_id_);
 }
 
 void AppListControllerImpl::OnTabletModeEnded() {
@@ -729,12 +800,14 @@ void AppListControllerImpl::OnDisplayConfigurationChanged() {
   // To avoid crashes, we must ensure that the Home Launcher shown status is as
   // expected if it's enabled and we're still in tablet mode.
   // https://crbug.com/900956.
-  const bool should_be_shown = IsTabletMode();
-  if (should_be_shown == presenter_.GetTargetVisibility())
+  const bool should_be_shown =
+      IsTabletMode() && Shell::Get()->session_controller()->GetSessionState() ==
+                            session_manager::SessionState::ACTIVE;
+
+  if (!should_be_shown || should_be_shown == presenter_.GetTargetVisibility())
     return;
 
-  if (should_be_shown)
-    Shell::Get()->home_screen_controller()->Show();
+  Shell::Get()->home_screen_controller()->Show();
 }
 
 void AppListControllerImpl::OnWindowUntracked(aura::Window* untracked_window) {
@@ -759,6 +832,11 @@ void AppListControllerImpl::OnUiVisibilityChanged(
 
       if (!IsShowingEmbeddedAssistantUI())
         presenter_.ShowEmbeddedAssistantUI(true);
+
+      // Make sure that app list views are visible - they might get hidden
+      // during session startup, and the app list visibility might not have yet
+      // changed to visible by this point.
+      presenter_.SetViewVisibility(true);
       break;
     case AssistantVisibility::kHidden:
       NOTREACHED();
@@ -806,15 +884,29 @@ void AppListControllerImpl::OnUiVisibilityChanged(
   }
 }
 
+base::ScopedClosureRunner
+AppListControllerImpl::DisableHomeScreenBackgroundBlur() {
+  AppListView* const app_list_view = presenter_.GetView();
+  if (!app_list_view)
+    return base::ScopedClosureRunner(base::DoNothing());
+  return app_list_view->app_list_main_view()
+      ->contents_view()
+      ->GetAppsContainerView()
+      ->DisableSuggestionChipsBlur();
+}
+
 void AppListControllerImpl::OnHomeLauncherAnimationComplete(
     bool shown,
     int64_t display_id) {
+  // Stop disabling background blur in home screen when the home screen
+  // transition ends.
+  home_screen_blur_disabler_.reset();
+
   home_launcher_transition_state_ = HomeLauncherTransitionState::kFinished;
   CloseAssistantUi(shown ? AssistantExitPoint::kLauncherOpen
                          : AssistantExitPoint::kLauncherClose);
   // Animations can be reversed (e.g. in a drag). Let's ensure the target
   // visibility is correct first.
-  OnVisibilityWillChange(shown, display_id);
   OnVisibilityChanged(shown, display_id);
 
   if (!home_launcher_animation_callback_.is_null())
@@ -823,6 +915,12 @@ void AppListControllerImpl::OnHomeLauncherAnimationComplete(
 
 void AppListControllerImpl::OnHomeLauncherPositionChanged(int percent_shown,
                                                           int64_t display_id) {
+  // Disable home screen background blur if the home launcher transition is
+  // staring - the blur disabler will be reset when the transition ends (in
+  // OnHomeLauncherAnimationComplete()).
+  if (home_launcher_transition_state_ == HomeLauncherTransitionState::kFinished)
+    home_screen_blur_disabler_ = DisableHomeScreenBackgroundBlur();
+
   const bool mostly_shown = percent_shown >= 50;
   home_launcher_transition_state_ =
       mostly_shown ? HomeLauncherTransitionState::kMostlyShown
@@ -836,7 +934,7 @@ void AppListControllerImpl::ShowHomeScreenView() {
   // App list is only considered shown for metrics if there are currently no
   // other visible windows shown over the app list after the tablet transition.
   base::Optional<AppListShowSource> show_source;
-  if (!HasVisibleWindows())
+  if (!GetTopVisibleWindow())
     show_source = kTabletMode;
 
   Show(GetDisplayIdToShowAppListOn(), show_source, base::TimeTicks());
@@ -874,7 +972,7 @@ void AppListControllerImpl::UpdateScaleAndOpacityForHomeLauncher(
 
 base::Optional<base::TimeDelta>
 AppListControllerImpl::GetOptionalAnimationDuration() {
-  if (model_->state() == ash::AppListState::kStateEmbeddedAssistant) {
+  if (model_->state() == AppListState::kStateEmbeddedAssistant) {
     // If Assistant is shown, we don't want any delay in animation transitions
     // since the launcher is already shown.
     return base::TimeDelta::Min();
@@ -906,25 +1004,6 @@ void AppListControllerImpl::SetKeyboardTraversalMode(bool engaged) {
     focused_view->SchedulePaint();
 }
 
-ash::ShelfAction AppListControllerImpl::OnHomeButtonPressed(
-    int64_t display_id,
-    AppListShowSource show_source,
-    base::TimeTicks event_time_stamp) {
-  if (!IsTabletMode())
-    return ToggleAppList(display_id, show_source, event_time_stamp);
-
-  bool handled = Shell::Get()->home_screen_controller()->GoHome(display_id);
-
-  // Perform the "back" action for the app list.
-  if (!handled) {
-    Back();
-    return ash::SHELF_ACTION_APP_LIST_BACK;
-  }
-
-  LogAppListShowSource(show_source);
-  return ash::SHELF_ACTION_APP_LIST_SHOWN;
-}
-
 bool AppListControllerImpl::IsShowingEmbeddedAssistantUI() const {
   return presenter_.IsShowingEmbeddedAssistantUI();
 }
@@ -939,7 +1018,7 @@ void AppListControllerImpl::UpdateExpandArrowVisibility() {
   //     drag from top of home screen is disabled.
   if (IsTabletMode()) {
     should_show = !features::IsDragFromShelfToHomeOrOverviewEnabled() &&
-                  !ash::Shell::Get()
+                  !Shell::Get()
                        ->mru_window_tracker()
                        ->BuildWindowForCycleList(kActiveDesk)
                        .empty();
@@ -950,13 +1029,13 @@ void AppListControllerImpl::UpdateExpandArrowVisibility() {
   presenter_.SetExpandArrowViewVisibility(should_show);
 }
 
-ash::AppListViewState AppListControllerImpl::CalculateStateAfterShelfDrag(
+AppListViewState AppListControllerImpl::CalculateStateAfterShelfDrag(
     const ui::LocatedEvent& event_in_screen,
     float launcher_above_shelf_bottom_amount) const {
   if (presenter_.GetView())
     return presenter_.GetView()->CalculateStateAfterShelfDrag(
         event_in_screen, launcher_above_shelf_bottom_amount);
-  return ash::AppListViewState::kClosed;
+  return AppListViewState::kClosed;
 }
 
 void AppListControllerImpl::SetAppListModelForTest(
@@ -990,16 +1069,16 @@ void AppListControllerImpl::RecordShelfAppLaunched(
 
 void AppListControllerImpl::StartAssistant() {
   if (app_list_features::IsAssistantLauncherUIEnabled()) {
-    ash::Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
-        ash::AssistantEntryPoint::kLauncherSearchBoxMic);
+    Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
+        AssistantEntryPoint::kLauncherSearchBoxMic);
     return;
   }
 
   if (!IsTabletMode())
     DismissAppList();
 
-  ash::Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
-      ash::AssistantEntryPoint::kLauncherSearchBox);
+  Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
+      AssistantEntryPoint::kLauncherSearchBox);
 }
 
 void AppListControllerImpl::StartSearch(const base::string16& raw_query) {
@@ -1034,7 +1113,7 @@ void AppListControllerImpl::OpenSearchResult(const std::string& result_id,
 
   UMA_HISTOGRAM_ENUMERATION(kSearchResultOpenDisplayTypeHistogram,
                             result->display_type(),
-                            ash::SearchResultDisplayType::kLast);
+                            SearchResultDisplayType::kLast);
 
   // Suggestion chips are not represented to the user as search results, so do
   // not record search result metrics for them.
@@ -1073,7 +1152,7 @@ void AppListControllerImpl::OpenSearchResult(const std::string& result_id,
     Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
         AssistantEntryPoint::kLauncherSearchResult);
     Shell::Get()->assistant_controller()->OpenUrl(
-        ash::assistant::util::CreateAssistantQueryDeepLink(
+        assistant::util::CreateAssistantQueryDeepLink(
             base::UTF16ToUTF8(result->title())));
   } else {
     if (client_)
@@ -1114,7 +1193,7 @@ void AppListControllerImpl::GetSearchResultContextMenuModel(
 void AppListControllerImpl::ViewShown(int64_t display_id) {
   if (app_list_features::IsAssistantLauncherUIEnabled() &&
       GetAssistantViewDelegate()->GetUiModel()->ui_mode() !=
-          ash::AssistantUiMode::kLauncherEmbeddedUi) {
+          AssistantUiMode::kLauncherEmbeddedUi) {
     CloseAssistantUi(AssistantExitPoint::kLauncherOpen);
   }
   UpdateAssistantVisibility();
@@ -1173,9 +1252,9 @@ void AppListControllerImpl::GetContextMenuModel(
 }
 
 ui::ImplicitAnimationObserver* AppListControllerImpl::GetAnimationObserver(
-    ash::AppListViewState target_state) {
+    AppListViewState target_state) {
   // |presenter_| observes the close animation only.
-  if (target_state == ash::AppListViewState::kClosed)
+  if (target_state == AppListViewState::kClosed)
     return &presenter_;
   return nullptr;
 }
@@ -1245,7 +1324,9 @@ bool AppListControllerImpl::ShouldDismissImmediately() {
       Shelf::ForWindow(presenter_.GetView()->GetWidget()->GetNativeView())
           ->GetIdealBounds()
           .y();
-  const int current_y = presenter_.GetView()->GetBoundsInScreen().y();
+
+  const int current_y =
+      presenter_.GetView()->GetWidget()->GetNativeWindow()->bounds().y();
   return current_y > ideal_shelf_y;
 }
 
@@ -1257,10 +1338,10 @@ void AppListControllerImpl::GetNavigableContentsFactory(
 
 int AppListControllerImpl::GetTargetYForAppListHide(aura::Window* root_window) {
   DCHECK(Shell::HasInstance());
-  return Shelf::ForWindow(root_window)->GetIdealBounds().y();
+  return Shelf::ForWindow(root_window)->GetShelfBoundsInScreen().y();
 }
 
-ash::AssistantViewDelegate* AppListControllerImpl::GetAssistantViewDelegate() {
+AssistantViewDelegate* AppListControllerImpl::GetAssistantViewDelegate() {
   return Shell::Get()->assistant_controller()->view_delegate();
 }
 
@@ -1273,7 +1354,7 @@ void AppListControllerImpl::OnSearchResultVisibilityChanged(
 
 void AppListControllerImpl::NotifySearchResultsForLogging(
     const base::string16& raw_query,
-    const ash::SearchResultIdWithPositionIndices& results,
+    const SearchResultIdWithPositionIndices& results,
     int position_index) {
   if (client_) {
     base::string16 query;
@@ -1322,7 +1403,7 @@ void AppListControllerImpl::MarkAssistantPrivacyInfoDismissed() {
 }
 
 void AppListControllerImpl::OnStateTransitionAnimationCompleted(
-    ash::AppListViewState state) {
+    AppListViewState state) {
   if (!state_transition_animation_callback_.is_null())
     state_transition_animation_callback_.Run(state);
 }
@@ -1339,10 +1420,10 @@ gfx::Rect AppListControllerImpl::SnapBoundsToDisplayEdge(
   AppListView* app_list_view = presenter_.GetView();
   DCHECK(app_list_view && app_list_view->GetWidget());
   aura::Window* window = app_list_view->GetWidget()->GetNativeView();
-  return ash::screen_util::SnapBoundsToDisplayEdge(bounds, window);
+  return screen_util::SnapBoundsToDisplayEdge(bounds, window);
 }
 
-int AppListControllerImpl::GetShelfHeight() {
+int AppListControllerImpl::GetShelfSize() {
   return ShelfConfig::Get()->system_shelf_size();
 }
 
@@ -1368,19 +1449,27 @@ void AppListControllerImpl::OnVisibilityChanged(bool visible,
   // launcher state transition finished - delay the visibility change until the
   // home launcher stops animating, so observers do not miss the animation state
   // update.
-  if (home_launcher_transition_state_ != HomeLauncherTransitionState::kFinished)
+  if (home_launcher_transition_state_ !=
+      HomeLauncherTransitionState::kFinished) {
+    OnVisibilityWillChange(visible, display_id);
     return;
+  }
 
   bool real_visibility = visible;
   // HomeLauncher is only visible when no other app windows are visible,
   // unless we are in the process of animating to (or dragging) the home
   // launcher.
-  if (IsTabletMode() && ShouldLauncherShowBehindApps())
-    real_visibility &= !HasVisibleWindows();
+  if (IsTabletMode()) {
+    UpdateTrackedAppWindow();
 
-  DCHECK_EQ(last_target_visible_, real_visibility)
-      << "Visibility notifications should follow target visibility "
-         "notifications.";
+    if (tracked_app_window_)
+      real_visibility = false;
+  }
+
+  aura::Window* app_list_window = GetWindow();
+  real_visibility &= app_list_window && app_list_window->TargetVisibility();
+
+  OnVisibilityWillChange(real_visibility, display_id);
 
   // Skip adjacent same changes.
   if (last_visible_ == real_visibility &&
@@ -1391,9 +1480,11 @@ void AppListControllerImpl::OnVisibilityChanged(bool visible,
   last_visible_display_id_ = display_id;
 
   if (!real_visibility) {
-    presenter_.GetView()
-        ->search_box_view()
-        ->ClearSearchAndDeactivateSearchBox();
+    AppListView* const app_list_view = presenter_.GetView();
+    app_list_view->search_box_view()->ClearSearchAndDeactivateSearchBox();
+    // Reset the app list contents state, so the app list is in initial state
+    // when the app list visibility changes again.
+    app_list_view->app_list_main_view()->contents_view()->ResetForShow();
   }
 
   // Notify chrome of visibility changes.
@@ -1408,16 +1499,33 @@ void AppListControllerImpl::OnVisibilityChanged(bool visible,
   }
 }
 
+void AppListControllerImpl::OnWindowVisibilityChanging(aura::Window* window,
+                                                       bool visible) {
+  if (visible || window != tracked_app_window_)
+    return;
+
+  UpdateTrackedAppWindow();
+
+  if (!tracked_app_window_ && ShouldHomeLauncherBeVisible())
+    OnVisibilityChanged(true, last_visible_display_id_);
+}
+
+void AppListControllerImpl::OnWindowDestroyed(aura::Window* window) {
+  if (window != tracked_app_window_)
+    return;
+
+  tracked_app_window_ = nullptr;
+}
+
 void AppListControllerImpl::OnVisibilityWillChange(bool visible,
                                                    int64_t display_id) {
   bool real_target_visibility = visible;
   // HomeLauncher is only visible when no other app windows are visible,
   // unless we are in the process of animating to (or dragging) the home
   // launcher.
-  if (IsTabletMode() && ShouldLauncherShowBehindApps() &&
-      home_launcher_transition_state_ ==
-          HomeLauncherTransitionState::kFinished) {
-    real_target_visibility &= !HasVisibleWindows();
+  if (IsTabletMode() && home_launcher_transition_state_ ==
+                            HomeLauncherTransitionState::kFinished) {
+    real_target_visibility &= !GetTopVisibleWindow();
   }
 
   // Skip adjacent same changes.
@@ -1431,11 +1539,21 @@ void AppListControllerImpl::OnVisibilityWillChange(bool visible,
     last_target_visible_ = real_target_visibility;
     last_target_visible_display_id_ = display_id;
 
-    // Update the arrow visibility when starting to show the home screen
-    // (presumably, the visibility has already been updated if home is being
-    // hidden).
-    if (real_target_visibility && IsTabletMode())
+    if (real_target_visibility && IsTabletMode()) {
+      // Update the arrow visibility when starting to show the home screen
+      // (presumably, the visibility has already been updated if home is being
+      // hidden).
       UpdateExpandArrowVisibility();
+      // Make sure app list is showing the initial page in the apps grid when
+      // it's shown - note that the selected apps page is not changed as the
+      // app list is getting hidden to avoid (visible) pagination changes as app
+      // list is being hidden.
+      if (presenter_.GetView())
+        presenter_.GetView()->SelectInitialAppsPage();
+    }
+
+    if (real_target_visibility && presenter_.GetView())
+      presenter_.SetViewVisibility(true);
 
     if (client_)
       client_->OnAppListVisibilityWillChange(real_target_visibility);
@@ -1513,7 +1631,7 @@ syncer::StringOrdinal AppListControllerImpl::GetOemFolderPos() {
 }
 
 std::unique_ptr<AppListItem> AppListControllerImpl::CreateAppListItem(
-    std::unique_ptr<ash::AppListItemMetadata> metadata) {
+    std::unique_ptr<AppListItemMetadata> metadata) {
   std::unique_ptr<AppListItem> app_list_item =
       metadata->is_folder ? std::make_unique<AppListFolderItem>(metadata->id)
                           : std::make_unique<AppListItem>(metadata->id);
@@ -1539,7 +1657,7 @@ int64_t AppListControllerImpl::GetDisplayIdToShowAppListOn() {
   }
 
   return display::Screen::GetScreen()
-      ->GetDisplayNearestWindow(ash::Shell::GetRootWindowForNewWindows())
+      ->GetDisplayNearestWindow(Shell::GetRootWindowForNewWindows())
       .id();
 }
 
@@ -1565,17 +1683,7 @@ void AppListControllerImpl::UpdateLauncherContainer(
   aura::Window* parent_window = GetContainerForDisplayId(display_id);
   if (parent_window && !parent_window->Contains(window)) {
     parent_window->AddChild(window);
-    bool is_showing_app_window = false;
-    for (auto* app_window :
-         Shell::Get()->mru_window_tracker()->BuildWindowForCycleList(
-             kActiveDesk)) {
-      if (!parent_window->Contains(app_window) &&
-          !WindowState::Get(app_window)->IsMinimized()) {
-        is_showing_app_window = true;
-        break;
-      }
-    }
-    if (ShouldLauncherShowBehindApps() && is_showing_app_window) {
+    if (!ShouldHomeLauncherBeVisible()) {
       // When move launcher back to behind apps, and there is app window
       // showing, we release focus.
       Shell::Get()->activation_client()->DeactivateWindow(window);
@@ -1584,23 +1692,25 @@ void AppListControllerImpl::UpdateLauncherContainer(
 }
 
 int AppListControllerImpl::GetContainerId() const {
-  return ShouldLauncherShowBehindApps()
-             ? ash::kShellWindowId_HomeScreenContainer
-             : ash::kShellWindowId_AppListContainer;
+  return ShouldLauncherShowBehindApps() ? kShellWindowId_HomeScreenContainer
+                                        : kShellWindowId_AppListContainer;
 }
 
 aura::Window* AppListControllerImpl::GetContainerForDisplayId(
     base::Optional<int64_t> display_id) {
-  aura::Window* root_window =
-      display_id.has_value()
-          ? Shell::GetRootWindowForDisplayId(display_id.value())
-          : presenter_.GetWindow()->GetRootWindow();
-  return root_window->GetChildById(GetContainerId());
+  aura::Window* root_window = nullptr;
+  if (display_id.has_value()) {
+    root_window = Shell::GetRootWindowForDisplayId(display_id.value());
+  } else if (presenter_.GetWindow()) {
+    root_window = presenter_.GetWindow()->GetRootWindow();
+  }
+
+  return root_window ? root_window->GetChildById(GetContainerId()) : nullptr;
 }
 
 bool AppListControllerImpl::ShouldLauncherShowBehindApps() const {
   return IsTabletMode() &&
-         model_->state() != ash::AppListState::kStateEmbeddedAssistant;
+         model_->state() != AppListState::kStateEmbeddedAssistant;
 }
 
 int AppListControllerImpl::GetLastQueryLength() {
@@ -1639,6 +1749,18 @@ gfx::Rect AppListControllerImpl::GetInitialAppListItemScreenBoundsForWindow(
   std::string* app_id = window->GetProperty(kAppIDKey);
   return presenter_.GetView()->GetItemScreenBoundsInFirstGridPage(
       app_id ? *app_id : std::string());
+}
+
+void AppListControllerImpl::UpdateTrackedAppWindow() {
+  aura::Window* top_window = GetTopVisibleWindow();
+  if (tracked_app_window_ == top_window)
+    return;
+
+  if (tracked_app_window_)
+    tracked_app_window_->RemoveObserver(this);
+  tracked_app_window_ = top_window;
+  if (tracked_app_window_)
+    tracked_app_window_->AddObserver(this);
 }
 
 }  // namespace ash

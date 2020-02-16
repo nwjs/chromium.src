@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/interstitials/interstitial_ui.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/atomic_sequence_num.h"
 #include "base/strings/string_number_conversions.h"
@@ -18,17 +19,21 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/test_safe_browsing_blocking_page_quiet.h"
 #include "chrome/browser/safe_browsing/ui_manager.h"
-#include "chrome/browser/ssl/bad_clock_blocking_page.h"
-#include "chrome/browser/ssl/blocked_interception_blocking_page.h"
 #include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
-#include "chrome/browser/ssl/mitm_software_blocking_page.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/url_constants.h"
-#include "components/grit/components_resources.h"
-#include "components/safe_browsing/db/database_manager.h"
+#include "components/captive_portal/core/buildflags.h"
+#include "components/grit/dev_ui_components_resources.h"
+#include "components/safe_browsing/core/db/database_manager.h"
+#include "components/security_interstitials/content/bad_clock_blocking_page.h"
+#include "components/security_interstitials/content/blocked_interception_blocking_page.h"
+#include "components/security_interstitials/content/legacy_tls_blocking_page.h"
+#include "components/security_interstitials/content/mitm_software_blocking_page.h"
 #include "components/security_interstitials/content/origin_policy_ui.h"
+#include "components/security_interstitials/content/unsafe_resource_util.h"
 #include "components/security_interstitials/core/ssl_error_options_mask.h"
 #include "components/security_interstitials/core/ssl_error_ui.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 #include "content/public/browser/interstitial_page_delegate.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -48,7 +53,7 @@
 #include "ui/base/webui/web_ui_util.h"
 
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
-#include "chrome/browser/ssl/captive_portal_blocking_page.h"
+#include "components/security_interstitials/content/captive_portal_blocking_page.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -152,9 +157,10 @@ SSLBlockingPage* CreateSslBlockingPage(content::WebContents* web_contents) {
   if (strict_enforcement)
     options_mask |=
         security_interstitials::SSLErrorOptionsMask::STRICT_ENFORCEMENT;
-  return ChromeSecurityBlockingPageFactory::CreateSSLPage(
-      web_contents, cert_error, ssl_info, request_url, options_mask,
-      time_triggered_, GURL(), nullptr);
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
+  return blocking_page_factory.CreateSSLPage(web_contents, cert_error, ssl_info,
+                                             request_url, options_mask,
+                                             time_triggered_, GURL(), nullptr);
 }
 
 MITMSoftwareBlockingPage* CreateMITMSoftwareBlockingPage(
@@ -170,11 +176,14 @@ MITMSoftwareBlockingPage* CreateMITMSoftwareBlockingPage(
     is_enterprise_managed = is_enterprise_managed_param == "1";
   }
 
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
+  blocking_page_factory.SetEnterpriseManagedForTesting(is_enterprise_managed);
+
   net::SSLInfo ssl_info;
   ssl_info.cert = ssl_info.unverified_cert = CreateFakeCert();
-  return new MITMSoftwareBlockingPage(web_contents, cert_error, request_url,
-                                      nullptr, ssl_info, mitm_software_name,
-                                      is_enterprise_managed);
+  return blocking_page_factory.CreateMITMSoftwareBlockingPage(
+      web_contents, cert_error, request_url, nullptr, ssl_info,
+      mitm_software_name);
 }
 
 BlockedInterceptionBlockingPage* CreateBlockedInterceptionBlockingPage(
@@ -184,8 +193,21 @@ BlockedInterceptionBlockingPage* CreateBlockedInterceptionBlockingPage(
 
   net::SSLInfo ssl_info;
   ssl_info.cert = ssl_info.unverified_cert = CreateFakeCert();
-  return new BlockedInterceptionBlockingPage(web_contents, cert_error,
-                                             request_url, nullptr, ssl_info);
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
+  return blocking_page_factory.CreateBlockedInterceptionBlockingPage(
+      web_contents, cert_error, request_url, nullptr, ssl_info);
+}
+
+LegacyTLSBlockingPage* CreateLegacyTLSBlockingPage(
+    content::WebContents* web_contents) {
+  const int cert_error = net::ERR_SSL_OBSOLETE_VERSION;
+  const GURL request_url("https://example.com");
+
+  net::SSLInfo ssl_info;
+  ssl_info.cert = ssl_info.unverified_cert = CreateFakeCert();
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
+  return blocking_page_factory.CreateLegacyTLSBlockingPage(
+      web_contents, cert_error, request_url, nullptr, ssl_info);
 }
 
 BadClockBlockingPage* CreateBadClockBlockingPage(
@@ -233,9 +255,10 @@ BadClockBlockingPage* CreateBadClockBlockingPage(
   if (strict_enforcement)
     options_mask |=
         security_interstitials::SSLErrorOptionsMask::STRICT_ENFORCEMENT;
-  return new BadClockBlockingPage(web_contents, cert_error, ssl_info,
-                                  request_url, base::Time::Now(), clock_state,
-                                  nullptr);
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
+  return blocking_page_factory.CreateBadClockBlockingPage(
+      web_contents, cert_error, ssl_info, request_url, base::Time::Now(),
+      clock_state, nullptr);
 }
 
 LookalikeUrlInterstitialPage* CreateLookalikeInterstitialPage(
@@ -289,10 +312,9 @@ safe_browsing::SafeBrowsingBlockingPage* CreateSafeBrowsingBlockingPage(
   resource.is_subresource = request_url != main_frame_url;
   resource.is_subframe = false;
   resource.threat_type = threat_type;
-  resource.web_contents_getter =
-      security_interstitials::UnsafeResource::GetWebContentsGetter(
-          web_contents->GetMainFrame()->GetProcess()->GetID(),
-          web_contents->GetMainFrame()->GetRoutingID());
+  resource.web_contents_getter = security_interstitials::GetWebContentsGetter(
+      web_contents->GetMainFrame()->GetProcess()->GetID(),
+      web_contents->GetMainFrame()->GetRoutingID());
   resource.threat_source = g_browser_process->safe_browsing_service()
                                ->database_manager()
                                ->GetThreatSource();
@@ -341,10 +363,9 @@ TestSafeBrowsingBlockingPageQuiet* CreateSafeBrowsingQuietBlockingPage(
   resource.is_subresource = request_url != main_frame_url;
   resource.is_subframe = false;
   resource.threat_type = threat_type;
-  resource.web_contents_getter =
-      security_interstitials::UnsafeResource::GetWebContentsGetter(
-          web_contents->GetMainFrame()->GetProcess()->GetID(),
-          web_contents->GetMainFrame()->GetRoutingID());
+  resource.web_contents_getter = security_interstitials::GetWebContentsGetter(
+      web_contents->GetMainFrame()->GetProcess()->GetID(),
+      web_contents->GetMainFrame()->GetRoutingID());
   resource.threat_source = g_browser_process->safe_browsing_service()
                                ->database_manager()
                                ->GetThreatSource();
@@ -395,8 +416,9 @@ CaptivePortalBlockingPage* CreateCaptivePortalBlockingPage(
   }
   net::SSLInfo ssl_info;
   ssl_info.cert = ssl_info.unverified_cert = CreateFakeCert();
+  ChromeSecurityBlockingPageFactory blocking_page_factory;
   CaptivePortalBlockingPage* blocking_page =
-      ChromeSecurityBlockingPageFactory::CreateCaptivePortalBlockingPage(
+      blocking_page_factory.CreateCaptivePortalBlockingPage(
           web_contents, request_url, landing_url, nullptr, ssl_info,
           net::ERR_CERT_COMMON_NAME_INVALID);
   blocking_page->OverrideWifiInfoForTesting(is_wifi_connection, wifi_ssid);
@@ -473,6 +495,8 @@ void InterstitialHTMLSource::StartDataRequest(
   } else if (path_without_query == "/blocked-interception") {
     interstitial_delegate.reset(
         CreateBlockedInterceptionBlockingPage(web_contents));
+  } else if (path_without_query == "/legacy-tls") {
+    interstitial_delegate.reset(CreateLegacyTLSBlockingPage(web_contents));
   } else if (path_without_query == "/safebrowsing") {
     interstitial_delegate.reset(CreateSafeBrowsingBlockingPage(web_contents));
   } else if (path_without_query == "/clock") {

@@ -236,8 +236,8 @@ SourceBuffer* MediaSource::addSourceBuffer(const String& type,
   bool generate_timestamps_flag =
       web_source_buffer->GetGenerateTimestampsFlag();
 
-  SourceBuffer* buffer = SourceBuffer::Create(std::move(web_source_buffer),
-                                              this, async_event_queue_.Get());
+  auto* buffer = MakeGarbageCollected<SourceBuffer>(
+      std::move(web_source_buffer), this, async_event_queue_.Get());
   // 8. Add the new object to sourceBuffers and queue a simple task to fire a
   //    simple event named addsourcebuffer at sourceBuffers.
   source_buffers_->Add(buffer);
@@ -398,7 +398,8 @@ void MediaSource::Trace(blink::Visitor* visitor) {
 
 void MediaSource::SetWebMediaSourceAndOpen(
     std::unique_ptr<WebMediaSource> web_media_source) {
-  TRACE_EVENT_ASYNC_END0("media", "MediaSource::attachToElement", this);
+  TRACE_EVENT_NESTABLE_ASYNC_END0("media", "MediaSource::attachToElement",
+                                  TRACE_ID_LOCAL(this));
   DCHECK(web_media_source);
   DCHECK(!web_media_source_);
   DCHECK(attached_element_);
@@ -843,7 +844,8 @@ bool MediaSource::AttachToElement(HTMLMediaElement* element) {
 
   DCHECK(IsClosed());
 
-  TRACE_EVENT_ASYNC_BEGIN0("media", "MediaSource::attachToElement", this);
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("media", "MediaSource::attachToElement",
+                                    TRACE_ID_LOCAL(this));
   attached_element_ = element;
   return true;
 }

@@ -75,9 +75,10 @@ class KnownInterceptionDisclosureInfobarTest : public InProcessBrowserTest {
     network::mojom::NetworkService* network_service =
         content::GetNetworkService();
     DCHECK(network_service);
+    base::RunLoop run_loop;
     network_service->UpdateCRLSet(
-        base::as_bytes(base::make_span(crl_set_bytes)));
-    content::FlushNetworkServiceInstanceForTesting();
+        base::as_bytes(base::make_span(crl_set_bytes)), run_loop.QuitClosure());
+    run_loop.Run();
   }
 
  protected:
@@ -105,7 +106,7 @@ IN_PROC_BROWSER_TEST_F(KnownInterceptionDisclosureInfobarTest,
   // once.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_NAVIGATION);
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* tab2 = tab_strip_model->GetActiveWebContents();
   EXPECT_EQ(1u, GetInfobarCount(tab2));
 

@@ -100,7 +100,6 @@ void CreateTestPasswordForm(PasswordForm* form) {
   form->new_password_value = base::ASCIIToUTF16("new_password_value");
   form->new_password_marked_by_site = false;
   form->new_password_element = base::ASCIIToUTF16("confirmation_password");
-  form->preferred = false;
   form->date_created = AutofillClock::Now();
   form->date_synced = AutofillClock::Now();
   form->blacklisted_by_user = false;
@@ -127,7 +126,7 @@ void CreatePasswordGenerationUIData(
   data->generation_element = base::ASCIIToUTF16("generation_element");
   data->text_direction = base::i18n::RIGHT_TO_LEFT;
   data->is_generation_element_password_type = false;
-  CreateTestPasswordForm(&data->password_form);
+  test::CreateTestAddressFormData(&data->form_data);
 }
 
 void CheckEqualPasswordFormFillData(const PasswordFormFillData& expected,
@@ -170,7 +169,7 @@ void CheckEqualPassPasswordGenerationUIData(
   EXPECT_EQ(expected.is_generation_element_password_type,
             actual.is_generation_element_password_type);
   EXPECT_EQ(expected.text_direction, actual.text_direction);
-  EXPECT_EQ(expected.password_form, actual.password_form);
+  EXPECT_TRUE(expected.form_data.SameFormAs(actual.form_data));
 }
 
 }  // namespace

@@ -68,8 +68,8 @@ namespace {
 
 // Generates unique ids for SavePackage::unique_id_ field.
 SavePackageId GetNextSavePackageId() {
-  static int g_save_package_id = 0;
-  return SavePackageId::FromUnsafeValue(g_save_package_id++);
+  static SavePackageId::Generator g_save_package_id_generator;
+  return g_save_package_id_generator.GenerateNextId();
 }
 
 // Default name which will be used when we can not get proper name from
@@ -790,7 +790,7 @@ void SavePackage::SaveNextFile(bool process_all_remaining_items) {
     save_item_ptr->Start();
 
     // Find the frame responsible for making the network request below - it will
-    // be used in security checks made later by ResourceDispatcherHostImpl.
+    // be used in security checks made later.
     int requester_frame_tree_node_id =
         save_item_ptr->save_source() == SaveFileCreateInfo::SAVE_FILE_FROM_NET
             ? save_item_ptr->container_frame_tree_node_id()
@@ -1249,11 +1249,11 @@ void SavePackage::GetSaveInfo() {
   bool can_save_as_complete = CanSaveAsComplete(mime_type);
   base::PostTaskAndReplyWithResult(
       download::GetDownloadTaskRunner().get(), FROM_HERE,
-      base::Bind(&SavePackage::CreateDirectoryOnFileThread, title_, page_url_,
-                 can_save_as_complete, mime_type, website_save_dir,
-                 download_save_dir),
-      base::Bind(&SavePackage::ContinueGetSaveInfo, this,
-                 can_save_as_complete));
+      base::BindOnce(&SavePackage::CreateDirectoryOnFileThread, title_,
+                     page_url_, can_save_as_complete, mime_type,
+                     website_save_dir, download_save_dir),
+      base::BindOnce(&SavePackage::ContinueGetSaveInfo, this,
+                     can_save_as_complete));
 }
 
 // static

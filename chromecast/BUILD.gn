@@ -25,9 +25,7 @@ declare_args() {
 # Depends on all non-test targets that should be built by the Chromecast
 # internal build infrastructure.
 group("all") {
-  deps = [
-    "//chromecast/build:archive",
-  ]
+  deps = [ "//chromecast/build:archive" ]
   if (is_android && chromecast_branding == "public") {
     deps += [ ":cast_shell_apk" ]
   }
@@ -53,6 +51,7 @@ group("all") {
 # This is a config which is applied on all cast_* targets (which should be all
 # code under chromecast/).
 config("cast_config") {
+  cflags = [ "-Wshadow" ]
 }
 
 config("iot_service") {
@@ -128,17 +127,14 @@ cast_test_group("cast_tests") {
   }
   filters += [ cast_media_unittests_filter ]
 
-  if (!is_android) {
+  if (!is_android && !is_fuchsia) {
     tests += [
       ":cast_shell_browsertests",
       ":cast_shell_unittests",
       "//ipc:ipc_tests",
+      "//jingle:jingle_unittests",
       "//url:url_unittests",
     ]
-
-    if (!is_fuchsia) {
-      tests += [ "//jingle:jingle_unittests" ]
-    }
 
     cast_shell_browsertests_filter = {
       test_name = "cast_shell_browsertests"
@@ -149,6 +145,7 @@ cast_test_group("cast_tests") {
         "--no-sandbox",
         "--enable-local-file-accesses",
         "--test-launcher-jobs=1",
+        "--enable-hardware-overlays=\"\"",
       ]
 
       gtest_excludes = []
@@ -448,15 +445,11 @@ test("cast_shell_browsertests") {
     "//chromecast/browser:browsertests",
   ]
 
-  data_deps = [
-    ":chromecast_locales_pak",
-  ]
+  data_deps = [ ":chromecast_locales_pak" ]
 }
 
 group("cast_shell_lib") {
-  data_deps = [
-    ":cast_shell_pak",
-  ]
+  data_deps = [ ":cast_shell_pak" ]
 
   deps = [
     "//chromecast/app",
@@ -472,9 +465,7 @@ group("cast_shell_lib") {
 }
 
 cast_executable("cast_shell") {
-  sources = [
-    "app/cast_main.cc",
-  ]
+  sources = [ "app/cast_main.cc" ]
 
   deps = [
     ":cast_shell_lib",
@@ -484,31 +475,13 @@ cast_executable("cast_shell") {
   ]
 }
 
-if (is_fuchsia) {
-  fuchsia_package("cast_shell_pkg") {
-    binary = ":cast_shell"
-    package_name_override = "cast_shell"
-    manifest = "//chromecast/cast_shell.cmx"
-
-    if (chromecast_branding != "public") {
-      deps = [
-        "//chromecast/internal:fuchsia_internal_data_deps",
-      ]
-    }
-  }
-
-  fuchsia_package_runner("cast_shell_fuchsia") {
-    package = ":cast_shell_pkg"
-    package_name_override = "cast_shell"
-  }
-}
-
 repack("cast_shell_pak") {
   sources = [
     "$root_gen_dir/chromecast/app/shell_resources.pak",
     "$root_gen_dir/chromecast/bindings/bindings_resources.pak",
     "$root_gen_dir/content/app/resources/content_resources_100_percent.pak",
     "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/content/dev_ui_content_resources.pak",
     "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
     "$root_gen_dir/net/net_resources.pak",
     "$root_gen_dir/third_party/blink/public/resources/blink_resources.pak",
@@ -525,7 +498,8 @@ repack("cast_shell_pak") {
   deps = [
     "//chromecast/app:resources",
     "//chromecast/bindings:bindings_resources_grit",
-    "//content:resources",
+    "//content:content_resources",
+    "//content:dev_ui_content_resources",
     "//content/app/resources",
     "//mojo/public/js:resources",
     "//net:net_resources",
@@ -566,12 +540,9 @@ foreach(locale, cast_locales) {
   repack("_cast_repack_${locale}") {
     visibility = [ ":chromecast_locales_pak" ]
     output = "$root_out_dir/chromecast_locales/${locale}.pak"
-    sources = [
-      "$root_gen_dir/chromecast/app/chromecast_settings_${locale}.pak",
-    ]
-    deps = [
-      "//chromecast/app:chromecast_settings",
-    ]
+    sources =
+        [ "$root_gen_dir/chromecast/app/chromecast_settings_${locale}.pak" ]
+    deps = [ "//chromecast/app:chromecast_settings" ]
 
     if (chromecast_branding != "public") {
       sources += [
@@ -604,7 +575,6 @@ buildflag_header("chromecast_buildflags") {
     "DISABLE_SECURE_FLAC_OPUS_DECODING=$disable_secure_flac_and_opus_decoding",
     "ENABLE_ASSISTANT=$enable_assistant",
     "ENABLE_CAST_FRAGMENT=$enable_cast_fragment",
-    "ENABLE_CAST_WAYLAND_SERVER=$enable_cast_wayland_server",
     "ENABLE_CHROMECAST_EXTENSIONS=$enable_chromecast_extensions",
     "ENABLE_EXTERNAL_MOJO_SERVICES=$enable_external_mojo_services",
     "ENABLE_PLAYREADY=$enable_playready",
@@ -623,16 +593,14 @@ buildflag_header("chromecast_buildflags") {
 
 if (is_android) {
   generate_jni_registration("cast_shell_jni_registration") {
-    target = ":cast_shell_apk"
+    targets = [ ":cast_shell_apk" ]
     header_output = "$root_gen_dir/chromecast/android/${target_name}.h"
   }
 
   android_assets("cast_shell_apk_assets") {
     assert(v8_use_external_startup_data)
 
-    sources = [
-      "$root_out_dir/assets/cast_shell.pak",
-    ]
+    sources = [ "$root_out_dir/assets/cast_shell.pak" ]
 
     deps = [
       ":cast_shell_apk_locale_assets",
@@ -652,9 +620,7 @@ if (is_android) {
       renaming_destinations += [ "stored-locales/${locale}.pak" ]
     }
 
-    deps = [
-      ":chromecast_locales_pak",
-    ]
+    deps = [ ":chromecast_locales_pak" ]
 
     treat_as_locale_paks = true
     disable_compression = true

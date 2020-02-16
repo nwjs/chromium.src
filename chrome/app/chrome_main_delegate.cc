@@ -123,8 +123,8 @@
 
 #if defined(OS_ANDROID)
 #include "base/android/java_exception_reporter.h"
-#include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/crash/pure_java_exception_handler.h"
+#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/common/chrome_descriptors.h"
 #include "net/android/network_change_notifier_factory_android.h"
 #else  // defined(OS_ANDROID)
@@ -639,6 +639,10 @@ void ChromeMainDelegate::PostFieldTrialInitialization() {
     chromeos::LockMainProgramText();
 #endif
   }
+
+#if defined(OS_WIN)
+  base::Time::ReadMinTimerIntervalLowResMs();
+#endif
 }
 
 bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
@@ -865,8 +869,6 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
     diagnostics::DiagnosticsController::GetInstance()->RecordRegularStartup();
   }
 #endif
-
-  content::SetContentClient(&chrome_content_client_);
 
   // The TLS slot used by the memlog allocator shim needs to be initialized
   // early to ensure that it gets assigned a low slot number. If it gets
@@ -1295,6 +1297,10 @@ void ChromeMainDelegate::ZygoteForked() {
 }
 
 #endif  // defined(OS_LINUX)
+
+content::ContentClient* ChromeMainDelegate::CreateContentClient() {
+  return &chrome_content_client_;
+}
 
 content::ContentBrowserClient*
 ChromeMainDelegate::CreateContentBrowserClient() {

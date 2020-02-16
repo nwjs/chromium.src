@@ -74,6 +74,7 @@ class PLATFORM_EXPORT MarkingVisitorCommon : public Visitor {
   void RegisterBackingStoreReference(void** slot);
 
   MarkingWorklist::View marking_worklist_;
+  WriteBarrierWorklist::View write_barrier_worklist_;
   NotFullyConstructedWorklist::View not_fully_constructed_worklist_;
   WeakCallbackWorklist::View weak_callback_worklist_;
   MovableReferenceWorklist::View movable_reference_worklist_;
@@ -161,10 +162,11 @@ class PLATFORM_EXPORT MarkingVisitor
   // Returns whether an object is in construction.
   static bool IsInConstruction(HeapObjectHeader* header);
 
-  // Write barrier that adds |value| to the set of marked objects. The barrier
-  // bails out if marking is off or the object is not yet marked. Returns true
-  // if the object was marked on this call.
-  static bool WriteBarrier(void* value);
+  // Write barrier that adds a value the |slot| refers to to the set of marked
+  // objects. The barrier bails out if marking is off or the object is not yet
+  // marked. Returns true if the object was marked on this call.
+  template <typename T>
+  static bool WriteBarrier(T** slot);
 
   // Eagerly traces an already marked backing store ensuring that all its
   // children are discovered by the marker. The barrier bails out if marking
@@ -186,14 +188,16 @@ class PLATFORM_EXPORT MarkingVisitor
   // to be in construction.
   void DynamicallyMarkAddress(Address);
 
-  void FlushMarkingWorklist();
+  // Adds tracing callback for an already marked object. The object is not
+  // allowed to be in construction.
+  void VisitMarkedHeader(HeapObjectHeader* header);
+
+  void FlushMarkingWorklists();
 
  private:
   // Exact version of the marking write barriers.
   static bool WriteBarrierSlow(void*);
   static void TraceMarkedBackingStoreSlow(void*);
-
-  WriteBarrierWorklist::View write_barrier_worklist_;
 };
 
 // static
@@ -204,13 +208,14 @@ ALWAYS_INLINE bool MarkingVisitor::IsInConstruction(HeapObjectHeader* header) {
 }
 
 // static
-ALWAYS_INLINE bool MarkingVisitor::WriteBarrier(void* value) {
+template <typename T>
+ALWAYS_INLINE bool MarkingVisitor::WriteBarrier(T** slot) {
   if (!ThreadState::IsAnyIncrementalMarking())
     return false;
 
   // Avoid any further checks and dispatch to a call at this point. Aggressive
   // inlining otherwise pollutes the regular execution paths.
-  return WriteBarrierSlow(value);
+  return WriteBarrierSlow(*slot);
 }
 
 // static
@@ -234,7 +239,29 @@ class PLATFORM_EXPORT ConcurrentMarkingVisitor
   ~ConcurrentMarkingVisitor() override = default;
 
   virtual void FlushWorklists();
+
+  // Concurrent variant of MarkingVisitorCommon::AccountMarkedBytes.
+  void AccountMarkedBytesSafe(HeapObjectHeader*);
+
+  bool IsConcurrent() const override { return true; }
+
+  bool ConcurrentTracingBailOut(TraceDescriptor desc) override {
+    not_safe_to_concurrently_trace_worklist_.Push(desc);
+    return true;
+  }
+
+ private:
+  NotSafeToConcurrentlyTraceWorklist::View
+      not_safe_to_concurrently_trace_worklist_;
 };
+
+ALWAYS_INLINE void ConcurrentMarkingVisitor::AccountMarkedBytesSafe(
+    HeapObjectHeader* header) {
+  marked_bytes_ +=
+      header->IsLargeObject<HeapObjectHeader::AccessMode::kAtomic>()
+          ? static_cast<LargeObjectPage*>(PageFromObject(header))->size()
+          : header->size<HeapObjectHeader::AccessMode::kAtomic>();
+}
 
 // static
 ALWAYS_INLINE bool ConcurrentMarkingVisitor::IsInConstruction(

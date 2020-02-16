@@ -20,12 +20,14 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/browser/threat_details.h"
-#include "components/safe_browsing/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/features.h"
-#include "components/safe_browsing/triggers/trigger_manager.h"
+#include "components/safe_browsing/content/browser/threat_details.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/safe_browsing/core/features.h"
+#include "components/safe_browsing/core/triggers/trigger_manager.h"
 #include "components/security_interstitials/content/security_interstitial_controller_client.h"
+#include "components/security_interstitials/content/unsafe_resource_util.h"
 #include "components/security_interstitials/core/controller_client.h"
+#include "components/security_interstitials/core/unsafe_resource.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/interstitial_page.h"
 #include "content/public/browser/navigation_entry.h"
@@ -172,7 +174,7 @@ void SafeBrowsingBlockingPage::HandleSubresourcesAfterProceed() {
     // All queued unsafe resources should be for the same page:
     UnsafeResourceList unsafe_resources = iter->second;
     content::NavigationEntry* entry =
-        unsafe_resources[0].GetNavigationEntryForResource();
+        GetNavigationEntryForResource(unsafe_resources[0]);
     // Build an interstitial for all the unsafe resources notifications.
     // Don't show it now as showing an interstitial while an interstitial is
     // already showing would cause DontProceed() to be invoked.
@@ -270,7 +272,7 @@ void SafeBrowsingBlockingPage::ShowBlockingPage(
     // to display a new one for the main frame. If there is already an
     // interstitial, showing the new one will automatically hide the old one.
     content::NavigationEntry* entry =
-        unsafe_resource.GetNavigationEntryForResource();
+        GetNavigationEntryForResource(unsafe_resource);
     GURL main_fram_url = entry ? entry->GetURL() : GURL();
     SafeBrowsingBlockingPage* blocking_page = CreateBlockingPage(
         ui_manager, web_contents, main_fram_url, unsafe_resource,

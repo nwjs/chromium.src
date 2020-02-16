@@ -132,6 +132,7 @@ class FakeNavigationClient : public mojom::NavigationClient {
       mojom::CommitNavigationParamsPtr commit_params,
       bool has_stale_copy_in_cache,
       int error_code,
+      const net::ResolveErrorInfo& resolve_error_info,
       const base::Optional<std::string>& error_page_content,
       std::unique_ptr<blink::PendingURLLoaderFactoryBundle> subresource_loaders,
       CommitFailedNavigationCallback callback) override {
@@ -195,6 +196,31 @@ void WriteMetaDataToDiskCache(
           std::move(writer), std::move(callback), meta_data.size()));
 }
 
+// Writes the script with custom net::HttpResponseInfo down to |storage|
+// asynchronously. When completing tasks, |callback| will be called. You must
+// wait for |callback| instead of base::RunUntilIdle because wiriting to the
+// storage might happen on another thread and base::RunLoop could get idle
+// before writes has not finished yet.
+ServiceWorkerDatabase::ResourceRecord
+WriteToDiskCacheWithCustomResponseInfoAsync(
+    ServiceWorkerStorage* storage,
+    const GURL& script_url,
+    int64_t resource_id,
+    std::unique_ptr<net::HttpResponseInfo> http_info,
+    const std::string& body,
+    const std::string& meta_data,
+    base::OnceClosure callback) {
+  base::RepeatingClosure barrier = base::BarrierClosure(2, std::move(callback));
+  auto body_writer = storage->CreateResponseWriter(resource_id);
+  WriteBodyToDiskCache(std::move(body_writer), std::move(http_info), body,
+                       barrier);
+  auto metadata_writer = storage->CreateResponseMetadataWriter(resource_id);
+  WriteMetaDataToDiskCache(std::move(metadata_writer), meta_data,
+                           std::move(barrier));
+  return ServiceWorkerDatabase::ResourceRecord(resource_id, script_url,
+                                               body.size());
+}
+
 }  // namespace
 
 ServiceWorkerRemoteProviderEndpoint::ServiceWorkerRemoteProviderEndpoint() {}
@@ -248,34 +274,35 @@ void ServiceWorkerRemoteProviderEndpoint::BindForServiceWorker(
   host_remote_.Bind(std::move(info->host_remote));
 }
 
-ServiceWorkerProviderHostAndInfo::ServiceWorkerProviderHostAndInfo(
-    base::WeakPtr<ServiceWorkerProviderHost> host,
+ServiceWorkerContainerHostAndInfo::ServiceWorkerContainerHostAndInfo(
+    base::WeakPtr<ServiceWorkerContainerHost> host,
     blink::mojom::ServiceWorkerProviderInfoForClientPtr info)
     : host(std::move(host)), info(std::move(info)) {}
 
-ServiceWorkerProviderHostAndInfo::~ServiceWorkerProviderHostAndInfo() = default;
+ServiceWorkerContainerHostAndInfo::~ServiceWorkerContainerHostAndInfo() =
+    default;
 
-base::WeakPtr<ServiceWorkerProviderHost> CreateProviderHostForWindow(
+base::WeakPtr<ServiceWorkerContainerHost> CreateContainerHostForWindow(
     int process_id,
     bool is_parent_frame_secure,
     base::WeakPtr<ServiceWorkerContextCore> context,
     ServiceWorkerRemoteProviderEndpoint* output_endpoint) {
-  std::unique_ptr<ServiceWorkerProviderHostAndInfo> host_and_info =
-      CreateProviderHostAndInfoForWindow(context, is_parent_frame_secure);
-  base::WeakPtr<ServiceWorkerProviderHost> host =
+  std::unique_ptr<ServiceWorkerContainerHostAndInfo> host_and_info =
+      CreateContainerHostAndInfoForWindow(context, is_parent_frame_secure);
+  base::WeakPtr<ServiceWorkerContainerHost> container_host =
       std::move(host_and_info->host);
   output_endpoint->BindForWindow(std::move(host_and_info->info));
 
   // In production code this is called from NavigationRequest in the browser
   // process right before navigation commit.
-  host->container_host()->OnBeginNavigationCommit(
+  container_host->OnBeginNavigationCommit(
       process_id, 1 /* route_id */,
       network::mojom::CrossOriginEmbedderPolicy::kNone);
-  return host;
+  return container_host;
 }
 
-std::unique_ptr<ServiceWorkerProviderHostAndInfo>
-CreateProviderHostAndInfoForWindow(
+std::unique_ptr<ServiceWorkerContainerHostAndInfo>
+CreateContainerHostAndInfoForWindow(
     base::WeakPtr<ServiceWorkerContextCore> context,
     bool are_ancestors_secure) {
   mojo::PendingAssociatedRemote<blink::mojom::ServiceWorkerContainer>
@@ -285,8 +312,8 @@ CreateProviderHostAndInfoForWindow(
   auto info = blink::mojom::ServiceWorkerProviderInfoForClient::New();
   info->client_receiver = client_remote.InitWithNewEndpointAndPassReceiver();
   host_receiver = info->host_remote.InitWithNewEndpointAndPassReceiver();
-  return std::make_unique<ServiceWorkerProviderHostAndInfo>(
-      ServiceWorkerProviderHost::CreateForWindow(
+  return std::make_unique<ServiceWorkerContainerHostAndInfo>(
+      ServiceWorkerContainerHost::CreateForWindow(
           context, are_ancestors_secure, FrameTreeNode::kFrameTreeNodeInvalidId,
           std::move(host_receiver), std::move(client_remote)),
       std::move(info));
@@ -325,7 +352,7 @@ void StopServiceWorker(ServiceWorkerVersion* version) {
   run_loop.Run();
 }
 
-base::WeakPtr<ServiceWorkerProviderHost>
+std::unique_ptr<ServiceWorkerProviderHost>
 CreateProviderHostForServiceWorkerContext(
     int process_id,
     bool is_parent_frame_secure,
@@ -334,10 +361,9 @@ CreateProviderHostForServiceWorkerContext(
     ServiceWorkerRemoteProviderEndpoint* output_endpoint) {
   auto provider_info =
       blink::mojom::ServiceWorkerProviderInfoForStartWorker::New();
-  base::WeakPtr<ServiceWorkerProviderHost> host =
-      ServiceWorkerProviderHost::CreateForServiceWorker(
-          std::move(context), base::WrapRefCounted(hosted_version),
-          &provider_info);
+  auto host = std::make_unique<ServiceWorkerProviderHost>(
+      provider_info->host_remote.InitWithNewEndpointAndPassReceiver(),
+      base::WrapRefCounted(hosted_version), std::move(context));
 
   host->CompleteStartWorkerPreparation(
       process_id,
@@ -354,11 +380,9 @@ CreateServiceWorkerRegistrationAndVersion(ServiceWorkerContextCore* context,
 
   blink::mojom::ServiceWorkerRegistrationOptions options;
   options.scope = scope;
-  auto registration = base::MakeRefCounted<ServiceWorkerRegistration>(
-      options, storage->NewRegistrationId(), context->AsWeakPtr());
-  auto version = base::MakeRefCounted<ServiceWorkerVersion>(
-      registration.get(), script, blink::mojom::ScriptType::kClassic,
-      storage->NewVersionId(), context->AsWeakPtr());
+  auto registration = context->registry()->CreateNewRegistration(options);
+  auto version = context->registry()->CreateNewVersion(
+      registration.get(), script, blink::mojom::ScriptType::kClassic);
   std::vector<ServiceWorkerDatabase::ResourceRecord> records = {
       ServiceWorkerDatabase::ResourceRecord(storage->NewResourceId(), script,
                                             100)};
@@ -385,23 +409,6 @@ ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheSync(
   return record;
 }
 
-ServiceWorkerDatabase::ResourceRecord
-WriteToDiskCacheWithCustomResponseInfoSync(
-    ServiceWorkerStorage* storage,
-    const GURL& script_url,
-    int64_t resource_id,
-    std::unique_ptr<net::HttpResponseInfo> http_info,
-    const std::string& body,
-    const std::string& meta_data) {
-  base::RunLoop loop;
-  ServiceWorkerDatabase::ResourceRecord record =
-      WriteToDiskCacheWithCustomResponseInfoAsync(
-          storage, script_url, resource_id, std::move(http_info), body,
-          meta_data, loop.QuitClosure());
-  loop.Run();
-  return record;
-}
-
 ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheAsync(
     ServiceWorkerStorage* storage,
     const GURL& script_url,
@@ -421,26 +428,6 @@ ServiceWorkerDatabase::ResourceRecord WriteToDiskCacheAsync(
   return WriteToDiskCacheWithCustomResponseInfoAsync(
       storage, script_url, resource_id, std::move(info), body, meta_data,
       std::move(callback));
-}
-
-ServiceWorkerDatabase::ResourceRecord
-WriteToDiskCacheWithCustomResponseInfoAsync(
-    ServiceWorkerStorage* storage,
-    const GURL& script_url,
-    int64_t resource_id,
-    std::unique_ptr<net::HttpResponseInfo> http_info,
-    const std::string& body,
-    const std::string& meta_data,
-    base::OnceClosure callback) {
-  base::RepeatingClosure barrier = base::BarrierClosure(2, std::move(callback));
-  auto body_writer = storage->CreateResponseWriter(resource_id);
-  WriteBodyToDiskCache(std::move(body_writer), std::move(http_info), body,
-                       barrier);
-  auto metadata_writer = storage->CreateResponseMetadataWriter(resource_id);
-  WriteMetaDataToDiskCache(std::move(metadata_writer), meta_data,
-                           std::move(barrier));
-  return ServiceWorkerDatabase::ResourceRecord(resource_id, script_url,
-                                               body.size());
 }
 
 MockServiceWorkerResponseReader::MockServiceWorkerResponseReader()
@@ -689,7 +676,8 @@ void ServiceWorkerUpdateCheckTestUtils::SetComparedScriptInfoForVersion(
       (compare_result ==
        ServiceWorkerSingleScriptUpdateChecker::Result::kDifferent)
           ? script_url
-          : GURL());
+          : GURL(),
+      network::mojom::CrossOriginEmbedderPolicy::kNone);
 }
 
 void ServiceWorkerUpdateCheckTestUtils::

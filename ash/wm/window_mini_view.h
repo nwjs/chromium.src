@@ -19,8 +19,8 @@ class View;
 }  // namespace views
 
 namespace ash {
-class RoundedRectView;
 class WindowPreviewView;
+class WmHighlightItemBorder;
 
 // WindowMiniView is a view which contains a header and optionally a mirror of
 // the given window. Displaying the mirror is chosen by the subclass by calling
@@ -38,18 +38,24 @@ class ASH_EXPORT WindowMiniView : public views::View,
   // Creates or deletes |preview_view_| as needed.
   void SetShowPreview(bool show);
 
+  // Sets or hides rounded corners on |preview_view_|, if it exists.
+  void UpdatePreviewRoundedCorners(bool show);
+
+  // Shows or hides a focus ring around this view.
+  void UpdateBorderState(bool show);
+
   views::View* header_view() { return header_view_; }
   views::Label* title_label() const { return title_label_; }
-  RoundedRectView* backdrop_view() { return backdrop_view_; }
+  views::View* backdrop_view() { return backdrop_view_; }
   WindowPreviewView* preview_view() const { return preview_view_; }
 
  protected:
-  WindowMiniView(aura::Window* source_window,
-                 bool views_should_paint_to_layers);
+  explicit WindowMiniView(aura::Window* source_window);
 
-  // Adds |child| as a child of |parent|. May set child view to have a layer if
-  // |views_should_paint_to_layers_| is true.
-  void AddChildViewOf(views::View* parent, views::View* child);
+  WmHighlightItemBorder* border_ptr() { return border_ptr_; }
+
+  // Returns the bounds where the backdrop and preview should go.
+  gfx::Rect GetContentAreaBounds() const;
 
   // Subclasses can override these functions to provide customization for
   // margins and layouts of certain elements.
@@ -62,10 +68,17 @@ class ASH_EXPORT WindowMiniView : public views::View,
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
 
   // aura::WindowObserver:
+  void OnWindowPropertyChanged(aura::Window* window,
+                               const void* key,
+                               intptr_t old) override;
   void OnWindowDestroying(aura::Window* window) override;
   void OnWindowTitleChanged(aura::Window* window) override;
 
  private:
+  // Updates the icon view by creating it if necessary, and grabbing the correct
+  // image from |source_window_|.
+  void UpdateIconView();
+
   // The window this class is meant to be a header for. This class also may
   // optionally show a mirrored view of this window.
   aura::Window* source_window_;
@@ -73,17 +86,18 @@ class ASH_EXPORT WindowMiniView : public views::View,
   // Views for the icon and title.
   views::View* header_view_ = nullptr;
   views::Label* title_label_ = nullptr;
-  views::ImageView* image_view_ = nullptr;
+  views::ImageView* icon_view_ = nullptr;
+
+  // Owned by |content_view_| via `View::border_`. This is just a convenient
+  // pointer to it.
+  WmHighlightItemBorder* border_ptr_;
 
   // A view that covers the area except the header. It is null when the window
   // associated is not pillar or letter boxed.
-  RoundedRectView* backdrop_view_ = nullptr;
+  views::View* backdrop_view_ = nullptr;
 
   // Optionally shows a preview of |window_|.
   WindowPreviewView* preview_view_ = nullptr;
-
-  // If true, views added to this view subtree have layers.
-  const bool views_should_paint_to_layers_;
 
   ScopedObserver<aura::Window, aura::WindowObserver> window_observer_{this};
 

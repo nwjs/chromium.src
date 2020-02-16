@@ -13,12 +13,10 @@
 #include "base/single_thread_task_runner.h"
 #include "components/browser_sync/browser_sync_client.h"
 
+class ChromeBrowserState;
+
 namespace autofill {
 class AutofillWebDataService;
-}
-
-namespace ios {
-class ChromeBrowserState;
 }
 
 namespace password_manager {
@@ -31,7 +29,7 @@ class ProfileSyncComponentsFactoryImpl;
 
 class IOSChromeSyncClient : public browser_sync::BrowserSyncClient {
  public:
-  explicit IOSChromeSyncClient(ios::ChromeBrowserState* browser_state);
+  explicit IOSChromeSyncClient(ChromeBrowserState* browser_state);
   ~IOSChromeSyncClient() override;
 
   // BrowserSyncClient implementation.
@@ -62,7 +60,7 @@ class IOSChromeSyncClient : public browser_sync::BrowserSyncClient {
   syncer::SyncTypePreferenceProvider* GetPreferenceProvider() override;
 
  private:
-  ios::ChromeBrowserState* const browser_state_;
+  ChromeBrowserState* const browser_state_;
 
   // The sync api component factory in use by this client.
   // TODO(crbug.com/915154): Revert to SyncApiComponentFactory once common

@@ -120,7 +120,8 @@ static ResourceRequest CreateResourceRequest(const char* method,
   ResourceRequest request;
   request.method = std::string(method);
   request.url = url;
-  request.site_for_cookies = url;  // bypass third-party cookie blocking
+  request.site_for_cookies =
+      net::SiteForCookies::FromUrl(url);  // bypass third-party cookie blocking
   url::Origin origin = url::Origin::Create(url);
   request.request_initiator = origin;  // ensure initiator is set
   request.is_main_frame = true;
@@ -426,7 +427,7 @@ class URLLoaderTest : public testing::Test {
         base::FilePath(FILE_PATH_LITERAL("services/test/data")));
     // This Unretained is safe because test_server_ is owned by |this|.
     test_server_.RegisterRequestMonitor(
-        base::Bind(&URLLoaderTest::Monitor, base::Unretained(this)));
+        base::BindRepeating(&URLLoaderTest::Monitor, base::Unretained(this)));
     ASSERT_TRUE(test_server_.Start());
 
     // Set up a scoped host resolver so that |kInsecureHost| will resolve to
@@ -689,7 +690,7 @@ class URLLoaderTest : public testing::Test {
             MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
             MOJO_WATCH_CONDITION_SATISFIED,
             base::BindRepeating(
-                [](base::Closure quit, MojoResult result,
+                [](base::RepeatingClosure quit, MojoResult result,
                    const mojo::HandleSignalsState& state) { quit.Run(); },
                 run_loop.QuitClosure()));
         run_loop.Run();
@@ -1578,13 +1579,13 @@ TEST_F(URLLoaderTest, UploadFileWithoutNetworkServiceClient) {
 
 class CallbackSavingNetworkContextClient : public TestNetworkContextClient {
  public:
-  void OnFileUploadRequested(uint32_t process_id,
+  void OnFileUploadRequested(int32_t process_id,
                              bool async,
                              const std::vector<base::FilePath>& file_paths,
                              OnFileUploadRequestedCallback callback) override {
     file_upload_requested_callback_ = std::move(callback);
     if (quit_closure_for_on_file_upload_requested_)
-      quit_closure_for_on_file_upload_requested_.Run();
+      std::move(quit_closure_for_on_file_upload_requested_).Run();
   }
 
   void RunUntilUploadRequested(OnFileUploadRequestedCallback* callback) {
@@ -1592,13 +1593,12 @@ class CallbackSavingNetworkContextClient : public TestNetworkContextClient {
       base::RunLoop run_loop;
       quit_closure_for_on_file_upload_requested_ = run_loop.QuitClosure();
       run_loop.Run();
-      quit_closure_for_on_file_upload_requested_.Reset();
     }
     *callback = std::move(file_upload_requested_callback_);
   }
 
  private:
-  base::Closure quit_closure_for_on_file_upload_requested_;
+  base::OnceClosure quit_closure_for_on_file_upload_requested_;
   OnFileUploadRequestedCallback file_upload_requested_callback_;
 };
 
@@ -2325,6 +2325,7 @@ TEST_F(URLLoaderTest, RedirectDirectlyModifiedSecHeadersUser) {
   // Try to modify `Sec-Fetch-User` directly.
   ResourceRequest request = CreateResourceRequest("GET", url);
   request.headers.SetHeader("Sec-Fetch-User", "?1");
+  request.headers.SetHeader("Sec-Fetch-Dest", "embed");
 
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
@@ -2346,6 +2347,7 @@ TEST_F(URLLoaderTest, RedirectDirectlyModifiedSecHeadersUser) {
 
   const auto& request_headers = sent_request().headers;
   EXPECT_EQ(request_headers.end(), request_headers.find("Sec-Fetch-User"));
+  EXPECT_EQ("empty", request_headers.find("Sec-Fetch-Dest")->second);
 }
 
 // A mock URLRequestJob which simulates an HTTPS request with a certificate
@@ -2677,8 +2679,8 @@ class MockNetworkContextClient : public TestNetworkContextClient {
   ~MockNetworkContextClient() override = default;
 
   void OnAuthRequired(const base::Optional<base::UnguessableToken>& window_id,
-                      uint32_t process_id,
-                      uint32_t routing_id,
+                      int32_t process_id,
+                      int32_t routing_id,
                       uint32_t request_id,
                       const GURL& url,
                       bool first_auth_attempt,
@@ -2711,8 +2713,8 @@ class MockNetworkContextClient : public TestNetworkContextClient {
 
   void OnCertificateRequested(
       const base::Optional<base::UnguessableToken>& window_id,
-      uint32_t process_id,
-      uint32_t routing_id,
+      int32_t process_id,
+      int32_t routing_id,
       uint32_t request_id,
       const scoped_refptr<net::SSLCertRequestInfo>& cert_info,
       mojo::PendingRemote<mojom::ClientCertificateResponder>
@@ -2751,12 +2753,12 @@ class MockNetworkContextClient : public TestNetworkContextClient {
       int32_t process_id,
       int32_t routing_id,
       const GURL& url,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const std::vector<net::CookieWithStatus>& cookie_list) override {
     for (const auto& cookie_and_status : cookie_list) {
       reported_response_cookies_.push_back(
-          CookieInfo(url, site_for_cookies, cookie_and_status.cookie,
-                     cookie_and_status.status));
+          CookieInfo(url, site_for_cookies.RepresentativeUrl(),
+                     cookie_and_status.cookie, cookie_and_status.status));
     }
     if (wait_for_reported_response_cookies_ &&
         reported_response_cookies_.size() >=
@@ -2770,12 +2772,12 @@ class MockNetworkContextClient : public TestNetworkContextClient {
       int32_t process_id,
       int32_t routing_id,
       const GURL& url,
-      const GURL& site_for_cookies,
+      const net::SiteForCookies& site_for_cookies,
       const std::vector<net::CookieWithStatus>& cookie_list) override {
     for (const auto& cookie_and_status : cookie_list) {
-      reported_request_cookies_.push_back(CookieInfo(url, site_for_cookies,
-                                                     cookie_and_status.cookie,
-                                                     cookie_and_status.status));
+      reported_request_cookies_.push_back(
+          CookieInfo(url, site_for_cookies.RepresentativeUrl(),
+                     cookie_and_status.cookie, cookie_and_status.status));
     }
     if (wait_for_reported_request_cookies_ &&
         reported_request_cookies_.size() >=
@@ -3855,9 +3857,10 @@ TEST_F(URLLoaderTest, CookieReportingRedirect) {
   // Make sure that this has the pre-redirect URL, not the post-redirect one.
   EXPECT_EQ(redirecting_url,
             network_context_client.reported_response_cookies()[0].url);
-  EXPECT_EQ(
-      redirecting_url,
-      network_context_client.reported_response_cookies()[0].site_for_cookies);
+  EXPECT_TRUE(net::SiteForCookies::FromUrl(redirecting_url)
+                  .IsEquivalent(net::SiteForCookies::FromUrl(
+                      network_context_client.reported_response_cookies()[0]
+                          .site_for_cookies)));
   EXPECT_EQ(
       "true",
       network_context_client.reported_response_cookies()[0].cookie.Value());
@@ -4337,7 +4340,8 @@ TEST_F(URLLoaderTest, CookieReportingCategories) {
     ResourceRequest request = CreateResourceRequest(
         "GET", https_server.GetURL("/set-cookie?a=b;Secure"));
     // Make this a third-party request.
-    request.site_for_cookies = GURL("http://www.example.com");
+    request.site_for_cookies =
+        net::SiteForCookies::FromUrl(GURL("http://www.example.com"));
 
     base::RunLoop delete_run_loop;
     mojo::PendingRemote<mojom::URLLoader> loader;
@@ -4376,10 +4380,11 @@ TEST_F(URLLoaderTest, CookieReportingCategories) {
       EXPECT_TRUE(network_context_client.reported_response_cookies()[0]
                       .status.IsInclude());
     }
-    EXPECT_EQ(
-        net::CanonicalCookie::CookieInclusionStatus::WarningReason::
-            WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT,
-        network_context_client.reported_response_cookies()[0].status.warning());
+    EXPECT_TRUE(
+        network_context_client.reported_response_cookies()[0]
+            .status.HasWarningReason(
+                net::CanonicalCookie::CookieInclusionStatus::WarningReason::
+                    WARN_SAMESITE_UNSPECIFIED_CROSS_SITE_CONTEXT));
   }
 
   // Blocked.
@@ -4391,7 +4396,8 @@ TEST_F(URLLoaderTest, CookieReportingCategories) {
     ResourceRequest request = CreateResourceRequest(
         "GET", https_server.GetURL("/set-cookie?a=b;Secure"));
     // Make this a third-party request.
-    request.site_for_cookies = GURL("http://www.example.com");
+    request.site_for_cookies =
+        net::SiteForCookies::FromUrl(GURL("http://www.example.com"));
 
     base::RunLoop delete_run_loop;
     mojo::PendingRemote<mojom::URLLoader> loader;

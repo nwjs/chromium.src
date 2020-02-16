@@ -143,8 +143,8 @@ class TestAutofillPopupController : public AutofillPopupControllerImpl {
       base::WeakPtr<AutofillExternalDelegate> external_delegate,
       const gfx::RectF& element_bounds)
       : AutofillPopupControllerImpl(external_delegate,
-                                    NULL,
-                                    NULL,
+                                    nullptr,
+                                    nullptr,
                                     element_bounds,
                                     base::i18n::UNKNOWN_DIRECTION) {
     LayoutModelForTesting().SetUpForTesting(
@@ -169,11 +169,13 @@ class TestAutofillPopupController : public AutofillPopupControllerImpl {
   using AutofillPopupControllerImpl::SetSelectedLine;
   using AutofillPopupControllerImpl::SetValues;
   MOCK_METHOD0(OnSuggestionsChanged, void());
-  MOCK_METHOD0(Hide, void());
+  MOCK_METHOD1(Hide, void(PopupHidingReason reason));
   MOCK_METHOD0(GetRootAXPlatformNodeForWebContents, ui::AXPlatformNode*());
 
-  void DoHide() {
-    AutofillPopupControllerImpl::Hide();
+  void DoHide() { DoHide(PopupHidingReason::kTabGone); }
+
+  void DoHide(PopupHidingReason reason) {
+    AutofillPopupControllerImpl::Hide(reason);
   }
 };
 
@@ -419,7 +421,8 @@ TEST_F(AutofillPopupControllerUnitTest, RemoveLine) {
   // Remove the last entry. The popup should then be hidden since there are
   // no Autofill entries left.
   EXPECT_CALL(*autofill_popup_view_, OnSelectedRowChanged(_, _)).Times(0);
-  EXPECT_CALL(*autofill_popup_controller_, Hide());
+  EXPECT_CALL(*autofill_popup_controller_,
+              Hide(PopupHidingReason::kNoSuggestions));
   EXPECT_TRUE(autofill_popup_controller_->RemoveSelectedLine());
 }
 
@@ -446,7 +449,8 @@ TEST_F(AutofillPopupControllerUnitTest, RemoveOnlyLine) {
 
   // Remove the only line. The popup should then be hidden since there are no
   // Autofill entries left.
-  EXPECT_CALL(*autofill_popup_controller_, Hide());
+  EXPECT_CALL(*autofill_popup_controller_,
+              Hide(PopupHidingReason::kNoSuggestions));
   EXPECT_CALL(*autofill_popup_view_, OnSelectedRowChanged(_, _)).Times(0);
   EXPECT_TRUE(autofill_popup_controller_->RemoveSelectedLine());
 }
@@ -593,7 +597,8 @@ TEST_F(AutofillPopupControllerUnitTest, PopupsWithOnlyDataLists) {
             autofill_popup_controller_->GetSuggestionAt(0).frontend_id);
 
   // Clear datalist values and check that the popup becomes hidden.
-  EXPECT_CALL(*autofill_popup_controller_, Hide());
+  EXPECT_CALL(*autofill_popup_controller_,
+              Hide(PopupHidingReason::kNoSuggestions));
   data_list_values.clear();
   autofill_popup_controller_->UpdateDataListValues(data_list_values,
                                                    data_list_values);
@@ -608,50 +613,46 @@ TEST_F(AutofillPopupControllerUnitTest, GetOrCreate) {
 
   WeakPtr<AutofillPopupControllerImpl> controller =
       AutofillPopupControllerImpl::GetOrCreate(
-          WeakPtr<AutofillPopupControllerImpl>(), delegate.GetWeakPtr(), NULL,
-          NULL, gfx::RectF(), base::i18n::UNKNOWN_DIRECTION);
+          WeakPtr<AutofillPopupControllerImpl>(), delegate.GetWeakPtr(),
+          nullptr, nullptr, gfx::RectF(), base::i18n::UNKNOWN_DIRECTION);
   EXPECT_TRUE(controller.get());
 
-  controller->Hide();
+  controller->Hide(PopupHidingReason::kViewDestroyed);
 
   controller = AutofillPopupControllerImpl::GetOrCreate(
-      WeakPtr<AutofillPopupControllerImpl>(), delegate.GetWeakPtr(), NULL, NULL,
-      gfx::RectF(), base::i18n::UNKNOWN_DIRECTION);
+      WeakPtr<AutofillPopupControllerImpl>(), delegate.GetWeakPtr(), nullptr,
+      nullptr, gfx::RectF(), base::i18n::UNKNOWN_DIRECTION);
   EXPECT_TRUE(controller.get());
 
   WeakPtr<AutofillPopupControllerImpl> controller2 =
       AutofillPopupControllerImpl::GetOrCreate(
-          controller, delegate.GetWeakPtr(), NULL, NULL, gfx::RectF(),
+          controller, delegate.GetWeakPtr(), nullptr, nullptr, gfx::RectF(),
           base::i18n::UNKNOWN_DIRECTION);
   EXPECT_EQ(controller.get(), controller2.get());
-  controller->Hide();
+  controller->Hide(PopupHidingReason::kViewDestroyed);
 
   NiceMock<TestAutofillPopupController>* test_controller =
       new NiceMock<TestAutofillPopupController>(delegate.GetWeakPtr(),
                                                 gfx::RectF());
-  EXPECT_CALL(*test_controller, Hide());
+  EXPECT_CALL(*test_controller, Hide(PopupHidingReason::kViewDestroyed));
 
   gfx::RectF bounds(0.f, 0.f, 1.f, 2.f);
   base::WeakPtr<AutofillPopupControllerImpl> controller3 =
       AutofillPopupControllerImpl::GetOrCreate(
-          test_controller->GetWeakPtr(),
-          delegate.GetWeakPtr(),
-          NULL,
-          NULL,
-          bounds,
-          base::i18n::UNKNOWN_DIRECTION);
+          test_controller->GetWeakPtr(), delegate.GetWeakPtr(), nullptr,
+          nullptr, bounds, base::i18n::UNKNOWN_DIRECTION);
   EXPECT_EQ(
       bounds,
       static_cast<AutofillPopupController*>(controller3.get())->
           element_bounds());
-  controller3->Hide();
+  controller3->Hide(PopupHidingReason::kViewDestroyed);
 
   // Hide the test_controller to delete it.
   test_controller->DoHide();
 
   test_controller = new NiceMock<TestAutofillPopupController>(
       delegate.GetWeakPtr(), gfx::RectF());
-  EXPECT_CALL(*test_controller, Hide()).Times(0);
+  EXPECT_CALL(*test_controller, Hide).Times(0);
 
   const base::WeakPtr<AutofillPopupControllerImpl> controller4 =
       AutofillPopupControllerImpl::GetOrCreate(
@@ -673,8 +674,8 @@ TEST_F(AutofillPopupControllerUnitTest, ProperlyResetController) {
   // Now show a new popup with the same controller, but with fewer items.
   WeakPtr<AutofillPopupControllerImpl> controller =
       AutofillPopupControllerImpl::GetOrCreate(
-          popup_controller()->GetWeakPtr(), delegate()->GetWeakPtr(), NULL,
-          NULL, gfx::RectF(), base::i18n::UNKNOWN_DIRECTION);
+          popup_controller()->GetWeakPtr(), delegate()->GetWeakPtr(), nullptr,
+          nullptr, gfx::RectF(), base::i18n::UNKNOWN_DIRECTION);
   EXPECT_FALSE(controller->selected_line());
   EXPECT_EQ(0, controller->GetLineCount());
 }
@@ -695,6 +696,19 @@ TEST_F(AutofillPopupControllerUnitTest, HidingClearsPreview) {
   EXPECT_CALL(delegate, ClearPreviewedForm());
   // Hide() also deletes the object itself.
   test_controller->DoHide();
+}
+
+TEST_F(AutofillPopupControllerUnitTest, DontHideWhenWaitingForData) {
+  EXPECT_CALL(*autofill_popup_view(), Hide).Times(0);
+  autofill_popup_controller_->PinViewUntilUpdate();
+
+  // Hide() will not work for stale data or when focusing native UI.
+  autofill_popup_controller_->DoHide(PopupHidingReason::kStaleData);
+  autofill_popup_controller_->DoHide(PopupHidingReason::kEndEditing);
+
+  // Check the expectations now since TearDown will perform a successful hide.
+  Mock::VerifyAndClearExpectations(delegate());
+  Mock::VerifyAndClearExpectations(autofill_popup_view());
 }
 
 #if !defined(OS_ANDROID)

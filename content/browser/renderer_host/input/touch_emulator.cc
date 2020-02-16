@@ -17,9 +17,9 @@
 #include "content/grit/content_resources.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
+#include "third_party/blink/public/common/input/web_keyboard_event.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/platform/web_cursor_info.h"
-#include "third_party/blink/public/platform/web_keyboard_event.h"
-#include "third_party/blink/public/platform/web_mouse_event.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/blink/blink_event_util.h"
@@ -196,8 +196,8 @@ bool TouchEmulator::HandleMouseEvent(const WebMouseEvent& mouse_event,
   if (mouse_event.button == WebMouseEvent::Button::kRight &&
       mouse_event.GetType() == WebInputEvent::kMouseDown) {
     client_->ShowContextMenuAtPoint(
-        gfx::Point(mouse_event.PositionInWidget().x,
-                   mouse_event.PositionInWidget().y),
+        gfx::Point(mouse_event.PositionInWidget().x(),
+                   mouse_event.PositionInWidget().y()),
         ui::MENU_SOURCE_MOUSE, target_view);
   }
 
@@ -505,7 +505,7 @@ void TouchEmulator::PinchBegin(const WebGestureEvent& event) {
 
 void TouchEmulator::PinchUpdate(const WebGestureEvent& event) {
   DCHECK(pinch_gesture_active_);
-  float dy = pinch_anchor_.y() - event.PositionInWidget().y;
+  float dy = pinch_anchor_.y() - event.PositionInWidget().y();
   float scale = exp(dy * 0.002f);
   WebGestureEvent pinch_event =
       GetPinchGestureEvent(WebInputEvent::kGesturePinchUpdate, event);
@@ -574,8 +574,8 @@ void TouchEmulator::FillTouchEventAndPoint(const WebMouseEvent& mouse_event,
   // for example when scroll bubbling is taking place. The GestureRecognizer
   // isn't designed to handle that.
   point.SetPositionInWidget(pos_in_root);
-  point.SetPositionInScreen(mouse_event.PositionInScreen().x,
-                            mouse_event.PositionInScreen().y);
+  point.SetPositionInScreen(mouse_event.PositionInScreen().x(),
+                            mouse_event.PositionInScreen().y());
   point.tilt_x = 0;
   point.tilt_y = 0;
   point.pointer_type = blink::WebPointerProperties::PointerType::kTouch;

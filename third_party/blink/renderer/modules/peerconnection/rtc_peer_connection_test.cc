@@ -10,7 +10,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
-#include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_heap.h"
 #include "third_party/blink/public/web/web_script_source.h"
@@ -18,21 +17,22 @@
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_void_function.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_answer_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_configuration.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_ice_server.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_offer_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_peer_connection_error_callback.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_session_description_callback.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_session_description_init.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_track.h"
-#include "third_party/blink/renderer/modules/peerconnection/mock_web_rtc_peer_connection_handler.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_answer_options.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_configuration.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_ice_server.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_offer_options.h"
-#include "third_party/blink/renderer/modules/peerconnection/rtc_session_description_init.h"
+#include "third_party/blink/renderer/modules/peerconnection/mock_rtc_peer_connection_handler_platform.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
+#include "third_party/blink/renderer/platform/peerconnection/rtc_peer_connection_handler_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_receiver_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_rtp_sender_platform.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_session_description_platform.h"
@@ -377,9 +377,7 @@ static const char* kOfferSdpPlanBMultipleAudioTracks =
     "a=ssrc:4092260337 mslabel:46f8615e-7599-49f3-9a45-3cf0faf58614\r\n"
     "a=ssrc:4092260337 label:6b5f436e-f85d-40a1-83e4-acec63ca4b82\r\n";
 
-template <typename PlatformSupportType>
-class RTCPeerConnectionTestWithPlatformTestingPlatformType
-    : public testing::Test {
+class RTCPeerConnectionTest : public testing::Test {
  public:
   RTCPeerConnection* CreatePC(V8TestingScope& scope,
                               const String& sdpSemantics = String()) {
@@ -392,16 +390,15 @@ class RTCPeerConnectionTestWithPlatformTestingPlatformType
     config->setIceServers(ice_servers);
     RTCPeerConnection::SetRtcPeerConnectionHandlerFactoryForTesting(
         base::BindRepeating(
-            &RTCPeerConnectionTestWithPlatformTestingPlatformType::
-                CreateRTCPeerConnectionHandler,
+            &RTCPeerConnectionTest::CreateRTCPeerConnectionHandler,
             base::Unretained(this)));
     return RTCPeerConnection::Create(scope.GetExecutionContext(), config,
                                      Dictionary(), scope.GetExceptionState());
   }
 
-  virtual std::unique_ptr<WebRTCPeerConnectionHandler>
+  virtual std::unique_ptr<RTCPeerConnectionHandlerPlatform>
   CreateRTCPeerConnectionHandler() {
-    return std::make_unique<MockWebRTCPeerConnectionHandler>();
+    return std::make_unique<MockRTCPeerConnectionHandlerPlatform>();
   }
 
   MediaStreamTrack* CreateTrack(V8TestingScope& scope,
@@ -410,7 +407,8 @@ class RTCPeerConnectionTestWithPlatformTestingPlatformType
     auto* source = MakeGarbageCollected<MediaStreamSource>("sourceId", type,
                                                            "sourceName", false);
     auto* component = MakeGarbageCollected<MediaStreamComponent>(id, source);
-    return MediaStreamTrack::Create(scope.GetExecutionContext(), component);
+    return MakeGarbageCollected<MediaStreamTrack>(scope.GetExecutionContext(),
+                                                  component);
   }
 
   std::string GetExceptionMessage(V8TestingScope& scope) {
@@ -435,14 +433,8 @@ class RTCPeerConnectionTestWithPlatformTestingPlatformType
   }
 
  protected:
-  ScopedTestingPlatformSupport<PlatformSupportType> platform_;
+  ScopedTestingPlatformSupport<TestingPlatformSupport> platform_;
 };
-
-// TODO(crbug.com/787254): Consider removing or simplifying the inheritance
-// altogether.
-class RTCPeerConnectionTest
-    : public RTCPeerConnectionTestWithPlatformTestingPlatformType<
-          TestingPlatformSupport> {};
 
 TEST_F(RTCPeerConnectionTest, GetAudioTrack) {
   V8TestingScope scope;
@@ -701,17 +693,18 @@ void PostToCompleteRequest(AsyncOperationAction action, RequestType* request) {
   }
 }
 
-class FakeWebRTCPeerConnectionHandler : public MockWebRTCPeerConnectionHandler {
+class FakeRTCPeerConnectionHandlerPlatform
+    : public MockRTCPeerConnectionHandlerPlatform {
  public:
-  WebVector<std::unique_ptr<RTCRtpTransceiverPlatform>> CreateOffer(
+  Vector<std::unique_ptr<RTCRtpTransceiverPlatform>> CreateOffer(
       RTCSessionDescriptionRequest* request,
-      const WebMediaConstraints&) override {
+      const MediaConstraints&) override {
     PostToCompleteRequest<RTCSessionDescriptionRequest>(async_operation_action_,
                                                         request);
     return {};
   }
 
-  WebVector<std::unique_ptr<RTCRtpTransceiverPlatform>> CreateOffer(
+  Vector<std::unique_ptr<RTCRtpTransceiverPlatform>> CreateOffer(
       RTCSessionDescriptionRequest* request,
       RTCOfferOptionsPlatform*) override {
     PostToCompleteRequest<RTCSessionDescriptionRequest>(async_operation_action_,
@@ -720,7 +713,7 @@ class FakeWebRTCPeerConnectionHandler : public MockWebRTCPeerConnectionHandler {
   }
 
   void CreateAnswer(RTCSessionDescriptionRequest* request,
-                    const WebMediaConstraints&) override {
+                    const MediaConstraints&) override {
     PostToCompleteRequest<RTCSessionDescriptionRequest>(async_operation_action_,
                                                         request);
   }
@@ -759,15 +752,11 @@ class FakeWebRTCPeerConnectionHandler : public MockWebRTCPeerConnectionHandler {
 // completed. Without fakes we would have had to await promises and callbacks,
 // passing SDP returned by one operation to the next.
 //
-// TODO(crbug.com/787254): Consider removing or simplifying the inheritance
-// altogether.
-class RTCPeerConnectionCallSetupStateTest
-    : public RTCPeerConnectionTestWithPlatformTestingPlatformType<
-          TestingPlatformSupport> {
+class RTCPeerConnectionCallSetupStateTest : public RTCPeerConnectionTest {
  public:
-  std::unique_ptr<WebRTCPeerConnectionHandler> CreateRTCPeerConnectionHandler()
-      override {
-    auto handler = std::make_unique<FakeWebRTCPeerConnectionHandler>();
+  std::unique_ptr<RTCPeerConnectionHandlerPlatform>
+  CreateRTCPeerConnectionHandler() override {
+    auto handler = std::make_unique<FakeRTCPeerConnectionHandlerPlatform>();
     handler_ = handler.get();
     return handler;
   }
@@ -817,7 +806,7 @@ class RTCPeerConnectionCallSetupStateTest
 
  protected:
   const CallSetupStateTracker* tracker_ = nullptr;
-  FakeWebRTCPeerConnectionHandler* handler_ = nullptr;
+  FakeRTCPeerConnectionHandlerPlatform* handler_ = nullptr;
 };
 
 TEST_F(RTCPeerConnectionCallSetupStateTest, InitialState) {
@@ -832,18 +821,21 @@ TEST_F(RTCPeerConnectionCallSetupStateTest, OffererSucceeded) {
   V8TestingScope scope;
   RTCPeerConnection* pc = Initialize(scope);
   // createOffer()
-  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create());
+  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create(),
+                  scope.GetExceptionState());
   EXPECT_EQ(OffererState::kCreateOfferPending, tracker_->offerer_state());
   EXPECT_EQ(CallSetupState::kStarted, tracker_->GetCallSetupState());
   platform_->RunUntilIdle();
   EXPECT_EQ(OffererState::kCreateOfferResolved, tracker_->offerer_state());
   // setLocalDescription(offer)
-  pc->setLocalDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setLocalDescription(scope.GetScriptState(), EmptyOffer(),
+                          scope.GetExceptionState());
   EXPECT_EQ(OffererState::kSetLocalOfferPending, tracker_->offerer_state());
   platform_->RunUntilIdle();
   EXPECT_EQ(OffererState::kSetLocalOfferResolved, tracker_->offerer_state());
   // setRemoteDescription(answer)
-  pc->setRemoteDescription(scope.GetScriptState(), EmptyAnswer());
+  pc->setRemoteDescription(scope.GetScriptState(), EmptyAnswer(),
+                           scope.GetExceptionState());
   EXPECT_EQ(OffererState::kSetRemoteAnswerPending, tracker_->offerer_state());
   EXPECT_EQ(CallSetupState::kStarted, tracker_->GetCallSetupState());
   platform_->RunUntilIdle();
@@ -856,7 +848,8 @@ TEST_F(RTCPeerConnectionCallSetupStateTest, OffererFailedAtCreateOffer) {
   RTCPeerConnection* pc = Initialize(scope);
   // createOffer()
   SetNextOperationIsSuccessful(false);
-  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create());
+  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create(),
+                  scope.GetExceptionState());
   platform_->RunUntilIdle();
   EXPECT_EQ(OffererState::kCreateOfferRejected, tracker_->offerer_state());
   EXPECT_EQ(CallSetupState::kFailed, tracker_->GetCallSetupState());
@@ -867,11 +860,13 @@ TEST_F(RTCPeerConnectionCallSetupStateTest,
   V8TestingScope scope;
   RTCPeerConnection* pc = Initialize(scope);
   // createOffer()
-  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create());
+  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create(),
+                  scope.GetExceptionState());
   platform_->RunUntilIdle();
   // setLocalDescription(offer)
   SetNextOperationIsSuccessful(false);
-  pc->setLocalDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setLocalDescription(scope.GetScriptState(), EmptyOffer(),
+                          scope.GetExceptionState());
   platform_->RunUntilIdle();
   EXPECT_EQ(OffererState::kSetLocalOfferRejected, tracker_->offerer_state());
   EXPECT_EQ(CallSetupState::kFailed, tracker_->GetCallSetupState());
@@ -882,14 +877,17 @@ TEST_F(RTCPeerConnectionCallSetupStateTest,
   V8TestingScope scope;
   RTCPeerConnection* pc = Initialize(scope);
   // createOffer()
-  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create());
+  pc->createOffer(scope.GetScriptState(), RTCOfferOptions::Create(),
+                  scope.GetExceptionState());
   platform_->RunUntilIdle();
   // setLocalDescription(offer)
-  pc->setLocalDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setLocalDescription(scope.GetScriptState(), EmptyOffer(),
+                          scope.GetExceptionState());
   platform_->RunUntilIdle();
   // setRemoteDescription(answer)
   SetNextOperationIsSuccessful(false);
-  pc->setRemoteDescription(scope.GetScriptState(), EmptyAnswer());
+  pc->setRemoteDescription(scope.GetScriptState(), EmptyAnswer(),
+                           scope.GetExceptionState());
   platform_->RunUntilIdle();
   EXPECT_EQ(OffererState::kSetRemoteAnswerRejected, tracker_->offerer_state());
   EXPECT_EQ(CallSetupState::kFailed, tracker_->GetCallSetupState());
@@ -932,18 +930,21 @@ TEST_F(RTCPeerConnectionCallSetupStateTest, AnswererSucceeded) {
   V8TestingScope scope;
   RTCPeerConnection* pc = Initialize(scope);
   // setRemoteDescription(offer)
-  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer(),
+                           scope.GetExceptionState());
   EXPECT_EQ(AnswererState::kSetRemoteOfferPending, tracker_->answerer_state());
   EXPECT_EQ(CallSetupState::kStarted, tracker_->GetCallSetupState());
   platform_->RunUntilIdle();
   EXPECT_EQ(AnswererState::kSetRemoteOfferResolved, tracker_->answerer_state());
   // createAnswer()
-  pc->createAnswer(scope.GetScriptState(), RTCAnswerOptions::Create());
+  pc->createAnswer(scope.GetScriptState(), RTCAnswerOptions::Create(),
+                   scope.GetExceptionState());
   EXPECT_EQ(AnswererState::kCreateAnswerPending, tracker_->answerer_state());
   platform_->RunUntilIdle();
   EXPECT_EQ(AnswererState::kCreateAnswerResolved, tracker_->answerer_state());
   // setLocalDescription(answer)
-  pc->setLocalDescription(scope.GetScriptState(), EmptyAnswer());
+  pc->setLocalDescription(scope.GetScriptState(), EmptyAnswer(),
+                          scope.GetExceptionState());
   EXPECT_EQ(AnswererState::kSetLocalAnswerPending, tracker_->answerer_state());
   EXPECT_EQ(CallSetupState::kStarted, tracker_->GetCallSetupState());
   platform_->RunUntilIdle();
@@ -957,7 +958,8 @@ TEST_F(RTCPeerConnectionCallSetupStateTest,
   RTCPeerConnection* pc = Initialize(scope);
   // setRemoteDescription(offer)
   SetNextOperationIsSuccessful(false);
-  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer(),
+                           scope.GetExceptionState());
   platform_->RunUntilIdle();
   EXPECT_EQ(AnswererState::kSetRemoteOfferRejected, tracker_->answerer_state());
   EXPECT_EQ(CallSetupState::kFailed, tracker_->GetCallSetupState());
@@ -967,11 +969,13 @@ TEST_F(RTCPeerConnectionCallSetupStateTest, AnswererFailedAtCreateAnswer) {
   V8TestingScope scope;
   RTCPeerConnection* pc = Initialize(scope);
   // setRemoteDescription(offer)
-  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer(),
+                           scope.GetExceptionState());
   platform_->RunUntilIdle();
   // createAnswer()
   SetNextOperationIsSuccessful(false);
-  pc->createAnswer(scope.GetScriptState(), RTCAnswerOptions::Create());
+  pc->createAnswer(scope.GetScriptState(), RTCAnswerOptions::Create(),
+                   scope.GetExceptionState());
   platform_->RunUntilIdle();
   EXPECT_EQ(AnswererState::kCreateAnswerRejected, tracker_->answerer_state());
   EXPECT_EQ(CallSetupState::kFailed, tracker_->GetCallSetupState());
@@ -982,14 +986,17 @@ TEST_F(RTCPeerConnectionCallSetupStateTest,
   V8TestingScope scope;
   RTCPeerConnection* pc = Initialize(scope);
   // setRemoteDescription(offer)
-  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer());
+  pc->setRemoteDescription(scope.GetScriptState(), EmptyOffer(),
+                           scope.GetExceptionState());
   platform_->RunUntilIdle();
   // createAnswer()
-  pc->createAnswer(scope.GetScriptState(), RTCAnswerOptions::Create());
+  pc->createAnswer(scope.GetScriptState(), RTCAnswerOptions::Create(),
+                   scope.GetExceptionState());
   platform_->RunUntilIdle();
   // setLocalDescription(answer)
   SetNextOperationIsSuccessful(false);
-  pc->setLocalDescription(scope.GetScriptState(), EmptyAnswer());
+  pc->setLocalDescription(scope.GetScriptState(), EmptyAnswer(),
+                          scope.GetExceptionState());
   platform_->RunUntilIdle();
   EXPECT_EQ(AnswererState::kSetLocalAnswerRejected, tracker_->answerer_state());
   EXPECT_EQ(CallSetupState::kFailed, tracker_->GetCallSetupState());
@@ -1153,9 +1160,9 @@ class SchedulingAffectingWebRTCFeaturesTest : public SimTest {
     return result;
   }
 
-  std::unique_ptr<WebRTCPeerConnectionHandler>
+  std::unique_ptr<RTCPeerConnectionHandlerPlatform>
   CreateRTCPeerConnectionHandler() {
-    return std::make_unique<MockWebRTCPeerConnectionHandler>();
+    return std::make_unique<MockRTCPeerConnectionHandlerPlatform>();
   }
 };
 

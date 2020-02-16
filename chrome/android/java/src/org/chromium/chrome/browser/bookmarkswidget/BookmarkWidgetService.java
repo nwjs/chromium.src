@@ -35,10 +35,10 @@ import org.chromium.chrome.browser.favicon.FaviconUtils;
 import org.chromium.chrome.browser.favicon.IconType;
 import org.chromium.chrome.browser.favicon.LargeIconBridge;
 import org.chromium.chrome.browser.favicon.LargeIconBridge.LargeIconCallback;
+import org.chromium.chrome.browser.favicon.RoundedIconGenerator;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.night_mode.SystemNightModeMonitor;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.ui.widget.RoundedIconGenerator;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
@@ -306,7 +306,7 @@ public class BookmarkWidgetService extends RemoteViewsService {
         public void onCreate() {
             // Required to be applied here redundantly to prevent crashes in the cases where the
             // package data is deleted or the Chrome application forced to stop.
-            ChromeBrowserInitializer.getInstance(mContext).handleSynchronousStartup();
+            ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
             if (isWidgetNewlyCreated()) {
                 RecordUserAction.record("BookmarkNavigatorWidgetAdded");
             }

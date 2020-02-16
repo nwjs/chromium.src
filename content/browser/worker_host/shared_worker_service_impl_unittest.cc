@@ -49,8 +49,10 @@ void ConnectToSharedWorker(
     const std::string& name,
     MockSharedWorkerClient* client,
     MessagePortChannel* local_port) {
+  auto options = blink::mojom::WorkerOptions::New();
+  options->name = name;
   blink::mojom::SharedWorkerInfoPtr info(blink::mojom::SharedWorkerInfo::New(
-      url, name, std::string(),
+      url, std::move(options), std::string(),
       network::mojom::ContentSecurityPolicyType::kReport,
       network::mojom::IPAddressSpace::kPublic));
 
@@ -84,10 +86,9 @@ void KillProcess(std::unique_ptr<WebContents> web_contents) {
 class SharedWorkerServiceImplTest : public RenderViewHostImplTestHarness {
  public:
   mojo::Remote<blink::mojom::SharedWorkerConnector> MakeSharedWorkerConnector(
-      RenderProcessHost* process_host,
-      int frame_id) {
+      GlobalFrameRoutingId render_frame_host_id) {
     mojo::Remote<blink::mojom::SharedWorkerConnector> connector;
-    SharedWorkerConnectorImpl::Create(process_host->GetID(), frame_id,
+    SharedWorkerConnectorImpl::Create(render_frame_host_id,
                                       connector.BindNewPipeAndPassReceiver());
     return connector;
   }
@@ -215,9 +216,9 @@ TEST_F(SharedWorkerServiceImplTest, BasicTest) {
   MockSharedWorkerClient client;
   MessagePortChannel local_port;
   const GURL kUrl("http://example.com/w.js");
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host, render_frame_host->GetRoutingID()),
-                        kUrl, "name", &client, &local_port);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host->GetGlobalFrameRoutingId()),
+      kUrl, "name", &client, &local_port);
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver =
       WaitForFactoryReceiver(process_id);
@@ -292,13 +293,8 @@ TEST_F(SharedWorkerServiceImplTest, BasicTest) {
 
 // Tests that the shared worker will not be started if the hosting web contents
 // is destroyed while the script is being fetched.
-// Disabled on Fuchsia because this unittest is flaky.
-#if defined(OS_FUCHSIA)
-#define MAYBE_WebContentsDestroyed DISABLED_WebContentsDestroyed
-#else
-#define MAYBE_WebContentsDestroyed WebContentsDestroyed
-#endif
-TEST_F(SharedWorkerServiceImplTest, MAYBE_WebContentsDestroyed) {
+// TODO(https://crbug.com/1029434): Flaky on at least Fuchsia and Linux.
+TEST_F(SharedWorkerServiceImplTest, DISABLED_WebContentsDestroyed) {
   std::unique_ptr<TestWebContents> web_contents =
       CreateWebContents(GURL("http://example.com/"));
   TestRenderFrameHost* render_frame_host = web_contents->GetMainFrame();
@@ -312,9 +308,9 @@ TEST_F(SharedWorkerServiceImplTest, MAYBE_WebContentsDestroyed) {
   MockSharedWorkerClient client;
   MessagePortChannel local_port;
   const GURL kUrl("http://example.com/w.js");
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host, render_frame_host->GetRoutingID()),
-                        kUrl, "name", &client, &local_port);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host->GetGlobalFrameRoutingId()),
+      kUrl, "name", &client, &local_port);
 
   // Now asynchronously destroy |web_contents| so that the startup sequence at
   // least reaches SharedWorkerServiceImpl::StartWorker().
@@ -345,9 +341,9 @@ TEST_F(SharedWorkerServiceImplTest, TwoRendererTest) {
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
   const GURL kUrl("http://example.com/w.js");
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, "name", &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, "name", &client0, &local_port0);
 
   base::RunLoop().RunUntilIdle();
 
@@ -424,9 +420,9 @@ TEST_F(SharedWorkerServiceImplTest, TwoRendererTest) {
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, "name", &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, "name", &client1, &local_port1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -504,9 +500,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_NormalCase) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client0, &local_port0);
   base::RunLoop().RunUntilIdle();
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver =
@@ -529,9 +525,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_NormalCase) {
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client1, &local_port1);
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(CheckNotReceivedFactoryReceiver(process_id1));
@@ -579,9 +575,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_NormalCase_URLMismatch) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl0, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl0, kName, &client0, &local_port0);
   base::RunLoop().RunUntilIdle();
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver0 =
@@ -604,9 +600,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_NormalCase_URLMismatch) {
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl1, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl1, kName, &client1, &local_port1);
   base::RunLoop().RunUntilIdle();
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver1 =
@@ -666,9 +662,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_NormalCase_NameMismatch) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, kName0, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, kName0, &client0, &local_port0);
   base::RunLoop().RunUntilIdle();
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver0 =
@@ -691,9 +687,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_NormalCase_NameMismatch) {
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, kName1, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, kName1, &client1, &local_port1);
   base::RunLoop().RunUntilIdle();
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver1 =
@@ -752,15 +748,15 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_PendingCase) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client0, &local_port0);
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client1, &local_port1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -828,15 +824,15 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_PendingCase_URLMismatch) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl0, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl0, kName, &client0, &local_port0);
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl1, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl1, kName, &client1, &local_port1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -919,15 +915,15 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerTest_PendingCase_NameMismatch) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, kName0, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, kName0, &client0, &local_port0);
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, kName1, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, kName1, &client1, &local_port1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1017,9 +1013,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client0, &local_port0);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1049,9 +1045,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest) {
   // Start a new client, attemping to connect to the same worker.
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client1, &local_port1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1079,9 +1075,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest) {
   // Start another client to confirm that it can connect to the same worker.
   MockSharedWorkerClient client2;
   MessagePortChannel local_port2;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host2, render_frame_host2->GetRoutingID()),
-                        kUrl, kName, &client2, &local_port2);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host2->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client2, &local_port2);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1133,9 +1129,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest2) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kUrl, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client0, &local_port0);
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver0 =
       WaitForFactoryReceiver(process_id0);
@@ -1147,9 +1143,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest2) {
   // Start a new client, attempting to connect to the same worker.
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kUrl, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client1, &local_port1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1179,9 +1175,9 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest2) {
   // Start another client to confirm that it can connect to the same worker.
   MockSharedWorkerClient client2;
   MessagePortChannel local_port2;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host2, render_frame_host2->GetRoutingID()),
-                        kUrl, kName, &client2, &local_port2);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host2->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client2, &local_port2);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1226,15 +1222,15 @@ TEST_F(SharedWorkerServiceImplTest, CreateWorkerRaceTest3) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host0, render_frame_host0->GetRoutingID()),
-                        kURL, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host0->GetGlobalFrameRoutingId()),
+      kURL, kName, &client0, &local_port0);
 
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host1, render_frame_host1->GetRoutingID()),
-                        kURL, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host1->GetGlobalFrameRoutingId()),
+      kURL, kName, &client1, &local_port1);
   base::RunLoop().RunUntilIdle();
 
   // Expect a factory receiver. It can come from either process.
@@ -1283,21 +1279,21 @@ class TestSharedWorkerServiceObserver : public SharedWorkerService::Observer {
   void OnBeforeWorkerTerminated(const SharedWorkerInstance& instance) override {
     EXPECT_EQ(1u, running_workers_.erase(instance));
   }
-  void OnClientAdded(const SharedWorkerInstance& instance,
-                     int client_process_id,
-                     int frame_id) override {
+  void OnClientAdded(
+      const SharedWorkerInstance& instance,
+      GlobalFrameRoutingId client_render_frame_host_id) override {
     auto it = running_workers_.find(instance);
     EXPECT_TRUE(it != running_workers_.end());
-    std::set<ClientInfo>& clients = it->second;
-    EXPECT_TRUE(clients.insert({client_process_id, frame_id}).second);
+    std::set<GlobalFrameRoutingId>& clients = it->second;
+    EXPECT_TRUE(clients.insert(client_render_frame_host_id).second);
   }
-  void OnClientRemoved(const SharedWorkerInstance& instance,
-                       int client_process_id,
-                       int frame_id) override {
+  void OnClientRemoved(
+      const SharedWorkerInstance& instance,
+      GlobalFrameRoutingId client_render_frame_host_id) override {
     auto it = running_workers_.find(instance);
     EXPECT_TRUE(it != running_workers_.end());
-    std::set<ClientInfo>& clients = it->second;
-    EXPECT_EQ(1u, clients.erase({client_process_id, frame_id}));
+    std::set<GlobalFrameRoutingId>& clients = it->second;
+    EXPECT_EQ(1u, clients.erase(client_render_frame_host_id));
   }
 
   size_t GetWorkerCount() { return running_workers_.size(); }
@@ -1310,9 +1306,8 @@ class TestSharedWorkerServiceObserver : public SharedWorkerService::Observer {
   }
 
  private:
-  using ClientInfo = std::pair<int, int>;
-
-  base::flat_map<SharedWorkerInstance, std::set<ClientInfo>> running_workers_;
+  base::flat_map<SharedWorkerInstance, std::set<GlobalFrameRoutingId>>
+      running_workers_;
 
   DISALLOW_COPY_AND_ASSIGN(TestSharedWorkerServiceObserver);
 };
@@ -1339,9 +1334,9 @@ TEST_F(SharedWorkerServiceImplTest, Observer) {
   MockSharedWorkerClient client;
   MessagePortChannel local_port;
   const GURL kUrl("http://example.com/w.js");
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host, render_frame_host->GetRoutingID()),
-                        kUrl, "name", &client, &local_port);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host->GetGlobalFrameRoutingId()),
+      kUrl, "name", &client, &local_port);
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver =
       WaitForFactoryReceiver(process_id);
@@ -1400,9 +1395,9 @@ TEST_F(SharedWorkerServiceImplTest, CollapseDuplicateNotifications) {
 
   MockSharedWorkerClient client0;
   MessagePortChannel local_port0;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host, render_frame_host->GetRoutingID()),
-                        kUrl, kName, &client0, &local_port0);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client0, &local_port0);
   base::RunLoop().RunUntilIdle();
 
   mojo::PendingReceiver<blink::mojom::SharedWorkerFactory> factory_receiver =
@@ -1428,9 +1423,9 @@ TEST_F(SharedWorkerServiceImplTest, CollapseDuplicateNotifications) {
   // Now the same frame connects to the same worker.
   MockSharedWorkerClient client1;
   MessagePortChannel local_port1;
-  ConnectToSharedWorker(MakeSharedWorkerConnector(
-                            renderer_host, render_frame_host->GetRoutingID()),
-                        kUrl, kName, &client1, &local_port1);
+  ConnectToSharedWorker(
+      MakeSharedWorkerConnector(render_frame_host->GetGlobalFrameRoutingId()),
+      kUrl, kName, &client1, &local_port1);
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(CheckNotReceivedFactoryReceiver(process_id));

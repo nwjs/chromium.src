@@ -9,7 +9,7 @@
 
 #include "base/callback_forward.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
 
@@ -28,6 +28,7 @@ enum class InstallResultCode;
 class InstallFinalizer;
 class AppRegistrar;
 class AppShortcutManager;
+class FileHandlerManager;
 
 // TODO(loyso): Rework this interface. Unify the API and merge similar
 // InstallWebAppZZZZ functions.
@@ -66,9 +67,6 @@ class InstallManager {
       InstallableCheckResult result,
       base::Optional<AppId> app_id)>;
 
-  // Returns true if a web app can be installed for a given |web_contents|.
-  virtual bool CanInstallWebApp(content::WebContents* web_contents) = 0;
-
   // Checks a WebApp installability, retrieves manifest and icons and
   // than performs the actual installation.
   virtual void InstallWebAppFromManifest(
@@ -91,7 +89,8 @@ class InstallManager {
 
   // Starts a web app installation process using prefilled
   // |web_application_info| which holds all the data needed for installation.
-  // InstallManager doesn't fetch a manifest.
+  // This doesn't fetch a manifest and doesn't perform all required steps for
+  // External installed apps: use |PendingAppManager::Install| instead.
   virtual void InstallWebAppFromInfo(
       std::unique_ptr<WebApplicationInfo> web_application_info,
       ForInstallableSite for_installable_site,
@@ -142,6 +141,7 @@ class InstallManager {
 
   void SetSubsystems(AppRegistrar* registrar,
                      AppShortcutManager* shortcut_manager,
+                     FileHandlerManager* file_handler_manager,
                      InstallFinalizer* finalizer);
 
   // Loads |web_app_url| in a new WebContents and determines whether it is
@@ -155,6 +155,7 @@ class InstallManager {
   Profile* profile() { return profile_; }
   AppRegistrar* registrar() { return registrar_; }
   AppShortcutManager* shortcut_manager() { return shortcut_manager_; }
+  FileHandlerManager* file_handler_manager() { return file_handler_manager_; }
   InstallFinalizer* finalizer() { return finalizer_; }
 
  private:
@@ -163,6 +164,7 @@ class InstallManager {
 
   AppRegistrar* registrar_ = nullptr;
   AppShortcutManager* shortcut_manager_ = nullptr;
+  FileHandlerManager* file_handler_manager_ = nullptr;
   InstallFinalizer* finalizer_ = nullptr;
 };
 
