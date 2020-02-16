@@ -81,7 +81,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
       } __except (elf_crash::GenerateCrashDump(GetExceptionInformation())) {
       }
     } else if (!install_static::IsCrashpadHandlerProcess()) {
-      SignalInitializeCrashReporting();
+      SignalInitializeCrashReporting(nullptr, nullptr);
       // CRT on initialization installs an exception filter which calls
       // TerminateProcess. We need to hook CRT's attempt to set an exception.
 #if 0 ////disable this or NW will fail with Enigma VB
