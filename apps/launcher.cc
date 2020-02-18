@@ -485,7 +485,7 @@ void RestartPlatformApp(content::BrowserContext* context,
 
   extensions::ExtensionPrefs* extension_prefs =
       extensions::ExtensionPrefs::Get(context);
-  bool had_windows = extension_prefs->IsActive(app->id());
+  bool had_windows = extension_prefs->IsActive(app->id()) || true;
   extension_prefs->SetIsActive(app->id(), false);
   bool listening_to_launch = event_router->ExtensionHasEventListener(
       app->id(), app_runtime::OnLaunched::kEventName);
