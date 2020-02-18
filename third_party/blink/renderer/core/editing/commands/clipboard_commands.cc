@@ -85,8 +85,8 @@ bool ClipboardCommands::CanWriteClipboard(LocalFrame& frame,
 }
 
 bool ClipboardCommands::CanSmartReplaceInClipboard(LocalFrame& frame) {
-  if (frame.isNodeJS())
-    return true;
+  //if (frame.isNodeJS())
+  //  return true; //commented out for NWJS#7363
   return frame.GetEditor().SmartInsertDeleteEnabled() &&
          SystemClipboard::GetInstance().CanSmartReplace();
 }
