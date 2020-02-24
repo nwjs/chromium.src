@@ -308,6 +308,12 @@ void BrowserFrameMac::PopulateCreateWindowParams(
     // Hosted apps draw their own window title.
     if (browser_view_->IsBrowserTypeWebApp())
       params->window_title_hidden = true;
+  } else if (browser_view_->browser()->is_frameless()) {
+    params->window_class = remote_cocoa::mojom::WindowClass::kFrameless;
+    params->style_mask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+                         NSWindowStyleMaskMiniaturizable |
+                         NSWindowStyleMaskResizable |
+                         NSWindowStyleMaskFullSizeContentView;
   } else {
     params->window_class = remote_cocoa::mojom::WindowClass::kDefault;
     if (widget_params.remove_standard_frame)
