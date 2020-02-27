@@ -23,8 +23,15 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   // Create the view and the frame. The frame will attach itself via the view
   // so we don't need to do anything with the pointer.
   bool frameless = browser->is_frameless();
+  std::string position = browser->initial_position();
   BrowserView* view = new BrowserView(std::move(browser));
-  (new BrowserFrame(view, frameless))->InitBrowserFrame();
+  BrowserFrame* frame;
+  bool got_saved_bounds = (frame = new BrowserFrame(view, frameless))->InitBrowserFrame();
+  if (position == "center" && !got_saved_bounds) {
+    gfx::Rect bounds = frame->GetWindowBoundsInScreen();
+    frame->CenterWindow(bounds.size());
+  }
+
   view->GetWidget()->non_client_view()->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
 

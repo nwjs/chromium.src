@@ -66,7 +66,7 @@ class WindowSizer {
   // value is returned instead. For use only in testing.
   // |show_state| will be overwritten and return the initial visual state of
   // the window to use.
-  void DetermineWindowBoundsAndShowState(
+  bool DetermineWindowBoundsAndShowState(
       const gfx::Rect& specified_bounds,
       gfx::Rect* bounds,
       ui::WindowShowState* show_state) const;
@@ -76,7 +76,7 @@ class WindowSizer {
   // |window_bounds| is calculated by calling GetLastActiveWindowState(). To
   // explicitly specify a particular window to base the bounds on, pass in a
   // non-NULL value for |browser|.
-  static void GetBrowserWindowBoundsAndShowState(
+  static bool GetBrowserWindowBoundsAndShowState(
       const std::string& app_name,
       const gfx::Rect& specified_bounds,
       const Browser* browser,
