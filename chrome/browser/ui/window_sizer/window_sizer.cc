@@ -185,14 +185,22 @@ void WindowSizer::DetermineWindowBoundsAndShowState(
     return;
 #endif
 
-  if (bounds->IsEmpty()) {
+  // In upstream, non empty case is only used in chrome tests, so we ignore it.
+  // In NW, the non empty value is the API parameter passed by browser->override_bounds()
+  // Use this strategy as the central place to determine window size
+  // priority: saved > API parameter > default in manifest > default value
+  if (true || bounds->IsEmpty()) {
     // See if there's last active window's placement information.
     if (GetLastActiveWindowBounds(bounds, show_state))
       return;
+    gfx::Rect saved;
     // See if there's saved placement information.
-    if (GetSavedWindowBounds(bounds, show_state))
+    if (GetSavedWindowBounds(&saved, show_state)) {
+      *bounds = saved;
       return;
-
+    }
+    if (!bounds->IsEmpty())
+      return;
     // No saved placement, figure out some sensible default size based on
     // the user's screen size.
     GetDefaultWindowBounds(GetDisplayForNewWindow(), bounds);
