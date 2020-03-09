@@ -222,6 +222,7 @@ class Browser : public TabStripModelObserver,
     bool resizable = true;
     bool show_in_taskbar = true;
     std::string title;
+    std::string position;
     gfx::Image icon;
     // The browser type.
     Type type;
@@ -321,6 +322,7 @@ class Browser : public TabStripModelObserver,
   bool initial_allvisible() const { return initial_allvisible_; }
   bool initial_resizable() const { return initial_resizable_; }
   bool initial_showintaskbar() const { return initial_showintaskbar_; }
+  const std::string& initial_position() const { return initial_position_; }
   gfx::Image icon_override() const { return icon_override_; }
 
   // Return true if the initial window bounds have been overridden.
@@ -1159,6 +1161,7 @@ class Browser : public TabStripModelObserver,
   bool initial_allvisible_;
   bool initial_resizable_;
   bool initial_showintaskbar_;
+  std::string initial_position_;
   std::string title_override_;
   gfx::Image icon_override_;
 

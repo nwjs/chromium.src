@@ -7301,8 +7301,10 @@ void WebContentsImpl::UpdateWebContentsVisibility(Visibility visibility) {
   const bool occlusion_is_disabled =
       !base::FeatureList::IsEnabled(features::kWebContentsOcclusion) ||
       base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableBackgroundingOccludedWindowsForTesting);
-  if (occlusion_is_disabled && visibility == Visibility::OCCLUDED)
+          switches::kDisableBackgroundingOccludedWindowsForTesting) ||
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableRAFThrottling);
+  if (occlusion_is_disabled) // && visibility == Visibility::OCCLUDED)
     visibility = Visibility::VISIBLE;
 
   if (!did_first_set_visible_) {

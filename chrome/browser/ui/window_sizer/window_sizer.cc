@@ -152,7 +152,7 @@ WindowSizer::WindowSizer(std::unique_ptr<StateProvider> state_provider,
 WindowSizer::~WindowSizer() = default;
 
 // static
-void WindowSizer::GetBrowserWindowBoundsAndShowState(
+bool WindowSizer::GetBrowserWindowBoundsAndShowState(
     const std::string& app_name,
     const gfx::Rect& specified_bounds,
     const Browser* browser,
@@ -161,7 +161,7 @@ void WindowSizer::GetBrowserWindowBoundsAndShowState(
   std::unique_ptr<StateProvider> state_provider(
       new DefaultStateProvider(app_name, browser));
   const WindowSizer sizer(std::move(state_provider), browser);
-  sizer.DetermineWindowBoundsAndShowState(specified_bounds,
+  return sizer.DetermineWindowBoundsAndShowState(specified_bounds,
                                           window_bounds,
                                           show_state);
 }
@@ -169,7 +169,7 @@ void WindowSizer::GetBrowserWindowBoundsAndShowState(
 ///////////////////////////////////////////////////////////////////////////////
 // WindowSizer, private:
 
-void WindowSizer::DetermineWindowBoundsAndShowState(
+bool WindowSizer::DetermineWindowBoundsAndShowState(
     const gfx::Rect& specified_bounds,
     gfx::Rect* bounds,
     ui::WindowShowState* show_state) const {
@@ -182,21 +182,29 @@ void WindowSizer::DetermineWindowBoundsAndShowState(
 #if defined(OS_CHROMEOS)
   // See if ash should decide the window placement.
   if (GetBrowserBoundsAsh(bounds, show_state))
-    return;
+    return false;
 #endif
 
-  if (bounds->IsEmpty()) {
+  // In upstream, non empty case is only used in chrome tests, so we ignore it.
+  // In NW, the non empty value is the API parameter passed by browser->override_bounds()
+  // Use this strategy as the central place to determine window size
+  // priority: saved > API parameter > default in manifest > default value
+  if (true || bounds->IsEmpty()) {
     // See if there's last active window's placement information.
     if (GetLastActiveWindowBounds(bounds, show_state))
-      return;
+      return false;
+    gfx::Rect saved;
     // See if there's saved placement information.
-    if (GetSavedWindowBounds(bounds, show_state))
-      return;
-
+    if (GetSavedWindowBounds(&saved, show_state)) {
+      *bounds = saved;
+      return true;
+    }
+    if (!bounds->IsEmpty())
+      return false;
     // No saved placement, figure out some sensible default size based on
     // the user's screen size.
     GetDefaultWindowBounds(GetDisplayForNewWindow(), bounds);
-    return;
+    return false;
   }
 
   // In case that there was a bound given we need to make sure that it is
@@ -209,6 +217,7 @@ void WindowSizer::DetermineWindowBoundsAndShowState(
       display::Screen::GetScreen()->GetDisplayMatching(*bounds).work_area();
   // Resize so that it fits.
   bounds->AdjustToFit(work_area);
+  return false;
 }
 
 bool WindowSizer::GetLastActiveWindowBounds(

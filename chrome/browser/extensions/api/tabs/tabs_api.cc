@@ -690,15 +690,12 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         ConvertToWindowShowState(create_data->state);
   }
 
+  create_params.position = position;
   Browser* new_window = Browser::Create(create_params);
   if (!new_window)
     return RespondNow(Error(tabs_constants::kBrowserWindowNotAllowed));
 
   BrowserFrame* frame = BrowserView::GetBrowserViewForBrowser(new_window)->frame();
-  if (position == "center") {
-    gfx::Rect bounds = frame->GetWindowBoundsInScreen();
-    frame->CenterWindow(bounds.size());
-  }
 
   if (kiosk) {
     frame->SetFullscreen(true);
