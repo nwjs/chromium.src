@@ -48,10 +48,23 @@ GURL ResourceLoadingHintsAgent::GetDocumentURL() const {
   return render_frame()->GetWebFrame()->GetDocument().Url();
 }
 
+void ResourceLoadingHintsAgent::DidStartNavigation(
+    const GURL& url,
+    base::Optional<blink::WebNavigationType> navigation_type) {
+  subresource_redirect_hints_agent_.DidStartNavigation();
+}
+
+void ResourceLoadingHintsAgent::ReadyToCommitNavigation(
+    blink::WebDocumentLoader* document_loader) {
+  subresource_redirect_hints_agent_.ReadyToCommitNavigation(
+      render_frame()->GetRoutingID());
+}
+
 void ResourceLoadingHintsAgent::DidCreateNewDocument() {
   DCHECK(IsMainFrame());
   if (!GetDocumentURL().SchemeIsHTTPOrHTTPS())
     return;
+
   if (subresource_patterns_to_block_.empty())
     return;
 

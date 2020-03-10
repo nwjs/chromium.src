@@ -169,7 +169,13 @@ const base::Feature kDocumentPolicy{"DocumentPolicy",
 // device IDs will not be available.
 // TODO(crbug.com/1019176): remove the feature in M82.
 const base::Feature kEnumerateDevicesHideDeviceIDs{
-    "EnumerateDevicesHideDeviceIDs", base::FEATURE_ENABLED_BY_DEFAULT};
+  "EnumerateDevicesHideDeviceIDs",
+#if defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // When a screen reader is detected, allow users the option of letting
 // Google provide descriptions for unlabeled images.
@@ -395,6 +401,10 @@ const base::Feature kPepper3DImageChromium {
 #endif
 };
 
+// Kill-switch to introduce a compatibility breaking restriction.
+const base::Feature kPepperCrossOriginRedirectRestriction{
+    "PepperCrossOriginRedirectRestriction", base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Whether we should composite a PLSA even if it means losing lcd text.
 const base::Feature kPreferCompositingToLCDText = {
     "PreferCompositingToLCDText", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -433,6 +443,16 @@ const base::Feature kProactivelySwapBrowsingInstance{
 // cross-origin requests.
 const base::Feature kReducedReferrerGranularity{
     "ReducedReferrerGranularity", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether FileURLLoaderFactory can fetch additional files based on the
+// isolated world's origin. This feature is disabled by default because we want
+// content scripts to have the same permissions as the page they are injected
+// into. This feature makes it possible to quickly revert to earlier permissive
+// behavior if significant regressions are detected. See
+// https://crbug.com/1049604.
+const base::Feature kRelaxIsolatedWorldCorsInFileUrlLoaderFactory = {
+    "RelaxIsolatedWorldCorsInFileUrlLoaderFactory",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Causes hidden tabs with crashed subframes to be marked for reload, meaning
 // that if a user later switches to that tab, the current page will be
@@ -790,9 +810,10 @@ const base::Feature kWarmUpNetworkProcess{"WarmUpNetworkProcess",
 const base::Feature kForce60HzRefreshRate{"Force60HzRefreshRate",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Controls whether the WebNFC API is enabled:
-// https://w3c.github.io/web-nfc/
-const base::Feature kWebNfc{"WebNFC", base::FEATURE_DISABLED_BY_DEFAULT};
+// Kill switch for the WebNFC feature. This feature can be enabled for all sites
+// using the kEnableExperimentalWebPlatformFeatures flag or by a particular site
+// if it includes an Origin Trial key.  https://w3c.github.io/web-nfc/
+const base::Feature kWebNfc{"WebNFC", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif  // defined(OS_ANDROID)
 
 #if defined(OS_CHROMEOS)

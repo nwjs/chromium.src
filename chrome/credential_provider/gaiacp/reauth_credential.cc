@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gaia_resources.h"
+#include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 #include "chrome/credential_provider/gaiacp/mdm_utils.h"
@@ -15,17 +16,19 @@
 
 namespace credential_provider {
 
+constexpr char kGaiaReauthPath[] = "embedded/reauth/windows";
+
 CReauthCredential::CReauthCredential() = default;
 
 CReauthCredential::~CReauthCredential() = default;
 
 HRESULT CReauthCredential::FinalConstruct() {
-  LOGFN(INFO);
+  LOGFN(VERBOSE);
   return S_OK;
 }
 
 void CReauthCredential::FinalRelease() {
-  LOGFN(INFO);
+  LOGFN(VERBOSE);
 }
 
 // CGaiaCredentialBase /////////////////////////////////////////////////////////
@@ -54,8 +57,9 @@ HRESULT CReauthCredential::GetUserGlsCommandline(
   // 1. We need to append this switch irrespective of whether its a
   // reauth flow vs add user flow.
   // 2. We only show tos for GEM usecases.
+  bool show_tos = false;
   if (!CheckIfTosAccepted() && IsGemEnabled())
-    command_line->AppendSwitchASCII(kShowTosSwitch, "1");
+    show_tos = true;
 
   // If this is an existing user with an SID, try to get its gaia id and pass
   // it to the GLS for verification.
@@ -71,12 +75,28 @@ HRESULT CReauthCredential::GetUserGlsCommandline(
     get_cmd_line_status = true;
   }
 
+  HRESULT hr;
   // If there is an existing email with an SID then pass it to the GLS
   // as PrefillEmail switch.
   if (email_for_reauth_.Length()) {
     get_cmd_line_status = true;
     command_line->AppendSwitchNative(kPrefillEmailSwitch,
                                      OLE2CW(email_for_reauth_));
+    // Use kGaiaReauthPath when there is no email_for_reauth_ field set.
+    hr = SetGaiaEndpointCommandLineIfNeeded(L"ep_reauth_url", kGaiaReauthPath,
+                                            IsGemEnabled(), show_tos,
+                                            command_line);
+  } else {
+    // Use kGaiaSetupPath when there is no email_for_reauth_ field set.
+    hr = SetGaiaEndpointCommandLineIfNeeded(L"ep_reauth_url", kGaiaSetupPath,
+                                            IsGemEnabled(), show_tos,
+                                            command_line);
+  }
+
+  if (FAILED(hr)) {
+    LOGFN(ERROR) << "Setting gaia url for reauth credential on user="
+                 << os_username_ << " failed";
+    return E_FAIL;
   }
 
   if (get_cmd_line_status) {
@@ -170,7 +190,7 @@ HRESULT CReauthCredential::GetStringValueImpl(DWORD field_id, wchar_t** value) {
 HRESULT CReauthCredential::GetUserSid(wchar_t** sid) {
   USES_CONVERSION;
   DCHECK(sid);
-  LOGFN(INFO) << "sid=" << OLE2CW(get_os_user_sid());
+  LOGFN(VERBOSE) << "sid=" << OLE2CW(get_os_user_sid());
 
   HRESULT hr = ::SHStrDupW(OLE2CW(get_os_user_sid()), sid);
   if (FAILED(hr))

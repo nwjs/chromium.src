@@ -32,6 +32,7 @@
 #include "components/viz/service/display_embedder/skia_output_device_buffer_queue.h"
 #include "components/viz/service/display_embedder/skia_output_device_gl.h"
 #include "components/viz/service/display_embedder/skia_output_device_offscreen.h"
+#include "components/viz/service/display_embedder/skia_output_device_webview.h"
 #include "components/viz/service/display_embedder/skia_output_surface_dependency.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
@@ -1115,19 +1116,23 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass(
 }
 
 void SkiaOutputSurfaceImplOnGpu::RemoveRenderPassResource(
+    std::vector<RenderPassId> ids,
     std::vector<std::unique_ptr<ImageContextImpl>> image_contexts) {
   TRACE_EVENT0("viz", "SkiaOutputSurfaceImplOnGpu::RemoveRenderPassResource");
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(!image_contexts.empty());
-  for (auto& image_context : image_contexts) {
+  DCHECK(!ids.empty());
+
+  for (RenderPassId id : ids) {
     // It's possible that |offscreen_surfaces_| won't contain an entry for the
     // render pass if draw failed early.
-    auto it = offscreen_surfaces_.find(image_context->render_pass_id());
-    if (it == offscreen_surfaces_.end())
-      continue;
-    DeleteSkSurface(context_state_.get(), it->second.TakeSurface());
-    offscreen_surfaces_.erase(it);
+    auto it = offscreen_surfaces_.find(id);
+    if (it != offscreen_surfaces_.end()) {
+      DeleteSkSurface(context_state_.get(), it->second.TakeSurface());
+      offscreen_surfaces_.erase(it);
+    }
   }
+
+  // |image_contexts| will go out of scope and be destroyed now.
 }
 
 void SkiaOutputSurfaceImplOnGpu::CopyOutput(
@@ -1231,7 +1236,8 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutput(
     }
 
     base::Optional<ScopedSurfaceToTexture> texture_mapper;
-    if (!from_fbo0 || dependency_->IsOffscreen()) {
+    if (!from_fbo0 || dependency_->IsOffscreen() ||
+        gl_surface_->IsSurfaceless()) {
       texture_mapper.emplace(context_provider_.get(), surface);
       gl_id = texture_mapper.value().client_id();
       internal_format = GL_RGBA;
@@ -1517,13 +1523,22 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForGL() {
         output_device_ = std::move(onscreen_device);
 
       } else {
-        std::unique_ptr<SkiaOutputDeviceGL> onscreen_device =
-            std::make_unique<SkiaOutputDeviceGL>(
-                dependency_->GetMailboxManager(), context_state_.get(),
-                gl_surface_, feature_info_, memory_tracker_.get(),
-                did_swap_buffer_complete_callback_);
-        supports_alpha_ = onscreen_device->supports_alpha();
-        output_device_ = std::move(onscreen_device);
+        if (dependency_->NeedsSupportForExternalStencil()) {
+          std::unique_ptr<SkiaOutputDeviceWebView> onscreen_device =
+              std::make_unique<SkiaOutputDeviceWebView>(
+                  context_state_.get(), gl_surface_, memory_tracker_.get(),
+                  did_swap_buffer_complete_callback_);
+          supports_alpha_ = onscreen_device->supports_alpha();
+          output_device_ = std::move(onscreen_device);
+        } else {
+          std::unique_ptr<SkiaOutputDeviceGL> onscreen_device =
+              std::make_unique<SkiaOutputDeviceGL>(
+                  dependency_->GetMailboxManager(), context_state_.get(),
+                  gl_surface_, feature_info_, memory_tracker_.get(),
+                  did_swap_buffer_complete_callback_);
+          supports_alpha_ = onscreen_device->supports_alpha();
+          output_device_ = std::move(onscreen_device);
+        }
       }
     } else {
       gl_surface_ = nullptr;

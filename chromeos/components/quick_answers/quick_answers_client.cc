@@ -8,6 +8,7 @@
 
 #include "base/strings/stringprintf.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
+#include "chromeos/components/quick_answers/utils/quick_answers_metrics.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "third_party/icu/source/common/unicode/locid.h"
 #include "third_party/re2/src/re2/re2.h"
@@ -88,6 +89,8 @@ void QuickAnswersClient::OnAssistantStateDestroyed() {
 
 void QuickAnswersClient::SendRequest(
     const QuickAnswersRequest& quick_answers_request) {
+  RecordSelectedTextLength(quick_answers_request.selected_text.length());
+
   // Preprocess the request.
   auto& processed_request = PreprocessRequest(quick_answers_request);
   delegate_->OnRequestPreprocessFinish(processed_request);

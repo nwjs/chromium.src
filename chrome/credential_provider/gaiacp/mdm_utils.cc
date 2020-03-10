@@ -31,15 +31,19 @@
 
 namespace credential_provider {
 
-constexpr wchar_t kRegInitializeCrashReporting[] = L"init_crash_reporting";
+constexpr wchar_t kRegEnableVerboseLogging[] = L"enable_verbose_logging";
+constexpr wchar_t kRegInitializeCrashReporting[] = L"enable_crash_reporting";
 constexpr wchar_t kRegMdmUrl[] = L"mdm";
+constexpr wchar_t kRegEnableDmEnrollment[] = L"enable_dm_enrollment";
+
 constexpr wchar_t kRegMdmEnableForcePasswordReset[] =
-    L"mdm_enable_force_password";
-constexpr wchar_t kRegEscrowServiceServerUrl[] = L"mdm_ess_url";
-constexpr wchar_t kRegMdmSupportsMultiUser[] = L"mdm_mu";
-constexpr wchar_t kRegMdmAllowConsumerAccounts[] = L"mdm_aca";
+    L"enable_force_reset_password_option";
+constexpr wchar_t kRegDisablePasswordSync[] = L"disable_password_sync";
+constexpr wchar_t kRegMdmSupportsMultiUser[] = L"enable_multi_user_login";
+constexpr wchar_t kRegMdmAllowConsumerAccounts[] = L"enable_consumer_accounts ";
 constexpr wchar_t kRegDeviceDetailsUploadStatus[] =
     L"device_details_upload_status";
+constexpr wchar_t kRegGlsPath[] = L"gls_path";
 constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     L"Chrome-GCPW-";
@@ -64,10 +68,6 @@ enum class EnrolledStatus {
   kDontForce,
 };
 EnrolledStatus g_enrolled_status = EnrolledStatus::kDontForce;
-
-// Overriden in tests to fake serial number extraction.
-bool g_use_test_serial_number = false;
-base::string16 g_test_serial_number = L"";
 
 #if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
 enum class EscrowServiceStatus {
@@ -107,6 +107,15 @@ T GetMdmFunctionPointer(const base::ScopedNativeLibrary& library,
   GetMdmFunctionPointer<decltype(&::name)>(library, #name)
 
 base::string16 GetMdmUrl() {
+  DWORD enable_dm_enrollment;
+  HRESULT hr = GetGlobalFlag(kRegEnableDmEnrollment, &enable_dm_enrollment);
+  if (SUCCEEDED(hr)) {
+    if (enable_dm_enrollment)
+      return kDefaultMdmUrl;
+    return L"";
+  }
+
+  // Fallback to using the older flag to control mdm url.
   return GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
 }
 
@@ -301,13 +310,13 @@ HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
   hr = LookupLocalizedNameForWellKnownSid(WinBuiltinAdministratorsSid,
                                           &local_administrators_group_name);
   if (FAILED(hr)) {
-    LOGFN(INFO) << "Failed to fetch name for administrators group";
+    LOGFN(WARNING) << "Failed to fetch name for administrators group";
   }
 
   base::string16 builtin_administrator_name = L"";
   hr = GetLocalizedNameBuiltinAdministratorAccount(&builtin_administrator_name);
   if (FAILED(hr)) {
-    LOGFN(INFO) << "Failed to fetch name for builtin administrator account";
+    LOGFN(WARNING) << "Failed to fetch name for builtin administrator account";
   }
 
   // Build the json data needed by the server.
@@ -377,15 +386,8 @@ bool UploadDeviceDetailsNeeded(const base::string16& sid) {
 
   DWORD status = 0;
   GetUserProperty(sid, kRegDeviceDetailsUploadStatus, &status);
-  base::string16 mdm_url = GetMdmUrl();
 
   return status != 1;
-}
-
-base::string16 GetSerialNumber() {
-  if (g_use_test_serial_number)
-    return g_test_serial_number;
-  return base::win::WmiComputerSystemInfo::Get().serial_number();
 }
 
 bool MdmEnrollmentEnabled() {
@@ -394,25 +396,17 @@ bool MdmEnrollmentEnabled() {
 }
 
 GURL EscrowServiceUrl() {
-  base::string16 escrow_service_url = GetGlobalFlagOrDefault(
-      kRegEscrowServiceServerUrl, kDefaultEscrowServiceServerUrl);
-
-  if (escrow_service_url.empty())
+  DWORD disable_password_sync =
+      GetGlobalFlagOrDefault(kRegDisablePasswordSync, 0);
+  if (disable_password_sync)
     return GURL();
 
-  return GURL(base::UTF16ToUTF8(escrow_service_url));
+  // By default, the password recovery feature should be enabled.
+  return GURL(base::UTF16ToUTF8(kDefaultEscrowServiceServerUrl));
 }
 
 bool PasswordRecoveryEnabled() {
-#if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  if (g_escrow_service_enabled == EscrowServiceStatus::kDisabled)
-    return false;
-#endif
-
-  if (EscrowServiceUrl().is_empty())
-    return false;
-
-  return true;
+  return !EscrowServiceUrl().is_empty();
 }
 
 bool IsGemEnabled() {
@@ -421,7 +415,7 @@ bool IsGemEnabled() {
 }
 
 HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties) {
-  LOGFN(INFO);
+  LOGFN(VERBOSE);
 
   // Only enroll with MDM if configured.
   base::string16 mdm_url = GetMdmUrl();
@@ -431,7 +425,7 @@ HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties) {
   // TODO(crbug.com/935577): Check if machine is already enrolled because
   // attempting to enroll when already enrolled causes a crash.
   if (IsEnrolledWithGoogleMdm(mdm_url)) {
-    LOGFN(INFO) << "Already enrolled to Google MDM";
+    LOGFN(VERBOSE) << "Already enrolled to Google MDM";
     return S_OK;
   }
 
@@ -473,21 +467,6 @@ GoogleMdmEnrolledStatusForTesting::~GoogleMdmEnrolledStatusForTesting() {
 
 // GoogleMdmEnrolledStatusForTesting //////////////////////////////////////////
 
-// GoogleRegistrationDataForTesting //////////////////////////////////////////
-
-GoogleRegistrationDataForTesting::GoogleRegistrationDataForTesting(
-    base::string16 serial_number) {
-  g_use_test_serial_number = true;
-  g_test_serial_number = serial_number;
-}
-
-GoogleRegistrationDataForTesting::~GoogleRegistrationDataForTesting() {
-  g_use_test_serial_number = false;
-  g_test_serial_number = L"";
-}
-
-// GoogleSerialNumberForTesting //////////////////////////////////////////
-
 // GoogleUploadDeviceDetailsNeededForTesting //////////////////////////////////
 
 GoogleUploadDeviceDetailsNeededForTesting::
@@ -503,19 +482,4 @@ GoogleUploadDeviceDetailsNeededForTesting::
 }
 
 // GoogleUploadDeviceDetailsNeededForTesting //////////////////////////////////
-
-GoogleMdmEscrowServiceEnablerForTesting::
-    GoogleMdmEscrowServiceEnablerForTesting() {
-#if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  g_escrow_service_enabled = EscrowServiceStatus::kEnabled;
-#endif
-}
-
-GoogleMdmEscrowServiceEnablerForTesting::
-    ~GoogleMdmEscrowServiceEnablerForTesting() {
-#if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  g_escrow_service_enabled = EscrowServiceStatus::kDisabled;
-#endif
-}
-
 }  // namespace credential_provider

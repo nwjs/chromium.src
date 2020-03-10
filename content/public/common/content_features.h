@@ -92,6 +92,7 @@ CONTENT_EXPORT extern const base::Feature kPassiveDocumentWheelEventListeners;
 CONTENT_EXPORT extern const base::Feature kPassiveEventListenersDueToFling;
 CONTENT_EXPORT extern const base::Feature kPeriodicBackgroundSync;
 CONTENT_EXPORT extern const base::Feature kPepper3DImageChromium;
+CONTENT_EXPORT extern const base::Feature kPepperCrossOriginRedirectRestriction;
 CONTENT_EXPORT extern const base::Feature kPreferCompositingToLCDText;
 CONTENT_EXPORT extern const base::Feature kPrioritizeBootstrapTasks;
 CONTENT_EXPORT extern const base::Feature kProactivelySwapBrowsingInstance;
@@ -100,6 +101,8 @@ CONTENT_EXPORT extern const base::Feature
 CONTENT_EXPORT extern const base::Feature
     kProcessSharingWithStrictSiteInstances;
 CONTENT_EXPORT extern const base::Feature kReducedReferrerGranularity;
+CONTENT_EXPORT extern const base::Feature
+    kRelaxIsolatedWorldCorsInFileUrlLoaderFactory;
 CONTENT_EXPORT extern const base::Feature kReloadHiddenTabsWithCrashedSubframes;
 CONTENT_EXPORT extern const base::Feature kRenderDocumentForMainFrame;
 CONTENT_EXPORT extern const base::Feature kRenderDocumentForSubframe;

@@ -111,7 +111,7 @@
 <translation id="3695446226812920698">Дознајте како</translation>
 <translation id="3718805989288361841">Има грешка во поставките за политиката на „Пристап оддалеку за Chrome“. Побарајте помош од администраторот на системот.</translation>
 <translation id="3776024066357219166">Сесијата на Chrome Remote Desktop заврши.</translation>
-<translation id="3870154837782082782">Google Inc.</translation>
+<translation id="3870154837782082782">Google LLC</translation>
 <translation id="3884839335308961732">Потврдете ги сметката и PIN-бројот подолу за да дозволите пристап преку Chrome Remote Desktop.</translation>
 <translation id="3897092660631435901">Мени</translation>
 <translation id="3905196214175737742">Неважечки домен на сопственикот на домаќинот.</translation>
@@ -169,7 +169,7 @@
 <translation id="4913529628896049296">се чека за поврзување...</translation>
 <translation id="4918086044614829423">Прифати</translation>
 <translation id="492843737083352574">Имам проблеми со мојата тастатура или глувче.</translation>
-<translation id="4973800994433240357">Со преземање на инсталаторот на хостот Chromoting, се согласувате со <ph name="LINK_BEGIN" />Условите на користење<ph name="LINK_END" /> на Google.</translation>
+<translation id="4973800994433240357">Со преземање на инсталаторот на хостот Chromoting, се согласувате со <ph name="LINK_BEGIN" />Условите за користење<ph name="LINK_END" /> на Google.</translation>
 <translation id="4974476491460646149">Врската е затворена за <ph name="HOSTNAME" /></translation>
 <translation id="4985296110227979402">Прво треба да го поставите компјутерот за далечински пристап</translation>
 <translation id="5064360042339518108"><ph name="HOSTNAME" /> (локално)</translation>
@@ -245,7 +245,7 @@
 <translation id="6612717000975622067">Испрати Ctrl-Alt-Del</translation>
 <translation id="6654753848497929428">Сподели</translation>
 <translation id="6668065415969892472">Вашиот PIN се ажурираше.</translation>
-<translation id="6681800064886881394">Авторски права 2013 Google Inc. Сите права се задржани.</translation>
+<translation id="6681800064886881394">Авторски права 2013 Google LLC. Сите права се задржани.</translation>
 <translation id="6705482892455291412">Штом ќе се внесе кодот, ќе биде побарано да ја прифатите врската и да ја започнете сесијата на споделување.</translation>
 <translation id="6746493157771801606">Исчисти историја</translation>
 <translation id="6748108480210050150">Од</translation>
@@ -296,7 +296,7 @@
 <translation id="7981525049612125370">Далечинската сесија истече.</translation>
 <translation id="8038111231936746805">(стандардно)</translation>
 <translation id="8041089156583427627">Испратете повратни информации</translation>
-<translation id="8041721485428375115">Со преземање на инсталаторот на хостот за пристап оддалеку за Chrome, се согласувате со <ph name="LINK_BEGIN" />Условите на користење<ph name="LINK_END" /> на Google.</translation>
+<translation id="8041721485428375115">Со преземање на инсталаторот на хостот за пристап оддалеку за Chrome, се согласувате со <ph name="LINK_BEGIN" />Условите за користење<ph name="LINK_END" /> на Google.</translation>
 <translation id="8060029310790625334">Центар за помош</translation>
 <translation id="806699900641041263">Се поврзува со <ph name="HOSTNAME" /></translation>
 <translation id="8073845705237259513">За да користите Chrome Remote Desktop, треба да додадете сметка на Google на вашиот уред.</translation>
@@ -305,7 +305,7 @@
 <translation id="811307782653349804">Пристапете му на вашиот компјутер од каде било.</translation>
 <translation id="8116630183974937060">Настана мрежна грешка. Проверете дали уредот е на линија и обидете се повторно.</translation>
 <translation id="8178433417677596899">Споделување екран од еден до друг корисник, совршен за далечинска техничка поддршка.</translation>
-<translation id="8187079423890319756">Авторско право 2013 на Авторите на Chromium. Сите права се зачувани.</translation>
+<translation id="8187079423890319756">Авторски права 2013 на Авторите на Chromium. Сите права се зачувани.</translation>
 <translation id="8196755618196986400">За да можеме да ве контактираме за понатамошни информации, вашата адреса на е-пошта ќе биде вклучена во сите повратни информации што ги поднесувате.</translation>
 <translation id="8244400547700556338">Дознај како.</translation>
 <translation id="8261506727792406068">Избриши</translation>

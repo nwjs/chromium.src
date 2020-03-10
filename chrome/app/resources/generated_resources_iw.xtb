@@ -1213,6 +1213,7 @@
 <translation id="2653659639078652383">שלח</translation>
 <translation id="265390580714150011">ערך שדה </translation>
 <translation id="2654166010170466751">‏מתן הרשאה לאתרים להתקין מעבדי handler לתשלומים</translation>
+<translation id="2654553774144920065">בקשת הדפסה</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />במכשירים שונים יש תכונות שונות</translation>
 <translation id="2660779039299703961">אירוע</translation>
 <translation id="266079277508604648">‏לא ניתן להתחבר אל המדפסת. יש לוודא שהמדפסת פועלת ומחוברת אל ה-Chromebook דרך רשת ה-Wi-Fi או בחיבור USB.</translation>
@@ -2387,7 +2388,6 @@
 <translation id="4285418559658561636">עדכון סיסמה</translation>
 <translation id="4285498937028063278">ביטול הצמדה</translation>
 <translation id="428565720843367874">תוכנת האנטי-וירוס נכשלה באופן בלתי צפוי בעת סריקת קובץ זה.</translation>
-<translation id="4287502004382794929">אין ברשותך מספיק רשיונות תוכנה כדי לרשום מכשיר זה. פנה למחלקת המכירות כדי לרכוש עוד רשיונות. אם אתה סבור שהודעה זו מופיעה בטעות, צור קשר עם מחלקת התמיכה.</translation>
 <translation id="4289540628985791613">סקירה כללית</translation>
 <translation id="4295072614469448764">האפליקציה זמינה במסוף שלך. בחלק מהמקרים מופיע סמל במרכז האפליקציות.</translation>
 <translation id="4295979599050707005">‏יש להיכנס שוב כדי לאשר את השימוש בחשבון שלך, <ph name="USER_EMAIL" />, ביחד עם אתרים, אפליקציות ותוספים ב-Chrome וב-Google Play. ניתן גם להסיר את החשבון הזה. <ph name="LINK_BEGIN" />מידע נוסף<ph name="LINK_END" /></translation>
@@ -3718,6 +3718,7 @@
 <translation id="6207282396926186323">‏התקנת <ph name="APP_NAME" /> (אפליקציית Linux)</translation>
 <translation id="6207937957461833379">מדינה/אזור</translation>
 <translation id="6208521041562685716">המערכת מפעילה את חבילת הגלישה</translation>
+<translation id="6209908325007204267">‏המכשיר כולל אפשרות שדרוג ל-Chrome Enterprise, אבל שם המשתמש שלך לא משויך לחשבון ארגוני. כדי ליצור חשבון ארגוני, יש להיכנס לכתובת g.co/ChromeEnterpriseAccount במכשיר אחר.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: הסינכרון לא פועל</translation>
 <translation id="6212039847102026977">הצג מאפייני רשת מתקדמים</translation>
 <translation id="6212168817037875041">כבה את הצג</translation>
@@ -4027,7 +4028,7 @@
 <translation id="6655458902729017087">הסתר חשבונות</translation>
 <translation id="6657585470893396449">סיסמה</translation>
 <translation id="6659213950629089752">בדף זה בוצע שינוי במרחק התצוגה באמצעות התוסף "<ph name="NAME" />"</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">כרטיסייה</translation>
 <translation id="6664237456442406323">‏לצערנו, המחשב שלך מוגדר עם זיהוי חומרה פגום. המצב הזה מונע ממערכת ההפעלה של Chrome להתקין את עדכוני האבטחה האחרונים, וייתכן שהמחשב שלך יהיה <ph name="BEGIN_BOLD" />חשוף להתקפות זדוניות<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">משהו השתבש בפתיחת הפרופיל שלך. צא ולאחר מכן היכנס מחדש.</translation>
 <translation id="6667776121818773738">תמונה שותפה ממכשיר אחר</translation>
@@ -4157,6 +4158,7 @@
 <translation id="6843423766595476978">‏התכונה Ok Google מוכנה</translation>
 <translation id="6845038076637626672">פתח בגודל מרבי</translation>
 <translation id="6845325883481699275">‏עזרה בשיפור האבטחה של Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" רוצה להדפיס את <ph name="FILE_NAME" /> באמצעות <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">יש לפנות שטח אחסון כדי להמשיך</translation>
 <translation id="6848388270925200958">נכון לעכשיו, יש לך כרטיסים שאפשר להשתמש בהם רק במכשיר הזה.</translation>
 <translation id="6850286078059909152">צבע טקסט</translation>
@@ -4400,6 +4402,7 @@
 <translation id="7186088072322679094">השאר בסרגל הכלים</translation>
 <translation id="7187428571767585875">ערכים בקובץ הרישום שיש להסיר או לשנות:</translation>
 <translation id="7189234443051076392">צריך לוודא שיש מספיק מקום פנוי במכשיר</translation>
+<translation id="7189451821249468368">אין לך מספיק שדרוגים כדי לרשום את המכשיר הזה. ניתן לרכוש עוד שדרוגים דרך מחלקת המכירות. אם לדעתך ההודעה הזו מוצגת לך בטעות, אפשר לפנות לתמיכה.</translation>
 <translation id="7189965711416741966">טביעת האצבע נוספה.</translation>
 <translation id="7191159667348037">‏מדפסת לא ידועה (USB)</translation>
 <translation id="7193051357671784796">אפליקציה זו נוספה על-ידי הארגון שלך. עליך להפעיל מחדש את האפליקציה כדי לסיים את ההתקנה שלה.</translation>
@@ -5774,7 +5777,6 @@
 <translation id="9050666287014529139">משפט-סיסמה</translation>
 <translation id="9052208328806230490">רשמת את המדפסות שלך ב-<ph name="CLOUD_PRINT_NAME" /> באמצעות החשבון <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">המשך חסימה</translation>
-<translation id="9053091947372579468">‏המכשיר כולל רישיון של Chrome, אבל שם המשתמש שלך לא משויך למסוף ניהול. צריך ליצור חשבון מסוף ניהול כדי להמשיך בהרשמה. הערה: אם ברצונך להשתמש בדומיין משלך ליצירת חשבון מסוף ניהול, צריך גם להשלים את אימות הדומיין אחרי ההרשמה. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">הדפסה על שני הצדדים</translation>
 <translation id="9053893665344928494">זכור את הבחירה שלי</translation>
 <translation id="9055636786322918818">‏אכיפה של הצפנת RC4. שימוש באפשרות הזו מגדילה את הסיכון, כי הצפנות RC4 אינן מאובטחות.</translation>

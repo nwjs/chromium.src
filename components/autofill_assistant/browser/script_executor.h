@@ -126,7 +126,8 @@ class ScriptExecutor : public ActionDelegate,
       base::OnceCallback<void(UserData*, UserData::FieldChange*)>) override;
   void GetFullCard(GetFullCardCallback callback) override;
   void Prompt(std::unique_ptr<std::vector<UserAction>> user_actions,
-              bool disable_force_expand_sheet) override;
+              bool disable_force_expand_sheet,
+              bool browse_mode) override;
   void CleanUpAfterPrompt() override;
   void FillAddressForm(
       const autofill::AutofillProfile* profile,
@@ -163,7 +164,7 @@ class ScriptExecutor : public ActionDelegate,
   void SetFieldValue(
       const Selector& selector,
       const std::string& value,
-      bool simulate_key_presses,
+      KeyboardValueFillStrategy fill_strategy,
       int key_press_delay_in_millisecond,
       base::OnceCallback<void(const ClientStatus&)> callback) override;
   void SetAttribute(

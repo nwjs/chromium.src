@@ -150,7 +150,7 @@
 <translation id="1195558154361252544">Известувањата се автоматски блокирани за сите сајтови, освен за оние за коишто сте ги дозволиле</translation>
 <translation id="1197088940767939838">Портокалова</translation>
 <translation id="1197979282329025000">Настана грешка при вчитување способности на печатач за печатачот <ph name="PRINTER_NAME" />. Овој печатач не може да се регистрира кај <ph name="CLOUD_PRINT_NAME" />.</translation>
-<translation id="119944043368869598">Исчисти ги сите</translation>
+<translation id="119944043368869598">Избриши ги сите</translation>
 <translation id="1201402288615127009">Следно</translation>
 <translation id="1202596434010270079">Апликацијата на Киоск е ажурирана. Отстранете ја USB-меморијата.</translation>
 <translation id="120368089816228251">Музичка нота</translation>
@@ -289,7 +289,7 @@
 <translation id="1398853756734560583">Максимизирај</translation>
 <translation id="139911022479327130">Отклучете го телефонот и потврдете дека сте вие</translation>
 <translation id="1399511500114202393">Нема сертификат на корисник</translation>
-<translation id="1403519882106291341">Услови на користење на Google Chrome OS</translation>
+<translation id="1403519882106291341">Услови за користење на Google Chrome OS</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (надгледуван)</translation>
 <translation id="1405779994569073824">Падна.</translation>
 <translation id="1406500794671479665">Се проверува…</translation>
@@ -991,7 +991,7 @@
 <translation id="2350182423316644347">Се иницијализира апликација...</translation>
 <translation id="2350796302381711542">Ќе дозволите <ph name="HANDLER_HOSTNAME" /> да ги отвори сите <ph name="PROTOCOL" /> врски наместо <ph name="REPLACED_HANDLER_TITLE" />?</translation>
 <translation id="2351266942280602854">Јазик и внесување</translation>
-<translation id="2352662711729498748">&lt; 1 МБ</translation>
+<translation id="2352662711729498748">&lt; 1 MB</translation>
 <translation id="2352810082280059586">Белешките на заклучениот екран се зачувуваат автоматски во <ph name="LOCK_SCREEN_APP_NAME" />. Последната белешка ќе остане на заклучениот екран.</translation>
 <translation id="2353297238722298836">Камерата и микрофонот се дозволени</translation>
 <translation id="2356070529366658676">Прашај</translation>
@@ -1146,7 +1146,7 @@
 <translation id="2552966063069741410">Временска зона</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> не можеше да се поврзе на <ph name="NETWORK_ID" />. Изберете друга мрежа или обидете се повторно.</translation>
 <translation id="2553440850688409052">Сокриј го приклучокот</translation>
-<translation id="2554553592469060349">Избраната датотека е преголема (максимална големина: 3 МБ).</translation>
+<translation id="2554553592469060349">Избраната датотека е преголема (максимална големина: 3 MB).</translation>
 <translation id="2557378327156922632">Датотекава содржи чувствителни содржини.</translation>
 <translation id="255747371423522804">Додај во постојна група</translation>
 <translation id="2558896001721082624">Секогаш прикажувај опции за пристап во системското мени</translation>
@@ -1216,6 +1216,7 @@
 <translation id="2653659639078652383">Поднеси</translation>
 <translation id="265390580714150011">Вредност на поле</translation>
 <translation id="2654166010170466751">Дозволете сајтовите да инсталираат ракувачи со плаќања</translation>
+<translation id="2654553774144920065">Барање за печатење</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Функциите се разликуваат во зависност од уредот</translation>
 <translation id="2660779039299703961">Настан</translation>
 <translation id="266079277508604648">Не може да се поврзе печатач. Проверете дали печатачот е вклучен и дали е поврзан со вашиот Chromebook преку Wi-Fi или USB.</translation>
@@ -2390,7 +2391,6 @@
 <translation id="4285418559658561636">Ажурирање на лозинката</translation>
 <translation id="4285498937028063278">Откачи</translation>
 <translation id="428565720843367874">Анти-вирус софтверот не успеа да ја скенира датотеката.</translation>
-<translation id="4287502004382794929">Немате доволно софтверски лиценци за да го запишете овој уред. Контактирајте со продажбата за да купите повеќе. Ако мислите дека не би требало да ја гледате оваа порака, контактирајте со поддршката.</translation>
 <translation id="4289540628985791613">Преглед</translation>
 <translation id="4295072614469448764">Апликацијата е достапна во вашиот терминал. Може да има икона и во „Стартерот“.</translation>
 <translation id="4295979599050707005">Најавете се повторно за да потврдите дека вашата сметка <ph name="USER_EMAIL" /> може да се користи со веб-сајтови, апликации и екстензии во Chrome и Google Play. Може и да ја отстраните сметкава. <ph name="LINK_BEGIN" />Дознајте повеќе<ph name="LINK_END" /></translation>
@@ -2415,7 +2415,7 @@
 <translation id="4330387663455830245">Никогаш не преведувај <ph name="LANGUAGE" /></translation>
 <translation id="4332976768901252016">Поставете родителски контроли</translation>
 <translation id="4333854382783149454">PKCS #1 SHA-1 со RSA енкрипција</translation>
-<translation id="4336434711095810371">Исчисти ги сите податоци</translation>
+<translation id="4336434711095810371">Избриши ги сите податоци</translation>
 <translation id="4336979451636460645">За дневници на мрежата, погледнете: <ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> сака да комуницира со апликацијата „<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4345587454538109430">Конфигурирај…</translation>
@@ -3079,7 +3079,7 @@
 <translation id="5311304534597152726">Се најавувате како</translation>
 <translation id="53116743016968120"><ph name="ERROR_MESSAGE" /> Обидете се повторно.</translation>
 <translation id="5313628438272378649">Ова прикачување ги прекршува безбедносните правила на вашата организација и не може да се заврши.</translation>
-<translation id="5314381603623123224">„Условите на користење“ на Chrome се менуваат на 31 март</translation>
+<translation id="5314381603623123224">„Условите за користење“ на Chrome се менуваат на 31 март</translation>
 <translation id="5315738755890845852">Вишок голема заграда: <ph name="ERROR_LINE" /></translation>
 <translation id="5315873049536339193">Идентитет</translation>
 <translation id="5317780077021120954">Зачувај</translation>
@@ -3289,7 +3289,7 @@
 <translation id="5595152862129936745">Многу далеку</translation>
 <translation id="5595485650161345191">Измени адреса</translation>
 <translation id="5596627076506792578">Повеќе опции</translation>
-<translation id="5600706100022181951">Ажурирањето ќе се преземе со користење <ph name="UPDATE_SIZE_MB" /> МБ мобилен интернет. Дали сакате да продолжите?</translation>
+<translation id="5600706100022181951">Ажурирањето ќе се преземе со користење <ph name="UPDATE_SIZE_MB" /> MB мобилен интернет. Дали сакате да продолжите?</translation>
 <translation id="5601503069213153581">PIN</translation>
 <translation id="5602765853043467355">Исчисти обележувачи, историја, лозинки и друго од уредов</translation>
 <translation id="5605623530403479164">Други пребарувачи</translation>
@@ -3721,6 +3721,7 @@
 <translation id="6207282396926186323">Инсталирајте ја <ph name="APP_NAME" /> (апликација на Linux)</translation>
 <translation id="6207937957461833379">Држава/Регион</translation>
 <translation id="6208521041562685716">Мобилниот интернет се активира</translation>
+<translation id="6209908325007204267">Вашиот уред содржи Chrome Enterprise Upgrade, но вашето корисничко име не е поврзано со сметка на организација. Создајте сметка на организација така што ќе отидете на g.co/ChromeEnterpriseAccount на втор уред.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: синхронизацијата не функционира</translation>
 <translation id="6212039847102026977">Покажи ги напредните својства на мрежата</translation>
 <translation id="6212168817037875041">Исклучи го екранот</translation>
@@ -3759,7 +3760,7 @@
 <translation id="624789221780392884">Ажурирањето е подготвено</translation>
 <translation id="6248988683584659830">Пребарување низ поставките</translation>
 <translation id="6251870443722440887">Рачки на ГДИ</translation>
-<translation id="6251889282623539337">Услови на користење на <ph name="DOMAIN" /></translation>
+<translation id="6251889282623539337">Услови за користење на <ph name="DOMAIN" /></translation>
 <translation id="6254503684448816922">Клучот е доведен во опасност</translation>
 <translation id="6257602895346497974">Вклучете синхронизација…</translation>
 <translation id="6259104249628300056">Откријте уреди на вашата локална мрежа</translation>
@@ -4160,6 +4161,7 @@
 <translation id="6843423766595476978">„Ok Google“ е поставен</translation>
 <translation id="6845038076637626672">Отвори максимизирано</translation>
 <translation id="6845325883481699275">Помогнете да се подобри безбедноста на Chrome</translation>
+<translation id="6846178040388691741">„<ph name="EXTENSION_NAME" />“ сака да ја отпечати датотеката <ph name="FILE_NAME" /> на <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Ослободете простор за да продолжите</translation>
 <translation id="6848388270925200958">Во моментов имате картички што може да се користат само на овој уред</translation>
 <translation id="6850286078059909152">Боја на текст</translation>
@@ -4403,6 +4405,7 @@
 <translation id="7186088072322679094">Чувај во алатник</translation>
 <translation id="7187428571767585875">Записи во регистарот што треба да се отстранат или променат:</translation>
 <translation id="7189234443051076392">Уверете се дека има доволно простор на уредот</translation>
+<translation id="7189451821249468368">Немате доволно надградби за да го регистрирате уредов. Контактирајте со службата за продажбата за да купите уште. Ако сметате дека не треба да ја гледате оваа порака, контактирајте со службата за поддршката.</translation>
 <translation id="7189965711416741966">Отпечатокот е додаден.</translation>
 <translation id="7191159667348037">Непознат печатач (USB)</translation>
 <translation id="7193051357671784796">Вашата организација ја додаде апликацијава. Рестартирајте ја апликацијата за да завршите со инсталацијата.</translation>
@@ -5778,7 +5781,6 @@
 <translation id="9050666287014529139">Пристапна фраза</translation>
 <translation id="9052208328806230490">Ги регистриравте вашите печатачи со <ph name="CLOUD_PRINT_NAME" /> користејќи ја сметката <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Продолжи со блокирање</translation>
-<translation id="9053091947372579468">Вашиот уред содржи лиценца за Chrome, но корисничкото име не е поврзано со Aдминистраторска конзола. Создајте сметка на Aдминистраторска конзола за да продолжите со регистрацијата. Забелешка: ако изберете да го користите сопствениот домен за да создадете нова сметка на Aдминистраторска конзола, мора да ја завршите и потврдата на доменот по регистрацијата. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Двострано печатење</translation>
 <translation id="9053893665344928494">Запомни го мојот избор</translation>
 <translation id="9055636786322918818">Наметнете RC4-шифрирање. Ако ја користите опцијава, ви се зголемува ризикот бидејќи RC4-шифрите се небезбедни.</translation>
@@ -5884,7 +5886,7 @@
 <translation id="930268624053534560">Детални временски печати</translation>
 <translation id="932327136139879170">Дома</translation>
 <translation id="932508678520956232">Не можеше да започне печатење.</translation>
-<translation id="93343527085570547">Одете на <ph name="BEGIN_LINK1" />страницата „Правна помош“<ph name="END_LINK1" /> за да побарате промени на содржините од правни причини. Некои информации за сметката и системот можеби ќе се испратат до Google. Информациите што ни ги давате ќе ги користиме за да се справиме со техничките проблеми и за да ги подобриме нашите услуги, согласно нашите <ph name="BEGIN_LINK2" />Политика за приватност<ph name="END_LINK2" /> и <ph name="BEGIN_LINK3" />Услови на користење<ph name="END_LINK3" />.</translation>
+<translation id="93343527085570547">Одете на <ph name="BEGIN_LINK1" />страницата „Правна помош“<ph name="END_LINK1" /> за да побарате промени на содржините од правни причини. Некои информации за сметката и системот можеби ќе се испратат до Google. Информациите што ни ги давате ќе ги користиме за да се справиме со техничките проблеми и за да ги подобриме нашите услуги, согласно нашите <ph name="BEGIN_LINK2" />Политика за приватност<ph name="END_LINK2" /> и <ph name="BEGIN_LINK3" />Услови за користење<ph name="END_LINK3" />.</translation>
 <translation id="93393615658292258">Само лозинка</translation>
 <translation id="934244546219308557">Именувајте ја групава</translation>
 <translation id="934503638756687833">Ставките што не се наведени тука исто така ќе се отстранат ако е потребно. Дознајте повеќе за &lt;a href="<ph name="URL" />"&gt;заштита од несакан софтвер&lt;/a&gt; во белата книга за приватност на Chrome.</translation>
@@ -5900,7 +5902,7 @@
 <translation id="939598580284253335">Внеси пристапна фраза</translation>
 <translation id="939736085109172342">Нова папка</translation>
 <translation id="942532530371314860"><ph name="APP_NAME" /> споделува картичка на Chrome и аудио.</translation>
-<translation id="945522503751344254">Испрати повратни информации</translation>
+<translation id="945522503751344254">Испратете повратни информации</translation>
 <translation id="947329552760389097">&amp;Проверете ги елементите</translation>
 <translation id="952992212772159698">Не е активиран</translation>
 <translation id="957960681186851048">Сајтов се обиде автоматски да преземе повеќе датотеки</translation>

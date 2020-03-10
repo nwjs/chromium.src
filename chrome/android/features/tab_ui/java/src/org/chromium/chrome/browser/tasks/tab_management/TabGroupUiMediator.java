@@ -117,7 +117,6 @@ public class TabGroupUiMediator {
         mTabModelObserver = new EmptyTabModelObserver() {
             @Override
             public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
-                if (!mIsTabGroupUiVisible) return;
                 if (type == TabSelectionType.FROM_CLOSE) return;
                 if (getRelatedTabsForId(lastId).contains(tab)) return;
                 // TODO(995956): Optimization we can do here if we decided always hide the strip if

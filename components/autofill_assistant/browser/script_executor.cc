@@ -278,12 +278,15 @@ void ScriptExecutor::OnGetFullCard(GetFullCardCallback callback,
 
 void ScriptExecutor::Prompt(
     std::unique_ptr<std::vector<UserAction>> user_actions,
-    bool disable_force_expand_sheet) {
+    bool disable_force_expand_sheet,
+    bool browse_mode) {
   // First communicate to the delegate that prompt actions should or should not
   // expand the sheet intitially.
   delegate_->SetExpandSheetForPromptAction(!disable_force_expand_sheet);
-  if (delegate_->EnterState(AutofillAssistantState::PROMPT) &&
-      touchable_element_area_) {
+  if (browse_mode) {
+    delegate_->EnterState(AutofillAssistantState::BROWSE);
+  } else if (delegate_->EnterState(AutofillAssistantState::PROMPT) &&
+             touchable_element_area_) {
     // Prompt() reproduces the end-of-script appearance and behavior during
     // script execution. This includes allowing access to touchable elements,
     // set through a previous call to the focus action with touchable_elements
@@ -400,12 +403,12 @@ void ScriptExecutor::GetFieldValue(
 void ScriptExecutor::SetFieldValue(
     const Selector& selector,
     const std::string& value,
-    bool simulate_key_presses,
+    KeyboardValueFillStrategy fill_strategy,
     int key_press_delay_in_millisecond,
     base::OnceCallback<void(const ClientStatus&)> callback) {
-  delegate_->GetWebController()->SetFieldValue(
-      selector, value, simulate_key_presses, key_press_delay_in_millisecond,
-      std::move(callback));
+  delegate_->GetWebController()->SetFieldValue(selector, value, fill_strategy,
+                                               key_press_delay_in_millisecond,
+                                               std::move(callback));
 }
 
 void ScriptExecutor::SetAttribute(

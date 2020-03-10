@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="nl">
 <translation id="1036550831858290950">Het huidige tabblad als bladwijzer opslaan</translation>
-<translation id="104962181688258143">De app Bestanden openen</translation>
+<translation id="104962181688258143">De Files-app openen</translation>
 <translation id="1122869341872663659">Er worden <ph name="N" /> zoekresultaten voor <ph name="QUERY" /> getoond</translation>
 <translation id="1195667586424773550">Sleep de link naar de adresbalk van het tabblad</translation>
 <translation id="1204450209689312104">Een nieuw venster openen in de incognitomodus</translation>
@@ -117,7 +117,7 @@
 <translation id="5236674127086649162">De huidige pagina opnieuw laden en content in het cachegeheugen negeren</translation>
 <translation id="526651782186312376">Tekst tot het begin van de regel selecteren</translation>
 <translation id="5316716239522500219">Monitoren spiegelen</translation>
-<translation id="539072479502328326">'Gedockt vergrootglas' in- of uitschakelen</translation>
+<translation id="539072479502328326">'Vastgezet vergrootglas' in- of uitschakelen</translation>
 <translation id="5541719484267030947">Druk op <ph name="ESC" /> tijdens het slepen van het tabblad</translation>
 <translation id="5554139136362089836">Zoeken op de huidige pagina</translation>
 <translation id="5563050856984839829">Druk op <ph name="CTRL" /><ph name="SEPARATOR" /><ph name="SHIFT" /> en klik op een link</translation>

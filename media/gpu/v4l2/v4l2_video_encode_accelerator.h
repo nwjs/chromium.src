@@ -202,8 +202,8 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   bool SetFormats(VideoPixelFormat input_format,
                   VideoCodecProfile output_profile);
 
-  // Reconfigure format of input buffers and image processor if frame size
-  // given by client is different from one set in input buffers.
+  // Reconfigure format of input buffers and image processor if the buffer
+  // represented by |frame| is different from one set in input buffers.
   bool ReconfigureFormatIfNeeded(const VideoFrame& frame);
 
   // Try to set up the device to the input format we were Initialized() with,
@@ -211,6 +211,9 @@ class MEDIA_GPU_EXPORT V4L2VideoEncodeAccelerator
   // can later instantiate an ImageProcessor to convert to it.
   bool NegotiateInputFormat(VideoPixelFormat input_format,
                             const gfx::Size& frame_size);
+
+  // Apply the current crop parameters to the V4L2 device.
+  bool ApplyCrop();
 
   // Set up the device to the output format requested in Initialize().
   bool SetOutputFormat(VideoCodecProfile output_profile);

@@ -15,6 +15,14 @@
 #include "components/autofill_assistant/browser/client_status.h"
 
 namespace autofill_assistant {
+namespace {
+
+bool IsSimulatingKeyPresses(KeyboardValueFillStrategy fill_strategy) {
+  return fill_strategy == SIMULATE_KEY_PRESSES ||
+         fill_strategy == SIMULATE_KEY_PRESSES_SELECT_VALUE;
+}
+
+}  // namespace
 
 SetFormFieldValueAction::FieldInput::FieldInput(
     std::unique_ptr<std::vector<UChar32>> _keyboard_input)
@@ -117,7 +125,12 @@ void SetFormFieldValueAction::InternalProcessAction(
           return;
         }
         if (!delegate_->GetUserData()->has_additional_value(
-                keypress.client_memory_key())) {
+                keypress.client_memory_key()) ||
+            delegate_->GetUserData()
+                    ->additional_value(keypress.client_memory_key())
+                    ->strings()
+                    .values()
+                    .size() != 1) {
           DVLOG(1) << "SetFormFieldValueAction: requested key '"
                    << keypress.client_memory_key()
                    << "' not available in client memory";
@@ -125,8 +138,10 @@ void SetFormFieldValueAction::InternalProcessAction(
           return;
         }
         field_inputs_.emplace_back(
-            /* value = */ *delegate_->GetUserData()->additional_value(
-                keypress.client_memory_key()));
+            /* value = */ delegate_->GetUserData()
+                ->additional_value(keypress.client_memory_key())
+                ->strings()
+                .values(0));
         break;
       case SetFormFieldValueProto_KeyPress::kGeneratePassword:
         if (keypress.generate_password().memory_key().empty()) {
@@ -169,7 +184,6 @@ void SetFormFieldValueAction::OnSetFieldValue(int next,
     return;
   }
 
-  bool simulate_key_presses = proto_.set_form_value().simulate_key_presses();
   int delay_in_millisecond = proto_.set_form_value().delay_in_millisecond();
   auto next_field_callback = base::BindOnce(
       &SetFormFieldValueAction::OnSetFieldValue, weak_ptr_factory_.GetWeakPtr(),
@@ -201,14 +215,14 @@ void SetFormFieldValueAction::OnSetFieldValue(int next,
         break;
     }
   } else {
-    if (simulate_key_presses || field_input.value.empty()) {
-      delegate_->SetFieldValue(selector_, field_input.value,
-                               simulate_key_presses, delay_in_millisecond,
+    auto fill_strategy = proto_.set_form_value().fill_strategy();
+    if (IsSimulatingKeyPresses(fill_strategy)) {
+      delegate_->SetFieldValue(selector_, field_input.value, fill_strategy,
+                               delay_in_millisecond,
                                std::move(next_field_callback));
     } else {
       delegate_->SetFieldValue(
-          selector_, field_input.value, simulate_key_presses,
-          delay_in_millisecond,
+          selector_, field_input.value, fill_strategy, delay_in_millisecond,
           base::BindOnce(
               &SetFormFieldValueAction::OnSetFieldValueAndCheckFallback,
               weak_ptr_factory_.GetWeakPtr(),
@@ -254,7 +268,7 @@ void SetFormFieldValueAction::OnGetFieldValue(
     // Run |SetFieldValue| with keyboard simulation on and move on to next value
     // afterwards.
     delegate_->SetFieldValue(
-        selector_, requested_value, /*simulate_key_presses = */ true,
+        selector_, requested_value, SIMULATE_KEY_PRESSES,
         proto_.set_form_value().delay_in_millisecond(),
         base::BindOnce(&SetFormFieldValueAction::OnSetFieldValue,
                        weak_ptr_factory_.GetWeakPtr(),
@@ -273,17 +287,17 @@ void SetFormFieldValueAction::OnGetStoredPassword(int field_index,
     EndAction(ClientStatus(AUTOFILL_INFO_NOT_AVAILABLE));
     return;
   }
-  bool simulate_key_presses = proto_.set_form_value().simulate_key_presses();
+  auto fill_strategy = proto_.set_form_value().fill_strategy();
   int delay_in_millisecond = proto_.set_form_value().delay_in_millisecond();
-  if (simulate_key_presses) {
+  if (IsSimulatingKeyPresses(fill_strategy)) {
     delegate_->SetFieldValue(
-        selector_, password, simulate_key_presses, delay_in_millisecond,
+        selector_, password, fill_strategy, delay_in_millisecond,
         base::BindOnce(&SetFormFieldValueAction::OnSetFieldValue,
                        weak_ptr_factory_.GetWeakPtr(),
                        /* next = */ field_index + 1));
   } else {
     delegate_->SetFieldValue(
-        selector_, password, simulate_key_presses, delay_in_millisecond,
+        selector_, password, fill_strategy, delay_in_millisecond,
         base::BindOnce(
             &SetFormFieldValueAction::OnSetFieldValueAndCheckFallback,
             weak_ptr_factory_.GetWeakPtr(),
@@ -308,17 +322,17 @@ void SetFormFieldValueAction::OnGetFormAndFieldDataForGeneration(
       base::BindOnce(&SetFormFieldValueAction::StoreGeneratedPasswordToUserData,
                      weak_ptr_factory_.GetWeakPtr(), memory_key, password));
 
-  bool simulate_key_presses = proto_.set_form_value().simulate_key_presses();
+  auto fill_strategy = proto_.set_form_value().fill_strategy();
   int delay_in_millisecond = proto_.set_form_value().delay_in_millisecond();
-  if (simulate_key_presses) {
+  if (IsSimulatingKeyPresses(fill_strategy)) {
     delegate_->SetFieldValue(
-        selector_, password, simulate_key_presses, delay_in_millisecond,
+        selector_, password, fill_strategy, delay_in_millisecond,
         base::BindOnce(&SetFormFieldValueAction::OnSetFieldValue,
                        weak_ptr_factory_.GetWeakPtr(),
                        /* next = */ field_index + 1));
   } else {
     delegate_->SetFieldValue(
-        selector_, password, simulate_key_presses, delay_in_millisecond,
+        selector_, password, fill_strategy, delay_in_millisecond,
         base::BindOnce(
             &SetFormFieldValueAction::OnSetFieldValueAndCheckFallback,
             weak_ptr_factory_.GetWeakPtr(),
@@ -332,8 +346,9 @@ void SetFormFieldValueAction::StoreGeneratedPasswordToUserData(
     UserData* user_data,
     UserData::FieldChange* field_change) {
   DCHECK(user_data);
-
-  user_data->additional_values_[memory_key] = generated_password;
+  ValueProto value;
+  value.mutable_strings()->add_values(generated_password);
+  user_data->additional_values_[memory_key] = value;
 }
 
 void SetFormFieldValueAction::EndAction(const ClientStatus& status) {

@@ -12,6 +12,8 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/credential_provider/gaiacp/event_logging_api_manager.h"
+#include "chrome/credential_provider/gaiacp/gcp_utils.h"
+#include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 #include "chrome/credential_provider/gaiacp/mdm_utils.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
@@ -19,11 +21,6 @@
 
 namespace credential_provider {
 namespace {
-
-// URL for the GEM service handling GCPW requests.
-// TODO (crbug.com/1039781): Change this to prod URL.
-constexpr wchar_t kDefaultGcpwServiceUrl[] =
-    L"https://autopush-gcpw-pa.sandbox.googleapis.com";
 
 // HTTP endpoint on the GCPW service to upload the event viewer logs.
 const char kGcpwServiceUploadEventLogsPath[] = "/v1/uploadEventViewerLogs";
@@ -398,7 +395,7 @@ GURL EventLogsUploadManager::GetGcpwServiceUploadEventViewerLogsUrl() {
 
 HRESULT EventLogsUploadManager::UploadEventViewerLogs(
     const std::string& access_token) {
-  LOGFN(INFO);
+  LOGFN(VERBOSE);
 
   DWORD log_upload_level = GetGlobalFlagOrDefault(kEventLogUploadLevelRegKey,
                                                   kDefaultUploadLogLevel);
@@ -464,8 +461,8 @@ HRESULT EventLogsUploadManager::UploadEventViewerLogs(
     ++num_upload_requests_made;
   }
 
-  LOGFN(INFO) << num_event_logs_uploaded_ << " events uploaded with "
-              << num_upload_requests_made << " requests.";
+  LOGFN(VERBOSE) << num_event_logs_uploaded_ << " events uploaded with "
+                 << num_upload_requests_made << " requests.";
   upload_status_ = S_OK;
   return upload_status_;
 }

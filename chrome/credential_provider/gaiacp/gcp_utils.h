@@ -85,6 +85,20 @@ struct StdParentHandles {
   base::win::ScopedHandle hstderr_read;
 };
 
+// Class used in tests to set registration data for testing.
+class GoogleRegistrationDataForTesting {
+ public:
+  explicit GoogleRegistrationDataForTesting(base::string16 serial_number);
+  ~GoogleRegistrationDataForTesting();
+};
+
+// Class used in tests to set chrome path for testing.
+class GoogleChromePathForTesting {
+ public:
+  explicit GoogleChromePathForTesting(base::FilePath chrome_path);
+  ~GoogleChromePathForTesting();
+};
+
 // Process startup options that allows customization of stdin/stdout/stderr
 // handles.
 class ScopedStartupInfo {
@@ -211,6 +225,7 @@ HRESULT LookupLocalizedNameForWellKnownSid(WELL_KNOWN_SID_TYPE sid_type,
 // winlogon process unusable.
 bool VerifyStartupSentinel();
 void DeleteStartupSentinel();
+void DeleteStartupSentinelForVersion(const base::string16& version);
 
 // Gets a string resource from the DLL with the given id.
 base::string16 GetStringResource(int base_message_id);
@@ -314,6 +329,26 @@ void InitWindowsStringWithString(const WindowsStringCharT* string,
 bool ExtractKeysFromDict(
     const base::Value& dict,
     const std::vector<std::pair<std::string, std::string*>>& needed_outputs);
+
+// Gets the bios serial number of the windows device.
+base::string16 GetSerialNumber();
+
+// Gets the obfuscated device_id that is a combination of multiple device
+// identifiers.
+HRESULT GenerateDeviceId(std::string* device_id);
+
+// Overrides the gaia_url and gcpw_endpoint_path that is used to load GLS.
+HRESULT SetGaiaEndpointCommandLineIfNeeded(const wchar_t* override_registry_key,
+                                           const std::string& default_endpoint,
+                                           bool provide_deviceid,
+                                           bool show_tos,
+                                           base::CommandLine* command_line);
+
+// Returns the file path to installed chrome.exe.
+base::FilePath GetChromePath();
+
+// Returns the file path to system installed chrome.exe.
+base::FilePath GetSystemChromePath();
 
 }  // namespace credential_provider
 

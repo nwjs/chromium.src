@@ -1216,6 +1216,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="265390580714150011">Valor de campo</translation>
 <translation id="2654166010170466751">Permitir a los sitios web instalar controladores de pago</translation>
+<translation id="2654553774144920065">Solicitud de impresión</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Las funciones varían según el dispositivo</translation>
 <translation id="2660779039299703961">Evento</translation>
 <translation id="266079277508604648">No se puede establecer conexión con la impresora. Comprueba que esté encendida y conectada a tu Chromebook por red Wi‑Fi o USB.</translation>
@@ -2389,7 +2390,6 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4285418559658561636">Actualizar contraseña</translation>
 <translation id="4285498937028063278">No fijar</translation>
 <translation id="428565720843367874">Se ha producido un error inesperado del programa antivirus al analizar este archivo.</translation>
-<translation id="4287502004382794929">No tienes las licencias de software necesarias para registrar este dispositivo. Ponte en contacto con el departamento de ventas para comprar más licencias. Si crees que este mensaje ha aparecido por error, ponte en contacto con el servicio de asistencia.</translation>
 <translation id="4289540628985791613">Descripción general</translation>
 <translation id="4295072614469448764">La aplicación está disponible en tu terminal. Es posible que también haya un icono en el menú de aplicaciones.</translation>
 <translation id="4295979599050707005">Vuelve a iniciar sesión para confirmar que tu cuenta <ph name="USER_EMAIL" /> se puede usar con sitios web, aplicaciones y extensiones tanto en Chrome como en Google Play. También puedes quitar esta cuenta. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
@@ -2777,7 +2777,7 @@ Puedes gestionar la configuración de esta cuenta instalando la aplicación Fami
 <translation id="4878653975845355462">El administrador ha desactivado los fondos personalizados</translation>
 <translation id="4878718769565915065">No se ha podido añadir una huella digital a esta llave de seguridad</translation>
 <translation id="4879491255372875719">Automático (predeterminado)</translation>
-<translation id="4880328057631981605">Nombre de punto de acceso</translation>
+<translation id="4880328057631981605">Nombre del punto de acceso</translation>
 <translation id="4880827082731008257">Buscar en el historial</translation>
 <translation id="4881695831933465202">Abrir</translation>
 <translation id="4882312758060467256">Tiene acceso a este sitio web</translation>
@@ -3720,6 +3720,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6207282396926186323">Instalar <ph name="APP_NAME" /> (aplicación de Linux)</translation>
 <translation id="6207937957461833379">País o región</translation>
 <translation id="6208521041562685716">Se están activando los datos móviles</translation>
+<translation id="6209908325007204267">Tu dispositivo incluye una Licencia de Chrome Enterprise, pero tu nombre de usuario no está asociado a ninguna cuenta de empresa. Accede a g.co/ChromeEnterpriseAccount desde otro dispositivo para crear una cuenta de empresa.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: la sincronización no funciona</translation>
 <translation id="6212039847102026977">Mostrar propiedades de red avanzadas</translation>
 <translation id="6212168817037875041">Apagar la pantalla</translation>
@@ -3982,7 +3983,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6584878029876017575">Firma de vigencia de Microsoft</translation>
 <translation id="6586451623538375658">Cambiar botón principal del ratón</translation>
 <translation id="6586604979641883411">Se necesitan al menos <ph name="REQUIRED_SPACE" /> de espacio libre en el disco para actualizar Linux. Libera espacio en el dispositivo y vuelve a intentarlo.</translation>
-<translation id="6590458744723262880">Cambiar el nombre de la carpeta</translation>
+<translation id="6590458744723262880">Cambia el nombre de la carpeta</translation>
 <translation id="6592267180249644460">Captura de registro de ReWebRTC: <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
 <translation id="6592808042417736307">Se ha registrado tu huella digital</translation>
 <translation id="6594883168703494535">Utilizar Smart Lock para iniciar sesión en tu cuenta de Google</translation>
@@ -4159,6 +4160,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6843423766595476978">Ok Google ya se ha configurado</translation>
 <translation id="6845038076637626672">Abrir de forma maximizada</translation>
 <translation id="6845325883481699275">Ayudar a mejorar la seguridad de Chrome</translation>
+<translation id="6846178040388691741"><ph name="EXTENSION_NAME" /> quiere imprimir <ph name="FILE_NAME" /> en <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Libera espacio para continuar</translation>
 <translation id="6848388270925200958">Tienes algunas tarjetas que solo se pueden utilizar en este dispositivo</translation>
 <translation id="6850286078059909152">Color del texto</translation>
@@ -4402,6 +4404,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7186088072322679094">Mantener en la barra de herramientas</translation>
 <translation id="7187428571767585875">Entradas de registro que se van a eliminar o cambiar:</translation>
 <translation id="7189234443051076392">Deja suficiente espacio en tu dispositivo</translation>
+<translation id="7189451821249468368">No tienes las licencias necesarias para registrar este dispositivo. Ponte en contacto con el departamento de ventas para comprar más. Si crees que este mensaje ha aparecido por error, ponte en contacto con el servicio de asistencia.</translation>
 <translation id="7189965711416741966">Huella digital añadida.</translation>
 <translation id="7191159667348037">Impresora desconocida (USB)</translation>
 <translation id="7193051357671784796">Tu organización ha añadido esta aplicación. Reinicia la aplicación para terminar de instalarla.</translation>
@@ -5775,7 +5778,6 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="9050666287014529139">Frase de contraseña</translation>
 <translation id="9052208328806230490">Has registrado tus impresoras en <ph name="CLOUD_PRINT_NAME" /> con la cuenta <ph name="EMAIL" />.</translation>
 <translation id="9052404922357793350">Seguir bloqueando</translation>
-<translation id="9053091947372579468">Tu dispositivo tiene una licencia de Chrome, pero tu nombre de usuario no está asociado a ninguna cuenta de consola de administración. Crea una para continuar con el registro. Nota: Si usas tu propio dominio para crearla, debes completar también la verificación del dominio después del registro. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Imprimir en ambas caras</translation>
 <translation id="9053893665344928494">Recordar mi selección</translation>
 <translation id="9055636786322918818">Fuerza el cifrado RC4. Esta opción aumenta el riesgo, ya que los algoritmos de cifrado de RC4 no son seguros.</translation>

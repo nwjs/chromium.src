@@ -1281,7 +1281,9 @@ bool HTMLCanvasElement::WouldTaintOrigin() const {
   return !OriginClean();
 }
 
-FloatSize HTMLCanvasElement::ElementSize(const FloatSize&) const {
+FloatSize HTMLCanvasElement::ElementSize(
+    const FloatSize&,
+    const RespectImageOrientationEnum) const {
   if (context_ && HasImageBitmapContext()) {
     scoped_refptr<Image> image = context_->GetImage(kPreferNoAcceleration);
     if (image)
@@ -1541,6 +1543,10 @@ void HTMLCanvasElement::OnContentsCcLayerChanged() {
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
       GetLayoutObject() && GetLayoutObject()->HasLayer())
     GetLayoutBoxModelObject()->Layer()->SetNeedsRepaint();
+}
+
+RespectImageOrientationEnum HTMLCanvasElement::RespectImageOrientation() const {
+  return LayoutObject::ShouldRespectImageOrientation(GetLayoutObject());
 }
 
 }  // namespace blink

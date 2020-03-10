@@ -17,7 +17,7 @@
 <translation id="1178581264944972037">Пауза</translation>
 <translation id="1190609913194133056">Центар за известување</translation>
 <translation id="1195412055398077112">прескенирање</translation>
-<translation id="119944043368869598">Исчисти ги сите</translation>
+<translation id="119944043368869598">Избриши ги сите</translation>
 <translation id="1247372569136754018">Микрофон (внатрешен)</translation>
 <translation id="1252999807265626933">Се полни од <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Какво е времето?</translation>
@@ -393,7 +393,7 @@
 <translation id="639644700271529076">CAPS LOCK е исклучено</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="6424520630891723617"><ph name="SECURITY_STATUS" />, јачина на сигналот: <ph name="SIGNAL_STRENGTH" /></translation>
-<translation id="642644398083277086">Исчисти ги сите известувања</translation>
+<translation id="642644398083277086">Избриши ги сите известувања</translation>
 <translation id="643147933154517414">Готово</translation>
 <translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> се емитува на <ph name="RECEIVER_NAME" /></translation>
 <translation id="6452181791372256707">Отфрли</translation>
@@ -614,7 +614,7 @@
 <translation id="921989828232331238">Вашиот родител го заклучи уредот за денес</translation>
 <translation id="923686485342484400">Притиснете Control Shift Q двапати за да се одјавите.</translation>
 <translation id="938963181863597773">Што има во мојот календар?</translation>
-<translation id="945522503751344254">Испрати повратни информации</translation>
+<translation id="945522503751344254">Испратете повратни информации</translation>
 <translation id="98515147261107953">Пејзаж</translation>
 <translation id="990277280839877440">Прозорецот <ph name="WINDOW_TITILE" /> е затворен.</translation>
 </translationbundle>

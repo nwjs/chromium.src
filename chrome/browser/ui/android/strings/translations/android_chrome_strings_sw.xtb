@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Nambari za simu</translation>
 <translation id="3819178904835489326">Vipakuliwa <ph name="NUMBER_OF_DOWNLOADS" /> vimefutwa</translation>
 <translation id="3822502789641063741">Ungependa kufuta hifadhi ya tovuti?</translation>
+<translation id="3849365399446680203">Ukiwa katika hali ya Uhalisia Ulioboreshwa, tovuti hii inaweza:
+• kuunda ramani ya 3D ya mazingira yako
+• kufuatilia mwendo wa kamera
+
+Ni wewe pekee unaweza kuona kile ambacho kamera yako inaona. Tovuti hii haiwezi kuona picha za kamera yako.</translation>
 <translation id="3859306556332390985">Peleka mbele</translation>
 <translation id="388596076286380598">Pata makala, video na maudhui mengine kutoka tovuti unazopenda, hata ikiwa uko nje ya mtandao au muunganisho wako ni dhaifu.</translation>
 <translation id="3894427358181296146">Ongeza folda</translation>
@@ -587,7 +592,6 @@ Ili ubadilishe mipangilio hii, <ph name="BEGIN_LINK" />fanya usawazishaji upya<p
 <translation id="5447765697759493033">Tovuti hii haitatafsiriwa</translation>
 <translation id="545042621069398927">Inaongeza kasi ya kupakua faili yako.</translation>
 <translation id="5456381639095306749">Pakua ukurasa</translation>
-<translation id="5475862044948910901">Je, ungependa kuanzisha kipindi cha Uhalisia Ulioboreshwa?</translation>
 <translation id="548278423535722844">Fungua katika programu ya ramani</translation>
 <translation id="5487521232677179737">Futa data</translation>
 <translation id="5494752089476963479">Zuia matangazo kwenye tovuti zinazoonyesha matangazo yanayopotosha au yanayokatiza huduma</translation>
@@ -720,6 +724,7 @@ Bonyeza neno lolote kwa muda mrefu ili utunge utafutaji wake. Ili uchuje utafuta
 <translation id="6395288395575013217">KIUNGO</translation>
 <translation id="6404511346730675251">Badilisha alamisho</translation>
 <translation id="6406506848690869874">Sawazisha</translation>
+<translation id="6410973561433500075">Ungependa kuingia Uhalisia Ulioboreshwa ukitumia <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Chapisha...</translation>
 <translation id="6416782512398055893">Umepakua MB <ph name="MBS" /></translation>
 <translation id="6427112570124116297">Tafsiri Wavuti</translation>
@@ -839,10 +844,6 @@ Bonyeza neno lolote kwa muda mrefu ili utunge utafutaji wake. Ili uchuje utafuta
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Shiriki kipengee 1 kilichochaguliwa}other{Shiriki vipengee # vilivyochaguliwa}}</translation>
 <translation id="7359002509206457351">Ufikiaji wa njia za kulipa</translation>
-<translation id="7365126855094612066">Kwa kipindi hiki, tovuti itaweza:
-• kuunda ramani ya 3D ya mazingira yako
-• kufuatilia mwendo wa kamera
-Tovuti hii HAIPATI idhini ya kufikia kamera. Ni wewe pekee utaona picha hizi za kamera.</translation>
 <translation id="7375125077091615385">Aina:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>
@@ -904,7 +905,7 @@ Tovuti hii HAIPATI idhini ya kufikia kamera. Ni wewe pekee utaona picha hizi za 
 <translation id="7772375229873196092">Funga <ph name="APP_NAME" /></translation>
 <translation id="7774809984919390718">{PAYMENT_METHOD,plural, =1{<ph name="PAYMENT_METHOD_PREVIEW" />\u2026 na <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> zaidi}other{<ph name="PAYMENT_METHOD_PREVIEW" />\u2026 na <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" /> zaidi}}</translation>
 <translation id="7791543448312431591">Ongeza</translation>
-<translation id="780301667611848630">La, asante</translation>
+<translation id="780301667611848630">Hapana</translation>
 <translation id="7810647596859435254">Fungua ukitumia...</translation>
 <translation id="7821588508402923572">Data unayookoa itaonekana hapa</translation>
 <translation id="784934925303690534">Muda</translation>

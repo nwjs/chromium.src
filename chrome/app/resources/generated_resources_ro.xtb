@@ -1216,6 +1216,7 @@ Poți gestiona setările contului dacă instalezi aplicația Family Link pe disp
 <translation id="2653659639078652383">Trimite</translation>
 <translation id="265390580714150011">Valoarea câmpului</translation>
 <translation id="2654166010170466751">Permite site-urilor să instaleze handlere pentru plăți</translation>
+<translation id="2654553774144920065">Solicitare de printare</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funcțiile variază în funcție de dispozitiv</translation>
 <translation id="2660779039299703961">Eveniment</translation>
 <translation id="266079277508604648">Nu se poate conecta imprimanta. Asigură-te că este pornită și conectată la Chromebook prin Wi-Fi sau USB.</translation>
@@ -2390,7 +2391,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="4285418559658561636">Actualizează parola</translation>
 <translation id="4285498937028063278">Anulați fixarea</translation>
 <translation id="428565720843367874">Software-ul antivirus a generat o eroare neașteptată la scanarea acestui fișier.</translation>
-<translation id="4287502004382794929">Nu dețineți suficiente licențe de software pentru a înscrie acest dispozitiv. Contactați departamentul de vânzări pentru a achiziționa licențe suplimentare. În cazul în care considerați că acest mesaj este afișat din greșeală, contactați serviciul de asistență.</translation>
 <translation id="4289540628985791613">Prezentare generală</translation>
 <translation id="4295072614469448764">Aplicația este disponibilă pe terminal. Este posibil ca Lansatorul să conțină și o pictogramă.</translation>
 <translation id="4295979599050707005">Conectează-te din nou pentru a verifica dacă contul tău <ph name="USER_EMAIL" /> poate fi folosit cu site-uri, aplicații și extensii în Chrome și Google Play. Poți și să elimini acest cont. <ph name="LINK_BEGIN" />Află mai multe<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="6207282396926186323">Instalează <ph name="APP_NAME" /> (aplicație Linux)</translation>
 <translation id="6207937957461833379">Țară/Regiune</translation>
 <translation id="6208521041562685716">Se activează datele mobile</translation>
+<translation id="6209908325007204267">Dispozitivul tău conține un upgrade la Chrome Enterprise, dar numele tău de utilizator nu este asociat unui cont de întreprindere. Creează un cont de întreprindere accesând g.co/ChromeEnterpriseAccount de pe alt dispozitiv.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: sincronizarea nu funcționează</translation>
 <translation id="6212039847102026977">Afișează proprietățile avansate pentru rețea</translation>
 <translation id="6212168817037875041">Dezactivează ecranul</translation>
@@ -4160,6 +4161,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="6843423766595476978">Ok Google este configurat</translation>
 <translation id="6845038076637626672">Deschideți aplicația maximizată</translation>
 <translation id="6845325883481699275">Contribuie la îmbunătățirea securității pentru Chrome</translation>
+<translation id="6846178040388691741">„<ph name="EXTENSION_NAME" />” dorește să imprime <ph name="FILE_NAME" /> la <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Eliberează spațiu pentru a continua</translation>
 <translation id="6848388270925200958">În acest moment ai câteva carduri care pot fi folosite doar pe acest dispozitiv.</translation>
 <translation id="6850286078059909152">Culoarea textului</translation>
@@ -4403,6 +4405,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="7186088072322679094">Păstrează în bara de instrumente</translation>
 <translation id="7187428571767585875">Intrări din registry care trebuie eliminate sau modificate:</translation>
 <translation id="7189234443051076392">Asigură-te că există spațiu suficient pe dispozitiv</translation>
+<translation id="7189451821249468368">Nu deții suficiente upgrade-uri pentru a înscrie acest dispozitiv. Contactează departamentul de vânzări pentru a achiziționa upgrade-uri suplimentare. În cazul în care consideri că acest mesaj este afișat din greșeală, contactează serviciul de asistență.</translation>
 <translation id="7189965711416741966">Amprentă adăugată.</translation>
 <translation id="7191159667348037">Imprimantă necunoscută (USB)</translation>
 <translation id="7193051357671784796">Aplicația a fost adăugată de organizația ta. Repornește aplicația pentru a finaliza instalarea ei.</translation>
@@ -5776,7 +5779,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="9050666287014529139">Expresie de acces</translation>
 <translation id="9052208328806230490">Ai înregistrat imprimantele la <ph name="CLOUD_PRINT_NAME" /> utilizând contul <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continuă blocarea</translation>
-<translation id="9053091947372579468">Dispozitivul tău include o licență Chrome, însă numele de utilizator nu este asociat cu o consolă de administrare. Creează un cont pentru consola de administrare pentru a continua înregistrarea. Notă: dacă alegi să folosești propriul domeniu pentru a crea un nou cont pentru consola de administrare, trebuie să parcurgi procesul de verificare a domeniului după înscriere. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Printează pe ambele părți</translation>
 <translation id="9053893665344928494">Reține alegerea mea</translation>
 <translation id="9055636786322918818">Aplică criptarea RC4. Folosirea acestei opțiuni îți mărește riscul, deoarece suitele de codificare RC4 sunt nesecurizate.</translation>

@@ -367,6 +367,11 @@
 <translation id="381841723434055211">電話番号</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> 件のダウンロードを削除しました</translation>
 <translation id="3822502789641063741">サイトのストレージ データを削除しますか？</translation>
+<translation id="3849365399446680203">AR の使用中、このサイトで次の処理が行われる場合があります。
+• 環境の 3D マップを作成する
+• カメラの動きを追跡する
+
+カメラが写している内容は自分にしか見えません。サイト側ではカメラの画像は見えません。</translation>
 <translation id="3859306556332390985">前方にシーク再生</translation>
 <translation id="388596076286380598">オフラインの場合や接続が不安定な場合でも、お気に入りのサイトの記事や動画などのコンテンツを閲覧できます。</translation>
 <translation id="3894427358181296146">フォルダの追加</translation>
@@ -587,7 +592,6 @@
 <translation id="5447765697759493033">このサイトは翻訳されません</translation>
 <translation id="545042621069398927">ダウンロード速度が向上しました。</translation>
 <translation id="5456381639095306749">ページをダウンロード</translation>
-<translation id="5475862044948910901">拡張現実セッションを開始しますか？</translation>
 <translation id="548278423535722844">マップアプリで開く</translation>
 <translation id="5487521232677179737">データを削除</translation>
 <translation id="5494752089476963479">煩わしい広告や誤解を招く広告が表示されるサイトで広告をブロックする</translation>
@@ -720,6 +724,7 @@
 <translation id="6395288395575013217">リンク</translation>
 <translation id="6404511346730675251">ブックマークを編集</translation>
 <translation id="6406506848690869874">同期</translation>
+<translation id="6410973561433500075"><ph name="DOMAIN" /> で AR を使用しますか？</translation>
 <translation id="641643625718530986">印刷...</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> MB をダウンロード済み</translation>
 <translation id="6427112570124116297">ウェブの翻訳</translation>
@@ -759,7 +764,7 @@
 <translation id="6649642165559792194">画像をプレビュー <ph name="BEGIN_NEW" />New<ph name="END_NEW" /></translation>
 <translation id="6656545060687952787">デバイスをスキャンするには、Chrome で位置情報にアクセスする必要があります。<ph name="BEGIN_LINK" />権限を更新<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">パスワード</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">タブ</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" />で開く</translation>
 <translation id="666981079809192359">Chrome のプライバシーに関するお知らせ</translation>
 <translation id="6671495933530132209">画像をコピー</translation>
@@ -839,11 +844,6 @@
 <translation id="7352939065658542140">動画</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 件の選択されたアイテムを共有します}other{# 件の選択されたアイテムを共有します}}</translation>
 <translation id="7359002509206457351">お支払い方法へのアクセス</translation>
-<translation id="7365126855094612066">このセッションの間、サイトでは次の操作が可能になります。
-• 環境の 3D マップを作成する
-• カメラの動きを追跡する
-
-カメラへのアクセスがサイトに許可されることはなく、他の誰かにカメラの映像が見られることはありません。</translation>
 <translation id="7375125077091615385">タイプ:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />。</translation>
 <translation id="7400418766976504921">URL</translation>

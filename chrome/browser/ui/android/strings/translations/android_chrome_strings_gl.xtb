@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Números de teléfono</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> descargas eliminadas</translation>
 <translation id="3822502789641063741">Borrar datos do sitio?</translation>
+<translation id="3849365399446680203">Mentres esteas na realidade aumentada, este sitio poderá:
+• Crear un mapa 3D do espazo que te rodea.
+• Realizar un seguimento dos movementos da cámara.
+
+Só ti podes ver a que apunta a túa cámara. O sitio non pode ver as imaxes da cámara.</translation>
 <translation id="3859306556332390985">Buscar cara adiante</translation>
 <translation id="388596076286380598">Accede a artigos, vídeos e outros contidos dos sitios que che gustan, aínda que esteas sen conexión ou esta sexa de mala calidade.</translation>
 <translation id="3894427358181296146">Engadir cartafol</translation>
@@ -587,7 +592,6 @@ Para cambiar esta opción de configuración, deberás <ph name="BEGIN_LINK" />re
 <translation id="5447765697759493033">Non se traducirá este sitio</translation>
 <translation id="545042621069398927">Estase acelerando a descarga.</translation>
 <translation id="5456381639095306749">Descargar páxina</translation>
-<translation id="5475862044948910901">Queres iniciar unha sesión de realidade aumentada?</translation>
 <translation id="548278423535722844">Abrir na aplicación de mapas</translation>
 <translation id="5487521232677179737">Borrar datos</translation>
 <translation id="5494752089476963479">Bloquear anuncios en sitios que mostran anuncios enganosos ou intrusivos</translation>
@@ -720,6 +724,7 @@ Mantén premida calquera palabra para buscala. Axusta a selección para refinar 
 <translation id="6395288395575013217">LIGAZÓN</translation>
 <translation id="6404511346730675251">Editar marcador</translation>
 <translation id="6406506848690869874">Sincronización</translation>
+<translation id="6410973561433500075">Queres acceder á realidade aumentada desde <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Imprimir...</translation>
 <translation id="6416782512398055893">Cantidade descargada: <ph name="MBS" /> MB</translation>
 <translation id="6427112570124116297">Traduce a Web</translation>
@@ -839,11 +844,6 @@ Mantén premida calquera palabra para buscala. Axusta a selección para refinar 
 <translation id="7352939065658542140">VÍDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Compartir 1 elemento seleccionado}other{Compartir # elementos seleccionados}}</translation>
 <translation id="7359002509206457351">Acceso a métodos de pago</translation>
-<translation id="7365126855094612066">Durante esta sesión, o sitio poderá facer o seguinte:
-• Crear un mapa 3D do espazo que te rodea.
-• Realizar un seguimento dos movementos da cámara.
-
-O sitio NON terá acceso á cámara. As imaxes da cámara só poderás velas ti.</translation>
 <translation id="7375125077091615385">Tipo:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

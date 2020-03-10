@@ -91,7 +91,7 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
   void SetSuccessCallback(const SuccessCallback& success_callback) { success_callback_ = success_callback; }
   const SuccessCallback& success_callback() { return success_callback_; }
 
-  class TestObserver {
+  class TestObserver : public base::RefCountedThreadSafe<TestObserver> {
    public:
     virtual void JobStarted(const ExtensionId& extension_id,
                             const base::FilePath& relative_path) = 0;
@@ -103,12 +103,16 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
     virtual void OnHashesReady(const ExtensionId& extension_id,
                                const base::FilePath& relative_path,
                                bool success) = 0;
+
+   protected:
+    virtual ~TestObserver() = default;
+    friend class base::RefCountedThreadSafe<TestObserver>;
   };
 
   static void SetIgnoreVerificationForTests(bool value);
 
   // Note: having interleaved observer is not supported.
-  static void SetObserverForTests(TestObserver* observer);
+  static void SetObserverForTests(scoped_refptr<TestObserver> observer);
 
  private:
   virtual ~ContentVerifyJob();

@@ -196,7 +196,7 @@
 <translation id="1743520634839655729">পরেরবার আরও দ্রুত পেমেন্ট করা জন্য আপনার কার্ড, নাম এবং বিলিং ঠিকানাটি Google অ্যাকাউন্টে এবং এই ডিভাইসে সেভ করে রাখুন।</translation>
 <translation id="1743570585616704562">শনাক্ত করা যায়নি</translation>
 <translation id="1745880797583122200">আপনার ব্রাউজারটি ম্যানেজ করা হচ্ছে</translation>
-<translation id="1746113442205726301">ইমেজ Y শিফ্ট</translation>
+<translation id="1746113442205726301">ছবি Y শিফ্ট</translation>
 <translation id="17513872634828108">খোলা ট্যাব</translation>
 <translation id="1752021286346845558">মেলবক্স ৮</translation>
 <translation id="1753706481035618306">পৃষ্ঠা সংখ্যা</translation>
@@ -428,7 +428,7 @@
 <translation id="2799020568854403057">যে সাইট খুলতে চলেছেন সেটিতে ক্ষতিকারক অ্যাপ আছে</translation>
 <translation id="2799223571221894425">পুনঃশুরু</translation>
 <translation id="2803306138276472711">Google নিরাপদ ব্রাউজিং সাম্প্রতিক <ph name="SITE" />-এ <ph name="BEGIN_LINK" />ম্যালওয়্যার শনাক্ত করেছে<ph name="END_LINK" />। যেসব ওয়েবসাইট সাধারণত নিরাপদ থাকে, সেগুলি কখনও কখনও ম্যালওয়্যার দিয়ে আক্রান্ত হয়।</translation>
-<translation id="2807052079800581569">ইমেজ Y পজিশন</translation>
+<translation id="2807052079800581569">ছবি Y পজিশন</translation>
 <translation id="2824775600643448204">ঠিকানা এবং সার্চ দণ্ড</translation>
 <translation id="2826760142808435982"><ph name="CIPHER" /> ব্যবহার করে এই সংযোগটি এনক্রিপ্টেড এবং প্রমাণীকৃত করা হয়েছে এবং কী এক্সচেঞ্জ প্রক্রিয়া হিসাবে <ph name="KX" /> ব্যবহার করে৷</translation>
 <translation id="2835170189407361413">ফর্ম সাফ করুন</translation>
@@ -652,7 +652,7 @@
 <translation id="3789155188480882154">সাইজ ১৬</translation>
 <translation id="3797522431967816232">Prc3 (Envelope)</translation>
 <translation id="3799805948399000906">ফন্টের অনুরোধ করা হয়েছে</translation>
-<translation id="3807366285948165054">ইমেজ X শিফ্ট</translation>
+<translation id="3807366285948165054">ছবি X শিফ্ট</translation>
 <translation id="3807873520724684969">ক্ষতিকর কন্টেন্ট ব্লক করা হয়েছে।</translation>
 <translation id="3808375843007691220">সতর্কতা: পরীক্ষামূলক বৈশিষ্ট্যটি চালু আছে!</translation>
 <translation id="3810973564298564668">পরিচালনা</translation>
@@ -701,7 +701,7 @@
 <translation id="4075941231477579656">টাচ আইডি</translation>
 <translation id="4079302484614802869">প্রক্সি কনফিগারেশনটি .pac স্ক্রিপ্ট URL-এ ব্যবহার করাতে সেট থাকে স্থির প্রক্সি সার্ভারগুলিতে নয়৷</translation>
 <translation id="4082393374666368382">সেটিংস - ম্যানেজমেন্ট</translation>
-<translation id="4088981014127559358">সাইড 1 ইমেজ Y শিফ্ট</translation>
+<translation id="4088981014127559358">সাইড 1 ছবি Y শিফ্ট</translation>
 <translation id="4098354747657067197">সামনে ধোঁকাবাজ সাইট</translation>
 <translation id="4101413244023615925">টেক্সট ও গ্রাফিক</translation>
 <translation id="4103249731201008433">ডিভাইসের ক্রমিক সংখ্যা ভুল</translation>
@@ -1067,13 +1067,13 @@
 <translation id="5632627355679805402"><ph name="TIME" />-এ আপনার <ph name="BEGIN_LINK" />Google পাসওয়ার্ড<ph name="END_LINK" /> দিয়ে ডেটা এনক্রিপ্ট করা হয়েছিল। সিঙ্ক শুরু করতে এটি লিখুন।</translation>
 <translation id="5633066919399395251"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />-এ যে আক্রমণকারীরা এই মুহূর্তে সক্রিয় আছে, তারা আপনার কম্পিউটারে এমন বিপজ্জনক প্রোগ্রাম ইনস্টল করে দিতে পারে যেগুলি আপনার তথ্যের (যেমন ফটো, পাসওয়ার্ড, মেসেজ এবং ক্রেডিট কার্ড) ক্ষতি করতে বা সেগুলি চুরি করতে পারে। <ph name="BEGIN_LEARN_MORE_LINK" />আরও জানুন<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="563324245173044180">প্রতারণামূলক কন্টেন্ট ব্লক করা হয়েছে।</translation>
-<translation id="5644090287519800334">সাইড 1 ইমেজ X শিফ্ট</translation>
+<translation id="5644090287519800334">সাইড 1 ছবি X শিফ্ট</translation>
 <translation id="5645854190134202180">দ্বিতীয় শিফ্ট</translation>
 <translation id="5659593005791499971">ইমেল আইডি</translation>
 <translation id="5663614846592581799">9x11 (Envelope)</translation>
 <translation id="5663955426505430495">এই ডিভাইসের অ্যাডমিনিস্ট্রেটর অতিরিক্ত ক্রিয়াকলাপের জন্য এক্সটেনশন ইনস্টল করেছেন। এক্সটেনশন আপনার কিছু ডেটা অ্যাক্সেস করতে পারে।</translation>
 <translation id="5675650730144413517">এই পৃষ্ঠাটি কাজ করছে না</translation>
-<translation id="568292603005599551">ইমেজ X পজিশন</translation>
+<translation id="568292603005599551">ছবি X পজিশন</translation>
 <translation id="5684874026226664614">ওহো৷ এই পৃষ্ঠাটির অনুবাদ করা যাবে না৷</translation>
 <translation id="5685654322157854305">শিপিং ঠিকানা যোগ করুন</translation>
 <translation id="5689199277474810259">JSON এ রপ্তানি করুন</translation>
@@ -1380,7 +1380,7 @@
 <translation id="7135130955892390533">স্ট্যাটাস দেখুন</translation>
 <translation id="7138472120740807366">ডেলিভারির পদ্ধতি</translation>
 <translation id="7139724024395191329">Emirate</translation>
-<translation id="714064300541049402">সাইড 2 ইমেজ X শিফ্ট</translation>
+<translation id="714064300541049402">সাইড 2 ছবি X শিফ্ট</translation>
 <translation id="7152423860607593928">Number-14 (Envelope)</translation>
 <translation id="7153549335910886479">{PAYMENT_METHOD,plural, =0{<ph name="PAYMENT_METHOD_PREVIEW" />}=1{<ph name="PAYMENT_METHOD_PREVIEW" /> এবং আরও <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" />টি}one{<ph name="PAYMENT_METHOD_PREVIEW" /> এবং আরও <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" />টি}other{<ph name="PAYMENT_METHOD_PREVIEW" /> এবং আরও <ph name="NUMBER_OF_ADDITIONAL_PAYMENT_METHODS" />টি}}</translation>
 <translation id="7153618581592392745">ল্যাভেণ্ডার</translation>
@@ -1489,7 +1489,7 @@
 <translation id="7569983096843329377">কালো</translation>
 <translation id="7575207903026901870">সাজেশন বোতাম সরান, এই সাজেশন সরাতে 'Enter' কী প্রেস করুন</translation>
 <translation id="7578104083680115302">আপনি Google এর সাথে সংরক্ষণ করেছেন এমন কার্ড ব্যবহার করে ডিভাইস জুড়ে সাইট এবং অ্যাপ্লিকেশানগুলিতে দ্রুত অর্থ পরিশোধ করুন।</translation>
-<translation id="7581199239021537589">সাইড 2 ইমেজ Y শিফ্ট</translation>
+<translation id="7581199239021537589">সাইড 2 ছবি Y শিফ্ট</translation>
 <translation id="7592362899630581445">সার্ভারের সার্টিফিকেট, নামের সীমাবদ্ধতাগুলি লঙ্ঘন করে৷</translation>
 <translation id="7598391785903975535"><ph name="UPPER_ESTIMATE" /> এর কম</translation>
 <translation id="759889825892636187"><ph name="HOST_NAME" /> বর্তমানে এই অনুরোধটি পরিচালনা করতে অক্ষম।</translation>

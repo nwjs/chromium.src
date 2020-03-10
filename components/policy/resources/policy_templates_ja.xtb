@@ -1358,7 +1358,7 @@
 <translation id="2987155890997901449">ARC を有効にする</translation>
 <translation id="2987227569419001736">Web Bluetooth API の使用を管理する</translation>
 <translation id="3016255526521614822"><ph name="PRODUCT_OS_NAME" /> のロック画面で使用できるメモ作成アプリをホワイトリスト登録する</translation>
-<translation id="3020064401262077616">子どものアカウントのみに適用される、保護者向け監視ツールのポリシーを制御します。</translation>
+<translation id="3020064401262077616">子どものアカウントのみに適用される、保護者向け管理ツールのポリシーを制御します。</translation>
 <translation id="3021562480854470924">ロールバックできるマイルストーンの数</translation>
 <translation id="3023572080620427845">代替ブラウザで読み込む URL のリストを含む XML ファイルの URL です。</translation>
 <translation id="3026740867910702435">ログイン画面で「大きいカーソル」ユーザー補助機能を有効にします。
@@ -1667,7 +1667,7 @@
 <translation id="3524204464536655762">すべてのサイトに対して WebUSB API 経由での USB デバイスへのアクセスを許可しない</translation>
 <translation id="3526752951628474302">白黒印刷のみ</translation>
 <translation id="3528000905991875314">別のエラー ページを有効にする</translation>
-<translation id="3531084733660068324">保護者向け監視ツールの設定</translation>
+<translation id="3531084733660068324">保護者向け管理ツールの設定</translation>
 <translation id="3534882636155369445">大きなファイルをブロックしない</translation>
 <translation id="3540935459049973317">アプリごとの時間制限</translation>
 <translation id="3545457887306538845">デベロッパー ツールの使用を許可する状況を管理します。

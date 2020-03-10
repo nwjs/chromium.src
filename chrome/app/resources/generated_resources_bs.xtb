@@ -1216,6 +1216,7 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="2653659639078652383">Pošalji</translation>
 <translation id="265390580714150011">Vrijednost polja</translation>
 <translation id="2654166010170466751">Dozvoli web lokacijama da instaliraju alate za obradu plaćanja</translation>
+<translation id="2654553774144920065">Zahtjev za štampanje</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funkcije se razlikuju ovisno u uređaju</translation>
 <translation id="2660779039299703961">Događaj</translation>
 <translation id="266079277508604648">Nije moguće povezati se na štampač. Provjerite je li štampač uključen i je li povezan na vaš Chromebook putem WiFi-ja ili USB-a.</translation>
@@ -2390,7 +2391,6 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="4285418559658561636">Ažuriraj lozinku</translation>
 <translation id="4285498937028063278">Otkači</translation>
 <translation id="428565720843367874">Antivirusni softver je neočekivano prestao raditi prilikom skeniranja ovog fajla.</translation>
-<translation id="4287502004382794929">Nemate dovoljno softverskih licenci da prijavite ovaj uređaj. Kontaktirajte prodaju da biste kupili još licenci. Ako mislite da vam se ova poruka prikazuje greškom, kontaktirajte podršku.</translation>
 <translation id="4289540628985791613">Pregled</translation>
 <translation id="4295072614469448764">Aplikacija je dostupna na vašem terminalu. U Pokretaču se može nalaziti i ikona.</translation>
 <translation id="4295979599050707005">Prijavite se ponovo da potvrdite da se vaš račun <ph name="USER_EMAIL" /> može koristiti s web lokacijama, aplikacijama i ekstenzijama na Chromeu i Google Playu. Također možete ukloniti ovaj račun. <ph name="LINK_BEGIN" />Saznajte više<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="6207282396926186323">Instalirajte <ph name="APP_NAME" /> (Linux aplikacija)</translation>
 <translation id="6207937957461833379">Zemlja / Regija</translation>
 <translation id="6208521041562685716">Aktiviranje prijenosa podataka na mobilnoj mreži</translation>
+<translation id="6209908325007204267">Vaš uređaj uključuje nadogradnju na poslovnu verziju Chromea, ali vaše korisničko ime nije povezano s računom preduzeća. Kreirajte račun preduzeća putem web lokacije g.co/ChromeEnterpriseAccount na sekundarnom uređaju.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: sinhronizacija ne funkcionira</translation>
 <translation id="6212039847102026977">Prikaži napredna svojstva mreže</translation>
 <translation id="6212168817037875041">Isključi ekran</translation>
@@ -4160,6 +4161,7 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="6843423766595476978">Ok Google spreman je za upotrebu</translation>
 <translation id="6845038076637626672">Maksimalno otvaranje</translation>
 <translation id="6845325883481699275">Pomognite poboljšati sigurnost na Chromeu</translation>
+<translation id="6846178040388691741">Ekstenzija "<ph name="EXTENSION_NAME" />" želi štampati fajl <ph name="FILE_NAME" /> pomoću štampača <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Oslobodite prostor da nastavite</translation>
 <translation id="6848388270925200958">Trenutno imate nekoliko kartica koje se mogu koristiti samo na ovom uređaju</translation>
 <translation id="6850286078059909152">Boja teksta</translation>
@@ -4403,6 +4405,7 @@ Postavkama ovog računa možete upravljati instaliranjem aplikacije Family Link 
 <translation id="7186088072322679094">Drži u alatnoj traci</translation>
 <translation id="7187428571767585875">Unosi u registar koje treba ukloniti ili promijeniti:</translation>
 <translation id="7189234443051076392">Provjerite ima li na uređaju dovoljno slobodnog prostora</translation>
+<translation id="7189451821249468368">Nemate dovoljno nadogradnji da prijavite ovaj uređaj. Kontaktirajte prodaju da kupite još licenci. Ako mislite da vam se ova poruka prikazuje greškom, kontaktirajte podršku.</translation>
 <translation id="7189965711416741966">Dodan je otisak prsta.</translation>
 <translation id="7191159667348037">Nepoznati štampač (USB)</translation>
 <translation id="7193051357671784796">Ovu aplikaciju je dodala vaša organizacija. Ponovo pokrenite aplikaciju da završite njeno instaliranje.</translation>
@@ -5776,7 +5779,6 @@ Fajl ključa: <ph name="KEY_FILE" />
 <translation id="9050666287014529139">Zaporka</translation>
 <translation id="9052208328806230490">Registrirali ste svoje štampače na uslugu <ph name="CLOUD_PRINT_NAME" /> koristeći račun <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Nastavi blokirati</translation>
-<translation id="9053091947372579468">Vaš uređaj sadrži licencu za Chrome, ali nije povezan s administratorskom konzolom. Kreirajte račun za administratorsku konzolu da nastavite s prijavom. Napomena: Ako odlučite koristiti svoju domenu za kreiranje novog računa za administratorsku konzolu, morate također završiti potvrđivanje domene nakon prijave. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Štampaj obostrano</translation>
 <translation id="9053893665344928494">Zapamti moj izbor</translation>
 <translation id="9055636786322918818">Nametni RC4 šifriranje. Koristeći ovu opciju povećavate rizik jer je RCR4 šifriranje nesigurno.</translation>

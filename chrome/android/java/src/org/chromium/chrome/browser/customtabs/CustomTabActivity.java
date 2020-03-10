@@ -283,9 +283,12 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
             RecordUserAction.record("MobileMenuAddToBookmarks");
             return true;
         } else if (id == R.id.open_in_browser_id) {
+            // Need to get tab before calling openCurrentUrlInBrowser or else it will be null.
+            Tab tab = mTabProvider.getTab();
             if (mNavigationController.openCurrentUrlInBrowser(false)) {
                 RecordUserAction.record("CustomTabsMenuOpenInChrome");
-                mConnection.notifyOpenInBrowser(mSession);
+                WebContents webContents = tab == null ? null : tab.getWebContents();
+                mConnection.notifyOpenInBrowser(mSession, webContents);
             }
             return true;
         } else if (id == R.id.info_menu_id) {
@@ -378,7 +381,7 @@ public class CustomTabActivity extends BaseCustomTabActivity<CustomTabActivityCo
             ChromeActivityCommonsModule commonsModule) {
         // mIntentHandler comes from the base class.
         IntentIgnoringCriterion intentIgnoringCriterion =
-                (intent) -> IntentHandler.shouldIgnoreIntent(intent);
+                (intent) -> mIntentHandler.shouldIgnoreIntent(intent);
 
         CustomTabActivityModule customTabsModule = new CustomTabActivityModule(mIntentDataProvider,
                 mNightModeStateController, intentIgnoringCriterion, getStartupTabPreloader());

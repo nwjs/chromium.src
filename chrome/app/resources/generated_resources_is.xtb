@@ -1216,6 +1216,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="2653659639078652383">Senda</translation>
 <translation id="265390580714150011">Gildi reits</translation>
 <translation id="2654166010170466751">Leyfa vefsvæðum að setja upp greiðslumiðlara</translation>
+<translation id="2654553774144920065">Prentbeiðni</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Eiginleikar geta verið mismunandi eftir tækjum</translation>
 <translation id="2660779039299703961">Tilvik</translation>
 <translation id="266079277508604648">Ekki tókst að tengjast við prentarann. Gættu þess að kveikt sé á prentaranum og hann sé tengdur við Chromebook um Wi-Fi net eða USB-tengi.</translation>
@@ -2390,7 +2391,6 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="4285418559658561636">Uppfæra aðgangsorð</translation>
 <translation id="4285498937028063278">Losa</translation>
 <translation id="428565720843367874">Óvænt villa kom upp í vírusvarnarhugbúnaði við að skanna þessa skrá.</translation>
-<translation id="4287502004382794929">Þú ert ekki með tilskilin hugbúnaðarleyfi til að skrá þetta tæki. Hafðu samband við söludeild til að kaupa leyfi. Ef þú telur að þessi villuboð ættu ekki að birtast þér skaltu tala við þjónustudeild.</translation>
 <translation id="4289540628985791613">Yfirlit</translation>
 <translation id="4295072614469448764">Forritið er tiltækt í skipanalínu. Einnig gæti verið tákn í ræsiforritinu.</translation>
 <translation id="4295979599050707005">Skráðu þig inn aftur til að staðfesta að nota megi reikninginn <ph name="USER_EMAIL" /> með vefsvæðum, forritum og viðbótum í Chrome og Google Play. Þú getur líka fjarlægt þennan reikning. <ph name="LINK_BEGIN" />Frekari upplýsingar<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="6207282396926186323">Setja upp <ph name="APP_NAME" /> (Linux-forrit)</translation>
 <translation id="6207937957461833379">Land/svæði</translation>
 <translation id="6208521041562685716">Verið er að virkja farsímagögn</translation>
+<translation id="6209908325007204267">Tækið þitt er með Chrome Enterprise uppfærslu en notandanafnið þitt er ekki tengt við fyrirtækisreikning. Stofnaðu fyrirtækisreikning með því að fara á g.co/ChromeEnterpriseAccount í öðru tæki.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Samstilling virkar ekki</translation>
 <translation id="6212039847102026977">Sýna ítarlega neteiginleika</translation>
 <translation id="6212168817037875041">Slökkva á skjá</translation>
@@ -4160,6 +4161,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="6843423766595476978">Ok Google er tilbúið</translation>
 <translation id="6845038076637626672">Opna stækkað</translation>
 <translation id="6845325883481699275">Hjálpaðu til við að bæta öryggi Chrome</translation>
+<translation id="6846178040388691741">„<ph name="EXTENSION_NAME" />“ vill prenta <ph name="FILE_NAME" /> með <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Losaðu um pláss til að halda áfram</translation>
 <translation id="6848388270925200958">Eins og er ertu með einhver kort sem aðeins er hægt að nota í þessu tæki</translation>
 <translation id="6850286078059909152">Textalitur</translation>
@@ -4403,6 +4405,7 @@ Annars skaltu skrá þig út núna svo breytingarnar á þessum reikningi taki g
 <translation id="7186088072322679094">Halda á stikunni</translation>
 <translation id="7187428571767585875">Færslur í stýriskrá sem á að fjarlægja eða breyta:</translation>
 <translation id="7189234443051076392">Gakktu úr skugga um að það sé nóg pláss á tækinu</translation>
+<translation id="7189451821249468368">Þú ert ekki með tilskildar uppfærslur til að skrá þetta tæki. Hafðu samband við söludeild til að kaupa uppfærslur. Ef þú telur að þessi villuboð ættu ekki að birtast þér skaltu hafa samband við þjónustudeild.</translation>
 <translation id="7189965711416741966">Fingrafari bætt við.</translation>
 <translation id="7191159667348037">Óþekktur prentari (USB)</translation>
 <translation id="7193051357671784796">Fyrirtækið þitt bætti þessu forriti við. Endurræstu forritið til að ljúka uppsetningu þess.</translation>
@@ -5775,7 +5778,6 @@ Geymdu lykilskrána á öruggum stað. Þú þarft hana til að búa til nýjar 
 <translation id="9050666287014529139">Aðgangsorð</translation>
 <translation id="9052208328806230490">Þú hefur skráð prentarana þína hjá <ph name="CLOUD_PRINT_NAME" /> með því að nota reikninginn <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Halda áfram að útiloka</translation>
-<translation id="9053091947372579468">Tækinu þínu fylgir leyfi fyrir Chrome en notandanafnið þitt hefur ekki verið tengt við stjórnborð stjórnanda. Búðu til reikning fyrir stjórnborð stjórnanda til að halda áfram með skráninguna. Athugaðu að ef þú velur að nota þitt eigið lén til að búa til reikning fyrir stjórnborð stjórnanda þarftu að staðfesta lénið að skráningu lokinni. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Prenta á báðum hliðum</translation>
 <translation id="9053893665344928494">Muna hvað ég valdi</translation>
 <translation id="9055636786322918818">Þvinga RC4-dulkóðun. Þessi valkostur felur í sér meiri áhættu, þar sem RC4-dulmálslyklar eru óöruggir.</translation>

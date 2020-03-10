@@ -1217,6 +1217,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="2653659639078652383">جمع کرائیں</translation>
 <translation id="265390580714150011">فیلڈ قدر</translation>
 <translation id="2654166010170466751">سائٹس کو ادائیگی کے ہینڈلرز انسٹال کرنے کی اجازت دیں</translation>
+<translation id="2654553774144920065">پرنٹ کی درخواست</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />خصوصیات آلہ کے لحاظ سے مختلف ہوتی ہیں</translation>
 <translation id="2660779039299703961">ایونٹ</translation>
 <translation id="266079277508604648">‏پرنٹر سے منسلک نہیں ہو سکا۔ چیک کریں کہ پرنٹر آن ہے اور Wi-Fi یا USB کے ذریعے آپ کے Chromebook سے منسلک ہے۔</translation>
@@ -2391,7 +2392,6 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="4285418559658561636">پاسورڈ اپ ڈیٹ کریں</translation>
 <translation id="4285498937028063278">پن ہٹائیں</translation>
 <translation id="428565720843367874">اس فائل کو اسکین کرتے وقت اینٹی وائرس سافٹ ویئر غیر متوقع طور پر ناکام ہوگیا۔</translation>
-<translation id="4287502004382794929">آپ کے پاس اس آلے کا اندراج کرنے کیلئے کافی سافٹ ویئر لائسنسز نہیں ہیں۔ براہ کرم مزید خریدنے کیلئے سیلز سے رابطہ کریں۔ اگر آپ کو یقین ہے کہ آپ کو یہ پیغام غلطی سے نظر آ رہا ہے تو براہ کرم سپورٹ سے رابطہ کریں۔</translation>
 <translation id="4289540628985791613">عمومی جائزہ</translation>
 <translation id="4295072614469448764">آپ کے ٹرمنل میں ایپ دستیاب ہے۔ آپ کے لانچر میں ایک آئیکن بھی ہو سکتا ہے۔</translation>
 <translation id="4295979599050707005">‏براہ کرم یہ تصدیق کرنے کیلئے دوبارہ سائن ان کریں کہ آپ کا اکاؤنٹ <ph name="USER_EMAIL" /> Chrome اور Google Play میں موجود ویب سائٹس، ایپس اور ایکسٹینشنز کے ساتھ استعمال کیا جا سکتا ہے۔ آپ یہ اکاؤنٹ بھی ہٹا سکتے ہیں۔ <ph name="LINK_BEGIN" />مزید جانیں<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="6207282396926186323">‏<ph name="APP_NAME" /> (Linux ایپ) انسٹال کریں</translation>
 <translation id="6207937957461833379">ملک/علاقہ</translation>
 <translation id="6208521041562685716">موبائل ڈیٹا فعال کیا جا رہا ہے</translation>
+<translation id="6209908325007204267">‏آپ کے آلے میں Chrome انٹرپرائز اپ گریڈ شامل ہے، لیکن آپ کا صارف نام انٹرپرائز اکاؤنٹ سے وابستہ نہیں ہے۔ براہ کرم کسی ثانوی آلہ پر g.co/ChromeEnterpriseAccount ملاحظہ کرکے انٹرپرائز اکاؤنٹ بنائیں۔</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: مطابقت پذیری کام نہیں کر رہی ہے</translation>
 <translation id="6212039847102026977">جدید ترین نیٹ ورک کی خصوصیات دکھائیں</translation>
 <translation id="6212168817037875041">ڈسپلے آف کریں</translation>
@@ -4161,6 +4162,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="6843423766595476978">‏Ok Google پوری طرح تیار ہے</translation>
 <translation id="6845038076637626672">بڑی کی ہوئی کھولیں</translation>
 <translation id="6845325883481699275">‏Chrome کی سیکیورٹی کو بہتر بنانے میں مدد کریں</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" <ph name="FILE_NAME" /> کو <ph name="PRINTER_NAME" /> کے ساتھ پرنٹ کرنا چاہتا ہے۔</translation>
 <translation id="6847125920277401289">جاری رکھنے کے لیے جگہ خالی کریں</translation>
 <translation id="6848388270925200958">ابھی، آپ کے پاس کچھ ایسے کارڈز ہیں جنہیں صرف اس آلہ پر استعمال کیا جا سکتا ہے</translation>
 <translation id="6850286078059909152">متن کا رنگ</translation>
@@ -4404,6 +4406,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="7186088072322679094">ٹول بار میں رکھیں</translation>
 <translation id="7187428571767585875">ہٹائے جانے یا تبدیل کیے جانے والے رجسٹری کے اندراجات:</translation>
 <translation id="7189234443051076392">یقینی بنائیں کہ آپ کے آلہ پر کافی جگہ ہے</translation>
+<translation id="7189451821249468368">آپ کے پاس اس آلے کا اندراج کرنے کیلئے کافی اپ گریڈز نہیں ہیں۔ براہ کرم مزید خریداری کیلئے سیلز سے رابطہ کریں۔ اگر آپ کو یقین ہے کہ آپ کو یہ پیغام غلطی سے نظر آ رہا ہے تو براہ کرم سپورٹ سے رابطہ کریں۔</translation>
 <translation id="7189965711416741966">فنگر پرنٹ شامل ہو گیا۔</translation>
 <translation id="7191159667348037">‏نامعلوم پرنٹر (USB)</translation>
 <translation id="7193051357671784796">آپ کی تنظیم نے یہ ایپ شامل کی۔ ایپ انسٹال کرنا مکمل کرنے کے لیے ایپ کو دوبارہ شروع کریں۔</translation>
@@ -5107,7 +5110,7 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="81238879832906896">زرد اور سفید پھول</translation>
 <translation id="8124313775439841391">‏نظم کردہ ONC</translation>
 <translation id="813082847718468539">سائٹ کی معلومات دیکھیں</translation>
-<translation id="8131740175452115882">توثیق کریں</translation>
+<translation id="8131740175452115882">تصدیق کریں</translation>
 <translation id="8133676275609324831">فولڈر میں &amp;دکھائیں</translation>
 <translation id="8135557862853121765">‎<ph name="NUM_KILOBYTES" />K</translation>
 <translation id="8136269678443988272">‏آپ کے درج کردہ PINs مماثل نہیں ہیں</translation>
@@ -5777,7 +5780,6 @@ myaccount.google.com/activitycontrols/search پر تبدیل کر سکتے ہي�
 <translation id="9050666287014529139">پاس فریز</translation>
 <translation id="9052208328806230490">آپ نے اپنے پرنٹرز کو <ph name="CLOUD_PRINT_NAME" /> کے ساتھ اکاؤنٹ <ph name="EMAIL" /> استعمال کر کے رجسٹر کیا ہے</translation>
 <translation id="9052404922357793350">مسدود کرنا جاری رکھیں</translation>
-<translation id="9053091947372579468">‏آپ کے آلہ میں ایک Chrome لائسنس ہے، لیکن آپ کا صارف نام کسی منتظم کونسول کے ساتھ وابستہ نہیں ہے۔ اندراج جاری رکھنے کیلئے براہ کرم ایک منتظم کونسول اکاؤنٹ تخلیق کریں۔ نوٹ: ایک نیا منتظم کونسول اکاؤنٹ تخلیق کرنے کیلئے اگر آپ اپنا اکاؤنٹ استعمال کرنے کا انتخاب کرتے ہیں، تو سائن اپ کے بعد آپ کو ڈومین کی تصدیق بھی مکمل کرنی ہوگی۔ https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">دونوں طرف پرنٹ کریں</translation>
 <translation id="9053893665344928494">میری پسند یاد رکھیں</translation>
 <translation id="9055636786322918818">‏RC4 مرموز کاری کو نافذ کریں۔ اس اختیار کے استعمال سے آپ کا خطرہ بڑھ جاتا ہے، کیوں کہ RC4 سائفرز غیر محفوظ ہیں۔</translation>

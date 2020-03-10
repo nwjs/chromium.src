@@ -20,7 +20,7 @@
 <translation id="1017280919048282932">অভিধানে &amp;যুক্ত করুন</translation>
 <translation id="1018656279737460067">বাতিল হয়েছে</translation>
 <translation id="1023873740278604399">আঙ্গুলের ছাপের বিভিন্ন অংশ যোগ করতে আপনার আঙ্গুল সামান্য সরান।</translation>
-<translation id="1026822031284433028">ইমেজ লোড করুন</translation>
+<translation id="1026822031284433028">ছবি লোড করুন</translation>
 <translation id="1029317248976101138">জুম</translation>
 <translation id="1030706264415084469"><ph name="URL" /> আপনার ডিভাইসে স্থায়ীভাবে বেশি ডেটা স্টোর করে রাখতে চায়</translation>
 <translation id="1031362278801463162">প্রিভিউ লোড হচ্ছে</translation>
@@ -407,7 +407,7 @@
 <translation id="1555130319947370107">নীল</translation>
 <translation id="1556537182262721003">প্রোফাইলে এক্সটেনশন ডিরেক্টরি সরানো যায়নি৷</translation>
 <translation id="155865706765934889">টাচপ্যাড</translation>
-<translation id="1564414980088536597">এই ইমেজটি ব্যবহার করা যাবে না। অন্য একটি ইমেজ পছন্দ করুন।</translation>
+<translation id="1564414980088536597">এই ছবিটি ব্যবহার করা যাবে না। অন্য একটি ছবি পছন্দ করুন।</translation>
 <translation id="1566049601598938765">ওয়েবসাইট</translation>
 <translation id="15662109988763471">বেছে নেওয়া প্রিন্টারটি উপলভ্য নয় অথবা সেটি ঠিকভাবে ইনস্টল করা নেই। আপনার প্রিন্টার পরীক্ষা করুন অথবা অন্য একটি প্রিন্টার বেছে নিন।</translation>
 <translation id="1567387640189251553">আপনি যখন শেষবার পাসওয়ার্ডটি লিখেছিলেন তার পরে অন্য একটি কীবোর্ডে কানেক্ট করা হয়েছিল। এটি আপনার পাসওয়ার্ড চুরি করার চেষ্টা করতে পারে।</translation>
@@ -1032,7 +1032,7 @@
 <translation id="241727068219398187">Google পাসওয়ার্ড দিয়ে <ph name="TIME" />-এ আপনার ডেটা এনক্রিপ্ট করা হয়েছিল। এতে Google Pay-এর পেমেন্ট পদ্ধতি ও ঠিকানা অন্তর্ভুক্ত থাকে না।</translation>
 <translation id="2419706071571366386">নিরাপত্তার কারণে, আপনার কম্পিউটার ব্যবহার করা না হলে সাইন-আউট করুন।</translation>
 <translation id="2422125132043002186">Linux ফিরিয়ে আনা বাতিল করা হয়ছে</translation>
-<translation id="2423578206845792524">এই হিসেবে ইমেজ সেভ করুন...</translation>
+<translation id="2423578206845792524">এই হিসেবে ছবি সেভ করুন...</translation>
 <translation id="2428510569851653187">ট্যাবটি ক্র্যাশ হওয়ার সময় আপনি কি করছিলেন তা বর্ণনা করুন</translation>
 <translation id="2431027948063157455">Google অ্যাসিস্ট্যান্চ লোড করা যায়নি, আপনার ইন্টারনেট সংযোগ দেখে নিয়ে আবার চেষ্টা করুন।</translation>
 <translation id="2432753757290432042">Linux (বিটা) আপডেট প্রয়োজন</translation>
@@ -1197,7 +1197,7 @@
 <translation id="2631120081682787498">আপনি কি এই ট্যাবটি বন্ধ করতে চান?</translation>
 <translation id="2631498379019108537">শেল্ফে ইনপুট বিকল্পগুলি দেখান</translation>
 <translation id="2633212996805280240">"<ph name="EXTENSION_NAME" />" সরাবেন?</translation>
-<translation id="263325223718984101"><ph name="PRODUCT_NAME" /> ইনস্টলেশন সম্পূর্ণ করতে পারেনি, তবে এটির ডিস্ক ইমেজ থেকে চালনা চলতে থাকবে৷</translation>
+<translation id="263325223718984101"><ph name="PRODUCT_NAME" /> ইনস্টলেশন সম্পূর্ণ করতে পারেনি, তবে এটির ডিস্ক ছবি থেকে চালনা চলতে থাকবে৷</translation>
 <translation id="2633764681656412085">FIDO</translation>
 <translation id="2635094637295383009">Twitter</translation>
 <translation id="2635276683026132559">স্বাক্ষর করা</translation>
@@ -1215,6 +1215,7 @@
 <translation id="2653659639078652383">জমা দিন</translation>
 <translation id="265390580714150011">ক্ষেত্রের মান</translation>
 <translation id="2654166010170466751">সাইটগুলিকে পেমেন্ট হ্যান্ডলার ইনস্টল করার অনুমতি দিন</translation>
+<translation id="2654553774144920065">প্রিন্ট করার অনুরোধ</translation>
 <translation id="2659381484350128933">ডিভাইসের উপর নির্ভর করে <ph name="FOOTNOTE_POINTER" /> বৈশিষ্ট্যের পরিবর্তন হবে</translation>
 <translation id="2660779039299703961">ইভেন্ট</translation>
 <translation id="266079277508604648">প্রিন্টারটি সংযুক্ত করা যায়নি। প্রিন্টারটি চালু আছে কিনা এবং ওয়াই-ফাই অথবা USB এর মাধ্যমে Chromebook-এর সাথে সংযুক্ত আছে কিনা দেখে নিন।</translation>
@@ -1325,7 +1326,7 @@
 <translation id="2796424461616874739">"<ph name="DEVICE_NAME" />"-এ কানেক্ট হওয়ার সময় যাচাইকরণের সময় শেষ হয়ে গেছে৷</translation>
 <translation id="2796740370559399562">কুকিজকে অনুমতি দেয়া চালিয়ে যান</translation>
 <translation id="2799223571221894425">পুনঃশুরু</translation>
-<translation id="2800760947029405028">একটি ইমেজ আপলোড করুন</translation>
+<translation id="2800760947029405028">একটি ছবি আপলোড করুন</translation>
 <translation id="2803375539583399270">পিন নম্বর দিন</translation>
 <translation id="2804043232879091219">অন্য ব্রাউজারটি খোলা যায়নি</translation>
 <translation id="2804667941345577550">খোলা ট্যাবগুলি ছাড়াও এই সাইট থেকে সাইন-আউট হয়ে যাবেন</translation>
@@ -1645,7 +1646,7 @@
 <translation id="3267726687589094446">একাধিক ফাইলের অটোমেটিক ডাউনলোডের মঞ্জুরি দেওয়া জারি রাখুন</translation>
 <translation id="3268451620468152448">ওপেন ট্যাব</translation>
 <translation id="3269069891205016797">আপনি সাইন-আউট করলে ডিভাইসটি থেকে আপনার তথ্য সরানো হবে৷</translation>
-<translation id="3269093882174072735">ইমেজ লোড করুন</translation>
+<translation id="3269093882174072735">ছবি লোড করুন</translation>
 <translation id="3269612321104318480">হালকা নীলাভ সবুজ ও সাদা</translation>
 <translation id="326999365752735949">ভিন্ন ডাউনলোড হচ্ছে</translation>
 <translation id="3270965368676314374">আপনার কম্পিউটার থেকে ফটো, সঙ্গীত ও অন্যান্য মিডিয়া পড়ুন, পরিবর্তন করুন এবং মুছুন</translation>
@@ -1704,7 +1705,7 @@
 <translation id="3342361181740736773">"<ph name="TRIGGERING_EXTENSION_NAME" />" এই এক্সটেনশনটি সরিয়ে দিতে চাইছে।</translation>
 <translation id="3345135638360864351">এই সাইটটি অ্যাক্সেস করার জন্য আপনার অনুরোধ <ph name="NAME" /> এ পাঠানো যায়নি৷ অনুগ্রহ করে আবার চেষ্টা করুন৷</translation>
 <translation id="3345886924813989455">কোন সমর্থিত ব্রাউজার খুঁজে পাওয়া যায় নি</translation>
-<translation id="3347086966102161372">ইমেজ অ্যাড্রেস কপি করুন</translation>
+<translation id="3347086966102161372">ছবি অ্যাড্রেস কপি করুন</translation>
 <translation id="3348038390189153836">সরানোযোগ্য ডিভাইস শনাক্ত করা হয়েছে</translation>
 <translation id="3349933790966648062">মেমরি ফুটপ্রিন্ট</translation>
 <translation id="3350117557200012647">যুক্ত করার মোডে যান</translation>
@@ -1739,7 +1740,7 @@
 <translation id="3405664148539009465">হরফগুলি কাস্টমাইজ করুন</translation>
 <translation id="3405763860805964263">...</translation>
 <translation id="3406605057700382950">ও বুকমার্ক বার দেখান</translation>
-<translation id="3409785640040772790">ম্যাপ</translation>
+<translation id="3409785640040772790">Maps</translation>
 <translation id="3410832398355316179">এই ব্যবহারকারীকে সরানো হলে তার সংশ্লিষ্ট সব ফাইল ও স্থানীয় ডেটা মুছে যাবে। তা সত্ত্বেও, <ph name="USER_EMAIL" /> পরে সাইন-ইন করতে পারবেন।</translation>
 <translation id="3412265149091626468">নির্বাচনে যান</translation>
 <translation id="3413122095806433232">CA ইস্যুকারীগণ: <ph name="LOCATION" /></translation>
@@ -1888,7 +1889,7 @@
 <translation id="3603622770190368340">নেটওয়ার্ক সার্টিফিকেট প্রাপ্ত করুন</translation>
 <translation id="3605780360466892872">বটনডাউন</translation>
 <translation id="3608436266458100337">পাঠক মোড</translation>
-<translation id="3608576286259426129">ব্যবহারকারীর ইমেজের পূর্বদৃশ্য</translation>
+<translation id="3608576286259426129">ব্যবহারকারীর ছবির পূর্বদৃশ্য</translation>
 <translation id="3610369246614755442">ডকিং স্টেশনের ফ্যান সার্ভিসিং করতে হবে</translation>
 <translation id="361106536627977100">ফ্ল্যাশ ডেটা</translation>
 <translation id="3612673635130633812">&lt;a href="<ph name="URL" />"&gt;<ph name="EXTENSION" />&lt;/a&gt; এর দ্বারা ডাউনলোড হয়েছে</translation>
@@ -1943,7 +1944,7 @@
 <translation id="3670113805793654926">যেকোনও ভেন্ডর থেকে ডিভাইস</translation>
 <translation id="3670229581627177274">ব্লুটুথ চালু করুন</translation>
 <translation id="3672681487849735243">একটি ফ্যাক্টরি ত্রুটি শনাক্ত করা হয়েছে</translation>
-<translation id="367645871420407123">যদি আপনি ডিফল্ট টেস্ট ইমেজ মানে রুট পাসওয়ার্ড সেট করতে চান তবে খালি ছাড়ুন</translation>
+<translation id="367645871420407123">যদি আপনি ডিফল্ট টেস্ট ছবি মানে রুট পাসওয়ার্ড সেট করতে চান তবে খালি ছাড়ুন</translation>
 <translation id="3677657024345889897">অত্যন্ত কম আওয়াজ</translation>
 <translation id="3677911431265050325">মোবাইল সাইটের জন্য অনুরোধ করুন</translation>
 <translation id="3678156199662914018">এক্সটেনশন: <ph name="EXTENSION_NAME" /></translation>
@@ -2388,7 +2389,6 @@
 <translation id="4285418559658561636">পাসওয়ার্ড আপডেট করুন</translation>
 <translation id="4285498937028063278">আনপিন</translation>
 <translation id="428565720843367874">এই ফাইলটি স্ক্যান করার সময় এন্টি ভাইরাস সফ্টওয়্যার অপ্রত্যাশিতভাবে ব্যর্থ হয়েছে৷</translation>
-<translation id="4287502004382794929">এই ডিভাইসটি নথিভুক্ত করার জন্য আপনার পর্যাপ্ত সফ্টওয়্যার লাইসেন্স নেই৷ আরও কেনার জন্য দয়া করে বিক্রয় এ যোগাযোগ করুন৷ আপনি যদি মনে করেন যে কোনো ত্রুটির ফলে আপনি এই বার্তাটি দেখতে পাচ্ছেন, তাহলে দয়া করে সমর্থনে যোগাযোগ করুন৷</translation>
 <translation id="4289540628985791613">ওভারভিউ</translation>
 <translation id="4295072614469448764">অ্যাপ আপনার টার্মিনালে পাওয়া যায়। আপনার লঞ্চারে একটি আইকনও থাকতে পারে।</translation>
 <translation id="4295979599050707005">Chrome ও Google Play-তে ওয়েবসাইট, অ্যাপ ও এক্সটেনশনকে আপনার <ph name="USER_EMAIL" /> অ্যাকাউন্ট ব্যবহার করার অনুমতি দিতে আবার সাইন-ইন করুন। আপনি এই অ্যাকাউন্ট সরিয়েও দিতে পারেন। <ph name="LINK_BEGIN" />আরও জানুন<ph name="LINK_END" /></translation>
@@ -3164,7 +3164,7 @@
 <translation id="5436510242972373446"><ph name="SITE_NAME" /> খুঁজুন:</translation>
 <translation id="543806387003274181">আপনার ফাইল সেভ করে একটি নতুন অ্যাকাউন্ট তৈরি করুন।</translation>
 <translation id="544083962418256601">শর্টকাটগুলি তৈরি করুন...</translation>
-<translation id="5442228125690314719">ডিস্ক ইমেজ তৈরি করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন।</translation>
+<translation id="5442228125690314719">ডিস্ক ছবি তৈরি করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন।</translation>
 <translation id="5442550868130618860">অটো-আপডেট চালু করুন</translation>
 <translation id="5445400788035474247">১০x</translation>
 <translation id="5446983216438178612">প্রতিষ্ঠানের জন্য শংসাপত্রগুলি দেখান</translation>
@@ -3475,7 +3475,7 @@
 <translation id="5862109781435984885">শেল্ফে স্টাইলাস টুল দেখান</translation>
 <translation id="5863445608433396414">ডিবাগিং বৈশিষ্ট্যাবলী চালু করুন</translation>
 <translation id="5864471791310927901">DHCP লুকআপ ব্যর্থ</translation>
-<translation id="586567932979200359">আপনি <ph name="PRODUCT_NAME" /> থেকে এটির ডিস্ক ইমেজ চালাচ্ছেন৷ এটিকে আপনার কম্পিউটারে ইনস্টল করা হলে তা ডিস্ক ইমেজ ছাড়াই এটিকে চালাতে দেয় এবং এটিকে আপ টু ডেট আছে কিনা তা নিশ্চিত করে৷</translation>
+<translation id="586567932979200359">আপনি <ph name="PRODUCT_NAME" /> থেকে এটির ডিস্ক ছবি চালাচ্ছেন৷ এটিকে আপনার কম্পিউটারে ইনস্টল করা হলে তা ডিস্ক ছবি ছাড়াই এটিকে চালাতে দেয় এবং এটিকে আপ টু ডেট আছে কিনা তা নিশ্চিত করে৷</translation>
 <translation id="5865733239029070421">ব্যবহারের পরিসংখ্যান এবং ক্র্যাশ রিপোর্ট নিজে থেকেই Google-কে পাঠায়</translation>
 <translation id="5866557323934807206">ভবিষ্যতের ভিজিটগুলির জন্য এই সেটিংস সাফ করুন </translation>
 <translation id="5866840822086176774">খুব জোরালো</translation>
@@ -3501,7 +3501,7 @@
 <translation id="5906655207909574370">প্রায় আপ-টু-ডেট হয়েছে! আপডেট শেষ করতে আপনার ডিভাইস আবার চালু করুন।</translation>
 <translation id="5906732635754427568">এই অ্যাপ্লিকেশান সংশ্লিষ্ট ডেটা এই ডিভাইস থেকে সরিয়ে ফেলা হবে।</translation>
 <translation id="5908769186679515905">সাইটগুলিকে Flash চালানোর বিষয়ে অবরুদ্ধ করুন</translation>
-<translation id="5910363049092958439">এই ভাবে ইমেজ সেভ করুন...</translation>
+<translation id="5910363049092958439">এই ভাবে ছবি সেভ করুন...</translation>
 <translation id="5910726859585389579"><ph name="DEVICE_TYPE" /> এখন অফলাইন</translation>
 <translation id="5911533659001334206">শর্টকাট ভিউয়ার</translation>
 <translation id="5912378097832178659">&amp;সার্চ ইঞ্জিন সম্পাদনা...</translation>
@@ -3513,7 +3513,7 @@
 <translation id="5916664084637901428">চালু</translation>
 <translation id="59174027418879706">সক্ষমিত</translation>
 <translation id="5920543303088087579">এই নেটওয়ার্কের সাথে সংযোগ আপনার প্রশাসক দ্বারা অক্ষম করা হয়েছে</translation>
-<translation id="5920835625712313205">ChromeOS সিস্টেম ইমেজ রাইটার</translation>
+<translation id="5920835625712313205">ChromeOS সিস্টেম ছবি রাইটার</translation>
 <translation id="5924047253200400718">সাহায্য পান<ph name="SCANNING_STATUS" /></translation>
 <translation id="5924527146239595929">একটি নতুন ফটো তুলুন বা আগে থেকে আছে এমন একটি ফটো বা আইকন বেছে নিন।
     <ph name="LINE_BREAK" />
@@ -3716,11 +3716,12 @@
 <translation id="6198102561359457428">সাইন-আউট করুন করে আবার সাইন-ইন করুন...</translation>
 <translation id="6198252989419008588">পিন পরিবর্তন করুন</translation>
 <translation id="6202304368170870640">আপনি পিন ব্যবহার করে ডিভাইসে সাইন-ইন করতে বা ডিভাইস আনলক করতে পারেন।</translation>
-<translation id="6206311232642889873">ইমেজ কপি করুন</translation>
+<translation id="6206311232642889873">ছবি কপি করুন</translation>
 <translation id="6207200176136643843">ডিফল্ট জুমে রিসেট করুন</translation>
 <translation id="6207282396926186323"><ph name="APP_NAME" /> (Linux অ্যাপ) ইনস্টল করা</translation>
 <translation id="6207937957461833379">দেশ/অঞ্চল</translation>
 <translation id="6208521041562685716">মোবাইল ডেটা অ্যাক্টিভেট করা হচ্ছে</translation>
+<translation id="6209908325007204267">আপনার ডিভাইসে Chrome Enterprise আপগ্রেড অন্তর্ভুক্ত রয়েছে, কিন্তু আপনার ইউজারনেমটি কোনও এন্টারপ্রাইজ অ্যাকাউন্টের সাথে যুক্ত নয়। অন্য একটি ডিভাইস থেকে g.co/ChromeEnterpriseAccount লিঙ্কে ক্লিক করে একটি এন্টারপ্রাইজ অ্যাকাউন্ট তৈরি করুন।</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: সিঙ্ক কাজ করছে না</translation>
 <translation id="6212039847102026977">উন্নত নেটওয়ার্ক বৈশিষ্ট্যগুলি দেখুন</translation>
 <translation id="6212168817037875041">ডিসপ্লে বন্ধ করুন</translation>
@@ -3728,7 +3729,7 @@
 <translation id="6216696360484424239">অটোমেটিক সাইন-ইন হয়ে যাবে</translation>
 <translation id="6218058416316985984"><ph name="DEVICE_TYPE" /> অফলাইন আছে৷ ইন্টারনেটে কানেক্ট করে আবার চেষ্টা করুন৷</translation>
 <translation id="6220413761270491930">এক্সটেনশন লোড হওয়ার সময় সমস্যা</translation>
-<translation id="6223447490656896591">কাস্টম ইমেজ:</translation>
+<translation id="6223447490656896591">কাস্টম ছবি:</translation>
 <translation id="6224481128663248237">বিন্যাসন সফলভাবে সম্পূর্ণ</translation>
 <translation id="622537739776246443">প্রোফাইল মুছে ফেলা হবে</translation>
 <translation id="6225475702458870625">আপনার <ph name="PHONE_NAME" /> থেকে ডেটা সংযোগ পাওয়া যাচ্ছে</translation>
@@ -3859,7 +3860,7 @@
 <translation id="6406506848690869874">সিঙ্ক</translation>
 <translation id="6406708970972405507">সেটিংস - <ph name="SECTION_TITLE" /></translation>
 <translation id="6408118934673775994"><ph name="WEBSITE_1" />, <ph name="WEBSITE_2" />, ও <ph name="WEBSITE_3" /> এ আপনার ডেটা পড়ুন এবং পরিবর্তন করুন</translation>
-<translation id="6410257289063177456">ইমেজ ফাইল</translation>
+<translation id="6410257289063177456">ছবি ফাইল</translation>
 <translation id="6410328738210026208">চ্যানেল পরিবর্তন  করুন এবং পাওয়ারওয়াশ করুন</translation>
 <translation id="6410668567036790476">সার্চ ইঞ্জিন যোগ করুন</translation>
 <translation id="641081527798843608">বিষয়ের মিল</translation>
@@ -3934,7 +3935,7 @@
 <translation id="6513247462497316522">যদি আপনি অন্য নেটওয়ার্কের সাথে সংযুক্ত না থাকেন তাহলে Google Chrome মোবাইল ডেটা ব্যবহার করবে৷</translation>
 <translation id="6514010653036109809">উপলব্ধ ডিভাইস:</translation>
 <translation id="6514565641373682518">এই পৃষ্ঠাটি আপনার মাউস কার্সরকে অক্ষম করেছে৷</translation>
-<translation id="6518014396551869914">ইমেজ কপি করুন</translation>
+<translation id="6518014396551869914">ছবি কপি করুন</translation>
 <translation id="6518133107902771759">যাচাই করুন</translation>
 <translation id="651942933739530207">আপনার স্ক্রিন এবং অডিও আউটপুট শেয়ার করতে আপনি কি <ph name="APP_NAME" /> চান?</translation>
 <translation id="6519437681804756269">[<ph name="TIMESTAMP" />]
@@ -4160,6 +4161,7 @@
 <translation id="6843423766595476978">হ্যালো Google ব্যবহারের জন্য প্রস্তুত</translation>
 <translation id="6845038076637626672">সর্বাধিক খুলুন</translation>
 <translation id="6845325883481699275">Chrome-এর নিরাপত্তা উন্নত করতে সাহায্য করুন</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />", <ph name="PRINTER_NAME" /> নামের প্রিন্টারের মাধ্যমে <ph name="FILE_NAME" /> প্রিন্ট করতে চাইছে।</translation>
 <translation id="6847125920277401289">চালিয়ে যেতে জায়গা খালি করুন</translation>
 <translation id="6848388270925200958">এই মুহূর্তে, আপনার কাছে কিছু কার্ড রয়েছে যা শুধুমাত্র এই ডিভাইসে ব্যবহার করা যেতে পারে</translation>
 <translation id="6850286078059909152">টেক্সটের রঙ</translation>
@@ -4388,7 +4390,7 @@
 <translation id="7154130902455071009">আপনার সূচনা পৃষ্ঠাকে এতে পরিবর্তন করুন: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">ক্যামেরা বা ফাইল থেকে বিদ্যমান ফটো</translation>
 <translation id="7165320105431587207">নেটওয়ার্ক কনফিগার করা যায়নি</translation>
-<translation id="716640248772308851">" <ph name="EXTENSION" /> " নির্দিষ্ট করা অবস্থানে ইমেজ, ভিডিও এবং সাউন্ড ফাইলগুলি পড়তে পারে৷</translation>
+<translation id="716640248772308851">" <ph name="EXTENSION" /> " নির্দিষ্ট করা অবস্থানে ছবি, ভিডিও এবং সাউন্ড ফাইলগুলি পড়তে পারে৷</translation>
 <translation id="7167486101654761064">&amp;সবসময় এই ধরনের ফাইল খুলুন</translation>
 <translation id="716810439572026343"><ph name="FILE_NAME" /> ডাউনলোড করা হচ্ছে</translation>
 <translation id="7168109975831002660">ন্যূনতম হরফ আকার</translation>
@@ -4403,6 +4405,7 @@
 <translation id="7186088072322679094">টুলবারের মধ্যে রাখুন</translation>
 <translation id="7187428571767585875">যে রেজিস্ট্রি এন্ট্রি সরিয়ে দেওয়া হবে অথবা পরিবর্তন করা হবে:</translation>
 <translation id="7189234443051076392">আপনার ডিভাইসে পর্যাপ্ত জায়গা আছে কিনা দেখে নিন</translation>
+<translation id="7189451821249468368">এই ডিভাইসটি এনরোল করার জন্য প্রয়োজনীয় আপগ্রেড আপনার কাছে নেই। আরও কেনাকাটা করার জন্য, সেলস টিমের সাথে যোগাযোগ করুন। আপনার যদি মনে হয়, কোনও সমস্যার কারণে আপনি এই মেসেজটি দেখতে পাচ্ছেন, তাহলে সহায়তা টিমের সাথে যোগাযোগ করুন।</translation>
 <translation id="7189965711416741966">আঙ্গুলের ছাপ যোগ করা হয়েছে।</translation>
 <translation id="7191159667348037">অজানা প্রিন্টার (USB)</translation>
 <translation id="7193051357671784796">আপনার সংস্থা এই অ্যাপ যোগ করেছে। ইনস্টল করা সম্পূর্ণ করতে অ্যাপটি আবার চালু করুন।</translation>
@@ -4861,7 +4864,7 @@
     <ph name="BEGIN_LIST" />
       <ph name="LIST_ITEM" />OS ফাইলে পরিবর্তন করার জন্য rootfs যাচাইকরণের ধাপটি সরিয়ে দিতে পারেন
       <ph name="LIST_ITEM" /><ph name="BEGIN_CODE" />'cros flash'<ph name="END_CODE" />-এর মতো টুলের মাধ্যমে ডিভাইস অ্যাক্সেস করার জন্য স্ট্যান্ডার্ড টেস্ট কী ব্যবহার করে ডিভাইসে SSH অ্যাক্সেস চালু করতে পারেন
-      <ph name="LIST_ITEM" />ইউএসবি ড্রাইভ থেকে OS ইমেজ ইনস্টল করার জন্য ইউএসবি থেকে বুট করার সুবিধা চালু করতে পারেন
+      <ph name="LIST_ITEM" />ইউএসবি ড্রাইভ থেকে OS ছবি ইনস্টল করার জন্য ইউএসবি থেকে বুট করার সুবিধা চালু করতে পারেন
       <ph name="LIST_ITEM" />ডিভাইসে ম্যানুয়ালি SSH করার জন্য ডেভেলপার এবং সিস্টেম রুট লগ-ইন পাসওয়ার্ড দুটি কাস্টম মানে সেট করতে পারেন
     <ph name="END_LIST" />
     <ph name="BR" />
@@ -4976,7 +4979,7 @@
 <translation id="7959074893852789871">ফাইলটিতে একাধিক শংসাপত্র রয়েছে, এর মধ্যে কয়েকটি আমদানি করা হয়নি:</translation>
 <translation id="7961015016161918242">কখনই নয়</translation>
 <translation id="7963826112438303517">আপনার অ্যাসিস্ট্যান্ট এই রেকর্ডিং ও অনুরোধের ভয়েস ব্যবহার করে আপনার একটি ভয়েস মডেল তৈরি ও আপডেট করে। আপনি Voice Match চালু করেছেন এমন ডিভাইসে এটি স্টোর হয়ে থাকে। অ্যাসিস্ট্যান্ট সেটিংসে ভয়েস অ্যাক্টিভিটি দেখুন বা রেখে দিন।</translation>
-<translation id="7966241909927244760">ইমেজ আইডি কপি করুন</translation>
+<translation id="7966241909927244760">ছবি আইডি কপি করুন</translation>
 <translation id="7968742106503422125">আপনি যে ডেটা কপি করে পেস্ট করেন তা পড়ুন ও সংশোধন করুন</translation>
 <translation id="7968833647796919681">কার্য-সম্পাদনা ডেটা সংগ্রহ সক্ষম করুন</translation>
 <translation id="7968982339740310781">বিশদ বিবরণ দেখুন</translation>
@@ -5063,7 +5066,7 @@
 <translation id="8068253693380742035">সাইন-ইন করতে স্পর্শ করুন</translation>
 <translation id="8068809649322155577">এটি <ph name="SITE_GROUP_NAME" />, এর অধীনস্থ যেকোনও সাইট এবং এর ইনস্টল করা অ্যাপগুলির সেভ করা সমস্ত ডেটা ও কুকি মুছে দেবে।</translation>
 <translation id="8069615408251337349">Google ক্লাউড প্রিন্ট</translation>
-<translation id="8071432093239591881">ইমেজ হিসেবে প্রিন্ট করুন</translation>
+<translation id="8071432093239591881">ছবি হিসেবে প্রিন্ট করুন</translation>
 <translation id="8073499153683482226"><ph name="BEGIN_PARAGRAPH1" />অ্যাপ ডেটা এমন যেকোনও ডেটা যা কোনও অ্যাপ (ডেভেলপারের সেটিংসের উপর ভিত্তি করে) সেভ করে রাখে যেমন - পরিচিতি, মেসেজ এবং ফটোর মতো ডেটা।<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />ব্যাক-আপ ডেটা আপনার সন্তানের ড্রাইভ স্টোরেজের কোটার মধ্যে ধরা হবে না।<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />সেটিংস থেকে আপনি এই পরিষেবাটি বন্ধ করতে পারেন।<ph name="END_PARAGRAPH3" /></translation>
@@ -5134,7 +5137,7 @@
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8180239481735238521">পৃষ্ঠা</translation>
 <translation id="8180294223783876911">ব্যবহার এবং ডায়াগনস্টিক ডেটা পাঠান। এখন এই ডিভাইসটি নিজে থেকেই Google-এ ডায়াগনিস্টিক, ডিভাইস এবং অ্যাপ ব্যবহারের ডেটা পাঠাচ্ছে। এটি সিস্টেম ও অ্যাপের স্থিতিশীলতা এবং অন্যান্য উন্নতিতে সাহায্য করে। ব্যবহারকারীদের কিছু সম্মিলিত ডেটা Google অ্যাপ এবং Android ডেভেলপারদের মতো পার্টনারদের কাজে লাগবে। আপনার অতিরিক্ত ওয়েব ও অ্যাপ অ্যাক্টিভিটি সেটিং চালু থাকলে, এই ডেটা আপনার Google অ্যাকাউন্টে সেভ করা হতে পারে। <ph name="BEGIN_LINK1" />আরও জানুন<ph name="END_LINK1" /></translation>
-<translation id="8180786512391440389">"<ph name="EXTENSION" />" উল্লিখিত অবস্থানগুলিতে ইমেজ, ভিডিও এবং শব্দের ফাইলগুলি পড়তে ও মুছতে পারে৷</translation>
+<translation id="8180786512391440389">"<ph name="EXTENSION" />" উল্লিখিত অবস্থানগুলিতে ছবি, ভিডিও এবং শব্দের ফাইলগুলি পড়তে ও মুছতে পারে৷</translation>
 <translation id="8181215761849004992">ডোমেনে যোগ করা যাবে না। আপনার অ্যাকাউন্টে ডিভাইস যোগ করার সুবিধাগুলি যথাযথ আছে কিনা তা যাচাই করুন।</translation>
 <translation id="8182105986296479640">অ্যাপ্লিকেশন উত্তর দিচ্ছে না।</translation>
 <translation id="8182664696082410784"><ph name="REASON" />
@@ -5288,7 +5291,7 @@
 <translation id="8389492867173948260">আপনার দেখা ওয়েবসাইটে আপনার সমস্ত ডেটা পড়ার এবং পরিবর্তন করার জন্য এই এক্সটেনশনটিকে অনুমতি দিন:</translation>
 <translation id="8390449457866780408">সার্ভার অনুপলব্ধ৷</translation>
 <translation id="8391218455464584335">ভিনাইল</translation>
-<translation id="8391712576156218334">ইমেজ এখন উপলভ্য নয়। পরে আবার চেষ্টা করুন।</translation>
+<translation id="8391712576156218334">ছবি এখন উপলভ্য নয়। পরে আবার চেষ্টা করুন।</translation>
 <translation id="8392364544846746346">কোনও সাইট আপনার ডিভাইসে থাকা ফাইল বা ফোল্ডার এডিট করতে চাইলে অনুমতি নিতে বলুন</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> এর জন্য বিকল্পগুলির মেনু</translation>
 <translation id="8393511274964623038">প্লাগ-ইন বন্ধ করুন</translation>
@@ -5618,7 +5621,7 @@
 <translation id="8834039744648160717">নেটওয়ার্ক কনফিগারেশন <ph name="USER_EMAIL" /> দ্বারা নিয়ন্ত্রিত।</translation>
 <translation id="8838601485495657486">অস্বচ্ছ</translation>
 <translation id="8838770651474809439">হ্যামবার্গার</translation>
-<translation id="883911313571074303">ইমেজ ব্যাখ্যা করুন</translation>
+<translation id="883911313571074303">ছবি ব্যাখ্যা করুন</translation>
 <translation id="8842594465773264717">এই ফিঙ্গারপ্রিন্ট মুছুন</translation>
 <translation id="8845001906332463065">সাহায্য পান</translation>
 <translation id="8846132060409673887">এই কম্পিউটারের প্রস্তুতকারক এবং মডেলটি পড়ুন</translation>
@@ -5774,7 +5777,6 @@
 <translation id="9050666287014529139">পাসফ্রেজ</translation>
 <translation id="9052208328806230490"><ph name="EMAIL" /> অ্যাকাউন্টটি ব্যবহার করে আপনি আপনার প্রিন্টারগুলি <ph name="CLOUD_PRINT_NAME" />তে নথিভুক্ত করেছেন</translation>
 <translation id="9052404922357793350">ব্লক করা চালিয়ে যান</translation>
-<translation id="9053091947372579468">আপনার ডিভাইসে একটি Chrome লাইসেন্স আছে, কিন্তু আপনার ব্যবহারকারীর নাম অ্যাডমিন কনসোলের সাথে সংশ্লিষ্ট নয়। এনরোল করার জন্য একটি অ্যাডমিন কনসোল অ্যাকাউন্ট তৈরি করুন। দ্রষ্টব্য: যদি আপনি একটি নতুন অ্যাডমিন কনসোল অ্যাকাউন্ট তৈরি করতে আপনার নিজস্ব ডোমেনটি ব্যবহার করতে চান, তাহলে https://g.co/ChromeEnterpriseAccount-এ সাইন- আপ করার পর আপনাকে ডোমেন যাচাই করার কাজটি সম্পূর্ণ করতে হবে</translation>
 <translation id="9053563360605707198">দুটি দিকেই প্রিন্ট</translation>
 <translation id="9053893665344928494">আমার পছন্দ মনে রাখুন</translation>
 <translation id="9055636786322918818">RC4 এনক্রিপশন চালু করুন। এই বিকল্পটির ব্যবহার ঝুঁকি বাড়ায় কারণ RC4 সাইফারটি নিরাপদ নয়।</translation>

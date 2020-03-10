@@ -1611,6 +1611,29 @@ void WebContentsImpl::NotifyNavigationStateChanged(
     GetOuterWebContents()->NotifyNavigationStateChanged(changed_flags);
 }
 
+void WebContentsImpl::NotifyVisibleViewportSizeChanged(
+    const gfx::Size& visible_viewport_size) {
+  // This viewport size is in screen coordinates, but will be handed to blink
+  // which expects coordinates including the device scale factor when
+  // UseZoomForDSF is enabled.
+  // TODO(danakj): This scaling should be done in the renderer where emulation
+  // may override the device scale factor.
+  gfx::Size visible_viewport_size_for_blink = visible_viewport_size;
+  if (IsUseZoomForDSFEnabled()) {
+    ScreenInfo info;
+    GetMainFrame()->GetRenderWidgetHost()->GetScreenInfo(&info);
+
+    visible_viewport_size_for_blink =
+        gfx::ScaleToCeiledSize(visible_viewport_size, info.device_scale_factor);
+  }
+
+  // TODO(danakj): This should be part of VisualProperties and walk down the
+  // RenderWidget tree like other VisualProperties do, in order to set the
+  // value in each WebView holds a part of the local frame tree.
+  SendPageMessage(new PageMsg_UpdatePageVisualProperties(
+      MSG_ROUTING_NONE, visible_viewport_size_for_blink));
+}
+
 RenderFrameHostImpl* WebContentsImpl::GetFocusedFrameFromFocusedDelegate() {
   FrameTreeNode* focused_node =
       GetFocusedWebContents()->frame_tree_.GetFocusedFrame();
@@ -3379,9 +3402,11 @@ device::mojom::WakeLockContext* WebContentsImpl::GetWakeLockContext() {
 
 #if defined(OS_ANDROID)
 void WebContentsImpl::GetNFC(
+    RenderFrameHost* render_frame_host,
     mojo::PendingReceiver<device::mojom::NFC> receiver) {
-  NFCHost nfc_host(this);
-  nfc_host.GetNFC(std::move(receiver));
+  if (!nfc_host_)
+    nfc_host_ = std::make_unique<NFCHost>(this);
+  nfc_host_->GetNFC(render_frame_host, std::move(receiver));
 }
 #endif
 
@@ -4385,7 +4410,8 @@ void WebContentsImpl::SetFocusToLocationBar() {
 void WebContentsImpl::DidStartNavigation(NavigationHandle* navigation_handle) {
   TRACE_EVENT1("navigation", "WebContentsImpl::DidStartNavigation",
                "navigation_handle", navigation_handle);
-  favicon_urls_.clear();
+  if (navigation_handle->IsInMainFrame())
+    favicon_urls_.clear();
 
   for (auto& observer : observers_)
     observer.DidStartNavigation(navigation_handle);

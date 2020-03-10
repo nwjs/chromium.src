@@ -1216,6 +1216,7 @@
 <translation id="2653659639078652383">送信</translation>
 <translation id="265390580714150011">フィールド値</translation>
 <translation id="2654166010170466751">サイトに支払いハンドラのインストールを許可する</translation>
+<translation id="2654553774144920065">印刷リクエスト</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />機能はデバイスによって異なります</translation>
 <translation id="2660779039299703961">イベント</translation>
 <translation id="266079277508604648">プリンタに接続できません。プリンタの電源が入っていて、Wi-Fi または USB 経由で Chromebook に接続されていることを確認してください。</translation>
@@ -2390,7 +2391,6 @@
 <translation id="4285418559658561636">パスワードを更新</translation>
 <translation id="4285498937028063278">固定を解除</translation>
 <translation id="428565720843367874">このファイルのスキャン中にウイルス対策ソフトウェアで予期しないエラーが発生しました。</translation>
-<translation id="4287502004382794929">このデバイスを登録するソフトウェア ライセンスを持っていません。さらに購入するには、販売担当者にお問い合わせください。このメッセージが間違って表示されていると思われる場合は、サポートにお問い合わせください。</translation>
 <translation id="4289540628985791613">概要</translation>
 <translation id="4295072614469448764">アプリはお使いのデバイスでご利用いただけます。ランチャーにアイコンが追加されている可能性もあります。</translation>
 <translation id="4295979599050707005">もう一度ログインして、Chrome と Google Play のウェブサイト、アプリ、拡張機能でアカウント（<ph name="USER_EMAIL" />）を使用できることを確認してください。このアカウントを削除することも可能です。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@
 <translation id="6207282396926186323"><ph name="APP_NAME" />（Linux アプリ）のインストール</translation>
 <translation id="6207937957461833379">国/地域</translation>
 <translation id="6208521041562685716">モバイルデータを有効化しています</translation>
+<translation id="6209908325007204267">デバイスには Chrome Enterprise Upgrade が含まれていますが、ユーザー名が Enterprise アカウントに関連付けられていません。サブデバイスで g.co/ChromeEnterpriseAccount にアクセスし、Enterprise アカウントを作成してください。</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: 同期が機能していません</translation>
 <translation id="6212039847102026977">ネットワークの詳細プロパティを表示</translation>
 <translation id="6212168817037875041">画面をオフにする</translation>
@@ -4030,7 +4031,7 @@
 <translation id="6655458902729017087">アカウントを非表示にする</translation>
 <translation id="6657585470893396449">パスワード</translation>
 <translation id="6659213950629089752">このページには「<ph name="NAME" />」拡張機能によるズームが適用されています</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">タブ</translation>
 <translation id="6664237456442406323">パソコンに設定されているハードウェア ID の形式が正しくありません。このため、Chrome OS に最新のセキュリティ修正を適用することができません。お使いのパソコンは、<ph name="BEGIN_BOLD" />悪意のある攻撃を受けやすくなる可能性があります<ph name="END_BOLD" />。</translation>
 <translation id="6664774537677393800">プロフィールを開こうとして問題が発生しました。ログアウトしてから再度ログインしてください。</translation>
 <translation id="6667776121818773738">他のデバイスから共有された画像</translation>
@@ -4160,6 +4161,7 @@
 <translation id="6843423766595476978">OK Google の設定が完了しました</translation>
 <translation id="6845038076637626672">最大化して開く</translation>
 <translation id="6845325883481699275">Chrome のセキュリティ改善に協力する</translation>
+<translation id="6846178040388691741">「<ph name="EXTENSION_NAME" />」が <ph name="PRINTER_NAME" /> での <ph name="FILE_NAME" /> の印刷をリクエストしています。</translation>
 <translation id="6847125920277401289">続行するには容量を空けてください</translation>
 <translation id="6848388270925200958">現在、このデバイスでのみ使用できるカードがいくつかあります</translation>
 <translation id="6850286078059909152">テキストの色</translation>
@@ -4403,6 +4405,7 @@
 <translation id="7186088072322679094">ツールバーに残す</translation>
 <translation id="7187428571767585875">削除または変更されるレジストリ項目:</translation>
 <translation id="7189234443051076392">デバイスに十分な空き容量があることを確認してください</translation>
+<translation id="7189451821249468368">このデバイスの登録に必要なアップグレード ライセンスを持っていません。さらに購入するには、販売担当者にお問い合わせください。このメッセージが間違って表示されていると思われる場合は、サポートにお問い合わせください。</translation>
 <translation id="7189965711416741966">指紋の登録が完了しました。</translation>
 <translation id="7191159667348037">不明なプリンタ（USB）</translation>
 <translation id="7193051357671784796">このアプリは組織によって追加されました。インストールを完了するにはアプリを再起動してください。</translation>
@@ -5776,7 +5779,6 @@
 <translation id="9050666287014529139">パスフレーズ</translation>
 <translation id="9052208328806230490"><ph name="CLOUD_PRINT_NAME" /> に、アカウント <ph name="EMAIL" /> を使ってプリンタを登録しました</translation>
 <translation id="9052404922357793350">引き続きブロックする</translation>
-<translation id="9053091947372579468">ご利用のデバイスには Chrome ライセンスが付与されていますが、ご利用のユーザー名が管理コンソールに関連付けられていません。登録を続けるには、管理コンソール アカウントを作成してください。注: 新しい管理コンソール アカウントを作成するにあたって自社ドメインを使用する場合は、登録後にドメインの確認も行う必要があります。https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">両面に印刷する</translation>
 <translation id="9053893665344928494">選択内容を保存</translation>
 <translation id="9055636786322918818">RC4 暗号化を適用します。なお RC4 暗号は安全でないため、このオプションを使用するとリスクが高まります。</translation>

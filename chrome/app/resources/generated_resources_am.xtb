@@ -1215,6 +1215,7 @@
 <translation id="2653659639078652383">አስገባ</translation>
 <translation id="265390580714150011">የመስክ እሴት</translation>
 <translation id="2654166010170466751">ጣቢያዎች የክፍያ ተቆጣጣሪይዎችን እንዲጭኑ ይፍቀዱ</translation>
+<translation id="2654553774144920065">የህትመት ጥያቄ</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />ባህሪዎች እንደየመሣሪያው ይለያያሉ</translation>
 <translation id="2660779039299703961">ክስተት</translation>
 <translation id="266079277508604648">ከአታሚ ጋር መገናኘት አልተቻለም። አታሚው መብራቱንና በWi-Fi ወይም በዩኤስቢ ከእርስዎ Chromebook ጋር መገናኘቱን ያረጋግጡ።</translation>
@@ -2387,7 +2388,6 @@
 <translation id="4285418559658561636">የይለፍ ቃልን ያዘምኑ</translation>
 <translation id="4285498937028063278">ይንቀሉ</translation>
 <translation id="428565720843367874">የጸረ-ቫይረስ ሶፍትዌር ይህንን ፋይል እየቃኘ ሳለ ድንገት አልተሳካም።</translation>
-<translation id="4287502004382794929">ይህን መሣሪያ ለመመዝገብ በቂ የሆኑ የሶፍትዌር ፍቃዶች የለዎትም። ተጨማሪ ለመመዝገብ እባክዎ ሽያጭን ያግኙ። ይህን መልዕክት የሚያዩት በስህተት ነው ብለው ካመኑ እባክዎ ድጋፍን ያግኙ።</translation>
 <translation id="4289540628985791613">ማጠቃለያ</translation>
 <translation id="4295072614469448764">መተግበሪያ በእርስዎ መን There may also be an icon in your Launcher.</translation>
 <translation id="4295979599050707005">የእርስዎ መለያ <ph name="USER_EMAIL" /> በChrome እና በGoogle Play ውስጥ ከድር ጣቢያዎች፣ መተግበሪያዎች እና ቅጥያዎች ጋር አብሮ መስራት እንደሚችል ለማረጋገጥ እባክዎ እንደገና በመለያ ይግቡ። ይህን መለያ ማስወገድ ይችላሉ። <ph name="LINK_BEGIN" />የበለጠ ለመረዳት<ph name="LINK_END" /></translation>
@@ -3718,6 +3718,7 @@
 <translation id="6207282396926186323"><ph name="APP_NAME" /> (Linux መተግበሪያ) ይጫኑ</translation>
 <translation id="6207937957461833379">አገር/ክልል</translation>
 <translation id="6208521041562685716">የሞባይል ውሂብን በማግበር ላይ</translation>
+<translation id="6209908325007204267">የእርስዎ መሣሪያ የChrome Enterprise ያካትታል፣ ነገር ግን የእርስዎ ተጠቃሚ ስም ከድርጅት መለያ ጋር የተጎዳኘ አይደለም። እባክዎ በሁለተኛ መሣሪያ ላይ g.co/ChromeEnterpriseAccountን በመጎብኘት የድርጅት መለያ ይክፈቱ።</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />፦ ስምረት እየሠራ አይደለም</translation>
 <translation id="6212039847102026977">የላቁ የአውታረ መረብ ባህሪያትን አሳይ</translation>
 <translation id="6212168817037875041">ማሳያን አጥፋ</translation>
@@ -4157,6 +4158,7 @@
 <translation id="6843423766595476978">Ok Google ሙሉ በሙሉ ተቀናብሯል</translation>
 <translation id="6845038076637626672">ሰፍቶ ክፈት</translation>
 <translation id="6845325883481699275">የChrome ደህንነት እንዲሻሻል ያግዙ</translation>
+<translation id="6846178040388691741">«<ph name="EXTENSION_NAME" />» <ph name="FILE_NAME" />ን በ<ph name="PRINTER_NAME" /> ማተም ይፈልጋል።</translation>
 <translation id="6847125920277401289">ለመቀጠል ቦታ ያስለቅቁ</translation>
 <translation id="6848388270925200958">አሁን ላይ በዚህ መሣሪያ ላይ ብቻ ጥቅም ላይ ሊውሉ የሚችሉ አንዳንድ ካርዶች አልዎት</translation>
 <translation id="6850286078059909152">የጽሑፍ ቀለም</translation>
@@ -4400,6 +4402,7 @@
 <translation id="7186088072322679094">በመሣሪያ አሞሌ ውስጥ አቆይ</translation>
 <translation id="7187428571767585875">የሚወገዱ ወይም የሚቀየሩ የመዝገብ ግቤቶችን፦</translation>
 <translation id="7189234443051076392">በእርስዎ መሣሪያ ላይ በቂ ባዶ ቦታ መኖሩን ያረጋግጡ</translation>
+<translation id="7189451821249468368">ይህን መሣሪያ ለማስመዝገብ በቂ ማላቂያዎች የለዎትም። ተጨማሪ ለመግዛት እባክዎ ሽያጭን ያነጋግሩ። ይህን መልዕክት የሚያዩት በስህተት ነው ብለው ካመኑ እባክዎ ድጋፍን ያነጋግሩ።</translation>
 <translation id="7189965711416741966">የጣት አሻራ ታክሏል።</translation>
 <translation id="7191159667348037">ያልታወቀ አታሚ (ዩኤስቢ)</translation>
 <translation id="7193051357671784796">ይህ መተግበሪያ በድርጅትዎ ነው የታከለው። የመተግበሪያውን ጭነት ለመጨረስ ዳግም ያስጀምሩት።</translation>
@@ -5777,7 +5780,6 @@ nil</translation>
 <translation id="9050666287014529139">የይለፍ ሐረግ</translation>
 <translation id="9052208328806230490"><ph name="EMAIL" />ን ተጠቅመው አታሚዎችዎን በ<ph name="CLOUD_PRINT_NAME" /> መዝግበዋል።</translation>
 <translation id="9052404922357793350">ማገድን ቀጥል</translation>
-<translation id="9053091947372579468">የእርስዎ መሣሪያ የChrome ፈቃድን ያካትታል፣ ሆኖም ግን የእርስዎ ተጠቃሚ ስም ከአስተዳዳሪ መሥሪያ ጋር የተጎዳኘ አይደለም። በምዝገባው ለመቀጠል እባክዎ አንድ የአስተዳዳሪ መሥሪያ ይፍጠሩ። ማስታወሻ፦ አዲስ የአስተዳዳሪ መሥሪያ መለያን ለመፍጠር የራስዎን ጎራ ለመጠቀም ከመረጡ ከምዝገባ በኋላ የጎራ ማረጋገጫን በተጨማሪ ማጠናቀቅ አለበት። https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">በሁለቱም ጎኖች ላይ አትም</translation>
 <translation id="9053893665344928494">ምርጫዬን አስታውስ</translation>
 <translation id="9055636786322918818">የRC4 ምሥጠራን አስገድድ። የRC4 ምሥጠራዎች ለደህንነት አስተማማኝ ስላልሆኑ ይህን አማራጭ መጠቀም የእርስዎን አደጋ ይጨምራል።</translation>

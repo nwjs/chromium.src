@@ -1212,6 +1212,7 @@
 <translation id="2653659639078652383">提交</translation>
 <translation id="265390580714150011">字段值</translation>
 <translation id="2654166010170466751">允许网站安装付款处理程序</translation>
+<translation id="2654553774144920065">打印请求</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />功能因设备而异</translation>
 <translation id="2660779039299703961">事件</translation>
 <translation id="266079277508604648">无法连接到打印机。请确保该打印机已开机且已通过 Wi-Fi 或 USB 连接到您的 Chromebook。</translation>
@@ -2385,7 +2386,6 @@
 <translation id="4285418559658561636">更新密码</translation>
 <translation id="4285498937028063278">取消固定</translation>
 <translation id="428565720843367874">防病毒软件在扫描此文件时意外失败。</translation>
-<translation id="4287502004382794929">您没有足够的软件许可来注册此设备。请与销售代表联系，以购买更多软件许可。如果您认为自己不应看到此讯息，请与支持人员联系。</translation>
 <translation id="4289540628985791613">概述</translation>
 <translation id="4295072614469448764">应用已可在您的终端上使用，且可能在启动器中显示图标。</translation>
 <translation id="4295979599050707005">请重新登录，以确认您的帐号 (<ph name="USER_EMAIL" />) 可用于 Chrome 和 Google Play 中的网站、应用和扩展程序。您还可以移除此帐号。<ph name="LINK_BEGIN" />了解详情<ph name="LINK_END" /></translation>
@@ -3716,6 +3716,7 @@
 <translation id="6207282396926186323">安装<ph name="APP_NAME" />（Linux 应用）</translation>
 <translation id="6207937957461833379">国家/地区</translation>
 <translation id="6208521041562685716">正在激活移动数据</translation>
+<translation id="6209908325007204267">您的设备随附了一份 Chrome 企业版升级许可，但您的用户名并未与任何企业帐号关联。请先在辅助设备上前往 g.co/ChromeEnterpriseAccount 创建一个企业帐号。</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />：同步功能无法正常运行</translation>
 <translation id="6212039847102026977">显示高级网络属性</translation>
 <translation id="6212168817037875041">关闭显示屏</translation>
@@ -4025,7 +4026,7 @@
 <translation id="6655458902729017087">隐藏帐号</translation>
 <translation id="6657585470893396449">密码</translation>
 <translation id="6659213950629089752">此页面已由“<ph name="NAME" />”扩展程序缩放</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">标签页</translation>
 <translation id="6664237456442406323">很遗憾，您的计算机配置了格式错误的硬件 ID。这导致 Chrome 操作系统无法使用最新的安全修正程序进行更新，以致您的计算机<ph name="BEGIN_BOLD" />很容易遭到恶意攻击<ph name="END_BOLD" />。</translation>
 <translation id="6664774537677393800">打开您的个人资料时出了点问题。请先退出，然后重新登录。</translation>
 <translation id="6667776121818773738">从其他设备分享的图片</translation>
@@ -4155,6 +4156,7 @@
 <translation id="6843423766595476978">Ok Google 已设置完毕</translation>
 <translation id="6845038076637626672">以最大化模式打开</translation>
 <translation id="6845325883481699275">帮助我们改善 Chrome 安全性</translation>
+<translation id="6846178040388691741">“<ph name="EXTENSION_NAME" />”想使用“<ph name="PRINTER_NAME" />”打印“<ph name="FILE_NAME" />”。</translation>
 <translation id="6847125920277401289">需要释放空间才能继续</translation>
 <translation id="6848388270925200958">此刻，您有一些卡只能在这部设备上使用</translation>
 <translation id="6850286078059909152">文字颜色</translation>
@@ -4398,6 +4400,7 @@
 <translation id="7186088072322679094">固定在工具栏中</translation>
 <translation id="7187428571767585875">要移除或要更改的注册表项：</translation>
 <translation id="7189234443051076392">确保您的设备上有足够的空间</translation>
+<translation id="7189451821249468368">您没有足够的升级许可来注册此设备。请与销售代表联系，以购买更多升级许可。如果您认为自己不应看到这条消息，请与支持人员联系。</translation>
 <translation id="7189965711416741966">已添加指纹。</translation>
 <translation id="7191159667348037">未知打印机 (USB)</translation>
 <translation id="7193051357671784796">此应用由您所属的组织添加。请重启此应用以完成安装。</translation>
@@ -5770,7 +5773,6 @@
 <translation id="9050666287014529139">密码</translation>
 <translation id="9052208328806230490">您已使用帐号 <ph name="EMAIL" /> 将您的打印机注册为<ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="9052404922357793350">继续拦截</translation>
-<translation id="9053091947372579468">您的设备包含 Chrome 许可，但您的用户名未与任何管理控制台相关联。请创建一个管理控制台帐号，以便继续注册。请注意：如果您选择使用自己的网域来创建新的管理控制台帐号，则在注册后还必须要完成网域验证。https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">双面打印</translation>
 <translation id="9053893665344928494">记住我的选择</translation>
 <translation id="9055636786322918818">强制执行 RC4 加密。选中此选项会令您面临更大的风险，因为 RC4 加密不安全。</translation>

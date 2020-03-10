@@ -87,7 +87,8 @@ SharedImageBackingEglImage::SharedImageBackingEglImage(
     size_t estimated_size,
     GLuint gl_format,
     GLuint gl_type,
-    SharedImageBatchAccessManager* batch_access_manager)
+    SharedImageBatchAccessManager* batch_access_manager,
+    const GpuDriverBugWorkarounds& workarounds)
     : ClearTrackingSharedImageBacking(mailbox,
                                       format,
                                       size,
@@ -99,11 +100,20 @@ SharedImageBackingEglImage::SharedImageBackingEglImage(
       gl_type_(gl_type),
       batch_access_manager_(batch_access_manager) {
   DCHECK(batch_access_manager_);
+#if DCHECK_IS_ON()
+  created_on_context_ = gl::g_current_gl_context;
+#endif
+  // On some GPUs (NVidia) keeping reference to egl image itself is not enough,
+  // we must keep reference to at least one sibling.
+  if (workarounds.dont_delete_source_texture_for_egl_image) {
+    source_texture_ = GenEGLImageSibling();
+  }
 }
 
 SharedImageBackingEglImage::~SharedImageBackingEglImage() {
   // Un-Register this backing from the |batch_access_manager_|.
   batch_access_manager_->UnregisterEglBacking(this);
+  DCHECK(!source_texture_);
 }
 
 void SharedImageBackingEglImage::Update(
@@ -207,14 +217,16 @@ bool SharedImageBackingEglImage::BeginRead(
 
 void SharedImageBackingEglImage::EndRead(
     const SharedImageRepresentation* reader) {
-  AutoLock auto_lock(this);
+  {
+    AutoLock auto_lock(this);
 
-  if (!active_readers_.contains(reader)) {
-    DLOG(ERROR) << "Attempt to end read to a SharedImageBacking without a "
-                   "successful begin read";
-    return;
+    if (!active_readers_.contains(reader)) {
+      DLOG(ERROR) << "Attempt to end read to a SharedImageBacking without a "
+                     "successful begin read";
+      return;
+    }
+    active_readers_.erase(reader);
   }
-  active_readers_.erase(reader);
 
   // For batch reads, we only need to create 1 fence after the last
   // EndRead() for the whole batch of reads. Hence we just register this backing
@@ -224,10 +236,11 @@ void SharedImageBackingEglImage::EndRead(
   // batch reads/regular reads, we create 1 fence per EndRead().
   if (batch_access_manager_->IsDoingBatchReads()) {
     batch_access_manager_->RegisterEglBackingForEndReadFence(this);
-  } else {
-    read_fences_[gl::g_current_gl_context] =
-        base::MakeRefCounted<gl::SharedGLFenceEGL>();
+    return;
   }
+  AutoLock auto_lock(this);
+  read_fences_[gl::g_current_gl_context] =
+      base::MakeRefCounted<gl::SharedGLFenceEGL>();
 }
 
 gles2::Texture* SharedImageBackingEglImage::GenEGLImageSibling() {
@@ -300,6 +313,17 @@ void SharedImageBackingEglImage::SetEndReadFence(
     scoped_refptr<gl::SharedGLFenceEGL> shared_egl_fence) {
   AutoLock auto_lock(this);
   read_fences_[gl::g_current_gl_context] = std::move(shared_egl_fence);
+}
+
+void SharedImageBackingEglImage::MarkForDestruction() {
+  AutoLock auto_lock(this);
+#if DCHECK_IS_ON()
+  DCHECK(!have_context() || created_on_context_ == gl::g_current_gl_context);
+#endif
+  if (source_texture_) {
+    source_texture_->RemoveLightweightRef(have_context());
+    source_texture_ = nullptr;
+  }
 }
 
 }  // namespace gpu

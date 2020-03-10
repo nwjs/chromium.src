@@ -89,7 +89,7 @@
 <translation id="1670399744444387456">Général</translation>
 <translation id="1671236975893690980">Téléchargement en attente…</translation>
 <translation id="1672586136351118594">Ne plus afficher</translation>
-<translation id="1692118695553449118">La synchronisation est activée.</translation>
+<translation id="1692118695553449118">Synchronisation activée</translation>
 <translation id="169515064810179024">Empêcher les sites d'accéder aux capteurs de mouvement</translation>
 <translation id="1717218214683051432">Capteurs de mouvement</translation>
 <translation id="1718835860248848330">Dernière heure</translation>
@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Numéros de téléphone</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> téléchargements supprimés</translation>
 <translation id="3822502789641063741">Suppr. données de site ?</translation>
+<translation id="3849365399446680203">En mode RA, le site pourrait effectuer les actions suivantes :
+• Créer un plan 3D de votre environnement
+• Suivre les mouvements de la caméra
+
+Vous seul voyez les images de votre caméra. Le site n'y a pas accès.</translation>
 <translation id="3859306556332390985">Avance rapide</translation>
 <translation id="388596076286380598">Consultez des articles, des vidéos et d'autres contenus sur les sites qui vous intéressent, même si vous êtes hors connexion ou si votre connexion est mauvaise.</translation>
 <translation id="3894427358181296146">Ajouter un dossier</translation>
@@ -587,7 +592,6 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="5447765697759493033">Ce site ne sera pas traduit</translation>
 <translation id="545042621069398927">Accélération du téléchargement…</translation>
 <translation id="5456381639095306749">Télécharger la page</translation>
-<translation id="5475862044948910901">Lancer une session en réalité augmentée ?</translation>
 <translation id="548278423535722844">Ouvrir dans une application de plans</translation>
 <translation id="5487521232677179737">Effacer les données</translation>
 <translation id="5494752089476963479">Bloquer les annonces sur les sites qui affichent des annonces intrusives ou trompeuses</translation>
@@ -694,7 +698,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="6232535412751077445">Si vous interdisez le suivi, une demande sera incluse dans le trafic lié à votre navigation. Les résultats obtenus dépendent de la réponse du site (s'il répond ou non) et de la manière dont il interprète la demande.
 
 Par exemple, certains sites Web peuvent répondre à cette demande en diffusant des annonces qui ne sont pas déterminées en fonction des autres sites Web que vous avez consultés. Toutefois, nombre d'entre eux recueillent et utilisent vos données de navigation afin, par exemple, d'améliorer la sécurité ou d'afficher du contenu, des services, des annonces et des recommandations, ou encore pour générer des rapports statistiques.</translation>
-<translation id="6238003486329291387">Découvrez les thèmes abordés sur les sites Web sans quitter la page sur laquelle vous vous trouvez. La fonctionnalité "Appuyer pour rechercher" transmet un mot et son contexte à la recherche Google, qui renvoie à son tour des définitions, des images, des résultats de recherche et d'autres informations.
+<translation id="6238003486329291387">Découvrez les thèmes abordés sur la page Web que vous consultez sans devoir quitter cette page. La fonctionnalité "Appuyer pour rechercher" transmet un mot et son contexte à la recherche Google, qui renvoie à son tour des définitions, des images, des résultats de recherche et d'autres informations.
 
 Pour sélectionner un mot, appuyez dessus de manière prolongée. Vous pouvez ensuite ajuster votre sélection. Vous pouvez aussi faire glisser le panneau pour l'ouvrir, puis appuyer sur l'icône d'expansion pour ouvrir un onglet et appuyer sur le champ de recherche.</translation>
 <translation id="624789221780392884">Mise à jour prête</translation>
@@ -720,6 +724,7 @@ Pour sélectionner un mot, appuyez dessus de manière prolongée. Vous pouvez en
 <translation id="6395288395575013217">LIEN</translation>
 <translation id="6404511346730675251">Modifier le favori</translation>
 <translation id="6406506848690869874">Synchronisation</translation>
+<translation id="6410973561433500075">Activer la RA à partir du site <ph name="DOMAIN" /> ?</translation>
 <translation id="641643625718530986">Imprimer…</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> Mo téléchargé(s)</translation>
 <translation id="6427112570124116297">Traduire le Web</translation>
@@ -839,11 +844,6 @@ Pour sélectionner un mot, appuyez dessus de manière prolongée. Vous pouvez en
 <translation id="7352939065658542140">VIDÉO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Partager 1 élément sélectionné}one{Partager # élément sélectionné}other{Partager # éléments sélectionnés}}</translation>
 <translation id="7359002509206457351">Accéder aux modes de paiement</translation>
-<translation id="7365126855094612066">Pendant toute la durée de cette session, les actions suivantes peuvent être effectuées sur le site :
-• Créer un plan 3D de votre environnement
-• Suivre les mouvements de la caméra
-
-En revanche, le site n'a PAS accès à la caméra. Vous seul pouvez voir les images de la caméra.</translation>
 <translation id="7375125077091615385">Type :</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

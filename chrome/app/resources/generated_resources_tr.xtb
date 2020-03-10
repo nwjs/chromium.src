@@ -1216,6 +1216,7 @@ Cihazınızda Family Link uygulamasını yükleyerek bu hesabın ayarlarını y�
 <translation id="2653659639078652383">Gönder</translation>
 <translation id="265390580714150011">Alan Değeri</translation>
 <translation id="2654166010170466751">Sitelerin ödeme işleyici yüklemesine izin ver</translation>
+<translation id="2654553774144920065">Yazdırma isteği</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Özellikler cihaza göre değişiklik gösterir</translation>
 <translation id="2660779039299703961">Etkinlik</translation>
 <translation id="266079277508604648">Yazıcıya bağlanılamıyor. Yazıcının açık olduğundan ve kablosuz ağ üzerinden veya USB kablosuyla Chromebook'unuza bağlı olduğundan emin olun.</translation>
@@ -2390,7 +2391,6 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="4285418559658561636">Şifreyi Güncelle</translation>
 <translation id="4285498937028063278">Sabitlemeyi kaldır</translation>
 <translation id="428565720843367874">Virüsten koruma yazılımı, bu dosyayı tararken beklenmedik bir şekilde başarısız oldu.</translation>
-<translation id="4287502004382794929">Bu cihazı kaydetmek için yeterli yazılım lisansına sahip değilsiniz. Daha fazla yazılım satın almak için lütfen satış birimiyle bağlantı kurun. Bu mesajın görüntülenmesinin hata olduğunu düşünüyorsanız, lütfen destekle bağlantı kurun.</translation>
 <translation id="4289540628985791613">Genel bakış</translation>
 <translation id="4295072614469448764">Uygulama sizin terminalinizde mevcut. Ayrıca Başlatıcınızda bir simge olabilir.</translation>
 <translation id="4295979599050707005"><ph name="USER_EMAIL" /> hesabınızın Chrome'da ve Google Play'de web siteleri, uygulamalar ve uzantılarla kullanılabileceğini onaylamak için lütfen tekrar oturum açın. İsterseniz bu hesabı kaldırabilirsiniz. <ph name="LINK_BEGIN" />Daha fazla bilgi<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6207282396926186323"><ph name="APP_NAME" /> uygulamasını (Linux Uygulaması) yükleyin</translation>
 <translation id="6207937957461833379">Ülke/Bölge</translation>
 <translation id="6208521041562685716">Mobil veri etkinleştiriliyor</translation>
+<translation id="6209908325007204267">Cihazınız Chrome Enterprise Yükseltme içeriyor anca kullanıcı adınız kurumsal hesapla ilişkilendirilmemiş. Lütfen ikinci bir cihazda g.co/ChromeEnterpriseAccount adresini ziyaret ederek kurumsal bir hesap oluşturun.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Senkronizasyon çalışmıyor</translation>
 <translation id="6212039847102026977">Gelişmiş ağ özelliklerini göster</translation>
 <translation id="6212168817037875041">Ekranı kapat</translation>
@@ -4161,6 +4162,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6843423766595476978">Ok Google hazır</translation>
 <translation id="6845038076637626672">Ekranı Kaplayacak Şekilde Aç</translation>
 <translation id="6845325883481699275">Chrome güvenliğini iyileştirmeye yardımcı olun</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />", <ph name="FILE_NAME" /> dosyasını <ph name="PRINTER_NAME" /> adlı yazıcıda yazdırmak istiyor.</translation>
 <translation id="6847125920277401289">Devam etmek için yer boşaltın</translation>
 <translation id="6848388270925200958">Şu anda, yalnızca bu cihazda kullanılabilen kartlarınız var</translation>
 <translation id="6850286078059909152">Metin rengi</translation>
@@ -4404,6 +4406,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7186088072322679094">Araç Çubuğunda Tut</translation>
 <translation id="7187428571767585875">Kaldırılacak veya değiştirilecek kayıt defteri girişleri:</translation>
 <translation id="7189234443051076392">Cihazınızda yeterli alan bulunduğundan emin olun</translation>
+<translation id="7189451821249468368">Bu cihazı kaydetmek için yeterli yükseltmeye sahip değilsiniz. Daha fazla yazılım satın almak için lütfen satış birimiyle bağlantı kurun. Bu mesajın yanlışlıkla görüntülendiğini düşünüyorsanız lütfen destekle bağlantı kurun.</translation>
 <translation id="7189965711416741966">Parmak izi eklendi.</translation>
 <translation id="7191159667348037">Bilinmeyen Yazıcı (USB)</translation>
 <translation id="7193051357671784796">Bu uygulama kuruluşunuz tarafından eklendi. Yüklemeyi tamamlamak için uygulamayı yeniden başlatın.</translation>
@@ -5776,7 +5779,6 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="9050666287014529139">Parola</translation>
 <translation id="9052208328806230490">Yazıcılarınızı, <ph name="EMAIL" /> hesabını kullanarak <ph name="CLOUD_PRINT_NAME" /> hizmetine kaydettirdiniz.</translation>
 <translation id="9052404922357793350">Engellemeye devam et</translation>
-<translation id="9053091947372579468">Cihazınız bir Chrome lisansı içeriyor ancak kullanıcı adınız bir Yönetici konsolu ile ilişkilendirilmemiş. Kayda devam etmek için lütfen bir Yönetici konsolu hesabı oluşturun. Not: Yeni bir Yönetici konsolu hesabı oluşturmak için kendi alanınızı kullanmayı seçerseniz kaydolduktan sonra alan doğrulamasını da tamamlamanız gerekir. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Her iki yüze yazdır</translation>
 <translation id="9053893665344928494">Seçimimi hatırla</translation>
 <translation id="9055636786322918818">RC4 şifrelemesini uygula. RC4 şifreleri güvenli olmadığından bu seçeneğin kullanılması, riskinizi artırır.</translation>

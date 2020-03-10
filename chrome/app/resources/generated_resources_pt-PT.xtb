@@ -1215,6 +1215,7 @@ Pode gerir as definições desta conta ao instalar a aplicação Family Link no 
 <translation id="2653659639078652383">Submeter</translation>
 <translation id="265390580714150011">Campo Valor</translation>
 <translation id="2654166010170466751">Permitir que os sites instalem controladores de pagamentos</translation>
+<translation id="2654553774144920065">Pedido de impressão</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" /> As funcionalidades variam consoante o dispositivo.</translation>
 <translation id="2660779039299703961">Evento</translation>
 <translation id="266079277508604648">Não é possível ligar à impressora. Verifique se a impressora está ligada e associada ao Chromebook por Wi-Fi ou USB.</translation>
@@ -2390,7 +2391,6 @@ Pretende pará-lo?</translation>
 <translation id="4285418559658561636">Atualizar palavra-passe</translation>
 <translation id="4285498937028063278">Soltar</translation>
 <translation id="428565720843367874">O software antivírus falhou inesperadamente enquanto analisava este ficheiro.</translation>
-<translation id="4287502004382794929">Não tem licenças de software suficientes para inscrever este dispositivo. Entre em contacto com as vendas para comprar mais. Se considera que recebeu esta mensagem por engano, contacte o suporte.</translation>
 <translation id="4289540628985791613">Vista geral</translation>
 <translation id="4295072614469448764">A aplicação está disponível no terminal. Também pode existir um ícone no Launcher.</translation>
 <translation id="4295979599050707005">Inicie sessão novamente para confirmar que a sua conta <ph name="USER_EMAIL" /> pode ser utilizada com Websites, aplicações e extensões no Chrome e no Google Play. Também pode remover esta conta. <ph name="LINK_BEGIN" />Saiba mais<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6207282396926186323">Instalar <ph name="APP_NAME" /> (aplicação do Linux)</translation>
 <translation id="6207937957461833379">País/Região</translation>
 <translation id="6208521041562685716">Os dados móveis estão a ser ativados</translation>
+<translation id="6209908325007204267">O seu dispositivo inclui uma Atualização do Chrome Enterprise, mas o seu nome de utilizador não está associado a uma conta de empresa. Crie uma conta de empresa ao visitar g.co/ChromeEnterpriseAccount num dispositivo secundário.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: a sincronização não está a funcionar</translation>
 <translation id="6212039847102026977">Mostrar propriedades de rede avançadas</translation>
 <translation id="6212168817037875041">Desligar o ecrã</translation>
@@ -4031,7 +4032,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6655458902729017087">Ocultar contas</translation>
 <translation id="6657585470893396449">Palavra-passe</translation>
 <translation id="6659213950629089752">Foi aumentado o zoom nesta página pela extensão "<ph name="NAME" />"</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Separador</translation>
 <translation id="6664237456442406323">Infelizmente, o seu computador está configurado com um ID de hardware formatado incorretamente. Este facto impede que o Chrome OS faça a atualização das últimas correções de segurança e o seu computador <ph name="BEGIN_BOLD" />pode estar vulnerável a ataques maliciosos<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">Ocorreu um erro ao abrir o seu perfil. Termine sessão e inicie-a novamente.</translation>
 <translation id="6667776121818773738">Imagem partilhada a partir de outro dispositivo</translation>
@@ -4161,6 +4162,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6843423766595476978">O Ok Google está pronto</translation>
 <translation id="6845038076637626672">Abrir Maximizada</translation>
 <translation id="6845325883481699275">Ajudar a melhorar a segurança do Chrome</translation>
+<translation id="6846178040388691741">A extensão "<ph name="EXTENSION_NAME" />" pretende imprimir o ficheiro <ph name="FILE_NAME" /> com a impressora <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Liberte espaço para continuar</translation>
 <translation id="6848388270925200958">De momento, tem alguns cartões que apenas podem ser utilizados neste dispositivo.</translation>
 <translation id="6850286078059909152">Cor do texto</translation>
@@ -4404,6 +4406,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="7186088072322679094">Manter na Barra de ferramentas</translation>
 <translation id="7187428571767585875">Entradas de registo a remover ou a alterar:</translation>
 <translation id="7189234443051076392">Certifique-se de que existe espaço suficiente no seu dispositivo.</translation>
+<translation id="7189451821249468368">Não tem atualizações suficientes para inscrever este dispositivo. Entre em contacto com as vendas para comprar mais. Se considera que recebeu esta mensagem por engano, contacte o apoio técnico.</translation>
 <translation id="7189965711416741966">Impressão digital adicionada.</translation>
 <translation id="7191159667348037">Impressora desconhecida (USB)</translation>
 <translation id="7193051357671784796">Esta aplicação foi adicionada pela sua organização. Reinicie a aplicação para concluir a instalação da mesma.</translation>
@@ -5776,7 +5779,6 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="9050666287014529139">Frase de acesso</translation>
 <translation id="9052208328806230490">Registou as suas impressoras com <ph name="CLOUD_PRINT_NAME" /> utilizando a conta <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continuar a bloquear</translation>
-<translation id="9053091947372579468">O seu dispositivo inclui uma licença do Chrome, mas o seu nome de utilizador não está associado a uma Consola do administrador. Crie uma conta da Consola do administrador para continuar a inscrição. Nota: se optar por criar a conta da Consola do administrador com o seu próprio domínio, também tem de concluir a validação de domínio após a inscrição. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Imprimir de ambos os lados</translation>
 <translation id="9053893665344928494">Memorizar a minha escolha</translation>
 <translation id="9055636786322918818">Aplicar a encriptação RC4. A utilização desta opção aumenta o seu risco, uma vez que as cifras RC4 são inseguras.</translation>

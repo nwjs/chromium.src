@@ -55,7 +55,10 @@ void InitializeRegistryOverrideForTesting(
   ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(kRegMdmUrl, L""));
   ASSERT_EQ(ERROR_SUCCESS,
             SetMachineGuidForTesting(L"f418a124-4d92-469b-afa5-0f8af537b965"));
-  ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(kRegEscrowServiceServerUrl, L""));
+  ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(kRegDisablePasswordSync, 1));
+  DWORD disable_cloud_association = 0;
+  ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(L"enable_cloud_association",
+                                          disable_cloud_association));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -160,8 +163,10 @@ HRESULT FakeOSUserManager::AddUser(const wchar_t* username,
   if (error)
     *error = 0;
 
-  if (should_fail_user_creation_)
-    return fail_user_creation_hr_;
+  if (failure_reasons_.find(FAILEDOPERATIONS::ADD_USER) !=
+      failure_reasons_.end()) {
+    return failure_reasons_[FAILEDOPERATIONS::ADD_USER];
+  }
 
   // Username or password cannot be empty.
   if (username == nullptr || !username[0] || password == nullptr ||
@@ -205,8 +210,9 @@ HRESULT FakeOSUserManager::ChangeUserPassword(const wchar_t* domain,
   DCHECK(old_password);
   DCHECK(new_password);
 
-  if (fail_change_password_) {
-    return failed_change_password_hr_;
+  if (failure_reasons_.find(FAILEDOPERATIONS::CHANGE_PASSWORD) !=
+      failure_reasons_.end()) {
+    return failure_reasons_[FAILEDOPERATIONS::CHANGE_PASSWORD];
   }
 
   if (username_to_info_.count(username) > 0) {
@@ -241,6 +247,11 @@ HRESULT FakeOSUserManager::SetUserFullname(const wchar_t* domain,
   DCHECK(domain);
   DCHECK(username);
   DCHECK(full_name);
+
+  if (failure_reasons_.find(FAILEDOPERATIONS::SET_USER_FULLNAME) !=
+      failure_reasons_.end()) {
+    return failure_reasons_[FAILEDOPERATIONS::SET_USER_FULLNAME];
+  }
 
   if (username_to_info_.count(username) > 0) {
     username_to_info_[username].fullname = full_name;
@@ -352,6 +363,12 @@ HRESULT FakeOSUserManager::GetUserFullname(const wchar_t* domain,
   DCHECK(domain);
   DCHECK(username);
   DCHECK(fullname);
+
+  if (failure_reasons_.find(FAILEDOPERATIONS::GET_USER_FULLNAME) !=
+      failure_reasons_.end()) {
+    return failure_reasons_[FAILEDOPERATIONS::GET_USER_FULLNAME];
+  }
+
   if (username_to_info_.count(username) > 0) {
     const UserInfo& info = username_to_info_[username];
     if (info.domain == domain) {
@@ -582,6 +599,16 @@ HRESULT FakeScopedUserProfile::SaveAccountInfo(const base::Value& properties) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+FakeWinHttpUrlFetcherFactory::RequestData::RequestData()
+    : timeout_in_millis(-1) {}  // Set default timeout to an invalid value.
+
+FakeWinHttpUrlFetcherFactory::RequestData::RequestData(const RequestData& rhs)
+    : headers(rhs.headers),
+      body(rhs.body),
+      timeout_in_millis(rhs.timeout_in_millis) {}
+
+FakeWinHttpUrlFetcherFactory::RequestData::~RequestData() = default;
+
 FakeWinHttpUrlFetcherFactory::Response::Response() {}
 
 FakeWinHttpUrlFetcherFactory::Response::Response(const Response& rhs)
@@ -625,6 +652,13 @@ void FakeWinHttpUrlFetcherFactory::SetFakeFailedResponse(const GURL& url,
   failed_http_fetch_hr_[url] = failed_hr;
 }
 
+FakeWinHttpUrlFetcherFactory::RequestData
+FakeWinHttpUrlFetcherFactory::GetRequestData(size_t request_index) const {
+  if (request_index < requests_data_.size())
+    return requests_data_[request_index];
+  return RequestData();
+}
+
 std::unique_ptr<WinHttpUrlFetcher> FakeWinHttpUrlFetcherFactory::Create(
     const GURL& url) {
   if (fake_responses_.count(url) == 0 && failed_http_fetch_hr_.count(url) == 0)
@@ -642,6 +676,12 @@ std::unique_ptr<WinHttpUrlFetcher> FakeWinHttpUrlFetcherFactory::Create(
     DCHECK(failed_http_fetch_hr_.count(url) > 0);
     fetcher->response_hr_ = failed_http_fetch_hr_[url];
   }
+
+  if (collect_request_data_) {
+    requests_data_.push_back(RequestData());
+    fetcher->request_data_ = &requests_data_.back();
+  }
+
   ++requests_created_;
 
   return std::unique_ptr<WinHttpUrlFetcher>(fetcher);
@@ -669,6 +709,26 @@ HRESULT FakeWinHttpUrlFetcher::Fetch(std::vector<char>* response) {
 }
 
 HRESULT FakeWinHttpUrlFetcher::Close() {
+  return S_OK;
+}
+
+HRESULT FakeWinHttpUrlFetcher::SetRequestHeader(const char* name,
+                                                const char* value) {
+  if (request_data_)
+    request_data_->headers[name] = value;
+  return S_OK;
+}
+
+HRESULT FakeWinHttpUrlFetcher::SetRequestBody(const char* body) {
+  if (request_data_)
+    request_data_->body = body;
+  return S_OK;
+}
+
+HRESULT FakeWinHttpUrlFetcher::SetHttpRequestTimeout(
+    const int timeout_in_millis) {
+  if (request_data_)
+    request_data_->timeout_in_millis = timeout_in_millis;
   return S_OK;
 }
 
@@ -706,6 +766,9 @@ FakeChromeAvailabilityChecker::~FakeChromeAvailabilityChecker() {
 }
 
 bool FakeChromeAvailabilityChecker::HasSupportedChromeVersion() {
+  if (has_supported_chrome_ == kChromeDontForce) {
+    return original_checker_->HasSupportedChromeVersion();
+  }
   return has_supported_chrome_ == kChromeForceYes;
 }
 

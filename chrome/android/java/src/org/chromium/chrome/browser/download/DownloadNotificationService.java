@@ -722,6 +722,7 @@ public class DownloadNotificationService {
             notifyDownloadCanceled(id, false);
             if (cancelActualDownload) {
                 DownloadServiceDelegate delegate = getServiceDelegate(id);
+                DownloadMetrics.recordDownloadCancel(DownloadMetrics.CancelFrom.CANCEL_SHUTDOWN);
                 delegate.cancelDownload(id, true);
                 delegate.destroyServiceDelegate();
             }

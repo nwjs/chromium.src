@@ -385,7 +385,7 @@
 <translation id="2664887757054927933">{COUNT,plural, =0{Nenhuma}=1{1 senha (para <ph name="DOMAIN_LIST" />)}=2{2 senhas (para <ph name="DOMAIN_LIST" />)}one{# senha (para <ph name="DOMAIN_LIST" />)}other{# senhas (para <ph name="DOMAIN_LIST" />)}}</translation>
 <translation id="2666092431469916601">Parte superior</translation>
 <translation id="2666117266261740852">Fechar outras guias ou apps</translation>
-<translation id="2674170444375937751">Tem certeza que quer excluir essas páginas do seu histórico?</translation>
+<translation id="2674170444375937751">Você quer mesmo excluir essas páginas do seu histórico?</translation>
 <translation id="2676271551327853224">8K 273 mm x 394 mm</translation>
 <translation id="2677748264148917807">Sair</translation>
 <translation id="2684561033061424857">11x12</translation>
@@ -1381,7 +1381,7 @@
 <translation id="7201591969684833065">O administrador pode ver:</translation>
 <translation id="7202346780273620635">Letter Extra</translation>
 <translation id="7210863904660874423"><ph name="HOST_NAME" /> não adere aos padrões de segurança.</translation>
-<translation id="7210993021468939304">A atividade do Linux fica no contêiner, e é possível instalar e executar apps do Linux no contêiner</translation>
+<translation id="7210993021468939304">A atividade do Linux no contêiner, bem como instalar e executar apps do Linux no contêiner</translation>
 <translation id="721197778055552897"><ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /> sobre este problema.</translation>
 <translation id="7219179957768738017">A conexão usa a <ph name="SSL_VERSION" />.</translation>
 <translation id="7220786058474068424">Processando</translation>

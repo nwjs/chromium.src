@@ -817,7 +817,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="2129825002735785149">Plug-in updaten</translation>
 <translation id="2131077480075264">Kan <ph name="APP_NAME" /> niet installeren, omdat dit niet wordt toegestaan door <ph name="IMPORT_NAME" /></translation>
 <translation id="21354425047973905">Pincodes verbergen</translation>
-<translation id="2135456203358955318">Gedockt vergrootglas</translation>
+<translation id="2135456203358955318">Vastgezet vergrootglas</translation>
 <translation id="2135787500304447609">He&amp;rvatten</translation>
 <translation id="2136372518715274136">Nieuw wachtwoord opgeven</translation>
 <translation id="2136476978468204130">De opgegeven wachtwoordzin is onjuist</translation>
@@ -1216,6 +1216,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="2653659639078652383">Verzenden</translation>
 <translation id="265390580714150011">Veldwaarde</translation>
 <translation id="2654166010170466751">Toestaan dat sites betalingshandlers installeren</translation>
+<translation id="2654553774144920065">Afdrukverzoek</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Functies verschillen per apparaat</translation>
 <translation id="2660779039299703961">Gebeurtenis</translation>
 <translation id="266079277508604648">Verbinding met printer niet mogelijk. Controleer of de printer is ingeschakeld en via wifi of USB is verbonden met je Chromebook.</translation>
@@ -2390,7 +2391,6 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="4285418559658561636">Wachtwoord updaten</translation>
 <translation id="4285498937028063278">Losmaken</translation>
 <translation id="428565720843367874">Tijdens het scannen van dit bestand met antivirussoftware is er een onverwachte fout opgetreden.</translation>
-<translation id="4287502004382794929">Je hebt niet voldoende softwarelicenties om dit apparaat te registreren. Neem contact op met de salesafdeling om meer licenties te kopen. Als je denkt dat dit bericht ten onrechte wordt weergegeven, neem je contact op met de ondersteuning.</translation>
 <translation id="4289540628985791613">Overzicht</translation>
 <translation id="4295072614469448764">De app is beschikbaar in je terminal. Mogelijk staat er ook een pictogram van de app in de Launcher.</translation>
 <translation id="4295979599050707005">Log opnieuw in om te bevestigen dat je account <ph name="USER_EMAIL" /> mag worden gebruikt met websites, apps en extensies in Chrome en Google Play. Je kunt dit account ook verwijderen. <ph name="LINK_BEGIN" />Meer informatie<ph name="LINK_END" /></translation>
@@ -3404,7 +3404,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="5771816112378578655">Instellen wordt uitgevoerd...</translation>
 <translation id="5772265531560382923">{NUM_PAGES,plural, =1{Je kunt wachten tot de pagina reageert of de pagina afsluiten.}other{Je kunt wachten tot de pagina's reageren of de pagina's afsluiten.}}</translation>
 <translation id="577322787686508614">Leesbewerking is niet toegestaan op: <ph name="DEVICE_NAME" />.</translation>
-<translation id="5774295353725270860">App Bestanden openen</translation>
+<translation id="5774295353725270860">Files-app openen</translation>
 <translation id="5774515636230743468">Manifest:</translation>
 <translation id="577624874850706961">Cookies zoeken</translation>
 <translation id="5777468213129569553">Chrome openen</translation>
@@ -3721,6 +3721,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="6207282396926186323"><ph name="APP_NAME" /> (Linux-app) installeren</translation>
 <translation id="6207937957461833379">Land/regio</translation>
 <translation id="6208521041562685716">Mobiele data activeren</translation>
+<translation id="6209908325007204267">Je apparaat omvat een Chrome Enterprise Upgrade, maar je gebruikersnaam is niet gekoppeld aan een Enterprise-account. Ga op een secundair apparaat naar g.co/ChromeEnterpriseAccount om een Enterprise-account te maken.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: synchronisatie werkt niet</translation>
 <translation id="6212039847102026977">Geavanceerde netwerkeigenschappen weergeven</translation>
 <translation id="6212168817037875041">Scherm uitschakelen</translation>
@@ -4160,6 +4161,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="6843423766595476978">'Oké Google' is helemaal ingesteld</translation>
 <translation id="6845038076637626672">Gemaximaliseerd openen</translation>
 <translation id="6845325883481699275">Help de beveiliging van Chrome te verbeteren</translation>
+<translation id="6846178040388691741">'<ph name="EXTENSION_NAME" />' wil <ph name="FILE_NAME" /> afdrukken met <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Maak ruimte vrij om door te gaan</translation>
 <translation id="6848388270925200958">Je hebt momenteel enkele passen die alleen op dit apparaat kunnen worden gebruikt</translation>
 <translation id="6850286078059909152">Tekstkleur</translation>
@@ -4403,6 +4405,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="7186088072322679094">In werkbalk houden</translation>
 <translation id="7187428571767585875">Registervermeldingen die moeten worden verwijderd of gewijzigd:</translation>
 <translation id="7189234443051076392">Zorg dat er voldoende ruimte op je apparaat beschikbaar is</translation>
+<translation id="7189451821249468368">Je hebt niet voldoende upgrades om dit apparaat in te schrijven. Neem contact op met de salesafdeling om meer upgrades te kopen. Als je denkt dat dit bericht ten onrechte wordt weergegeven, neem je contact op met support.</translation>
 <translation id="7189965711416741966">Vingerafdruk is toegevoegd.</translation>
 <translation id="7191159667348037">Onbekende printer (USB)</translation>
 <translation id="7193051357671784796">Deze app is toegevoegd door je organisatie. Start de app opnieuw om de installatie te voltooien.</translation>
@@ -4509,7 +4512,7 @@ Je kunt de instellingen van dit account beheren door de Family Link-app op je ap
 <translation id="7328867076235380839">Ongeldige combinatie</translation>
 <translation id="7329154610228416156">Inloggen is mislukt omdat er een onbeveiligde URL (<ph name="BLOCKED_URL" />) wordt gebruikt. Neem contact op met je beheerder.</translation>
 <translation id="7334190995941642545">Smart Lock is momenteel niet beschikbaar. Probeer het later opnieuw.</translation>
-<translation id="7334274148831027933">Gedockt vergrootglas inschakelen</translation>
+<translation id="7334274148831027933">Vastgezet vergrootglas inschakelen</translation>
 <translation id="7335974957018254119">Spellingcontrole gebruiken voor</translation>
 <translation id="7336799713063880535">Meldingen geblokkeerd.</translation>
 <translation id="7338630283264858612">Serienummer van apparaat is ongeldig.</translation>
@@ -5776,7 +5779,6 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="9050666287014529139">Wachtwoordzin</translation>
 <translation id="9052208328806230490">Je hebt met het account <ph name="EMAIL" /> je printers geregistreerd bij <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="9052404922357793350">Doorgaan met blokkeren</translation>
-<translation id="9053091947372579468">Bij je apparaat is een Chrome-licentie inbegrepen, maar je gebruikersnaam is niet gekoppeld aan een beheerdersconsole. Maak een beheerdersconsoleaccount om verder te gaan met de inschrijving. Opmerking: Als je je eigen domein gebruikt om een nieuw beheerdersconsoleaccount te maken, moet je na de aanmelding ook de domeinverificatie doorlopen. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Dubbelzijdig afdrukken</translation>
 <translation id="9053893665344928494">Mijn keuze onthouden</translation>
 <translation id="9055636786322918818">RC4-versleuteling afdwingen. Als je deze optie gebruikt, loop je meer risico, aangezien RC4-codering onbeveiligd is.</translation>

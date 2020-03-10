@@ -1215,6 +1215,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="265390580714150011">Valor do campo</translation>
 <translation id="2654166010170466751">Permitir que os sitios instalen indicadores de pago</translation>
+<translation id="2654553774144920065">Imprimir solicitude</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />As funcións varían segundo o dispositivo</translation>
 <translation id="2660779039299703961">Evento</translation>
 <translation id="266079277508604648">Non se puido conectar coa impresora. Comproba que estea acendida e conectada ao dispositivo Chromebook por wifi ou USB.</translation>
@@ -2389,7 +2390,6 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="4285418559658561636">Actualizar contrasinal</translation>
 <translation id="4285498937028063278">Deixar de fixar</translation>
 <translation id="428565720843367874">O software antivirus fallou inesperadamente durante a exploración deste ficheiro.</translation>
-<translation id="4287502004382794929">Non tes licenzas de software suficientes para inscribir este dispositivo. Ponte en contacto co departamento de vendas para comprar máis. Se cres que esta mensaxe apareceu por erro, ponte en contacto co servizo de asistencia.</translation>
 <translation id="4289540628985791613">Descrición xeral</translation>
 <translation id="4295072614469448764">A aplicación está dispoñible no terminal. Tamén pode haber unha icona no menú de aplicacións.</translation>
 <translation id="4295979599050707005">Volve iniciar sesión para confirmar que se pode utilizar a túa conta <ph name="USER_EMAIL" /> cos sitios web, aplicacións e extensións en Chrome e Google Play. Tamén podes quitar esta conta. <ph name="LINK_BEGIN" />Máis información<ph name="LINK_END" /></translation>
@@ -3720,6 +3720,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="6207282396926186323">Instalar aplicación <ph name="APP_NAME" /> (Linux)</translation>
 <translation id="6207937957461833379">País/rexión</translation>
 <translation id="6208521041562685716">Estanse activando os datos móbiles</translation>
+<translation id="6209908325007204267">O teu dispositivo inclúe unha licenza de Chrome Enterprise, pero o teu nome de usuario non está asociado a unha conta de empresa. Crea unha conta de empresa visitando g.co/ChromeEnterpriseAccount desde un dispositivo secundario.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: a sincronización non funciona</translation>
 <translation id="6212039847102026977">Mostrar propiedades de rede avanzadas</translation>
 <translation id="6212168817037875041">Desactivar a pantalla</translation>
@@ -4159,6 +4160,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="6843423766595476978">Ok Google está listo</translation>
 <translation id="6845038076637626672">Abrir a aplicación maximizada</translation>
 <translation id="6845325883481699275">Axudar a mellorar a seguranza de Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" quere imprimir <ph name="FILE_NAME" /> con <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Libera espazo para continuar</translation>
 <translation id="6848388270925200958">Neste momento, tes algunhas tarxetas que só se poden utilizar neste dispositivo</translation>
 <translation id="6850286078059909152">Cor do texto</translation>
@@ -4402,6 +4404,7 @@ Instala a aplicación Family Link no teu dispositivo e poderás xestionar a conf
 <translation id="7186088072322679094">Manter na barra de ferramentas</translation>
 <translation id="7187428571767585875">Entradas do rexistro que se deben quitar ou cambiar:</translation>
 <translation id="7189234443051076392">Asegúrate de que hai espazo suficiente no teu dispositivo</translation>
+<translation id="7189451821249468368">Non tes licenzas suficientes para inscribir este dispositivo. Ponte en contacto co departamento de vendas para comprar máis. Se cres que esta mensaxe apareceu por erro, ponte en contacto co servizo de asistencia.</translation>
 <translation id="7189965711416741966">Engadiuse a impresión dixital.</translation>
 <translation id="7191159667348037">Impresora descoñecida (USB)</translation>
 <translation id="7193051357671784796">Esta aplicación engadiuna a túa organización. Reiníciaa para acabar de instalala.</translation>
@@ -5774,7 +5777,6 @@ Mantén o ficheiro de clave nun lugar seguro, xa que o precisarás para crear no
 <translation id="9050666287014529139">Frase de acceso</translation>
 <translation id="9052208328806230490">Rexistraches as túas impresoras con <ph name="CLOUD_PRINT_NAME" /> utilizando a conta <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continuar bloqueando</translation>
-<translation id="9053091947372579468">O dispositivo inclúe unha licenza de Chrome, pero o teu nome de usuario non está asociado cunha consola de administración. Crea unha conta nesta última para continuar coa inscrición. Nota: Se decides utilizar o teu propio dominio para crear unha nova conta da consola de administración, tamén debes verificar o dominio despois do rexistro. https://g.co/ChromeEnterpriseAccount (dispoñible en castelán)</translation>
 <translation id="9053563360605707198">Imprimir nas dúas caras</translation>
 <translation id="9053893665344928494">Lembrar a miña elección</translation>
 <translation id="9055636786322918818">Forza a encriptación RC4. Esta opción aumenta o risco, porque as cifraxes de RC4 non son seguras.</translation>

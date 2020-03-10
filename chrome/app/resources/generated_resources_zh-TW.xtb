@@ -1215,6 +1215,7 @@
 <translation id="2653659639078652383">提交</translation>
 <translation id="265390580714150011">欄位值</translation>
 <translation id="2654166010170466751">允許網站安裝付款處理常式</translation>
+<translation id="2654553774144920065">列印要求</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />功能會因裝置而異</translation>
 <translation id="2660779039299703961">活動</translation>
 <translation id="266079277508604648">無法連上印表機。請確認印表機已開啟，且已透過 Wi-Fi 或 USB 連上 Chromebook。</translation>
@@ -2388,7 +2389,6 @@
 <translation id="4285418559658561636">更新密碼</translation>
 <translation id="4285498937028063278">取消固定</translation>
 <translation id="428565720843367874">掃描這個檔案時，防毒軟體發生意外錯誤。</translation>
-<translation id="4287502004382794929">你的軟體授權量不足，無法註冊這個裝置。如要購買更多授權，請與銷售人員聯絡。如果你認為這則訊息有誤，請與支援小組聯絡。</translation>
 <translation id="4289540628985791613">總覽</translation>
 <translation id="4295072614469448764">應用程式已出現在你的終端機上，且可能在啟動器中顯示圖示。</translation>
 <translation id="4295979599050707005">請再次登入，並確認你的帳戶 (<ph name="USER_EMAIL" />) 可用於 Chrome 和 Google Play 的網站、應用程式與擴充功能。你也可以移除這個帳戶。<ph name="LINK_BEGIN" />瞭解詳情<ph name="LINK_END" /></translation>
@@ -3719,6 +3719,7 @@
 <translation id="6207282396926186323">安裝「<ph name="APP_NAME" />」(Linux 應用程式)</translation>
 <translation id="6207937957461833379">國家/地區</translation>
 <translation id="6208521041562685716">正在啟用行動數據</translation>
+<translation id="6209908325007204267">你的裝置包含 Chrome Enterprise 升級版，但你的使用者名稱未申請企業版帳戶。請透過其他裝置前往 g.co/ChromeEnterpriseAccount 建立企業版帳戶。</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />：同步處理功能無法正常運作</translation>
 <translation id="6212039847102026977">顯示進階網路屬性</translation>
 <translation id="6212168817037875041">關閉螢幕</translation>
@@ -4028,7 +4029,7 @@
 <translation id="6655458902729017087">隱藏帳戶</translation>
 <translation id="6657585470893396449">密碼</translation>
 <translation id="6659213950629089752">「<ph name="NAME" />」擴充功能已調整這個頁面的大小</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">分頁</translation>
 <translation id="6664237456442406323">抱歉，你的電腦是由格式錯誤的硬體 ID 所設定。這樣會防止 Chrome 作業系統更新最新的安全性修復，你的電腦也可能<ph name="BEGIN_BOLD" />容易遭受惡意攻擊<ph name="END_BOLD" />。</translation>
 <translation id="6664774537677393800">開啟你的設定檔時發生錯誤。請先登出，然後再次登入。</translation>
 <translation id="6667776121818773738">透過其他裝置分享的圖片</translation>
@@ -4158,6 +4159,7 @@
 <translation id="6843423766595476978">Ok Google 設定完成</translation>
 <translation id="6845038076637626672">最大化開啟</translation>
 <translation id="6845325883481699275">協助改善 Chrome 安全性</translation>
+<translation id="6846178040388691741">「<ph name="EXTENSION_NAME" />」要求使用「<ph name="PRINTER_NAME" />」列印「<ph name="FILE_NAME" />」。</translation>
 <translation id="6847125920277401289">釋出空間以便繼續操作</translation>
 <translation id="6848388270925200958">目前你有一些卡片只能在這部裝置上使用</translation>
 <translation id="6850286078059909152">文字顏色</translation>
@@ -4401,6 +4403,7 @@
 <translation id="7186088072322679094">固定在工具列中</translation>
 <translation id="7187428571767585875">系統將移除或變更下列登錄檔項目：</translation>
 <translation id="7189234443051076392">確認你的裝置上有足夠空間</translation>
+<translation id="7189451821249468368">你的升級授權不足，無法註冊這個裝置。請與銷售人員聯絡以購買更多授權。如果你認為不應顯示這則訊息，請與支援小組聯絡。</translation>
 <translation id="7189965711416741966">指紋新增成功。</translation>
 <translation id="7191159667348037">不明的印表機 (USB)</translation>
 <translation id="7193051357671784796">這個應用程式是由貴機構新增。請重新啟動應用程式以完成安裝。</translation>
@@ -4659,7 +4662,7 @@
 <translation id="7551643184018910560">固定至檔案櫃</translation>
 <translation id="7552846755917812628">嘗試按照下列提示操作：</translation>
 <translation id="7553242001898162573">請輸入您的密碼</translation>
-<translation id="7554791636758816595">新增分頁</translation>
+<translation id="7554791636758816595">新分頁</translation>
 <translation id="7556033326131260574">Smart Lock 無法驗證您的帳戶，請輸入您的密碼。</translation>
 <translation id="7556242789364317684">很抱歉，<ph name="SHORT_PRODUCT_NAME" /> 無法復原你的設定。如要修正錯誤，<ph name="SHORT_PRODUCT_NAME" /> 必須透過 Powerwash 重設你的裝置。</translation>
 <translation id="7559719679815339381">請稍候.... Kiosk 應用程式正在進行更新，請勿移除 USB 隨身碟。</translation>
@@ -5773,7 +5776,6 @@
 <translation id="9050666287014529139">通關密語</translation>
 <translation id="9052208328806230490">你已透過 <ph name="EMAIL" /> 帳戶並使用 <ph name="CLOUD_PRINT_NAME" /> 為你的印表機註冊</translation>
 <translation id="9052404922357793350">繼續封鎖</translation>
-<translation id="9053091947372579468">你的裝置擁有 Chrome 授權，但你的使用者名稱尚未與管理控制台建立連結。如要註冊，請建立管理控制台帳戶。注意：如果你選擇使用自己的網域建立新的管理控制台帳戶，則必須在建立帳戶後完成網域驗證程序。https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">雙面列印</translation>
 <translation id="9053893665344928494">記住我的選擇</translation>
 <translation id="9055636786322918818">強制執行 RC4 加密。由於 RC4 加密不安全，使用這個加密選項會提高風險。</translation>

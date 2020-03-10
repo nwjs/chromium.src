@@ -98,6 +98,7 @@ class JavaScriptDialogManager;
 class JavaScriptDialogNavigationDeferrer;
 class ManifestManagerHost;
 class MediaWebContentsObserver;
+class NFCHost;
 class PluginContentOriginWhitelist;
 class Portal;
 class RenderFrameHost;
@@ -586,7 +587,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   device::mojom::GeolocationContext* GetGeolocationContext() override;
   device::mojom::WakeLockContext* GetWakeLockContext() override;
 #if defined(OS_ANDROID)
-  void GetNFC(mojo::PendingReceiver<device::mojom::NFC> receiver) override;
+  void GetNFC(RenderFrameHost*,
+              mojo::PendingReceiver<device::mojom::NFC>) override;
 #endif
   void EnterFullscreenMode(
       const GURL& origin,
@@ -793,6 +795,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                              const gfx::Size& new_size) override;
   gfx::Size GetAutoResizeSize() override;
   void ResetAutoResizeSize() override;
+  void NotifyVisibleViewportSizeChanged(
+      const gfx::Size& visible_viewport_size) override;
   RenderFrameHostImpl* GetFocusedFrameFromFocusedDelegate() override;
   void OnVerticalScrollDirectionChanged(
       viz::VerticalScrollDirection scroll_direction) override;
@@ -1834,6 +1838,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   mojo::Remote<device::mojom::GeolocationContext> geolocation_context_;
 
   std::unique_ptr<WakeLockContextHost> wake_lock_context_host_;
+
+#if defined(OS_ANDROID)
+  std::unique_ptr<NFCHost> nfc_host_;
+#endif
 
   mojo::ReceiverSet<blink::mojom::ColorChooserFactory>
       color_chooser_factory_receivers_;

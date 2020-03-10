@@ -168,6 +168,11 @@ class CONTENT_EXPORT ClipboardHostImpl : public blink::mojom::ClipboardHost {
   void WriteStringToFindPboard(const base::string16& text) override;
 #endif
 
+  // Check Raw Permission in M81 and M80 using a more simple strategy, to make
+  // for a safer backport. This should only return false on calls made by
+  // compromised renderers.
+  bool HasRawPermission();
+
   // Called by PerformPasteIfAllowed() when an is allowed request is needed.
   // Virtual to be overridden in tests.
   virtual void StartIsPasteAllowedRequest(

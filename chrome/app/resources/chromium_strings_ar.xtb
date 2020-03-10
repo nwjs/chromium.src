@@ -181,7 +181,7 @@
 <translation id="7773960292263897147">‏تحذير: يتعذّر على Chromium منع الإضافات من تسجيل سجل التصفح. لإيقاف هذه الإضافة في وضع التصفح المتخفي، ألغِ تحديد هذا الخيار.</translation>
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7827169012280634081">‏محو بيانات الموقع الإلكتروني وملفات تعريف الارتباط عند الخروج من Chromium</translation>
-<translation id="7867198900892795913">‏تعذّر تحديث Chromium إلى آخر إصدار، لذلك قد تفوتك الميزات الجديدة وعمليات إصلاح الأمان.</translation>
+<translation id="7867198900892795913">‏تعذّرت إعادة التحميل Chromium إلى آخر إصدار، لذلك قد تفوتك الميزات الجديدة وعمليات إصلاح الأمان.</translation>
 <translation id="7898472181347242998">‏للتأكّد من أن جهازك يستخدم أحدث إصدار من نظام التشغيل، يُرجى الانتقال إلى <ph name="LINK_BEGIN" />إعدادات نظام التشغيل Chromium<ph name="LINK_END" />.</translation>
 <translation id="7937630085815544518">‏تم تسجيل دخولك إلى Chromium باعتبارك <ph name="USER_EMAIL_ADDRESS" />. يُرجى استخدام الحساب نفسه لتسجيل الدخول مرة أخرى.</translation>
 <translation id="7975919845073681630">‏هذا تثبيت ثانوي من Chromium، ولا يمكن جعله متصفحك التلقائي.</translation>
@@ -208,7 +208,7 @@
 <translation id="8862326446509486874">لا تملك الحقوق الكافية للتثبيت على مستوى النظام. جرّب تشغيل المثبِّت بصفة مشرف.</translation>
 <translation id="8897323336392112261">‏كما أنها تتحكم في الصفحة التي تظهر عند تشغيل Chromium أو النقر على زر الصفحة الرئيسية.</translation>
 <translation id="8907580949721785412">‏يحاول Chromium عرض كلمات المرور. اكتب كلمة مرور Windows للسماح بذلك.</translation>
-<translation id="8941642502866065432">‏تعذّر تحديث Chromium</translation>
+<translation id="8941642502866065432">‏تعذّرت إعادة التحميل Chromium</translation>
 <translation id="8974095189086268230">‏أصبح نظام التشغيل Chromium متاحًا من خلال المزيد من <ph name="BEGIN_LINK_CROS_OSS" />البرامج مفتوحة المصدر<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="9019929317751753759">‏لجعل Chromium أكثر أمنًا، أوقفنا الإضافة التالية التي لم تُدرج في <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> وربما تكون قد أضيفت بدون علمك.</translation>
 <translation id="9089354809943900324">‏إصدار Chromium قديم</translation>

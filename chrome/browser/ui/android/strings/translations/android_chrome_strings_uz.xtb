@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Telefon raqamlari</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> ta yuklanma o‘chirib tashlandi</translation>
 <translation id="3822502789641063741">Sayt xotirasi tozalansinmi?</translation>
+<translation id="3849365399446680203">AR seansida bu sayt quyidagi amallarni bajara oladi:
+• atrofingizdagi muhitning 3D xaritasini yaratish
+• kamera harakatlarini kuzatish
+
+Kameradagi tasvirlar faqat sizga koʻrinadi. Kamera tasvirlari saytga koʻrinmaydi.</translation>
 <translation id="3859306556332390985">Oldinga surish</translation>
 <translation id="388596076286380598">Sevimli saytlaringizda maqola, video va boshqa kontentni oflayn rejimda yoki uzilishli internetda ham ochishingiz mumkin.</translation>
 <translation id="3894427358181296146">Jild qo‘shish</translation>
@@ -587,7 +592,6 @@ Bu sozlamani almashtirish uchun <ph name="BEGIN_LINK" />sinxronizatsiyani tiklan
 <translation id="5447765697759493033">Bu sayt tarjima qilinmaydi</translation>
 <translation id="545042621069398927">Yuklab olish tezlashtirilmoqda.</translation>
 <translation id="5456381639095306749">Sahifani yuklab olish</translation>
-<translation id="5475862044948910901">Virtual reallik seansi boshlansinmi?</translation>
 <translation id="548278423535722844">Xaritalar ilovasida ochish</translation>
 <translation id="5487521232677179737">Tarixni tozalash</translation>
 <translation id="5494752089476963479">Saytlarda chiquvchi yoqimsiz yoki befoyda reklamalar bloklansin</translation>
@@ -720,6 +724,7 @@ Yangi soʻrov ochish yoki qidiruv soʻrovini tahrirlash uchun kerakli soʻz usti
 <translation id="6395288395575013217">HAVOLA</translation>
 <translation id="6404511346730675251">Xatcho‘pni tahrirlash</translation>
 <translation id="6406506848690869874">Sinxronlash</translation>
+<translation id="6410973561433500075"><ph name="DOMAIN" /> orqali AR rejimiga kirilsinmi?</translation>
 <translation id="641643625718530986">Chop etish…</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> MB yuklab olindi</translation>
 <translation id="6427112570124116297">Internetni oʻz tilingizda kezing</translation>
@@ -759,7 +764,7 @@ Yangi soʻrov ochish yoki qidiruv soʻrovini tahrirlash uchun kerakli soʻz usti
 <translation id="6649642165559792194">Tasvirga razm solish <ph name="BEGIN_NEW" />Yangi<ph name="END_NEW" /></translation>
 <translation id="6656545060687952787">Qurilmalarni tekshirish uchun Chrome brauzeriga joylashuv ma’lumotlarini ko‘rish ruxsati zarur. <ph name="BEGIN_LINK" />Ruxsatlarni yangilang<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Parol</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Varaq</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" /> ilovasida ochish</translation>
 <translation id="666981079809192359">Chrome maxfiylik siyosati</translation>
 <translation id="6671495933530132209">Rasmni nusxalash</translation>
@@ -839,11 +844,6 @@ Yangi soʻrov ochish yoki qidiruv soʻrovini tahrirlash uchun kerakli soʻz usti
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Belgilangan 1 ta elementni ulashish}other{Belgilangan # ta elementni ulashish}}</translation>
 <translation id="7359002509206457351">To‘lov usullariga kirish uchun ruxsat</translation>
-<translation id="7365126855094612066">Ushbu seansda sayt quyidagilarni bajaradi:
-• atrofingizdagi muhitning 3D xaritasini yaratish
-• kamera harakatlarini kuzatish
-
-Sayt bu seansda kamerani ISHLATMAYDI. Kamera rasmlari faqat siz uchun chiqadi.</translation>
 <translation id="7375125077091615385">Turi:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

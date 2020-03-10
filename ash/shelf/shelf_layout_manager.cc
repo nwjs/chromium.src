@@ -33,6 +33,7 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/locale/locale_update_controller_impl.h"
+#include "ash/system/model/system_tray_model.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wm/fullscreen_window_finder.h"
@@ -408,6 +409,7 @@ void ShelfLayoutManager::InitObservers() {
   shell->lock_state_controller()->AddObserver(this);
   shell->activation_client()->AddObserver(this);
   shell->locale_update_controller()->AddObserver(this);
+  shell->system_tray_model()->virtual_keyboard()->AddObserver(this);
   state_.session_state = shell->session_controller()->GetSessionState();
   shelf_background_type_ = GetShelfBackgroundType();
   wallpaper_controller_observer_.Add(shell->wallpaper_controller());
@@ -437,6 +439,7 @@ void ShelfLayoutManager::PrepareForShutdown() {
   SplitViewController::Get(shelf_widget_->GetNativeWindow())
       ->RemoveObserver(this);
 
+  Shell::Get()->system_tray_model()->virtual_keyboard()->RemoveObserver(this);
   message_center::MessageCenter::Get()->RemoveObserver(this);
 }
 
@@ -772,6 +775,14 @@ ShelfBackgroundType ShelfLayoutManager::GetShelfBackgroundType() const {
       Shell::Get()->overview_controller()->InOverviewSession();
   if (IsTabletModeEnabled()) {
     if (app_list_is_visible) {
+      // If the IME virtual keyboard is showing, the shelf should appear in-app.
+      // The workspace area in tablet mode is always the in-app workspace area,
+      // and the virtual keyboard places itself on screen based on workspace
+      // area.
+      const bool is_virtual_keyboard_showing =
+          Shell::Get()->system_tray_model()->virtual_keyboard()->visible();
+      if (is_virtual_keyboard_showing)
+        return ShelfBackgroundType::kInApp;
       // If the home launcher is shown or mostly shown, show the home launcher
       // background. If it is mostly hidden, show the in-app or overview
       // background.
@@ -852,10 +863,7 @@ bool ShelfLayoutManager::HasVisibleWindow() const {
       return true;
     }
   }
-  auto* pip_container = Shell::GetContainer(root, kShellWindowId_PipContainer);
-  // The PIP window is not activatable and is not in the MRU list, but count
-  // it as a visible window for shelf auto-hide purposes. See crbug.com/942991.
-  return !pip_container->children().empty();
+  return false;
 }
 
 void ShelfLayoutManager::CancelDragOnShelfIfInProgress() {
@@ -1152,6 +1160,14 @@ void ShelfLayoutManager::OnCenterVisibilityChanged(
       FROM_HERE, visibility_update_for_tray_callback_.callback());
 }
 
+void ShelfLayoutManager::OnVirtualKeyboardVisibilityChanged() {
+  const bool app_list_is_visible =
+      Shell::Get()->app_list_controller() &&
+      Shell::Get()->app_list_controller()->IsVisible();
+  if (app_list_is_visible)
+    MaybeUpdateShelfBackground(AnimationChangeType::IMMEDIATE);
+}
+
 void ShelfLayoutManager::SuspendWorkAreaUpdate() {
   ++suspend_work_area_update_;
 }
@@ -1275,6 +1291,11 @@ HotseatState ShelfLayoutManager::CalculateHotseatState(
        overview_mode_will_start_) &&
       !overview_controller->IsCompletingShutdownAnimations();
   const bool app_list_visible = app_list_controller->GetTargetVisibility();
+
+  const bool virtual_keyboard_shown =
+      Shell::Get()->system_tray_model()->virtual_keyboard()->visible();
+  if (virtual_keyboard_shown)
+    return HotseatState::kHidden;
 
   // Only force to show if there is not a pending drag operation.
   if (shelf_widget_->is_hotseat_forced_to_show() && drag_status_ == kDragNone)

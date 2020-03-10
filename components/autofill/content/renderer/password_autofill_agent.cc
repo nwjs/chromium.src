@@ -584,8 +584,9 @@ bool PasswordAutofillAgent::FillSuggestion(
   WebInputElement password_element;
   PasswordInfo* password_info = nullptr;
 
-  if (!FindPasswordInfoForElement(*element, &username_element,
-                                  &password_element, &password_info) ||
+  if (!FindPasswordInfoForElement(*element, UseFallbackData(true),
+                                  &username_element, &password_element,
+                                  &password_info) ||
       (!password_element.IsNull() && !IsElementEditable(password_element))) {
     return false;
   }
@@ -664,8 +665,9 @@ bool PasswordAutofillAgent::PreviewSuggestion(
   WebInputElement password_element;
   PasswordInfo* password_info;
 
-  if (!FindPasswordInfoForElement(*element, &username_element,
-                                  &password_element, &password_info) ||
+  if (!FindPasswordInfoForElement(*element, UseFallbackData(true),
+                                  &username_element, &password_element,
+                                  &password_info) ||
       (!password_element.IsNull() && !IsElementEditable(password_element))) {
     return false;
   }
@@ -700,8 +702,9 @@ bool PasswordAutofillAgent::DidClearAutofillSelection(
   WebInputElement password_element;
   PasswordInfo* password_info;
 
-  if (!FindPasswordInfoForElement(*element, &username_element,
-                                  &password_element, &password_info)) {
+  if (!FindPasswordInfoForElement(*element, UseFallbackData(true),
+                                  &username_element, &password_element,
+                                  &password_info)) {
     return false;
   }
 
@@ -711,6 +714,7 @@ bool PasswordAutofillAgent::DidClearAutofillSelection(
 
 bool PasswordAutofillAgent::FindPasswordInfoForElement(
     const WebInputElement& element,
+    UseFallbackData use_fallback_data,
     WebInputElement* username_element,
     WebInputElement* password_element,
     PasswordInfo** password_info) {
@@ -734,7 +738,7 @@ bool PasswordAutofillAgent::FindPasswordInfoForElement(
       PasswordToLoginMap::const_iterator password_iter =
           password_to_username_.find(element);
       if (password_iter == password_to_username_.end()) {
-        if (web_input_to_password_info_.empty())
+        if (!use_fallback_data || web_input_to_password_info_.empty())
           return false;
         iter = last_supplied_password_info_iter_;
       } else {
@@ -815,8 +819,9 @@ bool PasswordAutofillAgent::TryToShowTouchToFill(
   WebInputElement password_element;
   PasswordInfo* password_info = nullptr;
   if (!input_element ||
-      !FindPasswordInfoForElement(*input_element, &username_element,
-                                  &password_element, &password_info)) {
+      !FindPasswordInfoForElement(*input_element, UseFallbackData(false),
+                                  &username_element, &password_element,
+                                  &password_info)) {
     return false;
   }
 
@@ -849,7 +854,8 @@ bool PasswordAutofillAgent::ShowSuggestions(const WebInputElement& element,
   WebInputElement password_element;
   PasswordInfo* password_info;
 
-  if (!FindPasswordInfoForElement(element, &username_element, &password_element,
+  if (!FindPasswordInfoForElement(element, UseFallbackData(true),
+                                  &username_element, &password_element,
                                   &password_info)) {
     MaybeCheckSafeBrowsingReputation(element);
     return false;
@@ -1249,8 +1255,9 @@ void PasswordAutofillAgent::TouchToFillClosed(bool show_virtual_keyboard) {
   WebInputElement username_element;
   WebInputElement password_element;
   PasswordInfo* password_info = nullptr;
-  if (!FindPasswordInfoForElement(focused_input_element_, &username_element,
-                                  &password_element, &password_info)) {
+  if (!FindPasswordInfoForElement(focused_input_element_, UseFallbackData(true),
+                                  &username_element, &password_element,
+                                  &password_info)) {
     return;
   }
 
@@ -1650,7 +1657,6 @@ bool PasswordAutofillAgent::FillUserNameAndPassword(
                 kPrefilledPlaceholderUsernameOverridden);
       }
     }
-    username_element.SetAutofillState(WebAutofillState::kAutofilled);
     if (logger)
       logger->LogElementName(Logger::STRING_USERNAME_FILLED, username_element);
   }
@@ -1889,8 +1895,11 @@ void PasswordAutofillAgent::AutofillField(const base::string16& value,
   const uint32_t field_id = field.UniqueRendererFormControlId();
   if (field_data_manager_.DidUserType(field_id))
     return;
-  if (field.Value().Utf16() != value)
-    field.SetSuggestedValue(WebString::FromUTF16(value));
+
+  if (field.Value().Utf16() == value)
+    return;
+
+  field.SetSuggestedValue(WebString::FromUTF16(value));
   field.SetAutofillState(WebAutofillState::kAutofilled);
   // Wait to fill until a user gesture occurs. This is to make sure that we do
   // not fill in the DOM with a password until we believe the user is

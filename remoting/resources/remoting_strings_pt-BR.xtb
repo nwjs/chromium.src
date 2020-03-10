@@ -174,7 +174,7 @@ Se a opção "<ph name="SERVICE_SCRIPT_NAME" />" já estiver marcada, desmarque-
 <translation id="4985296110227979402">Primeiro, é necessário configurar seu computador para acesso remoto.</translation>
 <translation id="5064360042339518108"><ph name="HOSTNAME" /> (off-line)</translation>
 <translation id="5070121137485264635">O host remoto requer a autenticação em um website de terceiros. Para continuar, você deve conceder à Área de trabalho remota do Google Chrome acesso a permissões adicionais para acessar este endereço:</translation>
-<translation id="507204348399810022">Tem certeza que quer desativar conexões remotas para <ph name="HOSTNAME" />?</translation>
+<translation id="507204348399810022">Você quer mesmo desativar conexões remotas para <ph name="HOSTNAME" />?</translation>
 <translation id="5081343395220691640">Falha ao se comunicar com o servidor: <ph name="ERROR" /></translation>
 <translation id="5156271271724754543">Digite o mesmo PIN nas duas caixas.</translation>
 <translation id="5170982930780719864">ID de host inválido.</translation>
@@ -258,7 +258,7 @@ Se "<ph name="SERVICE_SCRIPT_NAME" />" já estiver marcada, desmarque-a e marque
 <translation id="6948905685698011662">A Área de trabalho remota do Google Chrome agora está na Web. Confira nosso <ph name="LINK_BEGIN" />app da Web gratuito<ph name="LINK_END" />.</translation>
 <translation id="6963936880795878952">As conexões com o computador remoto estão temporariamente bloqueadas porque alguém estava tentando se conectar a ele com um PIN inválido. Tente novamente mais tarde.</translation>
 <translation id="6965382102122355670">OK</translation>
-<translation id="6985691951107243942">Tem certeza que quer desativar conexões remotas para <ph name="HOSTNAME" />? Se mudar de idéia, precisará visitar este computador para reativar as conexões.</translation>
+<translation id="6985691951107243942">Você quer mesmo desativar conexões remotas para <ph name="HOSTNAME" />? Se mudar de idéia, precisará visitar este computador para reativar as conexões.</translation>
 <translation id="6998989275928107238">Para</translation>
 <translation id="7019153418965365059">Erro de host não reconhecido: <ph name="HOST_OFFLINE_REASON" />.</translation>
 <translation id="701976023053394610">Assistência remota</translation>

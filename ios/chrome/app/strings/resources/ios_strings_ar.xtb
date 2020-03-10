@@ -146,7 +146,7 @@
 <translation id="2830972654601096923">إدارة العناوين...</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />، <ph name="STATE" />، <ph name="URL" /></translation>
 <translation id="2840687315230832938">عدم انتهاء إعداد المزامنة الأولية</translation>
-<translation id="2843803966603263712">إعادة تعيين إعدادات الترجمة</translation>
+<translation id="2843803966603263712">إعادة ضبط إعدادات الترجمة</translation>
 <translation id="2858204748079866344">‏لحماية خصوصيتك، لن يجري Chrome الملء التلقائي لكلمة المرور في هذا الحقل.</translation>
 <translation id="285960592395650245">إعادة محاولة التنزيل</translation>
 <translation id="2870560284913253234">الموقع</translation>
@@ -274,7 +274,7 @@
 <translation id="4659667755519643272">دخول أداة تغيير علامات التبويب</translation>
 <translation id="4666531726415300315">تم تسجيل الدخول كحساب <ph name="EMAIL" />
 
-تم تشفير بياناتك باستخدام عبارة مرور المزامنة. أدخلها لبدء المزامنة.</translation>
+تم ترميز بياناتك باستخدام عبارة مرور المزامنة. أدخلها لبدء المزامنة.</translation>
 <translation id="4689564913179979534">جارٍ إدارة طُرق الدفع...</translation>
 <translation id="473775607612524610">تحديث</translation>
 <translation id="4747097190499141774">‏لا يتضمّن التشفير باستخدام عبارة المرور طرق الدفع والعناوين من Google Pay. ولن يتمكّن أي شخص من الاطّلاع على بياناتك المشفرة إلا من يعرف عبارة مرورك. لا تُرسَل عبارة المرور إلى شركة Google ولا تُخزّن لديها. في حال نسيان عبارة المرور أو الرغبة في تغيير هذا الإعداد، ستحتاج إلى إعادة ضبط المزامنة. <ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /></translation>
@@ -301,7 +301,7 @@
 <translation id="5005498671520578047">نسخ كلمة المرور</translation>
 <translation id="5010803260590204777">افتح علامة تبويب تصفح متخفي لتصفّح الويب بخصوصية تامّة.</translation>
 <translation id="5039804452771397117">سماح</translation>
-<translation id="5059136629401106827">موافق</translation>
+<translation id="5059136629401106827">حسنًا</translation>
 <translation id="5062321486222145940">‏تثبيت Google Drive</translation>
 <translation id="5083464117946352670">تعذر تحديد حجم الملف.</translation>
 <translation id="5094827893301452931">‏اكتملت مشاركة Tweet.</translation>
@@ -395,7 +395,7 @@
 <translation id="6308436439357671616">هذا يتيح لك التقاط الصور وتحميلها.</translation>
 <translation id="6324528485781869530">تبديل حساب المزامنة</translation>
 <translation id="6324669097367352121">إعدادات تسجيل الدخول</translation>
-<translation id="6337234675334993532">تشفير</translation>
+<translation id="6337234675334993532">ترميز</translation>
 <translation id="633809752005859102">حدث خطأ ما، وسنحاول حل المشكلة.</translation>
 <translation id="6342069812937806050">الآن</translation>
 <translation id="6344783595350022745">محو النص</translation>
@@ -403,13 +403,13 @@
 <translation id="6362362396625799311">لا توجد علامات تبويب للتصفح المتخفي</translation>
 <translation id="6363526231572697780">ليس هناك اسم مستخدم</translation>
 <translation id="6374469231428023295">إعادة المحاولة</translation>
-<translation id="6380866119319257197">إذا كنت قد نسيت عبارة المرور أو ترغب في تغيير هذا الإعداد، يمكنك <ph name="BEGIN_LINK" />إعادة تعيين المزامنة<ph name="END_LINK" /></translation>
+<translation id="6380866119319257197">إذا كنت قد نسيت عبارة المرور أو ترغب في تغيير هذا الإعداد، يمكنك <ph name="BEGIN_LINK" />إعادة ضبط المزامنة<ph name="END_LINK" /></translation>
 <translation id="6389470377220713856">الاسم كما في البطاقة</translation>
 <translation id="6406506848690869874">المزامنة</translation>
 <translation id="6417838470969808600">تتوفر لديك الإشارات المرجعية، والسجل، وكلمات المرور، والإعدادات الأخرى من <ph name="USER_EMAIL1" />.</translation>
 <translation id="641799622251403418">تم التسجيل الدخول كحساب <ph name="EMAIL" />.
 
-تم تشفير بياناتك باستخدام عبارة مرور المزامنة في <ph name="TIME" />. أدخلها لبدء المزامنة.</translation>
+تم ترميز بياناتك باستخدام عبارة مرور المزامنة في <ph name="TIME" />. أدخلها لبدء المزامنة.</translation>
 <translation id="6418346271604475326">‏جارٍ إعداد PDF</translation>
 <translation id="6434591244308415567">حدث خطأ. يُرجى إعادة المحاولة لاحقًا.</translation>
 <translation id="6445051938772793705">البلد</translation>
@@ -439,11 +439,11 @@
 <translation id="6831043979455480757">ترجمة</translation>
 <translation id="6851516051005285358">طلب موقع سطح المكتب</translation>
 <translation id="6858855187367714033">تم مسحه ضوئيًا.</translation>
-<translation id="6859944681507688231">لمسح رمز الاستجابة السريعة أو بطاقة ائتمان ضوئيًا، يمكنك تشغيل الكاميرا من الإعدادات.</translation>
+<translation id="6859944681507688231">لمسح رمز الاستجابة السريعة أو بطاقة ائتمان ضوئيًا، يمكنك تفعيل الكاميرا من الإعدادات.</translation>
 <translation id="6873263987691478642">وضع تقسيم العرض</translation>
 <translation id="6888009575607455378">هل تريد فعلاً تجاهل التغييرات؟</translation>
 <translation id="6896758677409633944">نسخ</translation>
-<translation id="6903907808598579934">تشغيل المزامنة</translation>
+<translation id="6903907808598579934">تفعيل المزامنة</translation>
 <translation id="6914583639806229067">البحث عن الصورة التي نسختها</translation>
 <translation id="6914783257214138813">ستكون كلمات مرورك مرئية لأي شخص يمكنه الاطلاع على الملف الذي تم تصديره.</translation>
 <translation id="6930799952781667037">انقر للتغيير إلى هذه اللغة.</translation>
@@ -560,7 +560,7 @@
 <translation id="8588404856427128947">غير مفعَّل</translation>
 <translation id="8605219856220328675">إغلاق علامة التبويب.</translation>
 <translation id="8620640915598389714">تعديل</translation>
-<translation id="8636825310635137004">للحصول على علامات التبويب من أجهزتك الأخرى، شغِّل المزامنة.</translation>
+<translation id="8636825310635137004">للحصول على علامات التبويب من أجهزتك الأخرى، فعِّل المزامنة.</translation>
 <translation id="8654802032646794042">إلغاء</translation>
 <translation id="8668210798914567634">تم حفظ هذه الصفحة في قائمة القراءة.</translation>
 <translation id="8680787084697685621">تفاصيل تسجيل الدخول إلى الحساب قديمة.</translation>

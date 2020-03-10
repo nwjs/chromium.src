@@ -68,7 +68,7 @@
 <translation id="1430915738399379752">Imprimeix</translation>
 <translation id="1446450296470737166">Permet control total disp. MIDI</translation>
 <translation id="1450753235335490080">No es pot compartir <ph name="CONTENT_TYPE" /></translation>
-<translation id="145097072038377568">Aquest permís està desactivat a la configuració d'Android</translation>
+<translation id="145097072038377568">Desactivat a la configuració d'Android</translation>
 <translation id="1477626028522505441">No s'ha pogut baixar <ph name="FILE_NAME" /> a causa de problemes amb el servidor.</translation>
 <translation id="1506061864768559482">Motor de cerca</translation>
 <translation id="1513352483775369820">Adreces interès i historial web</translation>
@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Números de telèfon</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> baixades suprimides</translation>
 <translation id="3822502789641063741">Esborrem emmagatz. lloc web?</translation>
+<translation id="3849365399446680203">Mentre estiguis en el mode RA, pot ser que aquest lloc web pugui fer el següent:
+• Crear un mapa en 3D del teu entorn.
+• Fer un seguiment del moviment de la càmera.
+
+Només tu pots veure allò que la càmera veu. El lloc web no pot veure les imatges de la càmera.</translation>
 <translation id="3859306556332390985">Avança</translation>
 <translation id="388596076286380598">Accedeix a articles, vídeos i altres continguts dels llocs web que t'agraden encara que no tinguis connexió o que la connexió sigui deficient.</translation>
 <translation id="3894427358181296146">Afegeix una carpeta</translation>
@@ -587,7 +592,6 @@ Per canviar aquesta opció, <ph name="BEGIN_LINK" />restableix la sincronitzaci�
 <translation id="5447765697759493033">Aquest lloc web no es traduirà</translation>
 <translation id="545042621069398927">S'està accelerant la baixada.</translation>
 <translation id="5456381639095306749">Baixa la pàgina</translation>
-<translation id="5475862044948910901">Vols iniciar la sessió de realitat augmentada?</translation>
 <translation id="548278423535722844">Obre en una aplicació de mapes</translation>
 <translation id="5487521232677179737">Esborra les dades</translation>
 <translation id="5494752089476963479">Bloqueja els anuncis als llocs web que mostren publicitat intrusiva o enganyosa</translation>
@@ -720,6 +724,7 @@ Mantén premuda qualsevol paraula per cercar-la. Per definir millor la cerca, aj
 <translation id="6395288395575013217">ENLLAÇ</translation>
 <translation id="6404511346730675251">Edita l'adreça d'interès</translation>
 <translation id="6406506848690869874">Sincronització</translation>
+<translation id="6410973561433500075">Vols entrar al mode RA des del domini <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Imprimeix…</translation>
 <translation id="6416782512398055893">S'han baixat <ph name="MBS" /> MB</translation>
 <translation id="6427112570124116297">Tradueix el web</translation>
@@ -839,11 +844,6 @@ Mantén premuda qualsevol paraula per cercar-la. Per definir millor la cerca, aj
 <translation id="7352939065658542140">VÍDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Comparteix 1 element seleccionat}other{Comparteix # elements seleccionats}}</translation>
 <translation id="7359002509206457351">Accedeix a les formes de pagament</translation>
-<translation id="7365126855094612066">Mentre duri aquesta sessió, el lloc web podrà fer el següent:
-• Crear un mapa en 3D del teu entorn.
-• Fer el seguiment del moviment de la càmera.
-
-El lloc web NO obté accés a la càmera. Només tu pots veure les imatges de la càmera.</translation>
 <translation id="7375125077091615385">Tipus:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" /></translation>
 <translation id="7400418766976504921">URL</translation>
@@ -954,7 +954,7 @@ El lloc web NO obté accés a la càmera. Només tu pots veure les imatges de la
 <translation id="8110087112193408731">Vols veure l'activitat de Chrome a Benestar digital?</translation>
 <translation id="8116925261070264013">Silenciats</translation>
 <translation id="8127542551745560481">Edita la pàgina d'inici</translation>
-<translation id="813082847718468539">Mostra la informació del lloc</translation>
+<translation id="813082847718468539">Mostra la informació del lloc web</translation>
 <translation id="8137558756159375272">La funció Toca per cercar envia la paraula seleccionada i la pàgina actual com a context a la Cerca de Google. La podeu desactivar a <ph name="BEGIN_LINK" />Configuració<ph name="END_LINK" />.</translation>
 <translation id="8156139159503939589">En quins idiomes pots llegir?</translation>
 <translation id="8168435359814927499">Contingut</translation>

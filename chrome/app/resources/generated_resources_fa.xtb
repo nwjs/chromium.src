@@ -212,7 +212,7 @@
 <translation id="1288037062697528143">«نور شب» هنگام غروب آفتاب به‌طور خودکار روشن می‌شود</translation>
 <translation id="1288300545283011870">مشخصات گفتار</translation>
 <translation id="1293264513303784526">‏دستگاه USB-C (درگاه سمت چپ)</translation>
-<translation id="1293556467332435079">فایل‌ها</translation>
+<translation id="1293556467332435079">Files</translation>
 <translation id="1296911687402551044">پین کردن برگه انتخاب‌شده</translation>
 <translation id="1297175357211070620">مقصد</translation>
 <translation id="1300415640239881824">‏<ph name="DOMAIN" /> می‌خواهد Google شناسه دستگاهتان را تأیید کند تا واجد شرایط بودن آن را برای پخش بهبودیافته رسانه محافظت‌شده تعیین کند.</translation>
@@ -1213,6 +1213,7 @@
 <translation id="2653659639078652383">ارائه</translation>
 <translation id="265390580714150011">مقدار قسمت</translation>
 <translation id="2654166010170466751">اجازه به سایت‌ها برای نصب کنتر‌ل‌کننده‌های پرداخت</translation>
+<translation id="2654553774144920065">درخواست چاپ</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />ویژگی‌ها براساس دستگاه متفاوت است</translation>
 <translation id="2660779039299703961">رویداد</translation>
 <translation id="266079277508604648">‏چاپگر متصل نشد. بررسی کنید چاپگر روشن و ازطریق Wi-Fi یا USB به Chromebook متصل باشد.</translation>
@@ -2387,7 +2388,6 @@
 <translation id="4285418559658561636">به‌روزرسانی گذرواژه</translation>
 <translation id="4285498937028063278">لغو پین</translation>
 <translation id="428565720843367874">نرم‌افزار آنتی‌ویروس به‌طور غیرمنتظره‌ای در هنگام اسکن کردن این فایل متوقف شد.</translation>
-<translation id="4287502004382794929">به اندازه‌ کافی مجوز نرم‌افزار برای ثبت‌نام این دستگاه ندارید. لطفاً با مرکز فروش برای خرید بیشتر تماس بگیرید. اگر اعتقاد دارید که این پیام به اشتباه برای شما نشان داده شده است، لطفاً با مرکز پشتیبانی تماس بگیرید.</translation>
 <translation id="4289540628985791613">مرور کلی</translation>
 <translation id="4295072614469448764">برنامه در «ترمینال» دردسترس است. ممکن است در «راه‌انداز» هم نمادی وجود داشته باشد.</translation>
 <translation id="4295979599050707005">‏لطفاً دوباره به سیستم وارد شوید تا تأیید کنید حساب شما (<ph name="USER_EMAIL" />) می‌تواند با وب‌سایت‌ها، برنامه‌ها، و افزونه‌های Chrome و Google Play استفاده شود. همچنین می‌توانید این حساب را بردارید. <ph name="LINK_BEGIN" />بیشتر بدانید<ph name="LINK_END" /></translation>
@@ -3401,7 +3401,7 @@
 <translation id="5771816112378578655">راه‌اندازی در حال انجام...</translation>
 <translation id="5772265531560382923">{NUM_PAGES,plural, =1{می‌توانید منتظر پاسخگویی صفحه بمانید یا از آن خارج شوید.}one{می‌توانید منتظر پاسخگویی صفحه‌ها بمانید یا از آن‌ها خارج شوید.}other{می‌توانید منتظر پاسخگویی صفحه‌ها بمانید یا از آن‌ها خارج شوید.}}</translation>
 <translation id="577322787686508614">عملیات خواندن در این دستگاه مجاز نیست: «<ph name="DEVICE_NAME" />».</translation>
-<translation id="5774295353725270860">بازکردن برنامه فایل‌ها</translation>
+<translation id="5774295353725270860">‏باز کردن برنامه Files</translation>
 <translation id="5774515636230743468">اظهارنامه:</translation>
 <translation id="577624874850706961">جستجوی کوکی‌ها</translation>
 <translation id="5777468213129569553">‏باز کردن Chrome</translation>
@@ -3718,6 +3718,7 @@
 <translation id="6207282396926186323">‏نصب<ph name="APP_NAME" /> (برنامه Linux)</translation>
 <translation id="6207937957461833379">کشور/منطقه</translation>
 <translation id="6208521041562685716">داده تلفن همراه درحال فعال شدن است</translation>
+<translation id="6209908325007204267">‏دستگاهتان ارتقای Chrome Enterprise دارد، اما نام کاربری‌تان با حساب سازمانی مرتبط نیست. لطفاً با مراجعه به g.co/ChromeEnterpriseAccount در دستگاهی دیگر، حساب سازمانی ایجاد کنید.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: همگام‌سازی کار نمی‌کند</translation>
 <translation id="6212039847102026977">نمایش ویژگی‌های پیشرفته شبکه</translation>
 <translation id="6212168817037875041">خاموش کردن نمایشگر</translation>
@@ -4027,7 +4028,7 @@
 <translation id="6655458902729017087">پنهان‌سازی حساب‌ها</translation>
 <translation id="6657585470893396449">گذرواژه</translation>
 <translation id="6659213950629089752">برنامه افزودنی «<ph name="NAME" />» این صفحه را بزرگ‌نمایی کرده است</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">برگه</translation>
 <translation id="6664237456442406323">‏متأسفانه، رایانه شما با یک شناسه سخت‌افزار ناقص پیکربندی شده است. این موضوح سیستم عامل Chrome را از به‌روزرسانی با جدیدترین اصلاحات امنیتی باز می‌دارد که <ph name="BEGIN_BOLD" />می‌تواند رایانه شما را در برابر حملات مخرب آسیب‌پذیر نماید<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">هنگام باز کردن نمایه‌تان مشکلی پیش آمد. لطفاً از سیستم خارج شوید و دوباره به آن وارد شوید.</translation>
 <translation id="6667776121818773738">تصویر هم‌رسانی‌شده از دستگاه دیگر</translation>
@@ -4157,6 +4158,7 @@
 <translation id="6843423766595476978">‏Ok Google کاملاً آماده است</translation>
 <translation id="6845038076637626672">باز کردن در حداکثر اندازه</translation>
 <translation id="6845325883481699275">‏کمک به بهبود امنیت Chrome</translation>
+<translation id="6846178040388691741">«<ph name="EXTENSION_NAME" />» می‌خواهد <ph name="FILE_NAME" /> را با <ph name="PRINTER_NAME" /> چاپ کند.</translation>
 <translation id="6847125920277401289">برای ادامه، فضا خالی کنید</translation>
 <translation id="6848388270925200958">درحال‌حاضر، کارت‌هایی دارید که فقط در این دستگاه قابل استفاده‌اند</translation>
 <translation id="6850286078059909152">رنگ نوشتار</translation>
@@ -4400,6 +4402,7 @@
 <translation id="7186088072322679094">نگه داشتن در نوار ابزار</translation>
 <translation id="7187428571767585875">ورودی‌های رجیستری برای برداشتن یا تغییر دادن:</translation>
 <translation id="7189234443051076392">مطمئن شوید که در دستگاهتان فضای کافی وجود داشته باشد</translation>
+<translation id="7189451821249468368">برای ثبت‌نام این دستگاه، به ‌اندازه کافی ارتقا ندارید. لطفاً برای خرید بیشتر با مرکز فروش تماس بگیرید. اگر فکر می‌کنید این پیام به اشتباه به شما نشان داده شده است، لطفاً با مرکز پشتیبانی تماس بگیرید.</translation>
 <translation id="7189965711416741966">اثرانگشت اضافه شد.</translation>
 <translation id="7191159667348037">‏چاپگر ناشناس (USB)</translation>
 <translation id="7193051357671784796">این برنامه توسط سازمانتان اضافه شده است. برای تکمیل نصب، برنامه را بازراه‌اندازی کنید.</translation>
@@ -5773,7 +5776,6 @@
 <translation id="9050666287014529139">عبارت عبور</translation>
 <translation id="9052208328806230490">شما ثبت چاپگرهای خود را با <ph name="CLOUD_PRINT_NAME" /> از طریق حساب <ph name="EMAIL" /> انجام داده‌اید</translation>
 <translation id="9052404922357793350">ادامه مسدود کردن</translation>
-<translation id="9053091947372579468">‏دستگاهتان دارای مجوز Chrome است، اما نام کاربری‌تان با «کنسول سرپرست» مرتبط نشده است. لطفاً برای ادامه ثبت‌نام، حساب «کنسول سرپرست» ایجاد کنید. نکته: اگر بخواهید از دامنه خود برای ایجاد حساب «کنسول سرپرست» جدید استفاده کنید، باید بعد از ثبت‌نام، تأیید دامنه را هم تکمیل کنید. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">چاپ دورو</translation>
 <translation id="9053893665344928494">انتخاب من به خاطر سپرده شود</translation>
 <translation id="9055636786322918818">‏اجرای اجباری رمزگذاری RC4. استفاده از این گزینه احتمال خطر را بالا می‌برد، زیرا رمزهای RC4 امن نیست.</translation>

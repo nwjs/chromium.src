@@ -104,7 +104,9 @@ class MEDIA_GPU_EXPORT VaapiVideoEncodeAccelerator
   void EncodePendingInputs();
 
   // Uploads image data from |frame| to |va_surface_id|.
-  void UploadFrame(scoped_refptr<VideoFrame> frame, VASurfaceID va_surface_id);
+  void UploadFrame(scoped_refptr<VideoFrame> frame,
+                   VASurfaceID va_surface_id,
+                   const gfx::Size& va_surface_size);
 
   // Executes encode in hardware. This does not block and may return before
   // the job is finished.
@@ -156,6 +158,10 @@ class MEDIA_GPU_EXPORT VaapiVideoEncodeAccelerator
 
   // The aligned size of the allocated physical buffer for input buffer.
   gfx::Size aligned_va_surface_size_;
+
+  // The expected coded size of incoming video frames when |native_input_mode_|
+  // is false.
+  gfx::Size expected_input_coded_size_;
 
   // The visible rect to be encoded.
   gfx::Rect visible_rect_;

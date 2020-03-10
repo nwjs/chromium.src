@@ -367,6 +367,11 @@
 <translation id="381841723434055211">ଫୋନ୍ ନମ୍ଵରଗୁଡ଼ିକ</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" />ଟି ଡାଉନ୍‍‍ଲୋଡ୍ ଡିଲିଟ୍ କରାଯାଇଛି</translation>
 <translation id="3822502789641063741">ସାଇଟ୍ ଷ୍ଟୋରେଜ୍ ଖାଲି କରିବେ?</translation>
+<translation id="3849365399446680203">ଆପଣ ARରେ ଥିବା ସମୟରେ, ଏହି ସାଇଟ୍ ଏହା କରିପାରିବ:
+• ଆପଣଙ୍କର ପରିବେଶର ଏକ 3D ମ୍ୟାପ୍ ତିଆରି କରିବ
+• କ୍ୟାମେରା ମୋସନ୍ ଟ୍ରାକ୍ କରିବ
+
+ଆପଣଙ୍କ କ୍ୟାମେରା କ'ଣ ଦେଖୁଛି, ତାହା କେବଳ ଆପଣ ଦେଖିପାରିବେ। ସାଇଟ୍ ଆପଣଙ୍କର କ୍ୟାମେରାର ଛବି ଦେଖିପାରିବ ନାହିଁ।</translation>
 <translation id="3859306556332390985">ଆଗକୁ ବଢ଼ାନ୍ତୁ</translation>
 <translation id="388596076286380598">ଆପଣ ପସନ୍ଦ କରୁଥିବା ଆର୍ଟିକଲ୍, ଭିଡିଓ ଏବଂ ଅନ୍ୟ ବିଷୟବସ୍ତୁଗୁଡ଼ିକ ସାଇଟ୍‌ଗୁଡ଼ିକରୁ ପାଆନ୍ତୁ, ଏପରିକି ଆପଣ ଅଫ୍‌ଲାଇନ୍ ଥିବା ସମୟରେ କିମ୍ବା ଆପଣଙ୍କର ସଂଯୋଗ ଦୁର୍ବଳ ଥିବା ବେଳେ ମଧ୍ୟ ପାଆନ୍ତୁ।</translation>
 <translation id="3894427358181296146">ଫୋଲ୍ଡର୍‍‍ରେ ଯୋଗ କରନ୍ତୁ</translation>
@@ -587,7 +592,6 @@
 <translation id="5447765697759493033">ଏହି ସାଇଟ୍‌ ଅନୁବାଦ କରାଯିବ ନାହିଁ</translation>
 <translation id="545042621069398927">ଆପଣଙ୍କ ଡାଇନ୍‌ଲୋଡ୍‌ର ଗତି ବଢ଼ାଯାଉଛି।</translation>
 <translation id="5456381639095306749">ପୃଷ୍ଠା ଡାଉନ୍‌ଲୋଡ୍ କରନ୍ତୁ</translation>
-<translation id="5475862044948910901">ଅଗ୍‌ମେଣ୍ଟେଡ୍ ରିଆଲିଟୀ ସମୟ ଅବଧି ଆରମ୍ଭ କରିବେ?</translation>
 <translation id="548278423535722844">ମ୍ୟାପ୍ସ ଆପ୍‌ରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="5487521232677179737">ଡାଟା ଖାଲି କରନ୍ତୁ</translation>
 <translation id="5494752089476963479">ଅନଧିକାର ପ୍ରବେଶ କରିଥିବା କିମ୍ବା ବିଭ୍ରାନ୍ତିକର ବିଜ୍ଞାପନ ଦେଖାଉଥିବା ସାଇଟ୍ ବ୍ଲକ୍ କରନ୍ତୁ</translation>
@@ -720,6 +724,7 @@
 <translation id="6395288395575013217">ଲିଙ୍କ୍</translation>
 <translation id="6404511346730675251">ବୁକ୍‍ମାର୍କ ଏଡିଟ୍ କରନ୍ତୁ</translation>
 <translation id="6406506848690869874">ସିଙ୍କ୍‌ କରନ୍ତୁ</translation>
+<translation id="6410973561433500075"><ph name="DOMAIN" />ରୁ ARକୁ ଯିବେ କି?</translation>
 <translation id="641643625718530986">ପ୍ରିଣ୍ଟ କରନ୍ତୁ…</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> MB ଡାଉନ୍‍ଲୋଡ୍ ହୋଇଛି</translation>
 <translation id="6427112570124116297">ୱେବ୍ ଅନୁବାଦ କରନ୍ତୁ</translation>
@@ -759,7 +764,7 @@
 <translation id="6649642165559792194"><ph name="BEGIN_NEW" />ନୂଆ<ph name="END_NEW" /> ଛବିର ପୂର୍ବାବଲୋକନ କରନ୍ତୁ</translation>
 <translation id="6656545060687952787">ଡିଭାଇସ୍ ପାଇଁ ସ୍କାନ୍ କରିବାକୁ Chrome ଲୋକେସନ୍ ଆକ୍ସେସ୍ ଆବଶ୍ୟକ କରେ। <ph name="BEGIN_LINK" />ଅପ୍‌ଡେଟ୍ ଅନୁମତି<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">ପାସ୍‌ୱର୍ଡ</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">ଟାବ୍</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" />ରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="666981079809192359">Chrome ଗୋପନୀୟତା ବିଜ୍ଞପ୍ତି</translation>
 <translation id="6671495933530132209">ଛବି କପି କରନ୍ତୁ</translation>
@@ -839,11 +844,6 @@
 <translation id="7352939065658542140">ଭିଡିଓ</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1ଟି ଚୟନିତ ଆଇଟମ୍ ସେୟାର୍ କରନ୍ତୁ}other{#ଟି ଚୟନିତ ଆଇଟମ୍ ସେୟାର୍ କରନ୍ତୁ}}</translation>
 <translation id="7359002509206457351">ପେମେଣ୍ଟ ପଦ୍ଧତି ଆକ୍ସେସ୍ କରନ୍ତୁ</translation>
-<translation id="7365126855094612066">ଏହି ସମୟ ଅବଧି ପାଇଁ, ସାଇଟ୍ ଏହା କରିବାକୁ ସକ୍ଷମ ହେବ:
-• ଆପଣଙ୍କର ପରିବେଶର ଏକ 3D ମ୍ୟାପ୍ ତିଆରି କରିବ
-• କ୍ୟାମେରା ମୋସନ୍ ଟ୍ରାକ୍ କରିବ
-
-ସାଇଟ୍ କ୍ୟାମେରାକୁ ଆକ୍ସେସ୍ କରିପାରିବ ନାହିଁ। କ୍ୟାମେରାର ଛବିଗୁଡ଼ିକ କେବଳ ଆପଣଙ୍କୁ ଦେଖାଯିବ।</translation>
 <translation id="7375125077091615385">ପ୍ରକାର:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />।</translation>
 <translation id="7400418766976504921">URL</translation>

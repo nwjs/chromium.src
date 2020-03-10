@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Numeri di telefono</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> download eliminati</translation>
 <translation id="3822502789641063741">Cancellare i dati dei siti?</translation>
+<translation id="3849365399446680203">Mentre sei in AR, questo sito potrebbe essere in grado di:
+• Creare una mappa 3D del tuo ambiente.
+• Monitorare il movimento della videocamera.
+
+Soltanto tu puoi vedere cosa sta inquadrando la videocamera. Il sito non può vedere le immagini della videocamera.</translation>
 <translation id="3859306556332390985">Posiziona avanti</translation>
 <translation id="388596076286380598">Accedi ad articoli, video e altri contenuti dai siti che ti piacciono anche quando sei offline o se la connessione è insufficiente.</translation>
 <translation id="3894427358181296146">Aggiungi cartella</translation>
@@ -587,7 +592,6 @@ Per cambiare questa impostazione, <ph name="BEGIN_LINK" />reimposta la sincroniz
 <translation id="5447765697759493033">Questo sito non verrà tradotto</translation>
 <translation id="545042621069398927">Accelerazione del download in corso.</translation>
 <translation id="5456381639095306749">Scarica la pagina</translation>
-<translation id="5475862044948910901">Vuoi avviare una sessione di realtà aumentata?</translation>
 <translation id="548278423535722844">Apri nell'app di mappe</translation>
 <translation id="5487521232677179737">Cancella dati</translation>
 <translation id="5494752089476963479">Blocca gli annunci su siti che mostrano annunci invasivi o fuorvianti</translation>
@@ -720,6 +724,7 @@ Premi a lungo qualsiasi parola per creare una ricerca associata. Per perfezionar
 <translation id="6395288395575013217">LINK</translation>
 <translation id="6404511346730675251">Modifica preferito</translation>
 <translation id="6406506848690869874">Sincronizzazione</translation>
+<translation id="6410973561433500075">Vuoi entrare nella AR da <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Stampa…</translation>
 <translation id="6416782512398055893">Sono stati scaricati <ph name="MBS" /> MB</translation>
 <translation id="6427112570124116297">Traduci il Web</translation>
@@ -759,7 +764,7 @@ Premi a lungo qualsiasi parola per creare una ricerca associata. Per perfezionar
 <translation id="6649642165559792194">Anteprima immagine <ph name="BEGIN_NEW" />Novità<ph name="END_NEW" /></translation>
 <translation id="6656545060687952787">Chrome ha bisogno dell'accesso alla posizione per cercare dispositivi. <ph name="BEGIN_LINK" />Aggiorna le autorizzazioni<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Password</translation>
-<translation id="6659594942844771486">TAB</translation>
+<translation id="6659594942844771486">Scheda</translation>
 <translation id="666731172850799929">Apri in <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Informativa sulla privacy di Chrome</translation>
 <translation id="6671495933530132209">Copia immagine</translation>
@@ -839,11 +844,6 @@ Premi a lungo qualsiasi parola per creare una ricerca associata. Per perfezionar
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Condividi 1 elemento selezionato}other{Condividi # elementi selezionati}}</translation>
 <translation id="7359002509206457351">Accedi ai metodi di pagamento</translation>
-<translation id="7365126855094612066">Per la durata di questa sessione, il sito potrà:
-• Creare una mappa 3D del tuo ambiente.
-• Monitorare il movimento della videocamera.
-
-Il sito NON ottiene l'accesso alla videocamera. Le immagini della videocamera sono visibili soltanto a te.</translation>
 <translation id="7375125077091615385">Tipo:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.autofill.prefeditor.EditorDialog;
+import org.chromium.chrome.browser.autofill_assistant.generic_ui.AssistantValue;
 import org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections.AssistantAdditionalSection.Delegate;
 import org.chromium.chrome.browser.autofill_assistant.user_data.additional_sections.AssistantAdditionalSectionContainer;
 import org.chromium.chrome.browser.payments.AddressEditor;
@@ -60,7 +61,8 @@ class AssistantCollectUserDataBinder
         private final AssistantInfoSection mInfoSection;
         private final AssistantAdditionalSectionContainer mPrependedSections;
         private final AssistantAdditionalSectionContainer mAppendedSections;
-        private final ViewGroup mGenericUserInterfaceContainer;
+        private final ViewGroup mGenericUserInterfaceContainerPrepended;
+        private final ViewGroup mGenericUserInterfaceContainerAppended;
         private final Object mDividerTag;
         private final Activity mActivity;
 
@@ -75,7 +77,9 @@ class AssistantCollectUserDataBinder
                 AssistantInfoSection infoSection,
                 AssistantAdditionalSectionContainer prependedSections,
                 AssistantAdditionalSectionContainer appendedSections,
-                ViewGroup genericUserInterfaceContainer, Object dividerTag, Activity activity) {
+                ViewGroup genericUserInterfaceContainerPrepended,
+                ViewGroup genericUserInterfaceContainerAppended, Object dividerTag,
+                Activity activity) {
             mRootView = rootView;
             mPaymentRequestExpanderAccordion = accordion;
             mSectionToSectionPadding = sectionPadding;
@@ -90,7 +94,8 @@ class AssistantCollectUserDataBinder
             mInfoSection = infoSection;
             mPrependedSections = prependedSections;
             mAppendedSections = appendedSections;
-            mGenericUserInterfaceContainer = genericUserInterfaceContainer;
+            mGenericUserInterfaceContainerPrepended = genericUserInterfaceContainerPrepended;
+            mGenericUserInterfaceContainerAppended = genericUserInterfaceContainerAppended;
             mDividerTag = dividerTag;
             mActivity = activity;
         }
@@ -193,7 +198,7 @@ class AssistantCollectUserDataBinder
             AssistantCollectUserDataDelegate collectUserDataDelegate) {
         return new Delegate() {
             @Override
-            public void onValueChanged(String key, String value) {
+            public void onValueChanged(String key, AssistantValue value) {
                 collectUserDataDelegate.onKeyValueChanged(key, value);
             }
 
@@ -357,11 +362,18 @@ class AssistantCollectUserDataBinder
             view.mTermsAsCheckboxSection.setPrivacyNoticeText(
                     model.get(AssistantCollectUserDataModel.PRIVACY_NOTICE_TEXT));
             return true;
-        } else if (propertyKey == AssistantCollectUserDataModel.GENERIC_USER_INTERFACE) {
-            view.mGenericUserInterfaceContainer.removeAllViews();
-            if (model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE) != null) {
-                view.mGenericUserInterfaceContainer.addView(
-                        model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE));
+        } else if (propertyKey == AssistantCollectUserDataModel.GENERIC_USER_INTERFACE_PREPENDED) {
+            view.mGenericUserInterfaceContainerPrepended.removeAllViews();
+            if (model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE_PREPENDED) != null) {
+                view.mGenericUserInterfaceContainerPrepended.addView(
+                        model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE_PREPENDED));
+            }
+            return true;
+        } else if (propertyKey == AssistantCollectUserDataModel.GENERIC_USER_INTERFACE_APPENDED) {
+            view.mGenericUserInterfaceContainerAppended.removeAllViews();
+            if (model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE_APPENDED) != null) {
+                view.mGenericUserInterfaceContainerAppended.addView(
+                        model.get(AssistantCollectUserDataModel.GENERIC_USER_INTERFACE_APPENDED));
             }
             return true;
         } else if (propertyKey

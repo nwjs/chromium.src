@@ -247,6 +247,10 @@ void DirectRenderer::DecideRenderPassAllocationsForFrame(
   UpdateRenderPassTextures(render_passes_in_draw_order, render_passes_in_frame);
 }
 
+void DirectRenderer::ForceReshapeOnNextDraw() {
+  force_reshape_ = true;
+}
+
 void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
                                float device_scale_factor,
                                const gfx::Size& device_viewport_size,
@@ -306,16 +310,18 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
       device_scale_factor != reshape_device_scale_factor_ ||
       root_render_pass->color_space != reshape_device_color_space_ ||
       frame_has_alpha != reshape_has_alpha_ ||
-      use_stencil != reshape_use_stencil_) {
+      use_stencil != reshape_use_stencil_ || force_reshape_) {
     reshape_surface_size_ = device_viewport_size;
     reshape_device_scale_factor_ = device_scale_factor;
     reshape_device_color_space_ = root_render_pass->color_space;
     reshape_has_alpha_ =
         current_frame()->root_render_pass->has_transparent_background;
     reshape_use_stencil_ = overdraw_feedback_;
-    output_surface_->Reshape(
-        reshape_surface_size_, reshape_device_scale_factor_,
-        reshape_device_color_space_, reshape_has_alpha_, reshape_use_stencil_);
+    output_surface_->Reshape(reshape_surface_size_,
+                             reshape_device_scale_factor_,
+                             reshape_device_color_space_, reshape_has_alpha_,
+                             reshape_use_stencil_, force_reshape_);
+    force_reshape_ = false;
     if (overlay_processor_)
       overlay_processor_->SetViewportSize(reshape_surface_size_);
 #if defined(OS_MACOSX)

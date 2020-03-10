@@ -1211,6 +1211,7 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="2653659639078652383">Təqdim edin</translation>
 <translation id="265390580714150011">Sahə dəyəri</translation>
 <translation id="2654166010170466751">Saytların ödəniş meneceri quraşdırmasına icazə verin</translation>
+<translation id="2654553774144920065">Çap sorğusu</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funksiyalar cihaza görə dəyişir</translation>
 <translation id="2660779039299703961">Tədbir</translation>
 <translation id="266079277508604648">Printeri qoşmaq mümkün deyil. Printerin aktiv olmasını, Wi-Fi və ya USB ilə Chromebook'a qoşulu olub-olmamasını yoxlayın.</translation>
@@ -2383,7 +2384,6 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="4285418559658561636">Parolu Yeniləyin</translation>
 <translation id="4285498937028063278">Çıxarın</translation>
 <translation id="428565720843367874">Bu faylı skan edərkən antivirus dayandı.</translation>
-<translation id="4287502004382794929">Bu cihazı qeydiyyata almaq üçün yetərincə lisenziyanız yoxdur. Əlavə lisenziya almaq üçün satış şöbəsi ilə əlaqə saxlayın. Bu mesajın səhvən göndərildiyini düünürsünüzsə, dəstək şöbəsi ilə əlaqə saxlayın.</translation>
 <translation id="4289540628985791613">Baxış</translation>
 <translation id="4295072614469448764">Terminalda tətbiq əlçatandır. Başladıcınızda da işarə görünə bilər.</translation>
 <translation id="4295979599050707005"><ph name="USER_EMAIL" /> hesabının Chrome və Google Play'də veb sayt, tətbiq və artırmalar ilə istifadə edilə biləcəyini təsdiq etmək üçün yenidən daxil olun. Həmçinin bu hesabı silə bilərsiniz. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
@@ -3712,6 +3712,7 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="6207282396926186323"><ph name="APP_NAME" /> (Linux Tətbiqi) quraşdırın</translation>
 <translation id="6207937957461833379">Ölkə / Region</translation>
 <translation id="6208521041562685716">Mobil data aktiv edilir</translation>
+<translation id="6209908325007204267">Cihazınıza Chrome Enterprise Güncəlləməsi daxildir, lakin istifadəçi adınız təşkilat hesabı ilə əlaqələndirilməyib. İkinci cihazda g.co/ChromeEnterpriseAccount ünvanına keçərək təşkilat hesabı yaradın.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Sinxronizasiya işləmir</translation>
 <translation id="6212039847102026977">Qabaqcıl şəbəkə xüsusiyyətlərini göstərin</translation>
 <translation id="6212168817037875041">Ekranı deaktiv edin</translation>
@@ -4151,6 +4152,7 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="6843423766595476978">Ok Google tam hazırdır</translation>
 <translation id="6845038076637626672">Maksimal açın</translation>
 <translation id="6845325883481699275">Chrome təhlükəsizliyini təkmilləşdirin</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" <ph name="FILE_NAME" /> faylını <ph name="PRINTER_NAME" /> adı ilə çap etmək istəyir.</translation>
 <translation id="6847125920277401289">Davam etmək üçün yer boşaldın</translation>
 <translation id="6848388270925200958">Hazırda yalnız bu cihazda istifadə edilə bilən bir neçə kartınız var</translation>
 <translation id="6850286078059909152">Mətn rəngi</translation>
@@ -4394,6 +4396,7 @@ Cihazda Family Link tətbiqini quraşdırmaqla bu hesabın ayarlarını idarə e
 <translation id="7186088072322679094">Alətlər panelində saxlayın</translation>
 <translation id="7187428571767585875">Silinəcək və ya dəyişdiriləcək qeyd girişləri:</translation>
 <translation id="7189234443051076392">Əmin olun ki cihazda kifayət qədər yer var</translation>
+<translation id="7189451821249468368">Bu cihazı qeydiyyata almaq üçün yetərincə güncəlləməniz yoxdur. Daha çoxunu almaq üçün satış şöbəsi ilə əlaqə saxlayın. Bu mesajın səhvən göndərildiyini düünürsünüzsə, dəstək xidməti ilə əlaqə saxlayın.</translation>
 <translation id="7189965711416741966">Barmaq izi əlavə edildi.</translation>
 <translation id="7191159667348037">Naməlum Printer (USB)</translation>
 <translation id="7193051357671784796">Bu tətbiqi təşkilatınız əlavə edib. Quraşdırmanı tamamlamaq üçün tətbiqi yenidən başladın.</translation>
@@ -5763,7 +5766,6 @@ Bu saytın blok edilməsini düşünmürəm!</translation>
 <translation id="9050666287014529139">Parol ifadəsi</translation>
 <translation id="9052208328806230490"><ph name="EMAIL" /> hesabını istifadə etməklə, printerlərinizi <ph name="CLOUD_PRINT_NAME" /> adı ilə qeydiyyatdan keçirdiniz.</translation>
 <translation id="9052404922357793350">Blok etməyə davam edin</translation>
-<translation id="9053091947372579468">Cihazınızda Chrome lisenziyası var, lakin istifadəçi adı Admin konsolu ilə əlaqələndrilməyib. Qeydiyyata davam etmək üçün Admin konsolu hesabı yaradın. Qeyd: Yeni Admin konsolu yaratmaq üçün öz domeninizi seçsəniz, qeydiyyatdan sonra domeni doğrulamağı tamamlamalısınız. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Hər iki tərəfində çap edin</translation>
 <translation id="9053893665344928494">Seçimi yadda saxlayın</translation>
 <translation id="9055636786322918818">RC4 şifrələməsini tətbiq edin. RC4 şifrələri təhlükəli olduğu üçün bu seçimdən istifadə etmək riski artırır.</translation>

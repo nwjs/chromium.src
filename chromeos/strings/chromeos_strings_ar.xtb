@@ -7,7 +7,7 @@
 <translation id="1930797645656624981">‏خدمة أسلوب الإدخال لنظام التشغيل Chrome</translation>
 <translation id="1979103255016296513">تأخير تغيير كلمة المرور</translation>
 <translation id="2049639323467105390">تتم إدارة هذا الجهاز بواسطة <ph name="DOMAIN" />.</translation>
-<translation id="2338501278241028356">تشغيل البلوتوث لاكتشاف الأجهزة القريبة</translation>
+<translation id="2338501278241028356">تفعيل البلوتوث لاكتشاف الأجهزة القريبة</translation>
 <translation id="2805756323405976993">التطبيقات</translation>
 <translation id="2872961005593481000">إيقاف التشغيل</translation>
 <translation id="3008341117444806826">إعادة التحميل</translation>
@@ -35,6 +35,6 @@
 <translation id="7690294790491645610">تأكيد كلمة المرور الجديدة</translation>
 <translation id="808894953321890993">تغيير كلمة المرور</translation>
 <translation id="8747900814994928677">تأكيد التغيير</translation>
-<translation id="910415269708673980">إعادة تحميل تذكرة من أجل <ph name="PRINCIPAL_NAME" /></translation>
+<translation id="910415269708673980">تحديث تذكرة من أجل <ph name="PRINCIPAL_NAME" /></translation>
 <translation id="9111102763498581341">فتح القفل</translation>
 </translationbundle>

@@ -67,6 +67,8 @@ NGSimplifiedLayoutAlgorithm::NGSimplifiedLayoutAlgorithm(
 
   if (physical_fragment.Baseline())
     container_builder_.SetBaseline(*physical_fragment.Baseline());
+  if (physical_fragment.LastBaseline())
+    container_builder_.SetLastBaseline(*physical_fragment.LastBaseline());
 
   container_builder_.SetBlockSize(ComputeBlockSizeForFragment(
       ConstraintSpace(), Style(),

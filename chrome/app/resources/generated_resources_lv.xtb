@@ -1216,6 +1216,7 @@ Varat pārvaldīt šī konta iestatījumus, savā ierīcē instalējot lietotni 
 <translation id="2653659639078652383">Iesniegt</translation>
 <translation id="265390580714150011">Lauka vērtība</translation>
 <translation id="2654166010170466751">Atļaut vietnēm instalēt maksājumu apdarinātājus</translation>
+<translation id="2654553774144920065">Drukas pieprasījums</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Dažādās ierīcēs funkcijas var atšķirties</translation>
 <translation id="2660779039299703961">Notikums</translation>
 <translation id="266079277508604648">Nevar izveidot savienojumu ar printeri. Pārbaudiet, vai printeris ir ieslēgts un vai printerim ir izveidots savienojums ar Chromebook datoru Wi-Fi tīklā vai izmantojot USB savienojumu.</translation>
@@ -2390,7 +2391,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="4285418559658561636">Atjaunināt paroli</translation>
 <translation id="4285498937028063278">Atspraust</translation>
 <translation id="428565720843367874">Šī faila pārbaudes laikā radās neparedzēta pretvīrusu programmatūras kļūda.</translation>
-<translation id="4287502004382794929">Jums nav pietiekami daudz programmatūras licenču, lai reģistrētu šo ierīci. Lūdzu, sazinieties ar tirdzniecības nodaļu, lai iegādātos vairāk licenču. Ja uzskatāt, ka šis ziņojums tiek parādīts kļūdas dēļ, lūdzu, sazinieties ar atbalsta dienestu.</translation>
 <translation id="4289540628985791613">Kopsavilkums</translation>
 <translation id="4295072614469448764">Lietotne ir pieejama jūsu terminālī. Programmā Palaidējs var būt redzama arī ikona.</translation>
 <translation id="4295979599050707005">Lūdzu, pierakstieties vēlreiz, lai apstiprinātu, ka tīmekļa vietnes, lietotnes un paplašinājumi pakalpojumos Chrome un Google Play drīkst izmantot jūsu <ph name="USER_EMAIL" /> kontu. Varat arī noņemt šo kontu. <ph name="LINK_BEGIN" />Uzzināt vairāk<ph name="LINK_END" /></translation>
@@ -3404,7 +3404,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="5771816112378578655">Notiek iestatīšana...</translation>
 <translation id="5772265531560382923">{NUM_PAGES,plural, =1{Varat uzgaidīt, līdz lapa reaģēs, vai iziet no lapas.}zero{Varat uzgaidīt, līdz lapas reaģēs, vai iziet no lapām.}one{Varat uzgaidīt, līdz lapas reaģēs, vai iziet no lapām.}other{Varat uzgaidīt, līdz lapas reaģēs, vai iziet no lapām.}}</translation>
 <translation id="577322787686508614">Lasīšanas darbība nav atļauta šajā ierīcē: “<ph name="DEVICE_NAME" />”.</translation>
-<translation id="5774295353725270860">Atvērt lietotni Faili</translation>
+<translation id="5774295353725270860">Atvērt lietotni Files</translation>
 <translation id="5774515636230743468">Manifests:</translation>
 <translation id="577624874850706961">Meklēt sīkfailus</translation>
 <translation id="5777468213129569553">Atvērt Chrome</translation>
@@ -3721,6 +3721,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="6207282396926186323">Linux lietotnes <ph name="APP_NAME" /> instalēšana</translation>
 <translation id="6207937957461833379">Valsts/reģions</translation>
 <translation id="6208521041562685716">Tiek aktivizēti mobilie dati</translation>
+<translation id="6209908325007204267">Jūsu ierīces komplektācijā ir iekļauts Chrome uzņēmuma versijas jauninājums, taču jūsu lietotājvārds nav saistīts ar uzņēmuma kontu. Lūdzu, izveidojiet uzņēmuma kontu, otrā ierīcē apmeklējot vietni g.co/ChromeEnterpriseAccount.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: sinhronizācija nedarbojas</translation>
 <translation id="6212039847102026977">Rādīt tīkla papildu rekvizītus</translation>
 <translation id="6212168817037875041">Izslēgt displeju</translation>
@@ -4160,6 +4161,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="6843423766595476978">Komanda “Ok Google” tika iestatīta</translation>
 <translation id="6845038076637626672">Atvērt maksimizētā logā</translation>
 <translation id="6845325883481699275">Palīdzēt uzlabot Chrome drošību</translation>
+<translation id="6846178040388691741">Paplašinājums “<ph name="EXTENSION_NAME" />” vēlas drukāt failu “<ph name="FILE_NAME" />” printerī <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Lai turpinātu, atbrīvojiet vietu</translation>
 <translation id="6848388270925200958">Pašlaik dažas no savām kartēm varat izmantot tikai šajā ierīcē</translation>
 <translation id="6850286078059909152">Teksta krāsa</translation>
@@ -4403,6 +4405,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="7186088072322679094">Saglabāšana rīkjoslā</translation>
 <translation id="7187428571767585875">Noņemamie vai maināmie reģistra ieraksti:</translation>
 <translation id="7189234443051076392">Ierīcē ir jābūt pietiekami daudz vietas.</translation>
+<translation id="7189451821249468368">Jums nav pietiekami daudz jauninātu licenču, lai reģistrētu šo ierīci. Lūdzu, sazinieties ar tirdzniecības nodaļu, lai iegādātos vairāk licenču. Ja uzskatāt, ka šis ziņojums tiek rādīts kļūdas dēļ, lūdzu, sazinieties ar atbalsta dienestu.</translation>
 <translation id="7189965711416741966">Pirksta nospiedums tika pievienots.</translation>
 <translation id="7191159667348037">Nezināms printeris (USB)</translation>
 <translation id="7193051357671784796">Šo lietotni pievienoja jūsu organizācija. Lai pabeigtu instalēšanu, restartējiet lietotni.</translation>
@@ -5775,7 +5778,6 @@ Glabājiet atslēgas failu drošā vietā. Tas būs vajadzīgs, lai izveidotu ja
 <translation id="9050666287014529139">Ieejas frāze</translation>
 <translation id="9052208328806230490">Jūs esat reģistrējis savus printerus ar nosaukumu <ph name="CLOUD_PRINT_NAME" />, izmantojot kontu <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Turpināt bloķēt</translation>
-<translation id="9053091947372579468">Jūsu ierīcei ir Chrome licence, tomēr jūsu lietotājvārds nav piesaistīts administrēšanas konsolei. Lai turpinātu reģistrāciju, izveidojiet administrēšanas konsoles kontu. Piezīme: ja jauna administrēšanas konsoles konta izveidei izmantosiet savu domēnu, pēc reģistrēšanas būs jāveic arī domēna verifikācijas procedūra. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Drukāt abās pusēs</translation>
 <translation id="9053893665344928494">Atcerēties manu izvēli</translation>
 <translation id="9055636786322918818">Piemērot RC4 šifrēšanu. Ja izmantosiet šo opciju, palielināsies risks, jo RC4 šifri nav droši.</translation>

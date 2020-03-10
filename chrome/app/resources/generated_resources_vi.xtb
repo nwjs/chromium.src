@@ -1216,6 +1216,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="2653659639078652383">Gửi</translation>
 <translation id="265390580714150011">Giá trị Trường</translation>
 <translation id="2654166010170466751">Cho phép các trang web cài đặt trình xử lý thanh toán</translation>
+<translation id="2654553774144920065">Yêu cầu in</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Các tính năng có thể thay đổi tùy theo thiết bị</translation>
 <translation id="2660779039299703961">Sự kiện</translation>
 <translation id="266079277508604648">Không thể kết nối với máy in. Hãy kiểm tra để đảm bảo rằng bạn đã bật máy in cũng như đã kết nối máy in với Chromebook qua Wi-Fi hoặc USB.</translation>
@@ -2390,7 +2391,6 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="4285418559658561636">Cập nhật mật khẩu</translation>
 <translation id="4285498937028063278">Bỏ ghim</translation>
 <translation id="428565720843367874">Phần mềm chống vi-rút bị lỗi bất ngờ khi đang quét tệp này.</translation>
-<translation id="4287502004382794929">Bạn không có đủ giấy phép phần mềm để đăng ký thiết bị này. Vui lòng liên hệ với bộ phận bán hàng để mua thêm. Nếu bạn nhận được thư này do nhầm lẫn, vui lòng liên hệ với bộ phận hỗ trợ.</translation>
 <translation id="4289540628985791613">Tổng quan</translation>
 <translation id="4295072614469448764">Ứng dụng này hiện đã có trong thiết bị của bạn. Ngoài ra, có thể có một biểu tượng trong Trình chạy.</translation>
 <translation id="4295979599050707005">Vui lòng đăng nhập lại để xác nhận rằng tài khoản <ph name="USER_EMAIL" /> của bạn có thể dùng với các trang web, ứng dụng và tiện ích trong Chrome cũng như Google Play. Bạn cũng có thể xóa tài khoản này. <ph name="LINK_BEGIN" />Tìm hiểu thêm<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="6207282396926186323">Cài đặt <ph name="APP_NAME" /> (Ứng dụng Linux)</translation>
 <translation id="6207937957461833379">Quốc gia/vùng</translation>
 <translation id="6208521041562685716">Đang kích hoạt dữ liệu di động</translation>
+<translation id="6209908325007204267">Thiết bị của bạn có Bản nâng cấp Chrome Enterprise, nhưng tên người dùng lại chưa được liên kết với một tài khoản doanh nghiệp. Vui lòng truy cập vào g.co/ChromeEnterpriseAccount để tạo một tài khoản doanh nghiệp trên thiết bị phụ.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Tính năng đồng bộ hóa hiện không hoạt động</translation>
 <translation id="6212039847102026977">Hiển thị thuộc tính mạng nâng cao</translation>
 <translation id="6212168817037875041">Tắt màn hình</translation>
@@ -4030,7 +4031,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="6655458902729017087">Ẩn tài khoản</translation>
 <translation id="6657585470893396449">Mật khẩu</translation>
 <translation id="6659213950629089752">Trang này được thu phóng bằng tiện ích "<ph name="NAME" />"</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Thẻ</translation>
 <translation id="6664237456442406323">Rất tiếc, máy tính của bạn được định cấu hình bằng ID phần cứng không đúng định dạng. Điều này ngăn Chrome OS cập nhật các bản vá bảo mật mới nhất và máy tính của bạn <ph name="BEGIN_BOLD" />có thể bị các cuộc tấn công làm hại<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">Đã xảy ra sự cố khi mở hồ sơ của bạn. Vui lòng đăng xuất rồi đăng nhập lại.</translation>
 <translation id="6667776121818773738">Hình ảnh chia sẻ từ thiết bị khác</translation>
@@ -4160,6 +4161,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="6843423766595476978">Đã thiết lập xong Ok Google</translation>
 <translation id="6845038076637626672">Mở ở dạng phóng to</translation>
 <translation id="6845325883481699275">Giúp cải thiện khả năng bảo mật của Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" muốn in <ph name="FILE_NAME" /> bằng <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Giải phóng dung lượng để tiếp tục</translation>
 <translation id="6848388270925200958">Bạn hiện có một số thẻ chỉ dùng được trên thiết bị này</translation>
 <translation id="6850286078059909152">Màu văn bản</translation>
@@ -4403,6 +4405,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="7186088072322679094">Giữ trong thanh công cụ</translation>
 <translation id="7187428571767585875">Các mục sổ đăng ký sẽ bị xóa hoặc thay đổi:</translation>
 <translation id="7189234443051076392">Hãy đảm bảo thiết bị của bạn có đủ dung lượng</translation>
+<translation id="7189451821249468368">Bạn không có đủ bản nâng cấp để đăng ký thiết bị này. Vui lòng liên hệ với bộ phận bán hàng để mua thêm. Nếu bạn nhận được thư này do nhầm lẫn, vui lòng liên hệ với nhóm hỗ trợ.</translation>
 <translation id="7189965711416741966">Đã thêm vân tay.</translation>
 <translation id="7191159667348037">Máy in không xác định (USB)</translation>
 <translation id="7193051357671784796">Tổ chức của bạn đã thêm ứng dụng này. Hãy khởi động lại ứng dụng này để hoàn tất quá trình cài đặt.</translation>
@@ -4661,7 +4664,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="7551643184018910560">Ghim vào giá</translation>
 <translation id="7552846755917812628">Thử các mẹo sau:</translation>
 <translation id="7553242001898162573">Nhập mật khẩu của bạn</translation>
-<translation id="7554791636758816595">Tab mới</translation>
+<translation id="7554791636758816595">Thẻ mới</translation>
 <translation id="7556033326131260574">Smart Lock không thể xác minh tài khoản của bạn. Hãy nhập mật khẩu của bạn để truy cập.</translation>
 <translation id="7556242789364317684">Thật không may, <ph name="SHORT_PRODUCT_NAME" /> không thể khôi phục cài đặt của bạn. Để khắc phục lỗi, <ph name="SHORT_PRODUCT_NAME" /> phải đặt lại thiết bị của bạn bằng Powerwash.</translation>
 <translation id="7559719679815339381">Vui lòng đợi....ứng dụng Kiosk đang được cập nhật. Vui lòng không rút thẻ USB.</translation>
@@ -5776,7 +5779,6 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="9050666287014529139">Cụm mật khẩu</translation>
 <translation id="9052208328806230490">Bạn vừa đăng ký máy in của mình với <ph name="CLOUD_PRINT_NAME" /> bằng tài khoản <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Tiếp tục chặn</translation>
-<translation id="9053091947372579468">Thiết bị của bạn bao gồm giấy phép Chrome, nhưng tên người dùng của bạn lại không liên kết với Bảng điều khiển dành cho quản trị viên. Vui lòng tạo tài khoản Bảng điều khiển dành cho quản trị viên để tiếp tục đăng ký. Lưu ý: Nếu chọn dùng miền của riêng mình để tạo tài khoản mới trên Bảng điều khiển dành cho quản trị viên, bạn vẫn phải hoàn tất quy trình xác minh miền sau khi đăng ký. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">In trên hai mặt</translation>
 <translation id="9053893665344928494">Ghi nhớ lựa chọn của tôi</translation>
 <translation id="9055636786322918818">Thực thi mã hóa RC4. Việc sử dụng tùy chọn này sẽ làm gia tăng rủi ro vì các thuật toán mã hóa RC4 là không an toàn.</translation>

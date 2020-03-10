@@ -32,6 +32,13 @@ class WaitableEvent;
 
 namespace credential_provider {
 
+enum class FAILEDOPERATIONS {
+  ADD_USER,
+  CHANGE_PASSWORD,
+  GET_USER_FULLNAME,
+  SET_USER_FULLNAME
+};
+
 void InitializeRegistryOverrideForTesting(
     registry_util::RegistryOverrideManager* registry_override);
 
@@ -121,14 +128,6 @@ class FakeOSUserManager : public OSUserManager {
 
   bool IsDeviceDomainJoined() override;
 
-  void SetShouldFailUserCreation(bool should_fail) {
-    should_fail_user_creation_ = should_fail;
-  }
-
-  void SetShouldUserCreationFailureReason(HRESULT hr) {
-    fail_user_creation_hr_ = hr;
-  }
-
   void SetIsDeviceDomainJoined(bool is_device_domain_joined) {
     is_device_domain_joined_ = is_device_domain_joined;
   }
@@ -186,23 +185,23 @@ class FakeOSUserManager : public OSUserManager {
   size_t GetUserCount() const { return username_to_info_.size(); }
   std::vector<std::pair<base::string16, base::string16>> GetUsers() const;
 
-  void ShouldFailChangePassword(bool status, HRESULT failure_reason) {
-    fail_change_password_ = status;
-    if (status)
-      failed_change_password_hr_ = failure_reason;
+  void SetFailureReason(FAILEDOPERATIONS failed_operaetion,
+                        HRESULT failure_reason) {
+    failure_reasons_[failed_operaetion] = failure_reason;
   }
 
-  bool DoesPasswordChangeFail() { return fail_change_password_; }
+  bool DoesOperationFail(FAILEDOPERATIONS op) {
+    return failure_reasons_.find(op) != failure_reasons_.end();
+  }
+
+  void RestoreOperation(FAILEDOPERATIONS op) { failure_reasons_.erase(op); }
 
  private:
   OSUserManager* original_manager_;
   DWORD next_rid_ = 0;
   std::map<base::string16, UserInfo> username_to_info_;
-  bool should_fail_user_creation_ = false;
   bool is_device_domain_joined_ = false;
-  bool fail_change_password_ = false;
-  HRESULT failed_change_password_hr_ = E_FAIL;
-  HRESULT fail_user_creation_hr_ = E_FAIL;
+  std::map<FAILEDOPERATIONS, HRESULT> failure_reasons_;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -308,6 +307,23 @@ class FakeWinHttpUrlFetcherFactory {
   // to this method.
   void SetFakeFailedResponse(const GURL& url, HRESULT failed_hr);
 
+  // Sets the option to collect request data for each URL fetcher created.
+  void SetCollectRequestData(bool value) { collect_request_data_ = value; }
+
+  // Data used to make each HTTP request by the fetcher.
+  struct RequestData {
+    RequestData();
+    RequestData(const RequestData& rhs);
+    ~RequestData();
+    WinHttpUrlFetcher::Headers headers;
+    std::string body;
+    int timeout_in_millis;
+  };
+
+  // Returns the request data for the request identified by |request_index|.
+  RequestData GetRequestData(size_t request_index) const;
+
+  // Returns the number of requests created.
   size_t requests_created() const { return requests_created_; }
 
  private:
@@ -330,6 +346,8 @@ class FakeWinHttpUrlFetcherFactory {
   std::map<GURL, Response> fake_responses_;
   std::map<GURL, HRESULT> failed_http_fetch_hr_;
   size_t requests_created_ = 0;
+  bool collect_request_data_ = false;
+  std::vector<RequestData> requests_data_;
 };
 
 class FakeWinHttpUrlFetcher : public WinHttpUrlFetcher {
@@ -343,16 +361,21 @@ class FakeWinHttpUrlFetcher : public WinHttpUrlFetcher {
 
   // WinHttpUrlFetcher
   bool IsValid() const override;
+  HRESULT SetRequestHeader(const char* name, const char* value) override;
+  HRESULT SetRequestBody(const char* body) override;
+  HRESULT SetHttpRequestTimeout(const int timeout_in_millis) override;
   HRESULT Fetch(std::vector<char>* response) override;
   HRESULT Close() override;
 
  private:
   friend FakeWinHttpUrlFetcherFactory;
+  typedef FakeWinHttpUrlFetcherFactory::RequestData RequestData;
 
   Headers response_headers_;
   std::string response_;
   HANDLE send_response_event_handle_;
   HRESULT response_hr_ = S_OK;
+  RequestData* request_data_ = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -374,7 +397,11 @@ class FakeAssociatedUserValidator : public AssociatedUserValidator {
 
 class FakeChromeAvailabilityChecker : public ChromeAvailabilityChecker {
  public:
-  enum HasSupportedChromeCheckType { kChromeForceYes, kChromeForceNo };
+  enum HasSupportedChromeCheckType {
+    kChromeForceYes,
+    kChromeForceNo,
+    kChromeDontForce  // Uses the original checker to get result.
+  };
 
   FakeChromeAvailabilityChecker(
       HasSupportedChromeCheckType has_supported_chrome = kChromeForceYes);
@@ -442,6 +469,8 @@ class FakeGemDeviceDetailsManager : public GemDeviceDetailsManager {
       base::TimeDelta upload_device_details_request_timeout);
   ~FakeGemDeviceDetailsManager() override;
 
+  using GemDeviceDetailsManager::GetRequestDictForTesting;
+  using GemDeviceDetailsManager::GetUploadStatusForTesting;
   using GemDeviceDetailsManager::SetRequestTimeoutForTesting;
 
  private:

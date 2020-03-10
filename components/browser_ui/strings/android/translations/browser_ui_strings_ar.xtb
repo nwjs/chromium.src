@@ -36,7 +36,7 @@
 <translation id="6818926723028410516">اختيار عناصر</translation>
 <translation id="6910211073230771657">تم الحذف</translation>
 <translation id="6945221475159498467">تحديد</translation>
-<translation id="6965382102122355670">موافق</translation>
+<translation id="6965382102122355670">حسنًا</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{تم تحديد عنصر واحد}zero{تم تحديد # عنصر}two{تم تحديد عنصرين (#)}few{تم تحديد # عناصر}many{تم تحديد # عنصرًا}other{تم تحديد # عنصر}}</translation>
 <translation id="7087918508125750058">تم تحديد <ph name="ITEM_COUNT" /> عنصر، ويمكنك الاطّلاع على الخيارات في الجزء العلوي من الشاشة.</translation>
 <translation id="7250468141469952378">تم اختيار <ph name="ITEM_COUNT" /> عنصراً</translation>

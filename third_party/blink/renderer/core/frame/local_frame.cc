@@ -39,6 +39,7 @@
 #include "skia/public/mojom/skcolor.mojom-blink.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom-blink.h"
@@ -1283,6 +1284,12 @@ LocalFrame::LazyLoadImageSetting LocalFrame::GetLazyLoadImageSetting() const {
 }
 
 bool LocalFrame::ShouldForceDeferScript() const {
+  // Check if we should not defer script in subframe.
+  if (base::FeatureList::IsEnabled(features::kDisableForceDeferInChildFrames) &&
+      !IsLocalRoot()) {
+    return false;
+  }
+
   // Check if enabled by runtime feature (for testing/evaluation) or if enabled
   // by PreviewsState (for live intervention).
   return RuntimeEnabledFeatures::ForceDeferScriptInterventionEnabled() ||

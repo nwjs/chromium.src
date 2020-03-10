@@ -453,7 +453,6 @@ class HintsFetcherDisabledBrowserTest : public InProcessBrowserTest {
 
       std::string serialized_request = "Not a proto";
       response->set_content(serialized_request);
-
     } else {
       NOTREACHED();
     }
@@ -790,6 +789,20 @@ IN_PROC_BROWSER_TEST_F(
       static_cast<int>(optimization_guide::OptimizationGuideStore::
                            StoreEntryType::kFetchedHint),
       0);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    HintsFetcherBrowserTest,
+    DISABLE_ON_WIN_MAC_CHROMEOS(
+        HintsFetcherWithResponsesUnsuccessfulAtNavigationTime)) {
+  SetResponseType(HintsFetcherRemoteResponseType::kUnsuccessful);
+
+  // Set the ECT to force a fetch at navigation time.
+  g_browser_process->network_quality_tracker()
+      ->ReportEffectiveConnectionTypeForTesting(
+          net::EFFECTIVE_CONNECTION_TYPE_2G);
+
+  ui_test_utils::NavigateToURL(browser(), GURL("https://unsuccessful.com/"));
 }
 
 IN_PROC_BROWSER_TEST_F(

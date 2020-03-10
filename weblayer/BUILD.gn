@@ -171,8 +171,8 @@ jumbo_static_library("weblayer_lib") {
     "public/tab_observer.h",
     "renderer/content_renderer_client_impl.cc",
     "renderer/content_renderer_client_impl.h",
-    "renderer/ssl_error_helper.cc",
-    "renderer/ssl_error_helper.h",
+    "renderer/error_page_helper.cc",
+    "renderer/error_page_helper.h",
     "renderer/weblayer_render_frame_observer.cc",
     "renderer/weblayer_render_frame_observer.h",
     "utility/content_utility_client_impl.cc",
@@ -181,6 +181,8 @@ jumbo_static_library("weblayer_lib") {
 
   if (is_android) {
     sources += [
+      "browser/android/exception_filter.cc",
+      "browser/android/exception_filter.h",
       "browser/android/metrics/uma_utils.cc",
       "browser/android/metrics/uma_utils.h",
       "browser/android/metrics/weblayer_metrics_service_client.cc",

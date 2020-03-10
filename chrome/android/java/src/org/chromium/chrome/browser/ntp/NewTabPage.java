@@ -382,7 +382,7 @@ public class NewTabPage implements NativePage, InvalidationAwareThumbnailProvide
                 mSearchProviderHasLogo,
                 TemplateUrlServiceFactory.get().isDefaultSearchEngineGoogle(),
                 getScrollPositionFromNavigationEntry(NAVIGATION_ENTRY_SCROLL_POSITION_KEY, mTab),
-                mConstructedTimeNs);
+                mConstructedTimeNs, mActivityLifecycleDispatcher);
     }
 
     /**

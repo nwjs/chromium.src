@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Telefoninumbrid</translation>
 <translation id="3819178904835489326">Tuvastati <ph name="NUMBER_OF_DOWNLOADS" /> allalaadimist</translation>
 <translation id="3822502789641063741">Kas tühj. saidi salvestusruum?</translation>
+<translation id="3849365399446680203">Kui kasutate AR-i, võib sellel saidil olla võimalik:
+• luua teie keskkonnast 3D-kaart;
+• jälgida kaamera liikumist.
+
+Ainult teie näete, mida kaamera vaatab. See sait ei näe teie kaamera pilti.</translation>
 <translation id="3859306556332390985">Keri edasi</translation>
 <translation id="388596076286380598">Hankige artikleid, videoid ja muud sisu teile meeldivatelt saitidelt – isegi kui võrguühendus on halb või puudub.</translation>
 <translation id="3894427358181296146">Kausta lisamine</translation>
@@ -587,7 +592,6 @@ Seade muutmiseks <ph name="BEGIN_LINK" />lähtestage sünkroonimine<ph name="END
 <translation id="5447765697759493033">Seda saiti ei tõlgita</translation>
 <translation id="545042621069398927">Allalaadimise kiirendamine.</translation>
 <translation id="5456381639095306749">Laadi leht alla</translation>
-<translation id="5475862044948910901">Kas alustada liitreaalsuse seanssi?</translation>
 <translation id="548278423535722844">Avage kaardirakenduses</translation>
 <translation id="5487521232677179737">Kustuta andmed</translation>
 <translation id="5494752089476963479">Blokeeri reklaamid saitidel, mis kuvavad sekkuvaid või eksitavaid reklaame</translation>
@@ -720,6 +724,7 @@ Puudutage pikalt mis tahes sõnal, et seda otsida. Otsingu täpsustamiseks kohan
 <translation id="6395288395575013217">LINK</translation>
 <translation id="6404511346730675251">Muuda järjehoidjat</translation>
 <translation id="6406506848690869874">Sünkroonimine</translation>
+<translation id="6410973561433500075">Kas siseneda domeenil <ph name="DOMAIN" /> AR-i?</translation>
 <translation id="641643625718530986">Printimine ...</translation>
 <translation id="6416782512398055893">Alla on laaditud <ph name="MBS" /> MB</translation>
 <translation id="6427112570124116297">Veebi tõlkimine</translation>
@@ -839,11 +844,6 @@ Puudutage pikalt mis tahes sõnal, et seda otsida. Otsingu täpsustamiseks kohan
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Jaga 1 valitud üksust}other{Jaga # valitud üksust}}</translation>
 <translation id="7359002509206457351">Makseviisidele juurdepääsemine</translation>
-<translation id="7365126855094612066">Selle seansi ajal saab sait teha järgmist.
-• Luua teie keskkonnast 3D-kaardi
-• Jälgida kaamera liikumist
-
-Sait EI saa juurdepääsu kaamerale. Kaamera jäädvustatud pildid on nähtavad ainult teile.</translation>
 <translation id="7375125077091615385">Tüüp:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

@@ -262,10 +262,7 @@ Polymer({
     for (const key in ipconfig) {
       const value = ipconfig[key];
       if (key === 'routingPrefix') {
-        const routingPrefix = getRoutingPrefixAsLength(value);
-        if (routingPrefix !== chromeos.networkConfig.mojom.NO_ROUTING_PREFIX) {
-          result.routingPrefix = routingPrefix;
-        }
+        result.routingPrefix = getRoutingPrefixAsLength(value);
       } else {
         result[key] = value;
       }
@@ -278,11 +275,17 @@ Polymer({
    * @private
    */
   hasIpConfigFields_() {
-    if (!this.ipConfigFields_) {
+    if (!this.ipConfig_) {
       return false;
     }
     for (let i = 0; i < this.ipConfigFields_.length; ++i) {
-      if (this.get(this.ipConfigFields_[i], this.ipConfig_) !== undefined) {
+      const key = this.ipConfigFields_[i];
+      const value = this.get(key, this.ipConfig_);
+      if (key === 'ipv4.routingPrefix') {
+        if (value !== chromeos.networkConfig.mojom.NO_ROUTING_PREFIX) {
+          return true;
+        }
+      } else if (value !== undefined && value !== '') {
         return true;
       }
     }
@@ -290,19 +293,12 @@ Polymer({
   },
 
   /**
-   * @param {string} path path to a property inside of |managedProperties|.
-   * @return {string|undefined} Edit type to be used in network-property-list
-   *     for the given path.
+   * @param {?OncMojo.ManagedProperty|undefined} property
+   * @return {string|undefined} Edit type to be used in network-property-list.
    * @private
    */
-  getIPFieldEditType_(path) {
-    if (!this.managedProperties) {
-      return undefined;
-    }
-    const property = /** @type{!OncMojo.ManagedProperty|undefined}*/ (
-        this.get(path, this.managedProperties));
-    return (property && this.isNetworkPolicyEnforced(property)) ? undefined :
-                                                                  'String';
+  getIPFieldEditType_(property) {
+    return this.isNetworkPolicyEnforced(property) ? undefined : 'String';
   },
 
   /**
@@ -310,14 +306,16 @@ Polymer({
    * @private
    */
   getIPEditFields_() {
-    if (this.automatic_ || !this.managedProperties) {
+    const staticIpConfig =
+        this.managedProperties && this.managedProperties.staticIpConfig;
+    if (this.automatic_ || !staticIpConfig) {
       return {};
     }
     return {
-      'ipv4.ipAddress': this.getIPFieldEditType_('staticIpConfig.ipAddress'),
+      'ipv4.ipAddress': this.getIPFieldEditType_(staticIpConfig.ipAddress),
       'ipv4.routingPrefix':
-          this.getIPFieldEditType_('staticIpConfig.routingPrefix'),
-      'ipv4.gateway': this.getIPFieldEditType_('staticIpConfig.gateway')
+          this.getIPFieldEditType_(staticIpConfig.routingPrefix),
+      'ipv4.gateway': this.getIPFieldEditType_(staticIpConfig.gateway)
     };
   },
 

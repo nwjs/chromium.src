@@ -1101,6 +1101,11 @@ NSString* const kBrowserViewControllerSnackbarCategory =
                                                         completion:nil];
   }
   [self.bubblePresenter userEnteredTabSwitcher];
+
+  // TODO(crbug.com/1052818): These should not be necessary once the
+  // coordinators are moved up to BrowserCoordinator.
+  [self.findBarCoordinator stop];
+  [self.textZoomCoordinator stop];
 }
 
 - (void)presentBubblesIfEligible {
@@ -2821,6 +2826,9 @@ NSString* const kBrowserViewControllerSnackbarCategory =
     // be obstructed by the toolbars when the snapshot is displayed in the tab
     // grid.  In that case, the NTP should be inset by the maximum viewport
     /// insets.
+    // The NTP always sits above the bottom toolbar (when there is one) so the
+    // insets should not take into account the bottom toolbar.
+    maxViewportInsets.bottom = 0;
     return [self canShowTabStrip] ? UIEdgeInsetsZero : maxViewportInsets;
   } else {
     // If the NTP is inactive, the WebState's view is used as the base view for

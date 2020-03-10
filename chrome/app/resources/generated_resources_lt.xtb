@@ -1216,6 +1216,7 @@ Jei nenorite, dabar atsijunkite, kad šios paskyros pakeitimai būtų matomi ši
 <translation id="2653659639078652383">Pateikti</translation>
 <translation id="265390580714150011">Lauko vertė</translation>
 <translation id="2654166010170466751">Leisti svetainėms diegti mokėjimų dorokles</translation>
+<translation id="2654553774144920065">Spausdinimo užklausa</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funkcijos skiriasi pagal įrenginį</translation>
 <translation id="2660779039299703961">Įvykis</translation>
 <translation id="266079277508604648">Nepavyko prijungti spausdintuvo. Patikrinkite, ar spausdintuvas yra įjungtas ir prijungtas prie „Chromebook“ naudojant „Wi-Fi“ arba USB.</translation>
@@ -2390,7 +2391,6 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="4285418559658561636">Atnaujinti slaptažodį</translation>
 <translation id="4285498937028063278">Atsegti</translation>
 <translation id="428565720843367874">Tikrinant šį failą netikėtai įvyko antivirusinės programinės įrangos klaida.</translation>
-<translation id="4287502004382794929">Neturite pakankamai programinės įrangos licencijų, kad galėtumėte priregistruoti šį įrenginį. Susisiekite su pardavimo skyriumi, kad įsigytumėte daugiau. Jei manote, kad šį pranešimą gavote per klaidą, susisiekite su palaikymo tarnyba.</translation>
 <translation id="4289540628985791613">Apžvalga</translation>
 <translation id="4295072614469448764">Programa pasiekiama jūsų terminale. Piktograma taip pat gali būti Paleidimo priemonėje.</translation>
 <translation id="4295979599050707005">Prisijunkite dar kartą, kad patvirtintumėte, jog jūsų paskyrą (<ph name="USER_EMAIL" />) galima naudoti su svetainėmis, programomis ir plėtiniais naršyklėje „Chrome“ ir „Google Play“. Taip pat galite pašalinti šią paskyrą. <ph name="LINK_BEGIN" />Sužinokite daugiau<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="6207282396926186323">Įdiegti programą „<ph name="APP_NAME" />“ („Linux“ programa)</translation>
 <translation id="6207937957461833379">Šalis / regionas</translation>
 <translation id="6208521041562685716">Aktyvinami mobilieji duomenys</translation>
+<translation id="6209908325007204267">Prie jūsų įrenginio yra pridėtas „Chrome“ įmonei skirtos versijos licencijos naujovinimas, bet jūsų naudotojo vardas nesusietas su įmonės paskyra. Sukurkite įmonės paskyrą antriniame įrenginyje apsilankę adresu g.co/ChromeEnterpriseAccount.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: sinchronizavimas neveikia</translation>
 <translation id="6212039847102026977">Rodyti išplėstines tinklo nuosavybes</translation>
 <translation id="6212168817037875041">Išjungti ekraną</translation>
@@ -4161,6 +4162,7 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="6843423766595476978">„Ok Google“ visiškai nustatyta</translation>
 <translation id="6845038076637626672">Atidaryti padidintą</translation>
 <translation id="6845325883481699275">Padėkite tobulinti „Chrome“ saugą</translation>
+<translation id="6846178040388691741">„<ph name="EXTENSION_NAME" />“ nori spausdinti failą „<ph name="FILE_NAME" />“ spausdintuvu „<ph name="PRINTER_NAME" />“.</translation>
 <translation id="6847125920277401289">Atlaisvinkite vietos, kad galėtumėte tęsti</translation>
 <translation id="6848388270925200958">Šiuo metu turite kelias korteles, kurias galima naudoti tik šiuo įrenginiu</translation>
 <translation id="6850286078059909152">Teksto spalva</translation>
@@ -4404,6 +4406,7 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="7186088072322679094">Laikyti įrankių juostoje</translation>
 <translation id="7187428571767585875">Registro vertės, kurios bus pašalintos arba pakeistos:</translation>
 <translation id="7189234443051076392">Įsitikinkite, kad įrenginyje yra pakankamai vietos</translation>
+<translation id="7189451821249468368">Neturite pakankamai licencijų naujovinimų, kad galėtumėte užregistruoti šį įrenginį. Susisiekite su pardavimo atstovu, kad įsigytumėte daugiau. Jei manote, kad šį pranešimą gavote per klaidą, susisiekite su palaikymo komanda.</translation>
 <translation id="7189965711416741966">Piršto antspaudas pridėtas.</translation>
 <translation id="7191159667348037">Nežinomas spausdintuvas (USB)</translation>
 <translation id="7193051357671784796">Šią programą pridėjo jūsų organizacija. Paleiskite programą iš naujo, kad baigtumėte ją diegti.</translation>
@@ -5777,7 +5780,6 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
 <translation id="9050666287014529139">Slaptafrazė</translation>
 <translation id="9052208328806230490">Užregistravote spausdintuvus „<ph name="CLOUD_PRINT_NAME" />“ naudodami <ph name="EMAIL" /> paskyrą</translation>
 <translation id="9052404922357793350">Toliau blokuoti</translation>
-<translation id="9053091947372579468">Prie jūsų įrenginio yra pridėta „Chrome“ licencija, bet jūsų naudotojo vardas nesusietas su administratoriaus pultu. Sukurkite administratoriaus pulto paskyrą, kad galėtumėte pradėti registraciją. Pastaba: jei kurdami naują administratoriaus pulto paskyrą pasirenkate naudoti savo domeną, prisiregistravę turite atlikti domeno patvirtinimo veiksmus. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Spausdinti abiejose pusėse</translation>
 <translation id="9053893665344928494">Prisiminti mano pasirinkimą</translation>
 <translation id="9055636786322918818">Taikyti RC4 šifruotę. Naudojant šią parinktį padidėja rizika, nes RC4 šifrai nesaugūs.</translation>

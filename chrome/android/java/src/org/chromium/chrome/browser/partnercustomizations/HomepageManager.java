@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.partnercustomizations;
 import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordHistogram;
@@ -131,15 +132,7 @@ public class HomepageManager implements HomepagePolicyManager.HomepagePolicyStat
     public static String getHomepageUri() {
         if (!isHomepageEnabled()) return null;
 
-        HomepageManager manager = getInstance();
-        String homepageUri;
-        if (HomepagePolicyManager.isHomepageManagedByPolicy()) {
-            homepageUri = HomepagePolicyManager.getHomepageUrl();
-        } else if (manager.getPrefHomepageUseDefaultUri()) {
-            homepageUri = getDefaultHomepageUri();
-        } else {
-            homepageUri = manager.getPrefHomepageCustomUri();
-        }
+        String homepageUri = getInstance().getHomepageUriIgnoringEnabledState();
         return TextUtils.isEmpty(homepageUri) ? null : homepageUri;
     }
 
@@ -152,6 +145,22 @@ public class HomepageManager implements HomepagePolicyManager.HomepagePolicyStat
             return PartnerBrowserCustomizations.getHomePageUrl();
         }
         return UrlConstants.NTP_NON_NATIVE_URL;
+    }
+
+    /**
+     * Get homepage URI without checking if the homepage is enabled.
+     * @return Homepage URI based on policy and shared preference settings.
+     */
+    public @NonNull String getHomepageUriIgnoringEnabledState() {
+        // TODO(wenyufu): Move this function back to #getHomepageUri after
+        //  ChromeFeatureList#HOMEPAGE_SETTINGS_UI_CONVERSION 100% release
+        if (HomepagePolicyManager.isHomepageManagedByPolicy()) {
+            return HomepagePolicyManager.getHomepageUrl();
+        }
+        if (getPrefHomepageUseDefaultUri()) {
+            return getDefaultHomepageUri();
+        }
+        return getPrefHomepageCustomUri();
     }
 
     /**

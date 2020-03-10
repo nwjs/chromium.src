@@ -444,6 +444,21 @@ message ActionsResponseProto {
   optional UpdateScriptListProto update_script_list = 5;
 }
 
+enum KeyboardValueFillStrategy {
+  UNSPECIFIED_KEYBAORD_STRATEGY = 0;
+
+  // Send a `node.value = "<value>"` JS command.
+  SET_VALUE = 1;
+
+  // Send a `node.value = ""` JS command to clear the field, then send single
+  // key strokes.
+  SIMULATE_KEY_PRESSES = 2;
+
+  // Send a `node.select()` JS command to select the current field value, then
+  // send single key strokes overwriting the current value.
+  SIMULATE_KEY_PRESSES_SELECT_VALUE = 3;
+}
+
 // An action could be performed.
 message ActionProto {
   // Wait these many milliseconds before executing the action, if set.
@@ -518,6 +533,11 @@ message CollectUserDataResultProto {
   optional DateProto date_range_end_date = 13;
   // The index of the selected timeslot for the end of the date/time range.
   optional int32 date_range_end_timeslot = 14;
+  // The values obtained from the additional sections.
+  repeated ModelProto.ModelValue additional_sections_values = 15;
+  // Indicates whether the UI was shown to the user. This can be false if
+  // only the login section was requested and the choice was implicitly made.
+  optional bool shown_to_user = 16;
 
   reserved 7, 8;
 }
@@ -955,9 +975,8 @@ message UseAddressProto {
 
     optional ElementReferenceProto element = 2;
 
-    // Whether we should simulate actual key presses when filling |element| with
-    // its corresponding value.
-    optional bool simulate_key_presses = 3;
+    // The strategy used to execute filling the value.
+    optional KeyboardValueFillStrategy fill_strategy = 7;
 
     // Delay between two key presses when simlulating.
     optional int32 delay_in_millisecond = 4 [default = 20];
@@ -966,6 +985,8 @@ message UseAddressProto {
     // cases where the way autofill sets the field doesn't work on the website.
     // Usually used together with simulate_key_presses.
     optional bool forced = 5;
+
+    reserved 3;
   }
 
   // An optional name to allow to handle multiple addresses selection (for
@@ -1005,9 +1026,8 @@ message UseCreditCardProto {
 
     optional ElementReferenceProto element = 2;
 
-    // Whether we should simulate actual key presses when filling |element| with
-    // its corresponding value.
-    optional bool simulate_key_presses = 3;
+    // The strategy used to execute filling the value.
+    optional KeyboardValueFillStrategy fill_strategy = 7;
 
     // Delay between two key presses when simlulating.
     optional int32 delay_in_millisecond = 4 [default = 20];
@@ -1016,6 +1036,8 @@ message UseCreditCardProto {
     // cases where the way autofill sets the field doesn't work on the website.
     // Usually used together with simulate_key_presses.
     optional bool forced = 5;
+
+    reserved 3;
   }
 
   // An optional message to show to the user when asking to select a card.
@@ -1257,6 +1279,11 @@ message PromptProto {
   // If this is true, then we do not force expand the sheet when entering the
   // prompt state. When false or not set, this keeps the default behavior.
   optional bool disable_force_expand_sheet = 6;
+
+  // If this is true, go into browse mode where navigation and user gestures
+  // like go_back do not shut down autofill assistant.
+  // TODO(marianfe): Consider introducing a BrowseAction instead.
+  optional bool browse_mode = 7;
 }
 
 message ContactDetailsProto {
@@ -1289,34 +1316,6 @@ message ContactDetailsProto {
   repeated AutofillContactField full_fields = 7;
   // The maximum number of lines for contacts in the expanded contact section.
   optional int32 max_number_full_lines = 8;
-}
-
-// A generic read-only popup message.
-message InfoPopupProto {
-  // The title of the popup window.
-  optional string title = 1;
-  // The text of the popup window.
-  optional string text = 2;
-
-  message DialogButton {
-    message CloseDialog {}
-    message OpenUrlInCCT { optional string url = 1; }
-
-    // The action to be executed on click.
-    oneof click_action {
-      // Closes the popup.
-      CloseDialog close_dialog = 4;
-      // Opens the specified url into a new CCT.
-      OpenUrlInCCT open_url_in_cct = 5;
-    }
-    optional string label = 1;
-  }
-  // Optional: adds a positive button.
-  optional DialogButton positive_button = 3;
-  // Optional: adds a negative button.
-  optional DialogButton negative_button = 4;
-  // Optional: adds a neutral button.
-  optional DialogButton neutral_button = 5;
 }
 
 message LoginDetailsProto {
@@ -1435,12 +1434,38 @@ message UserFormSectionProto {
   oneof section {
     StaticTextSectionProto static_text_section = 2;
     TextInputSectionProto text_input_section = 3;
+    PopupListSectionProto popup_list_section = 4;
   }
+  // Whether to send the result values to the backend.
+  optional bool send_result_to_backend = 5;
+}
+
+// A section that when tapped presents the user a popup with a list of options.
+// The selected option is displayed in the section.
+message PopupListSectionProto {
+  // The key used to store the selection in CollectUserDataResultProto
+  optional string additional_value_key = 1;
+
+  // The name of the items to be displayed
+  repeated string item_names = 2;
+
+  // The list of the indexes of the items to be initially selected.
+  repeated int32 initial_selection = 3;
+
+  // Whether to allow the selection of multiple items or just one.
+  optional bool allow_multiselect = 4;
+
+  // Whether the selection of this section is required to proceed.
+  optional bool selection_mandatory = 5 [default = true];
+
+  // The error message displayed when the selection is mandatory and missing.
+  // Ignored if |selection_mandatory| is false.
+  optional string no_selection_error_message = 6;
 }
 
 // Asks to provide the data used by UseAddressAction and
 // UseCreditCardAction.
-// Next: 25
+// Next: 26
 message CollectUserDataProto {
   enum TermsAndConditionsState {
     // No choice has been made yet.
@@ -1511,8 +1536,12 @@ message CollectUserDataProto {
   repeated UserFormSectionProto additional_prepended_sections = 18;
   // An optional list of additional sections, which is below all other sections.
   repeated UserFormSectionProto additional_appended_sections = 19;
-  // Backend-configured user interface to show.
-  optional GenericUserInterfaceProto generic_user_interface = 22;
+  // Backend-configured user interface to show below
+  // |additional_prepended_sections|.
+  optional GenericUserInterfaceProto generic_user_interface_prepended = 22;
+  // Backend-configured user interface to show below
+  // |additional_appended_sections|.
+  optional GenericUserInterfaceProto generic_user_interface_appended = 25;
   // Text to be shown in a separate info section.
   optional string info_section_text = 24;
 }
@@ -1681,11 +1710,13 @@ message SetFormFieldValueProto {
   // The value to set.
   repeated KeyPress value = 2;
 
-  // Whether to send key press events when setting values to HTML fields.
-  optional bool simulate_key_presses = 5;
+  // The strategy used to execute filling the value.
+  optional KeyboardValueFillStrategy fill_strategy = 7;
 
   // Delay between two key presses when simlulating.
   optional int32 delay_in_millisecond = 6 [default = 20];
+
+  reserved 5;
 }
 
 // Set an element attribute to a specific value.

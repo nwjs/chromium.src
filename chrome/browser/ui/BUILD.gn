@@ -3929,6 +3929,7 @@ jumbo_static_library("ui") {
       "//chromeos/services/network_config/public/mojom",
       "//components/assist_ranker",
       "//components/assist_ranker/proto",
+      "//components/metrics/structured:structured_events",
       "//components/services/app_service/public/cpp:app_file_handling",
       "//services/audio/public/mojom",
       "//services/device/public/mojom",

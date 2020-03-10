@@ -344,7 +344,7 @@
 <translation id="3324983252691184275">クリムゾン</translation>
 <translation id="3338224621010291843"><ph name="VALUE" /> <ph name="NAME" /> スライダー</translation>
 <translation id="335581015389089642">スピーチ</translation>
-<translation id="3356951775008366684">単語の発音を読み上げる</translation>
+<translation id="3356951775008366684">文字の詳細を読み上げる</translation>
 <translation id="3359142382821736686">区切り文字</translation>
 <translation id="3374537878095184207">{COUNT,plural, =1{プラス}other{# 個のプラス記号}}</translation>
 <translation id="338583716107319301">セパレータ</translation>
@@ -814,7 +814,7 @@
 <translation id="6633350132811819843">次の表はありません。</translation>
 <translation id="6637586476836377253">ログ</translation>
 <translation id="6657128831881431364">プログレスバー</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">タブ</translation>
 <translation id="667999046851023355">ドキュメント</translation>
 <translation id="6688209025607531203">非モーダル アラート</translation>
 <translation id="6689672606256159458">ダークサーモン</translation>

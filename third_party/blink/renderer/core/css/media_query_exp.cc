@@ -258,12 +258,15 @@ MediaQueryExp::MediaQueryExp(const String& media_feature,
     : media_feature_(media_feature), exp_value_(exp_value) {}
 
 MediaQueryExp MediaQueryExp::Create(const String& media_feature,
-                                    CSSParserTokenRange& range) {
+                                    CSSParserTokenRange& range,
+                                    const CSSParserContext& context) {
   DCHECK(!media_feature.IsNull());
 
   MediaQueryExpValue exp_value;
   String lower_media_feature =
       AttemptStaticStringCreation(media_feature.LowerASCII());
+
+  CSSParserContext::ParserModeOverridingScope scope(context, kHTMLStandardMode);
 
   CSSPrimitiveValue* value =
       css_property_parser_helpers::ConsumeInteger(range, 0);
@@ -273,13 +276,7 @@ MediaQueryExp MediaQueryExp::Create(const String& media_feature,
                                                        kValueRangeNonNegative);
   }
   if (!value) {
-    // TODO(crbug.com/1047784): This is a fake CSSParserContext that only passes
-    // down the CSSParserMode. Plumb the real CSSParserContext through, so that
-    // web features can be counted correctly.
-    const CSSParserContext* fake_context =
-        MakeGarbageCollected<CSSParserContext>(
-            kHTMLStandardMode, SecureContextMode::kInsecureContext);
-    value = css_property_parser_helpers::ConsumeLength(range, *fake_context,
+    value = css_property_parser_helpers::ConsumeLength(range, context,
                                                        kValueRangeNonNegative);
   }
   if (!value)

@@ -19,6 +19,7 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell_observer.h"
 #include "ash/system/locale/locale_update_controller_impl.h"
+#include "ash/system/model/virtual_keyboard_model.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/lock_state_observer.h"
 #include "ash/wm/overview/overview_observer.h"
@@ -79,7 +80,8 @@ class ASH_EXPORT ShelfLayoutManager
       public WallpaperControllerObserver,
       public LocaleChangeObserver,
       public DesksController::Observer,
-      public message_center::MessageCenterObserver {
+      public message_center::MessageCenterObserver,
+      public VirtualKeyboardModel::Observer {
  public:
   // Suspend work area updates within its scope. Note that relevant
   // ShelfLayoutManager must outlive this class.
@@ -375,6 +377,9 @@ class ASH_EXPORT ShelfLayoutManager
   // MessageCenterObserver:
   void OnCenterVisibilityChanged(
       message_center::Visibility visibility) override;
+
+  // VirtualKeyboardModel::Observer:
+  void OnVirtualKeyboardVisibilityChanged() override;
 
   // Suspends/resumes work area updates.
   void SuspendWorkAreaUpdate();

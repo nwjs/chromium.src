@@ -234,7 +234,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     private boolean mPartnerBrowserRefreshNeeded;
 
-    protected IntentHandler mIntentHandler;
+    protected final IntentHandler mIntentHandler;
 
     /** Set if {@link #postDeferredStartupIfNeeded()} is called before native has loaded. */
     private boolean mDeferredStartupQueued;
@@ -326,6 +326,10 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
     /** Controls tab reparenting for night mode. */
     NightModeReparentingController mNightModeReparentingController;
 
+    protected ChromeActivity() {
+        mIntentHandler = new IntentHandler(this, createIntentHandlerDelegate());
+    }
+
     @Override
     protected ActivityWindowAndroid createWindowAndroid() {
         return new ChromeWindow(this);
@@ -362,11 +366,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         }
 
         getWindow().setBackgroundDrawable(getBackgroundDrawable());
-
-        mNightModeReparentingController = new NightModeReparentingController(
-                ReparentingDelegateFactory.createNightModeReparentingControllerDelegate(this),
-                ReparentingDelegateFactory.createReparentingTaskDelegate(this));
-        getLifecycleDispatcher().register(mNightModeReparentingController);
     }
 
     protected RootUiCoordinator createRootUiCoordinator() {
@@ -661,8 +660,8 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
      */
     protected StartupTabPreloader getStartupTabPreloader() {
         if (mStartupTabPreloader == null) {
-            mStartupTabPreloader = new StartupTabPreloader(
-                    this::getIntent, getLifecycleDispatcher(), getWindowAndroid(), this);
+            mStartupTabPreloader = new StartupTabPreloader(this::getIntent,
+                    getLifecycleDispatcher(), getWindowAndroid(), this, mIntentHandler);
         }
         return mStartupTabPreloader;
     }
@@ -759,7 +758,6 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
         IntentHandler.setTestIntentsEnabled(
                 CommandLine.getInstance().hasSwitch(ContentSwitches.ENABLE_TEST_INTENTS));
-        mIntentHandler = new IntentHandler(createIntentHandlerDelegate(), getPackageName());
 
         // This also ensures that subsequent native library and resource loading takes place
         // immediately, needed by restored tabs that use DFM.
@@ -995,7 +993,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         }
 
         super.onNewIntentWithNative(intent);
-        if (IntentHandler.shouldIgnoreIntent(intent)) return;
+        if (mIntentHandler.shouldIgnoreIntent(intent)) return;
 
         // We send this intent so that we can enter WebVr presentation mode if needed. This
         // call doesn't consume the intent because it also has the url that we need to load.
@@ -1366,6 +1364,16 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.EPHEMERAL_TAB_USING_BOTTOM_SHEET)) {
             mEphemeralTabCoordinator =
                     new EphemeralTabCoordinator(this, getBottomSheetController());
+        }
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_NIGHT_MODE_TAB_REPARENTING)) {
+            mNightModeReparentingController = new NightModeReparentingController(
+                    ReparentingDelegateFactory.createNightModeReparentingControllerDelegate(
+                            getActivityTabProvider(), getTabModelSelector()),
+                    ReparentingDelegateFactory.createReparentingTaskDelegate(
+                            getCompositorViewHolder(), getWindowAndroid(),
+                            getTabDelegateFactory()));
+            mNightModeReparentingController.onNativeInitialized();
         }
     }
 

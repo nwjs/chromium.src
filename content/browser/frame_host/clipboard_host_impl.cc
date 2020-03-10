@@ -14,11 +14,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "build/build_config.h"
+#include "content/browser/permissions/permission_controller_impl.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/child_process_host.h"
 #include "ipc/ipc_message.h"
 #include "mojo/public/cpp/system/platform_handle.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_constants.h"
@@ -129,8 +131,11 @@ void ClipboardHostImpl::ReadAvailableTypes(
 void ClipboardHostImpl::ReadAvailablePlatformSpecificFormatNames(
     ui::ClipboardBuffer clipboard_buffer,
     ReadAvailablePlatformSpecificFormatNamesCallback callback) {
-  std::vector<base::string16> raw_types =
-      clipboard_->ReadAvailablePlatformSpecificFormatNames(clipboard_buffer);
+  std::vector<base::string16> raw_types;
+  if (HasRawPermission()) {
+    raw_types =
+        clipboard_->ReadAvailablePlatformSpecificFormatNames(clipboard_buffer);
+  }
   std::move(callback).Run(raw_types);
 }
 
@@ -305,6 +310,8 @@ void ClipboardHostImpl::WriteCustomData(
 
 void ClipboardHostImpl::WriteRawData(const base::string16& format,
                                      mojo_base::BigBuffer data) {
+  if (!HasRawPermission())
+    return;
   // Windows / X11 clipboards enter an unrecoverable state after registering
   // some amount of unique formats, and there's no way to un-register these
   // formats. For these clipboards, use a conservative limit to avoid
@@ -341,6 +348,40 @@ void ClipboardHostImpl::WriteImage(const SkBitmap& bitmap) {
 void ClipboardHostImpl::CommitWrite() {
   clipboard_writer_.reset(
       new ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste));
+}
+
+bool ClipboardHostImpl::HasRawPermission() {
+  // Check feature flag is on.
+  if (!base::FeatureList::IsEnabled(blink::features::kRawClipboard))
+    return false;
+
+  // Check that the frame is still alive.
+  auto* render_frame_host =
+      RenderFrameHost::FromID(render_frame_pid_, render_frame_routing_id_);
+  if (!render_frame_host)
+    return false;
+
+  // Get Controller to check permission
+  PermissionControllerImpl* permission_controller =
+      PermissionControllerImpl::FromBrowserContext(
+          render_frame_host->GetProcess()->GetBrowserContext());
+  if (!permission_controller)
+    return false;
+
+  // Permission should already be checked in the renderer process, but recheck
+  // in the browser process in case of a hijacked renderer.
+  blink::mojom::PermissionStatus status =
+      permission_controller->GetPermissionStatusForFrame(
+          PermissionType::CLIPBOARD_READ_WRITE, render_frame_host,
+          render_frame_host->GetLastCommittedOrigin().GetURL());
+
+  if (status != blink::mojom::PermissionStatus::GRANTED) {
+    // This may be hit by a race condition, where permission is denied after
+    // the renderer check, but before the browser check. It may also be hit by
+    // a compromised renderer.
+    return false;
+  }
+  return true;
 }
 
 void ClipboardHostImpl::PerformPasteIfAllowed(

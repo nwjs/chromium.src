@@ -3202,7 +3202,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="5861856285460256766">Configuración del código de acceso superior</translation>
 <translation id="5868414965372171132">Configuración de red de usuario</translation>
 <translation id="5879014913445067283">Controla la detección de archivos compartidos en la red a través de <ph name="NETBIOS_NAME" /></translation>
-<translation id="588135807064822874">Habilita Tocar para buscar</translation>
+<translation id="588135807064822874">Habilitar Tocar para buscar</translation>
 <translation id="5882345429632338713">Retraso antes de ejecutar otro navegador (milisegundos)</translation>
 <translation id="5883015257301027298">Configuración de cookies predeterminada</translation>
 <translation id="5887414688706570295">Configura el prefijo TalkGadget que será utilizado por los hosts de acceso remoto y que evita que los usuarios lo cambien.
@@ -3432,7 +3432,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6315673513957120120">Chrome muestra una página de advertencia cuando los usuarios visitan sitios que tienen errores de SSL. De forma predeterminada o cuando esta política se establece en true, los usuarios pueden hacer clic en estas páginas de advertencia.
       Al establecer esta política en false, los usuarios no pueden hacer clic en ninguna página de advertencia.</translation>
 <translation id="6319198883324703402">Establece la hora de la primera notificación de reinicio del usuario</translation>
-<translation id="6342187235303612558">No permite que los usuarios carguen o descarguen archivos que no admitan el análisis de DLP o software malicioso</translation>
+<translation id="6342187235303612558">No permitir que los usuarios carguen o descarguen archivos que no admitan el análisis de DLP o software malicioso</translation>
 <translation id="6352543686437322588">Se establece una cuenta local del dispositivo con acceso automático después de un retraso.
 
       Si se establece esta política, se accederá automáticamente a la sesión especificada después de un período determinado en la pantalla de acceso sin necesidad de que el usuario interactúe. La cuenta local del dispositivo ya debe estar configurada (consulta |DeviceLocalAccounts|).

@@ -1214,6 +1214,7 @@ Ungaphatha izilungiselelo zale akhawunti ngokufaka uhlelo lokusebenza lwe-Family
 <translation id="2653659639078652383">Hambisa</translation>
 <translation id="265390580714150011">Inani lenkambu</translation>
 <translation id="2654166010170466751">Vumela amasayithi ukufaka izibambi zenkokhelo</translation>
+<translation id="2654553774144920065">Phrinta isicelo</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Izici ziyahluka ngedivayisi</translation>
 <translation id="2660779039299703961">Umcimbi</translation>
 <translation id="266079277508604648">Ayikwazi ukuxhumeka kuphrinta. Hlola ukuthi iphrinta ivuliwe futhi ixhunywe ku-Chromebook yakho nge-Wi-Fi noma i-USB.</translation>
@@ -2387,7 +2388,6 @@ Ungaphatha izilungiselelo zale akhawunti ngokufaka uhlelo lokusebenza lwe-Family
 <translation id="4285418559658561636">Buyekeza iphasiwedi</translation>
 <translation id="4285498937028063278">Susa ukuphina</translation>
 <translation id="428565720843367874">Isofthiwe yokulwa namagciwane yehluleke ngokungalindelekile ngenkathi iskena leli fayela.</translation>
-<translation id="4287502004382794929">Awunawo amalayisense anele wesofthiwe ukuze ubhalisele le divayisi. Sicela uxhumane nokuthengiswa ukuze uthenge okuningi. Uma ukholwa ukuthi ubona lo mlayezo ngephutha, sicela uxhumane nosekelo.</translation>
 <translation id="4289540628985791613">Ukubuka konke</translation>
 <translation id="4295072614469448764">Uhlelo lokuseenza luyatholakala kutheminali yakho. Kungaba nesithonjana kusiqalisi sakho.</translation>
 <translation id="4295979599050707005">Sicela ungene ngemvume futhi ukuze uqinisekise ukuthi i-akhawunti yakho engu-<ph name="USER_EMAIL" /> ingasetshenziswa namawebhusayithi, izinhlelo zokusebenza, nezandiso ku-Chrome naku-Google Play. Ungaphinda ususe le akhawunti. <ph name="LINK_BEGIN" />Funda kabanzi<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@ Qiniseka ukuthi awuvezi noma yiluphi ulwazi olubucayi.</translation>
 <translation id="6207282396926186323">Faka i-<ph name="APP_NAME" /> (uhlelo lokusebenza le-Linux)</translation>
 <translation id="6207937957461833379">Izwe / Isifunda</translation>
 <translation id="6208521041562685716">Idatha yeselula iyasetshenziswa</translation>
+<translation id="6209908325007204267">Idivayisi yakho ibandakanya Ukuthuthukiswa kwe-Chrome Enterprise, kodwa igama lomsebenzisi lakho alihlobene ne-akhawunti yebhizinisi. Sicela udale i-akhawunti yebhizinisi ngokuvakashela ethi, g.co/ChromeEnterpriseAccount edivayisini yesibili.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Ukuvumelanisa akusebenzi</translation>
 <translation id="6212039847102026977">Bonisa izakhiwo ezithuthukisiwe zenethiwekhi</translation>
 <translation id="6212168817037875041">Vala isiboniso</translation>
@@ -4160,6 +4161,7 @@ Qiniseka ukuthi awuvezi noma yiluphi ulwazi olubucayi.</translation>
 <translation id="6843423766595476978">Ok Google isethwe ngokuphelele</translation>
 <translation id="6845038076637626672">Vula okwenziwe kukhulu</translation>
 <translation id="6845325883481699275">Siza ukuthuthukisa ukuvikeleka kwe-Chrome</translation>
+<translation id="6846178040388691741">I-"<ph name="EXTENSION_NAME" />" ifuna ukuphrinta i-<ph name="FILE_NAME" /> nge-<ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Khulula isikhala ukuze uqhubeke</translation>
 <translation id="6848388270925200958">Khona manje, unamakhadi athile angasetshenziswa kuphela kule divayisi</translation>
 <translation id="6850286078059909152">Umbala wombhalo</translation>
@@ -4403,6 +4405,7 @@ Qiniseka ukuthi awuvezi noma yiluphi ulwazi olubucayi.</translation>
 <translation id="7186088072322679094">Gcina kubha yamathuluzi</translation>
 <translation id="7187428571767585875">Okufakiwe okubhalisiwe kuzosuswa noma kushintshwe:</translation>
 <translation id="7189234443051076392">Yenza isiqinisekiso sokuthi kukhona isikhala esanele kudivayisi yakho</translation>
+<translation id="7189451821249468368">Awunakho ukuthuthukisa okwanele ukuze ubhalisele le divayisi. Sicela uxhumane nentengiso ukuze uthenge okuningi. Uma ukholwa ukuthi ubona lo mlayezo ngephutha, sicela uxhumane nosekelo.</translation>
 <translation id="7189965711416741966">Izigxivizo zeminwe zingeziwe.</translation>
 <translation id="7191159667348037">Iphrinta engaziwa (USB)</translation>
 <translation id="7193051357671784796">Lolu hlelo lokusebenza lungezwe inhlangano yakho. Qala kabusha uhlelo lokusebenza ukuze uqedele ukulifaka.</translation>
@@ -5775,7 +5778,6 @@ Gcina ifayela lakho elingukhiye endaweni evikelekile. Uzolidinga ukuze udale izi
 <translation id="9050666287014529139">Umushwana wokungena</translation>
 <translation id="9052208328806230490">Ubhalise amaphrinta wakho nge-<ph name="CLOUD_PRINT_NAME" /> usebenzisa i-akhawunti ye-<ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Qhubeka uvimbele</translation>
-<translation id="9053091947372579468">Idivayisi yakho ibandakanya ilayisensi le-Chrome, kodwa igama lakho lomsebenzisi aliphathelene nekhonsoli ye-Admin. Sicela udale i-akhawunti yekhonsoli yomlawuli ukuze uqhubeke nokubhalisa. Inothi: Uma ukhetha ukusebenzisa isizinda sakho ukudala i-akhawunti yekhonsoli yomlawuli entsha, kufanele ugcwalise isiqinisekiso sesizinda ngemuva kokubhalisa. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Phrinta kuzinhlangothi zombili</translation>
 <translation id="9053893665344928494">Khumbula ukukhetha kwami</translation>
 <translation id="9055636786322918818">Phoqelela ukubethelwa kwe-RC4. Ukusebenzisa le nketho kukhulisa ubucayi bakho, njengoba ama-chipers e-RC4 awaphephile.</translation>

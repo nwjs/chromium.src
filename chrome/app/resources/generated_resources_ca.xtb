@@ -1215,6 +1215,7 @@ Pots gestionar la configuració d'aquest compte instal·lant l'aplicació Family
 <translation id="2653659639078652383">Envia</translation>
 <translation id="265390580714150011">Valor del camp</translation>
 <translation id="2654166010170466751">Permet que els llocs web instal·lin gestors de pagament</translation>
+<translation id="2654553774144920065">Sol·licitud d'impressió</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Les funcions varien segons el dispositiu</translation>
 <translation id="2660779039299703961">Esdeveniment</translation>
 <translation id="266079277508604648">No es pot contactar amb la impressora. Comprova que estigui encesa i connectada al teu Chromebook per Wi-Fi o USB.</translation>
@@ -1355,7 +1356,7 @@ Pots gestionar la configuració d'aquest compte instal·lant l'aplicació Family
 <translation id="2825848369316359348">Cerca el nom imprès a la part posterior de la clau de seguretat</translation>
 <translation id="2828650939514476812">Connectar a una xarxa Wi-Fi</translation>
 <translation id="2835294513443818940">Aquest fitxer no es pot baixar de manera segura.</translation>
-<translation id="2836269494620652131">Fallada</translation>
+<translation id="2836269494620652131">Bloqueig</translation>
 <translation id="2836635946302913370">L'administrador ha desactivat l'inici de sessió amb aquest nom d'usuari.</translation>
 <translation id="283669119850230892">Per fer servir la xarxa <ph name="NETWORK_ID" />, primer cal establir la connexió a Internet a continuació.</translation>
 <translation id="2838379631617906747">S'està instal·lant</translation>
@@ -2387,7 +2388,6 @@ en almenys <ph name="INSTALL_SIZE" /> d'espai lliure. Per alliberar espai, supri
 <translation id="4285418559658561636">Actualitza la contrasenya</translation>
 <translation id="4285498937028063278">No fixis</translation>
 <translation id="428565720843367874">S'ha produït un error inesperat en el programari antivirus mentre s'escanejava aquest fitxer.</translation>
-<translation id="4287502004382794929">No teniu prou llicències de programari per registrar aquest dispositiu. Contacteu amb l'equip de vendes per comprar-ne més. Si creieu que veieu aquest missatge per error, poseu-vos en contacte amb el servei d'assistència.</translation>
 <translation id="4289540628985791613">Descripció general</translation>
 <translation id="4295072614469448764">L'aplicació està disponible al terminal. També pot haver-hi una icona al menú d'aplicacions.</translation>
 <translation id="4295979599050707005">Torna a iniciar la sessió per confirmar que el compte <ph name="USER_EMAIL" /> es pot utilitzar amb llocs web, aplicacions i extensions de Chrome i Google Play. També pots suprimir el compte. <ph name="LINK_BEGIN" />Més informació<ph name="LINK_END" /></translation>
@@ -2564,7 +2564,7 @@ en almenys <ph name="INSTALL_SIZE" /> d'espai lliure. Per alliberar espai, supri
 <translation id="4555769855065597957">Ombra</translation>
 <translation id="4555863373929230635">Per desar les contrasenyes al teu Compte de Google, inicia-hi la sessió i activa la sincronització.</translation>
 <translation id="4558426062282641716">S'ha sol·licitat permís per iniciar-se automàticament</translation>
-<translation id="4558491878126948419">Obtén consells sobre el dispositiu <ph name="DEVICE_TYPE" /> i informació sobre productes de Google, i comparteix suggeriments. Pots cancel·lar la subscripció en qualsevol moment.</translation>
+<translation id="4558491878126948419">Obtén consells sobre <ph name="DEVICE_TYPE" /> i informació sobre productes de Google, i comparteix suggeriments. Pots cancel·lar la subscripció en qualsevol moment.</translation>
 <translation id="4559617833001311418">Aquest lloc web està accedint als teus sensors de llum i moviment.</translation>
 <translation id="4562155214028662640">Afegeix una empremta digital</translation>
 <translation id="4562494484721939086">Sense servei</translation>
@@ -3720,6 +3720,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="6207282396926186323">Instal·la <ph name="APP_NAME" /> (aplicació de Linux)</translation>
 <translation id="6207937957461833379">País o regió</translation>
 <translation id="6208521041562685716">S'estan activant les dades mòbils</translation>
+<translation id="6209908325007204267">El teu dispositiu inclou una Actualització de Chrome Enterprise, però el teu nom d'usuari no està associat a un compte d'empresa. En un altre dispositiu, visita g.co/ChromeEnterpriseAccount i crea un compte d'empresa.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: la sincronització no funciona</translation>
 <translation id="6212039847102026977">Mostra les propietats de xarxa avançades</translation>
 <translation id="6212168817037875041">Desactiva la pantalla</translation>
@@ -4159,6 +4160,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="6843423766595476978">Ok Google ja està configurat</translation>
 <translation id="6845038076637626672">Obre-la maximitzada</translation>
 <translation id="6845325883481699275">Ajuda a millorar la seguretat de Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" vol imprimir <ph name="FILE_NAME" /> amb <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Allibera espai per continuar</translation>
 <translation id="6848388270925200958">En aquest moment tens targetes que només es poden fer servir en aquest dispositiu</translation>
 <translation id="6850286078059909152">Color del text</translation>
@@ -4276,7 +4278,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7005848115657603926">L'interval de pàgines no és vàlid; utilitzeu <ph name="EXAMPLE_PAGE_RANGE" /></translation>
 <translation id="7006634003215061422">Marge inferior</translation>
 <translation id="7007648447224463482">Obre-ho tot en una finestra nova</translation>
-<translation id="701080569351381435">Visualitza l'origen</translation>
+<translation id="701080569351381435">Mostra la font</translation>
 <translation id="7014174261166285193">La instal·lació ha fallat.</translation>
 <translation id="7017004637493394352">Torneu a dir "Ok Google"</translation>
 <translation id="7017219178341817193">Afegeix una pàgina nova</translation>
@@ -4402,6 +4404,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7186088072322679094">Conserva a la barra d'eines</translation>
 <translation id="7187428571767585875">Entrades del registre que se suprimiran o canviaran:</translation>
 <translation id="7189234443051076392">Comprova que hi hagi prou espai al dispositiu</translation>
+<translation id="7189451821249468368">No tens prou actualitzacions per inscriure aquest dispositiu. Contacta amb l'equip de vendes per comprar-ne més. Si creus que veus aquest missatge per error, posa't en contacte amb el servei d'assistència.</translation>
 <translation id="7189965711416741966">L'empremta digital s'ha afegit.</translation>
 <translation id="7191159667348037">Impressora desconeguda (USB)</translation>
 <translation id="7193051357671784796">La teva organització ha afegit aquesta aplicació. Reinicia-la perquè s'acabi d'instal·lar.</translation>
@@ -5103,7 +5106,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8123590694679414600">Les dades es van encriptar el dia <ph name="TIME" /> amb la teva frase de contrasenya de sincronització. No inclouen les formes de pagament ni les adreces de Google Pay.</translation>
 <translation id="81238879832906896">Flor groga i blanca</translation>
 <translation id="8124313775439841391">ONC gestionat</translation>
-<translation id="813082847718468539">Mostra la informació del lloc</translation>
+<translation id="813082847718468539">Mostra la informació del lloc web</translation>
 <translation id="8131740175452115882">Confirma</translation>
 <translation id="8133676275609324831">&amp;Mostra a la carpeta</translation>
 <translation id="8135557862853121765"><ph name="NUM_KILOBYTES" />.000</translation>
@@ -5480,7 +5483,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8662978096466608964">Chrome no pot establir un fons de pantalla.</translation>
 <translation id="8663099077749055505">Bloqueja sempre les baixades automàtiques múltiples a l'amfitrió <ph name="HOST" /></translation>
 <translation id="8664389313780386848">&amp;Visualitza l'origen de la pàgina</translation>
-<translation id="8665180165765946056">S'ha completat la còpia de seguretat</translation>
+<translation id="8665180165765946056">Còpia de seguretat completada</translation>
 <translation id="866611985033792019">Confia en aquest certificat per identificar els usuaris de correu electrònic</translation>
 <translation id="8666584013686199826">Pregunta'm quan un lloc web vulgui accedir a dispositius USB</translation>
 <translation id="8667328578593601900"><ph name="FULLSCREEN_ORIGIN" /> es visualitza a pantalla completa i ha desactivat el cursor del ratolí.</translation>
@@ -5775,7 +5778,6 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="9050666287014529139">Frase de contrasenya</translation>
 <translation id="9052208328806230490">Heu registrat les vostres impressores amb <ph name="CLOUD_PRINT_NAME" /> utilitzant el compte <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continua bloquejant</translation>
-<translation id="9053091947372579468">El dispositiu inclou una llicència de Chrome, però el teu nom d'usuari no està associat a cap consola d'administració. Crea un compte de consola d'administració per continuar amb la inscripció. Nota: si decideixes crear-lo amb el teu propi domini, després de registrar-te també has de completar la verificació del domini. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Imprimeix per les dues bandes</translation>
 <translation id="9053893665344928494">Recorda la meva tria</translation>
 <translation id="9055636786322918818">Força l'encriptació RC4. L'ús d'aquesta opció augmenta el risc, ja que els xifratges RC4 no són segurs.</translation>
@@ -5911,7 +5913,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="965211523698323809">Envia i rep missatges de text amb el dispositiu <ph name="DEVICE_TYPE" />. <ph name="LINK_BEGIN" />Més informació<ph name="LINK_END" /></translation>
 <translation id="967398046773905967">No permetis que cap lloc web accedeixi als dispositius d'interfície humana</translation>
 <translation id="967624055006145463">Dades emmagatzemades</translation>
-<translation id="968000525894980488">Activa els serveis de Google Play.</translation>
+<translation id="968000525894980488">Activa Serveis de Google Play.</translation>
 <translation id="968037381421390582">Engan&amp;xa i cerca "<ph name="SEARCH_TERMS" />"</translation>
 <translation id="968174221497644223">Memòria cau de l'aplicació</translation>
 <translation id="969096075394517431">Canvia els idiomes</translation>

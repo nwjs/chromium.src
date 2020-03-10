@@ -168,7 +168,7 @@
 <translation id="2259659629660284697">Esportatu pasahitzak…</translation>
 <translation id="2268044343513325586">Mugatu</translation>
 <translation id="2286841657746966508">Fakturazio-helbidea</translation>
-<translation id="2289270750774289114">Eskatu nire baimena webgune batek inguruko Bluetooth gailuak bilatu nahi dituenean (gomendatua)</translation>
+<translation id="2289270750774289114">Eskatu nire baimena webgune batek inguruko Bluetooth bidezko gailuak bilatu nahi dituenean (gomendatua)</translation>
 <translation id="230115972905494466">Ez da aurkitu gailu bateragarririk</translation>
 <translation id="2315043854645842844">Sistema eragileak ez du onartzen bezeroarentzako ziurtagiria hautatzea.</translation>
 <translation id="2318045970523081853">Sakatu hau dei bat egiteko</translation>
@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Telefono-zenbakiak</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> deskarga ezabatu dira</translation>
 <translation id="3822502789641063741">Webgune-datuak garbitu?</translation>
+<translation id="3849365399446680203">Errealitate areagotuan erabiltzen ari zarenean, baliteke webgune hau honako hauek egiteko gai izatea:
+• Zure ingurunearen hiru dimentsioko mapa eraiki.
+• Kameraren mugimenduen jarraipena egin.
+
+Zuk bakarrik ikus dezakezu kamera zeri begira dagoen. Webgune honek ezin ditu ikusi zure kamerako irudiak.</translation>
 <translation id="3859306556332390985">Aurreratu</translation>
 <translation id="388596076286380598">Eskuratu gustuko dituzun webguneetako artikuluak, bideoak edo bestelako edukia, baita konexiorik ez baduzu edo konexioa txarra baldin bada ere.</translation>
 <translation id="3894427358181296146">Gehitu karpeta</translation>
@@ -587,7 +592,6 @@ Ezarpena aldatzeko, <ph name="BEGIN_LINK" />berrezarri sinkronizazioa<ph name="E
 <translation id="5447765697759493033">Webgune hau ez da itzuliko</translation>
 <translation id="545042621069398927">Deskarga bizkortzen.</translation>
 <translation id="5456381639095306749">Deskargatu orria</translation>
-<translation id="5475862044948910901">Errealitate areagotuko saioa hasi nahi duzu?</translation>
 <translation id="548278423535722844">Ireki mapa-aplikazio batean</translation>
 <translation id="5487521232677179737">Garbitu datuak</translation>
 <translation id="5494752089476963479">Blokeatu iragarki oztopatzaileak edo iruzurrezkoak erakusten dituzten webguneetako iragarkiak</translation>
@@ -720,6 +724,7 @@ Sakatu luze edozein hitz harekin erlazionatutako bilaketa bat sortzeko. Bilaketa
 <translation id="6395288395575013217">ESTEKA</translation>
 <translation id="6404511346730675251">Editatu laster-marka</translation>
 <translation id="6406506848690869874">Sinkronizazioa</translation>
+<translation id="6410973561433500075">Errealitate areagotuan sartu nahi duzu <ph name="DOMAIN" /> webgunearen bidez?</translation>
 <translation id="641643625718530986">Inprimatu…</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> MB deskargatu dira</translation>
 <translation id="6427112570124116297">Itzuli web-orria</translation>
@@ -839,11 +844,6 @@ Sakatu luze edozein hitz harekin erlazionatutako bilaketa bat sortzeko. Bilaketa
 <translation id="7352939065658542140">BIDEOA</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Partekatu hautatutako elementua}other{Partekatu hautatutako # elementuak}}</translation>
 <translation id="7359002509206457351">Atzitu ordainketa-metodoak</translation>
-<translation id="7365126855094612066">Saioak dirauen bitartean, webguneak honako hauek egin ahalko ditu:
-• Inguruaren 3D mapa sortu.
-• Kameraren mugimenduen jarraipena egin.
-
-Webguneak EZ du izango kamera atzitzeko baimenik. Zeuk soilik ikus ditzakezu kameraren irudiak.</translation>
 <translation id="7375125077091615385">Mota:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URLa</translation>

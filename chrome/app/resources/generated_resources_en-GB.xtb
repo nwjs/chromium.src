@@ -1216,6 +1216,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="2653659639078652383">Submit</translation>
 <translation id="265390580714150011">Field Value</translation>
 <translation id="2654166010170466751">Allow sites to install payment handlers</translation>
+<translation id="2654553774144920065">Print request</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Features vary by device</translation>
 <translation id="2660779039299703961">Event</translation>
 <translation id="266079277508604648">Can’t connect to printer. Check that the printer is turned on and is connected to your Chromebook by Wi-Fi or USB.</translation>
@@ -2390,7 +2391,6 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="4285418559658561636">Update Password</translation>
 <translation id="4285498937028063278">Unpin</translation>
 <translation id="428565720843367874">Anti-virus software failed unexpectedly while scanning this file.</translation>
-<translation id="4287502004382794929">You do not have enough software licenses to enrol this device. Please contact sales to purchase more. If you believe you're seeing this message in error, please contact support.</translation>
 <translation id="4289540628985791613">Overview</translation>
 <translation id="4295072614469448764">App is available in your terminal. There may also be an icon in your Launcher.</translation>
 <translation id="4295979599050707005">Please sign in again to confirm that your account <ph name="USER_EMAIL" /> can be used with websites, apps and extensions in Chrome and Google Play. You may also remove this account. <ph name="LINK_BEGIN" />Learn more<ph name="LINK_END" /></translation>
@@ -3721,6 +3721,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="6207282396926186323">Install <ph name="APP_NAME" /> (Linux App)</translation>
 <translation id="6207937957461833379">Country/Region</translation>
 <translation id="6208521041562685716">Mobile data being activated</translation>
+<translation id="6209908325007204267">Your device includes a Chrome Enterprise Upgrade, but your username is not associated with an enterprise account. Please create an enterprise account by visiting g.co/ChromeEnterpriseAccount on a secondary device.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Sync isn't working</translation>
 <translation id="6212039847102026977">Show advanced network properties</translation>
 <translation id="6212168817037875041">Turn off display</translation>
@@ -4160,6 +4161,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="6843423766595476978">"Ok Google" is ready</translation>
 <translation id="6845038076637626672">Open Maximised</translation>
 <translation id="6845325883481699275">Help improve Chrome security</translation>
+<translation id="6846178040388691741">'<ph name="EXTENSION_NAME" />' wants to print <ph name="FILE_NAME" /> with <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Free up space to continue</translation>
 <translation id="6848388270925200958">At the moment, you have some cards that can only be used on this device</translation>
 <translation id="6850286078059909152">Text colour</translation>
@@ -4403,6 +4405,7 @@ You can manage this account’s settings by installing the Family Link app on yo
 <translation id="7186088072322679094">Keep in Toolbar</translation>
 <translation id="7187428571767585875">Registry entries to be removed or changed:</translation>
 <translation id="7189234443051076392">Make sure that there is enough space on your device</translation>
+<translation id="7189451821249468368">You do not have enough upgrades to enrol this device. Please contact sales to purchase more. If you believe that you're seeing this message in error, please contact support.</translation>
 <translation id="7189965711416741966">Fingerprint added.</translation>
 <translation id="7191159667348037">Unknown Printer (USB)</translation>
 <translation id="7193051357671784796">This app was added by your organisation. Restart the app to finish installing it.</translation>
@@ -5776,7 +5779,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9050666287014529139">Passphrase</translation>
 <translation id="9052208328806230490">You have registered your printers with <ph name="CLOUD_PRINT_NAME" />, using the account <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continue blocking</translation>
-<translation id="9053091947372579468">Your device includes a Chrome licence, but your username is not associated with an Admin console. Please create an Admin console account to proceed with enrolment. Note: If you choose to use your own domain to create a new Admin console account, you must also complete domain verification after sign-up. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Print on both sides</translation>
 <translation id="9053893665344928494">Remember my choice</translation>
 <translation id="9055636786322918818">Enforce RC4 encryption. Using this option increases your risk, as the RC4 ciphers are insecure.</translation>

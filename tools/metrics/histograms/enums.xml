@@ -124,6 +124,24 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="43" label="FLAG_RETRIEVE_INTERACTIVE_WINDOWS"/>
 </enum>
 
+<enum name="AccessibilityId">
+  <int value="1" label="SpokenFeedback"/>
+  <int value="2" label="SelectToSpeak"/>
+  <int value="3" label="Dictation"/>
+  <int value="4" label="HighContrast"/>
+  <int value="5" label="Magnifier"/>
+  <int value="6" label="DockedMagnifier"/>
+  <int value="7" label="LargeCursor"/>
+  <int value="8" label="AutoClick"/>
+  <int value="9" label="VirtualKeyboard"/>
+  <int value="10" label="SwitchAccess"/>
+  <int value="11" label="CaretHighlight"/>
+  <int value="12" label="MonoAudio"/>
+  <int value="13" label="HighlightMouseCursor"/>
+  <int value="14" label="HighlightKeyboardFocus"/>
+  <int value="15" label="StickyKeys"/>
+</enum>
+
 <enum name="AccessibilityImageLabelMode">
   <summary>
     Tracks what mode the user has selected for accessibility image labels,
@@ -1264,6 +1282,12 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="FailureNameTooLong"/>
   <int value="3" label="FailureNameInvalid"/>
   <int value="4" label="FailureUnavailable"/>
+</enum>
+
+<enum name="Android.DownloadManager.Cancel.CancelFrom">
+  <int value="0" label="CANCEL_SHUTDOWN"/>
+  <int value="1" label="CANCEL_NOTIFICATION"/>
+  <int value="2" label="CANCEL_HOME"/>
 </enum>
 
 <enum name="Android.DownloadManager.List.Section.Menu.Actions">
@@ -4073,6 +4097,12 @@ Unknown properties are collapsed to zero. -->
   <int value="9" label="User is logged into an unsupported domain"/>
   <int value="10" label="Card upload feature flag disabled"/>
   <int value="11" label="Success, card upload enabled"/>
+</enum>
+
+<enum name="AutofillCreditCardAuthenticationEvents">
+  <int value="0" label="Prompt shown"/>
+  <int value="1" label="Prompt completed"/>
+  <int value="2" label="Form submitted"/>
 </enum>
 
 <enum name="AutofillCreditCardInfoBar">
@@ -22156,6 +22186,8 @@ to ensure that the crash string is shown properly on the user-facing crash UI.
   <int value="1435" label="PRINTING_SUBMITJOB"/>
   <int value="1436" label="IDENTITYPRIVATE_SETCONSENTRESULT"/>
   <int value="1437" label="PRINTING_CANCELJOB"/>
+  <int value="1449" label="WEBCAMPRIVATE_RESTORE_CAMERA_PRESET"/>
+  <int value="1450" label="WEBCAMPRIVATE_SET_CAMERA_PRESET"/>
 </enum>
 
 <enum name="ExtensionIconState">
@@ -31602,6 +31634,8 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="7" label="Trigger string mismatch"/>
   <int value="8" label="Not regular browser"/>
   <int value="9" label="Incognito mode disabled"/>
+  <int value="10" label="Cookies are blocked"/>
+  <int value="11" label="Third-party cookies are blocked"/>
 </enum>
 
 <enum name="HeapProfilingMode">
@@ -38739,6 +38773,7 @@ from previous Chrome versions.
   <int value="334802038" label="OfflinePreviews:disabled"/>
   <int value="335976733" label="NotificationStackingBarRedesign:enabled"/>
   <int value="336429189" label="DisallowUnsafeHttpDownloads:disabled"/>
+  <int value="338662897" label="AndroidNightModeTabReparenting:disabled"/>
   <int value="339671131" label="disable-per-user-timezone"/>
   <int value="341152650" label="SoundContentSetting:enabled"/>
   <int value="341851350" label="EnableDbusAndX11StatusIcons:enabled"/>
@@ -39040,6 +39075,7 @@ from previous Chrome versions.
   <int value="698809951" label="WebRtcHWVP8Encoding:enabled"/>
   <int value="699149897" label="ContentSuggestionsDebugLog:disabled"/>
   <int value="701766325" label="PerNavigationMojoInterface:enabled"/>
+  <int value="703469777" label="AndroidNightModeTabReparenting:enabled"/>
   <int value="705407202" label="AutofillSaveCardImprovedUserConsent:disabled"/>
   <int value="705713283" label="EasyUnlockPromotions:disabled"/>
   <int value="709850261" label="disable-touch-editing"/>
@@ -50304,6 +50340,12 @@ Called by update_net_trust_anchors.py.-->
   <int value="2" label="Generate password"/>
 </enum>
 
+<enum name="PasswordSyncMetadataReadError">
+  <int value="0" label="None"/>
+  <int value="1" label="DB Not Available"/>
+  <int value="2" label="Reading failure"/>
+</enum>
+
 <enum name="PasswordSyncState">
   <int value="0" label="Syncing OK"/>
   <int value="1" label="Read failed"/>
@@ -52719,6 +52761,17 @@ Called by update_net_trust_anchors.py.-->
   <int value="2011028983" label="pcman.exe"/>
 </enum>
 
+<enum name="ProcessorFamily">
+<!-- These are the first three values from a very long list of values.
+The Full list of enums is in section 7.5.2 in the SMBios spec.
+https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_2.7.1.pdf
+-->
+
+  <int value="0" label="Error"/>
+  <int value="1" label="Other"/>
+  <int value="2" label="Unknown"/>
+</enum>
+
 <enum name="ProcessType">
   <obsolete>
     Deprecated 3/2013. No longer generated.
@@ -53973,6 +54026,7 @@ Called by update_net_trust_anchors.py.-->
 
 <enum name="QuickAnswersResultType">
   <int value="0" label="kNoResult"/>
+  <int value="3982" label="kKnowledgePanelEntityResult"/>
   <int value="5493" label="kDefinitionResult"/>
   <int value="6613" label="kTranslationResult"/>
   <int value="13668" label="kUnitConversionResult"/>
@@ -61700,6 +61754,27 @@ Called by update_net_trust_anchors.py.-->
   <int value="4" label="Popup blocked"/>
 </enum>
 
+<enum name="StructuredMetricsEventRecordingState">
+  <int value="0" label="Recorded"/>
+  <int value="1" label="Provider uninitialized"/>
+  <int value="2" label="Recording disabled"/>
+  <int value="3" label="Provider missing"/>
+</enum>
+
+<enum name="StructuredMetricsInternalError">
+  <int value="0" label="Missing key"/>
+  <int value="1" label="Wrong key length"/>
+  <int value="2" label="Missing last rotation"/>
+  <int value="3" label="Missing rotation period"/>
+  <int value="4" label="Failed uint conversion"/>
+</enum>
+
+<enum name="StructuredMetricsKeyValidationState">
+  <int value="0" label="Valid"/>
+  <int value="1" label="Created"/>
+  <int value="2" label="Rotated"/>
+</enum>
+
 <enum name="StyleSheetCacheStatus">
   <int value="0" label="No usable cache found"/>
   <int value="1" label="DiskCache served the CSS source"/>
@@ -65462,52 +65537,6 @@ Full version information for the fingerprint enum values:
   <int value="4" label="Seed import failed - invalid response date string"/>
 </enum>
 
-<enum name="VariationsFirstRunSeedFetchResult">
-  <int value="-4" label="Invalid Date header when fetching seed"/>
-  <int value="-3" label="UnknownHostException fetching seed"/>
-  <int value="-2" label="SocketTimeoutException fetching seed"/>
-  <int value="-1" label="IOException fetching seed"/>
-  <int value="200" label="200: OK"/>
-  <int value="201" label="201: Created"/>
-  <int value="202" label="202: Accepted"/>
-  <int value="203" label="203: Non-Authoritative Information"/>
-  <int value="204" label="204: No Content"/>
-  <int value="205" label="205: Reset Content"/>
-  <int value="206" label="206: Partial Content"/>
-  <int value="300" label="300: Multiple Choices"/>
-  <int value="301" label="301: Moved Permanently"/>
-  <int value="302" label="302: Found"/>
-  <int value="303" label="303: See Other"/>
-  <int value="304" label="304: Not Modified"/>
-  <int value="305" label="305: Use Proxy"/>
-  <int value="306" label="306: (Unused)"/>
-  <int value="307" label="307: Temporary Redirect"/>
-  <int value="400" label="400: Bad Request"/>
-  <int value="401" label="401: Unauthorized"/>
-  <int value="402" label="402: Payment Required"/>
-  <int value="403" label="403: Forbidden"/>
-  <int value="404" label="404: Not Found"/>
-  <int value="405" label="405: Method Not Allowed"/>
-  <int value="406" label="406: Not Acceptable"/>
-  <int value="407" label="407: Proxy Authentication Required"/>
-  <int value="408" label="408: Request Timeout"/>
-  <int value="409" label="409: Conflict"/>
-  <int value="410" label="410: Gone"/>
-  <int value="411" label="411: Length Required"/>
-  <int value="412" label="412: Precondition Failed"/>
-  <int value="413" label="413: Request Entity Too Large"/>
-  <int value="414" label="414: Request-URI Too Long"/>
-  <int value="415" label="415: Unsupported Media Type"/>
-  <int value="416" label="416: Requested Range Not Satisfiable"/>
-  <int value="417" label="417: Expectation Failed"/>
-  <int value="500" label="500: Internal Server Error"/>
-  <int value="501" label="501: Not Implemented"/>
-  <int value="502" label="502: Bad Gateway"/>
-  <int value="503" label="503: Service Unavailable"/>
-  <int value="504" label="504: Gateway Timeout"/>
-  <int value="505" label="505: HTTP Version Not Supported"/>
-</enum>
-
 <enum name="VariationsHeadersURLValidationResult">
   <int value="0" label="Rejected: Invalid URL."/>
   <int value="1" label="Rejected: Not https. (Deprecated)"/>
@@ -65566,6 +65595,52 @@ Full version information for the fingerprint enum values:
   <int value="0" label="Not Expired"/>
   <int value="1" label="Fetch Time Missing"/>
   <int value="2" label="Expired"/>
+</enum>
+
+<enum name="VariationsSeedFetchResult">
+  <int value="-4" label="Invalid Date header when fetching seed"/>
+  <int value="-3" label="UnknownHostException fetching seed"/>
+  <int value="-2" label="SocketTimeoutException fetching seed"/>
+  <int value="-1" label="IOException fetching seed"/>
+  <int value="200" label="200: OK"/>
+  <int value="201" label="201: Created"/>
+  <int value="202" label="202: Accepted"/>
+  <int value="203" label="203: Non-Authoritative Information"/>
+  <int value="204" label="204: No Content"/>
+  <int value="205" label="205: Reset Content"/>
+  <int value="206" label="206: Partial Content"/>
+  <int value="300" label="300: Multiple Choices"/>
+  <int value="301" label="301: Moved Permanently"/>
+  <int value="302" label="302: Found"/>
+  <int value="303" label="303: See Other"/>
+  <int value="304" label="304: Not Modified"/>
+  <int value="305" label="305: Use Proxy"/>
+  <int value="306" label="306: (Unused)"/>
+  <int value="307" label="307: Temporary Redirect"/>
+  <int value="400" label="400: Bad Request"/>
+  <int value="401" label="401: Unauthorized"/>
+  <int value="402" label="402: Payment Required"/>
+  <int value="403" label="403: Forbidden"/>
+  <int value="404" label="404: Not Found"/>
+  <int value="405" label="405: Method Not Allowed"/>
+  <int value="406" label="406: Not Acceptable"/>
+  <int value="407" label="407: Proxy Authentication Required"/>
+  <int value="408" label="408: Request Timeout"/>
+  <int value="409" label="409: Conflict"/>
+  <int value="410" label="410: Gone"/>
+  <int value="411" label="411: Length Required"/>
+  <int value="412" label="412: Precondition Failed"/>
+  <int value="413" label="413: Request Entity Too Large"/>
+  <int value="414" label="414: Request-URI Too Long"/>
+  <int value="415" label="415: Unsupported Media Type"/>
+  <int value="416" label="416: Requested Range Not Satisfiable"/>
+  <int value="417" label="417: Expectation Failed"/>
+  <int value="500" label="500: Internal Server Error"/>
+  <int value="501" label="501: Not Implemented"/>
+  <int value="502" label="502: Bad Gateway"/>
+  <int value="503" label="503: Service Unavailable"/>
+  <int value="504" label="504: Gateway Timeout"/>
+  <int value="505" label="505: HTTP Version Not Supported"/>
 </enum>
 
 <enum name="VariationsSeedLoadResult">

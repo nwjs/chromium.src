@@ -176,7 +176,7 @@ std::unique_ptr<WinHttpUrlFetcher> WinHttpUrlFetcher::Create(const GURL& url) {
 
 WinHttpUrlFetcher::WinHttpUrlFetcher(const GURL& url)
     : url_(url), session_(nullptr), request_(nullptr) {
-  LOGFN(INFO) << "url=" << url.spec() << " (scheme and port ignored)";
+  LOGFN(VERBOSE) << "url=" << url.spec() << " (scheme and port ignored)";
 
   ScopedWinHttpHandle::Handle session = ::WinHttpOpen(
       L"GaiaCP/1.0 (Windows NT)", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
@@ -354,6 +354,8 @@ HRESULT WinHttpUrlFetcher::BuildRequestAndFetchResultFromHttpService(
     const base::Value& request_dict,
     const base::TimeDelta& request_timeout,
     base::Optional<base::Value>* request_result) {
+  DCHECK(request_result);
+
   auto url_fetcher = WinHttpUrlFetcher::Create(request_url);
   if (!url_fetcher) {
     LOGFN(ERROR) << "Could not create valid fetcher for url="
@@ -381,6 +383,10 @@ HRESULT WinHttpUrlFetcher::BuildRequestAndFetchResultFromHttpService(
       LOGFN(ERROR) << "fetcher.SetRequestBody hr=" << putHR(hr);
       return E_FAIL;
     }
+  }
+
+  if (!request_timeout.is_zero()) {
+    url_fetcher->SetHttpRequestTimeout(request_timeout.InMilliseconds());
   }
 
   auto extracted_param = (new HttpServiceRequest(std::move(url_fetcher)))

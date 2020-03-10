@@ -436,7 +436,7 @@ xizmatlarini sizga moslashtirish maqsadlarida foydalanishi mumkin. Bu ruxsatni m
 <translation id="1596286373007273895">Mavjud</translation>
 <translation id="1598233202702788831">Yangilash funksiyasi administrator tomonidan o‘chirib qo‘yilgan.</translation>
 <translation id="1600857548979126453">Sahifalarda nosozliklarni ko‘rib chiqish vositasiga ruxsat</translation>
-<translation id="1601560923496285236">Qo‘llash</translation>
+<translation id="1601560923496285236">Tatbiq etish</translation>
 <translation id="1603914832182249871">(inkognito)</translation>
 <translation id="1604432177629086300">Chop etilmadi. Printerni tekshiring va qayta urining.</translation>
 <translation id="1605544918554600534"><ph name="PROFILE_NAME" />: parollar sinxronizatsiyasi ishlamayapti</translation>
@@ -1214,6 +1214,7 @@ Oʻz qurilmangizda Family Link ilovasini oʻrnatib, bu hisob sozlamalarini boshq
 <translation id="2653659639078652383">Yuborish</translation>
 <translation id="265390580714150011">Maydon qiymati</translation>
 <translation id="2654166010170466751">Saytlarga to‘lov vositalarini o‘rnatishga ruxsat berish</translation>
+<translation id="2654553774144920065">Chop etish talabi</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funksiyalar qurilmalarga bog‘liq</translation>
 <translation id="2660779039299703961">Hodisa</translation>
 <translation id="266079277508604648">Printerni ulab bo‘lmadi. Uning yoniqligini va Chromebook qurilmangizga Wi-Fi yoki USB orqali ulanganligini tekshiring.</translation>
@@ -2388,7 +2389,6 @@ Oʻz qurilmangizda Family Link ilovasini oʻrnatib, bu hisob sozlamalarini boshq
 <translation id="4285418559658561636">Parolni yangilash</translation>
 <translation id="4285498937028063278">Olib tashlash</translation>
 <translation id="428565720843367874">Antivirus dasturida bu faylni tekshirish vaqtida xatolik yuz berdi.</translation>
-<translation id="4287502004382794929">Bu qurilmani qo‘shish uchun sizda yetarli dasturiy ta’minot litsenziyalari yo‘q. Xarid qilish uchun savdo bo‘limiga murojaat qiling. Bu xabar noto‘g‘ri bo‘lsa, qo‘llab-quvvatlash xizmati bilan bog‘laning.</translation>
 <translation id="4289540628985791613">Umumiy</translation>
 <translation id="4295072614469448764">Ilova terminalingizda mavjud. Launcherda ikonka bo‘lishi kerak.</translation>
 <translation id="4295979599050707005"><ph name="USER_EMAIL" /> hisobingizga qaytadan kirib, Chrome va Google Play hisobingizni saytlar, ilova va kengaytmalarga kirishda ishlatishiga ruxsat berishingizni tasdiqlang. Bu hisobni olib tashlashingiz ham mumkin. <ph name="LINK_BEGIN" />Batafsil<ph name="LINK_END" /></translation>
@@ -3719,6 +3719,7 @@ Ochiq eksponenta (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bit):
 <translation id="6207282396926186323"><ph name="APP_NAME" /> ilovasini oʻrnatish (Linux)</translation>
 <translation id="6207937957461833379">Mamlakat / hudud</translation>
 <translation id="6208521041562685716">Mobil tarmoq faollashtirilmoqda</translation>
+<translation id="6209908325007204267">Bu qurilmada Chrome korporativ litsenziyasi bor, lekin qurilmadagi foydalanuvchi nomi korporativ hisobga tegishli emas. Boshqa qurilma orqali g.co/ChromeEnterpriseAccount sahifasidan korporativ hisob oching.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Sinxronizatsiya ishlamayapti</translation>
 <translation id="6212039847102026977">Qo‘shimcha tarmoq parametrlari</translation>
 <translation id="6212168817037875041">Ekranni o‘chirish</translation>
@@ -4028,7 +4029,7 @@ Ochiq eksponenta (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bit):
 <translation id="6655458902729017087">Hisoblarni yashirish</translation>
 <translation id="6657585470893396449">Parol</translation>
 <translation id="6659213950629089752">Sahifa "<ph name="NAME" />" kengaytmasi tomonidan yaqinlashtirildi</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Varaq</translation>
 <translation id="6664237456442406323">Afsuski, kompyuteringiz noto‘g‘ri tuzilgan apparat identifikatori bilan sozlangan. Buning natijasida Chrome OS xavfsizlikka oid so‘nggi tuzatishlar bilan yangilanmaydi va kompyuteringiz <ph name="BEGIN_BOLD" />zararli hujumlarga ochiq qolishi mumkin<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">Profilni ochib bo‘lmadi. Tizimdan chiqing va qaytadan kiring.</translation>
 <translation id="6667776121818773738">Boshqa qurilmadagi tasvir</translation>
@@ -4158,6 +4159,7 @@ Ochiq eksponenta (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bit):
 <translation id="6843423766595476978">“Ok Google” sozlandi</translation>
 <translation id="6845038076637626672">Yoyib ochish</translation>
 <translation id="6845325883481699275">Chrome xavfsizligini yaxshilashga yordam bering</translation>
+<translation id="6846178040388691741">“<ph name="EXTENSION_NAME" />” kengaytmasi <ph name="FILE_NAME" /> faylini <ph name="PRINTER_NAME" /> printerida chop etmoqchi.</translation>
 <translation id="6847125920277401289">Davom etish uchun xotiradan joy oching</translation>
 <translation id="6848388270925200958">Hozir bu qurilmada kartalardan faqat bir nechtasini ishlatish mumkin</translation>
 <translation id="6850286078059909152">Matn rangi</translation>
@@ -4401,6 +4403,7 @@ Ochiq eksponenta (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bit):
 <translation id="7186088072322679094">Asboblar panelida saqlash</translation>
 <translation id="7187428571767585875">O‘chiriladigan yoki o‘zgartiriladigan jurnal qaydlari:</translation>
 <translation id="7189234443051076392">Qurilmangizda joy kam qolganga o‘xshaydi</translation>
+<translation id="7189451821249468368">Bu qurilmani qayd qilish uchun sizdagi DT litsenziyalari yetarli emas. Xarid qilish uchun savdo boʻlimiga murojaat qiling. Bu xabar xato boʻlsa, yordam xizmatiga murojaat qiling.</translation>
 <translation id="7189965711416741966">Barmoq izi qo‘shildi.</translation>
 <translation id="7191159667348037">Notanish printer (USB)</translation>
 <translation id="7193051357671784796">Bu ilova tashkilotingiz tomonidan kiritildi. Ilova oʻrnatilishini yakunlash uchun uni oʻchirib yoqing.</translation>
@@ -4453,7 +4456,7 @@ Ochiq eksponenta (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bit):
 <translation id="7253521419891527137">&amp;Batafsil ma’lumot</translation>
 <translation id="7254951428499890870">“<ph name="APP_NAME" />” ilovasi diagnostika rejimida ishga tushirilsinmi?</translation>
 <translation id="7255002516883565667">Hozir bu qurilmada kartalaringizdan faqat bittasini ishlatish mumkin</translation>
-<translation id="7255935316994522020">Qo‘llash</translation>
+<translation id="7255935316994522020">Tatbiq etish</translation>
 <translation id="7256069762010468647">Sayt kamerangizdan foydalanmoqda</translation>
 <translation id="7256405249507348194">Noma’lum xatolik: <ph name="DESC" /></translation>
 <translation id="7256710573727326513">Yangi tabda ochish</translation>
@@ -5772,7 +5775,6 @@ Kalit faylini ishonchli joyda saqlang. U kengaytmaning yangi versiyalarini yarat
 <translation id="9050666287014529139">Kodli ibora</translation>
 <translation id="9052208328806230490">Printerlaringizni <ph name="EMAIL" /> hisobi yordamida <ph name="CLOUD_PRINT_NAME" />’da qayddan o‘tkazdingiz</translation>
 <translation id="9052404922357793350">Bloklanaversin</translation>
-<translation id="9053091947372579468">Qurilmangizda Chrome litsenziyasi bor, lekin joriy foydalanuvchi Admin paneliga ulanmagan. Qurilma registratsiyasi uchun unda Admin paneli hisobi yaratishingiz kerak. Eslatma: Agar yangi admin paneli hisobini o‘z domeningizda ochsangiz, yaratishdan keyin domenni ham tasdiqlashingiz kerak bo‘ladi. Batafsil axborot: https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Ikki tarafiga chop etish</translation>
 <translation id="9053893665344928494">Tanlovim eslab qolinsin</translation>
 <translation id="9055636786322918818">RC4 shifrlash usulidan majburiy foydalanish. RC4 shifrlari himoyasizroq, shuning uchun bu usulni tanlash xavfliroq bo‘lishi mumkin.</translation>

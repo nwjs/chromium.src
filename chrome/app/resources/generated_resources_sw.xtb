@@ -381,7 +381,7 @@
 <translation id="1521774566618522728">Ameitumia leo</translation>
 <translation id="152234381334907219">Hayatahifadhiwa Kamwe</translation>
 <translation id="1524430321211440688">Kibodi</translation>
-<translation id="1524563461097350801">La, asante</translation>
+<translation id="1524563461097350801">Hapana</translation>
 <translation id="1525740877599838384">Tumia Wi-Fi pekee ili kutambua mahali</translation>
 <translation id="1526560967942511387">Andiko lisilo na kichwa</translation>
 <translation id="1529891865407786369">Chanzo cha nishati</translation>
@@ -959,7 +959,7 @@ Unaweza kudhibiti mipangilio ya akaunti hii kwa kusakinisha programu ya Family L
 <translation id="2309620859903500144">Tovuti hii imezuiliwa ili isifikie vitambuzi vya mwangaza au mwendo.</translation>
 <translation id="2315414688463285945">Hitilafu imetokea wakati wa kuweka mipangilio ya faili za Linux. Tafadhali jaribu tena.</translation>
 <translation id="2315587498123194634">Tuma Kiungo kwenye <ph name="DEVICE_NAME" /></translation>
-<translation id="2316129865977710310">Hapana, asante</translation>
+<translation id="2316129865977710310">Hapana</translation>
 <translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" />% imekamilika</translation>
 <translation id="2318143611928805047">Ukubwa wa karatasi</translation>
 <translation id="2318817390901984578">Ili utumie programu za Android, chaji na usasishe kifaa chako cha <ph name="DEVICE_TYPE" />.</translation>
@@ -1213,6 +1213,7 @@ Unaweza kudhibiti mipangilio ya akaunti hii kwa kusakinisha programu ya Family L
 <translation id="2653659639078652383">Wasilisha</translation>
 <translation id="265390580714150011">Thamani ya Uga</translation>
 <translation id="2654166010170466751">Ruhusu tovuti zisakinishe vidhibiti vya malipo</translation>
+<translation id="2654553774144920065">Ombi la kuchapisha</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Vipengele vinatofautiana kulingana na kifaa</translation>
 <translation id="2660779039299703961">Tukio</translation>
 <translation id="266079277508604648">Imeshindwa kuunganisha kwenye printa. Hakikisha kuwa printa imewashwa na imeunganishwa kwenye Chromebook yako kwa kutumia Wi-Fi au USB.</translation>
@@ -2385,7 +2386,6 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4285418559658561636">Sasisha Nenosiri</translation>
 <translation id="4285498937028063278">Banua</translation>
 <translation id="428565720843367874">Programu ya kingavirusi imeacha kufanya kazi ghafla wakati ilipokuwa inakagua faili hii.</translation>
-<translation id="4287502004382794929">Huna leseni za kutosha za programu ili kusajili kifaa hiki. Tafadhali wasilina na wauzaji ili kununua zaidi. Ikiwa unaamini unaona ujumbe huu kama hitilafu, tafadhali wasiliana na msaada kwa wateja.</translation>
 <translation id="4289540628985791613">Muhtasari</translation>
 <translation id="4295072614469448764">Programu inapatikana kwenye kituo chako. Huenda pia kukawa na aikoni kwenye Kifungua programu chako.</translation>
 <translation id="4295979599050707005">Tafadhali ingia katika akaunti tena ili uthibitishe kwamba akaunti yako ya <ph name="USER_EMAIL" /> inaweza kutumika katika tovuti, programu na viendelezi kwenye Chrome na Google Play. Unaweza pia kuondoa akaunti hii. <ph name="LINK_BEGIN" />Pata maelezo zaidi<ph name="LINK_END" /></translation>
@@ -3716,6 +3716,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="6207282396926186323">Sakinisha <ph name="APP_NAME" /> (Programu ya Linux)</translation>
 <translation id="6207937957461833379">Nchi/Eneo</translation>
 <translation id="6208521041562685716">Data ya mtandao wa simu inawashwa</translation>
+<translation id="6209908325007204267">Kifaa chako kina Chrome Enterprise Upgrade, lakini jina lako la mtumiaji halijahusishwa na akaunti ya biashara. Tafadhali fungua akaunti ya biashara kwa kutembelea g.co/ChromeEnterpriseAccount kwenye kifaa kingine.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Kipengele cha kusawazisha hakifanyi kazi</translation>
 <translation id="6212039847102026977">Onyesha sifa za kina za mtandao</translation>
 <translation id="6212168817037875041">Izime skrini</translation>
@@ -4155,6 +4156,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="6843423766595476978">Imemaliza kuweka mipangilio ya Ok Google</translation>
 <translation id="6845038076637626672">Fungua Iliyoongezwa</translation>
 <translation id="6845325883481699275">Tusaidie kuboresha usalama wa Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" inataka kuchapisha <ph name="FILE_NAME" /> ikitumia <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Ongeza nafasi ili uendelee</translation>
 <translation id="6848388270925200958">Sasa hivi, baadhi ya kadi zako zinaweza kutumika kwenye kifaa hiki pekee</translation>
 <translation id="6850286078059909152">Rangi ya maandishi</translation>
@@ -4398,6 +4400,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="7186088072322679094">Weka katika Upau wa Vidhibiti</translation>
 <translation id="7187428571767585875">Data ya sajili itakayoondolewa au kubadilishwa:</translation>
 <translation id="7189234443051076392">Hakikisha kuwa una nafasi ya kutosha kwenye kifaa chako</translation>
+<translation id="7189451821249468368">Huna leseni za kutosha kusajili kifaa hiki. Tafadhali wasiliana na huduma ya mauzo ili ununue nyingine. Ikiwa unaamini kuwa unaona ujumbe huu kimakosa, tafadhali wasiliana na kituo cha usaidizi.</translation>
 <translation id="7189965711416741966">Imeongeza alama bainifu.</translation>
 <translation id="7191159667348037">Printa Isiyojulikana (USB)</translation>
 <translation id="7193051357671784796">Programu hii iliongezwa na shirika lako. Zima kisha uwashe programu ili ukamilishe kuisakinisha.</translation>
@@ -4835,7 +4838,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="7797571222998226653">Imezimwa</translation>
 <translation id="7799299114731150374">Imeweka mandhari</translation>
 <translation id="7800518121066352902">Zungusha Kinyume saa</translation>
-<translation id="780301667611848630">La, asante</translation>
+<translation id="780301667611848630">Hapana</translation>
 <translation id="7805768142964895445">Hali</translation>
 <translation id="7807067443225230855">Utafutaji na Mratibu</translation>
 <translation id="7807711621188256451">Ruhusu <ph name="HOST" /> kufikia kamera yako kila wakati</translation>
@@ -5773,7 +5776,6 @@ Sidhani tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="9050666287014529139">Kaulisiri</translation>
 <translation id="9052208328806230490">Umesajili printa zako kwenye <ph name="CLOUD_PRINT_NAME" /> ukitumia akaunti ya <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Endelea kuzuia</translation>
-<translation id="9053091947372579468">Kifaa chako kinajumuisha leseni ya Chrome, lakini jina lako la mtumiaji halijahusishwa na Dashibodi ya msimamizi. Tafadhali fungua akaunti ya Dashibodi ya msimamizi ili uendelee kujisajili. Kumbuka: Kama utachagua kutumia kikoa chako mwenyewe ili ufungue akaunti ya Dashibodi ya msimamizi, lazima pia ukamilishe uthibitishaji wa kikoa baada ya kujisajili. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Chapisha kwenye pande zote mbili</translation>
 <translation id="9053893665344928494">Kumbuka chaguo langu</translation>
 <translation id="9055636786322918818">Wezesha usimbaji wa RC4. Hatua ya kutumia chaguo hili huongeza uwezekano wa hatari kwa kuwa misimbo ya RC4 si salama.</translation>

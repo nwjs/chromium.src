@@ -279,7 +279,7 @@
 <translation id="3123473560110926937">Annonces bloquées sur certains sites</translation>
 <translation id="3123734510202723619">Annonces</translation>
 <translation id="3137521801621304719">Désactiver le mode de navigation privée</translation>
-<translation id="3140134512074889489">Veuillez activer votre caméra pour numériser un code QR</translation>
+<translation id="3140134512074889489">Veuillez activer votre appareil photo pour numériser un code QR</translation>
 <translation id="3143515551205905069">Annuler la synchronisation</translation>
 <translation id="3157842584138209013">Affichez la quantité de données enregistrées à partir du bouton Plus d'options</translation>
 <translation id="3166827708714933426">Raccourcis relatifs aux onglets et aux fenêtres</translation>
@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Numéros de téléphone</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> téléchargements supprimés</translation>
 <translation id="3822502789641063741">Suppr. stock. des sites?</translation>
+<translation id="3849365399446680203">Lorsque vous êtes en mode RA, ce site pourrait effectuer les actions suivantes :
+• Créer une carte 3D de votre environnement
+• Faire le suivi du mouvement de l'appareil photo
+
+Vous seul voyez les images de l'appareil photo. Le site n'y a pas accès.</translation>
 <translation id="3859306556332390985">Rechercher vers l'avant</translation>
 <translation id="388596076286380598">Consultez des articles, des vidéos et d'autres contenus sur les sites qui vous intéressent, même si vous êtes hors ligne ou si votre connexion est mauvaise.</translation>
 <translation id="3894427358181296146">Ajouter un dossier</translation>
@@ -452,7 +457,7 @@
 D'autres formes d'historique de navigation, telles que les recherches et l'activité d'autres services Google, peuvent exister sur votre compte Google à l'adresse <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="4527374721149092498">Apprenez-en davantage sur des sujets mentionnés sur des sites Web sans quitter la page. La fonctionnalité Toucher pour rechercher envoie un mot et son contexte à la recherche Google, qui vous renvoie des définitions, des photos, des résultats de recherche et d'autres renseignements.
 
-Touchez n’importe quel mot pour lancer une recherche à partir de celui-ci. Pour ajuster votre terme de recherche, faites un appui prolongé de manière à effectuer une sélection. Pour affiner la recherche, faites glisser le panneau pour l'ouvrir, touchez l'icône de Développer pour créer un nouvel onglet, puis touchez le champ de recherche.</translation>
+Touchez n’importe quel mot pour lancer une recherche à partir de celui-ci. Pour ajuster votre terme de recherche, faites un appui prolongé de manière à effectuer une sélection. Pour affiner la recherche, faites glisser le panneau pour l'ouvrir, touchez l'icône de Développer pour créer un onglet, puis touchez le champ de recherche.</translation>
 <translation id="4532845899244822526">Sélectionner un dossier</translation>
 <translation id="4538018662093857852">Activer le mode simplifié</translation>
 <translation id="4550003330909367850">Pour afficher ou copier votre mot de passe ici, définissez le verrouillage d'écran sur cet appareil.</translation>
@@ -587,7 +592,6 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="5447765697759493033">Ce site ne sera pas traduit</translation>
 <translation id="545042621069398927">Accélération de votre téléchargement en cours…</translation>
 <translation id="5456381639095306749">Télécharger la page</translation>
-<translation id="5475862044948910901">Démarrer une séance de réalité augmentée?</translation>
 <translation id="548278423535722844">Ouvrir dans l'application Maps</translation>
 <translation id="5487521232677179737">Effacer les données</translation>
 <translation id="5494752089476963479">Bloquer les annonces sur les sites qui diffusent des annonces intrusives ou trompeuses</translation>
@@ -696,7 +700,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 Par exemple, certains sites Web peuvent répondre à cette demande en diffusant des annonces qui ne sont pas déterminées en fonction des autres sites Web que vous avez consultés. Toutefois, nombre d'entre eux recueillent et utilisent vos données de navigation afin, par exemple, d'améliorer la sécurité du contenu, les annonces et des recommandations, ou encore pour générer des rapports statistiques.</translation>
 <translation id="6238003486329291387">Apprenez-en davantage sur des sujets mentionnés sur des sites Web sans quitter la page. La fonctionnalité Toucher pour rechercher envoie un mot et son contexte à la recherche Google, qui vous renvoie des définitions, des photos, des résultats de recherche et d'autres renseignements.
 
-Pour lancer une recherche sur un mot, effectuez un appui prolongé. Pour affiner votre recherche, ajustez la sélection. Vous pouvez aussi faire glisser le panneau pour l'ouvrir, toucher l'icône Développer pour créer un nouvel onglet, puis toucher le champ de recherche.</translation>
+Pour lancer une recherche sur un mot, effectuez un appui prolongé dessus. Pour affiner votre recherche, ajustez la sélection. Vous pouvez aussi faire glisser le panneau pour l'ouvrir, toucher l'icône Développer pour créer un onglet, puis toucher le champ de recherche.</translation>
 <translation id="624789221780392884">Une mise à jour est prête à être installée</translation>
 <translation id="6255999984061454636">Suggestions de contenu</translation>
 <translation id="6270391203985052864">Les sites peuvent vous demander l'autorisation d'envoyer des notifications</translation>
@@ -720,6 +724,7 @@ Pour lancer une recherche sur un mot, effectuez un appui prolongé. Pour affiner
 <translation id="6395288395575013217">LIEN</translation>
 <translation id="6404511346730675251">Modifier le favori</translation>
 <translation id="6406506848690869874">Synchronisation</translation>
+<translation id="6410973561433500075">Démarrer la RA à partir de <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Imprimer...</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> Mo téléchargés</translation>
 <translation id="6427112570124116297">Traduisez le Web</translation>
@@ -839,11 +844,6 @@ Pour lancer une recherche sur un mot, effectuez un appui prolongé. Pour affiner
 <translation id="7352939065658542140">VIDÉO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Partager 1 élément sélectionné}one{Partager # élément sélectionné}other{Partager # éléments sélectionnés}}</translation>
 <translation id="7359002509206457351">Accéder aux modes de paiement</translation>
-<translation id="7365126855094612066">Pour la durée de cette session, le site sera en mesure de :
-• Créer une carte 3D de votre environnement
-• Faire le suivi du mouvement de l'appareil photo
-
-Le site n'obtient PAS l'accès à l'appareil photo. Vous seul pouvez visionner les images de l'appareil photo.</translation>
 <translation id="7375125077091615385">Type :</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

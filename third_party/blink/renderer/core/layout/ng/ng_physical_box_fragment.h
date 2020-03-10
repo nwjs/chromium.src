@@ -52,6 +52,12 @@ class CORE_EXPORT NGPhysicalBoxFragment final
     return base::nullopt;
   }
 
+  base::Optional<LayoutUnit> LastBaseline() const {
+    if (has_last_baseline_)
+      return last_baseline_;
+    return base::nullopt;
+  }
+
   const NGPhysicalBoxStrut Borders() const {
     if (!has_borders_)
       return NGPhysicalBoxStrut();
@@ -130,6 +136,7 @@ class CORE_EXPORT NGPhysicalBoxFragment final
   }
 
   LayoutUnit baseline_;
+  LayoutUnit last_baseline_;
   NGLink children_[];
   // borders and padding come from after |children_| if they are not zero.
 };

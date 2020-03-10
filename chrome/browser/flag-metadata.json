@@ -917,6 +917,11 @@
     "owners": [ "twellington", "tedchoc" ],
     "expiry_milestone": 80
   },
+    {
+    "name": "enable-android-night-mode-tab-reparenting",
+    "owners": [ "twellington", "tedchoc", "wylieb" ],
+    "expiry_milestone": 83
+  },
   {
     "name": "enable-android-spellchecker",
     "owners": [ "timvolodine" ],

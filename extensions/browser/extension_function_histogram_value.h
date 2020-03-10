@@ -1498,9 +1498,11 @@ enum HistogramValue {
   PRINTING_SUBMITJOB = 1435,
   IDENTITYPRIVATE_SETCONSENTRESULT = 1436,
   PRINTING_CANCELJOB = 1437,
+  WEBCAMPRIVATE_RESTORE_CAMERA_PRESET = 1449,
+  WEBCAMPRIVATE_SET_CAMERA_PRESET = 1450,
   // Last entry: Add new entries above, then run:
   // python tools/metrics/histograms/update_extension_histograms.py
-  ENUM_BOUNDARY
+  ENUM_BOUNDARY = 1440
 };
 
 }  // namespace functions

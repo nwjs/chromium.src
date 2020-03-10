@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Số điện thoại</translation>
 <translation id="3819178904835489326">Đã xóa <ph name="NUMBER_OF_DOWNLOADS" /> bản tải xuống</translation>
 <translation id="3822502789641063741">Xóa dữ liệu trang trong bộ nhớ?</translation>
+<translation id="3849365399446680203">Khi bạn ở chế độ thực tế tăng cường, trang web này có thể:
+• tạo bản đồ 3D về môi trường xung quanh bạn
+• theo dõi chuyển động của máy ảnh
+
+Chỉ bạn mới biết được máy ảnh đang nhìn vào thứ gì. Trang web này không thể nhìn thấy hình ảnh trên máy ảnh của bạn.</translation>
 <translation id="3859306556332390985">Tìm kiếm tiến</translation>
 <translation id="388596076286380598">Bạn có thể xem các bài viết, video và nội dung khác trên những trang web mình thích, ngay cả khi không có kết nối mạng hoặc kết nối yếu.</translation>
 <translation id="3894427358181296146">Thêm thư mục</translation>
@@ -587,7 +592,6 @@ Hãy nhấn vào từ bất kỳ để tìm kiếm từ đó. Để thay đổi 
 <translation id="5447765697759493033">Trang web này sẽ không được dịch</translation>
 <translation id="545042621069398927">Đang tăng tốc độ tải xuống.</translation>
 <translation id="5456381639095306749">Tải trang xuống</translation>
-<translation id="5475862044948910901">Bắt đầu phiên đăng nhập thực tế tăng cường?</translation>
 <translation id="548278423535722844">Mở trong ứng dụng bản đồ</translation>
 <translation id="5487521232677179737">Xóa dữ liệu</translation>
 <translation id="5494752089476963479">Chặn quảng cáo trên các trang web hiển thị quảng cáo xâm nhập hoặc quảng cáo gây hiểu nhầm</translation>
@@ -720,6 +724,7 @@ Hãy nhấn và giữ từ bất kỳ để bắt đầu tìm kiếm từ đó. 
 <translation id="6395288395575013217">LIÊN KẾT</translation>
 <translation id="6404511346730675251">Chỉnh sửa dấu trang</translation>
 <translation id="6406506848690869874">Đồng bộ hóa</translation>
+<translation id="6410973561433500075">Chuyển sang chế độ thực tế tăng cường từ <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">In…</translation>
 <translation id="6416782512398055893">Đã tải xuống <ph name="MBS" /> MB</translation>
 <translation id="6427112570124116297">Dịch web</translation>
@@ -759,7 +764,7 @@ Hãy nhấn và giữ từ bất kỳ để bắt đầu tìm kiếm từ đó. 
 <translation id="6649642165559792194">Xem trước hình ảnh <ph name="BEGIN_NEW" />Mới<ph name="END_NEW" /></translation>
 <translation id="6656545060687952787">Chrome cần có quyền truy cập vị trí để quét tìm thiết bị. <ph name="BEGIN_LINK" />Cập nhật quyền<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Mật khẩu</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Thẻ</translation>
 <translation id="666731172850799929">Mở trong <ph name="APP_NAME" /></translation>
 <translation id="666981079809192359">Thông báo quyền riêng tư của Chrome</translation>
 <translation id="6671495933530132209">Sao chép ảnh</translation>
@@ -839,11 +844,6 @@ Hãy nhấn và giữ từ bất kỳ để bắt đầu tìm kiếm từ đó. 
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Chia sẻ 1 mục đã chọn}other{Chia sẻ # mục đã chọn}}</translation>
 <translation id="7359002509206457351">Truy cập vào phương thức thanh toán</translation>
-<translation id="7365126855094612066">Trong suốt thời gian diễn ra phiên đăng nhập này, trang web có thể:
-• tạo bản đồ 3D về môi trường xung quanh bạn
-• theo dõi chuyển động của máy ảnh
-
-Trang web này KHÔNG có quyền truy cập vào máy ảnh. Chỉ bạn mới xem được hình ảnh trong máy ảnh.</translation>
 <translation id="7375125077091615385">Loại:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

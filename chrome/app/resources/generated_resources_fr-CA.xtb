@@ -1217,6 +1217,7 @@ https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2653659639078652383">Envoyer</translation>
 <translation id="265390580714150011">Valeur du champ</translation>
 <translation id="2654166010170466751">Autoriser les sites à installer des modules de traitement des paiements</translation>
+<translation id="2654553774144920065">Demande d'impression</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Les fonctionnalités varient selon l'appareil</translation>
 <translation id="2660779039299703961">Événement</translation>
 <translation id="266079277508604648">Impossible de se connecter à l'imprimante. Vérifiez que l'imprimante est activée et connectée à votre Chromebook par Wi-Fi ou USB.</translation>
@@ -2391,7 +2392,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4285418559658561636">Mettre à jour le mot de passe</translation>
 <translation id="4285498937028063278">Annuler l'épinglage</translation>
 <translation id="428565720843367874">Erreur inattendue de vérification de sécurité pendant l'analyse de ce fichier par l'antivirus.</translation>
-<translation id="4287502004382794929">Vous n'avez pas suffisamment de licences logicielles pour enregistrer cet appareil. Veuillez communiquer avec le service commercial pour en acheter d'autres. Si vous pensez que ce message s'affiche par erreur, veuillez communiquer avec l'assistance technique.</translation>
 <translation id="4289540628985791613">Aperçu</translation>
 <translation id="4295072614469448764">L'application est disponible dans votre terminal. Une icône peut également être disponible dans votre lanceur d'applications.</translation>
 <translation id="4295979599050707005">Veuillez vous connecter à nouveau pour confirmer que votre compte <ph name="USER_EMAIL" /> peut être utilisé avec des sites Web, des applications et des extensions dans Chrome et dans Google Play. Vous pouvez aussi supprimer ce compte. <ph name="LINK_BEGIN" />En savoir plus<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="6207282396926186323">Installer <ph name="APP_NAME" /> (application Linux)</translation>
 <translation id="6207937957461833379">Pays/région</translation>
 <translation id="6208521041562685716">Activation des données cellulaires en cours…</translation>
+<translation id="6209908325007204267">Votre appareil comprend une mise à niveau de Chrome Enterprise, mais votre nom d'utilisateur n'est pas associé à un compte d'entreprise. Veuillez créer un compte d'entreprise en visitant g.co/ChromeEnterpriseAccount sur un autre appareil.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" /> : la synchronisation ne fonctionne pas</translation>
 <translation id="6212039847102026977">Afficher les propriétés de réseau avancées</translation>
 <translation id="6212168817037875041">Désactiver l'écran</translation>
@@ -4161,6 +4162,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="6843423766595476978">Ok Google est prêt</translation>
 <translation id="6845038076637626672">Ouvrir maximisé</translation>
 <translation id="6845325883481699275">Contribuer à améliorer la sécurité de Chrome</translation>
+<translation id="6846178040388691741">« <ph name="EXTENSION_NAME" /> » souhaite imprimer <ph name="FILE_NAME" /> avec <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Libérez de l'espace pour continuer</translation>
 <translation id="6848388270925200958">Pour le moment, certaines de vos cartes peuvent être utilisées uniquement sur cet appareil</translation>
 <translation id="6850286078059909152">Couleur du texte</translation>
@@ -4404,6 +4406,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="7186088072322679094">Garder dans la barre d'outils</translation>
 <translation id="7187428571767585875">Entrées du registre à supprimer ou à modifier :</translation>
 <translation id="7189234443051076392">Assurez-vous qu'il y a suffisamment d'espace sur votre appareil</translation>
+<translation id="7189451821249468368">Vous n'avez pas suffisamment de mises à niveau pour inscrire cet appareil. Veuillez communiquer avec le service commercial pour en acheter d'autres. Si vous pensez que ce message s'affiche par erreur, veuillez communiquer avec l'assistance technique.</translation>
 <translation id="7189965711416741966">Empreinte digitale ajoutée.</translation>
 <translation id="7191159667348037">Imprimante inconnue (USB)</translation>
 <translation id="7193051357671784796">Cette application a été ajoutée par votre organisation Redémarrez-la pour terminer l'installation.</translation>
@@ -5776,7 +5779,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="9050666287014529139">Phrase de passe</translation>
 <translation id="9052208328806230490">Vous avez enregistré vos imprimantes dans <ph name="CLOUD_PRINT_NAME" /> en utilisant le compte <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continuer le blocage</translation>
-<translation id="9053091947372579468">Votre appareil inclut une licence Chrome, mais votre nom d'utilisateur n'est pas associé à une console d'administrateur. Veuillez créer un compte de console d'administrateur pour procéder à l'inscription. Remarque : Si vous choisissez d'utiliser votre propre domaine pour créer un nouveau compte de console d'administrateur, vous devez également terminer la vérification du domaine après votre inscription. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Imprimer sur les deux côtés</translation>
 <translation id="9053893665344928494">Se souvenir de mon choix</translation>
 <translation id="9055636786322918818">Appliquer le chiffrement RC4. L'utilisation de cette option augmente les risques, car les chiffrements RC4 ne sont pas sécurisés.</translation>

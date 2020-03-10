@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/path_service.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/browser_process.h"
@@ -10,6 +11,7 @@
 #include "chrome/browser/metrics/subprocess_metrics_provider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/optimization_guide/hints_component_info.h"
@@ -17,18 +19,22 @@
 #include "components/optimization_guide/optimization_guide_constants.h"
 #include "components/optimization_guide/optimization_guide_features.h"
 #include "components/optimization_guide/optimization_guide_service.h"
+#include "components/optimization_guide/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/optimization_guide/test_hints_component_creator.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/network_connection_change_simulator.h"
 #include "net/base/escape.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
+#include "services/network/public/cpp/network_quality_tracker.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 
 namespace {
-
-// TODO(rajendrant): Add tests to verify subresource redirect is applied only
-// for data saver users and also not applied for incognito profiles.
 
 // Retries fetching |histogram_name| until it contains at least |count| samples.
 // TODO(rajendrant): Convert the tests to wait for image load to complete or the
@@ -88,7 +94,8 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
           {{"enable_lite_page_redirect",
             enable_lite_page_redirect_ ? "true" : "false"},
            {"lite_page_subresource_origin", compression_url_.spec()}}},
-         {optimization_guide::features::kOptimizationHints, {}}},
+         {optimization_guide::features::kOptimizationHints, {}},
+         {optimization_guide::features::kRemoteOptimizationGuideFetching, {}}},
         {});
 
     InProcessBrowserTest::SetUp();
@@ -114,11 +121,9 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
 
   bool RunScriptExtractBool(const std::string& script,
                             content::WebContents* web_contents = nullptr) {
-    bool result;
     if (!web_contents)
       web_contents = browser()->tab_strip_model()->GetActiveWebContents();
-    EXPECT_TRUE(ExecuteScriptAndExtractBool(web_contents, script, &result));
-    return result;
+    return EvalJs(web_contents, script).ExtractBool();
   }
 
   std::string RunScriptExtractString(
@@ -133,6 +138,7 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
 
   // Sets up public image URL hint data.
   void SetUpPublicImageURLPaths(
+      std::string url,
       const std::vector<std::string>& public_image_paths) {
     std::vector<std::string> public_image_urls;
     for (const auto& image_path : public_image_paths) {
@@ -144,7 +150,7 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
     const optimization_guide::HintsComponentInfo& component_info =
         test_hints_component_creator_
             .CreateHintsComponentInfoWithPublicImageHints(
-                {https_server_.GetURL("secure.com", "/").host()}, "*",
+                {https_server_.GetURL("secure.com", "/").host()}, url,
                 public_image_urls);
 
     g_browser_process->optimization_guide_service()->MaybeUpdateHintsComponent(
@@ -153,6 +159,90 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
     RetryForHistogramUntilCountReached(
         &histogram_tester_,
         optimization_guide::kComponentHintsUpdatedResultHistogramString, 1);
+  }
+
+  void CreateUkmRecorder() {
+    ukm_recorder_ = std::make_unique<ukm::TestAutoSetUkmRecorder>();
+  }
+
+  std::map<uint64_t, size_t> GetImageCompressionUkmMetrics() {
+    using ImageCompressionUkm = ukm::builders::PublicImageCompressionDataUse;
+    std::map<uint64_t, size_t> metric_bytes;
+    // Flatten the metrics from multiple ukm sources.
+    for (const auto* metrics :
+         ukm_recorder_->GetEntriesByName(ImageCompressionUkm::kEntryName)) {
+      for (const auto& metric : metrics->metrics) {
+        if (metric_bytes.find(metric.first) == metric_bytes.end())
+          metric_bytes[metric.first] = 0;
+        metric_bytes[metric.first] += metric.second;
+      }
+    }
+    return metric_bytes;
+  }
+
+  void WaitForImageCompressionUkmMetrics(size_t count) {
+    while (ukm_recorder_
+               ->GetEntriesByName(
+                   ukm::builders::PublicImageCompressionDataUse::kEntryName)
+               .size() < count) {
+      base::RunLoop().RunUntilIdle();
+    }
+  }
+
+  void VerifyPublicImageCompressionUkm(uint64_t hash, size_t num_images) {
+    const auto metrics = GetImageCompressionUkmMetrics();
+    if (num_images) {
+      EXPECT_THAT(metrics, testing::Contains(
+                               testing::Pair(hash,
+
+                                             testing::Gt(num_images * 500))));
+    } else {
+      EXPECT_EQ(metrics.find(hash), metrics.end());
+    }
+  }
+
+  void VerifyCompressibleImageUkm(size_t num_images) {
+    VerifyPublicImageCompressionUkm(
+        ukm::builders::PublicImageCompressionDataUse::
+            kCompressibleImageBytesNameHash,
+        num_images);
+  }
+
+  void VerifyIneligibleImageHintsUnavailableUkm(size_t num_images) {
+    VerifyPublicImageCompressionUkm(
+        ukm::builders::PublicImageCompressionDataUse::
+            kIneligibleImageHintsUnavailableBytesNameHash,
+        num_images);
+  }
+
+  void VerifyIneligibleImageHintsUnavailableUkmButCompressible(
+      size_t num_images) {
+    VerifyPublicImageCompressionUkm(
+        ukm::builders::PublicImageCompressionDataUse::
+            kIneligibleImageHintsUnavailableButCompressibleBytesNameHash,
+        num_images);
+  }
+
+  void VerifyIneligibleImageHintsUnavailableAndMissingInHintsUkm(
+      size_t num_images) {
+    VerifyPublicImageCompressionUkm(
+        ukm::builders::PublicImageCompressionDataUse::
+            kIneligibleImageHintsUnavailableAndMissingInHintsBytesNameHash,
+        num_images);
+  }
+
+  void VerifyIneligibleMissingInImageHintsUkm(size_t num_images) {
+    VerifyPublicImageCompressionUkm(
+        ukm::builders::PublicImageCompressionDataUse::
+            kIneligibleMissingInImageHintsBytesNameHash,
+        num_images);
+  }
+
+  void VerifyIneligibleOtherImageUkm(size_t num_images) {
+    VerifyPublicImageCompressionUkm(
+        ukm::builders::PublicImageCompressionDataUse::
+            kIneligibleOtherImageBytesNameHash,
+        num_images);
   }
 
   GURL http_url() const { return http_url_; }
@@ -197,7 +287,16 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
     if (request.GetURL().query().find(
             net::EscapeQueryParamValue("/image.png", true /* use_plus */), 0) !=
         std::string::npos) {
-      response->set_code(net::HTTP_OK);
+      // Serve the correct image file.
+      std::string file_contents;
+      base::FilePath test_data_directory;
+      base::PathService::Get(chrome::DIR_TEST_DATA, &test_data_directory);
+      if (base::ReadFileToString(
+              test_data_directory.AppendASCII("load_image/image.png"),
+              &file_contents)) {
+        response->set_content(file_contents);
+        response->set_code(net::HTTP_OK);
+      }
     } else if (request.GetURL().query().find(
                    net::EscapeQueryParamValue("/fail_image.png",
                                               true /* use_plus */),
@@ -213,6 +312,8 @@ class SubresourceRedirectBrowserTest : public InProcessBrowserTest {
   }
 
   base::test::ScopedFeatureList scoped_feature_list_;
+  std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
+
   bool enable_lite_page_redirect_ = false;
 
   GURL compression_url_;
@@ -251,9 +352,11 @@ class RedirectDisabledSubresourceRedirectBrowserTest
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        TestHTMLLoadRedirectSuccess) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
-  ui_test_utils::NavigateToURL(browser(),
-                               HttpsURLWithPath("/load_image/image.html"));
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_delayed_load.html",
+                           {"/load_image/image.png"});
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
 
   RetryForHistogramUntilCountReached(
       histogram_tester(), "SubresourceRedirect.CompressionAttempt.ResponseCode",
@@ -267,8 +370,11 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
       net::HTTP_TEMPORARY_REDIRECT, 1);
 
   EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
-
   EXPECT_EQ(request_url().port(), compression_url().port());
+  VerifyCompressibleImageUkm(1);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 //  This test loads private_url_image.html, which triggers a subresource
@@ -278,7 +384,9 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        TestHTMLLoadRedirectBypass) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/private_url_image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/private_url_image.html",
+                           {"/load_image/private_url_image.png"});
   ui_test_utils::NavigateToURL(
       browser(), HttpsURLWithPath("/load_image/private_url_image.html"));
 
@@ -294,13 +402,20 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+  // The image will be marked as compressible even though the private image
+  // redirect was bypassed.
+  VerifyCompressibleImageUkm(1);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        NoTriggerWhenDataSaverOff) {
   EnableDataSaver(false);
-  ui_test_utils::NavigateToURL(browser(),
-                               HttpsURLWithPath("/load_image/image.html"));
+  CreateUkmRecorder();
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
 
   content::FetchHistogramsFromChildProcesses();
   SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
@@ -312,13 +427,21 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  // No coverage metrics recorded.
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest, NoTriggerInIncognito) {
   EnableDataSaver(true);
+  CreateUkmRecorder();
   auto* incognito_browser = CreateIncognitoBrowser();
-  ui_test_utils::NavigateToURL(incognito_browser,
-                               HttpsURLWithPath("/load_image/image.html"));
+  ui_test_utils::NavigateToURL(
+      incognito_browser,
+      HttpsURLWithPath("/load_image/image_delayed_load.html"));
 
   content::FetchHistogramsFromChildProcesses();
   SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
@@ -336,6 +459,12 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest, NoTriggerInIncognito) {
                incognito_browser->tab_strip_model()->GetActiveWebContents()))
           .port(),
       https_url().port());
+
+  // No coverage metrics recorded.
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 //  This test loads image.html, from a non secure site. This triggers a
@@ -344,9 +473,11 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest, NoTriggerInIncognito) {
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        NoTriggerOnNonSecureSite) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
-  ui_test_utils::NavigateToURL(browser(),
-                               HttpURLWithPath("/load_image/image.html"));
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_delayed_load.html",
+                           {"/load_image/image.png"});
+  ui_test_utils::NavigateToURL(
+      browser(), HttpURLWithPath("/load_image/image_delayed_load.html"));
 
   content::FetchHistogramsFromChildProcesses();
   SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
@@ -358,6 +489,12 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             http_url().port());
+
+  // No coverage metrics recorded.
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 //  This test loads page_with_favicon.html, which creates a subresource
@@ -365,7 +502,9 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 //  are not considered images by chrome.
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest, NoTriggerOnNonImage) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/favicon/page_with_favicon.html",
+                           {"/load_image/image.png"});
   ui_test_utils::NavigateToURL(
       browser(), HttpsURLWithPath("/favicon/page_with_favicon.html"));
 
@@ -374,6 +513,12 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest, NoTriggerOnNonImage) {
 
   histogram_tester()->ExpectTotalCount(
       "SubresourceRedirect.CompressionAttempt.ResponseCode", 0);
+
+  // No coverage metrics recorded.
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 }  // namespace
@@ -386,10 +531,13 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest, NoTriggerOnNonImage) {
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        FallbackOnServerNotFound) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/fail_image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/fail_image.html",
+                           {"/load_image/fail_image.png"});
   ui_test_utils::NavigateToURL(browser(),
                                HttpsURLWithPath("/load_image/fail_image.html"));
 
+  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
   content::FetchHistogramsFromChildProcesses();
   SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
 
@@ -404,10 +552,14 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
       "SubresourceRedirect.CompressionAttempt.ResponseCode",
       net::HTTP_NOT_FOUND, 1);
 
-  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
-
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  // Ineligible Other bucket ukm recorded.
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(1);
 }
 
 //  This test verifies that the client will utilize the fallback logic if the
@@ -415,13 +567,16 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        FallbackOnServerFailure) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_delayed_load.html",
+                           {"/load_image/image.png"});
   SetCompressionServerToFail();
 
   base::RunLoop().RunUntilIdle();
-  ui_test_utils::NavigateToURL(browser(),
-                               HttpsURLWithPath("/load_image/image.html"));
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
 
+  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
   RetryForHistogramUntilCountReached(
       histogram_tester(),
       "SubresourceRedirect.CompressionAttempt.ServerResponded", 1);
@@ -429,16 +584,22 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
   histogram_tester()->ExpectBucketCount(
       "SubresourceRedirect.CompressionAttempt.ServerResponded", false, 1);
 
-  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
-
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  // Ineligible Other bucket ukm recorded.
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(1);
 }
 
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        TestTwoPublicImagesAreRedirected) {
   EnableDataSaver(true);
+  CreateUkmRecorder();
   SetUpPublicImageURLPaths(
+      "/load_image/two_images.html",
       {"/load_image/image.png", "/load_image/image.png?foo"});
   ui_test_utils::NavigateToURL(browser(),
                                HttpsURLWithPath("/load_image/two_images.html"));
@@ -455,6 +616,11 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
   EXPECT_TRUE(RunScriptExtractBool("checkBothImagesLoaded()"));
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  VerifyCompressibleImageUkm(2);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 // This test verifies that only the images in the public image URL list are
@@ -463,7 +629,9 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        TestOnlyPublicImageIsRedirected) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/two_images.html",
+                           {"/load_image/image.png"});
   ui_test_utils::NavigateToURL(browser(),
                                HttpsURLWithPath("/load_image/two_images.html"));
 
@@ -480,6 +648,11 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
   EXPECT_TRUE(RunScriptExtractBool("checkBothImagesLoaded()"));
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  VerifyCompressibleImageUkm(1);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(1);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 // This test verifies that the fragments in the image URL are removed before
@@ -487,7 +660,9 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        TestImageURLFragmentAreRemoved) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_with_fragment.html",
+                           {"/load_image/image.png"});
   ui_test_utils::NavigateToURL(
       browser(), HttpsURLWithPath("/load_image/image_with_fragment.html"));
 
@@ -505,6 +680,11 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
   EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  VerifyCompressibleImageUkm(1);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }
 
 //  This test loads image_js.html, which triggers a javascript request
@@ -512,7 +692,9 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
                        NoTriggerOnJavaScriptImageRequest) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_js.html",
+                           {"/load_image/image.png"});
   ui_test_utils::NavigateToURL(browser(),
                                HttpsURLWithPath("/load_image/image_js.html"));
 
@@ -526,15 +708,153 @@ IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
 
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  VerifyIneligibleOtherImageUkm(1);
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
 }
 
-// This test verifies that the image redirect to lite page is disabled via finch
+// This test verifies that no image redirect happens when empty hints is sent.
+IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
+                       TestNoRedirectWithEmptyHints) {
+  EnableDataSaver(true);
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_delayed_load.html", {});
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
+
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ServerResponded", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.DidCompress.CompressionPercent", 0);
+
+  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
+
+  EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
+            https_url().port());
+
+  VerifyIneligibleMissingInImageHintsUkm(1);
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
+}
+
+// This test verifies that no image redirect happens when hints are not yet
+// received.
+IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
+                       TestNoRedirectWithoutHints) {
+  EnableDataSaver(true);
+  CreateUkmRecorder();
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
+
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ServerResponded", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.DidCompress.CompressionPercent", 0);
+
+  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
+
+  EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
+            https_url().port());
+  WaitForImageCompressionUkmMetrics(1);
+  VerifyIneligibleImageHintsUnavailableUkm(1);
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
+}
+
+// This test verifies that two images in a page are not redirected, when hints
+// are missing.
+IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
+                       TestNoRedirectWithoutHintsTwoImages) {
+  EnableDataSaver(true);
+  CreateUkmRecorder();
+  ui_test_utils::NavigateToURL(browser(),
+                               HttpsURLWithPath("/load_image/two_images.html"));
+
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ServerResponded", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.DidCompress.CompressionPercent", 0);
+  EXPECT_TRUE(RunScriptExtractBool("checkBothImagesLoaded()"));
+  EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
+            https_url().port());
+  WaitForImageCompressionUkmMetrics(2);
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(2);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
+}
+
+// This test initiates same-origin navigation and verifies the hints from the
+// previous navigation are not used.
+IN_PROC_BROWSER_TEST_F(SubresourceRedirectBrowserTest,
+                       TestSameOriginNavigation) {
+  g_browser_process->network_quality_tracker()
+      ->ReportEffectiveConnectionTypeForTesting(
+          net::EFFECTIVE_CONNECTION_TYPE_2G);
+
+  EnableDataSaver(true);
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_delayed_load.html",
+                           {"/load_image/image.png"});
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
+
+  RetryForHistogramUntilCountReached(
+      histogram_tester(), "SubresourceRedirect.CompressionAttempt.ResponseCode",
+      2);
+
+  histogram_tester()->ExpectBucketCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode", net::HTTP_OK, 1);
+
+  histogram_tester()->ExpectBucketCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode",
+      net::HTTP_TEMPORARY_REDIRECT, 1);
+
+  EXPECT_TRUE(RunScriptExtractBool("checkImage()"));
+  EXPECT_EQ(request_url().port(), compression_url().port());
+  VerifyCompressibleImageUkm(1);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
+
+  // Initiate a same-origin navigation without hints, and let the timeout ukm be
+  // recorded.
+  CreateUkmRecorder();
+  ui_test_utils::NavigateToURL(browser(),
+                               HttpsURLWithPath("/load_image/two_images.html"));
+
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode", 2);
+  EXPECT_TRUE(RunScriptExtractBool("checkBothImagesLoaded()"));
+  EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
+            https_url().port());
+  WaitForImageCompressionUkmMetrics(2);
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(2);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
+}
+
+// This test verifies that the image redirect to lite page is disabled via
+// finch, and only the coverage metrics are recorded.
 IN_PROC_BROWSER_TEST_F(RedirectDisabledSubresourceRedirectBrowserTest,
                        ImagesNotRedirected) {
   EnableDataSaver(true);
-  SetUpPublicImageURLPaths({"/load_image/image.png"});
-  ui_test_utils::NavigateToURL(browser(),
-                               HttpsURLWithPath("/load_image/image.html"));
+  CreateUkmRecorder();
+  SetUpPublicImageURLPaths("/load_image/image_delayed_load.html",
+                           {"/load_image/image.png"});
+  ui_test_utils::NavigateToURL(
+      browser(), HttpsURLWithPath("/load_image/image_delayed_load.html"));
 
   content::FetchHistogramsFromChildProcesses();
   SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
@@ -550,4 +870,149 @@ IN_PROC_BROWSER_TEST_F(RedirectDisabledSubresourceRedirectBrowserTest,
 
   EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
             https_url().port());
+
+  VerifyCompressibleImageUkm(1);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
+}
+
+// This class sets up a hints server where image hints are fetched from to test
+// the page level hint fetches.
+class SubresourceRedirectWithHintsServerBrowserTest
+    : public SubresourceRedirectBrowserTest {
+ public:
+  // How the hints server should respond to the get hints request.
+  enum HintFetchMode {
+    // Delay the hints fetch until images are loaded. Delay 3 seconds before
+    // sending response. This delay is chosen such that the server sends the
+    // hints after the image has completed loading but before the hints receive
+    // timeout(5 seconds).
+    HINT_FETCH_AFTER_IMAGES_LOADED,
+
+    // Do not send response.
+    HINT_FETCH_HUNG,
+  };
+
+  SubresourceRedirectWithHintsServerBrowserTest()
+      : SubresourceRedirectBrowserTest(true),
+        hints_server_(net::EmbeddedTestServer::TYPE_HTTPS) {}
+
+  void SetUp() override {
+    hints_server_.ServeFilesFromSourceDirectory("chrome/test/data/previews");
+    hints_server_.RegisterRequestHandler(base::BindRepeating(
+        &SubresourceRedirectWithHintsServerBrowserTest::HandleGetHintsRequest,
+        base::Unretained(this)));
+    ASSERT_TRUE(hints_server_.Start());
+    SubresourceRedirectBrowserTest::SetUp();
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitch("ignore-certificate-errors");
+    command_line->AppendSwitch("purge_hint_cache_store");
+    command_line->AppendSwitch(optimization_guide::switches::
+                                   kDisableCheckingUserPermissionsForTesting);
+    command_line->AppendSwitchASCII(
+        optimization_guide::switches::kOptimizationGuideServiceGetHintsURL,
+        hints_server_.base_url().spec());
+    command_line->AppendSwitchASCII(
+        optimization_guide::switches::kFetchHintsOverride, "secure.com");
+    command_line->AppendSwitch(
+        optimization_guide::switches::kFetchHintsOverrideTimer);
+    SubresourceRedirectBrowserTest::SetUpCommandLine(command_line);
+  }
+
+  void SetUpOnMainThread() override {
+    content::NetworkConnectionChangeSimulator().SetConnectionType(
+        network::mojom::ConnectionType::CONNECTION_2G);
+    SubresourceRedirectBrowserTest::SetUpOnMainThread();
+  }
+
+  // Sets up public image URL hint data that is returned by the hints server.
+  void SetUpPublicImageURLPaths(
+      const std::string& url,
+      const std::vector<std::string>& public_image_paths,
+      HintFetchMode hint_fetch_mode) {
+    hint_fetch_mode_ = hint_fetch_mode;
+    optimization_guide::proto::GetHintsResponse get_hints_response;
+    optimization_guide::proto::Hint* hint = get_hints_response.add_hints();
+    hint->set_key_representation(optimization_guide::proto::FULL_URL);
+    hint->set_key(HttpsURLWithPath(url).spec());
+    optimization_guide::proto::PageHint* page_hint = hint->add_page_hints();
+    page_hint->set_page_pattern(HttpsURLWithPath(url).spec());
+    auto* optimization = page_hint->add_whitelisted_optimizations();
+    optimization->set_optimization_type(
+        optimization_guide::proto::OptimizationType::COMPRESS_PUBLIC_IMAGES);
+    auto* public_image_metadata = optimization->mutable_public_image_metadata();
+
+    for (const auto& url : public_image_paths)
+      public_image_metadata->add_url(HttpsURLWithPath(url).spec());
+
+    base::AutoLock lock(lock_);
+    get_hints_response.SerializeToString(&get_hints_response_);
+  }
+
+ private:
+  std::unique_ptr<net::test_server::HttpResponse> HandleGetHintsRequest(
+      const net::test_server::HttpRequest& request) {
+    switch (hint_fetch_mode_) {
+      case HintFetchMode::HINT_FETCH_AFTER_IMAGES_LOADED: {
+        auto response = std::make_unique<net::test_server::DelayedHttpResponse>(
+            base::TimeDelta::FromSeconds(3));
+        response->set_content(get_hints_response_);
+        response->set_code(net::HTTP_OK);
+        return std::move(response);
+      }
+      case HintFetchMode::HINT_FETCH_HUNG:
+        return std::make_unique<net::test_server::HungResponse>();
+    }
+    return nullptr;
+  }
+
+  net::EmbeddedTestServer hints_server_;
+  std::string get_hints_response_;
+  base::Lock lock_;
+  HintFetchMode hint_fetch_mode_ =
+      HintFetchMode::HINT_FETCH_AFTER_IMAGES_LOADED;
+};
+
+// This test verifies that two images in a page are not redirected, when hints
+// are received delayed.
+IN_PROC_BROWSER_TEST_F(SubresourceRedirectWithHintsServerBrowserTest,
+                       TestNoRedirectWithDelayedHintsTwoImages) {
+  g_browser_process->network_quality_tracker()
+      ->ReportEffectiveConnectionTypeForTesting(
+          net::EFFECTIVE_CONNECTION_TYPE_2G);
+
+  EnableDataSaver(true);
+  CreateUkmRecorder();
+
+  SetUpPublicImageURLPaths("/load_image/two_images.html",
+                           {"/load_image/image.png"},
+                           HintFetchMode::HINT_FETCH_AFTER_IMAGES_LOADED);
+  ui_test_utils::NavigateToURL(browser(),
+                               HttpsURLWithPath("/load_image/two_images.html"));
+
+  // Let the images load.
+  EXPECT_TRUE(RunScriptExtractBool("checkBothImagesLoaded()"));
+
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ResponseCode", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.CompressionAttempt.ServerResponded", 0);
+  histogram_tester()->ExpectTotalCount(
+      "SubresourceRedirect.DidCompress.CompressionPercent", 0);
+  EXPECT_EQ(GURL(RunScriptExtractString("imageSrc()")).port(),
+            https_url().port());
+
+  // One image will be recorded as compressible, but image hints not received in
+  // time. Another image is recorded as not compressible, and image hints not
+  // received in time.
+  WaitForImageCompressionUkmMetrics(2);
+  VerifyIneligibleImageHintsUnavailableUkmButCompressible(1);
+  VerifyIneligibleImageHintsUnavailableAndMissingInHintsUkm(1);
+  VerifyCompressibleImageUkm(0);
+  VerifyIneligibleImageHintsUnavailableUkm(0);
+  VerifyIneligibleMissingInImageHintsUkm(0);
+  VerifyIneligibleOtherImageUkm(0);
 }

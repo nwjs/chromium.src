@@ -852,10 +852,12 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
     webViewURL = currentWKItemURL;
   }
 
-  if (self.pendingNavigationInfo.MIMEType)
-    context->SetMimeType(self.pendingNavigationInfo.MIMEType);
-  if (self.pendingNavigationInfo.HTTPHeaders)
-    context->SetResponseHeaders(self.pendingNavigationInfo.HTTPHeaders);
+  if (context) {
+    if (self.pendingNavigationInfo.MIMEType)
+      context->SetMimeType(self.pendingNavigationInfo.MIMEType);
+    if (self.pendingNavigationInfo.HTTPHeaders)
+      context->SetResponseHeaders(self.pendingNavigationInfo.HTTPHeaders);
+  }
 
   // Don't show webview for placeholder navigation to avoid covering existing
   // content.
@@ -1124,7 +1126,7 @@ void ReportOutOfSyncURLInDidStartProvisionalNavigation(
   // for an SSL error.
   if (web::WKNavigationState::NONE !=
           [self.navigationStates stateForNavigation:navigation] &&
-      !web::IsWKWebViewSSLCertError(context->GetError())) {
+      !(context && web::IsWKWebViewSSLCertError(context->GetError()))) {
     [self.navigationStates removeNavigation:navigation];
   }
 }

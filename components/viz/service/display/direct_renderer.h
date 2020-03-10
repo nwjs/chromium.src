@@ -59,6 +59,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
 
   bool use_partial_swap() const { return use_partial_swap_; }
 
+  void ForceReshapeOnNextDraw();
   void SetVisible(bool visible);
   void DecideRenderPassAllocationsForFrame(
       const RenderPassList& render_passes_in_draw_order);
@@ -321,6 +322,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   gfx::ColorSpace reshape_device_color_space_;
   bool reshape_has_alpha_ = false;
   bool reshape_use_stencil_ = false;
+  bool force_reshape_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(DirectRenderer);
 };

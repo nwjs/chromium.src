@@ -111,11 +111,13 @@ SubresourceRedirectObserver::SubresourceRedirectObserver(
 
 SubresourceRedirectObserver::~SubresourceRedirectObserver() = default;
 
-void SubresourceRedirectObserver::ReadyToCommitNavigation(
+void SubresourceRedirectObserver::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   DCHECK(navigation_handle);
   if (!navigation_handle->IsInMainFrame() ||
-      navigation_handle->IsSameDocument()) {
+      !navigation_handle->HasCommitted() ||
+      navigation_handle->IsSameDocument() ||
+      !navigation_handle->GetURL().SchemeIsHTTPOrHTTPS()) {
     return;
   }
   auto* optimization_guide_decider = GetOptimizationGuideDeciderFromWebContents(
@@ -125,6 +127,8 @@ void SubresourceRedirectObserver::ReadyToCommitNavigation(
 
   content::RenderFrameHost* render_frame_host =
       navigation_handle->GetRenderFrameHost();
+  if (!render_frame_host || !render_frame_host->GetProcess())
+    return;
   optimization_guide_decider->CanApplyOptimizationAsync(
       navigation_handle, optimization_guide::proto::COMPRESS_PUBLIC_IMAGES,
       base::BindOnce(&OnReadyToSendResourceLoadingImageHints,

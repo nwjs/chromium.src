@@ -66,11 +66,12 @@ public class ChromeBrowserInitializer {
     private static ChromeBrowserInitializer sChromeBrowserInitializer;
     private static BrowserStartupController sBrowserStartupController;
     private final Locale mInitialLocale = Locale.getDefault();
-    private List<Runnable> mTasksToRunWithNative;
+    private List<Runnable> mTasksToRunWithFullBrowser;
 
     private boolean mPreInflationStartupComplete;
     private boolean mPostInflationStartupComplete;
     private boolean mNativeInitializationComplete;
+    private boolean mFullBrowserInitializationComplete;
     private boolean mNetworkChangeNotifierInitializationComplete;
 
     /**
@@ -85,27 +86,36 @@ public class ChromeBrowserInitializer {
     }
 
     /**
-     * @return whether native initialization is complete.
+     * @return whether native (full browser) initialization is complete.
      */
-    public boolean hasNativeInitializationCompleted() {
-        return mNativeInitializationComplete;
+    public boolean isFullBrowserInitialized() {
+        return mFullBrowserInitializationComplete;
     }
 
     /**
-     * Either runs a task now, or queue it until native initialization is done.
+     * @deprecated use isFullBrowserInitialized() instead, the name hasNativeInitializationCompleted
+     * is not accurate.
+     */
+    @Deprecated
+    public boolean hasNativeInitializationCompleted() {
+        return isFullBrowserInitialized();
+    }
+
+    /**
+     * Either runs a task now, or queue it until native (full browser) initialization is done.
      *
      * All Runnables added this way will run in a single UI thread task.
      *
      * @param task The task to run.
      */
-    public void runNowOrAfterNativeInitialization(Runnable task) {
-        if (hasNativeInitializationCompleted()) {
+    public void runNowOrAfterFullBrowserStarted(Runnable task) {
+        if (isFullBrowserInitialized()) {
             task.run();
         } else {
-            if (mTasksToRunWithNative == null) {
-                mTasksToRunWithNative = new ArrayList<Runnable>();
+            if (mTasksToRunWithFullBrowser == null) {
+                mTasksToRunWithFullBrowser = new ArrayList<Runnable>();
             }
-            mTasksToRunWithNative.add(task);
+            mTasksToRunWithFullBrowser.add(task);
         }
     }
 
@@ -293,6 +303,10 @@ public class ChromeBrowserInitializer {
             tasks.add(UiThreadTaskTraits.DEFAULT, this::onFinishNativeInitialization);
         }
 
+        if (!delegate.startServiceManagerOnly()) {
+            tasks.add(UiThreadTaskTraits.DEFAULT, this::onFinishFullBrowserInitialization);
+        }
+
         int startupMode =
                 getBrowserStartupController().getStartupMode(delegate.startServiceManagerOnly());
         tasks.add(UiThreadTaskTraits.DEFAULT, () -> {
@@ -378,6 +392,15 @@ public class ChromeBrowserInitializer {
         SpeechRecognition.initialize();
     }
 
+    private void onFinishFullBrowserInitialization() {
+        mFullBrowserInitializationComplete = true;
+
+        if (mTasksToRunWithFullBrowser != null) {
+            for (Runnable r : mTasksToRunWithFullBrowser) r.run();
+            mTasksToRunWithFullBrowser = null;
+        }
+    }
+
     private void onFinishNativeInitialization() {
         if (mNativeInitializationComplete) return;
 
@@ -406,10 +429,6 @@ public class ChromeBrowserInitializer {
                 });
 
         MemoryPressureUma.initializeForBrowser();
-        if (mTasksToRunWithNative != null) {
-            for (Runnable r : mTasksToRunWithNative) r.run();
-            mTasksToRunWithNative = null;
-        }
 
         // Needed for field trial metrics to be properly collected in ServiceManager only mode.
         ChromeCachedFlags.getInstance().cacheServiceManagerOnlyFlags();

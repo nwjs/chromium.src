@@ -909,12 +909,10 @@ NavigationRequest::NavigationRequest(
     SetNavigationClient(std::move(navigation_client));
   } else if (entry) {
     DCHECK(!navigation_client.is_valid());
-    FrameNavigationEntry* frame_navigation_entry =
-        entry->GetFrameEntry(frame_tree_node);
-    if (frame_navigation_entry) {
-      source_site_instance_ = frame_navigation_entry->source_site_instance();
-      dest_site_instance_ = frame_navigation_entry->site_instance();
-      bindings_ = frame_navigation_entry->bindings();
+    if (frame_entry) {
+      source_site_instance_ = frame_entry->source_site_instance();
+      dest_site_instance_ = frame_entry->site_instance();
+      bindings_ = frame_entry->bindings();
 
       // Handle history subframe navigations that require a source_site_instance
       // but do not have one set yet. This can happen when navigation entries
@@ -1339,6 +1337,33 @@ void NavigationRequest::ResetForCrossDocumentRestart() {
   // Convert the navigation type to the appropriate cross-document one.
   common_params_->navigation_type =
       ConvertToCrossDocumentType(common_params_->navigation_type);
+}
+
+void NavigationRequest::ResetStateForSiteInstanceChange() {
+  // This method should only be called when there is a dest_site_instance.
+  DCHECK(dest_site_instance_);
+
+  // When a request has a destination SiteInstance (e.g., reload or session
+  // history navigation) but it changes during the navigation (e.g., due to
+  // redirect or error page), it's important not to remember privileges or
+  // attacker-controlled state from the original entry.
+
+  // Reset bindings (e.g., since error pages for WebUI URLs don't get them).
+  bindings_ = FrameNavigationEntry::kInvalidBindings;
+
+  // Reset any existing PageState with a non-empty, clean PageState, so that old
+  // attacker-controlled state is not pulled into the new process.
+  if (commit_params_->page_state.IsValid())
+    commit_params_->page_state = PageState::CreateFromURL(GetURL());
+
+  // Any previously computed origin to commit is no longer valid (e.g., an
+  // opaque origin for an error page).
+  if (commit_params_->origin_to_commit)
+    commit_params_->origin_to_commit.reset();
+
+  // ISNs and DSNs are process-specific.
+  frame_entry_item_sequence_number_ = -1;
+  frame_entry_document_sequence_number_ = -1;
 }
 
 void NavigationRequest::RegisterSubresourceOverride(

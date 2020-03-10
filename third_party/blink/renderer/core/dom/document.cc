@@ -2626,6 +2626,9 @@ void Document::ApplyScrollRestorationLogic() {
   if (!history_item || !history_item->GetViewState())
     return;
 
+  if (!View()->GetScrollableArea()->HasPendingHistoryRestoreScrollOffset())
+    return;
+
   bool should_restore_scroll =
       history_item->ScrollRestorationType() != kScrollRestorationManual;
   auto& scroll_offset = history_item->GetViewState()->scroll_offset_;
@@ -2633,11 +2636,13 @@ void Document::ApplyScrollRestorationLogic() {
   // This tries to balance:
   // 1. restoring as soon as possible.
   // 2. not overriding user scroll (TODO(majidvp): also respect user scale).
-  // 3. detecting clamping to avoid repeatedly popping the scroll position down
+  // 3. detecting clamping to avoid repeatedly popping the scroll position
+  // down
   //    as the page height increases.
-  // 4. ignoring clamp detection if scroll state is not being restored, if load
-  //    is complete, or if the navigation is same-document (as the new page may
-  //    be smaller than the previous page).
+  // 4. ignoring clamp detection if scroll state is not being restored, if
+  // load
+  //    is complete, or if the navigation is same-document (as the new page
+  //    may be smaller than the previous page).
   bool can_restore_without_clamping =
       View()->LayoutViewport()->ClampScrollOffset(scroll_offset) ==
       scroll_offset;
@@ -2649,8 +2654,20 @@ void Document::ApplyScrollRestorationLogic() {
   if (!can_restore_without_annoying_user)
     return;
 
-  frame_loader.RestoreScrollPositionAndViewState();
-  View()->GetScrollableArea()->ApplyPendingHistoryRestoreScrollOffset();
+  // Apply scroll restoration to the LayoutView's scroller. Note that we do
+  // *not* apply it to the RootFrameViewport's LayoutViewport, because that
+  // may be for child frame's implicit root scroller, which is not the right
+  // one to apply to because scroll restoration does not affect implicit root
+  // scrollers.
+  auto* layout_scroller = View()->LayoutViewport();
+  layout_scroller->ApplyPendingHistoryRestoreScrollOffset();
+
+  // Also apply restoration to the visual viewport of the root frame, if needed.
+  auto* root_frame_scroller = View()->GetScrollableArea();
+  if (root_frame_scroller != layout_scroller)
+    root_frame_scroller->ApplyPendingHistoryRestoreScrollOffset();
+
+  document_loader->GetInitialScrollState().did_restore_from_history = true;
 }
 
 void Document::MarkHasFindInPageRequest() {

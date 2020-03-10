@@ -17,6 +17,9 @@ namespace credential_provider {
 
 // Mdm registry value key name.
 
+// Enables verbose logging in GCPW.
+extern const wchar_t kRegEnableVerboseLogging[];
+
 // Determines if crash reporting is initialized for credential provider DLL.
 extern const wchar_t kRegInitializeCrashReporting[];
 
@@ -25,8 +28,12 @@ extern const wchar_t kRegInitializeCrashReporting[];
 // to GCPW that have invalid token handles.
 extern const wchar_t kRegMdmUrl[];
 
-// Base server url for the password recovery escrow service.
-extern const wchar_t kRegEscrowServiceServerUrl[];
+// The registry entry is used to control whether to enable enrollment
+// Google device management solution.
+extern const wchar_t kRegEnableDmEnrollment[];
+
+// Disables password escrowing feature in GCPW.
+extern const wchar_t kRegDisablePasswordSync[];
 
 // Determines if multiple users can be added to a system managed by MDM.
 extern const wchar_t kRegMdmSupportsMultiUser[];
@@ -46,6 +53,9 @@ extern const char kErrorKeyInRequestResult[];
 // Upload status for device details.
 extern const wchar_t kRegDeviceDetailsUploadStatus[];
 
+// Specifies custom Chrome path to use for GLS.
+extern const wchar_t kRegGlsPath[];
+
 // Class used in tests to force either a successful on unsuccessful enrollment
 // to google MDM.
 class GoogleMdmEnrollmentStatusForTesting {
@@ -59,21 +69,6 @@ class GoogleMdmEnrolledStatusForTesting {
  public:
   explicit GoogleMdmEnrolledStatusForTesting(bool success);
   ~GoogleMdmEnrolledStatusForTesting();
-};
-
-// Class used in tests to set registration data for testing.
-class GoogleRegistrationDataForTesting {
- public:
-  explicit GoogleRegistrationDataForTesting(base::string16 serial_number);
-  ~GoogleRegistrationDataForTesting();
-};
-
-// Class used in tests to force password escrow service availability when not
-// in a Google Chrome build (where the service is disabled).
-class GoogleMdmEscrowServiceEnablerForTesting {
- public:
-  GoogleMdmEscrowServiceEnablerForTesting();
-  ~GoogleMdmEscrowServiceEnablerForTesting();
 };
 
 // Class used in tests to force upload device details needed.
@@ -91,9 +86,6 @@ bool NeedsToEnrollWithMdm();
 // Checks user properties to determine whether last upload device details
 // attempt succeeded for the given user.
 bool UploadDeviceDetailsNeeded(const base::string16& sid);
-
-// Gets the bios serial number of the windows device.
-base::string16 GetSerialNumber();
 
 // Checks whether the |kRegMdmUrl| is set on this machine and points
 // to a valid URL. Returns false otherwise.

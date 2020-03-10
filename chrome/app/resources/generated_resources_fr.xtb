@@ -232,7 +232,7 @@
 <translation id="1314565355471455267">VPN Android</translation>
 <translation id="131461803491198646">Réseau domestique, sans itinérance</translation>
 <translation id="1316136264406804862">Recherche en cours…</translation>
-<translation id="1316495628809031177">La synchronisation est mise en veille</translation>
+<translation id="1316495628809031177">Synchronisation en pause</translation>
 <translation id="1317637799698924700">Votre station d'accueil fonctionnera dans le mode compatible USB Type-C.</translation>
 <translation id="1322046419516468189">Afficher et gérer les mots de passe enregistrés de votre <ph name="SAVED_PASSWORDS_STORE" /></translation>
 <translation id="1324106254079708331">Sauvegarde les comptes Google personnels des utilisateurs susceptibles d'être victimes d'attaques ciblées</translation>
@@ -504,7 +504,7 @@
 <translation id="168991973552362966">Ajouter une imprimante à proximité</translation>
 <translation id="1689945336726856614">Copier l'&amp;URL</translation>
 <translation id="1692115862433274081">Utiliser un autre compte</translation>
-<translation id="1692118695553449118">La synchronisation est activée.</translation>
+<translation id="1692118695553449118">Synchronisation activée</translation>
 <translation id="1692210323591458290">Violet foncé</translation>
 <translation id="1692799361700686467">Les cookies de plusieurs sites sont autorisés.</translation>
 <translation id="1697150536837697295">Art</translation>
@@ -1216,6 +1216,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="2653659639078652383">Valider</translation>
 <translation id="265390580714150011">Valeur du champ</translation>
 <translation id="2654166010170466751">Autoriser les sites à installer des gestionnaires de paiement</translation>
+<translation id="2654553774144920065">Requête d'impression</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" /> Les fonctionnalités varient d'un appareil à l'autre</translation>
 <translation id="2660779039299703961">Événement</translation>
 <translation id="266079277508604648">Impossible de se connecter à l'imprimante. Vérifiez qu'elle est sous tension et connectée à votre Chromebook par Wi-Fi ou USB.</translation>
@@ -2097,7 +2098,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="3856800405688283469">Sélectionner un fuseau horaire</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3857807444929313943">Lever le doigt, puis appuyer de nouveau</translation>
-<translation id="3860104611854310167"><ph name="PROFILE_NAME" /> : synchronisation désactivée</translation>
+<translation id="3860104611854310167"><ph name="PROFILE_NAME" /> : synchronisation en pause</translation>
 <translation id="3862693525629180217">Valider via le capteur intégré</translation>
 <translation id="3862788408946266506">L'application dont le fichier manifeste comporte un attribut "kiosk_only" doit être installée en mode Kiosque pour Chrome OS</translation>
 <translation id="3865414814144988605">Résolution</translation>
@@ -2390,7 +2391,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4285418559658561636">Mettre à jour le mot de passe</translation>
 <translation id="4285498937028063278">Retirer</translation>
 <translation id="428565720843367874">Le logiciel antivirus a rencontré une erreur inattendue pendant l'analyse de ce fichier.</translation>
-<translation id="4287502004382794929">Vous n'avez pas suffisamment de licences logicielles pour enregistrer cet appareil. Veuillez contacter le service commercial pour en acheter d'autres. Si vous pensez que ce message s'affiche par erreur, veuillez contacter l'assistance technique.</translation>
 <translation id="4289540628985791613">Présentation</translation>
 <translation id="4295072614469448764">L'application est disponible via votre terminal. Il peut également y avoir une icône dans votre lanceur d'applications.</translation>
 <translation id="4295979599050707005">Veuillez vous reconnecter pour confirmer que votre compte <ph name="USER_EMAIL" /> peut être utilisé avec des sites Web, des applications et des extensions dans Chrome et Google Play. Vous pouvez également supprimer ce compte. <ph name="LINK_BEGIN" />En savoir plus<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6207282396926186323">Installer <ph name="APP_NAME" /> (application Linux)</translation>
 <translation id="6207937957461833379">Pays/Région</translation>
 <translation id="6208521041562685716">Activation des données mobiles…</translation>
+<translation id="6209908325007204267">Votre appareil bénéficie d'une licence Chrome Enterprise Upgrade, mais votre nom d'utilisateur n'est associé à aucun compte d'entreprise. Veuillez en créer un en accédant à g.co/ChromeEnterpriseAccount sur un autre appareil.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" /> : la synchronisation ne fonctionne pas</translation>
 <translation id="6212039847102026977">Afficher les propriétés de réseau avancées</translation>
 <translation id="6212168817037875041">Désactiver l'écran</translation>
@@ -4161,6 +4162,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6843423766595476978">Ok Google est à présent configuré</translation>
 <translation id="6845038076637626672">Ouvrir la version agrandie</translation>
 <translation id="6845325883481699275">Contribuer à améliorer la sécurité de Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" souhaite imprimer <ph name="FILE_NAME" /> avec <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Libérer de l'espace pour continuer</translation>
 <translation id="6848388270925200958">Vous disposez actuellement de plusieurs cartes qui ne peuvent être utilisées qu'avec cet appareil</translation>
 <translation id="6850286078059909152">Couleur du texte</translation>
@@ -4404,6 +4406,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7186088072322679094">Garder dans la barre d'outils</translation>
 <translation id="7187428571767585875">Entrées de registre à supprimer ou à modifier :</translation>
 <translation id="7189234443051076392">Assurez-vous de disposer de suffisamment d'espace sur votre appareil</translation>
+<translation id="7189451821249468368">Vous n'avez pas suffisamment de licences de mise à niveau pour enregistrer cet appareil. Veuillez contacter le service commercial pour en acheter d'autres. Si vous pensez que ce message s'affiche par erreur, veuillez contacter l'assistance technique.</translation>
 <translation id="7189965711416741966">Empreinte digitale ajoutée.</translation>
 <translation id="7191159667348037">Imprimante inconnue (USB)</translation>
 <translation id="7193051357671784796">Cette application a été ajoutée par votre organisation. Redémarrez-la pour terminer l'installation.</translation>
@@ -4496,7 +4499,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7303900363563182677">Ce site ne peut pas accéder en lecture au texte ni aux images copiés dans le presse-papiers</translation>
 <translation id="7305123176580523628">Imprimante USB connectée</translation>
 <translation id="730515362922783851">Échanger des données avec n'importe quel appareil sur le réseau local ou sur Internet</translation>
-<translation id="7307129035224081534">Suspendue</translation>
+<translation id="7307129035224081534">En pause</translation>
 <translation id="7308002049209013926">Utilisez le lanceur d'applications pour accéder rapidement à vos nouvelles applications et activités. Pour y accéder depuis le clavier, appuyez sur Alt+Maj+L.</translation>
 <translation id="7309257895202129721">Afficher les &amp;commandes</translation>
 <translation id="7310598146671372464">Échec de la connexion. Le serveur n'accepte pas les types de chiffrement Kerberos spécifiés. Veuillez contacter votre administrateur.</translation>
@@ -5777,7 +5780,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="9050666287014529139">Phrase secrète</translation>
 <translation id="9052208328806230490">Vous avez enregistré vos imprimantes sur <ph name="CLOUD_PRINT_NAME" /> via le compte <ph name="EMAIL" />.</translation>
 <translation id="9052404922357793350">Continuer de bloquer</translation>
-<translation id="9053091947372579468">Une licence Chrome est bien installée sur votre appareil, mais votre nom d'utilisateur n'est associé à aucune console d'administration. Pour enregistrer votre appareil, veuillez créer un compte de console d'administration à l'adresse https://g.co/ChromeEnterpriseAccount. Remarque : si vous utilisez votre domaine pour créer le compte de console, vous devrez le valider à l'issue de cette procédure.</translation>
 <translation id="9053563360605707198">Impression recto verso</translation>
 <translation id="9053893665344928494">Mémoriser mon choix</translation>
 <translation id="9055636786322918818">Appliquez le chiffrement RC4. L'activation de cette option est risquée, car les algorithmes de chiffrement RC4 ne sont pas sécurisés.</translation>

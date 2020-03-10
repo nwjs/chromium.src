@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Telefonszámok</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> letöltés törölve</translation>
 <translation id="3822502789641063741">Törli a webhely tárhelyét?</translation>
+<translation id="3849365399446680203">Amíg AR-módban van, a webhely:
+• 3D-s térképet készíthet az Ön környezetéről;
+• követheti a kamera mozgását.
+
+Csak Ön láthatja, hogy mi van a kamera látóterében. A webhely nem látja a kamera képeit.</translation>
 <translation id="3859306556332390985">Ugrás előre</translation>
 <translation id="388596076286380598">Hozzájuthat cikkekhez, videókhoz és más tartalmakhoz a kedvenc webhelyeiről – még akkor is, ha offline állapotban van, vagy ha a kapcsolat rossz minőségű.</translation>
 <translation id="3894427358181296146">Mappa hozzáadása</translation>
@@ -587,7 +592,6 @@ A beállítás módosításához <ph name="BEGIN_LINK" />állítsa vissza a szin
 <translation id="5447765697759493033">Nem fordítjuk le ezt a webhelyet</translation>
 <translation id="545042621069398927">Letöltés felgyorsítása…</translation>
 <translation id="5456381639095306749">Oldal letöltése</translation>
-<translation id="5475862044948910901">Elindítja a kiterjesztett valóságot (AR) használó munkamenetet?</translation>
 <translation id="548278423535722844">Megnyitás térképalkalmazásban</translation>
 <translation id="5487521232677179737">Adatok törlése</translation>
 <translation id="5494752089476963479">Hirdetések letiltása a tolakodó és félrevezető hirdetéseket megjelenítő webhelyeken</translation>
@@ -720,6 +724,7 @@ A kívánt szó hosszú lenyomásával keresést végezhet. A keresés finomít�
 <translation id="6395288395575013217">LINK</translation>
 <translation id="6404511346730675251">Könyvjelző szerkesztése</translation>
 <translation id="6406506848690869874">Szinkronizálás</translation>
+<translation id="6410973561433500075">Biztosan AR-módba szeretne lépni innen: <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Nyomtatás…</translation>
 <translation id="6416782512398055893"><ph name="MBS" /> MB letöltve</translation>
 <translation id="6427112570124116297">Lefordíthatja az internetet</translation>
@@ -839,11 +844,6 @@ A kívánt szó hosszú lenyomásával keresést végezhet. A keresés finomít�
 <translation id="7352939065658542140">VIDEÓ</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 kijelölt elem megosztása}other{# kijelölt elem megosztása}}</translation>
 <translation id="7359002509206457351">Hozzáférés a fizetési módokhoz</translation>
-<translation id="7365126855094612066">A jelen munkamenet során a webhely a következőkre lesz képes:
-• 3D-s térképet készíthet az Ön környezetéről;
-• követheti a kamera mozgását.
-
-A webhely NEM kap hozzáférést a kamerához. A kamera képét csak Ön láthatja.</translation>
 <translation id="7375125077091615385">Típus:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

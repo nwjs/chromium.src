@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Nombor telefon</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> muat turun dipadamkan</translation>
 <translation id="3822502789641063741">Hapuskan storan tapak?</translation>
+<translation id="3849365399446680203">Semasa anda dalam AR, tapak ini boleh:
+• membuat peta 3D persekitaran anda
+• menjejak pergerakan kamera
+
+Anda sahaja yang boleh melihat perkara yang dilihat oleh kamera anda. Tapak tersebut tidak dapat melihat imej kamera anda.</translation>
 <translation id="3859306556332390985">Cari ke hadapan</translation>
 <translation id="388596076286380598">Dapatkan artikel, video dan kandungan lain daripada tapak yang anda sukai, walaupun anda di luar talian atau sambungan anda lemah.</translation>
 <translation id="3894427358181296146">Tambah folder</translation>
@@ -587,7 +592,6 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="5447765697759493033">Tapak ini tidak akan diterjemah</translation>
 <translation id="545042621069398927">Mempercepatkan muat turun anda.</translation>
 <translation id="5456381639095306749">Muat turun halaman</translation>
-<translation id="5475862044948910901">Mulakan sesi Realiti Tambahan?</translation>
 <translation id="548278423535722844">Buka dalam apl peta</translation>
 <translation id="5487521232677179737">Kosongkan data</translation>
 <translation id="5494752089476963479">Sekat iklan di tapak yang menyiarkan iklan yang mengganggu atau mengelirukan</translation>
@@ -720,6 +724,7 @@ Tekan lama-lama pada mana-mana perkataan untuk membuat carian tentang perkataan 
 <translation id="6395288395575013217">PAUTAN</translation>
 <translation id="6404511346730675251">Edit penanda halaman</translation>
 <translation id="6406506848690869874">Segerak</translation>
+<translation id="6410973561433500075">Masuki AR daripada <ph name="DOMAIN" />?</translation>
 <translation id="641643625718530986">Cetak…</translation>
 <translation id="6416782512398055893">Dimuat turun <ph name="MBS" /> MB</translation>
 <translation id="6427112570124116297">Terjemah Web</translation>
@@ -839,11 +844,6 @@ Tekan lama-lama pada mana-mana perkataan untuk membuat carian tentang perkataan 
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Kongsi 1 item yang dipilih}other{Kongsi # item yang dipilih}}</translation>
 <translation id="7359002509206457351">Akses kaedah pembayaran</translation>
-<translation id="7365126855094612066">Sepanjang tempoh sesi ini, tapak akan dapat:
-• membuat peta 3D persekitaran anda
-• menjejak pergerakan kamera
-
-Tapak TIDAK memperoleh akses kepada kamera. Hanya anda dapat melihat imej kamera.</translation>
 <translation id="7375125077091615385">Jenis:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

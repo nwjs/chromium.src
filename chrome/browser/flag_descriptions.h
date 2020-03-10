@@ -1553,6 +1553,9 @@ extern const char kInlineUpdateFlowDescription[];
 extern const char kAndroidNightModeName[];
 extern const char kAndroidNightModeDescription[];
 
+extern const char kAndroidNightModeTabReparentingName[];
+extern const char kAndroidNightModeTabReparentingDescription[];
+
 #endif  // BUILDFLAG(ENABLE_ANDROID_NIGHT_MODE)
 
 // Non-Android ----------------------------------------------------------------

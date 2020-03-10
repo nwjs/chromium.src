@@ -28,7 +28,7 @@ class RequiredFieldsFallbackHandler {
   enum FieldValueStatus { UNKNOWN, EMPTY, NOT_EMPTY };
   struct RequiredField {
     Selector selector;
-    bool simulate_key_presses = false;
+    KeyboardValueFillStrategy fill_strategy;
     int delay_in_millisecond = 0;
     bool forced = false;
     FieldValueStatus status = UNKNOWN;

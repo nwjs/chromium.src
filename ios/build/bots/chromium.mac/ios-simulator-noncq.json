@@ -23,7 +23,7 @@
       "include": "eg2_tests.json",
       "device type": "iPhone X",
       "os": "13.3",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -31,7 +31,7 @@
       "include": "eg2_tests.json",
       "device type": "iPhone 7",
       "os": "13.3",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -39,7 +39,7 @@
       "include": "eg2_tests.json",
       "device type": "iPad (6th generation)",
       "os": "13.3",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -47,7 +47,7 @@
       "include": "eg2_tests.json",
       "device type": "iPad Air 2",
       "os": "13.3",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -55,7 +55,7 @@
       "include": "eg2_tests.json",
       "device type": "iPhone X",
       "os": "12.4",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -63,7 +63,7 @@
       "include": "eg2_tests.json",
       "device type": "iPhone 7",
       "os": "12.4",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -71,7 +71,7 @@
       "include": "eg2_tests.json",
       "device type": "iPad (6th generation)",
       "os": "12.4",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     },
     {
@@ -79,7 +79,7 @@
       "include": "eg2_tests.json",
       "device type": "iPad Air 2",
       "os": "12.4",
-      "pool":"chromium.tests",
+      "pool":"chromium.tests.template",
       "host os": "Mac-10.14.6"
     }
   ]

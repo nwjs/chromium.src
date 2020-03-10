@@ -1833,7 +1833,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu bạn chưa đặt chính sách này, mọi chứng chỉ buộc phải được tiết lộ thông qua chính sách Tính minh bạch của chứng chỉ sẽ được xem là không đáng tin cậy nếu không được tiết lộ theo chính sách Tính minh bạch của chứng chỉ.</translation>
 <translation id="3765260570442823273">Thời lượng hiển thị thông điệp cảnh báo đăng xuất khi không hoạt động</translation>
 <translation id="377044054160169374">Thực thi can thiệp trải nghiệm lạm dụng</translation>
-<translation id="3780102107513139202">Chỉ cho phép những biến liên quan đến các bản sửa lỗi quan trọng</translation>
+<translation id="3780102107513139202">Chỉ cho phép những biến thể liên quan đến các bản sửa lỗi quan trọng</translation>
 <translation id="3780152581321609624">Bao gồm cổng không chuẩn trong  Kerberos SPN</translation>
 <translation id="3780319008680229708">Nếu chính sách này được đặt thành true thì biểu tượng thanh công cụ Cast sẽ luôn được hiển thị trên thanh công cụ hoặc menu mục bổ sung và người dùng sẽ không thể xóa biểu tượng này.
 
@@ -4369,9 +4369,9 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
       Chính sách này chỉ có hiệu lực đối với người dùng chưa liên kết.
       </translation>
 <translation id="7683777542468165012">Làm mới chính sách động</translation>
-<translation id="7684516445147212248">Việc định cấu hình chính sách này sẽ cho phép/không cho phép xác thực môi trường xung quanh đối với các hồ sơ Khách và hồ sơ Ẩn danh trong <ph name="PRODUCT_NAME" />.
+<translation id="7684516445147212248">Việc định cấu hình chính sách này sẽ cho phép/không cho phép xác thực môi trường xung quanh đối với các cấu hình chế độ Khách và cấu hình chế độ Ẩn danh trong <ph name="PRODUCT_NAME" />.
 
-      Xác thực môi trường xung quanh là quy trình xác thực http bằng bằng chứng xác thực mặc định nếu bằng chứng xác thực rõ ràng không được cung cấp qua lược đồ thách thức/phản hồi NTLM/Kerberos/Negotiate.
+      Xác thực môi trường xung quanh là quy trình xác thực http bằng bằng chứng xác thực mặc định nếu bằng chứng xác thực rõ ràng không được cung cấp qua lược đồ thử thách/phản hồi NTLM/Kerberos/Negotiate.
 
       Việc đặt <ph name="REGULAR_ONLY_OPTION_NAME" /> (giá trị 0) chỉ cho phép xác thực môi trường xung quanh đối với các phiên Thông thường. Các phiên Khách và phiên Ẩn danh sẽ không được phép xác thực môi trường xung quanh.
 

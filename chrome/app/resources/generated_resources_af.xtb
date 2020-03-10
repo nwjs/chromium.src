@@ -1216,6 +1216,7 @@ Jy kan hierdie rekening se instellings bestuur deur die Family Link-program op j
 <translation id="2653659639078652383">Dien in</translation>
 <translation id="265390580714150011">Veldwaarde</translation>
 <translation id="2654166010170466751">Laat werwe toe om betalinghanteerders te installeer</translation>
+<translation id="2654553774144920065">Drukversoek</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Kenmerke verskil volgens toestel</translation>
 <translation id="2660779039299703961">Geleentheid</translation>
 <translation id="266079277508604648">Kan nie aan drukker koppel nie. Maak seker dat die drukker aangeskakel is en met Wi-Fi of USB aan jou Chromebook gekoppel is.</translation>
@@ -2390,7 +2391,6 @@ Jy kan hierdie rekening se instellings bestuur deur die Family Link-program op j
 <translation id="4285418559658561636">Dateer wagwoord op</translation>
 <translation id="4285498937028063278">Ontspeld</translation>
 <translation id="428565720843367874">Antivirussagteware het onverwags misluk terwyl dit hierdie lêer skandeer.</translation>
-<translation id="4287502004382794929">Jy het nie genoeg sagteware-lisensies om hierdie toestel in te skryf nie. Kontak asseblief die verkoopsafdeling om meer te koop. As jy glo dis 'n fout dat jy hierdie boodskap sien, kontak asseblief die steundiens.</translation>
 <translation id="4289540628985791613">Oorsig</translation>
 <translation id="4295072614469448764">Program is in jou terminaal beskikbaar. Daar is dalk ook 'n ikoon in jou Lanseerder.</translation>
 <translation id="4295979599050707005">Meld asseblief weer aan om te bevestig dat jou rekening <ph name="USER_EMAIL" /> in webwerwe, programme en uitbreidings in Chrome en Google Play gebruik kan word. Jy kan hierdie rekening ook verwyder. <ph name="LINK_BEGIN" />Kom meer te wete<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="6207282396926186323">Installeer <ph name="APP_NAME" /> (Linux-program)</translation>
 <translation id="6207937957461833379">Land/Streek</translation>
 <translation id="6208521041562685716">Mobiele data word tans geaktiveer</translation>
+<translation id="6209908325007204267">Jou toestel sluit 'n Chrome Enterprise-opgradering in, maar jou gebruikernaam word nie met 'n ondernemingrekening geassosieer nie. Skep asseblief 'n ondernemingrekening deur g.co/ChromeEnterpriseAccount op 'n sekondêre toestel te besoek.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Sinkronisering werk tans nie</translation>
 <translation id="6212039847102026977">Wys gevorderde netwerkeienskappe</translation>
 <translation id="6212168817037875041">Skakel skerm af</translation>
@@ -4161,6 +4162,7 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="6843423766595476978">Ok Google is gereed</translation>
 <translation id="6845038076637626672">Maak groot oop</translation>
 <translation id="6845325883481699275">Help om Chrome-sekuriteit te verbeter</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" wil <ph name="FILE_NAME" /> druk met <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Maak spasie beskikbaar om voort te gaan</translation>
 <translation id="6848388270925200958">Jy het op die oomblik 'n paar kaarte wat net op hierdie toestel gebruik kan word</translation>
 <translation id="6850286078059909152">Tekskleur</translation>
@@ -4404,6 +4406,7 @@ Maak seker jy wys nie enige sensitiewe inligting nie.</translation>
 <translation id="7186088072322679094">Hou in nutsbalk</translation>
 <translation id="7187428571767585875">Registerinskrywings wat verwyder of verander moet word:</translation>
 <translation id="7189234443051076392">Maak seker dat daar genoeg spasie op jou toestel is</translation>
+<translation id="7189451821249468368">Jy het nie genoeg opgraderings om hierdie toestel in te skryf nie. Kontak asseblief die verkoopsafdeling om meer te koop. As jy meen dis 'n fout dat jy hierdie boodskap sien, moet jy asseblief steundienste kontak.</translation>
 <translation id="7189965711416741966">Vingerafdruk is bygevoeg.</translation>
 <translation id="7191159667348037">Onbekende drukker (USB)</translation>
 <translation id="7193051357671784796">Hierdie program is deur jou organisasie bygevoeg. Herbegin die program om installering te voltooi.</translation>
@@ -5776,7 +5779,6 @@ Hou jou sleutellêer op 'n veilige plek. Jy gaan dit nodig hê om nuwe weergawes
 <translation id="9050666287014529139">Wagfrase</translation>
 <translation id="9052208328806230490">Jy het jou drukkers by <ph name="CLOUD_PRINT_NAME" /> geregistreer deur die rekening <ph name="EMAIL" /> te gebruik.</translation>
 <translation id="9052404922357793350">Hou aan blokkeer</translation>
-<translation id="9053091947372579468">Jou toestel sluit 'n Chrome-lisensie in, maar jou gebruikernaam word nie met 'n Admin-konsole geassosieer nie. Skep asseblief 'n Admin-konsolerekening om met inskrywing voort te gaan. Let wel: As jy kies om jou eie domein te gebruik om 'n nuwe Admin-konsolerekening te skep, moet jy ook domeinverifikasie voltooi nadat jy aangesluit het. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Druk op albei kante</translation>
 <translation id="9053893665344928494">Onthou my keuse</translation>
 <translation id="9055636786322918818">Laat RC4-enkripsie toe. As jy hierdie opsie gebruik, verhoog dit jou risiko aangesien die RC4-syfers onveilig is.</translation>

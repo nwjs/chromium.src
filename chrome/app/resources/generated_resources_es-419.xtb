@@ -1213,6 +1213,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="265390580714150011">Valor de campo</translation>
 <translation id="2654166010170466751">Permitir que los sitios instalen controladores de pago</translation>
+<translation id="2654553774144920065">Solicitud de impresión</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Las funciones varían según el dispositivo</translation>
 <translation id="2660779039299703961">Evento</translation>
 <translation id="266079277508604648">No se puede establecer conexión con la impresora. Comprueba que esté encendida y conectada a la Chromebook mediante Wi-Fi o USB.</translation>
@@ -2387,7 +2388,6 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="4285418559658561636">Actualizar contraseña</translation>
 <translation id="4285498937028063278">No fijar</translation>
 <translation id="428565720843367874">Se produjo un error inesperado con el software antivirus al examinar este archivo.</translation>
-<translation id="4287502004382794929">No tienes suficientes licencias de software para inscribir este dispositivo. Comunícate con el departamento de ventas para adquirir más licencias. Si crees que este mensaje apareció por error, comunícate con un el servicio de ayuda.</translation>
 <translation id="4289540628985791613">Descripción general</translation>
 <translation id="4295072614469448764">La app está disponible en tu terminal. Es posible que haya un ícono en el Selector.</translation>
 <translation id="4295979599050707005">Vuelve a acceder para confirmar que tu cuenta <ph name="USER_EMAIL" /> se puede usar con sitios web, apps y extensiones en Chrome y Google Play. También puedes quitarla. <ph name="LINK_BEGIN" />Más información<ph name="LINK_END" /></translation>
@@ -3718,6 +3718,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="6207282396926186323">Instalar <ph name="APP_NAME" /> (app de Linux)</translation>
 <translation id="6207937957461833379">País/Región</translation>
 <translation id="6208521041562685716">Se están activando los datos móviles</translation>
+<translation id="6209908325007204267">El dispositivo incluye una actualización de Chrome Enterprise, pero tu nombre de usuario no está asociado a una cuenta empresarial. Para crear una cuenta de este tipo, visita g.co/ChromeEnterpriseAccount en otro dispositivo.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: La sincronización no funciona</translation>
 <translation id="6212039847102026977">Mostrar las propiedades de red avanzadas</translation>
 <translation id="6212168817037875041">Apagar la pantalla</translation>
@@ -4157,6 +4158,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="6843423766595476978">Ok Google ya está configurado</translation>
 <translation id="6845038076637626672">Abrir de forma maximizada</translation>
 <translation id="6845325883481699275">Ayudar a mejorar la seguridad de Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" quiere imprimir <ph name="FILE_NAME" /> con <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Libera espacio para continuar</translation>
 <translation id="6848388270925200958">En este momento, tienes algunas tarjetas que solo se pueden usar en este dispositivo</translation>
 <translation id="6850286078059909152">Color del texto</translation>
@@ -4400,6 +4402,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="7186088072322679094">Mantener en la barra de herramientas</translation>
 <translation id="7187428571767585875">Entradas de registro que se quitarán o cambiarán:</translation>
 <translation id="7189234443051076392">Asegúrate de que haya espacio suficiente en tu dispositivo</translation>
+<translation id="7189451821249468368">No tienes suficientes actualizaciones para inscribir este dispositivo; comunícate con el vendedor para adquirir más. Si crees que recibiste este mensaje por error, comunícate con el servicio de asistencia.</translation>
 <translation id="7189965711416741966">Se agregó una huella digital.</translation>
 <translation id="7191159667348037">Impresora desconocida (USB)</translation>
 <translation id="7193051357671784796">Tu organización agregó esta app. Para finalizar la instalación, restablece la app.</translation>
@@ -5773,7 +5776,6 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="9050666287014529139">Frase de contraseña</translation>
 <translation id="9052208328806230490">Registraste tus impresoras con <ph name="CLOUD_PRINT_NAME" /> utilizando la cuenta <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Seguir bloqueando</translation>
-<translation id="9053091947372579468">Tu dispositivo incluye una licencia de Chrome, pero tu nombre de usuario no está asociado a una consola del administrador. Para continuar con la inscripción, crea una cuenta de consola del administrador. Nota: Si eliges usar tu propio dominio para crear una nueva cuenta de consola del administrador, también deberás completar la verificación del dominio después del registro. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Imprimir de ambos lados</translation>
 <translation id="9053893665344928494">Recordar mi selección</translation>
 <translation id="9055636786322918818">Aplica la encriptación RC4. Esta opción es riesgosa, ya que los cifrados RC4 son inseguros.</translation>

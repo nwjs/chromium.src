@@ -1215,6 +1215,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="2653659639078652383">Invia</translation>
 <translation id="265390580714150011">Valore campo</translation>
 <translation id="2654166010170466751">Consenti ai siti di installare gestori dei pagamenti</translation>
+<translation id="2654553774144920065">Richiesta di stampa</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Le funzionalità variano in base al dispositivo</translation>
 <translation id="2660779039299703961">Evento</translation>
 <translation id="266079277508604648">Impossibile connettere la stampante. Verifica che sia accesa e collegata al Chromebook tramite Wi-Fi o USB.</translation>
@@ -2276,7 +2277,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="409579654357498729">Aggiungi a Cloud Print</translation>
 <translation id="4096508467498758490">Disattiva estensioni in modalità sviluppatore</translation>
 <translation id="4096824249111507322">Preparazione del modulo per la sicurezza in corso, attendi (l'operazione potrebbe richiedere alcuni minuti)...</translation>
-<translation id="4097560579602855702">Cerca con Google</translation>
+<translation id="4097560579602855702">Cerca su Google</translation>
 <translation id="4099060993766194518">Ripristinare il motore di ricerca predefinito?</translation>
 <translation id="4099874310852108874">Si è verificato un errore di rete.</translation>
 <translation id="4100733287846229632">Lo spazio sul dispositivo sta per esaurirsi</translation>
@@ -2389,7 +2390,6 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="4285418559658561636">Aggiorna password</translation>
 <translation id="4285498937028063278">Sblocca</translation>
 <translation id="428565720843367874">La scansione del software antivirus non è inaspettatamente riuscita durante la scansione di questo file.</translation>
-<translation id="4287502004382794929">Non disponi di licenze software sufficienti per registrare questo dispositivo. Contatta l'ufficio vendite per acquistarne altre. Se ritieni che questo messaggio sia stato visualizzato per sbaglio, contatta l'assistenza.</translation>
 <translation id="4289540628985791613">Panoramica</translation>
 <translation id="4295072614469448764">L'app è disponibile nel tuo terminale. Potrebbe anche essere presente un'icona nell'Avvio app.</translation>
 <translation id="4295979599050707005">Accedi di nuovo per confermare che il tuo account <ph name="USER_EMAIL" /> può essere utilizzato con siti web, app ed estensioni in Chrome e Google Play. Potresti anche rimuovere questo account. <ph name="LINK_BEGIN" />Ulteriori informazioni<ph name="LINK_END" /></translation>
@@ -3720,6 +3720,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="6207282396926186323">Installazione di <ph name="APP_NAME" /> (app Linux)</translation>
 <translation id="6207937957461833379">Paese/Regione</translation>
 <translation id="6208521041562685716">Attivazione dei dati mobili in corso</translation>
+<translation id="6209908325007204267">Il tuo dispositivo include una licenza Chrome Enterprise Upgrade, ma il tuo nome utente non è associato a un account aziendale. Crea un account aziendale dal sito g.co/ChromeEnterpriseAccount su un dispositivo secondario.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: la sincronizzazione non funziona</translation>
 <translation id="6212039847102026977">Mostra proprietà di rete avanzate</translation>
 <translation id="6212168817037875041">Disattiva lo schermo</translation>
@@ -4029,7 +4030,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="6655458902729017087">Nascondi account</translation>
 <translation id="6657585470893396449">Password</translation>
 <translation id="6659213950629089752">Questa pagina è stata ingrandita con l'estensione "<ph name="NAME" />"</translation>
-<translation id="6659594942844771486">TAB</translation>
+<translation id="6659594942844771486">Scheda</translation>
 <translation id="6664237456442406323">Purtroppo il tuo computer è configurato con un ID hardware non valido. Ciò impedisce a Chrome OS di aggiornarsi con le ultime correzioni relative alla sicurezza e il tuo computer <ph name="BEGIN_BOLD" />potrebbe essere vulnerabile ad attacchi dannosi<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">Si è verificato un problema durante l'apertura del profilo. Esci e accedi di nuovo.</translation>
 <translation id="6667776121818773738">Immagine condivisa da un altro dispositivo</translation>
@@ -4159,6 +4160,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="6843423766595476978">Ok Google impostato</translation>
 <translation id="6845038076637626672">Apri ingrandita</translation>
 <translation id="6845325883481699275">Contribuisci a migliorare la sicurezza di Chrome</translation>
+<translation id="6846178040388691741">L'estensione "<ph name="EXTENSION_NAME" />" vuole stampare il file <ph name="FILE_NAME" /> con la stampante <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Libera spazio per continuare</translation>
 <translation id="6848388270925200958">Al momento hai delle carte che possono essere utilizzate solo da questo dispositivo.</translation>
 <translation id="6850286078059909152">Colore testo</translation>
@@ -4402,6 +4404,7 @@ Puoi gestire le impostazioni dell'account installando l'app Family Link su quest
 <translation id="7186088072322679094">Mantieni in barra degli strumenti</translation>
 <translation id="7187428571767585875">Voci del registro da rimuovere o modificare:</translation>
 <translation id="7189234443051076392">Assicurati di avere spazio sufficiente sul dispositivo</translation>
+<translation id="7189451821249468368">Non disponi di licenze Upgrade sufficienti per registrare questo dispositivo. Contatta l'ufficio vendite per acquistarne altre. Se ritieni che questo messaggio sia stato visualizzato per sbaglio, contatta l'assistenza.</translation>
 <translation id="7189965711416741966">Impronta digitale aggiunta.</translation>
 <translation id="7191159667348037">Stampante sconosciuta (USB)</translation>
 <translation id="7193051357671784796">Questa app è stata aggiunta dalla tua organizzazione. Riavvia l'app per terminarne l'installazione.</translation>
@@ -5774,7 +5777,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="9050666287014529139">Passphrase</translation>
 <translation id="9052208328806230490">Hai registrato le stampanti con <ph name="CLOUD_PRINT_NAME" /> utilizzando l'account <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Continua a bloccare</translation>
-<translation id="9053091947372579468">Il tuo dispositivo include una licenza Chrome, ma il tuo nome utente non è associato a una console di amministrazione. Crea una console di amministrazione per procedere con la registrazione. Nota: se scegli di utilizzare il tuo dominio per creare un nuovo account Console di amministrazione, devi completare anche la verifica del dominio dopo la registrazione. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Stampa su entrambe le facciate</translation>
 <translation id="9053893665344928494">Memorizza la mia scelta</translation>
 <translation id="9055636786322918818">Applica la crittografia RC4. Se scegli di utilizzare quest'opzione vai incontro a un rischio maggiore, in quanto le crittografie RC4 non sono sicure.</translation>

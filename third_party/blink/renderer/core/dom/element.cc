@@ -2746,7 +2746,7 @@ Node::InsertionNotificationRequest Element::InsertedInto(
   if (!insertion_point.IsInTreeScope())
     return kInsertionDone;
 
-  if (HasRareData()) {
+  if (isConnected() && HasRareData()) {
     ElementRareData* rare_data = GetElementRareData();
     if (ElementIntersectionObserverData* observer_data =
             rare_data->IntersectionObserverData()) {
@@ -2761,10 +2761,8 @@ Node::InsertionNotificationRequest Element::InsertedInto(
       }
     }
 
-    if (isConnected()) {
-      if (auto* context = rare_data->GetDisplayLockContext())
-        context->ElementConnected();
-    }
+    if (auto* context = rare_data->GetDisplayLockContext())
+      context->ElementConnected();
   }
 
   if (isConnected()) {
@@ -4263,8 +4261,21 @@ void Element::UpdateFocusAppearanceWithOptions(
   } else if (GetLayoutObject() &&
              !GetLayoutObject()->IsLayoutEmbeddedContent()) {
     if (!options->preventScroll()) {
+      auto params = CreateScrollIntoViewParams();
+
+      // It's common to have menus and list controls that have items slightly
+      // overflowing horizontally but the control isn't horizontally
+      // scrollable. Navigating through such a list should make sure items are
+      // vertically fully visible but avoid horizontal changes. This mostly
+      // matches behavior in WebKit and Gecko (though, the latter has the
+      // same behavior vertically) and there's some UA-defined wiggle room in
+      // the spec for the scrollIntoViewOptions from focus:
+      // https://html.spec.whatwg.org/#dom-focus.
+      params->align_x->rect_partial =
+          mojom::blink::ScrollAlignment::Behavior::kNoScroll;
+
       GetLayoutObject()->ScrollRectToVisible(BoundingBoxForScrollIntoView(),
-                                             CreateScrollIntoViewParams());
+                                             std::move(params));
     }
   }
 }

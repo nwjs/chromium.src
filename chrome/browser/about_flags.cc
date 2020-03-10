@@ -1101,6 +1101,12 @@ const FeatureEntry::FeatureVariation kExploreSitesVariations[] = {
      base::size(kExploreSitesDenseTitleBottom), nullptr},
     {"Dense Title Right", kExploreSitesDenseTitleRight,
      base::size(kExploreSitesDenseTitleRight), nullptr}};
+const FeatureEntry::FeatureParam kLongpressResolvePreserveTap = {
+    contextual_search::kLongpressResolveParamName,
+    contextual_search::kLongpressResolvePreserveTap};
+const FeatureEntry::FeatureVariation kLongpressResolveVariations[] = {
+    {"and preserve Tap behavior", &kLongpressResolvePreserveTap, 1, nullptr},
+};
 
 #endif  // defined(OS_ANDROID)
 
@@ -1221,6 +1227,9 @@ const FeatureEntry::FeatureParam
 const FeatureEntry::FeatureParam kTabGridLayoutAndroid_DisableRefetch[] = {
     {"allow_to_refetch", "false"}};
 
+const FeatureEntry::FeatureParam kTabGridLayoutAndroid_SearchChip[] = {
+    {"enable_search_term_chip", "true"}};
+
 const FeatureEntry::FeatureVariation kTabGridLayoutAndroidVariations[] = {
     {"New Tab Variation", kTabGridLayoutAndroid_NewTabVariation,
      base::size(kTabGridLayoutAndroid_NewTabVariation), nullptr},
@@ -1238,6 +1247,8 @@ const FeatureEntry::FeatureVariation kTabGridLayoutAndroidVariations[] = {
      nullptr},
     {"Disable refetch", kTabGridLayoutAndroid_DisableRefetch,
      base::size(kTabGridLayoutAndroid_DisableRefetch), nullptr},
+    {"Search term chip", kTabGridLayoutAndroid_SearchChip,
+     base::size(kTabGridLayoutAndroid_SearchChip), nullptr},
 };
 
 const FeatureEntry::FeatureParam kStartSurfaceAndroid_SingleSurface[] = {
@@ -1325,16 +1336,26 @@ const FeatureEntry::FeatureVariation kAndroidNightModeFeatureVariations[] = {
     {"(default to light theme)", kAndroidNightModeDefaultToLightConstant,
      base::size(kAndroidNightModeDefaultToLightConstant), nullptr}};
 
-const FeatureEntry::FeatureParam kOmniboxAssistantVoiceSearch_Variations[] = {
-    {"min_agsa_version", ""},
-    {"min_android_sdk", ""},
-    {"min_memory_mb", ""},
-    {"enabled_locales", ""}};
+const FeatureEntry::FeatureParam kOmniboxAssistantVoiceSearchGreyMic[] = {
+    {"min_agsa_version", "10.95"},
+    {"min_android_sdk", "21"},
+    {"min_memory_mb", "1024"},
+    {"enabled_locales", ""},
+    {"colorful_mic", "false"}};
+
+const FeatureEntry::FeatureParam kOmniboxAssistantVoiceSearchColorfulMic[] = {
+    {"min_agsa_version", "10.95"},
+    {"min_android_sdk", "21"},
+    {"min_memory_mb", "1024"},
+    {"enabled_locales", ""},
+    {"colorful_mic", "true"}};
 
 const FeatureEntry::FeatureVariation kOmniboxAssistantVoiceSearchVariations[] =
     {
-        {"(with params)", kOmniboxAssistantVoiceSearch_Variations,
-         base::size(kOmniboxAssistantVoiceSearch_Variations), nullptr},
+        {"(grey mic)", kOmniboxAssistantVoiceSearchGreyMic,
+         base::size(kOmniboxAssistantVoiceSearchGreyMic), nullptr},
+        {"(colorful mic)", kOmniboxAssistantVoiceSearchColorfulMic,
+         base::size(kOmniboxAssistantVoiceSearchColorfulMic), nullptr},
 };
 
 const FeatureEntry::FeatureParam
@@ -1621,7 +1642,10 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kContextualSearchLongpressResolveName,
      flag_descriptions::kContextualSearchLongpressResolveDescription,
      kOsAndroid,
-     FEATURE_VALUE_TYPE(chrome::android::kContextualSearchLongpressResolve)},
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         chrome::android::kContextualSearchLongpressResolve,
+         kLongpressResolveVariations,
+         "ContextualSearchLongpressResolve")},
     {"contextual-search-ml-tap-suppression",
      flag_descriptions::kContextualSearchMlTapSuppressionName,
      flag_descriptions::kContextualSearchMlTapSuppressionDescription,
@@ -2529,6 +2553,10 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_WITH_PARAMS_VALUE_TYPE(chrome::android::kAndroidNightMode,
                                     kAndroidNightModeFeatureVariations,
                                     "AndroidNightMode")},
+    {"enable-android-night-mode-tab-reparenting",
+     flag_descriptions::kAndroidNightModeTabReparentingName,
+     flag_descriptions::kAndroidNightModeTabReparentingDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kAndroidNightModeTabReparenting)},
 #endif  // BUILDFLAG(ENABLE_ANDROID_NIGHT_MODE)
 #endif  // OS_ANDROID
     {"enable-experimental-accessibility-features",

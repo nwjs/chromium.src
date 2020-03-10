@@ -353,9 +353,12 @@ void HintsFetcher::OnURLLoadComplete(
     response_code =
         active_url_loader_->ResponseInfo()->headers->response_code();
   }
-  HandleResponse(response_body ? *response_body : "",
-                 active_url_loader_->NetError(), response_code);
+  auto net_error = active_url_loader_->NetError();
+  // Reset the active URL loader here since actions happening during response
+  // handling may destroy |this|.
   active_url_loader_.reset();
+
+  HandleResponse(response_body ? *response_body : "", net_error, response_code);
 }
 
 std::vector<std::string> HintsFetcher::GetSizeLimitedHostsDueForHintsRefresh(

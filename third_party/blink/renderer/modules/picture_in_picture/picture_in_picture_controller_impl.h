@@ -52,7 +52,7 @@ class MODULES_EXPORT PictureInPictureControllerImpl
 
   // Returns whether the document associated with the controller is allowed to
   // request Picture-in-Picture.
-  Status IsDocumentAllowed() const;
+  Status IsDocumentAllowed(bool report_failure) const;
 
   // Returns whether the combination of element and options can be in
   // Picture-in-Picture.
@@ -107,6 +107,7 @@ class MODULES_EXPORT PictureInPictureControllerImpl
       mojo::PendingRemote<mojom::blink::PictureInPictureSession>,
       const WebSize&);
   void OnExitedPictureInPicture(ScriptPromiseResolver*) override;
+  Status IsElementAllowed(const HTMLElement&, bool report_failure) const;
 
   // Makes sure the `picture_in_picture_service_` is set. Returns whether it was
   // initialized successfully.

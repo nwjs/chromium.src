@@ -100,6 +100,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kAndroidNightMode,
     &kAndroidNightModeCCT,
     &kAndroidNightModeForQ,
+    &kAndroidNightModeTabReparenting,
     &kAndroidPayIntegrationV1,
     &kAndroidPayIntegrationV2,
     &kAndroidPaymentApps,
@@ -110,6 +111,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kCastDeviceFilter,
     &kCloseTabSuggestions,
     &kCCTBackgroundTab,
+    &kCCTClientDataHeader,
     &kCCTExternalLinkHandling,
     &kCCTIncognito,
     &kCCTModule,
@@ -278,6 +280,9 @@ const base::Feature kAndroidNightModeCCT{"AndroidNightModeCCT",
 const base::Feature kAndroidNightModeForQ{"AndroidNightModeForQ",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kAndroidNightModeTabReparenting{
+    "AndroidNightModeTabReparenting", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // TODO(rouslan): Remove this.
 const base::Feature kAndroidPayIntegrationV1{"AndroidPayIntegrationV1",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
@@ -323,6 +328,9 @@ const base::Feature kCloseTabSuggestions{"CloseTabSuggestions",
 
 const base::Feature kCCTBackgroundTab{"CCTBackgroundTab",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kCCTClientDataHeader{"CCTClientDataHeader",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kCCTExternalLinkHandling{"CCTExternalLinkHandling",
                                              base::FEATURE_ENABLED_BY_DEFAULT};

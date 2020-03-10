@@ -22,7 +22,7 @@
       "device type": "iPhone 6s",
       "os": "12.4",
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_chrome_integration_egtests",
@@ -34,7 +34,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_chrome_integration_egtests",
@@ -46,7 +46,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_chrome_integration_egtests",
@@ -58,7 +58,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_chrome_smoke_egtests",
@@ -70,7 +70,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_chrome_web_egtests",
@@ -82,7 +82,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_web_shell_egtests",
@@ -94,7 +94,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     },
     {
       "app": "ios_chrome_ui_egtests",
@@ -106,7 +106,7 @@
       "xcode parallelization": true,
       "xctest": true,
       "host os": "Mac-10.14.6",
-      "pool":"chromium.tests"
+      "pool":"chromium.tests.template"
     }
   ]
 }

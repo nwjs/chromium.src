@@ -378,19 +378,25 @@ class GPU_GLES2_EXPORT GLES2DecoderPassthroughImpl : public GLES2Decoder {
                              const DisallowedFeatures& disallowed_features,
                              bool force_reinitialize);
 
+  void* GetScratchMemory(size_t size);
+
+  template <typename T>
+  T* GetTypedScratchMemory(size_t count) {
+    return reinterpret_cast<T*>(GetScratchMemory(count * sizeof(T)));
+  }
+
   template <typename T, typename GLGetFunction>
   error::Error GetNumericHelper(GLenum pname,
                                 GLsizei bufsize,
                                 GLsizei* length,
                                 T* params,
                                 GLGetFunction get_call) {
-    // Create a scratch buffer to hold the result of the query
-    std::vector<T> scratch_params(bufsize);
-    get_call(pname, bufsize, length, scratch_params.data());
+    // Get a scratch buffer to hold the result of the query
+    T* scratch_params = GetTypedScratchMemory<T>(bufsize);
+    get_call(pname, bufsize, length, scratch_params);
 
     // Update the results of the query, if needed
-    error::Error error =
-        PatchGetNumericResults(pname, *length, scratch_params.data());
+    error::Error error = PatchGetNumericResults(pname, *length, scratch_params);
     if (error != error::kNoError) {
       *length = 0;
       return error;
@@ -398,7 +404,7 @@ class GPU_GLES2_EXPORT GLES2DecoderPassthroughImpl : public GLES2Decoder {
 
     // Copy into the destination
     DCHECK(*length <= bufsize);
-    std::copy(scratch_params.data(), scratch_params.data() + *length, params);
+    std::copy(scratch_params, scratch_params + *length, params);
 
     return error::kNoError;
   }
@@ -848,6 +854,9 @@ class GPU_GLES2_EXPORT GLES2DecoderPassthroughImpl : public GLES2Decoder {
   bool context_lost_;
   bool reset_by_robustness_extension_;
   bool lose_context_when_out_of_memory_;
+
+  // Cache of scratch memory
+  std::vector<uint8_t> scratch_memory_;
 
   // After a second fence is inserted, both the GpuChannelMessageQueue and
   // CommandExecutor are descheduled. Once the first fence has completed, both

@@ -293,7 +293,9 @@ std::string ContextualSearchDelegate::BuildRequestUrl(
   TemplateURLRef::SearchTermsArgs::ContextualSearchParams params(
       kContextualSearchRequestVersion, contextual_cards_version,
       context->GetHomeCountry(), context->GetPreviousEventId(),
-      context->GetPreviousEventResults(), context->GetExactResolve());
+      context->GetPreviousEventResults(), context->GetExactResolve(),
+      context->GetTranslationLanguages().detected_language,
+      context->GetTranslationLanguages().target_language);
 
   search_terms_args.contextual_search_params = params;
 

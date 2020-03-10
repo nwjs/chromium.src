@@ -7,13 +7,17 @@
 #include <atlcomcli.h>
 #include <wrl/client.h>
 
+#include "base/command_line.h"
 #include "base/json/json_writer.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/test_reg_util_win.h"
 #include "chrome/browser/ui/startup/credential_provider_signin_dialog_win_test_data.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider_i.h"
 #include "chrome/credential_provider/gaiacp/gaia_resources.h"
+#include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/mdm_utils.h"
 #include "chrome/credential_provider/gaiacp/reauth_credential.h"
@@ -22,6 +26,10 @@
 #include "chrome/credential_provider/test/gcp_fakes.h"
 #include "chrome/credential_provider/test/gls_runner_test_base.h"
 #include "chrome/credential_provider/test/test_credential.h"
+#include "content/public/common/content_switches.h"
+#include "google_apis/gaia/gaia_switches.h"
+#include "google_apis/gaia/gaia_urls.h"
+#include "net/base/escape.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace credential_provider {
@@ -182,10 +190,6 @@ class GcpReauthCredentialEnforceAuthReasonGetStringValueTest
 TEST_P(GcpReauthCredentialEnforceAuthReasonGetStringValueTest,
        DISABLED_FidDescription) {
   USES_CONVERSION;
-  // Enable standard escrow service features in non-Chrome builds so that
-  // the escrow service code can be tested by the build machines.
-  GoogleMdmEscrowServiceEnablerForTesting escrow_service_enabler;
-
   CredentialProviderSigninDialogTestDataStorage test_data_storage;
 
   const bool enrolled_mdm = std::get<0>(GetParam());
@@ -193,8 +197,7 @@ TEST_P(GcpReauthCredentialEnforceAuthReasonGetStringValueTest,
   const bool is_stale_login = std::get<2>(GetParam());
 
   ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kRegMdmUrl, L"https://mdm.com"));
-  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kRegEscrowServiceServerUrl,
-                                          L"https://escrow.com"));
+  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kRegDisablePasswordSync, 0));
 
   GoogleMdmEnrolledStatusForTesting forced_enrolled_status(enrolled_mdm);
 
@@ -283,6 +286,116 @@ INSTANTIATE_TEST_SUITE_P(All,
                                             ::testing::Bool()));
 
 class GcpReauthCredentialGlsRunnerTest : public GlsRunnerTestBase {};
+
+// Tests the GetUserGlsCommandline method overridden by ReauthCredential.
+// Parameters are:
+// 1. Is gem features enabled / disabled.
+// 2. Is ep_url already set via registry.
+// 3. Does reauth email exist.
+// 4. Did user already accept TOS.
+class GcpReauthCredentialGlsTest
+    : public GcpReauthCredentialGlsRunnerTest,
+      public ::testing::WithParamInterface<std::tuple<bool, bool, bool, bool>> {
+};
+
+TEST_P(GcpReauthCredentialGlsTest, GetUserGlsCommandLine) {
+  USES_CONVERSION;
+  CredentialProviderSigninDialogTestDataStorage test_data_storage;
+
+  const bool is_gem_features_enabled = std::get<0>(GetParam());
+  if (is_gem_features_enabled)
+    ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kKeyEnableGemFeatures, 1u));
+  else
+    ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kKeyEnableGemFeatures, 0u));
+
+  CComBSTR username = L"foo_bar";
+  CComBSTR full_name = A2COLE(test_data_storage.GetSuccessFullName().c_str());
+  CComBSTR password = A2COLE(test_data_storage.GetSuccessPassword().c_str());
+
+  // Create a fake user to reauth.
+  CComBSTR sid;
+  ASSERT_EQ(S_OK,
+            fake_os_user_manager()->CreateTestOSUser(
+                OLE2CW(username), OLE2CW(password), OLE2CW(full_name),
+                L"comment", base::UTF8ToUTF16(test_data_storage.GetSuccessId()),
+                base::string16(), &sid));
+
+  // Create provider and start logon.
+  Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
+
+  // Create with invalid token handle response so that a reauth occurs.
+  SetDefaultTokenHandleResponse(kDefaultInvalidTokenHandleResponse);
+  ASSERT_EQ(S_OK, InitializeProviderAndGetCredential(1, &cred));
+
+  ASSERT_TRUE(!!cred);
+
+  Microsoft::WRL::ComPtr<IReauthCredential> ireauth;
+  ASSERT_EQ(S_OK, cred.As(&ireauth));
+  const CComBSTR kSid(W2COLE(L"sid"));
+  ASSERT_EQ(S_OK, ireauth->SetOSUserInfo(
+                      kSid, CComBSTR(OSUserManager::GetLocalDomain().c_str()),
+                      CComBSTR(W2COLE(L"username"))));
+  bool set_email_for_reauth = std::get<2>(GetParam());
+  if (set_email_for_reauth) {
+    ASSERT_EQ(S_OK, ireauth->SetEmailForReauth(CComBSTR(
+                        A2COLE(test_data_storage.GetSuccessEmail().c_str()))));
+  }
+
+  const bool is_tos_accepted = std::get<3>(GetParam());
+  if (is_tos_accepted)
+    ASSERT_EQ(S_OK, SetUserProperty(OLE2CW(kSid), kKeyAcceptTos, 1));
+
+  // Get user gls command line and extract the kGaiaUrl &
+  // kGcpwEndpointPathSwitch switch from it.
+  Microsoft::WRL::ComPtr<ITestCredential> test_cred;
+  ASSERT_EQ(S_OK, cred.As(&test_cred));
+  std::string device_id;
+  ASSERT_EQ(S_OK, GenerateDeviceId(&device_id));
+
+  const bool is_ep_url_set = std::get<1>(GetParam());
+  if (is_ep_url_set)
+    SetGlobalFlagForTesting(L"ep_reauth_url", L"http://login.com");
+
+  GoogleChromePathForTesting google_chrome_path_for_testing(
+      base::FilePath(L"chrome.exe"));
+  EXPECT_EQ(S_OK, test_cred->UseRealGlsBaseCommandLine(true));
+  base::CommandLine command_line = test_cred->GetTestGlsCommandline();
+
+  EXPECT_TRUE(command_line.HasSwitch(kGcpwSigninSwitch));
+  EXPECT_TRUE(command_line.HasSwitch(switches::kDisableExtensions));
+
+  std::string gcpw_path =
+      command_line.GetSwitchValueASCII(kGcpwEndpointPathSwitch);
+
+  if (is_ep_url_set) {
+    ASSERT_EQ("http://login.com/",
+              command_line.GetSwitchValueASCII(switches::kGaiaUrl));
+    ASSERT_TRUE(gcpw_path.empty());
+  } else if (is_gem_features_enabled) {
+    if (set_email_for_reauth) {
+      ASSERT_EQ(
+          gcpw_path,
+          base::StringPrintf("embedded/reauth/windows?device_id=%s&show_tos=%d",
+                             device_id.c_str(), is_tos_accepted ? 0 : 1));
+    } else {
+      ASSERT_EQ(
+          gcpw_path,
+          base::StringPrintf("embedded/setup/windows?device_id=%s&show_tos=%d",
+                             device_id.c_str(), is_tos_accepted ? 0 : 1));
+    }
+    ASSERT_TRUE(command_line.GetSwitchValueASCII(switches::kGaiaUrl).empty());
+  } else {
+    ASSERT_TRUE(command_line.GetSwitchValueASCII(switches::kGaiaUrl).empty());
+    ASSERT_TRUE(gcpw_path.empty());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         GcpReauthCredentialGlsTest,
+                         ::testing::Combine(::testing::Bool(),
+                                            ::testing::Bool(),
+                                            ::testing::Bool(),
+                                            ::testing::Bool()));
 
 TEST_F(GcpReauthCredentialGlsRunnerTest, NoGaiaIdOrEmailAvailable) {
   USES_CONVERSION;
@@ -430,15 +543,106 @@ TEST_F(GcpReauthCredentialGlsRunnerTest, UserGaiaIdMismatch) {
 // 1. Is gem features enabled. If enabled, tos should be tested out.
 //    Otherwise, ToS shouldn't be set irrespective of the |kAcceptTos|
 //    registry entry.
-class GcpNormalReauthCredentialGlsRunnerTest
+class GcpNormalReauthCredentialUserSidMismatch
     : public GcpReauthCredentialGlsRunnerTest,
       public ::testing::WithParamInterface<bool> {};
+
+TEST_P(GcpNormalReauthCredentialUserSidMismatch, ShouldFail) {
+  USES_CONVERSION;
+
+  bool is_non_matching_sid_empty = GetParam();
+
+  CredentialProviderSigninDialogTestDataStorage test_data_storage;
+
+  // Override registry to enable cloud association with google.
+  constexpr wchar_t kRegCloudAssociation[] = L"enable_cloud_association";
+  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kRegCloudAssociation, 1));
+  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(L"enable_verbose_logging", 1));
+
+  CComBSTR username = L"foo_bar";
+  CComBSTR full_name = A2COLE(test_data_storage.GetSuccessFullName().c_str());
+  CComBSTR password = A2COLE(test_data_storage.GetSuccessPassword().c_str());
+  CComBSTR email = A2COLE(test_data_storage.GetSuccessEmail().c_str());
+  CComBSTR domain = L"domain";
+
+  // Create a fake user to reauth.
+  CComBSTR sid;
+  ASSERT_EQ(S_OK,
+            fake_os_user_manager()->CreateTestOSUser(
+                OLE2CW(username), OLE2CW(password), OLE2CW(full_name),
+                L"comment", base::UTF8ToUTF16(test_data_storage.GetSuccessId()),
+                OLE2CW(email), OLE2CW(domain), &sid));
+
+  // Create provider and start logon.
+  Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
+
+  // Create with invalid token handle response so that a reauth occurs.
+  SetDefaultTokenHandleResponse(kDefaultInvalidTokenHandleResponse);
+  ASSERT_EQ(S_OK, InitializeProviderAndGetCredential(1, &cred));
+  Microsoft::WRL::ComPtr<ITestCredential> test;
+  ASSERT_EQ(S_OK, cred.As(&test));
+
+  ASSERT_EQ(S_OK, test->SetGlsEmailAddress(std::string()));
+
+  // Delete the registry entries and create the environment where
+  // GCPW is installed on an AD joined machine and GetSerialization
+  // is triggered on a reauth credential.
+  RemoveAllUserProperties(OLE2CW(sid));
+
+  // The admin sdk users directory get URL.
+  std::string get_cd_user_url_ = base::StringPrintf(
+      "https://www.googleapis.com/admin/directory/v1/users/"
+      "%s?projection=full&viewType=domain_public",
+      net::EscapeUrlEncodedData(base::UTF16ToUTF8(OLE2CW(email)), true)
+          .c_str());
+  GaiaUrls* gaia_urls_ = GaiaUrls::GetInstance();
+  // Set token result as a valid access token.
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(gaia_urls_->oauth2_token_url().spec().c_str()),
+      FakeWinHttpUrlFetcher::Headers(), "{\"access_token\": \"dummy_token\"}");
+
+  std::string admin_sdk_response;
+  CComBSTR different_user = L"different_foo_bar";
+  if (!is_non_matching_sid_empty) {
+    DWORD error;
+    ASSERT_EQ(S_OK, fake_os_user_manager()->AddUser(
+                        OLE2W(different_user), L"password", L"fullname",
+                        L"comment", true, L"domain", &sid, &error));
+  }
+
+  // Set valid response from admin sdk.
+  admin_sdk_response = base::StringPrintf(
+      "{\"customSchemas\": {\"Enhanced_desktop_security\": {\"AD_accounts\":"
+      " \"%ls/%ls\"}}}",
+      L"domain", OLE2CW(different_user));
+
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(get_cd_user_url_.c_str()), FakeWinHttpUrlFetcher::Headers(),
+      admin_sdk_response);
+
+  ASSERT_EQ(S_OK, StartLogonProcessAndWait());
+
+  // Logon process should fail with an internal error.
+  ASSERT_EQ(S_OK, FinishLogonProcess(false, false, IDS_ACCOUNT_IN_USE_BASE));
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         GcpNormalReauthCredentialUserSidMismatch,
+                         ::testing::Values(true, false));
+
+// Tests the normal reauth scenario.
+// 1. Is gem features enabled.
+// 2. Is tos already accepted.
+class GcpNormalReauthCredentialGlsRunnerTest
+    : public GcpReauthCredentialGlsRunnerTest,
+      public ::testing::WithParamInterface<std::tuple<bool, bool>> {};
 
 TEST_P(GcpNormalReauthCredentialGlsRunnerTest, WithGemFeatures) {
   USES_CONVERSION;
   CredentialProviderSigninDialogTestDataStorage test_data_storage;
 
-  bool is_gem_features_enabled = GetParam();
+  bool is_gem_features_enabled = std::get<0>(GetParam());
+  bool is_tos_already_accepted = std::get<1>(GetParam());
 
   CComBSTR username = L"foo_bar";
   CComBSTR full_name = A2COLE(test_data_storage.GetSuccessFullName().c_str());
@@ -456,12 +660,13 @@ TEST_P(GcpNormalReauthCredentialGlsRunnerTest, WithGemFeatures) {
   if (is_gem_features_enabled) {
     // Set |kKeyEnableGemFeatures| registry entry to 1.
     ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kKeyEnableGemFeatures, 1u));
-    // Set that ToS was already accepted by the user.
-    ASSERT_EQ(S_OK, SetUserProperty(OLE2CW(sid), kKeyAcceptTos, 1u));
   } else {
     // Set |kKeyEnableGemFeatures| registry entry to 0.
     ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kKeyEnableGemFeatures, 0u));
   }
+
+  if (is_tos_already_accepted)
+    ASSERT_EQ(S_OK, SetUserProperty(OLE2CW(sid), kKeyAcceptTos, 1u));
 
   // Create provider and start logon.
   Microsoft::WRL::ComPtr<ICredentialProviderCredential> cred;
@@ -478,12 +683,16 @@ TEST_P(GcpNormalReauthCredentialGlsRunnerTest, WithGemFeatures) {
   ASSERT_EQ(S_OK, StartLogonProcessAndWait());
 
   // Verify command line switch for show_tos.
-  ASSERT_EQ("0", test->GetShowTosFromCmdLine());
+  if (is_gem_features_enabled && !is_tos_already_accepted)
+    ASSERT_EQ("1", test->GetShowTosFromCmdLine());
+  else
+    ASSERT_EQ("0", test->GetShowTosFromCmdLine());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
                          GcpNormalReauthCredentialGlsRunnerTest,
-                         ::testing::Values(true, false));
+                         ::testing::Combine(::testing::Bool(),
+                                            ::testing::Bool()));
 
 TEST_F(GcpReauthCredentialGlsRunnerTest, NormalReauthWithoutEmail) {
   USES_CONVERSION;

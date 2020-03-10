@@ -57,6 +57,7 @@ android_library("java") {
     "org/chromium/weblayer/UnsupportedVersionException.java",
     "org/chromium/weblayer/WebLayer.java",
     "org/chromium/weblayer/WebLayerFileProvider.java",
+    "org/chromium/weblayer/WebViewCompatibilityHelper.java",
     _version_constants_java_file,
   ]
 
@@ -70,6 +71,7 @@ android_library("java") {
     "//weblayer/browser/java:interfaces_java",
   ]
 
+  min_sdk_version = 21
   android_manifest_for_lint = weblayer_client_manifest
 }
 

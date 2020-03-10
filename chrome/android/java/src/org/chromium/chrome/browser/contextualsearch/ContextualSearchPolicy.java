@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.contextualsearch;
 
 import android.content.Context;
 import android.net.Uri;
+import android.support.annotation.NonNull;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
@@ -113,6 +114,8 @@ class ContextualSearchPolicy {
      * @return Whether a Tap gesture is currently supported as a trigger for the feature.
      */
     boolean isTapSupported() {
+        if (isTapDisabledDueToLongpress()) return false;
+
         return (!isUserUndecided()
                        || ContextualSearchFieldTrial.getSwitch(
                                ContextualSearchSwitch
@@ -254,6 +257,15 @@ class ContextualSearchPolicy {
         int selectionType = mSelectionController.getSelectionType();
         return (mSelectionController.getSelectedText() != null
                 && (selectionType == SelectionType.LONG_PRESS || !shouldPreviousGestureResolve()));
+    }
+
+    /** @return whether Tap is disabled due to the longpress experiment. */
+    private boolean isTapDisabledDueToLongpress() {
+        return canResolveLongpress()
+                && !ContextualSearchFieldTrial.LONGPRESS_RESOLVE_PRESERVE_TAP.equals(
+                        ChromeFeatureList.getFieldTrialParamByFeature(
+                                ChromeFeatureList.CONTEXTUAL_SEARCH_LONGPRESS_RESOLVE,
+                                ContextualSearchFieldTrial.LONGPRESS_RESOLVE_PARAM_NAME));
     }
 
     /**
@@ -451,6 +463,7 @@ class ContextualSearchPolicy {
      * @return The ISO country code for the user's home country, or an empty string if not
      *         available or privacy-enabled.
      */
+    @NonNull
     String getHomeCountry(Context context) {
         if (ContextualSearchFieldTrial.getSwitch(
                     ContextualSearchSwitch.IS_SEND_HOME_COUNTRY_DISABLED)) {

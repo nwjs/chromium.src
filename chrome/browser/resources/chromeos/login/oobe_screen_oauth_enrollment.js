@@ -124,4 +124,6 @@ login.createScreen('OAuthEnrollmentScreen', 'oauth-enrollment', function() {
       chrome.send('oauthEnrollAdUnlockConfiguration', [unlock_password]);
     },
   };
+}, {
+  changeRequisitonProhibited: true,
 });

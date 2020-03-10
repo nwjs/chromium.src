@@ -69,6 +69,12 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
                const gfx::ColorSpace& color_space,
                bool has_alpha,
                bool use_stencil) override;
+  void Reshape(const gfx::Size& size,
+               float device_scale_factor,
+               const gfx::ColorSpace& color_space,
+               bool has_alpha,
+               bool use_stencil,
+               bool forced) override;
   void SetUpdateVSyncParametersCallback(
       UpdateVSyncParametersCallback callback) override;
   void SetGpuVSyncEnabled(bool enabled) override;
@@ -195,7 +201,9 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
   GpuVSyncCallback gpu_vsync_callback_;
   bool is_displayed_as_overlay_ = false;
 
-  std::unique_ptr<base::WaitableEvent> initialize_waitable_event_;
+  std::unique_ptr<base::WaitableEvent> reshape_waitable_event_;
+  gfx::Size size_;
+  gfx::ColorSpace color_space_;
   SkSurfaceCharacterization characterization_;
   base::Optional<SkDeferredDisplayListRecorder> root_recorder_;
 
@@ -259,6 +267,8 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
 
   bool has_set_draw_rectangle_for_frame_ = false;
   base::Optional<gfx::Rect> draw_rectangle_;
+
+  bool reshape_has_alpha_;
 
   // We defer the draw to the framebuffer until SwapBuffers or CopyOutput
   // to avoid the expense of posting a task and calling MakeCurrent.

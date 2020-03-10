@@ -70,7 +70,7 @@ public class HomepageSettings extends PreferenceFragmentCompat {
     private void updateCurrentHomepageUrl() {
         if (HomepagePolicyManager.isHomepageManagedByPolicy()) mHomepageEdit.setEnabled(false);
 
-        mHomepageEdit.setSummary(HomepageManager.getHomepageUri());
+        mHomepageEdit.setSummary(mHomepageManager.getHomepageUriIgnoringEnabledState());
     }
 
     @Override

@@ -733,6 +733,8 @@ class FileChooserImpl : public blink::mojom::FileChooser,
     std::move(callback_).Run(nullptr);
   }
 
+  void ResetProxy() { proxy_ = nullptr; }
+
  private:
   class ListenerProxy : public content::FileSelectListener {
    public:
@@ -743,6 +745,8 @@ class FileChooserImpl : public blink::mojom::FileChooser,
           << "Should call either FileSelectListener::FileSelected() or "
              "FileSelectListener::FileSelectionCanceled()";
 #endif
+      if (owner_)
+        owner_->ResetProxy();
     }
     void ResetOwner() { owner_ = nullptr; }
 
@@ -6666,14 +6670,7 @@ void RenderFrameHostImpl::OnMediaInterfaceFactoryConnectionError() {
 #if defined(OS_ANDROID)
 void RenderFrameHostImpl::BindNFCReceiver(
     mojo::PendingReceiver<device::mojom::NFC> receiver) {
-  // https://w3c.github.io/web-nfc/#security-policies
-  // WebNFC API must be only accessible from top level browsing context.
-  if (GetParent()) {
-    mojo::ReportBadMessage(
-        "WebNFC is only allowed in a top-level browsing context.");
-    return;
-  }
-  delegate_->GetNFC(std::move(receiver));
+  delegate_->GetNFC(this, std::move(receiver));
 }
 #endif
 

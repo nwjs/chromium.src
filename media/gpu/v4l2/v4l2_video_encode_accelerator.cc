@@ -295,13 +295,16 @@ void V4L2VideoEncodeAccelerator::InitializeTask(const Config& config,
       config.initial_bitrate, config.initial_framerate.value_or(
                                   VideoEncodeAccelerator::kDefaultFramerate));
 
-  const gfx::Size input_size = image_processor_.get()
-                                   ? image_processor_->input_config().size
-                                   : input_frame_size_;
+  // input_frame_size_ is the size of input_config of |image_processor_|.
+  // On native_input_mode_, since the passed size in RequireBitstreamBuffers()
+  // is ignored by the client, we don't update the expected frame size.
+  if (!native_input_mode_ && image_processor_.get())
+    input_frame_size_ = image_processor_->input_config().size;
+
   child_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&Client::RequireBitstreamBuffers, client_,
-                     kInputBufferCount, input_size, output_buffer_byte_size_));
+      FROM_HERE, base::BindOnce(&Client::RequireBitstreamBuffers, client_,
+                                kInputBufferCount, input_frame_size_,
+                                output_buffer_byte_size_));
 
   // Finish initialization.
   *result = true;
@@ -665,69 +668,50 @@ bool V4L2VideoEncodeAccelerator::ReconfigureFormatIfNeeded(
     const VideoFrame& frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
-  // We should apply the frame size change to ImageProcessor if there is.
-  if (image_processor_) {
-    // Stride is the same. There is no need of executing S_FMT again.
-    if (image_processor_->input_config().size == frame.coded_size()) {
-      return true;
-    }
+  if (!native_input_mode_) {
+    // frame.coded_size() must be the size specified in
+    // RequireBitstreamBuffers() in non native-input mode.
+    return frame.coded_size() == input_frame_size_;
+  }
 
-    VLOGF(2) << "Call S_FMT with a new size=" << frame.coded_size().ToString()
-             << ", the previous size ="
-             << device_input_layout_->coded_size().ToString();
-    if (!input_buffer_map_.empty()) {
+  if (!input_buffer_map_.empty()) {
+    if (frame.coded_size() != input_frame_size_) {
       VLOGF(1) << "Input frame size is changed during encoding";
-      NOTIFY_ERROR(kInvalidArgumentError);
       return false;
     }
-
-    if (!CreateImageProcessor(frame.layout(), *device_input_layout_,
-                              frame.visible_rect(),
-                              encoder_input_visible_rect_)) {
-      NOTIFY_ERROR(kPlatformFailureError);
-      return false;
-    }
-    if (image_processor_->input_config().size.width() !=
-        frame.coded_size().width()) {
-      NOTIFY_ERROR(kPlatformFailureError);
-      return false;
-    }
-
     return true;
   }
 
-  // Here we should compare |device_input_layout_->coded_size()|. However, VEA
-  // requests a client |input_frame_size_|, which might be a larger size than
-  // |device_input_layout_->coded_size()|. The size is larger if there is an
-  // extra data in planes, that happens on MediaTek.
-  // This comparison will work because VEAClient within Chrome gives the buffer
-  // whose frame size as |input_frame_size_|. VEAClient for ARC++ might give a
-  // different frame size but |input_frame_size_| is always the same as
-  // |device_input_layout_->coded_size()|.
-  if (frame.coded_size() != input_frame_size_) {
-    VLOGF(2) << "Call S_FMT with a new size=" << frame.coded_size().ToString()
-             << ", the previous size ="
-             << device_input_layout_->coded_size().ToString()
-             << " (the size requested to client="
-             << input_frame_size_.ToString();
-    if (!input_buffer_map_.empty()) {
-      VLOGF(1) << "Input frame size is changed during encoding";
-      NOTIFY_ERROR(kInvalidArgumentError);
-      return false;
+  // Height and width that V4L2VEA needs to configure.
+  const gfx::Size buffer_size(frame.stride(0), frame.coded_size().height());
+  if (frame.coded_size() == input_frame_size_) {
+    // A buffer given by client is allocated with the same dimension using
+    // minigbm. However, it is possible that stride and height are different
+    // from ones adjusted by a driver.
+    if (!image_processor_) {
+      if (device_input_layout_->coded_size().width() == buffer_size.width() &&
+          device_input_layout_->coded_size().height() == buffer_size.height()) {
+        return true;
+      }
+      return NegotiateInputFormat(device_input_layout_->format(), buffer_size);
     }
-    if (!NegotiateInputFormat(device_input_layout_->format(),
-                              frame.coded_size())) {
-      NOTIFY_ERROR(kPlatformFailureError);
-      return false;
-    }
-    if (device_input_layout_->coded_size().width() !=
-        frame.coded_size().width()) {
-      NOTIFY_ERROR(kPlatformFailureError);
-      return false;
+
+    if (image_processor_->input_config().size.height() ==
+            buffer_size.height() &&
+        image_processor_->input_config().planes[0].stride ==
+            buffer_size.width()) {
+      return true;
     }
   }
 
-  return true;
+  // The |frame| dimension is different from the resolution configured to
+  // V4L2VEA. This is the case that V4L2VEA needs to create ImageProcessor for
+  // scaling. Update |input_frame_size_| to check if succeeding frames'
+  // dimensions are not different from one of the first frame.
+  input_frame_size_ = frame.coded_size();
+  return CreateImageProcessor(frame.layout(), *device_input_layout_,
+                              frame.visible_rect(),
+                              encoder_input_visible_rect_);
 }
 
 void V4L2VideoEncodeAccelerator::InputImageProcessorTask() {
@@ -1354,10 +1338,14 @@ bool V4L2VideoEncodeAccelerator::NegotiateInputFormat(
                << device_input_layout_->coded_size().ToString();
       return false;
     }
+    // Make sure that the crop is preserved as we have changed the input
+    // resolution.
+    if (!ApplyCrop()) {
+      return false;
+    }
     if (native_input_mode_) {
-      input_frame_size_ =
-          gfx::Size(device_input_layout_->planes()[0].stride,
-                    device_input_layout_->coded_size().height());
+      input_frame_size_ = VideoFrame::DetermineAlignedSize(
+          input_format, encoder_input_visible_rect_.size());
     } else {
       input_frame_size_ = V4L2Device::AllocatedSizeFromV4L2Format(*format);
     }
@@ -1366,18 +1354,9 @@ bool V4L2VideoEncodeAccelerator::NegotiateInputFormat(
   return false;
 }
 
-bool V4L2VideoEncodeAccelerator::SetFormats(VideoPixelFormat input_format,
-                                            VideoCodecProfile output_profile) {
+bool V4L2VideoEncodeAccelerator::ApplyCrop() {
   VLOGF(2);
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
-  DCHECK(!input_queue_->IsStreaming());
-  DCHECK(!output_queue_->IsStreaming());
-
-  if (!SetOutputFormat(output_profile))
-    return false;
-
-  if (!NegotiateInputFormat(input_format, encoder_input_visible_rect_.size()))
-    return false;
 
   struct v4l2_rect visible_rect;
   visible_rect.left = encoder_input_visible_rect_.x();
@@ -1410,6 +1389,22 @@ bool V4L2VideoEncodeAccelerator::SetFormats(VideoPixelFormat input_format,
                 visible_rect.height);
   VLOGF(2) << "After adjusted by driver, encoder_input_visible_rect_="
            << encoder_input_visible_rect_.ToString();
+  return true;
+}
+
+bool V4L2VideoEncodeAccelerator::SetFormats(VideoPixelFormat input_format,
+                                            VideoCodecProfile output_profile) {
+  VLOGF(2);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
+  DCHECK(!input_queue_->IsStreaming());
+  DCHECK(!output_queue_->IsStreaming());
+
+  if (!SetOutputFormat(output_profile))
+    return false;
+
+  if (!NegotiateInputFormat(input_format, encoder_input_visible_rect_.size()))
+    return false;
+
   return true;
 }
 

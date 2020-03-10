@@ -2699,6 +2699,35 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="ContextMenuAndroid.Selected">
+  <owner>benwgold@google.com</owner>
+  <owner>twellington@chromium.org</owner>
+  <metric name="Action">
+    <summary>
+      Emits an integer id for a selection corresponding to the action enum
+      defined in ChromeContextMenuPopulator.java (within the ContextMenuUma
+      class).
+    </summary>
+  </metric>
+</event>
+
+<event name="ContextMenuAndroid.Shown">
+  <owner>benwgold@google.com</owner>
+  <owner>twellington@chromium.org</owner>
+  <metric name="SearchByImage" enum="Boolean">
+    <summary>
+      Recorded when the context menu is constructed and logged if the search by
+      image option was displayed.
+    </summary>
+  </metric>
+  <metric name="SearchWithGoogleLens" enum="Boolean">
+    <summary>
+      Recorded when the context menu is constructed and logged if the lens
+      option was displayed.
+    </summary>
+  </metric>
+</event>
+
 <event name="ContextualSearch">
   <owner>donnd@chromium.org</owner>
   <summary>
@@ -6304,6 +6333,49 @@ be describing additional metrics about the same event.
       evaluated for the page load.
     </summary>
   </metric>
+  <metric name="PredictionModelFeatureEffectiveConnectionType">
+    <summary>
+      The |net::EffectiveConnectionType| at the time a prediction was requested.
+      Recorded once per page load.
+    </summary>
+  </metric>
+  <metric name="PredictionModelFeatureIsSameOriginNavigation">
+    <summary>
+      Whether the current navigatation is the same origin as the previous one at
+      the time a prediction was requested. Recorded once per page load.
+    </summary>
+  </metric>
+  <metric name="PredictionModelFeatureNavigationToFCPSessionMean">
+    <summary>
+      The average navigation to first contentful paint for the current session
+      at the time a prediction was requested. Recorded once per page load.
+    </summary>
+  </metric>
+  <metric name="PredictionModelFeatureNavigationToFCPSessionStdDev">
+    <summary>
+      The standard deviation of navigation to first contentful paint for page
+      loads in the current session at the time a prediction was requested.
+      Recorded once per page load.
+    </summary>
+  </metric>
+  <metric name="PredictionModelFeaturePageTransition">
+    <summary>
+      The |ui::PageTransition| of the current navigation at the time a
+      prediction was requested. Recorded once per page load.
+    </summary>
+  </metric>
+  <metric name="PredictionModelFeaturePreviousPageLoadNavigationToFCP">
+    <summary>
+      The navigation to to first contentful paint for the previous page load at
+      the time a prediction was requested. Recorded once per page load.
+    </summary>
+  </metric>
+  <metric name="PredictionModelFeatureSiteEngagementScore">
+    <summary>
+      The site engagement score of the host of the current navigation at the
+      time a prediction was requested. Recorded once per page load.
+    </summary>
+  </metric>
 </event>
 
 <event name="PageDomainInfo">
@@ -8108,6 +8180,60 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="PublicImageCompressionDataUse">
+  <owner>rajendrant@chromium.org</owner>
+  <owner>mcrouse@chromium.org</owner>
+  <summary>
+    Records coverage metrics for https image compression. The network data use
+    of images is recorded with breakdown of whether the image was compressible
+    by redirecting to optimized version, or if not the reason for its
+    ineligblity is recorded. The bytes are rounded down to the exponential
+    bucket with factor of 1.3.
+  </summary>
+  <metric name="CompressibleImageBytes">
+    <summary>
+      Total image bytes that can be compressed, by redirecting to optimized
+      versions to save data.
+    </summary>
+  </metric>
+  <metric name="IneligibleImageHintsUnavailableAndMissingInHintsBytes">
+    <summary>
+      Total bytes of images that were ineligible to be compressed due to the
+      image hint list was not retrieved in time before the image fetch started,
+      and the image URL was not in the hint list as well, which finished
+      fetching later.
+    </summary>
+  </metric>
+  <metric name="IneligibleImageHintsUnavailableButCompressibleBytes">
+    <summary>
+      Total bytes of images that were ineligible to be compressed due to the
+      image hint list was not retrieved in time before the image fetch started,
+      but the image URL was found in the hint list, which finished fetching
+      later.
+    </summary>
+  </metric>
+  <metric name="IneligibleImageHintsUnavailableBytes">
+    <summary>
+      Total bytes of images that were ineligible to be compressed due to the
+      image hint list was not retrieved within within certain time limit of
+      navigation start.
+    </summary>
+  </metric>
+  <metric name="IneligibleMissingInImageHintsBytes">
+    <summary>
+      Total bytes of images that were ineligible to be compressed due to the
+      image URL not exist in the image hint list.
+    </summary>
+  </metric>
+  <metric name="IneligibleOtherImageBytes">
+    <summary>
+      Total bytes of images that were ineligible to be compressed due to other
+      reasons not listed here, such as subframe images, non img element,
+      javascript initiated image, etc.
+    </summary>
+  </metric>
+</event>
+
 <event name="PWA.Visit" singular="True">
   <owner>yfriedman@chromium.org</owner>
   <owner>hartmanng@chromium.org</owner>
@@ -8707,6 +8833,11 @@ be describing additional metrics about the same event.
     <summary>
       Whether there's any shutdown/suspend actions between the last charge and
       current event.
+    </summary>
+  </metric>
+  <metric name="IsCharging" enum="Boolean">
+    <summary>
+      Whether the device is being charged or not.
     </summary>
   </metric>
   <metric name="Month" enum="Month">
@@ -10044,6 +10175,11 @@ be describing additional metrics about the same event.
   <summary>
     Contains information about user activities relating to settings changes.
   </summary>
+  <metric name="AccessibilityId" enum="AccessibilityId">
+    <summary>
+      The accessibility setting that was changed.
+    </summary>
+  </metric>
   <metric name="BatteryPercentage">
     <summary>
       Battery percentage from 0 to 100.

@@ -395,8 +395,12 @@ void VaapiVideoEncodeAccelerator::InitializeTask(const Config& config) {
       &VaapiVideoEncodeAccelerator::RecycleVPPVASurfaceID, encoder_weak_this_));
 
   visible_rect_ = gfx::Rect(config.input_visible_size);
-  // The surface size for a reconstructed surface is a coded size.
-  gfx::Size reconstructed_surface_size = encoder_->GetCodedSize();
+  expected_input_coded_size_ = VideoFrame::DetermineAlignedSize(
+      config.input_format, config.input_visible_size);
+  DCHECK(
+      expected_input_coded_size_.width() <= encoder_->GetCodedSize().width() &&
+      expected_input_coded_size_.height() <= encoder_->GetCodedSize().height());
+
   // The aligned surface size must be the same as a size of a native graphic
   // buffer.
   aligned_va_surface_size_ =
@@ -422,8 +426,10 @@ void VaapiVideoEncodeAccelerator::InitializeTask(const Config& config) {
   num_frames_in_flight_ = std::max(kMinNumFramesInFlight, max_ref_frames);
   DVLOGF(1) << "Frames in flight: " << num_frames_in_flight_;
 
+  // The surface size for the reconstructed surface (and input surface in non
+  // native input mode) is the coded size.
   if (!vaapi_wrapper_->CreateContextAndSurfaces(
-          kVaSurfaceFormat, reconstructed_surface_size,
+          kVaSurfaceFormat, encoder_->GetCodedSize(),
           VaapiWrapper::SurfaceUsageHint::kVideoEncoder,
           (num_frames_in_flight_ + 1) * va_surfaces_per_video_frame_,
           &available_va_surface_ids_)) {
@@ -432,9 +438,10 @@ void VaapiVideoEncodeAccelerator::InitializeTask(const Config& config) {
   }
 
   child_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&Client::RequireBitstreamBuffers, client_,
-                                num_frames_in_flight_, visible_rect_.size(),
-                                output_buffer_byte_size_));
+      FROM_HERE,
+      base::BindOnce(&Client::RequireBitstreamBuffers, client_,
+                     num_frames_in_flight_, expected_input_coded_size_,
+                     output_buffer_byte_size_));
 
   encoder_info_.scaling_settings = encoder_->GetScalingSettings();
 
@@ -477,12 +484,15 @@ void VaapiVideoEncodeAccelerator::ExecuteEncode(VASurfaceID va_surface_id) {
     NOTIFY_ERROR(kPlatformFailureError, "Failed to execute encode");
 }
 
-void VaapiVideoEncodeAccelerator::UploadFrame(scoped_refptr<VideoFrame> frame,
-                                              VASurfaceID va_surface_id) {
+void VaapiVideoEncodeAccelerator::UploadFrame(
+    scoped_refptr<VideoFrame> frame,
+    VASurfaceID va_surface_id,
+    const gfx::Size& va_surface_size) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
 
   DVLOGF(4) << "frame is uploading: " << va_surface_id;
-  if (!vaapi_wrapper_->UploadVideoFrameToSurface(*frame, va_surface_id))
+  if (!vaapi_wrapper_->UploadVideoFrameToSurface(*frame, va_surface_id,
+                                                 va_surface_size))
     NOTIFY_ERROR(kPlatformFailureError, "Failed to upload frame");
 }
 
@@ -631,21 +641,35 @@ std::unique_ptr<VaapiEncodeJob> VaapiVideoEncodeAccelerator::CreateEncodeJob(
       return nullptr;
     }
   } else {
-    if (visible_rect_.size() != frame->coded_size()) {
-      // We don't support scaling with memory based frame.
+    if (expected_input_coded_size_ != frame->coded_size()) {
+      // In non-zero copy mode, the coded size of the incoming frame should be
+      // the same as the one we requested through
+      // Client::RequireBitstreamBuffers().
       NOTIFY_ERROR(kPlatformFailureError,
-                   "Expected frame size: " << visible_rect_.size().ToString()
-                                           << ", but got: "
-                                           << frame->coded_size().ToString());
+                   "Expected frame coded size: "
+                       << expected_input_coded_size_.ToString()
+                       << ", but got: " << frame->coded_size().ToString());
+      return nullptr;
+    }
+
+    DCHECK_EQ(visible_rect_.origin(), gfx::Point(0, 0));
+    if (visible_rect_ != frame->visible_rect()) {
+      // In non-zero copy mode, the client is responsible for scaling and
+      // cropping.
+      NOTIFY_ERROR(kPlatformFailureError,
+                   "Expected frame visible rectangle: "
+                       << visible_rect_.ToString()
+                       << ", but got: " << frame->visible_rect().ToString());
       return nullptr;
     }
     input_surface = new VASurface(available_va_surface_ids_.back(),
-                                  aligned_va_surface_size_, kVaSurfaceFormat,
+                                  encoder_->GetCodedSize(), kVaSurfaceFormat,
                                   base::BindOnce(va_surface_release_cb_));
     available_va_surface_ids_.pop_back();
   }
 
-  if (visible_rect_.size() != frame->coded_size()) {
+  if (visible_rect_ != frame->visible_rect()) {
+    DCHECK(native_input_mode_);
     // Do cropping/scaling.  Here the buffer size contained in |input_surface|
     // is |frame->coded_size()|.
     if (!vpp_vaapi_wrapper_) {
@@ -693,9 +717,10 @@ std::unique_ptr<VaapiEncodeJob> VaapiVideoEncodeAccelerator::CreateEncodeJob(
   }
 
   // Here, the surface size contained in |input_surface| is
-  // |aligned_va_surface_size_| regardless of scaling.
+  // |aligned_va_surface_size_| regardless of scaling in zero-copy mode, and
+  // encoder_->GetCodedSize().
   scoped_refptr<VASurface> reconstructed_surface =
-      new VASurface(available_va_surface_ids_.back(), aligned_va_surface_size_,
+      new VASurface(available_va_surface_ids_.back(), encoder_->GetCodedSize(),
                     kVaSurfaceFormat, base::BindOnce(va_surface_release_cb_));
   available_va_surface_ids_.pop_back();
 
@@ -706,9 +731,9 @@ std::unique_ptr<VaapiEncodeJob> VaapiVideoEncodeAccelerator::CreateEncodeJob(
       input_surface, std::move(reconstructed_surface), coded_buffer_id);
 
   if (!native_input_mode_) {
-    job->AddSetupCallback(
-        base::BindOnce(&VaapiVideoEncodeAccelerator::UploadFrame,
-                       encoder_weak_this_, frame, input_surface->id()));
+    job->AddSetupCallback(base::BindOnce(
+        &VaapiVideoEncodeAccelerator::UploadFrame, encoder_weak_this_, frame,
+        input_surface->id(), input_surface->size()));
   }
 
   return job;

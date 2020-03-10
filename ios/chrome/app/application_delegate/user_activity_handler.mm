@@ -148,7 +148,8 @@ NSString* const kShortcutQRScanner = @"OpenQRScanner";
                 completeURL:GURL(kChromeUINewTabURL)];
     [startupParams setPostOpeningAction:FOCUS_OMNIBOX];
     [startupInformation setStartupParameters:startupParams];
-    return YES;
+    webpageURL =
+        [NSURL URLWithString:base::SysUTF8ToNSString(kChromeUINewTabURL)];
   } else if ([userActivity.activityType
                  isEqualToString:@"OpenInChromeIntent"]) {
     base::RecordAction(UserMetricsAction("IOSLaunchedByOpenInChromeIntent"));
@@ -165,7 +166,7 @@ NSString* const kShortcutQRScanner = @"OpenQRScanner";
         [[AppStartupParameters alloc] initWithExternalURL:webpageGURL
                                               completeURL:webpageGURL];
     [startupInformation setStartupParameters:startupParams];
-    return YES;
+    webpageURL = intent.url;
   } else {
     // Do nothing for unknown activity type.
     return NO;

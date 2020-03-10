@@ -53,6 +53,7 @@ bool StateNeedsUI(AutofillAssistantState state) {
     case AutofillAssistantState::PROMPT:
     case AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT:
     case AutofillAssistantState::MODAL_DIALOG:
+    case AutofillAssistantState::BROWSE:
       return true;
 
     case AutofillAssistantState::INACTIVE:
@@ -79,6 +80,7 @@ bool StateEndsFlow(AutofillAssistantState state) {
     case AutofillAssistantState::RUNNING:
     case AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT:
     case AutofillAssistantState::MODAL_DIALOG:
+    case AutofillAssistantState::BROWSE:
       return false;
   }
 
@@ -86,6 +88,13 @@ bool StateEndsFlow(AutofillAssistantState state) {
   return false;
 }
 
+// Check whether a domain is a subdomain of another domain.
+bool IsSubdomainOf(const std::string& subdomain,
+                   const std::string& parent_domain) {
+  return base::EndsWith(base::StringPiece(subdomain),
+                        base::StringPiece("." + parent_domain),
+                        base::CompareCase::INSENSITIVE_ASCII);
+}
 }  // namespace
 
 Controller::Controller(content::WebContents* web_contents,
@@ -544,10 +553,6 @@ void Controller::EnterStoppedState() {
   EnterState(AutofillAssistantState::STOPPED);
 }
 
-void Controller::EnterStateSilent(AutofillAssistantState state) {
-  EnterState(state);
-}
-
 bool Controller::EnterState(AutofillAssistantState state) {
   if (state_ == state)
     return false;
@@ -597,7 +602,8 @@ bool Controller::ShouldCheckScripts() {
   return state_ == AutofillAssistantState::TRACKING ||
          state_ == AutofillAssistantState::STARTING ||
          state_ == AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT ||
-         (state_ == AutofillAssistantState::PROMPT &&
+         ((state_ == AutofillAssistantState::PROMPT ||
+           state_ == AutofillAssistantState::BROWSE) &&
           (!script_tracker_ || !script_tracker_->running()));
 }
 
@@ -920,19 +926,21 @@ bool Controller::Start(const GURL& deeplink_url,
   if (state_ == AutofillAssistantState::TRACKING)
     script_tracker_->ClearRunnableScripts();
 
-  SetStatusMessage(l10n_util::GetStringFUTF8(
-      IDS_AUTOFILL_ASSISTANT_LOADING, base::UTF8ToUTF16(deeplink_url_.host())));
-  SetProgress(kAutostartInitialProgress);
-
-  if (base::FeatureList::IsEnabled(features::kAutofillAssistantChromeEntry) &&
-      IsNavigatingToNewDocument()) {
-    start_after_navigation_ = base::BindOnce(&Controller::EnterStateSilent,
-                                             weak_ptr_factory_.GetWeakPtr(),
-                                             AutofillAssistantState::STARTING);
+  if (IsNavigatingToNewDocument()) {
+    start_after_navigation_ = base::BindOnce(
+        &Controller::ShowFirstMessageAndStart, weak_ptr_factory_.GetWeakPtr());
   } else {
-    EnterState(AutofillAssistantState::STARTING);
+    ShowFirstMessageAndStart();
   }
   return true;
+}
+
+void Controller::ShowFirstMessageAndStart() {
+  SetStatusMessage(
+      l10n_util::GetStringFUTF8(IDS_AUTOFILL_ASSISTANT_LOADING,
+                                base::UTF8ToUTF16(GetCurrentURL().host())));
+  SetProgress(kAutostartInitialProgress);
+  EnterState(AutofillAssistantState::STARTING);
 }
 
 AutofillAssistantState Controller::GetState() {
@@ -1165,7 +1173,7 @@ void Controller::SetDateTimeRangeEndTimeSlot(
 }
 
 void Controller::SetAdditionalValue(const std::string& client_memory_key,
-                                    const std::string& value) {
+                                    const ValueProto& value) {
   if (!user_data_)
     return;
   auto it = user_data_->additional_values_.find(client_memory_key);
@@ -1173,13 +1181,12 @@ void Controller::SetAdditionalValue(const std::string& client_memory_key,
     NOTREACHED() << client_memory_key << " not found";
     return;
   }
-  it->second.assign(value);
+  it->second = value;
+  UpdateCollectUserDataActions();
   for (ControllerObserver& observer : observers_) {
     observer.OnUserDataChanged(user_data_.get(),
                                UserData::FieldChange::ADDITIONAL_VALUES);
   }
-  // It is currently not necessary to call |UpdateCollectUserDataActions|
-  // because all additional values are optional.
 }
 
 void Controller::SetShippingAddress(
@@ -1410,7 +1417,7 @@ void Controller::OnNoRunnableScriptsForPage() {
 
     default:
       // Always having a set of scripts to potentially run is not required in
-      // other states.
+      // other states, for example in BROWSE state.
       break;
   }
 }
@@ -1464,6 +1471,7 @@ void Controller::OnRunnableScriptsChanged(
     case AutofillAssistantState::TRACKING:
     case AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT:
     case AutofillAssistantState::PROMPT:
+    case AutofillAssistantState::BROWSE:
       // Don't change state
       break;
 
@@ -1515,7 +1523,10 @@ void Controller::DidStartNavigation(
   //  it discovers that the new page has no scripts.
   //
   // Everything else, such as going back to a previous page, or refreshing the
-  // page is considered an end condition.
+  // page is considered an end condition. If going back to a previous page is
+  // required, consider using the BROWSE state instead.
+  // Note that BROWSE state end conditions are in DidFinishNavigation, in order
+  // to be able to properly evaluate the committed url.
   if (state_ == AutofillAssistantState::PROMPT &&
       web_contents()->GetLastCommittedURL().is_valid() &&
       !navigation_handle->WasServerRedirect() &&
@@ -1540,6 +1551,18 @@ void Controller::DidFinishNavigation(
       (navigation_handle->GetResponseHeaders()->response_code() / 100) == 2;
   navigation_error_ = !is_successful;
   navigating_to_new_document_ = false;
+
+  // When in BROWSE state, stop autofill assistant if the user navigates away
+  // from the original assisted domain. Subdomains of the original domain are
+  // supported.
+  if (state_ == AutofillAssistantState::BROWSE) {
+    auto current_host = web_contents()->GetLastCommittedURL().host();
+    if (current_host != script_domain_ &&
+        !IsSubdomainOf(current_host, script_domain_)) {
+      OnScriptError(l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_GIVE_UP),
+                    Metrics::DropOutReason::NAVIGATION);
+    }
+  }
 
   if (start_after_navigation_) {
     std::move(start_after_navigation_).Run();

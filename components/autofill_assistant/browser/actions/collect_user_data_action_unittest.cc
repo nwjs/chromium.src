@@ -303,7 +303,10 @@ TEST_F(CollectUserDataActionTest, SelectLogin) {
                   Property(&ProcessedActionProto::status, ACTION_APPLIED),
                   Property(&ProcessedActionProto::collect_user_data_result,
                            Property(&CollectUserDataResultProto::login_payload,
-                                    "payload"))))));
+                                    "payload")),
+                  Property(&ProcessedActionProto::collect_user_data_result,
+                           Property(&CollectUserDataResultProto::shown_to_user,
+                                    true))))));
   CollectUserDataAction action(&mock_action_delegate_, action_proto);
   action.ProcessAction(callback_.Get());
 }
@@ -331,7 +334,10 @@ TEST_F(CollectUserDataActionTest, LoginChoiceAutomaticIfNoOtherOptions) {
                   Property(&ProcessedActionProto::status, ACTION_APPLIED),
                   Property(&ProcessedActionProto::collect_user_data_result,
                            Property(&CollectUserDataResultProto::login_payload,
-                                    "guest"))))));
+                                    "guest")),
+                  Property(&ProcessedActionProto::collect_user_data_result,
+                           Property(&CollectUserDataResultProto::shown_to_user,
+                                    false))))));
   CollectUserDataAction action(&mock_action_delegate_, action_proto);
   action.ProcessAction(callback_.Get());
 }
@@ -968,6 +974,79 @@ TEST_F(CollectUserDataActionTest, TextInputSectionValid) {
   }
 }
 
+TEST_F(CollectUserDataActionTest, PopupListSectionValid) {
+  ActionProto action_proto;
+  auto* collect_user_data_proto = action_proto.mutable_collect_user_data();
+  collect_user_data_proto->set_request_terms_and_conditions(false);
+  ON_CALL(mock_action_delegate_, CollectUserData(_))
+      .WillByDefault(
+          Invoke([this](CollectUserDataOptions* collect_user_data_options) {
+            user_data_.succeed_ = true;
+            std::move(collect_user_data_options->confirm_callback)
+                .Run(&user_data_, &user_model_);
+          }));
+
+  auto* popup_list_section =
+      collect_user_data_proto->add_additional_prepended_sections();
+  popup_list_section->set_title("Popup list section");
+  {
+    CollectUserDataAction action(&mock_action_delegate_, action_proto);
+    EXPECT_CALL(
+        callback_,
+        Run(Pointee(Property(&ProcessedActionProto::status, INVALID_ACTION))));
+    action.ProcessAction(callback_.Get());
+  }
+  popup_list_section->mutable_popup_list_section()->add_item_names("item1");
+  popup_list_section->mutable_popup_list_section()->add_item_names("item2");
+  {
+    CollectUserDataAction action(&mock_action_delegate_, action_proto);
+    EXPECT_CALL(
+        callback_,
+        Run(Pointee(Property(&ProcessedActionProto::status, ACTION_APPLIED))));
+    action.ProcessAction(callback_.Get());
+  }
+
+  // Having multiple initial selections fails if multiselect is not allowed
+  popup_list_section->mutable_popup_list_section()->add_initial_selection(0);
+  popup_list_section->mutable_popup_list_section()->add_initial_selection(1);
+  {
+    CollectUserDataAction action(&mock_action_delegate_, action_proto);
+    EXPECT_CALL(
+        callback_,
+        Run(Pointee(Property(&ProcessedActionProto::status, INVALID_ACTION))));
+    action.ProcessAction(callback_.Get());
+  }
+
+  popup_list_section->mutable_popup_list_section()->set_allow_multiselect(true);
+  {
+    CollectUserDataAction action(&mock_action_delegate_, action_proto);
+    EXPECT_CALL(
+        callback_,
+        Run(Pointee(Property(&ProcessedActionProto::status, ACTION_APPLIED))));
+    action.ProcessAction(callback_.Get());
+  }
+
+  // If an initial selection is out of bonds of the list of items there is an
+  // error.
+  popup_list_section->mutable_popup_list_section()->add_initial_selection(2);
+  {
+    CollectUserDataAction action(&mock_action_delegate_, action_proto);
+    EXPECT_CALL(
+        callback_,
+        Run(Pointee(Property(&ProcessedActionProto::status, INVALID_ACTION))));
+    action.ProcessAction(callback_.Get());
+  }
+
+  popup_list_section->mutable_popup_list_section()->add_item_names("item3");
+  {
+    CollectUserDataAction action(&mock_action_delegate_, action_proto);
+    EXPECT_CALL(
+        callback_,
+        Run(Pointee(Property(&ProcessedActionProto::status, ACTION_APPLIED))));
+    action.ProcessAction(callback_.Get());
+  }
+}
+
 TEST_F(CollectUserDataActionTest, TextInputSectionWritesToClientMemory) {
   ActionProto action_proto;
   auto* collect_user_data_proto = action_proto.mutable_collect_user_data();
@@ -976,7 +1055,9 @@ TEST_F(CollectUserDataActionTest, TextInputSectionWritesToClientMemory) {
       .WillByDefault(
           Invoke([this](CollectUserDataOptions* collect_user_data_options) {
             user_data_.succeed_ = true;
-            user_data_.additional_values_["key2"] = "modified";
+            ValueProto value;
+            value.mutable_strings()->add_values("modified");
+            user_data_.additional_values_["key2"] = value;
             std::move(collect_user_data_options->confirm_callback)
                 .Run(&user_data_, &user_model_);
           }));
@@ -1014,11 +1095,18 @@ TEST_F(CollectUserDataActionTest, TextInputSectionWritesToClientMemory) {
           Property(
               &ProcessedActionProto::collect_user_data_result,
               Property(&CollectUserDataResultProto::set_text_input_memory_keys,
-                       UnorderedElementsAre("key1", "key2")))))));
+                       UnorderedElementsAre("key1", "key2", "key3")))))));
   action.ProcessAction(callback_.Get());
-  EXPECT_EQ(*user_data_.additional_value("key1"), "initial");
-  EXPECT_EQ(*user_data_.additional_value("key2"), "modified");
-  EXPECT_EQ(*user_data_.additional_value("key3"), "");
+
+  ValueProto value1;
+  value1.mutable_strings()->add_values("initial");
+  ValueProto value2;
+  value2.mutable_strings()->add_values("modified");
+  ValueProto value3;
+  value3.mutable_strings()->add_values("");
+  EXPECT_EQ(*user_data_.additional_value("key1"), value1);
+  EXPECT_EQ(*user_data_.additional_value("key2"), value2);
+  EXPECT_EQ(*user_data_.additional_value("key3"), value3);
 }
 
 TEST_F(CollectUserDataActionTest, AllowedBasicCardNetworks) {
@@ -1086,9 +1174,15 @@ TEST_F(CollectUserDataActionTest, InvalidBasicCardNetworks) {
 TEST_F(CollectUserDataActionTest, OverwriteExistingUserData) {
   // Set previous user data state.
   user_data_.terms_and_conditions_ = ACCEPTED;
-  user_data_.additional_values_["key1"] = "val1";
-  user_data_.additional_values_["key2"] = "val2";
-  user_data_.additional_values_["key3"] = "val3";
+  ValueProto value1;
+  value1.mutable_strings()->add_values("val1");
+  ValueProto value2;
+  value2.mutable_strings()->add_values("val2");
+  ValueProto value3;
+  value3.mutable_strings()->add_values("val3");
+  user_data_.additional_values_["key1"] = value1;
+  user_data_.additional_values_["key2"] = value2;
+  user_data_.additional_values_["key3"] = value3;
 
   // Set options.
   ActionProto action_proto;
@@ -1125,9 +1219,11 @@ TEST_F(CollectUserDataActionTest, OverwriteExistingUserData) {
   action.ProcessAction(callback_.Get());
 
   EXPECT_EQ(user_data_.terms_and_conditions_, NOT_SELECTED);
-  EXPECT_EQ(user_data_.additional_values_["key1"], "initial");
-  EXPECT_EQ(user_data_.additional_values_["key2"], "initial");
-  EXPECT_EQ(user_data_.additional_values_["key3"], "val3");
+  EXPECT_EQ(user_data_.additional_values_["key1"].strings().values(0),
+            "initial");
+  EXPECT_EQ(user_data_.additional_values_["key2"].strings().values(0),
+            "initial");
+  EXPECT_EQ(user_data_.additional_values_["key3"].strings().values(0), "val3");
 }
 
 TEST_F(CollectUserDataActionTest, AttachesProfiles) {
@@ -1663,6 +1759,77 @@ TEST_F(CollectUserDataActionTest, ResetsCardAndAddressIfNoLongerInList) {
       std::make_unique<autofill::CreditCard>(selected_card);
   user_data_.selected_addresses_["billing_address"] =
       std::make_unique<autofill::AutofillProfile>(selected_address);
+
+  CollectUserDataAction action(&mock_action_delegate_, action_proto);
+  action.ProcessAction(callback_.Get());
+}
+
+TEST_F(CollectUserDataActionTest, GenericUiModelWritesToProtoResult) {
+  ModelProto::ModelValue value_1;
+  value_1.set_identifier("value_1_key");
+  value_1.mutable_value()->mutable_strings()->add_values(
+      "value_1_initial_value");
+  ModelProto::ModelValue value_1_modified;
+  value_1_modified.set_identifier("value_1_key");
+  ModelProto::ModelValue value_2;
+  value_2.set_identifier("value_2_key");
+  value_2.mutable_value()->mutable_strings()->add_values(
+      "value_2_initial_value");
+  ModelProto::ModelValue value_2_modified;
+  value_2_modified.set_identifier("value_2_key");
+  value_2_modified.mutable_value()->mutable_strings()->add_values(
+      "value_2_modified");
+  ModelProto::ModelValue value_3;
+  value_3.set_identifier("value_3_key");
+  value_3.mutable_value()->mutable_strings()->add_values(
+      "value_3_initial_value");
+  ModelProto::ModelValue value_3_modified;
+  value_3_modified.set_identifier("value_3_key");
+  value_3_modified.mutable_value()->mutable_strings()->add_values(
+      "value_3_modified");
+  ModelProto::ModelValue value_4;
+  value_4.set_identifier("value_4_key");
+  value_4.mutable_value()->mutable_strings()->add_values(
+      "value_4_initial_value");
+
+  ON_CALL(mock_action_delegate_, CollectUserData(_))
+      .WillByDefault(
+          Invoke([=](CollectUserDataOptions* collect_user_data_options) {
+            user_data_.succeed_ = true;
+
+            user_model_.SetValue("value_1_key", value_1_modified.value());
+            user_model_.SetValue("value_2_key", value_2_modified.value());
+            user_model_.SetValue("value_3_key", value_3_modified.value());
+            // Leave value_4 at initial value.
+
+            std::move(collect_user_data_options->confirm_callback)
+                .Run(&user_data_, &user_model_);
+          }));
+
+  ActionProto action_proto;
+  auto* collect_user_data = action_proto.mutable_collect_user_data();
+  collect_user_data->set_request_terms_and_conditions(false);
+  auto* proto_model_prepended =
+      collect_user_data->mutable_generic_user_interface_prepended()
+          ->mutable_model();
+  *proto_model_prepended->add_values() = value_1;
+  *proto_model_prepended->add_values() = value_2;
+  auto* proto_model_appended =
+      collect_user_data->mutable_generic_user_interface_appended()
+          ->mutable_model();
+  *proto_model_appended->add_values() = value_3;
+  *proto_model_appended->add_values() = value_4;
+
+  EXPECT_CALL(
+      callback_,
+      Run(Pointee(AllOf(
+          Property(&ProcessedActionProto::status, ACTION_APPLIED),
+          Property(&ProcessedActionProto::collect_user_data_result,
+                   Property(&CollectUserDataResultProto::model,
+                            Property(&ModelProto::values,
+                                     UnorderedElementsAre(
+                                         value_1_modified, value_2_modified,
+                                         value_3_modified, value_4))))))));
 
   CollectUserDataAction action(&mock_action_delegate_, action_proto);
   action.ProcessAction(callback_.Get());

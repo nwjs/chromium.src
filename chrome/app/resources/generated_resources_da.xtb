@@ -1216,6 +1216,7 @@ Du kan administrere indstillingerne for denne konto ved at installere Family Lin
 <translation id="2653659639078652383">Indsend</translation>
 <translation id="265390580714150011">Feltværdi</translation>
 <translation id="2654166010170466751">Tillad, at websites installerer betalingshandlere</translation>
+<translation id="2654553774144920065">Udskriftsanmodning</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funktionerne varierer afhængigt af enheden</translation>
 <translation id="2660779039299703961">Hændelse</translation>
 <translation id="266079277508604648">Der kan ikke oprettes forbindelse til printeren. Tjek, at printeren er tændt og tilsluttet din Chromebook via Wi-Fi eller USB.</translation>
@@ -2390,7 +2391,6 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4285418559658561636">Opdater adgangskode</translation>
 <translation id="4285498937028063278">Frigør</translation>
 <translation id="428565720843367874">Antivirussoftwaren mislykkedes uventet under scanning af denne fil.</translation>
-<translation id="4287502004382794929">Du har ikke nok softwarelicenser til at tilmelde denne enhed. Kontakt salgsafdelingen for at købe flere. Hvis du mener, at du får vist denne meddelelse ved en fejl, bedes du kontakte support.</translation>
 <translation id="4289540628985791613">Oversigt</translation>
 <translation id="4295072614469448764">Appen er tilgængelig i din terminal. Der vises muligvis også et ikon på din appliste.</translation>
 <translation id="4295979599050707005">Log ind igen for at bekræfte, at din konto, <ph name="USER_EMAIL" />, kan bruges sammen med websites, apps og udvidelser i Chrome og Google Play. Du kan også fjerne denne konto. <ph name="LINK_BEGIN" />Få flere oplysninger<ph name="LINK_END" /></translation>
@@ -3722,6 +3722,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6207282396926186323">Installer <ph name="APP_NAME" /> (Linux-app)</translation>
 <translation id="6207937957461833379">Land/Region</translation>
 <translation id="6208521041562685716">Mobildata aktiveres</translation>
+<translation id="6209908325007204267">Din enhed inkluderer en Chrome Enterprise-opgradering, men dit brugernavn er ikke tilknyttet en virksomhedskonto. Du skal oprette en virksomhedskonto på g.co/ChromeEnterpriseAccount på en sekundær enhed.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Synkronisering fungerer ikke</translation>
 <translation id="6212039847102026977">Vis avancerede netværksegenskaber</translation>
 <translation id="6212168817037875041">Sluk skærmen</translation>
@@ -4161,6 +4162,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6843423766595476978">Ok Google er konfigureret</translation>
 <translation id="6845038076637626672">Åbn maksimeret</translation>
 <translation id="6845325883481699275">Hjælp med at forbedre sikkerheden i Chrome</translation>
+<translation id="6846178040388691741">"<ph name="EXTENSION_NAME" />" anmoder om at udskrive <ph name="FILE_NAME" /> via <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Frigør plads for at fortsætte</translation>
 <translation id="6848388270925200958">Lige nu har du kort, som kun kan bruges på denne enhed.</translation>
 <translation id="6850286078059909152">Tekstfarve</translation>
@@ -4404,6 +4406,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7186088072322679094">Behold på værktøjslinjen</translation>
 <translation id="7187428571767585875">Registreringsposter, der skal fjernes eller ændres:</translation>
 <translation id="7189234443051076392">Sørg for, at der er nok ledig plads på din enhed</translation>
+<translation id="7189451821249468368">Du har ikke nok opgraderinger til at tilmelde denne enhed. Kontakt salgsafdelingen for at købe flere. Hvis du mener, at du får denne meddelelse ved en fejl, skal du kontakte support.</translation>
 <translation id="7189965711416741966">Fingeraftrykket er tilføjet.</translation>
 <translation id="7191159667348037">Ukendt printer (USB)</translation>
 <translation id="7193051357671784796">Din app blev tilføjet af din organisation. Genstart appen for at afslutte installationen.</translation>
@@ -5777,7 +5780,6 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="9050666287014529139">Adgangssætning</translation>
 <translation id="9052208328806230490">Du har registreret dine printere med <ph name="CLOUD_PRINT_NAME" /> via kontoen <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Fortsæt blokering</translation>
-<translation id="9053091947372579468">Din enhed har en Chrome-licens, men dit brugernavn er ikke knyttet til en administrationskonsol. Opret en konto i Administrationskonsol for at fortsætte med tilmeldingen. Bemærk! Hvis du vælger at bruge dit eget domæne til at oprette en ny konto i Administrationskonsol, skal du også gennemføre domænebekræftelse efter tilmeldingen. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Udskriv på begge sider</translation>
 <translation id="9053893665344928494">Husk mit valg</translation>
 <translation id="9055636786322918818">Gennemtving RC4-kryptering. Du løber en større risiko, hvis du vælger denne mulighed, da RC4-krypteringsalgoritmerne er usikre.</translation>

@@ -48,7 +48,7 @@
 <translation id="1246424317317450637">سیاه</translation>
 <translation id="1251750620252348585">عنوان بعدی سطح ۶</translation>
 <translation id="1275718070701477396">انتخاب شد</translation>
-<translation id="1286609444451033486">‏Search+Space را برای پنهان/نمایان کردن فشار دهید.</translation>
+<translation id="1286609444451033486">‏«جستجو+فاصله» (Search+Space) را برای تغییر وضعیت فشار دهید.</translation>
 <translation id="1291286136605998134">دکمه تغییر وضعیت</translation>
 <translation id="1299774449519412690">آبی آسمانی روشن</translation>
 <translation id="1303806948938513162">‏برای ورود به منوهای ChromeVox، با ۴ انگشت ضربه بزنید</translation>
@@ -77,7 +77,7 @@
 <translation id="1452236308086741652"><ph name="VALUE" />، کادر نوشتاری گذرواژه</translation>
 <translation id="146450394670219700">شیء گرافیکی</translation>
 <translation id="1467432559032391204">چپ</translation>
-<translation id="1474557363159888097">کد لنگر قبلی موجود نیست.</translation>
+<translation id="1474557363159888097">متن پیوندی قبلی وجود ندارد.</translation>
 <translation id="1480046233931937785">دست‌اندرکاران</translation>
 <translation id="1487494366197411587">‏در Chromebook، کلید «جستجو» دقیقاً‌ در بالای کلید Shift چپ قرار دارد.</translation>
 <translation id="1499041187027566160">بالا بردن صدا</translation>
@@ -366,7 +366,7 @@
 <translation id="3486232535569802404"><ph name="V1" /> تا <ph name="V2" /></translation>
 <translation id="3490765818161916458">جدول فهرست</translation>
 <translation id="3492609944033322585">{COUNT,plural, =1{کروشه راست}one{# کروشه راست}other{# کروشه راست}}</translation>
-<translation id="3493915602752813531">مرجع بعدی موجود نیست.</translation>
+<translation id="3493915602752813531">متن پیوندی بعدی وجود ندارد.</translation>
 <translation id="3494946239022273294">mnuitm</translation>
 <translation id="3497063866483065785">{COUNT,plural, =1{علامت سؤال}one{# علامت سؤال}other{# علامت سؤال}}</translation>
 <translation id="3514822174137761109">{COUNT,plural, =1{علامت هشتک}one{# علامت هشتک}other{# علامت هشتک}}</translation>
@@ -814,7 +814,7 @@
 <translation id="6633350132811819843">جدول بعدی موجود نیست.</translation>
 <translation id="6637586476836377253">log</translation>
 <translation id="6657128831881431364">نوار پیشرفت</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">برگه</translation>
 <translation id="667999046851023355">سند</translation>
 <translation id="6688209025607531203">هشدار غیرکیفیتی</translation>
 <translation id="6689672606256159458">قهوه‌ای حنایی</translation>

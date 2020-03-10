@@ -29,6 +29,7 @@ public class LensUtils {
     private static final String MIN_AGSA_VERSION_FEATURE_PARAM_NAME = "minAgsaVersionName";
     private static final String USE_SEARCH_BY_IMAGE_TEXT_FEATURE_PARAM_NAME =
             "useSearchByImageText";
+    private static final String LOG_UKM_PARAM_NAME = "logUkm";
     private static final String MIN_AGSA_VERSION_NAME_FOR_LENS_POSTCAPTURE = "8.19";
 
     /**
@@ -87,7 +88,7 @@ public class LensUtils {
      *
      * @return The minimum version name string or an empty string if not available.
      */
-    private static String getMinimumAgsaVersionForLensSupport() {
+    public static String getMinimumAgsaVersionForLensSupport() {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS)) {
             final String serverProvidedMinAgsaVersion =
                     ChromeFeatureList.getFieldTrialParamByFeature(
@@ -102,39 +103,6 @@ public class LensUtils {
         }
         // The feature is disabled so no need to return a minimum version.
         return "";
-    }
-
-    /**
-     * Checks if the AGSA version is below a certain {@code String} version name
-     * which denotes support for the Lens postcapture experience.
-     * @param installedVersionName The AGSA version installed on this device,
-     * @return Whether the AGSA version on the device is high enough.
-     */
-    public static boolean isAgsaVersionBelowMinimum(String installedVersionName) {
-        String minimumAllowedAgsaVersionName = getMinimumAgsaVersionForLensSupport();
-        if (TextUtils.isEmpty(installedVersionName)
-                || TextUtils.isEmpty(minimumAllowedAgsaVersionName)) {
-            return true;
-        }
-
-        String[] agsaNumbers = installedVersionName.split("\\.", -1);
-        String[] targetAgsaNumbers = minimumAllowedAgsaVersionName.split("\\.", -1);
-
-        // To avoid IndexOutOfBounds
-        int maxIndex = Math.min(agsaNumbers.length, targetAgsaNumbers.length);
-        for (int i = 0; i < maxIndex; ++i) {
-            int agsaNumber = Integer.parseInt(agsaNumbers[i]);
-            int targetAgsaNumber = Integer.parseInt(targetAgsaNumbers[i]);
-
-            if (agsaNumber < targetAgsaNumber) {
-                return true;
-            } else if (agsaNumber > targetAgsaNumber) {
-                return false;
-            }
-        }
-
-        // If versions are the same so far, but they have different length...
-        return agsaNumbers.length < targetAgsaNumbers.length;
     }
 
     /**
@@ -181,9 +149,31 @@ public class LensUtils {
         return intent;
     }
 
+    public static boolean enableGoogleLensFeature() {
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS);
+    }
+
+    /**
+     * Whether to display the lens menu item with the search by image text
+     */
     public static boolean useLensWithSearchByImageText() {
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                 ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS,
                 USE_SEARCH_BY_IMAGE_TEXT_FEATURE_PARAM_NAME, false);
+    }
+
+    /*
+     * Whether to log UKM pings for lens-related behavior.
+     * If in the experiment will log by default and will only be disabled
+     * if the parameter is not absent and set to true.
+     */
+    public static boolean shouldLogUkm() {
+        if (enableGoogleLensFeature()) {
+            return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                    ChromeFeatureList.CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS, LOG_UKM_PARAM_NAME,
+                    true);
+        }
+
+        return false;
     }
 }

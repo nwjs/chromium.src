@@ -1213,6 +1213,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="2653659639078652383">Send</translation>
 <translation id="265390580714150011">Feltverdi</translation>
 <translation id="2654166010170466751">Tillat at nettsteder installerer betalingsbehandlere</translation>
+<translation id="2654553774144920065">Utskriftsforespørsel</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funksjonene varierer fra enhet til enhet</translation>
 <translation id="2660779039299703961">Aktivitet</translation>
 <translation id="266079277508604648">Kan ikke koble til skriveren. Kontrollér at skriveren er slått på og koblet til Chromebooken din via Wi-Fi eller USB.</translation>
@@ -2385,7 +2386,6 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="4285418559658561636">Oppdater passord</translation>
 <translation id="4285498937028063278">Løsne</translation>
 <translation id="428565720843367874">Anti-virusprogramvare avsluttet uventet under skanning denne filen.</translation>
-<translation id="4287502004382794929">Du har ikke tilstrekkelige programvarelisenser for å registrere denne enheten. Ta kontakt med salgsavdelingen for å kjøpe flere. Hvis du tror dette er en feil, kan du ta kontakt med brukerstøtten.</translation>
 <translation id="4289540628985791613">Oversikt</translation>
 <translation id="4295072614469448764">Appen er tilgjengelig i terminalen din. Det kan også være et ikon i appoversikten.</translation>
 <translation id="4295979599050707005">Logg på igjen for å bekrefte at kontoen din (<ph name="USER_EMAIL" />) kan brukes sammen med nettsteder, apper og utvidelser i Chrome og Google Play. Du kan også fjerne denne kontoen. <ph name="LINK_BEGIN" />Finn ut mer<ph name="LINK_END" /></translation>
@@ -2717,7 +2717,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="4804827417948292437">Avokado</translation>
 <translation id="4805077164141082536">Vi anbefaler at du sikkerhetskopierer den nåværende Linux-beholderen før du oppgraderer.</translation>
 <translation id="4807098396393229769">Navn som er oppført på kortet</translation>
-<translation id="4808319664292298116">Vil du at <ph name="DOMAIN" /> skal slå på VR-modus?</translation>
+<translation id="4808319664292298116">Vil du starte VR fra <ph name="DOMAIN" />?</translation>
 <translation id="4808667324955055115">Blokkerte forgrunnsvinduer:</translation>
 <translation id="480990236307250886">Åpne startsiden</translation>
 <translation id="4811503964269049987">Gruppér den valgte fanen</translation>
@@ -3716,6 +3716,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="6207282396926186323">Installer <ph name="APP_NAME" /> (Linux-app)</translation>
 <translation id="6207937957461833379">Land / region</translation>
 <translation id="6208521041562685716">Mobildata aktiveres</translation>
+<translation id="6209908325007204267">En Chrome Enterprise-oppgradering følger med enheten din, men brukernavnet ditt er ikke knyttet til noen bedriftskonto. Opprett en bedriftskonto ved å besøke g.co/ChromeEnterpriseAccount på en annen enhet.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Synkroniseringen fungerer ikke</translation>
 <translation id="6212039847102026977">Vis avanserte nettverksegenskaper</translation>
 <translation id="6212168817037875041">Slå av skjermen</translation>
@@ -4025,7 +4026,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="6655458902729017087">Skjul kontoer</translation>
 <translation id="6657585470893396449">Passord</translation>
 <translation id="6659213950629089752">Denne siden ble zoomet inn av utvidelsen «<ph name="NAME" />»</translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Fane</translation>
 <translation id="6664237456442406323">Dessverre er datamaskinen konfigurert med en feilformatert maskinvare-ID. Dette hindrer Chrome OS fra å oppdatere til de siste sikkerhetsoppdateringene, og datamaskinen din <ph name="BEGIN_BOLD" />kan utsettes for skadelige angrep<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">Det oppsto en feil ved åpning av profilen din. Logg av og på igjen.</translation>
 <translation id="6667776121818773738">En annen enhet har delt et bilde</translation>
@@ -4155,6 +4156,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="6843423766595476978">Ok Google er konfigurert</translation>
 <translation id="6845038076637626672">Maksimer ved åpning</translation>
 <translation id="6845325883481699275">Bidra til å gjøre Chrome sikrere</translation>
+<translation id="6846178040388691741">«<ph name="EXTENSION_NAME" />» vil skrive ut <ph name="FILE_NAME" /> med <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Frigjør plass for å fortsette</translation>
 <translation id="6848388270925200958">Akkurat nå har du noen kort som bare kan brukes på denne enheten</translation>
 <translation id="6850286078059909152">Tekstfarge</translation>
@@ -4398,6 +4400,7 @@ Du kan administrere innstillingene for denne kontoen ved å installere Family Li
 <translation id="7186088072322679094">Behold i verktøyraden</translation>
 <translation id="7187428571767585875">Registeroppføringer som skal fjernes eller endres:</translation>
 <translation id="7189234443051076392">Sørg for at det er nok plass på enheten</translation>
+<translation id="7189451821249468368">Du har ikke tilstrekkelige oppgraderinger for å registrere denne enheten. Ta kontakt med salgsavdelingen for å kjøpe flere. Hvis du tror dette er en feil, kan du ta kontakt med brukerstøtten.</translation>
 <translation id="7189965711416741966">Fingeravtrykket er lagt til.</translation>
 <translation id="7191159667348037">Ukjent skriver (USB)</translation>
 <translation id="7193051357671784796">Denne appen er lagt til av organisasjonen din. Start appen på nytt for å fullføre installasjonen.</translation>
@@ -5771,7 +5774,6 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="9050666287014529139">Passordfrase</translation>
 <translation id="9052208328806230490">Du har registrert skriverne dine med <ph name="CLOUD_PRINT_NAME" /> ved hjelp av konto <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Fortsett blokkering</translation>
-<translation id="9053091947372579468">Enheten din leveres med en Chrome-lisens, men brukernavnet ditt er ikke tilknyttet noen administrasjonskonsoll. Opprett en konto for administrasjonskonsollen for å fortsette registreringen. Merk: Hvis du velger å bruke ditt eget domene for å opprette en ny konto for administrasjonskonsollen, må du også fullføre en domenebekreftelse etter registreringen. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Skriv ut på begge sider</translation>
 <translation id="9053893665344928494">Husk valget mitt</translation>
 <translation id="9055636786322918818">Start håndheving av RC4-kryptering. Hvis du bruker dette alternativet, øker risikoen, ettersom RC4-chiffere ikke er sikre.</translation>

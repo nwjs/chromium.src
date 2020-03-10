@@ -522,6 +522,7 @@ if (is_android) {
     data_deps = [ "//testing/buildbot/filters:android_browsertests_filters" ]
 
     sources = [
+      "../browser/android/customtabs/custom_tabs_browsertest.cc",
       "../browser/android/webapk/webapk_icon_hasher_browsertest.cc",
       "../browser/engagement/important_sites_util_browsertest.cc",
       "../browser/games/games_service_browsertest.cc",
@@ -554,6 +555,7 @@ if (is_android) {
       "$root_out_dir/browser_tests.pak",
       "//components/test/data/payments/",
       "//chrome/test/data/banners/",
+      "//chrome/test/data/android/customtabs/",
       "//chrome/test/data/ssl/",
     ]
   }
@@ -2142,6 +2144,7 @@ if (!is_android) {
         "../browser/chromeos/extensions/login_screen/login/login_apitest.cc",
         "../browser/chromeos/extensions/login_screen/login_screen_apitest_base.cc",
         "../browser/chromeos/extensions/login_screen/login_screen_apitest_base.h",
+        "../browser/chromeos/extensions/login_screen/login_screen_i18n_apitest.cc",
         "../browser/chromeos/extensions/login_screen/login_screen_ui/login_screen_ui_apitest.cc",
         "../browser/chromeos/extensions/login_screen/login_state/login_state_apitest.cc",
         "../browser/chromeos/extensions/login_screen/login_state/session_state_changed_event_dispatcher_apitest.cc",
@@ -3165,6 +3168,7 @@ test("unit_tests") {
     "../browser/history/android/sqlite_cursor_unittest.cc",
     "../browser/history/android/urls_sql_handler_unittest.cc",
     "../browser/history/android/visit_sql_handler_unittest.cc",
+    "../browser/history/domain_diversity_reporter_unittest.cc",
     "../browser/history/history_tab_helper_unittest.cc",
     "../browser/infobars/mock_infobar_service.cc",
     "../browser/infobars/mock_infobar_service.h",

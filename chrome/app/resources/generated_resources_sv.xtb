@@ -1216,6 +1216,7 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="2653659639078652383">Skicka</translation>
 <translation id="265390580714150011">Fältvärde</translation>
 <translation id="2654166010170466751">Tillåt att nya betalningshanterare installeras av webbplatser</translation>
+<translation id="2654553774144920065">Utskriftsbegäran</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funktionerna varierar beroende på enhet</translation>
 <translation id="2660779039299703961">Event</translation>
 <translation id="266079277508604648">Det gick inte att ansluta till skrivaren. Kontrollera att skrivaren är påslagen och ansluten till Chromebook via Wi-Fi eller USB.</translation>
@@ -2390,7 +2391,6 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="4285418559658561636">Uppdatera lösenordet</translation>
 <translation id="4285498937028063278">Lossa</translation>
 <translation id="428565720843367874">Ett oväntat fel uppstod i antivirusprogrammet när filen skulle genomsökas.</translation>
-<translation id="4287502004382794929">Du har inte tillräckligt med licenser för att registrera enheten. Kontakta säljavdelningen om du vill köpa fler. Om du anser att detta meddelande visas på felaktig grund kontaktar du supporten.</translation>
 <translation id="4289540628985791613">Översikt</translation>
 <translation id="4295072614469448764">Appen är tillgänglig via terminalen. Det kan också finnas en ikon för den i startprogrammet.</translation>
 <translation id="4295979599050707005">Bekräfta genom att logga in på nytt att ditt konto, <ph name="USER_EMAIL" />, kan användas med webbplatser, appar och tillägg i Chrome och på Google Play. Du kan även ta bort det här kontot. <ph name="LINK_BEGIN" />Läs mer<ph name="LINK_END" /></translation>
@@ -3192,7 +3192,7 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="5470735824776589490">En omstart krävs innan enheten kan återställas med Powerwash. <ph name="LINK_BEGIN" />Läs mer<ph name="LINK_END" /></translation>
 <translation id="5471768120198416576">Hejsan! Nu används min röst för text till tal.</translation>
 <translation id="5473333559083690127">Ange ny pinkod igen</translation>
-<translation id="548137908954174608">Aktivera Direkttextning</translation>
+<translation id="548137908954174608">Aktivera Live Caption</translation>
 <translation id="5481941284378890518">Lägg till skrivare i närheten</translation>
 <translation id="5483785310822538350">Återkalla åtkomst till enheten och filer</translation>
 <translation id="5485080380723335835">Din <ph name="DEVICE_TYPE" /> är låst. Du måste ange lösenordet manuellt innan du fortsätter.</translation>
@@ -3721,6 +3721,7 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="6207282396926186323">Installera <ph name="APP_NAME" /> (Linux-app)</translation>
 <translation id="6207937957461833379">Land/region</translation>
 <translation id="6208521041562685716">Mobildata aktiveras</translation>
+<translation id="6209908325007204267">Chrome Enterprise Upgrade ingår med enheten, men ditt användarnamn är inte kopplat till ett företagskonto. Skapa ett företagskonto genom att besöka g.co/ChromeEnterpriseAccount på en annan enhet.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Synkroniseringen fungerar inte</translation>
 <translation id="6212039847102026977">Visa avancerade nätverksinställningar</translation>
 <translation id="6212168817037875041">Stäng av skärmen</translation>
@@ -4160,6 +4161,7 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="6843423766595476978">Ok Google är klart att använda</translation>
 <translation id="6845038076637626672">Öppna maximerad</translation>
 <translation id="6845325883481699275">Bidra till att göra Chrome säkrare</translation>
+<translation id="6846178040388691741"><ph name="EXTENSION_NAME" /> försöker skriva ut <ph name="FILE_NAME" /> med <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Frigör utrymme om du vill fortsätta</translation>
 <translation id="6848388270925200958">Du har för närvarande några kort som bara kan användas på den här enheten</translation>
 <translation id="6850286078059909152">Textfärg</translation>
@@ -4403,6 +4405,7 @@ Du kan hantera inställningarna för det här kontot genom att installera Family
 <translation id="7186088072322679094">Spara i verktygsfältet</translation>
 <translation id="7187428571767585875">Registerposter som tas bort eller ändras:</translation>
 <translation id="7189234443051076392">Kontrollera att det finns tillräckligt mycket utrymme på enheten</translation>
+<translation id="7189451821249468368">Du har inte tillräckligt med uppgraderingar för att registrera enheten. Kontakta säljavdelningen om du vill köpa fler. Om du anser att detta meddelande visas på felaktig grund kontaktar du supporten.</translation>
 <translation id="7189965711416741966">Fingeravtrycket har lagts till.</translation>
 <translation id="7191159667348037">Okänd skrivare (USB)</translation>
 <translation id="7193051357671784796">Appen lades till av din organisation. Starta om appen för att slutföra installationen.</translation>
@@ -5776,7 +5779,6 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="9050666287014529139">Lösenfras</translation>
 <translation id="9052208328806230490">Du har registrerat dina skrivare med <ph name="CLOUD_PRINT_NAME" /> och du använde kontot <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Fortsätt blockera</translation>
-<translation id="9053091947372579468">Det finns en Chrome-licens på enheten men användarnamnet är inte kopplat till en administratörskonsol. Fortsätt med registreringen genom att skapa ett konto för administratörskonsolen. Obs! Om du väljer att använda din egen domän när du skapar ett nytt konto för administratörskonsolen måste du slutföra verifieringen av domänen efter registreringen. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Dubbelsidig utskrift</translation>
 <translation id="9053893665344928494">Kom ihåg mitt val</translation>
 <translation id="9055636786322918818">Tillämpa RC4-kryptering. Det här alternativet är mer riskabelt eftersom RC4-chiffer är osäkra.</translation>

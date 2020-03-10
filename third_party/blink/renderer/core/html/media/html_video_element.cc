@@ -417,6 +417,8 @@ void HTMLVideoElement::OnLoadFinished() {
                            WrapWeakPersistent(this)));
     lazy_load_intersection_observer_->observe(this);
   }
+
+  UpdatePictureInPictureAvailability();
 }
 
 void HTMLVideoElement::PaintCurrentFrame(
@@ -675,7 +677,9 @@ bool HTMLVideoElement::WouldTaintOrigin() const {
   return !IsMediaDataCorsSameOrigin();
 }
 
-FloatSize HTMLVideoElement::ElementSize(const FloatSize&) const {
+FloatSize HTMLVideoElement::ElementSize(
+    const FloatSize&,
+    const RespectImageOrientationEnum) const {
   return FloatSize(videoWidth(), videoHeight());
 }
 

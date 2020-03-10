@@ -1069,9 +1069,6 @@ void Shell::Init(
   app_list_controller_ = std::make_unique<AppListControllerImpl>();
   home_screen_controller_->SetDelegate(app_list_controller_.get());
 
-  // The |shelf_config_| needs |app_list_controller_| to initialize itself.
-  shelf_config_->Init();
-
   autoclick_controller_ = std::make_unique<AutoclickController>();
 
   high_contrast_controller_.reset(new HighContrastController);
@@ -1113,6 +1110,11 @@ void Shell::Init(
   // |system_notification_controller_| is initialized and Shelf is created by
   // WindowTreeHostManager::InitHosts.
   system_tray_model_ = std::make_unique<SystemTrayModel>();
+
+  // The |shelf_config_| needs |app_list_controller_| and |system_tray_model_|
+  // to initialize itself.
+  shelf_config_->Init();
+
   system_notification_controller_ =
       std::make_unique<SystemNotificationController>();
 

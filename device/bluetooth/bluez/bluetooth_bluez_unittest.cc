@@ -2212,7 +2212,32 @@ TEST_F(BluetoothBlueZTest, DeviceMTUChanged) {
   EXPECT_EQ(128, observer.last_mtu_value());
 }
 
-TEST_F(BluetoothBlueZTest, DeviceAdvertisementReceived) {
+TEST_F(BluetoothBlueZTest, DeviceAdvertisementReceived_LowEnergyDeviceAdded) {
+  // Simulate reception of advertisement from a low energy device.
+  GetAdapter();
+
+  // Install an observer; expect DeviceAdvertisementReceived method to be called
+  // with the EIR and RSSI.
+  TestBluetoothAdapterObserver observer(adapter_);
+
+  ASSERT_EQ(0, observer.device_advertisement_received_count());
+
+  // A low energy device has a valid RSSI and EIR and should trigger the
+  // advertisement callback.
+  fake_bluetooth_device_client_->CreateDevice(
+      dbus::ObjectPath(bluez::FakeBluetoothAdapterClient::kAdapterPath),
+      dbus::ObjectPath(bluez::FakeBluetoothDeviceClient::kLowEnergyPath));
+  EXPECT_EQ(1, observer.device_advertisement_received_count());
+
+  // A classic device does not have a valid RSSI and EIR and should not trigger
+  // the advertisement callback.
+  fake_bluetooth_device_client_->CreateDevice(
+      dbus::ObjectPath(bluez::FakeBluetoothAdapterClient::kAdapterPath),
+      dbus::ObjectPath(bluez::FakeBluetoothDeviceClient::kJustWorksPath));
+  EXPECT_EQ(1, observer.device_advertisement_received_count());
+}
+
+TEST_F(BluetoothBlueZTest, DeviceAdvertisementReceived_PropertyChanged) {
   // Simulate reception of advertisement from a device.
   GetAdapter();
 
@@ -2232,22 +2257,12 @@ TEST_F(BluetoothBlueZTest, DeviceAdvertisementReceived) {
           dbus::ObjectPath(bluez::FakeBluetoothDeviceClient::kLowEnergyPath));
   ASSERT_EQ(0, observer.device_advertisement_received_count());
 
+  properties->rssi.ReplaceValue(-73);
+  EXPECT_EQ(1, observer.device_advertisement_received_count());
+
   std::vector<uint8_t> eir = {0x01, 0x02, 0x03};
   properties->eir.ReplaceValue(eir);
-  properties->rssi.ReplaceValue(-73);
-
-  properties->rssi.set_valid(true);
-  properties->NotifyPropertyChanged(properties->rssi.name());
-  EXPECT_EQ(0, observer.device_advertisement_received_count());  // EIR invalid
-
-  properties->eir.set_valid(true);
-  properties->rssi.set_valid(false);
-  properties->NotifyPropertyChanged(properties->rssi.name());
-  EXPECT_EQ(0, observer.device_advertisement_received_count());  // RSSI invalid
-
-  properties->rssi.set_valid(true);
-  properties->NotifyPropertyChanged(properties->rssi.name());
-  EXPECT_EQ(1, observer.device_advertisement_received_count());
+  EXPECT_EQ(2, observer.device_advertisement_received_count());
   EXPECT_EQ(eir, observer.device_eir());
 }
 

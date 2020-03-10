@@ -80,7 +80,7 @@
 <translation id="1112420131909513020">Karta na pozadí používá Bluetooth</translation>
 <translation id="1114102982691049955"><ph name="PRINTER_MANUFACTURER" /> <ph name="PRINTER_MODEL" /> (USB)</translation>
 <translation id="1114202307280046356">Diamant</translation>
-<translation id="1114335938027186412">Váš počítač obsahuje bezpečnostní zařízení TPM (Trusted Platform Module), jehož pomocí je do systému Chrome OS implementováno mnoho důležitých bezpečnostních funkcí. Další informace najdete v centru nápovědy k Chromebookům: https://support.google.com/chromebook/?p=tpm</translation>
+<translation id="1114335938027186412">Váš počítač obsahuje bezpečnostní zařízení TPM (Trusted Platform Module), jehož pomocí je do systému Chrome OS implementováno mnoho důležitých funkcí zabezpečení. Další informace najdete v centru nápovědy k Chromebookům: https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="1116639326869298217">Vaši identitu se nepodařilo ověřit</translation>
 <translation id="1116694919640316211">Informace</translation>
 <translation id="1116779635164066733">Toto nastavení je vynucováno rozšířením <ph name="NAME" />.</translation>
@@ -1215,6 +1215,7 @@ Chcete-li spravovat nastavení tohoto účtu, nainstalujte si do zařízení apl
 <translation id="2653659639078652383">Odeslat</translation>
 <translation id="265390580714150011">Hodnota pole</translation>
 <translation id="2654166010170466751">Povolit webům instalovat obslužné nástroje pro platby</translation>
+<translation id="2654553774144920065">Požadavek na tisk</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funkce se v různých zařízeních liší</translation>
 <translation id="2660779039299703961">Událost</translation>
 <translation id="266079277508604648">K tiskárně se nelze připojit. Zkontrolujte, zda je tiskárna zapnutá a připojená k Chromebooku přes Wi-Fi nebo USB.</translation>
@@ -2388,7 +2389,6 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="4285418559658561636">Aktualizovat heslo</translation>
 <translation id="4285498937028063278">Odepnout</translation>
 <translation id="428565720843367874">Při kontrole tohoto souboru došlo k neočekávané chybě antivirového softwaru.</translation>
-<translation id="4287502004382794929">Nemáte dostatečný počet softwarových licencí k registraci tohoto zařízení. Kontaktujte obchodní oddělení a kupte si další. Pokud se domníváte, že se jedná o chybu, kontaktujte podporu.</translation>
 <translation id="4289540628985791613">Přehled</translation>
 <translation id="4295072614469448764">Aplikace je k dispozici v terminálu. Také může mít ikonu ve Spouštěči.</translation>
 <translation id="4295979599050707005">Přihlaste se znovu a potvrďte, že je váš účet <ph name="USER_EMAIL" /> možné používat pro weby, aplikace a rozšíření v Chromu a na Google Play. Tento účet můžete také odstranit. <ph name="LINK_BEGIN" />Další informace<ph name="LINK_END" /></translation>
@@ -3719,6 +3719,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="6207282396926186323">Instalace aplikace <ph name="APP_NAME" /> (aplikace pro Linux)</translation>
 <translation id="6207937957461833379">Země nebo oblast</translation>
 <translation id="6208521041562685716">Probíhá aktivace mobilních dat</translation>
+<translation id="6209908325007204267">Vaše zařízení obsahuje upgrade Chrome Enterprise, ale vaše uživatelské jméno není přidruženo k podnikovému účtu. V sekundárním zařízení přejděte na adresu g.co/ChromeEnterpriseAccount a vytvořte si podnikový účet.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: Synchronizace nefunguje</translation>
 <translation id="6212039847102026977">Zobrazit rozšířené vlastnosti sítě</translation>
 <translation id="6212168817037875041">Vypnout displej</translation>
@@ -4158,6 +4159,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="6843423766595476978">Funkce OK Google je připravená</translation>
 <translation id="6845038076637626672">Otevřít maximalizované</translation>
 <translation id="6845325883481699275">Pomoci zlepšovat zabezpečení Chromu</translation>
+<translation id="6846178040388691741">Rozšíření <ph name="EXTENSION_NAME" /> chce vytisknout soubor <ph name="FILE_NAME" /> pomocí tiskárny <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Chcete-li pokračovat, uvolněte místo</translation>
 <translation id="6848388270925200958">V současné době máte několik karet, které lze používat jen na tomto zařízení.</translation>
 <translation id="6850286078059909152">Barva textu</translation>
@@ -4401,6 +4403,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="7186088072322679094">Ponechat na liště</translation>
 <translation id="7187428571767585875">Záznamy v registru, které budou odstraněny nebo změněny:</translation>
 <translation id="7189234443051076392">V zařízení musí být dost místa</translation>
+<translation id="7189451821249468368">Nemáte dostatečný počet upgradů k registraci tohoto zařízení. Kontaktujte obchodní oddělení a kupte si další. Pokud se domníváte, že se jedná o chybu, kontaktujte podporu.</translation>
 <translation id="7189965711416741966">Otisk byl přidán.</translation>
 <translation id="7191159667348037">Neznámá tiskárna (USB)</translation>
 <translation id="7193051357671784796">Tuto aplikaci přidala vaše organizace. Chcete-li její instalaci dokončit, restartujte ji.</translation>
@@ -5773,7 +5776,6 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="9050666287014529139">Heslová fráze</translation>
 <translation id="9052208328806230490">Registrovali jste tiskárny ve službě <ph name="CLOUD_PRINT_NAME" /> pomocí účtu <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Pokračovat v blokování</translation>
-<translation id="9053091947372579468">Vaše zařízení obsahuje licenci Chrome, ale vaše uživatelské jméno není přidruženo k administrátorské konzoli. Chcete-li pokračovat s registrací, vytvořte účet administrátorské konzole. Poznámka: Pokud se rozhodnete vytvořit nový účet administrátorské konzole za pomoci vlastní domény, musíte po registraci provést také ověření domény. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Oboustranný tisk</translation>
 <translation id="9053893665344928494">Zapamatovat si výběr</translation>
 <translation id="9055636786322918818">Vynutit šifrování RC4. Použití této možnosti zvyšuje riziko, protože šifry RC4 nejsou bezpečné.</translation>

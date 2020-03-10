@@ -443,7 +443,7 @@
 
           Als dit beleid is ingesteld op 'Volledig scherm', is het vergrootglas op het inlogscherm altijd ingeschakeld in de modus voor vergrootglas op volledig scherm.
 
-          Als dit beleid is ingesteld op 'Gedockt', is het vergrootglas op het inlogscherm altijd ingeschakeld in de modus voor gedockt vergrootglas.
+          Als dit beleid is ingesteld op 'Vastgezet', is het vergrootglas op het inlogscherm altijd ingeschakeld in de modus voor vastgezet vergrootglas.
 
           Als dit beleid is ingesteld op 'Geen', is het vergrootglas altijd uitgeschakeld op het inlogscherm.
 
@@ -1190,7 +1190,7 @@
           Dit beleid wordt alleen gerespecteerd als het beleid 'DefaultSearchProviderEnabled' is ingeschakeld.</translation>
 <translation id="268577405881275241">De proxyfunctie voor het comprimeren van gegevens inschakelen</translation>
 <translation id="2693108589792503178">Configureer de URL voor het wijzigen van het wachtwoord.</translation>
-<translation id="2694143893026486692">Gedockt vergrootglas ingeschakeld</translation>
+<translation id="2694143893026486692">Vastgezet vergrootglas ingeschakeld</translation>
 <translation id="2694188263972877487">Hiermee configureer je het type downloads dat volledig door <ph name="PRODUCT_NAME" /> wordt geblokkeerd, zonder dat gebruikers het beveiligingsbesluit kunnen overschrijven.
 
       Als je dit beleid instelt, houdt <ph name="PRODUCT_NAME" /> bepaalde typen downloads tegen en kan de gebruiker de beveiligingswaarschuwingen niet omzeilen.

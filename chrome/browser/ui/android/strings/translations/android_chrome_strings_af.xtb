@@ -367,6 +367,11 @@
 <translation id="381841723434055211">Foonnommers</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> aflaaie is uitgevee</translation>
 <translation id="3822502789641063741">Vee werfberging uit?</translation>
+<translation id="3849365399446680203">Terwyl jy in AR is, kan hierdie werf dalk:
+• 'n 3D-kaart van jou omgewing skep
+• kamerabeweging naspoor
+
+Net jy kan sien waarna jou kamera kyk. Hierdie werf kan nie jou kamera se prente sien nie.</translation>
 <translation id="3859306556332390985">Soek vorentoe</translation>
 <translation id="388596076286380598">Kry artikels, video's en ander inhoud vanaf werwe waarvan jy hou, selfs as jy vanlyn is of as jou verbinding swak is.</translation>
 <translation id="3894427358181296146">Voeg vouer by</translation>
@@ -587,7 +592,6 @@ Tik op enige woord om 'n soektog daarvoor te skep. Langdruk om te kies as jy jou
 <translation id="5447765697759493033">Hierdie werf sal nie vertaal word nie</translation>
 <translation id="545042621069398927">Maak jou aflaai vinniger.</translation>
 <translation id="5456381639095306749">Laai bladsy af</translation>
-<translation id="5475862044948910901">Begin Aangevulde Realiteit-sessie?</translation>
 <translation id="548278423535722844">Maak in kaarteprogram oop</translation>
 <translation id="5487521232677179737">Vee data uit</translation>
 <translation id="5494752089476963479">Blokkeer advertensies op werwe wat indringerige of misleidende advertensies wys</translation>
@@ -720,6 +724,7 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="6395288395575013217">SKAKEL</translation>
 <translation id="6404511346730675251">Wysig boekmerk</translation>
 <translation id="6406506848690869874">Sinkronisering</translation>
+<translation id="6410973561433500075">Voer AR van <ph name="DOMAIN" /> af in?</translation>
 <translation id="641643625718530986">Druk tans uit …</translation>
 <translation id="6416782512398055893">Het <ph name="MBS" /> MB afgelaai</translation>
 <translation id="6427112570124116297">Vertaal die Web</translation>
@@ -839,11 +844,6 @@ Langdruk enige woord om 'n soektog daarvoor te skep. Pas die seleksie aan om jou
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Deel 1 gekose item}other{Deel # gekose items}}</translation>
 <translation id="7359002509206457351">Toegang tot betaalmetodes</translation>
-<translation id="7365126855094612066">Vir die duur van hierdie sessie sal die werf:
-• 'n 3D-kaart van jou omgewing kan skep
-• kamerabeweging kan naspoor
-
-Die werf kry NIE toegang tot die kamera nie. Net jy kan die kameraprente sien.</translation>
 <translation id="7375125077091615385">Tipe:</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>

@@ -74,7 +74,7 @@ class HardwareDisplayPlaneManagerTest
       uint32_t format) {
     std::unique_ptr<ui::GbmBuffer> buffer =
         fake_drm_->gbm_device()->CreateBuffer(format, size, GBM_BO_USE_SCANOUT);
-    return ui::DrmFramebuffer::AddFramebuffer(fake_drm_, buffer.get());
+    return ui::DrmFramebuffer::AddFramebuffer(fake_drm_, buffer.get(), size);
   }
 
  protected:
@@ -839,7 +839,7 @@ class HardwareDisplayPlaneManagerPlanesReadyTest : public testing::Test {
     std::unique_ptr<ui::GbmBuffer> buffer =
         fake_drm_->gbm_device()->CreateBuffer(DRM_FORMAT_XRGB8888, size,
                                               GBM_BO_USE_SCANOUT);
-    return ui::DrmFramebuffer::AddFramebuffer(fake_drm_, buffer.get());
+    return ui::DrmFramebuffer::AddFramebuffer(fake_drm_, buffer.get(), size);
   }
 
   ui::DrmOverlayPlaneList CreatePlanesWithoutFences() {
@@ -980,7 +980,8 @@ TEST(HardwareDisplayPlaneManagerAtomic, EnableBlend) {
       drm_device->gbm_device()->CreateBuffer(
           DRM_FORMAT_XRGB8888, kDefaultBufferSize, GBM_BO_USE_SCANOUT);
   scoped_refptr<ui::DrmFramebuffer> framebuffer =
-      ui::DrmFramebuffer::AddFramebuffer(drm_device, buffer.get());
+      ui::DrmFramebuffer::AddFramebuffer(drm_device, buffer.get(),
+                                         kDefaultBufferSize);
   ui::DrmOverlayPlane overlay(framebuffer, nullptr);
   overlay.enable_blend = true;
   plane_manager->SetPlaneData(&plane_list, &hw_plane, overlay, 1, gfx::Rect());

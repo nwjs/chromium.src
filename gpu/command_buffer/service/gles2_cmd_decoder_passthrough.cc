@@ -2022,6 +2022,13 @@ void GLES2DecoderPassthroughImpl::InitializeFeatureInfo(
   }
 }
 
+void* GLES2DecoderPassthroughImpl::GetScratchMemory(size_t size) {
+  if (scratch_memory_.size() < size) {
+    scratch_memory_.resize(size, 0);
+  }
+  return scratch_memory_.data();
+}
+
 template <typename T>
 error::Error GLES2DecoderPassthroughImpl::PatchGetNumericResults(GLenum pname,
                                                                  GLsizei length,

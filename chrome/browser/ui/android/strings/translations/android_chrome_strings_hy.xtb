@@ -366,7 +366,12 @@
 <translation id="3810973564298564668">Կառավարել</translation>
 <translation id="381841723434055211">Հեռախոսահամարներ</translation>
 <translation id="3819178904835489326"><ph name="NUMBER_OF_DOWNLOADS" /> ներբեռնում ջնջվեց</translation>
-<translation id="3822502789641063741">Մաքրե՞լ կայքերի տվյալները:</translation>
+<translation id="3822502789641063741">Ջնջե՞լ կայքերի տվյալները:</translation>
+<translation id="3849365399446680203">Լրացված իրականության ռեժիմում այս կայքը կարող է՝
+• ստեղծել ձեր միջավայրի 3D քարտեզը,
+• հետևել տեսախցիկի շարժմանը:
+
+Միայն դուք կարող եք տեսնել, թե որ կողմ է նայում տեսախցիկը։ Կայքը չի կարող տեսնել տեսախցիկի պատկերները։</translation>
 <translation id="3859306556332390985">Որոնել դեպի առաջ</translation>
 <translation id="388596076286380598">Դուք կարող եք կարդալ հոդվածներ, դիտել տեսանյութեր և այլ բովանդակություն ձեր սիրած կայքերից նույնիսկ, երբ կապը թույլ է կամ բացակայում է։</translation>
 <translation id="3894427358181296146">Պանակի ավելացում</translation>
@@ -587,7 +592,6 @@
 <translation id="5447765697759493033">Այս կայքը չի թարգմանվի</translation>
 <translation id="545042621069398927">Ներբեռնումն արագացվում է։</translation>
 <translation id="5456381639095306749">Ներբեռնել էջը</translation>
-<translation id="5475862044948910901">Սկսե՞լ լրացված իրականության աշխատաշրջանը</translation>
 <translation id="548278423535722844">Բացեք Քարտեզներ հավելվածում</translation>
 <translation id="5487521232677179737">Ջնջել տվյալները</translation>
 <translation id="5494752089476963479">Արգելափակել գովազդը կայքերում, որոնք հոգնեցնող կամ մոլորեցնող գովազդ են ցուցադրում</translation>
@@ -720,6 +724,7 @@
 <translation id="6395288395575013217">ՀՂՈՒՄ</translation>
 <translation id="6404511346730675251">Փոփոխել էջանիշը</translation>
 <translation id="6406506848690869874">Համաժամացում</translation>
+<translation id="6410973561433500075">Մտնե՞լ լրացված իրականության ռեժիմ <ph name="DOMAIN" /> կայքից</translation>
 <translation id="641643625718530986">Տպել…</translation>
 <translation id="6416782512398055893">Ներբեռնվել է <ph name="MBS" /> ՄԲ</translation>
 <translation id="6427112570124116297">Թարգմանեք կայքերը</translation>
@@ -839,11 +844,6 @@
 <translation id="7352939065658542140">ՏԵՍԱՆՅՈՒԹ</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Հրապարակել ընտրված 1 տարրը}one{Share # selected items}other{Հրապարակել ընտրված # տարրերը}}</translation>
 <translation id="7359002509206457351">Վճարման եղանակների հասանելիություն</translation>
-<translation id="7365126855094612066">Այս աշխատաշրջանի ընթացքում կայքը կկարողանա՝
-• ստեղծել ձեր միջավայրի 3D քարտեզը,
-• հետևել տեսախցիկի շարժմանը:
-
-Կայքին տեսախցիկը հասանելի ՉԻ լինի: Տեսախցիկի պատկերները տեսանելի են միայն ձեզ:</translation>
 <translation id="7375125077091615385">Տեսակ`</translation>
 <translation id="7396940094317457632"><ph name="FILE_NAME" /></translation>
 <translation id="7400418766976504921">URL</translation>

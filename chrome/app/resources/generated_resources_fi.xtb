@@ -1216,6 +1216,7 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="2653659639078652383">Lähetä</translation>
 <translation id="265390580714150011">Kentän arvo</translation>
 <translation id="2654166010170466751">Salli sivustojen asentaa maksujen käsittelijöitä</translation>
+<translation id="2654553774144920065">Tulostuspyyntö</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" /> Ominaisuudet vaihtelevat laitteen mukaan</translation>
 <translation id="2660779039299703961">Tapahtuma</translation>
 <translation id="266079277508604648">Tulostimeen yhdistäminen epäonnistui. Tarkista, että tulostin on päällä ja yhteydessä Chromebookiin Wi-Fi-yhteydellä tai USB:llä.</translation>
@@ -2387,7 +2388,6 @@ Voit ylläpitää tilin asetuksia asentamalla laitteellesi Family Link ‑sovell
 <translation id="4285418559658561636">Päivitä salasana</translation>
 <translation id="4285498937028063278">Irrota</translation>
 <translation id="428565720843367874">Viruksentorjuntaohjelma ei pystynyt tarkistamaan tätä tiedostoa.</translation>
-<translation id="4287502004382794929">Sinulla ei ole tarpeeksi ohjelmistokäyttölupia ottaaksesi tämän laitteen käyttöön. Osta lisää käyttölupia ottamalla yhteyttä myyntiin. Jos uskot, että sinun ei pitäisi nähdä tätä viestiä, ota yhteyttä tukeen.</translation>
 <translation id="4289540628985791613">Yleiskatsaus</translation>
 <translation id="4295072614469448764">Sovellus on saatavilla terminaalissa. Käynnistysohjelmassa saattaa myös näkyä kuvake.</translation>
 <translation id="4295979599050707005">Kirjaudu uudelleen sisään ja vahvista, että <ph name="USER_EMAIL" /> saa olla verkkosivustojen, sovellusten ja laajennusten käytössä Chromessa ja Google Playssa. Voit myös poistaa tilin. <ph name="LINK_BEGIN" />Lue lisää<ph name="LINK_END" /></translation>
@@ -3720,6 +3720,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6207282396926186323">Asenna <ph name="APP_NAME" /> (Linux-sovellus)</translation>
 <translation id="6207937957461833379">Maa/alue</translation>
 <translation id="6208521041562685716">Mobiilidataa aktivoidaan</translation>
+<translation id="6209908325007204267">Laitteesi sisältää Chrome Enterprise ‑päivityksen, mutta käyttäjänimelläsi ei löydy Enterprise-tiliä. Luo Enterprise-tili siirtymällä osoitteeseen g.co/ChromeEnterpriseAccount toisella laitteella.</translation>
 <translation id="6211495400987308581">Synkronointi ei toimi: <ph name="PROFILE_NAME" /></translation>
 <translation id="6212039847102026977">Näytä verkkoyhteyksien lisäasetukset</translation>
 <translation id="6212168817037875041">Sulje näyttö</translation>
@@ -3870,7 +3871,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6418160186546245112">Palataan tuotteen <ph name="IDS_SHORT_PRODUCT_NAME" /> aiemmin asennettuun versioon</translation>
 <translation id="6418481728190846787">Estä pysyvästi pääsy kaikkiin sovelluksiin</translation>
 <translation id="6418511932144861495">Asenna tärkeä päivitys</translation>
-<translation id="6419546358665792306">Lataus purettu</translation>
+<translation id="6419546358665792306">Lataa pakkaamaton</translation>
 <translation id="642469772702851743">Omistaja on lukinnut laitteen (sarjanumero <ph name="SERIAL_NUMBER" />).</translation>
 <translation id="6426200009596957090">Avaa ChromeVox-asetukset</translation>
 <translation id="6428450836711225518">Vahvista puhelinnumerosi</translation>
@@ -4159,6 +4160,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6843423766595476978">Ok Google on valmiina</translation>
 <translation id="6845038076637626672">Avaa suuressa koossa</translation>
 <translation id="6845325883481699275">Auta parantamaan Chromen suojausta</translation>
+<translation id="6846178040388691741"><ph name="EXTENSION_NAME" /> haluaa tulostaa tiedoston <ph name="FILE_NAME" /> tulostimella <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Vapauta tilaa jatkaaksesi</translation>
 <translation id="6848388270925200958">Joitakin korttejasi voi juuri nyt käyttää vain tällä laitteella</translation>
 <translation id="6850286078059909152">Tekstin väri</translation>
@@ -4402,6 +4404,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="7186088072322679094">Pidä yläpalkissa</translation>
 <translation id="7187428571767585875">Poistettavat tai muutettavat rekisteritiedot:</translation>
 <translation id="7189234443051076392">Varmista, että laitteellasi on tarpeeksi tilaa.</translation>
+<translation id="7189451821249468368">Sinulla ei ole tarpeeksi päivityksiä tämän laitteen rekisteröintiä varten. Osta niitä lisää ottamalla yhteyttä myyntitiimiin. Jos sinun ei mielestäsi pitäisi nähdä tätä viestiä, ota yhteyttä tukeen.</translation>
 <translation id="7189965711416741966">Sormenjälki lisätty</translation>
 <translation id="7191159667348037">Tuntematon tulostin (USB)</translation>
 <translation id="7193051357671784796">Organisaatiosi lisäsi tämän sovelluksen. Suorita sovelluksen asennus loppuun käynnistämällä se uudelleen.</translation>
@@ -4988,7 +4991,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="7978412674231730200">Yksityinen avain</translation>
 <translation id="7978450511781612192">Tämä kirjaa sinut ulos Google-tileiltäsi. Kirjanmerkkejä, historiaa, salasanoja tai muita ei enää synkronoida.</translation>
 <translation id="7980084013673500153">Sisältötunnus: <ph name="ASSET_ID" /></translation>
-<translation id="7981313251711023384">Esilataa sivuja nopeuttaaksesi lataamista ja hakemista</translation>
+<translation id="7981313251711023384">Lataa sivuja nopeuttaaksesi lataamista ja hakemista</translation>
 <translation id="798145602633458219">Lisää ehdotus <ph name="SUGGESTION_NAME" /> hakukenttään</translation>
 <translation id="7982083145464587921">Korjaa tämä virhe käynnistämällä laitteesi uudelleen.</translation>
 <translation id="7982789257301363584">Verkko</translation>
@@ -5774,7 +5777,6 @@ Tallenna avaintiedosto suojattuun sijaintiin. Tarvitset sitä, jos haluat luoda 
 <translation id="9050666287014529139">Tunnuslause</translation>
 <translation id="9052208328806230490">Olet rekisteröinyt tulostimesi palveluun <ph name="CLOUD_PRINT_NAME" /> tilin <ph name="EMAIL" /> avulla</translation>
 <translation id="9052404922357793350">Estä edelleen</translation>
-<translation id="9053091947372579468">Laitteeseen kuuluu Chrome-lisenssi, mutta käyttäjänimelläsi ei löydy hallintakonsolia. Luo hallintakonsoliin tili, niin voit jatkaa liittymistä. Huom. Jos käytät omaa verkkotunnustasi hallintakonsolitilin luomiseen, sinun täytyy myös vahvistaa verkkotunnus liittymisen jälkeen. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Tulosta molemmille puolille</translation>
 <translation id="9053893665344928494">Muista valinta</translation>
 <translation id="9055636786322918818">Pakota RC4-salaus. Tämä valinta lisää riskejä, koska RC4-salaustekniikat ovat suojaamattomia.</translation>

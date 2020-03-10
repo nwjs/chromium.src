@@ -657,7 +657,8 @@ bool HTMLImageElement::IsInteractiveContent() const {
 }
 
 FloatSize HTMLImageElement::DefaultDestinationSize(
-    const FloatSize& default_object_size) const {
+    const FloatSize& default_object_size,
+    const RespectImageOrientationEnum respect_orientation) const {
   ImageResourceContent* image_content = CachedImage();
   if (!image_content || !image_content->HasImage())
     return FloatSize();
@@ -666,8 +667,7 @@ FloatSize HTMLImageElement::DefaultDestinationSize(
   if (image->IsSVGImage())
     return ToSVGImage(image)->ConcreteObjectSize(default_object_size);
 
-  LayoutSize size(image->Size(
-      LayoutObject::ShouldRespectImageOrientation(GetLayoutObject())));
+  LayoutSize size(image->Size(respect_orientation));
   if (GetLayoutObject() && GetLayoutObject()->IsLayoutImage() &&
       image->HasIntrinsicSize())
     size.Scale(ToLayoutImage(GetLayoutObject())->ImageDevicePixelRatio());

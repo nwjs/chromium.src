@@ -7605,7 +7605,7 @@ void WebGLRenderingContextBase::PrintGLErrorToConsole(const String& message) {
 
 void WebGLRenderingContextBase::PrintWarningToConsole(const String& message) {
   blink::ExecutionContext* context = Host()->GetTopExecutionContext();
-  if (context) {
+  if (context && !context->IsContextDestroyed()) {
     context->AddConsoleMessage(
         ConsoleMessage::Create(mojom::ConsoleMessageSource::kRendering,
                                mojom::ConsoleMessageLevel::kWarning, message));

@@ -32,6 +32,7 @@ import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.network.mojom.ReferrerPolicy;
+import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 
 /**
@@ -43,17 +44,19 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final WindowAndroid mWindowAndroid;
     private final TabCreatorManager mTabCreatorManager;
+    private final IntentHandler mIntentHandler;
     private LoadUrlParams mLoadUrlParams;
     private Tab mTab;
     private StartupTabObserver mObserver;
 
     public StartupTabPreloader(Supplier<Intent> intentSupplier,
             ActivityLifecycleDispatcher activityLifecycleDispatcher, WindowAndroid windowAndroid,
-            TabCreatorManager tabCreatorManager) {
+            TabCreatorManager tabCreatorManager, IntentHandler intentHandler) {
         mIntentSupplier = intentSupplier;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
         mWindowAndroid = windowAndroid;
         mTabCreatorManager = tabCreatorManager;
+        mIntentHandler = intentHandler;
 
         mActivityLifecycleDispatcher.register(this);
         ProfileManager.addObserver(this);
@@ -149,7 +152,7 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
         if (mTab != null) return false;
 
         Intent intent = mIntentSupplier.get();
-        if (IntentHandler.shouldIgnoreIntent(intent)) return false;
+        if (mIntentHandler.shouldIgnoreIntent(intent)) return false;
         if (getUrlFromIntent(intent) == null) return false;
 
         // We don't support incognito tabs because only chrome can send new incognito tab
@@ -179,6 +182,9 @@ public class StartupTabPreloader implements ProfileManager.Observer, Destroyable
         if (referrer != null && !referrer.isEmpty()) {
             mLoadUrlParams.setReferrer(new Referrer(referrer, ReferrerPolicy.DEFAULT));
         }
+        int transition = IntentHandler.getTransitionTypeFromIntent(
+                intent, PageTransition.LINK | PageTransition.FROM_API);
+        mLoadUrlParams.setTransitionType(transition);
 
         // Create a detached tab, but don't add it to the tab model yet. We'll do that
         // later if the loadUrlParams etc... match.

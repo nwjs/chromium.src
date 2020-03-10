@@ -15,12 +15,15 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
+#include "ash/system/model/system_tray_model.h"
+#include "ash/system/model/virtual_keyboard_model.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
+#include "ui/gfx/transform_util.h"
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/background.h"
 #include "ui/views/view.h"
@@ -450,6 +453,19 @@ void ShelfNavigationWidget::UpdateLayout(bool animate) {
 
   views::View* const home_button = delegate_->home_button();
   UpdateButtonVisibility(home_button, home_button_shown, animate);
+
+  if (back_button_shown) {
+    gfx::Transform rotation;
+    // If the IME virtual keyboard is visible, rotate the back button downwards,
+    // this indicates it can be used to close the keyboard.
+    const bool virtual_keyboard_shown =
+        Shell::Get()->system_tray_model()->virtual_keyboard()->visible();
+    if (virtual_keyboard_shown)
+      rotation.Rotate(270.0);
+
+    delegate_->back_button()->layer()->SetTransform(TransformAboutPivot(
+        delegate_->back_button()->GetCenterPoint(), rotation));
+  }
 
   gfx::Rect home_button_bounds =
       back_button_shown ? GetSecondButtonBounds() : GetFirstButtonBounds();

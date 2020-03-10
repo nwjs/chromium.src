@@ -20,6 +20,7 @@ import android.webkit.WebViewDelegate;
 import android.webkit.WebViewFactory;
 
 import org.chromium.base.BuildInfo;
+import org.chromium.base.BundleUtils;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContentUriUtils;
 import org.chromium.base.ContextUtils;
@@ -34,6 +35,7 @@ import org.chromium.components.embedder_support.application.ClassLoaderContextWr
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.ChildProcessCreationParams;
 import org.chromium.content_public.browser.DeviceUtils;
+import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.ui.base.ResourceBundle;
 import org.chromium.weblayer_private.interfaces.IBrowserFragment;
@@ -165,6 +167,20 @@ public final class WebLayerImpl extends IWebLayer.Stub {
 
         LibraryLoader.getInstance().setLibraryProcessType(LibraryProcessType.PROCESS_WEBLAYER);
 
+        Context remoteContext = ObjectWrapper.unwrap(remoteContextWrapper, Context.class);
+        // The remote context will have a different class loader than WebLayerImpl here if we are in
+        // WebView compat mode, since WebView compat mode creates it's own class loader. The class
+        // loader from remoteContext will actually never be used, since
+        // ClassLoaderContextWrapperFactory will override the class loader, and all contexts used in
+        // WebLayer should come from ClassLoaderContextWrapperFactory.
+        boolean isWebViewCompatMode = remoteContext != null
+                && !remoteContext.getClassLoader().equals(WebLayerImpl.class.getClassLoader());
+        if (isWebViewCompatMode && Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
+            // We need to change the library name for Android M and below, otherwise the system will
+            // load the version loaded for WebView.
+            LibraryLoader.getInstance().setLibrarySuffix("-weblayer");
+        }
+
         Context appContext = minimalInitForContext(appContextWrapper, remoteContextWrapper);
         PackageInfo packageInfo = WebViewFactory.getLoadedPackageInfo();
 
@@ -182,8 +198,10 @@ public final class WebLayerImpl extends IWebLayer.Stub {
         // TODO: The call to onResourcesLoaded() can be slow, we may need to parallelize this with
         // other expensive startup tasks.
         R.onResourcesLoaded(resourcesPackageId);
+        SelectionPopupController.setMustUseWebContentsContext();
 
         ResourceBundle.setAvailablePakLocales(new String[] {}, ProductConfig.UNCOMPRESSED_LOCALES);
+        BundleUtils.setIsBundle(ProductConfig.IS_BUNDLE);
 
         setChildProcessCreationParams(appContext, packageInfo.packageName);
 

@@ -1215,6 +1215,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2653659639078652383">Odoslať</translation>
 <translation id="265390580714150011">Hodnota poľa</translation>
 <translation id="2654166010170466751">Povoliť webom inštalovať obslužné nástroje platieb</translation>
+<translation id="2654553774144920065">Žiadosť o tlač</translation>
 <translation id="2659381484350128933"><ph name="FOOTNOTE_POINTER" />Funkcie sa môžu v rôznych zariadeniach líšiť</translation>
 <translation id="2660779039299703961">Udalosť</translation>
 <translation id="266079277508604648">K tlačiarni sa nepodarilo pripojiť. Skontrolujte, či je zapnutá a pripojená k Chromebooku prostredníctvom Wi-Fi alebo USB.</translation>
@@ -2389,7 +2390,6 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="4285418559658561636">Aktualizovať heslo</translation>
 <translation id="4285498937028063278">Odopnúť</translation>
 <translation id="428565720843367874">Antivírusový softvér pri skenovaní tohto súboru neočakávane zlyhal.</translation>
-<translation id="4287502004382794929">Nemáte dostatočný počet softvérových licencií na registráciu tohto zariadenia. Kontaktujte obchodné oddelenie a kúpte si ďalšie. Ak sa domnievate, že ide o chybu, kontaktujte podporu.</translation>
 <translation id="4289540628985791613">Prehľad</translation>
 <translation id="4295072614469448764">Aplikácia je k dispozícii v termináli. V Spúšťači sa môže tiež objaviť jej ikona.</translation>
 <translation id="4295979599050707005">Ak chcete overiť, že váš účet <ph name="USER_EMAIL" /> je možné používať s webovými stránkami, aplikáciami a rozšíreniami v Chrome a službe Google Play, znova sa prihláste. Tento účet môžete tiež odstrániť. <ph name="LINK_BEGIN" />Ďalšie informácie<ph name="LINK_END" /></translation>
@@ -3720,6 +3720,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="6207282396926186323">Inštalácia aplikácie <ph name="APP_NAME" /> (aplikácia pre Linux)</translation>
 <translation id="6207937957461833379">Krajina alebo oblasť</translation>
 <translation id="6208521041562685716">Mobilné dáta sa aktivujú</translation>
+<translation id="6209908325007204267">Vaše zariadenie zahŕňa inováciu Chrome Enterprise, ale vaše používateľské meno nie je spojené s účtom Enterprise. Vytvorte si účet Enterprise v druhom zariadení na g.co/ChromeEnterpriseAccount.</translation>
 <translation id="6211495400987308581"><ph name="PROFILE_NAME" />: synchronizácia nefunguje</translation>
 <translation id="6212039847102026977">Zobraziť rozšírené vlastnosti siete</translation>
 <translation id="6212168817037875041">Vypnúť obrazovku</translation>
@@ -4029,7 +4030,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="6655458902729017087">Skryť účty</translation>
 <translation id="6657585470893396449">Heslo</translation>
 <translation id="6659213950629089752">Zobrazenie tejto stránky bolo priblížené rozšírením <ph name="NAME" /></translation>
-<translation id="6659594942844771486">Tab</translation>
+<translation id="6659594942844771486">Karta</translation>
 <translation id="6664237456442406323">Váš počítač je žiaľ nakonfigurovaný pomocou poškodeného ID hardvéru. Systému Chrome OS to zabraňuje získať aktualizácie s najnovšími opravami zabezpečenia a váš počítač <ph name="BEGIN_BOLD" />môže byť zraniteľný voči škodlivým útokom<ph name="END_BOLD" />.</translation>
 <translation id="6664774537677393800">Pri pokuse o otvorenie profilu sa vyskytla chyba. Odhláste sa a potom sa znova prihláste.</translation>
 <translation id="6667776121818773738">Obrázok zdieľaný z iného zariadenia</translation>
@@ -4159,6 +4160,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="6843423766595476978">Výraz „Ok Google“ je nastavený</translation>
 <translation id="6845038076637626672">Otvoriť maximalizované</translation>
 <translation id="6845325883481699275">Pomoc so zlepšením zabezpečenia Chromu</translation>
+<translation id="6846178040388691741"><ph name="EXTENSION_NAME" /> chce vytlačiť súbor <ph name="FILE_NAME" /> pomocou tlačiarne <ph name="PRINTER_NAME" />.</translation>
 <translation id="6847125920277401289">Ak chcete pokračovať, uvoľnite priestor</translation>
 <translation id="6848388270925200958">Momentálne máte niekoľko kariet, ktoré je možné použiť iba v tomto zariadení</translation>
 <translation id="6850286078059909152">Farba textu</translation>
@@ -4402,6 +4404,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="7186088072322679094">Ponechať na paneli s nástrojmi</translation>
 <translation id="7187428571767585875">Záznamy databázy Registry, ktoré sa majú odstrániť alebo zmeniť:</translation>
 <translation id="7189234443051076392">Uistite sa, či máte v zariadení dosť miesta</translation>
+<translation id="7189451821249468368">Nemáte dostatočný počet inovácií na registráciu tohto zariadenia. Kontaktujte obchodné oddelenie a kúpte si ďalšie. Ak sa domnievate, že ide o chybu, kontaktujte podporu.</translation>
 <translation id="7189965711416741966">Odtlačok prsta bol pridaný.</translation>
 <translation id="7191159667348037">Neznáma tlačiareň (USB)</translation>
 <translation id="7193051357671784796">Túto aplikáciu pridala vaša organizácia. Ak chcete dokončiť jej inštaláciu, reštartujte ju.</translation>
@@ -5774,7 +5777,6 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="9050666287014529139">Prístupová fráza</translation>
 <translation id="9052208328806230490">Tlačiarne ste zaregistrovali v službe <ph name="CLOUD_PRINT_NAME" /> prostredníctvom účtu <ph name="EMAIL" /></translation>
 <translation id="9052404922357793350">Pokračovať v blokovaní</translation>
-<translation id="9053091947372579468">Vaše zariadenie má licenciu Chrome, ale k vášmu používateľskému menu nie je priradená správcovská konzola. Ak chcete pokračovať v registrácii, vytvorte si účet správcovskej konzoly. Poznámka: Ak si vytvoríte nový účet správcovskej konzoly pomocou vlastnej domény, musíte po registrácii dokončiť aj overenie domény. https://g.co/ChromeEnterpriseAccount</translation>
 <translation id="9053563360605707198">Obojstranná tlač</translation>
 <translation id="9053893665344928494">Zapamätať si výber</translation>
 <translation id="9055636786322918818">Vynúťte šifrovanie RC4. Šifry RC4 sú nezabezpečené, takže použitím tejto možnosti zvýšite riziko.</translation>

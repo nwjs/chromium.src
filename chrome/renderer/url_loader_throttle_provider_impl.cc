@@ -10,10 +10,12 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "build/build_config.h"
 #include "chrome/common/google_url_loader_throttle.h"
 #include "chrome/common/prerender.mojom.h"
 #include "chrome/common/prerender_url_loader_throttle.h"
 #include "chrome/renderer/chrome_content_renderer_client.h"
+#include "chrome/renderer/chrome_render_frame_observer.h"
 #include "chrome/renderer/chrome_render_thread_observer.h"
 #include "chrome/renderer/prerender/prerender_dispatcher.h"
 #include "chrome/renderer/prerender/prerender_helper.h"
@@ -239,8 +241,19 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
   }
 #endif
 
+#if defined(OS_ANDROID)
+  std::string client_data_header;
+  if (!is_frame_resource && render_frame_id != MSG_ROUTING_NONE) {
+    client_data_header =
+        ChromeRenderFrameObserver::GetCCTClientHeader(render_frame_id);
+  }
+#endif
+
   throttles.push_back(std::make_unique<GoogleURLLoaderThrottle>(
       ChromeRenderThreadObserver::is_incognito_process(),
+#if defined(OS_ANDROID)
+      client_data_header,
+#endif
       ChromeRenderThreadObserver::GetDynamicParams()));
 
 #if defined(OS_CHROMEOS)
@@ -250,7 +263,7 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
 #endif  // defined(OS_CHROMEOS)
 
   auto throttle = subresource_redirect::SubresourceRedirectURLLoaderThrottle::
-      MaybeCreateThrottle(request, resource_type, render_frame_id);
+      MaybeCreateThrottle(request, render_frame_id);
   if (throttle)
     throttles.push_back(std::move(throttle));
 
