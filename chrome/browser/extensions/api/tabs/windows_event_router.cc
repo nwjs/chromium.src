@@ -278,6 +278,8 @@ void WindowsEventRouter::OnWindowMove(WindowController* window_controller) {
 }
 
 void WindowsEventRouter::OnWindowChanged(WindowController* window_controller) {
+  if (!window_controller)
+    return;
   if (!HasEventListener(windows::OnWindowChanged::kEventName))
     return;
   if (!profile_->IsSameProfile(window_controller->profile()))
