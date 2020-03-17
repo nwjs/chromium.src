@@ -94,7 +94,7 @@
 <translation id="1717218214683051432">Sensors de moviment</translation>
 <translation id="1718835860248848330">Darrera hora</translation>
 <translation id="1736419249208073774">Explora</translation>
-<translation id="1743802530341753419">Pregunta'm abans de permetre que els llocs web es connectin a un dispositiu (opció recomanada)</translation>
+<translation id="1743802530341753419">Pregunta abans de permetre que els llocs web es connectin a un dispositiu (opció recomanada)</translation>
 <translation id="1749561566933687563">Sincronitzeu les adreces d'interès</translation>
 <translation id="17513872634828108">Pestanyes obertes</translation>
 <translation id="1779089405699405702">Descodificador d'imatges</translation>
@@ -149,7 +149,7 @@
 <translation id="2099625543891475722">els teus trets físics, com ara l'alçada</translation>
 <translation id="2100273922101894616">Inici de sessió automàtic</translation>
 <translation id="2100314319871056947">Prova de compartir el text en fragments més petits</translation>
-<translation id="2107397443965016585">Pregunta'm abans de permetre que els llocs web reprodueixin contingut protegit (opció recomanada)</translation>
+<translation id="2107397443965016585">Pregunta abans de permetre que els llocs web reprodueixin contingut protegit (opció recomanada)</translation>
 <translation id="2111511281910874386">Ves a la pàgina</translation>
 <translation id="2122601567107267586">L'aplicació no s'ha pogut obrir</translation>
 <translation id="2126426811489709554">Amb la tecnologia de Chrome</translation>
@@ -168,7 +168,7 @@
 <translation id="2259659629660284697">Exporta les contrasenyes…</translation>
 <translation id="2268044343513325586">Restringeix</translation>
 <translation id="2286841657746966508">Adreça de facturació</translation>
-<translation id="2289270750774289114">Pregunta'm quan un lloc web vulgui descobrir dispositius Bluetooth propers (opció recomanada)</translation>
+<translation id="2289270750774289114">Pregunta quan un lloc web vulgui descobrir dispositius Bluetooth propers (opció recomanada)</translation>
 <translation id="230115972905494466">No s'ha trobat cap dispositiu compatible</translation>
 <translation id="2315043854645842844">El sistema operatiu no permet seleccionar el certificat del client.</translation>
 <translation id="2318045970523081853">Toca per fer una trucada</translation>
@@ -254,7 +254,7 @@
 <translation id="2904414404539560095">La llista de dispositius amb què es compartirà una pestanya ocupa tota la pantalla.</translation>
 <translation id="2905036901251765993">Per compartir contingut amb persones del teu entorn, permet-los que escanegin aquest codi QR</translation>
 <translation id="2909615210195135082">Plataforma de notificacions de Google</translation>
-<translation id="2910701580606108292">Pregunta'm abans de permetre que els llocs web reprodueixin contingut protegit</translation>
+<translation id="2910701580606108292">Pregunta abans de permetre que els llocs web reprodueixin contingut protegit</translation>
 <translation id="2913331724188855103">Permet que els llocs web desin i llegeixin les dades de les galetes (opció recomanada)</translation>
 <translation id="2923908459366352541">El nom no és vàlid</translation>
 <translation id="2932150158123903946">Emmagatzematge de Google <ph name="APP_NAME" /></translation>
@@ -306,7 +306,7 @@
 <translation id="3298243779924642547">Mode bàsic</translation>
 <translation id="3303414029551471755">Voleu baixar el contingut?</translation>
 <translation id="3306398118552023113">Aquesta aplicació s'està executant a Chrome</translation>
-<translation id="3312292613668865961">Pregunta'm abans de permetre que els llocs web accedeixin als meus dispositius i a les meves dades de realitat virtual (opció recomanada)</translation>
+<translation id="3312292613668865961">Pregunta abans de permetre que els llocs web accedeixin als teus dispositius i a les teves dades de realitat virtual (opció recomanada)</translation>
 <translation id="3315103659806849044">Estàs personalitzant la configuració de la sincronització i del servei de Google. Per acabar d'activar la sincronització, toca el botó Confirma que hi ha cap a la part inferior de la pantalla. Navega cap amunt</translation>
 <translation id="3328801116991980348">Informació del lloc web</translation>
 <translation id="3333961966071413176">Tots els contactes</translation>
@@ -317,7 +317,7 @@
 <translation id="3367813778245106622">Torna a iniciar la sessió per començar la sincronització</translation>
 <translation id="3374023511497244703">Les adreces d'interès, l'historial, les contrasenyes i altres dades de Chrome ja no se sincronitzaran amb el teu Compte de Google</translation>
 <translation id="3384347053049321195">Comparteix la imatge</translation>
-<translation id="3386292677130313581">Pregunta'm abans de permetre que els llocs web sàpiguen la meva ubicació (opció recomanada)</translation>
+<translation id="3386292677130313581">Pregunta abans de permetre que els llocs web sàpiguen la teva ubicació (opció recomanada)</translation>
 <translation id="3387650086002190359">No s'ha pogut baixar <ph name="FILE_NAME" /> a causa d'errors amb el sistema de fitxers.</translation>
 <translation id="3389286852084373014">El text és massa llarg</translation>
 <translation id="3398320232533725830">Obre el gestor d'adreces d'interès</translation>
@@ -446,7 +446,7 @@ Només tu pots veure allò que la càmera veu. El lloc web no pot veure les imat
 <translation id="4468959413250150279">Silencia el so d'un lloc web concret.</translation>
 <translation id="4472118726404937099">Per sincronitzar i personalitzar el contingut en tots els dispositius, inicia la sessió i activa la sincronització</translation>
 <translation id="447252321002412580">Ajuda a millorar les funcions i el rendiment de Chrome</translation>
-<translation id="4479647676395637221">Pregunta'm abans de permetre que els llocs web utilitzin la càmera (opció recomanada)</translation>
+<translation id="4479647676395637221">Pregunta abans de permetre que els llocs web utilitzin la càmera (opció recomanada)</translation>
 <translation id="4479972344484327217">S'està instal·lant <ph name="MODULE" /> per a Chrome…</translation>
 <translation id="4487967297491345095">Totes les dades de les aplicacions de Chrome, com ara els fitxers, la configuració, els comptes o les bases de dades, entre d'altres, se suprimiran permanentment.</translation>
 <translation id="4493497663118223949">El mode bàsic està activat</translation>
@@ -518,7 +518,7 @@ Per canviar aquesta opció, <ph name="BEGIN_LINK" />restableix la sincronitzaci�
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Obtén ajuda<ph name="END_LINK" /> mentre se cerquen dispositius…</translation>
 <translation id="4921180162323349895">{FILE_COUNT,plural, =1{# pàgina}other{# pàgines}}</translation>
 <translation id="4932247056774066048">Com que estàs tancant la sessió d'un compte gestionat per <ph name="DOMAIN_NAME" />, les teves dades de Chrome se suprimiran d'aquest dispositiu. Tanmateix, es conservaran al teu Compte de Google.</translation>
-<translation id="4935305910887312910">Pregunta'm abans de permetre que els llocs web rebin la posició de la càmera o mapin la sala (opció recomanada)</translation>
+<translation id="4935305910887312910">Pregunta abans de permetre que els llocs web rebin la posició de la càmera o mapin la sala (opció recomanada)</translation>
 <translation id="4943703118917034429">Realitat virtual</translation>
 <translation id="4943872375798546930">No hi ha cap resultat</translation>
 <translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> comparteix la teva pantalla</translation>
@@ -604,7 +604,7 @@ Per canviar aquesta opció, <ph name="BEGIN_LINK" />restableix la sincronitzaci�
 <translation id="5517095782334947753">Tens les adreces d'interès, l'historial, les contrasenyes i altres opcions de configuració de l'adreça <ph name="FROM_ACCOUNT" />.</translation>
 <translation id="5524843473235508879">S'ha bloquejat la redirecció.</translation>
 <translation id="5527082711130173040">Chrome necessita accedir a la ubicació per poder cercar dispositius. <ph name="BEGIN_LINK1" />Actualitza els permisos<ph name="END_LINK1" />. L'accés a la ubicació també està <ph name="BEGIN_LINK2" />desactivat en aquest dispositiu<ph name="END_LINK2" />.</translation>
-<translation id="5527111080432883924">Pregunta'm abans de permetre que els llocs web llegeixin el text i les imatges del porta-retalls (opció recomanada)</translation>
+<translation id="5527111080432883924">Pregunta abans de permetre que els llocs web llegeixin el text i les imatges del porta-retalls (opció recomanada)</translation>
 <translation id="5530766185686772672">Tanca pestanyes d'incògnit</translation>
 <translation id="5534640966246046842">S'ha copiat el lloc web</translation>
 <translation id="5561549206367097665">S'està esperant la xarxa…</translation>
@@ -629,7 +629,7 @@ Per canviar aquesta opció, <ph name="BEGIN_LINK" />restableix la sincronitzaci�
 <translation id="5689516760719285838">Ubicació</translation>
 <translation id="5694049548840660018">Torna a l'inici fàcilment</translation>
 <translation id="569536719314091526">Tradueix aquesta pàgina a qualsevol idioma des del botó Més opcions</translation>
-<translation id="5710871682236653961">Pregunta'm abans de permetre que els llocs web enviïn i rebin informació quan toquis dispositius amb NFC (opció recomanada)</translation>
+<translation id="5710871682236653961">Pregunta abans de permetre que els llocs web enviïn i rebin informació quan toquis dispositius amb NFC (opció recomanada)</translation>
 <translation id="572328651809341494">Pestanyes recents</translation>
 <translation id="5726692708398506830">Augmenta la mida de tots els elements de la pàgina</translation>
 <translation id="5748802427693696783">S'ha canviat a les pestanyes estàndard</translation>
@@ -805,7 +805,7 @@ Mantén premuda qualsevol paraula per cercar-la. Per definir millor la cerca, aj
 <translation id="6981982820502123353">Accessibilitat</translation>
 <translation id="6989267951144302301">No s'ha pogut baixar</translation>
 <translation id="6990079615885386641">Baixeu l'aplicació des de Google Play Store: <ph name="APP_ACTION" /></translation>
-<translation id="6992289844737586249">Pregunta'm abans de permetre que els llocs web utilitzin el micròfon (opció recomanada)</translation>
+<translation id="6992289844737586249">Pregunta abans de permetre que els llocs web utilitzin el micròfon (opció recomanada)</translation>
 <translation id="6995899638241819463">Rep un advertiment si les contrasenyes queden exposades en l'àmbit d'una violació de les dades</translation>
 <translation id="7015203776128479407">La configuració de la sincronització inicial no ha finalitzat. La sincronització està desactivada.</translation>
 <translation id="7016516562562142042">Es permet al motor de cerca actual</translation>
@@ -850,7 +850,7 @@ Mantén premuda qualsevol paraula per cercar-la. Per definir millor la cerca, aj
 <translation id="7403691278183511381">Experiència de primera execució de Chrome</translation>
 <translation id="741204030948306876">Sí, ho accepto</translation>
 <translation id="7413229368719586778">Data d'inici: <ph name="DATE" /></translation>
-<translation id="7423098979219808738">Pregunta-m'ho abans</translation>
+<translation id="7423098979219808738">Pregunta abans</translation>
 <translation id="7423538860840206698">L'accés de lectura al porta-retalls està bloquejat</translation>
 <translation id="7431991332293347422">Controla com s'utilitza l'historial de navegació per personalitzar la Cerca i més</translation>
 <translation id="7437998757836447326">Tanca la sessió de Chrome</translation>

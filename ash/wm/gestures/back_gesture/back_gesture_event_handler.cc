@@ -9,6 +9,7 @@
 #include "ash/home_screen/home_screen_controller.h"
 #include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/ash_features.h"
+#include "ash/public/cpp/keyboard/keyboard_controller.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
 #include "ash/wm/gestures/back_gesture/back_gesture_affordance.h"
@@ -250,37 +251,41 @@ bool BackGestureEventHandler::MaybeHandleBackGesture(ui::GestureEvent* event,
       if (back_gesture_affordance_->IsActivated() ||
           (event->type() == ui::ET_SCROLL_FLING_START &&
            event->details().velocity_x() >= kFlingVelocityForGoingBack)) {
-        ActivateUnderneathWindowInSplitViewMode(
-            back_start_location_, dragged_from_splitview_divider_);
-        auto* top_window_state =
-            WindowState::Get(TabletModeWindowManager::GetTopWindow());
-        if (top_window_state && top_window_state->IsFullscreen() &&
-            !Shell::Get()->overview_controller()->InOverviewSession()) {
-          // Complete as exiting the fullscreen mode of the underneath window.
-          const WMEvent event(WM_EVENT_TOGGLE_FULLSCREEN);
-          top_window_state->OnWMEvent(&event);
-          RecordEndScenarioType(BackGestureEndScenarioType::kExitFullscreen);
-        } else if (TabletModeWindowManager::ShouldMinimizeTopWindowOnBack()) {
-          // Complete as minimizing the underneath window.
-          top_window_state->Minimize();
-          RecordEndScenarioType(
-              GetEndScenarioType(back_gesture_start_scenario_type_,
-                                 BackGestureEndType::kMinimize));
+        if (KeyboardController::Get()->IsKeyboardVisible()) {
+          KeyboardController::Get()->HideKeyboard(HideReason::kUser);
         } else {
-          // Complete as going back to the previous page of the underneath
-          // window.
-          aura::Window* root_window =
-              window_util::GetRootWindowAt(screen_location);
-          ui::KeyEvent press_key_event(ui::ET_KEY_PRESSED,
-                                       ui::VKEY_BROWSER_BACK, ui::EF_NONE);
-          ignore_result(
-              root_window->GetHost()->SendEventToSink(&press_key_event));
-          ui::KeyEvent release_key_event(ui::ET_KEY_RELEASED,
+          ActivateUnderneathWindowInSplitViewMode(
+              back_start_location_, dragged_from_splitview_divider_);
+          auto* top_window_state =
+              WindowState::Get(TabletModeWindowManager::GetTopWindow());
+          if (top_window_state && top_window_state->IsFullscreen() &&
+              !Shell::Get()->overview_controller()->InOverviewSession()) {
+            // Complete as exiting the fullscreen mode of the underneath window.
+            const WMEvent event(WM_EVENT_TOGGLE_FULLSCREEN);
+            top_window_state->OnWMEvent(&event);
+            RecordEndScenarioType(BackGestureEndScenarioType::kExitFullscreen);
+          } else if (TabletModeWindowManager::ShouldMinimizeTopWindowOnBack()) {
+            // Complete as minimizing the underneath window.
+            top_window_state->Minimize();
+            RecordEndScenarioType(
+                GetEndScenarioType(back_gesture_start_scenario_type_,
+                                   BackGestureEndType::kMinimize));
+          } else {
+            // Complete as going back to the previous page of the underneath
+            // window.
+            aura::Window* root_window =
+                window_util::GetRootWindowAt(screen_location);
+            ui::KeyEvent press_key_event(ui::ET_KEY_PRESSED,
                                          ui::VKEY_BROWSER_BACK, ui::EF_NONE);
-          ignore_result(
-              root_window->GetHost()->SendEventToSink(&release_key_event));
-          RecordEndScenarioType(GetEndScenarioType(
-              back_gesture_start_scenario_type_, BackGestureEndType::kBack));
+            ignore_result(
+                root_window->GetHost()->SendEventToSink(&press_key_event));
+            ui::KeyEvent release_key_event(ui::ET_KEY_RELEASED,
+                                           ui::VKEY_BROWSER_BACK, ui::EF_NONE);
+            ignore_result(
+                root_window->GetHost()->SendEventToSink(&release_key_event));
+            RecordEndScenarioType(GetEndScenarioType(
+                back_gesture_start_scenario_type_, BackGestureEndType::kBack));
+          }
         }
         back_gesture_affordance_->Complete();
       } else {

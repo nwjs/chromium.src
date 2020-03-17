@@ -237,6 +237,7 @@ void SurfaceTreeHost::SubmitCompositorFrame() {
         << ", AppType=" << static_cast<int>(app_type)
         << ", AppId=" << (app_id ? *app_id : "''")
         << ", StartupId=" << (startup_id ? *startup_id : "''");
+    return;
   }
 
   root_surface_->AppendSurfaceHierarchyCallbacks(&frame_callbacks_,
@@ -339,8 +340,13 @@ viz::CompositorFrame SurfaceTreeHost::PrepareToSubmitCompositorFrame() {
   // because  the size is different.
   const float device_scale_factor =
       host_window()->layer()->device_scale_factor();
-  const gfx::Size output_surface_size_in_pixels = gfx::ConvertSizeToPixel(
+  gfx::Size output_surface_size_in_pixels = gfx::ConvertSizeToPixel(
       device_scale_factor, host_window_->bounds().size());
+  // Viz will crash if the frame size is empty. Ensure it's not empty.
+  // crbug.com/1041932.
+  if (output_surface_size_in_pixels.IsEmpty())
+    output_surface_size_in_pixels.SetSize(1, 1);
+
   render_pass->SetNew(kRenderPassId, gfx::Rect(output_surface_size_in_pixels),
                       gfx::Rect(), gfx::Transform());
   frame.metadata.device_scale_factor = device_scale_factor;

@@ -29,6 +29,7 @@
 #if defined(OS_ANDROID)
 #include "components/crash/content/browser/child_exit_observer_android.h"
 #include "components/crash/content/browser/child_process_crash_observer_android.h"
+#include "components/crash/core/common/crash_key.h"
 #include "net/android/network_change_notifier_factory_android.h"
 #include "net/base/network_change_notifier.h"
 #include "weblayer/browser/android/metrics/uma_utils.h"
@@ -86,6 +87,8 @@ int BrowserMainPartsImpl::PreCreateThreads() {
   crash_reporter::ChildExitObserver::Create();
   crash_reporter::ChildExitObserver::GetInstance()->RegisterClient(
       std::make_unique<crash_reporter::ChildProcessCrashObserver>());
+
+  crash_reporter::InitializeCrashKeys();
 #endif
 
   return service_manager::RESULT_CODE_NORMAL_EXIT;

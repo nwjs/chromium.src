@@ -160,9 +160,11 @@ bool AwMetricsServiceClient::ShouldWakeMetricsService() {
 
 void AwMetricsServiceClient::RegisterAdditionalMetricsProviders(
     metrics::MetricsService* service) {
-  service->RegisterMetricsProvider(
-      std::make_unique<android_webview::AwStabilityMetricsProvider>(
-          pref_service()));
+  if (base::FeatureList::IsEnabled(features::kWebViewWakeMetricsService)) {
+    service->RegisterMetricsProvider(
+        std::make_unique<android_webview::AwStabilityMetricsProvider>(
+            pref_service()));
+  }
   service->RegisterMetricsProvider(
       std::make_unique<metrics::AndroidMetricsProvider>());
   service->RegisterMetricsProvider(

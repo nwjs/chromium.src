@@ -275,7 +275,7 @@
 <translation id="1378613616312864539"><ph name="NAME" /> ກຳລັງຄວບຄຸມການຕັ້ງຄ່ານີ້</translation>
 <translation id="1380436189840894976">ແນວໃດກໍອອກຈາກໂໝດທີ່ບໍ່ເຜີຍຕົວຕົນບໍ?</translation>
 <translation id="1383861834909034572">ເປີດເມື່ອສໍາເລັດ</translation>
-<translation id="1383876407941801731">ຄົ້ນຫາ</translation>
+<translation id="1383876407941801731">ຊອກຫາ</translation>
 <translation id="1386387014181100145">ເປັນແນວໃດ.</translation>
 <translation id="138784436342154190">ກູ້ຄືນໜ້າເລີ່ມຕົ້ນຕາມຄ່າເລີ່ມຕົ້ນບໍ?</translation>
 <translation id="1390548061267426325">ເປີດເປັນແຖບທໍາມະດາ</translation>
@@ -456,7 +456,7 @@
 <translation id="1627276047960621195">ຕົວອະທິບາຍໄຟລ໌</translation>
 <translation id="1627408615528139100">ດາວໂຫຼດຮຽບຮ້ອຍແລ້ວ</translation>
 <translation id="1629314197035607094">ລະຫັດຜ່ານໝົດອາຍຸແລ້ວ</translation>
-<translation id="1630768113285622200">ຣິສະຕາດ ແລະ ສືບຕໍ່</translation>
+<translation id="1630768113285622200">ຣີສະຕາດ ແລະ ສືບຕໍ່</translation>
 <translation id="1632803087685957583">ອະນຸຍາດໃຫ້ທ່ານປັບອັດຕາການຊໍ້າຄືນຂອງແປ້ນພິມ, ການຄາດເດົາຄຳ ແລະ ອື່ນໆອີກ</translation>
 <translation id="1635033183663317347">ຕິດ​ຕັ້ງ​ໂດຍ​ຜູ້​ຄວບ​ຄຸມ​​ຂອງ​ທ່ານ​ແລ້ວ.</translation>
 <translation id="1637224376458524414">ໃຊ້ບຸກມາກນີ້ໃນ iPhone ຂອງທ່ານ</translation>
@@ -1265,7 +1265,7 @@
 <translation id="2718998670920917754">ຊອບ​ແວ​ແອນຕິໄວຣັສກວດພົບ​ເຊື້ອ​ໄວຣ​ັ​ສແລ້ວ​.</translation>
 <translation id="2719020180254996569">ເຄືອຂ່າຍທີ <ph name="NETWORK_INDEX" /> ຈາກທັງໝົດ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, ລາຍລະອຽດ</translation>
 <translation id="2719936478972253983">ບລັອກຄຸກກີ້ຕໍ່ໄປນີ້ໄວ້ແລ້ວ</translation>
-<translation id="2721037002783622288">&amp;ຄົ້ນຫາ <ph name="SEARCH_ENGINE" /> ຮູບ</translation>
+<translation id="2721037002783622288">&amp;ຊອກຫາ <ph name="SEARCH_ENGINE" /> ຮູບ</translation>
 <translation id="2721334646575696520">Microsoft Edge</translation>
 <translation id="2721695630904737430">ຜູ້ເບິ່ງແຍງລະບົບໄດ້ປິດນຳໃຊ້ຜູ້ໃຊ້ທີ່ມີການຄວບຄຸມດູແລແລ້ວ.</translation>
 <translation id="2724841811573117416">ບັນ​ທຶກ WebRTC</translation>
@@ -2164,7 +2164,7 @@
 <translation id="394183848452296464">ບໍ່ສາມາດສ້າງທາງລັດໄດ້</translation>
 <translation id="3943582379552582368">ກັບ​ຄືນ​</translation>
 <translation id="3943857333388298514">ແປະໃສ່</translation>
-<translation id="3948116654032448504">&amp;ຄົ້ນຫາ <ph name="SEARCH_ENGINE" /> ຮູບ</translation>
+<translation id="3948116654032448504">&amp;ຊອກຫາ <ph name="SEARCH_ENGINE" /> ຮູບ</translation>
 <translation id="3948507072814225786"><ph name="ORIGIN" /> ສາມາດແກ້ໄຂໄຟລ໌ໃນໂຟນເດີຕໍ່ໄປນີ້ໄດ້</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
 <translation id="394984172568887996">ນໍາ​ເຂົ້າ​ຈາກ IE ແລ້ວ</translation>
@@ -2234,7 +2234,7 @@
 <translation id="4037889604535939429">ແກ້ໄຂບຸກຄົນ</translation>
 <translation id="4042863763121826131">{NUM_PAGES,plural, =1{ອອກຈາກໜ້າ}other{ອອກຈາກໜ້າ}}</translation>
 <translation id="4044612648082411741">ປ້ອນລະຫັດຜ່ານໃບຢັ້ງຢືນ</translation>
-<translation id="404493185430269859">ເຄື່ອງ​ຈັກ​ຄົ້ນຫາ​ມາດຕະຖານ</translation>
+<translation id="404493185430269859">ເວັບໄຊຊອກຫາເລີ່ມຕົ້ນ</translation>
 <translation id="4046013316139505482">ສ່ວນຂະຫຍາຍເຫຼົ່ານີ້ບໍ່ຈຳເປັນຕ້ອງເຫັນ ແລະ ປ່ຽນແປງຂໍ້ມູນໃນເວັບໄຊນີ້.</translation>
 <translation id="4046123991198612571">ເພງຕໍ່ໄປ</translation>
 <translation id="4050225813016893843">ວິທີການຮອງຮັບຄວາມຖືກຕ້ອງ</translation>
@@ -2976,7 +2976,7 @@
 <translation id="5160857336552977725">ລົງຊື່ເຂົ້າ <ph name="DEVICE_TYPE" /> ຂອງ​ທ່ານ</translation>
 <translation id="5166596762332123936">ບລັອກ <ph name="PLUGIN_NAME" /> ໄວ້ແລ້ວ ເພາະວ່າມັນເກົ່າແລ້ວ</translation>
 <translation id="5170568018924773124">ສະ​ແດງ​ຢູ່​ໃນ​ໂຟລ​ເດີ</translation>
-<translation id="5171045022955879922">ຄົ້ນຫາ ຫຼືພິມ URL</translation>
+<translation id="5171045022955879922">ຊອກຫາ ຫຼື ພິມ URL</translation>
 <translation id="5171343362375269016">ສັບປ່ຽນຄວາມຈຳແລ້ວ</translation>
 <translation id="5173668317844998239">ເພີ່ມ ແລະ ລຶບລາຍນິ້ວມືທີ່ບັນທຶກໄວ້ໃນກະແຈຄວາມປອດໄພຂອງທ່ານ</translation>
 <translation id="5175379009094579629">ຊື່ອຸປະກອນໃຊ້ບໍ່ໄດ້. ກະລຸນາປ້ອນຊື່ອຸປະກອນທີ່ໃຊ້ໄດ້ເພື່ອລອງອີກຄັ້ງ.</translation>
@@ -3161,7 +3161,7 @@
 <translation id="5432996274932278848">ຊອກຫາໃນອຸປະກອນ, ແອັບ ແລະ ເວັບຂອງທ່ານ. ໃຊ້ປຸ່ມລູກສອນເພື່ອນຳທາງໃນແອັບຂອງທ່ານ.</translation>
 <translation id="5434065355175441495">ການໃສ່ລະຫັດ PKCS #1 RSA</translation>
 <translation id="5436492226391861498">ກໍາລັງລໍຖ້າຊ່ອງພຣັອກຊີ...</translation>
-<translation id="5436510242972373446">ຄົ້ນຫາ <ph name="SITE_NAME" /> :</translation>
+<translation id="5436510242972373446">ຊອກຫາ <ph name="SITE_NAME" /> :</translation>
 <translation id="543806387003274181">ກະລຸນາບັນທຶກໄຟລ໌ຂອງທ່ານໄວ້ ແລະ ສ້າງບັນຊີໃໝ່ຕອນນີ້ເລີຍ.</translation>
 <translation id="544083962418256601">ສ້າງ​ທາງ​ລັດ...</translation>
 <translation id="5442228125690314719">ເກີດຄວາມຜິດພາດໃນການສ້າງຮູບດິສກ໌. ກະລຸນາລອງອີກຄັ້ງ.</translation>

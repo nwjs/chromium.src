@@ -40,7 +40,7 @@
 <translation id="1358735829858566124">ໄຟລ໌ ຫຼືບັນຊີລາຍຊື່ບໍ່ຄົງທີ່.</translation>
 <translation id="1363028406613469049">ແທຣັກ</translation>
 <translation id="1378727793141957596">ຍິນ​ດີ​ຕ້ອນ​ຮັບສູ່ Google Drive!</translation>
-<translation id="1383876407941801731">ຄົ້ນຫາ</translation>
+<translation id="1383876407941801731">ຊອກຫາ</translation>
 <translation id="1395262318152388157">​ແຖບເລື່ອນ​ຊອກ​ຫາ</translation>
 <translation id="1399648040768741453">ຄີບອດພາສາເຕກູລູ (ການອອກສຽງ​)</translation>
 <translation id="1430915738399379752">ພິມ</translation>
@@ -528,7 +528,7 @@
 <translation id="7040138676081995583">ເປີດດ້ວຍ...</translation>
 <translation id="7100897339030255923">ເລືອກ <ph name="COUNT" /> ລາຍ​ການ​ແລ້ວ</translation>
 <translation id="7106346894903675391">ຊື້ບ່ອນເກັບຂໍ້ມູນເພີ່ມ​ເຕີມ...</translation>
-<translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ຄົ້ນຫາ​ໄດຣ&lt;/em&gt;</translation>
+<translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ຊອກຫາ Drive&lt;/em&gt;</translation>
 <translation id="714034171374937760">Chromebase</translation>
 <translation id="7170467426996704624">ການປ່ຽນ​ຖ່າຍ​ຕົວ​ອັກສອນ (salam →​ຊາລໍາ​)</translation>
 <translation id="7172053773111046550">ຄີບອດພາສາເອັສໂຕເນຍ</translation>

@@ -2534,7 +2534,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       Si se habilita esta política, los usuarios podrán inhabilitar el comportamiento predeterminado con el que cada sitio web se ejecuta en su propio proceso.
       Si esta política no se configura o se inhabilita, el usuario podrá inhabilitar el aislamiento de sitio web
       (por ejemplo, utilizando la entrada "Inhabilitar el aislamiento de sitio web" en chrome://flags).  Si la política se configura como inhabilitada o no se configura, no se desactivará el aislamiento de sitio web.
-      En la versión 76 de <ph name="PRODUCT_OS_NAME" /> y en las anteriores, también se recomienda asignar el mismo valor a la política de dispositivos <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" />. Si los valores especificados por las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      En la versión 76 de <ph name="PRODUCT_OS_NAME" /> y en las anteriores, también se recomienda asignar el mismo valor a la política de dispositivos <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" />. Si los valores especificados por las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política de usuarios.
 
       Nota: Esta política no se aplica a Android. Para habilitar SitePerProcess en Android, utiliza la configuración de política SitePerProcessAndroid.
       </translation>
@@ -4188,7 +4188,7 @@ Estas políticas te permiten configurar el comportamiento de <ph name="PRODUCT_O
 <translation id="7340034977315324840">Notificar tiempo de actividad del dispositivo</translation>
 <translation id="7343497214039883642">Archivo de configuración de las impresoras de empresa para los dispositivos</translation>
 <translation id="7359307926583593395">
-      Esta política se aplica a la pantalla de inicio de sesión. También puedes consultar la política <ph name="SITE_PER_PROCESS_POLICY_NAME" />, que se aplica a la sesión del usuario. Se recomienda asignar el mismo valor a ambas políticas. Si los valores de las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      Esta política se aplica a la pantalla de inicio de sesión. También puedes consultar la política <ph name="SITE_PER_PROCESS_POLICY_NAME" />, que se aplica a la sesión del usuario. Se recomienda asignar el mismo valor a ambas políticas. Si los valores de las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política de usuarios.
       </translation>
 <translation id="7360181094056034924">Controla el comportamiento de <ph name="PRODUCT_NAME" /> con los datos subidos y descargados que deban analizarse.  Retrasar la entrega implica que <ph name="PRODUCT_NAME" /> no permitirá que el usuario acceda a un archivo descargado, seleccione un archivo para subir, pegue datos desde el portapapeles ni arrastre y suelte datos hasta que se haya analizado el contenido y se conozca el diagnóstico del análisis.  Esta restricción solo se aplica a los archivos o datos que deban analizarse, según se especifique en las políticas <ph name="SEND_FILES_FOR_MALWARE_CHECK_POLICY_NAME" />, <ph name="CHECK_CONTENT_COMPLIANCE_POLICY_NAME" /> y en las políticas que controlan la lista de dominios en los que se hayan habilitado las comprobaciones.
 
@@ -4803,13 +4803,13 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
 <translation id="8433186206711564395">Configuración de red</translation>
 <translation id="8433423491036718210">Configura la lista de las URL de acceso empresarial en las que el servicio de protección de contraseña debe capturar la huella digital de la contraseña.</translation>
 <translation id="8451988835943702790">Utilizar página Nueva pestaña como página principal</translation>
-<translation id="8459216513698220096">Especifica si la política del usuario del GPO del ordenador se procesa o no y cómo lo hace.
+<translation id="8459216513698220096">Especifica si la política de usuarios del GPO del ordenador se procesa o no y cómo lo hace.
 
-      Si se le asigna el valor "Predeterminado" a la política o no se le asigna ningún valor, la política del usuario solo podrá consultarse desde los GPO del usuario (se ignorarán los GPO del ordenador).
+      Si se le asigna el valor "Predeterminado" a la política o no se le asigna ningún valor, la política de usuarios solo podrá consultarse desde los GPO del usuario (se ignorarán los GPO del ordenador).
 
-      Si se le asigna el valor "Combinar" a la política, la política del usuario de los GPO del usuario se combinará con la política del usuario de los GPO del ordenador (los GPO del ordenador tienen preferencia).
+      Si se le asigna el valor "Combinar" a la política, la política de usuarios de los GPO del usuario se combinará con la política de usuarios de los GPO del ordenador (los GPO del ordenador tienen preferencia).
 
-      Si se le asigna el valor "Sustituir" a la política, la política del usuario de los GPO del usuario se sustituirá por la política del usuario de los GPO del ordenador (se ignorarán los GPO del usuario).</translation>
+      Si se le asigna el valor "Sustituir" a la política, la política de usuarios de los GPO del usuario se sustituirá por la política de usuarios de los GPO del ordenador (se ignorarán los GPO del usuario).</translation>
 <translation id="8465065632133292531">Parámetros para URL instantánea que utiliza POST</translation>
 <translation id="8465746466645315861">Si no se define esta política, el usuario podrá habilitar o inhabilitar el corrector ortográfico en la configuración de idioma.
 

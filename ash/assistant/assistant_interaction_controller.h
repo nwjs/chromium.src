@@ -135,7 +135,7 @@ class AssistantInteractionController
   bool HasActiveInteraction() const;
 
   void OnProcessPendingResponse();
-  void OnPendingResponseProcessed(bool success);
+  void OnPendingResponseProcessed(bool is_completed);
 
   void OnUiVisible(AssistantEntryPoint entry_point);
   bool ShouldAttemptWarmerWelcome(AssistantEntryPoint entry_point) const;

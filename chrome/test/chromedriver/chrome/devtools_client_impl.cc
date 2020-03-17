@@ -490,6 +490,7 @@ Status DevToolsClientImpl::HandleMessage(int expected_id,
     }
     client = it->second;
   }
+  WebViewImplHolder client_holder(client->owner_);
   if (type == internal::kEventMessageType) {
     return client->ProcessEvent(event);
   }
