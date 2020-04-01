@@ -195,6 +195,8 @@ bool IsDefaultSupportedAudioType(const AudioType& type) {
 
   switch (type.codec) {
     case kCodecAAC:
+    case kCodecEAC3:
+    case kCodecAC3:
     case kCodecFLAC:
     case kCodecMP3:
     case kCodecOpus:
@@ -215,9 +217,7 @@ bool IsDefaultSupportedAudioType(const AudioType& type) {
       return false;
 #endif
 
-    case kCodecEAC3:
     case kCodecALAC:
-    case kCodecAC3:
     case kCodecMpegHAudio:
     case kUnknownAudioCodec:
       return false;
@@ -231,9 +231,9 @@ bool IsVideoCodecProprietary(VideoCodec codec) {
   switch (codec) {
     case kCodecVC1:
     case kCodecH264:
+    case kCodecHEVC:
     case kCodecMPEG2:
     case kCodecMPEG4:
-    case kCodecHEVC:
     case kCodecDolbyVision:
       return true;
     case kUnknownVideoCodec:
@@ -271,6 +271,7 @@ bool IsDefaultSupportedVideoType(const VideoType& type) {
       return IsColorSpaceSupported(type.color_space) &&
              IsVp9ProfileSupported(type.profile);
     case kCodecH264:
+    case kCodecHEVC:
     case kCodecVP8:
     case kCodecTheora:
       return true;
@@ -278,7 +279,6 @@ bool IsDefaultSupportedVideoType(const VideoType& type) {
     case kUnknownVideoCodec:
     case kCodecVC1:
     case kCodecMPEG2:
-    case kCodecHEVC:
     case kCodecDolbyVision:
       return false;
 
