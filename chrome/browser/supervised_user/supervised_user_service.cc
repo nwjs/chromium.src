@@ -62,6 +62,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "extensions/browser/extension_prefs.h"
@@ -735,6 +736,17 @@ SupervisedUserService::ExtensionState SupervisedUserService::GetExtensionState(
       extension.is_theme() || extension.from_bookmark() ||
       extension.is_shared_module() || was_installed_by_default) {
     return ExtensionState::ALLOWED;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          supervised_users::kSupervisedUserAllowlistExtensionInstall)) {
+    extensions::ExtensionManagement* management =
+        extensions::ExtensionManagementFactory::GetForBrowserContext(profile_);
+    if (management && management->BlacklistedByDefault()) {
+      // We want to make sure that the ExtensionInstallBlacklist user policy is
+      // active before allowing all extensions here.
+      return ExtensionState::ALLOWED;
+    }
   }
 
   // Feature flag for gating new behavior.

@@ -109,6 +109,9 @@ class MODULES_EXPORT DeferredTaskHandler final
   void RequestToDeleteHandlersOnMainThread();
   void ClearHandlersToBeDeleted();
 
+  // Clear the context from the rendering and deletable orphan handlers.
+  void ClearContextFromOrphanHandlers();
+
   bool AcceptsTailProcessing() const { return accepts_tail_processing_; }
   void StopAcceptingTailProcessing() { accepts_tail_processing_ = false; }
 
@@ -263,6 +266,11 @@ class MODULES_EXPORT DeferredTaskHandler final
 
   // Graph locking.
   RecursiveMutex context_graph_mutex_;
+
+  // Protects |rendering_automatic_pull_handlers| when updating, processing, and
+  // clearing. (See crbug.com/1061018)
+  mutable Mutex automatic_pull_handlers_lock_;
+
   std::atomic<base::PlatformThreadId> audio_thread_;
 };
 
